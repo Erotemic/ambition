@@ -66,3 +66,13 @@ backend representation   -> ambition_sandbox Bevy modules
 That means movement, collision, story-state, and generation rules should migrate
 toward backend-neutral crates over time, while `ambition_sandbox` remains the
 playable Bevy shell.
+
+## Debug overlays
+
+The Bevy port restores debug drawing through `crates/ambition_sandbox/src/debug_overlay.rs`.
+This module is deliberately presentation-only: it reads `SandboxRuntime` and `ambition_engine`
+state, then draws Bevy gizmos for body boxes, velocity/facing vectors, contact normals,
+attack hitboxes, dummy HP bars, room bounds, and rebound impulse arrows.
+
+Keep this layer out of `ambition_engine`. The engine should expose deterministic state and
+events; the Bevy adapter decides which vectors/boxes are useful for tuning.

@@ -6,6 +6,7 @@
 
 mod audio;
 mod config;
+mod debug_overlay;
 mod dummies;
 mod fx;
 mod input;
@@ -42,6 +43,7 @@ fn main() {
             (
                 sandbox_update,
                 sync_visuals,
+                debug_overlay::draw_debug_overlay,
                 fx::update_particles,
                 fx::update_impacts,
                 fx::update_slash_previews,
@@ -92,8 +94,12 @@ impl SandboxRuntime {
         self.hitstop_timer = 0.0;
     }
 
-    fn preset(&self) -> KeyboardPreset {
+    pub(crate) fn preset(&self) -> KeyboardPreset {
         self.presets[self.preset_index]
+    }
+
+    pub(crate) fn debug_enabled(&self) -> bool {
+        self.debug
     }
 }
 
@@ -332,7 +338,7 @@ fn update_dummies(
     }
 }
 
-fn slash_hitbox(player: &ae::Player, axis_y: f32, forced_pogo: bool) -> ae::Aabb {
+pub(crate) fn slash_hitbox(player: &ae::Player, axis_y: f32, forced_pogo: bool) -> ae::Aabb {
     let body = player.aabb();
     if forced_pogo || axis_y > 0.25 {
         ae::Aabb::new(

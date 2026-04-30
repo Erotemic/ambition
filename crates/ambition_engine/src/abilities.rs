@@ -25,7 +25,8 @@ pub struct AbilitySet {
     pub variable_jump: bool,
     /// One extra air jump in the current tuning pass.
     pub double_jump: bool,
-    /// Holding down while airborne increases fall acceleration/speed.
+    /// Double-tap down while airborne starts fast-fall. Holding down alone does
+    /// not fast-fall, so down+attack/pogo can remain a natural input.
     pub fast_fall: bool,
     /// Jumping from a wall contact.
     pub wall_jump: bool,
@@ -42,6 +43,12 @@ pub struct AbilitySet {
     /// Upgrade for blink: holding the blink button enters aim/bullet-time mode
     /// and releases to blink to a more deliberate destination.
     pub precision_blink: bool,
+    /// Allow blink pathing through soft blink gates. The destination must still
+    /// be open space; this only permits crossing selected wall volumes.
+    pub blink_through_soft_walls: bool,
+    /// Allow blink pathing through hard blink gates. This is intentionally a
+    /// separate future upgrade so some walls can remain meaningful blockers.
+    pub blink_through_hard_walls: bool,
     /// Generic slash/attack verb.
     pub attack: bool,
     /// Downward attack/pogo refresh verb.
@@ -75,6 +82,8 @@ impl AbilitySet {
             double_dash: false,
             blink: false,
             precision_blink: false,
+            blink_through_soft_walls: false,
+            blink_through_hard_walls: false,
             attack: false,
             pogo: false,
             directional_primary: false,
@@ -99,6 +108,8 @@ impl AbilitySet {
             double_dash: true,
             blink: true,
             precision_blink: true,
+            blink_through_soft_walls: true,
+            blink_through_hard_walls: true,
             attack: true,
             pogo: true,
             directional_primary: true,
@@ -128,6 +139,8 @@ impl AbilitySet {
             double_dash: true,
             blink: true,
             precision_blink: true,
+            blink_through_soft_walls: true,
+            blink_through_hard_walls: false,
             attack: true,
             pogo: true,
             directional_primary: true,
@@ -174,6 +187,12 @@ impl AbilitySet {
         if self.precision_blink && !self.blink {
             warnings.push("precision_blink is enabled but blink is disabled");
         }
+        if self.blink_through_soft_walls && !self.blink {
+            warnings.push("blink_through_soft_walls is enabled but blink is disabled");
+        }
+        if self.blink_through_hard_walls && !self.blink_through_soft_walls {
+            warnings.push("blink_through_hard_walls is enabled without blink_through_soft_walls");
+        }
         if self.directional_special && !self.blink {
             warnings.push("directional_special currently has no concrete verb unless blink is enabled");
         }
@@ -205,9 +224,11 @@ mod tests {
         abilities.double_dash = true;
         abilities.wall_climb = true;
         abilities.precision_blink = true;
+        abilities.blink_through_soft_walls = true;
         let warnings = abilities.compatibility_warnings();
         assert!(warnings.iter().any(|w| w.contains("double_dash")));
         assert!(warnings.iter().any(|w| w.contains("wall_climb")));
         assert!(warnings.iter().any(|w| w.contains("precision_blink")));
+        assert!(warnings.iter().any(|w| w.contains("blink_through_soft_walls")));
     }
 }

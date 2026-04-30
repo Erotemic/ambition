@@ -14,7 +14,7 @@ use std::fmt;
 use crate::abilities::AbilitySet;
 use crate::geometry::Aabb;
 use crate::math::{approach, Vec2};
-use crate::world::{BlockKind, World};
+use crate::world::{BlinkWallTier, BlockKind, World};
 
 /// A symbolic movement operation that can be shown in the debug HUD.
 ///
@@ -119,6 +119,12 @@ pub struct Player {
     /// True after the hold crosses `blink_hold_threshold`; the sandbox uses
     /// this to enter bullet-time/aim-preview mode.
     pub blink_aiming: bool,
+    /// Precision-blink aim cursor relative to the player position. Quick blink
+    /// ignores this, but long-hold precision blink updates it gradually.
+    pub blink_aim_offset: Vec2,
+    /// True after a double-tap-down has committed to fast-fall. Holding down
+    /// alone does not set this, preserving down+attack as a natural pogo input.
+    pub fast_falling: bool,
     pub wall_clinging: bool,
     pub wall_climbing: bool,
     pub dash_timer: f32,
@@ -161,6 +167,8 @@ impl Player {
             blink_hold_active: false,
             blink_hold_timer: 0.0,
             blink_aiming: false,
+            blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
+            fast_falling: false,
             wall_clinging: false,
             wall_climbing: false,
             dash_timer: 0.0,
@@ -277,6 +285,9 @@ pub struct InputState {
     pub blink_held: bool,
     /// Blink/special button released this frame.
     pub blink_released: bool,
+    /// Double-tap-down gesture recognized by the input layer. This is separate
+    /// from `axis_y` so down+attack can mean pogo without forcing fast-fall.
+    pub fast_fall_pressed: bool,
     pub attack_pressed: bool,
     /// Dedicated downward/pogo slash action. This is separate from
     /// `attack_pressed` so layouts can expose four main face-button verbs.
@@ -327,8 +338,13 @@ pub const DASH_SPEED: f32 = 820.0;
 pub const DASH_TIME: f32 = 0.105;
 pub const DASH_COOLDOWN: f32 = 0.060;
 pub const BLINK_DISTANCE: f32 = 190.0;
-pub const PRECISION_BLINK_DISTANCE: f32 = 330.0;
-pub const BLINK_HOLD_THRESHOLD: f32 = 0.160;
+pub const PRECISION_BLINK_DISTANCE: f32 = 430.0;
+pub const PRECISION_BLINK_AIM_SPEED: f32 = 1_450_000.0;
+/// Hold duration before blink switches from quick 8-direction release to precision aim.
+///
+/// Keep this short so the player can deliberately enter granular blink control
+/// without waiting through the snappy quick-blink window.
+pub const BLINK_HOLD_THRESHOLD: f32 = 0.100;
 pub const BLINK_COOLDOWN: f32 = 0.180;
 pub const FAST_FALL_ACCEL: f32 = 1850.0;
 pub const FAST_FALL_SPEED: f32 = 1380.0;
@@ -358,6 +374,7 @@ pub struct MovementTuning {
     pub dash_cooldown: f32,
     pub blink_distance: f32,
     pub precision_blink_distance: f32,
+    pub precision_blink_aim_speed: f32,
     pub blink_hold_threshold: f32,
     pub blink_cooldown: f32,
     pub fast_fall_accel: f32,
@@ -387,6 +404,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dash_cooldown: DASH_COOLDOWN,
     blink_distance: BLINK_DISTANCE,
     precision_blink_distance: PRECISION_BLINK_DISTANCE,
+    precision_blink_aim_speed: PRECISION_BLINK_AIM_SPEED,
     blink_hold_threshold: BLINK_HOLD_THRESHOLD,
     blink_cooldown: BLINK_COOLDOWN,
     fast_fall_accel: FAST_FALL_ACCEL,
@@ -404,8 +422,11 @@ pub fn update_player(world: &World, player: &mut Player, input: InputState, raw_
 
 /// Advance the player simulation by one frame.
 ///
-/// `raw_dt` is clamped so a slow or paused frame does not explode collision.
-/// The Bevy sandbox handles hitstop/freeze by passing `0.0` when appropriate.
+/// `raw_dt` is capped on the high end so a slow or paused frame does not
+/// explode collision, but tiny positive values are preserved. This matters for
+/// bullet-time: gravity and velocity integration must slow by the same factor
+/// as the rest of the game world. The Bevy sandbox handles hitstop/freeze by
+/// passing `0.0`.
 pub fn update_player_with_tuning(
     world: &World,
     player: &mut Player,
@@ -417,7 +438,7 @@ pub fn update_player_with_tuning(
     if raw_dt <= 0.0 {
         return events;
     }
-    let dt = raw_dt.clamp(1.0 / 240.0, 1.0 / 30.0);
+    let dt = raw_dt.min(1.0 / 30.0);
 
     if input.reset_pressed && player.abilities.reset {
         player.reset_to(world.spawn);
@@ -485,6 +506,7 @@ fn handle_blink(
         player.blink_hold_active = false;
         player.blink_aiming = false;
         player.blink_hold_timer = 0.0;
+        player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
         return;
     }
 
@@ -492,6 +514,7 @@ fn handle_blink(
         player.blink_hold_active = true;
         player.blink_hold_timer = 0.0;
         player.blink_aiming = false;
+        player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
     }
 
     if player.blink_hold_active && input.blink_held {
@@ -499,19 +522,25 @@ fn handle_blink(
         if player.abilities.precision_blink && player.blink_hold_timer >= tuning.blink_hold_threshold {
             player.blink_aiming = true;
         }
+        if player.blink_aiming {
+            let aim_input = Vec2::new(input.axis_x, input.axis_y);
+            if aim_input.length_squared() > 0.01 {
+                player.blink_aim_offset += aim_input * (tuning.precision_blink_aim_speed * dt);
+                player.blink_aim_offset = player.blink_aim_offset.clamp_length_max(tuning.precision_blink_distance);
+            }
+        }
     }
 
     if player.blink_hold_active && input.blink_released {
         let fallback = Vec2::new(player.facing, 0.0);
         let aim = Vec2::new(input.axis_x, input.axis_y).normalized_or(fallback);
         let precision = player.blink_aiming && player.abilities.precision_blink;
-        let max_distance = if precision {
-            tuning.precision_blink_distance
-        } else {
-            tuning.blink_distance
-        };
         let from = player.pos;
-        let to = blink_destination(world, player, aim, max_distance);
+        let to = if precision {
+            blink_destination_to_point(world, player, player.pos + player.blink_aim_offset)
+        } else {
+            blink_destination(world, player, aim, tuning.blink_distance)
+        };
         player.pos = to;
         // Blink is a topological move: it preserves intent, but dampens velocity
         // slightly to make it read as a reposition rather than another dash.
@@ -520,6 +549,7 @@ fn handle_blink(
         player.blink_hold_active = false;
         player.blink_hold_timer = 0.0;
         player.blink_aiming = false;
+        player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
         let op = if precision { MovementOp::PrecisionBlink } else { MovementOp::Blink };
         events.op(player, op);
         events.blinks.push(BlinkEvent { from, to, precision });
@@ -532,6 +562,7 @@ fn handle_blink(
         player.blink_hold_active = false;
         player.blink_aiming = false;
         player.blink_hold_timer = 0.0;
+        player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
     }
 }
 
@@ -636,7 +667,10 @@ fn integrate_velocity(
         player.dash_timer = dec(player.dash_timer, dt);
     } else {
         player.vel.y += tuning.gravity * dt;
-        if player.abilities.fast_fall && !player.on_ground && input.axis_y > 0.45 {
+        if input.fast_fall_pressed && player.abilities.fast_fall && !player.on_ground {
+            player.fast_falling = true;
+        }
+        if player.fast_falling {
             player.vel.y += tuning.fast_fall_accel * dt;
         }
     }
@@ -652,7 +686,7 @@ fn integrate_velocity(
         }
     }
 
-    let fall_cap = if player.abilities.fast_fall && input.axis_y > 0.45 {
+    let fall_cap = if player.fast_falling {
         tuning.fast_fall_speed
     } else {
         tuning.max_fall_speed
@@ -678,6 +712,7 @@ fn integrate_velocity(
 
     if player.on_ground {
         player.refresh_movement_resources(tuning);
+        player.fast_falling = false;
         player.wall_clinging = false;
         player.wall_climbing = false;
     }
@@ -738,7 +773,7 @@ fn dec(value: f32, dt: f32) -> f32 {
 
 fn is_solid_for_axis(kind: BlockKind, axis: Axis) -> bool {
     match kind {
-        BlockKind::Solid => true,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
         BlockKind::OneWay => matches!(axis, Axis::Y),
         BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => false,
     }
@@ -805,7 +840,7 @@ fn try_pogo(world: &World, player: &mut Player, tuning: MovementTuning) -> bool 
         Vec2::new(feet.half.x * 0.76, 22.0),
     );
     let hit = world.blocks.iter().any(|block| {
-        let valid_target = matches!(block.kind, BlockKind::PogoOrb | BlockKind::Solid | BlockKind::Rebound { .. });
+        let valid_target = matches!(block.kind, BlockKind::PogoOrb | BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::Rebound { .. });
         valid_target && hitbox.intersects(block.aabb)
     });
     if hit {
@@ -840,38 +875,109 @@ fn touching_rebound(world: &World, player: &Player) -> Option<Vec2> {
 /// and returns the last position whose player AABB does not overlap a solid.
 pub fn blink_destination(world: &World, player: &Player, aim: Vec2, max_distance: f32) -> Vec2 {
     let direction = aim.normalized_or(Vec2::new(player.facing, 0.0));
+    blink_destination_to_point(world, player, player.pos + direction * max_distance)
+}
+
+/// Compute a safe blink destination toward a deliberate target point.
+///
+/// The path may cross configured blink walls if the player's ability set allows
+/// it, but the final resting AABB must be free of solid geometry. This lets
+/// blink-through upgrades become meaningful without ever depositing the player
+/// inside a wall.
+pub fn blink_destination_to_point(world: &World, player: &Player, target: Vec2) -> Vec2 {
     let start = player.pos;
     let half = player.size * 0.5;
+    let delta = target - start;
+    let distance = delta.length();
+    if distance <= 1.0e-5 {
+        return start;
+    }
+    let steps = ((distance / 14.0).ceil() as usize).clamp(8, 64);
     let mut last_safe = start;
-    let steps = 18;
     for step in 1..=steps {
         let t = step as f32 / steps as f32;
-        let mut candidate = start + direction * (max_distance * t);
+        let mut candidate = start + delta * t;
         candidate.x = candidate.x.clamp(half.x, world.size.x - half.x);
         candidate.y = candidate.y.clamp(half.y, world.size.y - half.y);
         let candidate_aabb = Aabb::new(candidate, half);
-        if overlaps_solid(world, candidate_aabb) {
-            break;
+        match blink_collision(world, player, candidate_aabb) {
+            BlinkCollision::Free => last_safe = candidate,
+            BlinkCollision::PassThrough => {}
+            BlinkCollision::Blocked => break,
         }
-        last_safe = candidate;
     }
     last_safe
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BlinkCollision {
+    Free,
+    PassThrough,
+    Blocked,
+}
+
+fn blink_collision(world: &World, player: &Player, aabb: Aabb) -> BlinkCollision {
+    let mut pass_through = false;
+    for block in &world.blocks {
+        if !aabb.intersects(block.aabb) {
+            continue;
+        }
+        match block.kind {
+            BlockKind::Solid => return BlinkCollision::Blocked,
+            BlockKind::BlinkWall { tier } => {
+                if player_can_blink_through(player, tier) {
+                    pass_through = true;
+                } else {
+                    return BlinkCollision::Blocked;
+                }
+            }
+            BlockKind::OneWay => pass_through = true,
+            BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => {}
+        }
+    }
+    if pass_through { BlinkCollision::PassThrough } else { BlinkCollision::Free }
+}
+
+fn player_can_blink_through(player: &Player, tier: BlinkWallTier) -> bool {
+    match tier {
+        BlinkWallTier::Soft => player.abilities.blink_through_soft_walls,
+        BlinkWallTier::Hard => player.abilities.blink_through_hard_walls,
+    }
+}
+
 fn overlaps_solid(world: &World, aabb: Aabb) -> bool {
-    world
-        .blocks
-        .iter()
-        .any(|b| matches!(b.kind, BlockKind::Solid) && aabb.intersects(b.aabb))
+    world.blocks.iter().any(|b| {
+        matches!(b.kind, BlockKind::Solid | BlockKind::BlinkWall { .. }) && aabb.intersects(b.aabb)
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::build_endgame_sandbox;
+    use crate::world::{build_endgame_sandbox, BlinkWallTier, Block};
 
     fn step(world: &World, player: &mut Player, input: InputState) -> FrameEvents {
         update_player_with_tuning(world, player, input, 1.0 / 60.0, DEFAULT_TUNING)
+    }
+
+    #[test]
+    fn tiny_dt_preserves_bullet_time_scale() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new(world.spawn);
+        player.on_ground = false;
+        player.coyote_timer = 0.0;
+        player.vel = Vec2::ZERO;
+        let _ = update_player_with_tuning(&world, &mut player, InputState::default(), 1.0 / 60.0, DEFAULT_TUNING);
+        let normal_fall_speed = player.vel.y;
+
+        let mut slow_player = Player::new(world.spawn);
+        slow_player.on_ground = false;
+        slow_player.coyote_timer = 0.0;
+        slow_player.vel = Vec2::ZERO;
+        let _ = update_player_with_tuning(&world, &mut slow_player, InputState::default(), (1.0 / 60.0) * 0.001, DEFAULT_TUNING);
+
+        assert!(slow_player.vel.y > 0.0);
+        assert!(slow_player.vel.y < normal_fall_speed * 0.01, "tiny dt should not be clamped up to normal-ish gravity");
     }
 
     #[test]
@@ -984,4 +1090,54 @@ mod tests {
         assert!(events.blinks[0].precision);
         assert!(events.operations.contains(&MovementOp::PrecisionBlink));
     }
+
+    #[test]
+    fn fast_fall_requires_double_tap_signal() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        player.on_ground = false;
+        player.vel.y = 0.0;
+
+        // Holding down is still useful for pogo / downward attack intent, but
+        // should not automatically trigger fast-fall.
+        step(&world, &mut player, InputState {
+            axis_y: 1.0,
+            ..Default::default()
+        });
+        assert!(!player.fast_falling);
+
+        // The presentation layer recognizes double-tap-down and sends this
+        // explicit event to the engine.
+        step(&world, &mut player, InputState {
+            axis_y: 1.0,
+            fast_fall_pressed: true,
+            ..Default::default()
+        });
+        assert!(player.fast_falling);
+    }
+
+    #[test]
+    fn blink_walls_can_be_passed_by_upgrade_without_allowing_solid_walls() {
+        let mut world = build_endgame_sandbox();
+        world.blocks.clear();
+        world.blocks.push(Block::blink_wall(
+            "test soft blink membrane",
+            Vec2::new(220.0, 0.0),
+            Vec2::new(22.0, 300.0),
+            BlinkWallTier::Soft,
+        ));
+
+        let mut blocked_abilities = AbilitySet::basic();
+        blocked_abilities.blink = true;
+        let blocked_player = Player::new_with_abilities(Vec2::new(140.0, 140.0), blocked_abilities);
+        let blocked = blink_destination_to_point(&world, &blocked_player, Vec2::new(340.0, 140.0));
+        assert!(blocked.x < 220.0);
+
+        let mut pass_abilities = blocked_abilities;
+        pass_abilities.blink_through_soft_walls = true;
+        let pass_player = Player::new_with_abilities(Vec2::new(140.0, 140.0), pass_abilities);
+        let passed = blink_destination_to_point(&world, &pass_player, Vec2::new(340.0, 140.0));
+        assert!(passed.x > 300.0);
+    }
+
 }

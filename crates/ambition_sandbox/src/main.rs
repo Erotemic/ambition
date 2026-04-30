@@ -10,6 +10,7 @@ mod debug_overlay;
 mod dummies;
 mod fx;
 mod input;
+mod platforms;
 mod rendering;
 
 use ambition_engine as ae;
@@ -19,6 +20,13 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+
+const BULLET_TIME_SCALE: f32 = 0.000035;
+const BLINK_HOLD_SLOW_SCALE: f32 = 0.01;
+const DEBUG_SLOWMO_SCALE: f32 = 0.25;
+const TIME_RAMP_DOWN_RATE: f32 = 5.0;
+const TIME_RAMP_UP_RATE: f32 = 14.0;
+const DOWN_DOUBLE_TAP_WINDOW: f32 = 0.24;
 use dummies::{spawn_dummies, Dummy, DummyKind};
 use fx::{
     spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
@@ -47,6 +55,7 @@ fn main() {
                 sandbox_update,
                 sync_visuals,
                 debug_overlay::draw_debug_overlay,
+                platforms::sync_moving_platform,
                 fx::update_particles,
                 fx::update_impacts,
                 fx::update_slash_previews,
@@ -72,6 +81,9 @@ pub struct SandboxRuntime {
     preset_flash: f32,
     pub flash_timer: f32,
     hitstop_timer: f32,
+    time_scale: f32,
+    down_tap_timer: f32,
+    pub moving_platform: platforms::MovingPlatformState,
 }
 
 impl SandboxRuntime {
@@ -87,6 +99,9 @@ impl SandboxRuntime {
             preset_flash: 1.2,
             flash_timer: 0.0,
             hitstop_timer: 0.0,
+            time_scale: 1.0,
+            down_tap_timer: 0.0,
+            moving_platform: platforms::MovingPlatformState::time_reference(world),
         }
     }
 
@@ -95,6 +110,39 @@ impl SandboxRuntime {
         self.dummies = spawn_dummies(world);
         self.flash_timer = 0.18;
         self.hitstop_timer = 0.0;
+        self.time_scale = 1.0;
+        self.down_tap_timer = 0.0;
+        self.moving_platform = platforms::MovingPlatformState::time_reference(world);
+    }
+
+    fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32) -> bool {
+        self.down_tap_timer = (self.down_tap_timer - frame_dt).max(0.0);
+        if !down_pressed {
+            return false;
+        }
+        if self.down_tap_timer > 0.0 {
+            self.down_tap_timer = 0.0;
+            true
+        } else {
+            self.down_tap_timer = DOWN_DOUBLE_TAP_WINDOW;
+            false
+        }
+    }
+
+    fn update_time_scale(&mut self, frame_dt: f32) {
+        let target = if self.freeze || self.hitstop_timer > 0.0 {
+            0.0
+        } else if self.player.blink_aiming {
+            BULLET_TIME_SCALE
+        } else if self.player.blink_hold_active {
+            BLINK_HOLD_SLOW_SCALE
+        } else if self.slowmo {
+            DEBUG_SLOWMO_SCALE
+        } else {
+            1.0
+        };
+        let rate = if target < self.time_scale { TIME_RAMP_DOWN_RATE } else { TIME_RAMP_UP_RATE };
+        self.time_scale = move_toward(self.time_scale, target, rate * frame_dt);
     }
 
     pub(crate) fn preset(&self) -> KeyboardPreset {
@@ -120,6 +168,7 @@ fn setup(
     commands.insert_resource(SoundBank::new(&mut audio_sources));
 
     spawn_grid(&mut commands, &world.0);
+    platforms::spawn_moving_platform(&mut commands, &world.0, platforms::MovingPlatformState::time_reference(&world.0));
     for block in &world.0.blocks {
         spawn_block(&mut commands, &world.0, block);
     }
@@ -173,14 +222,17 @@ fn sandbox_update(
     handle_debug_hotkeys(&keys, &mut runtime);
 
     let preset = runtime.preset();
-    let controls = ControlFrame::read(&keys, preset);
+    let mut controls = ControlFrame::read(&keys, preset);
     if controls.start_pressed {
         runtime.freeze = !runtime.freeze;
     }
 
     let frame_dt = time.delta_secs();
+    controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
+    runtime.update_time_scale(frame_dt);
     let dt = sandbox_dt(&runtime, frame_dt);
+    runtime.moving_platform.update(dt);
 
     if controls.reset_pressed {
         reset_sandbox(&mut commands, &world.0, &bank, &mut runtime);
@@ -218,12 +270,16 @@ fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntim
 fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
     if runtime.freeze || runtime.hitstop_timer > 0.0 {
         0.0
-    } else if runtime.player.blink_aiming {
-        frame_dt * 0.16
-    } else if runtime.slowmo {
-        frame_dt * 0.25
     } else {
-        frame_dt
+        frame_dt * runtime.time_scale
+    }
+}
+
+fn move_toward(value: f32, target: f32, delta: f32) -> f32 {
+    if value < target {
+        (value + delta).min(target)
+    } else {
+        (value - delta).max(target)
     }
 }
 
@@ -391,7 +447,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nroom: {}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nroom: {}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\ndummies: {}\ngamepad target: {}{}",
         world.0.name,
         "Bevy backend",
         world.0.size.x,
@@ -406,6 +462,7 @@ fn update_hud(
         runtime.player.air_jumps_available,
         runtime.player.blink_cooldown,
         runtime.player.blink_aiming,
+        runtime.player.fast_falling,
         runtime.player.wall_clinging,
         runtime.player.wall_climbing,
         runtime.player.coyote_timer,
@@ -418,6 +475,7 @@ fn update_hud(
         runtime.slowmo,
         runtime.freeze,
         runtime.hitstop_timer,
+        runtime.time_scale,
         dummies,
         gamepad,
         flash_line,

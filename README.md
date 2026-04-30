@@ -154,3 +154,7 @@ ambition/
 ## Engine architecture
 
 The Bevy executable is the presentation/runtime layer. `ambition_engine` is the backend-neutral simulation core. See `docs/engine_architecture.md` for the current module split and migration rules.
+
+## Current mechanic notes
+
+- `docs/blink_and_fastfall.md` documents the current precision blink, blink-through wall, bullet-time ramp, and double-tap fast-fall behavior.

@@ -93,14 +93,13 @@ fn draw_player_debug(
     // crosses the threshold, the engine sets `blink_aiming` and the sandbox
     // enters bullet-time while previewing the longer precision destination.
     if controls.blink_held || player.blink_aiming {
-        let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
-            .normalized_or(ae::Vec2::new(player.facing, 0.0));
-        let distance = if player.blink_aiming {
-            ae::PRECISION_BLINK_DISTANCE
+        let target = if player.blink_aiming {
+            ae::blink_destination_to_point(world, player, player.pos + player.blink_aim_offset)
         } else {
-            ae::BLINK_DISTANCE
+            let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
+                .normalized_or(ae::Vec2::new(player.facing, 0.0));
+            ae::blink_destination(world, player, aim, ae::BLINK_DISTANCE)
         };
-        let target = ae::blink_destination(world, player, aim, distance);
         let target_center = w2(world, target);
         draw_arrow(gizmos, center, target_center, magenta());
         draw_aabb(gizmos, world, ae::Aabb::new(target, player.size * 0.5), magenta());

@@ -209,6 +209,12 @@ pub struct ControlFrame {
     pub jump_held: bool,
     pub jump_released: bool,
     pub dash_pressed: bool,
+    /// Movement-down key was newly pressed this frame. The sandbox uses this
+    /// to recognize double-tap-down for fast-fall without making down+attack
+    /// automatically fast-fall.
+    pub down_pressed: bool,
+    /// Double-tap-down recognized by the sandbox input gesture detector.
+    pub fast_fall_pressed: bool,
     pub blink_pressed: bool,
     pub blink_held: bool,
     pub blink_released: bool,
@@ -234,6 +240,7 @@ impl ControlFrame {
         if keys.pressed(preset.movement.down) {
             axis_y += 1.0;
         }
+        let down_pressed = keys.just_pressed(preset.movement.down);
         let blink_key = preset.actions.secondary;
         let blink_pressed = blink_key.map(|key| keys.just_pressed(key)).unwrap_or(false);
         let blink_held = blink_key.map(|key| keys.pressed(key)).unwrap_or(false);
@@ -248,6 +255,8 @@ impl ControlFrame {
             jump_held: keys.pressed(preset.actions.jump),
             jump_released: keys.just_released(preset.actions.jump),
             dash_pressed: keys.just_pressed(preset.actions.dash),
+            down_pressed,
+            fast_fall_pressed: false,
             blink_pressed,
             blink_held,
             blink_released,
@@ -273,6 +282,7 @@ impl ControlFrame {
             blink_pressed: self.blink_pressed,
             blink_held: self.blink_held,
             blink_released: self.blink_released,
+            fast_fall_pressed: self.fast_fall_pressed,
             attack_pressed: self.attack_pressed,
             pogo_pressed: self.pogo_pressed,
             reset_pressed: false,

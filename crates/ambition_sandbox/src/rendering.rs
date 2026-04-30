@@ -86,6 +86,8 @@ pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block
 pub fn block_color(kind: ae::BlockKind) -> Color {
     match kind {
         ae::BlockKind::Solid => Color::srgba(0.25, 0.28, 0.36, 1.0),
+        ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft } => Color::srgba(0.32, 0.20, 0.72, 0.88),
+        ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard } => Color::srgba(0.52, 0.14, 0.80, 0.96),
         ae::BlockKind::OneWay => Color::srgba(0.36, 0.43, 0.62, 0.92),
         ae::BlockKind::Hazard => Color::srgba(0.96, 0.18, 0.26, 0.92),
         ae::BlockKind::PogoOrb => Color::srgba(0.30, 0.95, 0.64, 0.95),

@@ -54,6 +54,16 @@ be tested headlessly. Tests should cover:
 
 - ability gating: blink disabled means no teleport;
 - quick release: short blink changes position and emits a `BlinkEvent`;
-- long hold: player enters `blink_aiming`, release emits a precision blink;
+- hold past ~0.1s: player enters `blink_aiming`, release emits a precision blink;
 - safety: blink destination does not overlap solid geometry;
 - compatibility: precision blink warns if blink is disabled.
+
+## 2026-04 precision blink / fast-fall adjustment
+
+Current sandbox behavior:
+
+- Blink is still part of the sane subset.
+- Quick blink remains a tap/release movement verb.
+- Long-hold blink enters a gradual, very deep bullet-time ramp and exposes a controllable precision destination cursor. The current sandbox targets roughly 0.35% normal speed during full precision aim.
+- Soft and hard blink walls are represented as engine geometry tiers. The current sandbox enables both tiers and makes all interior blink-walls passable except the central hard-solid pillar and outer room boundaries.
+- Fast-fall is explicit double-tap-down input, not `hold down`, so down+attack remains reserved for pogo/downward attack intent.

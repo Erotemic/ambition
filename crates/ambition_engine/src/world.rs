@@ -6,11 +6,24 @@
 use crate::geometry::Aabb;
 use crate::math::Vec2;
 
+/// Upgrade tier required to blink through a blink wall.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BlinkWallTier {
+    /// Intended to be passable by an early blink-phasing upgrade.
+    Soft,
+    /// Intended to remain blocked until a stronger blink-phasing upgrade.
+    Hard,
+}
+
 /// Collision/gameplay meaning of a generated world block.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BlockKind {
-    /// Full collision on both axes.
+    /// Full collision on both axes, and also a hard blocker for blink pathing.
     Solid,
+    /// Full collision on both axes, but blink pathing may pass through it when
+    /// the player has the matching blink-through upgrade. The destination still
+    /// must be open space.
+    BlinkWall { tier: BlinkWallTier },
     /// Landing platform: only solid when the player crosses from above.
     OneWay,
     /// Reset surface. Hitting this returns the player to spawn.
@@ -35,6 +48,14 @@ impl Block {
             name,
             aabb: Aabb::from_min_size(min, size),
             kind: BlockKind::Solid,
+        }
+    }
+
+    pub fn blink_wall(name: &'static str, min: Vec2, size: Vec2, tier: BlinkWallTier) -> Self {
+        Self {
+            name,
+            aabb: Aabb::from_min_size(min, size),
+            kind: BlockKind::BlinkWall { tier },
         }
     }
 
@@ -100,18 +121,35 @@ pub fn build_endgame_sandbox() -> World {
 
     // Reachable enemy test lane near spawn. This is deliberately simple:
     // immediate attack/pogo testing should not require completing the loop.
-    blocks.push(Block::solid("dummy approach step", Vec2::new(120.0, 760.0), Vec2::new(170.0, 28.0)));
+    blocks.push(Block::blink_wall("dummy approach step", Vec2::new(120.0, 760.0), Vec2::new(170.0, 28.0), BlinkWallTier::Soft));
     blocks.push(Block::one_way("dummy upper tap platform", Vec2::new(315.0, 704.0), Vec2::new(250.0, 16.0)));
 
     // A larger clockwise flow loop for endgame movement experiments.
-    blocks.push(Block::solid("left wall kick column", Vec2::new(100.0, 520.0), Vec2::new(58.0, 220.0)));
+    blocks.push(Block::blink_wall("left wall kick column", Vec2::new(100.0, 520.0), Vec2::new(58.0, 220.0), BlinkWallTier::Soft));
     blocks.push(Block::one_way("middle shelf", Vec2::new(430.0, 610.0), Vec2::new(265.0, 18.0)));
-    blocks.push(Block::solid("upper left shelf", Vec2::new(260.0, 410.0), Vec2::new(240.0, 24.0)));
+    blocks.push(Block::blink_wall("upper left shelf", Vec2::new(260.0, 410.0), Vec2::new(240.0, 24.0), BlinkWallTier::Soft));
     blocks.push(Block::solid("needle pillar", Vec2::new(730.0, 515.0), Vec2::new(58.0, 285.0)));
     blocks.push(Block::one_way("high bridge", Vec2::new(850.0, 330.0), Vec2::new(320.0, 18.0)));
-    blocks.push(Block::solid("right catch wall", Vec2::new(1320.0, 430.0), Vec2::new(56.0, 330.0)));
-    blocks.push(Block::solid("right return shelf", Vec2::new(1080.0, 675.0), Vec2::new(235.0, 24.0)));
+    blocks.push(Block::blink_wall("right catch wall", Vec2::new(1320.0, 430.0), Vec2::new(56.0, 330.0), BlinkWallTier::Soft));
+    blocks.push(Block::blink_wall("right return shelf", Vec2::new(1080.0, 675.0), Vec2::new(235.0, 24.0), BlinkWallTier::Soft));
     blocks.push(Block::one_way("ceiling practice shelf", Vec2::new(610.0, 230.0), Vec2::new(190.0, 16.0)));
+
+    // Blink walls are solid to normal movement, but sandbox blink pathing can
+    // pass through them. For this iteration, every interior wall-like blocker is
+    // blink-passable except the central needle pillar. The outer shell remains
+    // `Solid`, so the player cannot blink out of the room.
+    blocks.push(Block::blink_wall(
+        "soft blink membrane",
+        Vec2::new(980.0, 676.0),
+        Vec2::new(20.0, 155.0),
+        BlinkWallTier::Soft,
+    ));
+    blocks.push(Block::blink_wall(
+        "hard blink lock",
+        Vec2::new(1185.0, 500.0),
+        Vec2::new(22.0, 150.0),
+        BlinkWallTier::Hard,
+    ));
 
     // Intentional danger/rest/reset surfaces: recoverable if you are stylish.
     blocks.push(Block::hazard("central spike channel", Vec2::new(570.0, 830.0), Vec2::new(260.0, 22.0)));

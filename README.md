@@ -142,3 +142,7 @@ ambition/
       README.md
       primary_ai_agency.md
 ```
+
+## Architecture notes
+
+- `docs/code_structure.md` tracks the current module split and remaining hard-coded areas.

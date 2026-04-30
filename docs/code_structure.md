@@ -11,7 +11,7 @@ file.
 
 - `config.rs` — window size, z layers, grid spacing, and world-to-Bevy coordinate conversion.
 - `input.rs` — generic action names, keyboard presets, gamepad semantic mapping, and `ControlFrame`.
-- `dummies.rs` — sandbox dummy/enemy test fixtures and respawn behavior.
+- `dummies.rs` — compatibility re-export for engine-owned dummy/enemy simulation.
 - `audio.rs` — procedural sound specs, WAV generation, `SoundBank`, and playback helper.
 - `fx.rs` — particles, impact rings, slash previews, and reset effects.
 - `rendering.rs` — render-only Bevy components, grid/block spawning, and visual state sync.
@@ -19,6 +19,17 @@ file.
 
 This keeps the current behavior close to the working Bevy prototype while making
 future changes more local.
+
+## Engine refactor pass
+
+`ambition_engine/src/lib.rs` was split into modules after the Bevy port so the
+core crate no longer lives in one large file. See `docs/engine_architecture.md`
+for the module map and migration rules.
+
+The most important gameplay migration in this pass is that dummy/enemy target
+simulation moved into `ambition_engine::enemy`. The sandbox still owns rendering,
+colors, debug overlays, particles, and audio feedback, but HP, stun, knockback,
+death, and respawn are now backend-neutral simulation state.
 
 ## Remaining hard-coded areas
 
@@ -38,7 +49,8 @@ when they become painful:
    - Next step: create `combat.rs` with `AttackSpec`, `AttackEvent`, and collision queries.
 
 4. **Dummy behavior**
-   - Dummies are still test fixtures, not real enemies.
+   - Dummy state/HP/stun/respawn now lives in `ambition_engine::enemy`.
+   - They are still test fixtures, not real enemies.
    - Next step: add `EnemySpec` and simple behavior states once combat needs more than sandbags.
 
 5. **Audio backend**
@@ -76,3 +88,22 @@ attack hitboxes, dummy HP bars, room bounds, and rebound impulse arrows.
 
 Keep this layer out of `ambition_engine`. The engine should expose deterministic state and
 events; the Bevy adapter decides which vectors/boxes are useful for tuning.
+
+## Ability-system pass
+
+`ambition_engine` now has explicit ability flags in `abilities.rs` and backend-neutral attack hitbox helpers in `combat.rs`.
+
+The sandbox still enables every current ability by default, but tests and future story progression can construct a player with a reduced `AbilitySet`.
+
+New engine-owned concepts:
+
+- optional double jump
+- optional dash / double dash charges
+- optional wall jump
+- optional wall cling
+- optional wall climb
+- optional attack / pogo
+- optional rebound surface interaction
+- generic slash hitbox computation
+
+The Bevy layer should keep handling presentation: particles, sounds, HUD text, and debug gizmos.

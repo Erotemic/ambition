@@ -259,14 +259,14 @@ fn update_player_and_feedback(
                 play_sound(commands, bank, SoundCue::DoubleJump);
                 spawn_burst(commands, world, runtime.player.pos, 14, 210.0, [0.70, 1.0, 0.86, 0.82], ParticleKind::Dust);
             }
-            ae::MovementOp::Dash => {
+            ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
                 play_sound(commands, bank, SoundCue::Dash);
                 spawn_burst(commands, world, runtime.player.pos, 10, 330.0, [1.0, 0.86, 0.38, 0.90], ParticleKind::Spark);
             }
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
                 play_sound(commands, bank, SoundCue::Pogo);
             }
-            ae::MovementOp::Slash => {}
+            ae::MovementOp::WallCling | ae::MovementOp::WallClimb | ae::MovementOp::Slash => {}
             ae::MovementOp::Reset => {
                 play_sound(commands, bank, SoundCue::Reset);
             }
@@ -292,8 +292,9 @@ fn process_attack(
     runtime: &mut SandboxRuntime,
     controls: ControlFrame,
 ) {
+    if !runtime.player.abilities.attack { return; }
     play_sound(commands, bank, SoundCue::Slash);
-    let attack = slash_hitbox(&runtime.player, controls.axis_y, controls.pogo_pressed);
+    let attack = ae::slash_hitbox(&runtime.player, controls.axis_y, controls.pogo_pressed);
     spawn_slash_preview(commands, world, attack);
     let mut landed = false;
     let mut killed = false;
@@ -315,9 +316,9 @@ fn process_attack(
     if killed {
         play_sound(commands, bank, SoundCue::Death);
     }
-    if landed && (controls.pogo_pressed || controls.axis_y > 0.25) {
+    if landed && runtime.player.abilities.pogo && (controls.pogo_pressed || controls.axis_y > 0.25) {
         runtime.player.vel.y = -ae::POGO_SPEED;
-        runtime.player.dash_available = true;
+        runtime.player.refresh_movement_resources(ae::DEFAULT_TUNING);
         play_sound(commands, bank, SoundCue::Pogo);
     }
 }
@@ -335,26 +336,6 @@ fn update_dummies(
             play_sound(commands, bank, SoundCue::Respawn);
             spawn_burst(commands, world, dummy.pos, 16, 260.0, [0.92, 0.48, 0.95, 0.90], ParticleKind::Spark);
         }
-    }
-}
-
-pub(crate) fn slash_hitbox(player: &ae::Player, axis_y: f32, forced_pogo: bool) -> ae::Aabb {
-    let body = player.aabb();
-    if forced_pogo || axis_y > 0.25 {
-        ae::Aabb::new(
-            ae::Vec2::new(body.center.x, body.bottom() + 24.0),
-            ae::Vec2::new(body.half.x * 0.95, 26.0),
-        )
-    } else if axis_y < -0.25 {
-        ae::Aabb::new(
-            ae::Vec2::new(body.center.x, body.top() - 22.0),
-            ae::Vec2::new(body.half.x * 1.10, 24.0),
-        )
-    } else {
-        ae::Aabb::new(
-            ae::Vec2::new(body.center.x + player.facing * (body.half.x + 30.0), body.center.y - 2.0),
-            ae::Vec2::new(34.0, 24.0),
-        )
     }
 }
 
@@ -394,7 +375,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nroom: {}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash: {} air_jumps: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nroom: {}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}\ndummies: {}\ngamepad target: {}{}",
         world.0.name,
         "Bevy backend",
         world.0.size.x,
@@ -405,8 +386,10 @@ fn update_hud(
         runtime.player.max_speed,
         runtime.player.on_ground,
         runtime.player.on_wall,
-        runtime.player.dash_available,
+        runtime.player.dash_charges_available,
         runtime.player.air_jumps_available,
+        runtime.player.wall_clinging,
+        runtime.player.wall_climbing,
         runtime.player.coyote_timer,
         runtime.player.jump_buffer_timer,
         runtime.player.combo_symbols(),

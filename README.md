@@ -9,7 +9,7 @@ The first design law is: **the game should be fun as raw collision boxes**.
 ## What is in this prototype?
 
 - A Rust Cargo workspace.
-- `ambition_engine`: deterministic gray-box platformer movement/collision logic.
+- `ambition_engine`: backend-neutral simulation logic: math, AABB collision, generated room blocks, player movement, combo traces, and sandbox dummy/enemy state.
 - `ambition_sandbox`: a Bevy 0.18 ECS app for a single generated room.
 - No sprites, textures, tilemaps, imported audio, or prerendered assets.
 - A generated room: solids, one-way shelves, hazard channels, pogo orbs, and rebound/impulse pads.
@@ -135,6 +135,8 @@ ambition/
       src/main.rs
   docs/
     endgame_sandbox.md
+    ability_system.md
+    testing_strategy.md
     input_model.md
     audio_particles.md
     ai_generation_contract.md
@@ -146,3 +148,9 @@ ambition/
 ## Architecture notes
 
 - `docs/code_structure.md` tracks the current module split and remaining hard-coded areas.
+- `docs/ability_system.md` describes optional movement/combat upgrades.
+- `docs/testing_strategy.md` describes the intended automated-test layers.
+
+## Engine architecture
+
+The Bevy executable is the presentation/runtime layer. `ambition_engine` is the backend-neutral simulation core. See `docs/engine_architecture.md` for the current module split and migration rules.

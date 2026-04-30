@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use crate::config::world_to_bevy;
 use crate::dummies::DummyKind;
 use crate::input::ControlFrame;
-use crate::{slash_hitbox, GameWorld, SandboxRuntime};
+use crate::{GameWorld, SandboxRuntime};
 
 fn cyan() -> Color { Color::srgba(0.30, 0.92, 1.00, 0.92) }
 fn blue() -> Color { Color::srgba(0.30, 0.55, 1.00, 0.90) }
@@ -85,17 +85,22 @@ fn draw_player_debug(
     let controls = ControlFrame::read(keys, preset);
     let dedicated_pogo_held = preset.actions.dedicated_pogo.map(|key| keys.pressed(key)).unwrap_or(false);
     if keys.pressed(preset.actions.attack) || dedicated_pogo_held {
-        let hitbox = slash_hitbox(player, controls.axis_y, dedicated_pogo_held || controls.pogo_pressed);
+        let hitbox = ae::slash_hitbox(player, controls.axis_y, dedicated_pogo_held || controls.pogo_pressed);
         draw_aabb(gizmos, world, hitbox, yellow());
     }
 
     // Small status ticks above the player: dash and air jump availability.
     let meter_y = body.top() - 18.0;
-    let dash_color = if player.dash_available { yellow() } else { gray() };
-    let dash_a = w2(world, ae::Vec2::new(player.pos.x - 24.0, meter_y));
-    let dash_b = w2(world, ae::Vec2::new(player.pos.x - 4.0, meter_y));
-    gizmos.line_2d(dash_a, dash_b, dash_color);
-    for i in 0..2 {
+    let dash_slots = player.abilities.dash_charge_count().max(1) as usize;
+    for i in 0..dash_slots {
+        let x0 = player.pos.x - 28.0 + i as f32 * 12.0;
+        let color = if i < player.dash_charges_available as usize { yellow() } else { gray() };
+        let a = w2(world, ae::Vec2::new(x0, meter_y));
+        let b = w2(world, ae::Vec2::new(x0 + 8.0, meter_y));
+        gizmos.line_2d(a, b, color);
+    }
+    let air_jump_slots = player.abilities.air_jump_count(ae::AIR_JUMPS).max(1) as usize;
+    for i in 0..air_jump_slots {
         let x0 = player.pos.x + 6.0 + i as f32 * 11.0;
         let color = if i < player.air_jumps_available as usize { cyan() } else { gray() };
         let a = w2(world, ae::Vec2::new(x0, meter_y));

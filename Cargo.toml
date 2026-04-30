@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "crates/ambition_engine",
+    "crates/ambition_sandbox",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["Jon Crall + ChatGPT"]
+description = "Ambition: a code-generated endgame movement sandbox for a mathematical AI-first platformer."
+
+[profile.dev.package."*"]
+opt-level = 3

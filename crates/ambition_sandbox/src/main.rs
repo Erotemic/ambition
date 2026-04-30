@@ -1,0 +1,681 @@
+use ambition_engine::{
+    build_endgame_sandbox, update_player, Aabb, BlockKind, InputState, Player, Vec2, POGO_SPEED,
+};
+use macroquad::prelude as mq;
+
+fn window_conf() -> mq::Conf {
+    mq::Conf {
+        window_title: "Ambition - Tangent Space Sandbox".to_string(),
+        window_width: 1280,
+        window_height: 720,
+        high_dpi: true,
+        sample_count: 1,
+        window_resizable: true,
+        ..Default::default()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PresetId {
+    ArrowsQwer,
+    WasdUipo,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct MovementKeys {
+    left: mq::KeyCode,
+    right: mq::KeyCode,
+    up: mq::KeyCode,
+    down: mq::KeyCode,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FaceKeys {
+    /// Gamepad South / A: primary jump/confirm button.
+    a: mq::KeyCode,
+    /// Gamepad East / B: dash/cancel button.
+    b: mq::KeyCode,
+    /// Gamepad North / Y: slash/attack button.
+    y: mq::KeyCode,
+    /// Gamepad West / X: dedicated downward/pogo slash button.
+    x: mq::KeyCode,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct KeyboardPreset {
+    id: PresetId,
+    name: &'static str,
+    movement: MovementKeys,
+    face: FaceKeys,
+}
+
+impl KeyboardPreset {
+    fn arrows_qwer() -> Self {
+        Self {
+            id: PresetId::ArrowsQwer,
+            name: "right-hand movement: arrows + QWER",
+            movement: MovementKeys {
+                left: mq::KeyCode::Left,
+                right: mq::KeyCode::Right,
+                up: mq::KeyCode::Up,
+                down: mq::KeyCode::Down,
+            },
+            face: FaceKeys {
+                a: mq::KeyCode::Q,
+                b: mq::KeyCode::W,
+                y: mq::KeyCode::E,
+                x: mq::KeyCode::R,
+            },
+        }
+    }
+
+    fn wasd_uipo() -> Self {
+        Self {
+            id: PresetId::WasdUipo,
+            name: "left-hand movement: WASD + UIPO",
+            movement: MovementKeys {
+                left: mq::KeyCode::A,
+                right: mq::KeyCode::D,
+                up: mq::KeyCode::W,
+                down: mq::KeyCode::S,
+            },
+            face: FaceKeys {
+                a: mq::KeyCode::U,
+                b: mq::KeyCode::I,
+                y: mq::KeyCode::P,
+                x: mq::KeyCode::O,
+            },
+        }
+    }
+
+    fn with_id(id: PresetId) -> Self {
+        match id {
+            PresetId::ArrowsQwer => Self::arrows_qwer(),
+            PresetId::WasdUipo => Self::wasd_uipo(),
+        }
+    }
+
+    fn movement_label(&self) -> &'static str {
+        match self.id {
+            PresetId::ArrowsQwer => "Arrow keys",
+            PresetId::WasdUipo => "WASD",
+        }
+    }
+
+    fn face_label(&self) -> &'static str {
+        match self.id {
+            PresetId::ArrowsQwer => "Q=A/jump, W=B/dash, E=Y/slash, R=X/pogo",
+            PresetId::WasdUipo => "U=A/jump, I=B/dash, P=Y/slash, O=X/pogo",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct ControlFrame {
+    axis_x: f32,
+    axis_y: f32,
+    jump_pressed: bool,
+    jump_held: bool,
+    jump_released: bool,
+    dash_pressed: bool,
+    attack_pressed: bool,
+    pogo_pressed: bool,
+    reset_pressed: bool,
+    start_pressed: bool,
+    select_pressed: bool,
+}
+
+impl ControlFrame {
+    fn read(preset: KeyboardPreset) -> Self {
+        let mut axis_x = 0.0;
+        let mut axis_y = 0.0;
+        if mq::is_key_down(preset.movement.left) {
+            axis_x -= 1.0;
+        }
+        if mq::is_key_down(preset.movement.right) {
+            axis_x += 1.0;
+        }
+        if mq::is_key_down(preset.movement.up) {
+            axis_y -= 1.0;
+        }
+        if mq::is_key_down(preset.movement.down) {
+            axis_y += 1.0;
+        }
+
+        let select_pressed = mq::is_key_pressed(mq::KeyCode::Delete);
+
+        Self {
+            axis_x,
+            axis_y,
+            jump_pressed: mq::is_key_pressed(preset.face.a),
+            jump_held: mq::is_key_down(preset.face.a),
+            jump_released: mq::is_key_released(preset.face.a),
+            dash_pressed: mq::is_key_pressed(preset.face.b),
+            attack_pressed: mq::is_key_pressed(preset.face.y),
+            pogo_pressed: mq::is_key_pressed(preset.face.x),
+            reset_pressed: select_pressed || mq::is_key_pressed(mq::KeyCode::Backspace),
+            start_pressed: mq::is_key_pressed(mq::KeyCode::Escape),
+            select_pressed,
+        }
+    }
+
+    fn engine_input(self) -> InputState {
+        InputState {
+            axis_x: self.axis_x,
+            axis_y: self.axis_y,
+            jump_pressed: self.jump_pressed,
+            jump_held: self.jump_held,
+            jump_released: self.jump_released,
+            dash_pressed: self.dash_pressed,
+            attack_pressed: self.attack_pressed,
+            pogo_pressed: self.pogo_pressed,
+            reset_pressed: self.reset_pressed,
+        }
+    }
+}
+
+/// Canonical gamepad semantic map. The current build starts with keyboard,
+/// but keeping this map explicit makes the keyboard presets true chirality
+/// presets rather than hard-coded one-off controls.
+const GAMEPAD_MAP: &[(&str, &str)] = &[
+    ("South / A", "jump / confirm"),
+    ("East / B", "dash / cancel"),
+    ("North / Y", "slash / attack"),
+    ("West / X", "dedicated pogo slash / alternate attack"),
+    ("Start", "pause / menu, mirrored by Escape"),
+    ("Select / Back", "sandbox reset, mirrored by Delete"),
+    ("LB/RB", "future chord/stance placeholders"),
+    ("LT/RT", "future analog modifier placeholders"),
+];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DummyKind {
+    InfiniteSandbag,
+    FiniteRespawner,
+}
+
+#[derive(Clone, Debug)]
+struct Dummy {
+    name: &'static str,
+    kind: DummyKind,
+    spawn: Vec2,
+    pos: Vec2,
+    vel: Vec2,
+    size: Vec2,
+    hp: i32,
+    max_hp: i32,
+    alive: bool,
+    respawn_timer: f32,
+    hit_flash: f32,
+}
+
+impl Dummy {
+    fn infinite(name: &'static str, spawn: Vec2) -> Self {
+        Self {
+            name,
+            kind: DummyKind::InfiniteSandbag,
+            spawn,
+            pos: spawn,
+            vel: Vec2::ZERO,
+            size: Vec2::new(38.0, 66.0),
+            hp: 9999,
+            max_hp: 9999,
+            alive: true,
+            respawn_timer: 0.0,
+            hit_flash: 0.0,
+        }
+    }
+
+    fn finite(name: &'static str, spawn: Vec2) -> Self {
+        Self {
+            name,
+            kind: DummyKind::FiniteRespawner,
+            spawn,
+            pos: Vec2::new(spawn.x, 88.0),
+            vel: Vec2::ZERO,
+            size: Vec2::new(34.0, 58.0),
+            hp: 6,
+            max_hp: 6,
+            alive: true,
+            respawn_timer: 0.0,
+            hit_flash: 0.0,
+        }
+    }
+
+    fn aabb(&self) -> Aabb {
+        Aabb::new(self.pos, self.size * 0.5)
+    }
+
+    fn apply_hit(&mut self, damage: i32, knock_x: f32) {
+        if !self.alive {
+            return;
+        }
+        self.hit_flash = 0.16;
+        self.vel.x += knock_x;
+        self.vel.y = (self.vel.y - 120.0).max(-360.0);
+        if self.kind == DummyKind::FiniteRespawner {
+            self.hp -= damage;
+            if self.hp <= 0 {
+                self.alive = false;
+                self.respawn_timer = 0.85;
+            }
+        }
+    }
+
+    fn update(&mut self, dt: f32, ground_y: f32) {
+        self.hit_flash = (self.hit_flash - dt).max(0.0);
+        if !self.alive {
+            self.respawn_timer = (self.respawn_timer - dt).max(0.0);
+            if self.respawn_timer <= 0.0 {
+                self.alive = true;
+                self.hp = self.max_hp;
+                self.pos = Vec2::new(self.spawn.x, 88.0);
+                self.vel = Vec2::ZERO;
+                self.hit_flash = 0.24;
+            }
+            return;
+        }
+
+        self.vel.y += 1600.0 * dt;
+        self.vel.x = approach(self.vel.x, 0.0, 820.0 * dt);
+        self.vel.y = self.vel.y.min(900.0);
+        self.pos += self.vel * dt;
+
+        let half_h = self.size.y * 0.5;
+        if self.pos.y + half_h >= ground_y {
+            self.pos.y = ground_y - half_h;
+            self.vel.y = 0.0;
+        }
+    }
+}
+
+#[macroquad::main(window_conf)]
+async fn main() {
+    let world = build_endgame_sandbox();
+    let mut player = Player::new(world.spawn);
+    let mut debug = true;
+    let mut freeze = false;
+    let mut slowmo = false;
+    let mut flash_timer = 0.0f32;
+    let mut preset = KeyboardPreset::arrows_qwer();
+    let mut preset_flash = 1.2f32;
+    let mut slash_preview: Option<(Aabb, f32)> = None;
+    let mut dummies = vec![
+        Dummy::infinite("infinite sandbag", Vec2::new(850.0, 610.0)),
+        Dummy::finite("finite drop dummy", Vec2::new(985.0, 610.0)),
+    ];
+
+    loop {
+        if mq::is_key_pressed(mq::KeyCode::F1) {
+            debug = !debug;
+        }
+        if mq::is_key_pressed(mq::KeyCode::F9) {
+            preset = KeyboardPreset::with_id(PresetId::ArrowsQwer);
+            preset_flash = 1.2;
+        }
+        if mq::is_key_pressed(mq::KeyCode::F10) {
+            preset = KeyboardPreset::with_id(PresetId::WasdUipo);
+            preset_flash = 1.2;
+        }
+        if mq::is_key_pressed(mq::KeyCode::Tab) {
+            slowmo = !slowmo;
+        }
+
+        let controls = ControlFrame::read(preset);
+        if controls.start_pressed {
+            freeze = !freeze;
+        }
+
+        let dt = if freeze {
+            0.0
+        } else if slowmo {
+            mq::get_frame_time() * 0.25
+        } else {
+            mq::get_frame_time()
+        };
+
+        let events = update_player(&world, &mut player, controls.engine_input(), dt);
+        if events.reset || !events.operations.is_empty() {
+            flash_timer = 0.12;
+        }
+
+        if controls.attack_pressed || controls.pogo_pressed {
+            let attack = slash_hitbox(&player, controls.axis_y, controls.pogo_pressed);
+            slash_preview = Some((attack, 0.10));
+            let mut landed = false;
+            for dummy in &mut dummies {
+                if dummy.alive && attack.intersects(dummy.aabb()) {
+                    dummy.apply_hit(1, player.facing * 260.0);
+                    landed = true;
+                }
+            }
+            if landed && (controls.pogo_pressed || controls.axis_y > 0.25) {
+                player.vel.y = -POGO_SPEED;
+                player.dash_available = true;
+            }
+        }
+
+        for dummy in &mut dummies {
+            dummy.update(dt, world.size.y - 48.0);
+        }
+        if let Some((_, timer)) = &mut slash_preview {
+            *timer -= mq::get_frame_time();
+            if *timer <= 0.0 {
+                slash_preview = None;
+            }
+        }
+
+        flash_timer = (flash_timer - mq::get_frame_time()).max(0.0);
+        preset_flash = (preset_flash - mq::get_frame_time()).max(0.0);
+
+        draw(
+            &world,
+            &player,
+            &dummies,
+            slash_preview,
+            preset,
+            debug,
+            slowmo,
+            freeze,
+            flash_timer,
+            preset_flash,
+        );
+        mq::next_frame().await;
+    }
+}
+
+fn slash_hitbox(player: &Player, axis_y: f32, forced_pogo: bool) -> Aabb {
+    let body = player.aabb();
+    if forced_pogo || axis_y > 0.25 {
+        Aabb::new(
+            Vec2::new(body.center.x, body.bottom() + 24.0),
+            Vec2::new(body.half.x * 0.95, 26.0),
+        )
+    } else if axis_y < -0.25 {
+        Aabb::new(
+            Vec2::new(body.center.x, body.top() - 22.0),
+            Vec2::new(body.half.x * 1.10, 24.0),
+        )
+    } else {
+        Aabb::new(
+            Vec2::new(body.center.x + player.facing * (body.half.x + 30.0), body.center.y - 2.0),
+            Vec2::new(34.0, 24.0),
+        )
+    }
+}
+
+fn draw(
+    world: &ambition_engine::World,
+    player: &Player,
+    dummies: &[Dummy],
+    slash_preview: Option<(Aabb, f32)>,
+    preset: KeyboardPreset,
+    debug: bool,
+    slowmo: bool,
+    freeze: bool,
+    flash: f32,
+    preset_flash: f32,
+) {
+    let bg = mq::Color::new(0.020, 0.024, 0.035, 1.0);
+    mq::clear_background(bg);
+
+    let scale = (mq::screen_width() / world.size.x).min(mq::screen_height() / world.size.y);
+    let offset = mq::vec2(
+        (mq::screen_width() - world.size.x * scale) * 0.5,
+        (mq::screen_height() - world.size.y * scale) * 0.5,
+    );
+
+    draw_grid(world, scale, offset);
+
+    for block in &world.blocks {
+        draw_block(block, scale, offset);
+    }
+
+    for dummy in dummies {
+        draw_dummy(dummy, scale, offset);
+    }
+
+    if let Some((hitbox, _)) = slash_preview {
+        draw_aabb_lines(hitbox, scale, offset, 2.0, mq::Color::new(1.0, 1.0, 0.35, 0.90));
+    }
+
+    draw_player(player, scale, offset, flash);
+
+    if debug {
+        draw_debug(world, player, dummies, preset, slowmo, freeze, scale, offset);
+    } else {
+        mq::draw_text("F1 debug", 16.0, 28.0, 20.0, mq::GRAY);
+    }
+
+    if preset_flash > 0.0 {
+        let alpha = (preset_flash / 1.2).min(1.0);
+        let text = format!("preset: {}", preset.name);
+        let w = mq::measure_text(&text, None, 28, 1.0).width;
+        mq::draw_rectangle(
+            mq::screen_width() * 0.5 - w * 0.5 - 20.0,
+            42.0,
+            w + 40.0,
+            44.0,
+            mq::Color::new(0.03, 0.04, 0.07, 0.72 * alpha),
+        );
+        mq::draw_text(
+            &text,
+            mq::screen_width() * 0.5 - w * 0.5,
+            72.0,
+            28.0,
+            mq::Color::new(0.85, 0.95, 1.0, alpha),
+        );
+    }
+}
+
+fn draw_grid(world: &ambition_engine::World, scale: f32, offset: mq::Vec2) {
+    let minor = mq::Color::new(0.09, 0.10, 0.14, 0.55);
+    let major = mq::Color::new(0.14, 0.15, 0.21, 0.75);
+    let mut x = 0.0;
+    while x <= world.size.x {
+        let p0 = w2s(Vec2::new(x, 0.0), scale, offset);
+        let p1 = w2s(Vec2::new(x, world.size.y), scale, offset);
+        let color = if ((x / 128.0).round() - x / 128.0).abs() < 0.01 { major } else { minor };
+        mq::draw_line(p0.x, p0.y, p1.x, p1.y, 1.0, color);
+        x += 32.0;
+    }
+    let mut y = 0.0;
+    while y <= world.size.y {
+        let p0 = w2s(Vec2::new(0.0, y), scale, offset);
+        let p1 = w2s(Vec2::new(world.size.x, y), scale, offset);
+        let color = if ((y / 128.0).round() - y / 128.0).abs() < 0.01 { major } else { minor };
+        mq::draw_line(p0.x, p0.y, p1.x, p1.y, 1.0, color);
+        y += 32.0;
+    }
+}
+
+fn draw_block(block: &ambition_engine::Block, scale: f32, offset: mq::Vec2) {
+    let min = block.aabb.min();
+    let max = block.aabb.max();
+    let p = w2s(min, scale, offset);
+    let size = mq::vec2((max.x - min.x) * scale, (max.y - min.y) * scale);
+
+    match block.kind {
+        BlockKind::Solid => {
+            let fill = mq::Color::new(0.20, 0.24, 0.32, 1.0);
+            let line = mq::Color::new(0.46, 0.55, 0.75, 1.0);
+            mq::draw_rectangle(p.x, p.y, size.x, size.y, fill);
+            mq::draw_rectangle_lines(p.x, p.y, size.x, size.y, 2.0, line);
+        }
+        BlockKind::OneWay => {
+            let fill = mq::Color::new(0.18, 0.28, 0.30, 0.82);
+            let line = mq::Color::new(0.35, 0.85, 0.75, 1.0);
+            mq::draw_rectangle(p.x, p.y, size.x, size.y, fill);
+            mq::draw_line(p.x, p.y, p.x + size.x, p.y, 3.0, line);
+        }
+        BlockKind::Hazard => {
+            let fill = mq::Color::new(0.42, 0.07, 0.11, 1.0);
+            let line = mq::Color::new(1.0, 0.22, 0.28, 1.0);
+            mq::draw_rectangle(p.x, p.y, size.x, size.y, fill);
+            let spikes = ((size.x / 18.0).max(1.0)) as i32;
+            for i in 0..spikes {
+                let x0 = p.x + i as f32 * size.x / spikes as f32;
+                let x1 = p.x + (i + 1) as f32 * size.x / spikes as f32;
+                let xm = (x0 + x1) * 0.5;
+                mq::draw_triangle(
+                    mq::vec2(x0, p.y),
+                    mq::vec2(x1, p.y),
+                    mq::vec2(xm, p.y - 16.0 * scale),
+                    line,
+                );
+            }
+        }
+        BlockKind::PogoOrb => {
+            let c = w2s(block.aabb.center, scale, offset);
+            let r = block.aabb.half.x * scale;
+            mq::draw_circle(c.x, c.y, r * 1.08, mq::Color::new(0.06, 0.38, 0.42, 0.80));
+            mq::draw_circle_lines(c.x, c.y, r * 1.12, 3.0, mq::Color::new(0.34, 0.96, 1.0, 1.0));
+            mq::draw_line(c.x - r * 0.65, c.y, c.x + r * 0.65, c.y, 2.0, mq::WHITE);
+            mq::draw_line(c.x, c.y - r * 0.65, c.x, c.y + r * 0.65, 2.0, mq::WHITE);
+        }
+        BlockKind::Rebound { impulse } => {
+            let fill = mq::Color::new(0.40, 0.23, 0.06, 1.0);
+            let line = mq::Color::new(1.0, 0.70, 0.22, 1.0);
+            mq::draw_rectangle(p.x, p.y, size.x, size.y, fill);
+            mq::draw_rectangle_lines(p.x, p.y, size.x, size.y, 2.0, line);
+            let center = w2s(block.aabb.center, scale, offset);
+            let dir = mq::vec2(impulse.x, impulse.y).normalize_or_zero();
+            let end = center + dir * 42.0 * scale;
+            mq::draw_line(center.x, center.y, end.x, end.y, 3.0, line);
+            let side = mq::vec2(-dir.y, dir.x);
+            mq::draw_triangle(end, end - dir * 10.0 * scale + side * 6.0 * scale, end - dir * 10.0 * scale - side * 6.0 * scale, line);
+        }
+    }
+}
+
+fn draw_dummy(dummy: &Dummy, scale: f32, offset: mq::Vec2) {
+    if !dummy.alive {
+        let respawn = format!("{} respawn {:.1}", dummy.name, dummy.respawn_timer);
+        let p = w2s(dummy.spawn, scale, offset);
+        mq::draw_text(&respawn, p.x - 52.0 * scale, p.y - 84.0 * scale, 16.0 * scale, mq::GRAY);
+        return;
+    }
+
+    let aabb = dummy.aabb();
+    let min = w2s(aabb.min(), scale, offset);
+    let max = w2s(aabb.max(), scale, offset);
+    let w = max.x - min.x;
+    let h = max.y - min.y;
+    let fill = match dummy.kind {
+        DummyKind::InfiniteSandbag => mq::Color::new(0.46, 0.33, 0.19, 1.0),
+        DummyKind::FiniteRespawner => mq::Color::new(0.42, 0.25, 0.42, 1.0),
+    };
+    let flash = mq::Color::new(1.0, 0.96, 0.70, 1.0);
+    mq::draw_rectangle(min.x, min.y, w, h, if dummy.hit_flash > 0.0 { flash } else { fill });
+    mq::draw_rectangle_lines(min.x, min.y, w, h, 2.0, mq::Color::new(0.05, 0.04, 0.03, 1.0));
+    mq::draw_line(min.x, min.y + h * 0.36, max.x, min.y + h * 0.36, 1.5, mq::Color::new(0.08, 0.06, 0.05, 1.0));
+
+    let label = match dummy.kind {
+        DummyKind::InfiniteSandbag => "sandbag INF",
+        DummyKind::FiniteRespawner => "dummy",
+    };
+    mq::draw_text(label, min.x - 12.0, min.y - 10.0, 15.0 * scale, mq::Color::new(0.86, 0.88, 0.98, 1.0));
+
+    if dummy.kind == DummyKind::FiniteRespawner {
+        let ratio = (dummy.hp.max(0) as f32 / dummy.max_hp as f32).clamp(0.0, 1.0);
+        mq::draw_rectangle(min.x, min.y - 23.0 * scale, w, 5.0 * scale, mq::Color::new(0.12, 0.07, 0.10, 1.0));
+        mq::draw_rectangle(min.x, min.y - 23.0 * scale, w * ratio, 5.0 * scale, mq::Color::new(0.88, 0.36, 0.72, 1.0));
+    }
+}
+
+fn draw_player(player: &Player, scale: f32, offset: mq::Vec2, flash: f32) {
+    let aabb = player.aabb();
+    let min = w2s(aabb.min(), scale, offset);
+    let max = w2s(aabb.max(), scale, offset);
+    let w = max.x - min.x;
+    let h = max.y - min.y;
+    let body = if player.dash_timer > 0.0 {
+        mq::Color::new(0.98, 0.93, 0.42, 1.0)
+    } else if flash > 0.0 {
+        mq::Color::new(1.0, 1.0, 1.0, 1.0)
+    } else if player.dash_available {
+        mq::Color::new(0.74, 0.82, 1.0, 1.0)
+    } else {
+        mq::Color::new(0.52, 0.58, 0.72, 1.0)
+    };
+    mq::draw_rectangle(min.x, min.y, w, h, body);
+    mq::draw_rectangle_lines(min.x, min.y, w, h, 2.0, mq::Color::new(0.05, 0.08, 0.14, 1.0));
+
+    let eye = if player.facing >= 0.0 { max.x - 8.0 * scale } else { min.x + 8.0 * scale };
+    mq::draw_circle(eye, min.y + 13.0 * scale, 3.0 * scale, mq::BLACK);
+
+    let center = w2s(player.pos, scale, offset);
+    let v = mq::vec2(player.vel.x, player.vel.y) * 0.10 * scale;
+    mq::draw_line(center.x, center.y, center.x + v.x, center.y + v.y, 2.0, mq::Color::new(1.0, 0.72, 0.25, 1.0));
+}
+
+fn draw_debug(
+    world: &ambition_engine::World,
+    player: &Player,
+    dummies: &[Dummy],
+    preset: KeyboardPreset,
+    slowmo: bool,
+    freeze: bool,
+    scale: f32,
+    offset: mq::Vec2,
+) {
+    let panel = mq::Color::new(0.02, 0.03, 0.05, 0.78);
+    mq::draw_rectangle(10.0, 10.0, 690.0, 264.0, panel);
+    mq::draw_rectangle_lines(10.0, 10.0, 690.0, 264.0, 1.0, mq::Color::new(0.3, 0.4, 0.55, 1.0));
+
+    let speed = player.vel.length();
+    let mode = if freeze { "PAUSED" } else if slowmo { "SLOWMO" } else { "LIVE" };
+    let finite_hp = dummies
+        .iter()
+        .find(|d| d.kind == DummyKind::FiniteRespawner)
+        .map(|d| if d.alive { format!("{}/{}", d.hp.max(0), d.max_hp) } else { format!("respawn {:.1}", d.respawn_timer) })
+        .unwrap_or_else(|| "-".to_string());
+    let lines = [
+        format!("{}  |  {}  |  {}", world.name, mode, preset.name),
+        format!("Move: {}  |  Face buttons: {}", preset.movement_label(), preset.face_label()),
+        "F9 arrows+QWER, F10 WASD+UIPO, Esc/Start pause, Delete/Select reset".to_string(),
+        "Gamepad plan: A jump, B dash, Y slash, X pogo; LB/RB/LT/RT reserved".to_string(),
+        "Toggles: F1 debug, Tab slow motion".to_string(),
+        format!("pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) speed={:.1} max={:.1}", player.pos.x, player.pos.y, player.vel.x, player.vel.y, speed, player.max_speed),
+        format!("ground={} wall={} dash={} coyote={:.2} buffer={:.2} resets={} finite_dummy={}", player.on_ground, player.on_wall, player.dash_available, player.coyote_timer, player.jump_buffer_timer, player.resets, finite_hp),
+        format!("combo: {}", player.combo_symbols()),
+        format!("hint: {}", player.current_combo_hint()),
+    ];
+
+    for (i, line) in lines.iter().enumerate() {
+        mq::draw_text(line, 22.0, 34.0 + i as f32 * 24.0, 18.0, mq::Color::new(0.85, 0.90, 1.0, 1.0));
+    }
+
+    // Pogo hitbox preview.
+    let feet = player.aabb();
+    let hit_center = Vec2::new(feet.center.x, feet.bottom() + 18.0);
+    let hit_half = Vec2::new(feet.half.x * 0.76, 22.0);
+    let hit_min = w2s(hit_center - hit_half, scale, offset);
+    mq::draw_rectangle_lines(hit_min.x, hit_min.y, hit_half.x * 2.0 * scale, hit_half.y * 2.0 * scale, 1.0, mq::Color::new(0.32, 0.90, 1.0, 0.65));
+
+    let mut y = 296.0;
+    mq::draw_text("Control semantics:", 18.0, y, 17.0, mq::Color::new(0.68, 0.78, 0.95, 1.0));
+    y += 20.0;
+    for (button, action) in GAMEPAD_MAP.iter().take(6) {
+        mq::draw_text(&format!("{} = {}", button, action), 18.0, y, 15.0, mq::Color::new(0.58, 0.64, 0.76, 1.0));
+        y += 18.0;
+    }
+}
+
+fn draw_aabb_lines(aabb: Aabb, scale: f32, offset: mq::Vec2, thickness: f32, color: mq::Color) {
+    let min = w2s(aabb.min(), scale, offset);
+    let max = w2s(aabb.max(), scale, offset);
+    mq::draw_rectangle_lines(min.x, min.y, max.x - min.x, max.y - min.y, thickness, color);
+}
+
+fn w2s(v: Vec2, scale: f32, offset: mq::Vec2) -> mq::Vec2 {
+    mq::vec2(offset.x + v.x * scale, offset.y + v.y * scale)
+}
+
+fn approach(value: f32, target: f32, delta: f32) -> f32 {
+    if value < target {
+        (value + delta).min(target)
+    } else {
+        (value - delta).max(target)
+    }
+}

@@ -158,3 +158,7 @@ The Bevy executable is the presentation/runtime layer. `ambition_engine` is the 
 ## Current mechanic notes
 
 - `docs/blink_and_fastfall.md` documents the current precision blink, blink-through wall, bullet-time ramp, and double-tap fast-fall behavior.
+
+Additional design notes:
+
+- `docs/rooms_and_camera.md` describes the first scrolling-room and loading-zone prototype.

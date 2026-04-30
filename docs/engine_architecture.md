@@ -101,3 +101,7 @@ This is the intended direction: if a behavior affects simulation, reachability,
 combat, resources, or deterministic replay, prefer moving it to
 `ambition_engine`. If a behavior only affects presentation, keep it in the Bevy
 sandbox adapter.
+
+## Enemy collision note
+
+Dummies now use engine-side room collision via `Dummy::update_in_world`; see `docs/enemy_collision.md`.

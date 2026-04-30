@@ -109,7 +109,7 @@ pub struct World {
 /// test. Later this can become a `RoomSpec` DSL or generated layout grammar.
 pub fn build_endgame_sandbox() -> World {
     let mut blocks = Vec::new();
-    let w = 1600.0;
+    let w = 3200.0;
     let h = 900.0;
 
     // Shell. The world is intentionally larger than the first pass so the same
@@ -182,8 +182,25 @@ pub fn build_endgame_sandbox() -> World {
         Vec2::new(760.0, 240.0),
     ));
 
+    // Right-side scroll wing. This is deliberately roomy and less dense than
+    // the first-screen lab: it exists to tune camera follow, long horizontal
+    // routing, blink-through wall reading, and loading-zone approach behavior.
+    blocks.push(Block::blink_wall("scroll wing low wall", Vec2::new(1710.0, 735.0), Vec2::new(34.0, 117.0), BlinkWallTier::Soft));
+    blocks.push(Block::one_way("scroll wing shelf A", Vec2::new(1820.0, 690.0), Vec2::new(300.0, 18.0)));
+    blocks.push(Block::blink_wall("scroll wing membrane A", Vec2::new(2180.0, 585.0), Vec2::new(32.0, 190.0), BlinkWallTier::Soft));
+    blocks.push(Block::one_way("scroll wing shelf B", Vec2::new(2290.0, 540.0), Vec2::new(280.0, 18.0)));
+    blocks.push(Block::pogo_orb("scroll wing pogo", Vec2::new(2460.0, 460.0), 19.0));
+    blocks.push(Block::rebound(
+        "scroll wing launcher",
+        Vec2::new(2610.0, 795.0),
+        Vec2::new(120.0, 24.0),
+        Vec2::new(630.0, -720.0),
+    ));
+    blocks.push(Block::one_way("door approach bridge", Vec2::new(2850.0, 650.0), Vec2::new(210.0, 18.0)));
+    blocks.push(Block::solid("right room hard stopper", Vec2::new(3000.0, 530.0), Vec2::new(24.0, 322.0)));
+
     World {
-        name: "Ambition: Tangent Space v0.2",
+        name: "Ambition: Tangent Space v0.3 - Scroll Lab",
         size: Vec2::new(w, h),
         spawn: Vec2::new(210.0, h - 95.0),
         blocks,

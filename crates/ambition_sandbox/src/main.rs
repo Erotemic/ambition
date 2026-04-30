@@ -12,6 +12,7 @@ mod fx;
 mod input;
 mod platforms;
 mod rendering;
+mod rooms;
 
 use ambition_engine as ae;
 use audio::{play_sound, SoundBank, SoundCue};
@@ -33,12 +34,16 @@ use fx::{
     spawn_slash_preview, ParticleKind,
 };
 use input::{ControlFrame, KeyboardPreset, GAMEPAD_MAP};
-use rendering::{dummy_color, spawn_block, spawn_grid, sync_visuals, DummyVisual, HudText, PlayerVisual, SceneEntities};
+use rendering::{camera_follow, dummy_color, spawn_room_visuals, sync_visuals, DummyVisual, HudText, PlayerVisual, RoomVisual, SceneEntities};
 
 fn main() {
+    let room_set = rooms::RoomSet::new();
+    let active_world = room_set.active_world().clone();
+
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
-        .insert_resource(GameWorld(ae::build_endgame_sandbox()))
+        .insert_resource(GameWorld(active_world))
+        .insert_resource(room_set)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Ambition - Tangent Space Sandbox (Bevy)".into(),
@@ -54,6 +59,7 @@ fn main() {
             (
                 sandbox_update,
                 sync_visuals,
+                camera_follow,
                 debug_overlay::draw_debug_overlay,
                 platforms::sync_moving_platform,
                 fx::update_particles,
@@ -84,6 +90,7 @@ pub struct SandboxRuntime {
     time_scale: f32,
     down_tap_timer: f32,
     pub moving_platform: platforms::MovingPlatformState,
+    pub room_transition_cooldown: f32,
 }
 
 impl SandboxRuntime {
@@ -102,6 +109,7 @@ impl SandboxRuntime {
             time_scale: 1.0,
             down_tap_timer: 0.0,
             moving_platform: platforms::MovingPlatformState::time_reference(world),
+            room_transition_cooldown: 0.0,
         }
     }
 
@@ -113,6 +121,7 @@ impl SandboxRuntime {
         self.time_scale = 1.0;
         self.down_tap_timer = 0.0;
         self.moving_platform = platforms::MovingPlatformState::time_reference(world);
+        self.room_transition_cooldown = 0.0;
     }
 
     fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32) -> bool {
@@ -157,6 +166,7 @@ impl SandboxRuntime {
 fn setup(
     mut commands: Commands,
     world: Res<GameWorld>,
+    room_set: Res<rooms::RoomSet>,
     mut audio_sources: ResMut<Assets<AudioSource>>,
 ) {
     // The sandbox uses centered world coordinates that match the default
@@ -167,11 +177,8 @@ fn setup(
     commands.insert_resource(SandboxRuntime::new(&world.0));
     commands.insert_resource(SoundBank::new(&mut audio_sources));
 
-    spawn_grid(&mut commands, &world.0);
+    spawn_room_visuals(&mut commands, &world.0, room_set.active_loading_zones());
     platforms::spawn_moving_platform(&mut commands, &world.0, platforms::MovingPlatformState::time_reference(&world.0));
-    for block in &world.0.blocks {
-        spawn_block(&mut commands, &world.0, block);
-    }
 
     let player = commands
         .spawn((
@@ -215,9 +222,11 @@ fn sandbox_update(
     mut commands: Commands,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
-    world: Res<GameWorld>,
+    mut world: ResMut<GameWorld>,
+    mut room_set: ResMut<rooms::RoomSet>,
     bank: Res<SoundBank>,
     mut runtime: ResMut<SandboxRuntime>,
+    room_visuals: Query<Entity, With<RoomVisual>>,
 ) {
     handle_debug_hotkeys(&keys, &mut runtime);
 
@@ -228,6 +237,7 @@ fn sandbox_update(
     }
 
     let frame_dt = time.delta_secs();
+    runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
     controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
     runtime.update_time_scale(frame_dt);
@@ -253,11 +263,26 @@ fn sandbox_update(
         );
     }
 
+    if runtime.room_transition_cooldown <= 0.0 {
+        if let Some(zone) = room_set.transition_for_player(&runtime.player) {
+            load_room(
+            &mut commands,
+            &bank,
+            &mut runtime,
+            &mut *world,
+            &mut *room_set,
+            &room_visuals,
+            zone,
+            );
+            return;
+        }
+    }
+
     if controls.attack_pressed || controls.pogo_pressed {
         process_attack(&mut commands, &world.0, &bank, &mut runtime, controls);
     }
 
-    update_dummies(&mut commands, &world.0, &bank, &mut runtime, dt);
+    update_dummies(&mut commands, &collision_world, &bank, &mut runtime, dt);
 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
@@ -307,6 +332,34 @@ fn reset_sandbox(
     let reset_to = runtime.player.pos;
     play_sound(commands, bank, SoundCue::Reset);
     spawn_reset_effects(commands, world, reset_from, reset_to);
+}
+
+fn load_room(
+    commands: &mut Commands,
+    bank: &SoundBank,
+    runtime: &mut SandboxRuntime,
+    world: &mut GameWorld,
+    room_set: &mut rooms::RoomSet,
+    room_visuals: &Query<Entity, With<RoomVisual>>,
+    zone: rooms::LoadingZone,
+) {
+    let from = runtime.player.pos;
+    for entity in room_visuals.iter() {
+        commands.entity(entity).despawn();
+    }
+    let spec = room_set.set_active(zone.target_room).clone();
+    world.0 = spec.world.clone();
+    runtime.reset(&world.0);
+    runtime.player.reset_to(zone.target_spawn);
+    runtime.dummies = spawn_dummies(&world.0);
+    runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
+    runtime.room_transition_cooldown = 0.35;
+    runtime.flash_timer = 0.24;
+    runtime.preset_flash = 1.0;
+    spawn_room_visuals(commands, &world.0, &spec.loading_zones);
+    platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
+    play_sound(commands, bank, SoundCue::Reset);
+    spawn_reset_effects(commands, &world.0, from, runtime.player.pos);
 }
 
 fn update_player_and_feedback(
@@ -417,9 +470,8 @@ fn update_dummies(
     runtime: &mut SandboxRuntime,
     dt: f32,
 ) {
-    let ground_y = world.size.y - 48.0;
     for dummy in &mut runtime.dummies {
-        if dummy.update(dt, ground_y) {
+        if dummy.update_in_world(dt, world) {
             play_sound(commands, bank, SoundCue::Respawn);
             spawn_burst(commands, world, dummy.pos, 16, 260.0, [0.92, 0.48, 0.95, 0.90], ParticleKind::Spark);
         }
@@ -429,6 +481,7 @@ fn update_dummies(
 fn update_hud(
     runtime: Res<SandboxRuntime>,
     world: Res<GameWorld>,
+    room_set: Res<rooms::RoomSet>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
@@ -462,9 +515,11 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nroom: {}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nroom: {}  active {}/{}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\ndummies: {}\ngamepad target: {}{}",
         world.0.name,
         "Bevy backend",
+        room_set.active + 1,
+        room_set.rooms.len(),
         world.0.size.x,
         world.0.size.y,
         runtime.player.vel.x,

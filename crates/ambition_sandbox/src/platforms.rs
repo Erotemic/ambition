@@ -11,6 +11,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use crate::config::{world_to_bevy, WORLD_Z_BLOCK};
+use crate::rendering::RoomVisual;
 
 /// A deterministic horizontal platform used as a visible game-time reference.
 #[derive(Clone, Copy, Debug)]
@@ -107,6 +108,7 @@ pub fn spawn_moving_platform(commands: &mut Commands, world: &ae::World, platfor
             ),
             Transform::from_translation(world_to_bevy(world, platform.pos, WORLD_Z_BLOCK + 4.0)),
             MovingPlatformVisual,
+            RoomVisual,
         ))
         .id()
 }

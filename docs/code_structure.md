@@ -114,3 +114,7 @@ See also: [Sane maximalist subset](ability_subset.md).
 ## Time reference / moving platform
 
 `crates/ambition_sandbox/src/platforms.rs` contains the current moving platform reference object. It is intentionally sandbox-side and visual-only for now, used to judge bullet-time speed. Promote it into `ambition_engine` only when moving solids become real collision participants. See `docs/time_reference_platform.md`.
+
+## Enemy collision note
+
+Dummies now use engine-side room collision via `Dummy::update_in_world`; see `docs/enemy_collision.md`.

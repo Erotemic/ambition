@@ -8,7 +8,8 @@ use ambition_engine as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+use crate::config::{world_to_bevy, GRID_STEP, WINDOW_H, WINDOW_W, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+use crate::rooms::LoadingZone;
 use crate::dummies::{Dummy, DummyKind};
 
 #[derive(Resource)]
@@ -27,6 +28,9 @@ pub struct DummyVisual {
 
 #[derive(Component)]
 pub struct HudText;
+
+#[derive(Component)]
+pub struct RoomVisual;
 
 pub fn sync_visuals(
     world: Res<crate::GameWorld>,
@@ -53,6 +57,16 @@ pub fn sync_visuals(
     }
 }
 
+pub fn spawn_room_visuals(commands: &mut Commands, world: &ae::World, loading_zones: &[LoadingZone]) {
+    spawn_grid(commands, world);
+    for block in &world.blocks {
+        spawn_block(commands, world, block);
+    }
+    for zone in loading_zones {
+        spawn_loading_zone(commands, world, zone);
+    }
+}
+
 pub fn spawn_grid(commands: &mut Commands, world: &ae::World) {
     let grid_color = Color::srgba(0.12, 0.15, 0.22, 0.28);
     let mut x = 0.0;
@@ -61,6 +75,7 @@ pub fn spawn_grid(commands: &mut Commands, world: &ae::World) {
         commands.spawn((
             Sprite::from_color(grid_color, BVec2::new(1.0, world.size.y)),
             Transform::from_translation(world_to_bevy(world, center, -20.0)),
+            RoomVisual,
         ));
         x += GRID_STEP;
     }
@@ -70,6 +85,7 @@ pub fn spawn_grid(commands: &mut Commands, world: &ae::World) {
         commands.spawn((
             Sprite::from_color(grid_color, BVec2::new(world.size.x, 1.0)),
             Transform::from_translation(world_to_bevy(world, center, -20.0)),
+            RoomVisual,
         ));
         y += GRID_STEP;
     }
@@ -80,6 +96,16 @@ pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block
     commands.spawn((
         Sprite::from_color(block_color(block.kind), BVec2::new(size.x, size.y)),
         Transform::from_translation(world_to_bevy(world, block.aabb.center, WORLD_Z_BLOCK)),
+        RoomVisual,
+    ));
+}
+
+pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &LoadingZone) {
+    let size = zone.aabb.half * 2.0;
+    commands.spawn((
+        Sprite::from_color(Color::srgba(0.20, 0.95, 1.0, 0.22), BVec2::new(size.x, size.y)),
+        Transform::from_translation(world_to_bevy(world, zone.aabb.center, WORLD_Z_BLOCK + 6.0)),
+        RoomVisual,
     ));
 }
 
@@ -102,5 +128,33 @@ pub fn dummy_color(dummy: &Dummy) -> Color {
     match dummy.kind {
         DummyKind::InfiniteSandbag => Color::srgba(0.78, 0.62, 0.42, 1.0),
         DummyKind::FiniteRespawner => Color::srgba(0.86, 0.38, 0.90, 1.0),
+    }
+}
+
+/// Follow the player in rooms larger than the window.
+///
+/// The simulation uses top-left world coordinates, while Bevy renders around a
+/// centered camera. We convert the player to Bevy coordinates, then clamp the
+/// camera center so the player can scroll through large rooms without showing
+/// outside the generated level bounds. Small rooms remain centered.
+pub fn camera_follow(
+    world: Res<crate::GameWorld>,
+    runtime: Res<crate::SandboxRuntime>,
+    mut query: Query<&mut Transform, (With<Camera>, Without<PlayerVisual>)>,
+) {
+    let target = world_to_bevy(&world.0, runtime.player.pos, 0.0);
+    let half_view_w = WINDOW_W as f32 * 0.5;
+    let half_view_h = WINDOW_H as f32 * 0.5;
+    let min_x = -world.0.size.x * 0.5 + half_view_w;
+    let max_x = world.0.size.x * 0.5 - half_view_w;
+    let min_y = -world.0.size.y * 0.5 + half_view_h;
+    let max_y = world.0.size.y * 0.5 - half_view_h;
+
+    let x = if min_x <= max_x { target.x.clamp(min_x, max_x) } else { 0.0 };
+    let y = if min_y <= max_y { target.y.clamp(min_y, max_y) } else { 0.0 };
+
+    for mut transform in &mut query {
+        transform.translation.x = x;
+        transform.translation.y = y;
     }
 }

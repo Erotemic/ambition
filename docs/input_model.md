@@ -10,13 +10,14 @@ rather than hard-coded to one keyboard layout.
 
 | Preset | Movement | Jump | Attack / slash | Dash | Pogo | Other mapped placeholders |
 |---|---|---|---|---|---|---|
-| `HollowKnight` | Arrow keys | `Z` | `X` | `C` | Down + `X` | Focus `A`, quick cast `E`, super dash `S`, dream nail `D`, map `Tab`, inventory `I` |
-| `WasdJkl` | `WASD` | `Space` | `J` | `K` | Down + `J` | Focus `L`, quick cast `I`, super dash `Left Shift`, dream nail `U`, map `Tab`, inventory `V` |
+| `ArrowsZxc` | Arrow keys | `Z` | `X` | `C` | Down + `X` | Secondary `A`, quick `E`, modifier `S`, utility `D`, map `Tab`, inventory `I` |
+| `WasdJkl` | `WASD` | `Space` | `J` | `K` | Down + `J` | Secondary `L`, quick `I`, modifier `Left Shift`, utility `U`, map `Tab`, inventory `V` |
 | `ArrowsQwer` | Arrow keys | `Q` | `E` | `W` | `R` or Down + `E` | Map `Tab`, inventory `I` |
 | `WasdUipo` | `WASD` | `U` | `P` | `I` | `O` or Down + `P` | Map `Tab`, inventory `V` |
 
-The Hollow Knight preset is the default because it gives a known-good baseline
-for keyboard platformer muscle memory.
+The `ArrowsZxc` preset is the default because it gives a compact, familiar
+keyboard action-platformer baseline without baking any specific game's verbs
+into Ambition's terminology.
 
 ## Canonical gamepad target
 
@@ -24,14 +25,14 @@ for keyboard platformer muscle memory.
 |---|---|---|
 | L-stick / D-pad | Movement | Move, aim dash, aim slash/pogo |
 | A / Cross | Jump | Jump / confirm |
-| X / Square | Attack / nail | Slash; Down+Attack is pogo |
+| X / Square | Primary attack | Slash; Down+Attack is pogo |
 | RT / R2 | Dash | Dash |
-| B / Circle | Focus / cast | Placeholder |
-| RB / R1 | Quick cast | Placeholder |
-| LT / L2 | Super dash | Placeholder |
-| Y / Triangle | Dream nail | Placeholder |
-| LB / L1 | Quick map | Placeholder |
-| Back / Touchpad | Inventory/select | Inventory later; sandbox reset for now |
+| B / Circle | Secondary action | Placeholder |
+| RB / R1 | Quick action | Placeholder |
+| LT / L2 | Modifier action | Placeholder |
+| Y / Triangle | Utility action | Placeholder |
+| LB / L1 | Map | Placeholder |
+| Back / Touchpad | Inventory/select | Inventory later; sandbox restart for now |
 | Start / Options | Pause | Pause/freeze |
 
 ## Universal sandbox/system controls
@@ -39,7 +40,7 @@ for keyboard platformer muscle memory.
 | Input | Semantic control | Current behavior |
 |---|---|---|
 | `Escape` | Start | Pause/freeze |
-| `Delete` / `Backspace` | Select / reset | Reset to spawn |
+| `Delete` / `Backspace` | Select / restart | Full sandbox restart, including enemies and transient effects |
 | `F1` | Debug | Toggle overlay |
 | `F2` | Slow motion | Toggle slow motion |
 | `F9` | Preset previous | Cycle backward through presets |
@@ -54,14 +55,13 @@ coupling movement physics to physical devices.
 
 ## Current action semantics
 
-Only movement, jump, attack, dash, pogo, pause, and reset affect gameplay in
-this prototype. The other Hollow Knight / gamepad-style verbs are deliberately
-kept in the preset structures and shown in the debug overlay so future engine
-work can attach mechanics without changing the physical layout model.
+Only movement, jump, attack, dash, pogo, pause, and restart affect gameplay in
+this prototype. The other generic gamepad-style verbs are deliberately kept in
+the preset structures and shown in the debug overlay so future engine work can
+attach mechanics without changing the physical layout model.
 
 The current pogo rule is:
 
-- Hollow Knight style: hold Down and press Attack.
+- Most action-platformer layouts: hold Down and press Attack.
 - Chirality test layouts: use the dedicated fourth action key, or hold Down and
   press Attack.
-

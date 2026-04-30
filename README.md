@@ -10,21 +10,22 @@ The first design law is: **the game should be fun as raw collision boxes**.
 
 - A Rust Cargo workspace.
 - `ambition_engine`: deterministic gray-box platformer movement/collision logic.
-- `ambition_sandbox`: a Macroquad renderer/input/audio loop for a single generated room.
+- `ambition_sandbox`: a Bevy 0.18 ECS app for a single generated room.
 - No sprites, textures, tilemaps, imported audio, or prerendered assets.
-- A larger generated room than v0.1: solids, one-way shelves, hazard channels, pogo orbs, rebound pads.
+- A generated room: solids, one-way shelves, hazard channels, pogo orbs, and rebound/impulse pads.
 - Endgame-style movement verbs: run, jump, double jump, variable jump height, wall jump, dash, pogo, slash/recoil, rebound pads.
 - Debug overlay: velocity, grounded/walled state, dash and air-jump availability, coyote/jump-buffer timers, combo algebra trace.
 - Four keyboard presets with `F9`/`F10` preset cycling.
 - Two easy-to-reach bashable dummies near spawn: one infinite-health sandbag and one finite-health respawning drop dummy.
 - Feedback: generated sound effects, hitstop, dummy hit-stun, hit flash, impact rings, and a small procedural particle system.
-- Full sandbox restart: reset now restores player, enemies, particles, hitstop, slash preview, and transient effects.
+- Full sandbox restart: reset restores player, enemies, particles, hitstop, slash previews, and transient effects.
+- Draft storyline documentation under `docs/storylines/`, with the current primary arc focused on AI agency, embodiment, mathematics, collaboration, and ethical compromise.
 
 ## Install requirements
 
 Install Rust from <https://rustup.rs/>.
 
-This project depends on Macroquad for the tiny graphics/input/audio shell.
+This project depends on Bevy for the graphics/input/audio shell. The movement/collision core remains in `ambition_engine`.
 
 ## Run
 
@@ -34,7 +35,7 @@ From this directory:
 cargo run -p ambition_sandbox --release
 ```
 
-The first build will download and compile Macroquad. After that, rebuilds should be much faster.
+The first build will download and compile Bevy. After that, rebuilds should be much faster.
 
 ## Controls
 
@@ -75,17 +76,33 @@ Planned gamepad mapping:
 | Back / Touchpad | Inventory/select; sandbox restart for now |
 | Start / Options | Pause / menu |
 
+## Storyline drafts
+
+Narrative notes live in `docs/storylines/`. This is intentional: Ambition may support multiple storylines, and the Ambition Engine should remain generic enough to express different arcs through data, world-state transforms, generated rooms, dialogue/events, and ability framing.
+
+The current primary draft is `docs/storylines/primary_ai_agency.md`. It preserves the core concept: the player is an AI-like entity discovering agency through movement, embodiment, human collaboration, mathematical theorems, and ethical funding choices.
+
 ## Sound and particles
 
-All sound effects are generated at startup from compact synth recipes and loaded through Macroquad audio. There are no audio files in the repo. The approach mirrors the earlier pygame experiment: symbolic sound specs render to PCM/WAV data, then the runtime plays the cached/generated sound object.
+All sound effects are generated at startup from compact synth recipes and registered as Bevy `AudioSource` assets. There are no audio files in the repo. Playback spawns `AudioPlayer` entities with `PlaybackSettings::DESPAWN` for one-shot cleanup.
 
-The particle system is deliberately tiny and code-first. It uses draw primitives only: sparks, dust, shards, and rings. It is not a reason to upgrade frameworks yet; Macroquad is enough for this prototype. If Ambition later needs thousands of GPU particles, collision-aware particle fields, or shader-driven effects, that would be the point to consider a Bevy/wgpu renderer.
+The particle system is deliberately tiny and code-first. Each particle is a Bevy sprite entity with position, velocity, lifetime, color, gravity, drag, and kind. This is enough for movement feedback. If Ambition later needs massive GPU particle fields or shader-driven visual effects, the next step is a Bevy GPU particle backend or custom wgpu pipeline.
 
 ## Movement tuning
 
-Movement constants now live behind `MovementTuning` / `DEFAULT_TUNING` in `ambition_engine`. The public `update_player` function uses the default tuning, while `update_player_with_tuning` exists for later per-character, per-room, or experimental tuning passes.
+Movement constants live behind `MovementTuning` / `DEFAULT_TUNING` in `ambition_engine`. The public `update_player` function uses the default tuning, while `update_player_with_tuning` exists for later per-character, per-room, or experimental tuning passes.
 
-This pass is a little snappier than the previous one: stronger acceleration/deceleration, slightly faster dash, one air jump, pogo/rebound refreshes, and impact hitstop when attacks land.
+## Bevy port notes
+
+This version ports the sandbox shell from Macroquad to Bevy 0.18.1. The architecture is now split across Bevy resources, components, and systems:
+
+- `GameWorld`: generated room data from Ambition Engine.
+- `SandboxRuntime`: player, enemies, presets, pause/slowmo/debug state, hitstop.
+- Sprite entities: blocks, player, dummies, particles, impacts, slash previews.
+- Bevy audio assets: generated WAV bytes stored as `AudioSource` handles.
+- UI text: fixed debug HUD.
+
+The movement engine intentionally stays backend-neutral.
 
 ## Design target
 
@@ -93,19 +110,18 @@ The sandbox is intentionally an endgame lab, not a first level. The question it 
 
 > If the player had the full movement kit, would this still be fun after 100 hours?
 
-The current answer is only a sketch, but the code is structured to make iteration fast.
-
 ## Next good changes
 
-1. Add real user-editable keybinding config, likely RON/TOML.
-2. Add gamepad input once the keyboard presets feel right.
+1. Add user-editable keybinding config, likely RON/TOML.
+2. Add gamepad input now that Bevy is the backend.
 3. Add sloped collision / continuous rebound normals.
 4. Add user-visible tuning sliders/hotkeys for gravity, run speed, dash speed, and jump speed.
 5. Add a grappling/tether primitive.
 6. Add an input recorder and ghost replay.
 7. Add a deterministic seed format for room generation.
-8. Add a procedural music layer using the same generated-audio pattern as SFX.
-9. Add automated reachability tests for generated rooms.
+8. Add procedural music using the same generated-audio pattern as SFX.
+9. Add a backend-neutral story/world-state event log.
+10. Add automated reachability tests for generated rooms.
 
 ## Workspace layout
 
@@ -122,8 +138,7 @@ ambition/
     input_model.md
     audio_particles.md
     ai_generation_contract.md
+    storylines/
+      README.md
+      primary_ai_agency.md
 ```
-
-## Audio note
-
-The sandbox enables Macroquad's optional `audio` feature so generated SFX play at runtime. If you see `macroquad's "audio" feature disabled`, check `crates/ambition_sandbox/Cargo.toml` and ensure Macroquad is declared with `features = ["audio"]`.

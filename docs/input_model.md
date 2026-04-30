@@ -48,7 +48,7 @@ into Ambition's terminology.
 
 ## Implementation note
 
-The current implementation lives in `crates/ambition_sandbox/src/main.rs` as
+The current Bevy implementation lives in `crates/ambition_sandbox/src/main.rs` as
 `KeyboardPreset`, `MovementKeys`, `ActionKeys`, and `ControlFrame`. The engine
 still consumes a compact `InputState`, so key remapping can evolve without
 coupling movement physics to physical devices.

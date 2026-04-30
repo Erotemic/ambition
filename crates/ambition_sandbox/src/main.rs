@@ -232,12 +232,25 @@ fn sandbox_update(
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
     runtime.update_time_scale(frame_dt);
     let dt = sandbox_dt(&runtime, frame_dt);
-    runtime.moving_platform.update(dt);
+    let platform_delta = runtime.moving_platform.update(dt);
+    if runtime.moving_platform.is_riding(&runtime.player) {
+        runtime.player.pos += platform_delta;
+    }
+    let collision_world = platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
 
     if controls.reset_pressed {
         reset_sandbox(&mut commands, &world.0, &bank, &mut runtime);
     } else {
-        update_player_and_feedback(&mut commands, &world.0, &bank, &mut runtime, controls, dt);
+        update_player_and_feedback(
+            &mut commands,
+            &world.0,
+            &collision_world,
+            &bank,
+            &mut runtime,
+            controls,
+            frame_dt,
+            dt,
+        );
     }
 
     if controls.attack_pressed || controls.pogo_pressed {
@@ -298,31 +311,33 @@ fn reset_sandbox(
 
 fn update_player_and_feedback(
     commands: &mut Commands,
-    world: &ae::World,
+    render_world: &ae::World,
+    collision_world: &ae::World,
     bank: &SoundBank,
     runtime: &mut SandboxRuntime,
     controls: ControlFrame,
+    frame_dt: f32,
     dt: f32,
 ) {
     let was_grounded = runtime.player.on_ground;
-    let events = ae::update_player(world, &mut runtime.player, controls.engine_input(), dt);
+    let events = ae::update_player(collision_world, &mut runtime.player, controls.engine_input(frame_dt), dt);
     if events.reset {
-        reset_sandbox(commands, world, bank, runtime);
+        reset_sandbox(commands, render_world, bank, runtime);
         return;
     }
     for op in &events.operations {
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
                 play_sound(commands, bank, SoundCue::Jump);
-                spawn_dust(commands, world, runtime.player.pos, runtime.player.facing);
+                spawn_dust(commands, render_world, runtime.player.pos, runtime.player.facing);
             }
             ae::MovementOp::DoubleJump => {
                 play_sound(commands, bank, SoundCue::DoubleJump);
-                spawn_burst(commands, world, runtime.player.pos, 14, 210.0, [0.70, 1.0, 0.86, 0.82], ParticleKind::Dust);
+                spawn_burst(commands, render_world, runtime.player.pos, 14, 210.0, [0.70, 1.0, 0.86, 0.82], ParticleKind::Dust);
             }
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
                 play_sound(commands, bank, SoundCue::Dash);
-                spawn_burst(commands, world, runtime.player.pos, 10, 330.0, [1.0, 0.86, 0.38, 0.90], ParticleKind::Spark);
+                spawn_burst(commands, render_world, runtime.player.pos, 10, 330.0, [1.0, 0.86, 0.38, 0.90], ParticleKind::Spark);
             }
             ae::MovementOp::Blink | ae::MovementOp::PrecisionBlink => {
                 // Blink visuals use the explicit `events.blinks` endpoint data below.
@@ -342,7 +357,7 @@ fn update_player_and_feedback(
             bank,
             if blink.precision { SoundCue::PrecisionBlink } else { SoundCue::Blink },
         );
-        spawn_blink_effects(commands, world, blink.from, blink.to, blink.precision);
+        spawn_blink_effects(commands, render_world, blink.from, blink.to, blink.precision);
     }
     if events.hazard || !events.operations.is_empty() {
         runtime.flash_timer = 0.12;
@@ -350,7 +365,7 @@ fn update_player_and_feedback(
     if !was_grounded && runtime.player.on_ground {
         spawn_dust(
             commands,
-            world,
+            render_world,
             runtime.player.pos + ae::Vec2::new(0.0, runtime.player.size.y * 0.5),
             runtime.player.facing,
         );

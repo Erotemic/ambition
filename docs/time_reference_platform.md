@@ -27,3 +27,11 @@ cursor is currently updated inside the engine simulation step, its aim speed is
 compensated upward. A cleaner later refactor would separate **world simulation
 dt** from **aim/user-interface dt**, so precision aim can remain responsive even
 when the world is nearly stopped.
+
+## Rideable collision experiment
+
+The moving platform is now inserted into a temporary collision-world clone each
+frame so the player can collide with it and ride it. The platform is still a
+sandbox experiment rather than a permanent `ambition_engine` moving-solid
+primitive. The next engine-level step is to add tests for carrying, pushing,
+crushing, one-way moving platforms, and blink interaction.

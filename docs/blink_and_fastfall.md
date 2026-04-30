@@ -57,3 +57,15 @@ A bug in the first moving-platform pass made the platform freeze while the playe
 Regression coverage: `tiny_dt_preserves_bullet_time_scale` checks that a very small timestep produces proportionally small gravity instead of being rounded up to normal simulation speed.
 
 Current tuning: quick-to-precision transition threshold is about `0.1s`.
+
+## Real-time precision cursor
+
+Precision blink aim now uses unscaled control time. The player, enemies,
+particles, and moving platform can run in near-frozen game time while the blink
+cursor still moves as a responsive input/UI control. This keeps bullet time
+slow enough to read while avoiding a cursor that crawls across the screen.
+
+When a hard blocker prevents the requested blink, the debug overlay now shows
+both the raw desired cursor and the safe resolved destination. The resolved
+magenta box is where the player will actually land; the red box/line indicates
+where the requested target was blocked.

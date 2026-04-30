@@ -1,10 +1,10 @@
 //! Simple moving-platform test/reference objects.
 //!
-//! For this iteration the moving platform is deliberately sandbox-side: it is
-//! a visible metronome for time-scale tuning, not yet part of the collision
-//! simulation. Keeping it here avoids mixing presentation experiments into the
-//! pure movement engine until we decide how moving solids should carry/push the
-//! player.
+//! The moving platform remains sandbox-side as a design experiment, but it now
+//! contributes a temporary solid block to the engine collision world each frame.
+//! That gives us rideable/collidable behavior without committing moving-solid
+//! semantics to `ambition_engine` before we have tests for carrying, crushing,
+//! and one-way platform interactions.
 
 use ambition_engine as ae;
 use bevy::math::Vec2 as BVec2;
@@ -37,7 +37,9 @@ impl MovingPlatformState {
         }
     }
 
-    pub fn update(&mut self, dt: f32) {
+    /// Advance the platform and return its displacement this frame.
+    pub fn update(&mut self, dt: f32) -> ae::Vec2 {
+        let old = self.pos;
         self.pos.x += self.speed * self.dir * dt;
         if self.pos.x > self.max_x {
             self.pos.x = self.max_x;
@@ -46,7 +48,44 @@ impl MovingPlatformState {
             self.pos.x = self.min_x;
             self.dir = 1.0;
         }
+        self.pos - old
     }
+
+    pub fn aabb(&self) -> ae::Aabb {
+        ae::Aabb::new(self.pos, self.size * 0.5)
+    }
+
+    pub fn as_collision_block(&self) -> ae::Block {
+        ae::Block {
+            name: "moving time-reference platform",
+            aabb: self.aabb(),
+            kind: ae::BlockKind::Solid,
+        }
+    }
+
+    /// Detect whether the player was riding this platform at the start of a
+    /// frame. We carry the player by the platform delta before collision
+    /// resolution so standing on it feels stable.
+    pub fn is_riding(&self, player: &ae::Player) -> bool {
+        if !player.on_ground {
+            return false;
+        }
+        let player_box = player.aabb();
+        let platform_box = self.aabb();
+        let horizontally_overlapping = player_box.right() > platform_box.left() + 3.0
+            && player_box.left() < platform_box.right() - 3.0;
+        let feet_near_top = (player_box.bottom() - platform_box.top()).abs() <= 6.0;
+        horizontally_overlapping && feet_near_top
+    }
+}
+
+/// Return a temporary collision world with the current moving platform inserted
+/// as a solid block. This keeps the engine API simple while still making the
+/// Bevy sandbox platform rideable/collidable.
+pub fn world_with_moving_platform(world: &ae::World, platform: &MovingPlatformState) -> ae::World {
+    let mut collision_world = world.clone();
+    collision_world.blocks.push(platform.as_collision_block());
+    collision_world
 }
 
 #[derive(Component)]

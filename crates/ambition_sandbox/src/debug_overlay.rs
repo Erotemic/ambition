@@ -36,6 +36,7 @@ pub fn draw_debug_overlay(
     let world = &world.0;
     draw_room_bounds(&mut gizmos, world);
     draw_rebound_vectors(&mut gizmos, world);
+    draw_moving_platform_debug(&mut gizmos, world, &runtime);
     draw_player_debug(&mut gizmos, world, &runtime, &keys);
     draw_dummy_debug(&mut gizmos, world, &runtime);
 }
@@ -93,16 +94,27 @@ fn draw_player_debug(
     // crosses the threshold, the engine sets `blink_aiming` and the sandbox
     // enters bullet-time while previewing the longer precision destination.
     if controls.blink_held || player.blink_aiming {
-        let target = if player.blink_aiming {
-            ae::blink_destination_to_point(world, player, player.pos + player.blink_aim_offset)
+        let (desired, target) = if player.blink_aiming {
+            let desired = player.pos + player.blink_aim_offset;
+            let target = ae::blink_destination_to_point(world, player, desired);
+            (desired, target)
         } else {
             let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
                 .normalized_or(ae::Vec2::new(player.facing, 0.0));
-            ae::blink_destination(world, player, aim, ae::BLINK_DISTANCE)
+            let desired = player.pos + aim * ae::BLINK_DISTANCE;
+            let target = ae::blink_destination(world, player, aim, ae::BLINK_DISTANCE);
+            (desired, target)
         };
         let target_center = w2(world, target);
         draw_arrow(gizmos, center, target_center, magenta());
         draw_aabb(gizmos, world, ae::Aabb::new(target, player.size * 0.5), magenta());
+        // Raw desired cursor: useful when a hard wall blocks the actual blink.
+        // If the raw cursor and safe destination diverge, the blocked segment
+        // becomes obvious rather than feeling like the cursor is buggy.
+        if (desired - target).length_squared() > 4.0 {
+            draw_aabb(gizmos, world, ae::Aabb::new(desired, player.size * 0.35), red());
+            gizmos.line_2d(w2(world, desired), target_center, red());
+        }
     }
 
     // Small status ticks above the player: dash and air jump availability.
@@ -123,6 +135,13 @@ fn draw_player_debug(
         let b = w2(world, ae::Vec2::new(x0 + 7.0, meter_y));
         gizmos.line_2d(a, b, color);
     }
+}
+
+fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
+    let aabb = runtime.moving_platform.aabb();
+    draw_aabb(gizmos, world, aabb, blue());
+    let center = w2(world, aabb.center);
+    draw_arrow(gizmos, center, center + BVec2::new(44.0, 0.0), blue());
 }
 
 fn draw_dummy_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {

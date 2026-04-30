@@ -271,7 +271,7 @@ impl ControlFrame {
         }
     }
 
-    pub fn engine_input(self) -> ae::InputState {
+    pub fn engine_input(self, control_dt: f32) -> ae::InputState {
         ae::InputState {
             axis_x: self.axis_x,
             axis_y: self.axis_y,
@@ -286,6 +286,7 @@ impl ControlFrame {
             attack_pressed: self.attack_pressed,
             pogo_pressed: self.pogo_pressed,
             reset_pressed: false,
+            control_dt,
         }
     }
 }

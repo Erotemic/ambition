@@ -293,6 +293,12 @@ pub struct InputState {
     /// `attack_pressed` so layouts can expose four main face-button verbs.
     pub pogo_pressed: bool,
     pub reset_pressed: bool,
+    /// Real, unscaled frame duration supplied by the presentation layer.
+    ///
+    /// Most simulation uses the scaled `raw_dt`, but precision-blink aiming is
+    /// a control/UI gesture: the cursor should stay responsive even when game
+    /// time is nearly frozen. If zero, the engine falls back to scaled dt.
+    pub control_dt: f32,
 }
 
 /// Engine event emitted when a blink teleports the player.
@@ -339,7 +345,7 @@ pub const DASH_TIME: f32 = 0.105;
 pub const DASH_COOLDOWN: f32 = 0.060;
 pub const BLINK_DISTANCE: f32 = 190.0;
 pub const PRECISION_BLINK_DISTANCE: f32 = 430.0;
-pub const PRECISION_BLINK_AIM_SPEED: f32 = 1_450_000.0;
+pub const PRECISION_BLINK_AIM_SPEED: f32 = 1_650.0;
 /// Hold duration before blink switches from quick 8-direction release to precision aim.
 ///
 /// Keep this short so the player can deliberately enter granular blink control
@@ -518,14 +524,22 @@ fn handle_blink(
     }
 
     if player.blink_hold_active && input.blink_held {
-        player.blink_hold_timer += dt;
+        // Blink hold/aim uses unscaled control time when supplied. During
+        // precision blink, physics can be nearly frozen, but the destination
+        // cursor should still feel like a responsive UI control.
+        let control_dt = if input.control_dt > 0.0 {
+            input.control_dt.min(1.0 / 20.0)
+        } else {
+            dt
+        };
+        player.blink_hold_timer += control_dt;
         if player.abilities.precision_blink && player.blink_hold_timer >= tuning.blink_hold_threshold {
             player.blink_aiming = true;
         }
         if player.blink_aiming {
             let aim_input = Vec2::new(input.axis_x, input.axis_y);
             if aim_input.length_squared() > 0.01 {
-                player.blink_aim_offset += aim_input * (tuning.precision_blink_aim_speed * dt);
+                player.blink_aim_offset += aim_input * (tuning.precision_blink_aim_speed * control_dt);
                 player.blink_aim_offset = player.blink_aim_offset.clamp_length_max(tuning.precision_blink_distance);
             }
         }

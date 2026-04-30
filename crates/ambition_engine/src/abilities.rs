@@ -38,6 +38,10 @@ pub struct AbilitySet {
     pub dash: bool,
     /// Upgrade that gives two dash charges before refresh.
     pub double_dash: bool,
+    /// Free-flight sandbox/test movement mode. When toggled on, movement input
+    /// applies acceleration toward a terminal velocity instead of normal
+    /// ground/air platformer steering.
+    pub fly: bool,
     /// Short-range teleport. Quick release blinks immediately along input/facing.
     pub blink: bool,
     /// Upgrade for blink: holding the blink button enters aim/bullet-time mode
@@ -80,6 +84,7 @@ impl AbilitySet {
             wall_climb: false,
             dash: false,
             double_dash: false,
+            fly: false,
             blink: false,
             precision_blink: false,
             blink_through_soft_walls: false,
@@ -106,6 +111,7 @@ impl AbilitySet {
             wall_climb: true,
             dash: true,
             double_dash: true,
+            fly: true,
             blink: true,
             precision_blink: true,
             blink_through_soft_walls: true,
@@ -137,6 +143,7 @@ impl AbilitySet {
             wall_climb: true,
             dash: true,
             double_dash: true,
+            fly: true,
             blink: true,
             precision_blink: true,
             blink_through_soft_walls: true,
@@ -183,6 +190,9 @@ impl AbilitySet {
         }
         if self.double_dash && !self.dash {
             warnings.push("double_dash is enabled but dash is disabled");
+        }
+        if self.fly && !self.move_horizontal {
+            warnings.push("fly is enabled but move_horizontal is disabled");
         }
         if self.precision_blink && !self.blink {
             warnings.push("precision_blink is enabled but blink is disabled");

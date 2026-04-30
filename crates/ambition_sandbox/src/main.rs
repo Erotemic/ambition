@@ -13,13 +13,14 @@ mod input;
 mod platforms;
 mod rendering;
 mod rooms;
+mod windowing;
 
 use ambition_engine as ae;
 use audio::{play_sound, SoundBank, SoundCue};
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
-use bevy::window::WindowResolution;
+use bevy::window::{PrimaryWindow, WindowResolution, WindowResizeConstraints};
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 
 const BULLET_TIME_SCALE: f32 = 0.000035;
@@ -44,11 +45,17 @@ fn main() {
         .insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .insert_resource(GameWorld(active_world))
         .insert_resource(room_set)
+        .insert_resource(windowing::DisplayModeState::default())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Ambition - Tangent Space Sandbox (Bevy)".into(),
                 resolution: WindowResolution::new(WINDOW_W, WINDOW_H),
                 resizable: true,
+                resize_constraints: WindowResizeConstraints {
+                    min_width: 640.0,
+                    min_height: 360.0,
+                    ..default()
+                },
                 ..default()
             }),
             ..default()
@@ -65,6 +72,7 @@ fn main() {
                 fx::update_particles,
                 fx::update_impacts,
                 fx::update_slash_previews,
+                windowing::window_mode_hotkeys,
                 update_hud,
             )
                 .chain(),
@@ -395,6 +403,9 @@ fn update_player_and_feedback(
             ae::MovementOp::Blink | ae::MovementOp::PrecisionBlink => {
                 // Blink visuals use the explicit `events.blinks` endpoint data below.
             }
+            ae::MovementOp::FlyToggle => {
+                spawn_burst(commands, render_world, runtime.player.pos, 12, 180.0, [0.45, 0.82, 1.0, 0.72], ParticleKind::Dust);
+            }
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
                 play_sound(commands, bank, SoundCue::Pogo);
             }
@@ -482,6 +493,8 @@ fn update_hud(
     runtime: Res<SandboxRuntime>,
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
+    display_mode: Res<windowing::DisplayModeState>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
@@ -509,13 +522,17 @@ fn update_hud(
     for (physical, semantic) in GAMEPAD_MAP.iter().take(6) {
         gamepad.push_str(&format!("{} = {}  ", physical, semantic));
     }
+    let window_line = windows
+        .single()
+        .map(|w| format!("window: {:.0}x{:.0} {}", w.width(), w.height(), display_mode.label()))
+        .unwrap_or_else(|_| format!("window: unknown {}", display_mode.label()));
     let flash_line = if runtime.preset_flash > 0.0 {
         format!("\nPRESET: {}", preset.name)
     } else {
         String::new()
     };
     **text = format!(
-        "{}\nroom: {}  active {}/{}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nroom: {}  active {}/{}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F6 windowed  F7 borderless  F8 fullscreen  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\ngamepad target: {}{}",
         world.0.name,
         "Bevy backend",
         room_set.active + 1,
@@ -532,6 +549,7 @@ fn update_hud(
         runtime.player.air_jumps_available,
         runtime.player.blink_cooldown,
         runtime.player.blink_aiming,
+        runtime.player.fly_enabled,
         runtime.player.fast_falling,
         runtime.player.wall_clinging,
         runtime.player.wall_climbing,
@@ -546,6 +564,7 @@ fn update_hud(
         runtime.freeze,
         runtime.hitstop_timer,
         runtime.time_scale,
+        window_line,
         dummies,
         gamepad,
         flash_line,

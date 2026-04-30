@@ -41,14 +41,14 @@ The first build will download and compile Bevy. After that, rebuilds should be m
 
 The sandbox treats keyboard layouts as presets that map onto semantic actions and a future console/gamepad layout.
 
-`F9` cycles to the previous preset. `F10` cycles to the next preset.
+`F9` cycles to the previous preset. `F10` cycles to the next preset. The current preset utility key toggles Fly mode; in the default classic preset this is `D`.
 
-| Preset | Movement | Jump | Attack | Dash | Pogo |
-|---|---|---|---|---|---|
-| Classic action | Arrow keys | `Z` | `X` | `C` | Down + `X` |
-| Custom PC | `WASD` | `Space` | `J` | `K` | Down + `J` |
-| Chirality A | Arrow keys | `Q` | `E` | `W` | `R` or Down + `E` |
-| Chirality B | `WASD` | `U` | `P` | `I` | `O` or Down + `P` |
+| Preset | Movement | Jump | Attack | Dash | Blink | Fly | Pogo |
+|---|---|---|---|---|---|---|---|
+| Classic action | Arrow keys | `Z` | `X` | `C` | `A` | `D` | Down + `X` |
+| Custom PC | `WASD` | `Space` | `J` | `K` | `L` | `U` | Down + `J` |
+| Chirality A | Arrow keys | `Q` | `E` | `W` | `R` | none | Down + `E` |
+| Chirality B | `WASD` | `U` | `P` | `I` | `O` | none | Down + `P` |
 
 Universal controls:
 
@@ -162,3 +162,6 @@ The Bevy executable is the presentation/runtime layer. `ambition_engine` is the 
 Additional design notes:
 
 - `docs/rooms_and_camera.md` describes the first scrolling-room and loading-zone prototype.
+
+- Display/window scaling notes: `docs/display_modes.md
+- docs/fly_and_room_hub.md`

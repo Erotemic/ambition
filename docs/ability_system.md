@@ -68,3 +68,9 @@ The sandbox is an endgame feel lab, so it should keep all abilities enabled by
 default unless a test preset or debug menu says otherwise.
 
 See also: [Sane maximalist subset](ability_subset.md).
+
+## Fly toggle
+
+`AbilitySet::fly` enables a sandbox/test free-flight mode. It is intentionally optional and should not be assumed to exist in story progression. In the Bevy sandbox the current preset utility key toggles it; the default classic preset uses `D`.
+
+Flight replaces normal gravity with acceleration toward a terminal velocity. With no vertical input, the engine aims for a small oscillating hover velocity so the player bobs gently instead of locking to a static point.

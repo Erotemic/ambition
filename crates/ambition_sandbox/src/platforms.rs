@@ -27,12 +27,15 @@ pub struct MovingPlatformState {
 impl MovingPlatformState {
     /// Place the reference platform high enough to be visible from spawn, but
     /// away from the immediate dummy/combat lane.
-    pub fn time_reference(_world: &ae::World) -> Self {
+    pub fn time_reference(world: &ae::World) -> Self {
+        let min_x = (world.size.x * 0.28).max(100.0);
+        let max_x = (world.size.x * 0.48).max(min_x + 180.0);
+        let y = (world.size.y * 0.60).min(world.size.y - 210.0).max(170.0);
         Self {
-            pos: ae::Vec2::new(470.0, 560.0),
+            pos: ae::Vec2::new(min_x, y),
             size: ae::Vec2::new(155.0, 18.0),
-            min_x: 350.0,
-            max_x: 690.0,
+            min_x,
+            max_x,
             speed: 130.0,
             dir: 1.0,
         }

@@ -64,3 +64,14 @@ The main-lab return spawn is intentionally placed left of the archive entrance
 zone rather than inside it. Moving-platform visuals are tagged as room visuals,
 so they are despawned and respawned with the active room instead of persisting
 across transitions.
+
+## Hub-and-test-room layout
+
+The current room graph starts in a central hub. The hub has loading zones to:
+
+- the original large horizontal scroll lab,
+- a tall vertical shaft,
+- a large square arena,
+- a compact tiny chamber.
+
+Each room has a return loading zone back to the hub with an explicit destination spawn point and transition cooldown. This keeps the first implementation simple while still testing camera clamping, scrolling in both axes, and disconnected-room transitions.

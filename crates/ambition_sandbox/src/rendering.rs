@@ -7,8 +7,9 @@
 use ambition_engine as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 
-use crate::config::{world_to_bevy, GRID_STEP, WINDOW_H, WINDOW_W, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::rooms::LoadingZone;
 use crate::dummies::{Dummy, DummyKind};
 
@@ -140,11 +141,21 @@ pub fn dummy_color(dummy: &Dummy) -> Color {
 pub fn camera_follow(
     world: Res<crate::GameWorld>,
     runtime: Res<crate::SandboxRuntime>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<&mut Transform, (With<Camera>, Without<PlayerVisual>)>,
 ) {
     let target = world_to_bevy(&world.0, runtime.player.pos, 0.0);
-    let half_view_w = WINDOW_W as f32 * 0.5;
-    let half_view_h = WINDOW_H as f32 * 0.5;
+
+    // Use the actual logical window size so resized, borderless, and fullscreen
+    // windows clamp the camera correctly. This preserves the current 1 world
+    // unit ~= 1 logical pixel convention while letting larger windows reveal
+    // more of the room instead of stretching the game.
+    let (view_w, view_h) = windows
+        .single()
+        .map(|w| (w.width(), w.height()))
+        .unwrap_or((crate::config::WINDOW_W as f32, crate::config::WINDOW_H as f32));
+    let half_view_w = view_w * 0.5;
+    let half_view_h = view_h * 0.5;
     let min_x = -world.0.size.x * 0.5 + half_view_w;
     let max_x = world.0.size.x * 0.5 - half_view_w;
     let min_y = -world.0.size.y * 0.5 + half_view_h;

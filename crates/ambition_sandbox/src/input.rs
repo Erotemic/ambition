@@ -187,7 +187,7 @@ impl KeyboardPreset {
             ("Blink", self.actions.secondary),
             ("Quick", self.actions.quick_action),
             ("Modifier", self.actions.modifier),
-            ("Utility", self.actions.utility),
+            ("Fly", self.actions.utility),
             ("Map", self.actions.map),
             ("Inventory", self.actions.inventory),
             ("Select", Some(self.actions.select_reset)),
@@ -220,6 +220,7 @@ pub struct ControlFrame {
     pub blink_released: bool,
     pub attack_pressed: bool,
     pub pogo_pressed: bool,
+    pub fly_toggle_pressed: bool,
     pub reset_pressed: bool,
     pub start_pressed: bool,
 }
@@ -245,6 +246,11 @@ impl ControlFrame {
         let blink_pressed = blink_key.map(|key| keys.just_pressed(key)).unwrap_or(false);
         let blink_held = blink_key.map(|key| keys.pressed(key)).unwrap_or(false);
         let blink_released = blink_key.map(|key| keys.just_released(key)).unwrap_or(false);
+        let fly_toggle_pressed = preset
+            .actions
+            .utility
+            .map(|key| keys.just_pressed(key))
+            .unwrap_or(false);
         let reset_pressed = keys.just_pressed(preset.actions.select_reset)
             || keys.just_pressed(KeyCode::Delete)
             || keys.just_pressed(KeyCode::Backspace);
@@ -266,6 +272,7 @@ impl ControlFrame {
                 .dedicated_pogo
                 .map(|key| keys.just_pressed(key))
                 .unwrap_or(false),
+            fly_toggle_pressed,
             reset_pressed,
             start_pressed: keys.just_pressed(preset.actions.pause),
         }
@@ -279,6 +286,7 @@ impl ControlFrame {
             jump_held: self.jump_held,
             jump_released: self.jump_released,
             dash_pressed: self.dash_pressed,
+            fly_toggle_pressed: self.fly_toggle_pressed,
             blink_pressed: self.blink_pressed,
             blink_held: self.blink_held,
             blink_released: self.blink_released,
@@ -299,7 +307,7 @@ pub const GAMEPAD_MAP: &[(&str, &str)] = &[
     ("B / Circle", "blink / special"),
     ("RB / R1", "quick action placeholder"),
     ("LT / L2", "modifier placeholder"),
-    ("Y / Triangle", "utility action placeholder"),
+    ("Y / Triangle", "fly toggle / utility"),
     ("LB / L1", "map placeholder"),
     ("Back / Touchpad", "inventory or sandbox reset"),
     ("Start / Options", "pause / menu"),

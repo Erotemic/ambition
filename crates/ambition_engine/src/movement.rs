@@ -29,6 +29,7 @@ pub enum MovementOp {
     WallClimb,
     Dash,
     DoubleDash,
+    FlyToggle,
     Blink,
     PrecisionBlink,
     Pogo,
@@ -47,6 +48,7 @@ impl MovementOp {
             MovementOp::WallClimb => "W^",
             MovementOp::Dash => "D",
             MovementOp::DoubleDash => "DD",
+            MovementOp::FlyToggle => "F",
             MovementOp::Blink => "B",
             MovementOp::PrecisionBlink => "PB",
             MovementOp::Pogo => "P",
@@ -65,6 +67,7 @@ impl MovementOp {
             MovementOp::WallClimb => "wall climb",
             MovementOp::Dash => "dash",
             MovementOp::DoubleDash => "double dash",
+            MovementOp::FlyToggle => "fly toggle",
             MovementOp::Blink => "blink",
             MovementOp::PrecisionBlink => "precision blink",
             MovementOp::Pogo => "pogo",
@@ -110,6 +113,11 @@ pub struct Player {
     /// Number of dash charges available before the next refresh.
     pub dash_charges_available: u8,
     pub air_jumps_available: u8,
+    /// True while free-flight mode is toggled on. Flight is intentionally
+    /// floaty/accelerative rather than pixel-precise movement.
+    pub fly_enabled: bool,
+    /// Phase accumulator for the subtle idle hover bob while flying.
+    pub flight_phase: f32,
     /// Time until blink can be started again.
     pub blink_cooldown: f32,
     /// True while the blink/special button is being held for quick/precision blink.
@@ -163,6 +171,8 @@ impl Player {
             dash_available: dash_charges > 0,
             dash_charges_available: dash_charges,
             air_jumps_available: abilities.air_jump_count(DEFAULT_TUNING.air_jumps),
+            fly_enabled: false,
+            flight_phase: 0.0,
             blink_cooldown: 0.0,
             blink_hold_active: false,
             blink_hold_timer: 0.0,
@@ -279,6 +289,8 @@ pub struct InputState {
     pub jump_held: bool,
     pub jump_released: bool,
     pub dash_pressed: bool,
+    /// Toggle free-flight mode when the ability is enabled.
+    pub fly_toggle_pressed: bool,
     /// Blink/special button pressed this frame.
     pub blink_pressed: bool,
     /// Blink/special button held this frame.
@@ -354,6 +366,11 @@ pub const BLINK_HOLD_THRESHOLD: f32 = 0.100;
 pub const BLINK_COOLDOWN: f32 = 0.180;
 pub const FAST_FALL_ACCEL: f32 = 1850.0;
 pub const FAST_FALL_SPEED: f32 = 1380.0;
+pub const FLIGHT_ACCEL: f32 = 900.0;
+pub const FLIGHT_DRAG: f32 = 520.0;
+pub const FLIGHT_TERMINAL_SPEED: f32 = 430.0;
+pub const FLIGHT_HOVER_SPEED: f32 = 42.0;
+pub const FLIGHT_HOVER_HZ: f32 = 0.85;
 pub const COYOTE_TIME: f32 = 0.120;
 pub const JUMP_BUFFER: f32 = 0.135;
 pub const POGO_SPEED: f32 = 810.0;
@@ -385,6 +402,11 @@ pub struct MovementTuning {
     pub blink_cooldown: f32,
     pub fast_fall_accel: f32,
     pub fast_fall_speed: f32,
+    pub flight_accel: f32,
+    pub flight_drag: f32,
+    pub flight_terminal_speed: f32,
+    pub flight_hover_speed: f32,
+    pub flight_hover_hz: f32,
     pub coyote_time: f32,
     pub jump_buffer: f32,
     pub pogo_speed: f32,
@@ -415,6 +437,11 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     blink_cooldown: BLINK_COOLDOWN,
     fast_fall_accel: FAST_FALL_ACCEL,
     fast_fall_speed: FAST_FALL_SPEED,
+    flight_accel: FLIGHT_ACCEL,
+    flight_drag: FLIGHT_DRAG,
+    flight_terminal_speed: FLIGHT_TERMINAL_SPEED,
+    flight_hover_speed: FLIGHT_HOVER_SPEED,
+    flight_hover_hz: FLIGHT_HOVER_HZ,
     coyote_time: COYOTE_TIME,
     jump_buffer: JUMP_BUFFER,
     pogo_speed: POGO_SPEED,
@@ -453,6 +480,7 @@ pub fn update_player_with_tuning(
     }
 
     age_player(player, dt);
+    handle_mode_toggles(player, input, &mut events);
     update_facing_and_timers(player, input, dt, tuning);
     handle_blink(world, player, input, dt, tuning, &mut events);
     handle_attacks(world, player, input, tuning, &mut events);
@@ -499,6 +527,18 @@ fn update_facing_and_timers(player: &mut Player, input: InputState, dt: f32, tun
     }
 }
 
+fn handle_mode_toggles(player: &mut Player, input: InputState, events: &mut FrameEvents) {
+    if input.fly_toggle_pressed && player.abilities.fly {
+        player.fly_enabled = !player.fly_enabled;
+        if player.fly_enabled {
+            player.fast_falling = false;
+            player.wall_clinging = false;
+            player.wall_climbing = false;
+            player.dash_timer = 0.0;
+        }
+        events.op(player, MovementOp::FlyToggle);
+    }
+}
 
 fn handle_blink(
     world: &World,
@@ -679,6 +719,8 @@ fn integrate_velocity(
 ) {
     if player.dash_timer > 0.0 {
         player.dash_timer = dec(player.dash_timer, dt);
+    } else if player.fly_enabled && player.abilities.fly {
+        integrate_flight(player, input, dt, tuning);
     } else {
         player.vel.y += tuning.gravity * dt;
         if input.fast_fall_pressed && player.abilities.fast_fall && !player.on_ground {
@@ -687,25 +729,25 @@ fn integrate_velocity(
         if player.fast_falling {
             player.vel.y += tuning.fast_fall_accel * dt;
         }
-    }
 
-    if player.abilities.move_horizontal {
-        let accel = if player.on_ground { tuning.run_accel } else { tuning.air_accel };
-        let target_vx = input.axis_x * tuning.max_run_speed;
-        player.vel.x = approach(player.vel.x, target_vx, accel * dt);
+        if player.abilities.move_horizontal {
+            let accel = if player.on_ground { tuning.run_accel } else { tuning.air_accel };
+            let target_vx = input.axis_x * tuning.max_run_speed;
+            player.vel.x = approach(player.vel.x, target_vx, accel * dt);
 
-        let friction = if player.on_ground { tuning.ground_friction } else { tuning.air_friction };
-        if input.axis_x.abs() <= 0.1 {
-            player.vel.x = approach(player.vel.x, 0.0, friction * dt);
+            let friction = if player.on_ground { tuning.ground_friction } else { tuning.air_friction };
+            if input.axis_x.abs() <= 0.1 {
+                player.vel.x = approach(player.vel.x, 0.0, friction * dt);
+            }
         }
-    }
 
-    let fall_cap = if player.fast_falling {
-        tuning.fast_fall_speed
-    } else {
-        tuning.max_fall_speed
-    };
-    player.vel.y = player.vel.y.min(fall_cap);
+        let fall_cap = if player.fast_falling {
+            tuning.fast_fall_speed
+        } else {
+            tuning.max_fall_speed
+        };
+        player.vel.y = player.vel.y.min(fall_cap);
+    }
 
     // Resolve horizontal motion. This establishes wall contact for wall verbs.
     player.on_wall = false;
@@ -740,6 +782,32 @@ fn integrate_velocity(
             events.op(player, MovementOp::Rebound);
         }
     }
+}
+
+fn integrate_flight(player: &mut Player, input: InputState, dt: f32, tuning: MovementTuning) {
+    player.fast_falling = false;
+    player.wall_clinging = false;
+    player.wall_climbing = false;
+    player.flight_phase += dt * tuning.flight_hover_hz * std::f32::consts::TAU;
+
+    let target_x = input.axis_x * tuning.flight_terminal_speed;
+    let mut target_y = input.axis_y * tuning.flight_terminal_speed;
+    if input.axis_y.abs() <= 0.10 {
+        target_y = player.flight_phase.sin() * tuning.flight_hover_speed;
+    }
+
+    player.vel.x = approach(player.vel.x, target_x, tuning.flight_accel * dt);
+    player.vel.y = approach(player.vel.y, target_y, tuning.flight_accel * dt);
+
+    if input.axis_x.abs() <= 0.10 {
+        player.vel.x = approach(player.vel.x, 0.0, tuning.flight_drag * dt);
+    }
+    if input.axis_y.abs() <= 0.10 {
+        player.vel.y = approach(player.vel.y, target_y, tuning.flight_drag * dt);
+    }
+
+    player.vel.x = player.vel.x.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+    player.vel.y = player.vel.y.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
 }
 
 fn apply_wall_abilities(
@@ -1152,6 +1220,26 @@ mod tests {
         let pass_player = Player::new_with_abilities(Vec2::new(140.0, 140.0), pass_abilities);
         let passed = blink_destination_to_point(&world, &pass_player, Vec2::new(340.0, 140.0));
         assert!(passed.x > 300.0);
+    }
+
+    #[test]
+    fn fly_toggle_switches_mode_and_counters_gravity() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        assert!(!player.fly_enabled);
+        let events = step(&world, &mut player, InputState {
+            fly_toggle_pressed: true,
+            ..Default::default()
+        });
+        assert!(player.fly_enabled);
+        assert!(events.operations.contains(&MovementOp::FlyToggle));
+        player.on_ground = false;
+        player.vel = Vec2::ZERO;
+        step(&world, &mut player, InputState {
+            axis_y: -1.0,
+            ..Default::default()
+        });
+        assert!(player.vel.y < 0.0, "flying upward input should accelerate upward");
     }
 
 }

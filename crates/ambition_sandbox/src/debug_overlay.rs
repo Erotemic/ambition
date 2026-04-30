@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use crate::config::world_to_bevy;
 use crate::dummies::DummyKind;
 use crate::input::ControlFrame;
+use crate::platforms;
 use crate::{GameWorld, SandboxRuntime};
 
 fn cyan() -> Color { Color::srgba(0.30, 0.92, 1.00, 0.92) }
@@ -94,15 +95,19 @@ fn draw_player_debug(
     // crosses the threshold, the engine sets `blink_aiming` and the sandbox
     // enters bullet-time while previewing the longer precision destination.
     if controls.blink_held || player.blink_aiming {
+        // Use the same temporary collision world that drives player movement.
+        // Otherwise the preview can claim a blink is clear while release-time
+        // resolution stops on sandbox-only geometry such as the moving platform.
+        let blink_world = platforms::world_with_moving_platform(world, &runtime.moving_platform);
         let (desired, target) = if player.blink_aiming {
             let desired = player.pos + player.blink_aim_offset;
-            let target = ae::blink_destination_to_point(world, player, desired);
+            let target = ae::blink_destination_to_point(&blink_world, player, desired);
             (desired, target)
         } else {
             let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
                 .normalized_or(ae::Vec2::new(player.facing, 0.0));
             let desired = player.pos + aim * ae::BLINK_DISTANCE;
-            let target = ae::blink_destination(world, player, aim, ae::BLINK_DISTANCE);
+            let target = ae::blink_destination(&blink_world, player, aim, ae::BLINK_DISTANCE);
             (desired, target)
         };
         let target_center = w2(world, target);

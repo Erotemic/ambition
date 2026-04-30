@@ -69,3 +69,16 @@ When a hard blocker prevents the requested blink, the debug overlay now shows
 both the raw desired cursor and the safe resolved destination. The resolved
 magenta box is where the player will actually land; the red box/line indicates
 where the requested target was blocked.
+
+
+## Moving platforms and blink pathing
+
+The sandbox moving platform is intentionally solid for normal movement, so the
+player can collide with it and ride it. For blink pathing it is represented as a
+soft blink wall rather than a hard solid. This means an upgraded blink can pass
+through the moving platform, while the platform remains a real collision surface
+for walking, jumping, and wall-style contact tests.
+
+The debug blink preview must use the same temporary collision world as the actual
+player update. Otherwise the preview and the release-time blink resolution can
+disagree about sandbox-only geometry.

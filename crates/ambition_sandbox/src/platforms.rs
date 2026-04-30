@@ -59,7 +59,12 @@ impl MovingPlatformState {
         ae::Block {
             name: "moving time-reference platform",
             aabb: self.aabb(),
-            kind: ae::BlockKind::Solid,
+            // Moving platforms are ordinary solids for walking/riding because
+            // `BlockKind::BlinkWall` still resolves as solid collision on both
+            // axes. They are deliberately *not* hard blink blockers: if the
+            // player has the soft blink-through upgrade, blink pathing may pass
+            // through the moving platform just like a soft blink membrane.
+            kind: ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft },
         }
     }
 
@@ -79,9 +84,11 @@ impl MovingPlatformState {
     }
 }
 
-/// Return a temporary collision world with the current moving platform inserted
-/// as a solid block. This keeps the engine API simple while still making the
-/// Bevy sandbox platform rideable/collidable.
+/// Return a temporary collision world with the current moving platform inserted.
+///
+/// The inserted block is solid for normal collision, but blink-passable for
+/// upgraded blink pathing. This keeps the debug preview, blink destination
+/// resolution, and actual movement collision in agreement.
 pub fn world_with_moving_platform(world: &ae::World, platform: &MovingPlatformState) -> ae::World {
     let mut collision_world = world.clone();
     collision_world.blocks.push(platform.as_collision_block());

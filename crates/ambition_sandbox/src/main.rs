@@ -17,6 +17,8 @@ fn window_conf() -> mq::Conf {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PresetId {
+    HollowKnight,
+    WasdJkl,
     ArrowsQwer,
     WasdUipo,
 }
@@ -30,15 +32,22 @@ struct MovementKeys {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct FaceKeys {
-    /// Gamepad South / A: primary jump/confirm button.
-    a: mq::KeyCode,
-    /// Gamepad East / B: dash/cancel button.
-    b: mq::KeyCode,
-    /// Gamepad North / Y: slash/attack button.
-    y: mq::KeyCode,
-    /// Gamepad West / X: dedicated downward/pogo slash button.
-    x: mq::KeyCode,
+struct ActionKeys {
+    jump: mq::KeyCode,
+    attack: mq::KeyCode,
+    dash: mq::KeyCode,
+    focus_cast: Option<mq::KeyCode>,
+    quick_cast: Option<mq::KeyCode>,
+    super_dash: Option<mq::KeyCode>,
+    dream_nail: Option<mq::KeyCode>,
+    quick_map: Option<mq::KeyCode>,
+    inventory: Option<mq::KeyCode>,
+    pause: mq::KeyCode,
+    select_reset: mq::KeyCode,
+    /// Optional sandbox-only convenience action. Hollow Knight style layouts
+    /// use Down+Attack for pogo, but the chirality test layouts keep a fourth
+    /// face-button verb exposed for future experiments.
+    dedicated_pogo: Option<mq::KeyCode>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -46,25 +55,96 @@ struct KeyboardPreset {
     id: PresetId,
     name: &'static str,
     movement: MovementKeys,
-    face: FaceKeys,
+    actions: ActionKeys,
 }
 
 impl KeyboardPreset {
-    fn arrows_qwer() -> Self {
+    fn presets() -> [Self; 4] {
+        [
+            Self::hollow_knight(),
+            Self::wasd_jkl(),
+            Self::arrows_qwer(),
+            Self::wasd_uipo(),
+        ]
+    }
+
+    fn hollow_knight() -> Self {
         Self {
-            id: PresetId::ArrowsQwer,
-            name: "right-hand movement: arrows + QWER",
+            id: PresetId::HollowKnight,
+            name: "Hollow Knight: arrows + Z/X/C/A/E/S/D",
             movement: MovementKeys {
                 left: mq::KeyCode::Left,
                 right: mq::KeyCode::Right,
                 up: mq::KeyCode::Up,
                 down: mq::KeyCode::Down,
             },
-            face: FaceKeys {
-                a: mq::KeyCode::Q,
-                b: mq::KeyCode::W,
-                y: mq::KeyCode::E,
-                x: mq::KeyCode::R,
+            actions: ActionKeys {
+                jump: mq::KeyCode::Z,
+                attack: mq::KeyCode::X,
+                dash: mq::KeyCode::C,
+                focus_cast: Some(mq::KeyCode::A),
+                quick_cast: Some(mq::KeyCode::E),
+                super_dash: Some(mq::KeyCode::S),
+                dream_nail: Some(mq::KeyCode::D),
+                quick_map: Some(mq::KeyCode::Tab),
+                inventory: Some(mq::KeyCode::I),
+                pause: mq::KeyCode::Escape,
+                select_reset: mq::KeyCode::Delete,
+                dedicated_pogo: None,
+            },
+        }
+    }
+
+    fn wasd_jkl() -> Self {
+        Self {
+            id: PresetId::WasdJkl,
+            name: "Custom PC: WASD + Space/J/K/L/I/U",
+            movement: MovementKeys {
+                left: mq::KeyCode::A,
+                right: mq::KeyCode::D,
+                up: mq::KeyCode::W,
+                down: mq::KeyCode::S,
+            },
+            actions: ActionKeys {
+                jump: mq::KeyCode::Space,
+                attack: mq::KeyCode::J,
+                dash: mq::KeyCode::K,
+                focus_cast: Some(mq::KeyCode::L),
+                quick_cast: Some(mq::KeyCode::I),
+                super_dash: Some(mq::KeyCode::LeftShift),
+                dream_nail: Some(mq::KeyCode::U),
+                quick_map: Some(mq::KeyCode::Tab),
+                inventory: Some(mq::KeyCode::V),
+                pause: mq::KeyCode::Escape,
+                select_reset: mq::KeyCode::Delete,
+                dedicated_pogo: None,
+            },
+        }
+    }
+
+    fn arrows_qwer() -> Self {
+        Self {
+            id: PresetId::ArrowsQwer,
+            name: "chirality A: arrows + QWER",
+            movement: MovementKeys {
+                left: mq::KeyCode::Left,
+                right: mq::KeyCode::Right,
+                up: mq::KeyCode::Up,
+                down: mq::KeyCode::Down,
+            },
+            actions: ActionKeys {
+                jump: mq::KeyCode::Q,
+                dash: mq::KeyCode::W,
+                attack: mq::KeyCode::E,
+                focus_cast: None,
+                quick_cast: None,
+                super_dash: None,
+                dream_nail: None,
+                quick_map: Some(mq::KeyCode::Tab),
+                inventory: Some(mq::KeyCode::I),
+                pause: mq::KeyCode::Escape,
+                select_reset: mq::KeyCode::Delete,
+                dedicated_pogo: Some(mq::KeyCode::R),
             },
         }
     }
@@ -72,41 +152,52 @@ impl KeyboardPreset {
     fn wasd_uipo() -> Self {
         Self {
             id: PresetId::WasdUipo,
-            name: "left-hand movement: WASD + UIPO",
+            name: "chirality B: WASD + UIPO",
             movement: MovementKeys {
                 left: mq::KeyCode::A,
                 right: mq::KeyCode::D,
                 up: mq::KeyCode::W,
                 down: mq::KeyCode::S,
             },
-            face: FaceKeys {
-                a: mq::KeyCode::U,
-                b: mq::KeyCode::I,
-                y: mq::KeyCode::P,
-                x: mq::KeyCode::O,
+            actions: ActionKeys {
+                jump: mq::KeyCode::U,
+                dash: mq::KeyCode::I,
+                attack: mq::KeyCode::P,
+                focus_cast: None,
+                quick_cast: None,
+                super_dash: None,
+                dream_nail: None,
+                quick_map: Some(mq::KeyCode::Tab),
+                inventory: Some(mq::KeyCode::V),
+                pause: mq::KeyCode::Escape,
+                select_reset: mq::KeyCode::Delete,
+                dedicated_pogo: Some(mq::KeyCode::O),
             },
-        }
-    }
-
-    fn with_id(id: PresetId) -> Self {
-        match id {
-            PresetId::ArrowsQwer => Self::arrows_qwer(),
-            PresetId::WasdUipo => Self::wasd_uipo(),
         }
     }
 
     fn movement_label(&self) -> &'static str {
         match self.id {
-            PresetId::ArrowsQwer => "Arrow keys",
-            PresetId::WasdUipo => "WASD",
+            PresetId::HollowKnight | PresetId::ArrowsQwer => "Arrow keys",
+            PresetId::WasdJkl | PresetId::WasdUipo => "WASD",
         }
     }
 
-    fn face_label(&self) -> &'static str {
-        match self.id {
-            PresetId::ArrowsQwer => "Q=A/jump, W=B/dash, E=Y/slash, R=X/pogo",
-            PresetId::WasdUipo => "U=A/jump, I=B/dash, P=Y/slash, O=X/pogo",
+    fn action_label(&self) -> String {
+        let mut parts = vec![
+            format!("Jump {}", key_name(self.actions.jump)),
+            format!("Attack {}", key_name(self.actions.attack)),
+            format!("Dash {}", key_name(self.actions.dash)),
+        ];
+        if let Some(k) = self.actions.dedicated_pogo {
+            parts.push(format!("Pogo {}", key_name(k)));
+        } else {
+            parts.push("Pogo Down+Attack".to_string());
         }
+        if let Some(k) = self.actions.focus_cast {
+            parts.push(format!("Focus {}", key_name(k)));
+        }
+        parts.join("  |  ")
     }
 }
 
@@ -142,19 +233,21 @@ impl ControlFrame {
             axis_y += 1.0;
         }
 
-        let select_pressed = mq::is_key_pressed(mq::KeyCode::Delete);
+        let select_pressed = mq::is_key_pressed(preset.actions.select_reset)
+            || mq::is_key_pressed(mq::KeyCode::Delete);
+        let reset_pressed = select_pressed || mq::is_key_pressed(mq::KeyCode::Backspace);
 
         Self {
             axis_x,
             axis_y,
-            jump_pressed: mq::is_key_pressed(preset.face.a),
-            jump_held: mq::is_key_down(preset.face.a),
-            jump_released: mq::is_key_released(preset.face.a),
-            dash_pressed: mq::is_key_pressed(preset.face.b),
-            attack_pressed: mq::is_key_pressed(preset.face.y),
-            pogo_pressed: mq::is_key_pressed(preset.face.x),
-            reset_pressed: select_pressed || mq::is_key_pressed(mq::KeyCode::Backspace),
-            start_pressed: mq::is_key_pressed(mq::KeyCode::Escape),
+            jump_pressed: mq::is_key_pressed(preset.actions.jump),
+            jump_held: mq::is_key_down(preset.actions.jump),
+            jump_released: mq::is_key_released(preset.actions.jump),
+            dash_pressed: mq::is_key_pressed(preset.actions.dash),
+            attack_pressed: mq::is_key_pressed(preset.actions.attack),
+            pogo_pressed: key_pressed_opt(preset.actions.dedicated_pogo),
+            reset_pressed,
+            start_pressed: mq::is_key_pressed(preset.actions.pause),
             select_pressed,
         }
     }
@@ -174,18 +267,66 @@ impl ControlFrame {
     }
 }
 
+fn key_pressed_opt(key: Option<mq::KeyCode>) -> bool {
+    key.map(mq::is_key_pressed).unwrap_or(false)
+}
+
+fn key_name(key: mq::KeyCode) -> &'static str {
+    match key {
+        mq::KeyCode::A => "A",
+        mq::KeyCode::B => "B",
+        mq::KeyCode::C => "C",
+        mq::KeyCode::D => "D",
+        mq::KeyCode::E => "E",
+        mq::KeyCode::F => "F",
+        mq::KeyCode::G => "G",
+        mq::KeyCode::H => "H",
+        mq::KeyCode::I => "I",
+        mq::KeyCode::J => "J",
+        mq::KeyCode::K => "K",
+        mq::KeyCode::L => "L",
+        mq::KeyCode::M => "M",
+        mq::KeyCode::N => "N",
+        mq::KeyCode::O => "O",
+        mq::KeyCode::P => "P",
+        mq::KeyCode::Q => "Q",
+        mq::KeyCode::R => "R",
+        mq::KeyCode::S => "S",
+        mq::KeyCode::T => "T",
+        mq::KeyCode::U => "U",
+        mq::KeyCode::V => "V",
+        mq::KeyCode::W => "W",
+        mq::KeyCode::X => "X",
+        mq::KeyCode::Y => "Y",
+        mq::KeyCode::Z => "Z",
+        mq::KeyCode::Left => "Left",
+        mq::KeyCode::Right => "Right",
+        mq::KeyCode::Up => "Up",
+        mq::KeyCode::Down => "Down",
+        mq::KeyCode::Space => "Space",
+        mq::KeyCode::LeftShift => "LShift",
+        mq::KeyCode::Tab => "Tab",
+        mq::KeyCode::Escape => "Esc",
+        mq::KeyCode::Delete => "Delete",
+        mq::KeyCode::Backspace => "Backspace",
+        _ => "?",
+    }
+}
+
 /// Canonical gamepad semantic map. The current build starts with keyboard,
-/// but keeping this map explicit makes the keyboard presets true chirality
-/// presets rather than hard-coded one-off controls.
+/// but this keeps keyboard presets aligned with expected console positions.
 const GAMEPAD_MAP: &[(&str, &str)] = &[
-    ("South / A", "jump / confirm"),
-    ("East / B", "dash / cancel"),
-    ("North / Y", "slash / attack"),
-    ("West / X", "dedicated pogo slash / alternate attack"),
-    ("Start", "pause / menu, mirrored by Escape"),
-    ("Select / Back", "sandbox reset, mirrored by Delete"),
-    ("LB/RB", "future chord/stance placeholders"),
-    ("LT/RT", "future analog modifier placeholders"),
+    ("L-stick / D-pad", "movement"),
+    ("A / Cross", "jump / confirm"),
+    ("X / Square", "attack / nail / slash"),
+    ("RT / R2", "dash"),
+    ("B / Circle", "focus / cast placeholder"),
+    ("RB / R1", "quick cast placeholder"),
+    ("LT / L2", "super dash placeholder"),
+    ("Y / Triangle", "dream nail placeholder"),
+    ("LB / L1", "quick map placeholder"),
+    ("Back / Touchpad", "inventory or sandbox select/reset"),
+    ("Start / Options", "pause / menu"),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -231,7 +372,7 @@ impl Dummy {
             name,
             kind: DummyKind::FiniteRespawner,
             spawn,
-            pos: Vec2::new(spawn.x, 88.0),
+            pos: spawn,
             vel: Vec2::ZERO,
             size: Vec2::new(34.0, 58.0),
             hp: 6,
@@ -297,12 +438,14 @@ async fn main() {
     let mut freeze = false;
     let mut slowmo = false;
     let mut flash_timer = 0.0f32;
-    let mut preset = KeyboardPreset::arrows_qwer();
+    let presets = KeyboardPreset::presets();
+    let mut preset_index = 0usize;
     let mut preset_flash = 1.2f32;
     let mut slash_preview: Option<(Aabb, f32)> = None;
+    let ground_y = world.size.y - 48.0;
     let mut dummies = vec![
-        Dummy::infinite("infinite sandbag", Vec2::new(850.0, 610.0)),
-        Dummy::finite("finite drop dummy", Vec2::new(985.0, 610.0)),
+        Dummy::infinite("infinite sandbag", Vec2::new(world.spawn.x + 170.0, ground_y - 33.0)),
+        Dummy::finite("finite drop dummy", Vec2::new(world.spawn.x + 300.0, ground_y - 29.0)),
     ];
 
     loop {
@@ -310,17 +453,18 @@ async fn main() {
             debug = !debug;
         }
         if mq::is_key_pressed(mq::KeyCode::F9) {
-            preset = KeyboardPreset::with_id(PresetId::ArrowsQwer);
+            preset_index = (preset_index + presets.len() - 1) % presets.len();
             preset_flash = 1.2;
         }
         if mq::is_key_pressed(mq::KeyCode::F10) {
-            preset = KeyboardPreset::with_id(PresetId::WasdUipo);
+            preset_index = (preset_index + 1) % presets.len();
             preset_flash = 1.2;
         }
-        if mq::is_key_pressed(mq::KeyCode::Tab) {
+        if mq::is_key_pressed(mq::KeyCode::F2) {
             slowmo = !slowmo;
         }
 
+        let preset = presets[preset_index];
         let controls = ControlFrame::read(preset);
         if controls.start_pressed {
             freeze = !freeze;
@@ -620,8 +764,8 @@ fn draw_debug(
     offset: mq::Vec2,
 ) {
     let panel = mq::Color::new(0.02, 0.03, 0.05, 0.78);
-    mq::draw_rectangle(10.0, 10.0, 690.0, 264.0, panel);
-    mq::draw_rectangle_lines(10.0, 10.0, 690.0, 264.0, 1.0, mq::Color::new(0.3, 0.4, 0.55, 1.0));
+    mq::draw_rectangle(10.0, 10.0, 960.0, 264.0, panel);
+    mq::draw_rectangle_lines(10.0, 10.0, 960.0, 264.0, 1.0, mq::Color::new(0.3, 0.4, 0.55, 1.0));
 
     let speed = player.vel.length();
     let mode = if freeze { "PAUSED" } else if slowmo { "SLOWMO" } else { "LIVE" };
@@ -632,10 +776,10 @@ fn draw_debug(
         .unwrap_or_else(|| "-".to_string());
     let lines = [
         format!("{}  |  {}  |  {}", world.name, mode, preset.name),
-        format!("Move: {}  |  Face buttons: {}", preset.movement_label(), preset.face_label()),
-        "F9 arrows+QWER, F10 WASD+UIPO, Esc/Start pause, Delete/Select reset".to_string(),
-        "Gamepad plan: A jump, B dash, Y slash, X pogo; LB/RB/LT/RT reserved".to_string(),
-        "Toggles: F1 debug, Tab slow motion".to_string(),
+        format!("Move: {}  |  Actions: {}", preset.movement_label(), preset.action_label()),
+        "F9 previous preset, F10 next preset, Esc/Start pause, Delete/Select reset".to_string(),
+        "Gamepad plan: A jump, X attack, RT dash; B/RB/LT/Y/LB placeholders".to_string(),
+        "Toggles: F1 debug, F2 slow motion".to_string(),
         format!("pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) speed={:.1} max={:.1}", player.pos.x, player.pos.y, player.vel.x, player.vel.y, speed, player.max_speed),
         format!("ground={} wall={} dash={} coyote={:.2} buffer={:.2} resets={} finite_dummy={}", player.on_ground, player.on_wall, player.dash_available, player.coyote_timer, player.jump_buffer_timer, player.resets, finite_hp),
         format!("combo: {}", player.combo_symbols()),

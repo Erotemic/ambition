@@ -12,11 +12,11 @@ The first design law is: **the game should be fun as raw collision boxes**.
 - `ambition_engine`: deterministic gray-box platformer movement/collision logic.
 - `ambition_sandbox`: a Macroquad renderer/input loop for a single generated room.
 - No sprites, textures, tilemaps, imported audio, or prerendered assets.
-- Generated geometry: solids, one-way shelves, hazard channels, pogo orbs, rebound pads.
+- A larger generated room than v0.1: solids, one-way shelves, hazard channels, pogo orbs, rebound pads.
 - Endgame-style movement verbs: run, jump, variable jump height, wall jump, dash, pogo, slash/recoil, rebound pads.
 - Debug overlay: velocity, grounded/walled state, dash availability, coyote/jump-buffer timers, combo algebra trace.
-- Two chiral keyboard presets that map onto gamepad-style A/B/Y/X action semantics.
-- Two bashable dummies: one infinite-health sandbag and one finite-health respawning drop dummy.
+- Four keyboard presets with `F9`/`F10` preset cycling.
+- Two easy-to-reach bashable dummies near spawn: one infinite-health sandbag and one finite-health respawning drop dummy.
 
 ## Install requirements
 
@@ -36,12 +36,16 @@ The first build will download and compile Macroquad. After that, rebuilds should
 
 ## Controls
 
-The sandbox now treats keyboard layouts as presets that map onto gamepad-style face-button semantics.
+The sandbox treats keyboard layouts as presets that map onto semantic actions and a future console/gamepad layout.
 
-| Preset | Movement | Face buttons | Switch |
-|---|---|---|---|
-| Right-hand movement | Arrow keys | `Q` = A/jump, `W` = B/dash, `E` = Y/slash, `R` = X/pogo | `F9` |
-| Left-hand movement | `WASD` | `U` = A/jump, `I` = B/dash, `P` = Y/slash, `O` = X/pogo | `F10` |
+`F9` cycles to the previous preset. `F10` cycles to the next preset.
+
+| Preset | Movement | Jump | Attack | Dash | Pogo |
+|---|---|---|---|---|---|
+| Hollow Knight default | Arrow keys | `Z` | `X` | `C` | Down + `X` |
+| Custom PC | `WASD` | `Space` | `J` | `K` | Down + `J` |
+| Chirality A | Arrow keys | `Q` | `E` | `W` | `R` or Down + `E` |
+| Chirality B | `WASD` | `U` | `P` | `I` | `O` or Down + `P` |
 
 Universal controls:
 
@@ -50,19 +54,24 @@ Universal controls:
 | `Escape` | Start: pause/freeze |
 | `Delete` or `Backspace` | Select/sandbox reset |
 | `F1` | Toggle debug overlay |
-| `Tab` | Toggle slow motion |
+| `F2` | Toggle slow motion |
+| `F9` / `F10` | Previous / next control preset |
 
 Planned gamepad mapping:
 
 | Gamepad control | Semantics |
 |---|---|
-| South / A | Jump / confirm |
-| East / B | Dash / cancel |
-| North / Y | Slash / attack |
-| West / X | Dedicated downward/pogo slash / alternate attack |
-| Start | Pause / menu |
-| Select / Back | Sandbox reset |
-| LB/RB, LT/RT | Reserved placeholders for future chord/stance/analog modifiers |
+| L-stick / D-pad | Movement |
+| A / Cross | Jump / confirm |
+| X / Square | Attack / slash; Down+Attack is pogo |
+| RT / R2 | Dash |
+| B / Circle | Focus / cast placeholder |
+| RB / R1 | Quick cast placeholder |
+| LT / L2 | Super dash placeholder |
+| Y / Triangle | Dream nail placeholder |
+| LB / L1 | Quick map placeholder |
+| Back / Touchpad | Inventory/select; sandbox reset for now |
+| Start / Options | Pause / menu |
 
 ## Design target
 
@@ -74,13 +83,14 @@ The current answer is only a sketch, but the code is structured to make iteratio
 
 ## Next good changes
 
-1. Add sloped collision / continuous rebound normals.
-2. Add a grappling/tether primitive.
-3. Add an input recorder and ghost replay.
-4. Add a deterministic seed format for room generation.
-5. Add procedural sound effects generated from symbolic envelopes.
-6. Add a tiny internal DSL for movement theorems.
-7. Add automated reachability tests for generated rooms.
+1. Add real user-editable keybinding config, likely RON/TOML.
+2. Add gamepad input once the keyboard presets feel right.
+3. Add sloped collision / continuous rebound normals.
+4. Add a grappling/tether primitive.
+5. Add an input recorder and ghost replay.
+6. Add a deterministic seed format for room generation.
+7. Add procedural sound effects generated from symbolic envelopes.
+8. Add automated reachability tests for generated rooms.
 
 ## Workspace layout
 

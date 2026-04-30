@@ -235,58 +235,66 @@ pub struct World {
 /// there are no textures, sprites, maps, sounds, or imported assets.
 pub fn build_endgame_sandbox() -> World {
     let mut blocks = Vec::new();
-    let w = 1280.0;
-    let h = 720.0;
+    let w = 1600.0;
+    let h = 900.0;
 
-    // Shell.
+    // Shell. The world is intentionally larger than the first pass so the
+    // same screen has more world-space resolution for movement tuning.
     blocks.push(Block::solid("floor", Vec2::new(0.0, h - 48.0), Vec2::new(w, 48.0)));
     blocks.push(Block::solid("left wall", Vec2::new(0.0, 0.0), Vec2::new(36.0, h)));
     blocks.push(Block::solid("right wall", Vec2::new(w - 36.0, 0.0), Vec2::new(36.0, h)));
     blocks.push(Block::solid("ceiling lip", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)));
 
-    // A small playground that creates a clockwise flow loop.
-    blocks.push(Block::solid("low left step", Vec2::new(145.0, 585.0), Vec2::new(170.0, 30.0)));
-    blocks.push(Block::solid("left wall kick column", Vec2::new(115.0, 410.0), Vec2::new(54.0, 170.0)));
-    blocks.push(Block::one_way("middle shelf", Vec2::new(375.0, 475.0), Vec2::new(230.0, 18.0)));
-    blocks.push(Block::solid("upper left shelf", Vec2::new(230.0, 300.0), Vec2::new(200.0, 24.0)));
-    blocks.push(Block::solid("needle pillar", Vec2::new(630.0, 395.0), Vec2::new(54.0, 235.0)));
-    blocks.push(Block::one_way("high bridge", Vec2::new(710.0, 245.0), Vec2::new(250.0, 18.0)));
-    blocks.push(Block::solid("right catch wall", Vec2::new(1045.0, 330.0), Vec2::new(52.0, 270.0)));
-    blocks.push(Block::solid("return shelf", Vec2::new(865.0, 525.0), Vec2::new(180.0, 24.0)));
+    // Reachable enemy test lane near spawn. This is deliberately simple:
+    // immediate attack/pogo testing should not require completing the loop.
+    blocks.push(Block::solid("dummy approach step", Vec2::new(120.0, 760.0), Vec2::new(170.0, 28.0)));
+    blocks.push(Block::one_way("dummy upper tap platform", Vec2::new(315.0, 704.0), Vec2::new(250.0, 16.0)));
 
-    // Intentional danger/rest/reset surface: recoverable if you are stylish.
-    blocks.push(Block::hazard("spike channel", Vec2::new(465.0, 650.0), Vec2::new(245.0, 22.0)));
-    blocks.push(Block::hazard("right spike channel", Vec2::new(770.0, 650.0), Vec2::new(185.0, 22.0)));
+    // A larger clockwise flow loop for endgame movement experiments.
+    blocks.push(Block::solid("left wall kick column", Vec2::new(100.0, 520.0), Vec2::new(58.0, 220.0)));
+    blocks.push(Block::one_way("middle shelf", Vec2::new(430.0, 610.0), Vec2::new(265.0, 18.0)));
+    blocks.push(Block::solid("upper left shelf", Vec2::new(260.0, 410.0), Vec2::new(240.0, 24.0)));
+    blocks.push(Block::solid("needle pillar", Vec2::new(730.0, 515.0), Vec2::new(58.0, 285.0)));
+    blocks.push(Block::one_way("high bridge", Vec2::new(850.0, 330.0), Vec2::new(320.0, 18.0)));
+    blocks.push(Block::solid("right catch wall", Vec2::new(1320.0, 430.0), Vec2::new(56.0, 330.0)));
+    blocks.push(Block::solid("right return shelf", Vec2::new(1080.0, 675.0), Vec2::new(235.0, 24.0)));
+    blocks.push(Block::one_way("ceiling practice shelf", Vec2::new(610.0, 230.0), Vec2::new(190.0, 16.0)));
+
+    // Intentional danger/rest/reset surfaces: recoverable if you are stylish.
+    blocks.push(Block::hazard("central spike channel", Vec2::new(570.0, 830.0), Vec2::new(260.0, 22.0)));
+    blocks.push(Block::hazard("right spike channel", Vec2::new(930.0, 830.0), Vec2::new(230.0, 22.0)));
+    blocks.push(Block::hazard("high tooth", Vec2::new(1225.0, 650.0), Vec2::new(70.0, 24.0)));
 
     // Pogo orbs act as refresh notes in the movement instrument.
-    blocks.push(Block::pogo_orb("pogo alpha", Vec2::new(515.0, 385.0), 18.0));
-    blocks.push(Block::pogo_orb("pogo beta", Vec2::new(745.0, 355.0), 18.0));
-    blocks.push(Block::pogo_orb("pogo gamma", Vec2::new(975.0, 455.0), 18.0));
+    blocks.push(Block::pogo_orb("pogo alpha", Vec2::new(555.0, 505.0), 19.0));
+    blocks.push(Block::pogo_orb("pogo beta", Vec2::new(850.0, 470.0), 19.0));
+    blocks.push(Block::pogo_orb("pogo gamma", Vec2::new(1135.0, 555.0), 19.0));
+    blocks.push(Block::pogo_orb("pogo ceiling note", Vec2::new(700.0, 300.0), 17.0));
 
     // Rebound pads are explicit momentum converters.
     blocks.push(Block::rebound(
         "left launcher",
-        Vec2::new(78.0, 632.0),
-        Vec2::new(78.0, 20.0),
-        Vec2::new(520.0, -760.0),
+        Vec2::new(72.0, 812.0),
+        Vec2::new(86.0, 22.0),
+        Vec2::new(570.0, -810.0),
     ));
     blocks.push(Block::rebound(
         "right return launcher",
-        Vec2::new(1100.0, 615.0),
-        Vec2::new(90.0, 22.0),
-        Vec2::new(-650.0, -620.0),
+        Vec2::new(1390.0, 795.0),
+        Vec2::new(100.0, 24.0),
+        Vec2::new(-720.0, -680.0),
     ));
     blocks.push(Block::rebound(
         "ceiling redirect",
-        Vec2::new(555.0, 70.0),
-        Vec2::new(150.0, 18.0),
-        Vec2::new(710.0, 210.0),
+        Vec2::new(650.0, 84.0),
+        Vec2::new(180.0, 18.0),
+        Vec2::new(760.0, 240.0),
     ));
 
     World {
-        name: "Ambition: Tangent Space v0",
+        name: "Ambition: Tangent Space v0.2",
         size: Vec2::new(w, h),
-        spawn: Vec2::new(210.0, 535.0),
+        spawn: Vec2::new(210.0, h - 95.0),
         blocks,
     }
 }

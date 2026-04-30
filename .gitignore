@@ -1,3 +1,46 @@
-/target
-**/*.rs.bk
+# Rust build output
+/target/
+
+# Keep Cargo.lock for this game/application workspace.
+# Cargo.lock
+
+# Local editor / IDE state
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS junk
 .DS_Store
+Thumbs.db
+
+# Logs and crash dumps
+*.log
+*.dmp
+
+# Local env/config files
+.env
+.env.*
+*.local
+
+# Generated captures / recordings / profiling output
+captures/
+recordings/
+profiles/
+screenshots/
+traces/
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# Backup / patch artifacts
+*.bak
+*.orig
+*.rej
+**/*.rs.bk
+
+# Rust analyzer local project file
+rust-project.json

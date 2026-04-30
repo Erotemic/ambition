@@ -194,8 +194,20 @@ impl KeyboardPreset {
         } else {
             parts.push("Pogo Down+Attack".to_string());
         }
-        if let Some(k) = self.actions.focus_cast {
-            parts.push(format!("Focus {}", key_name(k)));
+
+        let optional = [
+            ("Focus", self.actions.focus_cast),
+            ("QuickCast", self.actions.quick_cast),
+            ("SuperDash", self.actions.super_dash),
+            ("Dream", self.actions.dream_nail),
+            ("Map", self.actions.quick_map),
+            ("Inv", self.actions.inventory),
+            ("Select", Some(self.actions.select_reset)),
+        ];
+        for (label, key) in optional {
+            if let Some(k) = key {
+                parts.push(format!("{} {}", label, key_name(k)));
+            }
         }
         parts.join("  |  ")
     }
@@ -213,7 +225,6 @@ struct ControlFrame {
     pogo_pressed: bool,
     reset_pressed: bool,
     start_pressed: bool,
-    select_pressed: bool,
 }
 
 impl ControlFrame {
@@ -248,7 +259,6 @@ impl ControlFrame {
             pogo_pressed: key_pressed_opt(preset.actions.dedicated_pogo),
             reset_pressed,
             start_pressed: mq::is_key_pressed(preset.actions.pause),
-            select_pressed,
         }
     }
 
@@ -329,6 +339,33 @@ const GAMEPAD_MAP: &[(&str, &str)] = &[
     ("Start / Options", "pause / menu"),
 ];
 
+#[derive(Clone, Copy, Debug)]
+struct ImpactFx {
+    pos: Vec2,
+    age: f32,
+    duration: f32,
+    radius: f32,
+}
+
+impl ImpactFx {
+    fn new(pos: Vec2) -> Self {
+        Self {
+            pos,
+            age: 0.0,
+            duration: 0.24,
+            radius: 12.0,
+        }
+    }
+
+    fn progress(self) -> f32 {
+        (self.age / self.duration).clamp(0.0, 1.0)
+    }
+
+    fn alive(self) -> bool {
+        self.age < self.duration
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DummyKind {
     InfiniteSandbag,
@@ -348,6 +385,7 @@ struct Dummy {
     alive: bool,
     respawn_timer: f32,
     hit_flash: f32,
+    hit_stun: f32,
 }
 
 impl Dummy {
@@ -364,6 +402,7 @@ impl Dummy {
             alive: true,
             respawn_timer: 0.0,
             hit_flash: 0.0,
+            hit_stun: 0.0,
         }
     }
 
@@ -380,6 +419,7 @@ impl Dummy {
             alive: true,
             respawn_timer: 0.0,
             hit_flash: 0.0,
+            hit_stun: 0.0,
         }
     }
 
@@ -391,7 +431,8 @@ impl Dummy {
         if !self.alive {
             return;
         }
-        self.hit_flash = 0.16;
+        self.hit_flash = 0.18;
+        self.hit_stun = 0.075;
         self.vel.x += knock_x;
         self.vel.y = (self.vel.y - 120.0).max(-360.0);
         if self.kind == DummyKind::FiniteRespawner {
@@ -413,7 +454,13 @@ impl Dummy {
                 self.pos = Vec2::new(self.spawn.x, 88.0);
                 self.vel = Vec2::ZERO;
                 self.hit_flash = 0.24;
+                self.hit_stun = 0.0;
             }
+            return;
+        }
+
+        self.hit_stun = (self.hit_stun - dt).max(0.0);
+        if self.hit_stun > 0.0 {
             return;
         }
 
@@ -438,6 +485,8 @@ async fn main() {
     let mut freeze = false;
     let mut slowmo = false;
     let mut flash_timer = 0.0f32;
+    let mut hitstop_timer = 0.0f32;
+    let mut impacts: Vec<ImpactFx> = Vec::new();
     let presets = KeyboardPreset::presets();
     let mut preset_index = 0usize;
     let mut preset_flash = 1.2f32;
@@ -470,12 +519,19 @@ async fn main() {
             freeze = !freeze;
         }
 
-        let dt = if freeze {
+        let frame_dt = mq::get_frame_time();
+        hitstop_timer = (hitstop_timer - frame_dt).max(0.0);
+        for fx in &mut impacts {
+            fx.age += frame_dt;
+        }
+        impacts.retain(|fx| fx.alive());
+
+        let dt = if freeze || hitstop_timer > 0.0 {
             0.0
         } else if slowmo {
-            mq::get_frame_time() * 0.25
+            frame_dt * 0.25
         } else {
-            mq::get_frame_time()
+            frame_dt
         };
 
         let events = update_player(&world, &mut player, controls.engine_input(), dt);
@@ -489,9 +545,18 @@ async fn main() {
             let mut landed = false;
             for dummy in &mut dummies {
                 if dummy.alive && attack.intersects(dummy.aabb()) {
-                    dummy.apply_hit(1, player.facing * 260.0);
+                    let hit_pos = Vec2::new(
+                        (attack.center.x + dummy.pos.x) * 0.5,
+                        (attack.center.y + dummy.pos.y) * 0.5,
+                    );
+                    impacts.push(ImpactFx::new(hit_pos));
+                    dummy.apply_hit(1, player.facing * 300.0);
                     landed = true;
                 }
+            }
+            if landed {
+                hitstop_timer = 0.055;
+                flash_timer = 0.16;
             }
             if landed && (controls.pogo_pressed || controls.axis_y > 0.25) {
                 player.vel.y = -POGO_SPEED;
@@ -503,24 +568,26 @@ async fn main() {
             dummy.update(dt, world.size.y - 48.0);
         }
         if let Some((_, timer)) = &mut slash_preview {
-            *timer -= mq::get_frame_time();
+            *timer -= frame_dt;
             if *timer <= 0.0 {
                 slash_preview = None;
             }
         }
 
-        flash_timer = (flash_timer - mq::get_frame_time()).max(0.0);
-        preset_flash = (preset_flash - mq::get_frame_time()).max(0.0);
+        flash_timer = (flash_timer - frame_dt).max(0.0);
+        preset_flash = (preset_flash - frame_dt).max(0.0);
 
         draw(
             &world,
             &player,
             &dummies,
             slash_preview,
+            &impacts,
             preset,
             debug,
             slowmo,
             freeze,
+            hitstop_timer,
             flash_timer,
             preset_flash,
         );
@@ -553,10 +620,12 @@ fn draw(
     player: &Player,
     dummies: &[Dummy],
     slash_preview: Option<(Aabb, f32)>,
+    impacts: &[ImpactFx],
     preset: KeyboardPreset,
     debug: bool,
     slowmo: bool,
     freeze: bool,
+    hitstop: f32,
     flash: f32,
     preset_flash: f32,
 ) {
@@ -583,10 +652,14 @@ fn draw(
         draw_aabb_lines(hitbox, scale, offset, 2.0, mq::Color::new(1.0, 1.0, 0.35, 0.90));
     }
 
+    for fx in impacts {
+        draw_impact_fx(*fx, scale, offset);
+    }
+
     draw_player(player, scale, offset, flash);
 
     if debug {
-        draw_debug(world, player, dummies, preset, slowmo, freeze, scale, offset);
+        draw_debug(world, player, dummies, preset, slowmo, freeze, hitstop, scale, offset);
     } else {
         mq::draw_text("F1 debug", 16.0, 28.0, 20.0, mq::GRAY);
     }
@@ -692,6 +765,36 @@ fn draw_block(block: &ambition_engine::Block, scale: f32, offset: mq::Vec2) {
     }
 }
 
+fn draw_impact_fx(fx: ImpactFx, scale: f32, offset: mq::Vec2) {
+    let t = fx.progress();
+    let c = w2s(fx.pos, scale, offset);
+    let radius = (fx.radius + 32.0 * t) * scale;
+    let alpha = 1.0 - t;
+    mq::draw_circle_lines(
+        c.x,
+        c.y,
+        radius,
+        2.0,
+        mq::Color::new(1.0, 0.94, 0.42, 0.85 * alpha),
+    );
+    mq::draw_line(
+        c.x - radius * 0.55,
+        c.y,
+        c.x + radius * 0.55,
+        c.y,
+        2.0,
+        mq::Color::new(1.0, 1.0, 0.80, 0.70 * alpha),
+    );
+    mq::draw_line(
+        c.x,
+        c.y - radius * 0.55,
+        c.x,
+        c.y + radius * 0.55,
+        2.0,
+        mq::Color::new(1.0, 1.0, 0.80, 0.70 * alpha),
+    );
+}
+
 fn draw_dummy(dummy: &Dummy, scale: f32, offset: mq::Vec2) {
     if !dummy.alive {
         let respawn = format!("{} respawn {:.1}", dummy.name, dummy.respawn_timer);
@@ -739,6 +842,8 @@ fn draw_player(player: &Player, scale: f32, offset: mq::Vec2, flash: f32) {
         mq::Color::new(1.0, 1.0, 1.0, 1.0)
     } else if player.dash_available {
         mq::Color::new(0.74, 0.82, 1.0, 1.0)
+    } else if player.air_jumps_available > 0 {
+        mq::Color::new(0.66, 0.80, 0.72, 1.0)
     } else {
         mq::Color::new(0.52, 0.58, 0.72, 1.0)
     };
@@ -760,6 +865,7 @@ fn draw_debug(
     preset: KeyboardPreset,
     slowmo: bool,
     freeze: bool,
+    hitstop: f32,
     scale: f32,
     offset: mq::Vec2,
 ) {
@@ -768,7 +874,15 @@ fn draw_debug(
     mq::draw_rectangle_lines(10.0, 10.0, 960.0, 264.0, 1.0, mq::Color::new(0.3, 0.4, 0.55, 1.0));
 
     let speed = player.vel.length();
-    let mode = if freeze { "PAUSED" } else if slowmo { "SLOWMO" } else { "LIVE" };
+    let mode = if freeze {
+        "PAUSED"
+    } else if hitstop > 0.0 {
+        "HITSTOP"
+    } else if slowmo {
+        "SLOWMO"
+    } else {
+        "LIVE"
+    };
     let finite_hp = dummies
         .iter()
         .find(|d| d.kind == DummyKind::FiniteRespawner)
@@ -781,7 +895,17 @@ fn draw_debug(
         "Gamepad plan: A jump, X attack, RT dash; B/RB/LT/Y/LB placeholders".to_string(),
         "Toggles: F1 debug, F2 slow motion".to_string(),
         format!("pos=({:.1}, {:.1}) vel=({:.1}, {:.1}) speed={:.1} max={:.1}", player.pos.x, player.pos.y, player.vel.x, player.vel.y, speed, player.max_speed),
-        format!("ground={} wall={} dash={} coyote={:.2} buffer={:.2} resets={} finite_dummy={}", player.on_ground, player.on_wall, player.dash_available, player.coyote_timer, player.jump_buffer_timer, player.resets, finite_hp),
+        format!(
+            "ground={} wall={} dash={} air_jumps={} coyote={:.2} buffer={:.2} resets={} finite_dummy={}",
+            player.on_ground,
+            player.on_wall,
+            player.dash_available,
+            player.air_jumps_available,
+            player.coyote_timer,
+            player.jump_buffer_timer,
+            player.resets,
+            finite_hp
+        ),
         format!("combo: {}", player.combo_symbols()),
         format!("hint: {}", player.current_combo_hint()),
     ];
@@ -800,7 +924,7 @@ fn draw_debug(
     let mut y = 296.0;
     mq::draw_text("Control semantics:", 18.0, y, 17.0, mq::Color::new(0.68, 0.78, 0.95, 1.0));
     y += 20.0;
-    for (button, action) in GAMEPAD_MAP.iter().take(6) {
+    for (button, action) in GAMEPAD_MAP.iter().take(9) {
         mq::draw_text(&format!("{} = {}", button, action), 18.0, y, 15.0, mq::Color::new(0.58, 0.64, 0.76, 1.0));
         y += 18.0;
     }

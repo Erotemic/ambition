@@ -51,3 +51,17 @@ The current implementation lives in `crates/ambition_sandbox/src/main.rs` as
 `KeyboardPreset`, `MovementKeys`, `ActionKeys`, and `ControlFrame`. The engine
 still consumes a compact `InputState`, so key remapping can evolve without
 coupling movement physics to physical devices.
+
+## Current action semantics
+
+Only movement, jump, attack, dash, pogo, pause, and reset affect gameplay in
+this prototype. The other Hollow Knight / gamepad-style verbs are deliberately
+kept in the preset structures and shown in the debug overlay so future engine
+work can attach mechanics without changing the physical layout model.
+
+The current pogo rule is:
+
+- Hollow Knight style: hold Down and press Attack.
+- Chirality test layouts: use the dedicated fourth action key, or hold Down and
+  press Attack.
+

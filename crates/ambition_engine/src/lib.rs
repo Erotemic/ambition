@@ -302,6 +302,7 @@ pub fn build_endgame_sandbox() -> World {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MovementOp {
     Jump,
+    DoubleJump,
     WallJump,
     Dash,
     Pogo,
@@ -314,6 +315,7 @@ impl MovementOp {
     pub fn symbol(self) -> &'static str {
         match self {
             MovementOp::Jump => "J",
+            MovementOp::DoubleJump => "DJ",
             MovementOp::WallJump => "WJ",
             MovementOp::Dash => "D",
             MovementOp::Pogo => "P",
@@ -326,6 +328,7 @@ impl MovementOp {
     pub fn name(self) -> &'static str {
         match self {
             MovementOp::Jump => "jump",
+            MovementOp::DoubleJump => "double jump",
             MovementOp::WallJump => "wall jump",
             MovementOp::Dash => "dash",
             MovementOp::Pogo => "pogo",
@@ -358,6 +361,7 @@ pub struct Player {
     pub on_wall: bool,
     pub wall_normal_x: f32,
     pub dash_available: bool,
+    pub air_jumps_available: u8,
     pub dash_timer: f32,
     pub dash_cooldown: f32,
     pub jump_buffer_timer: f32,
@@ -380,6 +384,7 @@ impl Player {
             on_wall: false,
             wall_normal_x: 0.0,
             dash_available: true,
+            air_jumps_available: DEFAULT_TUNING.air_jumps,
             dash_timer: 0.0,
             dash_cooldown: 0.0,
             jump_buffer_timer: 0.0,
@@ -432,6 +437,8 @@ impl Player {
         match (a, b) {
             (MovementOp::Dash, MovementOp::Pogo) => "D o P: dash then pogo converts speed into height",
             (MovementOp::Pogo, MovementOp::Dash) => "P o D: pogo then dash converts height into lateral routing",
+            (MovementOp::Jump, MovementOp::DoubleJump) => "J o DJ: save the second jump for route correction",
+            (MovementOp::Dash, MovementOp::DoubleJump) => "D o DJ: dash then double jump recovers a bad line",
             (MovementOp::WallJump, MovementOp::Dash) => "WJ o D: wall jump then dash is a fast exit",
             (MovementOp::Dash, MovementOp::WallJump) => "D o WJ: dash into wall to bank momentum",
             (MovementOp::Rebound, MovementOp::Dash) => "R o D: launcher into dash preserves the loop",
@@ -473,24 +480,79 @@ impl FrameEvents {
     }
 }
 
-pub const GRAVITY: f32 = 2350.0;
-pub const RUN_ACCEL: f32 = 6200.0;
-pub const AIR_ACCEL: f32 = 3800.0;
-pub const GROUND_FRICTION: f32 = 7600.0;
-pub const AIR_FRICTION: f32 = 720.0;
-pub const MAX_RUN_SPEED: f32 = 310.0;
-pub const MAX_FALL_SPEED: f32 = 980.0;
-pub const JUMP_SPEED: f32 = 650.0;
-pub const WALL_JUMP_X: f32 = 470.0;
-pub const DASH_SPEED: f32 = 760.0;
-pub const DASH_TIME: f32 = 0.115;
-pub const DASH_COOLDOWN: f32 = 0.075;
-pub const COYOTE_TIME: f32 = 0.105;
-pub const JUMP_BUFFER: f32 = 0.130;
-pub const POGO_SPEED: f32 = 780.0;
-pub const SLASH_RECOIL: f32 = 115.0;
+pub const GRAVITY: f32 = 2250.0;
+pub const RUN_ACCEL: f32 = 7600.0;
+pub const AIR_ACCEL: f32 = 4700.0;
+pub const GROUND_FRICTION: f32 = 9200.0;
+pub const AIR_FRICTION: f32 = 860.0;
+pub const MAX_RUN_SPEED: f32 = 330.0;
+pub const MAX_FALL_SPEED: f32 = 1040.0;
+pub const JUMP_SPEED: f32 = 660.0;
+pub const DOUBLE_JUMP_SPEED: f32 = 610.0;
+pub const WALL_JUMP_X: f32 = 500.0;
+pub const DASH_SPEED: f32 = 820.0;
+pub const DASH_TIME: f32 = 0.105;
+pub const DASH_COOLDOWN: f32 = 0.060;
+pub const COYOTE_TIME: f32 = 0.120;
+pub const JUMP_BUFFER: f32 = 0.135;
+pub const POGO_SPEED: f32 = 810.0;
+pub const SLASH_RECOIL: f32 = 130.0;
+pub const AIR_JUMPS: u8 = 1;
+
+#[derive(Clone, Copy, Debug)]
+pub struct MovementTuning {
+    pub gravity: f32,
+    pub run_accel: f32,
+    pub air_accel: f32,
+    pub ground_friction: f32,
+    pub air_friction: f32,
+    pub max_run_speed: f32,
+    pub max_fall_speed: f32,
+    pub jump_speed: f32,
+    pub double_jump_speed: f32,
+    pub wall_jump_x: f32,
+    pub dash_speed: f32,
+    pub dash_time: f32,
+    pub dash_cooldown: f32,
+    pub coyote_time: f32,
+    pub jump_buffer: f32,
+    pub pogo_speed: f32,
+    pub slash_recoil: f32,
+    pub air_jumps: u8,
+}
+
+pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
+    gravity: GRAVITY,
+    run_accel: RUN_ACCEL,
+    air_accel: AIR_ACCEL,
+    ground_friction: GROUND_FRICTION,
+    air_friction: AIR_FRICTION,
+    max_run_speed: MAX_RUN_SPEED,
+    max_fall_speed: MAX_FALL_SPEED,
+    jump_speed: JUMP_SPEED,
+    double_jump_speed: DOUBLE_JUMP_SPEED,
+    wall_jump_x: WALL_JUMP_X,
+    dash_speed: DASH_SPEED,
+    dash_time: DASH_TIME,
+    dash_cooldown: DASH_COOLDOWN,
+    coyote_time: COYOTE_TIME,
+    jump_buffer: JUMP_BUFFER,
+    pogo_speed: POGO_SPEED,
+    slash_recoil: SLASH_RECOIL,
+    air_jumps: AIR_JUMPS,
+};
 
 pub fn update_player(world: &World, player: &mut Player, input: InputState, raw_dt: f32) -> FrameEvents {
+    update_player_with_tuning(world, player, input, raw_dt, DEFAULT_TUNING)
+}
+
+pub fn update_player_with_tuning(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
         return events;
@@ -520,48 +582,57 @@ pub fn update_player(world: &World, player: &mut Player, input: InputState, raw_
     player.rebound_cooldown = dec(player.rebound_cooldown, dt);
 
     if player.on_ground {
-        player.coyote_timer = COYOTE_TIME;
+        player.coyote_timer = tuning.coyote_time;
         player.dash_available = true;
+        player.air_jumps_available = tuning.air_jumps;
     }
 
     if input.jump_pressed {
-        player.jump_buffer_timer = JUMP_BUFFER;
+        player.jump_buffer_timer = tuning.jump_buffer;
     }
 
     if input.pogo_pressed {
-        if try_pogo(world, player) {
+        if try_pogo(world, player, tuning.pogo_speed, tuning.air_jumps) {
             events.op(player, MovementOp::Pogo);
         } else {
             // Dedicated pogo whiff still gives a tiny correction so it can be
             // tested as a fourth face-button verb without requiring a target.
-            player.vel.x -= player.facing * (SLASH_RECOIL * 0.45);
+            player.vel.x -= player.facing * (tuning.slash_recoil * 0.45);
             events.op(player, MovementOp::Slash);
         }
     } else if input.attack_pressed {
-        if input.axis_y > 0.25 && try_pogo(world, player) {
+        if input.axis_y > 0.25 && try_pogo(world, player, tuning.pogo_speed, tuning.air_jumps) {
             events.op(player, MovementOp::Pogo);
         } else {
             // A small generated recoil/correction action. It does not do damage yet;
             // it exists to test cancellability and non-commutative feel.
-            player.vel.x -= player.facing * SLASH_RECOIL;
+            player.vel.x -= player.facing * tuning.slash_recoil;
             events.op(player, MovementOp::Slash);
         }
     }
 
     if player.jump_buffer_timer > 0.0 {
         if player.on_wall && !player.on_ground {
-            player.vel.x = player.wall_normal_x * WALL_JUMP_X;
-            player.vel.y = -JUMP_SPEED * 0.94;
+            player.vel.x = player.wall_normal_x * tuning.wall_jump_x;
+            player.vel.y = -tuning.jump_speed * 0.94;
             player.on_wall = false;
             player.jump_buffer_timer = 0.0;
             player.coyote_timer = 0.0;
             events.op(player, MovementOp::WallJump);
         } else if player.on_ground || player.coyote_timer > 0.0 {
-            player.vel.y = -JUMP_SPEED;
+            player.vel.y = -tuning.jump_speed;
             player.on_ground = false;
             player.jump_buffer_timer = 0.0;
             player.coyote_timer = 0.0;
+            player.air_jumps_available = tuning.air_jumps;
             events.op(player, MovementOp::Jump);
+        } else if player.air_jumps_available > 0 {
+            player.vel.y = -tuning.double_jump_speed;
+            player.on_ground = false;
+            player.on_wall = false;
+            player.jump_buffer_timer = 0.0;
+            player.air_jumps_available -= 1;
+            events.op(player, MovementOp::DoubleJump);
         }
     }
 
@@ -572,29 +643,29 @@ pub fn update_player(world: &World, player: &mut Player, input: InputState, raw_
     if input.dash_pressed && player.dash_available && player.dash_cooldown <= 0.0 {
         let fallback = Vec2::new(player.facing, 0.0);
         let aim = Vec2::new(input.axis_x, input.axis_y).normalized_or(fallback);
-        player.vel = aim * DASH_SPEED;
+        player.vel = aim * tuning.dash_speed;
         player.dash_available = false;
-        player.dash_timer = DASH_TIME;
-        player.dash_cooldown = DASH_COOLDOWN;
+        player.dash_timer = tuning.dash_time;
+        player.dash_cooldown = tuning.dash_cooldown;
         events.op(player, MovementOp::Dash);
     }
 
     if player.dash_timer > 0.0 {
         player.dash_timer = dec(player.dash_timer, dt);
     } else {
-        player.vel.y += GRAVITY * dt;
+        player.vel.y += tuning.gravity * dt;
     }
 
-    let accel = if player.on_ground { RUN_ACCEL } else { AIR_ACCEL };
-    let target_vx = input.axis_x * MAX_RUN_SPEED;
+    let accel = if player.on_ground { tuning.run_accel } else { tuning.air_accel };
+    let target_vx = input.axis_x * tuning.max_run_speed;
     player.vel.x = approach(player.vel.x, target_vx, accel * dt);
 
-    let friction = if player.on_ground { GROUND_FRICTION } else { AIR_FRICTION };
+    let friction = if player.on_ground { tuning.ground_friction } else { tuning.air_friction };
     if input.axis_x.abs() <= 0.1 {
         player.vel.x = approach(player.vel.x, 0.0, friction * dt);
     }
 
-    player.vel.y = player.vel.y.min(MAX_FALL_SPEED);
+    player.vel.y = player.vel.y.min(tuning.max_fall_speed);
 
     // Resolve horizontal motion.
     player.on_wall = false;
@@ -610,12 +681,14 @@ pub fn update_player(world: &World, player: &mut Player, input: InputState, raw_
 
     if player.on_ground {
         player.dash_available = true;
+        player.air_jumps_available = tuning.air_jumps;
     }
 
     if player.rebound_cooldown <= 0.0 {
         if let Some(impulse) = touching_rebound(world, player) {
             player.vel = impulse;
             player.dash_available = true;
+            player.air_jumps_available = tuning.air_jumps;
             player.rebound_cooldown = 0.18;
             events.op(player, MovementOp::Rebound);
         }
@@ -710,7 +783,7 @@ fn resolve_vertical(world: &World, player: &mut Player, prev_bottom: f32, drop_t
     }
 }
 
-fn try_pogo(world: &World, player: &mut Player) -> bool {
+fn try_pogo(world: &World, player: &mut Player, pogo_speed: f32, air_jumps: u8) -> bool {
     let feet = player.aabb();
     let hitbox = Aabb::new(
         Vec2::new(feet.center.x, feet.bottom() + 18.0),
@@ -725,8 +798,9 @@ fn try_pogo(world: &World, player: &mut Player) -> bool {
         }
     }
     if hit {
-        player.vel.y = -POGO_SPEED;
+        player.vel.y = -pogo_speed;
         player.dash_available = true;
+        player.air_jumps_available = air_jumps;
         player.on_ground = false;
     }
     hit

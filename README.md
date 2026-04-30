@@ -13,10 +13,11 @@ The first design law is: **the game should be fun as raw collision boxes**.
 - `ambition_sandbox`: a Macroquad renderer/input loop for a single generated room.
 - No sprites, textures, tilemaps, imported audio, or prerendered assets.
 - A larger generated room than v0.1: solids, one-way shelves, hazard channels, pogo orbs, rebound pads.
-- Endgame-style movement verbs: run, jump, variable jump height, wall jump, dash, pogo, slash/recoil, rebound pads.
-- Debug overlay: velocity, grounded/walled state, dash availability, coyote/jump-buffer timers, combo algebra trace.
+- Endgame-style movement verbs: run, jump, double jump, variable jump height, wall jump, dash, pogo, slash/recoil, rebound pads.
+- Debug overlay: velocity, grounded/walled state, dash and air-jump availability, coyote/jump-buffer timers, combo algebra trace.
 - Four keyboard presets with `F9`/`F10` preset cycling.
 - Two easy-to-reach bashable dummies near spawn: one infinite-health sandbag and one finite-health respawning drop dummy.
+- Hit feedback: brief hitstop, dummy hit-stun, hit flash, and generated impact rings/crosses.
 
 ## Install requirements
 
@@ -73,6 +74,12 @@ Planned gamepad mapping:
 | Back / Touchpad | Inventory/select; sandbox reset for now |
 | Start / Options | Pause / menu |
 
+## Movement tuning
+
+Movement constants now live behind `MovementTuning` / `DEFAULT_TUNING` in `ambition_engine`. The public `update_player` function uses the default tuning, while `update_player_with_tuning` exists for later per-character, per-room, or experimental tuning passes.
+
+This pass is a little snappier than the previous one: stronger acceleration/deceleration, slightly faster dash, one air jump, pogo/rebound refreshes, and impact hitstop when attacks land.
+
 ## Design target
 
 The sandbox is intentionally an endgame lab, not a first level. The question it asks is:
@@ -86,11 +93,12 @@ The current answer is only a sketch, but the code is structured to make iteratio
 1. Add real user-editable keybinding config, likely RON/TOML.
 2. Add gamepad input once the keyboard presets feel right.
 3. Add sloped collision / continuous rebound normals.
-4. Add a grappling/tether primitive.
-5. Add an input recorder and ghost replay.
-6. Add a deterministic seed format for room generation.
-7. Add procedural sound effects generated from symbolic envelopes.
-8. Add automated reachability tests for generated rooms.
+4. Add user-visible tuning sliders/hotkeys for gravity, run speed, dash speed, and jump speed.
+5. Add a grappling/tether primitive.
+6. Add an input recorder and ghost replay.
+7. Add a deterministic seed format for room generation.
+8. Add procedural sound effects generated from symbolic envelopes.
+9. Add automated reachability tests for generated rooms.
 
 ## Workspace layout
 

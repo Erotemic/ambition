@@ -66,3 +66,5 @@ rejecting that combination.
 
 The sandbox is an endgame feel lab, so it should keep all abilities enabled by
 default unless a test preset or debug menu says otherwise.
+
+See also: [Sane maximalist subset](ability_subset.md).

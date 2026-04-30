@@ -20,7 +20,10 @@ use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use dummies::{spawn_dummies, Dummy, DummyKind};
-use fx::{spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects, spawn_slash_preview, ParticleKind};
+use fx::{
+    spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
+    spawn_slash_preview, ParticleKind,
+};
 use input::{ControlFrame, KeyboardPreset, GAMEPAD_MAP};
 use rendering::{dummy_color, spawn_block, spawn_grid, sync_visuals, DummyVisual, HudText, PlayerVisual, SceneEntities};
 
@@ -215,6 +218,8 @@ fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntim
 fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
     if runtime.freeze || runtime.hitstop_timer > 0.0 {
         0.0
+    } else if runtime.player.blink_aiming {
+        frame_dt * 0.16
     } else if runtime.slowmo {
         frame_dt * 0.25
     } else {
@@ -263,6 +268,9 @@ fn update_player_and_feedback(
                 play_sound(commands, bank, SoundCue::Dash);
                 spawn_burst(commands, world, runtime.player.pos, 10, 330.0, [1.0, 0.86, 0.38, 0.90], ParticleKind::Spark);
             }
+            ae::MovementOp::Blink | ae::MovementOp::PrecisionBlink => {
+                // Blink visuals use the explicit `events.blinks` endpoint data below.
+            }
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
                 play_sound(commands, bank, SoundCue::Pogo);
             }
@@ -271,6 +279,14 @@ fn update_player_and_feedback(
                 play_sound(commands, bank, SoundCue::Reset);
             }
         }
+    }
+    for blink in &events.blinks {
+        play_sound(
+            commands,
+            bank,
+            if blink.precision { SoundCue::PrecisionBlink } else { SoundCue::Blink },
+        );
+        spawn_blink_effects(commands, world, blink.from, blink.to, blink.precision);
     }
     if events.hazard || !events.operations.is_empty() {
         runtime.flash_timer = 0.12;
@@ -375,7 +391,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nroom: {}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nroom: {}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  Esc pause={}  Delete reset  hitstop {:.2}\ndummies: {}\ngamepad target: {}{}",
         world.0.name,
         "Bevy backend",
         world.0.size.x,
@@ -388,6 +404,8 @@ fn update_hud(
         runtime.player.on_wall,
         runtime.player.dash_charges_available,
         runtime.player.air_jumps_available,
+        runtime.player.blink_cooldown,
+        runtime.player.blink_aiming,
         runtime.player.wall_clinging,
         runtime.player.wall_climbing,
         runtime.player.coyote_timer,

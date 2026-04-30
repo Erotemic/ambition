@@ -28,10 +28,12 @@ pub use enemy::{spawn_dummies, Dummy, DummyKind};
 pub use geometry::Aabb;
 pub use math::{approach, Vec2};
 pub use movement::{
-    update_player, update_player_with_tuning, ComboMark, FrameEvents, InputState, MovementOp,
-    MovementTuning, Player, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS, COYOTE_TIME, DASH_COOLDOWN,
-    DASH_SPEED, DASH_TIME, DEFAULT_TUNING, DOUBLE_JUMP_SPEED, GRAVITY, GROUND_FRICTION,
-    JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED, POGO_SPEED, RUN_ACCEL,
-    SLASH_RECOIL, WALL_JUMP_X, WALL_SLIDE_SPEED, WALL_CLIMB_SPEED,
+    blink_destination, update_player, update_player_with_tuning, BlinkEvent, ComboMark, FrameEvents,
+    InputState, MovementOp, MovementTuning, Player, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
+    BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_COOLDOWN,
+    DASH_SPEED, DASH_TIME, DEFAULT_TUNING, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED,
+    GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED,
+    POGO_SPEED, PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL, WALL_JUMP_X,
+    WALL_SLIDE_SPEED, WALL_CLIMB_SPEED,
 };
 pub use world::{build_endgame_sandbox, Block, BlockKind, World};

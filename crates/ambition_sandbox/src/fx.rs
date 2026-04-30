@@ -229,3 +229,11 @@ pub fn spawn_dust(commands: &mut Commands, world: &ae::World, pos: ae::Vec2, fac
         ));
     }
 }
+
+pub fn spawn_blink_effects(commands: &mut Commands, world: &ae::World, from: ae::Vec2, to: ae::Vec2, precision: bool) {
+    let exit_color = if precision { [0.40, 0.34, 1.00, 0.78] } else { [0.24, 0.74, 1.00, 0.68] };
+    let entry_color = if precision { [0.92, 0.42, 1.00, 0.92] } else { [0.42, 1.00, 0.92, 0.90] };
+    spawn_burst(commands, world, from, if precision { 18 } else { 12 }, 250.0, exit_color, ParticleKind::Spark);
+    spawn_burst(commands, world, to, if precision { 28 } else { 18 }, 360.0, entry_color, ParticleKind::Spark);
+    spawn_impact(commands, world, to);
+}

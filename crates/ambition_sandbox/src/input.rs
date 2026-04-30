@@ -125,7 +125,7 @@ impl KeyboardPreset {
                 jump: KeyCode::KeyQ,
                 dash: KeyCode::KeyW,
                 attack: KeyCode::KeyE,
-                secondary: None,
+                secondary: Some(KeyCode::KeyR),
                 quick_action: None,
                 modifier: None,
                 utility: None,
@@ -133,7 +133,7 @@ impl KeyboardPreset {
                 inventory: Some(KeyCode::KeyI),
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
-                dedicated_pogo: Some(KeyCode::KeyR),
+                dedicated_pogo: None,
             },
         }
     }
@@ -152,7 +152,7 @@ impl KeyboardPreset {
                 jump: KeyCode::KeyU,
                 dash: KeyCode::KeyI,
                 attack: KeyCode::KeyP,
-                secondary: None,
+                secondary: Some(KeyCode::KeyO),
                 quick_action: None,
                 modifier: None,
                 utility: None,
@@ -160,7 +160,7 @@ impl KeyboardPreset {
                 inventory: Some(KeyCode::KeyV),
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
-                dedicated_pogo: Some(KeyCode::KeyO),
+                dedicated_pogo: None,
             },
         }
     }
@@ -184,7 +184,7 @@ impl KeyboardPreset {
             parts.push("Pogo Down+Attack".to_string());
         }
         let optional = [
-            ("Secondary", self.actions.secondary),
+            ("Blink", self.actions.secondary),
             ("Quick", self.actions.quick_action),
             ("Modifier", self.actions.modifier),
             ("Utility", self.actions.utility),
@@ -209,6 +209,9 @@ pub struct ControlFrame {
     pub jump_held: bool,
     pub jump_released: bool,
     pub dash_pressed: bool,
+    pub blink_pressed: bool,
+    pub blink_held: bool,
+    pub blink_released: bool,
     pub attack_pressed: bool,
     pub pogo_pressed: bool,
     pub reset_pressed: bool,
@@ -231,6 +234,10 @@ impl ControlFrame {
         if keys.pressed(preset.movement.down) {
             axis_y += 1.0;
         }
+        let blink_key = preset.actions.secondary;
+        let blink_pressed = blink_key.map(|key| keys.just_pressed(key)).unwrap_or(false);
+        let blink_held = blink_key.map(|key| keys.pressed(key)).unwrap_or(false);
+        let blink_released = blink_key.map(|key| keys.just_released(key)).unwrap_or(false);
         let reset_pressed = keys.just_pressed(preset.actions.select_reset)
             || keys.just_pressed(KeyCode::Delete)
             || keys.just_pressed(KeyCode::Backspace);
@@ -241,6 +248,9 @@ impl ControlFrame {
             jump_held: keys.pressed(preset.actions.jump),
             jump_released: keys.just_released(preset.actions.jump),
             dash_pressed: keys.just_pressed(preset.actions.dash),
+            blink_pressed,
+            blink_held,
+            blink_released,
             attack_pressed: keys.just_pressed(preset.actions.attack),
             pogo_pressed: preset
                 .actions
@@ -260,6 +270,9 @@ impl ControlFrame {
             jump_held: self.jump_held,
             jump_released: self.jump_released,
             dash_pressed: self.dash_pressed,
+            blink_pressed: self.blink_pressed,
+            blink_held: self.blink_held,
+            blink_released: self.blink_released,
             attack_pressed: self.attack_pressed,
             pogo_pressed: self.pogo_pressed,
             reset_pressed: false,
@@ -272,7 +285,7 @@ pub const GAMEPAD_MAP: &[(&str, &str)] = &[
     ("A / Cross", "jump / confirm"),
     ("X / Square", "primary attack"),
     ("RT / R2", "dash"),
-    ("B / Circle", "secondary action placeholder"),
+    ("B / Circle", "blink / special"),
     ("RB / R1", "quick action placeholder"),
     ("LT / L2", "modifier placeholder"),
     ("Y / Triangle", "utility action placeholder"),

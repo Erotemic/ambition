@@ -58,3 +58,5 @@ The first pass adds tests for:
 - double jump gating
 - double dash charge counts
 - attack hitbox orientation
+
+See also: [Sane maximalist subset](ability_subset.md).

@@ -107,3 +107,5 @@ New engine-owned concepts:
 - generic slash hitbox computation
 
 The Bevy layer should keep handling presentation: particles, sounds, HUD text, and debug gizmos.
+
+See also: [Sane maximalist subset](ability_subset.md).

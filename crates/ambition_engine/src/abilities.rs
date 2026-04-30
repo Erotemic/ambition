@@ -1,8 +1,8 @@
 //! Optional movement/combat capabilities.
 //!
 //! Ambition is expected to have many upgrades, and the endgame sandbox should
-//! usually run with everything enabled.  The engine still needs the opposite:
-//! small, explicit capability sets that can be tested in isolation.  This file
+//! usually run with everything enabled. The engine still needs the opposite:
+//! small, explicit capability sets that can be tested in isolation. This file
 //! is the vocabulary for that.
 //!
 //! The important rule is that an ability flag should answer "may this verb be
@@ -11,7 +11,7 @@
 
 /// A set of optional player capabilities.
 ///
-/// This is intentionally a plain data struct.  Later we can load it from RON,
+/// This is intentionally a plain data struct. Later we can load it from RON,
 /// JSON, a save file, an AI-generated spec, or an in-game upgrade graph without
 /// changing the movement simulation API.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,6 +25,8 @@ pub struct AbilitySet {
     pub variable_jump: bool,
     /// One extra air jump in the current tuning pass.
     pub double_jump: bool,
+    /// Holding down while airborne increases fall acceleration/speed.
+    pub fast_fall: bool,
     /// Jumping from a wall contact.
     pub wall_jump: bool,
     /// Slow or stop wall sliding while pressing into a wall.
@@ -35,10 +37,21 @@ pub struct AbilitySet {
     pub dash: bool,
     /// Upgrade that gives two dash charges before refresh.
     pub double_dash: bool,
+    /// Short-range teleport. Quick release blinks immediately along input/facing.
+    pub blink: bool,
+    /// Upgrade for blink: holding the blink button enters aim/bullet-time mode
+    /// and releases to blink to a more deliberate destination.
+    pub precision_blink: bool,
     /// Generic slash/attack verb.
     pub attack: bool,
     /// Downward attack/pogo refresh verb.
     pub pogo: bool,
+    /// Direction + primary attack can eventually produce distinct attacks.
+    /// The first implementation still shares the same hitbox helper.
+    pub directional_primary: bool,
+    /// Direction + special/secondary can eventually produce distinct specials.
+    /// Blink is the first concrete special in this category.
+    pub directional_special: bool,
     /// Allow special world surfaces to apply an impulse.
     pub rebound: bool,
     /// Debug/sandbox reset. In the final game this may become a menu/system
@@ -54,13 +67,18 @@ impl AbilitySet {
             jump: true,
             variable_jump: true,
             double_jump: false,
+            fast_fall: false,
             wall_jump: false,
             wall_cling: false,
             wall_climb: false,
             dash: false,
             double_dash: false,
+            blink: false,
+            precision_blink: false,
             attack: false,
             pogo: false,
+            directional_primary: false,
+            directional_special: false,
             rebound: false,
             reset: true,
         }
@@ -73,13 +91,47 @@ impl AbilitySet {
             jump: true,
             variable_jump: true,
             double_jump: true,
+            fast_fall: true,
             wall_jump: true,
             wall_cling: true,
             wall_climb: true,
             dash: true,
             double_dash: true,
+            blink: true,
+            precision_blink: true,
             attack: true,
             pogo: true,
+            directional_primary: true,
+            directional_special: true,
+            rebound: true,
+            reset: true,
+        }
+    }
+
+    /// A deliberately sane initial endgame subset.
+    ///
+    /// This is a smaller list than "all platformer abilities ever", but it is
+    /// broad enough to exercise movement, wall routing, combat, and one special
+    /// teleport verb.  The sandbox currently uses `sandbox_all`; tests and later
+    /// story states can use this as a balanced default.
+    pub const fn sane_subset() -> Self {
+        Self {
+            move_horizontal: true,
+            jump: true,
+            variable_jump: true,
+            double_jump: true,
+            fast_fall: true,
+            wall_jump: true,
+            wall_cling: true,
+            wall_climb: true,
+            dash: true,
+            double_dash: true,
+            blink: true,
+            precision_blink: true,
+            attack: true,
+            pogo: true,
+            directional_primary: true,
+            directional_special: true,
             rebound: true,
             reset: true,
         }
@@ -103,7 +155,7 @@ impl AbilitySet {
 
     /// Human-readable compatibility warnings.
     ///
-    /// These are warnings, not hard errors.  Some story/gameplay moments may
+    /// These are warnings, not hard errors. Some story/gameplay moments may
     /// intentionally enable a dependent ability without its normal prerequisite.
     pub fn compatibility_warnings(self) -> Vec<&'static str> {
         let mut warnings = Vec::new();
@@ -118,6 +170,12 @@ impl AbilitySet {
         }
         if self.double_dash && !self.dash {
             warnings.push("double_dash is enabled but dash is disabled");
+        }
+        if self.precision_blink && !self.blink {
+            warnings.push("precision_blink is enabled but blink is disabled");
+        }
+        if self.directional_special && !self.blink {
+            warnings.push("directional_special currently has no concrete verb unless blink is enabled");
         }
         if self.pogo && !self.attack {
             warnings.push("pogo is enabled but attack is disabled");
@@ -146,8 +204,10 @@ mod tests {
         let mut abilities = AbilitySet::basic();
         abilities.double_dash = true;
         abilities.wall_climb = true;
+        abilities.precision_blink = true;
         let warnings = abilities.compatibility_warnings();
         assert!(warnings.iter().any(|w| w.contains("double_dash")));
         assert!(warnings.iter().any(|w| w.contains("wall_climb")));
+        assert!(warnings.iter().any(|w| w.contains("precision_blink")));
     }
 }

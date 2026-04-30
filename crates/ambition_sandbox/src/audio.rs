@@ -13,6 +13,8 @@ pub enum SoundCue {
     Jump,
     DoubleJump,
     Dash,
+    Blink,
+    PrecisionBlink,
     Slash,
     Hit,
     Pogo,
@@ -26,6 +28,8 @@ pub struct SoundBank {
     jump: Handle<AudioSource>,
     double_jump: Handle<AudioSource>,
     dash: Handle<AudioSource>,
+    blink: Handle<AudioSource>,
+    precision_blink: Handle<AudioSource>,
     slash: Handle<AudioSource>,
     hit: Handle<AudioSource>,
     pogo: Handle<AudioSource>,
@@ -41,6 +45,8 @@ impl SoundBank {
             jump: add(SynthSpec::jump()),
             double_jump: add(SynthSpec::double_jump()),
             dash: add(SynthSpec::dash()),
+            blink: add(SynthSpec::blink()),
+            precision_blink: add(SynthSpec::precision_blink()),
             slash: add(SynthSpec::slash()),
             hit: add(SynthSpec::hit()),
             pogo: add(SynthSpec::pogo()),
@@ -55,6 +61,8 @@ impl SoundBank {
             SoundCue::Jump => self.jump.clone(),
             SoundCue::DoubleJump => self.double_jump.clone(),
             SoundCue::Dash => self.dash.clone(),
+            SoundCue::Blink => self.blink.clone(),
+            SoundCue::PrecisionBlink => self.precision_blink.clone(),
             SoundCue::Slash => self.slash.clone(),
             SoundCue::Hit => self.hit.clone(),
             SoundCue::Pogo => self.pogo.clone(),
@@ -101,6 +109,15 @@ impl SynthSpec {
     }
     fn dash() -> Self {
         Self::tone(Waveform::Saw, 260.0, 110.0, 0.105, 0.18)
+    }
+    fn blink() -> Self {
+        Self::tone(Waveform::Triangle, 740.0, 260.0, 0.090, 0.18)
+    }
+    fn precision_blink() -> Self {
+        Self {
+            noise: 0.08,
+            ..Self::tone(Waveform::Sine, 880.0, 180.0, 0.160, 0.20)
+        }
     }
     fn slash() -> Self {
         Self::tone(Waveform::Square, 620.0, 340.0, 0.075, 0.16)

@@ -2,8 +2,8 @@
 //!
 //! This module contains the code that makes the current prototype feel like a
 //! platformer: coyote time, buffered jumps, optional double jumps, optional
-//! wall jumps/cling/climb, optional dash/double dash, pogo refreshes, rebound
-//! pads, hazards, and a symbolic operation trace.
+//! wall jumps/cling/climb, optional dash/double dash, blink/precision blink,
+//! pogo refreshes, rebound pads, hazards, and a symbolic operation trace.
 //!
 //! The update function is intentionally renderer-free. It consumes a plain
 //! `InputState`, mutates a `Player`, and returns `FrameEvents` that the Bevy
@@ -29,6 +29,8 @@ pub enum MovementOp {
     WallClimb,
     Dash,
     DoubleDash,
+    Blink,
+    PrecisionBlink,
     Pogo,
     Rebound,
     Slash,
@@ -45,6 +47,8 @@ impl MovementOp {
             MovementOp::WallClimb => "W^",
             MovementOp::Dash => "D",
             MovementOp::DoubleDash => "DD",
+            MovementOp::Blink => "B",
+            MovementOp::PrecisionBlink => "PB",
             MovementOp::Pogo => "P",
             MovementOp::Rebound => "R",
             MovementOp::Slash => "S",
@@ -61,6 +65,8 @@ impl MovementOp {
             MovementOp::WallClimb => "wall climb",
             MovementOp::Dash => "dash",
             MovementOp::DoubleDash => "double dash",
+            MovementOp::Blink => "blink",
+            MovementOp::PrecisionBlink => "precision blink",
             MovementOp::Pogo => "pogo",
             MovementOp::Rebound => "rebound",
             MovementOp::Slash => "slash",
@@ -104,6 +110,15 @@ pub struct Player {
     /// Number of dash charges available before the next refresh.
     pub dash_charges_available: u8,
     pub air_jumps_available: u8,
+    /// Time until blink can be started again.
+    pub blink_cooldown: f32,
+    /// True while the blink/special button is being held for quick/precision blink.
+    pub blink_hold_active: bool,
+    /// Current hold duration for the blink button.
+    pub blink_hold_timer: f32,
+    /// True after the hold crosses `blink_hold_threshold`; the sandbox uses
+    /// this to enter bullet-time/aim-preview mode.
+    pub blink_aiming: bool,
     pub wall_clinging: bool,
     pub wall_climbing: bool,
     pub dash_timer: f32,
@@ -142,6 +157,10 @@ impl Player {
             dash_available: dash_charges > 0,
             dash_charges_available: dash_charges,
             air_jumps_available: abilities.air_jump_count(DEFAULT_TUNING.air_jumps),
+            blink_cooldown: 0.0,
+            blink_hold_active: false,
+            blink_hold_timer: 0.0,
+            blink_aiming: false,
             wall_clinging: false,
             wall_climbing: false,
             dash_timer: 0.0,
@@ -230,6 +249,9 @@ impl Player {
             (MovementOp::Dash, MovementOp::Slash) => "D o S: dash slash is a commitment",
             (MovementOp::Slash, MovementOp::Dash) => "S o D: slash dash is a correction",
             (MovementOp::DoubleDash, MovementOp::DoubleJump) => "DD o DJ: spend horizontal resources before vertical recovery",
+            (MovementOp::Blink, MovementOp::Dash) => "B o D: blink then dash extends a chosen vector",
+            (MovementOp::Dash, MovementOp::Blink) => "D o B: dash then blink preserves intent but changes topology",
+            (MovementOp::PrecisionBlink, MovementOp::Slash) => "PB o S: aim blink into an exact hit",
             _ => "order matters: this trace is a movement algebra sketch",
         }
     }
@@ -249,6 +271,12 @@ pub struct InputState {
     pub jump_held: bool,
     pub jump_released: bool,
     pub dash_pressed: bool,
+    /// Blink/special button pressed this frame.
+    pub blink_pressed: bool,
+    /// Blink/special button held this frame.
+    pub blink_held: bool,
+    /// Blink/special button released this frame.
+    pub blink_released: bool,
     pub attack_pressed: bool,
     /// Dedicated downward/pogo slash action. This is separate from
     /// `attack_pressed` so layouts can expose four main face-button verbs.
@@ -256,10 +284,19 @@ pub struct InputState {
     pub reset_pressed: bool,
 }
 
+/// Engine event emitted when a blink teleports the player.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlinkEvent {
+    pub from: Vec2,
+    pub to: Vec2,
+    pub precision: bool,
+}
+
 /// Engine events emitted by one player simulation step.
 #[derive(Clone, Debug, Default)]
 pub struct FrameEvents {
     pub operations: Vec<MovementOp>,
+    pub blinks: Vec<BlinkEvent>,
     pub reset: bool,
     pub hazard: bool,
 }
@@ -289,6 +326,12 @@ pub const WALL_CLIMB_SPEED: f32 = 250.0;
 pub const DASH_SPEED: f32 = 820.0;
 pub const DASH_TIME: f32 = 0.105;
 pub const DASH_COOLDOWN: f32 = 0.060;
+pub const BLINK_DISTANCE: f32 = 190.0;
+pub const PRECISION_BLINK_DISTANCE: f32 = 330.0;
+pub const BLINK_HOLD_THRESHOLD: f32 = 0.160;
+pub const BLINK_COOLDOWN: f32 = 0.180;
+pub const FAST_FALL_ACCEL: f32 = 1850.0;
+pub const FAST_FALL_SPEED: f32 = 1380.0;
 pub const COYOTE_TIME: f32 = 0.120;
 pub const JUMP_BUFFER: f32 = 0.135;
 pub const POGO_SPEED: f32 = 810.0;
@@ -313,6 +356,12 @@ pub struct MovementTuning {
     pub dash_speed: f32,
     pub dash_time: f32,
     pub dash_cooldown: f32,
+    pub blink_distance: f32,
+    pub precision_blink_distance: f32,
+    pub blink_hold_threshold: f32,
+    pub blink_cooldown: f32,
+    pub fast_fall_accel: f32,
+    pub fast_fall_speed: f32,
     pub coyote_time: f32,
     pub jump_buffer: f32,
     pub pogo_speed: f32,
@@ -336,6 +385,12 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dash_speed: DASH_SPEED,
     dash_time: DASH_TIME,
     dash_cooldown: DASH_COOLDOWN,
+    blink_distance: BLINK_DISTANCE,
+    precision_blink_distance: PRECISION_BLINK_DISTANCE,
+    blink_hold_threshold: BLINK_HOLD_THRESHOLD,
+    blink_cooldown: BLINK_COOLDOWN,
+    fast_fall_accel: FAST_FALL_ACCEL,
+    fast_fall_speed: FAST_FALL_SPEED,
     coyote_time: COYOTE_TIME,
     jump_buffer: JUMP_BUFFER,
     pogo_speed: POGO_SPEED,
@@ -372,6 +427,7 @@ pub fn update_player_with_tuning(
 
     age_player(player, dt);
     update_facing_and_timers(player, input, dt, tuning);
+    handle_blink(world, player, input, dt, tuning, &mut events);
     handle_attacks(world, player, input, tuning, &mut events);
     handle_jump_buffer(player, input, tuning, &mut events);
     handle_dash(player, input, tuning, &mut events);
@@ -403,6 +459,7 @@ fn update_facing_and_timers(player: &mut Player, input: InputState, dt: f32, tun
     player.jump_buffer_timer = dec(player.jump_buffer_timer, dt);
     player.coyote_timer = dec(player.coyote_timer, dt);
     player.dash_cooldown = dec(player.dash_cooldown, dt);
+    player.blink_cooldown = dec(player.blink_cooldown, dt);
     player.rebound_cooldown = dec(player.rebound_cooldown, dt);
 
     if player.on_ground {
@@ -412,6 +469,69 @@ fn update_facing_and_timers(player: &mut Player, input: InputState, dt: f32, tun
 
     if input.jump_pressed && player.abilities.jump {
         player.jump_buffer_timer = tuning.jump_buffer;
+    }
+}
+
+
+fn handle_blink(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    dt: f32,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    if !player.abilities.blink {
+        player.blink_hold_active = false;
+        player.blink_aiming = false;
+        player.blink_hold_timer = 0.0;
+        return;
+    }
+
+    if input.blink_pressed && player.blink_cooldown <= 0.0 {
+        player.blink_hold_active = true;
+        player.blink_hold_timer = 0.0;
+        player.blink_aiming = false;
+    }
+
+    if player.blink_hold_active && input.blink_held {
+        player.blink_hold_timer += dt;
+        if player.abilities.precision_blink && player.blink_hold_timer >= tuning.blink_hold_threshold {
+            player.blink_aiming = true;
+        }
+    }
+
+    if player.blink_hold_active && input.blink_released {
+        let fallback = Vec2::new(player.facing, 0.0);
+        let aim = Vec2::new(input.axis_x, input.axis_y).normalized_or(fallback);
+        let precision = player.blink_aiming && player.abilities.precision_blink;
+        let max_distance = if precision {
+            tuning.precision_blink_distance
+        } else {
+            tuning.blink_distance
+        };
+        let from = player.pos;
+        let to = blink_destination(world, player, aim, max_distance);
+        player.pos = to;
+        // Blink is a topological move: it preserves intent, but dampens velocity
+        // slightly to make it read as a reposition rather than another dash.
+        player.vel *= if precision { 0.35 } else { 0.55 };
+        player.blink_cooldown = tuning.blink_cooldown;
+        player.blink_hold_active = false;
+        player.blink_hold_timer = 0.0;
+        player.blink_aiming = false;
+        let op = if precision { MovementOp::PrecisionBlink } else { MovementOp::Blink };
+        events.op(player, op);
+        events.blinks.push(BlinkEvent { from, to, precision });
+    }
+
+    // Cancel a partially-started blink if the binding disappeared for any
+    // reason without a release event. This avoids sticky bullet-time state when
+    // focus changes or a future remapper swaps presets mid-hold.
+    if player.blink_hold_active && !input.blink_held && !input.blink_released {
+        player.blink_hold_active = false;
+        player.blink_aiming = false;
+        player.blink_hold_timer = 0.0;
     }
 }
 
@@ -516,6 +636,9 @@ fn integrate_velocity(
         player.dash_timer = dec(player.dash_timer, dt);
     } else {
         player.vel.y += tuning.gravity * dt;
+        if player.abilities.fast_fall && !player.on_ground && input.axis_y > 0.45 {
+            player.vel.y += tuning.fast_fall_accel * dt;
+        }
     }
 
     if player.abilities.move_horizontal {
@@ -529,7 +652,12 @@ fn integrate_velocity(
         }
     }
 
-    player.vel.y = player.vel.y.min(tuning.max_fall_speed);
+    let fall_cap = if player.abilities.fast_fall && input.axis_y > 0.45 {
+        tuning.fast_fall_speed
+    } else {
+        tuning.max_fall_speed
+    };
+    player.vel.y = player.vel.y.min(fall_cap);
 
     // Resolve horizontal motion. This establishes wall contact for wall verbs.
     player.on_wall = false;
@@ -704,6 +832,39 @@ fn touching_rebound(world: &World, player: &Player) -> Option<Vec2> {
     })
 }
 
+
+/// Compute the furthest safe blink destination along `aim`.
+///
+/// Blink should feel like a topological reposition, but it must not place the
+/// player inside solid geometry. The implementation samples along the segment
+/// and returns the last position whose player AABB does not overlap a solid.
+pub fn blink_destination(world: &World, player: &Player, aim: Vec2, max_distance: f32) -> Vec2 {
+    let direction = aim.normalized_or(Vec2::new(player.facing, 0.0));
+    let start = player.pos;
+    let half = player.size * 0.5;
+    let mut last_safe = start;
+    let steps = 18;
+    for step in 1..=steps {
+        let t = step as f32 / steps as f32;
+        let mut candidate = start + direction * (max_distance * t);
+        candidate.x = candidate.x.clamp(half.x, world.size.x - half.x);
+        candidate.y = candidate.y.clamp(half.y, world.size.y - half.y);
+        let candidate_aabb = Aabb::new(candidate, half);
+        if overlaps_solid(world, candidate_aabb) {
+            break;
+        }
+        last_safe = candidate;
+    }
+    last_safe
+}
+
+fn overlaps_solid(world: &World, aabb: Aabb) -> bool {
+    world
+        .blocks
+        .iter()
+        .any(|b| matches!(b.kind, BlockKind::Solid) && aabb.intersects(b.aabb))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -751,5 +912,76 @@ mod tests {
         let mut abilities = AbilitySet::sandbox_all();
         abilities.wall_cling = false;
         assert!(abilities.compatibility_warnings().iter().any(|w| w.contains("wall_climb")));
+    }
+
+    #[test]
+    fn blink_ability_gates_teleport() {
+        let world = build_endgame_sandbox();
+        let mut abilities = AbilitySet::sandbox_all();
+        abilities.blink = false;
+        abilities.precision_blink = false;
+        let mut player = Player::new_with_abilities(world.spawn, abilities);
+        let start = player.pos;
+        let input = InputState {
+            axis_x: 1.0,
+            blink_pressed: true,
+            blink_held: true,
+            ..Default::default()
+        };
+        step(&world, &mut player, input);
+        let input = InputState {
+            axis_x: 1.0,
+            blink_released: true,
+            ..Default::default()
+        };
+        let events = step(&world, &mut player, input);
+        assert_eq!(player.pos, start);
+        assert!(events.blinks.is_empty());
+    }
+
+    #[test]
+    fn quick_blink_moves_on_release() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        let start = player.pos;
+        step(&world, &mut player, InputState {
+            axis_x: 1.0,
+            blink_pressed: true,
+            blink_held: true,
+            ..Default::default()
+        });
+        let events = step(&world, &mut player, InputState {
+            axis_x: 1.0,
+            blink_released: true,
+            ..Default::default()
+        });
+        assert!(player.pos.x > start.x + 20.0);
+        assert_eq!(events.blinks.len(), 1);
+        assert!(!events.blinks[0].precision);
+        assert!(events.operations.contains(&MovementOp::Blink));
+    }
+
+    #[test]
+    fn held_blink_enters_precision_aiming() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        for _ in 0..20 {
+            let blink_pressed = !player.blink_hold_active;
+            step(&world, &mut player, InputState {
+                axis_x: 1.0,
+                blink_held: true,
+                blink_pressed,
+                ..Default::default()
+            });
+        }
+        assert!(player.blink_aiming);
+        let events = step(&world, &mut player, InputState {
+            axis_x: 1.0,
+            blink_released: true,
+            ..Default::default()
+        });
+        assert_eq!(events.blinks.len(), 1);
+        assert!(events.blinks[0].precision);
+        assert!(events.operations.contains(&MovementOp::PrecisionBlink));
     }
 }

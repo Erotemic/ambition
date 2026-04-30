@@ -89,6 +89,23 @@ fn draw_player_debug(
         draw_aabb(gizmos, world, hitbox, yellow());
     }
 
+    // Blink aim preview. A quick tap blinks a short distance; once the hold
+    // crosses the threshold, the engine sets `blink_aiming` and the sandbox
+    // enters bullet-time while previewing the longer precision destination.
+    if controls.blink_held || player.blink_aiming {
+        let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
+            .normalized_or(ae::Vec2::new(player.facing, 0.0));
+        let distance = if player.blink_aiming {
+            ae::PRECISION_BLINK_DISTANCE
+        } else {
+            ae::BLINK_DISTANCE
+        };
+        let target = ae::blink_destination(world, player, aim, distance);
+        let target_center = w2(world, target);
+        draw_arrow(gizmos, center, target_center, magenta());
+        draw_aabb(gizmos, world, ae::Aabb::new(target, player.size * 0.5), magenta());
+    }
+
     // Small status ticks above the player: dash and air jump availability.
     let meter_y = body.top() - 18.0;
     let dash_slots = player.abilities.dash_charge_count().max(1) as usize;

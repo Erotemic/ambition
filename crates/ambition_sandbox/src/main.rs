@@ -804,23 +804,20 @@ fn sandbox_update(
     };
 
     if controls.reset_pressed {
+        let reset_from = runtime.player.pos;
         runtime.reset(&world.0);
+        let reset_to = runtime.player.pos;
         play_sound(&mut commands, &bank, SoundCue::Reset);
-        spawn_burst(
-            &mut commands,
-            &world.0,
-            runtime.player.pos,
-            18,
-            260.0,
-            [0.55, 0.85, 1.0, 0.90],
-            ParticleKind::Spark,
-        );
+        spawn_reset_effects(&mut commands, &world.0, reset_from, reset_to);
     } else {
         let was_grounded = runtime.player.on_ground;
         let events = ae::update_player(&world.0, &mut runtime.player, controls.engine_input(), dt);
         if events.reset {
+            let reset_from = runtime.player.pos;
             runtime.reset(&world.0);
+            let reset_to = runtime.player.pos;
             play_sound(&mut commands, &bank, SoundCue::Reset);
+            spawn_reset_effects(&mut commands, &world.0, reset_from, reset_to);
         }
         for op in &events.operations {
             match op {
@@ -1147,6 +1144,33 @@ fn spawn_impact(commands: &mut Commands, world: &ae::World, pos: ae::Vec2) {
             radius: 12.0,
         },
     ));
+}
+
+fn spawn_reset_effects(commands: &mut Commands, world: &ae::World, from: ae::Vec2, to: ae::Vec2) {
+    // Reset is a teleport-like state transition. Showing both endpoints avoids
+    // the ambiguity where a burst at spawn can look like a coordinate bug when
+    // the player reset from somewhere else.
+    if (from - to).length() > 8.0 {
+        spawn_burst(
+            commands,
+            world,
+            from,
+            10,
+            180.0,
+            [0.32, 0.48, 0.70, 0.52],
+            ParticleKind::Dust,
+        );
+    }
+    spawn_burst(
+        commands,
+        world,
+        to,
+        24,
+        280.0,
+        [0.55, 0.85, 1.0, 0.90],
+        ParticleKind::Spark,
+    );
+    spawn_impact(commands, world, to);
 }
 
 fn spawn_burst(

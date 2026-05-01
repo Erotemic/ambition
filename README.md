@@ -14,6 +14,7 @@ The first design law is: **the game should be fun as raw collision boxes**.
 - No sprites, textures, tilemaps, imported audio, or prerendered assets.
 - A generated room: solids, one-way shelves, hazard channels, pogo orbs, and rebound/impulse pads.
 - Endgame-style movement verbs: run, jump, double jump, variable jump height, wall jump, dash, pogo, slash/recoil, rebound pads.
+- `GameMode` pause/menu state gates gameplay input so paused actions do not leak into player movement.
 - Debug overlay: Bevy Gizmos for room bounds, loading zones, hitboxes, velocity/facing vectors, blink previews, moving platforms, dummies, rebound vectors, plus the text HUD for grounded/walled state, resources, timers, and combo algebra trace.
 - Four keyboard presets with `F9`/`F10` preset cycling, now backed by Leafwing Input Manager `InputMap` / `ActionState` components.
 - Two easy-to-reach bashable dummies near spawn: one infinite-health sandbag and one finite-health respawning drop dummy.
@@ -54,7 +55,7 @@ Universal controls:
 
 | Input | Action |
 |---|---|
-| `Escape` | Start: pause/freeze |
+| `Escape` | Start: pause/menu mode |
 | `Delete` or `Backspace` | Select/full sandbox restart |
 | `F1` | Toggle debug overlay |
 | `F2` | Toggle slow motion |

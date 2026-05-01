@@ -33,13 +33,13 @@ into Ambition's terminology.
 | Y / Triangle | Utility action | Fly toggle / utility |
 | LB / L1 | Map | Placeholder |
 | Back / Touchpad | Inventory/select | Inventory later; sandbox restart for now |
-| Start / Options | Pause | Pause/freeze |
+| Start / Options | Pause | Pause/menu mode |
 
 ## Universal sandbox/system controls
 
 | Input | Semantic control | Current behavior |
 |---|---|---|
-| `Escape` | Start | Pause/freeze |
+| `Escape` | Start | Pause/menu mode |
 | `Delete` / `Backspace` | Select / restart | Full sandbox restart, including enemies and transient effects |
 | `F1` | Debug | Toggle overlay |
 | `F2` | Slow motion | Toggle slow motion |

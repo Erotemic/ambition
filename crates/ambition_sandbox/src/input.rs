@@ -311,7 +311,7 @@ pub struct ControlFrame {
 }
 
 impl ControlFrame {
-    pub fn read(actions: &ActionState<SandboxAction>) -> Self {
+    pub fn read_gameplay(actions: &ActionState<SandboxAction>) -> Self {
         let axis = actions.clamped_axis_pair(&SandboxAction::Move);
         let up_pressed = actions.just_pressed(&SandboxAction::MoveUp);
         let down_pressed = actions.just_pressed(&SandboxAction::MoveDown);
@@ -336,6 +336,13 @@ impl ControlFrame {
             interact_pressed: up_pressed,
             reset_pressed: actions.just_pressed(&SandboxAction::Reset),
             start_pressed: actions.just_pressed(&SandboxAction::Start),
+        }
+    }
+
+    pub fn read_menu(actions: &ActionState<SandboxAction>) -> Self {
+        Self {
+            start_pressed: actions.just_pressed(&SandboxAction::Start),
+            ..default()
         }
     }
 

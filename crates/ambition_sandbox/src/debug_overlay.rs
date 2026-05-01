@@ -136,7 +136,7 @@ fn draw_player_debug(
     // Show the currently implied attack box while the attack key is held. This
     // brings back the old raw collision-box tuning view without requiring an
     // actual attack event every frame.
-    let controls = actions.map(ControlFrame::read).unwrap_or_default();
+    let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
     let attack_held = actions
         .map(|actions| actions.pressed(&SandboxAction::Attack))
         .unwrap_or(false);

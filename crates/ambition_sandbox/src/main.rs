@@ -11,6 +11,7 @@ mod debug_overlay;
 mod dev_tools;
 mod dummies;
 mod fx;
+mod game_mode;
 mod input;
 mod platforms;
 mod rendering;
@@ -44,6 +45,7 @@ use fx::{
     spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
     spawn_slash_preview, ParticleKind,
 };
+use game_mode::GameMode;
 use input::{ControlFrame, KeyboardPreset, SandboxAction, GAMEPAD_MAP};
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 use rendering::{camera_follow, dummy_color, spawn_room_visuals, sync_visuals, DummyVisual, HudText, PlayerVisual, RoomVisual, SceneEntities};
@@ -65,6 +67,7 @@ fn main() {
         .insert_resource(editable_abilities)
         .insert_resource(editable_tuning)
         .insert_resource(windowing::DisplayModeState::default())
+        .register_type::<GameMode>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Ambition - Tangent Space Sandbox (Bevy)".into(),
@@ -79,6 +82,8 @@ fn main() {
             }),
             ..default()
         }))
+        // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
+        .init_state::<GameMode>()
         // The inspector quick plugins require EguiPlugin to be registered first.
         .add_plugins(EguiPlugin::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
@@ -120,7 +125,6 @@ pub struct SandboxRuntime {
     pub player: ae::Player,
     pub dummies: Vec<Dummy>,
     debug: bool,
-    freeze: bool,
     slowmo: bool,
     presets: Vec<KeyboardPreset>,
     preset_index: usize,
@@ -142,7 +146,6 @@ impl SandboxRuntime {
             player,
             dummies: spawn_dummies(world),
             debug: true,
-            freeze: false,
             slowmo: false,
             presets: KeyboardPreset::presets().to_vec(),
             preset_index: 0,
@@ -199,7 +202,7 @@ impl SandboxRuntime {
     }
 
     fn update_time_scale(&mut self, frame_dt: f32, feel: SandboxFeelTuning) {
-        let target = if self.freeze || self.hitstop_timer > 0.0 {
+        let target = if self.hitstop_timer > 0.0 {
             0.0
         } else if self.player.blink_aiming {
             feel.bullet_time_scale
@@ -309,6 +312,8 @@ fn sandbox_update(
     editable_abilities: Res<EditableAbilitySet>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut developer_tools: ResMut<DeveloperTools>,
+    mode: Res<State<GameMode>>,
+    mut next_mode: ResMut<NextState<GameMode>>,
     mut runtime: ResMut<SandboxRuntime>,
     entities: Res<SceneEntities>,
     mut player_input: Query<(&mut ActionState<SandboxAction>, &mut InputMap<SandboxAction>), With<PlayerVisual>>,
@@ -326,13 +331,35 @@ fn sandbox_update(
             *input_map = runtime.preset().input_map();
             action_state.reset_all();
         }
-        controls = ControlFrame::read(&action_state);
+        controls = if mode.get().allows_gameplay() {
+            ControlFrame::read_gameplay(&action_state)
+        } else {
+            ControlFrame::read_menu(&action_state)
+        };
     }
+
     if controls.start_pressed {
-        runtime.freeze = !runtime.freeze;
+        let next = if mode.get().allows_gameplay() { GameMode::Paused } else { GameMode::Playing };
+        next_mode.set(next);
+        if let Ok((mut action_state, _)) = player_input.get_mut(entities.player) {
+            action_state.reset_all();
+        }
+        runtime.time_scale = if next.allows_gameplay() { 1.0 } else { 0.0 };
+        return;
     }
 
     let frame_dt = time.delta_secs();
+    if !mode.get().allows_gameplay() {
+        // Pause, dialogue, and transition modes intentionally do not consume
+        // gameplay inputs or advance simulation timers. Developer hotkeys above
+        // and HUD sync below remain responsive because those systems are outside
+        // this early return.
+        runtime.time_scale = 0.0;
+        runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
+        runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+        return;
+    }
+
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
     controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
     let door_double_tap_up = runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
@@ -450,7 +477,7 @@ fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntim
 }
 
 fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
-    if runtime.freeze || runtime.hitstop_timer > 0.0 {
+    if runtime.hitstop_timer > 0.0 {
         0.0
     } else {
         frame_dt * runtime.time_scale
@@ -659,6 +686,7 @@ fn update_dummies(
 
 fn update_hud(
     runtime: Res<SandboxRuntime>,
+    mode: Res<State<GameMode>>,
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     display_mode: Res<windowing::DisplayModeState>,
@@ -713,8 +741,9 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nroom: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\ngamepad target: {}{}",
         world.0.name,
+        mode.get().label(),
         "Bevy backend",
         room_set.active + 1,
         room_set.rooms.len(),
@@ -745,7 +774,7 @@ fn update_hud(
         runtime.slowmo,
         developer_tools.inspector_visible,
         developer_tools.world_inspector_visible,
-        runtime.freeze,
+        mode.get().label(),
         runtime.hitstop_timer,
         runtime.time_scale,
         window_line,

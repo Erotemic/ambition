@@ -165,3 +165,8 @@ Additional design notes:
 
 - Display/window scaling notes: `docs/display_modes.md
 - docs/fly_and_room_hub.md`
+
+### Timing model
+
+The sandbox now uses a two-clock update path: real-time controls and scaled
+simulation time. See `docs/two_clock_simulation.md`.

@@ -123,3 +123,10 @@ Dummies now use engine-side room collision via `Dummy::update_in_world`; see `do
 ## Room graph and loading-zone model
 
 See `docs/room_graph_data_model.md`. Loading zones now distinguish automatic edge exits from press-up door interactions, which is the first step toward a serializable room graph.
+
+## Two-clock update model
+
+See [two_clock_simulation.md](two_clock_simulation.md) for the current split
+between real-time control and scaled simulation time. This exists so precision
+blink can keep responsive aiming while gravity, enemies, platforms, and effects
+all slow down together.

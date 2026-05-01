@@ -28,7 +28,9 @@ pub use enemy::{spawn_dummies, Dummy, DummyKind};
 pub use geometry::Aabb;
 pub use math::{approach, Vec2};
 pub use movement::{
-    blink_destination, blink_destination_to_point, update_player, update_player_with_tuning, BlinkEvent, ComboMark, FrameEvents,
+    blink_destination, blink_destination_to_point, update_player, update_player_control,
+    update_player_control_with_tuning, update_player_simulation, update_player_simulation_with_tuning,
+    update_player_with_tuning, BlinkEvent, ComboMark, FrameEvents,
     InputState, MovementOp, MovementTuning, Player, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
     BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_COOLDOWN,
     DASH_SPEED, DASH_TIME, DEFAULT_TUNING, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_TERMINAL_SPEED, FLIGHT_HOVER_SPEED, FLIGHT_HOVER_HZ,

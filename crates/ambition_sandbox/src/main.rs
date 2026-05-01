@@ -248,27 +248,54 @@ fn sandbox_update(
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
     controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
-    runtime.update_time_scale(frame_dt);
-    let dt = sandbox_dt(&runtime, frame_dt);
-    let platform_delta = runtime.moving_platform.update(dt);
-    if runtime.moving_platform.is_riding(&runtime.player) {
-        runtime.player.pos += platform_delta;
-    }
-    let collision_world = platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
 
     if controls.reset_pressed {
         reset_sandbox(&mut commands, &world.0, &bank, &mut runtime);
     } else {
-        update_player_and_feedback(
+        // Two-clock update:
+        // - control_dt is real time for responsive inputs and precision-blink aim;
+        // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
+        let input = controls.engine_input(frame_dt);
+        let control_world = platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
+        let control_events = ae::update_player_control(&control_world, &mut runtime.player, input, frame_dt);
+        if control_events.reset {
+            reset_sandbox(&mut commands, &world.0, &bank, &mut runtime);
+            return;
+        }
+        handle_player_events(
             &mut commands,
             &world.0,
-            &collision_world,
             &bank,
             &mut runtime,
-            controls,
-            frame_dt,
-            dt,
+            control_events,
+            None,
         );
+
+        runtime.update_time_scale(frame_dt);
+        let dt = sandbox_dt(&runtime, frame_dt);
+
+        let platform_delta = runtime.moving_platform.update(dt);
+        if runtime.moving_platform.is_riding(&runtime.player) {
+            runtime.player.pos += platform_delta;
+        }
+        let collision_world = platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
+
+        let was_grounded = runtime.player.on_ground;
+        let sim_events = ae::update_player_simulation(&collision_world, &mut runtime.player, input, dt);
+        if sim_events.reset {
+            reset_sandbox(&mut commands, &world.0, &bank, &mut runtime);
+            return;
+        }
+        handle_player_events(
+            &mut commands,
+            &world.0,
+            &bank,
+            &mut runtime,
+            sim_events,
+            Some(was_grounded),
+        );
+
+        update_dummies(&mut commands, &collision_world, &bank, &mut runtime, dt);
     }
 
     if runtime.room_transition_cooldown <= 0.0 {
@@ -289,8 +316,6 @@ fn sandbox_update(
     if controls.attack_pressed || controls.pogo_pressed {
         process_attack(&mut commands, &world.0, &bank, &mut runtime, controls);
     }
-
-    update_dummies(&mut commands, &collision_world, &bank, &mut runtime, dt);
 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
@@ -394,22 +419,14 @@ fn load_room(
     }
 }
 
-fn update_player_and_feedback(
+fn handle_player_events(
     commands: &mut Commands,
     render_world: &ae::World,
-    collision_world: &ae::World,
     bank: &SoundBank,
     runtime: &mut SandboxRuntime,
-    controls: ControlFrame,
-    frame_dt: f32,
-    dt: f32,
+    events: ae::FrameEvents,
+    was_grounded: Option<bool>,
 ) {
-    let was_grounded = runtime.player.on_ground;
-    let events = ae::update_player(collision_world, &mut runtime.player, controls.engine_input(frame_dt), dt);
-    if events.reset {
-        reset_sandbox(commands, render_world, bank, runtime);
-        return;
-    }
     for op in &events.operations {
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
@@ -450,13 +467,15 @@ fn update_player_and_feedback(
     if events.hazard || !events.operations.is_empty() {
         runtime.flash_timer = 0.12;
     }
-    if !was_grounded && runtime.player.on_ground {
-        spawn_dust(
-            commands,
-            render_world,
-            runtime.player.pos + ae::Vec2::new(0.0, runtime.player.size.y * 0.5),
-            runtime.player.facing,
-        );
+    if let Some(was_grounded) = was_grounded {
+        if !was_grounded && runtime.player.on_ground {
+            spawn_dust(
+                commands,
+                render_world,
+                runtime.player.pos + ae::Vec2::new(0.0, runtime.player.size.y * 0.5),
+                runtime.player.facing,
+            );
+        }
     }
 }
 

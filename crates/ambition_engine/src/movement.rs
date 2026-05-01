@@ -130,6 +130,10 @@ pub struct Player {
     /// Precision-blink aim cursor relative to the player position. Quick blink
     /// ignores this, but long-hold precision blink updates it gradually.
     pub blink_aim_offset: Vec2,
+    /// Short post-blink grace window. While positive, ordinary falling is
+    /// suspended/clamped so repeated blinks feel like controlled teleports
+    /// instead of preserving accumulated fall speed.
+    pub blink_grace_timer: f32,
     /// True after a double-tap-down has committed to fast-fall. Holding down
     /// alone does not set this, preserving down+attack as a natural pogo input.
     pub fast_falling: bool,
@@ -178,6 +182,7 @@ impl Player {
             blink_hold_timer: 0.0,
             blink_aiming: false,
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
+            blink_grace_timer: 0.0,
             fast_falling: false,
             wall_clinging: false,
             wall_climbing: false,
@@ -335,6 +340,17 @@ impl FrameEvents {
         self.operations.push(op);
         player.record(op);
     }
+
+    /// Merge another event bundle into this frame.
+    ///
+    /// This is used by the two-clock update path: control/intent is processed
+    /// in real time, then physical evolution is processed in scaled game time.
+    pub fn extend(&mut self, other: FrameEvents) {
+        self.operations.extend(other.operations);
+        self.blinks.extend(other.blinks);
+        self.reset |= other.reset;
+        self.hazard |= other.hazard;
+    }
 }
 
 // First-pass movement constants. These remain constants for easy grep/tuning,
@@ -364,6 +380,14 @@ pub const PRECISION_BLINK_AIM_SPEED: f32 = 1_650.0;
 /// without waiting through the snappy quick-blink window.
 pub const BLINK_HOLD_THRESHOLD: f32 = 0.100;
 pub const BLINK_COOLDOWN: f32 = 0.180;
+/// Brief post-blink hang window that prevents repeated blinks from inheriting
+/// runaway downward velocity. This is deliberately short: blink should feel
+/// controlled, not like a full hover.
+pub const BLINK_GRACE_TIME: f32 = 0.090;
+/// Maximum downward velocity immediately after a quick blink.
+pub const BLINK_MAX_DOWNWARD_SPEED: f32 = 55.0;
+/// Maximum downward velocity immediately after a precision blink.
+pub const PRECISION_BLINK_MAX_DOWNWARD_SPEED: f32 = 18.0;
 pub const FAST_FALL_ACCEL: f32 = 1850.0;
 pub const FAST_FALL_SPEED: f32 = 1380.0;
 pub const FLIGHT_ACCEL: f32 = 900.0;
@@ -400,6 +424,9 @@ pub struct MovementTuning {
     pub precision_blink_aim_speed: f32,
     pub blink_hold_threshold: f32,
     pub blink_cooldown: f32,
+    pub blink_grace_time: f32,
+    pub blink_max_downward_speed: f32,
+    pub precision_blink_max_downward_speed: f32,
     pub fast_fall_accel: f32,
     pub fast_fall_speed: f32,
     pub flight_accel: f32,
@@ -435,6 +462,9 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     precision_blink_aim_speed: PRECISION_BLINK_AIM_SPEED,
     blink_hold_threshold: BLINK_HOLD_THRESHOLD,
     blink_cooldown: BLINK_COOLDOWN,
+    blink_grace_time: BLINK_GRACE_TIME,
+    blink_max_downward_speed: BLINK_MAX_DOWNWARD_SPEED,
+    precision_blink_max_downward_speed: PRECISION_BLINK_MAX_DOWNWARD_SPEED,
     fast_fall_accel: FAST_FALL_ACCEL,
     fast_fall_speed: FAST_FALL_SPEED,
     flight_accel: FLIGHT_ACCEL,
@@ -453,14 +483,81 @@ pub fn update_player(world: &World, player: &mut Player, input: InputState, raw_
     update_player_with_tuning(world, player, input, raw_dt, DEFAULT_TUNING)
 }
 
-/// Advance the player simulation by one frame.
+/// Advance the player for callers that do not care about separate clocks.
 ///
-/// `raw_dt` is capped on the high end so a slow or paused frame does not
-/// explode collision, but tiny positive values are preserved. This matters for
-/// bullet-time: gravity and velocity integration must slow by the same factor
-/// as the rest of the game world. The Bevy sandbox handles hitstop/freeze by
-/// passing `0.0`.
+/// This compatibility wrapper uses the same duration for control and simulation.
+/// The Bevy sandbox uses the split functions below so bullet-time can freeze
+/// physical evolution while keeping input/aim control responsive.
 pub fn update_player_with_tuning(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let control_dt = if input.control_dt > 0.0 { input.control_dt } else { raw_dt };
+    let mut events = update_player_control_with_tuning(world, player, input, control_dt, tuning);
+    let sim_events = update_player_simulation_with_tuning(world, player, input, raw_dt, tuning);
+    events.extend(sim_events);
+    events
+}
+
+/// Process player intent and instantaneous actions using real, unscaled time.
+///
+/// Input should remain responsive during bullet-time: the blink aim cursor,
+/// button-hold thresholds, toggles, dash presses, attack presses, and jump
+/// buffering are control-layer concepts. They advance from real frame time,
+/// not from slowed simulation time.
+pub fn update_player_control(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    control_dt: f32,
+) -> FrameEvents {
+    update_player_control_with_tuning(world, player, input, control_dt, DEFAULT_TUNING)
+}
+
+pub fn update_player_control_with_tuning(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    control_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
+    let mut events = FrameEvents::default();
+
+    if input.reset_pressed && player.abilities.reset {
+        player.reset_to(world.spawn);
+        events.reset = true;
+        return events;
+    }
+
+    update_facing_and_control_intent(player, input, tuning);
+    handle_mode_toggles(player, input, &mut events);
+    handle_blink(world, player, input, control_dt, tuning, &mut events);
+    handle_attacks(world, player, input, tuning, &mut events);
+    handle_dash(player, input, tuning, &mut events);
+    handle_jump_release(player, input);
+
+    events
+}
+
+/// Advance physical world evolution using scaled game time.
+///
+/// Gravity, velocity integration, timers, coyote time, cooldowns, enemies,
+/// platforms, and particles should all consume this same scaled timestep. Tiny
+/// positive values are preserved so near-frozen bullet-time is honored; only
+/// large frame spikes are capped.
+pub fn update_player_simulation(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    raw_dt: f32,
+) -> FrameEvents {
+    update_player_simulation_with_tuning(world, player, input, raw_dt, DEFAULT_TUNING)
+}
+
+pub fn update_player_simulation_with_tuning(
     world: &World,
     player: &mut Player,
     input: InputState,
@@ -473,19 +570,9 @@ pub fn update_player_with_tuning(
     }
     let dt = raw_dt.min(1.0 / 30.0);
 
-    if input.reset_pressed && player.abilities.reset {
-        player.reset_to(world.spawn);
-        events.reset = true;
-        return events;
-    }
-
     age_player(player, dt);
-    handle_mode_toggles(player, input, &mut events);
-    update_facing_and_timers(player, input, dt, tuning);
-    handle_blink(world, player, input, dt, tuning, &mut events);
-    handle_attacks(world, player, input, tuning, &mut events);
+    update_simulation_timers(player, dt, tuning);
     handle_jump_buffer(player, input, tuning, &mut events);
-    handle_dash(player, input, tuning, &mut events);
     integrate_velocity(world, player, input, dt, tuning, &mut events);
 
     if touching_hazard(world, player) || player.pos.y > world.size.y + 200.0 {
@@ -506,24 +593,27 @@ fn age_player(player: &mut Player, dt: f32) {
     player.combo.retain(|m| m.age < 4.0 || m.op == MovementOp::Reset);
 }
 
-fn update_facing_and_timers(player: &mut Player, input: InputState, dt: f32, tuning: MovementTuning) {
+fn update_facing_and_control_intent(player: &mut Player, input: InputState, tuning: MovementTuning) {
     if input.axis_x.abs() > 0.1 {
         player.facing = input.axis_x.signum();
     }
 
+    if input.jump_pressed && player.abilities.jump {
+        player.jump_buffer_timer = tuning.jump_buffer;
+    }
+}
+
+fn update_simulation_timers(player: &mut Player, dt: f32, tuning: MovementTuning) {
     player.jump_buffer_timer = dec(player.jump_buffer_timer, dt);
     player.coyote_timer = dec(player.coyote_timer, dt);
     player.dash_cooldown = dec(player.dash_cooldown, dt);
     player.blink_cooldown = dec(player.blink_cooldown, dt);
+    player.blink_grace_timer = dec(player.blink_grace_timer, dt);
     player.rebound_cooldown = dec(player.rebound_cooldown, dt);
 
     if player.on_ground {
         player.coyote_timer = tuning.coyote_time;
         player.refresh_movement_resources(tuning);
-    }
-
-    if input.jump_pressed && player.abilities.jump {
-        player.jump_buffer_timer = tuning.jump_buffer;
     }
 }
 
@@ -535,6 +625,7 @@ fn handle_mode_toggles(player: &mut Player, input: InputState, events: &mut Fram
             player.wall_clinging = false;
             player.wall_climbing = false;
             player.dash_timer = 0.0;
+            player.blink_grace_timer = 0.0;
         }
         events.op(player, MovementOp::FlyToggle);
     }
@@ -556,7 +647,12 @@ fn handle_blink(
         return;
     }
 
-    if input.blink_pressed && player.blink_cooldown <= 0.0 {
+    if (input.blink_pressed || (input.blink_held && !player.blink_hold_active))
+        && player.blink_cooldown <= 0.0
+    {
+        // Permit a held blink button to arm as soon as cooldown clears. This
+        // avoids a bad second-blink case where the user pressed slightly early,
+        // the hold was ignored, and bullet-time never engaged.
         player.blink_hold_active = true;
         player.blink_hold_timer = 0.0;
         player.blink_aiming = false;
@@ -564,14 +660,10 @@ fn handle_blink(
     }
 
     if player.blink_hold_active && input.blink_held {
-        // Blink hold/aim uses unscaled control time when supplied. During
-        // precision blink, physics can be nearly frozen, but the destination
-        // cursor should still feel like a responsive UI control.
-        let control_dt = if input.control_dt > 0.0 {
-            input.control_dt.min(1.0 / 20.0)
-        } else {
-            dt
-        };
+        // Blink hold/aim uses unscaled control time. During precision blink,
+        // physics can be nearly frozen, but the destination cursor should still
+        // feel like a responsive UI control.
+        let control_dt = dt.min(1.0 / 20.0);
         player.blink_hold_timer += control_dt;
         if player.abilities.precision_blink && player.blink_hold_timer >= tuning.blink_hold_threshold {
             player.blink_aiming = true;
@@ -595,18 +687,7 @@ fn handle_blink(
         } else {
             blink_destination(world, player, aim, tuning.blink_distance)
         };
-        player.pos = to;
-        // Blink is a topological move: it preserves intent, but dampens velocity
-        // slightly to make it read as a reposition rather than another dash.
-        player.vel *= if precision { 0.35 } else { 0.55 };
-        player.blink_cooldown = tuning.blink_cooldown;
-        player.blink_hold_active = false;
-        player.blink_hold_timer = 0.0;
-        player.blink_aiming = false;
-        player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
-        let op = if precision { MovementOp::PrecisionBlink } else { MovementOp::Blink };
-        events.op(player, op);
-        events.blinks.push(BlinkEvent { from, to, precision });
+        complete_blink(player, from, to, precision, tuning, events);
     }
 
     // Cancel a partially-started blink if the binding disappeared for any
@@ -618,6 +699,60 @@ fn handle_blink(
         player.blink_hold_timer = 0.0;
         player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
     }
+}
+
+/// Finish a blink in one place so every blink variant shares the same
+/// post-teleport state policy.
+///
+/// Blink completion is kept in one place so destination resolution, cooldowns,
+/// presentation events, and post-blink state stay consistent across quick and
+/// precision variants.
+fn complete_blink(
+    player: &mut Player,
+    from: Vec2,
+    to: Vec2,
+    precision: bool,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    player.pos = to;
+    apply_post_blink_motion(player, precision, tuning);
+    player.blink_cooldown = tuning.blink_cooldown;
+    player.blink_hold_active = false;
+    player.blink_hold_timer = 0.0;
+    player.blink_aiming = false;
+    player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
+    let op = if precision { MovementOp::PrecisionBlink } else { MovementOp::Blink };
+    events.op(player, op);
+    events.blinks.push(BlinkEvent { from, to, precision });
+}
+
+/// Apply the movement-state aftermath of a completed blink.
+///
+/// Blink is a topological reposition, not another gravity-preserving dash. This
+/// policy is intentionally small and explicit. The real bullet-time invariant is
+/// enforced by the split control/simulation clocks above; this function only
+/// defines the immediate feel after teleporting.
+fn apply_post_blink_motion(player: &mut Player, precision: bool, tuning: MovementTuning) {
+    let damping = if precision { 0.35 } else { 0.55 };
+    let max_downward = if precision {
+        tuning.precision_blink_max_downward_speed
+    } else {
+        tuning.blink_max_downward_speed
+    };
+
+    player.vel.x *= damping;
+    if player.vel.y > max_downward {
+        player.vel.y = max_downward;
+    } else {
+        player.vel.y *= damping;
+    }
+
+    player.fast_falling = false;
+    player.wall_clinging = false;
+    player.wall_climbing = false;
+    player.dash_timer = 0.0;
+    player.blink_grace_timer = tuning.blink_grace_time;
 }
 
 fn handle_attacks(
@@ -686,8 +821,11 @@ fn handle_jump_buffer(
             events.op(player, MovementOp::DoubleJump);
         }
     }
+}
 
-    // Variable jump height: releasing jump early clips upward velocity.
+fn handle_jump_release(player: &mut Player, input: InputState) {
+    // Variable jump height is an input/control gesture. It should react even
+    // during bullet-time rather than waiting for scaled simulation time.
     if player.abilities.variable_jump && input.jump_released && player.vel.y < -120.0 {
         player.vel.y *= 0.54;
     }
@@ -722,11 +860,14 @@ fn integrate_velocity(
     } else if player.fly_enabled && player.abilities.fly {
         integrate_flight(player, input, dt, tuning);
     } else {
-        player.vel.y += tuning.gravity * dt;
+        let blink_hang_active = player.blink_grace_timer > 0.0 && player.vel.y >= 0.0;
+        if !blink_hang_active {
+            player.vel.y += tuning.gravity * dt;
+        }
         if input.fast_fall_pressed && player.abilities.fast_fall && !player.on_ground {
             player.fast_falling = true;
         }
-        if player.fast_falling {
+        if player.fast_falling && !blink_hang_active {
             player.vel.y += tuning.fast_fall_accel * dt;
         }
 
@@ -768,6 +909,7 @@ fn integrate_velocity(
 
     if player.on_ground {
         player.refresh_movement_resources(tuning);
+        player.blink_grace_timer = 0.0;
         player.fast_falling = false;
         player.wall_clinging = false;
         player.wall_climbing = false;
@@ -1057,6 +1199,93 @@ mod tests {
         assert!(slow_player.vel.y < normal_fall_speed * 0.01, "tiny dt should not be clamped up to normal-ish gravity");
     }
 
+
+    #[test]
+    fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new(world.spawn);
+        player.on_ground = false;
+        player.coyote_timer = 0.0;
+        player.vel = Vec2::ZERO;
+
+        // Real-time control crosses the precision-blink threshold.
+        for i in 0..8 {
+            let _ = update_player_control_with_tuning(
+                &world,
+                &mut player,
+                InputState {
+                    axis_x: 1.0,
+                    blink_pressed: i == 0,
+                    blink_held: true,
+                    ..Default::default()
+                },
+                1.0 / 60.0,
+                DEFAULT_TUNING,
+            );
+        }
+        assert!(player.blink_aiming, "control time should enter precision aim quickly");
+
+        // Game-time simulation is almost frozen, so gravity should barely change.
+        let _ = update_player_simulation_with_tuning(
+            &world,
+            &mut player,
+            InputState::default(),
+            (1.0 / 60.0) * 0.000035,
+            DEFAULT_TUNING,
+        );
+        assert!(
+            player.vel.y < 0.01,
+            "player gravity must use scaled game time while control remains real-time; got {}",
+            player.vel.y
+        );
+    }
+
+
+    #[test]
+    fn held_blink_arms_when_cooldown_clears_without_new_press() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new(world.spawn);
+        player.blink_cooldown = 0.02;
+
+        // Pressing slightly early should not arm yet.
+        let _ = update_player_control_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                blink_pressed: true,
+                blink_held: true,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+        assert!(!player.blink_hold_active);
+
+        // Cooldown clears in simulation time.
+        let _ = update_player_simulation_with_tuning(
+            &world,
+            &mut player,
+            InputState::default(),
+            0.03,
+            DEFAULT_TUNING,
+        );
+        assert_eq!(player.blink_cooldown, 0.0);
+
+        // The user is still holding the button, so control time can arm blink
+        // without requiring another just-pressed edge.
+        let _ = update_player_control_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                blink_held: true,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+        assert!(player.blink_hold_active);
+    }
+
     #[test]
     fn double_jump_ability_controls_air_jump() {
         let world = build_endgame_sandbox();
@@ -1111,13 +1340,13 @@ mod tests {
             blink_held: true,
             ..Default::default()
         };
-        step(&world, &mut player, input);
+        let _ = update_player_control_with_tuning(&world, &mut player, input, 1.0 / 60.0, DEFAULT_TUNING);
         let input = InputState {
             axis_x: 1.0,
             blink_released: true,
             ..Default::default()
         };
-        let events = step(&world, &mut player, input);
+        let events = update_player_control_with_tuning(&world, &mut player, input, 1.0 / 60.0, DEFAULT_TUNING);
         assert_eq!(player.pos, start);
         assert!(events.blinks.is_empty());
     }
@@ -1191,6 +1420,60 @@ mod tests {
             ..Default::default()
         });
         assert!(player.fast_falling);
+    }
+
+    #[test]
+    fn repeated_blinks_clamp_downward_velocity_each_time() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new(world.spawn);
+        player.pos = Vec2::new(420.0, 620.0);
+
+        for _ in 0..2 {
+            player.vel = Vec2::new(25.0, 900.0);
+            player.blink_cooldown = 0.0;
+            player.blink_hold_active = true;
+            player.blink_aiming = false;
+            let events = update_player_with_tuning(
+                &world,
+                &mut player,
+                InputState {
+                    axis_x: 1.0,
+                    blink_released: true,
+                    ..Default::default()
+                },
+                1.0 / 60.0,
+                DEFAULT_TUNING,
+            );
+            assert_eq!(events.blinks.len(), 1);
+            assert!(
+                player.vel.y <= DEFAULT_TUNING.blink_max_downward_speed + DEFAULT_TUNING.gravity / 60.0 + 1.0,
+                "blink should not preserve a large downward fall speed; got {}",
+                player.vel.y
+            );
+            assert!(player.blink_grace_timer > 0.0);
+        }
+    }
+
+    #[test]
+    fn post_blink_grace_suspends_gravity_for_tiny_window() {
+        let world = build_endgame_sandbox();
+        let mut player = Player::new(world.spawn);
+        player.pos = Vec2::new(420.0, 620.0);
+        player.vel = Vec2::new(0.0, 900.0);
+        player.blink_hold_active = true;
+        let _events = update_player_with_tuning(
+            &world,
+            &mut player,
+            InputState { axis_x: 1.0, blink_released: true, ..Default::default() },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+        let after_blink_vy = player.vel.y;
+        let _events = update_player_with_tuning(&world, &mut player, InputState::default(), 1.0 / 240.0, DEFAULT_TUNING);
+        assert!(
+            player.vel.y <= after_blink_vy + 0.1,
+            "gravity should be suspended during the short post-blink grace window"
+        );
     }
 
     #[test]

@@ -31,3 +31,7 @@ The room graph is still sandbox-side. The engine simulates a single `World` at a
 - Make loading zones typed: door, portal, theorem gate, story transition, debug warp.
 - Add per-room moving-platform specs instead of one generic time-reference platform.
 - Add tests for room transitions after the room graph moves into the engine.
+
+## Door interaction while flying
+
+When fly is enabled, `Up` remains a flight direction. Door-style zones therefore require a deliberate double-tap-up gesture while flying. Edge exits are unchanged: moving through a wall opening still transitions automatically.

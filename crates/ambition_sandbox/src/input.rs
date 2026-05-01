@@ -209,6 +209,10 @@ pub struct ControlFrame {
     pub jump_held: bool,
     pub jump_released: bool,
     pub dash_pressed: bool,
+    /// Movement-up key was newly pressed this frame. The sandbox uses this
+    /// to require a double-tap-up door activation while flying, so upward
+    /// flight does not accidentally enter doors.
+    pub up_pressed: bool,
     /// Movement-down key was newly pressed this frame. The sandbox uses this
     /// to recognize double-tap-down for fast-fall without making down+attack
     /// automatically fast-fall.
@@ -244,8 +248,9 @@ impl ControlFrame {
         if keys.pressed(preset.movement.down) {
             axis_y += 1.0;
         }
+        let up_pressed = keys.just_pressed(preset.movement.up);
         let down_pressed = keys.just_pressed(preset.movement.down);
-        let interact_pressed = keys.just_pressed(preset.movement.up);
+        let interact_pressed = up_pressed;
         let blink_key = preset.actions.secondary;
         let blink_pressed = blink_key.map(|key| keys.just_pressed(key)).unwrap_or(false);
         let blink_held = blink_key.map(|key| keys.pressed(key)).unwrap_or(false);
@@ -265,6 +270,7 @@ impl ControlFrame {
             jump_held: keys.pressed(preset.actions.jump),
             jump_released: keys.just_released(preset.actions.jump),
             dash_pressed: keys.just_pressed(preset.actions.dash),
+            up_pressed,
             down_pressed,
             fast_fall_pressed: false,
             blink_pressed,

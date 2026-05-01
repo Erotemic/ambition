@@ -66,9 +66,12 @@ impl LoadingZone {
         }
     }
 
-    pub fn hint(&self) -> String {
+    pub fn hint(&self, flying: bool) -> String {
         match self.activation {
             LoadingZoneActivation::EdgeExit => format!("{}: {}", self.activation.label(), self.name),
+            LoadingZoneActivation::Door if flying => {
+                format!("{}: {} (double-tap up)", self.activation.label(), self.name)
+            }
             LoadingZoneActivation::Door => format!("{}: {} (press up)", self.activation.label(), self.name),
         }
     }
@@ -127,12 +130,12 @@ impl RoomSet {
             .cloned()
     }
 
-    pub fn nearby_zone_hints(&self, player: &ae::Player) -> Vec<String> {
+    pub fn nearby_zone_hints(&self, player: &ae::Player, flying: bool) -> Vec<String> {
         let body = player.aabb();
         self.active_loading_zones()
             .iter()
             .filter(|zone| body.intersects(zone.aabb))
-            .map(LoadingZone::hint)
+            .map(|zone| zone.hint(flying))
             .collect()
     }
 

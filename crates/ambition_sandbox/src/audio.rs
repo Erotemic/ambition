@@ -36,6 +36,7 @@ pub struct SoundBank {
     reset: Handle<AudioSource>,
     death: Handle<AudioSource>,
     respawn: Handle<AudioSource>,
+    ambience: Handle<AudioSource>,
 }
 
 impl SoundBank {
@@ -53,7 +54,12 @@ impl SoundBank {
             reset: add(SynthSpec::reset()),
             death: add(SynthSpec::death()),
             respawn: add(SynthSpec::respawn()),
+            ambience: audio_sources.add(AudioSource { bytes: synth_ambience_wav_bytes(44_100).into() }),
         }
+    }
+
+    pub fn ambience(&self) -> Handle<AudioSource> {
+        self.ambience.clone()
     }
 
     pub fn get(&self, cue: SoundCue) -> Handle<AudioSource> {
@@ -77,6 +83,18 @@ pub fn play_sound(commands: &mut Commands, bank: &SoundBank, cue: SoundCue) {
     commands.spawn((
         AudioPlayer::new(bank.get(cue)),
         PlaybackSettings::DESPAWN,
+    ));
+}
+
+/// Start the generated background ambience loop.
+///
+/// This intentionally uses Bevy's built-in audio for now. Once we need
+/// cross-fades, parameter automation, or layered adaptive music, this is the
+/// seam where Kira should replace the current simple playback path.
+pub fn play_ambience(commands: &mut Commands, bank: &SoundBank) {
+    commands.spawn((
+        AudioPlayer::new(bank.ambience()),
+        PlaybackSettings::LOOP,
     ));
 }
 
@@ -205,6 +223,65 @@ fn synth_wav_bytes(spec: SynthSpec, sample_rate: u32) -> Vec<u8> {
         pcm.push(v);
         pcm.push(v);
     }
+    let data_bytes = (pcm.len() * 2) as u32;
+    let mut bytes = Vec::with_capacity(44 + data_bytes as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+    bytes.extend_from_slice(b"WAVE");
+    bytes.extend_from_slice(b"fmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&2u16.to_le_bytes());
+    bytes.extend_from_slice(&sample_rate.to_le_bytes());
+    bytes.extend_from_slice(&(sample_rate * 2 * 2).to_le_bytes());
+    bytes.extend_from_slice(&4u16.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data_bytes.to_le_bytes());
+    for sample in pcm {
+        bytes.extend_from_slice(&sample.to_le_bytes());
+    }
+    bytes
+}
+
+fn synth_ambience_wav_bytes(sample_rate: u32) -> Vec<u8> {
+    let seconds = 18.0f32;
+    let sample_count = (seconds * sample_rate as f32) as usize;
+    let mut pcm: Vec<i16> = Vec::with_capacity(sample_count * 2);
+    let root = 110.0f32;
+    let chord = [1.0, 1.5, 2.0, 2.5];
+    for i in 0..sample_count {
+        let t = i as f32 / sample_rate as f32;
+        let loop_t = i as f32 / sample_count as f32;
+        // Slow fade in/out keeps the loop calm instead of clicky.
+        let edge_fade = (loop_t.min(1.0 - loop_t) * 24.0).clamp(0.0, 1.0);
+        let breath = 0.55 + 0.45 * ((TAU * t / 7.5).sin() * 0.5 + 0.5);
+        let mut sample = 0.0f32;
+        for (idx, ratio) in chord.iter().enumerate() {
+            let freq = root * *ratio;
+            let phase = TAU * freq * t;
+            let slow_detune = (TAU * (0.031 + idx as f32 * 0.007) * t).sin() * 0.006;
+            sample += (phase * (1.0 + slow_detune)).sin() * 0.10;
+            sample += (phase * 0.5).sin() * 0.045;
+        }
+        // A sparse bell pulse gives a musical reference without dominating the sandbox.
+        let beat = (t / 3.0).fract();
+        if beat < 0.42 {
+            let env = (1.0 - beat / 0.42).powf(3.0);
+            let note_index = ((t / 3.0).floor() as usize) % 5;
+            let note = [220.0, 247.0, 277.0, 330.0, 277.0][note_index];
+            sample += (TAU * note * t).sin() * env * 0.060;
+            sample += (TAU * note * 2.01 * t).sin() * env * 0.025;
+        }
+        sample *= 0.32 * breath * edge_fade;
+        let v = (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+        pcm.push(v);
+        pcm.push(v);
+    }
+    wav_bytes_from_stereo_i16(&pcm, sample_rate)
+}
+
+fn wav_bytes_from_stereo_i16(pcm: &[i16], sample_rate: u32) -> Vec<u8> {
     let data_bytes = (pcm.len() * 2) as u32;
     let mut bytes = Vec::with_capacity(44 + data_bytes as usize);
     bytes.extend_from_slice(b"RIFF");

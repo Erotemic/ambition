@@ -16,7 +16,7 @@ mod rooms;
 mod windowing;
 
 use ambition_engine as ae;
-use audio::{play_sound, SoundBank, SoundCue};
+use audio::{play_ambience, play_sound, SoundBank, SoundCue};
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -29,6 +29,7 @@ const DEBUG_SLOWMO_SCALE: f32 = 0.25;
 const TIME_RAMP_DOWN_RATE: f32 = 5.0;
 const TIME_RAMP_UP_RATE: f32 = 14.0;
 const DOWN_DOUBLE_TAP_WINDOW: f32 = 0.24;
+const UP_DOUBLE_TAP_WINDOW: f32 = 0.24;
 use dummies::{spawn_dummies, Dummy, DummyKind};
 use fx::{
     spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
@@ -97,6 +98,7 @@ pub struct SandboxRuntime {
     hitstop_timer: f32,
     time_scale: f32,
     down_tap_timer: f32,
+    up_tap_timer: f32,
     pub moving_platform: platforms::MovingPlatformState,
     pub room_transition_cooldown: f32,
 }
@@ -116,6 +118,7 @@ impl SandboxRuntime {
             hitstop_timer: 0.0,
             time_scale: 1.0,
             down_tap_timer: 0.0,
+            up_tap_timer: 0.0,
             moving_platform: platforms::MovingPlatformState::time_reference(world),
             room_transition_cooldown: 0.0,
         }
@@ -128,6 +131,7 @@ impl SandboxRuntime {
         self.hitstop_timer = 0.0;
         self.time_scale = 1.0;
         self.down_tap_timer = 0.0;
+        self.up_tap_timer = 0.0;
         self.moving_platform = platforms::MovingPlatformState::time_reference(world);
         self.room_transition_cooldown = 0.0;
     }
@@ -142,6 +146,20 @@ impl SandboxRuntime {
             true
         } else {
             self.down_tap_timer = DOWN_DOUBLE_TAP_WINDOW;
+            false
+        }
+    }
+
+    fn register_up_tap(&mut self, up_pressed: bool, frame_dt: f32) -> bool {
+        self.up_tap_timer = (self.up_tap_timer - frame_dt).max(0.0);
+        if !up_pressed {
+            return false;
+        }
+        if self.up_tap_timer > 0.0 {
+            self.up_tap_timer = 0.0;
+            true
+        } else {
+            self.up_tap_timer = UP_DOUBLE_TAP_WINDOW;
             false
         }
     }
@@ -187,7 +205,9 @@ fn setup(
     // room without requiring a Bevy-version-sensitive ScalingMode import.
     commands.spawn(Camera2d);
     commands.insert_resource(SandboxRuntime::new(&world.0));
-    commands.insert_resource(SoundBank::new(&mut audio_sources));
+    let sound_bank = SoundBank::new(&mut audio_sources);
+    play_ambience(&mut commands, &sound_bank);
+    commands.insert_resource(sound_bank);
 
     spawn_room_visuals(&mut commands, &world.0, room_set.active_loading_zones());
     platforms::spawn_moving_platform(&mut commands, &world.0, platforms::MovingPlatformState::time_reference(&world.0));
@@ -251,6 +271,7 @@ fn sandbox_update(
     let frame_dt = time.delta_secs();
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
     controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt);
+    let door_double_tap_up = runtime.register_up_tap(controls.up_pressed, frame_dt);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
 
     if controls.reset_pressed {
@@ -301,6 +322,16 @@ fn sandbox_update(
 
         update_dummies(&mut commands, &collision_world, &bank, &mut runtime, dt);
     }
+
+    // While flying, up is continuous flight input. Door-style loading zones
+    // therefore require a deliberate double-tap-up. When not flying, a single
+    // up press preserves the normal door interaction feel. Edge exits remain
+    // automatic and ignore this flag.
+    controls.interact_pressed = if runtime.player.fly_enabled {
+        door_double_tap_up
+    } else {
+        controls.up_pressed
+    };
 
     if runtime.room_transition_cooldown <= 0.0 {
         if let Some(zone) = room_set.transition_for_player(&runtime.player, controls.interact_pressed) {
@@ -580,7 +611,7 @@ fn update_hud(
         .map(|w| format!("window: {:.0}x{:.0} {}", w.width(), w.height(), display_mode.label()))
         .unwrap_or_else(|_| format!("window: unknown {}", display_mode.label()));
     let zone_hint = {
-        let hints = room_set.nearby_zone_hints(&runtime.player);
+        let hints = room_set.nearby_zone_hints(&runtime.player, runtime.player.fly_enabled);
         if hints.is_empty() {
             "zones: none".to_string()
         } else {

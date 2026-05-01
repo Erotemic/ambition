@@ -175,3 +175,10 @@ Additional layout notes:
 - `docs/room_layout_refactor.md`
 
 - `docs/core_and_bevy_boundary.md` - boundary between the reusable core and Bevy sandbox, including the vector-type direction.
+
+
+## Recent notes
+
+- Flying door activation: see `docs/flying_door_activation.md`.
+- Procedural ambience: see `docs/procedural_ambience.md`.
+- Crate strategy / avoiding reinvention: see `docs/crate_strategy.md`.

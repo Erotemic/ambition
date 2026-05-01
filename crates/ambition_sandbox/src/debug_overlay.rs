@@ -161,7 +161,7 @@ fn draw_player_debug(
             (desired, target)
         } else {
             let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
-                .normalized_or(ae::Vec2::new(player.facing, 0.0));
+                .normalize_or(ae::Vec2::new(player.facing, 0.0));
             let desired = player.pos + aim * ae::BLINK_DISTANCE;
             let target = ae::blink_destination(&blink_world, player, aim, ae::BLINK_DISTANCE);
             (desired, target)
@@ -238,7 +238,7 @@ fn draw_rebound_vectors(gizmos: &mut Gizmos, world: &ae::World) {
         };
         draw_aabb(gizmos, world, block.aabb, orange());
         let start = w2(world, block.aabb.center);
-        let direction = impulse.normalized_or(ae::Vec2::new(0.0, -1.0));
+        let direction = impulse.normalize_or(ae::Vec2::new(0.0, -1.0));
         let end = start + engine_delta_to_bevy(direction * 70.0);
         draw_arrow(gizmos, start, end, orange());
     }

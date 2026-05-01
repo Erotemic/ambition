@@ -6,7 +6,7 @@
 //! renderer.
 
 use crate::geometry::Aabb;
-use crate::math::Vec2;
+use crate::Vec2;
 use crate::movement::Player;
 
 /// Compute the current slash/pogo hitbox for a player.
@@ -37,7 +37,7 @@ pub fn slash_hitbox(player: &Player, axis_y: f32, forced_pogo: bool) -> Aabb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::Vec2;
+    use crate::Vec2;
 
     #[test]
     fn forward_slash_is_in_front_of_facing_direction() {

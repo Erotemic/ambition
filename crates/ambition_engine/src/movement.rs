@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::abilities::AbilitySet;
 use crate::geometry::Aabb;
-use crate::math::{approach, Vec2};
+use crate::{approach, Vec2};
 use crate::world::{BlinkWallTier, BlockKind, World};
 
 /// A symbolic movement operation that can be shown in the debug HUD.
@@ -687,7 +687,7 @@ fn handle_blink(
 
     if player.blink_hold_active && input.blink_released {
         let fallback = Vec2::new(player.facing, 0.0);
-        let aim = Vec2::new(input.axis_x, input.axis_y).normalized_or(fallback);
+        let aim = Vec2::new(input.axis_x, input.axis_y).normalize_or(fallback);
         let precision = player.blink_aiming && player.abilities.precision_blink;
         let from = player.pos;
         let to = if precision {
@@ -845,7 +845,7 @@ fn handle_dash(player: &mut Player, input: InputState, tuning: MovementTuning, e
         && player.dash_cooldown <= 0.0
     {
         let fallback = Vec2::new(player.facing, 0.0);
-        let aim = Vec2::new(input.axis_x, input.axis_y).normalized_or(fallback);
+        let aim = Vec2::new(input.axis_x, input.axis_y).normalize_or(fallback);
         player.vel = aim * tuning.dash_speed;
         player.dash_timer = tuning.dash_time;
         player.dash_cooldown = tuning.dash_cooldown;
@@ -1173,7 +1173,7 @@ fn touching_rebound(world: &World, player: &Player) -> Option<Vec2> {
 /// cast for hard blockers, then samples the remaining path so blink-through
 /// walls can be crossed without becoming valid resting positions.
 pub fn blink_destination(world: &World, player: &Player, aim: Vec2, max_distance: f32) -> Vec2 {
-    let direction = aim.normalized_or(Vec2::new(player.facing, 0.0));
+    let direction = aim.normalize_or(Vec2::new(player.facing, 0.0));
     blink_destination_to_point(world, player, player.pos + direction * max_distance)
 }
 

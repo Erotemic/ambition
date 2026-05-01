@@ -21,7 +21,7 @@ Good follow-up refactors:
 1. Replace the remaining ad-hoc rebound positional snap with a shared collision response helper.
 2. Add `approx` and `rstest` cases around swept player movement, blink blockers, one-way platforms, and dummy knockback.
 3. Extend the Parry wrapper to raycasts/shape casts for grapple, line of sight, and blink target preview.
-4. Consider switching `Vec2` to `glam` or adding explicit conversion helpers if Parry/Bevy interop starts to feel noisy.
+4. Continue replacing narrow geometry helpers with Parry queries now that the engine uses `glam::Vec2`.
 
 ## Edge-touching contacts
 

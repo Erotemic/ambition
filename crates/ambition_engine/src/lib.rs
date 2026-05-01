@@ -3,7 +3,7 @@
 //! This crate is the backend-neutral simulation layer for Ambition. Bevy owns
 //! windowing, rendering, ECS scheduling, audio playback, and input plumbing.
 //! This crate owns the rules that should remain testable without a renderer:
-//! small math types, collision geometry, generated room specs, player movement,
+//! collision geometry, generated room specs, player movement,
 //! combo traces, and simple sandbox enemy fixtures.
 //!
 //! The design goal is intentionally modest: keep the core game logic readable,
@@ -14,7 +14,7 @@ pub mod abilities;
 pub mod combat;
 pub mod enemy;
 pub mod geometry;
-pub mod math;
+pub mod scalar;
 pub mod movement;
 pub mod music;
 pub mod world;
@@ -26,7 +26,8 @@ pub use abilities::AbilitySet;
 pub use combat::slash_hitbox;
 pub use enemy::{spawn_dummies, Dummy, DummyKind};
 pub use geometry::Aabb;
-pub use math::{approach, Vec2};
+pub use glam::Vec2;
+pub use scalar::approach;
 pub use movement::{
     blink_destination, blink_destination_to_point, update_player, update_player_control,
     update_player_control_with_tuning, update_player_simulation, update_player_simulation_with_tuning,

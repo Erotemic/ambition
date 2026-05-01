@@ -34,7 +34,7 @@ Keep logic here when it is presentation, tooling, or experiment-specific:
 
 ## Vector type direction
 
-The current engine has a home-grown `Vec2`. That was useful during the first backend-neutral prototype, but it is probably not worth keeping.
+The engine used to have a home-grown `Vec2`. That was useful during the first backend-neutral prototype, but it has now been removed.
 
 A better direction is to migrate the core crate to `glam::Vec2` directly:
 
@@ -46,12 +46,12 @@ A better direction is to migrate the core crate to `glam::Vec2` directly:
 Recommended future refactor:
 
 1. Add `glam` as a dependency of `ambition_engine`.
-2. Replace `math::Vec2` with `pub use glam::Vec2` or a type alias.
-3. Replace custom helper methods like `normalized_or` with glam's native method names, or keep extension traits only where they add game-specific semantics.
-4. Keep `approach()` and other game-feel helpers in `math.rs`.
+2. Done: `ambition_engine::Vec2` now re-exports `glam::Vec2` directly.
+3. Done: custom vector helper methods were removed in favor of glam native methods such as `normalize_or`.
+4. Keep `approach()` and other game-feel helpers in `scalar.rs`.
 5. Add tests before/after the migration so movement behavior does not drift.
 
-This should be done as a dedicated compiler-tested pass because `Vec2` is used across nearly every subsystem.
+This was done as a dedicated pass because `Vec2` is used across nearly every subsystem.
 
 ## Why keep an engine/core crate at all?
 

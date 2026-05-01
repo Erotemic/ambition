@@ -194,3 +194,5 @@ Additional layout notes:
 ## Data manifest
 
 The sandbox data now lives in `crates/ambition_sandbox/assets/ambition/sandbox.ron`. That manifest contains the active ability set, movement tuning, generated-audio specs, room geometry, loading zones, and graph links between rooms. The code still embeds the manifest synchronously for simple startup, but it also registers the same type with `bevy_common_assets::ron::RonAssetPlugin` so the project has a clear path toward Bevy asset loading / hot reload.
+
+- `docs/glam_migration.md` explains why engine vectors now use glam directly.

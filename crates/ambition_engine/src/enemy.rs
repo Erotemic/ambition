@@ -8,7 +8,7 @@
 //! feel and feedback, not to design final enemy AI.
 
 use crate::geometry::Aabb;
-use crate::math::{approach, Vec2};
+use crate::{approach, Vec2};
 use crate::world::{BlockKind, World};
 
 const DUMMY_GRAVITY: f32 = 1600.0;

@@ -17,7 +17,7 @@ simulation events + state -> Bevy adapter -> visuals/audio/debug UI
 `crates/ambition_engine/src/` is now split by responsibility:
 
 - `lib.rs` — public crate surface and re-exports.
-- `math.rs` — small renderer-independent `Vec2` plus `approach()` easing.
+- `scalar.rs` — Ambition-specific scalar helpers such as `approach()` easing. Vector math uses `glam::Vec2`.
 - `geometry.rs` — `Aabb` collision primitive.
 - `world.rs` — generated room blocks, block kinds, and `build_endgame_sandbox()`.
 - `movement.rs` — `Player`, `InputState`, movement tuning, combo trace, and player stepping.
@@ -82,7 +82,7 @@ Engine comments should explain why a mechanic exists and what assumptions it
 relies on. Avoid comments that simply restate a line of code. Good examples:
 
 - why coyote time exists;
-- why `Vec2` is not Bevy's vector type;
+- why the engine uses `glam::Vec2` directly instead of depending on Bevy;
 - why AABB collision is sufficient for the first sandbox;
 - why player movement is kinematic rather than rigid-body physics;
 - why dummy logic lives in the engine rather than Bevy.

@@ -4,7 +4,7 @@
 //! how to draw each block; the engine only cares about collision semantics.
 
 use crate::geometry::Aabb;
-use crate::math::Vec2;
+use crate::Vec2;
 
 /// Upgrade tier required to blink through a blink wall.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

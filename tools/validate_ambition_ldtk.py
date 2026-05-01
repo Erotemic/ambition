@@ -146,18 +146,53 @@ def validate(path: Path):
             for required in ["parallaxFactorX", "parallaxFactorY", "parallaxScaling", "canSelectWhenInactive", "guideGridHei", "guideGridWid", "uiFilterTags", "useAsyncRender"]:
                 if required not in layer:
                     errors.append(f"Ambition layer definition is missing first-class LDtk field {required!r}")
-    entity_defs = {entity.get("identifier") for entity in defs.get("entities") or []}
+    entity_defs_by_identifier = {entity.get("identifier"): entity for entity in defs.get("entities") or []}
+    entity_defs = set(entity_defs_by_identifier.keys())
+    entity_def_uid_by_identifier = {
+        identifier: entity.get("uid")
+        for identifier, entity in entity_defs_by_identifier.items()
+    }
+    entity_field_def_uid_by_identifier = {
+        identifier: {field_def.get("identifier"): field_def.get("uid") for field_def in (entity.get("fieldDefs") or [])}
+        for identifier, entity in entity_defs_by_identifier.items()
+    }
+    level_field_def_uid_by_identifier = {
+        field_def.get("identifier"): field_def.get("uid")
+        for field_def in defs.get("levelFields") or []
+    }
     missing_defs = sorted(KNOWN_ENTITIES.intersection({entity for level in levels for layer in (level.get("layerInstances") or []) for entity in [inst.get("__identifier") for inst in (layer.get("entityInstances") or [])] if entity}) - entity_defs)
     if missing_defs:
         errors.append("defs.entities is missing definitions for used Ambition entities: " + ", ".join(missing_defs))
+    first_class_field_def_fields = [
+        "allowOutOfLevelRef",
+        "allowedRefTags",
+        "allowedRefs",
+        "autoChainRef",
+        "editorDisplayScale",
+        "editorLinkStyle",
+        "editorShowInWorld",
+        "exportToToc",
+        "searchable",
+        "symmetricalRef",
+    ]
+
+    def validate_field_def_shape(owner, field_def):
+        for required in first_class_field_def_fields:
+            if required not in field_def:
+                errors.append(f"field definition {owner}.{field_def.get('identifier')} is missing first-class LDtk field {required!r}")
+        allowed_refs = field_def.get("allowedRefs")
+        if allowed_refs not in {"Any", "OnlySame", "OnlyTags", "OnlySpecificEntity"}:
+            errors.append(f"field definition {owner}.{field_def.get('identifier')} has invalid allowedRefs {allowed_refs!r}")
+
     for entity_def in defs.get("entities") or []:
         for required in ["allowOutOfBounds", "exportToToc", "nineSliceBorders", "tileOpacity"]:
             if required not in entity_def:
                 errors.append(f"entity definition {entity_def.get('identifier')!r} is missing first-class LDtk field {required!r}")
         for field_def in entity_def.get("fieldDefs") or []:
-            for required in ["allowOutOfLevelRef", "allowedRefTags", "allowedRefs", "autoChainRef", "editorDisplayScale", "editorLinkStyle", "editorShowInWorld", "exportToToc", "searchable", "symmetricalRef"]:
-                if required not in field_def:
-                    errors.append(f"field definition {entity_def.get('identifier')}.{field_def.get('identifier')} is missing first-class LDtk field {required!r}")
+            validate_field_def_shape(entity_def.get("identifier"), field_def)
+
+    for field_def in defs.get("levelFields") or []:
+        validate_field_def_shape("level", field_def)
 
     seen_levels = set()
     starts_by_area = Counter()
@@ -182,6 +217,16 @@ def validate(path: Path):
         if world_x % GRID or world_y % GRID:
             warnings.append(f"level {identifier!r} origin ({world_x}, {world_y}) is not {GRID}px aligned")
         area = str(active_area(level))
+        for field in level.get("fieldInstances") or []:
+            field_ident = field.get("__identifier")
+            expected_def_uid = level_field_def_uid_by_identifier.get(field_ident)
+            if expected_def_uid is None:
+                errors.append(f"level {identifier!r} has undefined level field {field_ident!r}")
+            elif field.get("defUid") != expected_def_uid:
+                errors.append(
+                    f"level {identifier!r} field {field_ident!r} has defUid {field.get('defUid')!r}; "
+                    f"expected level field definition uid {expected_def_uid!r}"
+                )
         levels_by_area[area].append(identifier)
         if area not in area_bounds:
             area_bounds[area] = [world_x, world_y, world_x + width, world_y + height]
@@ -217,7 +262,24 @@ def validate(path: Path):
             pivot = entity.get("__pivot", [0, 0])
             if len(pivot) == 2 and (abs(float(pivot[0])) > 1e-6 or abs(float(pivot[1])) > 1e-6):
                 errors.append(f"level {identifier!r} entity {entity_name(entity)} must use top-left pivot [0, 0]")
+            expected_entity_def_uid = entity_def_uid_by_identifier.get(ident)
+            if expected_entity_def_uid is not None and entity.get("defUid") != expected_entity_def_uid:
+                errors.append(
+                    f"level {identifier!r} entity {entity_name(entity)} has defUid {entity.get('defUid')!r}; "
+                    f"expected entity definition uid {expected_entity_def_uid!r}"
+                )
             fields = entity.get("fieldInstances") or []
+            field_def_uid_by_identifier = entity_field_def_uid_by_identifier.get(ident, {})
+            for field in fields:
+                field_ident = field.get("__identifier")
+                expected_field_def_uid = field_def_uid_by_identifier.get(field_ident)
+                if expected_field_def_uid is None:
+                    errors.append(f"level {identifier!r} entity {entity_name(entity)} has undefined field {field_ident!r}")
+                elif field.get("defUid") != expected_field_def_uid:
+                    errors.append(
+                        f"level {identifier!r} entity {entity_name(entity)} field {field_ident!r} has defUid {field.get('defUid')!r}; "
+                        f"expected field definition uid {expected_field_def_uid!r}"
+                    )
             if ident == "PlayerStart":
                 starts_by_area[area] += 1
             elif ident == "BlinkWall" and field_value(fields, "tier", "Soft") not in {"Soft", "Hard"}:

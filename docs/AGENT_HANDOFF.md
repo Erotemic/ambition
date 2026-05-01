@@ -15,7 +15,7 @@ Historical docs are useful, but ADRs and `CURRENT_STATE.md` supersede older cons
 
 ## LDtk and world composition
 
-Read `docs/adr/0009-world-composition-and-ldtk-authoring.md` and `docs/ldtk_world_composition.md` before changing sandbox level authoring. The central hub basement is a physical area below the hub, not a separate loading-zone room. The current LDtk adapter composes levels sharing the same `activeArea` field into one runtime active area, and the sandbox also spawns a `bevy_ecs_ldtk` `LdtkWorldBundle` whose `LevelSet` mirrors the active Ambition area. The old sandbox rooms and feature-lab doors are now represented as LDtk active areas linked by `LoadingZone` entities; do not put the boss directly in the stitched hub/basement area.
+Read `docs/adr/0009-world-composition-and-ldtk-authoring.md` and `docs/ldtk_world_composition.md` before changing sandbox level authoring. The central hub basement is a physical area below the hub, not a separate loading-zone room. The current LDtk adapter composes levels sharing the same `activeArea` field into one runtime active area, and the sandbox also spawns a hidden `bevy_ecs_ldtk` `LdtkWorldBundle` whose `LevelSet` mirrors the active Ambition area. Keep the plugin-owned root hidden until individual LDtk layers/entities are intentionally promoted to typed Ambition runtime bundles; otherwise unregistered LDtk placeholders can render as large dark rectangles over rooms. The old sandbox rooms and feature-lab doors are now represented as LDtk active areas linked by `LoadingZone` entities; do not put the boss directly in the stitched hub/basement area.
 
 Validate LDtk edits with:
 
@@ -155,3 +155,23 @@ to toggle auto-apply after file changes. Keep the validator as the safety gate;
 failed reloads must preserve the currently running world. When adding new map
 entities, update both the Rust adapter and `tools/validate_ambition_ldtk.py`, and
 make sure hot reload rebuilds the corresponding map-authored runtime state.
+
+## LDtk FieldDef schema shape
+
+Do not only validate entity field definitions. LDtk level fields such as
+`activeArea` are also `FieldDef` records and must include the same first-class
+schema keys expected by `bevy_ecs_ldtk`, including `allowedRefs`,
+`allowedRefTags`, `allowOutOfLevelRef`, `autoChainRef`, `editorDisplayScale`,
+`editorLinkStyle`, `editorShowInWorld`, `exportToToc`, `searchable`, and
+`symmetricalRef`. A missing key can produce Bevy asset-loader errors even when
+Ambition's custom JSON adapter can still read and hot-reload the map.
+
+## LDtk defUid compatibility lesson
+
+Direct `bevy_ecs_ldtk` spawning depends on LDtk instance `defUid` values, not
+only on `__identifier` strings. If entity instances use stale `defUid` values
+that do not match `defs.entities[*].uid`, `bevy_ecs_ldtk` can panic in
+`calculate_transform_from_entity_instance` while spawning a level. Keep entity
+instance `defUid`, entity field instance `defUid`, and level field instance
+`defUid` synchronized with their definitions whenever generating or patching
+`sandbox.ldtk`, and keep `tools/validate_ambition_ldtk.py` strict about this.

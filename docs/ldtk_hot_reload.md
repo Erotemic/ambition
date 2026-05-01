@@ -53,3 +53,41 @@ but Ambition still owns the gameplay invariants.
 - Add raw-LDtk-vs-Ambition runtime debug overlays for every spatial entity.
 - Preserve collected chest/pickup state by stable LDtk IID across reloads.
 - Add safe policies for moving/deleting the current active area under the player.
+
+## `bevy_ecs_ldtk` loader health
+
+The Ambition validator should catch editor/schema shape problems that would make
+`bevy_ecs_ldtk` reject the project. In particular, LDtk `FieldDef` records in
+both `defs.entities[*].fieldDefs` and `defs.levelFields` need the first-class
+LDtk reference/display keys such as `allowedRefs`, `allowedRefTags`,
+`allowOutOfLevelRef`, `autoChainRef`, `editorDisplayScale`, `editorLinkStyle`,
+`editorShowInWorld`, `exportToToc`, `searchable`, and `symmetricalRef`.
+
+If Bevy logs an LDtk asset loader error but the Ambition reload path still works,
+treat it as a real issue: the typed `LdtkProject` asset is not healthy, and
+direct `bevy_ecs_ldtk` spawning/hot reload will be partial or misleading.
+Fix the LDtk schema shape and validator before migrating more runtime categories
+onto direct LDtk-spawned entities.
+
+The first-class `LdtkWorldBundle` root is intentionally hidden during the
+transition. If a room shows large dark rectangles or other LDtk placeholder
+visuals, keep the root hidden and migrate the relevant LDtk entity/layer through
+a typed Ambition bundle instead of exposing the entire plugin-spawned hierarchy.
+
+## Entity and field definition UID health
+
+`bevy_ecs_ldtk` uses each entity instance's `defUid` to look up its
+`EntityDefinition` before computing the spawned Bevy transform. If a hand-authored
+or agent-generated LDtk file has entity instances whose `defUid` values do not
+match `defs.entities[*].uid`, the plugin can panic during level spawning even
+though Ambition's custom JSON adapter can still identify entities by
+`__identifier`. The validator must therefore check instance `defUid` values for
+entities, level fields, and entity field instances.
+
+When generating or patching `.ldtk` directly, always keep these IDs synchronized:
+
+```text
+entity instance defUid == defs.entities[identifier].uid
+entity field instance defUid == defs.entities[identifier].fieldDefs[field].uid
+level field instance defUid == defs.levelFields[field].uid
+```

@@ -27,9 +27,10 @@ The engine may depend on Bevy and Bevy-adjacent crates when useful. It should st
 - Bevy 0.18
 - Leafwing Input Manager for semantic controls
 - serde / RON / `bevy_common_assets` for tuning/audio manifests
-- LDtk JSON authoring via an Ambition adapter, with `bevy_ecs_ldtk` now used as a first-class Bevy asset/`LdtkWorldBundle` path
+- LDtk JSON authoring via an Ambition adapter, with `bevy_ecs_ldtk` now used as a first-class Bevy asset/hidden `LdtkWorldBundle` path
 - `bevy_asset_loader` foundation for future explicit loading states
 - `petgraph` for room transition graphs
+- The plugin-owned LDtk world root is hidden until individual LDtk layers/entities are promoted to visible typed Ambition runtime bundles; this avoids placeholder LDtk rectangles rendering over the sandbox.
 - `bevy-inspector-egui` and Bevy Gizmos for dev tooling
 - `parry2d` for reusable geometry queries
 - FunDSP for startup-rendered generated audio
@@ -139,3 +140,24 @@ errors in stderr/HUD. Applied reloads rebuild the LDtk-derived `RoomSet`, active
 `GameWorld`, transient feature runtime, moving-platform state, room visuals, and
 LDtk level index while preserving the player and repairing their position if the
 edited map would put them in collision.
+
+## LDtk loader schema-noise fix
+
+A user run confirmed hot reload worked in practice, but Bevy logged that
+`bevy_ecs_ldtk` could not deserialize `sandbox.ldtk` because the level field
+`activeArea` was missing `allowedRefs`. This was not a gameplay crash because the
+Ambition reload path reads the file with its own adapter, but it meant the typed
+LDtk asset path was still unhealthy. The sandbox LDtk file now includes the
+first-class LDtk `FieldDef` keys for level fields, and the validator checks both
+entity field definitions and level field definitions for the required
+`bevy_ecs_ldtk`/LDtk schema fields.
+
+## LDtk defUid spawn fix
+
+A user run confirmed that after the `allowedRefs` schema fix, `bevy_ecs_ldtk`
+progressed to actual level spawning but panicked in
+`calculate_transform_from_entity_instance`. The cause was stale hand-authored
+entity-instance `defUid` values that did not match `defs.entities[*].uid`. The
+sandbox LDtk file now synchronizes entity instance `defUid` values and field
+instance `defUid` values with their definitions, and the validator checks this
+before runtime.

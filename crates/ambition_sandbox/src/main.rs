@@ -339,10 +339,18 @@ fn setup(
         LdtkWorldBundle {
             ldtk_handle: ldtk_handle.into(),
             level_set: ldtk_index.level_set_for(&room_set.active_spec().id),
+            // Keep the plugin-owned LDtk world loaded and synchronized, but do
+            // not render it yet. Ambition still owns the visible/collidable
+            // runtime projection while we migrate entity categories one at a
+            // time. Without this guard, unregistered LDtk entity placeholders
+            // can render over the sandbox as large dark rectangles.
+            // AMBITION_REVIEW(spatial): remove or narrow this once LDtk
+            // tile/entity rendering is intentionally registered.
+            visibility: Visibility::Hidden,
             ..default()
         },
         ldtk_world::SandboxLdtkWorldRoot,
-        Name::new("LDtk World Root"),
+        Name::new("Hidden LDtk World Root"),
     ));
     let runtime = SandboxRuntime::new(
         &world.0,

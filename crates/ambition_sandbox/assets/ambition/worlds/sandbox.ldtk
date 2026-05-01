@@ -23,8 +23,8 @@
         "autoRuleGroups": [],
         "requiredTags": [],
         "excludedTags": [],
-        "parallaxFactorX": 0.0,
-        "parallaxFactorY": 0.0,
+        "parallaxFactorX": 0,
+        "parallaxFactorY": 0,
         "parallaxScaling": true,
         "canSelectWhenInactive": true,
         "guideGridHei": 16,
@@ -90,7 +90,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -107,7 +107,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "Solid",
@@ -157,7 +157,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -174,7 +174,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "LoadingZone",
@@ -224,7 +224,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -261,7 +261,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -298,7 +298,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -335,7 +335,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -372,7 +372,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -409,7 +409,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -426,7 +426,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "OneWayPlatform",
@@ -476,7 +476,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -493,7 +493,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "BlinkWall",
@@ -543,7 +543,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -580,7 +580,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -597,7 +597,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "PogoOrb",
@@ -647,7 +647,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -664,7 +664,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "NpcSpawn",
@@ -714,7 +714,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -751,7 +751,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -788,7 +788,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -805,7 +805,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "DebugLabel",
@@ -855,7 +855,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -892,7 +892,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -929,7 +929,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -946,7 +946,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "EnemySpawn",
@@ -996,7 +996,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1033,7 +1033,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1050,7 +1050,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "HazardBlock",
@@ -1100,7 +1100,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1117,7 +1117,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "ReboundPad",
@@ -1167,7 +1167,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1204,7 +1204,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1241,7 +1241,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1258,7 +1258,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "DamageVolume",
@@ -1308,7 +1308,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1345,7 +1345,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1382,7 +1382,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1419,7 +1419,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1456,7 +1456,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1473,7 +1473,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "KinematicPath",
@@ -1523,7 +1523,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1560,7 +1560,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1597,7 +1597,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1634,7 +1634,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1651,7 +1651,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "BossSpawn",
@@ -1701,7 +1701,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1738,7 +1738,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1755,7 +1755,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "Breakable",
@@ -1805,7 +1805,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1842,7 +1842,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1879,7 +1879,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1916,7 +1916,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -1933,7 +1933,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "PickupSpawn",
@@ -1983,7 +1983,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -2020,7 +2020,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -2037,7 +2037,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       },
       {
         "identifier": "ChestSpawn",
@@ -2087,7 +2087,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -2124,7 +2124,7 @@
             "allowedRefTags": [],
             "allowedRefs": "Any",
             "autoChainRef": true,
-            "editorDisplayScale": 1.0,
+            "editorDisplayScale": 1,
             "editorLinkStyle": "StraightArrow",
             "editorShowInWorld": false,
             "exportToToc": false,
@@ -2141,7 +2141,7 @@
         "allowOutOfBounds": false,
         "exportToToc": false,
         "nineSliceBorders": [],
-        "tileOpacity": 1.0
+        "tileOpacity": 1
       }
     ],
     "tilesets": [],
@@ -2153,7 +2153,6 @@
         "uid": 4000,
         "__type": "String",
         "type": "String",
-        "fieldDefinitionType": "String",
         "isArray": false,
         "canBeNull": false,
         "defaultOverride": null,
@@ -2168,7 +2167,23 @@
         "editorDisplayMode": "NameAndValue",
         "editorDisplayPos": "Above",
         "textLanguageMode": null,
-        "useForSmartColor": false
+        "useForSmartColor": false,
+        "allowOutOfLevelRef": false,
+        "allowedRefTags": [],
+        "allowedRefs": "Any",
+        "allowedRefsEntityUid": null,
+        "autoChainRef": false,
+        "doc": null,
+        "editorDisplayColor": null,
+        "editorDisplayScale": 1,
+        "editorLinkStyle": "ZigZag",
+        "editorShowInWorld": false,
+        "editorTextPrefix": null,
+        "editorTextSuffix": null,
+        "exportToToc": false,
+        "searchable": false,
+        "symmetricalRef": false,
+        "tilesetUid": null
       }
     ]
   },
@@ -2194,7 +2209,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "central_hub_complex",
-          "defUid": 1068,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -2213,7 +2228,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0001",
-              "defUid": 1000,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 58,
@@ -2230,7 +2245,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "central_start",
-                  "defUid": 1001,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -2243,7 +2258,7 @@
             },
             {
               "iid": "Solid-0002",
-              "defUid": 1002,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -2260,7 +2275,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub floor west",
-                  "defUid": 1003,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -2273,7 +2288,7 @@
             },
             {
               "iid": "Solid-0003",
-              "defUid": 1004,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 71,
@@ -2290,7 +2305,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub floor east",
-                  "defUid": 1005,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -2303,7 +2318,7 @@
             },
             {
               "iid": "Solid-0004",
-              "defUid": 1006,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -2320,7 +2335,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub ceiling",
-                  "defUid": 1007,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -2333,7 +2348,7 @@
             },
             {
               "iid": "Solid-0005-upper",
-              "defUid": 1008,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -2350,7 +2365,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub left wall upper",
-                  "defUid": 1009,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -2363,7 +2378,7 @@
             },
             {
               "iid": "Solid-0005-lower",
-              "defUid": 1008,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -2380,7 +2395,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub left wall lower",
-                  "defUid": 1009,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -2393,7 +2408,7 @@
             },
             {
               "iid": "Solid-0006-upper",
-              "defUid": 1010,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 116,
@@ -2410,7 +2425,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub right wall upper",
-                  "defUid": 1011,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -2423,7 +2438,7 @@
             },
             {
               "iid": "Solid-0006-lower",
-              "defUid": 1010,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 116,
@@ -2440,7 +2455,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub right wall lower",
-                  "defUid": 1011,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -2453,7 +2468,7 @@
             },
             {
               "iid": "LoadingZone-0007",
-              "defUid": 1012,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 116,
@@ -2470,42 +2485,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "east_exit",
-                  "defUid": 1013,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to scroll lab",
-                  "defUid": 1014,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "EdgeExit",
-                  "defUid": 1015,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "scroll_lab",
-                  "defUid": 1016,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "west_exit",
-                  "defUid": 1017,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1018,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -2518,7 +2533,7 @@
             },
             {
               "iid": "LoadingZone-0008",
-              "defUid": 1019,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 0,
@@ -2535,42 +2550,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "west_exit",
-                  "defUid": 1020,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to square arena",
-                  "defUid": 1021,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "EdgeExit",
-                  "defUid": 1022,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "square_arena",
-                  "defUid": 1023,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "east_exit",
-                  "defUid": 1024,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1025,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -2583,7 +2598,7 @@
             },
             {
               "iid": "LoadingZone-0009",
-              "defUid": 1026,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 55,
@@ -2600,42 +2615,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "upper_door",
-                  "defUid": 1027,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to vertical shaft",
-                  "defUid": 1028,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1029,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "vertical_shaft",
-                  "defUid": 1030,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "bottom_door",
-                  "defUid": 1031,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1032,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -2648,7 +2663,7 @@
             },
             {
               "iid": "LoadingZone-0010",
-              "defUid": 1033,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 38,
@@ -2665,42 +2680,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "lower_door",
-                  "defUid": 1034,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to tiny chamber",
-                  "defUid": 1035,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1036,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "tiny_chamber",
-                  "defUid": 1037,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "east_exit",
-                  "defUid": 1038,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1039,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -2713,7 +2728,7 @@
             },
             {
               "iid": "OneWayPlatform-0011",
-              "defUid": 1040,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 43,
@@ -2730,7 +2745,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub center shelf",
-                  "defUid": 1041,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -2743,7 +2758,7 @@
             },
             {
               "iid": "OneWayPlatform-0012",
-              "defUid": 1042,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 49,
@@ -2760,7 +2775,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub upper shelf",
-                  "defUid": 1043,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -2773,7 +2788,7 @@
             },
             {
               "iid": "BlinkWall-0013",
-              "defUid": 1044,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 38,
@@ -2790,14 +2805,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub soft column",
-                  "defUid": 1045,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1046,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -2810,7 +2825,7 @@
             },
             {
               "iid": "BlinkWall-0014",
-              "defUid": 1047,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 78,
@@ -2827,14 +2842,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub right soft column",
-                  "defUid": 1048,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1049,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -2847,7 +2862,7 @@
             },
             {
               "iid": "PogoOrb-0015",
-              "defUid": 1050,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 58,
@@ -2864,7 +2879,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hub routing note",
-                  "defUid": 1051,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -2877,7 +2892,7 @@
             },
             {
               "iid": "OneWayPlatform-0016",
-              "defUid": 1052,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 48,
@@ -2894,7 +2909,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "drop lip platform",
-                  "defUid": 1053,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -2907,7 +2922,7 @@
             },
             {
               "iid": "NpcSpawn-0017",
-              "defUid": 1054,
+              "defUid": 2006,
               "__identifier": "NpcSpawn",
               "__grid": [
                 48,
@@ -2924,21 +2939,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "Kernel Guide NPC",
-                  "defUid": 1055,
+                  "defUid": 3012,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "prompt",
                   "__type": "String",
                   "__value": "Talk",
-                  "defUid": 1056,
+                  "defUid": 3013,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "dialogue_id",
                   "__type": "String",
                   "__value": "hub_guide",
-                  "defUid": 1057,
+                  "defUid": 3014,
                   "realEditorValues": []
                 }
               ],
@@ -2951,7 +2966,7 @@
             },
             {
               "iid": "DebugLabel-0018",
-              "defUid": 1058,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 40,
@@ -2968,21 +2983,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "drop label",
-                  "defUid": 1059,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "Drop through the floor opening to reach the stitched basement",
-                  "defUid": 1060,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Room",
-                  "defUid": 1061,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -2995,7 +3010,7 @@
             },
             {
               "iid": "DebugLabel-0019",
-              "defUid": 1062,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 3,
@@ -3012,21 +3027,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ldtk label",
-                  "defUid": 1063,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "LDtk-authored central_hub_complex: hub chunk, doors, and continuous basement",
-                  "defUid": 1064,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Room",
-                  "defUid": 1065,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -3077,7 +3092,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "central_hub_complex",
-          "defUid": 1140,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -3096,7 +3111,7 @@
           "entityInstances": [
             {
               "iid": "Solid-0020",
-              "defUid": 1072,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -3113,7 +3128,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement left wall",
-                  "defUid": 1073,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -3126,7 +3141,7 @@
             },
             {
               "iid": "Solid-0021",
-              "defUid": 1074,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 116,
@@ -3143,7 +3158,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement right wall",
-                  "defUid": 1075,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -3156,7 +3171,7 @@
             },
             {
               "iid": "Solid-0022",
-              "defUid": 1076,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -3173,7 +3188,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement floor",
-                  "defUid": 1077,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -3186,7 +3201,7 @@
             },
             {
               "iid": "OneWayPlatform-0023",
-              "defUid": 1078,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 48,
@@ -3203,7 +3218,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement catch platform",
-                  "defUid": 1079,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -3216,7 +3231,7 @@
             },
             {
               "iid": "OneWayPlatform-0024",
-              "defUid": 1080,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 16,
@@ -3233,7 +3248,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement hub upper rail",
-                  "defUid": 1081,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -3246,7 +3261,7 @@
             },
             {
               "iid": "OneWayPlatform-0025",
-              "defUid": 1082,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 14,
@@ -3263,7 +3278,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement hub mid left",
-                  "defUid": 1083,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -3276,7 +3291,7 @@
             },
             {
               "iid": "OneWayPlatform-0026",
-              "defUid": 1084,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 85,
@@ -3293,7 +3308,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement hub mid right",
-                  "defUid": 1085,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -3306,7 +3321,7 @@
             },
             {
               "iid": "PogoOrb-0027",
-              "defUid": 1086,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 58,
@@ -3323,7 +3338,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement guide orb",
-                  "defUid": 1087,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -3336,7 +3351,7 @@
             },
             {
               "iid": "LoadingZone-0028",
-              "defUid": 1088,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 10,
@@ -3353,42 +3368,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "hazard_door",
-                  "defUid": 1089,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hazards",
-                  "defUid": 1090,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1091,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "basement_hazards",
-                  "defUid": 1092,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1093,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1094,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -3401,7 +3416,7 @@
             },
             {
               "iid": "LoadingZone-0029",
-              "defUid": 1095,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 26,
@@ -3418,42 +3433,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "enemy_door",
-                  "defUid": 1096,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "enemies",
-                  "defUid": 1097,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1098,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "basement_enemies",
-                  "defUid": 1099,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1100,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1101,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -3466,7 +3481,7 @@
             },
             {
               "iid": "LoadingZone-0030",
-              "defUid": 1102,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 43,
@@ -3483,42 +3498,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "boss_door",
-                  "defUid": 1103,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "boss lab",
-                  "defUid": 1104,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1105,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "basement_boss",
-                  "defUid": 1106,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1107,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1108,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -3531,7 +3546,7 @@
             },
             {
               "iid": "LoadingZone-0031",
-              "defUid": 1109,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 67,
@@ -3548,42 +3563,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "breakable_door",
-                  "defUid": 1110,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "breakables",
-                  "defUid": 1111,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1112,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "basement_breakables",
-                  "defUid": 1113,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1114,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1115,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -3596,7 +3611,7 @@
             },
             {
               "iid": "LoadingZone-0032",
-              "defUid": 1116,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 83,
@@ -3613,42 +3628,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "treasure_door",
-                  "defUid": 1117,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "treasure",
-                  "defUid": 1118,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1119,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "basement_treasure",
-                  "defUid": 1120,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1121,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1122,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -3661,7 +3676,7 @@
             },
             {
               "iid": "LoadingZone-0033",
-              "defUid": 1123,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 100,
@@ -3678,42 +3693,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "npc_door",
-                  "defUid": 1124,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "npcs",
-                  "defUid": 1125,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1126,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "basement_npcs",
-                  "defUid": 1127,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1128,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1129,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -3726,7 +3741,7 @@
             },
             {
               "iid": "DebugLabel-0034",
-              "defUid": 1130,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 35,
@@ -3743,21 +3758,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "basement hub sign",
-                  "defUid": 1131,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "Feature basement is stitched under the hub; doors branch to focused mechanic labs",
-                  "defUid": 1132,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Room",
-                  "defUid": 1133,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -3770,7 +3785,7 @@
             },
             {
               "iid": "DebugLabel-0035",
-              "defUid": 1134,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 60,
@@ -3787,21 +3802,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "overview label",
-                  "defUid": 1135,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "F5 toggles debug overview camera for large/stitched areas",
-                  "defUid": 1136,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Room",
-                  "defUid": 1137,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -3852,7 +3867,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "scroll_lab",
-          "defUid": 1244,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -3871,7 +3886,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0036",
-              "defUid": 1144,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 12,
@@ -3888,7 +3903,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "scroll_start",
-                  "defUid": 1145,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -3901,7 +3916,7 @@
             },
             {
               "iid": "Solid-0037",
-              "defUid": 1146,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -3918,7 +3933,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1147,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -3931,7 +3946,7 @@
             },
             {
               "iid": "Solid-0038",
-              "defUid": 1148,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -3948,7 +3963,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1149,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -3961,7 +3976,7 @@
             },
             {
               "iid": "Solid-0039",
-              "defUid": 1150,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 197,
@@ -3978,7 +3993,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
-                  "defUid": 1151,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -3991,7 +4006,7 @@
             },
             {
               "iid": "LoadingZone-0040",
-              "defUid": 1152,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 0,
@@ -4008,42 +4023,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "west_exit",
-                  "defUid": 1153,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to central hub",
-                  "defUid": 1154,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "EdgeExit",
-                  "defUid": 1155,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1156,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "east_exit",
-                  "defUid": 1157,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1158,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -4056,7 +4071,7 @@
             },
             {
               "iid": "EnemySpawn-0041",
-              "defUid": 1159,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 37,
@@ -4073,14 +4088,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "upper infinite sandbag",
-                  "defUid": 1160,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "sandbag_infinite",
-                  "defUid": 1161,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -4093,7 +4108,7 @@
             },
             {
               "iid": "EnemySpawn-0042",
-              "defUid": 1162,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 121,
@@ -4110,14 +4125,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "finite wing sandbag",
-                  "defUid": 1163,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "sandbag_finite",
-                  "defUid": 1164,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -4130,7 +4145,7 @@
             },
             {
               "iid": "BlinkWall-0043",
-              "defUid": 1165,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 20,
@@ -4147,14 +4162,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "sandbag approach step",
-                  "defUid": 1166,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1167,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4167,7 +4182,7 @@
             },
             {
               "iid": "OneWayPlatform-0044",
-              "defUid": 1168,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 32,
@@ -4184,7 +4199,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "sandbag upper tap platform",
-                  "defUid": 1169,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -4197,7 +4212,7 @@
             },
             {
               "iid": "BlinkWall-0045",
-              "defUid": 1170,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 6,
@@ -4214,14 +4229,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall kick column",
-                  "defUid": 1171,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1172,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4234,7 +4249,7 @@
             },
             {
               "iid": "OneWayPlatform-0046",
-              "defUid": 1173,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 26,
@@ -4251,7 +4266,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "middle shelf",
-                  "defUid": 1174,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -4264,7 +4279,7 @@
             },
             {
               "iid": "BlinkWall-0047",
-              "defUid": 1175,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 16,
@@ -4281,14 +4296,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "upper left shelf",
-                  "defUid": 1176,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1177,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4301,7 +4316,7 @@
             },
             {
               "iid": "Solid-0048",
-              "defUid": 1178,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 45,
@@ -4318,7 +4333,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "needle pillar",
-                  "defUid": 1179,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -4331,7 +4346,7 @@
             },
             {
               "iid": "OneWayPlatform-0049",
-              "defUid": 1180,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 53,
@@ -4348,7 +4363,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "high bridge",
-                  "defUid": 1181,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -4361,7 +4376,7 @@
             },
             {
               "iid": "BlinkWall-0050",
-              "defUid": 1182,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 82,
@@ -4378,14 +4393,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right catch wall",
-                  "defUid": 1183,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1184,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4398,7 +4413,7 @@
             },
             {
               "iid": "BlinkWall-0051",
-              "defUid": 1185,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 67,
@@ -4415,14 +4430,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right return shelf",
-                  "defUid": 1186,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1187,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4435,7 +4450,7 @@
             },
             {
               "iid": "OneWayPlatform-0052",
-              "defUid": 1188,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 38,
@@ -4452,7 +4467,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling practice shelf",
-                  "defUid": 1189,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -4465,7 +4480,7 @@
             },
             {
               "iid": "BlinkWall-0053",
-              "defUid": 1190,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 61,
@@ -4482,14 +4497,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "soft blink membrane",
-                  "defUid": 1191,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1192,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4502,7 +4517,7 @@
             },
             {
               "iid": "BlinkWall-0054",
-              "defUid": 1193,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 74,
@@ -4519,14 +4534,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hard blink lock",
-                  "defUid": 1194,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Hard",
-                  "defUid": 1195,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4539,7 +4554,7 @@
             },
             {
               "iid": "HazardBlock-0055",
-              "defUid": 1196,
+              "defUid": 2009,
               "__identifier": "HazardBlock",
               "__grid": [
                 35,
@@ -4556,7 +4571,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "central spike channel",
-                  "defUid": 1197,
+                  "defUid": 3020,
                   "realEditorValues": []
                 }
               ],
@@ -4569,7 +4584,7 @@
             },
             {
               "iid": "HazardBlock-0056",
-              "defUid": 1198,
+              "defUid": 2009,
               "__identifier": "HazardBlock",
               "__grid": [
                 58,
@@ -4586,7 +4601,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right spike channel",
-                  "defUid": 1199,
+                  "defUid": 3020,
                   "realEditorValues": []
                 }
               ],
@@ -4599,7 +4614,7 @@
             },
             {
               "iid": "HazardBlock-0057",
-              "defUid": 1200,
+              "defUid": 2009,
               "__identifier": "HazardBlock",
               "__grid": [
                 76,
@@ -4616,7 +4631,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "high tooth",
-                  "defUid": 1201,
+                  "defUid": 3020,
                   "realEditorValues": []
                 }
               ],
@@ -4629,7 +4644,7 @@
             },
             {
               "iid": "PogoOrb-0058",
-              "defUid": 1202,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 33,
@@ -4646,7 +4661,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "pogo alpha",
-                  "defUid": 1203,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -4659,7 +4674,7 @@
             },
             {
               "iid": "PogoOrb-0059",
-              "defUid": 1204,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 51,
@@ -4676,7 +4691,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "pogo beta",
-                  "defUid": 1205,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -4689,7 +4704,7 @@
             },
             {
               "iid": "PogoOrb-0060",
-              "defUid": 1206,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 69,
@@ -4706,7 +4721,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "pogo gamma",
-                  "defUid": 1207,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -4719,7 +4734,7 @@
             },
             {
               "iid": "PogoOrb-0061",
-              "defUid": 1208,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 42,
@@ -4736,7 +4751,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "pogo ceiling note",
-                  "defUid": 1209,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -4749,7 +4764,7 @@
             },
             {
               "iid": "ReboundPad-0062",
-              "defUid": 1210,
+              "defUid": 2010,
               "__identifier": "ReboundPad",
               "__grid": [
                 22,
@@ -4766,21 +4781,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left launcher",
-                  "defUid": 1211,
+                  "defUid": 3021,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseX",
                   "__type": "Float",
                   "__value": 570,
-                  "defUid": 1212,
+                  "defUid": 3022,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseY",
                   "__type": "Float",
                   "__value": -810,
-                  "defUid": 1213,
+                  "defUid": 3023,
                   "realEditorValues": []
                 }
               ],
@@ -4793,7 +4808,7 @@
             },
             {
               "iid": "ReboundPad-0063",
-              "defUid": 1214,
+              "defUid": 2010,
               "__identifier": "ReboundPad",
               "__grid": [
                 86,
@@ -4810,21 +4825,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right return launcher",
-                  "defUid": 1215,
+                  "defUid": 3021,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseX",
                   "__type": "Float",
                   "__value": -720,
-                  "defUid": 1216,
+                  "defUid": 3022,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseY",
                   "__type": "Float",
                   "__value": -680,
-                  "defUid": 1217,
+                  "defUid": 3023,
                   "realEditorValues": []
                 }
               ],
@@ -4837,7 +4852,7 @@
             },
             {
               "iid": "ReboundPad-0064",
-              "defUid": 1218,
+              "defUid": 2010,
               "__identifier": "ReboundPad",
               "__grid": [
                 40,
@@ -4854,21 +4869,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling redirect",
-                  "defUid": 1219,
+                  "defUid": 3021,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseX",
                   "__type": "Float",
                   "__value": 760,
-                  "defUid": 1220,
+                  "defUid": 3022,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseY",
                   "__type": "Float",
                   "__value": 240,
-                  "defUid": 1221,
+                  "defUid": 3023,
                   "realEditorValues": []
                 }
               ],
@@ -4881,7 +4896,7 @@
             },
             {
               "iid": "BlinkWall-0065",
-              "defUid": 1222,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 106,
@@ -4898,14 +4913,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "scroll wing low wall",
-                  "defUid": 1223,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1224,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4918,7 +4933,7 @@
             },
             {
               "iid": "OneWayPlatform-0066",
-              "defUid": 1225,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 113,
@@ -4935,7 +4950,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "scroll wing shelf A",
-                  "defUid": 1226,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -4948,7 +4963,7 @@
             },
             {
               "iid": "BlinkWall-0067",
-              "defUid": 1227,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 136,
@@ -4965,14 +4980,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "scroll wing membrane A",
-                  "defUid": 1228,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1229,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -4985,7 +5000,7 @@
             },
             {
               "iid": "OneWayPlatform-0068",
-              "defUid": 1230,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 143,
@@ -5002,7 +5017,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "scroll wing shelf B",
-                  "defUid": 1231,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -5015,7 +5030,7 @@
             },
             {
               "iid": "PogoOrb-0069",
-              "defUid": 1232,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 152,
@@ -5032,7 +5047,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "scroll wing pogo",
-                  "defUid": 1233,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -5045,7 +5060,7 @@
             },
             {
               "iid": "ReboundPad-0070",
-              "defUid": 1234,
+              "defUid": 2010,
               "__identifier": "ReboundPad",
               "__grid": [
                 163,
@@ -5062,21 +5077,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "scroll wing launcher",
-                  "defUid": 1235,
+                  "defUid": 3021,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseX",
                   "__type": "Float",
                   "__value": 630,
-                  "defUid": 1236,
+                  "defUid": 3022,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseY",
                   "__type": "Float",
                   "__value": -720,
-                  "defUid": 1237,
+                  "defUid": 3023,
                   "realEditorValues": []
                 }
               ],
@@ -5089,7 +5104,7 @@
             },
             {
               "iid": "OneWayPlatform-0071",
-              "defUid": 1238,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 178,
@@ -5106,7 +5121,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "door approach bridge",
-                  "defUid": 1239,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -5119,7 +5134,7 @@
             },
             {
               "iid": "Solid-0072",
-              "defUid": 1240,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 187,
@@ -5136,7 +5151,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right room hard stopper",
-                  "defUid": 1241,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -5187,7 +5202,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "vertical_shaft",
-          "defUid": 1292,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -5206,7 +5221,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0073",
-              "defUid": 1248,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 30,
@@ -5223,7 +5238,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft_start",
-                  "defUid": 1249,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -5236,7 +5251,7 @@
             },
             {
               "iid": "Solid-0074",
-              "defUid": 1250,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -5253,7 +5268,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1251,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -5266,7 +5281,7 @@
             },
             {
               "iid": "Solid-0075",
-              "defUid": 1252,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -5283,7 +5298,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1253,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -5296,7 +5311,7 @@
             },
             {
               "iid": "Solid-0076",
-              "defUid": 1254,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -5313,7 +5328,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1255,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -5326,7 +5341,7 @@
             },
             {
               "iid": "Solid-0077",
-              "defUid": 1256,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 60,
@@ -5343,7 +5358,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
-                  "defUid": 1257,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -5356,7 +5371,7 @@
             },
             {
               "iid": "LoadingZone-0078",
-              "defUid": 1258,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 27,
@@ -5373,42 +5388,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "bottom_door",
-                  "defUid": 1259,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to central hub",
-                  "defUid": 1260,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1261,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1262,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "upper_door",
-                  "defUid": 1263,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1264,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -5421,7 +5436,7 @@
             },
             {
               "iid": "OneWayPlatform-0079",
-              "defUid": 1265,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 8,
@@ -5438,7 +5453,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 1",
-                  "defUid": 1266,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -5451,7 +5466,7 @@
             },
             {
               "iid": "OneWayPlatform-0080",
-              "defUid": 1267,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 35,
@@ -5468,7 +5483,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 2",
-                  "defUid": 1268,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -5481,7 +5496,7 @@
             },
             {
               "iid": "OneWayPlatform-0081",
-              "defUid": 1269,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 9,
@@ -5498,7 +5513,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 3",
-                  "defUid": 1270,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -5511,7 +5526,7 @@
             },
             {
               "iid": "OneWayPlatform-0082",
-              "defUid": 1271,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 38,
@@ -5528,7 +5543,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 4",
-                  "defUid": 1272,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -5541,7 +5556,7 @@
             },
             {
               "iid": "OneWayPlatform-0083",
-              "defUid": 1273,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 9,
@@ -5558,7 +5573,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 5",
-                  "defUid": 1274,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -5571,7 +5586,7 @@
             },
             {
               "iid": "OneWayPlatform-0084",
-              "defUid": 1275,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 37,
@@ -5588,7 +5603,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 6",
-                  "defUid": 1276,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -5601,7 +5616,7 @@
             },
             {
               "iid": "BlinkWall-0085",
-              "defUid": 1277,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 30,
@@ -5618,14 +5633,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft soft divider",
-                  "defUid": 1278,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1279,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -5638,7 +5653,7 @@
             },
             {
               "iid": "PogoOrb-0086",
-              "defUid": 1280,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 30,
@@ -5655,7 +5670,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft pogo 1",
-                  "defUid": 1281,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -5668,7 +5683,7 @@
             },
             {
               "iid": "PogoOrb-0087",
-              "defUid": 1282,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 30,
@@ -5685,7 +5700,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft pogo 2",
-                  "defUid": 1283,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -5698,7 +5713,7 @@
             },
             {
               "iid": "ReboundPad-0088",
-              "defUid": 1284,
+              "defUid": 2010,
               "__identifier": "ReboundPad",
               "__grid": [
                 15,
@@ -5715,21 +5730,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft bottom launcher",
-                  "defUid": 1285,
+                  "defUid": 3021,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseX",
                   "__type": "Float",
                   "__value": 0,
-                  "defUid": 1286,
+                  "defUid": 3022,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseY",
                   "__type": "Float",
                   "__value": -920,
-                  "defUid": 1287,
+                  "defUid": 3023,
                   "realEditorValues": []
                 }
               ],
@@ -5742,7 +5757,7 @@
             },
             {
               "iid": "HazardBlock-0089",
-              "defUid": 1288,
+              "defUid": 2009,
               "__identifier": "HazardBlock",
               "__grid": [
                 38,
@@ -5759,7 +5774,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft low hazard",
-                  "defUid": 1289,
+                  "defUid": 3020,
                   "realEditorValues": []
                 }
               ],
@@ -5810,7 +5825,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "square_arena",
-          "defUid": 1347,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -5829,7 +5844,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0090",
-              "defUid": 1296,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 9,
@@ -5846,7 +5861,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square_start",
-                  "defUid": 1297,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -5859,7 +5874,7 @@
             },
             {
               "iid": "Solid-0091",
-              "defUid": 1298,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -5876,7 +5891,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1299,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -5889,7 +5904,7 @@
             },
             {
               "iid": "Solid-0092",
-              "defUid": 1300,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -5906,7 +5921,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1301,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -5919,7 +5934,7 @@
             },
             {
               "iid": "Solid-0093",
-              "defUid": 1302,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -5936,7 +5951,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1303,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -5949,7 +5964,7 @@
             },
             {
               "iid": "LoadingZone-0094",
-              "defUid": 1304,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 110,
@@ -5966,42 +5981,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "east_exit",
-                  "defUid": 1305,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to central hub",
-                  "defUid": 1306,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "EdgeExit",
-                  "defUid": 1307,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1308,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "west_exit",
-                  "defUid": 1309,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1310,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -6014,7 +6029,7 @@
             },
             {
               "iid": "EnemySpawn-0095",
-              "defUid": 1311,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 21,
@@ -6031,14 +6046,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "mid infinite sandbag",
-                  "defUid": 1312,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "sandbag_infinite",
-                  "defUid": 1313,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -6051,7 +6066,7 @@
             },
             {
               "iid": "EnemySpawn-0096",
-              "defUid": 1314,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 82,
@@ -6068,14 +6083,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "lower finite sandbag",
-                  "defUid": 1315,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "sandbag_finite",
-                  "defUid": 1316,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -6088,7 +6103,7 @@
             },
             {
               "iid": "Solid-0097",
-              "defUid": 1317,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 54,
@@ -6105,7 +6120,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square center hard wall",
-                  "defUid": 1318,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -6118,7 +6133,7 @@
             },
             {
               "iid": "OneWayPlatform-0098",
-              "defUid": 1319,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 15,
@@ -6135,7 +6150,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square lower left",
-                  "defUid": 1320,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -6148,7 +6163,7 @@
             },
             {
               "iid": "OneWayPlatform-0099",
-              "defUid": 1321,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 75,
@@ -6165,7 +6180,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square lower right",
-                  "defUid": 1322,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -6178,7 +6193,7 @@
             },
             {
               "iid": "OneWayPlatform-0100",
-              "defUid": 1323,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 14,
@@ -6195,7 +6210,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square mid left",
-                  "defUid": 1324,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -6208,7 +6223,7 @@
             },
             {
               "iid": "OneWayPlatform-0101",
-              "defUid": 1325,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 77,
@@ -6225,7 +6240,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square mid right",
-                  "defUid": 1326,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -6238,7 +6253,7 @@
             },
             {
               "iid": "OneWayPlatform-0102",
-              "defUid": 1327,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 41,
@@ -6255,7 +6270,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square high bridge",
-                  "defUid": 1328,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -6268,7 +6283,7 @@
             },
             {
               "iid": "BlinkWall-0103",
-              "defUid": 1329,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 40,
@@ -6285,14 +6300,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square soft left veil",
-                  "defUid": 1330,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1331,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -6305,7 +6320,7 @@
             },
             {
               "iid": "BlinkWall-0104",
-              "defUid": 1332,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 69,
@@ -6322,14 +6337,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square soft right veil",
-                  "defUid": 1333,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1334,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -6342,7 +6357,7 @@
             },
             {
               "iid": "PogoOrb-0105",
-              "defUid": 1335,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 33,
@@ -6359,7 +6374,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square pogo left",
-                  "defUid": 1336,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -6372,7 +6387,7 @@
             },
             {
               "iid": "PogoOrb-0106",
-              "defUid": 1337,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 76,
@@ -6389,7 +6404,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square pogo right",
-                  "defUid": 1338,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -6402,7 +6417,7 @@
             },
             {
               "iid": "ReboundPad-0107",
-              "defUid": 1339,
+              "defUid": 2010,
               "__identifier": "ReboundPad",
               "__grid": [
                 91,
@@ -6419,21 +6434,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square diagonal launcher",
-                  "defUid": 1340,
+                  "defUid": 3021,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseX",
                   "__type": "Float",
                   "__value": -700,
-                  "defUid": 1341,
+                  "defUid": 3022,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseY",
                   "__type": "Float",
                   "__value": -720,
-                  "defUid": 1342,
+                  "defUid": 3023,
                   "realEditorValues": []
                 }
               ],
@@ -6446,7 +6461,7 @@
             },
             {
               "iid": "HazardBlock-0108",
-              "defUid": 1343,
+              "defUid": 2009,
               "__identifier": "HazardBlock",
               "__grid": [
                 45,
@@ -6463,7 +6478,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "square bottom hazard",
-                  "defUid": 1344,
+                  "defUid": 3020,
                   "realEditorValues": []
                 }
               ],
@@ -6514,7 +6529,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "tiny_chamber",
-          "defUid": 1377,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -6533,7 +6548,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0109",
-              "defUid": 1351,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 8,
@@ -6550,7 +6565,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "tiny_start",
-                  "defUid": 1352,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -6563,7 +6578,7 @@
             },
             {
               "iid": "Solid-0110",
-              "defUid": 1353,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -6580,7 +6595,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1354,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -6593,7 +6608,7 @@
             },
             {
               "iid": "Solid-0111",
-              "defUid": 1355,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -6610,7 +6625,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1356,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -6623,7 +6638,7 @@
             },
             {
               "iid": "Solid-0112",
-              "defUid": 1357,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -6640,7 +6655,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1358,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -6653,7 +6668,7 @@
             },
             {
               "iid": "LoadingZone-0113",
-              "defUid": 1359,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 54,
@@ -6670,42 +6685,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "east_exit",
-                  "defUid": 1360,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to central hub",
-                  "defUid": 1361,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "EdgeExit",
-                  "defUid": 1362,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1363,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "lower_door",
-                  "defUid": 1364,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1365,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -6718,7 +6733,7 @@
             },
             {
               "iid": "Solid-0114",
-              "defUid": 1366,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 26,
@@ -6735,7 +6750,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "tiny hard center",
-                  "defUid": 1367,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -6748,7 +6763,7 @@
             },
             {
               "iid": "OneWayPlatform-0115",
-              "defUid": 1368,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 11,
@@ -6765,7 +6780,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "tiny shelf",
-                  "defUid": 1369,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -6778,7 +6793,7 @@
             },
             {
               "iid": "BlinkWall-0116",
-              "defUid": 1370,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 36,
@@ -6795,14 +6810,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "tiny soft gate",
-                  "defUid": 1371,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1372,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -6815,7 +6830,7 @@
             },
             {
               "iid": "PogoOrb-0117",
-              "defUid": 1373,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 31,
@@ -6832,7 +6847,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "tiny pogo",
-                  "defUid": 1374,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -6883,7 +6898,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "basement_hazards",
-          "defUid": 1434,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -6902,7 +6917,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0118",
-              "defUid": 1381,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 9,
@@ -6919,7 +6934,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hazard_start",
-                  "defUid": 1382,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -6932,7 +6947,7 @@
             },
             {
               "iid": "Solid-0119",
-              "defUid": 1383,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -6949,7 +6964,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1384,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -6962,7 +6977,7 @@
             },
             {
               "iid": "Solid-0120",
-              "defUid": 1385,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -6979,7 +6994,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1386,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -6992,7 +7007,7 @@
             },
             {
               "iid": "Solid-0121",
-              "defUid": 1387,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -7009,7 +7024,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1388,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -7022,7 +7037,7 @@
             },
             {
               "iid": "Solid-0122",
-              "defUid": 1389,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 110,
@@ -7039,7 +7054,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
-                  "defUid": 1390,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -7052,7 +7067,7 @@
             },
             {
               "iid": "LoadingZone-0123",
-              "defUid": 1391,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 5,
@@ -7069,42 +7084,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1392,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to basement hub",
-                  "defUid": 1393,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1394,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1395,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "hazard_door",
-                  "defUid": 1396,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1397,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -7117,7 +7132,7 @@
             },
             {
               "iid": "DebugLabel-0124",
-              "defUid": 1398,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 13,
@@ -7134,21 +7149,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hazard sign",
-                  "defUid": 1399,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "Moving spike balls are DamageVolume + KinematicPath",
-                  "defUid": 1400,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Hazard",
-                  "defUid": 1401,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -7161,7 +7176,7 @@
             },
             {
               "iid": "DamageVolume-0125",
-              "defUid": 1402,
+              "defUid": 2011,
               "__identifier": "DamageVolume",
               "__grid": [
                 22,
@@ -7178,35 +7193,35 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "moving spike ball A",
-                  "defUid": 1403,
+                  "defUid": 3024,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "damage",
                   "__type": "Float",
                   "__value": 1,
-                  "defUid": 1404,
+                  "defUid": 3025,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_points",
                   "__type": "String",
                   "__value": "380,590;680,590",
-                  "defUid": 1405,
+                  "defUid": 3026,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_speed",
                   "__type": "Float",
                   "__value": 150,
-                  "defUid": 1406,
+                  "defUid": 3027,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_mode",
                   "__type": "String",
                   "__value": "PingPong",
-                  "defUid": 1407,
+                  "defUid": 3028,
                   "realEditorValues": []
                 }
               ],
@@ -7219,7 +7234,7 @@
             },
             {
               "iid": "DamageVolume-0126",
-              "defUid": 1408,
+              "defUid": 2011,
               "__identifier": "DamageVolume",
               "__grid": [
                 56,
@@ -7236,35 +7251,35 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "vertical spike ball B",
-                  "defUid": 1409,
+                  "defUid": 3024,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "damage",
                   "__type": "Float",
                   "__value": 1,
-                  "defUid": 1410,
+                  "defUid": 3025,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_points",
                   "__type": "String",
                   "__value": "926,500;926,720",
-                  "defUid": 1411,
+                  "defUid": 3026,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_speed",
                   "__type": "Float",
                   "__value": 120,
-                  "defUid": 1412,
+                  "defUid": 3027,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_mode",
                   "__type": "String",
                   "__value": "PingPong",
-                  "defUid": 1413,
+                  "defUid": 3028,
                   "realEditorValues": []
                 }
               ],
@@ -7277,7 +7292,7 @@
             },
             {
               "iid": "DamageVolume-0127",
-              "defUid": 1414,
+              "defUid": 2011,
               "__identifier": "DamageVolume",
               "__grid": [
                 74,
@@ -7294,35 +7309,35 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "standard saw sweep",
-                  "defUid": 1415,
+                  "defUid": 3024,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "damage",
                   "__type": "Float",
                   "__value": 1,
-                  "defUid": 1416,
+                  "defUid": 3025,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_points",
                   "__type": "String",
                   "__value": "1250,704;1540,704",
-                  "defUid": 1417,
+                  "defUid": 3026,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_speed",
                   "__type": "Float",
                   "__value": 190,
-                  "defUid": 1418,
+                  "defUid": 3027,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "path_mode",
                   "__type": "String",
                   "__value": "PingPong",
-                  "defUid": 1419,
+                  "defUid": 3028,
                   "realEditorValues": []
                 }
               ],
@@ -7335,7 +7350,7 @@
             },
             {
               "iid": "OneWayPlatform-0128",
-              "defUid": 1420,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 19,
@@ -7352,7 +7367,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hazard low bridge",
-                  "defUid": 1421,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -7365,7 +7380,7 @@
             },
             {
               "iid": "OneWayPlatform-0129",
-              "defUid": 1422,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 51,
@@ -7382,7 +7397,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hazard vertical bridge",
-                  "defUid": 1423,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -7395,7 +7410,7 @@
             },
             {
               "iid": "OneWayPlatform-0130",
-              "defUid": 1424,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 73,
@@ -7412,7 +7427,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hazard saw bridge",
-                  "defUid": 1425,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -7425,7 +7440,7 @@
             },
             {
               "iid": "HazardBlock-0131",
-              "defUid": 1426,
+              "defUid": 2009,
               "__identifier": "HazardBlock",
               "__grid": [
                 26,
@@ -7442,7 +7457,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hazard floor spikes",
-                  "defUid": 1427,
+                  "defUid": 3020,
                   "realEditorValues": []
                 }
               ],
@@ -7455,7 +7470,7 @@
             },
             {
               "iid": "ReboundPad-0132",
-              "defUid": 1428,
+              "defUid": 2010,
               "__identifier": "ReboundPad",
               "__grid": [
                 95,
@@ -7472,21 +7487,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "hazard escape launcher",
-                  "defUid": 1429,
+                  "defUid": 3021,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseX",
                   "__type": "Float",
                   "__value": -520,
-                  "defUid": 1430,
+                  "defUid": 3022,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "impulseY",
                   "__type": "Float",
                   "__value": -680,
-                  "defUid": 1431,
+                  "defUid": 3023,
                   "realEditorValues": []
                 }
               ],
@@ -7537,7 +7552,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "basement_enemies",
-          "defUid": 1496,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -7556,7 +7571,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0133",
-              "defUid": 1438,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 9,
@@ -7573,7 +7588,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "enemy_start",
-                  "defUid": 1439,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -7586,7 +7601,7 @@
             },
             {
               "iid": "Solid-0134",
-              "defUid": 1440,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -7603,7 +7618,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1441,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -7616,7 +7631,7 @@
             },
             {
               "iid": "Solid-0135",
-              "defUid": 1442,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -7633,7 +7648,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1443,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -7646,7 +7661,7 @@
             },
             {
               "iid": "Solid-0136",
-              "defUid": 1444,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -7663,7 +7678,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1445,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -7676,7 +7691,7 @@
             },
             {
               "iid": "Solid-0137",
-              "defUid": 1446,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 110,
@@ -7693,7 +7708,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
-                  "defUid": 1447,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -7706,7 +7721,7 @@
             },
             {
               "iid": "LoadingZone-0138",
-              "defUid": 1448,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 5,
@@ -7723,42 +7738,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1449,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to basement hub",
-                  "defUid": 1450,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1451,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1452,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "enemy_door",
-                  "defUid": 1453,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1454,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -7771,7 +7786,7 @@
             },
             {
               "iid": "KinematicPath-0139",
-              "defUid": 1455,
+              "defUid": 2012,
               "__identifier": "KinematicPath",
               "__grid": [
                 30,
@@ -7788,28 +7803,28 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "enemy patrol path A",
-                  "defUid": 1456,
+                  "defUid": 3029,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "points",
                   "__type": "String",
                   "__value": "520,650;820,650",
-                  "defUid": 1457,
+                  "defUid": 3030,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "speed",
                   "__type": "Float",
                   "__value": 95,
-                  "defUid": 1458,
+                  "defUid": 3031,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "mode",
                   "__type": "String",
                   "__value": "PingPong",
-                  "defUid": 1459,
+                  "defUid": 3032,
                   "realEditorValues": []
                 }
               ],
@@ -7822,7 +7837,7 @@
             },
             {
               "iid": "EnemySpawn-0140",
-              "defUid": 1460,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 31,
@@ -7839,14 +7854,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "patrol cutter",
-                  "defUid": 1461,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "Patrol:enemy_patrol_a",
-                  "defUid": 1462,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -7859,7 +7874,7 @@
             },
             {
               "iid": "EnemySpawn-0141",
-              "defUid": 1463,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 43,
@@ -7876,14 +7891,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "small skitter",
-                  "defUid": 1464,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "small_skitter",
-                  "defUid": 1465,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -7896,7 +7911,7 @@
             },
             {
               "iid": "EnemySpawn-0142",
-              "defUid": 1466,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 61,
@@ -7913,14 +7928,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "guard striker",
-                  "defUid": 1467,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "Guard:420",
-                  "defUid": 1468,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -7933,7 +7948,7 @@
             },
             {
               "iid": "EnemySpawn-0143",
-              "defUid": 1469,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 70,
@@ -7950,14 +7965,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "medium striker",
-                  "defUid": 1470,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "medium_striker",
-                  "defUid": 1471,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -7970,7 +7985,7 @@
             },
             {
               "iid": "EnemySpawn-0144",
-              "defUid": 1472,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 77,
@@ -7987,14 +8002,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "gradient seeker",
-                  "defUid": 1473,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "gradient_seeker",
-                  "defUid": 1474,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -8007,7 +8022,7 @@
             },
             {
               "iid": "EnemySpawn-0145",
-              "defUid": 1475,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 91,
@@ -8024,14 +8039,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "large brute",
-                  "defUid": 1476,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "large_brute",
-                  "defUid": 1477,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -8044,7 +8059,7 @@
             },
             {
               "iid": "EnemySpawn-0146",
-              "defUid": 1478,
+              "defUid": 2008,
               "__identifier": "EnemySpawn",
               "__grid": [
                 82,
@@ -8061,14 +8076,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "lab finite sandbag",
-                  "defUid": 1479,
+                  "defUid": 3018,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "sandbag_finite",
-                  "defUid": 1480,
+                  "defUid": 3019,
                   "realEditorValues": []
                 }
               ],
@@ -8081,7 +8096,7 @@
             },
             {
               "iid": "DebugLabel-0147",
-              "defUid": 1481,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 28,
@@ -8098,21 +8113,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "enemy sign",
-                  "defUid": 1482,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "Enemy archetypes now cover small / medium / large aggression tests",
-                  "defUid": 1483,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Enemy",
-                  "defUid": 1484,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -8125,7 +8140,7 @@
             },
             {
               "iid": "OneWayPlatform-0148",
-              "defUid": 1485,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 28,
@@ -8142,7 +8157,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "enemy patrol bridge",
-                  "defUid": 1486,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -8155,7 +8170,7 @@
             },
             {
               "iid": "OneWayPlatform-0149",
-              "defUid": 1487,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 61,
@@ -8172,7 +8187,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "enemy guard bridge",
-                  "defUid": 1488,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -8185,7 +8200,7 @@
             },
             {
               "iid": "BlinkWall-0150",
-              "defUid": 1489,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 56,
@@ -8202,14 +8217,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "enemy soft divider",
-                  "defUid": 1490,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1491,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],
@@ -8222,7 +8237,7 @@
             },
             {
               "iid": "PogoOrb-0151",
-              "defUid": 1492,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 86,
@@ -8239,7 +8254,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "enemy pogo reset",
-                  "defUid": 1493,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -8290,7 +8305,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "basement_boss",
-          "defUid": 1534,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -8309,7 +8324,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0152",
-              "defUid": 1500,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 9,
@@ -8326,7 +8341,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "boss_start",
-                  "defUid": 1501,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -8339,7 +8354,7 @@
             },
             {
               "iid": "Solid-0153",
-              "defUid": 1502,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -8356,7 +8371,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1503,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -8369,7 +8384,7 @@
             },
             {
               "iid": "Solid-0154",
-              "defUid": 1504,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -8386,7 +8401,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1505,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -8399,7 +8414,7 @@
             },
             {
               "iid": "Solid-0155",
-              "defUid": 1506,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -8416,7 +8431,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1507,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -8429,7 +8444,7 @@
             },
             {
               "iid": "Solid-0156",
-              "defUid": 1508,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 116,
@@ -8446,7 +8461,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
-                  "defUid": 1509,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -8459,7 +8474,7 @@
             },
             {
               "iid": "LoadingZone-0157",
-              "defUid": 1510,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 5,
@@ -8476,42 +8491,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1511,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to basement hub",
-                  "defUid": 1512,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1513,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1514,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "boss_door",
-                  "defUid": 1515,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1516,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -8524,7 +8539,7 @@
             },
             {
               "iid": "BossSpawn-0158",
-              "defUid": 1517,
+              "defUid": 2013,
               "__identifier": "BossSpawn",
               "__grid": [
                 63,
@@ -8541,14 +8556,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "clockwork warden",
-                  "defUid": 1518,
+                  "defUid": 3033,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "brain",
                   "__type": "String",
                   "__value": "PhaseScript:tri_slam_sweep_halo",
-                  "defUid": 1519,
+                  "defUid": 3034,
                   "realEditorValues": []
                 }
               ],
@@ -8561,7 +8576,7 @@
             },
             {
               "iid": "DebugLabel-0159",
-              "defUid": 1520,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 36,
@@ -8578,21 +8593,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "boss sign",
-                  "defUid": 1521,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "Boss cycles slam, side sweep, and halo contact patterns",
-                  "defUid": 1522,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Boss",
-                  "defUid": 1523,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -8605,7 +8620,7 @@
             },
             {
               "iid": "OneWayPlatform-0160",
-              "defUid": 1524,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 23,
@@ -8622,7 +8637,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "boss approach shelf",
-                  "defUid": 1525,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -8635,7 +8650,7 @@
             },
             {
               "iid": "OneWayPlatform-0161",
-              "defUid": 1526,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 49,
@@ -8652,7 +8667,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "boss arena left shelf",
-                  "defUid": 1527,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -8665,7 +8680,7 @@
             },
             {
               "iid": "OneWayPlatform-0162",
-              "defUid": 1528,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 74,
@@ -8682,7 +8697,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "boss arena right shelf",
-                  "defUid": 1529,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -8695,7 +8710,7 @@
             },
             {
               "iid": "HazardBlock-0163",
-              "defUid": 1530,
+              "defUid": 2009,
               "__identifier": "HazardBlock",
               "__grid": [
                 45,
@@ -8712,7 +8727,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "boss pit spikes",
-                  "defUid": 1531,
+                  "defUid": 3020,
                   "realEditorValues": []
                 }
               ],
@@ -8763,7 +8778,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "basement_breakables",
-          "defUid": 1587,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -8782,7 +8797,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0164",
-              "defUid": 1538,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 9,
@@ -8799,7 +8814,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "breakable_start",
-                  "defUid": 1539,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -8812,7 +8827,7 @@
             },
             {
               "iid": "Solid-0165",
-              "defUid": 1540,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -8829,7 +8844,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1541,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -8842,7 +8857,7 @@
             },
             {
               "iid": "Solid-0166",
-              "defUid": 1542,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -8859,7 +8874,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1543,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -8872,7 +8887,7 @@
             },
             {
               "iid": "Solid-0167",
-              "defUid": 1544,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -8889,7 +8904,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1545,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -8902,7 +8917,7 @@
             },
             {
               "iid": "Solid-0168",
-              "defUid": 1546,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 110,
@@ -8919,7 +8934,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
-                  "defUid": 1547,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -8932,7 +8947,7 @@
             },
             {
               "iid": "LoadingZone-0169",
-              "defUid": 1548,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 5,
@@ -8949,42 +8964,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1549,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to basement hub",
-                  "defUid": 1550,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1551,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1552,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "breakable_door",
-                  "defUid": 1553,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1554,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -8997,7 +9012,7 @@
             },
             {
               "iid": "Breakable-0170",
-              "defUid": 1555,
+              "defUid": 2014,
               "__identifier": "Breakable",
               "__grid": [
                 29,
@@ -9014,28 +9029,28 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "respawning breakable platform",
-                  "defUid": 1556,
+                  "defUid": 3035,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "max_hp",
                   "__type": "Float",
                   "__value": 2,
-                  "defUid": 1557,
+                  "defUid": 3036,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "solid",
                   "__type": "Bool",
                   "__value": true,
-                  "defUid": 1558,
+                  "defUid": 3037,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "respawn",
                   "__type": "String",
                   "__value": "AfterSeconds:3.0",
-                  "defUid": 1559,
+                  "defUid": 3038,
                   "realEditorValues": []
                 }
               ],
@@ -9048,7 +9063,7 @@
             },
             {
               "iid": "Breakable-0171",
-              "defUid": 1560,
+              "defUid": 2014,
               "__identifier": "Breakable",
               "__grid": [
                 43,
@@ -9065,28 +9080,28 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "crumble stand-timer platform",
-                  "defUid": 1561,
+                  "defUid": 3035,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "max_hp",
                   "__type": "Float",
                   "__value": 2,
-                  "defUid": 1562,
+                  "defUid": 3036,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "solid",
                   "__type": "Bool",
                   "__value": true,
-                  "defUid": 1563,
+                  "defUid": 3037,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "respawn",
                   "__type": "String",
                   "__value": "AfterSeconds:3.5",
-                  "defUid": 1564,
+                  "defUid": 3038,
                   "realEditorValues": []
                 }
               ],
@@ -9099,7 +9114,7 @@
             },
             {
               "iid": "Breakable-0172",
-              "defUid": 1565,
+              "defUid": 2014,
               "__identifier": "Breakable",
               "__grid": [
                 61,
@@ -9116,28 +9131,28 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "non-respawn slash platform",
-                  "defUid": 1566,
+                  "defUid": 3035,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "max_hp",
                   "__type": "Float",
                   "__value": 2,
-                  "defUid": 1567,
+                  "defUid": 3036,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "solid",
                   "__type": "Bool",
                   "__value": true,
-                  "defUid": 1568,
+                  "defUid": 3037,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "respawn",
                   "__type": "String",
                   "__value": "Never",
-                  "defUid": 1569,
+                  "defUid": 3038,
                   "realEditorValues": []
                 }
               ],
@@ -9150,7 +9165,7 @@
             },
             {
               "iid": "Breakable-0173",
-              "defUid": 1570,
+              "defUid": 2014,
               "__identifier": "Breakable",
               "__grid": [
                 81,
@@ -9167,28 +9182,28 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "breakable object crate",
-                  "defUid": 1571,
+                  "defUid": 3035,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "max_hp",
                   "__type": "Float",
                   "__value": 1,
-                  "defUid": 1572,
+                  "defUid": 3036,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "solid",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1573,
+                  "defUid": 3037,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "respawn",
                   "__type": "String",
                   "__value": "OnRoomReload",
-                  "defUid": 1574,
+                  "defUid": 3038,
                   "realEditorValues": []
                 }
               ],
@@ -9201,7 +9216,7 @@
             },
             {
               "iid": "DebugLabel-0174",
-              "defUid": 1575,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 28,
@@ -9218,21 +9233,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "breakable sign",
-                  "defUid": 1576,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "Slash some platforms; crumble platforms break after standing too long",
-                  "defUid": 1577,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Interactable",
-                  "defUid": 1578,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -9245,7 +9260,7 @@
             },
             {
               "iid": "OneWayPlatform-0175",
-              "defUid": 1579,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 17,
@@ -9262,7 +9277,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "breakable start ledge",
-                  "defUid": 1580,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -9275,7 +9290,7 @@
             },
             {
               "iid": "OneWayPlatform-0176",
-              "defUid": 1581,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 73,
@@ -9292,7 +9307,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "breakable far ledge",
-                  "defUid": 1582,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -9305,7 +9320,7 @@
             },
             {
               "iid": "PogoOrb-0177",
-              "defUid": 1583,
+              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 63,
@@ -9322,7 +9337,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "breakable pogo helper",
-                  "defUid": 1584,
+                  "defUid": 3011,
                   "realEditorValues": []
                 }
               ],
@@ -9373,7 +9388,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "basement_treasure",
-          "defUid": 1628,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -9392,7 +9407,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0178",
-              "defUid": 1591,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 9,
@@ -9409,7 +9424,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "treasure_start",
-                  "defUid": 1592,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -9422,7 +9437,7 @@
             },
             {
               "iid": "Solid-0179",
-              "defUid": 1593,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -9439,7 +9454,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1594,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -9452,7 +9467,7 @@
             },
             {
               "iid": "Solid-0180",
-              "defUid": 1595,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -9469,7 +9484,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1596,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -9482,7 +9497,7 @@
             },
             {
               "iid": "Solid-0181",
-              "defUid": 1597,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -9499,7 +9514,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1598,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -9512,7 +9527,7 @@
             },
             {
               "iid": "Solid-0182",
-              "defUid": 1599,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 91,
@@ -9529,7 +9544,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
-                  "defUid": 1600,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -9542,7 +9557,7 @@
             },
             {
               "iid": "LoadingZone-0183",
-              "defUid": 1601,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 5,
@@ -9559,42 +9574,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1602,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to basement hub",
-                  "defUid": 1603,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1604,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1605,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "treasure_door",
-                  "defUid": 1606,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1607,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -9607,7 +9622,7 @@
             },
             {
               "iid": "PickupSpawn-0184",
-              "defUid": 1608,
+              "defUid": 2015,
               "__identifier": "PickupSpawn",
               "__grid": [
                 31,
@@ -9624,14 +9639,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "health pickup",
-                  "defUid": 1609,
+                  "defUid": 3039,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "kind",
                   "__type": "String",
                   "__value": "health:1",
-                  "defUid": 1610,
+                  "defUid": 3040,
                   "realEditorValues": []
                 }
               ],
@@ -9644,7 +9659,7 @@
             },
             {
               "iid": "PickupSpawn-0185",
-              "defUid": 1611,
+              "defUid": 2015,
               "__identifier": "PickupSpawn",
               "__grid": [
                 40,
@@ -9661,14 +9676,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "currency pickup",
-                  "defUid": 1612,
+                  "defUid": 3039,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "kind",
                   "__type": "String",
                   "__value": "currency:25",
-                  "defUid": 1613,
+                  "defUid": 3040,
                   "realEditorValues": []
                 }
               ],
@@ -9681,7 +9696,7 @@
             },
             {
               "iid": "ChestSpawn-0186",
-              "defUid": 1614,
+              "defUid": 2016,
               "__identifier": "ChestSpawn",
               "__grid": [
                 57,
@@ -9698,14 +9713,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ability chest",
-                  "defUid": 1615,
+                  "defUid": 3041,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "reward",
                   "__type": "String",
                   "__value": "ability:test_key",
-                  "defUid": 1616,
+                  "defUid": 3042,
                   "realEditorValues": []
                 }
               ],
@@ -9718,7 +9733,7 @@
             },
             {
               "iid": "ChestSpawn-0187",
-              "defUid": 1617,
+              "defUid": 2016,
               "__identifier": "ChestSpawn",
               "__grid": [
                 69,
@@ -9735,14 +9750,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "story flag chest",
-                  "defUid": 1618,
+                  "defUid": 3041,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "reward",
                   "__type": "String",
                   "__value": "flag:opened_basement_story_chest",
-                  "defUid": 1619,
+                  "defUid": 3042,
                   "realEditorValues": []
                 }
               ],
@@ -9755,7 +9770,7 @@
             },
             {
               "iid": "DebugLabel-0188",
-              "defUid": 1620,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 29,
@@ -9772,21 +9787,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "treasure sign",
-                  "defUid": 1621,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "Walk into pickups; press Interact at chests",
-                  "defUid": 1622,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Pickup",
-                  "defUid": 1623,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -9799,7 +9814,7 @@
             },
             {
               "iid": "OneWayPlatform-0189",
-              "defUid": 1624,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 26,
@@ -9816,7 +9831,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "treasure shelf",
-                  "defUid": 1625,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -9867,7 +9882,7 @@
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "basement_npcs",
-          "defUid": 1672,
+          "defUid": 4000,
           "realEditorValues": []
         }
       ],
@@ -9886,7 +9901,7 @@
           "entityInstances": [
             {
               "iid": "PlayerStart-0190",
-              "defUid": 1632,
+              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
                 9,
@@ -9903,7 +9918,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "npc_start",
-                  "defUid": 1633,
+                  "defUid": 3000,
                   "realEditorValues": []
                 }
               ],
@@ -9916,7 +9931,7 @@
             },
             {
               "iid": "Solid-0191",
-              "defUid": 1634,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -9933,7 +9948,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
-                  "defUid": 1635,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -9946,7 +9961,7 @@
             },
             {
               "iid": "Solid-0192",
-              "defUid": 1636,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -9963,7 +9978,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
-                  "defUid": 1637,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -9976,7 +9991,7 @@
             },
             {
               "iid": "Solid-0193",
-              "defUid": 1638,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -9993,7 +10008,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
-                  "defUid": 1639,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -10006,7 +10021,7 @@
             },
             {
               "iid": "Solid-0194",
-              "defUid": 1640,
+              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 91,
@@ -10023,7 +10038,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
-                  "defUid": 1641,
+                  "defUid": 3001,
                   "realEditorValues": []
                 }
               ],
@@ -10036,7 +10051,7 @@
             },
             {
               "iid": "LoadingZone-0195",
-              "defUid": 1642,
+              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 5,
@@ -10053,42 +10068,42 @@
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "return_door",
-                  "defUid": 1643,
+                  "defUid": 3002,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to basement hub",
-                  "defUid": 1644,
+                  "defUid": 3003,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
-                  "defUid": 1645,
+                  "defUid": 3004,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
-                  "defUid": 1646,
+                  "defUid": 3005,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "npc_door",
-                  "defUid": 1647,
+                  "defUid": 3006,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
-                  "defUid": 1648,
+                  "defUid": 3007,
                   "realEditorValues": []
                 }
               ],
@@ -10101,7 +10116,7 @@
             },
             {
               "iid": "NpcSpawn-0196",
-              "defUid": 1649,
+              "defUid": 2006,
               "__identifier": "NpcSpawn",
               "__grid": [
                 37,
@@ -10118,21 +10133,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "Architect NPC",
-                  "defUid": 1650,
+                  "defUid": 3012,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "prompt",
                   "__type": "String",
                   "__value": "Talk",
-                  "defUid": 1651,
+                  "defUid": 3013,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "dialogue_id",
                   "__type": "String",
                   "__value": "architect_intro",
-                  "defUid": 1652,
+                  "defUid": 3014,
                   "realEditorValues": []
                 }
               ],
@@ -10145,7 +10160,7 @@
             },
             {
               "iid": "NpcSpawn-0197",
-              "defUid": 1653,
+              "defUid": 2006,
               "__identifier": "NpcSpawn",
               "__grid": [
                 52,
@@ -10162,21 +10177,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "Vault Keeper NPC",
-                  "defUid": 1654,
+                  "defUid": 3012,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "prompt",
                   "__type": "String",
                   "__value": "Talk",
-                  "defUid": 1655,
+                  "defUid": 3013,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "dialogue_id",
                   "__type": "String",
                   "__value": "vault_keeper",
-                  "defUid": 1656,
+                  "defUid": 3014,
                   "realEditorValues": []
                 }
               ],
@@ -10189,7 +10204,7 @@
             },
             {
               "iid": "NpcSpawn-0198",
-              "defUid": 1657,
+              "defUid": 2006,
               "__identifier": "NpcSpawn",
               "__grid": [
                 61,
@@ -10206,21 +10221,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "Merchant Prototype NPC",
-                  "defUid": 1658,
+                  "defUid": 3012,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "prompt",
                   "__type": "String",
                   "__value": "Trade",
-                  "defUid": 1659,
+                  "defUid": 3013,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "dialogue_id",
                   "__type": "String",
                   "__value": "merchant_seed",
-                  "defUid": 1660,
+                  "defUid": 3014,
                   "realEditorValues": []
                 }
               ],
@@ -10233,7 +10248,7 @@
             },
             {
               "iid": "DebugLabel-0199",
-              "defUid": 1661,
+              "defUid": 2007,
               "__identifier": "DebugLabel",
               "__grid": [
                 20,
@@ -10250,21 +10265,21 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "npc sign",
-                  "defUid": 1662,
+                  "defUid": 3015,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "text",
                   "__type": "String",
                   "__value": "Press Interact near NPCs. Dialogue pauses gameplay; choices sketch merchants and story flags.",
-                  "defUid": 1663,
+                  "defUid": 3016,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "category",
                   "__type": "String",
                   "__value": "Interactable",
-                  "defUid": 1664,
+                  "defUid": 3017,
                   "realEditorValues": []
                 }
               ],
@@ -10277,7 +10292,7 @@
             },
             {
               "iid": "OneWayPlatform-0200",
-              "defUid": 1665,
+              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 30,
@@ -10294,7 +10309,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "npc parlor shelf",
-                  "defUid": 1666,
+                  "defUid": 3008,
                   "realEditorValues": []
                 }
               ],
@@ -10307,7 +10322,7 @@
             },
             {
               "iid": "BlinkWall-0201",
-              "defUid": 1667,
+              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 66,
@@ -10324,14 +10339,14 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "npc soft curtain",
-                  "defUid": 1668,
+                  "defUid": 3009,
                   "realEditorValues": []
                 },
                 {
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
-                  "defUid": 1669,
+                  "defUid": 3010,
                   "realEditorValues": []
                 }
               ],

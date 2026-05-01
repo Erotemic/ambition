@@ -78,10 +78,15 @@ pub fn sync_visuals(
     }
 }
 
-pub fn spawn_room_visuals(commands: &mut Commands, world: &ae::World, loading_zones: &[LoadingZone]) {
+pub fn spawn_room_visuals(
+    commands: &mut Commands,
+    world: &ae::World,
+    loading_zones: &[LoadingZone],
+    physics_settings: physics::PhysicsSandboxSettings,
+) {
     spawn_grid(commands, world);
     for block in &world.blocks {
-        spawn_block(commands, world, block);
+        spawn_block(commands, world, block, physics_settings);
     }
     for zone in loading_zones {
         spawn_loading_zone(commands, world, zone);
@@ -115,7 +120,7 @@ pub fn spawn_grid(commands: &mut Commands, world: &ae::World) {
     }
 }
 
-pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block) {
+pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block, physics_settings: physics::PhysicsSandboxSettings) {
     let size = block.aabb.half_size() * 2.0;
     commands.spawn((
         Sprite::from_color(block_color(block.kind), BVec2::new(size.x, size.y)),
@@ -123,7 +128,7 @@ pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block
         Name::new(format!("Block: {}", block.name)),
         RoomVisual,
     ));
-    physics::spawn_static_collider_for_block(commands, world, block);
+    physics::spawn_static_collider_for_block(commands, world, block, physics_settings);
 }
 
 pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &LoadingZone) {

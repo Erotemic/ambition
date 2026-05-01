@@ -257,6 +257,9 @@ fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &S
             continue;
         }
         draw_aabb(gizmos, world, enemy.aabb(), red());
+        if enemy.attack_windup_timer > 0.0 {
+            draw_aabb(gizmos, world, enemy.attack_telegraph_aabb(), orange());
+        }
         if enemy.attack_timer > 0.0 {
             draw_aabb(gizmos, world, enemy.attack_aabb(), yellow());
         }
@@ -267,6 +270,9 @@ fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &S
             continue;
         }
         draw_aabb(gizmos, world, boss.aabb(), magenta());
+        for volume in boss.attack_telegraph_volumes() {
+            draw_aabb(gizmos, world, volume, orange());
+        }
         for volume in boss.attack_volumes() {
             draw_aabb(gizmos, world, volume, yellow());
         }

@@ -138,17 +138,26 @@ pub struct SandboxRuntime {
     preset_flash: f32,
     pub flash_timer: f32,
     hitstop_timer: f32,
+    damage_invuln_timer: f32,
+    hitstun_timer: f32,
+    last_safe_player_pos: ae::Vec2,
     time_scale: f32,
     down_tap_timer: f32,
     up_tap_timer: f32,
     interact_buffer_timer: f32,
     pub moving_platform: platforms::MovingPlatformState,
     pub features: features::FeatureRuntime,
+    physics_settings: physics::PhysicsSandboxSettings,
     pub room_transition_cooldown: f32,
 }
 
 impl SandboxRuntime {
-    fn new(world: &ae::World, abilities: ae::AbilitySet, tuning: ae::MovementTuning) -> Self {
+    fn new(
+        world: &ae::World,
+        abilities: ae::AbilitySet,
+        tuning: ae::MovementTuning,
+        physics_settings: physics::PhysicsSandboxSettings,
+    ) -> Self {
         let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
         player.refresh_movement_resources(tuning);
         Self {
@@ -161,12 +170,16 @@ impl SandboxRuntime {
             preset_flash: 1.2,
             flash_timer: 0.0,
             hitstop_timer: 0.0,
+            damage_invuln_timer: 0.0,
+            hitstun_timer: 0.0,
+            last_safe_player_pos: world.spawn,
             time_scale: 1.0,
             down_tap_timer: 0.0,
             up_tap_timer: 0.0,
             interact_buffer_timer: 0.0,
             moving_platform: platforms::MovingPlatformState::time_reference(world),
             features: features::FeatureRuntime::from_world(world),
+            physics_settings,
             room_transition_cooldown: 0.0,
         }
     }
@@ -177,6 +190,9 @@ impl SandboxRuntime {
         self.dummies = spawn_dummies(world);
         self.flash_timer = 0.18;
         self.hitstop_timer = 0.0;
+        self.damage_invuln_timer = 0.0;
+        self.hitstun_timer = 0.0;
+        self.last_safe_player_pos = world.spawn;
         self.time_scale = 1.0;
         self.down_tap_timer = 0.0;
         self.up_tap_timer = 0.0;
@@ -226,6 +242,12 @@ impl SandboxRuntime {
         self.interact_buffer_timer = 0.0;
     }
 
+    fn remember_safe_player_position(&mut self) {
+        if self.player.on_ground {
+            self.last_safe_player_pos = self.player.pos;
+        }
+    }
+
     fn update_time_scale(&mut self, frame_dt: f32, feel: SandboxFeelTuning) {
         let target = if self.hitstop_timer > 0.0 {
             0.0
@@ -256,6 +278,8 @@ fn setup(
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data_asset: Option<Res<data::SandboxDataAsset>>,
+    sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
+    physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut audio_sources: ResMut<Assets<AudioSource>>,
     sandbox_data: Res<data::SandboxDataSpec>,
     editable_tuning: Res<EditableMovementTuning>,
@@ -263,6 +287,9 @@ fn setup(
 ) {
     if let Some(handle) = sandbox_data_asset.as_ref() {
         let _asset_handle_for_async_reload = handle.0.clone();
+    }
+    if let Some(collection) = sandbox_asset_collection.as_ref() {
+        let _loaded_sandbox_data_handle = collection.sandbox_data.clone();
     }
     for warning in room_set.layout_warnings() {
         eprintln!("room layout warning: {warning}");
@@ -273,14 +300,19 @@ fn setup(
     // room at 1600x900, the default orthographic projection shows the whole
     // room without requiring a Bevy-version-sensitive ScalingMode import.
     commands.spawn((Camera2d, Name::new("Main Camera")));
-    let runtime = SandboxRuntime::new(&world.0, editable_abilities.as_engine(), editable_tuning.as_engine());
+    let runtime = SandboxRuntime::new(
+        &world.0,
+        editable_abilities.as_engine(),
+        editable_tuning.as_engine(),
+        *physics_settings,
+    );
     let player_input_map = runtime.preset().input_map();
     commands.insert_resource(runtime);
     let sound_bank = SoundBank::new(&mut audio_sources, &sandbox_data.audio);
     play_ambience(&mut commands, &sound_bank);
     commands.insert_resource(sound_bank);
 
-    spawn_room_visuals(&mut commands, &world.0, room_set.active_loading_zones());
+    spawn_room_visuals(&mut commands, &world.0, room_set.active_loading_zones(), *physics_settings);
     platforms::spawn_moving_platform(&mut commands, &world.0, platforms::MovingPlatformState::time_reference(&world.0));
 
     let player = commands
@@ -346,6 +378,7 @@ fn sandbox_update(
 ) {
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
+    let physics_settings = runtime.physics_settings;
     dev_tools::sync_live_ability_edits(&mut runtime, editable_abilities.as_engine(), tuning);
 
     let preset_changed = handle_debug_hotkeys(&keys, &mut runtime, &mut developer_tools);
@@ -386,6 +419,8 @@ fn sandbox_update(
     }
 
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
+    runtime.damage_invuln_timer = (runtime.damage_invuln_timer - frame_dt).max(0.0);
+    runtime.hitstun_timer = (runtime.hitstun_timer - frame_dt).max(0.0);
     controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
     let door_double_tap_up = runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
@@ -397,7 +432,8 @@ fn sandbox_update(
         // Two-clock update:
         // - control_dt is real time for responsive inputs and precision-blink aim;
         // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
-        let input = controls.engine_input(frame_dt);
+        let control_frame = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
+        let input = control_frame.engine_input(frame_dt);
         let control_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
         let control_events = ae::update_player_control_with_tuning(&control_world, &mut runtime.player, input, frame_dt, tuning);
         if control_events.reset {
@@ -444,7 +480,9 @@ fn sandbox_update(
     // therefore require a deliberate double-tap-up. When not flying, a single
     // up press preserves the normal door interaction feel. Edge exits remain
     // automatic and ignore this flag.
-    let raw_interact_pressed = if runtime.player.fly_enabled {
+    let raw_interact_pressed = if runtime.hitstun_timer > 0.0 {
+        false
+    } else if runtime.player.fly_enabled {
         door_double_tap_up
     } else {
         controls.up_pressed
@@ -458,10 +496,23 @@ fn sandbox_update(
     let feature_dt = sandbox_dt(&runtime, frame_dt);
     let feature_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
     let feature_player = runtime.player.clone();
-    let feature_events = runtime.features.update(&feature_world, &feature_player, controls.interact_pressed, feature_dt);
+    let player_vulnerable = runtime.damage_invuln_timer <= 0.0;
+    let feature_events = runtime.features.update(
+        &feature_world,
+        &feature_player,
+        controls.interact_pressed,
+        player_vulnerable,
+        feel.feature_combat_tuning(),
+        feature_dt,
+    );
     let feature_reset = feature_events.reset_player;
     let feature_interaction_consumed = feature_events.consumed_interaction;
-    handle_feature_events(&mut commands, &world.0, &bank, feature_events);
+    let feature_damaged_player = !feature_events.player_damage.is_empty();
+    handle_feature_events(&mut commands, &world.0, &bank, &feature_events, physics_settings);
+    handle_player_damage_events(&mut commands, &world.0, &bank, &mut runtime, &feature_events, tuning, feel);
+    if !feature_damaged_player {
+        runtime.remember_safe_player_position();
+    }
     if feature_interaction_consumed {
         runtime.clear_interact_buffer();
     }
@@ -474,22 +525,23 @@ fn sandbox_update(
         if let Some(zone) = room_set.transition_for_player(&runtime.player, controls.interact_pressed) {
             runtime.clear_interact_buffer();
             load_room(
-            &mut commands,
-            &bank,
-            &mut runtime,
-            &mut *world,
-            &mut *room_set,
-            &room_visuals,
-            zone,
-            tuning,
-            feel,
+                &mut commands,
+                &bank,
+                &mut runtime,
+                &mut *world,
+                &mut *room_set,
+                &room_visuals,
+                zone,
+                tuning,
+                feel,
+                physics_settings,
             );
             return;
         }
     }
 
-    if controls.attack_pressed || controls.pogo_pressed {
-        process_attack(&mut commands, &world.0, &bank, &mut runtime, controls, tuning, feel);
+    if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
+        process_attack(&mut commands, &world.0, &bank, &mut runtime, controls, tuning, feel, physics_settings);
     }
 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
@@ -565,6 +617,7 @@ fn load_room(
     transition: rooms::RoomTransition,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
+    physics_settings: physics::PhysicsSandboxSettings,
 ) {
     let old_velocity = runtime.player.vel;
     let abilities = runtime.player.abilities;
@@ -591,6 +644,9 @@ fn load_room(
     runtime.dummies = spawn_dummies(&world.0);
     runtime.flash_timer = if edge_exit { feel.edge_transition_flash } else { feel.door_transition_flash };
     runtime.hitstop_timer = 0.0;
+    runtime.damage_invuln_timer = 0.0;
+    runtime.hitstun_timer = 0.0;
+    runtime.last_safe_player_pos = runtime.player.pos;
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
     runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
@@ -601,7 +657,7 @@ fn load_room(
     runtime.room_transition_cooldown = if edge_exit { feel.edge_transition_cooldown } else { feel.door_transition_cooldown };
     runtime.preset_flash = 1.0;
 
-    spawn_room_visuals(commands, &world.0, &spec.loading_zones);
+    spawn_room_visuals(commands, &world.0, &spec.loading_zones, physics_settings);
     platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
     play_sound(commands, bank, SoundCue::Reset);
     if edge_exit {
@@ -681,7 +737,8 @@ fn handle_feature_events(
     commands: &mut Commands,
     world: &ae::World,
     bank: &SoundBank,
-    events: features::FeatureEvents,
+    events: &features::FeatureEvents,
+    physics_settings: physics::PhysicsSandboxSettings,
 ) {
     if events.reset_player {
         play_sound(commands, bank, SoundCue::Reset);
@@ -692,16 +749,105 @@ fn handle_feature_events(
             features::FeaturePhysicsCue::EnemyRagdoll => physics::PhysicsDebrisCue::EnemyRagdoll,
             features::FeaturePhysicsCue::BossRagdoll => physics::PhysicsDebrisCue::BossRagdoll,
         };
-        physics::spawn_debris_burst(commands, world, physics_burst.pos, cue);
+        physics::spawn_debris_burst(commands, world, physics_burst.pos, cue, physics_settings);
     }
-    for pos in events.impacts {
+    for &pos in &events.impacts {
         spawn_impact(commands, world, pos);
         spawn_burst(commands, world, pos, 14, 300.0, [1.0, 0.34, 0.28, 0.88], ParticleKind::Shard);
-        physics::spawn_debris_burst(commands, world, pos, physics::PhysicsDebrisCue::Impact);
+        physics::spawn_debris_burst(commands, world, pos, physics::PhysicsDebrisCue::Impact, physics_settings);
     }
-    for pos in events.bursts {
+    for &pos in &events.bursts {
         spawn_burst(commands, world, pos, 16, 230.0, [0.84, 0.95, 1.0, 0.82], ParticleKind::Spark);
     }
+}
+
+fn handle_player_damage_events(
+    commands: &mut Commands,
+    world: &ae::World,
+    bank: &SoundBank,
+    runtime: &mut SandboxRuntime,
+    events: &features::FeatureEvents,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+) {
+    let Some(damage) = events.player_damage.first().copied() else {
+        return;
+    };
+    match damage.mode {
+        features::PlayerDamageMode::SafeRespawn => {
+            safe_respawn_player(commands, world, bank, runtime, tuning, feel, damage.impact_pos);
+        }
+        features::PlayerDamageMode::Knockback => {
+            apply_player_knockback(commands, world, bank, runtime, tuning, feel, damage);
+        }
+    }
+}
+
+fn safe_respawn_player(
+    commands: &mut Commands,
+    world: &ae::World,
+    bank: &SoundBank,
+    runtime: &mut SandboxRuntime,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+    from: ae::Vec2,
+) {
+    let to = runtime.last_safe_player_pos;
+    runtime.player.reset_to(to);
+    runtime.player.refresh_movement_resources(tuning);
+    runtime.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
+    runtime.hitstun_timer = 0.0;
+    runtime.hitstop_timer = 0.0;
+    runtime.flash_timer = feel.reset_flash_time;
+    runtime.time_scale = 1.0;
+    play_sound(commands, bank, SoundCue::Reset);
+    spawn_reset_effects(commands, world, from, to);
+}
+
+fn apply_player_knockback(
+    commands: &mut Commands,
+    world: &ae::World,
+    bank: &SoundBank,
+    runtime: &mut SandboxRuntime,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+    damage: features::PlayerDamageEvent,
+) {
+    let _source_pos_for_future_directional_rules = damage.source_pos;
+    let boss_hit = matches!(damage.source, features::PlayerDamageSource::BossBody | features::PlayerDamageSource::BossAttack);
+    let dir = if damage.knockback_dir.abs() <= 0.001 { runtime.player.facing * -1.0 } else { damage.knockback_dir.signum() };
+    let strength = damage.strength.max(0.0);
+    let knock_x = if boss_hit { feel.boss_knockback_x } else { feel.enemy_knockback_x };
+    let knock_y = if boss_hit { feel.boss_knockback_y } else { feel.enemy_knockback_y };
+    runtime.player.vel.x = dir * knock_x * strength;
+    runtime.player.vel.y = -knock_y * strength;
+    runtime.player.refresh_movement_resources(tuning);
+    runtime.hitstun_timer = if boss_hit { feel.boss_hitstun_time } else { feel.enemy_hitstun_time } * strength.max(0.35);
+    runtime.damage_invuln_timer = feel.knockback_invulnerability_time;
+    runtime.hitstop_timer = feel.player_damage_hitstop_time;
+    runtime.flash_timer = 0.20;
+    play_sound(commands, bank, SoundCue::Hit);
+    spawn_impact(commands, world, damage.impact_pos);
+}
+
+fn controls_for_hitstun(mut controls: ControlFrame, feel: SandboxFeelTuning, hitstun_timer: f32) -> ControlFrame {
+    if hitstun_timer <= 0.0 {
+        return controls;
+    }
+    let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
+    controls.axis_x *= scale;
+    controls.axis_y *= scale;
+    controls.jump_pressed = false;
+    controls.dash_pressed = false;
+    controls.fast_fall_pressed = false;
+    controls.blink_pressed = false;
+    controls.blink_held = false;
+    controls.blink_released = false;
+    controls.attack_pressed = false;
+    controls.pogo_pressed = false;
+    controls.fly_toggle_pressed = false;
+    controls.interact_pressed = false;
+    controls
 }
 
 fn process_attack(
@@ -712,6 +858,7 @@ fn process_attack(
     controls: ControlFrame,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
+    physics_settings: physics::PhysicsSandboxSettings,
 ) {
     if !runtime.player.abilities.attack { return; }
     play_sound(commands, bank, SoundCue::Slash);
@@ -727,7 +874,7 @@ fn process_attack(
             spawn_burst(commands, world, hit_pos, 18, 390.0, [1.0, 0.93, 0.44, 0.94], ParticleKind::Shard);
             let dummy_killed = dummy.apply_hit(1, player_facing * 300.0);
             if dummy_killed {
-                physics::spawn_debris_burst(commands, world, dummy.pos, physics::PhysicsDebrisCue::EnemyRagdoll);
+                physics::spawn_debris_burst(commands, world, dummy.pos, physics::PhysicsDebrisCue::EnemyRagdoll, physics_settings);
             }
             killed |= dummy_killed;
             landed = true;
@@ -736,7 +883,7 @@ fn process_attack(
     let feature_events = runtime.features.apply_player_attack(attack, 1, player_facing * 300.0);
     landed |= !feature_events.impacts.is_empty();
     killed |= feature_events.messages.iter().any(|message| message.contains("defeated"));
-    handle_feature_events(commands, world, bank, feature_events);
+    handle_feature_events(commands, world, bank, &feature_events, physics_settings);
 
     if landed {
         play_sound(commands, bank, SoundCue::Hit);
@@ -830,7 +977,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\n{}\ndummies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -867,6 +1014,8 @@ fn update_hud(
         developer_tools.world_inspector_visible,
         mode.get().label(),
         runtime.hitstop_timer,
+        runtime.hitstun_timer,
+        runtime.damage_invuln_timer,
         runtime.time_scale,
         window_line,
         dummies,

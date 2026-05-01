@@ -41,6 +41,7 @@ impl Default for PhysicsSandboxSettings {
 /// Marker for future experiments where the player is represented as a physics
 /// body. Do not attach this to the current player; Ambition's main controller is
 /// still authored in `ambition_engine::movement`.
+#[allow(dead_code)]
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PhysicsControlledPlayerPrototype;
 
@@ -74,10 +75,16 @@ impl Plugin for AmbitionPhysicsPlugin {
 pub fn update_physics_debris_lifetimes(
     mut commands: Commands,
     time: Res<Time>,
+    settings: Res<PhysicsSandboxSettings>,
     mut query: Query<(Entity, &mut PhysicsDebris)>,
 ) {
     let dt = time.delta_secs();
     for (entity, mut debris) in &mut query {
+        if !settings.debris_enabled {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        debris.lifetime = debris.lifetime.min(settings.default_lifetime.max(0.1));
         debris.lifetime -= dt;
         if debris.lifetime <= 0.0 {
             commands.entity(entity).despawn();
@@ -87,8 +94,13 @@ pub fn update_physics_debris_lifetimes(
 
 /// Add an Avian static collider mirroring a room block so dynamic debris can
 /// bounce against the level. Player collision does not use these bodies.
-pub fn spawn_static_collider_for_block(commands: &mut Commands, world: &ae::World, block: &ae::Block) {
-    if !block_accepts_dynamic_debris(block.kind) {
+pub fn spawn_static_collider_for_block(
+    commands: &mut Commands,
+    world: &ae::World,
+    block: &ae::Block,
+    settings: PhysicsSandboxSettings,
+) {
+    if !settings.static_room_colliders || !block_accepts_dynamic_debris(block.kind) {
         return;
     }
     let size = block.aabb.half_size() * 2.0;
@@ -106,8 +118,18 @@ pub fn spawn_static_collider_for_block(commands: &mut Commands, world: &ae::Worl
 
 /// Spawn a deterministic burst of dynamic bodies at an Ambition world-space
 /// position. `cue` chooses count, size, color, lifetime, and impulse.
-pub fn spawn_debris_burst(commands: &mut Commands, world: &ae::World, pos: ae::Vec2, cue: PhysicsDebrisCue) {
-    let spec = debris_recipe(cue);
+pub fn spawn_debris_burst(
+    commands: &mut Commands,
+    world: &ae::World,
+    pos: ae::Vec2,
+    cue: PhysicsDebrisCue,
+    settings: PhysicsSandboxSettings,
+) {
+    if !settings.debris_enabled {
+        return;
+    }
+    let mut spec = debris_recipe(cue);
+    spec.lifetime = spec.lifetime.min(settings.default_lifetime.max(0.1));
     for index in 0..spec.count {
         let angle = seeded_angle(index, spec.count, pos);
         let speed = spec.min_speed + (spec.max_speed - spec.min_speed) * index as f32 / spec.count.max(1) as f32;

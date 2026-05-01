@@ -51,14 +51,63 @@ pub struct FeaturePhysicsBurst {
     pub cue: FeaturePhysicsCue,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct FeatureCombatTuning {
+    pub enemy_attack_windup: f32,
+    pub enemy_attack_active: f32,
+    pub boss_attack_windup: f32,
+    pub boss_attack_active: f32,
+}
+
+impl Default for FeatureCombatTuning {
+    fn default() -> Self {
+        Self {
+            enemy_attack_windup: 0.36,
+            enemy_attack_active: 0.20,
+            boss_attack_windup: 0.52,
+            boss_attack_active: 0.32,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlayerDamageMode {
+    /// Lava/spike-pit style recovery: put the player back on the last safe platform.
+    SafeRespawn,
+    /// Normal combat damage: preserve the room and apply knockback plus hitstun.
+    Knockback,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PlayerDamageSource {
+    Hazard,
+    EnemyBody,
+    EnemyAttack,
+    BossBody,
+    BossAttack,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PlayerDamageEvent {
+    pub mode: PlayerDamageMode,
+    pub source: PlayerDamageSource,
+    pub source_pos: ae::Vec2,
+    pub impact_pos: ae::Vec2,
+    pub knockback_dir: f32,
+    pub strength: f32,
+}
+
 #[derive(Default, Clone, Debug)]
 pub struct FeatureEvents {
+    /// Legacy room-reset flag. New player damage should prefer `player_damage`
+    /// so lava-like hazards and enemy attacks can resolve differently.
     pub reset_player: bool,
     pub consumed_interaction: bool,
     pub messages: Vec<String>,
     pub impacts: Vec<ae::Vec2>,
     pub bursts: Vec<ae::Vec2>,
     pub physics_bursts: Vec<FeaturePhysicsBurst>,
+    pub player_damage: Vec<PlayerDamageEvent>,
 }
 
 impl FeatureEvents {
@@ -69,6 +118,7 @@ impl FeatureEvents {
         self.impacts.append(&mut other.impacts);
         self.bursts.append(&mut other.bursts);
         self.physics_bursts.append(&mut other.physics_bursts);
+        self.player_damage.append(&mut other.player_damage);
     }
 }
 
@@ -134,7 +184,15 @@ impl FeatureRuntime {
         runtime
     }
 
-    pub fn update(&mut self, world: &ae::World, player: &ae::Player, interact_pressed: bool, dt: f32) -> FeatureEvents {
+    pub fn update(
+        &mut self,
+        world: &ae::World,
+        player: &ae::Player,
+        interact_pressed: bool,
+        player_vulnerable: bool,
+        tuning: FeatureCombatTuning,
+        dt: f32,
+    ) -> FeatureEvents {
         let mut events = FeatureEvents::default();
         self.banner_timer = (self.banner_timer - dt).max(0.0);
         if self.banner_timer <= 0.0 {
@@ -145,10 +203,17 @@ impl FeatureRuntime {
 
         for hazard in &mut self.hazards {
             hazard.update(dt);
-            if hazard.active() && hazard.aabb().strict_intersects(player_body) {
-                events.reset_player = true;
-                events.messages.push(format!("{} hit the player", hazard.name));
+            if player_vulnerable && hazard.active() && hazard.aabb().strict_intersects(player_body) {
+                events.messages.push(format!("{} forced a safe respawn", hazard.name));
                 events.impacts.push(player.pos);
+                events.player_damage.push(PlayerDamageEvent {
+                    mode: PlayerDamageMode::SafeRespawn,
+                    source: PlayerDamageSource::Hazard,
+                    source_pos: hazard.pos,
+                    impact_pos: player.pos,
+                    knockback_dir: 0.0,
+                    strength: 1.0,
+                });
             }
         }
 
@@ -193,20 +258,24 @@ impl FeatureRuntime {
         }
 
         for enemy in &mut self.enemies {
-            enemy.update(world, player, dt);
-            if enemy.alive && enemy.player_hit(player_body) {
-                events.reset_player = true;
-                events.messages.push(format!("{} landed an attack", enemy.name));
-                events.impacts.push(player.pos);
+            enemy.update(world, player, tuning, dt);
+            if player_vulnerable && enemy.alive {
+                if let Some(damage) = enemy.player_damage(player_body) {
+                    events.messages.push(format!("{} hit the player", enemy.name));
+                    events.impacts.push(damage.impact_pos);
+                    events.player_damage.push(damage);
+                }
             }
         }
 
         for boss in &mut self.bosses {
-            boss.update(dt);
-            if boss.alive && boss.player_hit(player_body) {
-                events.reset_player = true;
-                events.messages.push(format!("{} pattern hit the player", boss.name));
-                events.impacts.push(player.pos);
+            boss.update(tuning, dt);
+            if player_vulnerable && boss.alive {
+                if let Some(damage) = boss.player_damage(player_body) {
+                    events.messages.push(format!("{} pattern hit the player", boss.name));
+                    events.impacts.push(damage.impact_pos);
+                    events.player_damage.push(damage);
+                }
             }
         }
 
@@ -293,7 +362,7 @@ impl FeatureRuntime {
                     size: enemy.size,
                     kind: FeatureVisualKind::Enemy,
                     visible: enemy.alive,
-                    flash: enemy.hit_flash > 0.0 || enemy.attack_timer > 0.0,
+                    flash: enemy.hit_flash > 0.0 || enemy.attack_windup_timer > 0.0 || enemy.attack_timer > 0.0,
                 });
             }
         }
@@ -304,7 +373,7 @@ impl FeatureRuntime {
                     size: boss.size,
                     kind: FeatureVisualKind::Boss,
                     visible: boss.alive,
-                    flash: boss.hit_flash > 0.0 || boss.attack_timer > 0.0,
+                    flash: boss.hit_flash > 0.0 || boss.attack_windup_timer > 0.0 || boss.attack_timer > 0.0,
                 });
             }
         }
@@ -431,6 +500,7 @@ pub struct EnemyRuntime {
     pub motion: Option<PathMotion>,
     pub alive: bool,
     pub facing: f32,
+    pub attack_windup_timer: f32,
     pub attack_timer: f32,
     pub attack_cooldown: f32,
     pub hit_flash: f32,
@@ -457,19 +527,25 @@ impl EnemyRuntime {
             motion,
             alive: true,
             facing: -1.0,
+            attack_windup_timer: 0.0,
             attack_timer: 0.0,
             attack_cooldown: 0.2,
             hit_flash: 0.0,
         }
     }
 
-    fn update(&mut self, world: &ae::World, player: &ae::Player, dt: f32) {
+    fn update(&mut self, world: &ae::World, player: &ae::Player, tuning: FeatureCombatTuning, dt: f32) {
         if !self.alive {
             return;
         }
+        let was_winding_up = self.attack_windup_timer > 0.0;
+        self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
         self.attack_timer = (self.attack_timer - dt).max(0.0);
         self.attack_cooldown = (self.attack_cooldown - dt).max(0.0);
         self.hit_flash = (self.hit_flash - dt).max(0.0);
+        if was_winding_up && self.attack_windup_timer <= 0.0 {
+            self.attack_timer = tuning.enemy_attack_active.max(0.01);
+        }
 
         if let Some(motion) = &mut self.motion {
             let old = self.pos;
@@ -503,8 +579,12 @@ impl EnemyRuntime {
         if to_player.x.abs() > 4.0 {
             self.facing = to_player.x.signum();
         }
-        if to_player.length() <= ENEMY_ATTACK_RANGE && self.attack_cooldown <= 0.0 {
-            self.attack_timer = 0.22;
+        if to_player.length() <= ENEMY_ATTACK_RANGE
+            && self.attack_cooldown <= 0.0
+            && self.attack_windup_timer <= 0.0
+            && self.attack_timer <= 0.0
+        {
+            self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
             self.attack_cooldown = ENEMY_ATTACK_COOLDOWN;
         }
     }
@@ -520,9 +600,32 @@ impl EnemyRuntime {
         )
     }
 
-    fn player_hit(&self, player_body: ae::Aabb) -> bool {
-        self.aabb().strict_intersects(player_body)
-            || (self.attack_timer > 0.0 && self.attack_aabb().strict_intersects(player_body))
+    pub fn attack_telegraph_aabb(&self) -> ae::Aabb {
+        self.attack_aabb()
+    }
+
+    fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
+        if self.attack_timer > 0.0 && self.attack_aabb().strict_intersects(player_body) {
+            return Some(PlayerDamageEvent {
+                mode: PlayerDamageMode::Knockback,
+                source: PlayerDamageSource::EnemyAttack,
+                source_pos: self.pos,
+                impact_pos: midpoint(player_body.center(), self.attack_aabb().center()),
+                knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
+                strength: 1.0,
+            });
+        }
+        if self.aabb().strict_intersects(player_body) {
+            return Some(PlayerDamageEvent {
+                mode: PlayerDamageMode::Knockback,
+                source: PlayerDamageSource::EnemyBody,
+                source_pos: self.pos,
+                impact_pos: midpoint(player_body.center(), self.pos),
+                knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
+                strength: 0.70,
+            });
+        }
+        None
     }
 }
 
@@ -536,6 +639,7 @@ pub struct BossRuntime {
     pub brain: ae::BossBrain,
     pub alive: bool,
     pub pattern_timer: f32,
+    pub attack_windup_timer: f32,
     pub attack_timer: f32,
     pub attack_cooldown: f32,
     pub hit_flash: f32,
@@ -552,22 +656,28 @@ impl BossRuntime {
             brain,
             alive: true,
             pattern_timer: 0.0,
+            attack_windup_timer: 0.0,
             attack_timer: 0.0,
             attack_cooldown: 0.35,
             hit_flash: 0.0,
         }
     }
 
-    fn update(&mut self, dt: f32) {
+    fn update(&mut self, tuning: FeatureCombatTuning, dt: f32) {
         if !self.alive {
             return;
         }
         self.pattern_timer += dt;
         self.hit_flash = (self.hit_flash - dt).max(0.0);
+        let was_winding_up = self.attack_windup_timer > 0.0;
+        self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
         self.attack_timer = (self.attack_timer - dt).max(0.0);
         self.attack_cooldown = (self.attack_cooldown - dt).max(0.0);
-        if self.attack_cooldown <= 0.0 {
-            self.attack_timer = 0.32;
+        if was_winding_up && self.attack_windup_timer <= 0.0 {
+            self.attack_timer = tuning.boss_attack_active.max(0.01);
+        }
+        if self.attack_cooldown <= 0.0 && self.attack_windup_timer <= 0.0 && self.attack_timer <= 0.0 {
+            self.attack_windup_timer = tuning.boss_attack_windup.max(0.01);
             self.attack_cooldown = BOSS_ATTACK_COOLDOWN;
         }
     }
@@ -580,6 +690,17 @@ impl BossRuntime {
         if self.attack_timer <= 0.0 {
             return Vec::new();
         }
+        self.pattern_volumes()
+    }
+
+    pub fn attack_telegraph_volumes(&self) -> Vec<ae::Aabb> {
+        if self.attack_windup_timer <= 0.0 {
+            return Vec::new();
+        }
+        self.pattern_volumes()
+    }
+
+    fn pattern_volumes(&self) -> Vec<ae::Aabb> {
         let phase = ((self.pattern_timer / BOSS_ATTACK_COOLDOWN) as i32).rem_euclid(3);
         match phase {
             0 => vec![ae::Aabb::new(
@@ -594,11 +715,30 @@ impl BossRuntime {
         }
     }
 
-    fn player_hit(&self, player_body: ae::Aabb) -> bool {
-        if self.aabb().strict_intersects(player_body) {
-            return true;
+    fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
+        if self.attack_timer > 0.0 {
+            if let Some(volume) = self.attack_volumes().into_iter().find(|volume| volume.strict_intersects(player_body)) {
+                return Some(PlayerDamageEvent {
+                    mode: PlayerDamageMode::Knockback,
+                    source: PlayerDamageSource::BossAttack,
+                    source_pos: self.pos,
+                    impact_pos: midpoint(player_body.center(), volume.center()),
+                    knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
+                    strength: 1.25,
+                });
+            }
         }
-        self.attack_volumes().iter().any(|volume| volume.strict_intersects(player_body))
+        if self.aabb().strict_intersects(player_body) {
+            return Some(PlayerDamageEvent {
+                mode: PlayerDamageMode::Knockback,
+                source: PlayerDamageSource::BossBody,
+                source_pos: self.pos,
+                impact_pos: midpoint(player_body.center(), self.pos),
+                knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
+                strength: 1.0,
+            });
+        }
+        None
     }
 }
 

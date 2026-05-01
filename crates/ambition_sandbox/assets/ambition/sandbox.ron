@@ -42,6 +42,7 @@
         dash_speed: 820.0,
         dash_time: 0.105,
         dash_cooldown: 0.060,
+        dash_buffer: 0.110,
         blink_distance: 190.0,
         precision_blink_distance: 430.0,
         precision_blink_aim_speed: 1650.0,

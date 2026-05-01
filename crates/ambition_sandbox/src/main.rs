@@ -14,6 +14,7 @@ mod fx;
 mod features;
 mod game_mode;
 mod input;
+mod loading;
 mod platforms;
 mod rendering;
 mod rooms;
@@ -27,6 +28,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution, WindowResizeConstraints};
 use bevy_common_assets::ron::RonAssetPlugin;
+use bevy_asset_loader::asset_collection::AssetCollectionApp;
 use bevy_inspector_egui::{
     bevy_egui::EguiPlugin,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
@@ -88,7 +90,9 @@ fn main() {
         // The inspector quick plugins require EguiPlugin to be registered first.
         .add_plugins(EguiPlugin::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
+        .init_collection::<loading::SandboxAssetCollection>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
+        .add_plugins(ae::AmbitionStateMachinePlugin::default())
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
@@ -135,6 +139,7 @@ pub struct SandboxRuntime {
     time_scale: f32,
     down_tap_timer: f32,
     up_tap_timer: f32,
+    interact_buffer_timer: f32,
     pub moving_platform: platforms::MovingPlatformState,
     pub features: features::FeatureRuntime,
     pub room_transition_cooldown: f32,
@@ -157,6 +162,7 @@ impl SandboxRuntime {
             time_scale: 1.0,
             down_tap_timer: 0.0,
             up_tap_timer: 0.0,
+            interact_buffer_timer: 0.0,
             moving_platform: platforms::MovingPlatformState::time_reference(world),
             features: features::FeatureRuntime::from_world(world),
             room_transition_cooldown: 0.0,
@@ -172,6 +178,7 @@ impl SandboxRuntime {
         self.time_scale = 1.0;
         self.down_tap_timer = 0.0;
         self.up_tap_timer = 0.0;
+        self.interact_buffer_timer = 0.0;
         self.moving_platform = platforms::MovingPlatformState::time_reference(world);
         self.features = features::FeatureRuntime::from_world(world);
         self.room_transition_cooldown = 0.0;
@@ -203,6 +210,18 @@ impl SandboxRuntime {
             self.up_tap_timer = window;
             false
         }
+    }
+
+    fn buffered_interact(&mut self, interact_pressed: bool, frame_dt: f32, window: f32) -> bool {
+        self.interact_buffer_timer = (self.interact_buffer_timer - frame_dt).max(0.0);
+        if interact_pressed {
+            self.interact_buffer_timer = window;
+        }
+        self.interact_buffer_timer > 0.0
+    }
+
+    fn clear_interact_buffer(&mut self) {
+        self.interact_buffer_timer = 0.0;
     }
 
     fn update_time_scale(&mut self, frame_dt: f32, feel: SandboxFeelTuning) {
@@ -423,18 +442,27 @@ fn sandbox_update(
     // therefore require a deliberate double-tap-up. When not flying, a single
     // up press preserves the normal door interaction feel. Edge exits remain
     // automatic and ignore this flag.
-    controls.interact_pressed = if runtime.player.fly_enabled {
+    let raw_interact_pressed = if runtime.player.fly_enabled {
         door_double_tap_up
     } else {
         controls.up_pressed
     };
+    controls.interact_pressed = runtime.buffered_interact(
+        raw_interact_pressed,
+        frame_dt,
+        feel.interaction_buffer_time,
+    );
 
     let feature_dt = sandbox_dt(&runtime, frame_dt);
     let feature_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
     let feature_player = runtime.player.clone();
     let feature_events = runtime.features.update(&feature_world, &feature_player, controls.interact_pressed, feature_dt);
     let feature_reset = feature_events.reset_player;
+    let feature_interaction_consumed = feature_events.consumed_interaction;
     handle_feature_events(&mut commands, &world.0, &bank, feature_events);
+    if feature_interaction_consumed {
+        runtime.clear_interact_buffer();
+    }
     if feature_reset {
         reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
         return;
@@ -442,6 +470,7 @@ fn sandbox_update(
 
     if runtime.room_transition_cooldown <= 0.0 {
         if let Some(zone) = room_set.transition_for_player(&runtime.player, controls.interact_pressed) {
+            runtime.clear_interact_buffer();
             load_room(
             &mut commands,
             &bank,
@@ -786,7 +815,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -811,6 +840,8 @@ fn update_hud(
         runtime.player.wall_climbing,
         runtime.player.coyote_timer,
         runtime.player.jump_buffer_timer,
+        runtime.player.dash_buffer_timer,
+        runtime.interact_buffer_timer,
         runtime.player.combo_symbols(),
         runtime.player.current_combo_hint(),
         preset.name,

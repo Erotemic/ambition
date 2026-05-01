@@ -12,12 +12,14 @@
 
 pub mod abilities;
 pub mod actor;
+pub mod boss_patterns;
 pub mod combat;
 pub mod debug;
 pub mod enemy;
 pub mod geometry;
 pub mod interaction;
 pub mod scalar;
+pub mod state_machines;
 pub mod movement;
 pub mod music;
 pub mod world;
@@ -29,6 +31,7 @@ pub use actor::{
     Actor, ActorFaction, ActorKind, BossBrain, EnemyBrain, Health, KinematicPath,
     KinematicPathMode, RespawnPolicy,
 };
+pub use boss_patterns::{BossAttackKind, BossPatternSchedule, BossPatternStep};
 pub use combat::{
     player_slash_hitbox, slash_hitbox, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
@@ -40,12 +43,18 @@ pub use interaction::{
 };
 pub use bevy_math::Vec2;
 pub use scalar::approach;
+pub use state_machines::{
+    state_machine_vocabulary, AmbitionStateMachineActor, AmbitionStateMachinePlugin,
+    BossDefeated, BossDormant, BossIntro, BossPhase, BreakableBroken, BreakableCracking,
+    BreakableIntact, BreakableRespawning, ChestClosed, ChestOpened, ChestOpening, EnemyAttack,
+    EnemyDead, EnemyIdle, EnemyPatrol, EnemyRecover, EnemyStunned, EnemyTelegraph,
+};
 pub use movement::{
     blink_destination, blink_destination_to_point, update_player, update_player_control,
     update_player_control_with_tuning, update_player_simulation, update_player_simulation_with_tuning,
     update_player_with_tuning, BlinkEvent, ComboMark, FrameEvents,
     InputState, MovementOp, MovementTuning, Player, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
-    BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_COOLDOWN,
+    BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN,
     DASH_SPEED, DASH_TIME, DEFAULT_TUNING, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED,
     FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_TERMINAL_SPEED, FLIGHT_HOVER_SPEED, FLIGHT_HOVER_HZ,
     GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED,

@@ -6,3 +6,7 @@ I want to build the game with either something like Rust or Pygame, make it comp
 The first thing we need is a single room sandbox that showcases the ultimate endgame state. This is the state that should be massively replayable and rewarding to simply move around in. Our first pass doesn't need to be perfect, but this is the sandbox which we will use to test how good our endgame is. The sandbox might start brutally small, but it might expand over time. 
 
 The game and engine will be called ambition.
+
+---
+
+There might also be a rougelike aspect to this. Perhaps at the start you can opt in / out of "sharing your data", and the upside is new generations - i.e. the next run gets to build off of what you did - but the downside is that enemies may now gain access to some of your abilities. Perhaps this is just one instance of the engine, maybe another instance is a pure semi-linear metroidvania. Maybe we have a pure rougelike, and a hybrid. We might also have a pure platformer.

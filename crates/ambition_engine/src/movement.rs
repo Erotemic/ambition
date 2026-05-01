@@ -143,6 +143,9 @@ pub struct Player {
     pub wall_climbing: bool,
     pub dash_timer: f32,
     pub dash_cooldown: f32,
+    /// Buffered dash input. This lets a dash pressed a few frames before
+    /// cooldown/charge availability still fire once the dash becomes legal.
+    pub dash_buffer_timer: f32,
     pub jump_buffer_timer: f32,
     pub coyote_timer: f32,
     pub rebound_cooldown: f32,
@@ -190,6 +193,7 @@ impl Player {
             wall_climbing: false,
             dash_timer: 0.0,
             dash_cooldown: 0.0,
+            dash_buffer_timer: 0.0,
             jump_buffer_timer: 0.0,
             coyote_timer: 0.0,
             rebound_cooldown: 0.0,
@@ -373,6 +377,8 @@ pub const WALL_CLIMB_SPEED: f32 = 250.0;
 pub const DASH_SPEED: f32 = 820.0;
 pub const DASH_TIME: f32 = 0.105;
 pub const DASH_COOLDOWN: f32 = 0.060;
+/// Grace window for a dash press that happens just before dash becomes legal.
+pub const DASH_BUFFER: f32 = 0.110;
 pub const BLINK_DISTANCE: f32 = 190.0;
 pub const PRECISION_BLINK_DISTANCE: f32 = 430.0;
 pub const PRECISION_BLINK_AIM_SPEED: f32 = 1_650.0;
@@ -421,6 +427,7 @@ pub struct MovementTuning {
     pub dash_speed: f32,
     pub dash_time: f32,
     pub dash_cooldown: f32,
+    pub dash_buffer: f32,
     pub blink_distance: f32,
     pub precision_blink_distance: f32,
     pub precision_blink_aim_speed: f32,
@@ -465,6 +472,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dash_speed: DASH_SPEED,
     dash_time: DASH_TIME,
     dash_cooldown: DASH_COOLDOWN,
+    dash_buffer: DASH_BUFFER,
     blink_distance: BLINK_DISTANCE,
     precision_blink_distance: PRECISION_BLINK_DISTANCE,
     precision_blink_aim_speed: PRECISION_BLINK_AIM_SPEED,
@@ -609,10 +617,14 @@ fn update_facing_and_control_intent(player: &mut Player, input: InputState, tuni
     if input.jump_pressed && player.abilities.jump {
         player.jump_buffer_timer = tuning.jump_buffer;
     }
+    if input.dash_pressed && player.abilities.dash {
+        player.dash_buffer_timer = tuning.dash_buffer;
+    }
 }
 
 fn update_simulation_timers(player: &mut Player, dt: f32, tuning: MovementTuning) {
     player.jump_buffer_timer = dec(player.jump_buffer_timer, dt);
+    player.dash_buffer_timer = dec(player.dash_buffer_timer, dt);
     player.coyote_timer = dec(player.coyote_timer, dt);
     player.dash_cooldown = dec(player.dash_cooldown, dt);
     player.blink_cooldown = dec(player.blink_cooldown, dt);
@@ -839,7 +851,7 @@ fn handle_jump_release(player: &mut Player, input: InputState) {
 }
 
 fn handle_dash(player: &mut Player, input: InputState, tuning: MovementTuning, events: &mut FrameEvents) {
-    if input.dash_pressed
+    if player.dash_buffer_timer > 0.0
         && player.abilities.dash
         && player.dash_charges_available > 0
         && player.dash_cooldown <= 0.0
@@ -849,6 +861,7 @@ fn handle_dash(player: &mut Player, input: InputState, tuning: MovementTuning, e
         player.vel = aim * tuning.dash_speed;
         player.dash_timer = tuning.dash_time;
         player.dash_cooldown = tuning.dash_cooldown;
+        player.dash_buffer_timer = 0.0;
         let op = player.spend_dash_charge();
         events.op(player, op);
     }

@@ -41,6 +41,7 @@ pub struct FeatureView {
 #[derive(Default, Clone, Debug)]
 pub struct FeatureEvents {
     pub reset_player: bool,
+    pub consumed_interaction: bool,
     pub messages: Vec<String>,
     pub impacts: Vec<ae::Vec2>,
     pub bursts: Vec<ae::Vec2>,
@@ -49,6 +50,7 @@ pub struct FeatureEvents {
 impl FeatureEvents {
     pub fn merge(&mut self, mut other: Self) {
         self.reset_player |= other.reset_player;
+        self.consumed_interaction |= other.consumed_interaction;
         self.messages.append(&mut other.messages);
         self.impacts.append(&mut other.impacts);
         self.bursts.append(&mut other.bursts);
@@ -161,12 +163,14 @@ impl FeatureRuntime {
             for chest in &mut self.chests {
                 if !chest.opened && chest.aabb().strict_intersects(player_body) {
                     chest.opened = true;
+                    events.consumed_interaction = true;
                     events.messages.push(format!("opened {}", chest.name));
                     events.bursts.push(chest.pos);
                 }
             }
             for npc in &mut self.npcs {
                 if npc.aabb().strict_intersects(player_body) {
+                    events.consumed_interaction = true;
                     events.messages.push(npc.message());
                     events.bursts.push(npc.pos);
                 }

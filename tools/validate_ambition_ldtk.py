@@ -25,6 +25,7 @@ KNOWN_ENTITIES = {
     "ReboundPad",
     "LoadingZone",
     "DamageVolume",
+    "KinematicPath",
     "NpcSpawn",
     "PickupSpawn",
     "ChestSpawn",
@@ -61,6 +62,21 @@ def entity_name(entity):
     return f"{entity.get('__identifier')} {entity.get('iid', '<no-iid>')}"
 
 
+def parse_points(value):
+    points = []
+    for pair in str(value or "").split(";"):
+        if not pair.strip():
+            continue
+        parts = [part.strip() for part in pair.split(",")]
+        if len(parts) != 2:
+            continue
+        try:
+            points.append((float(parts[0]), float(parts[1])))
+        except ValueError:
+            continue
+    return points
+
+
 def validate(path: Path):
     errors = []
     warnings = []
@@ -78,6 +94,8 @@ def validate(path: Path):
     seen_levels = set()
     starts_by_area = Counter()
     levels_by_area = defaultdict(list)
+    zones_by_area = defaultdict(set)
+    requested_links = []
 
     for level in levels:
         identifier = level.get("identifier", "<unnamed>")
@@ -123,10 +141,43 @@ def validate(path: Path):
             elif ident == "DebugLabel" and field_value(fields, "text") is None:
                 errors.append(f"DebugLabel {entity.get('iid')} requires text")
             elif ident == "LoadingZone":
-                if field_value(fields, "id") is None:
+                zone_id = field_value(fields, "id")
+                target_room = field_value(fields, "target_room")
+                target_zone = field_value(fields, "target_zone")
+                if zone_id is None:
                     errors.append(f"LoadingZone {entity.get('iid')} requires id")
-                if field_value(fields, "target_room") is None or field_value(fields, "target_zone") is None:
-                    warnings.append(f"LoadingZone {entity.get('iid')} has no target_room/target_zone yet")
+                else:
+                    zones_by_area[area].add(str(zone_id))
+                if target_room is None or target_zone is None:
+                    errors.append(f"LoadingZone {entity.get('iid')} requires target_room and target_zone")
+                else:
+                    requested_links.append((identifier, area, str(zone_id), str(target_room), str(target_zone)))
+            elif ident == "KinematicPath":
+                if len(parse_points(field_value(fields, "points", ""))) < 2:
+                    errors.append(f"KinematicPath {entity.get('iid')} requires at least two points")
+                if field_value(fields, "speed") is None:
+                    errors.append(f"KinematicPath {entity.get('iid')} requires speed")
+                if field_value(fields, "mode", "PingPong") not in {"Once", "Loop", "PingPong"}:
+                    errors.append(f"KinematicPath {entity.get('iid')} has invalid mode")
+            elif ident == "DamageVolume":
+                has_any_path = any(field_value(fields, name) is not None for name in ("path_points", "path_speed", "path_mode"))
+                if has_any_path:
+                    if len(parse_points(field_value(fields, "path_points", ""))) < 2:
+                        errors.append(f"DamageVolume {entity.get('iid')} path_points requires at least two points")
+                    if field_value(fields, "path_speed") is None:
+                        errors.append(f"DamageVolume {entity.get('iid')} path requires path_speed")
+                    if field_value(fields, "path_mode", "PingPong") not in {"Once", "Loop", "PingPong"}:
+                        errors.append(f"DamageVolume {entity.get('iid')} has invalid path_mode")
+            elif ident == "Breakable":
+                respawn = str(field_value(fields, "respawn", "Never"))
+                if not (respawn in {"Never", "OnRoomReload", "Persistent", "None"} or respawn.startswith("AfterSeconds:")):
+                    errors.append(f"Breakable {entity.get('iid')} has invalid respawn value {respawn!r}")
+
+    for source_level, area, zone_id, target_room, target_zone in requested_links:
+        if target_room not in levels_by_area:
+            errors.append(f"LoadingZone {zone_id!r} in {source_level!r} targets unknown room/activeArea {target_room!r}")
+        elif target_zone not in zones_by_area[target_room]:
+            errors.append(f"LoadingZone {zone_id!r} in {source_level!r} targets missing zone {target_zone!r} in {target_room!r}")
 
     for area, level_names in levels_by_area.items():
         count = starts_by_area[area]

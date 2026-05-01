@@ -47,7 +47,7 @@ The sandbox currently has:
 - pause/game-mode gating,
 - generated lo-fi audio and sound effects,
 - LDtk-authored active-area composition for the central hub POC,
-- a central hub with a literal drop-down basement stitched into one continuous active area,
+- a central hub with a literal drop-down basement stitched into one continuous active area, with the old sandbox doors and feature labs ported into LDtk-authored active areas,
 - test rooms for hazards, enemies, boss patterns, breakables, pickups/chests, and NPC talk hooks,
 - debug labels over loading zones,
 - feature runtime behavior for current prototype entities,
@@ -87,7 +87,7 @@ Older root-level asset paths are obsolete unless a patch explicitly says otherwi
 
 The following areas are intentionally provisional:
 
-- Feature basement layout and entity visuals.
+- Feature basement layout and entity visuals. The boss is no longer in the stitched hub basement; it belongs in the separate `basement_boss` lab reached through a restored basement door.
 - Enemy and boss behavior details.
 - NPC dialogue presentation.
 - Generated visual style.

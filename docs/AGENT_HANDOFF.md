@@ -15,7 +15,7 @@ Historical docs are useful, but ADRs and `CURRENT_STATE.md` supersede older cons
 
 ## LDtk and world composition
 
-Read `docs/adr/0009-world-composition-and-ldtk-authoring.md` and `docs/ldtk_world_composition.md` before changing sandbox level authoring. The central hub basement is a physical area below the hub, not a separate loading-zone room. The current LDtk adapter composes levels sharing the same `activeArea` field into one runtime active area.
+Read `docs/adr/0009-world-composition-and-ldtk-authoring.md` and `docs/ldtk_world_composition.md` before changing sandbox level authoring. The central hub basement is a physical area below the hub, not a separate loading-zone room. The current LDtk adapter composes levels sharing the same `activeArea` field into one runtime active area. The old sandbox rooms and feature-lab doors are now represented as LDtk active areas linked by `LoadingZone` entities; do not put the boss directly in the stitched hub/basement area.
 
 Validate LDtk edits with:
 

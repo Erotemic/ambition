@@ -14,7 +14,7 @@ tools/validate_ambition_ldtk.py
 
 ## Current proof of concept
 
-The LDtk file contains two authored chunks:
+The LDtk file now ports the old sandbox map into LDtk active areas. The central hub remains special: it contains two authored chunks that are stitched into one runtime room:
 
 ```text
 central_hub_main      at world position (0, 0)
@@ -27,7 +27,18 @@ Both chunks declare the same `activeArea` level field:
 central_hub_complex
 ```
 
-The adapter composes them into one Ambition runtime room. The player starts in the hub and can drop through the authored floor opening into the basement without a loading zone.
+The adapter composes them into one Ambition runtime room. The player starts in the hub and can drop through the authored floor opening into the basement without a loading zone. The basement hub itself contains restored doors to separate LDtk-authored feature labs:
+
+```text
+basement_hazards
+basement_enemies
+basement_boss
+basement_breakables
+basement_treasure
+basement_npcs
+```
+
+The old overworld doors are also represented in LDtk as loading-zone links from `central_hub_complex` to `scroll_lab`, `vertical_shaft`, `square_arena`, and `tiny_chamber`. The boss is intentionally outside the stitched hub/basement area and lives in `basement_boss`.
 
 ## Validator
 
@@ -46,7 +57,9 @@ The validator checks Ambition-specific constraints:
 - Ambition entities use top-left pivots,
 - entities stay inside their LDtk level bounds,
 - each active area has exactly one `PlayerStart`,
-- selected entity types have required custom fields.
+- loading zones target valid active areas and destination zones,
+- selected entity types have required custom fields,
+- LDtk-authored moving damage volumes and `KinematicPath` entities have valid point/speed/mode fields.
 
 This validator is not a substitute for LDtk's official JSON schema. It validates Ambition's gameplay-authoring contract.
 
@@ -62,6 +75,7 @@ PogoOrb
 ReboundPad
 LoadingZone
 DamageVolume
+KinematicPath
 NpcSpawn
 PickupSpawn
 ChestSpawn

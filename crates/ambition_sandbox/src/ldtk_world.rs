@@ -13,10 +13,8 @@ use serde_json::Value;
 use crate::data::{
     BlinkWallTierSpec, BlockSpec, BossBrainSpec, DebugLabelKindSpec, EnemyBrainSpec,
     InteractionKindSpec, LoadingZoneActivationSpec, LoadingZoneSpec, PickupKindSpec,
-    RespawnPolicySpec, RoomManifestSpec, RoomObjectSpec, RoomSpecData, ShellSpec,
+    RespawnPolicySpec, KinematicPathModeSpec, KinematicPathSpec, RoomLinkSpec, RoomManifestSpec, RoomObjectSpec, RoomSpecData, ShellSpec,
 };
-
-pub const SANDBOX_LDTK_ASSET: &str = "ambition/worlds/sandbox.ldtk";
 
 const AMBITION_LAYER: &str = "Ambition";
 const GRID: i32 = 16;
@@ -227,16 +225,50 @@ impl LdtkProject {
             area_levels.entry(level.active_area()).or_default().push(level);
         }
 
-        let start_room = area_levels
-            .keys()
-            .next()
-            .cloned()
-            .unwrap_or_else(|| "central_hub_complex".to_string());
+        let start_room = if area_levels.contains_key("central_hub_complex") {
+            "central_hub_complex".to_string()
+        } else {
+            area_levels
+                .keys()
+                .next()
+                .cloned()
+                .unwrap_or_else(|| "central_hub_complex".to_string())
+        };
+        let links = self.collect_links();
         let mut rooms = Vec::new();
         for (area_id, levels) in area_levels {
             rooms.push(self.compose_area(&area_id, &levels)?);
         }
-        Ok(RoomManifestSpec { start_room, rooms, links: Vec::new() })
+        Ok(RoomManifestSpec { start_room, rooms, links })
+    }
+
+    fn collect_links(&self) -> Vec<RoomLinkSpec> {
+        let mut links = Vec::new();
+        for level in &self.levels {
+            let from_room = level.active_area();
+            let Some(layer) = level.ambition_layer() else {
+                continue;
+            };
+            for entity in &layer.entity_instances {
+                if entity.identifier != "LoadingZone" {
+                    continue;
+                }
+                let Some(target_room) = field_string(entity, "target_room") else {
+                    continue;
+                };
+                let Some(target_zone) = field_string(entity, "target_zone") else {
+                    continue;
+                };
+                links.push(RoomLinkSpec {
+                    from_room: from_room.clone(),
+                    from_zone: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+                    to_room: target_room,
+                    to_zone: target_zone,
+                    bidirectional: field_bool(entity, "bidirectional").unwrap_or(false),
+                });
+            }
+        }
+        links
     }
 
     fn compose_area(&self, area_id: &str, levels: &[&LdtkLevel]) -> Result<RoomSpecData, Vec<String>> {
@@ -368,8 +400,23 @@ fn entity_to_spec(entity: &LdtkEntityInstance, offset: [f32; 2]) -> EntityConver
             min,
             size,
             damage: field_i32(entity, "damage").unwrap_or(1),
-            path: None,
+            path: parse_optional_path(entity),
         }),
+        "KinematicPath" => {
+            let points = parse_points(&field_string(entity, "points").unwrap_or_default());
+            if points.len() < 2 {
+                return EntityConversion::Error("KinematicPath requires at least two points".to_string());
+            }
+            EntityConversion::Object(RoomObjectSpec::KinematicPath {
+                id: entity.iid.clone(),
+                name,
+                min,
+                size,
+                points,
+                speed: field_f32(entity, "speed").unwrap_or(100.0),
+                mode: parse_path_mode(&field_string(entity, "mode").unwrap_or_else(|| "PingPong".to_string())),
+            })
+        },
         "NpcSpawn" => EntityConversion::Object(RoomObjectSpec::Interactable {
             id: entity.iid.clone(),
             name,
@@ -398,7 +445,7 @@ fn entity_to_spec(entity: &LdtkEntityInstance, offset: [f32; 2]) -> EntityConver
             min,
             size,
             max_hp: field_i32(entity, "max_hp").unwrap_or(3),
-            respawn: Some(RespawnPolicySpec::Never),
+            respawn: parse_respawn(&field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string())),
             solid: field_bool(entity, "solid").unwrap_or(false),
         }),
         "EnemySpawn" => EntityConversion::Object(RoomObjectSpec::EnemySpawn {
@@ -439,6 +486,7 @@ fn known_entity(identifier: &str) -> bool {
             | "ReboundPad"
             | "LoadingZone"
             | "DamageVolume"
+            | "KinematicPath"
             | "NpcSpawn"
             | "PickupSpawn"
             | "ChestSpawn"
@@ -499,6 +547,52 @@ fn field_bool(entity: &LdtkEntityInstance, name: &str) -> Option<bool> {
     })
 }
 
+fn parse_points(value: &str) -> Vec<[f32; 2]> {
+    value
+        .split(';')
+        .filter_map(|pair| {
+            let mut parts = pair.split(',').map(str::trim);
+            let x = parts.next()?.parse::<f32>().ok()?;
+            let y = parts.next()?.parse::<f32>().ok()?;
+            Some([x, y])
+        })
+        .collect()
+}
+
+fn parse_path_mode(value: &str) -> KinematicPathModeSpec {
+    match value {
+        "Once" => KinematicPathModeSpec::Once,
+        "Loop" => KinematicPathModeSpec::Loop,
+        _ => KinematicPathModeSpec::PingPong,
+    }
+}
+
+fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<KinematicPathSpec> {
+    let points = parse_points(&field_string(entity, "path_points").unwrap_or_default());
+    if points.len() < 2 {
+        return None;
+    }
+    Some(KinematicPathSpec {
+        points,
+        speed: field_f32(entity, "path_speed").unwrap_or(100.0),
+        mode: parse_path_mode(&field_string(entity, "path_mode").unwrap_or_else(|| "PingPong".to_string())),
+    })
+}
+
+fn parse_respawn(value: &str) -> Option<RespawnPolicySpec> {
+    if let Some(seconds) = value.strip_prefix("AfterSeconds:").and_then(|text| text.parse::<f32>().ok()) {
+        Some(RespawnPolicySpec::AfterSeconds(seconds))
+    } else {
+        match value {
+            "Never" => Some(RespawnPolicySpec::Never),
+            "OnRoomReload" => Some(RespawnPolicySpec::OnRoomReload),
+            "Persistent" => Some(RespawnPolicySpec::Persistent),
+            "None" | "" => None,
+            _ => Some(RespawnPolicySpec::Never),
+        }
+    }
+}
+
 fn parse_pickup_kind(value: &str) -> PickupKindSpec {
     if let Some(amount) = value.strip_prefix("health:").and_then(|text| text.parse::<i32>().ok()) {
         PickupKindSpec::Health { amount }
@@ -514,16 +608,26 @@ fn parse_pickup_kind(value: &str) -> PickupKindSpec {
 }
 
 fn parse_enemy_brain(value: &str) -> EnemyBrainSpec {
-    match value {
-        "Passive" => EnemyBrainSpec::Passive,
-        other => EnemyBrainSpec::Custom(other.to_string()),
+    if let Some(path_id) = value.strip_prefix("Patrol:") {
+        EnemyBrainSpec::Patrol { path_id: Some(path_id.to_string()) }
+    } else if let Some(radius) = value.strip_prefix("Guard:").and_then(|text| text.parse::<f32>().ok()) {
+        EnemyBrainSpec::Guard { leash_radius: radius }
+    } else {
+        match value {
+            "Passive" => EnemyBrainSpec::Passive,
+            other => EnemyBrainSpec::Custom(other.to_string()),
+        }
     }
 }
 
 fn parse_boss_brain(value: &str) -> BossBrainSpec {
-    match value {
-        "Dormant" => BossBrainSpec::Dormant,
-        other => BossBrainSpec::Custom(other.to_string()),
+    if let Some(script_id) = value.strip_prefix("PhaseScript:") {
+        BossBrainSpec::PhaseScript { script_id: script_id.to_string() }
+    } else {
+        match value {
+            "Dormant" => BossBrainSpec::Dormant,
+            other => BossBrainSpec::Custom(other.to_string()),
+        }
     }
 }
 
@@ -556,11 +660,12 @@ mod tests {
         let project = LdtkProject::load_embedded();
         let manifest = project.to_room_manifest().expect("embedded LDtk should compose");
         assert_eq!(manifest.start_room, "central_hub_complex");
-        assert_eq!(manifest.rooms.len(), 1);
-        let room = &manifest.rooms[0];
-        assert_eq!(room.id, "central_hub_complex");
+        assert!(manifest.rooms.len() > 1, "old sandbox rooms should be represented as LDtk active areas");
+        assert!(manifest.links.iter().any(|link| link.from_room == "central_hub_complex" && link.from_zone == "boss_door" && link.to_room == "basement_boss"));
+        let room = manifest.rooms.iter().find(|room| room.id == "central_hub_complex").expect("central hub active area exists");
         assert!(room.size[1] > 1000.0, "basement should extend below hub");
-        assert!(room.blocks.iter().any(|block| matches!(block, BlockSpec::Hazard { name, .. } if name.contains("lava"))));
-        assert!(room.objects.iter().any(|object| matches!(object, RoomObjectSpec::BossSpawn { name, .. } if name.contains("Gradient Sentinel"))));
+        assert!(!room.objects.iter().any(|object| matches!(object, RoomObjectSpec::BossSpawn { .. })), "boss belongs in the boss lab, not the stitched hub basement");
+        let boss_room = manifest.rooms.iter().find(|room| room.id == "basement_boss").expect("boss lab room exists");
+        assert!(boss_room.objects.iter().any(|object| matches!(object, RoomObjectSpec::BossSpawn { name, .. } if name.contains("clockwork warden"))));
     }
 }

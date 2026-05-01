@@ -28,3 +28,14 @@ Merchant Prototype: A real shop should be a dialogue node with inventory, prices
     Merchant Prototype: Refunds should be reversible until a route, boss, or story flag commits the purchase.
 -> Leave.
 ===
+
+title: hub_guide
+---
+Kernel Guide: Welcome back to The Kernel. The hub should teach routes without ambushing your movement inputs. Doors answer Interact first; double-tap up is only a deliberate fallback.
+-> Why is Interact separate from Up?
+    Kernel Guide: Up is aim, climb, fly, and intent. Interact is a promise that you meant to talk, trade, open, or enter.
+-> What should I test next?
+    Kernel Guide: Try the basement labs, then check debug mode: combo state, hitstun, invulnerability, health bars, and honest hurtboxes should explain every surprising hit.
+-> Back to the hub.
+    Kernel Guide: The guide steps aside. The basement door is clear; no rebound launcher is blocking it now.
+===

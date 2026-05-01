@@ -395,6 +395,17 @@ fn sandbox_update(
         };
     }
 
+    if matches!(mode.get(), GameMode::Dialogue) {
+        if let Ok((mut action_state, _)) = player_input.get_mut(entities.player) {
+            action_state.reset_all();
+        }
+        let frame_dt = time.delta_secs();
+        runtime.time_scale = 0.0;
+        runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
+        runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+        return;
+    }
+
     if controls.start_pressed {
         let next = if mode.get().allows_gameplay() { GameMode::Paused } else { GameMode::Playing };
         next_mode.set(next);

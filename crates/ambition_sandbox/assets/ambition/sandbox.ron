@@ -149,6 +149,7 @@
                 ],
                 objects: [
                     DebugLabel(id: "hub_basement_label", name: "feature basement label", position: (1260.0, 770.0), text: "Basement: hazards, enemies, bosses, loot, NPCs", category: LoadingZone),
+                    Interactable(id: "npc_kernel_guide", name: "Kernel Guide NPC", prompt: "Talk", min: (720.0, 840.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("hub_guide"))),
                 ],
                 blocks: [
                     OneWay(name: "hub center shelf", min: (650.0, 720.0), size: (500.0, 18.0)),
@@ -156,7 +157,6 @@
                     BlinkWall(name: "hub soft column", min: (565.0, 615.0), size: (32.0, 230.0), tier: Soft),
                     BlinkWall(name: "hub right soft column", min: (1210.0, 610.0), size: (32.0, 235.0), tier: Soft),
                     PogoOrb(name: "hub routing note", center: (900.0, 600.0), radius: 18.0),
-                    Rebound(name: "hub launcher", min: (1060.0, 905.0), size: (120.0, 24.0), impulse: (0.0, -760.0)),
                     OneWay(name: "basement sign ledge", min: (1160.0, 768.0), size: (210.0, 18.0)),
                 ],
             ),
@@ -358,7 +358,7 @@
                     (id: "return_door", name: "to basement hub", activation: Door, min: (95.0, 790.0), size: (140.0, 142.0)),
                 ],
                 objects: [
-                    BossSpawn(id: "training_boss", name: "clockwork warden", min: (1020.0, 610.0), size: (150.0, 185.0), brain: PhaseScript(script_id: "tri_slam_sweep_halo")),
+                    BossSpawn(id: "training_boss", name: "clockwork warden", min: (1020.0, 465.0), size: (150.0, 185.0), brain: PhaseScript(script_id: "tri_slam_sweep_halo")),
                     DebugLabel(id: "boss_sign", name: "boss sign", position: (920.0, 520.0), text: "Boss cycles slam, side sweep, and halo contact patterns", category: Boss),
                 ],
                 blocks: [
@@ -422,7 +422,7 @@
                 objects: [
                     Interactable(id: "npc_architect", name: "Architect NPC", prompt: "Talk", min: (600.0, 596.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("architect_intro"))),
                     Interactable(id: "npc_keeper", name: "Vault Keeper NPC", prompt: "Talk", min: (840.0, 596.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("vault_keeper"))),
-                    Interactable(id: "npc_merchant_seed", name: "Merchant Prototype NPC", prompt: "Trade", min: (1060.0, 596.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("merchant_seed"))),
+                    Interactable(id: "npc_merchant_seed", name: "Merchant Prototype NPC", prompt: "Trade", min: (980.0, 596.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("merchant_seed"))),
                     DebugLabel(id: "npc_sign", name: "npc sign", position: (760.0, 520.0), text: "Press Interact near NPCs. Dialogue pauses gameplay; choices sketch merchants and story flags.", category: Interactable),
                 ],
                 blocks: [

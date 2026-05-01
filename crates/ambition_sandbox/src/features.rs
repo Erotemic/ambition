@@ -872,7 +872,7 @@ impl BossRuntime {
         let chase = (anchor_to_player.x * 0.18).clamp(-70.0, 70.0);
         let target = ae::Vec2::new(
             self.spawn.x + (self.movement_timer * 0.72).sin() * 130.0 + chase,
-            self.spawn.y + (self.movement_timer * 1.10).sin() * 24.0,
+            self.spawn.y - (self.movement_timer * 1.10).sin().abs() * 18.0,
         );
         self.move_toward_target(world, target, dt);
         self.hit_flash = (self.hit_flash - dt).max(0.0);

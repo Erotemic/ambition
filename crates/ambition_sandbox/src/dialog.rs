@@ -133,6 +133,7 @@ enum DialogMode {
     Architect,
     VaultKeeper,
     MerchantSeed,
+    HubGuide,
     Generic,
 }
 
@@ -142,6 +143,7 @@ impl DialogMode {
             "architect_intro" => Self::Architect,
             "vault_keeper" => Self::VaultKeeper,
             "merchant_seed" => Self::MerchantSeed,
+            "hub_guide" => Self::HubGuide,
             _ => Self::Generic,
         }
     }
@@ -151,6 +153,7 @@ impl DialogMode {
             Self::Architect => "architecture dialogue",
             Self::VaultKeeper => "merchant / persistence seed",
             Self::MerchantSeed => "merchant design sketch",
+            Self::HubGuide => "central hub guidance",
             Self::Generic => "sandbox dialogue",
         }
     }
@@ -160,6 +163,7 @@ impl DialogMode {
             Self::Architect => ARCHITECT_NODES,
             Self::VaultKeeper => VAULT_KEEPER_NODES,
             Self::MerchantSeed => MERCHANT_SEED_NODES,
+            Self::HubGuide => HUB_GUIDE_NODES,
             Self::Generic => GENERIC_NODES,
         }
     }
@@ -180,6 +184,63 @@ pub struct DialogChoice {
     pub note: Option<&'static str>,
     pub close_after: bool,
 }
+
+const HUB_GUIDE_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Why is Interact separate from Up?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "What should I test next?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Back to the hub.",
+        next_node: None,
+        note: Some("The guide steps aside. The basement door is clear; no rebound launcher is blocking it now."),
+        close_after: true,
+    },
+];
+
+const HUB_GUIDE_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another hub question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Return to movement.",
+        next_node: None,
+        note: Some("Movement stays primary; dialogue should explain the lab, not replace the lab."),
+        close_after: true,
+    },
+];
+
+const HUB_GUIDE_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Kernel Guide",
+        line: "Welcome back to The Kernel. The hub should teach routes without ambushing your movement inputs. Doors answer Interact first; double-tap up is only a deliberate fallback.",
+        options: HUB_GUIDE_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Kernel Guide",
+        line: "Up is aim, climb, fly, and intent. Binding doors to a raw single Up press makes the game steal agency at exactly the wrong time. Interact is a promise that you meant to talk, trade, open, or enter.",
+        options: HUB_GUIDE_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Kernel Guide",
+        line: "Try the basement labs, then check debug mode: combo state, hitstun, invulnerability, health bars, and honest hurtboxes should explain every surprising hit.",
+        options: HUB_GUIDE_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
 
 const ARCHITECT_OPTIONS: &[DialogChoice] = &[
     DialogChoice {

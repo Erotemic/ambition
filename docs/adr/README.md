@@ -18,3 +18,4 @@ Use an ADR when a decision:
 - [0004: Support multiple game modes from one reusable engine](0004-multiple-game-modes.md)
 - [0005: Mark spatial/geometry code for extra review](0005-spatial-review-markers.md)
 - [0006: Require explicit repo-state and patch packaging discipline](0006-repo-state-and-patch-packaging.md)
+- [0007: Use Avian2D for secondary physics while keeping the player controller custom](0007-avian2d-secondary-physics.md)

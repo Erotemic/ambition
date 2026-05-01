@@ -8,6 +8,7 @@ description = "Bevy-powered playable sandbox for Ambition Engine."
 
 [dependencies]
 ambition_engine = { path = "../ambition_engine" }
+avian2d = "0.5"
 bevy = { version = "0.18.1", features = ["wav"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy_asset_loader = "0.26"

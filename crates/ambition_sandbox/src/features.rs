@@ -38,6 +38,19 @@ pub struct FeatureView {
     pub flash: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FeaturePhysicsCue {
+    Breakable,
+    EnemyRagdoll,
+    BossRagdoll,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FeaturePhysicsBurst {
+    pub pos: ae::Vec2,
+    pub cue: FeaturePhysicsCue,
+}
+
 #[derive(Default, Clone, Debug)]
 pub struct FeatureEvents {
     pub reset_player: bool,
@@ -45,6 +58,7 @@ pub struct FeatureEvents {
     pub messages: Vec<String>,
     pub impacts: Vec<ae::Vec2>,
     pub bursts: Vec<ae::Vec2>,
+    pub physics_bursts: Vec<FeaturePhysicsBurst>,
 }
 
 impl FeatureEvents {
@@ -54,6 +68,7 @@ impl FeatureEvents {
         self.messages.append(&mut other.messages);
         self.impacts.append(&mut other.impacts);
         self.bursts.append(&mut other.bursts);
+        self.physics_bursts.append(&mut other.physics_bursts);
     }
 }
 
@@ -214,6 +229,10 @@ impl FeatureRuntime {
                     enemy.alive = false;
                     events.messages.push(format!("defeated {}", enemy.name));
                     events.bursts.push(enemy.pos);
+                    events.physics_bursts.push(FeaturePhysicsBurst {
+                        pos: enemy.pos,
+                        cue: FeaturePhysicsCue::EnemyRagdoll,
+                    });
                 }
             }
         }
@@ -227,6 +246,10 @@ impl FeatureRuntime {
                     boss.alive = false;
                     events.messages.push(format!("defeated boss {}", boss.name));
                     events.bursts.push(boss.pos);
+                    events.physics_bursts.push(FeaturePhysicsBurst {
+                        pos: boss.pos,
+                        cue: FeaturePhysicsCue::BossRagdoll,
+                    });
                 }
             }
         }
@@ -239,6 +262,10 @@ impl FeatureRuntime {
                     breakable.start_respawn_timer();
                     events.messages.push(format!("broke {}", breakable.name));
                     events.bursts.push(breakable.pos);
+                    events.physics_bursts.push(FeaturePhysicsBurst {
+                        pos: breakable.pos,
+                        cue: FeaturePhysicsCue::Breakable,
+                    });
                 }
             }
         }

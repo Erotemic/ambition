@@ -22,6 +22,7 @@ pub mod scalar;
 pub mod state_machines;
 pub mod movement;
 pub mod music;
+pub mod physics;
 pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
@@ -48,6 +49,10 @@ pub use state_machines::{
     BossDefeated, BossDormant, BossIntro, BossPhase, BreakableBroken, BreakableCracking,
     BreakableIntact, BreakableRespawning, ChestClosed, ChestOpened, ChestOpening, EnemyAttack,
     EnemyDead, EnemyIdle, EnemyPatrol, EnemyRecover, EnemyStunned, EnemyTelegraph,
+};
+pub use physics::{
+    PhysicsBodyKind, PhysicsBodyRole, PhysicsBodySpec, PhysicsMaterial, PhysicsShape,
+    RagdollSpec,
 };
 pub use movement::{
     blink_destination, blink_destination_to_point, update_player, update_player_control,

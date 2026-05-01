@@ -16,6 +16,7 @@ mod game_mode;
 mod input;
 mod loading;
 mod platforms;
+mod physics;
 mod rendering;
 mod rooms;
 mod windowing;
@@ -93,6 +94,7 @@ fn main() {
         .init_collection::<loading::SandboxAssetCollection>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_plugins(ae::AmbitionStateMachinePlugin::default())
+        .add_plugins(physics::AmbitionPhysicsPlugin)
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
@@ -684,9 +686,18 @@ fn handle_feature_events(
     if events.reset_player {
         play_sound(commands, bank, SoundCue::Reset);
     }
+    for physics_burst in &events.physics_bursts {
+        let cue = match physics_burst.cue {
+            features::FeaturePhysicsCue::Breakable => physics::PhysicsDebrisCue::Breakable,
+            features::FeaturePhysicsCue::EnemyRagdoll => physics::PhysicsDebrisCue::EnemyRagdoll,
+            features::FeaturePhysicsCue::BossRagdoll => physics::PhysicsDebrisCue::BossRagdoll,
+        };
+        physics::spawn_debris_burst(commands, world, physics_burst.pos, cue);
+    }
     for pos in events.impacts {
         spawn_impact(commands, world, pos);
         spawn_burst(commands, world, pos, 14, 300.0, [1.0, 0.34, 0.28, 0.88], ParticleKind::Shard);
+        physics::spawn_debris_burst(commands, world, pos, physics::PhysicsDebrisCue::Impact);
     }
     for pos in events.bursts {
         spawn_burst(commands, world, pos, 16, 230.0, [0.84, 0.95, 1.0, 0.82], ParticleKind::Spark);
@@ -714,7 +725,11 @@ fn process_attack(
             let hit_pos = ae::Vec2::new((attack.center().x + dummy.pos.x) * 0.5, (attack.center().y + dummy.pos.y) * 0.5);
             spawn_impact(commands, world, hit_pos);
             spawn_burst(commands, world, hit_pos, 18, 390.0, [1.0, 0.93, 0.44, 0.94], ParticleKind::Shard);
-            killed |= dummy.apply_hit(1, player_facing * 300.0);
+            let dummy_killed = dummy.apply_hit(1, player_facing * 300.0);
+            if dummy_killed {
+                physics::spawn_debris_burst(commands, world, dummy.pos, physics::PhysicsDebrisCue::EnemyRagdoll);
+            }
+            killed |= dummy_killed;
             landed = true;
         }
     }

@@ -12,6 +12,7 @@ use bevy::window::PrimaryWindow;
 
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
+use crate::physics;
 use crate::rooms::{LoadingZone, LoadingZoneActivation};
 use crate::dummies::{Dummy, DummyKind};
 
@@ -122,6 +123,7 @@ pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block
         Name::new(format!("Block: {}", block.name)),
         RoomVisual,
     ));
+    physics::spawn_static_collider_for_block(commands, world, block);
 }
 
 pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &LoadingZone) {

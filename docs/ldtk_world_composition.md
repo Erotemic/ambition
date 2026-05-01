@@ -58,6 +58,8 @@ The validator checks Ambition-specific constraints:
 - entities stay inside their LDtk level bounds,
 - each active area has exactly one `PlayerStart`,
 - loading zones target valid active areas and destination zones,
+- `EdgeExit` loading zones touch a level edge and do not overlap solid wall collision,
+- transition arrivals computed from destination zones remain inside the target active area and do not start inside authored solids,
 - selected entity types have required custom fields,
 - LDtk-authored moving damage volumes and `KinematicPath` entities have valid point/speed/mode fields.
 
@@ -92,3 +94,9 @@ StitchedBoundary
 ## Debug overview
 
 `F5` toggles the overview camera. The initial overview simply centers the composed active-area bounds and increases orthographic scale. This is a POC for inspecting large or stitched areas, not the final camera-authoring system.
+
+## Edge exits and collision openings
+
+`EdgeExit` zones are gameplay triggers, not collision cutters. If an edge-exit zone is authored inside a wall, the zone may render/debug-label correctly but remain unreachable to the player. Split the adjacent side wall around the exit opening, and keep the zone touching the level edge without strictly overlapping any `Solid` entity. The validator now treats overlap between an `EdgeExit` and a `Solid` as an error.
+
+For stitched active areas, remember that LDtk level positions are flattened into active-area coordinates before runtime collision and loading-zone checks. Any spatial assumption that depends on seams, wall openings, or transition spawn repair should be marked in Rust with `AMBITION_REVIEW(spatial)`.

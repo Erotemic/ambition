@@ -48,6 +48,7 @@ The sandbox currently has:
 - generated lo-fi audio and sound effects,
 - LDtk-authored active-area composition for the central hub POC,
 - a central hub with a literal drop-down basement stitched into one continuous active area, with the old sandbox doors and feature labs ported into LDtk-authored active areas,
+- central-hub side `EdgeExit` wall collision split around the exits so those zones are physically reachable,
 - test rooms for hazards, enemies, boss patterns, breakables, pickups/chests, and NPC talk hooks,
 - debug labels over loading zones,
 - feature runtime behavior for current prototype entities,
@@ -103,6 +104,7 @@ Do not document these as final game promises in the README. Use focused docs and
 Spatial reasoning and geometry code need extra review. In particular:
 
 - LDtk chunk-to-active-area composition,
+- LDtk validator checks for `EdgeExit`/solid overlap and transition arrivals that would start outside the target active area or inside authored solids,
 - room transition arrival repair,
 - loading-zone placement and labels,
 - camera/world coordinate conversion,

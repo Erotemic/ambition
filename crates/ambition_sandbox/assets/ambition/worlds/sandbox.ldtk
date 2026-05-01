@@ -171,7 +171,7 @@
               ]
             },
             {
-              "iid": "Solid-0005",
+              "iid": "Solid-0005-upper",
               "defUid": 1008,
               "__identifier": "Solid",
               "__grid": [
@@ -188,12 +188,12 @@
                 {
                   "__identifier": "name",
                   "__type": "String",
-                  "__value": "hub left wall",
+                  "__value": "hub left wall upper",
                   "defUid": 1009,
                   "realEditorValues": []
                 }
               ],
-              "height": 1000,
+              "height": 764,
               "width": 36,
               "px": [
                 0,
@@ -201,7 +201,37 @@
               ]
             },
             {
-              "iid": "Solid-0006",
+              "iid": "Solid-0005-lower",
+              "defUid": 1008,
+              "__identifier": "Solid",
+              "__grid": [
+                0,
+                59
+              ],
+              "__pivot": [
+                0,
+                0
+              ],
+              "__smartColor": "#ffffff",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub left wall lower",
+                  "defUid": 1009,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 24,
+              "width": 36,
+              "px": [
+                0,
+                952
+              ]
+            },
+            {
+              "iid": "Solid-0006-upper",
               "defUid": 1010,
               "__identifier": "Solid",
               "__grid": [
@@ -218,16 +248,46 @@
                 {
                   "__identifier": "name",
                   "__type": "String",
-                  "__value": "hub right wall",
+                  "__value": "hub right wall upper",
                   "defUid": 1011,
                   "realEditorValues": []
                 }
               ],
-              "height": 1000,
+              "height": 764,
               "width": 36,
               "px": [
                 1864,
                 0
+              ]
+            },
+            {
+              "iid": "Solid-0006-lower",
+              "defUid": 1010,
+              "__identifier": "Solid",
+              "__grid": [
+                116,
+                59
+              ],
+              "__pivot": [
+                0,
+                0
+              ],
+              "__smartColor": "#ffffff",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub right wall lower",
+                  "defUid": 1011,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 24,
+              "width": 36,
+              "px": [
+                1864,
+                952
               ]
             },
             {

@@ -62,6 +62,32 @@ def entity_name(entity):
     return f"{entity.get('__identifier')} {entity.get('iid', '<no-iid>')}"
 
 
+def rect(entity):
+    px = entity.get("px") or [0, 0]
+    return (float(px[0]), float(px[1]), float(entity.get("width", 0) or 0), float(entity.get("height", 0) or 0))
+
+
+def strict_rects_intersect(a, b):
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return ax < bx + bw and ax + aw > bx and ay < by + bh and ay + ah > by
+
+
+def touches_level_edge(entity, width, height):
+    x, y, w, h = rect(entity)
+    return x <= 0 or y <= 0 or x + w >= width or y + h >= height
+
+
+def center(rect_value):
+    x, y, w, h = rect_value
+    return (x + w * 0.5, y + h * 0.5)
+
+
+def player_spawn_rect(position, half_w=14.0, half_h=23.0):
+    x, y = position
+    return (x - half_w, y - half_h, half_w * 2.0, half_h * 2.0)
+
+
 def parse_points(value):
     points = []
     for pair in str(value or "").split(";"):
@@ -96,6 +122,9 @@ def validate(path: Path):
     levels_by_area = defaultdict(list)
     zones_by_area = defaultdict(set)
     requested_links = []
+    area_bounds = {}
+    area_zones = defaultdict(dict)
+    area_solids = defaultdict(list)
 
     for level in levels:
         identifier = level.get("identifier", "<unnamed>")
@@ -112,11 +141,24 @@ def validate(path: Path):
             warnings.append(f"level {identifier!r} origin ({world_x}, {world_y}) is not {GRID}px aligned")
         area = str(active_area(level))
         levels_by_area[area].append(identifier)
+        if area not in area_bounds:
+            area_bounds[area] = [world_x, world_y, world_x + width, world_y + height]
+        else:
+            area_bounds[area][0] = min(area_bounds[area][0], world_x)
+            area_bounds[area][1] = min(area_bounds[area][1], world_y)
+            area_bounds[area][2] = max(area_bounds[area][2], world_x + width)
+            area_bounds[area][3] = max(area_bounds[area][3], world_y + height)
 
         layer = ambition_layer(level)
         if layer is None:
             errors.append(f"level {identifier!r} is missing {AMBITION_LAYER!r} entity layer")
             continue
+
+        solids = [entity for entity in layer.get("entityInstances") or [] if entity.get("__identifier") == "Solid"]
+        for solid in solids:
+            sx, sy, sw, sh = rect(solid)
+            area_solids[area].append((world_x + sx, world_y + sy, sw, sh, identifier, entity_name(solid)))
+
         for entity in layer.get("entityInstances") or []:
             ident = entity.get("__identifier")
             if ident not in KNOWN_ENTITIES:
@@ -144,10 +186,29 @@ def validate(path: Path):
                 zone_id = field_value(fields, "id")
                 target_room = field_value(fields, "target_room")
                 target_zone = field_value(fields, "target_zone")
+                activation = str(field_value(fields, "activation", "Door"))
                 if zone_id is None:
                     errors.append(f"LoadingZone {entity.get('iid')} requires id")
                 else:
-                    zones_by_area[area].add(str(zone_id))
+                    zone_id = str(zone_id)
+                    zones_by_area[area].add(zone_id)
+                    ex, ey, ew, eh = rect(entity)
+                    area_zones[area][zone_id] = {
+                        "source_level": identifier,
+                        "entity": entity_name(entity),
+                        "activation": activation,
+                        "rect_world": (world_x + ex, world_y + ey, ew, eh),
+                    }
+                if activation == "EdgeExit":
+                    if not touches_level_edge(entity, width, height):
+                        errors.append(f"EdgeExit LoadingZone {entity.get('iid')} in {identifier!r} must touch a level edge")
+                    zone_rect = rect(entity)
+                    for solid in solids:
+                        if strict_rects_intersect(zone_rect, rect(solid)):
+                            errors.append(
+                                f"EdgeExit LoadingZone {entity.get('iid')} in {identifier!r} overlaps solid {entity_name(solid)}; "
+                                "split the wall or move the zone so the exit is physically reachable"
+                            )
                 if target_room is None or target_zone is None:
                     errors.append(f"LoadingZone {entity.get('iid')} requires target_room and target_zone")
                 else:
@@ -176,8 +237,42 @@ def validate(path: Path):
     for source_level, area, zone_id, target_room, target_zone in requested_links:
         if target_room not in levels_by_area:
             errors.append(f"LoadingZone {zone_id!r} in {source_level!r} targets unknown room/activeArea {target_room!r}")
-        elif target_zone not in zones_by_area[target_room]:
+            continue
+        if target_zone not in zones_by_area[target_room]:
             errors.append(f"LoadingZone {zone_id!r} in {source_level!r} targets missing zone {target_zone!r} in {target_room!r}")
+            continue
+
+        target = area_zones[target_room][target_zone]
+        bx0, by0, bx1, by1 = area_bounds[target_room]
+        width = bx1 - bx0
+        height = by1 - by0
+        zx, zy, zw, zh = target["rect_world"]
+        local_zone = (zx - bx0, zy - by0, zw, zh)
+        cx, cy = center(local_zone)
+        if target["activation"] == "EdgeExit":
+            if local_zone[0] <= 37.0:
+                arrival = (92.0, cy)
+            elif local_zone[0] + local_zone[2] >= width - 37.0:
+                arrival = (width - 92.0, cy)
+            else:
+                arrival = (cx, cy)
+        else:
+            arrival = (cx, local_zone[1] + local_zone[3] - 26.0)
+        spawn = player_spawn_rect(arrival)
+        sx, sy, sw, sh = spawn
+        if sx < 0 or sy < 0 or sx + sw > width or sy + sh > height:
+            errors.append(
+                f"LoadingZone {zone_id!r} in {source_level!r} arrives outside target area {target_room!r} "
+                f"via zone {target_zone!r}: arrival=({arrival[0]:.1f}, {arrival[1]:.1f}), area=({width:.1f}, {height:.1f})"
+            )
+        for solid_x, solid_y, solid_w, solid_h, solid_level, solid_name in area_solids[target_room]:
+            local_solid = (solid_x - bx0, solid_y - by0, solid_w, solid_h)
+            if strict_rects_intersect(spawn, local_solid):
+                errors.append(
+                    f"LoadingZone {zone_id!r} in {source_level!r} arrives inside solid {solid_name} from {solid_level!r} "
+                    f"in target area {target_room!r}; move the target zone or split collision around it"
+                )
+                break
 
     for area, level_names in levels_by_area.items():
         count = starts_by_area[area]

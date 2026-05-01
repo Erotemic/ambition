@@ -23,7 +23,7 @@ Validate LDtk edits with:
 python tools/validate_ambition_ldtk.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
-Do not treat LDtk JSON as the canonical gameplay model. Add adapter/validator code when new LDtk entity identifiers or fields become meaningful. Use `AMBITION_REVIEW(spatial)` around chunk composition, seams, camera bounds, and spawn/collision assumptions.
+Do not treat LDtk JSON as the canonical gameplay model. Add adapter/validator code when new LDtk entity identifiers or fields become meaningful. `EdgeExit` zones must be physically reachable: split wall collision around them instead of placing the trigger inside a solid wall. Use `AMBITION_REVIEW(spatial)` around chunk composition, seams, camera bounds, wall openings, and spawn/collision assumptions.
 
 ## Repository state and patch packaging
 

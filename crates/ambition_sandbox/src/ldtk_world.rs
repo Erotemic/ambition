@@ -139,6 +139,12 @@ impl LdtkProject {
                 continue;
             };
 
+            let solids = layer
+                .entity_instances
+                .iter()
+                .filter(|entity| entity.identifier == "Solid")
+                .collect::<Vec<_>>();
+
             for entity in &layer.entity_instances {
                 if !known_entity(&entity.identifier) {
                     report.errors.push(format!(
@@ -173,10 +179,26 @@ impl LdtkProject {
                             report.errors.push(format!("LoadingZone {} is missing string field 'id'", entity.iid));
                         }
                         if field_string(entity, "target_room").is_none() || field_string(entity, "target_zone").is_none() {
-                            report.warnings.push(format!(
-                                "LoadingZone {} has no target_room/target_zone yet; it will be local authoring data only",
+                            report.errors.push(format!(
+                                "LoadingZone {} requires target_room and target_zone fields",
                                 entity.iid
                             ));
+                        }
+                        if field_string(entity, "activation").unwrap_or_else(|| "Door".to_string()) == "EdgeExit" {
+                            if !entity_touches_level_edge(entity, level) {
+                                report.errors.push(format!(
+                                    "EdgeExit LoadingZone {} in level '{}' must touch a level edge",
+                                    entity.iid, level.identifier
+                                ));
+                            }
+                            for solid in &solids {
+                                if rects_strict_intersect(entity_rect(entity), entity_rect(solid)) {
+                                    report.errors.push(format!(
+                                        "EdgeExit LoadingZone {} in level '{}' overlaps solid {} ({}); split the wall or move the zone so the exit is physically reachable",
+                                        entity.iid, level.identifier, solid.identifier, solid.iid
+                                    ));
+                                }
+                            }
                         }
                     }
                     "BlinkWall" => {
@@ -282,6 +304,10 @@ impl LdtkProject {
         let mut zones = Vec::new();
         let mut objects = Vec::new();
         for level in levels {
+            // AMBITION_REVIEW(spatial): LDtk world coordinates are flattened into
+            // active-area-local Ambition coordinates here. Wall openings, edge
+            // exits, transition arrivals, and camera bounds all depend on this
+            // convention staying stable.
             let offset = [level.world_x as f32 - min_x, level.world_y as f32 - min_y];
             let Some(layer) = level.ambition_layer() else {
                 errors.push(format!("level '{}' missing Ambition layer", level.identifier));
@@ -504,6 +530,23 @@ fn pivot_is_top_left(entity: &LdtkEntityInstance) -> bool {
         return true;
     }
     entity.pivot[0].abs() <= 1.0e-6 && entity.pivot[1].abs() <= 1.0e-6
+}
+
+fn entity_rect(entity: &LdtkEntityInstance) -> (i32, i32, i32, i32) {
+    (entity.px[0], entity.px[1], entity.width, entity.height)
+}
+
+fn rects_strict_intersect(a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)) -> bool {
+    let (ax, ay, aw, ah) = a;
+    let (bx, by, bw, bh) = b;
+    ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
+}
+
+fn entity_touches_level_edge(entity: &LdtkEntityInstance, level: &LdtkLevel) -> bool {
+    entity.px[0] <= 0
+        || entity.px[1] <= 0
+        || entity.px[0] + entity.width >= level.px_wid
+        || entity.px[1] + entity.height >= level.px_hei
 }
 
 fn field_value<'a>(fields: &'a [LdtkFieldInstance], name: &str) -> Option<&'a Value> {

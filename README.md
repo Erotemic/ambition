@@ -119,7 +119,7 @@ The sandbox is intentionally an endgame lab, not a first level. The question it 
 5. Add a grappling/tether primitive.
 6. Add an input recorder and ghost replay.
 7. Add a deterministic seed format for room generation.
-8. Add adaptive room/state variations to the generated retro music.
+8. Add adaptive room/state variations to the generated lo-fi music.
 9. Add a backend-neutral story/world-state event log.
 10. Add automated reachability tests for generated rooms.
 
@@ -180,5 +180,5 @@ Additional layout notes:
 ## Recent notes
 
 - Flying door activation: see `docs/flying_door_activation.md`.
-- Procedural retro music: see `docs/procedural_ambience.md`.
+- Procedural lo-fi music: see `docs/procedural_ambience.md`.
 - Crate strategy / avoiding reinvention: see `docs/crate_strategy.md`.

@@ -221,6 +221,9 @@ pub struct ControlFrame {
     pub attack_pressed: bool,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
+    /// Generic context interaction. For now this is `Up` and is used to enter
+    /// door-style loading zones without making every trigger automatic.
+    pub interact_pressed: bool,
     pub reset_pressed: bool,
     pub start_pressed: bool,
 }
@@ -242,6 +245,7 @@ impl ControlFrame {
             axis_y += 1.0;
         }
         let down_pressed = keys.just_pressed(preset.movement.down);
+        let interact_pressed = keys.just_pressed(preset.movement.up);
         let blink_key = preset.actions.secondary;
         let blink_pressed = blink_key.map(|key| keys.just_pressed(key)).unwrap_or(false);
         let blink_held = blink_key.map(|key| keys.pressed(key)).unwrap_or(false);
@@ -273,6 +277,7 @@ impl ControlFrame {
                 .map(|key| keys.just_pressed(key))
                 .unwrap_or(false),
             fly_toggle_pressed,
+            interact_pressed,
             reset_pressed,
             start_pressed: keys.just_pressed(preset.actions.pause),
         }

@@ -272,7 +272,7 @@ fn sandbox_update(
     }
 
     if runtime.room_transition_cooldown <= 0.0 {
-        if let Some(zone) = room_set.transition_for_player(&runtime.player) {
+        if let Some(zone) = room_set.transition_for_player(&runtime.player, controls.interact_pressed) {
             load_room(
             &mut commands,
             &bank,
@@ -351,23 +351,47 @@ fn load_room(
     room_visuals: &Query<Entity, With<RoomVisual>>,
     zone: rooms::LoadingZone,
 ) {
-    let from = runtime.player.pos;
+    let old_velocity = runtime.player.vel;
+    let abilities = runtime.player.abilities;
+    let edge_exit = matches!(zone.activation, rooms::LoadingZoneActivation::EdgeExit);
+
     for entity in room_visuals.iter() {
         commands.entity(entity).despawn();
     }
     let spec = room_set.set_active(zone.target_room).clone();
     world.0 = spec.world.clone();
-    runtime.reset(&world.0);
-    runtime.player.reset_to(zone.target_spawn);
+
+    // Room transitions are not player deaths/resets. Rebuild transient room
+    // state, but preserve ability progression and, for edge exits, preserve
+    // velocity so side-to-side room changes feel continuous. Door transitions
+    // intentionally zero velocity because they are discrete interactions.
+    runtime.player = ae::Player::new_with_abilities(zone.target_spawn, abilities);
+    if edge_exit {
+        runtime.player.vel = old_velocity;
+    }
     runtime.dummies = spawn_dummies(&world.0);
-    runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
-    runtime.room_transition_cooldown = 0.35;
     runtime.flash_timer = 0.24;
+    runtime.hitstop_timer = 0.0;
+    runtime.time_scale = 1.0;
+    runtime.down_tap_timer = 0.0;
+    runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
+    runtime.room_transition_cooldown = if edge_exit { 0.22 } else { 0.42 };
     runtime.preset_flash = 1.0;
+
     spawn_room_visuals(commands, &world.0, &spec.loading_zones);
     platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
     play_sound(commands, bank, SoundCue::Reset);
-    spawn_reset_effects(commands, &world.0, from, runtime.player.pos);
+    if edge_exit {
+        // Edge exits should feel like contiguous room scrolling, not a death-like
+        // teleport. Only show an arrival puff in the new room because `from` was
+        // expressed in the previous room's coordinate space.
+        spawn_burst(commands, &world.0, runtime.player.pos, 18, 260.0, [0.35, 0.95, 1.0, 0.75], ParticleKind::Dust);
+    } else {
+        // Door transitions are discrete interactions, so a teleport-like effect
+        // is acceptable; use the destination for both endpoints to avoid mixing
+        // coordinate systems from two rooms.
+        spawn_reset_effects(commands, &world.0, runtime.player.pos, runtime.player.pos);
+    }
 }
 
 fn update_player_and_feedback(
@@ -526,19 +550,28 @@ fn update_hud(
         .single()
         .map(|w| format!("window: {:.0}x{:.0} {}", w.width(), w.height(), display_mode.label()))
         .unwrap_or_else(|_| format!("window: unknown {}", display_mode.label()));
+    let zone_hint = {
+        let hints = room_set.nearby_zone_hints(&runtime.player);
+        if hints.is_empty() {
+            "zones: none".to_string()
+        } else {
+            format!("zones: {}", hints.join(" | "))
+        }
+    };
     let flash_line = if runtime.preset_flash > 0.0 {
         format!("\nPRESET: {}", preset.name)
     } else {
         String::new()
     };
     **text = format!(
-        "{}\nroom: {}  active {}/{}  size {:.0}x{:.0}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F6 windowed  F7 borderless  F8 fullscreen  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nroom: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F6 windowed  F7 borderless  F8 fullscreen  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\ngamepad target: {}{}",
         world.0.name,
         "Bevy backend",
         room_set.active + 1,
         room_set.rooms.len(),
         world.0.size.x,
         world.0.size.y,
+        zone_hint,
         runtime.player.vel.x,
         runtime.player.vel.y,
         runtime.player.vel.length(),

@@ -15,11 +15,6 @@ pub const WINDOW_W: u32 = 1600;
 /// Default logical window height for initial windowed mode.
 pub const WINDOW_H: u32 = 900;
 
-/// Preferred authored aspect ratio.
-///
-/// The current sandbox does not letterbox yet; it preserves the simulation world
-/// coordinate system and simply lets larger windows reveal more room.
-pub const TARGET_ASPECT: f32 = WINDOW_W as f32 / WINDOW_H as f32;
 
 pub const WORLD_Z_BLOCK: f32 = 0.0;
 pub const WORLD_Z_DUMMY: f32 = 10.0;

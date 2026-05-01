@@ -118,3 +118,8 @@ See also: [Sane maximalist subset](ability_subset.md).
 ## Enemy collision note
 
 Dummies now use engine-side room collision via `Dummy::update_in_world`; see `docs/enemy_collision.md`.
+
+
+## Room graph and loading-zone model
+
+See `docs/room_graph_data_model.md`. Loading zones now distinguish automatic edge exits from press-up door interactions, which is the first step toward a serializable room graph.

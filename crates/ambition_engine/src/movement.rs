@@ -1027,11 +1027,6 @@ fn player_can_blink_through(player: &Player, tier: BlinkWallTier) -> bool {
     }
 }
 
-fn overlaps_solid(world: &World, aabb: Aabb) -> bool {
-    world.blocks.iter().any(|b| {
-        matches!(b.kind, BlockKind::Solid | BlockKind::BlinkWall { .. }) && aabb.intersects(b.aabb)
-    })
-}
 
 #[cfg(test)]
 mod tests {

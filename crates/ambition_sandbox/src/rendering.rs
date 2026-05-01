@@ -10,7 +10,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
-use crate::rooms::LoadingZone;
+use crate::rooms::{LoadingZone, LoadingZoneActivation};
 use crate::dummies::{Dummy, DummyKind};
 
 #[derive(Resource)]
@@ -103,8 +103,13 @@ pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block
 
 pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &LoadingZone) {
     let size = zone.aabb.half * 2.0;
+    let color = match zone.activation {
+        LoadingZoneActivation::EdgeExit => Color::srgba(0.20, 0.95, 1.0, 0.22),
+        LoadingZoneActivation::Door => Color::srgba(0.32, 0.78, 1.0, 0.36),
+    };
+    let _zone_label_for_future_text = zone.name;
     commands.spawn((
-        Sprite::from_color(Color::srgba(0.20, 0.95, 1.0, 0.22), BVec2::new(size.x, size.y)),
+        Sprite::from_color(color, BVec2::new(size.x, size.y)),
         Transform::from_translation(world_to_bevy(world, zone.aabb.center, WORLD_Z_BLOCK + 6.0)),
         RoomVisual,
     ));

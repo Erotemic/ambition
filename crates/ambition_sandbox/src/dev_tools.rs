@@ -25,6 +25,8 @@ pub struct DeveloperTools {
     /// Master switch for Bevy gizmo overlays. `F1` still controls the old HUD/debug mode.
     pub gizmos_enabled: bool,
     pub show_hud: bool,
+    /// Keep the HUD compact now that the inspector exposes detailed live state.
+    pub compact_hud: bool,
     pub show_room_bounds: bool,
     pub show_world_blocks: bool,
     pub show_loading_zones: bool,
@@ -45,6 +47,7 @@ impl Default for DeveloperTools {
             world_inspector_visible: false,
             gizmos_enabled: true,
             show_hud: true,
+            compact_hud: true,
             show_room_bounds: true,
             show_world_blocks: false,
             show_loading_zones: true,

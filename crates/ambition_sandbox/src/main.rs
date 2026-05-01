@@ -41,7 +41,7 @@ const DEBUG_SLOWMO_SCALE: f32 = 0.25;
 const TIME_RAMP_DOWN_RATE: f32 = 5.0;
 const TIME_RAMP_UP_RATE: f32 = 14.0;
 const DOWN_DOUBLE_TAP_WINDOW: f32 = 0.24;
-const UP_DOUBLE_TAP_WINDOW: f32 = 0.24;
+const UP_DOUBLE_TAP_WINDOW: f32 = 0.30;
 use fx::{
     spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
     spawn_slash_preview, ParticleKind,
@@ -465,16 +465,14 @@ fn sandbox_update(
 
     }
 
-    // While flying, up is continuous flight input. Door-style loading zones
-    // therefore require a deliberate double-tap-up. When not flying, a single
-    // up press preserves the normal door interaction feel. Edge exits remain
-    // automatic and ignore this flag.
+    // Context interaction is deliberately separate from raw up movement.
+    // Up is too valuable for platforming/flight/aiming to double as a one-tap
+    // door or NPC trigger, so doors/NPCs/chests accept either the dedicated
+    // Interact action or a deliberate double-tap-up gesture.
     let raw_interact_pressed = if runtime.hitstun_timer > 0.0 {
         false
-    } else if runtime.player.fly_enabled {
-        door_double_tap_up
     } else {
-        controls.up_pressed
+        controls.interact_pressed || door_double_tap_up
     };
     controls.interact_pressed = runtime.buffered_interact(
         raw_interact_pressed,
@@ -961,6 +959,26 @@ fn update_hud(
     } else {
         String::new()
     };
+    if developer_tools.compact_hud {
+        **text = format!(
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {} | interact {:.2} | F1 debug F3 inspector F4 world | {}{}\n",
+            world.0.name,
+            mode.get().label(),
+            room_set.active + 1,
+            room_set.rooms.len(),
+            runtime.player_health.current.max(0),
+            runtime.player_health.max,
+            runtime.player.vel.x,
+            runtime.player.vel.y,
+            runtime.player.on_ground,
+            runtime.player.dash_charges_available,
+            runtime.player.air_jumps_available,
+            runtime.interact_buffer_timer,
+            runtime.features.feature_summary(),
+            feature_banner,
+        );
+        return;
+    }
     let flash_line = if runtime.preset_flash > 0.0 {
         format!("\nPRESET: {}", preset.name)
     } else {

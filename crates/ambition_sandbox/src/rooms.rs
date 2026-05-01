@@ -61,10 +61,9 @@ impl LoadingZone {
     pub fn hint(&self, flying: bool) -> String {
         match self.activation {
             LoadingZoneActivation::EdgeExit => format!("{}: {}", self.activation.label(), self.name),
-            LoadingZoneActivation::Door if flying => {
-                format!("{}: {} (double-tap up)", self.activation.label(), self.name)
+            LoadingZoneActivation::Door => {
+                format!("{}: {} (Interact / double-tap up)", self.activation.label(), self.name)
             }
-            LoadingZoneActivation::Door => format!("{}: {} (press up)", self.activation.label(), self.name),
         }
     }
 }

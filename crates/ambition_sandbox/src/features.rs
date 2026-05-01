@@ -17,6 +17,7 @@ const ENEMY_CHASE_SPEED: f32 = 155.0;
 const ENEMY_ATTACK_RANGE: f32 = 150.0;
 const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 const BOSS_ATTACK_COOLDOWN: f32 = 1.35;
+const BREAK_ON_STAND_SECONDS: f32 = 0.85;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FeatureVisualKind {
@@ -224,6 +225,7 @@ impl FeatureRuntime {
 
         for breakable in &mut self.breakables {
             if breakable.broken() {
+                breakable.stand_timer = 0.0;
                 if let ae::RespawnPolicy::AfterSeconds(_) = breakable.breakable.respawn {
                     breakable.respawn_timer = (breakable.respawn_timer - dt).max(0.0);
                     if breakable.respawn_timer <= 0.0 {
@@ -233,6 +235,25 @@ impl FeatureRuntime {
                         events.bursts.push(breakable.pos);
                     }
                 }
+                continue;
+            }
+
+            if breakable.breaks_on_stand() && player_is_standing_on(player_body, breakable.aabb()) {
+                breakable.stand_timer += dt;
+                if breakable.stand_timer >= BREAK_ON_STAND_SECONDS {
+                    let broke = breakable.breakable.apply_damage(breakable.breakable.health.current.max(1));
+                    if broke {
+                        breakable.start_respawn_timer();
+                        events.messages.push(format!("{} collapsed under weight", breakable.name));
+                        events.bursts.push(breakable.pos);
+                        events.physics_bursts.push(FeaturePhysicsBurst {
+                            pos: breakable.pos,
+                            cue: FeaturePhysicsCue::Breakable,
+                        });
+                    }
+                }
+            } else {
+                breakable.stand_timer = (breakable.stand_timer - dt * 2.0).max(0.0);
             }
         }
 
@@ -277,7 +298,7 @@ impl FeatureRuntime {
         }
 
         for boss in &mut self.bosses {
-            boss.update(tuning, dt);
+            boss.update(player, tuning, dt);
             if player_vulnerable && boss.alive {
                 if let Some(damage) = boss.player_damage(player_body) {
                     events.messages.push(format!("{} pattern hit the player", boss.name));
@@ -528,6 +549,10 @@ pub struct EnemyRuntime {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EnemyArchetype {
     Combatant,
+    SmallSkitter,
+    MediumStriker,
+    LargeBrute,
+    AggressiveSeeker,
     InfiniteSandbag,
     FiniteSandbag,
 }
@@ -535,6 +560,10 @@ pub enum EnemyArchetype {
 impl EnemyArchetype {
     fn from_brain(brain: &ae::EnemyBrain) -> Self {
         match brain {
+            ae::EnemyBrain::Custom(name) if name == "small_skitter" => Self::SmallSkitter,
+            ae::EnemyBrain::Custom(name) if name == "medium_striker" => Self::MediumStriker,
+            ae::EnemyBrain::Custom(name) if name == "large_brute" => Self::LargeBrute,
+            ae::EnemyBrain::Custom(name) if name == "gradient_seeker" => Self::AggressiveSeeker,
             ae::EnemyBrain::Custom(name) if name == "sandbag_infinite" => Self::InfiniteSandbag,
             ae::EnemyBrain::Custom(name) if name == "sandbag_finite" => Self::FiniteSandbag,
             _ => Self::Combatant,
@@ -547,9 +576,65 @@ impl EnemyArchetype {
 
     fn max_health(self) -> i32 {
         match self {
-            Self::Combatant => 4,
+            Self::SmallSkitter => 2,
+            Self::Combatant | Self::AggressiveSeeker => 4,
+            Self::MediumStriker => 5,
+            Self::LargeBrute => 9,
             Self::InfiniteSandbag => 9999,
             Self::FiniteSandbag => 6,
+        }
+    }
+
+    fn patrol_speed(self) -> f32 {
+        match self {
+            Self::SmallSkitter => 150.0,
+            Self::LargeBrute => 72.0,
+            Self::AggressiveSeeker => 130.0,
+            _ => ENEMY_PATROL_SPEED,
+        }
+    }
+
+    fn chase_speed(self) -> f32 {
+        match self {
+            Self::SmallSkitter => 210.0,
+            Self::LargeBrute => 118.0,
+            Self::AggressiveSeeker => 225.0,
+            Self::MediumStriker => 170.0,
+            _ => ENEMY_CHASE_SPEED,
+        }
+    }
+
+    fn aggro_radius(self) -> f32 {
+        match self {
+            Self::SmallSkitter => 320.0,
+            Self::MediumStriker | Self::Combatant => 460.0,
+            Self::LargeBrute => 380.0,
+            Self::AggressiveSeeker => 900.0,
+            Self::InfiniteSandbag | Self::FiniteSandbag => 0.0,
+        }
+    }
+
+    fn attack_range(self) -> f32 {
+        match self {
+            Self::SmallSkitter => 105.0,
+            Self::LargeBrute => 205.0,
+            _ => ENEMY_ATTACK_RANGE,
+        }
+    }
+
+    fn contact_strength(self) -> f32 {
+        match self {
+            Self::SmallSkitter => 0.55,
+            Self::LargeBrute => 1.25,
+            Self::AggressiveSeeker => 0.80,
+            _ => 0.70,
+        }
+    }
+
+    fn damage_amount(self) -> i32 {
+        match self {
+            Self::LargeBrute => 2,
+            _ => 1,
         }
     }
 }
@@ -613,11 +698,17 @@ impl EnemyRuntime {
             self.facing = (self.pos.x - old.x).signum_or(self.facing);
         } else {
             let delta_to_player = player.pos - self.pos;
+            let distance_to_player = delta_to_player.length();
             let desired_x = match self.brain {
                 _ if self.archetype.is_sandbag() => 0.0,
-                ae::EnemyBrain::Guard { leash_radius } if delta_to_player.length() <= leash_radius => delta_to_player.x.signum() * ENEMY_CHASE_SPEED,
+                ae::EnemyBrain::Guard { leash_radius } if distance_to_player <= leash_radius => {
+                    delta_to_player.x.signum() * self.archetype.chase_speed()
+                }
+                ae::EnemyBrain::Custom(_) if distance_to_player <= self.archetype.aggro_radius() => {
+                    delta_to_player.x.signum() * self.archetype.chase_speed()
+                }
                 ae::EnemyBrain::Passive => 0.0,
-                _ => self.facing * ENEMY_PATROL_SPEED,
+                _ => self.facing * self.archetype.patrol_speed(),
             };
             self.vel.x = approach(self.vel.x, desired_x, 650.0 * dt);
             self.vel.y = (self.vel.y + ENEMY_GRAVITY * dt).min(ENEMY_MAX_FALL);
@@ -641,13 +732,13 @@ impl EnemyRuntime {
             self.facing = to_player.x.signum();
         }
         if !self.archetype.is_sandbag()
-            && to_player.length() <= ENEMY_ATTACK_RANGE
+            && to_player.length() <= self.archetype.attack_range()
             && self.attack_cooldown <= 0.0
             && self.attack_windup_timer <= 0.0
             && self.attack_timer <= 0.0
         {
             self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
-            self.attack_cooldown = ENEMY_ATTACK_COOLDOWN;
+            self.attack_cooldown = ENEMY_ATTACK_COOLDOWN * if self.archetype == EnemyArchetype::SmallSkitter { 0.75 } else if self.archetype == EnemyArchetype::LargeBrute { 1.35 } else { 1.0 };
         }
     }
 
@@ -706,8 +797,8 @@ impl EnemyRuntime {
                     source_pos: self.pos,
                     impact_pos: midpoint(player_body.center(), body_damage.center()),
                     knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
-                    strength: 0.70,
-                    amount: 1,
+                    strength: self.archetype.contact_strength(),
+                    amount: self.archetype.damage_amount(),
                 });
             }
         }
@@ -720,11 +811,13 @@ pub struct BossRuntime {
     pub id: String,
     pub name: String,
     pub pos: ae::Vec2,
+    pub spawn: ae::Vec2,
     pub size: ae::Vec2,
     pub health: ae::Health,
     pub brain: ae::BossBrain,
     pub alive: bool,
     pub pattern_timer: f32,
+    pub movement_timer: f32,
     pub attack_windup_timer: f32,
     pub attack_timer: f32,
     pub attack_cooldown: f32,
@@ -737,11 +830,13 @@ impl BossRuntime {
             id: object.id.clone(),
             name: object.name.clone(),
             pos: object.aabb.center(),
+            spawn: object.aabb.center(),
             size: object.aabb.half_size() * 2.0,
             health: ae::Health::new(18),
             brain,
             alive: true,
             pattern_timer: 0.0,
+            movement_timer: 0.0,
             attack_windup_timer: 0.0,
             attack_timer: 0.0,
             attack_cooldown: 0.35,
@@ -749,11 +844,19 @@ impl BossRuntime {
         }
     }
 
-    fn update(&mut self, tuning: FeatureCombatTuning, dt: f32) {
+    fn update(&mut self, player: &ae::Player, tuning: FeatureCombatTuning, dt: f32) {
         if !self.alive {
             return;
         }
         self.pattern_timer += dt;
+        self.movement_timer += dt;
+        // AMBITION_REVIEW(spatial): this is a cheap authored boss movement
+        // prototype, not final navigation. It keeps the boss active while the
+        // basement lab proves movement + attack pattern composition.
+        let to_player = player.pos - self.pos;
+        let chase = to_player.x.clamp(-1.0, 1.0) * 42.0;
+        self.pos.x = self.spawn.x + (self.movement_timer * 0.85).sin() * 170.0 + chase;
+        self.pos.y = self.spawn.y + (self.movement_timer * 1.45).sin() * 34.0;
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         let was_winding_up = self.attack_windup_timer > 0.0;
         self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
@@ -843,6 +946,7 @@ pub struct BreakableRuntime {
     pub size: ae::Vec2,
     pub breakable: ae::Breakable,
     pub respawn_timer: f32,
+    pub stand_timer: f32,
 }
 
 impl BreakableRuntime {
@@ -854,6 +958,7 @@ impl BreakableRuntime {
             size: object.aabb.half_size() * 2.0,
             breakable,
             respawn_timer: 0.0,
+            stand_timer: 0.0,
         }
     }
 
@@ -866,10 +971,21 @@ impl BreakableRuntime {
     }
 
     fn start_respawn_timer(&mut self) {
+        self.stand_timer = 0.0;
         if let ae::RespawnPolicy::AfterSeconds(seconds) = self.breakable.respawn {
             self.respawn_timer = seconds;
         }
     }
+
+    fn breaks_on_stand(&self) -> bool {
+        self.breakable.solid && (self.id.contains("crumble") || self.name.contains("crumble"))
+    }
+}
+
+fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> bool {
+    let horizontally_overlaps = player.right() > platform.left() + 2.0 && player.left() < platform.right() - 2.0;
+    let near_top = (player.bottom() - platform.top()).abs() <= 8.0;
+    horizontally_overlaps && near_top
 }
 
 #[derive(Clone, Debug)]

@@ -27,6 +27,7 @@ pub enum SandboxAction {
     Dash,
     Blink,
     QuickAction,
+    Interact,
     Modifier,
     Utility,
     Map,
@@ -59,6 +60,7 @@ pub struct ActionKeys {
     pub dash: KeyCode,
     pub secondary: Option<KeyCode>,
     pub quick_action: Option<KeyCode>,
+    pub interact: Option<KeyCode>,
     pub modifier: Option<KeyCode>,
     pub utility: Option<KeyCode>,
     pub map: Option<KeyCode>,
@@ -102,6 +104,7 @@ impl KeyboardPreset {
                 dash: KeyCode::KeyC,
                 secondary: Some(KeyCode::KeyA),
                 quick_action: Some(KeyCode::KeyE),
+                interact: Some(KeyCode::KeyF),
                 modifier: Some(KeyCode::KeyS),
                 utility: Some(KeyCode::KeyD),
                 map: Some(KeyCode::Tab),
@@ -129,6 +132,7 @@ impl KeyboardPreset {
                 dash: KeyCode::KeyK,
                 secondary: Some(KeyCode::KeyL),
                 quick_action: Some(KeyCode::KeyI),
+                interact: Some(KeyCode::KeyE),
                 modifier: Some(KeyCode::ShiftLeft),
                 utility: Some(KeyCode::KeyU),
                 map: Some(KeyCode::Tab),
@@ -156,6 +160,7 @@ impl KeyboardPreset {
                 attack: KeyCode::KeyE,
                 secondary: Some(KeyCode::KeyR),
                 quick_action: None,
+                interact: Some(KeyCode::KeyF),
                 modifier: None,
                 utility: None,
                 map: Some(KeyCode::Tab),
@@ -183,6 +188,7 @@ impl KeyboardPreset {
                 attack: KeyCode::KeyP,
                 secondary: Some(KeyCode::KeyO),
                 quick_action: None,
+                interact: Some(KeyCode::KeyE),
                 modifier: None,
                 utility: None,
                 map: Some(KeyCode::Tab),
@@ -235,6 +241,7 @@ impl KeyboardPreset {
 
         insert_optional(&mut map, SandboxAction::Blink, self.actions.secondary);
         insert_optional(&mut map, SandboxAction::QuickAction, self.actions.quick_action);
+        insert_optional(&mut map, SandboxAction::Interact, self.actions.interact);
         insert_optional(&mut map, SandboxAction::Modifier, self.actions.modifier);
         insert_optional(&mut map, SandboxAction::Utility, self.actions.utility);
         insert_optional(&mut map, SandboxAction::Map, self.actions.map);
@@ -243,6 +250,7 @@ impl KeyboardPreset {
 
         map.insert(SandboxAction::Blink, GamepadButton::East);
         map.insert(SandboxAction::QuickAction, GamepadButton::RightTrigger);
+        map.insert(SandboxAction::Interact, GamepadButton::RightTrigger);
         map.insert(SandboxAction::Modifier, GamepadButton::LeftTrigger2);
         map.insert(SandboxAction::Utility, GamepadButton::North);
         map.insert(SandboxAction::Map, GamepadButton::LeftTrigger);
@@ -264,6 +272,7 @@ impl KeyboardPreset {
         let optional = [
             ("Blink", self.actions.secondary),
             ("Quick", self.actions.quick_action),
+            ("Interact", self.actions.interact),
             ("Modifier", self.actions.modifier),
             ("Fly", self.actions.utility),
             ("Map", self.actions.map),
@@ -303,8 +312,8 @@ pub struct ControlFrame {
     pub attack_pressed: bool,
     pub pogo_pressed: bool,
     pub fly_toggle_pressed: bool,
-    /// Generic context interaction. For now this is `Up` and is used to enter
-    /// door-style loading zones without making every trigger automatic.
+    /// Generic context interaction. This is a dedicated interact action plus
+    /// the sandbox double-tap-up gesture, not raw held/up movement.
     pub interact_pressed: bool,
     pub reset_pressed: bool,
     pub start_pressed: bool,
@@ -333,7 +342,7 @@ impl ControlFrame {
             attack_pressed: actions.just_pressed(&SandboxAction::Attack),
             pogo_pressed: actions.just_pressed(&SandboxAction::Pogo),
             fly_toggle_pressed: actions.just_pressed(&SandboxAction::Utility),
-            interact_pressed: up_pressed,
+            interact_pressed: actions.just_pressed(&SandboxAction::Interact),
             reset_pressed: actions.just_pressed(&SandboxAction::Reset),
             start_pressed: actions.just_pressed(&SandboxAction::Start),
         }
@@ -373,7 +382,7 @@ pub const GAMEPAD_MAP: &[(&str, &str)] = &[
     ("X / Square", "primary attack"),
     ("RT / R2", "dash"),
     ("B / Circle", "blink / special"),
-    ("RB / R1", "quick action placeholder"),
+    ("RB / R1", "interact / quick action"),
     ("LT / L2", "modifier placeholder"),
     ("Y / Triangle", "fly toggle / utility"),
     ("LB / L1", "map placeholder"),

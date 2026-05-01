@@ -333,9 +333,13 @@
                 objects: [
                     KinematicPath(id: "enemy_patrol_a", name: "enemy patrol path A", min: (480.0, 600.0), size: (360.0, 12.0), points: [(520.0, 650.0), (820.0, 650.0)], speed: 95.0, mode: PingPong),
                     EnemySpawn(id: "patrol_enemy_a", name: "patrol cutter", min: (500.0, 600.0), size: (44.0, 58.0), brain: Patrol(path_id: Some("enemy_patrol_a"))),
-                    EnemySpawn(id: "guard_enemy_a", name: "guard striker", min: (1040.0, 666.0), size: (48.0, 62.0), brain: Guard(leash_radius: 420.0)),
-                    EnemySpawn(id: "enemy_lab_sandbag", name: "lab finite sandbag", min: (1260.0, 677.0), size: (34.0, 58.0), brain: Custom("sandbag_finite")),
-                    DebugLabel(id: "enemy_sign", name: "enemy sign", position: (820.0, 540.0), text: "Enemies patrol, chase inside leash, and swing when close", category: Enemy),
+                    EnemySpawn(id: "small_skitter_a", name: "small skitter", min: (690.0, 660.0), size: (30.0, 34.0), brain: Custom("small_skitter")),
+                    EnemySpawn(id: "guard_enemy_a", name: "guard striker", min: (980.0, 666.0), size: (48.0, 62.0), brain: Guard(leash_radius: 420.0)),
+                    EnemySpawn(id: "medium_striker_a", name: "medium striker", min: (1120.0, 665.0), size: (52.0, 66.0), brain: Custom("medium_striker")),
+                    EnemySpawn(id: "gradient_seeker_a", name: "gradient seeker", min: (1240.0, 664.0), size: (42.0, 56.0), brain: Custom("gradient_seeker")),
+                    EnemySpawn(id: "large_brute_a", name: "large brute", min: (1460.0, 630.0), size: (82.0, 96.0), brain: Custom("large_brute")),
+                    EnemySpawn(id: "enemy_lab_sandbag", name: "lab finite sandbag", min: (1320.0, 677.0), size: (34.0, 58.0), brain: Custom("sandbag_finite")),
+                    DebugLabel(id: "enemy_sign", name: "enemy sign", position: (820.0, 540.0), text: "Enemy archetypes now cover small / medium / large aggression tests", category: Enemy),
                 ],
                 blocks: [
                     OneWay(name: "enemy patrol bridge", min: (450.0, 700.0), size: (430.0, 18.0)),
@@ -375,9 +379,10 @@
                 ],
                 objects: [
                     Breakable(id: "respawn_platform", name: "respawning breakable platform", min: (470.0, 690.0), size: (260.0, 24.0), max_hp: 2, respawn: Some(AfterSeconds(3.0)), solid: true),
-                    Breakable(id: "permanent_platform", name: "non-respawn breakable platform", min: (840.0, 575.0), size: (260.0, 24.0), max_hp: 2, respawn: Some(Never), solid: true),
-                    Breakable(id: "breakable_crate", name: "breakable object crate", min: (1240.0, 744.0), size: (70.0, 70.0), max_hp: 1, respawn: Some(OnRoomReload), solid: false),
-                    DebugLabel(id: "breakable_sign", name: "breakable sign", position: (820.0, 515.0), text: "Slash platforms/objects; one respawns, one stays gone", category: Interactable),
+                    Breakable(id: "crumble_platform", name: "crumble stand-timer platform", min: (700.0, 650.0), size: (220.0, 24.0), max_hp: 2, respawn: Some(AfterSeconds(3.5)), solid: true),
+                    Breakable(id: "permanent_platform", name: "non-respawn slash platform", min: (980.0, 575.0), size: (260.0, 24.0), max_hp: 2, respawn: Some(Never), solid: true),
+                    Breakable(id: "breakable_crate", name: "breakable object crate", min: (1300.0, 744.0), size: (70.0, 70.0), max_hp: 1, respawn: Some(OnRoomReload), solid: false),
+                    DebugLabel(id: "breakable_sign", name: "breakable sign", position: (820.0, 515.0), text: "Slash some platforms; crumble platforms break after standing too long", category: Interactable),
                 ],
                 blocks: [
                     OneWay(name: "breakable start ledge", min: (280.0, 760.0), size: (220.0, 18.0)),

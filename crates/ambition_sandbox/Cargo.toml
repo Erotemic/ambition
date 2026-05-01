@@ -11,6 +11,8 @@ ambition_engine = { path = "../ambition_engine" }
 avian2d = "0.5"
 bevy = { version = "0.18.1", features = ["wav"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
+bevy_yarnspinner = "0.8"
+bevy_material_ui = "0.2.7"
 bevy_asset_loader = "0.26"
 bevy-inspector-egui = "0.36"
 fundsp = "0.23"

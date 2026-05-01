@@ -102,6 +102,7 @@ pub struct PlayerDamageEvent {
 
 #[derive(Default, Clone, Debug)]
 pub struct FeatureEvents {
+    pub dialogue_request: Option<NpcDialogueRequest>,
     /// Legacy room-reset flag. New player damage should prefer `player_damage`
     /// so lava-like hazards and enemy attacks can resolve differently.
     pub reset_player: bool,
@@ -119,12 +120,22 @@ impl FeatureEvents {
         self.reset_player |= other.reset_player;
         self.consumed_interaction |= other.consumed_interaction;
         self.messages.append(&mut other.messages);
+        if other.dialogue_request.is_some() {
+            self.dialogue_request = other.dialogue_request;
+        }
         self.impacts.append(&mut other.impacts);
         self.bursts.append(&mut other.bursts);
         self.physics_bursts.append(&mut other.physics_bursts);
         self.player_damage.append(&mut other.player_damage);
         self.player_heal += other.player_heal;
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NpcDialogueRequest {
+    pub npc_id: String,
+    pub npc_name: String,
+    pub dialogue_id: String,
 }
 
 #[derive(Clone, Debug)]
@@ -281,6 +292,7 @@ impl FeatureRuntime {
                 if npc.aabb().strict_intersects(player_body) {
                     events.consumed_interaction = true;
                     events.messages.push(npc.message());
+                    events.dialogue_request = Some(npc.dialogue_request());
                     events.bursts.push(npc.pos);
                 }
             }
@@ -1102,9 +1114,21 @@ impl NpcRuntime {
     fn message(&self) -> String {
         match &self.interactable.kind {
             ae::InteractionKind::Npc { dialogue_id: Some(dialogue_id) } => {
-                format!("{} says: dialogue '{}' is wired", self.name, dialogue_id)
+                format!("{} opens dialogue {}", self.name, dialogue_id)
             }
-            _ => format!("{} says: basement feature NPC online", self.name),
+            _ => format!("{} opens fallback dialogue", self.name),
+        }
+    }
+
+    fn dialogue_request(&self) -> NpcDialogueRequest {
+        let dialogue_id = match &self.interactable.kind {
+            ae::InteractionKind::Npc { dialogue_id: Some(dialogue_id) } => dialogue_id.clone(),
+            _ => "generic_npc".to_string(),
+        };
+        NpcDialogueRequest {
+            npc_id: self.id.clone(),
+            npc_name: self.name.clone(),
+            dialogue_id,
         }
     }
 }

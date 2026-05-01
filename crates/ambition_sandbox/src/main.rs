@@ -7,6 +7,7 @@
 mod audio;
 mod config;
 mod data;
+mod dialog;
 mod debug_overlay;
 mod dev_tools;
 mod fx;
@@ -34,6 +35,7 @@ use bevy_inspector_egui::{
 };
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
+use bevy_material_ui::MaterialUiPlugin;
 
 const BULLET_TIME_SCALE: f32 = 0.10;
 const BLINK_HOLD_SLOW_SCALE: f32 = 0.35;
@@ -91,6 +93,8 @@ fn main() {
         .init_collection::<loading::SandboxAssetCollection>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_plugins(ae::AmbitionStateMachinePlugin::default())
+        .add_plugins(dialog::yarn_spinner_plugin())
+        .add_plugins(MaterialUiPlugin)
         .add_plugins(physics::AmbitionPhysicsPlugin)
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
@@ -105,6 +109,7 @@ fn main() {
         .add_systems(
             Update,
             (
+                dialog::dialog_input,
                 sandbox_update,
                 sync_visuals,
                 camera_follow,
@@ -115,6 +120,7 @@ fn main() {
                 fx::update_slash_previews,
                 windowing::window_mode_hotkeys,
                 update_hud,
+                dialog::sync_dialog_ui,
             )
                 .chain(),
         )
@@ -145,6 +151,7 @@ pub struct SandboxRuntime {
     interact_buffer_timer: f32,
     pub moving_platform: platforms::MovingPlatformState,
     pub features: features::FeatureRuntime,
+    pub dialogue: dialog::DialogState,
     physics_settings: physics::PhysicsSandboxSettings,
     pub room_transition_cooldown: f32,
 }
@@ -177,6 +184,7 @@ impl SandboxRuntime {
             interact_buffer_timer: 0.0,
             moving_platform: platforms::MovingPlatformState::time_reference(world),
             features: features::FeatureRuntime::from_world(world),
+            dialogue: dialog::DialogState::default(),
             physics_settings,
             room_transition_cooldown: 0.0,
         }
@@ -197,6 +205,7 @@ impl SandboxRuntime {
         self.interact_buffer_timer = 0.0;
         self.moving_platform = platforms::MovingPlatformState::time_reference(world);
         self.features = features::FeatureRuntime::from_world(world);
+        self.dialogue.close();
         self.room_transition_cooldown = 0.0;
     }
 
@@ -504,6 +513,13 @@ fn sandbox_update(
     if feature_interaction_consumed {
         runtime.clear_interact_buffer();
     }
+    if let Some(request) = &feature_events.dialogue_request {
+        runtime.dialogue.start(&request.dialogue_id, &request.npc_name);
+        runtime.clear_interact_buffer();
+        runtime.hitstop_timer = 0.0;
+        next_mode.set(GameMode::Dialogue);
+        return;
+    }
     if feature_reset {
         reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
         return;
@@ -642,6 +658,7 @@ fn load_room(
     runtime.down_tap_timer = 0.0;
     runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
     runtime.features = features::FeatureRuntime::from_world(&world.0);
+    runtime.dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.

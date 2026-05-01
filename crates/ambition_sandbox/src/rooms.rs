@@ -58,7 +58,7 @@ impl LoadingZone {
         }
     }
 
-    pub fn hint(&self, flying: bool) -> String {
+    pub fn hint(&self, _flying: bool) -> String {
         match self.activation {
             LoadingZoneActivation::EdgeExit => format!("{}: {}", self.activation.label(), self.name),
             LoadingZoneActivation::Door => {

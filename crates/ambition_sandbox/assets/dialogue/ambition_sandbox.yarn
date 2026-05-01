@@ -1,0 +1,30 @@
+title: architect_intro
+---
+Architect: You are standing inside a proof harness pretending to be a basement.
+Architect: Every platform is a claim. Every hurtbox is evidence.
+-> What is this place?
+    Architect: The Kernel's maintenance layer: enemy labs, boss patterns, breakable floors, and unfinished ethical machinery.
+-> Why are the debug boxes honest?
+    Architect: Generated systems lie when they hide their assumptions. Inspection is a sense organ.
+-> Enough architecture for now.
+===
+
+title: vault_keeper
+---
+Vault Keeper: I do not sell power. I sell constraints you can inspect.
+-> Show the merchant plan.
+    Vault Keeper: Inventory rows are dialogue choices with costs, requirements, rewards, and consequences.
+-> What is ethical currency?
+    Vault Keeper: It is provenance, not a morality meter.
+-> Not buying anything yet.
+===
+
+title: merchant_seed
+---
+Merchant Prototype: A real shop should be a dialogue node with inventory, prices, requirements, consequences, and preview text.
+-> Buy health refill (stub).
+    Merchant Prototype: Stub purchase: later this should route through Inventory, Wallet, Price, and RewardEffect systems.
+-> Ask about refunds.
+    Merchant Prototype: Refunds should be reversible until a route, boss, or story flag commits the purchase.
+-> Leave.
+===

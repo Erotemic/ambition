@@ -421,8 +421,9 @@
                 ],
                 objects: [
                     Interactable(id: "npc_architect", name: "Architect NPC", prompt: "Talk", min: (600.0, 596.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("architect_intro"))),
-                    Interactable(id: "npc_keeper", name: "Vault Keeper NPC", prompt: "Talk", min: (900.0, 596.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("vault_keeper"))),
-                    DebugLabel(id: "npc_sign", name: "npc sign", position: (760.0, 520.0), text: "Press up near NPCs to exercise dialogue hooks", category: Interactable),
+                    Interactable(id: "npc_keeper", name: "Vault Keeper NPC", prompt: "Talk", min: (840.0, 596.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("vault_keeper"))),
+                    Interactable(id: "npc_merchant_seed", name: "Merchant Prototype NPC", prompt: "Trade", min: (1060.0, 596.0), size: (42.0, 68.0), kind: Npc(dialogue_id: Some("merchant_seed"))),
+                    DebugLabel(id: "npc_sign", name: "npc sign", position: (760.0, 520.0), text: "Press Interact near NPCs. Dialogue pauses gameplay; choices sketch merchants and story flags.", category: Interactable),
                 ],
                 blocks: [
                     OneWay(name: "npc parlor shelf", min: (480.0, 670.0), size: (560.0, 18.0)),

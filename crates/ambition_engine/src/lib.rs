@@ -1,14 +1,14 @@
 //! Ambition Engine
 //!
-//! This crate is the backend-neutral simulation layer for Ambition. Bevy owns
-//! windowing, rendering, ECS scheduling, audio playback, and input plumbing.
-//! This crate owns the rules that should remain testable without a renderer:
-//! collision geometry, generated room specs, player movement,
-//! combo traces, and simple sandbox enemy fixtures.
+//! This crate is the reusable Bevy-native mechanics layer for Ambition. It owns
+//! features a game or story crate should be able to assemble without rewriting
+//! details: movement, collision semantics, ability gates, combat hitboxes,
+//! enemies, room geometry, generated audio/music specs, and testable gameplay
+//! rules.
 //!
-//! The design goal is intentionally modest: keep the core game logic readable,
-//! deterministic, and easy to port. If a future renderer replaces Bevy, this
-//! crate should still be useful.
+//! Story/sandbox crates should generally provide data, presentation, and input
+//! wiring. The engine may depend on small Bevy crates such as `bevy_math` when
+//! they provide battle-tested primitives that are better than bespoke versions.
 
 pub mod abilities;
 pub mod combat;
@@ -19,14 +19,13 @@ pub mod movement;
 pub mod music;
 pub mod world;
 
-// Re-export the public surface so older sandbox code can continue to refer to
-// `ambition_engine::Player`, `ambition_engine::World`, etc. Internally the code
-// is now split by concern, but the crate remains convenient to use.
+// Re-export the public surface so story/sandbox crates can treat the engine as
+// the main mechanics API while the internals stay organized by concern.
 pub use abilities::AbilitySet;
 pub use combat::slash_hitbox;
 pub use enemy::{spawn_dummies, Dummy, DummyKind};
-pub use geometry::Aabb;
-pub use glam::Vec2;
+pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
+pub use bevy_math::Vec2;
 pub use scalar::approach;
 pub use movement::{
     blink_destination, blink_destination_to_point, update_player, update_player_control,
@@ -39,4 +38,4 @@ pub use movement::{
     POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL, WALL_JUMP_X,
     WALL_SLIDE_SPEED, WALL_CLIMB_SPEED,
 };
-pub use world::{build_endgame_sandbox, BlinkWallTier, Block, BlockKind, World};
+pub use world::{BlinkWallTier, Block, BlockKind, World};

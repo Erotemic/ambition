@@ -5,6 +5,7 @@
 //! state for tuning and feel work.
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -65,7 +66,7 @@ pub fn draw_debug_overlay(
 }
 
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
-    let room = ae::Aabb::from_min_size(ae::Vec2::ZERO, world.size);
+    let room = ae::aabb_from_min_size(ae::Vec2::ZERO, world.size);
     draw_aabb(gizmos, world, room, white_dim());
 }
 
@@ -201,7 +202,7 @@ fn draw_player_debug(
 fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
     let aabb = runtime.moving_platform.aabb();
     draw_aabb(gizmos, world, aabb, blue());
-    let center = w2(world, aabb.center);
+    let center = w2(world, aabb.center());
     draw_arrow(gizmos, center, center + BVec2::new(44.0, 0.0), blue());
 }
 
@@ -237,7 +238,7 @@ fn draw_rebound_vectors(gizmos: &mut Gizmos, world: &ae::World) {
             continue;
         };
         draw_aabb(gizmos, world, block.aabb, orange());
-        let start = w2(world, block.aabb.center);
+        let start = w2(world, block.aabb.center());
         let direction = impulse.normalize_or(ae::Vec2::new(0.0, -1.0));
         let end = start + engine_delta_to_bevy(direction * 70.0);
         draw_arrow(gizmos, start, end, orange());
@@ -245,8 +246,8 @@ fn draw_rebound_vectors(gizmos: &mut Gizmos, world: &ae::World) {
 }
 
 fn draw_aabb(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, color: Color) {
-    let min = aabb.min();
-    let max = aabb.max();
+    let min = aabb.min;
+    let max = aabb.max;
     let tl = w2(world, ae::Vec2::new(min.x, min.y));
     let tr = w2(world, ae::Vec2::new(max.x, min.y));
     let br = w2(world, ae::Vec2::new(max.x, max.y));

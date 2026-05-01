@@ -1,6 +1,6 @@
 //! Small scalar utilities used by the deterministic simulation.
 //!
-//! Vector math comes from `glam::Vec2`, matching Bevy's math stack. This module
+//! Vector math comes from `bevy_math::Vec2`, matching Bevy's math stack. This module
 //! only keeps Ambition-specific scalar helpers that are not worth pulling from a
 //! larger crate yet.
 

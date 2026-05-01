@@ -4,9 +4,11 @@ Ambition should stay code-first, but it should not rebuild common infrastructure
 
 ## Prefer crates for solved infrastructure
 
-- `glam` / `bevy_math`: vector and matrix math. The former custom `Vec2` was useful early, but the engine now uses `glam::Vec2` directly and re-exports it as `ambition_engine::Vec2`. This keeps the core close to Bevy without depending on all of Bevy.
-- `serde` + `ron` or `toml`: future room specs, ability presets, input bindings, and generated content should become data rather than hand-authored Rust constructors.
-- `kira`: future audio should use a proper game-audio layer when we need fades, layered adaptive music, buses, effects, or precise clocks. The current Bevy audio path is fine for simple generated WAV playback.
+- `bevy_math`: vector math and bounding primitives. The former custom `Vec2` and custom AABB were useful early, but the engine now re-exports Bevy math primitives as `ambition_engine::Vec2` and `ambition_engine::Aabb`.
+- `parry2d`: collision and geometry queries such as swept boxes, future raycasts, and spawn validation.
+- `serde` + `ron`: room specs, ability presets, input bindings, tuning, and generated-content specs should be data rather than hand-authored Rust constructors.
+- `fundsp`: procedural/generated audio synthesis.
+- `kira` / `bevy_kira_audio`: future audio playback and mixing when we need fades, layered adaptive music, buses, effects, or precise clocks.
 - Bevy ECS/plugins: keep rendering, camera, UI, audio playback, and windowing in Bevy systems rather than reimplementing a second engine.
 
 ## Keep bespoke code where it defines Ambition
@@ -17,18 +19,6 @@ Ambition should stay code-first, but it should not rebuild common infrastructure
 - story/world-state semantics;
 - procedural content contracts that are specific to Ambition.
 
-## Near-term refactor target
+## Crate roles
 
-The highest-value next data-driven migration is room authoring:
-
-```text
-RoomSpec
-  size
-  blocks[]
-  loading_zones[]
-  enemy_spawns[]
-  moving_platforms[]
-  ambience_id
-```
-
-Once that exists, generated rooms and hand-authored test rooms can use the same validation pipeline.
+`ambition_engine` should own reusable mechanics and can depend on Bevy math/geometry primitives. `ambition_sandbox` and future story crates should own content, data manifests, presentation, and input mappings.

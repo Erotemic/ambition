@@ -14,7 +14,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::abilities::AbilitySet;
-use crate::geometry::Aabb;
+use crate::geometry::{Aabb, AabbExt};
 use crate::{approach, Vec2};
 use crate::world::{BlinkWallTier, BlockKind, World};
 
@@ -282,7 +282,7 @@ impl Player {
     }
 }
 
-/// Backend-neutral input for one simulation frame.
+/// Game-action input for one simulation frame.
 ///
 /// Keyboard/gamepad remapping belongs in the presentation layer. Once those
 /// devices are interpreted, the engine only needs a small set of actions.
@@ -1063,7 +1063,7 @@ fn sweep_player_y(world: &World, player: &mut Player, delta_y: f32, prev_bottom:
     }) {
         player.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
         let body = player.aabb();
-        if delta.y > 0.0 || body.center.y < hit.block.aabb.center.y {
+        if delta.y > 0.0 || body.center().y < hit.block.aabb.center().y {
             player.pos.y += hit.block.aabb.top() - body.bottom();
             player.on_ground = true;
         } else {
@@ -1080,7 +1080,7 @@ fn sweep_player_y(world: &World, player: &mut Player, delta_y: f32, prev_bottom:
 fn resolve_axis(world: &World, player: &mut Player, axis: Axis) {
     let mut aabb = player.aabb();
     for block in &world.blocks {
-        if !is_solid_for_axis(block.kind, axis) || !aabb.intersects(block.aabb) {
+        if !is_solid_for_axis(block.kind, axis) || !aabb.strict_intersects(block.aabb) {
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
@@ -1088,7 +1088,7 @@ fn resolve_axis(world: &World, player: &mut Player, axis: Axis) {
         }
         match axis {
             Axis::X => {
-                if aabb.center.x < block.aabb.center.x {
+                if aabb.center().x < block.aabb.center().x {
                     let push = block.aabb.left() - aabb.right();
                     player.pos.x += push;
                     player.wall_normal_x = -1.0;
@@ -1109,7 +1109,7 @@ fn resolve_axis(world: &World, player: &mut Player, axis: Axis) {
 fn resolve_vertical(world: &World, player: &mut Player, prev_bottom: f32, drop_through: bool) {
     let mut aabb = player.aabb();
     for block in &world.blocks {
-        if !is_solid_for_axis(block.kind, Axis::Y) || !aabb.intersects(block.aabb) {
+        if !is_solid_for_axis(block.kind, Axis::Y) || !aabb.strict_intersects(block.aabb) {
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
@@ -1118,7 +1118,7 @@ fn resolve_vertical(world: &World, player: &mut Player, prev_bottom: f32, drop_t
                 continue;
             }
         }
-        if aabb.center.y < block.aabb.center.y {
+        if aabb.center().y < block.aabb.center().y {
             let push = block.aabb.top() - aabb.bottom();
             player.pos.y += push;
             player.on_ground = true;
@@ -1134,12 +1134,12 @@ fn resolve_vertical(world: &World, player: &mut Player, prev_bottom: f32, drop_t
 fn try_pogo(world: &World, player: &mut Player, tuning: MovementTuning) -> bool {
     let feet = player.aabb();
     let hitbox = Aabb::new(
-        Vec2::new(feet.center.x, feet.bottom() + 18.0),
-        Vec2::new(feet.half.x * 0.76, 22.0),
+        Vec2::new(feet.center().x, feet.bottom() + 18.0),
+        Vec2::new(feet.half_size().x * 0.76, 22.0),
     );
     let hit = world.blocks.iter().any(|block| {
         let valid_target = matches!(block.kind, BlockKind::PogoOrb | BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::Rebound { .. });
-        valid_target && hitbox.intersects(block.aabb)
+        valid_target && hitbox.strict_intersects(block.aabb)
     });
     if hit {
         player.vel.y = -tuning.pogo_speed;
@@ -1154,13 +1154,13 @@ fn touching_hazard(world: &World, player: &Player) -> bool {
     world
         .blocks
         .iter()
-        .any(|b| matches!(b.kind, BlockKind::Hazard) && aabb.intersects(b.aabb))
+        .any(|b| matches!(b.kind, BlockKind::Hazard) && aabb.strict_intersects(b.aabb))
 }
 
 fn touching_rebound(world: &World, player: &Player) -> Option<Vec2> {
     let aabb = player.aabb();
     world.blocks.iter().find_map(|b| match b.kind {
-        BlockKind::Rebound { impulse } if aabb.intersects(b.aabb) => Some(impulse),
+        BlockKind::Rebound { impulse } if aabb.strict_intersects(b.aabb) => Some(impulse),
         _ => None,
     })
 }
@@ -1244,7 +1244,7 @@ enum BlinkCollision {
 fn blink_collision(world: &World, player: &Player, aabb: Aabb) -> BlinkCollision {
     let mut pass_through = false;
     for block in &world.blocks {
-        if !aabb.intersects(block.aabb) {
+        if !aabb.strict_intersects(block.aabb) {
             continue;
         }
         match block.kind {
@@ -1274,15 +1274,31 @@ fn player_can_blink_through(player: &Player, tier: BlinkWallTier) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world::{build_endgame_sandbox, BlinkWallTier, Block};
+    use crate::world::{BlinkWallTier, Block};
 
     fn step(world: &World, player: &mut Player, input: InputState) -> FrameEvents {
         update_player_with_tuning(world, player, input, 1.0 / 60.0, DEFAULT_TUNING)
     }
 
+    fn test_world() -> World {
+        let w = 1600.0;
+        let h = 900.0;
+        World {
+            name: "movement test world".to_string(),
+            size: Vec2::new(w, h),
+            spawn: Vec2::new(210.0, h - 95.0),
+            blocks: vec![
+                Block::solid("floor", Vec2::new(0.0, h - 48.0), Vec2::new(w, 48.0)),
+                Block::solid("left wall", Vec2::new(0.0, 0.0), Vec2::new(36.0, h)),
+                Block::solid("right wall", Vec2::new(w - 36.0, 0.0), Vec2::new(36.0, h)),
+                Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)),
+            ],
+        }
+    }
+
     #[test]
     fn tiny_dt_preserves_bullet_time_scale() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new(world.spawn);
         player.on_ground = false;
         player.coyote_timer = 0.0;
@@ -1303,7 +1319,7 @@ mod tests {
 
     #[test]
     fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new(world.spawn);
         player.on_ground = false;
         player.coyote_timer = 0.0;
@@ -1344,7 +1360,7 @@ mod tests {
 
     #[test]
     fn held_blink_arms_when_cooldown_clears_without_new_press() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new(world.spawn);
         player.blink_cooldown = 0.02;
 
@@ -1389,7 +1405,7 @@ mod tests {
 
     #[test]
     fn double_jump_ability_controls_air_jump() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut abilities = AbilitySet::sandbox_all();
         abilities.double_jump = false;
         let mut player = Player::new_with_abilities(world.spawn, abilities);
@@ -1410,7 +1426,7 @@ mod tests {
 
     #[test]
     fn double_dash_ability_controls_dash_charges() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut single_dash = AbilitySet::sandbox_all();
         single_dash.double_dash = false;
         let player = Player::new_with_abilities(world.spawn, single_dash);
@@ -1429,7 +1445,7 @@ mod tests {
 
     #[test]
     fn blink_ability_gates_teleport() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut abilities = AbilitySet::sandbox_all();
         abilities.blink = false;
         abilities.precision_blink = false;
@@ -1454,7 +1470,7 @@ mod tests {
 
     #[test]
     fn quick_blink_moves_on_release() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         let start = player.pos;
         step(&world, &mut player, InputState {
@@ -1476,7 +1492,7 @@ mod tests {
 
     #[test]
     fn held_blink_enters_precision_aiming() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         for _ in 0..20 {
             let blink_pressed = !player.blink_hold_active;
@@ -1500,7 +1516,7 @@ mod tests {
 
     #[test]
     fn fast_fall_requires_double_tap_signal() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         player.on_ground = false;
         player.vel.y = 0.0;
@@ -1525,7 +1541,7 @@ mod tests {
 
     #[test]
     fn repeated_blinks_clamp_downward_velocity_each_time() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new(world.spawn);
         player.pos = Vec2::new(420.0, 620.0);
 
@@ -1557,7 +1573,7 @@ mod tests {
 
     #[test]
     fn post_blink_grace_suspends_gravity_for_tiny_window() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new(world.spawn);
         player.pos = Vec2::new(420.0, 620.0);
         player.vel = Vec2::new(0.0, 900.0);
@@ -1579,7 +1595,7 @@ mod tests {
 
     #[test]
     fn blink_walls_can_be_passed_by_upgrade_without_allowing_solid_walls() {
-        let mut world = build_endgame_sandbox();
+        let mut world = test_world();
         world.blocks.clear();
         world.blocks.push(Block::blink_wall(
             "test soft blink membrane",
@@ -1603,7 +1619,7 @@ mod tests {
 
     #[test]
     fn fly_toggle_switches_mode_and_counters_gravity() {
-        let world = build_endgame_sandbox();
+        let world = test_world();
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         assert!(!player.fly_enabled);
         let events = step(&world, &mut player, InputState {

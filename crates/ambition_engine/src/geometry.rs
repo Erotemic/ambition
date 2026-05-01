@@ -1,11 +1,12 @@
-//! Collision geometry primitives.
+//! Bevy-native geometry helpers.
 //!
-//! Ambition starts with axis-aligned boxes because they are easy to debug,
-//! deterministic, and sufficient for a first-pass platformer feel sandbox. The
-//! public engine type remains a tiny `Aabb`, but narrow-phase overlap and swept
-//! box queries are delegated to `parry2d` so future collision work can grow from
-//! a tested geometry library instead of one-off math helpers.
+//! Ambition uses Bevy's `Aabb2d` as its public rectangular collision primitive
+//! instead of maintaining a bespoke engine AABB type. This module only keeps the
+//! Ambition-specific semantics layered on top of that primitive: center/half
+//! convenience helpers, strict platformer overlap where edge-touching is not an
+//! overlap, and Parry-backed swept-box queries.
 
+use bevy_math::bounding::Aabb2d;
 use parry2d::{
     math::{Pose, Vector},
     query::{self, ShapeCastOptions},
@@ -16,54 +17,83 @@ use crate::Vec2;
 
 const CONTACT_EPS: f32 = 1.0e-4;
 
-/// Axis-aligned bounding box represented by center and half extents.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Aabb {
-    pub center: Vec2,
-    pub half: Vec2,
+/// Public engine AABB type.
+///
+/// This is Bevy's battle-tested 2D bounding box, re-exported under the shorter
+/// engine name so game/story crates can keep using `ambition_engine::Aabb`.
+pub type Aabb = Aabb2d;
+
+/// Construct an AABB from a minimum corner and a size.
+pub fn aabb_from_min_size(min: Vec2, size: Vec2) -> Aabb {
+    Aabb::new(min + size * 0.5, size * 0.5)
 }
 
-impl Aabb {
-    pub const fn new(center: Vec2, half: Vec2) -> Self {
-        Self { center, half }
+/// Ambition-specific helpers layered on Bevy's `Aabb2d`.
+///
+/// Bevy's own bounding-volume traits intentionally use general-purpose geometry
+/// semantics. Ambition needs slightly stricter platformer semantics in a few
+/// places, most importantly treating edge-touching boxes as non-overlapping.
+pub trait AabbExt {
+    fn center(self) -> Vec2;
+    fn half_size(self) -> Vec2;
+    fn width(self) -> f32;
+    fn height(self) -> f32;
+    fn top(self) -> f32;
+    fn bottom(self) -> f32;
+    fn left(self) -> f32;
+    fn right(self) -> f32;
+    fn translated(self, delta: Vec2) -> Self;
+    fn strict_intersects(self, rhs: Self) -> bool;
+    fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32>;
+}
+
+impl AabbExt for Aabb {
+    fn center(self) -> Vec2 {
+        (self.min + self.max) * 0.5
     }
 
-    pub fn from_min_size(min: Vec2, size: Vec2) -> Self {
-        Self::new(min + size * 0.5, size * 0.5)
+    fn half_size(self) -> Vec2 {
+        (self.max - self.min) * 0.5
     }
 
-    pub fn min(self) -> Vec2 {
-        self.center - self.half
+    fn width(self) -> f32 {
+        self.max.x - self.min.x
     }
 
-    pub fn max(self) -> Vec2 {
-        self.center + self.half
+    fn height(self) -> f32 {
+        self.max.y - self.min.y
     }
 
-    pub fn top(self) -> f32 {
-        self.center.y - self.half.y
+    fn top(self) -> f32 {
+        self.min.y
     }
 
-    pub fn bottom(self) -> f32 {
-        self.center.y + self.half.y
+    fn bottom(self) -> f32 {
+        self.max.y
     }
 
-    pub fn left(self) -> f32 {
-        self.center.x - self.half.x
+    fn left(self) -> f32 {
+        self.min.x
     }
 
-    pub fn right(self) -> f32 {
-        self.center.x + self.half.x
+    fn right(self) -> f32 {
+        self.max.x
     }
 
-    /// Strict AABB overlap test backed by Parry.
+    fn translated(self, delta: Vec2) -> Self {
+        Self {
+            min: self.min + delta,
+            max: self.max + delta,
+        }
+    }
+
+    /// Strict overlap test backed by Parry.
     ///
     /// Ambition historically treated edge-touching boxes as non-overlapping. We
     /// preserve that gameplay contract with a cheap separating-axis guard before
     /// calling Parry's shape intersection routine, which considers touching
-    /// shapes intersecting. This gives us Parry-backed geometry without changing
-    /// long-standing platformer contact semantics.
-    pub fn intersects(self, rhs: Self) -> bool {
+    /// shapes intersecting.
+    fn strict_intersects(self, rhs: Self) -> bool {
         if self.right() <= rhs.left()
             || self.left() >= rhs.right()
             || self.bottom() <= rhs.top()
@@ -72,19 +102,15 @@ impl Aabb {
             return false;
         }
 
-        let lhs_shape = self.parry_cuboid();
-        let rhs_shape = rhs.parry_cuboid();
+        let lhs_shape = parry_cuboid(self);
+        let rhs_shape = parry_cuboid(rhs);
         query::intersection_test(
-            &self.parry_pose(),
+            &parry_pose(self),
             &lhs_shape,
-            &rhs.parry_pose(),
+            &parry_pose(rhs),
             &rhs_shape,
         )
         .unwrap_or(true)
-    }
-
-    pub fn translated(self, delta: Vec2) -> Self {
-        Self::new(self.center + delta, self.half)
     }
 
     /// Return the time in `[0, 1]` at which this box first touches `rhs` while
@@ -100,23 +126,23 @@ impl Aabb {
     /// vertical motion. We therefore discard zero-time Parry hits when the boxes
     /// were merely touching and the requested delta is not moving into the
     /// touching face.
-    pub fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32> {
+    fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32> {
         if delta.length_squared() <= 1.0e-8 {
-            return self.intersects(rhs).then_some(0.0);
+            return self.strict_intersects(rhs).then_some(0.0);
         }
 
-        let moving_shape = self.parry_cuboid();
-        let static_shape = rhs.parry_cuboid();
+        let moving_shape = parry_cuboid(self);
+        let static_shape = parry_cuboid(rhs);
         let mut options = ShapeCastOptions::default();
         options.max_time_of_impact = 1.0;
         options.target_distance = 0.0;
         options.stop_at_penetration = true;
 
         query::cast_shapes(
-            &self.parry_pose(),
+            &parry_pose(self),
             to_parry_vec(delta),
             &moving_shape,
-            &rhs.parry_pose(),
+            &parry_pose(rhs),
             Vector::ZERO,
             &static_shape,
             options,
@@ -126,8 +152,8 @@ impl Aabb {
         .and_then(|hit| {
             let time_of_impact = hit.time_of_impact.clamp(0.0, 1.0);
             if time_of_impact <= CONTACT_EPS
-                && !self.intersects(rhs)
-                && !self.moves_into_touching_face(delta, rhs)
+                && !self.strict_intersects(rhs)
+                && !moves_into_touching_face(self, delta, rhs)
             {
                 None
             } else {
@@ -135,34 +161,33 @@ impl Aabb {
             }
         })
     }
+}
 
-    fn moves_into_touching_face(self, delta: Vec2, rhs: Self) -> bool {
-        let y_ranges_overlap = self.bottom() > rhs.top() + CONTACT_EPS
-            && self.top() < rhs.bottom() - CONTACT_EPS;
-        let x_ranges_overlap = self.right() > rhs.left() + CONTACT_EPS
-            && self.left() < rhs.right() - CONTACT_EPS;
+fn moves_into_touching_face(lhs: Aabb, delta: Vec2, rhs: Aabb) -> bool {
+    let y_ranges_overlap = lhs.bottom() > rhs.top() + CONTACT_EPS
+        && lhs.top() < rhs.bottom() - CONTACT_EPS;
+    let x_ranges_overlap = lhs.right() > rhs.left() + CONTACT_EPS
+        && lhs.left() < rhs.right() - CONTACT_EPS;
 
-        let touching_rhs_left = nearly_equal(self.right(), rhs.left());
-        let touching_rhs_right = nearly_equal(self.left(), rhs.right());
-        let touching_rhs_top = nearly_equal(self.bottom(), rhs.top());
-        let touching_rhs_bottom = nearly_equal(self.top(), rhs.bottom());
+    let touching_rhs_left = nearly_equal(lhs.right(), rhs.left());
+    let touching_rhs_right = nearly_equal(lhs.left(), rhs.right());
+    let touching_rhs_top = nearly_equal(lhs.bottom(), rhs.top());
+    let touching_rhs_bottom = nearly_equal(lhs.top(), rhs.bottom());
 
-        (touching_rhs_left && y_ranges_overlap && delta.x > CONTACT_EPS)
-            || (touching_rhs_right && y_ranges_overlap && delta.x < -CONTACT_EPS)
-            || (touching_rhs_top && x_ranges_overlap && delta.y > CONTACT_EPS)
-            || (touching_rhs_bottom && x_ranges_overlap && delta.y < -CONTACT_EPS)
-    }
+    (touching_rhs_left && y_ranges_overlap && delta.x > CONTACT_EPS)
+        || (touching_rhs_right && y_ranges_overlap && delta.x < -CONTACT_EPS)
+        || (touching_rhs_top && x_ranges_overlap && delta.y > CONTACT_EPS)
+        || (touching_rhs_bottom && x_ranges_overlap && delta.y < -CONTACT_EPS)
+}
 
-    fn parry_pose(self) -> Pose {
-        Pose::translation(self.center.x, self.center.y)
-    }
+fn parry_pose(aabb: Aabb) -> Pose {
+    let center = aabb.center();
+    Pose::translation(center.x, center.y)
+}
 
-    fn parry_cuboid(self) -> Cuboid {
-        Cuboid::new(to_parry_vec(Vec2::new(
-            self.half.x.max(0.0),
-            self.half.y.max(0.0),
-        )))
-    }
+fn parry_cuboid(aabb: Aabb) -> Cuboid {
+    let half = aabb.half_size();
+    Cuboid::new(to_parry_vec(Vec2::new(half.x.max(0.0), half.y.max(0.0))))
 }
 
 fn to_parry_vec(value: Vec2) -> Vector {
@@ -176,6 +201,13 @@ fn nearly_equal(a: f32, b: f32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn from_min_size_matches_center_half_constructor() {
+        let aabb = aabb_from_min_size(Vec2::new(10.0, 20.0), Vec2::new(30.0, 40.0));
+        assert_eq!(aabb.center(), Vec2::new(25.0, 40.0));
+        assert_eq!(aabb.half_size(), Vec2::new(15.0, 20.0));
+    }
 
     #[test]
     fn resting_on_floor_does_not_block_horizontal_sweep() {

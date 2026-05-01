@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use bevy::prelude::Resource;
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -166,7 +167,7 @@ impl RoomSet {
         let zone = self
             .active_loading_zones()
             .iter()
-            .find(|zone| body.intersects(zone.aabb) && zone.is_ready(wants_interact))?
+            .find(|zone| body.strict_intersects(zone.aabb) && zone.is_ready(wants_interact))?
             .clone();
         self.transition_from_zone(zone)
     }
@@ -202,7 +203,7 @@ impl RoomSet {
         let body = player.aabb();
         self.active_loading_zones()
             .iter()
-            .filter(|zone| body.intersects(zone.aabb))
+            .filter(|zone| body.strict_intersects(zone.aabb))
             .map(|zone| zone.hint(flying))
             .collect()
     }
@@ -217,7 +218,7 @@ impl RoomSet {
                         block.kind,
                         ae::BlockKind::Rebound { .. } | ae::BlockKind::PogoOrb | ae::BlockKind::Hazard
                     );
-                    if active_fixture && block.aabb.intersects(zone.aabb) {
+                    if active_fixture && block.aabb.strict_intersects(zone.aabb) {
                         warnings.push(format!(
                             "room {room_index} '{}' has {} '{}' overlapping loading zone '{}'",
                             room.world.name,
@@ -301,14 +302,14 @@ fn build_room_from_data(room: &data::RoomSpecData) -> RoomSpec {
             id: zone.id.clone(),
             name: zone.name.clone(),
             activation: zone.activation.into(),
-            aabb: ae::Aabb::from_min_size(data::vec2(zone.min), data::vec2(zone.size)),
+            aabb: ae::aabb_from_min_size(data::vec2(zone.min), data::vec2(zone.size)),
         })
         .collect();
 
     RoomSpec {
         id: room.id.clone(),
         world: ae::World {
-            name: leak_str(&room.name),
+            name: room.name.clone(),
             size,
             spawn: data::vec2(room.spawn),
             blocks,
@@ -319,25 +320,21 @@ fn build_room_from_data(room: &data::RoomSpecData) -> RoomSpec {
 
 fn build_block(block: &BlockSpec) -> ae::Block {
     match block {
-        BlockSpec::Solid { name, min, size } => ae::Block::solid(leak_str(name), data::vec2(*min), data::vec2(*size)),
+        BlockSpec::Solid { name, min, size } => ae::Block::solid(name.clone(), data::vec2(*min), data::vec2(*size)),
         BlockSpec::BlinkWall { name, min, size, tier } => {
             let tier = match tier {
                 BlinkWallTierSpec::Soft => ae::BlinkWallTier::Soft,
                 BlinkWallTierSpec::Hard => ae::BlinkWallTier::Hard,
             };
-            ae::Block::blink_wall(leak_str(name), data::vec2(*min), data::vec2(*size), tier)
+            ae::Block::blink_wall(name.clone(), data::vec2(*min), data::vec2(*size), tier)
         }
-        BlockSpec::OneWay { name, min, size } => ae::Block::one_way(leak_str(name), data::vec2(*min), data::vec2(*size)),
-        BlockSpec::Hazard { name, min, size } => ae::Block::hazard(leak_str(name), data::vec2(*min), data::vec2(*size)),
-        BlockSpec::PogoOrb { name, center, radius } => ae::Block::pogo_orb(leak_str(name), data::vec2(*center), *radius),
+        BlockSpec::OneWay { name, min, size } => ae::Block::one_way(name.clone(), data::vec2(*min), data::vec2(*size)),
+        BlockSpec::Hazard { name, min, size } => ae::Block::hazard(name.clone(), data::vec2(*min), data::vec2(*size)),
+        BlockSpec::PogoOrb { name, center, radius } => ae::Block::pogo_orb(name.clone(), data::vec2(*center), *radius),
         BlockSpec::Rebound { name, min, size, impulse } => {
-            ae::Block::rebound(leak_str(name), data::vec2(*min), data::vec2(*size), data::vec2(*impulse))
+            ae::Block::rebound(name.clone(), data::vec2(*min), data::vec2(*size), data::vec2(*impulse))
         }
     }
-}
-
-fn leak_str(value: &str) -> &'static str {
-    Box::leak(value.to_string().into_boxed_str())
 }
 
 fn shell_with_openings(blocks: &mut Vec<ae::Block>, w: f32, h: f32, openings: &[data::WallOpeningSpec]) {
@@ -393,13 +390,13 @@ fn edge_arrival(world: &ae::World, zone: ae::Aabb) -> ae::Vec2 {
     } else if zone.right() >= world.size.x - WALL - 1.0 {
         world.size.x - EDGE_ARRIVAL_INSET
     } else {
-        zone.center.x
+        zone.center().x
     };
-    ae::Vec2::new(x, zone.center.y)
+    ae::Vec2::new(x, zone.center().y)
 }
 
 fn door_arrival(zone: ae::Aabb) -> ae::Vec2 {
-    ae::Vec2::new(zone.center.x, zone.bottom() - PLAYER_HALF_H - SPAWN_MARGIN)
+    ae::Vec2::new(zone.center().x, zone.bottom() - PLAYER_HALF_H - SPAWN_MARGIN)
 }
 
 /// Clamp and repair a proposed player spawn so transitions never place the

@@ -5,6 +5,7 @@
 //! into Bevy transforms/sprites.
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -93,24 +94,24 @@ pub fn spawn_grid(commands: &mut Commands, world: &ae::World) {
 }
 
 pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block) {
-    let size = block.aabb.half * 2.0;
+    let size = block.aabb.half_size() * 2.0;
     commands.spawn((
         Sprite::from_color(block_color(block.kind), BVec2::new(size.x, size.y)),
-        Transform::from_translation(world_to_bevy(world, block.aabb.center, WORLD_Z_BLOCK)),
+        Transform::from_translation(world_to_bevy(world, block.aabb.center(), WORLD_Z_BLOCK)),
         Name::new(format!("Block: {}", block.name)),
         RoomVisual,
     ));
 }
 
 pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &LoadingZone) {
-    let size = zone.aabb.half * 2.0;
+    let size = zone.aabb.half_size() * 2.0;
     let color = match zone.activation {
         LoadingZoneActivation::EdgeExit => Color::srgba(0.20, 0.95, 1.0, 0.22),
         LoadingZoneActivation::Door => Color::srgba(1.0, 0.72, 0.18, 0.46),
     };
     commands.spawn((
         Sprite::from_color(color, BVec2::new(size.x, size.y)),
-        Transform::from_translation(world_to_bevy(world, zone.aabb.center, WORLD_Z_BLOCK + 6.0)),
+        Transform::from_translation(world_to_bevy(world, zone.aabb.center(), WORLD_Z_BLOCK + 6.0)),
         Name::new(format!("Loading zone: {}", zone.name)),
         RoomVisual,
     ));

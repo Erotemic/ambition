@@ -139,7 +139,7 @@ dependencies = [
 name = "ambition_engine"
 version = "0.1.0"
 dependencies = [
- "glam 0.30.10",
+ "bevy_math",
  "parry2d",
  "serde",
 ]

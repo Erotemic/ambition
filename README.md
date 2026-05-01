@@ -190,9 +190,10 @@ Additional layout notes:
 - Data-driven RON manifest: see `docs/data_driven_manifest.md`.
 - Crate strategy / avoiding reinvention: see `docs/crate_strategy.md`.
 - Bevy Gizmos + inspector workflow: see `docs/developer_tools.md`.
+- Bevy-native engine math/geometry cleanup: see `docs/bevy_math_engine_refactor.md`.
 
 ## Data manifest
 
 The sandbox data now lives in `crates/ambition_sandbox/assets/ambition/sandbox.ron`. That manifest contains the active ability set, movement tuning, generated-audio specs, room geometry, loading zones, and graph links between rooms. The code still embeds the manifest synchronously for simple startup, but it also registers the same type with `bevy_common_assets::ron::RonAssetPlugin` so the project has a clear path toward Bevy asset loading / hot reload.
 
-- `docs/glam_migration.md` explains why engine vectors now use glam directly.
+- `docs/glam_migration.md` explains why engine vectors now use Bevy math directly.

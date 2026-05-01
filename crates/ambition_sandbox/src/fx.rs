@@ -4,6 +4,7 @@
 //! compact module gives us a later migration seam to GPU particles or Hanabi.
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
@@ -115,10 +116,10 @@ pub fn update_slash_previews(
 }
 
 pub fn spawn_slash_preview(commands: &mut Commands, world: &ae::World, hitbox: ae::Aabb) {
-    let size = hitbox.half * 2.0;
+    let size = hitbox.half_size() * 2.0;
     commands.spawn((
         Sprite::from_color(Color::srgba(1.0, 1.0, 0.35, 0.80), BVec2::new(size.x, size.y)),
-        Transform::from_translation(world_to_bevy(world, hitbox.center, WORLD_Z_FX + 2.0)),
+        Transform::from_translation(world_to_bevy(world, hitbox.center(), WORLD_Z_FX + 2.0)),
         SlashPreviewVisual { age: 0.0, duration: 0.10 },
     ));
 }

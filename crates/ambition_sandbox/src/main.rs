@@ -18,6 +18,7 @@ mod rooms;
 mod windowing;
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use audio::{play_ambience, play_sound, SoundBank, SoundCue};
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
@@ -618,8 +619,8 @@ fn process_attack(
     let mut killed = false;
     let player_facing = runtime.player.facing;
     for dummy in &mut runtime.dummies {
-        if dummy.alive && attack.intersects(dummy.aabb()) {
-            let hit_pos = ae::Vec2::new((attack.center.x + dummy.pos.x) * 0.5, (attack.center.y + dummy.pos.y) * 0.5);
+        if dummy.alive && attack.strict_intersects(dummy.aabb()) {
+            let hit_pos = ae::Vec2::new((attack.center().x + dummy.pos.x) * 0.5, (attack.center().y + dummy.pos.y) * 0.5);
             spawn_impact(commands, world, hit_pos);
             spawn_burst(commands, world, hit_pos, 18, 390.0, [1.0, 0.93, 0.44, 0.94], ParticleKind::Shard);
             killed |= dummy.apply_hit(1, player_facing * 300.0);

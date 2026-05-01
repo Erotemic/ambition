@@ -37,7 +37,7 @@ These are intentionally still simple, but they are the next things to extract
 when they become painful:
 
 1. **Room generation**
-   - `ambition_engine::build_endgame_sandbox()` still directly defines the test room.
+   - Room layout is now RON-backed in the sandbox crate; engine tests use small purpose-built fixture worlds.
    - Next step: represent rooms as `SandboxSpec` or `RoomSpec` data structures so the engine can load/generated multiple rooms.
 
 2. **Movement constants**

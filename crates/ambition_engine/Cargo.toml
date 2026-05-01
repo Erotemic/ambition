@@ -7,6 +7,6 @@ authors.workspace = true
 description = "Core assetless movement/collision/sandbox logic for Ambition Engine."
 
 [dependencies]
-glam = { version = "0.30.7", features = ["serde"] }
+bevy_math = { version = "0.18.1", features = ["serialize"] }
 parry2d = "0.26"
 serde = { version = "1", features = ["derive"] }

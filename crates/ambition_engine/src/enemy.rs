@@ -7,7 +7,7 @@
 //! They are still intentionally simple. The current goal is to test attack
 //! feel and feedback, not to design final enemy AI.
 
-use crate::geometry::Aabb;
+use crate::geometry::{Aabb, AabbExt};
 use crate::{approach, Vec2};
 use crate::world::{BlockKind, World};
 
@@ -210,7 +210,7 @@ fn sweep_dummy_y(world: &World, dummy: &mut Dummy, delta_y: f32, prev_bottom: f3
     }) {
         dummy.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
         let body = dummy.aabb();
-        if delta.y > 0.0 || body.center.y < hit.block.aabb.center.y {
+        if delta.y > 0.0 || body.center().y < hit.block.aabb.center().y {
             dummy.pos.y += hit.block.aabb.top() - body.bottom();
         } else {
             dummy.pos.y += hit.block.aabb.bottom() - body.top();
@@ -226,10 +226,10 @@ fn sweep_dummy_y(world: &World, dummy: &mut Dummy, delta_y: f32, prev_bottom: f3
 fn resolve_dummy_x(world: &World, dummy: &mut Dummy) {
     let mut body = dummy.aabb();
     for block in &world.blocks {
-        if !dummy_collides_on_x(block.kind) || !body.intersects(block.aabb) {
+        if !dummy_collides_on_x(block.kind) || !body.strict_intersects(block.aabb) {
             continue;
         }
-        if body.center.x < block.aabb.center.x {
+        if body.center().x < block.aabb.center().x {
             dummy.pos.x += block.aabb.left() - body.right();
         } else {
             dummy.pos.x += block.aabb.right() - body.left();
@@ -242,7 +242,7 @@ fn resolve_dummy_x(world: &World, dummy: &mut Dummy) {
 fn resolve_dummy_y(world: &World, dummy: &mut Dummy, prev_bottom: f32) {
     let mut body = dummy.aabb();
     for block in &world.blocks {
-        if !dummy_collides_on_y(block.kind) || !body.intersects(block.aabb) {
+        if !dummy_collides_on_y(block.kind) || !body.strict_intersects(block.aabb) {
             continue;
         }
         if matches!(block.kind, BlockKind::OneWay) {
@@ -251,7 +251,7 @@ fn resolve_dummy_y(world: &World, dummy: &mut Dummy, prev_bottom: f32) {
                 continue;
             }
         }
-        if body.center.y < block.aabb.center.y {
+        if body.center().y < block.aabb.center().y {
             dummy.pos.y += block.aabb.top() - body.bottom();
         } else {
             dummy.pos.y += block.aabb.bottom() - body.top();
@@ -270,10 +270,10 @@ fn apply_dummy_rebound(world: &World, dummy: &mut Dummy) {
     let body = dummy.aabb();
     for block in &world.blocks {
         if let BlockKind::Rebound { impulse } = block.kind {
-            if body.intersects(block.aabb) {
-                if body.center.y < block.aabb.center.y {
+            if body.strict_intersects(block.aabb) {
+                if body.center().y < block.aabb.center().y {
                     dummy.pos.y += block.aabb.top() - body.bottom();
-                } else if body.center.y > block.aabb.center.y {
+                } else if body.center().y > block.aabb.center().y {
                     dummy.pos.y += block.aabb.bottom() - body.top();
                 }
                 dummy.vel = impulse;
@@ -303,7 +303,7 @@ mod tests {
         let wall = Block::solid("test wall", Vec2::new(200.0, 0.0), Vec2::new(24.0, 200.0));
         let floor = Block::solid("test floor", Vec2::new(0.0, 130.0), Vec2::new(500.0, 24.0));
         let world = World {
-            name: "dummy collision test",
+            name: "dummy collision test".to_string(),
             size: Vec2::new(500.0, 200.0),
             spawn: Vec2::new(80.0, 90.0),
             blocks: vec![wall, floor],
@@ -325,7 +325,7 @@ mod tests {
         );
         let floor = Block::solid("test floor", Vec2::new(0.0, 170.0), Vec2::new(500.0, 24.0));
         let world = World {
-            name: "dummy rebound test",
+            name: "dummy rebound test".to_string(),
             size: Vec2::new(500.0, 220.0),
             spawn: Vec2::new(100.0, 90.0),
             blocks: vec![pad, floor],

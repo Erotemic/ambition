@@ -7,6 +7,7 @@
 //! and one-way platform interactions.
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -61,7 +62,7 @@ impl MovingPlatformState {
 
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
-            name: "moving time-reference platform",
+            name: "moving time-reference platform".to_string(),
             aabb: self.aabb(),
             // Moving platforms are ordinary solids for walking/riding because
             // `BlockKind::BlinkWall` still resolves as solid collision on both

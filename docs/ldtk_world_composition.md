@@ -121,3 +121,11 @@ The LDtk file should remain editor-shaped, not just parser-shaped. It should inc
 ## Runtime spine migration rule
 
 Do not reimplement LDtk parsing, level selection, or entity spawning when `bevy_ecs_ldtk` already provides those lifecycle hooks. Register Ambition entity identifiers with `bevy_ecs_ldtk`, consume plugin-spawned `EntityInstance` components, and attach Ambition semantics from systems. Keep Ambition-specific validation and gameplay rules in Ambition code.
+
+## RON world definition retirement
+
+The sandbox no longer stores the LDtk-derived room manifest inside `SandboxDataSpec.rooms`. RON remains useful for abilities, movement tuning, generated audio, input presets, fixtures, and non-spatial data, but LDtk is the only active source for the sandbox world definition.
+
+The current `RoomManifestSpec` output from `ldtk_world.rs` is a compatibility bridge into the existing `RoomSet`/`GameWorld` runtime. Treat this as transitional. As `bevy_ecs_ldtk` marker entities are promoted into direct Ambition components, remove matching categories from the manifest conversion path instead of duplicating behavior in both places.
+
+As of the LDtk runtime-spine migration, the old `rooms` block has been removed from `assets/ambition/sandbox.ron`. This makes accidental edits to the obsolete RON world definition impossible in the main sandbox manifest. The remaining Rust `RoomManifestSpec` types exist only because the current runtime still needs a compatibility shape while LDtk marker entities are promoted into direct gameplay components.

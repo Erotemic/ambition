@@ -56,16 +56,16 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 use rendering::{camera_follow, spawn_room_visuals, sync_visuals, HudText, PlayerVisual, RoomVisual, SceneEntities};
 
 fn main() {
-    let mut sandbox_data = data::SandboxDataSpec::load_embedded();
+    let sandbox_data = data::SandboxDataSpec::load_embedded();
     let ldtk_project = ldtk_world::LdtkProject::load_embedded();
     let ldtk_report = ldtk_project.validate();
     ldtk_report.print_to_stderr();
-    sandbox_data.rooms = ldtk_project
+    let ldtk_room_manifest = ldtk_project
         .to_room_manifest()
         .expect("embedded LDtk world should validate and convert into Ambition rooms");
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
-    let room_set = rooms::RoomSet::from_manifest(&sandbox_data.rooms);
+    let room_set = rooms::RoomSet::from_manifest(&ldtk_room_manifest);
     let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(&ldtk_project, room_set.active_spec().id.clone());
     let active_world = room_set.active_world().clone();
 
@@ -654,7 +654,6 @@ fn handle_ldtk_hot_reload(
     mut runtime: ResMut<SandboxRuntime>,
     mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
-    mut sandbox_data: ResMut<data::SandboxDataSpec>,
     editable_tuning: Res<EditableMovementTuning>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) {
@@ -678,7 +677,6 @@ fn handle_ldtk_hot_reload(
         &mut *room_set,
         &mut *runtime,
         &mut *ldtk_index,
-        &mut *sandbox_data,
         editable_tuning.as_engine(),
         &room_visuals,
     ) {
@@ -701,7 +699,6 @@ fn reload_ldtk_world_from_disk(
     room_set: &mut rooms::RoomSet,
     runtime: &mut SandboxRuntime,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
-    sandbox_data: &mut data::SandboxDataSpec,
     tuning: ae::MovementTuning,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) -> Result<String, Vec<String>> {
@@ -731,7 +728,6 @@ fn reload_ldtk_world_from_disk(
         }
     }
 
-    sandbox_data.rooms = manifest;
     *room_set = next_room_set;
     world.0 = next_spec.world.clone();
 
@@ -1156,7 +1152,7 @@ fn update_hud(
     };
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -1175,6 +1171,8 @@ fn update_hud(
             ldtk_reload.auto_apply,
             ldtk_reload.pending,
             ldtk_spine.spawned_entities,
+            ldtk_spine.revision,
+            if ldtk_spine.last_entity.is_empty() { "none" } else { &ldtk_spine.last_entity },
             runtime.hitstun_timer,
             runtime.damage_invuln_timer,
             runtime.hitstop_timer,
@@ -1191,7 +1189,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\nLDtk spine: {} entities, rev {}, last {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\nLDtk spine: {} entities, rev {}, last {}, sample {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -1238,6 +1236,7 @@ fn update_hud(
         ldtk_spine.spawned_entities,
         ldtk_spine.revision,
         if ldtk_spine.last_entity.is_empty() { "none" } else { &ldtk_spine.last_entity },
+        if ldtk_spine.sample_entity.is_empty() { "none" } else { &ldtk_spine.sample_entity },
         window_line,
         runtime.player_health.current.max(0),
         runtime.player_health.max,

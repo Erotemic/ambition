@@ -2,8 +2,8 @@
 //!
 //! Ambition keeps its gameplay model typed in Rust. LDtk is an authoring
 //! frontend: this module validates the subset of LDtk entities Ambition
-//! currently understands, then flattens placed LDtk levels into one or more
-//! continuous `RoomManifestSpec` active areas.
+//! currently understands, registers those entities with `bevy_ecs_ldtk`, and
+//! still provides a transitional flattening path into Ambition runtime rooms.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -48,11 +48,25 @@ pub struct AmbitionLdtkEntity {
     pub world: Option<[i32; 2]>,
 }
 
+impl AmbitionLdtkEntity {
+    pub fn summary(&self) -> String {
+        let world = self
+            .world
+            .map(|world| format!(" world=({}, {})", world[0], world[1]))
+            .unwrap_or_default();
+        format!(
+            "{} {} px=({}, {}) size={}x{}{}",
+            self.identifier, self.iid, self.px[0], self.px[1], self.size[0], self.size[1], world
+        )
+    }
+}
+
 #[derive(Resource, Default, Clone, Debug)]
 pub struct LdtkRuntimeSpineStats {
     pub spawned_entities: usize,
     pub revision: u64,
     pub last_entity: String,
+    pub sample_entity: String,
 }
 
 pub struct AmbitionLdtkRegistrationPlugin;
@@ -73,16 +87,18 @@ pub fn sync_plugin_spawned_ambition_entities(
     for (entity, instance) in &query {
         stats.spawned_entities = stats.spawned_entities.saturating_add(1);
         stats.revision = stats.revision.saturating_add(1);
-        stats.last_entity = format!("{} {}", instance.identifier, instance.iid);
+        let ambition_entity = AmbitionLdtkEntity {
+            iid: instance.iid.clone(),
+            identifier: instance.identifier.clone(),
+            px: [instance.px.x, instance.px.y],
+            size: [instance.width, instance.height],
+            world: instance.world_x.zip(instance.world_y).map(|(x, y)| [x, y]),
+        };
+        stats.last_entity = format!("{} {}", ambition_entity.identifier, ambition_entity.iid);
+        stats.sample_entity = ambition_entity.summary();
         commands.entity(entity).insert((
-            AmbitionLdtkEntity {
-                iid: instance.iid.clone(),
-                identifier: instance.identifier.clone(),
-                px: [instance.px.x, instance.px.y],
-                size: [instance.width, instance.height],
-                world: instance.world_x.zip(instance.world_y).map(|(x, y)| [x, y]),
-            },
-            Name::new(format!("LDtk {} {}", instance.identifier, instance.iid)),
+            Name::new(format!("LDtk {} {}", ambition_entity.identifier, ambition_entity.iid)),
+            ambition_entity,
         ));
     }
 }

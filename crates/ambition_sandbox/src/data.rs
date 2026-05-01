@@ -7,8 +7,9 @@
 //!
 //! Bevy resolves `ambition/sandbox.ron` relative to the sandbox crate asset
 //! root (`crates/ambition_sandbox/assets`) when this package is run through
-//! Cargo, so the embedded copy intentionally lives there too. The current
-//! sandbox overrides `rooms` from the LDtk world-composition adapter at startup.
+//! Cargo, so the embedded copy intentionally lives there too. World/room
+//! authoring has moved to LDtk; this RON asset intentionally owns only
+//! non-spatial sandbox tuning and generated-audio configuration.
 
 use ambition_engine as ae;
 use bevy::asset::{Asset, AssetServer};
@@ -23,7 +24,6 @@ pub struct SandboxDataSpec {
     pub abilities: ae::AbilitySet,
     pub tuning: ae::MovementTuning,
     pub audio: AudioSpec,
-    pub rooms: RoomManifestSpec,
 }
 
 impl SandboxDataSpec {

@@ -25,7 +25,7 @@ The first design law is: **the game should be fun as raw collision boxes**.
 
 Install Rust from <https://rustup.rs/>.
 
-This project depends on Bevy for the graphics/audio shell, `leafwing-input-manager` for semantic keyboard/gamepad input, and `bevy-inspector-egui` for developer-only reflected tuning windows. The movement/collision core remains in `ambition_engine`, with `parry2d` handling reusable overlap and swept-AABB geometry queries.
+This project depends on Bevy for the graphics/audio shell, `leafwing-input-manager` for semantic keyboard/gamepad input, `bevy-inspector-egui` for developer-only reflected tuning windows, and `fundsp` for generated audio DSP. The movement/collision core remains in `ambition_engine`, with `parry2d` handling reusable overlap and swept-AABB geometry queries.
 
 ## Run
 
@@ -86,7 +86,7 @@ The current primary draft is `docs/storylines/primary_ai_agency.md`. It preserve
 
 ## Sound and particles
 
-All sound effects are generated at startup from compact synth recipes and registered as Bevy `AudioSource` assets. There are no audio files in the repo. Playback spawns `AudioPlayer` entities with `PlaybackSettings::DESPAWN` for one-shot cleanup.
+All sound effects and the lo-fi background loop are generated at startup from compact RON synth/music recipes, rendered through FunDSP-backed oscillators, filters, and noise helpers, and registered as Bevy `AudioSource` assets. There are no audio files in the repo. Playback spawns `AudioPlayer` entities with `PlaybackSettings::DESPAWN` for one-shot cleanup.
 
 The particle system is deliberately tiny and code-first. Each particle is a Bevy sprite entity with position, velocity, lifetime, color, gravity, drag, and kind. This is enough for movement feedback. If Ambition later needs massive GPU particle fields or shader-driven visual effects, the next step is a Bevy GPU particle backend or custom wgpu pipeline.
 
@@ -105,7 +105,7 @@ This version ports the sandbox shell from Macroquad to Bevy 0.18.1. The architec
 - `GameWorld`: generated room data from Ambition Engine.
 - `SandboxRuntime`: player, enemies, presets, pause/slowmo/debug state, hitstop.
 - Sprite entities: blocks, player, dummies, particles, impacts, slash previews.
-- Bevy audio assets: generated WAV bytes stored as `AudioSource` handles.
+- Bevy audio assets: FunDSP-rendered generated WAV bytes stored as `AudioSource` handles.
 - UI text: fixed debug HUD.
 
 The movement engine intentionally stays backend-neutral.
@@ -186,7 +186,7 @@ Additional layout notes:
 ## Recent notes
 
 - Flying door activation: see `docs/flying_door_activation.md`.
-- Procedural lo-fi music: see `docs/procedural_ambience.md`.
+- Procedural lo-fi music: see `docs/procedural_ambience.md` and `docs/fundsp_audio.md`.
 - Data-driven RON manifest: see `docs/data_driven_manifest.md`.
 - Crate strategy / avoiding reinvention: see `docs/crate_strategy.md`.
 - Bevy Gizmos + inspector workflow: see `docs/developer_tools.md`.

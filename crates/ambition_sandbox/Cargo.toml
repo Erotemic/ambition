@@ -11,6 +11,7 @@ ambition_engine = { path = "../ambition_engine" }
 bevy = { version = "0.18.1", features = ["wav"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy-inspector-egui = "0.36"
+fundsp = "0.23"
 leafwing-input-manager = "0.20"
 petgraph = "0.8"
 ron = "0.11"

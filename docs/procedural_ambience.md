@@ -20,3 +20,7 @@ This is still a first pass. If Ambition's music becomes adaptive, layered, or ti
 - smooth parameter automation;
 - clocked musical events;
 - layered room/state music.
+
+## FunDSP renderer note
+
+The arrangement is still authored as compact RON data, but the startup renderer now uses FunDSP nodes and helpers for oscillators, filters, noise, envelopes, and soft clipping. Bevy still receives normal in-memory WAV bytes, so this patch improves the synthesis layer without changing playback semantics.

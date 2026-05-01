@@ -27,7 +27,7 @@ pub struct MovingPlatformState {
 
 impl MovingPlatformState {
     /// Place the reference platform high enough to be visible from spawn, but
-    /// away from the immediate dummy/combat lane.
+    /// away from the immediate combat-practice lane.
     pub fn time_reference(world: &ae::World) -> Self {
         let min_x = (world.size.x * 0.28).max(100.0);
         let max_x = (world.size.x * 0.48).max(min_x + 180.0);

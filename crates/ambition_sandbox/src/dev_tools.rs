@@ -33,8 +33,8 @@ pub struct DeveloperTools {
     pub show_blink_preview: bool,
     pub show_combat_preview: bool,
     pub show_feature_hitboxes: bool,
+    pub show_health_bars: bool,
     pub show_moving_platform: bool,
-    pub show_dummies: bool,
     pub show_rebound_vectors: bool,
 }
 
@@ -53,8 +53,8 @@ impl Default for DeveloperTools {
             show_blink_preview: true,
             show_combat_preview: true,
             show_feature_hitboxes: true,
+            show_health_bars: true,
             show_moving_platform: true,
-            show_dummies: true,
             show_rebound_vectors: true,
         }
     }

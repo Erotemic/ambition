@@ -22,6 +22,7 @@ const BOSS_ATTACK_COOLDOWN: f32 = 1.35;
 pub enum FeatureVisualKind {
     Hazard,
     Enemy,
+    Sandbag,
     Boss,
     Breakable,
     Chest,
@@ -95,6 +96,7 @@ pub struct PlayerDamageEvent {
     pub impact_pos: ae::Vec2,
     pub knockback_dir: f32,
     pub strength: f32,
+    pub amount: i32,
 }
 
 #[derive(Default, Clone, Debug)]
@@ -108,6 +110,7 @@ pub struct FeatureEvents {
     pub bursts: Vec<ae::Vec2>,
     pub physics_bursts: Vec<FeaturePhysicsBurst>,
     pub player_damage: Vec<PlayerDamageEvent>,
+    pub player_heal: i32,
 }
 
 impl FeatureEvents {
@@ -119,6 +122,7 @@ impl FeatureEvents {
         self.bursts.append(&mut other.bursts);
         self.physics_bursts.append(&mut other.physics_bursts);
         self.player_damage.append(&mut other.player_damage);
+        self.player_heal += other.player_heal;
     }
 }
 
@@ -213,6 +217,7 @@ impl FeatureRuntime {
                     impact_pos: player.pos,
                     knockback_dir: 0.0,
                     strength: 1.0,
+                    amount: hazard.volume.damage.amount.max(1),
                 });
             }
         }
@@ -235,6 +240,9 @@ impl FeatureRuntime {
             if pickup.visible && pickup.aabb().strict_intersects(player_body) {
                 pickup.visible = false;
                 events.messages.push(format!("picked up {}", pickup.name));
+                if let ae::PickupKind::Health { amount } = pickup.pickup.kind {
+                    events.player_heal += amount;
+                }
                 events.bursts.push(pickup.pos);
             }
         }
@@ -291,12 +299,21 @@ impl FeatureRuntime {
                 enemy.hit_flash = 0.16;
                 enemy.vel.x += knock_x;
                 enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
-                let killed = enemy.health.damage(damage);
+                let killed = if enemy.archetype == EnemyArchetype::InfiniteSandbag {
+                    false
+                } else {
+                    enemy.health.damage(damage)
+                };
                 let hit_pos = midpoint(attack.center(), enemy.pos);
                 events.impacts.push(hit_pos);
                 if killed {
                     enemy.alive = false;
-                    events.messages.push(format!("defeated {}", enemy.name));
+                    if enemy.archetype == EnemyArchetype::FiniteSandbag {
+                        enemy.respawn_timer = 0.85;
+                        events.messages.push(format!("{} dropped; respawning", enemy.name));
+                    } else {
+                        events.messages.push(format!("defeated {}", enemy.name));
+                    }
                     events.bursts.push(enemy.pos);
                     events.physics_bursts.push(FeaturePhysicsBurst {
                         pos: enemy.pos,
@@ -360,7 +377,7 @@ impl FeatureRuntime {
                 return Some(FeatureView {
                     pos: enemy.pos,
                     size: enemy.size,
-                    kind: FeatureVisualKind::Enemy,
+                    kind: enemy.visual_kind(),
                     visible: enemy.alive,
                     flash: enemy.hit_flash > 0.0 || enemy.attack_windup_timer > 0.0 || enemy.attack_timer > 0.0,
                 });
@@ -497,19 +514,52 @@ pub struct EnemyRuntime {
     pub vel: ae::Vec2,
     pub health: ae::Health,
     pub brain: ae::EnemyBrain,
+    pub archetype: EnemyArchetype,
     pub motion: Option<PathMotion>,
     pub alive: bool,
     pub facing: f32,
     pub attack_windup_timer: f32,
     pub attack_timer: f32,
     pub attack_cooldown: f32,
+    pub respawn_timer: f32,
     pub hit_flash: f32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EnemyArchetype {
+    Combatant,
+    InfiniteSandbag,
+    FiniteSandbag,
+}
+
+impl EnemyArchetype {
+    fn from_brain(brain: &ae::EnemyBrain) -> Self {
+        match brain {
+            ae::EnemyBrain::Custom(name) if name == "sandbag_infinite" => Self::InfiniteSandbag,
+            ae::EnemyBrain::Custom(name) if name == "sandbag_finite" => Self::FiniteSandbag,
+            _ => Self::Combatant,
+        }
+    }
+
+    pub(crate) fn is_sandbag(self) -> bool {
+        matches!(self, Self::InfiniteSandbag | Self::FiniteSandbag)
+    }
+
+    fn max_health(self) -> i32 {
+        match self {
+            Self::Combatant => 4,
+            Self::InfiniteSandbag => 9999,
+            Self::FiniteSandbag => 6,
+        }
+    }
+}
+
+
 impl EnemyRuntime {
     fn new(object: &ae::RoomObject, brain: ae::EnemyBrain, paths: &[(String, ae::KinematicPath)]) -> Self {
+        let archetype = EnemyArchetype::from_brain(&brain);
         let motion = match &brain {
-            ae::EnemyBrain::Patrol { path_id: Some(path_id) } => paths
+            ae::EnemyBrain::Patrol { path_id: Some(path_id) } if !archetype.is_sandbag() => paths
                 .iter()
                 .find(|(id, _)| id == path_id)
                 .map(|(_, path)| PathMotion::new(path.clone())),
@@ -522,27 +572,37 @@ impl EnemyRuntime {
             spawn: object.aabb.center(),
             size: object.aabb.half_size() * 2.0,
             vel: ae::Vec2::ZERO,
-            health: ae::Health::new(4),
+            health: ae::Health::new(archetype.max_health()),
             brain,
+            archetype,
             motion,
             alive: true,
             facing: -1.0,
             attack_windup_timer: 0.0,
             attack_timer: 0.0,
             attack_cooldown: 0.2,
+            respawn_timer: 0.0,
             hit_flash: 0.0,
         }
     }
 
     fn update(&mut self, world: &ae::World, player: &ae::Player, tuning: FeatureCombatTuning, dt: f32) {
+        self.hit_flash = (self.hit_flash - dt).max(0.0);
         if !self.alive {
+            self.respawn_timer = (self.respawn_timer - dt).max(0.0);
+            if self.archetype == EnemyArchetype::FiniteSandbag && self.respawn_timer <= 0.0 {
+                self.alive = true;
+                self.health.reset();
+                self.pos = self.spawn;
+                self.vel = ae::Vec2::ZERO;
+                self.hit_flash = 0.24;
+            }
             return;
         }
         let was_winding_up = self.attack_windup_timer > 0.0;
         self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
         self.attack_timer = (self.attack_timer - dt).max(0.0);
         self.attack_cooldown = (self.attack_cooldown - dt).max(0.0);
-        self.hit_flash = (self.hit_flash - dt).max(0.0);
         if was_winding_up && self.attack_windup_timer <= 0.0 {
             self.attack_timer = tuning.enemy_attack_active.max(0.01);
         }
@@ -554,6 +614,7 @@ impl EnemyRuntime {
         } else {
             let delta_to_player = player.pos - self.pos;
             let desired_x = match self.brain {
+                _ if self.archetype.is_sandbag() => 0.0,
                 ae::EnemyBrain::Guard { leash_radius } if delta_to_player.length() <= leash_radius => delta_to_player.x.signum() * ENEMY_CHASE_SPEED,
                 ae::EnemyBrain::Passive => 0.0,
                 _ => self.facing * ENEMY_PATROL_SPEED,
@@ -579,7 +640,8 @@ impl EnemyRuntime {
         if to_player.x.abs() > 4.0 {
             self.facing = to_player.x.signum();
         }
-        if to_player.length() <= ENEMY_ATTACK_RANGE
+        if !self.archetype.is_sandbag()
+            && to_player.length() <= ENEMY_ATTACK_RANGE
             && self.attack_cooldown <= 0.0
             && self.attack_windup_timer <= 0.0
             && self.attack_timer <= 0.0
@@ -591,6 +653,14 @@ impl EnemyRuntime {
 
     pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
+    }
+
+    pub fn visual_kind(&self) -> FeatureVisualKind {
+        if self.archetype.is_sandbag() {
+            FeatureVisualKind::Sandbag
+        } else {
+            FeatureVisualKind::Enemy
+        }
     }
 
     pub fn attack_aabb(&self) -> ae::Aabb {
@@ -605,6 +675,9 @@ impl EnemyRuntime {
     }
 
     fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
+        if self.archetype.is_sandbag() {
+            return None;
+        }
         if self.attack_timer > 0.0 && self.attack_aabb().strict_intersects(player_body) {
             return Some(PlayerDamageEvent {
                 mode: PlayerDamageMode::Knockback,
@@ -613,6 +686,7 @@ impl EnemyRuntime {
                 impact_pos: midpoint(player_body.center(), self.attack_aabb().center()),
                 knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
                 strength: 1.0,
+                amount: 1,
             });
         }
         if self.aabb().strict_intersects(player_body) {
@@ -623,6 +697,7 @@ impl EnemyRuntime {
                 impact_pos: midpoint(player_body.center(), self.pos),
                 knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
                 strength: 0.70,
+                amount: 1,
             });
         }
         None
@@ -725,6 +800,7 @@ impl BossRuntime {
                     impact_pos: midpoint(player_body.center(), volume.center()),
                     knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
                     strength: 1.25,
+                    amount: 2,
                 });
             }
         }
@@ -736,6 +812,7 @@ impl BossRuntime {
                 impact_pos: midpoint(player_body.center(), self.pos),
                 knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
                 strength: 1.0,
+                amount: 1,
             });
         }
         None
@@ -764,11 +841,11 @@ impl BreakableRuntime {
         }
     }
 
-    fn aabb(&self) -> ae::Aabb {
+    pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 
-    fn broken(&self) -> bool {
+    pub fn broken(&self) -> bool {
         self.breakable.state == ae::BreakableState::Broken
     }
 

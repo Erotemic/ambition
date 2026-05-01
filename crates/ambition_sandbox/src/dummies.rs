@@ -1,7 +1,6 @@
-//! Bevy sandbox compatibility wrapper for engine-owned dummy logic.
+//! Legacy training-target adapter removed.
 //!
-//! Dummies used to live in this crate. They now live in `ambition_engine`
-//! because health, stun, knockback, death, and respawn are simulation rules.
-//! Keeping this tiny re-export preserves the existing sandbox module imports.
-
-pub use ambition_engine::{spawn_dummies, Dummy, DummyKind};
+//! Sandbags are authored as `RoomObjectKind::EnemySpawn` objects with
+//! `EnemyBrain::Custom("sandbag_infinite")` or `EnemyBrain::Custom("sandbag_finite")`
+//! and run through `features::EnemyRuntime` so health bars, slash damage,
+//! debug volumes, and room placement share the same code path as enemies.

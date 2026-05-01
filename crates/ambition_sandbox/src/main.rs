@@ -9,7 +9,6 @@ mod config;
 mod data;
 mod debug_overlay;
 mod dev_tools;
-mod dummies;
 mod fx;
 mod features;
 mod game_mode;
@@ -34,7 +33,7 @@ use bevy_inspector_egui::{
     bevy_egui::EguiPlugin,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
 };
-use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
 
 const BULLET_TIME_SCALE: f32 = 0.10;
@@ -44,7 +43,6 @@ const TIME_RAMP_DOWN_RATE: f32 = 5.0;
 const TIME_RAMP_UP_RATE: f32 = 14.0;
 const DOWN_DOUBLE_TAP_WINDOW: f32 = 0.24;
 const UP_DOUBLE_TAP_WINDOW: f32 = 0.24;
-use dummies::{spawn_dummies, Dummy, DummyKind};
 use fx::{
     spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
     spawn_slash_preview, ParticleKind,
@@ -52,7 +50,7 @@ use fx::{
 use game_mode::GameMode;
 use input::{ControlFrame, KeyboardPreset, SandboxAction, GAMEPAD_MAP};
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
-use rendering::{camera_follow, dummy_color, spawn_room_visuals, sync_visuals, DummyVisual, HudText, PlayerVisual, RoomVisual, SceneEntities};
+use rendering::{camera_follow, spawn_room_visuals, sync_visuals, HudText, PlayerVisual, RoomVisual, SceneEntities};
 
 fn main() {
     let sandbox_data = data::SandboxDataSpec::load_embedded();
@@ -121,6 +119,7 @@ fn main() {
             )
                 .chain(),
         )
+        .add_systems(Update, rendering::sync_health_overlays.after(sync_visuals))
         .run();
 }
 
@@ -130,7 +129,7 @@ pub struct GameWorld(pub ae::World);
 #[derive(Resource)]
 pub struct SandboxRuntime {
     pub player: ae::Player,
-    pub dummies: Vec<Dummy>,
+    pub player_health: ae::Health,
     debug: bool,
     slowmo: bool,
     presets: Vec<KeyboardPreset>,
@@ -162,7 +161,7 @@ impl SandboxRuntime {
         player.refresh_movement_resources(tuning);
         Self {
             player,
-            dummies: spawn_dummies(world),
+            player_health: ae::Health::new(5),
             debug: true,
             slowmo: false,
             presets: KeyboardPreset::presets().to_vec(),
@@ -187,7 +186,7 @@ impl SandboxRuntime {
     fn reset(&mut self, world: &ae::World, tuning: ae::MovementTuning) {
         self.player.reset_to(world.spawn);
         self.player.refresh_movement_resources(tuning);
-        self.dummies = spawn_dummies(world);
+        self.player_health.reset();
         self.flash_timer = 0.18;
         self.hitstop_timer = 0.0;
         self.damage_invuln_timer = 0.0;
@@ -326,14 +325,6 @@ fn setup(
         ))
         .id();
 
-    for (index, dummy) in spawn_dummies(&world.0).iter().enumerate() {
-        commands.spawn((
-            Sprite::from_color(dummy_color(dummy), BVec2::new(dummy.size.x, dummy.size.y)),
-            Transform::from_translation(world_to_bevy(&world.0, dummy.pos, WORLD_Z_DUMMY)),
-            Name::new(format!("Dummy {}: {}", index, dummy.name)),
-            DummyVisual { index },
-        ));
-    }
 
     let hud = commands
         .spawn((
@@ -473,7 +464,6 @@ fn sandbox_update(
             Some(was_grounded),
         );
 
-        update_dummies(&mut commands, &collision_world, &bank, &mut runtime, sim_dt);
     }
 
     // While flying, up is continuous flight input. Door-style loading zones
@@ -509,6 +499,7 @@ fn sandbox_update(
     let feature_interaction_consumed = feature_events.consumed_interaction;
     let feature_damaged_player = !feature_events.player_damage.is_empty();
     handle_feature_events(&mut commands, &world.0, &bank, &feature_events, physics_settings);
+    handle_player_heal_events(&mut runtime, &feature_events);
     handle_player_damage_events(&mut commands, &world.0, &bank, &mut runtime, &feature_events, tuning, feel);
     if !feature_damaged_player {
         runtime.remember_safe_player_position();
@@ -641,7 +632,6 @@ fn load_room(
     if edge_exit {
         runtime.player.vel = old_velocity;
     }
-    runtime.dummies = spawn_dummies(&world.0);
     runtime.flash_timer = if edge_exit { feel.edge_transition_flash } else { feel.door_transition_flash };
     runtime.hitstop_timer = 0.0;
     runtime.damage_invuln_timer = 0.0;
@@ -761,6 +751,32 @@ fn handle_feature_events(
     }
 }
 
+fn handle_player_heal_events(runtime: &mut SandboxRuntime, events: &features::FeatureEvents) {
+    if events.player_heal > 0 {
+        runtime.player_health.heal(events.player_heal);
+    }
+}
+
+fn death_respawn_player(
+    commands: &mut Commands,
+    world: &ae::World,
+    bank: &SoundBank,
+    runtime: &mut SandboxRuntime,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+    from: ae::Vec2,
+) {
+    let to = world.spawn;
+    runtime.reset(world, tuning);
+    runtime.player_health.reset();
+    runtime.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
+    runtime.flash_timer = feel.reset_flash_time.max(0.35);
+    runtime.features.banner = "PLAYER DOWN: respawned at room start with full HP".to_string();
+    runtime.features.banner_timer = 2.4;
+    play_sound(commands, bank, SoundCue::Death);
+    spawn_reset_effects(commands, world, from, to);
+}
+
 fn handle_player_damage_events(
     commands: &mut Commands,
     world: &ae::World,
@@ -773,6 +789,10 @@ fn handle_player_damage_events(
     let Some(damage) = events.player_damage.first().copied() else {
         return;
     };
+    if runtime.player_health.damage(damage.amount.max(1)) {
+        death_respawn_player(commands, world, bank, runtime, tuning, feel, damage.impact_pos);
+        return;
+    }
     match damage.mode {
         features::PlayerDamageMode::SafeRespawn => {
             safe_respawn_player(commands, world, bank, runtime, tuning, feel, damage.impact_pos);
@@ -867,19 +887,6 @@ fn process_attack(
     let mut landed = false;
     let mut killed = false;
     let player_facing = runtime.player.facing;
-    for dummy in &mut runtime.dummies {
-        if dummy.alive && attack.strict_intersects(dummy.aabb()) {
-            let hit_pos = ae::Vec2::new((attack.center().x + dummy.pos.x) * 0.5, (attack.center().y + dummy.pos.y) * 0.5);
-            spawn_impact(commands, world, hit_pos);
-            spawn_burst(commands, world, hit_pos, 18, 390.0, [1.0, 0.93, 0.44, 0.94], ParticleKind::Shard);
-            let dummy_killed = dummy.apply_hit(1, player_facing * 300.0);
-            if dummy_killed {
-                physics::spawn_debris_burst(commands, world, dummy.pos, physics::PhysicsDebrisCue::EnemyRagdoll, physics_settings);
-            }
-            killed |= dummy_killed;
-            landed = true;
-        }
-    }
     let feature_events = runtime.features.apply_player_attack(attack, 1, player_facing * 300.0);
     landed |= !feature_events.impacts.is_empty();
     killed |= feature_events.messages.iter().any(|message| message.contains("defeated"));
@@ -897,21 +904,6 @@ fn process_attack(
         runtime.player.vel.y = -tuning.pogo_speed;
         runtime.player.refresh_movement_resources(tuning);
         play_sound(commands, bank, SoundCue::Pogo);
-    }
-}
-
-fn update_dummies(
-    commands: &mut Commands,
-    world: &ae::World,
-    bank: &SoundBank,
-    runtime: &mut SandboxRuntime,
-    dt: f32,
-) {
-    for dummy in &mut runtime.dummies {
-        if dummy.update_in_world(dt, world) {
-            play_sound(commands, bank, SoundCue::Respawn);
-            spawn_burst(commands, world, dummy.pos, 16, 260.0, [0.92, 0.48, 0.95, 0.90], ParticleKind::Spark);
-        }
     }
 }
 
@@ -938,16 +930,11 @@ fn update_hud(
         return;
     }
     let preset = runtime.preset();
-    let dummies = runtime
-        .dummies
+    let enemy_health = runtime
+        .features
+        .enemies
         .iter()
-        .map(|d| {
-            if d.kind == DummyKind::FiniteRespawner {
-                format!("{} hp {}/{} alive {}", d.name, d.hp.max(0), d.max_hp, d.alive)
-            } else {
-                format!("{} infinite", d.name)
-            }
-        })
+        .map(|e| format!("{} hp {}/{} alive {}", e.name, e.health.current.max(0), e.health.max, e.alive))
         .collect::<Vec<_>>()
         .join(" | ");
     let mut gamepad = String::new();
@@ -977,7 +964,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\n{}\ndummies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -1018,7 +1005,9 @@ fn update_hud(
         runtime.damage_invuln_timer,
         runtime.time_scale,
         window_line,
-        dummies,
+        runtime.player_health.current.max(0),
+        runtime.player_health.max,
+        enemy_health,
         runtime.features.feature_summary(),
         gamepad,
         flash_line,

@@ -10,7 +10,6 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use crate::config::world_to_bevy;
-use crate::dummies::DummyKind;
 use crate::dev_tools::DeveloperTools;
 use crate::input::{ControlFrame, SandboxAction};
 use crate::platforms;
@@ -66,8 +65,8 @@ pub fn draw_debug_overlay(
         draw_moving_platform_debug(&mut gizmos, world, &runtime);
     }
     draw_player_debug(&mut gizmos, world, &runtime, actions, gameplay_active, &developer_tools);
-    if developer_tools.show_dummies {
-        draw_dummy_debug(&mut gizmos, world, &runtime);
+    if developer_tools.show_health_bars {
+        draw_health_bars(&mut gizmos, world, &runtime);
     }
     if developer_tools.show_feature_hitboxes {
         draw_feature_combat_debug(&mut gizmos, world, &runtime);
@@ -216,34 +215,40 @@ fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &
     draw_arrow(gizmos, center, center + BVec2::new(44.0, 0.0), blue());
 }
 
-fn draw_dummy_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
-    for dummy in &runtime.dummies {
-        let color = match dummy.kind {
-            DummyKind::InfiniteSandbag => orange(),
-            DummyKind::FiniteRespawner => magenta(),
-        };
-        draw_aabb(gizmos, world, dummy.aabb(), color);
+fn draw_health_bars(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
+    draw_health_bar(gizmos, world, runtime.player.aabb(), runtime.player_health.ratio(), cyan());
 
-        if dummy.kind == DummyKind::FiniteRespawner {
-            let ratio = if dummy.max_hp > 0 {
-                (dummy.hp.max(0) as f32 / dummy.max_hp as f32).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            let y = dummy.pos.y - dummy.size.y * 0.5 - 16.0;
-            let left = dummy.pos.x - dummy.size.x * 0.5;
-            let right = dummy.pos.x + dummy.size.x * 0.5;
-            let full_a = w2(world, ae::Vec2::new(left, y));
-            let full_b = w2(world, ae::Vec2::new(right, y));
-            gizmos.line_2d(full_a, full_b, gray());
-            let hp_b = w2(world, ae::Vec2::new(left + (right - left) * ratio, y));
-            gizmos.line_2d(full_a, hp_b, red());
+    for enemy in &runtime.features.enemies {
+        if enemy.alive {
+            let color = if enemy.archetype.is_sandbag() { orange() } else { red() };
+            draw_health_bar(gizmos, world, enemy.aabb(), enemy.health.ratio(), color);
+        }
+    }
+    for boss in &runtime.features.bosses {
+        if boss.alive {
+            draw_health_bar(gizmos, world, boss.aabb(), boss.health.ratio(), magenta());
+        }
+    }
+    for breakable in &runtime.features.breakables {
+        if !breakable.broken() {
+            draw_health_bar(gizmos, world, breakable.aabb(), breakable.breakable.health.ratio(), orange());
         }
     }
 }
 
+fn draw_health_bar(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, ratio: f32, fill: Color) {
+    let width = (aabb.half_size().x * 2.0).max(28.0);
+    let y = aabb.top() - 14.0;
+    let left = aabb.center().x - width * 0.5;
+    let right = aabb.center().x + width * 0.5;
+    let fill_right = left + width * ratio.clamp(0.0, 1.0);
+    gizmos.line_2d(w2(world, ae::Vec2::new(left, y)), w2(world, ae::Vec2::new(right, y)), gray());
+    gizmos.line_2d(w2(world, ae::Vec2::new(left, y)), w2(world, ae::Vec2::new(fill_right, y)), fill);
+}
+
+
 fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
-    // Basement feature actors are sandbox runtime objects, not dummies. Draw their
+    // Basement feature actors are sandbox runtime objects. Draw their
     // actual gameplay volumes so visual drift, bad authored sizes, and attack
     // reach bugs are visible under the same F1/F3 debug workflow.
     for hazard in &runtime.features.hazards {

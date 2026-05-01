@@ -169,9 +169,13 @@
                 zones: [
                     (id: "west_exit", name: "to central hub", activation: EdgeExit, min: (0.0, 676.0), size: (30.0, 176.0)),
                 ],
+                objects: [
+                    EnemySpawn(id: "scroll_sandbag_upper", name: "upper infinite sandbag", min: (600.0, 638.0), size: (38.0, 66.0), brain: Custom("sandbag_infinite")),
+                    EnemySpawn(id: "scroll_sandbag_wing", name: "finite wing sandbag", min: (1940.0, 632.0), size: (34.0, 58.0), brain: Custom("sandbag_finite")),
+                ],
                 blocks: [
-                    BlinkWall(name: "dummy approach step", min: (330.0, 760.0), size: (170.0, 28.0), tier: Soft),
-                    OneWay(name: "dummy upper tap platform", min: (525.0, 704.0), size: (250.0, 16.0)),
+                    BlinkWall(name: "sandbag approach step", min: (330.0, 760.0), size: (170.0, 28.0), tier: Soft),
+                    OneWay(name: "sandbag upper tap platform", min: (525.0, 704.0), size: (250.0, 16.0)),
                     BlinkWall(name: "left wall kick column", min: (100.0, 520.0), size: (58.0, 220.0), tier: Soft),
                     OneWay(name: "middle shelf", min: (430.0, 610.0), size: (265.0, 18.0)),
                     BlinkWall(name: "upper left shelf", min: (260.0, 410.0), size: (240.0, 24.0), tier: Soft),
@@ -233,6 +237,10 @@
                 shell: (enabled: true, openings: [(side: Right, y: 1564.0, height: 188.0)]),
                 zones: [
                     (id: "east_exit", name: "to central hub", activation: EdgeExit, min: (1770.0, 1576.0), size: (30.0, 176.0)),
+                ],
+                objects: [
+                    EnemySpawn(id: "square_mid_sandbag", name: "mid infinite sandbag", min: (350.0, 924.0), size: (38.0, 66.0), brain: Custom("sandbag_infinite")),
+                    EnemySpawn(id: "square_lower_sandbag", name: "lower finite sandbag", min: (1320.0, 1352.0), size: (34.0, 58.0), brain: Custom("sandbag_finite")),
                 ],
                 blocks: [
                     Solid(name: "square center hard wall", min: (872.0, 720.0), size: (56.0, 520.0)),
@@ -326,6 +334,7 @@
                     KinematicPath(id: "enemy_patrol_a", name: "enemy patrol path A", min: (480.0, 600.0), size: (360.0, 12.0), points: [(520.0, 650.0), (820.0, 650.0)], speed: 95.0, mode: PingPong),
                     EnemySpawn(id: "patrol_enemy_a", name: "patrol cutter", min: (500.0, 600.0), size: (44.0, 58.0), brain: Patrol(path_id: Some("enemy_patrol_a"))),
                     EnemySpawn(id: "guard_enemy_a", name: "guard striker", min: (1040.0, 666.0), size: (48.0, 62.0), brain: Guard(leash_radius: 420.0)),
+                    EnemySpawn(id: "enemy_lab_sandbag", name: "lab finite sandbag", min: (1260.0, 677.0), size: (34.0, 58.0), brain: Custom("sandbag_finite")),
                     DebugLabel(id: "enemy_sign", name: "enemy sign", position: (820.0, 540.0), text: "Enemies patrol, chase inside leash, and swing when close", category: Enemy),
                 ],
                 blocks: [

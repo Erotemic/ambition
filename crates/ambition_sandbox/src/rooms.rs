@@ -1,7 +1,7 @@
 //! Data-driven sandbox room-set and loading-zone graph.
 //!
-//! Rooms are now authored in `assets/ambition/sandbox.ron`. This module turns
-//! that RON manifest into engine worlds plus a directed `petgraph` room graph.
+//! Rooms can be authored by RON fixtures or by the LDtk adapter. This module
+//! turns the resolved room manifest into engine worlds plus a directed `petgraph` room graph.
 //! Loading-zone links point at destination zones by name, so authoring no longer
 //! requires brittle hand-written spawn coordinates.
 

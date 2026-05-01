@@ -13,6 +13,18 @@ This document is for future AI agents and human contributors who need to get pro
 Historical docs are useful, but ADRs and `CURRENT_STATE.md` supersede older constraints.
 
 
+## LDtk and world composition
+
+Read `docs/adr/0009-world-composition-and-ldtk-authoring.md` and `docs/ldtk_world_composition.md` before changing sandbox level authoring. The central hub basement is a physical area below the hub, not a separate loading-zone room. The current LDtk adapter composes levels sharing the same `activeArea` field into one runtime active area.
+
+Validate LDtk edits with:
+
+```bash
+python tools/validate_ambition_ldtk.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+```
+
+Do not treat LDtk JSON as the canonical gameplay model. Add adapter/validator code when new LDtk entity identifiers or fields become meaningful. Use `AMBITION_REVIEW(spatial)` around chunk composition, seams, camera bounds, and spawn/collision assumptions.
+
 ## Repository state and patch packaging
 
 Before producing a patch, verify whether you have a full repo checkpoint or only partial context. A full checkpoint should include the root files, `crates/`, `docs/`, and any relevant assets. If you do not have the full repo state, say so explicitly in the response and keep the patch narrowly scoped to files you can inspect.
@@ -62,25 +74,6 @@ Use this order when documents disagree:
 5. Historical notes and older patch docs.
 
 If an older doc is misleading, do not delete history by default. Add a supersession note or ADR pointer.
-
-
-## World composition direction
-
-Do not assume one authored room equals one runtime traversal space. ADR 0009
-introduces the direction for `RoomChunk`, `PlacedRoomChunk`, and `ActiveArea`.
-The central hub basement should be a continuous drop-down space below the hub,
-not a separate loading-zone room. Use loading zones for intentional transitions;
-use stitched chunks or large active areas for continuous traversal.
-
-For professional authoring, keep the Ambition schema canonical. LDtk is the first
-external editor integration candidate, Tiled remains a secondary candidate, and
-RON remains important for generated data, tests, fixtures, and small sandbox
-cases. Do not bind engine semantics directly to an external editor plugin's
-entity hierarchy.
-
-Large or stitched spaces require debug overview tooling: zoom-out/unlocked camera,
-chunk labels, active-area bounds, local origins, stitch seams, collision, and
-loading-zone labels.
 
 ## Spatial reasoning review convention
 

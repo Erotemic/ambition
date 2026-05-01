@@ -1,13 +1,14 @@
 //! Data manifests for the sandbox.
 //!
-//! The goal of this module is to keep iteration data in RON while still letting
-//! the current code synthesize assets at startup. `bevy_common_assets` registers
+//! The goal of this module is to keep tuning/audio iteration data in RON while
+//! still letting the current code synthesize assets at startup. `bevy_common_assets` registers
 //! `SandboxDataSpec` as a real Bevy asset type; `load_embedded` gives us a
 //! synchronous bootstrap path until the sandbox grows a loading state.
 //!
 //! Bevy resolves `ambition/sandbox.ron` relative to the sandbox crate asset
 //! root (`crates/ambition_sandbox/assets`) when this package is run through
-//! Cargo, so the embedded copy intentionally lives there too.
+//! Cargo, so the embedded copy intentionally lives there too. The current
+//! sandbox overrides `rooms` from the LDtk world-composition adapter at startup.
 
 use ambition_engine as ae;
 use bevy::asset::{Asset, AssetServer};

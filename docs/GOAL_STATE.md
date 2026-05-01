@@ -34,28 +34,6 @@ A useful north star:
    - Roguelike/run-based mode.
    - Hybrid mode where runs feed a persistent metroidvania world.
 
-
-## World composition and authoring scale
-
-Ambition should support professional-scale world composition. The long-term model
-should separate authoring units from runtime traversal units:
-
-```text
-RoomChunk / generated module / editor level
-  -> PlacedRoomChunk
-  -> ActiveArea
-```
-
-A player-visible continuous space may be built from multiple authored chunks. For
-example, the central hub and its basement can be separate chunks while still being
-loaded and simulated as one active area. Loading zones should represent
-intentional transitions, not ordinary seams between physically adjacent chunks.
-
-External level editors should be used when they help. LDtk is the first editor to
-evaluate for human-authored 2D chunks, with Tiled kept as a secondary candidate.
-The Ambition schema remains canonical so generated rooms, RON fixtures, and
-editor-authored chunks all feed the same runtime contract.
-
 ## First real vertical slice
 
 The first curated game slice should be small:
@@ -177,3 +155,10 @@ Rules:
 - Every AI-authored data file should be human-reviewable.
 - Tests and snapshots should cover generated schedules, geometry, and progression invariants.
 - Debug mode should reveal the underlying structure instead of hiding it.
+
+
+## Professional world composition
+
+Ambition should support massive games by separating authoring units from runtime traversal units. Designers, generators, and agents may produce room chunks, LDtk levels, or future editor modules. The runtime should compose those into active areas when traversal is meant to be continuous. Loading zones should represent intentional transitions, not arbitrary authoring seams.
+
+LDtk is the first external editor target, but Ambition's typed schema and validators remain canonical. The sandbox should keep proving this with a central hub whose basement is physically below the hub and reachable by dropping through an opening.

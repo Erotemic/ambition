@@ -15,6 +15,7 @@ mod features;
 mod game_mode;
 mod input;
 mod loading;
+mod ldtk_world;
 mod platforms;
 mod physics;
 mod rendering;
@@ -36,6 +37,7 @@ use bevy_inspector_egui::{
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
 use bevy_material_ui::MaterialUiPlugin;
+use bevy_ecs_ldtk::LdtkPlugin;
 
 const BULLET_TIME_SCALE: f32 = 0.10;
 const BLINK_HOLD_SLOW_SCALE: f32 = 0.35;
@@ -54,7 +56,13 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 use rendering::{camera_follow, spawn_room_visuals, sync_visuals, HudText, PlayerVisual, RoomVisual, SceneEntities};
 
 fn main() {
-    let sandbox_data = data::SandboxDataSpec::load_embedded();
+    let mut sandbox_data = data::SandboxDataSpec::load_embedded();
+    let ldtk_project = ldtk_world::LdtkProject::load_embedded();
+    let ldtk_report = ldtk_project.validate();
+    ldtk_report.print_to_stderr();
+    sandbox_data.rooms = ldtk_project
+        .to_room_manifest()
+        .expect("embedded LDtk world should validate and convert into Ambition rooms");
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
     let room_set = rooms::RoomSet::from_manifest(&sandbox_data.rooms);
@@ -95,6 +103,7 @@ fn main() {
         .add_plugins(ae::AmbitionStateMachinePlugin::default())
         .add_plugins(dialog::yarn_spinner_plugin())
         .add_plugins(MaterialUiPlugin)
+        .add_plugins(LdtkPlugin)
         .add_plugins(physics::AmbitionPhysicsPlugin)
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
@@ -587,6 +596,9 @@ fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntim
     if keys.just_pressed(KeyCode::F4) {
         tools.world_inspector_visible = !tools.world_inspector_visible;
     }
+    if keys.just_pressed(KeyCode::F5) {
+        tools.overview_camera = !tools.overview_camera;
+    }
     preset_changed
 }
 
@@ -989,7 +1001,7 @@ fn update_hud(
     };
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world\n{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={}\n{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -1008,6 +1020,7 @@ fn update_hud(
             runtime.damage_invuln_timer,
             runtime.hitstop_timer,
             preset.name,
+            developer_tools.overview_camera,
             runtime.features.feature_summary(),
             feature_banner,
         );
@@ -1019,7 +1032,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -1054,6 +1067,7 @@ fn update_hud(
         runtime.slowmo,
         developer_tools.inspector_visible,
         developer_tools.world_inspector_visible,
+        developer_tools.overview_camera,
         mode.get().label(),
         runtime.hitstop_timer,
         runtime.hitstun_timer,

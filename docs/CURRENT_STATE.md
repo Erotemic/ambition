@@ -13,8 +13,8 @@ ambition_engine
   Bevy-native reusable mechanics and data vocabulary.
 
 ambition_sandbox
-  Playable Bevy shell, sandbox RON content, debug tools, visual/audio adapter,
-  and current experimental feature rooms.
+  Playable Bevy shell, LDtk-authored sandbox world-composition POC, RON tuning/audio data,
+  debug tools, visual/audio adapter, and current experimental feature rooms.
 
 future story/game crates
   Campaign content, progression, dialogue, world variants, and presentation choices.
@@ -26,7 +26,8 @@ The engine may depend on Bevy and Bevy-adjacent crates when useful. It should st
 
 - Bevy 0.18
 - Leafwing Input Manager for semantic controls
-- serde / RON / `bevy_common_assets` for data-driven manifests
+- serde / RON / `bevy_common_assets` for tuning/audio manifests
+- LDtk JSON authoring via an Ambition adapter, with `bevy_ecs_ldtk` added as the Bevy LDtk bridge
 - `bevy_asset_loader` foundation for future explicit loading states
 - `petgraph` for room transition graphs
 - `bevy-inspector-egui` and Bevy Gizmos for dev tooling
@@ -45,10 +46,8 @@ The sandbox currently has:
 - input presets through Leafwing,
 - pause/game-mode gating,
 - generated lo-fi audio and sound effects,
-- scrolling rooms and loading-zone transitions,
-- a central hub and feature-lab content, with the intended basement direction
-  corrected by ADR 0009: the basement should be physically below the hub in a
-  continuous active area, not a separate loading-zone room,
+- LDtk-authored active-area composition for the central hub POC,
+- a central hub with a literal drop-down basement stitched into one continuous active area,
 - test rooms for hazards, enemies, boss patterns, breakables, pickups/chests, and NPC talk hooks,
 - debug labels over loading zones,
 - feature runtime behavior for current prototype entities,
@@ -59,10 +58,16 @@ These prototype feature rooms are not the final game. They exist to validate reu
 
 ## Current data location
 
-The canonical sandbox manifest is:
+The canonical sandbox tuning/audio manifest is:
 
 ```text
 crates/ambition_sandbox/assets/ambition/sandbox.ron
+```
+
+The current sandbox level-authoring POC is:
+
+```text
+crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
 Older root-level asset paths are obsolete unless a patch explicitly says otherwise.
@@ -74,9 +79,7 @@ Older root-level asset paths are obsolete unless a patch explicitly says otherwi
 - Reusable mechanics should migrate into `ambition_engine` or reusable data specs.
 - The sandbox should remain an adapter/lab, not a second engine.
 - App-wide modes use Bevy `States`; per-entity behavior should move toward `seldom_state` gradually.
-- Room/content authoring should be data-driven where practical.
-- World authoring should separate authored chunks from runtime active areas; see
-  ADR 0009 for room stitching, LDtk evaluation, and debug overview requirements.
+- Room/content authoring should be data-driven where practical. LDtk is now the first external level-editor adapter target; Ambition typed data remains canonical.
 - Generated assets should remain inspectable, reproducible, and connected to gameplay semantics.
 - Patches should include documentation notes, testing limitations, and a markdown paragraph commit message.
 
@@ -99,6 +102,7 @@ Do not document these as final game promises in the README. Use focused docs and
 
 Spatial reasoning and geometry code need extra review. In particular:
 
+- LDtk chunk-to-active-area composition,
 - room transition arrival repair,
 - loading-zone placement and labels,
 - camera/world coordinate conversion,

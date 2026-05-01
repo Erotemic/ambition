@@ -38,6 +38,10 @@ pub struct DeveloperTools {
     pub show_health_bars: bool,
     pub show_moving_platform: bool,
     pub show_rebound_vectors: bool,
+    /// Toggle a zoomed-out camera for inspecting large or stitched active areas.
+    pub overview_camera: bool,
+    /// Orthographic scale used while overview camera is enabled.
+    pub overview_camera_scale: f32,
 }
 
 impl Default for DeveloperTools {
@@ -59,6 +63,8 @@ impl Default for DeveloperTools {
             show_health_bars: true,
             show_moving_platform: true,
             show_rebound_vectors: true,
+            overview_camera: false,
+            overview_camera_scale: 2.35,
         }
     }
 }

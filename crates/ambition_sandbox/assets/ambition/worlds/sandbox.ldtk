@@ -1,0 +1,1263 @@
+{
+  "__header__": {
+    "fileType": "LDtk Project JSON",
+    "app": "LDtk",
+    "doc": "Ambition sandbox LDtk authoring source"
+  },
+  "appBuildId": 20260122,
+  "backupLimit": 10,
+  "backupOnSave": false,
+  "bgColor": "#141821",
+  "customCommands": [],
+  "defaultEntityHeight": 32,
+  "defaultEntityWidth": 32,
+  "defaultGridSize": 16,
+  "defaultLevelBgColor": "#20242f",
+  "defaultLevelHeight": 900,
+  "defaultLevelWidth": 1600,
+  "defaultPivotX": 0.0,
+  "defaultPivotY": 0.0,
+  "defs": {
+    "layers": [],
+    "entities": [],
+    "tilesets": [],
+    "enums": [],
+    "externalEnums": [],
+    "levelFields": []
+  },
+  "dummyWorldIid": "world-0034",
+  "exportLevelBg": false,
+  "exportTiled": false,
+  "externalLevels": false,
+  "flags": [],
+  "identifierStyle": "Free",
+  "iid": "project-0035",
+  "imageExportMode": "None",
+  "jsonVersion": "1.5.3",
+  "levelNamePattern": "Level_%idx",
+  "minifyJson": false,
+  "nextUid": 10000,
+  "simplifiedExport": false,
+  "toc": [],
+  "worldGridHeight": 256,
+  "worldGridWidth": 256,
+  "worldLayout": "Free",
+  "worlds": [],
+  "levels": [
+    {
+      "__bgColor": "#20242f",
+      "__bgPos": null,
+      "__neighbours": [],
+      "bgColor": null,
+      "bgPivotX": 0.5,
+      "bgPivotY": 0.5,
+      "__identifier": "central_hub_main",
+      "identifier": "central_hub_main",
+      "iid": "central_hub_main-0036",
+      "uid": 15197,
+      "worldX": 0,
+      "worldY": 0,
+      "worldDepth": 0,
+      "pxWid": 1800,
+      "pxHei": 1024,
+      "externalRelPath": null,
+      "fieldInstances": [
+        {
+          "__identifier": "activeArea",
+          "__type": "String",
+          "__value": "central_hub_complex",
+          "defUid": 9001,
+          "realEditorValues": []
+        }
+      ],
+      "layerInstances": [
+        {
+          "__identifier": "Ambition",
+          "__cHei": 1,
+          "__cWid": 1,
+          "__gridSize": 16,
+          "__opacity": 1.0,
+          "__pxTotalOffsetX": 0,
+          "__pxTotalOffsetY": 0,
+          "__tilesetDefUid": null,
+          "__tilesetRelPath": null,
+          "autoLayerTiles": [],
+          "entityInstances": [
+            {
+              "iid": "PlayerStart-0001",
+              "defUid": 8058,
+              "__identifier": "PlayerStart",
+              "__grid": [
+                55,
+                51
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#80f0ff",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "central_start",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 46,
+              "width": 28,
+              "px": [
+                886,
+                828
+              ]
+            },
+            {
+              "iid": "Solid-0002",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                0,
+                61
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub floor west",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 48,
+              "width": 720,
+              "px": [
+                0,
+                976
+              ]
+            },
+            {
+              "iid": "Solid-0003",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                67,
+                61
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub floor east",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 48,
+              "width": 720,
+              "px": [
+                1080,
+                976
+              ]
+            },
+            {
+              "iid": "Solid-0004",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                0,
+                0
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub ceiling",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 24,
+              "width": 1800,
+              "px": [
+                0,
+                0
+              ]
+            },
+            {
+              "iid": "Solid-0005",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                0,
+                0
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub left wall",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 1000,
+              "width": 36,
+              "px": [
+                0,
+                0
+              ]
+            },
+            {
+              "iid": "Solid-0006",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                110,
+                0
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub right wall",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 1000,
+              "width": 36,
+              "px": [
+                1764,
+                0
+              ]
+            },
+            {
+              "iid": "OneWayPlatform-0007",
+              "defUid": 12080,
+              "__identifier": "OneWayPlatform",
+              "__grid": [
+                40,
+                45
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub center shelf",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 18,
+              "width": 500,
+              "px": [
+                650,
+                720
+              ]
+            },
+            {
+              "iid": "OneWayPlatform-0008",
+              "defUid": 12080,
+              "__identifier": "OneWayPlatform",
+              "__grid": [
+                46,
+                26
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub upper shelf",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 18,
+              "width": 310,
+              "px": [
+                745,
+                430
+              ]
+            },
+            {
+              "iid": "BlinkWall-0009",
+              "defUid": 5609,
+              "__identifier": "BlinkWall",
+              "__grid": [
+                35,
+                38
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#6937b0",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub soft column",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "tier",
+                  "__type": "Enum(BlinkWallTier)",
+                  "__value": "Soft",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 230,
+              "width": 32,
+              "px": [
+                565,
+                615
+              ]
+            },
+            {
+              "iid": "BlinkWall-0010",
+              "defUid": 5609,
+              "__identifier": "BlinkWall",
+              "__grid": [
+                75,
+                38
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#6937b0",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub right soft column",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "tier",
+                  "__type": "Enum(BlinkWallTier)",
+                  "__value": "Soft",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 235,
+              "width": 32,
+              "px": [
+                1210,
+                610
+              ]
+            },
+            {
+              "iid": "PogoOrb-0011",
+              "defUid": 3820,
+              "__identifier": "PogoOrb",
+              "__grid": [
+                55,
+                36
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#36eaa0",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hub routing note",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 36,
+              "width": 36,
+              "px": [
+                882,
+                582
+              ]
+            },
+            {
+              "iid": "OneWayPlatform-0012",
+              "defUid": 12080,
+              "__identifier": "OneWayPlatform",
+              "__grid": [
+                45,
+                58
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "drop lip platform",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 18,
+              "width": 360,
+              "px": [
+                720,
+                930
+              ]
+            },
+            {
+              "iid": "NpcSpawn-0013",
+              "defUid": 4786,
+              "__identifier": "NpcSpawn",
+              "__grid": [
+                45,
+                52
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#6cc7ff",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "Kernel Guide NPC",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "prompt",
+                  "__type": "String",
+                  "__value": "Talk",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "dialogue_id",
+                  "__type": "String",
+                  "__value": "hub_guide",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 68,
+              "width": 42,
+              "px": [
+                720,
+                840
+              ]
+            },
+            {
+              "iid": "DebugLabel-0014",
+              "defUid": 6455,
+              "__identifier": "DebugLabel",
+              "__grid": [
+                44,
+                49
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#b8e2ff",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "text",
+                  "__type": "String",
+                  "__value": "Drop through the floor opening to reach the basement",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "category",
+                  "__type": "Enum(DebugLabelKind)",
+                  "__value": "Room",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 24,
+              "width": 370,
+              "px": [
+                715,
+                790
+              ]
+            },
+            {
+              "iid": "DebugLabel-0015",
+              "defUid": 6455,
+              "__identifier": "DebugLabel",
+              "__grid": [
+                3,
+                3
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#b8e2ff",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "text",
+                  "__type": "String",
+                  "__value": "LDtk-authored central_hub_complex: main chunk",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "category",
+                  "__type": "Enum(DebugLabelKind)",
+                  "__value": "Room",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 24,
+              "width": 400,
+              "px": [
+                60,
+                60
+              ]
+            }
+          ],
+          "gridTiles": [],
+          "iid": "Ambition-0037",
+          "intGridCsv": [],
+          "layerDefUid": 1,
+          "levelId": 1,
+          "overrideTilesetUid": null,
+          "pxOffsetX": 0,
+          "pxOffsetY": 0,
+          "seed": 0,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "__bgColor": "#20242f",
+      "__bgPos": null,
+      "__neighbours": [],
+      "bgColor": null,
+      "bgPivotX": 0.5,
+      "bgPivotY": 0.5,
+      "__identifier": "central_hub_basement",
+      "identifier": "central_hub_basement",
+      "iid": "central_hub_basement-0038",
+      "uid": 23141,
+      "worldX": 0,
+      "worldY": 1024,
+      "worldDepth": 0,
+      "pxWid": 1800,
+      "pxHei": 896,
+      "externalRelPath": null,
+      "fieldInstances": [
+        {
+          "__identifier": "activeArea",
+          "__type": "String",
+          "__value": "central_hub_complex",
+          "defUid": 9001,
+          "realEditorValues": []
+        }
+      ],
+      "layerInstances": [
+        {
+          "__identifier": "Ambition",
+          "__cHei": 1,
+          "__cWid": 1,
+          "__gridSize": 16,
+          "__opacity": 1.0,
+          "__pxTotalOffsetX": 0,
+          "__pxTotalOffsetY": 0,
+          "__tilesetDefUid": null,
+          "__tilesetRelPath": null,
+          "autoLayerTiles": [],
+          "entityInstances": [
+            {
+              "iid": "Solid-0016",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                0,
+                0
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement left wall",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 850,
+              "width": 36,
+              "px": [
+                0,
+                0
+              ]
+            },
+            {
+              "iid": "Solid-0017",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                110,
+                0
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement right wall",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 850,
+              "width": 36,
+              "px": [
+                1764,
+                0
+              ]
+            },
+            {
+              "iid": "Solid-0018",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                0,
+                51
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement floor",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 48,
+              "width": 1800,
+              "px": [
+                0,
+                826
+              ]
+            },
+            {
+              "iid": "OneWayPlatform-0019",
+              "defUid": 12080,
+              "__identifier": "OneWayPlatform",
+              "__grid": [
+                45,
+                6
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement catch platform",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 18,
+              "width": 360,
+              "px": [
+                720,
+                100
+              ]
+            },
+            {
+              "iid": "OneWayPlatform-0020",
+              "defUid": 12080,
+              "__identifier": "OneWayPlatform",
+              "__grid": [
+                21,
+                16
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "hazard lab shelf",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 18,
+              "width": 300,
+              "px": [
+                340,
+                270
+              ]
+            },
+            {
+              "iid": "OneWayPlatform-0021",
+              "defUid": 12080,
+              "__identifier": "OneWayPlatform",
+              "__grid": [
+                72,
+                16
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "enemy lab shelf",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 18,
+              "width": 300,
+              "px": [
+                1160,
+                270
+              ]
+            },
+            {
+              "iid": "Solid-0022",
+              "defUid": 2549,
+              "__identifier": "Solid",
+              "__grid": [
+                51,
+                26
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#7f7f7f",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement central plinth",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 28,
+              "width": 160,
+              "px": [
+                820,
+                430
+              ]
+            },
+            {
+              "iid": "HazardBlock-0023",
+              "defUid": 7682,
+              "__identifier": "HazardBlock",
+              "__grid": [
+                14,
+                50
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#e33142",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement lava channel",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 22,
+              "width": 360,
+              "px": [
+                230,
+                804
+              ]
+            },
+            {
+              "iid": "PogoOrb-0024",
+              "defUid": 3820,
+              "__identifier": "PogoOrb",
+              "__grid": [
+                31,
+                36
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#36eaa0",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement pogo target",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 38,
+              "width": 38,
+              "px": [
+                506,
+                585
+              ]
+            },
+            {
+              "iid": "ReboundPad-0025",
+              "defUid": 6480,
+              "__identifier": "ReboundPad",
+              "__grid": [
+                64,
+                49
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#ff9b38",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement rebound pad",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "impulseX",
+                  "__type": "Float",
+                  "__value": 620.0,
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "impulseY",
+                  "__type": "Float",
+                  "__value": -760.0,
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 24,
+              "width": 120,
+              "px": [
+                1030,
+                794
+              ]
+            },
+            {
+              "iid": "EnemySpawn-0026",
+              "defUid": 6862,
+              "__identifier": "EnemySpawn",
+              "__grid": [
+                76,
+                47
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#ed5748",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "small skitter POC",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "brain",
+                  "__type": "String",
+                  "__value": "small_skitter",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 66,
+              "width": 38,
+              "px": [
+                1220,
+                760
+              ]
+            },
+            {
+              "iid": "EnemySpawn-0027",
+              "defUid": 6862,
+              "__identifier": "EnemySpawn",
+              "__grid": [
+                82,
+                47
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#ed5748",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "medium striker POC",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "brain",
+                  "__type": "String",
+                  "__value": "medium_striker",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 66,
+              "width": 38,
+              "px": [
+                1320,
+                760
+              ]
+            },
+            {
+              "iid": "BossSpawn-0028",
+              "defUid": 5801,
+              "__identifier": "BossSpawn",
+              "__grid": [
+                90,
+                44
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#ba33e0",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "Gradient Sentinel POC",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "brain",
+                  "__type": "String",
+                  "__value": "gradient_sentinel",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 122,
+              "width": 110,
+              "px": [
+                1450,
+                704
+              ]
+            },
+            {
+              "iid": "ChestSpawn-0029",
+              "defUid": 6847,
+              "__identifier": "ChestSpawn",
+              "__grid": [
+                41,
+                48
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#ffbd38",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement validator chest",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "reward",
+                  "__type": "String",
+                  "__value": "currency:12",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 44,
+              "width": 44,
+              "px": [
+                660,
+                770
+              ]
+            },
+            {
+              "iid": "PickupSpawn-0030",
+              "defUid": 8022,
+              "__identifier": "PickupSpawn",
+              "__grid": [
+                46,
+                48
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#66ffb8",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "basement health pickup",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "kind",
+                  "__type": "String",
+                  "__value": "health:1",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 32,
+              "width": 32,
+              "px": [
+                745,
+                780
+              ]
+            },
+            {
+              "iid": "Breakable-0031",
+              "defUid": 5561,
+              "__identifier": "Breakable",
+              "__grid": [
+                51,
+                48
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#9e6b3d",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "slash break proof block",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "max_hp",
+                  "__type": "Int",
+                  "__value": 3,
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "solid",
+                  "__type": "Bool",
+                  "__value": true,
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 46,
+              "width": 90,
+              "px": [
+                820,
+                780
+              ]
+            },
+            {
+              "iid": "DebugLabel-0032",
+              "defUid": 6455,
+              "__identifier": "DebugLabel",
+              "__grid": [
+                3,
+                3
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#b8e2ff",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "text",
+                  "__type": "String",
+                  "__value": "LDtk-authored basement chunk stitched under hub",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "category",
+                  "__type": "Enum(DebugLabelKind)",
+                  "__value": "Room",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 24,
+              "width": 420,
+              "px": [
+                60,
+                60
+              ]
+            },
+            {
+              "iid": "DebugLabel-0033",
+              "defUid": 6455,
+              "__identifier": "DebugLabel",
+              "__grid": [
+                64,
+                46
+              ],
+              "__pivot": [
+                0.0,
+                0.0
+              ],
+              "__smartColor": "#b8e2ff",
+              "__tags": [],
+              "fieldInstances": [
+                {
+                  "__identifier": "text",
+                  "__type": "String",
+                  "__value": "F5 toggles debug overview camera for large/stitched areas",
+                  "defUid": 1,
+                  "realEditorValues": []
+                },
+                {
+                  "__identifier": "category",
+                  "__type": "Enum(DebugLabelKind)",
+                  "__value": "Room",
+                  "defUid": 1,
+                  "realEditorValues": []
+                }
+              ],
+              "height": 24,
+              "width": 520,
+              "px": [
+                1030,
+                740
+              ]
+            }
+          ],
+          "gridTiles": [],
+          "iid": "Ambition-0039",
+          "intGridCsv": [],
+          "layerDefUid": 1,
+          "levelId": 1,
+          "overrideTilesetUid": null,
+          "pxOffsetX": 0,
+          "pxOffsetY": 0,
+          "seed": 0,
+          "visible": true
+        }
+      ]
+    }
+  ]
+}

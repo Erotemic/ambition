@@ -258,21 +258,31 @@ pub fn block_color(kind: ae::BlockKind) -> Color {
 pub fn camera_follow(
     world: Res<crate::GameWorld>,
     runtime: Res<crate::SandboxRuntime>,
+    developer_tools: Res<crate::dev_tools::DeveloperTools>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    mut query: Query<&mut Transform, (With<Camera>, Without<PlayerVisual>)>,
+    mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {
-    let target = world_to_bevy(&world.0, runtime.player.pos, 0.0);
+    let overview_scale = developer_tools.overview_camera_scale.max(1.0);
+    let camera_scale = if developer_tools.overview_camera { overview_scale } else { 1.0 };
+
+    let target = if developer_tools.overview_camera {
+        // AMBITION_REVIEW(spatial): overview centers the composed active area, not
+        // individual LDtk chunks. If active areas become sparse, switch this from
+        // bounding-box center to a validated camera overview region.
+        world_to_bevy(&world.0, world.0.size * 0.5, 0.0)
+    } else {
+        world_to_bevy(&world.0, runtime.player.pos, 0.0)
+    };
 
     // Use the actual logical window size so resized, borderless, and fullscreen
-    // windows clamp the camera correctly. This preserves the current 1 world
-    // unit ~= 1 logical pixel convention while letting larger windows reveal
-    // more of the room instead of stretching the game.
+    // windows clamp the camera correctly. In overview mode the orthographic
+    // scale expands the effective view so large stitched areas can be inspected.
     let (view_w, view_h) = windows
         .single()
         .map(|w| (w.width(), w.height()))
         .unwrap_or((crate::config::WINDOW_W as f32, crate::config::WINDOW_H as f32));
-    let half_view_w = view_w * 0.5;
-    let half_view_h = view_h * 0.5;
+    let half_view_w = view_w * camera_scale * 0.5;
+    let half_view_h = view_h * camera_scale * 0.5;
     let min_x = -world.0.size.x * 0.5 + half_view_w;
     let max_x = world.0.size.x * 0.5 - half_view_w;
     let min_y = -world.0.size.y * 0.5 + half_view_h;
@@ -281,7 +291,10 @@ pub fn camera_follow(
     let x = if min_x <= max_x { target.x.clamp(min_x, max_x) } else { 0.0 };
     let y = if min_y <= max_y { target.y.clamp(min_y, max_y) } else { 0.0 };
 
-    for mut transform in &mut query {
+    for (mut transform, mut projection) in &mut query {
+        if let Projection::Orthographic(orthographic) = &mut *projection {
+            orthographic.scale = camera_scale;
+        }
         transform.translation.x = x;
         transform.translation.y = y;
     }

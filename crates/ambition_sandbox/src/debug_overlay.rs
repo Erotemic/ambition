@@ -15,7 +15,7 @@ use crate::dev_tools::DeveloperTools;
 use crate::input::{ControlFrame, SandboxAction};
 use crate::platforms;
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
-use crate::{GameWorld, SandboxRuntime};
+use crate::{GameMode, GameWorld, SandboxRuntime};
 use crate::rendering::{PlayerVisual, SceneEntities};
 use leafwing_input_manager::prelude::ActionState;
 
@@ -35,6 +35,7 @@ pub fn draw_debug_overlay(
     runtime: Res<SandboxRuntime>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
+    mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
 ) {
@@ -43,7 +44,12 @@ pub fn draw_debug_overlay(
     }
 
     let world = &world.0;
-    let actions = action_query.get(entities.player).ok();
+    // Mirror the gameplay input gate used by sandbox_update. Raw Leafwing
+    // action state still records button presses while paused so pause/menu
+    // UI can respond, but debug combat/blink previews are gameplay-facing and
+    // should not light up from those paused-mode inputs.
+    let gameplay_active = mode.get().allows_gameplay();
+    let actions = if gameplay_active { action_query.get(entities.player).ok() } else { None };
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
     }
@@ -59,7 +65,7 @@ pub fn draw_debug_overlay(
     if developer_tools.show_moving_platform {
         draw_moving_platform_debug(&mut gizmos, world, &runtime);
     }
-    draw_player_debug(&mut gizmos, world, &runtime, actions, &developer_tools);
+    draw_player_debug(&mut gizmos, world, &runtime, actions, gameplay_active, &developer_tools);
     if developer_tools.show_dummies {
         draw_dummy_debug(&mut gizmos, world, &runtime);
     }
@@ -100,6 +106,7 @@ fn draw_player_debug(
     world: &ae::World,
     runtime: &SandboxRuntime,
     actions: Option<&ActionState<SandboxAction>>,
+    gameplay_active: bool,
     developer_tools: &DeveloperTools,
 ) {
     let player = &runtime.player;
@@ -143,7 +150,7 @@ fn draw_player_debug(
     let dedicated_pogo_held = actions
         .map(|actions| actions.pressed(&SandboxAction::Pogo))
         .unwrap_or(false);
-    if developer_tools.show_combat_preview && (attack_held || dedicated_pogo_held) {
+    if gameplay_active && developer_tools.show_combat_preview && (attack_held || dedicated_pogo_held) {
         let hitbox = ae::slash_hitbox(player, controls.axis_y, dedicated_pogo_held || controls.pogo_pressed);
         draw_aabb(gizmos, world, hitbox, yellow());
     }
@@ -151,7 +158,7 @@ fn draw_player_debug(
     // Blink aim preview. A quick tap blinks a short distance; once the hold
     // crosses the threshold, the engine sets `blink_aiming` and the sandbox
     // enters bullet-time while previewing the longer precision destination.
-    if developer_tools.show_blink_preview && (controls.blink_held || player.blink_aiming) {
+    if gameplay_active && developer_tools.show_blink_preview && (controls.blink_held || player.blink_aiming) {
         // Use the same temporary collision world that drives player movement.
         // Otherwise the preview can claim a blink is clear while release-time
         // resolution stops on sandbox-only geometry such as the moving platform.

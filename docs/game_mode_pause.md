@@ -16,3 +16,7 @@ The intended split is:
 This patch keeps the current monolithic sandbox update function for minimal risk, but introduces the state boundary that future refactors can use to split systems into schedule sets.
 
 Implementation note: `init_state::<GameMode>()` must be called after `DefaultPlugins` has been added. `DefaultPlugins` installs Bevy's `StatesPlugin`, including the `StateTransition` schedule. Calling `init_state` before that plugin exists will panic at startup.
+
+## Presentation input must follow the same gate
+
+Gameplay simulation and presentation both need the same pause contract. The engine-facing `ControlFrame` is only read from Leafwing `ActionState` while the mode allows gameplay, and debug combat/blink previews now follow that same rule. This prevents raw paused-mode button presses from lighting up attack or blink previews even though the simulation itself is stopped.

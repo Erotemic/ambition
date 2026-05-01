@@ -34,6 +34,28 @@ A useful north star:
    - Roguelike/run-based mode.
    - Hybrid mode where runs feed a persistent metroidvania world.
 
+
+## World composition and authoring scale
+
+Ambition should support professional-scale world composition. The long-term model
+should separate authoring units from runtime traversal units:
+
+```text
+RoomChunk / generated module / editor level
+  -> PlacedRoomChunk
+  -> ActiveArea
+```
+
+A player-visible continuous space may be built from multiple authored chunks. For
+example, the central hub and its basement can be separate chunks while still being
+loaded and simulated as one active area. Loading zones should represent
+intentional transitions, not ordinary seams between physically adjacent chunks.
+
+External level editors should be used when they help. LDtk is the first editor to
+evaluate for human-authored 2D chunks, with Tiled kept as a secondary candidate.
+The Ambition schema remains canonical so generated rooms, RON fixtures, and
+editor-authored chunks all feed the same runtime contract.
+
 ## First real vertical slice
 
 The first curated game slice should be small:

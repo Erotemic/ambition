@@ -19,3 +19,5 @@ Use an ADR when a decision:
 - [0005: Mark spatial/geometry code for extra review](0005-spatial-review-markers.md)
 - [0006: Require explicit repo-state and patch packaging discipline](0006-repo-state-and-patch-packaging.md)
 - [0007: Use Avian2D for secondary physics while keeping the player controller custom](0007-avian2d-secondary-physics.md)
+- [0008: Dialogue and commerce architecture](0008-dialogue-and-commerce-architecture.md)
+- [0009: World composition and level authoring](0009-world-composition-and-level-authoring.md)

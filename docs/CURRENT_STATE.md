@@ -46,7 +46,9 @@ The sandbox currently has:
 - pause/game-mode gating,
 - generated lo-fi audio and sound effects,
 - scrolling rooms and loading-zone transitions,
-- a central hub plus a basement feature wing,
+- a central hub and feature-lab content, with the intended basement direction
+  corrected by ADR 0009: the basement should be physically below the hub in a
+  continuous active area, not a separate loading-zone room,
 - test rooms for hazards, enemies, boss patterns, breakables, pickups/chests, and NPC talk hooks,
 - debug labels over loading zones,
 - feature runtime behavior for current prototype entities,
@@ -73,6 +75,8 @@ Older root-level asset paths are obsolete unless a patch explicitly says otherwi
 - The sandbox should remain an adapter/lab, not a second engine.
 - App-wide modes use Bevy `States`; per-entity behavior should move toward `seldom_state` gradually.
 - Room/content authoring should be data-driven where practical.
+- World authoring should separate authored chunks from runtime active areas; see
+  ADR 0009 for room stitching, LDtk evaluation, and debug overview requirements.
 - Generated assets should remain inspectable, reproducible, and connected to gameplay semantics.
 - Patches should include documentation notes, testing limitations, and a markdown paragraph commit message.
 

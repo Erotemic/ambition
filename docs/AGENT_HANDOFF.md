@@ -63,6 +63,25 @@ Use this order when documents disagree:
 
 If an older doc is misleading, do not delete history by default. Add a supersession note or ADR pointer.
 
+
+## World composition direction
+
+Do not assume one authored room equals one runtime traversal space. ADR 0009
+introduces the direction for `RoomChunk`, `PlacedRoomChunk`, and `ActiveArea`.
+The central hub basement should be a continuous drop-down space below the hub,
+not a separate loading-zone room. Use loading zones for intentional transitions;
+use stitched chunks or large active areas for continuous traversal.
+
+For professional authoring, keep the Ambition schema canonical. LDtk is the first
+external editor integration candidate, Tiled remains a secondary candidate, and
+RON remains important for generated data, tests, fixtures, and small sandbox
+cases. Do not bind engine semantics directly to an external editor plugin's
+entity hierarchy.
+
+Large or stitched spaces require debug overview tooling: zoom-out/unlocked camera,
+chunk labels, active-area bounds, local origins, stitch seams, collision, and
+loading-zone labels.
+
 ## Spatial reasoning review convention
 
 The project has many geometry-heavy systems where subtle mistakes are easy:

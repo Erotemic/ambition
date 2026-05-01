@@ -165,7 +165,7 @@ before runtime.
 
 ## LDtk runtime spine migration
 
-Ambition is moving from a custom LDtk JSON adapter toward `bevy_ecs_ldtk` as the runtime spine. The sandbox now registers every current Ambition LDtk entity identifier as a lightweight plugin-spawned marker bundle, keeps the LDtk world root active, disables LDtk level-background rendering, and records plugin-spawned entity lifecycle in HUD/debug state. LDtk now builds runtime `RoomSet` data directly through `RoomSet::from_parts` rather than round-tripping through the old RON-shaped `RoomManifestSpec` adapter.
+Ambition is moving from a custom LDtk JSON adapter toward `bevy_ecs_ldtk` as the runtime spine. The sandbox now registers every current Ambition LDtk entity identifier as a lightweight plugin-spawned marker bundle, keeps the LDtk world root active, disables LDtk level-background rendering, and records plugin-spawned entity lifecycle in HUD/debug state. LDtk builds runtime `RoomSet` data directly through `RoomSet::from_parts`; the old RON-shaped world manifest structs and builders have been removed.
 
 Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `tools/validate_ambition_ldtk.py` supports optional `--schema` and `--require-schema` flags while continuing to run Ambition-specific semantic validation without the schema file.
 
@@ -173,7 +173,7 @@ Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `t
 
 The sandbox RON asset is no longer the runtime owner of the room/world manifest. `SandboxDataSpec` intentionally contains only abilities, movement tuning, and generated-audio configuration. Startup and LDtk hot reload build the active `RoomSet` directly from `assets/ambition/worlds/sandbox.ldtk` instead of writing the LDtk-derived manifest back into `SandboxDataSpec.rooms`.
 
-The old `rooms` data may still exist in historical RON files for reference, but new gameplay/world patches should treat it as ignored legacy data. `RoomManifestSpec` remains only for legacy RON fixtures/tests; LDtk no longer emits it as runtime input.
+The old `rooms` data may still exist in historical artifacts for reference, but new gameplay/world patches should treat it as deleted legacy data. `SandboxDataSpec` is non-spatial; LDtk is the sandbox world source.
 
 The legacy `rooms` block has also been removed from `crates/ambition_sandbox/assets/ambition/sandbox.ron`; the LDtk file is now the only checked-in sandbox world definition. If older docs mention RON room authoring, treat that as historical unless explicitly scoped to tests/fixtures.
 

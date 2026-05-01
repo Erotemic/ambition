@@ -542,9 +542,9 @@ impl LdtkProject {
 
     /// Build the sandbox runtime room set from LDtk.
     ///
-    /// This is now a direct LDtk-native runtime builder. LDtk no longer
-    /// round-trips through the retired RON `RoomManifestSpec` shape before it
-    /// becomes playable data. `RoomSet` remains the runtime graph, but LDtk
+    /// This is a direct LDtk-native runtime builder. LDtk does not
+    /// round-trip through a RON-shaped world manifest before it becomes
+    /// playable data. `RoomSet` remains the runtime graph, but LDtk
     /// materializes `RoomSpec`, `ae::World`, loading zones, and graph links
     /// directly here.
     pub fn to_room_set(&self) -> Result<RoomSet, Vec<String>> {

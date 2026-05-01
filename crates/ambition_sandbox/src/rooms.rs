@@ -1,9 +1,8 @@
 //! Data-driven sandbox room-set and loading-zone graph.
 //!
-//! Rooms are runtime graph nodes built either from legacy RON fixtures or directly
-//! from LDtk-authored runtime data. This module owns transition graph assembly
-//! and arrival validation, but LDtk no longer has to pretend to be a RON
-//! `RoomManifestSpec` to create a playable `RoomSet`.
+//! Rooms are runtime graph nodes built from LDtk-authored runtime data. This
+//! module owns transition graph assembly and arrival validation, while LDtk owns
+//! sandbox world authoring.
 //! Loading-zone links point at destination zones by name, so authoring no longer
 //! requires brittle hand-written spawn coordinates.
 
@@ -16,7 +15,6 @@ use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 
-use crate::data::{self, BlockSpec, BlinkWallTierSpec, LoadingZoneActivationSpec, RoomManifestSpec, WallSideSpec};
 
 /// How a loading zone should be activated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,15 +28,6 @@ impl LoadingZoneActivation {
         match self {
             Self::EdgeExit => "edge exit",
             Self::Door => "door",
-        }
-    }
-}
-
-impl From<LoadingZoneActivationSpec> for LoadingZoneActivation {
-    fn from(value: LoadingZoneActivationSpec) -> Self {
-        match value {
-            LoadingZoneActivationSpec::EdgeExit => Self::EdgeExit,
-            LoadingZoneActivationSpec::Door => Self::Door,
         }
     }
 }
@@ -116,26 +105,10 @@ pub struct RoomSet {
 }
 
 impl RoomSet {
-    pub fn from_manifest(manifest: &RoomManifestSpec) -> Self {
-        let rooms = manifest.rooms.iter().map(build_room_from_data).collect::<Vec<_>>();
-        let links = manifest
-            .links
-            .iter()
-            .map(|link| RoomLink {
-                from_room: link.from_room.clone(),
-                from_zone: link.from_zone.clone(),
-                to_room: link.to_room.clone(),
-                to_zone: link.to_zone.clone(),
-                bidirectional: link.bidirectional,
-            })
-            .collect::<Vec<_>>();
-        Self::from_parts(&manifest.start_room, rooms, links)
-    }
-
     /// Build a runtime room graph from already-materialized runtime rooms.
     ///
     /// LDtk uses this path directly so it can own authored world data without
-    /// first converting through the legacy RON-shaped `RoomManifestSpec`.
+    /// passing through a legacy RON world manifest.
     pub fn from_parts(start_room: impl AsRef<str>, rooms: Vec<RoomSpec>, links: Vec<RoomLink>) -> Self {
         let mut graph = Graph::<String, TransitionEdge>::new();
         let mut room_nodes = Vec::new();
@@ -313,250 +286,10 @@ fn block_kind_label(kind: ae::BlockKind) -> &'static str {
 }
 
 const WALL: f32 = 36.0;
-const FLOOR: f32 = 48.0;
-const CEILING: f32 = 24.0;
 const EDGE_ARRIVAL_INSET: f32 = 92.0;
 const PLAYER_HALF_W: f32 = 14.0;
 const PLAYER_HALF_H: f32 = 23.0;
 const SPAWN_MARGIN: f32 = 3.0;
-
-fn build_room_from_data(room: &data::RoomSpecData) -> RoomSpec {
-    let mut blocks = Vec::new();
-    let size = data::vec2(room.size);
-    if room.shell.enabled {
-        shell_with_openings(&mut blocks, size.x, size.y, &room.shell.openings);
-    }
-    for block in &room.blocks {
-        blocks.push(build_block(block));
-    }
-    let loading_zones = room
-        .zones
-        .iter()
-        .map(|zone| LoadingZone {
-            id: zone.id.clone(),
-            name: zone.name.clone(),
-            activation: zone.activation.into(),
-            aabb: ae::aabb_from_min_size(data::vec2(zone.min), data::vec2(zone.size)),
-        })
-        .collect();
-    let objects = build_room_objects(&room.objects);
-
-    RoomSpec {
-        id: room.id.clone(),
-        world: ae::World {
-            name: room.name.clone(),
-            size,
-            spawn: data::vec2(room.spawn),
-            blocks,
-            objects,
-        },
-        loading_zones,
-    }
-}
-
-fn build_block(block: &BlockSpec) -> ae::Block {
-    match block {
-        BlockSpec::Solid { name, min, size } => ae::Block::solid(name.clone(), data::vec2(*min), data::vec2(*size)),
-        BlockSpec::BlinkWall { name, min, size, tier } => {
-            let tier = match tier {
-                BlinkWallTierSpec::Soft => ae::BlinkWallTier::Soft,
-                BlinkWallTierSpec::Hard => ae::BlinkWallTier::Hard,
-            };
-            ae::Block::blink_wall(name.clone(), data::vec2(*min), data::vec2(*size), tier)
-        }
-        BlockSpec::OneWay { name, min, size } => ae::Block::one_way(name.clone(), data::vec2(*min), data::vec2(*size)),
-        BlockSpec::Hazard { name, min, size } => ae::Block::hazard(name.clone(), data::vec2(*min), data::vec2(*size)),
-        BlockSpec::PogoOrb { name, center, radius } => ae::Block::pogo_orb(name.clone(), data::vec2(*center), *radius),
-        BlockSpec::Rebound { name, min, size, impulse } => {
-            ae::Block::rebound(name.clone(), data::vec2(*min), data::vec2(*size), data::vec2(*impulse))
-        }
-    }
-}
-
-fn build_room_objects(objects: &[data::RoomObjectSpec]) -> Vec<ae::RoomObject> {
-    objects.iter().map(build_room_object).collect()
-}
-
-fn build_room_object(object: &data::RoomObjectSpec) -> ae::RoomObject {
-    match object {
-        data::RoomObjectSpec::DamageVolume { id, name, min, size, damage, path } => {
-            let aabb = object_aabb(*min, *size);
-            let mut volume = ae::DamageVolume::new(id.clone(), aabb, *damage);
-            volume.motion = path.as_ref().map(kinematic_path_spec);
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::DamageVolume(volume))
-        }
-        data::RoomObjectSpec::Interactable { id, name, prompt, min, size, kind } => {
-            let aabb = object_aabb(*min, *size);
-            let interactable = ae::Interactable::new(id.clone(), prompt.clone(), aabb, interaction_kind(kind));
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::Interactable(interactable))
-        }
-        data::RoomObjectSpec::Pickup { id, name, min, size, kind } => {
-            let aabb = object_aabb(*min, *size);
-            let pickup = ae::Pickup::new(id.clone(), pickup_kind(kind));
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::Pickup(pickup))
-        }
-        data::RoomObjectSpec::Chest { id, name, min, size, reward } => {
-            let aabb = object_aabb(*min, *size);
-            let chest = ae::Chest::new(id.clone(), reward.as_ref().map(pickup_kind));
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::Chest(chest))
-        }
-        data::RoomObjectSpec::Breakable { id, name, min, size, max_hp, respawn, solid } => {
-            let aabb = object_aabb(*min, *size);
-            let mut breakable = ae::Breakable::new(id.clone(), *max_hp);
-            if let Some(respawn) = respawn {
-                breakable.respawn = respawn_policy(*respawn);
-            }
-            breakable.solid = *solid;
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::Breakable(breakable))
-        }
-        data::RoomObjectSpec::EnemySpawn { id, name, min, size, brain } => {
-            let aabb = object_aabb(*min, *size);
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::EnemySpawn(enemy_brain(brain)))
-        }
-        data::RoomObjectSpec::BossSpawn { id, name, min, size, brain } => {
-            let aabb = object_aabb(*min, *size);
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::BossSpawn(boss_brain(brain)))
-        }
-        data::RoomObjectSpec::KinematicPath { id, name, min, size, points, speed, mode } => {
-            let aabb = object_aabb(*min, *size);
-            let path = ae::KinematicPath {
-                points: points.iter().copied().map(data::vec2).collect(),
-                speed: *speed,
-                mode: kinematic_path_mode(*mode),
-                start_offset_seconds: 0.0,
-            };
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::KinematicPath(path))
-        }
-        data::RoomObjectSpec::DebugLabel { id, name, position, text, category } => {
-            let pos = data::vec2(*position);
-            let aabb = ae::Aabb::new(pos, ae::Vec2::splat(1.0));
-            let label = ae::DebugLabel::new(text.clone(), pos, debug_label_kind(*category));
-            ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::DebugLabel(label))
-        }
-    }
-}
-
-fn object_aabb(min: [f32; 2], size: [f32; 2]) -> ae::Aabb {
-    ae::aabb_from_min_size(data::vec2(min), data::vec2(size))
-}
-
-fn interaction_kind(kind: &data::InteractionKindSpec) -> ae::InteractionKind {
-    match kind {
-        data::InteractionKindSpec::Door { target } => ae::InteractionKind::Door { target: target.clone() },
-        data::InteractionKindSpec::Npc { dialogue_id } => ae::InteractionKind::Npc { dialogue_id: dialogue_id.clone() },
-        data::InteractionKindSpec::Chest => ae::InteractionKind::Chest,
-        data::InteractionKindSpec::Pickup => ae::InteractionKind::Pickup,
-        data::InteractionKindSpec::Breakable => ae::InteractionKind::Breakable,
-        data::InteractionKindSpec::Custom(value) => ae::InteractionKind::Custom(value.clone()),
-    }
-}
-
-fn pickup_kind(kind: &data::PickupKindSpec) -> ae::PickupKind {
-    match kind {
-        data::PickupKindSpec::Health { amount } => ae::PickupKind::Health { amount: *amount },
-        data::PickupKindSpec::Currency { amount } => ae::PickupKind::Currency { amount: *amount },
-        data::PickupKindSpec::Ability { ability_id } => ae::PickupKind::Ability { ability_id: ability_id.clone() },
-        data::PickupKindSpec::StoryFlag { flag } => ae::PickupKind::StoryFlag { flag: flag.clone() },
-        data::PickupKindSpec::Custom(value) => ae::PickupKind::Custom(value.clone()),
-    }
-}
-
-fn respawn_policy(policy: data::RespawnPolicySpec) -> ae::RespawnPolicy {
-    match policy {
-        data::RespawnPolicySpec::Never => ae::RespawnPolicy::Never,
-        data::RespawnPolicySpec::AfterSeconds(seconds) => ae::RespawnPolicy::AfterSeconds(seconds),
-        data::RespawnPolicySpec::OnRoomReload => ae::RespawnPolicy::OnRoomReload,
-        data::RespawnPolicySpec::Persistent => ae::RespawnPolicy::Persistent,
-    }
-}
-
-fn kinematic_path_spec(spec: &data::KinematicPathSpec) -> ae::KinematicPath {
-    ae::KinematicPath {
-        points: spec.points.iter().copied().map(data::vec2).collect(),
-        speed: spec.speed,
-        mode: kinematic_path_mode(spec.mode),
-        start_offset_seconds: 0.0,
-    }
-}
-
-fn kinematic_path_mode(mode: data::KinematicPathModeSpec) -> ae::KinematicPathMode {
-    match mode {
-        data::KinematicPathModeSpec::Once => ae::KinematicPathMode::Once,
-        data::KinematicPathModeSpec::Loop => ae::KinematicPathMode::Loop,
-        data::KinematicPathModeSpec::PingPong => ae::KinematicPathMode::PingPong,
-    }
-}
-
-fn debug_label_kind(kind: data::DebugLabelKindSpec) -> ae::DebugLabelKind {
-    match kind {
-        data::DebugLabelKindSpec::Room => ae::DebugLabelKind::Room,
-        data::DebugLabelKindSpec::LoadingZone => ae::DebugLabelKind::LoadingZone,
-        data::DebugLabelKindSpec::Hazard => ae::DebugLabelKind::Hazard,
-        data::DebugLabelKindSpec::Enemy => ae::DebugLabelKind::Enemy,
-        data::DebugLabelKindSpec::Boss => ae::DebugLabelKind::Boss,
-        data::DebugLabelKindSpec::Interactable => ae::DebugLabelKind::Interactable,
-        data::DebugLabelKindSpec::Pickup => ae::DebugLabelKind::Pickup,
-        data::DebugLabelKindSpec::Custom => ae::DebugLabelKind::Custom,
-    }
-}
-
-fn enemy_brain(brain: &data::EnemyBrainSpec) -> ae::EnemyBrain {
-    match brain {
-        data::EnemyBrainSpec::Passive => ae::EnemyBrain::Passive,
-        data::EnemyBrainSpec::Patrol { path_id } => ae::EnemyBrain::Patrol { path_id: path_id.clone() },
-        data::EnemyBrainSpec::Guard { leash_radius } => ae::EnemyBrain::Guard { leash_radius: *leash_radius },
-        data::EnemyBrainSpec::Custom(value) => ae::EnemyBrain::Custom(value.clone()),
-    }
-}
-
-fn boss_brain(brain: &data::BossBrainSpec) -> ae::BossBrain {
-    match brain {
-        data::BossBrainSpec::Dormant => ae::BossBrain::Dormant,
-        data::BossBrainSpec::PhaseScript { script_id } => ae::BossBrain::PhaseScript { script_id: script_id.clone() },
-        data::BossBrainSpec::Custom(value) => ae::BossBrain::Custom(value.clone()),
-    }
-}
-
-
-fn shell_with_openings(blocks: &mut Vec<ae::Block>, w: f32, h: f32, openings: &[data::WallOpeningSpec]) {
-    blocks.push(ae::Block::solid("floor", ae::Vec2::new(0.0, h - FLOOR), ae::Vec2::new(w, FLOOR)));
-    blocks.push(ae::Block::solid("ceiling", ae::Vec2::new(0.0, 0.0), ae::Vec2::new(w, CEILING)));
-
-    for (side, x, name) in [
-        (WallSideSpec::Left, 0.0, "left wall"),
-        (WallSideSpec::Right, w - WALL, "right wall"),
-    ] {
-        let mut spans = vec![(0.0, h)];
-        for opening in openings.iter().filter(|opening| opening.side == side) {
-            let open_min = opening.y.max(CEILING);
-            let open_max = (opening.y + opening.height).min(h - FLOOR);
-            if open_min >= open_max {
-                continue;
-            }
-            let mut next = Vec::new();
-            for (span_min, span_max) in spans {
-                if open_max <= span_min || open_min >= span_max {
-                    next.push((span_min, span_max));
-                } else {
-                    if span_min < open_min {
-                        next.push((span_min, open_min));
-                    }
-                    if open_max < span_max {
-                        next.push((open_max, span_max));
-                    }
-                }
-            }
-            spans = next;
-        }
-        for (index, (span_min, span_max)) in spans.into_iter().enumerate() {
-            let height = span_max - span_min;
-            if height > 0.5 {
-                let block_name = if index == 0 { name } else { "wall segment" };
-                blocks.push(ae::Block::solid(block_name, ae::Vec2::new(x, span_min), ae::Vec2::new(WALL, height)));
-            }
-        }
-    }
-}
 
 fn arrival_from_target_zone(world: &ae::World, zone: &LoadingZone) -> ae::Vec2 {
     match zone.activation {

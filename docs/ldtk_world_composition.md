@@ -128,8 +128,8 @@ The sandbox no longer stores the LDtk-derived room manifest inside `SandboxDataS
 
 The LDtk path now builds the existing `RoomSet`/`GameWorld` runtime directly with `RoomSet::from_parts`. Treat remaining custom JSON parsing as transitional. As `bevy_ecs_ldtk` marker entities are promoted into direct Ambition components, remove matching categories from the custom parser instead of duplicating behavior in both places.
 
-As of the LDtk runtime-spine migration, the old `rooms` block has been removed from `assets/ambition/sandbox.ron`. This makes accidental edits to the obsolete RON world definition impossible in the main sandbox manifest. The remaining Rust `RoomManifestSpec` types exist only for legacy RON fixtures/tests; LDtk no longer emits them as runtime input.
+As of the LDtk runtime-spine migration, the old `rooms` block has been removed from `assets/ambition/sandbox.ron`, and the Rust RON-world manifest structs/builders have been deleted. This makes accidental edits to the obsolete RON world definition impossible in the main sandbox manifest and keeps `SandboxDataSpec` focused on non-spatial tuning/audio data.
 
-### Bridge confinement status
+### Bridge removal status
 
-The old RON-shaped room manifest is no longer a public LDtk integration boundary. Runtime startup and hot reload now ask LDtk for a `RoomSet` directly. Internally, `ldtk_world.rs` still uses a private transitional manifest builder, but this is now boxed into one module so it can be replaced by direct `bevy_ecs_ldtk` entity consumption without changing startup and reload call sites again.
+The old RON-shaped room manifest is no longer part of the sandbox runtime path. Runtime startup and hot reload ask LDtk for a `RoomSet` directly, and `ldtk_world.rs` materializes runtime `RoomSpec`, `ae::World`, loading zones, room objects, and graph links without using RON fixture structs. Remaining migration work should shrink the custom LDtk parser category by category as plugin-spawned `bevy_ecs_ldtk` marker entities become the source for Ambition runtime components.

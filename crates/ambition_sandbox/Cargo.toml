@@ -9,4 +9,9 @@ description = "Bevy-powered playable sandbox for Ambition Engine."
 [dependencies]
 ambition_engine = { path = "../ambition_engine" }
 bevy = { version = "0.18.1", features = ["wav"] }
+bevy_common_assets = { version = "0.15", features = ["ron"] }
+bevy-inspector-egui = "0.36"
 leafwing-input-manager = "0.20"
+petgraph = "0.8"
+ron = "0.11"
+serde = { version = "1", features = ["derive"] }

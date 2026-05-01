@@ -6,7 +6,9 @@
 
 mod audio;
 mod config;
+mod data;
 mod debug_overlay;
+mod dev_tools;
 mod dummies;
 mod fx;
 mod input;
@@ -21,7 +23,13 @@ use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution, WindowResizeConstraints};
+use bevy_common_assets::ron::RonAssetPlugin;
+use bevy_inspector_egui::{
+    bevy_egui::EguiPlugin,
+    quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
+};
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
 
 const BULLET_TIME_SCALE: f32 = 0.10;
 const BLINK_HOLD_SLOW_SCALE: f32 = 0.35;
@@ -40,13 +48,21 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 use rendering::{camera_follow, dummy_color, spawn_room_visuals, sync_visuals, DummyVisual, HudText, PlayerVisual, RoomVisual, SceneEntities};
 
 fn main() {
-    let room_set = rooms::RoomSet::new();
+    let sandbox_data = data::SandboxDataSpec::load_embedded();
+    let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
+    let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
+    let room_set = rooms::RoomSet::from_manifest(&sandbox_data.rooms);
     let active_world = room_set.active_world().clone();
 
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .insert_resource(GameWorld(active_world))
         .insert_resource(room_set)
+        .insert_resource(sandbox_data)
+        .insert_resource(DeveloperTools::default())
+        .insert_resource(SandboxFeelTuning::default())
+        .insert_resource(editable_abilities)
+        .insert_resource(editable_tuning)
         .insert_resource(windowing::DisplayModeState::default())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -62,8 +78,20 @@ fn main() {
             }),
             ..default()
         }))
+        // The inspector quick plugins require EguiPlugin to be registered first.
+        .add_plugins(EguiPlugin::default())
+        .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
-        .add_systems(Startup, setup)
+        .register_type::<DeveloperTools>()
+        .register_type::<EditableAbilitySet>()
+        .register_type::<EditableMovementTuning>()
+        .register_type::<SandboxFeelTuning>()
+        .add_plugins(ResourceInspectorPlugin::<DeveloperTools>::default().run_if(dev_tools::inspector_visible))
+        .add_plugins(ResourceInspectorPlugin::<EditableAbilitySet>::default().run_if(dev_tools::inspector_visible))
+        .add_plugins(ResourceInspectorPlugin::<EditableMovementTuning>::default().run_if(dev_tools::inspector_visible))
+        .add_plugins(ResourceInspectorPlugin::<SandboxFeelTuning>::default().run_if(dev_tools::inspector_visible))
+        .add_plugins(WorldInspectorPlugin::new().run_if(dev_tools::world_inspector_visible))
+        .add_systems(Startup, (data::load_data_asset_handle, setup).chain())
         .add_systems(
             Update,
             (
@@ -106,9 +134,11 @@ pub struct SandboxRuntime {
 }
 
 impl SandboxRuntime {
-    fn new(world: &ae::World) -> Self {
+    fn new(world: &ae::World, abilities: ae::AbilitySet, tuning: ae::MovementTuning) -> Self {
+        let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
+        player.refresh_movement_resources(tuning);
         Self {
-            player: ae::Player::new(world.spawn),
+            player,
             dummies: spawn_dummies(world),
             debug: true,
             freeze: false,
@@ -126,8 +156,9 @@ impl SandboxRuntime {
         }
     }
 
-    fn reset(&mut self, world: &ae::World) {
+    fn reset(&mut self, world: &ae::World, tuning: ae::MovementTuning) {
         self.player.reset_to(world.spawn);
+        self.player.refresh_movement_resources(tuning);
         self.dummies = spawn_dummies(world);
         self.flash_timer = 0.18;
         self.hitstop_timer = 0.0;
@@ -138,7 +169,7 @@ impl SandboxRuntime {
         self.room_transition_cooldown = 0.0;
     }
 
-    fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32) -> bool {
+    fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {
         self.down_tap_timer = (self.down_tap_timer - frame_dt).max(0.0);
         if !down_pressed {
             return false;
@@ -147,12 +178,12 @@ impl SandboxRuntime {
             self.down_tap_timer = 0.0;
             true
         } else {
-            self.down_tap_timer = DOWN_DOUBLE_TAP_WINDOW;
+            self.down_tap_timer = window;
             false
         }
     }
 
-    fn register_up_tap(&mut self, up_pressed: bool, frame_dt: f32) -> bool {
+    fn register_up_tap(&mut self, up_pressed: bool, frame_dt: f32, window: f32) -> bool {
         self.up_tap_timer = (self.up_tap_timer - frame_dt).max(0.0);
         if !up_pressed {
             return false;
@@ -161,24 +192,24 @@ impl SandboxRuntime {
             self.up_tap_timer = 0.0;
             true
         } else {
-            self.up_tap_timer = UP_DOUBLE_TAP_WINDOW;
+            self.up_tap_timer = window;
             false
         }
     }
 
-    fn update_time_scale(&mut self, frame_dt: f32) {
+    fn update_time_scale(&mut self, frame_dt: f32, feel: SandboxFeelTuning) {
         let target = if self.freeze || self.hitstop_timer > 0.0 {
             0.0
         } else if self.player.blink_aiming {
-            BULLET_TIME_SCALE
+            feel.bullet_time_scale
         } else if self.player.blink_hold_active {
-            BLINK_HOLD_SLOW_SCALE
+            feel.blink_hold_slow_scale
         } else if self.slowmo {
-            DEBUG_SLOWMO_SCALE
+            feel.debug_slowmo_scale
         } else {
             1.0
         };
-        let rate = if target < self.time_scale { TIME_RAMP_DOWN_RATE } else { TIME_RAMP_UP_RATE };
+        let rate = if target < self.time_scale { feel.time_ramp_down_rate } else { feel.time_ramp_up_rate };
         self.time_scale = move_toward(self.time_scale, target, rate * frame_dt);
     }
 
@@ -195,8 +226,15 @@ fn setup(
     mut commands: Commands,
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
+    sandbox_data_asset: Option<Res<data::SandboxDataAsset>>,
     mut audio_sources: ResMut<Assets<AudioSource>>,
+    sandbox_data: Res<data::SandboxDataSpec>,
+    editable_tuning: Res<EditableMovementTuning>,
+    editable_abilities: Res<EditableAbilitySet>,
 ) {
+    if let Some(handle) = sandbox_data_asset.as_ref() {
+        let _asset_handle_for_async_reload = handle.0.clone();
+    }
     for warning in room_set.layout_warnings() {
         eprintln!("room layout warning: {warning}");
     }
@@ -205,11 +243,11 @@ fn setup(
     // Bevy 2D camera convention. With the window at 1600x900 and the generated
     // room at 1600x900, the default orthographic projection shows the whole
     // room without requiring a Bevy-version-sensitive ScalingMode import.
-    commands.spawn(Camera2d);
-    let runtime = SandboxRuntime::new(&world.0);
+    commands.spawn((Camera2d, Name::new("Main Camera")));
+    let runtime = SandboxRuntime::new(&world.0, editable_abilities.as_engine(), editable_tuning.as_engine());
     let player_input_map = runtime.preset().input_map();
     commands.insert_resource(runtime);
-    let sound_bank = SoundBank::new(&mut audio_sources);
+    let sound_bank = SoundBank::new(&mut audio_sources, &sandbox_data.audio);
     play_ambience(&mut commands, &sound_bank);
     commands.insert_resource(sound_bank);
 
@@ -221,6 +259,7 @@ fn setup(
             Sprite::from_color(Color::srgba(0.80, 0.95, 1.0, 1.0), BVec2::new(28.0, 46.0)),
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
+            Name::new("Player"),
             ActionState::<SandboxAction>::default(),
             player_input_map,
         ))
@@ -230,6 +269,7 @@ fn setup(
         commands.spawn((
             Sprite::from_color(dummy_color(dummy), BVec2::new(dummy.size.x, dummy.size.y)),
             Transform::from_translation(world_to_bevy(&world.0, dummy.pos, WORLD_Z_DUMMY)),
+            Name::new(format!("Dummy {}: {}", index, dummy.name)),
             DummyVisual { index },
         ));
     }
@@ -249,6 +289,7 @@ fn setup(
                 max_width: Val::Px(920.0),
                 ..default()
             },
+            Name::new("Debug HUD"),
             HudText,
         ))
         .id();
@@ -263,12 +304,20 @@ fn sandbox_update(
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
     bank: Res<SoundBank>,
+    editable_tuning: Res<EditableMovementTuning>,
+    editable_abilities: Res<EditableAbilitySet>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    mut developer_tools: ResMut<DeveloperTools>,
     mut runtime: ResMut<SandboxRuntime>,
     entities: Res<SceneEntities>,
     mut player_input: Query<(&mut ActionState<SandboxAction>, &mut InputMap<SandboxAction>), With<PlayerVisual>>,
     room_visuals: Query<Entity, With<RoomVisual>>,
 ) {
-    let preset_changed = handle_debug_hotkeys(&keys, &mut runtime);
+    let tuning = editable_tuning.as_engine();
+    let feel = *feel_tuning;
+    dev_tools::sync_live_ability_edits(&mut runtime, editable_abilities.as_engine(), tuning);
+
+    let preset_changed = handle_debug_hotkeys(&keys, &mut runtime, &mut developer_tools);
 
     let mut controls = ControlFrame::default();
     if let Ok((mut action_state, mut input_map)) = player_input.get_mut(entities.player) {
@@ -284,21 +333,21 @@ fn sandbox_update(
 
     let frame_dt = time.delta_secs();
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
-    controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt);
-    let door_double_tap_up = runtime.register_up_tap(controls.up_pressed, frame_dt);
+    controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
+    let door_double_tap_up = runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
 
     if controls.reset_pressed {
-        reset_sandbox(&mut commands, &world.0, &bank, &mut runtime);
+        reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
     } else {
         // Two-clock update:
         // - control_dt is real time for responsive inputs and precision-blink aim;
         // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
         let input = controls.engine_input(frame_dt);
         let control_world = platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
-        let control_events = ae::update_player_control(&control_world, &mut runtime.player, input, frame_dt);
+        let control_events = ae::update_player_control_with_tuning(&control_world, &mut runtime.player, input, frame_dt, tuning);
         if control_events.reset {
-            reset_sandbox(&mut commands, &world.0, &bank, &mut runtime);
+            reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
             return;
         }
         handle_player_events(
@@ -310,7 +359,7 @@ fn sandbox_update(
             None,
         );
 
-        runtime.update_time_scale(frame_dt);
+        runtime.update_time_scale(frame_dt, feel);
         let dt = sandbox_dt(&runtime, frame_dt);
 
         let platform_delta = runtime.moving_platform.update(dt);
@@ -320,9 +369,9 @@ fn sandbox_update(
         let collision_world = platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
 
         let was_grounded = runtime.player.on_ground;
-        let sim_events = ae::update_player_simulation(&collision_world, &mut runtime.player, input, dt);
+        let sim_events = ae::update_player_simulation_with_tuning(&collision_world, &mut runtime.player, input, dt, tuning);
         if sim_events.reset {
-            reset_sandbox(&mut commands, &world.0, &bank, &mut runtime);
+            reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
             return;
         }
         handle_player_events(
@@ -357,20 +406,22 @@ fn sandbox_update(
             &mut *room_set,
             &room_visuals,
             zone,
+            tuning,
+            feel,
             );
             return;
         }
     }
 
     if controls.attack_pressed || controls.pogo_pressed {
-        process_attack(&mut commands, &world.0, &bank, &mut runtime, controls);
+        process_attack(&mut commands, &world.0, &bank, &mut runtime, controls, tuning, feel);
     }
 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
 }
 
-fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntime) -> bool {
+fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntime, tools: &mut DeveloperTools) -> bool {
     let mut preset_changed = false;
     if keys.just_pressed(KeyCode::F1) {
         runtime.debug = !runtime.debug;
@@ -387,6 +438,12 @@ fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntim
     }
     if keys.just_pressed(KeyCode::F2) {
         runtime.slowmo = !runtime.slowmo;
+    }
+    if keys.just_pressed(KeyCode::F3) {
+        tools.inspector_visible = !tools.inspector_visible;
+    }
+    if keys.just_pressed(KeyCode::F4) {
+        tools.world_inspector_visible = !tools.world_inspector_visible;
     }
     preset_changed
 }
@@ -412,9 +469,12 @@ fn reset_sandbox(
     world: &ae::World,
     bank: &SoundBank,
     runtime: &mut SandboxRuntime,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
 ) {
     let reset_from = runtime.player.pos;
-    runtime.reset(world);
+    runtime.reset(world, tuning);
+    runtime.flash_timer = feel.reset_flash_time;
     let reset_to = runtime.player.pos;
     play_sound(commands, bank, SoundCue::Reset);
     spawn_reset_effects(commands, world, reset_from, reset_to);
@@ -427,31 +487,34 @@ fn load_room(
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
     room_visuals: &Query<Entity, With<RoomVisual>>,
-    zone: rooms::LoadingZone,
+    transition: rooms::RoomTransition,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
 ) {
     let old_velocity = runtime.player.vel;
     let abilities = runtime.player.abilities;
     let fly_enabled = runtime.player.fly_enabled;
-    let edge_exit = matches!(zone.activation, rooms::LoadingZoneActivation::EdgeExit);
+    let edge_exit = matches!(transition.zone.activation, rooms::LoadingZoneActivation::EdgeExit);
 
     for entity in room_visuals.iter() {
         commands.entity(entity).despawn();
     }
-    let spec = room_set.set_active(zone.target_room).clone();
+    let spec = room_set.set_active(transition.target_room).clone();
     world.0 = spec.world.clone();
 
     // Room transitions are not player deaths/resets. Rebuild transient room
     // state, but preserve ability progression and, for edge exits, preserve
     // velocity so side-to-side room changes feel continuous. Door transitions
     // intentionally zero velocity because they are discrete interactions.
-    let arrival = rooms::validated_spawn(&world.0, zone.target_spawn, runtime.player.size);
+    let arrival = rooms::validated_spawn(&world.0, transition.arrival, runtime.player.size);
     runtime.player = ae::Player::new_with_abilities(arrival, abilities);
+    runtime.player.refresh_movement_resources(tuning);
     runtime.player.fly_enabled = fly_enabled && runtime.player.abilities.fly;
     if edge_exit {
         runtime.player.vel = old_velocity;
     }
     runtime.dummies = spawn_dummies(&world.0);
-    runtime.flash_timer = 0.24;
+    runtime.flash_timer = if edge_exit { feel.edge_transition_flash } else { feel.door_transition_flash };
     runtime.hitstop_timer = 0.0;
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
@@ -459,7 +522,7 @@ fn load_room(
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.
-    runtime.room_transition_cooldown = if edge_exit { 0.14 } else { 0.16 };
+    runtime.room_transition_cooldown = if edge_exit { feel.edge_transition_cooldown } else { feel.door_transition_cooldown };
     runtime.preset_flash = 1.0;
 
     spawn_room_visuals(commands, &world.0, &spec.loading_zones);
@@ -544,6 +607,8 @@ fn process_attack(
     bank: &SoundBank,
     runtime: &mut SandboxRuntime,
     controls: ControlFrame,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
 ) {
     if !runtime.player.abilities.attack { return; }
     play_sound(commands, bank, SoundCue::Slash);
@@ -563,15 +628,15 @@ fn process_attack(
     }
     if landed {
         play_sound(commands, bank, SoundCue::Hit);
-        runtime.hitstop_timer = 0.055;
+        runtime.hitstop_timer = feel.attack_hitstop_time;
         runtime.flash_timer = 0.16;
     }
     if killed {
         play_sound(commands, bank, SoundCue::Death);
     }
     if landed && runtime.player.abilities.pogo && (controls.pogo_pressed || controls.axis_y > 0.25) {
-        runtime.player.vel.y = -ae::POGO_SPEED;
-        runtime.player.refresh_movement_resources(ae::DEFAULT_TUNING);
+        runtime.player.vel.y = -tuning.pogo_speed;
+        runtime.player.refresh_movement_resources(tuning);
         play_sound(commands, bank, SoundCue::Pogo);
     }
 }
@@ -596,6 +661,7 @@ fn update_hud(
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     display_mode: Res<windowing::DisplayModeState>,
+    developer_tools: Res<DeveloperTools>,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
@@ -603,8 +669,12 @@ fn update_hud(
     let Ok(mut text) = query.get_mut(entities.hud) else {
         return;
     };
+    if !developer_tools.show_hud {
+        **text = String::new();
+        return;
+    }
     if !runtime.debug {
-        **text = "F1 debug".to_string();
+        **text = "F1 debug | F3 inspector".to_string();
         return;
     }
     let preset = runtime.preset();
@@ -642,7 +712,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nroom: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F6 windowed  F7 borderless  F8 fullscreen  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nroom: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc pause={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\ngamepad target: {}{}",
         world.0.name,
         "Bevy backend",
         room_set.active + 1,
@@ -672,6 +742,8 @@ fn update_hud(
         preset.movement_label(),
         preset.action_label(),
         runtime.slowmo,
+        developer_tools.inspector_visible,
+        developer_tools.world_inspector_visible,
         runtime.freeze,
         runtime.hitstop_timer,
         runtime.time_scale,

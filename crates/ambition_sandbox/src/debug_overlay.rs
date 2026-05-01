@@ -10,8 +10,10 @@ use bevy::prelude::*;
 
 use crate::config::world_to_bevy;
 use crate::dummies::DummyKind;
+use crate::dev_tools::DeveloperTools;
 use crate::input::{ControlFrame, SandboxAction};
 use crate::platforms;
+use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use crate::{GameWorld, SandboxRuntime};
 use crate::rendering::{PlayerVisual, SceneEntities};
 use leafwing_input_manager::prelude::ActionState;
@@ -30,20 +32,36 @@ pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<GameWorld>,
     runtime: Res<SandboxRuntime>,
+    developer_tools: Res<DeveloperTools>,
+    room_set: Res<RoomSet>,
     entities: Res<SceneEntities>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
 ) {
-    if !runtime.debug_enabled() {
+    if !runtime.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
     }
 
     let world = &world.0;
     let actions = action_query.get(entities.player).ok();
-    draw_room_bounds(&mut gizmos, world);
-    draw_rebound_vectors(&mut gizmos, world);
-    draw_moving_platform_debug(&mut gizmos, world, &runtime);
-    draw_player_debug(&mut gizmos, world, &runtime, actions);
-    draw_dummy_debug(&mut gizmos, world, &runtime);
+    if developer_tools.show_room_bounds {
+        draw_room_bounds(&mut gizmos, world);
+    }
+    if developer_tools.show_world_blocks {
+        draw_world_blocks(&mut gizmos, world);
+    }
+    if developer_tools.show_loading_zones {
+        draw_loading_zones(&mut gizmos, world, room_set.active_loading_zones());
+    }
+    if developer_tools.show_rebound_vectors {
+        draw_rebound_vectors(&mut gizmos, world);
+    }
+    if developer_tools.show_moving_platform {
+        draw_moving_platform_debug(&mut gizmos, world, &runtime);
+    }
+    draw_player_debug(&mut gizmos, world, &runtime, actions, &developer_tools);
+    if developer_tools.show_dummies {
+        draw_dummy_debug(&mut gizmos, world, &runtime);
+    }
 }
 
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
@@ -51,37 +69,67 @@ fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
     draw_aabb(gizmos, world, room, white_dim());
 }
 
+fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World) {
+    for block in &world.blocks {
+        let color = match block.kind {
+            ae::BlockKind::Solid => gray(),
+            ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft } => magenta(),
+            ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard } => red(),
+            ae::BlockKind::OneWay => blue(),
+            ae::BlockKind::Hazard => red(),
+            ae::BlockKind::PogoOrb => green(),
+            ae::BlockKind::Rebound { .. } => orange(),
+        };
+        draw_aabb(gizmos, world, block.aabb, color);
+    }
+}
+
+fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: &[LoadingZone]) {
+    for zone in zones {
+        let color = match zone.activation {
+            LoadingZoneActivation::EdgeExit => cyan(),
+            LoadingZoneActivation::Door => yellow(),
+        };
+        draw_aabb(gizmos, world, zone.aabb, color);
+    }
+}
+
 fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     runtime: &SandboxRuntime,
     actions: Option<&ActionState<SandboxAction>>,
+    developer_tools: &DeveloperTools,
 ) {
     let player = &runtime.player;
     let body = player.aabb();
-    draw_aabb(gizmos, world, body, cyan());
+    if developer_tools.show_player_hitbox {
+        draw_aabb(gizmos, world, body, cyan());
+    }
 
     let center = w2(world, player.pos);
 
-    // Velocity is the most important feel-tuning vector. The scalar is visual
-    // only; it keeps endgame speeds readable inside the 1600x900 sandbox.
-    let velocity_delta = engine_delta_to_bevy(player.vel * 0.18);
-    draw_arrow(gizmos, center, center + velocity_delta, blue());
+    if developer_tools.show_player_vectors {
+        // Velocity is the most important feel-tuning vector. The scalar is visual
+        // only; it keeps endgame speeds readable inside the 1600x900 sandbox.
+        let velocity_delta = engine_delta_to_bevy(player.vel * 0.18);
+        draw_arrow(gizmos, center, center + velocity_delta, blue());
 
-    // Facing/control intent vector. This helps diagnose attack orientation and
-    // whether the current preset feels natural in the hands.
-    let facing_end = center + BVec2::new(player.facing * 58.0, 0.0);
-    draw_arrow(gizmos, center, facing_end, green());
+        // Facing/control intent vector. This helps diagnose attack orientation and
+        // whether the current preset feels natural in the hands.
+        let facing_end = center + BVec2::new(player.facing * 58.0, 0.0);
+        draw_arrow(gizmos, center, facing_end, green());
 
-    // Contact hints: upward ground normal and lateral wall normal.
-    if player.on_ground {
-        let feet = w2(world, ae::Vec2::new(player.pos.x, body.bottom()));
-        draw_arrow(gizmos, feet, feet + BVec2::new(0.0, 44.0), green());
-    }
-    if player.on_wall {
-        let side_x = if player.wall_normal_x < 0.0 { body.left() } else { body.right() };
-        let side = w2(world, ae::Vec2::new(side_x, player.pos.y));
-        draw_arrow(gizmos, side, side + BVec2::new(player.wall_normal_x * 48.0, 0.0), green());
+        // Contact hints: upward ground normal and lateral wall normal.
+        if player.on_ground {
+            let feet = w2(world, ae::Vec2::new(player.pos.x, body.bottom()));
+            draw_arrow(gizmos, feet, feet + BVec2::new(0.0, 44.0), green());
+        }
+        if player.on_wall {
+            let side_x = if player.wall_normal_x < 0.0 { body.left() } else { body.right() };
+            let side = w2(world, ae::Vec2::new(side_x, player.pos.y));
+            draw_arrow(gizmos, side, side + BVec2::new(player.wall_normal_x * 48.0, 0.0), green());
+        }
     }
 
     // Show the currently implied attack box while the attack key is held. This
@@ -94,7 +142,7 @@ fn draw_player_debug(
     let dedicated_pogo_held = actions
         .map(|actions| actions.pressed(&SandboxAction::Pogo))
         .unwrap_or(false);
-    if attack_held || dedicated_pogo_held {
+    if developer_tools.show_combat_preview && (attack_held || dedicated_pogo_held) {
         let hitbox = ae::slash_hitbox(player, controls.axis_y, dedicated_pogo_held || controls.pogo_pressed);
         draw_aabb(gizmos, world, hitbox, yellow());
     }
@@ -102,7 +150,7 @@ fn draw_player_debug(
     // Blink aim preview. A quick tap blinks a short distance; once the hold
     // crosses the threshold, the engine sets `blink_aiming` and the sandbox
     // enters bullet-time while previewing the longer precision destination.
-    if controls.blink_held || player.blink_aiming {
+    if developer_tools.show_blink_preview && (controls.blink_held || player.blink_aiming) {
         // Use the same temporary collision world that drives player movement.
         // Otherwise the preview can claim a blink is clear while release-time
         // resolution stops on sandbox-only geometry such as the moving platform.

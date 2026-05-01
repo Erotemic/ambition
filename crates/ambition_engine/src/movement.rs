@@ -11,6 +11,8 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use crate::abilities::AbilitySet;
 use crate::geometry::Aabb;
 use crate::math::{approach, Vec2};
@@ -402,7 +404,7 @@ pub const SLASH_RECOIL: f32 = 130.0;
 pub const AIR_JUMPS: u8 = 1;
 
 /// Tunable movement parameters.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct MovementTuning {
     pub gravity: f32,
     pub run_accel: f32,
@@ -439,6 +441,12 @@ pub struct MovementTuning {
     pub pogo_speed: f32,
     pub slash_recoil: f32,
     pub air_jumps: u8,
+}
+
+impl Default for MovementTuning {
+    fn default() -> Self {
+        DEFAULT_TUNING
+    }
 }
 
 pub const DEFAULT_TUNING: MovementTuning = MovementTuning {

@@ -110,6 +110,7 @@ pub fn spawn_moving_platform(commands: &mut Commands, world: &ae::World, platfor
                 BVec2::new(platform.size.x, platform.size.y),
             ),
             Transform::from_translation(world_to_bevy(world, platform.pos, WORLD_Z_BLOCK + 4.0)),
+            Name::new("Moving time-reference platform"),
             MovingPlatformVisual,
             RoomVisual,
         ))

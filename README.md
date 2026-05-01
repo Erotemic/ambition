@@ -14,7 +14,7 @@ The first design law is: **the game should be fun as raw collision boxes**.
 - No sprites, textures, tilemaps, imported audio, or prerendered assets.
 - A generated room: solids, one-way shelves, hazard channels, pogo orbs, and rebound/impulse pads.
 - Endgame-style movement verbs: run, jump, double jump, variable jump height, wall jump, dash, pogo, slash/recoil, rebound pads.
-- Debug overlay: velocity, grounded/walled state, dash and air-jump availability, coyote/jump-buffer timers, combo algebra trace.
+- Debug overlay: Bevy Gizmos for room bounds, loading zones, hitboxes, velocity/facing vectors, blink previews, moving platforms, dummies, rebound vectors, plus the text HUD for grounded/walled state, resources, timers, and combo algebra trace.
 - Four keyboard presets with `F9`/`F10` preset cycling, now backed by Leafwing Input Manager `InputMap` / `ActionState` components.
 - Two easy-to-reach bashable dummies near spawn: one infinite-health sandbag and one finite-health respawning drop dummy.
 - Feedback: generated sound effects, hitstop, dummy hit-stun, hit flash, impact rings, and a small procedural particle system.
@@ -25,7 +25,7 @@ The first design law is: **the game should be fun as raw collision boxes**.
 
 Install Rust from <https://rustup.rs/>.
 
-This project depends on Bevy for the graphics/audio shell and `leafwing-input-manager` for semantic keyboard/gamepad input. The movement/collision core remains in `ambition_engine`.
+This project depends on Bevy for the graphics/audio shell, `leafwing-input-manager` for semantic keyboard/gamepad input, and `bevy-inspector-egui` for developer-only reflected tuning windows. The movement/collision core remains in `ambition_engine`.
 
 ## Run
 
@@ -58,6 +58,8 @@ Universal controls:
 | `Delete` or `Backspace` | Select/full sandbox restart |
 | `F1` | Toggle debug overlay |
 | `F2` | Toggle slow motion |
+| `F3` | Toggle reflected resource inspector windows |
+| `F4` | Toggle full Bevy world inspector |
 | `F9` / `F10` | Previous / next control preset |
 
 Planned gamepad mapping:
@@ -181,4 +183,10 @@ Additional layout notes:
 
 - Flying door activation: see `docs/flying_door_activation.md`.
 - Procedural lo-fi music: see `docs/procedural_ambience.md`.
+- Data-driven RON manifest: see `docs/data_driven_manifest.md`.
 - Crate strategy / avoiding reinvention: see `docs/crate_strategy.md`.
+- Bevy Gizmos + inspector workflow: see `docs/developer_tools.md`.
+
+## Data manifest
+
+The sandbox data now lives in `crates/ambition_sandbox/assets/ambition/sandbox.ron`. That manifest contains the active ability set, movement tuning, generated-audio specs, room geometry, loading zones, and graph links between rooms. The code still embeds the manifest synchronously for simple startup, but it also registers the same type with `bevy_common_assets::ron::RonAssetPlugin` so the project has a clear path toward Bevy asset loading / hot reload.

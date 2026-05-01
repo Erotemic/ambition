@@ -72,9 +72,5 @@ spawn should be just inside the matching edge opening in the next room. If the
 player uses an interior door, the target spawn should be aligned with the paired
 door volume in the destination room.
 
-The current prototype still stores concrete `target_spawn` coordinates, but
-those coordinates are now produced with helpers such as `edge_arrival(...)` and
-`door_arrival(...)` instead of one-off magic numbers. The next data-driven step
-is to replace raw `target_spawn` with a named endpoint reference, e.g.
-`target_endpoint: "scroll_lab.left_exit"`, and let room validation resolve the
-spawn point.
+Room transitions are now stored as graph links between named loading zones rather than concrete `target_spawn` coordinates. The RON manifest expresses each edge with source and destination endpoint names, e.g.
+`(from_room: "central_hub", from_zone: "east_exit", to_room: "scroll_lab", to_zone: "west_exit")`. `RoomSet` derives the arrival from the destination zone and then runs spawn validation.

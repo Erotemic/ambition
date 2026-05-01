@@ -7,3 +7,4 @@ authors.workspace = true
 description = "Core assetless movement/collision/sandbox logic for Ambition Engine."
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }

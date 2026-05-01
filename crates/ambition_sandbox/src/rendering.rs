@@ -97,6 +97,7 @@ pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block
     commands.spawn((
         Sprite::from_color(block_color(block.kind), BVec2::new(size.x, size.y)),
         Transform::from_translation(world_to_bevy(world, block.aabb.center, WORLD_Z_BLOCK)),
+        Name::new(format!("Block: {}", block.name)),
         RoomVisual,
     ));
 }
@@ -107,10 +108,10 @@ pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &Loa
         LoadingZoneActivation::EdgeExit => Color::srgba(0.20, 0.95, 1.0, 0.22),
         LoadingZoneActivation::Door => Color::srgba(1.0, 0.72, 0.18, 0.46),
     };
-    let _zone_label_for_future_text = zone.name;
     commands.spawn((
         Sprite::from_color(color, BVec2::new(size.x, size.y)),
         Transform::from_translation(world_to_bevy(world, zone.aabb.center, WORLD_Z_BLOCK + 6.0)),
+        Name::new(format!("Loading zone: {}", zone.name)),
         RoomVisual,
     ));
 }

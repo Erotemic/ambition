@@ -3,7 +3,11 @@
 //! The engine models room geometry as named blocks. The Bevy sandbox decides
 //! how to draw each block; the engine only cares about collision semantics.
 
+use crate::actor::{Actor, BossBrain, EnemyBrain, KinematicPath};
+use crate::combat::DamageVolume;
+use crate::debug::{DebugLabel, DestinationLabel};
 use crate::geometry::{aabb_from_min_size, Aabb, AabbExt};
+use crate::interaction::{Breakable, Chest, Interactable, Pickup};
 use crate::Vec2;
 
 /// Upgrade tier required to blink through a blink wall.
@@ -92,6 +96,46 @@ impl Block {
     }
 }
 
+/// Data-first room object wrapper used by future sandbox/story content.
+///
+/// Blocks remain the collision tile/fixture language. Room objects are authored
+/// entities layered on top of room geometry: hazards, interactables, pickups,
+/// chests, breakables, enemy/boss spawns, kinematic paths, and debug labels.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoomObject {
+    pub id: String,
+    pub name: String,
+    pub aabb: Aabb,
+    pub kind: RoomObjectKind,
+}
+
+impl RoomObject {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: Aabb, kind: RoomObjectKind) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            aabb,
+            kind,
+        }
+    }
+}
+
+/// Reusable taxonomy for authored room entities.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RoomObjectKind {
+    DamageVolume(DamageVolume),
+    Interactable(Interactable),
+    Pickup(Pickup),
+    Chest(Chest),
+    Breakable(Breakable),
+    Actor(Actor),
+    EnemySpawn(EnemyBrain),
+    BossSpawn(BossBrain),
+    KinematicPath(KinematicPath),
+    DebugLabel(DebugLabel),
+    DestinationLabel(DestinationLabel),
+}
+
 /// Complete generated room spec.
 #[derive(Clone, Debug)]
 pub struct World {
@@ -99,6 +143,7 @@ pub struct World {
     pub size: Vec2,
     pub spawn: Vec2,
     pub blocks: Vec<Block>,
+    pub objects: Vec<RoomObject>,
 }
 
 /// First collision along a swept body path.
@@ -110,6 +155,21 @@ pub struct SweepHit<'a> {
 }
 
 impl World {
+    pub fn new(name: impl Into<String>, size: Vec2, spawn: Vec2, blocks: Vec<Block>) -> Self {
+        Self {
+            name: name.into(),
+            size,
+            spawn,
+            blocks,
+            objects: Vec::new(),
+        }
+    }
+
+    pub fn with_objects(mut self, objects: Vec<RoomObject>) -> Self {
+        self.objects = objects;
+        self
+    }
+
     /// True if `body` overlaps any block accepted by `predicate`.
     pub fn body_overlaps_any<F>(&self, body: Aabb, mut predicate: F) -> bool
     where
@@ -145,4 +205,13 @@ impl World {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn world_new_starts_without_authored_objects() {
+        let world = World::new("test", Vec2::new(100.0, 80.0), Vec2::new(20.0, 20.0), Vec::new());
+        assert!(world.objects.is_empty());
+    }
+}

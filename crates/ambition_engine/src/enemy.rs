@@ -307,6 +307,7 @@ mod tests {
             size: Vec2::new(500.0, 200.0),
             spawn: Vec2::new(80.0, 90.0),
             blocks: vec![wall, floor],
+            objects: Vec::new(),
         };
         let mut dummy = Dummy::infinite("test dummy", Vec2::new(160.0, 97.0));
         dummy.vel.x = 2500.0;
@@ -329,6 +330,7 @@ mod tests {
             size: Vec2::new(500.0, 220.0),
             spawn: Vec2::new(100.0, 90.0),
             blocks: vec![pad, floor],
+            objects: Vec::new(),
         };
         let mut dummy = Dummy::infinite("test dummy", Vec2::new(120.0, 96.0));
         dummy.vel.y = 320.0;

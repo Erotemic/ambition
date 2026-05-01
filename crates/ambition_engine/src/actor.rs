@@ -1,0 +1,205 @@
+//! Reusable actor taxonomy for Ambition rooms.
+//!
+//! This module is intentionally data-first. Patch 2 establishes the shared
+//! vocabulary for enemies, bosses, NPCs, moving hazards, and other authored
+//! entities before any one feature grows a bespoke sandbox-only system.
+
+use crate::Vec2;
+
+/// Coarse category for room entities that have identity or behavior.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ActorKind {
+    Player,
+    Enemy,
+    Boss,
+    Npc,
+    MovingPlatform,
+    Hazard,
+    Projectile,
+    Pickup,
+    Breakable,
+    Debug,
+}
+
+/// Damage/team relationship used by hitboxes and hurtboxes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ActorFaction {
+    Player,
+    Enemy,
+    Neutral,
+    Environment,
+}
+
+impl ActorFaction {
+    /// True when damage from `self` is allowed to affect `target` by default.
+    pub fn can_damage(self, target: Self) -> bool {
+        match (self, target) {
+            (Self::Player, Self::Enemy) => true,
+            (Self::Enemy, Self::Player) => true,
+            (Self::Environment, Self::Player | Self::Enemy | Self::Neutral) => true,
+            (Self::Neutral, _) => false,
+            _ => false,
+        }
+    }
+}
+
+/// Lightweight identity/name payload for authored actors.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Actor {
+    pub id: String,
+    pub name: String,
+    pub kind: ActorKind,
+    pub faction: ActorFaction,
+}
+
+impl Actor {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, kind: ActorKind, faction: ActorFaction) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            kind,
+            faction,
+        }
+    }
+}
+
+/// Generic hit-point component for enemies, bosses, breakables, and the player.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Health {
+    pub current: i32,
+    pub max: i32,
+    pub invulnerable: bool,
+}
+
+impl Health {
+    pub fn new(max: i32) -> Self {
+        let max = max.max(1);
+        Self {
+            current: max,
+            max,
+            invulnerable: false,
+        }
+    }
+
+    pub fn alive(self) -> bool {
+        self.current > 0
+    }
+
+    pub fn ratio(self) -> f32 {
+        if self.max <= 0 {
+            0.0
+        } else {
+            (self.current.max(0) as f32 / self.max as f32).clamp(0.0, 1.0)
+        }
+    }
+
+    /// Apply positive damage and return whether this call killed the entity.
+    pub fn damage(&mut self, amount: i32) -> bool {
+        if self.invulnerable || amount <= 0 || !self.alive() {
+            return false;
+        }
+        self.current = (self.current - amount).max(0);
+        self.current == 0
+    }
+
+    pub fn heal(&mut self, amount: i32) {
+        if amount > 0 {
+            self.current = (self.current + amount).min(self.max);
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.current = self.max;
+        self.invulnerable = false;
+    }
+}
+
+/// How temporary/destructible entities return after being consumed or killed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RespawnPolicy {
+    /// Never respawn inside the current run/session.
+    Never,
+    /// Respawn after a timer in simulation seconds.
+    AfterSeconds(f32),
+    /// Respawn when the room is re-entered.
+    OnRoomReload,
+    /// The object is persistent and controlled by story/save state.
+    Persistent,
+}
+
+impl Default for RespawnPolicy {
+    fn default() -> Self {
+        Self::Never
+    }
+}
+
+/// Declarative movement path for moving platforms, spike balls, patrol dummies,
+/// and later scripted boss hazards.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KinematicPath {
+    pub points: Vec<Vec2>,
+    pub speed: f32,
+    pub mode: KinematicPathMode,
+    pub start_offset_seconds: f32,
+}
+
+impl KinematicPath {
+    pub fn line(a: Vec2, b: Vec2, speed: f32) -> Self {
+        Self {
+            points: vec![a, b],
+            speed,
+            mode: KinematicPathMode::PingPong,
+            start_offset_seconds: 0.0,
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.points.len() >= 2 && self.speed > 0.0
+    }
+}
+
+/// Playback style for a kinematic path.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KinematicPathMode {
+    Once,
+    Loop,
+    PingPong,
+}
+
+/// Placeholder enum for enemy behavior before adopting a real state-machine crate.
+#[derive(Clone, Debug, PartialEq)]
+pub enum EnemyBrain {
+    Passive,
+    Patrol { path_id: Option<String> },
+    Guard { leash_radius: f32 },
+    Custom(String),
+}
+
+/// Placeholder enum for bosses and multi-phase encounters.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BossBrain {
+    Dormant,
+    PhaseScript { script_id: String },
+    Custom(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn health_reports_kill_once() {
+        let mut health = Health::new(3);
+        assert!(!health.damage(2));
+        assert_eq!(health.current, 1);
+        assert!(health.damage(1));
+        assert!(!health.damage(1));
+    }
+
+    #[test]
+    fn environment_damage_affects_player_and_enemy() {
+        assert!(ActorFaction::Environment.can_damage(ActorFaction::Player));
+        assert!(ActorFaction::Environment.can_damage(ActorFaction::Enemy));
+        assert!(!ActorFaction::Player.can_damage(ActorFaction::Player));
+    }
+}

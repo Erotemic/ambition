@@ -11,9 +11,12 @@
 //! they provide battle-tested primitives that are better than bespoke versions.
 
 pub mod abilities;
+pub mod actor;
 pub mod combat;
+pub mod debug;
 pub mod enemy;
 pub mod geometry;
+pub mod interaction;
 pub mod scalar;
 pub mod movement;
 pub mod music;
@@ -22,9 +25,19 @@ pub mod world;
 // Re-export the public surface so story/sandbox crates can treat the engine as
 // the main mechanics API while the internals stay organized by concern.
 pub use abilities::AbilitySet;
-pub use combat::slash_hitbox;
+pub use actor::{
+    Actor, ActorFaction, ActorKind, BossBrain, EnemyBrain, Health, KinematicPath,
+    KinematicPathMode, RespawnPolicy,
+};
+pub use combat::{
+    player_slash_hitbox, slash_hitbox, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
+};
+pub use debug::{DebugLabel, DebugLabelKind, DestinationLabel};
 pub use enemy::{spawn_dummies, Dummy, DummyKind};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
+pub use interaction::{
+    Breakable, BreakableState, Chest, ChestState, Interactable, InteractionKind, Pickup, PickupKind,
+};
 pub use bevy_math::Vec2;
 pub use scalar::approach;
 pub use movement::{
@@ -33,9 +46,10 @@ pub use movement::{
     update_player_with_tuning, BlinkEvent, ComboMark, FrameEvents,
     InputState, MovementOp, MovementTuning, Player, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
     BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_COOLDOWN,
-    DASH_SPEED, DASH_TIME, DEFAULT_TUNING, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_TERMINAL_SPEED, FLIGHT_HOVER_SPEED, FLIGHT_HOVER_HZ,
+    DASH_SPEED, DASH_TIME, DEFAULT_TUNING, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED,
+    FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_TERMINAL_SPEED, FLIGHT_HOVER_SPEED, FLIGHT_HOVER_HZ,
     GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED,
-    POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL, WALL_JUMP_X,
-    WALL_SLIDE_SPEED, WALL_CLIMB_SPEED,
+    POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL,
+    WALL_JUMP_X, WALL_SLIDE_SPEED, WALL_CLIMB_SPEED,
 };
-pub use world::{BlinkWallTier, Block, BlockKind, World};
+pub use world::{BlinkWallTier, Block, BlockKind, RoomObject, RoomObjectKind, World};

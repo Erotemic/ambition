@@ -1293,6 +1293,7 @@ mod tests {
                 Block::solid("right wall", Vec2::new(w - 36.0, 0.0), Vec2::new(36.0, h)),
                 Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)),
             ],
+            objects: Vec::new(),
         }
     }
 

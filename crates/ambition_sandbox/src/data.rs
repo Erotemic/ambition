@@ -55,6 +55,8 @@ pub struct RoomSpecData {
     pub shell: ShellSpec,
     pub blocks: Vec<BlockSpec>,
     pub zones: Vec<LoadingZoneSpec>,
+    #[serde(default)]
+    pub objects: Vec<RoomObjectSpec>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -114,6 +116,80 @@ pub enum BlockSpec {
 pub enum BlinkWallTierSpec {
     Soft,
     Hard,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub enum RoomObjectSpec {
+    DamageVolume { id: String, name: String, min: [f32; 2], size: [f32; 2], damage: i32 },
+    Interactable { id: String, name: String, prompt: String, min: [f32; 2], size: [f32; 2], kind: InteractionKindSpec },
+    Pickup { id: String, name: String, min: [f32; 2], size: [f32; 2], kind: PickupKindSpec },
+    Chest { id: String, name: String, min: [f32; 2], size: [f32; 2], reward: Option<PickupKindSpec> },
+    Breakable { id: String, name: String, min: [f32; 2], size: [f32; 2], max_hp: i32, respawn: Option<RespawnPolicySpec> },
+    EnemySpawn { id: String, name: String, min: [f32; 2], size: [f32; 2], brain: EnemyBrainSpec },
+    BossSpawn { id: String, name: String, min: [f32; 2], size: [f32; 2], brain: BossBrainSpec },
+    KinematicPath { id: String, name: String, min: [f32; 2], size: [f32; 2], points: Vec<[f32; 2]>, speed: f32, mode: KinematicPathModeSpec },
+    DebugLabel { id: String, name: String, position: [f32; 2], text: String, category: DebugLabelKindSpec },
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub enum InteractionKindSpec {
+    Door { target: Option<String> },
+    Npc { dialogue_id: Option<String> },
+    Chest,
+    Pickup,
+    Breakable,
+    Custom(String),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub enum PickupKindSpec {
+    Health { amount: i32 },
+    Currency { amount: i32 },
+    Ability { ability_id: String },
+    StoryFlag { flag: String },
+    Custom(String),
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub enum RespawnPolicySpec {
+    Never,
+    AfterSeconds(f32),
+    OnRoomReload,
+    Persistent,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub enum KinematicPathModeSpec {
+    Once,
+    Loop,
+    PingPong,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+pub enum DebugLabelKindSpec {
+    Room,
+    LoadingZone,
+    Hazard,
+    Enemy,
+    Boss,
+    Interactable,
+    Pickup,
+    Custom,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub enum EnemyBrainSpec {
+    Passive,
+    Patrol { path_id: Option<String> },
+    Guard { leash_radius: f32 },
+    Custom(String),
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub enum BossBrainSpec {
+    Dormant,
+    PhaseScript { script_id: String },
+    Custom(String),
 }
 
 #[derive(Clone, Debug, Deserialize)]

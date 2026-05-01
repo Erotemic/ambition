@@ -176,3 +176,7 @@ The sandbox RON asset is no longer the runtime owner of the room/world manifest.
 The old `rooms` data may still exist in historical RON files for reference, but new gameplay/world patches should treat it as ignored legacy data. The remaining transitional piece is the Rust `RoomManifestSpec` shape used as an adapter output between LDtk and the existing runtime `RoomSet`; future patches should shrink that adapter as `bevy_ecs_ldtk` marker entities are promoted into typed Ambition runtime components.
 
 The legacy `rooms` block has also been removed from `crates/ambition_sandbox/assets/ambition/sandbox.ron`; the LDtk file is now the only checked-in sandbox world definition. If older docs mention RON room authoring, treat that as historical unless explicitly scoped to tests/fixtures.
+
+## LDtk runtime bridge confinement update
+
+LDtk is now the only checked-in sandbox world definition, and startup / hot-reload call sites use `LdtkProject::to_room_set()` directly. The old RON-shaped `RoomManifestSpec` conversion remains as a private transitional implementation detail inside `ldtk_world.rs`; do not add new call sites that build a `RoomManifestSpec` from LDtk. The next migration step is to replace that private implementation with direct consumption of plugin-spawned `EntityInstance` data category by category.

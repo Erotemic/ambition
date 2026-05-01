@@ -60,12 +60,11 @@ fn main() {
     let ldtk_project = ldtk_world::LdtkProject::load_embedded();
     let ldtk_report = ldtk_project.validate();
     ldtk_report.print_to_stderr();
-    let ldtk_room_manifest = ldtk_project
-        .to_room_manifest()
-        .expect("embedded LDtk world should validate and convert into Ambition rooms");
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
-    let room_set = rooms::RoomSet::from_manifest(&ldtk_room_manifest);
+    let room_set = ldtk_project
+        .to_room_set()
+        .expect("embedded LDtk world should validate and build Ambition rooms");
     let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(&ldtk_project, room_set.active_spec().id.clone());
     let active_world = room_set.active_world().clone();
 
@@ -708,10 +707,9 @@ fn reload_ldtk_world_from_disk(
     if !report.is_ok() {
         return Err(report.errors);
     }
-    let manifest = project.to_room_manifest()?;
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = runtime.player.pos;
-    let mut next_room_set = rooms::RoomSet::from_manifest(&manifest);
+    let mut next_room_set = project.to_room_set()?;
     let next_active = next_room_set
         .rooms
         .iter()

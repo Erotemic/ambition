@@ -190,3 +190,7 @@ Do not add new spatial/world content to `assets/ambition/sandbox.ron`. `SandboxD
 `RoomManifestSpec` still exists as a transitional runtime adapter target, not as the canonical authoring format. Prefer promoting plugin-spawned LDtk marker entities into typed Ambition components over adding more bespoke LDtk-to-manifest conversion logic.
 
 The old checked-in RON room block has been removed from `crates/ambition_sandbox/assets/ambition/sandbox.ron`. Do not reintroduce it as a fallback. If a patch needs fallback/fixture maps, put them in explicit test fixtures instead of the main sandbox tuning/audio manifest.
+
+## LDtk bridge migration note
+
+Prefer `LdtkProject::to_room_set()` for LDtk-derived runtime rooms. `to_transitional_room_manifest()` is intentionally private and exists only to keep the current room graph/runtime stable while the remaining categories move to `bevy_ecs_ldtk`-spawned entities. Do not reintroduce public LDtk-to-`RoomManifestSpec` call sites.

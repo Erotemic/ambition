@@ -129,3 +129,7 @@ The sandbox no longer stores the LDtk-derived room manifest inside `SandboxDataS
 The current `RoomManifestSpec` output from `ldtk_world.rs` is a compatibility bridge into the existing `RoomSet`/`GameWorld` runtime. Treat this as transitional. As `bevy_ecs_ldtk` marker entities are promoted into direct Ambition components, remove matching categories from the manifest conversion path instead of duplicating behavior in both places.
 
 As of the LDtk runtime-spine migration, the old `rooms` block has been removed from `assets/ambition/sandbox.ron`. This makes accidental edits to the obsolete RON world definition impossible in the main sandbox manifest. The remaining Rust `RoomManifestSpec` types exist only because the current runtime still needs a compatibility shape while LDtk marker entities are promoted into direct gameplay components.
+
+### Bridge confinement status
+
+The old RON-shaped room manifest is no longer a public LDtk integration boundary. Runtime startup and hot reload now ask LDtk for a `RoomSet` directly. Internally, `ldtk_world.rs` still uses a private transitional manifest builder, but this is now boxed into one module so it can be replaced by direct `bevy_ecs_ldtk` entity consumption without changing startup and reload call sites again.

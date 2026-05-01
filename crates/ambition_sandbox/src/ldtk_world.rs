@@ -542,7 +542,20 @@ impl LdtkProject {
         report
     }
 
-    pub fn to_room_manifest(&self) -> Result<RoomManifestSpec, Vec<String>> {
+    /// Build the sandbox runtime room set from LDtk.
+    ///
+    /// This is the public LDtk-to-runtime entrypoint. The old RON-shaped
+    /// `RoomManifestSpec` bridge remains private inside this module until the
+    /// remaining conversion code is moved onto plugin-spawned LDtk entities.
+    pub fn to_room_set(&self) -> Result<crate::rooms::RoomSet, Vec<String>> {
+        let manifest = self.to_transitional_room_manifest()?;
+        Ok(crate::rooms::RoomSet::from_manifest(&manifest))
+    }
+
+    // Transitional compatibility adapter. Keep this private so new call sites
+    // cannot re-couple the sandbox to the retired RON world manifest shape.
+    fn to_transitional_room_manifest(&self) -> Result<RoomManifestSpec, Vec<String>> {
+
         let report = self.validate();
         if !report.is_ok() {
             return Err(report.errors);
@@ -986,7 +999,7 @@ mod tests {
     #[test]
     fn embedded_ldtk_composes_central_hub_complex() {
         let project = LdtkProject::load_embedded();
-        let manifest = project.to_room_manifest().expect("embedded LDtk should compose");
+        let manifest = project.to_transitional_room_manifest().expect("embedded LDtk should compose");
         assert_eq!(manifest.start_room, "central_hub_complex");
         assert!(manifest.rooms.len() > 1, "old sandbox rooms should be represented as LDtk active areas");
         assert!(manifest.links.iter().any(|link| link.from_room == "central_hub_complex" && link.from_zone == "boss_door" && link.to_room == "basement_boss"));

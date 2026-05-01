@@ -74,6 +74,7 @@ fn main() {
         .insert_resource(GameWorld(active_world))
         .insert_resource(room_set)
         .insert_resource(ldtk_index)
+        .insert_resource(ldtk_world::LdtkHotReloadState::from_current_file())
         .insert_resource(sandbox_data)
         .insert_resource(DeveloperTools::default())
         .insert_resource(SandboxFeelTuning::default())
@@ -124,6 +125,8 @@ fn main() {
             Update,
             (
                 dialog::dialog_input,
+                ldtk_world::poll_ldtk_file_changes,
+                handle_ldtk_hot_reload,
                 sandbox_update,
                 ldtk_world::sync_ldtk_level_set,
                 sync_visuals,
@@ -627,6 +630,115 @@ fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntim
     preset_changed
 }
 
+fn handle_ldtk_hot_reload(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut world: ResMut<GameWorld>,
+    mut room_set: ResMut<rooms::RoomSet>,
+    mut runtime: ResMut<SandboxRuntime>,
+    mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
+    mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
+    mut sandbox_data: ResMut<data::SandboxDataSpec>,
+    editable_tuning: Res<EditableMovementTuning>,
+    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+) {
+    if keys.just_pressed(KeyCode::F12) {
+        ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
+        ldtk_reload.last_status = format!(
+            "LDtk auto-apply {}",
+            if ldtk_reload.auto_apply { "enabled" } else { "disabled" }
+        );
+    }
+
+    let requested = keys.just_pressed(KeyCode::F11);
+    let should_apply = requested || (ldtk_reload.pending && ldtk_reload.auto_apply);
+    if !should_apply {
+        return;
+    }
+
+    match reload_ldtk_world_from_disk(
+        &mut commands,
+        &mut *world,
+        &mut *room_set,
+        &mut *runtime,
+        &mut *ldtk_index,
+        &mut *sandbox_data,
+        editable_tuning.as_engine(),
+        &room_visuals,
+    ) {
+        Ok(active_room) => {
+            ldtk_reload.mark_applied(&active_room);
+            eprintln!("LDtk hot reload applied to active room '{active_room}'");
+        }
+        Err(errors) => {
+            for error in &errors {
+                eprintln!("LDtk hot reload rejected: {error}");
+            }
+            ldtk_reload.mark_failed(errors);
+        }
+    }
+}
+
+fn reload_ldtk_world_from_disk(
+    commands: &mut Commands,
+    world: &mut GameWorld,
+    room_set: &mut rooms::RoomSet,
+    runtime: &mut SandboxRuntime,
+    ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
+    sandbox_data: &mut data::SandboxDataSpec,
+    tuning: ae::MovementTuning,
+    room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+) -> Result<String, Vec<String>> {
+    let project = ldtk_world::LdtkProject::load_from_disk().map_err(|error| vec![error])?;
+    let report = project.validate();
+    report.print_to_stderr();
+    if !report.is_ok() {
+        return Err(report.errors);
+    }
+    let manifest = project.to_room_manifest()?;
+    let current_room_id = room_set.active_spec().id.clone();
+    let preserved_pos = runtime.player.pos;
+    let mut next_room_set = rooms::RoomSet::from_manifest(&manifest);
+    let next_active = next_room_set
+        .rooms
+        .iter()
+        .position(|room| room.id == current_room_id)
+        .unwrap_or(next_room_set.active);
+    next_room_set.active = next_active;
+    let next_spec = next_room_set.active_spec().clone();
+
+    for (entity, physics_entity) in room_visuals.iter() {
+        if physics_entity.is_some() {
+            physics::retire_physics_entity(commands, entity);
+        } else {
+            commands.entity(entity).despawn();
+        }
+    }
+
+    sandbox_data.rooms = manifest;
+    *room_set = next_room_set;
+    world.0 = next_spec.world.clone();
+
+    let safe_pos = rooms::validated_spawn(&world.0, preserved_pos, runtime.player.size);
+    runtime.player.pos = safe_pos;
+    runtime.player.refresh_movement_resources(tuning);
+    runtime.last_safe_player_pos = safe_pos;
+    runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
+    runtime.features = features::FeatureRuntime::from_world(&world.0);
+    runtime.dialogue.close();
+    runtime.hitstop_timer = 0.0;
+    runtime.hitstun_timer = 0.0;
+    runtime.room_transition_cooldown = 0.10;
+    runtime.preset_flash = 1.0;
+
+    ldtk_index.replace_from_project(&project, next_spec.id.clone());
+
+    spawn_room_visuals(commands, &world.0, &next_spec.loading_zones, runtime.physics_settings);
+    platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
+
+    Ok(next_spec.id)
+}
+
 fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
     if runtime.hitstop_timer > 0.0 {
         0.0
@@ -980,6 +1092,7 @@ fn update_hud(
     room_set: Res<rooms::RoomSet>,
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
+    ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
@@ -1026,7 +1139,7 @@ fn update_hud(
     };
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={}\n{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -1041,6 +1154,9 @@ fn update_hud(
             runtime.player.combo_symbols(),
             runtime.player.current_combo_hint(),
             zone_hint,
+            ldtk_reload.last_status,
+            ldtk_reload.auto_apply,
+            ldtk_reload.pending,
             runtime.hitstun_timer,
             runtime.damage_invuln_timer,
             runtime.hitstop_timer,
@@ -1057,7 +1173,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -1093,11 +1209,14 @@ fn update_hud(
         developer_tools.inspector_visible,
         developer_tools.world_inspector_visible,
         developer_tools.overview_camera,
+        ldtk_reload.auto_apply,
+        ldtk_reload.pending,
         mode.get().label(),
         runtime.hitstop_timer,
         runtime.hitstun_timer,
         runtime.damage_invuln_timer,
         runtime.time_scale,
+        ldtk_reload.last_status,
         window_line,
         runtime.player_health.current.max(0),
         runtime.player_health.max,

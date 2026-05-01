@@ -127,3 +127,15 @@ When touching these systems, add an `AMBITION_REVIEW:` comment if the logic is e
 ## LDtk asset initialization ordering note
 
 `SandboxAssetCollection` contains a typed `Handle<bevy_ecs_ldtk::assets::LdtkProject>`, so `LdtkPlugin` must be registered before `init_collection::<loading::SandboxAssetCollection>()`. If the collection is initialized first, Bevy panics while allocating the typed LDtk handle because `LdtkProject` has not been registered yet.
+
+## LDtk hot reload foundation
+
+The sandbox now has a first hot-reload loop for the LDtk-authored world. During
+development, run with `--features dev_hot_reload` to enable Bevy file watching;
+the sandbox also polls the LDtk file timestamp. `F11` validates and applies the
+current LDtk file, while `F12` toggles automatic apply after detected changes.
+Rejected reloads leave the live Ambition world untouched and report validator
+errors in stderr/HUD. Applied reloads rebuild the LDtk-derived `RoomSet`, active
+`GameWorld`, transient feature runtime, moving-platform state, room visuals, and
+LDtk level index while preserving the player and repairing their position if the
+edited map would put them in collision.

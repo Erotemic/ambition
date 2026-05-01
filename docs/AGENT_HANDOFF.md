@@ -140,3 +140,18 @@ Avoid making data mirror low-level Bevy bundles unless a presentation system spe
 ## LDtk asset loading lesson
 
 Keep `LdtkPlugin` before `init_collection::<loading::SandboxAssetCollection>()`. The asset collection allocates a typed `Handle<bevy_ecs_ldtk::assets::LdtkProject>`, so the LDtk asset type and loader must already be initialized before `bevy_asset_loader` creates the collection.
+
+## LDtk hot reload operational note
+
+For LDtk/world-composition patches, include one pasteable apply/validate/run
+bash block. Prefer running the sandbox with:
+
+```bash
+cargo run -p ambition_sandbox --features dev_hot_reload --release
+```
+
+The runtime supports `F11` to validate/apply the on-disk LDtk project and `F12`
+to toggle auto-apply after file changes. Keep the validator as the safety gate;
+failed reloads must preserve the currently running world. When adding new map
+entities, update both the Rust adapter and `tools/validate_ambition_ldtk.py`, and
+make sure hot reload rebuilds the corresponding map-authored runtime state.

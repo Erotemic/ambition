@@ -162,3 +162,11 @@ Rules:
 Ambition should support massive games by separating authoring units from runtime traversal units. Designers, generators, and agents may produce room chunks, LDtk levels, or future editor modules. The runtime should compose those into active areas when traversal is meant to be continuous. Loading zones should represent intentional transitions, not arbitrary authoring seams.
 
 LDtk is the first external editor target and should be loaded as a first-class Bevy LDtk asset, but Ambition's typed schema and validators remain canonical. The sandbox should keep proving this with a central hub whose basement is physically below the hub and reachable by dropping through an opening.
+
+## Professional LDtk authoring loop
+
+Ambition should support a professional LDtk iteration loop: edit/save LDtk,
+validate, hot-reload into the running sandbox, inspect with overview/debug
+visuals, and continue without restarting. LDtk should be first-class for authored
+spatial data, while Ambition retains typed gameplay semantics, validation,
+persistence policy, and reload reconciliation.

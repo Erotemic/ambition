@@ -6,9 +6,12 @@
 //! continuous `RoomManifestSpec` active areas.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::PathBuf;
+use std::time::SystemTime;
 
 use bevy::asset::{AssetServer, Handle};
-use bevy::prelude::{Commands, Component, Query, Res, ResMut, Resource, With};
+use bevy::prelude::{Commands, Component, Query, Res, ResMut, Resource, Time, With};
 use bevy_ecs_ldtk::prelude::LevelSet;
 use serde::Deserialize;
 use serde_json::Value;
@@ -20,6 +23,110 @@ use crate::data::{
 };
 
 pub const SANDBOX_LDTK_ASSET: &str = "ambition/worlds/sandbox.ldtk";
+
+pub fn sandbox_ldtk_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join(SANDBOX_LDTK_ASSET)
+}
+
+pub fn sandbox_ldtk_modified_time() -> Result<SystemTime, String> {
+    let path = sandbox_ldtk_path();
+    fs::metadata(&path)
+        .and_then(|metadata| metadata.modified())
+        .map_err(|error| format!("could not read LDtk modified time for {}: {error}", path.display()))
+}
+
+#[derive(Resource, Clone, Debug)]
+pub struct LdtkHotReloadState {
+    pub pending: bool,
+    pub auto_apply: bool,
+    pub poll_timer: f32,
+    pub last_modified: Option<SystemTime>,
+    pub last_status: String,
+    pub last_errors: Vec<String>,
+    pub applied_count: u32,
+}
+
+impl Default for LdtkHotReloadState {
+    fn default() -> Self {
+        Self {
+            pending: false,
+            auto_apply: false,
+            poll_timer: 0.0,
+            last_modified: None,
+            last_status: "LDtk hot reload idle".to_string(),
+            last_errors: Vec::new(),
+            applied_count: 0,
+        }
+    }
+}
+
+impl LdtkHotReloadState {
+    pub fn from_current_file() -> Self {
+        let mut state = Self::default();
+        match sandbox_ldtk_modified_time() {
+            Ok(modified) => {
+                state.last_modified = Some(modified);
+                state.last_status = if cfg!(feature = "dev_hot_reload") {
+                    "LDtk hot reload watching; press F11 to apply, F12 toggles auto-apply".to_string()
+                } else {
+                    "LDtk hot reload polling; run with --features dev_hot_reload for Bevy file watching too".to_string()
+                };
+            }
+            Err(error) => {
+                state.last_status = error;
+            }
+        }
+        state
+    }
+
+    pub fn mark_pending(&mut self, modified: SystemTime) {
+        self.last_modified = Some(modified);
+        self.pending = true;
+        self.last_errors.clear();
+        self.last_status = "LDtk change detected; press F11 to apply".to_string();
+    }
+
+    pub fn mark_applied(&mut self, room: &str) {
+        self.pending = false;
+        self.applied_count = self.applied_count.saturating_add(1);
+        self.last_errors.clear();
+        self.last_status = format!("LDtk reload applied to '{room}' (#{})", self.applied_count);
+    }
+
+    pub fn mark_failed(&mut self, errors: Vec<String>) {
+        self.pending = false;
+        self.last_errors = errors;
+        let first = self
+            .last_errors
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "unknown LDtk reload failure".to_string());
+        self.last_status = format!("LDtk reload rejected: {first}");
+    }
+}
+
+pub fn poll_ldtk_file_changes(time: Res<Time>, mut state: ResMut<LdtkHotReloadState>) {
+    state.poll_timer -= time.delta_secs();
+    if state.poll_timer > 0.0 {
+        return;
+    }
+    state.poll_timer = 0.35;
+    let Ok(modified) = sandbox_ldtk_modified_time() else {
+        return;
+    };
+    let changed = state
+        .last_modified
+        .map(|last| modified > last)
+        .unwrap_or(false);
+    if changed {
+        state.mark_pending(modified);
+    } else if state.last_modified.is_none() {
+        state.last_modified = Some(modified);
+    }
+}
+
 
 const AMBITION_LAYER: &str = "Ambition";
 const GRID: i32 = 16;
@@ -38,6 +145,8 @@ pub struct SandboxLdtkWorldRoot;
 pub struct LdtkRuntimeIndex {
     active_area: String,
     area_level_iids: BTreeMap<String, Vec<String>>,
+    revision: u64,
+    synced_revision: u64,
 }
 
 impl LdtkRuntimeIndex {
@@ -49,6 +158,8 @@ impl LdtkRuntimeIndex {
         Self {
             active_area: start_area.into(),
             area_level_iids,
+            revision: 1,
+            synced_revision: 0,
         }
     }
 
@@ -67,6 +178,22 @@ impl LdtkRuntimeIndex {
     pub fn set_active_area(&mut self, area: impl Into<String>) {
         self.active_area = area.into();
     }
+
+    pub fn replace_from_project(&mut self, project: &LdtkProject, active_area: impl Into<String>) {
+        let replacement = Self::from_project(project, active_area);
+        self.active_area = replacement.active_area;
+        self.area_level_iids = replacement.area_level_iids;
+        self.revision = self.revision.saturating_add(1);
+        self.synced_revision = self.synced_revision.min(self.revision.saturating_sub(1));
+    }
+
+    pub fn needs_level_set_sync(&self, area: &str) -> bool {
+        self.active_area() != area || self.synced_revision != self.revision
+    }
+
+    pub fn mark_level_set_synced(&mut self) {
+        self.synced_revision = self.revision;
+    }
 }
 
 pub fn sync_ldtk_level_set(
@@ -75,7 +202,7 @@ pub fn sync_ldtk_level_set(
     mut ldtk_worlds: Query<&mut LevelSet, With<SandboxLdtkWorldRoot>>,
 ) {
     let active_area = room_set.active_spec().id.clone();
-    if index.active_area() == active_area {
+    if !index.needs_level_set_sync(&active_area) {
         return;
     }
     let next_level_set = index.level_set_for(&active_area);
@@ -83,6 +210,7 @@ pub fn sync_ldtk_level_set(
     for mut level_set in &mut ldtk_worlds {
         *level_set = next_level_set.clone();
     }
+    index.mark_level_set_synced();
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -166,6 +294,14 @@ impl LdtkProject {
     pub fn load_embedded() -> Self {
         serde_json::from_str(include_str!("../assets/ambition/worlds/sandbox.ldtk"))
             .expect("embedded assets/ambition/worlds/sandbox.ldtk should parse")
+    }
+
+    pub fn load_from_disk() -> Result<Self, String> {
+        let path = sandbox_ldtk_path();
+        let text = fs::read_to_string(&path)
+            .map_err(|error| format!("could not read LDtk project {}: {error}", path.display()))?;
+        serde_json::from_str(&text)
+            .map_err(|error| format!("could not parse LDtk project {}: {error}", path.display()))
     }
 
     pub fn validate(&self) -> LdtkValidationReport {

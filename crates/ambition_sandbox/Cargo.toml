@@ -6,6 +6,10 @@ license.workspace = true
 authors.workspace = true
 description = "Bevy-powered playable sandbox for Ambition Engine."
 
+[features]
+default = []
+dev_hot_reload = ["bevy/file_watcher"]
+
 [dependencies]
 ambition_engine = { path = "../ambition_engine" }
 avian2d = "0.5"

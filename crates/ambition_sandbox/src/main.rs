@@ -961,7 +961,7 @@ fn update_hud(
     };
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {} | interact {:.2} | F1 debug F3 inspector F4 world | {}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world\n{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -973,7 +973,13 @@ fn update_hud(
             runtime.player.on_ground,
             runtime.player.dash_charges_available,
             runtime.player.air_jumps_available,
-            runtime.interact_buffer_timer,
+            runtime.player.combo_symbols(),
+            runtime.player.current_combo_hint(),
+            zone_hint,
+            runtime.hitstun_timer,
+            runtime.damage_invuln_timer,
+            runtime.hitstop_timer,
+            preset.name,
             runtime.features.feature_summary(),
             feature_banner,
         );

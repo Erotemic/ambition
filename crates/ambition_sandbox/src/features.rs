@@ -298,7 +298,7 @@ impl FeatureRuntime {
         }
 
         for boss in &mut self.bosses {
-            boss.update(player, tuning, dt);
+            boss.update(world, player, tuning, dt);
             if player_vulnerable && boss.alive {
                 if let Some(damage) = boss.player_damage(player_body) {
                     events.messages.push(format!("{} pattern hit the player", boss.name));
@@ -844,19 +844,25 @@ impl BossRuntime {
         }
     }
 
-    fn update(&mut self, player: &ae::Player, tuning: FeatureCombatTuning, dt: f32) {
+    fn update(&mut self, world: &ae::World, player: &ae::Player, tuning: FeatureCombatTuning, dt: f32) {
         if !self.alive {
             return;
         }
         self.pattern_timer += dt;
         self.movement_timer += dt;
-        // AMBITION_REVIEW(spatial): this is a cheap authored boss movement
-        // prototype, not final navigation. It keeps the boss active while the
-        // basement lab proves movement + attack pattern composition.
-        let to_player = player.pos - self.pos;
-        let chase = to_player.x.clamp(-1.0, 1.0) * 42.0;
-        self.pos.x = self.spawn.x + (self.movement_timer * 0.85).sin() * 170.0 + chase;
-        self.pos.y = self.spawn.y + (self.movement_timer * 1.45).sin() * 34.0;
+        // AMBITION_REVIEW(spatial): this is still a cheap authored boss movement
+        // prototype, but it now computes chase from the stable spawn anchor and
+        // moves toward the target with an axis-separated collision guard. The
+        // previous version used current position as feedback in the chase term,
+        // which could flip sign every frame near the player and visually split
+        // the boss into two flickering locations.
+        let anchor_to_player = player.pos - self.spawn;
+        let chase = (anchor_to_player.x * 0.18).clamp(-70.0, 70.0);
+        let target = ae::Vec2::new(
+            self.spawn.x + (self.movement_timer * 0.72).sin() * 130.0 + chase,
+            self.spawn.y + (self.movement_timer * 1.10).sin() * 24.0,
+        );
+        self.move_toward_target(world, target, dt);
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         let was_winding_up = self.attack_windup_timer > 0.0;
         self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
@@ -891,6 +897,33 @@ impl BossRuntime {
 
     pub fn body_damage_aabb(&self) -> ae::Aabb {
         self.aabb()
+    }
+
+    fn move_toward_target(&mut self, world: &ae::World, target: ae::Vec2, dt: f32) {
+        let half = self.size * 0.5;
+        let margin = 8.0;
+        let max_x = (world.size.x - half.x - margin).max(half.x + margin);
+        let max_y = (world.size.y - half.y - margin).max(half.y + margin);
+        let clamped_target = ae::Vec2::new(
+            target.x.clamp(half.x + margin, max_x),
+            target.y.clamp(half.y + margin, max_y),
+        );
+        let delta = clamped_target - self.pos;
+        let max_step = 220.0 * dt.max(0.0);
+        let step = if delta.length() > max_step && max_step > 0.0 {
+            delta.normalize_or_zero() * max_step
+        } else {
+            delta
+        };
+
+        let try_x = ae::Vec2::new(self.pos.x + step.x, self.pos.y);
+        if boss_space_is_free(world, try_x, self.size) {
+            self.pos.x = try_x.x;
+        }
+        let try_y = ae::Vec2::new(self.pos.x, self.pos.y + step.y);
+        if boss_space_is_free(world, try_y, self.size) {
+            self.pos.y = try_y.y;
+        }
     }
 
     fn pattern_volumes(&self) -> Vec<ae::Aabb> {
@@ -1160,6 +1193,19 @@ pub fn world_with_sandbox_solids(world: &ae::World, platform: &MovingPlatformSta
         }
     }
     collision_world
+}
+
+fn boss_space_is_free(world: &ae::World, pos: ae::Vec2, size: ae::Vec2) -> bool {
+    let aabb = ae::Aabb::new(pos, size * 0.5);
+    if aabb.left() < 0.0 || aabb.right() > world.size.x || aabb.top() < 0.0 || aabb.bottom() > world.size.y {
+        return false;
+    }
+    !world.body_overlaps_any(aabb, |block| {
+        matches!(
+            block.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
+        )
+    })
 }
 
 fn room_paths(world: &ae::World) -> Vec<(String, ae::KinematicPath)> {

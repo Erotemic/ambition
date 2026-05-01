@@ -35,7 +35,7 @@ StitchedBoundary
 
 LDtk is the first external editor integration target. The sandbox should include a proof-of-concept LDtk project, an Ambition LDtk adapter, and an Ambition-specific validator. The adapter converts LDtk-authored chunks into Ambition's typed room manifest / engine world path.
 
-The canonical gameplay model remains Ambition's typed data model, not raw LDtk JSON. `bevy_ecs_ldtk` is included as the Bevy ecosystem bridge for LDtk assets and future tile/entity spawning workflows, but Ambition-owned conversion and validation decide what entities mean.
+The canonical gameplay model remains Ambition's typed data model, not raw LDtk JSON. `bevy_ecs_ldtk` is the Bevy ecosystem bridge for LDtk assets and tile/entity spawning workflows. The sandbox should spawn an `LdtkWorldBundle` and sync its `LevelSet` to the active Ambition area, while Ambition-owned conversion and validation decide what entities mean.
 
 ## Consequences
 
@@ -56,11 +56,12 @@ The first implementation should be conservative:
 3. Add a Rust LDtk adapter that validates the Ambition subset and flattens chunks into `RoomManifestSpec`.
 4. Add a command-line validator script that can run without Cargo.
 5. Update sandbox startup to prefer LDtk-authored rooms while retaining RON for abilities, tuning, and audio.
-6. Add F5 overview camera support for inspecting large/stitched active areas.
+6. Spawn a `bevy_ecs_ldtk` `LdtkWorldBundle` and keep its `LevelSet` synchronized with Ambition room transitions.
+7. Add F5 overview camera support for inspecting large/stitched active areas.
 
 ## Non-goals for the first implementation
 
-- Full LDtk tile rendering through `bevy_ecs_ldtk`.
+- Making LDtk tile rendering the only runtime representation before Ambition collision, traversal, and gameplay validators are promoted to direct LDtk sources.
 - External `.ldtkl` split-level files.
 - World streaming or distance-based chunk activation.
 - Replacing the existing custom platformer controller.

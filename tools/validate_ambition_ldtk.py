@@ -116,6 +116,48 @@ def validate(path: Path):
         errors.append("project has no levels")
     if project.get("jsonVersion") != "1.5.3":
         warnings.append(f"expected LDtk jsonVersion 1.5.3, got {project.get('jsonVersion')!r}")
+    if not project.get("iid"):
+        errors.append("project is missing root iid; bevy_ecs_ldtk treats LDtk as a first-class asset and expects stable project identity")
+    if project.get("worldLayout") not in {"Free", "GridVania", "LinearHorizontal", "LinearVertical"}:
+        errors.append(f"project has unsupported or missing worldLayout {project.get('worldLayout')!r}")
+    first_class_root_fields = {
+        "appBuildId",
+        "backupLimit",
+        "backupOnSave",
+        "customCommands",
+        "dummyWorldIid",
+        "exportLevelBg",
+        "flags",
+        "identifierStyle",
+        "imageExportMode",
+        "levelNamePattern",
+        "nextUid",
+        "worlds",
+    }
+    missing_root_fields = sorted(field for field in first_class_root_fields if field not in project)
+    if missing_root_fields:
+        errors.append("first-class LDtk project is missing editor/schema fields: " + ", ".join(missing_root_fields))
+    defs = project.get("defs") or {}
+    layer_defs = defs.get("layers") or []
+    if not any(layer.get("identifier") == AMBITION_LAYER and layer.get("__type") == "Entities" for layer in layer_defs):
+        errors.append(f"defs.layers must contain an Entities layer definition named {AMBITION_LAYER!r}")
+    for layer in layer_defs:
+        if layer.get("identifier") == AMBITION_LAYER:
+            for required in ["parallaxFactorX", "parallaxFactorY", "parallaxScaling", "canSelectWhenInactive", "guideGridHei", "guideGridWid", "uiFilterTags", "useAsyncRender"]:
+                if required not in layer:
+                    errors.append(f"Ambition layer definition is missing first-class LDtk field {required!r}")
+    entity_defs = {entity.get("identifier") for entity in defs.get("entities") or []}
+    missing_defs = sorted(KNOWN_ENTITIES.intersection({entity for level in levels for layer in (level.get("layerInstances") or []) for entity in [inst.get("__identifier") for inst in (layer.get("entityInstances") or [])] if entity}) - entity_defs)
+    if missing_defs:
+        errors.append("defs.entities is missing definitions for used Ambition entities: " + ", ".join(missing_defs))
+    for entity_def in defs.get("entities") or []:
+        for required in ["allowOutOfBounds", "exportToToc", "nineSliceBorders", "tileOpacity"]:
+            if required not in entity_def:
+                errors.append(f"entity definition {entity_def.get('identifier')!r} is missing first-class LDtk field {required!r}")
+        for field_def in entity_def.get("fieldDefs") or []:
+            for required in ["allowOutOfLevelRef", "allowedRefTags", "allowedRefs", "autoChainRef", "editorDisplayScale", "editorLinkStyle", "editorShowInWorld", "exportToToc", "searchable", "symmetricalRef"]:
+                if required not in field_def:
+                    errors.append(f"field definition {entity_def.get('identifier')}.{field_def.get('identifier')} is missing first-class LDtk field {required!r}")
 
     seen_levels = set()
     starts_by_area = Counter()
@@ -153,6 +195,8 @@ def validate(path: Path):
         if layer is None:
             errors.append(f"level {identifier!r} is missing {AMBITION_LAYER!r} entity layer")
             continue
+        if layer.get("__type") != "Entities":
+            errors.append(f"level {identifier!r} Ambition layer must have __type='Entities' for direct bevy_ecs_ldtk spawning")
 
         solids = [entity for entity in layer.get("entityInstances") or [] if entity.get("__identifier") == "Solid"]
         for solid in solids:

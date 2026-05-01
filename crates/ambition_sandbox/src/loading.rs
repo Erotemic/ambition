@@ -19,4 +19,7 @@ use crate::data::SandboxDataSpec;
 pub struct SandboxAssetCollection {
     #[asset(path = "ambition/sandbox.ron")]
     pub sandbox_data: Handle<SandboxDataSpec>,
+
+    #[asset(path = "ambition/worlds/sandbox.ldtk")]
+    pub ldtk_project: Handle<bevy_ecs_ldtk::assets::LdtkProject>,
 }

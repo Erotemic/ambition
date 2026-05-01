@@ -27,7 +27,7 @@ The engine may depend on Bevy and Bevy-adjacent crates when useful. It should st
 - Bevy 0.18
 - Leafwing Input Manager for semantic controls
 - serde / RON / `bevy_common_assets` for tuning/audio manifests
-- LDtk JSON authoring via an Ambition adapter, with `bevy_ecs_ldtk` added as the Bevy LDtk bridge
+- LDtk JSON authoring via an Ambition adapter, with `bevy_ecs_ldtk` now used as a first-class Bevy asset/`LdtkWorldBundle` path
 - `bevy_asset_loader` foundation for future explicit loading states
 - `petgraph` for room transition graphs
 - `bevy-inspector-egui` and Bevy Gizmos for dev tooling
@@ -46,7 +46,7 @@ The sandbox currently has:
 - input presets through Leafwing,
 - pause/game-mode gating,
 - generated lo-fi audio and sound effects,
-- LDtk-authored active-area composition for the central hub POC,
+- LDtk-authored active-area composition for the central hub POC, with a live `bevy_ecs_ldtk` `LevelSet` synced to the active Ambition room,
 - a central hub with a literal drop-down basement stitched into one continuous active area, with the old sandbox doors and feature labs ported into LDtk-authored active areas,
 - central-hub side `EdgeExit` wall collision split around the exits so those zones are physically reachable,
 - test rooms for hazards, enemies, boss patterns, breakables, pickups/chests, and NPC talk hooks,
@@ -123,3 +123,7 @@ When touching these systems, add an `AMBITION_REVIEW:` comment if the logic is e
 4. Expand tests around room graphs, blink/collision, input buffering, and generated schedules.
 5. Add a render/preview lab for procedural visuals before committing to a final style.
 6. Keep updating ADRs when decisions supersede older notes.
+
+## LDtk asset initialization ordering note
+
+`SandboxAssetCollection` contains a typed `Handle<bevy_ecs_ldtk::assets::LdtkProject>`, so `LdtkPlugin` must be registered before `init_collection::<loading::SandboxAssetCollection>()`. If the collection is initialized first, Bevy panics while allocating the typed LDtk handle because `LdtkProject` has not been registered yet.

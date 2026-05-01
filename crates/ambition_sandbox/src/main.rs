@@ -37,7 +37,7 @@ use bevy_inspector_egui::{
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
 use bevy_material_ui::MaterialUiPlugin;
-use bevy_ecs_ldtk::LdtkPlugin;
+use bevy_ecs_ldtk::{LdtkPlugin, LdtkWorldBundle};
 
 const BULLET_TIME_SCALE: f32 = 0.10;
 const BLINK_HOLD_SLOW_SCALE: f32 = 0.35;
@@ -66,12 +66,14 @@ fn main() {
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
     let room_set = rooms::RoomSet::from_manifest(&sandbox_data.rooms);
+    let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(&ldtk_project, room_set.active_spec().id.clone());
     let active_world = room_set.active_world().clone();
 
     App::new()
         .insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .insert_resource(GameWorld(active_world))
         .insert_resource(room_set)
+        .insert_resource(ldtk_index)
         .insert_resource(sandbox_data)
         .insert_resource(DeveloperTools::default())
         .insert_resource(SandboxFeelTuning::default())
@@ -98,12 +100,15 @@ fn main() {
         // The inspector quick plugins require EguiPlugin to be registered first.
         .add_plugins(EguiPlugin::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
+        // `SandboxAssetCollection` includes a typed LDtk handle, so the LDtk
+        // asset type and loader must be initialized before bevy_asset_loader
+        // allocates collection handles. Keep this before `init_collection`.
+        .add_plugins(LdtkPlugin)
         .init_collection::<loading::SandboxAssetCollection>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_plugins(ae::AmbitionStateMachinePlugin::default())
         .add_plugins(dialog::yarn_spinner_plugin())
         .add_plugins(MaterialUiPlugin)
-        .add_plugins(LdtkPlugin)
         .add_plugins(physics::AmbitionPhysicsPlugin)
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
@@ -114,12 +119,13 @@ fn main() {
         .add_plugins(ResourceInspectorPlugin::<EditableMovementTuning>::default().run_if(dev_tools::inspector_visible))
         .add_plugins(ResourceInspectorPlugin::<SandboxFeelTuning>::default().run_if(dev_tools::inspector_visible))
         .add_plugins(WorldInspectorPlugin::new().run_if(dev_tools::world_inspector_visible))
-        .add_systems(Startup, (data::load_data_asset_handle, setup).chain())
+        .add_systems(Startup, (data::load_data_asset_handle, ldtk_world::load_ldtk_asset_handle, setup).chain())
         .add_systems(
             Update,
             (
                 dialog::dialog_input,
                 sandbox_update,
+                ldtk_world::sync_ldtk_level_set,
                 sync_visuals,
                 camera_follow,
                 debug_overlay::draw_debug_overlay,
@@ -294,7 +300,10 @@ fn setup(
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data_asset: Option<Res<data::SandboxDataAsset>>,
+    ldtk_asset: Option<Res<ldtk_world::SandboxLdtkAsset>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
+    asset_server: Res<AssetServer>,
+    ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut audio_sources: ResMut<Assets<AudioSource>>,
     sandbox_data: Res<data::SandboxDataSpec>,
@@ -306,6 +315,7 @@ fn setup(
     }
     if let Some(collection) = sandbox_asset_collection.as_ref() {
         let _loaded_sandbox_data_handle = collection.sandbox_data.clone();
+        let _loaded_ldtk_project_handle = collection.ldtk_project.clone();
     }
     for warning in room_set.layout_warnings() {
         eprintln!("room layout warning: {warning}");
@@ -316,6 +326,21 @@ fn setup(
     // room at 1600x900, the default orthographic projection shows the whole
     // room without requiring a Bevy-version-sensitive ScalingMode import.
     commands.spawn((Camera2d, Name::new("Main Camera")));
+
+    let ldtk_handle = ldtk_asset
+        .as_ref()
+        .map(|asset| asset.0.clone())
+        .or_else(|| sandbox_asset_collection.as_ref().map(|collection| collection.ldtk_project.clone()))
+        .unwrap_or_else(|| asset_server.load(ldtk_world::SANDBOX_LDTK_ASSET));
+    commands.spawn((
+        LdtkWorldBundle {
+            ldtk_handle: ldtk_handle.into(),
+            level_set: ldtk_index.level_set_for(&room_set.active_spec().id),
+            ..default()
+        },
+        ldtk_world::SandboxLdtkWorldRoot,
+        Name::new("LDtk World Root"),
+    ));
     let runtime = SandboxRuntime::new(
         &world.0,
         editable_abilities.as_engine(),

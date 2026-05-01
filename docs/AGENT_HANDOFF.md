@@ -15,7 +15,7 @@ Historical docs are useful, but ADRs and `CURRENT_STATE.md` supersede older cons
 
 ## LDtk and world composition
 
-Read `docs/adr/0009-world-composition-and-ldtk-authoring.md` and `docs/ldtk_world_composition.md` before changing sandbox level authoring. The central hub basement is a physical area below the hub, not a separate loading-zone room. The current LDtk adapter composes levels sharing the same `activeArea` field into one runtime active area. The old sandbox rooms and feature-lab doors are now represented as LDtk active areas linked by `LoadingZone` entities; do not put the boss directly in the stitched hub/basement area.
+Read `docs/adr/0009-world-composition-and-ldtk-authoring.md` and `docs/ldtk_world_composition.md` before changing sandbox level authoring. The central hub basement is a physical area below the hub, not a separate loading-zone room. The current LDtk adapter composes levels sharing the same `activeArea` field into one runtime active area, and the sandbox also spawns a `bevy_ecs_ldtk` `LdtkWorldBundle` whose `LevelSet` mirrors the active Ambition area. The old sandbox rooms and feature-lab doors are now represented as LDtk active areas linked by `LoadingZone` entities; do not put the boss directly in the stitched hub/basement area.
 
 Validate LDtk edits with:
 
@@ -23,7 +23,7 @@ Validate LDtk edits with:
 python tools/validate_ambition_ldtk.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
-Do not treat LDtk JSON as the canonical gameplay model. Add adapter/validator code when new LDtk entity identifiers or fields become meaningful. `EdgeExit` zones must be physically reachable: split wall collision around them instead of placing the trigger inside a solid wall. Use `AMBITION_REVIEW(spatial)` around chunk composition, seams, camera bounds, wall openings, and spawn/collision assumptions.
+Do not treat LDtk JSON as the canonical gameplay model. Add adapter/validator code when new LDtk entity identifiers or fields become meaningful. The LDtk file should stay first-class editor-shaped JSON: keep root `iid`, `worldLayout`, `defs.layers`, and `defs.entities` in sync with instances. `EdgeExit` zones must be physically reachable: split wall collision around them instead of placing the trigger inside a solid wall. Use `AMBITION_REVIEW(spatial)` around chunk composition, seams, camera bounds, wall openings, and spawn/collision assumptions.
 
 ## Repository state and patch packaging
 
@@ -136,3 +136,7 @@ Avoid making data mirror low-level Bevy bundles unless a presentation system spe
 - ADRs: durable decisions and supersessions.
 - Patch docs: what a patch changed and why.
 - Storyline docs: narrative/worldbuilding candidates.
+
+## LDtk asset loading lesson
+
+Keep `LdtkPlugin` before `init_collection::<loading::SandboxAssetCollection>()`. The asset collection allocates a typed `Handle<bevy_ecs_ldtk::assets::LdtkProject>`, so the LDtk asset type and loader must already be initialized before `bevy_asset_loader` creates the collection.

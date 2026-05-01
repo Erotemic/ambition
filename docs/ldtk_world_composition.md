@@ -100,3 +100,18 @@ StitchedBoundary
 `EdgeExit` zones are gameplay triggers, not collision cutters. If an edge-exit zone is authored inside a wall, the zone may render/debug-label correctly but remain unreachable to the player. Split the adjacent side wall around the exit opening, and keep the zone touching the level edge without strictly overlapping any `Solid` entity. The validator now treats overlap between an `EdgeExit` and a `Solid` as an error.
 
 For stitched active areas, remember that LDtk level positions are flattened into active-area coordinates before runtime collision and loading-zone checks. Any spatial assumption that depends on seams, wall openings, or transition spawn repair should be marked in Rust with `AMBITION_REVIEW(spatial)`.
+
+## First-class Bevy LDtk asset path
+
+The sandbox now treats `assets/ambition/worlds/sandbox.ldtk` as both:
+
+1. an Ambition-authored gameplay source that is synchronously validated and converted into `RoomManifestSpec`, and
+2. a first-class Bevy LDtk asset loaded through `bevy_ecs_ldtk` and spawned with `LdtkWorldBundle`.
+
+At startup, `ldtk_world::load_ldtk_asset_handle` inserts a typed handle for the LDtk project, `SandboxAssetCollection` also includes the LDtk handle, and setup spawns an `LDtk World Root` entity tagged with `SandboxLdtkWorldRoot`. The root uses a `LevelSet` built from the LDtk level iids that belong to the active Ambition active area.
+
+On room transitions, `ldtk_world::sync_ldtk_level_set` updates that `LevelSet` to match the active Ambition room. For stitched spaces such as `central_hub_complex`, this means multiple LDtk levels are selected at once (`central_hub_main` and `central_hub_basement`). For standalone rooms, exactly one LDtk level is selected.
+
+The current gameplay collision, loading zones, features, and debug visuals still use the Ambition typed runtime path. This is deliberate: LDtk is now first-class as an asset/spawn source, but gameplay meaning still flows through Ambition validation and conversion until each class of LDtk layer/entity is promoted intentionally.
+
+The LDtk file should remain editor-shaped, not just parser-shaped. It should include a root `iid`, `worldLayout`, an `Ambition` entity-layer definition in `defs.layers`, and entity definitions in `defs.entities` for every Ambition entity used by instances. The validator checks these first-class requirements in addition to gameplay constraints.

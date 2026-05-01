@@ -7,6 +7,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use bevy::asset::{AssetServer, Handle};
+use bevy::prelude::{Commands, Component, Query, Res, ResMut, Resource, With};
+use bevy_ecs_ldtk::prelude::LevelSet;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -16,8 +19,71 @@ use crate::data::{
     RespawnPolicySpec, KinematicPathModeSpec, KinematicPathSpec, RoomLinkSpec, RoomManifestSpec, RoomObjectSpec, RoomSpecData, ShellSpec,
 };
 
+pub const SANDBOX_LDTK_ASSET: &str = "ambition/worlds/sandbox.ldtk";
+
 const AMBITION_LAYER: &str = "Ambition";
 const GRID: i32 = 16;
+
+#[derive(Resource, Clone, Debug)]
+pub struct SandboxLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
+
+pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(SandboxLdtkAsset(asset_server.load(SANDBOX_LDTK_ASSET)));
+}
+
+#[derive(Component)]
+pub struct SandboxLdtkWorldRoot;
+
+#[derive(Resource, Clone, Debug)]
+pub struct LdtkRuntimeIndex {
+    active_area: String,
+    area_level_iids: BTreeMap<String, Vec<String>>,
+}
+
+impl LdtkRuntimeIndex {
+    pub fn from_project(project: &LdtkProject, start_area: impl Into<String>) -> Self {
+        let mut area_level_iids: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for level in &project.levels {
+            area_level_iids.entry(level.active_area()).or_default().push(level.iid.clone());
+        }
+        Self {
+            active_area: start_area.into(),
+            area_level_iids,
+        }
+    }
+
+    pub fn active_area(&self) -> &str {
+        &self.active_area
+    }
+
+    pub fn level_iids_for(&self, area: &str) -> Vec<String> {
+        self.area_level_iids.get(area).cloned().unwrap_or_default()
+    }
+
+    pub fn level_set_for(&self, area: &str) -> LevelSet {
+        LevelSet::from_iids(self.level_iids_for(area))
+    }
+
+    pub fn set_active_area(&mut self, area: impl Into<String>) {
+        self.active_area = area.into();
+    }
+}
+
+pub fn sync_ldtk_level_set(
+    room_set: Res<crate::rooms::RoomSet>,
+    mut index: ResMut<LdtkRuntimeIndex>,
+    mut ldtk_worlds: Query<&mut LevelSet, With<SandboxLdtkWorldRoot>>,
+) {
+    let active_area = room_set.active_spec().id.clone();
+    if index.active_area() == active_area {
+        return;
+    }
+    let next_level_set = index.level_set_for(&active_area);
+    index.set_active_area(active_area);
+    for mut level_set in &mut ldtk_worlds {
+        *level_set = next_level_set.clone();
+    }
+}
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct LdtkProject {
@@ -30,6 +96,7 @@ pub struct LdtkProject {
 #[derive(Clone, Debug, Deserialize)]
 pub struct LdtkLevel {
     pub identifier: String,
+    pub iid: String,
     #[serde(rename = "worldX")]
     pub world_x: i32,
     #[serde(rename = "worldY")]

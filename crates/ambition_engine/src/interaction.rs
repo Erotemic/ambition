@@ -106,6 +106,8 @@ pub struct Breakable {
     pub state: BreakableState,
     pub health: Health,
     pub respawn: RespawnPolicy,
+    /// True for destructible platforms/walls that should contribute a temporary solid block.
+    pub solid: bool,
     pub debris_cue: Option<String>,
 }
 
@@ -116,6 +118,7 @@ impl Breakable {
             state: BreakableState::Intact,
             health: Health::new(max_hp),
             respawn: RespawnPolicy::Never,
+            solid: false,
             debris_cue: None,
         }
     }

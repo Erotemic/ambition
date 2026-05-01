@@ -11,6 +11,7 @@ mod debug_overlay;
 mod dev_tools;
 mod dummies;
 mod fx;
+mod features;
 mod game_mode;
 mod input;
 mod platforms;
@@ -135,6 +136,7 @@ pub struct SandboxRuntime {
     down_tap_timer: f32,
     up_tap_timer: f32,
     pub moving_platform: platforms::MovingPlatformState,
+    pub features: features::FeatureRuntime,
     pub room_transition_cooldown: f32,
 }
 
@@ -156,6 +158,7 @@ impl SandboxRuntime {
             down_tap_timer: 0.0,
             up_tap_timer: 0.0,
             moving_platform: platforms::MovingPlatformState::time_reference(world),
+            features: features::FeatureRuntime::from_world(world),
             room_transition_cooldown: 0.0,
         }
     }
@@ -170,6 +173,7 @@ impl SandboxRuntime {
         self.down_tap_timer = 0.0;
         self.up_tap_timer = 0.0;
         self.moving_platform = platforms::MovingPlatformState::time_reference(world);
+        self.features = features::FeatureRuntime::from_world(world);
         self.room_transition_cooldown = 0.0;
     }
 
@@ -367,12 +371,13 @@ fn sandbox_update(
 
     if controls.reset_pressed {
         reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
+        return;
     } else {
         // Two-clock update:
         // - control_dt is real time for responsive inputs and precision-blink aim;
         // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
         let input = controls.engine_input(frame_dt);
-        let control_world = platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
+        let control_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
         let control_events = ae::update_player_control_with_tuning(&control_world, &mut runtime.player, input, frame_dt, tuning);
         if control_events.reset {
             reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
@@ -388,16 +393,16 @@ fn sandbox_update(
         );
 
         runtime.update_time_scale(frame_dt, feel);
-        let dt = sandbox_dt(&runtime, frame_dt);
+        let sim_dt = sandbox_dt(&runtime, frame_dt);
 
-        let platform_delta = runtime.moving_platform.update(dt);
+        let platform_delta = runtime.moving_platform.update(sim_dt);
         if runtime.moving_platform.is_riding(&runtime.player) {
             runtime.player.pos += platform_delta;
         }
-        let collision_world = platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
+        let collision_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
 
         let was_grounded = runtime.player.on_ground;
-        let sim_events = ae::update_player_simulation_with_tuning(&collision_world, &mut runtime.player, input, dt, tuning);
+        let sim_events = ae::update_player_simulation_with_tuning(&collision_world, &mut runtime.player, input, sim_dt, tuning);
         if sim_events.reset {
             reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
             return;
@@ -411,7 +416,7 @@ fn sandbox_update(
             Some(was_grounded),
         );
 
-        update_dummies(&mut commands, &collision_world, &bank, &mut runtime, dt);
+        update_dummies(&mut commands, &collision_world, &bank, &mut runtime, sim_dt);
     }
 
     // While flying, up is continuous flight input. Door-style loading zones
@@ -423,6 +428,17 @@ fn sandbox_update(
     } else {
         controls.up_pressed
     };
+
+    let feature_dt = sandbox_dt(&runtime, frame_dt);
+    let feature_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
+    let feature_player = runtime.player.clone();
+    let feature_events = runtime.features.update(&feature_world, &feature_player, controls.interact_pressed, feature_dt);
+    let feature_reset = feature_events.reset_player;
+    handle_feature_events(&mut commands, &world.0, &bank, feature_events);
+    if feature_reset {
+        reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
+        return;
+    }
 
     if runtime.room_transition_cooldown <= 0.0 {
         if let Some(zone) = room_set.transition_for_player(&runtime.player, controls.interact_pressed) {
@@ -547,6 +563,7 @@ fn load_room(
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
     runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
+    runtime.features = features::FeatureRuntime::from_world(&world.0);
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.
@@ -629,6 +646,24 @@ fn handle_player_events(
     }
 }
 
+fn handle_feature_events(
+    commands: &mut Commands,
+    world: &ae::World,
+    bank: &SoundBank,
+    events: features::FeatureEvents,
+) {
+    if events.reset_player {
+        play_sound(commands, bank, SoundCue::Reset);
+    }
+    for pos in events.impacts {
+        spawn_impact(commands, world, pos);
+        spawn_burst(commands, world, pos, 14, 300.0, [1.0, 0.34, 0.28, 0.88], ParticleKind::Shard);
+    }
+    for pos in events.bursts {
+        spawn_burst(commands, world, pos, 16, 230.0, [0.84, 0.95, 1.0, 0.82], ParticleKind::Spark);
+    }
+}
+
 fn process_attack(
     commands: &mut Commands,
     world: &ae::World,
@@ -654,6 +689,11 @@ fn process_attack(
             landed = true;
         }
     }
+    let feature_events = runtime.features.apply_player_attack(attack, 1, player_facing * 300.0);
+    landed |= !feature_events.impacts.is_empty();
+    killed |= feature_events.messages.iter().any(|message| message.contains("defeated"));
+    handle_feature_events(commands, world, bank, feature_events);
+
     if landed {
         play_sound(commands, bank, SoundCue::Hit);
         runtime.hitstop_timer = feel.attack_hitstop_time;
@@ -735,13 +775,18 @@ fn update_hud(
             format!("zones: {}", hints.join(" | "))
         }
     };
+    let feature_banner = if runtime.features.banner_timer > 0.0 {
+        format!("\nFEATURE: {}", runtime.features.banner)
+    } else {
+        String::new()
+    };
     let flash_line = if runtime.preset_flash > 0.0 {
         format!("\nPRESET: {}", preset.name)
     } else {
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\ngamepad target: {}{}",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} buffer {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F6 windowed  F7 borderless  F8 fullscreen  Esc mode={}  Delete reset  hitstop {:.2}  time_scale {:.6}\n{}\ndummies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -779,7 +824,9 @@ fn update_hud(
         runtime.time_scale,
         window_line,
         dummies,
+        runtime.features.feature_summary(),
         gamepad,
         flash_line,
+        feature_banner,
     );
 }

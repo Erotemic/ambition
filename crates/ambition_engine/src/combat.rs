@@ -5,7 +5,7 @@
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
 
-use crate::actor::{ActorFaction, RespawnPolicy};
+use crate::actor::{ActorFaction, KinematicPath, RespawnPolicy};
 use crate::geometry::{Aabb, AabbExt};
 use crate::movement::Player;
 use crate::Vec2;
@@ -108,6 +108,7 @@ pub struct DamageVolume {
     pub aabb: Aabb,
     pub damage: Damage,
     pub respawn: RespawnPolicy,
+    pub motion: Option<KinematicPath>,
     pub enabled: bool,
 }
 
@@ -118,6 +119,7 @@ impl DamageVolume {
             aabb,
             damage: Damage::new(amount, DamageKind::Hazard, ActorFaction::Environment),
             respawn: RespawnPolicy::Never,
+            motion: None,
             enabled: true,
         }
     }

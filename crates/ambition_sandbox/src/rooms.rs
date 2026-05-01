@@ -345,9 +345,10 @@ fn build_room_objects(objects: &[data::RoomObjectSpec]) -> Vec<ae::RoomObject> {
 
 fn build_room_object(object: &data::RoomObjectSpec) -> ae::RoomObject {
     match object {
-        data::RoomObjectSpec::DamageVolume { id, name, min, size, damage } => {
+        data::RoomObjectSpec::DamageVolume { id, name, min, size, damage, path } => {
             let aabb = object_aabb(*min, *size);
-            let volume = ae::DamageVolume::new(id.clone(), aabb, *damage);
+            let mut volume = ae::DamageVolume::new(id.clone(), aabb, *damage);
+            volume.motion = path.as_ref().map(kinematic_path_spec);
             ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::DamageVolume(volume))
         }
         data::RoomObjectSpec::Interactable { id, name, prompt, min, size, kind } => {
@@ -365,12 +366,13 @@ fn build_room_object(object: &data::RoomObjectSpec) -> ae::RoomObject {
             let chest = ae::Chest::new(id.clone(), reward.as_ref().map(pickup_kind));
             ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::Chest(chest))
         }
-        data::RoomObjectSpec::Breakable { id, name, min, size, max_hp, respawn } => {
+        data::RoomObjectSpec::Breakable { id, name, min, size, max_hp, respawn, solid } => {
             let aabb = object_aabb(*min, *size);
             let mut breakable = ae::Breakable::new(id.clone(), *max_hp);
             if let Some(respawn) = respawn {
                 breakable.respawn = respawn_policy(*respawn);
             }
+            breakable.solid = *solid;
             ae::RoomObject::new(id.clone(), name.clone(), aabb, ae::RoomObjectKind::Breakable(breakable))
         }
         data::RoomObjectSpec::EnemySpawn { id, name, min, size, brain } => {
@@ -431,6 +433,15 @@ fn respawn_policy(policy: data::RespawnPolicySpec) -> ae::RespawnPolicy {
         data::RespawnPolicySpec::AfterSeconds(seconds) => ae::RespawnPolicy::AfterSeconds(seconds),
         data::RespawnPolicySpec::OnRoomReload => ae::RespawnPolicy::OnRoomReload,
         data::RespawnPolicySpec::Persistent => ae::RespawnPolicy::Persistent,
+    }
+}
+
+fn kinematic_path_spec(spec: &data::KinematicPathSpec) -> ae::KinematicPath {
+    ae::KinematicPath {
+        points: spec.points.iter().copied().map(data::vec2).collect(),
+        speed: spec.speed,
+        mode: kinematic_path_mode(spec.mode),
+        start_offset_seconds: 0.0,
     }
 }
 

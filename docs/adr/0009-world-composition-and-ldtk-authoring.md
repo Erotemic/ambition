@@ -53,7 +53,7 @@ The first implementation should be conservative:
 
 1. Add `bevy_ecs_ldtk` as a dependency.
 2. Add a sandbox `.ldtk` authoring file.
-3. Add a Rust LDtk adapter that validates the Ambition subset and flattens chunks into `RoomManifestSpec`.
+3. Add a Rust LDtk path that validates the Ambition subset and materializes chunks into runtime `RoomSpec` / `RoomSet` data.
 4. Add a command-line validator script that can run without Cargo.
 5. Update sandbox startup to prefer LDtk-authored rooms while retaining RON for abilities, tuning, and audio.
 6. Spawn a `bevy_ecs_ldtk` `LdtkWorldBundle` and keep its `LevelSet` synchronized with Ambition room transitions.

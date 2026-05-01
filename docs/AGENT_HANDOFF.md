@@ -179,7 +179,7 @@ instance `defUid`, entity field instance `defUid`, and level field instance
 
 ## LDtk runtime spine migration
 
-Ambition is moving from a custom LDtk JSON adapter toward `bevy_ecs_ldtk` as the runtime spine. The sandbox now registers every current Ambition LDtk entity identifier as a lightweight plugin-spawned marker bundle, keeps the LDtk world root active, disables LDtk level-background rendering, and records plugin-spawned entity lifecycle in HUD/debug state. The next migration patches should consume those marker entities to attach typed Ambition components, then retire matching portions of the old `LDtk -> RoomManifestSpec -> RoomSet` conversion path.
+Ambition is moving from a custom LDtk JSON adapter toward `bevy_ecs_ldtk` as the runtime spine. The sandbox now registers every current Ambition LDtk entity identifier as a lightweight plugin-spawned marker bundle, keeps the LDtk world root active, disables LDtk level-background rendering, and records plugin-spawned entity lifecycle in HUD/debug state. LDtk also now builds runtime `RoomSet` data directly through `RoomSet::from_parts`, instead of round-tripping through the old RON-shaped `RoomManifestSpec` adapter.
 
 Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `tools/validate_ambition_ldtk.py` supports optional `--schema` and `--require-schema` flags while continuing to run Ambition-specific semantic validation without the schema file.
 
@@ -187,10 +187,10 @@ Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `t
 
 Do not add new spatial/world content to `assets/ambition/sandbox.ron`. `SandboxDataSpec` no longer has a `rooms` field at runtime; RON owns non-spatial sandbox tuning/audio data only. LDtk owns spatial authoring. If a future patch needs to change rooms, levels, solids, doors, hazards, actors, or debug labels, edit `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk` and update the LDtk validator if needed.
 
-`RoomManifestSpec` still exists as a transitional runtime adapter target, not as the canonical authoring format. Prefer promoting plugin-spawned LDtk marker entities into typed Ambition components over adding more bespoke LDtk-to-manifest conversion logic.
+`RoomManifestSpec` still exists for legacy RON fixtures/tests, not as an LDtk runtime target. Prefer promoting plugin-spawned LDtk marker entities into typed Ambition components or extending the LDtk-native `RoomSet::from_parts` path over adding any new LDtk-to-manifest conversion logic.
 
 The old checked-in RON room block has been removed from `crates/ambition_sandbox/assets/ambition/sandbox.ron`. Do not reintroduce it as a fallback. If a patch needs fallback/fixture maps, put them in explicit test fixtures instead of the main sandbox tuning/audio manifest.
 
 ## LDtk bridge migration note
 
-Prefer `LdtkProject::to_room_set()` for LDtk-derived runtime rooms. `to_transitional_room_manifest()` is intentionally private and exists only to keep the current room graph/runtime stable while the remaining categories move to `bevy_ecs_ldtk`-spawned entities. Do not reintroduce public LDtk-to-`RoomManifestSpec` call sites.
+Prefer `LdtkProject::to_room_set()` for LDtk-derived runtime rooms. It now materializes `RoomSpec`, `ae::World`, loading zones, room objects, and graph links directly. Do not reintroduce LDtk-to-`RoomManifestSpec` call sites.

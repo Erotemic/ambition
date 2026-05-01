@@ -3,7 +3,7 @@
 //! Ambition keeps its gameplay model typed in Rust. LDtk is an authoring
 //! frontend: this module validates the subset of LDtk entities Ambition
 //! currently understands, registers those entities with `bevy_ecs_ldtk`, and
-//! still provides a transitional flattening path into Ambition runtime rooms.
+//! now materializes Ambition runtime rooms directly from LDtk-authored data.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -16,11 +16,9 @@ use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntity,
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::data::{
-    BlinkWallTierSpec, BlockSpec, BossBrainSpec, DebugLabelKindSpec, EnemyBrainSpec,
-    InteractionKindSpec, LoadingZoneActivationSpec, LoadingZoneSpec, PickupKindSpec,
-    RespawnPolicySpec, KinematicPathModeSpec, KinematicPathSpec, RoomLinkSpec, RoomManifestSpec, RoomObjectSpec, RoomSpecData, ShellSpec,
-};
+use ambition_engine as ae;
+
+use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSpec};
 
 
 /// Lightweight bundle registered for every Ambition-authored LDtk entity.
@@ -544,18 +542,12 @@ impl LdtkProject {
 
     /// Build the sandbox runtime room set from LDtk.
     ///
-    /// This is the public LDtk-to-runtime entrypoint. The old RON-shaped
-    /// `RoomManifestSpec` bridge remains private inside this module until the
-    /// remaining conversion code is moved onto plugin-spawned LDtk entities.
-    pub fn to_room_set(&self) -> Result<crate::rooms::RoomSet, Vec<String>> {
-        let manifest = self.to_transitional_room_manifest()?;
-        Ok(crate::rooms::RoomSet::from_manifest(&manifest))
-    }
-
-    // Transitional compatibility adapter. Keep this private so new call sites
-    // cannot re-couple the sandbox to the retired RON world manifest shape.
-    fn to_transitional_room_manifest(&self) -> Result<RoomManifestSpec, Vec<String>> {
-
+    /// This is now a direct LDtk-native runtime builder. LDtk no longer
+    /// round-trips through the retired RON `RoomManifestSpec` shape before it
+    /// becomes playable data. `RoomSet` remains the runtime graph, but LDtk
+    /// materializes `RoomSpec`, `ae::World`, loading zones, and graph links
+    /// directly here.
+    pub fn to_room_set(&self) -> Result<RoomSet, Vec<String>> {
         let report = self.validate();
         if !report.is_ok() {
             return Err(report.errors);
@@ -575,15 +567,16 @@ impl LdtkProject {
                 .cloned()
                 .unwrap_or_else(|| "central_hub_complex".to_string())
         };
-        let links = self.collect_links();
+
+        let links = self.collect_room_links();
         let mut rooms = Vec::new();
         for (area_id, levels) in area_levels {
-            rooms.push(self.compose_area(&area_id, &levels)?);
+            rooms.push(self.compose_runtime_area(&area_id, &levels)?);
         }
-        Ok(RoomManifestSpec { start_room, rooms, links })
+        Ok(RoomSet::from_parts(start_room, rooms, links))
     }
 
-    fn collect_links(&self) -> Vec<RoomLinkSpec> {
+    fn collect_room_links(&self) -> Vec<RoomLink> {
         let mut links = Vec::new();
         for level in &self.levels {
             let from_room = level.active_area();
@@ -600,7 +593,7 @@ impl LdtkProject {
                 let Some(target_zone) = field_string(entity, "target_zone") else {
                     continue;
                 };
-                links.push(RoomLinkSpec {
+                links.push(RoomLink {
                     from_room: from_room.clone(),
                     from_zone: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
                     to_room: target_room,
@@ -612,7 +605,7 @@ impl LdtkProject {
         links
     }
 
-    fn compose_area(&self, area_id: &str, levels: &[&LdtkLevel]) -> Result<RoomSpecData, Vec<String>> {
+    fn compose_runtime_area(&self, area_id: &str, levels: &[&LdtkLevel]) -> Result<RoomSpec, Vec<String>> {
         let mut errors = Vec::new();
         let min_x = levels.iter().map(|level| level.world_x).min().unwrap_or(0) as f32;
         let min_y = levels.iter().map(|level| level.world_y).min().unwrap_or(0) as f32;
@@ -620,26 +613,26 @@ impl LdtkProject {
         let max_y = levels.iter().map(|level| level.world_y + level.px_hei).max().unwrap_or(0) as f32;
         let mut spawn = None;
         let mut blocks = Vec::new();
-        let mut zones = Vec::new();
+        let mut loading_zones = Vec::new();
         let mut objects = Vec::new();
         for level in levels {
             // AMBITION_REVIEW(spatial): LDtk world coordinates are flattened into
             // active-area-local Ambition coordinates here. Wall openings, edge
             // exits, transition arrivals, and camera bounds all depend on this
             // convention staying stable.
-            let offset = [level.world_x as f32 - min_x, level.world_y as f32 - min_y];
+            let offset = ae::Vec2::new(level.world_x as f32 - min_x, level.world_y as f32 - min_y);
             let Some(layer) = level.ambition_layer() else {
                 errors.push(format!("level '{}' missing Ambition layer", level.identifier));
                 continue;
             };
             for entity in &layer.entity_instances {
-                match entity_to_spec(entity, offset) {
-                    EntityConversion::Spawn(value) => spawn = Some(value),
-                    EntityConversion::Block(block) => blocks.push(block),
-                    EntityConversion::Zone(zone) => zones.push(zone),
-                    EntityConversion::Object(object) => objects.push(object),
-                    EntityConversion::Ignored => {}
-                    EntityConversion::Error(error) => errors.push(format!("{} {}: {error}", entity.identifier, entity.iid)),
+                match entity_to_runtime(entity, offset) {
+                    RuntimeEntityConversion::Spawn(value) => spawn = Some(value),
+                    RuntimeEntityConversion::Block(block) => blocks.push(block),
+                    RuntimeEntityConversion::Zone(zone) => loading_zones.push(zone),
+                    RuntimeEntityConversion::Object(object) => objects.push(object),
+                    RuntimeEntityConversion::Ignored => {}
+                    RuntimeEntityConversion::Error(error) => errors.push(format!("{} {}: {error}", entity.identifier, entity.iid)),
                 }
             }
         }
@@ -648,15 +641,16 @@ impl LdtkProject {
             return Err(errors);
         }
 
-        Ok(RoomSpecData {
+        Ok(RoomSpec {
             id: area_id.to_string(),
-            name: format!("Ambition: {}", area_id.replace('_', " ")),
-            size: [max_x - min_x, max_y - min_y],
-            spawn: spawn.unwrap_or([96.0, 96.0]),
-            shell: ShellSpec { enabled: false, openings: Vec::new() },
-            blocks,
-            zones,
-            objects,
+            world: ae::World {
+                name: format!("Ambition: {}", area_id.replace('_', " ")),
+                size: ae::Vec2::new(max_x - min_x, max_y - min_y),
+                spawn: spawn.unwrap_or_else(|| ae::Vec2::new(96.0, 96.0)),
+                blocks,
+                objects,
+            },
+            loading_zones,
         })
     }
 
@@ -686,136 +680,158 @@ impl LdtkLevel {
     }
 }
 
-enum EntityConversion {
-    Spawn([f32; 2]),
-    Block(BlockSpec),
-    Zone(LoadingZoneSpec),
-    Object(RoomObjectSpec),
+enum RuntimeEntityConversion {
+    Spawn(ae::Vec2),
+    Block(ae::Block),
+    Zone(LoadingZone),
+    Object(ae::RoomObject),
     Ignored,
     Error(String),
 }
 
-fn entity_to_spec(entity: &LdtkEntityInstance, offset: [f32; 2]) -> EntityConversion {
-    let min = [entity.px[0] as f32 + offset[0], entity.px[1] as f32 + offset[1]];
-    let size = [entity.width as f32, entity.height as f32];
+fn entity_min_size(entity: &LdtkEntityInstance, offset: ae::Vec2) -> (ae::Vec2, ae::Vec2) {
+    (
+        ae::Vec2::new(entity.px[0] as f32, entity.px[1] as f32) + offset,
+        ae::Vec2::new(entity.width as f32, entity.height as f32),
+    )
+}
+
+fn object_aabb(min: ae::Vec2, size: ae::Vec2) -> ae::Aabb {
+    ae::aabb_from_min_size(min, size)
+}
+
+fn runtime_room_object(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+    kind: ae::RoomObjectKind,
+) -> ae::RoomObject {
+    let aabb = object_aabb(min, size);
+    ae::RoomObject::new(entity.iid.clone(), name, aabb, kind)
+}
+
+fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEntityConversion {
+    let (min, size) = entity_min_size(entity, offset);
     let name = field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
     match entity.identifier.as_str() {
-        "PlayerStart" => EntityConversion::Spawn([min[0] + size[0] * 0.5, min[1] + size[1] * 0.5]),
-        "Solid" => EntityConversion::Block(BlockSpec::Solid { name, min, size }),
-        "OneWayPlatform" => EntityConversion::Block(BlockSpec::OneWay { name, min, size }),
+        "PlayerStart" => RuntimeEntityConversion::Spawn(min + size * 0.5),
+        "Solid" => RuntimeEntityConversion::Block(ae::Block::solid(name, min, size)),
+        "OneWayPlatform" => RuntimeEntityConversion::Block(ae::Block::one_way(name, min, size)),
         "BlinkWall" => {
             let tier = match field_string(entity, "tier").unwrap_or_else(|| "Soft".to_string()).as_str() {
-                "Soft" => BlinkWallTierSpec::Soft,
-                "Hard" => BlinkWallTierSpec::Hard,
-                other => return EntityConversion::Error(format!("invalid BlinkWall tier '{other}'")),
+                "Soft" => ae::BlinkWallTier::Soft,
+                "Hard" => ae::BlinkWallTier::Hard,
+                other => return RuntimeEntityConversion::Error(format!("invalid BlinkWall tier '{other}'")),
             };
-            EntityConversion::Block(BlockSpec::BlinkWall { name, min, size, tier })
+            RuntimeEntityConversion::Block(ae::Block::blink_wall(name, min, size, tier))
         }
-        "HazardBlock" => EntityConversion::Block(BlockSpec::Hazard { name, min, size }),
+        "HazardBlock" => RuntimeEntityConversion::Block(ae::Block::hazard(name, min, size)),
         "PogoOrb" => {
-            let radius = size[0].min(size[1]) * 0.5;
-            EntityConversion::Block(BlockSpec::PogoOrb {
-                name,
-                center: [min[0] + size[0] * 0.5, min[1] + size[1] * 0.5],
-                radius,
-            })
+            let radius = size.x.min(size.y) * 0.5;
+            RuntimeEntityConversion::Block(ae::Block::pogo_orb(name, min + size * 0.5, radius))
         }
         "ReboundPad" => {
             let Some(impulse_x) = field_f32(entity, "impulseX") else {
-                return EntityConversion::Error("missing impulseX".to_string());
+                return RuntimeEntityConversion::Error("missing impulseX".to_string());
             };
             let Some(impulse_y) = field_f32(entity, "impulseY") else {
-                return EntityConversion::Error("missing impulseY".to_string());
+                return RuntimeEntityConversion::Error("missing impulseY".to_string());
             };
-            EntityConversion::Block(BlockSpec::Rebound { name, min, size, impulse: [impulse_x, impulse_y] })
+            RuntimeEntityConversion::Block(ae::Block::rebound(name, min, size, ae::Vec2::new(impulse_x, impulse_y)))
         }
-        "LoadingZone" => EntityConversion::Zone(LoadingZoneSpec {
+        "LoadingZone" => RuntimeEntityConversion::Zone(LoadingZone {
             id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
             name,
             activation: match field_string(entity, "activation").unwrap_or_else(|| "Door".to_string()).as_str() {
-                "EdgeExit" => LoadingZoneActivationSpec::EdgeExit,
-                _ => LoadingZoneActivationSpec::Door,
+                "EdgeExit" => LoadingZoneActivation::EdgeExit,
+                _ => LoadingZoneActivation::Door,
             },
-            min,
-            size,
+            aabb: object_aabb(min, size),
         }),
-        "DamageVolume" => EntityConversion::Object(RoomObjectSpec::DamageVolume {
-            id: entity.iid.clone(),
-            name,
-            min,
-            size,
-            damage: field_i32(entity, "damage").unwrap_or(1),
-            path: parse_optional_path(entity),
-        }),
+        "DamageVolume" => {
+            let aabb = object_aabb(min, size);
+            let mut volume = ae::DamageVolume::new(entity.iid.clone(), aabb, field_i32(entity, "damage").unwrap_or(1));
+            volume.motion = parse_optional_path(entity);
+            RuntimeEntityConversion::Object(ae::RoomObject::new(
+                entity.iid.clone(),
+                name,
+                aabb,
+                ae::RoomObjectKind::DamageVolume(volume),
+            ))
+        }
         "KinematicPath" => {
             let points = parse_points(&field_string(entity, "points").unwrap_or_default());
             if points.len() < 2 {
-                return EntityConversion::Error("KinematicPath requires at least two points".to_string());
+                return RuntimeEntityConversion::Error("KinematicPath requires at least two points".to_string());
             }
-            EntityConversion::Object(RoomObjectSpec::KinematicPath {
-                id: entity.iid.clone(),
-                name,
-                min,
-                size,
+            let path = ae::KinematicPath {
                 points,
                 speed: field_f32(entity, "speed").unwrap_or(100.0),
                 mode: parse_path_mode(&field_string(entity, "mode").unwrap_or_else(|| "PingPong".to_string())),
-            })
-        },
-        "NpcSpawn" => EntityConversion::Object(RoomObjectSpec::Interactable {
-            id: entity.iid.clone(),
-            name,
-            prompt: field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
-            min,
-            size,
-            kind: InteractionKindSpec::Npc { dialogue_id: field_string(entity, "dialogue_id") },
-        }),
-        "PickupSpawn" => EntityConversion::Object(RoomObjectSpec::Pickup {
-            id: entity.iid.clone(),
-            name,
-            min,
-            size,
-            kind: parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
-        }),
-        "ChestSpawn" => EntityConversion::Object(RoomObjectSpec::Chest {
-            id: entity.iid.clone(),
-            name,
-            min,
-            size,
-            reward: field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
-        }),
-        "Breakable" => EntityConversion::Object(RoomObjectSpec::Breakable {
-            id: entity.iid.clone(),
-            name,
-            min,
-            size,
-            max_hp: field_i32(entity, "max_hp").unwrap_or(3),
-            respawn: parse_respawn(&field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string())),
-            solid: field_bool(entity, "solid").unwrap_or(false),
-        }),
-        "EnemySpawn" => EntityConversion::Object(RoomObjectSpec::EnemySpawn {
-            id: entity.iid.clone(),
-            name,
-            min,
-            size,
-            brain: parse_enemy_brain(&field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string())),
-        }),
-        "BossSpawn" => EntityConversion::Object(RoomObjectSpec::BossSpawn {
-            id: entity.iid.clone(),
+                start_offset_seconds: 0.0,
+            };
+            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::KinematicPath(path)))
+        }
+        "NpcSpawn" => {
+            let interactable = ae::Interactable::new(
+                entity.iid.clone(),
+                field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
+                object_aabb(min, size),
+                ae::InteractionKind::Npc { dialogue_id: field_string(entity, "dialogue_id") },
+            );
+            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::Interactable(interactable)))
+        }
+        "PickupSpawn" => {
+            let pickup = ae::Pickup::new(
+                entity.iid.clone(),
+                parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
+            );
+            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::Pickup(pickup)))
+        }
+        "ChestSpawn" => {
+            let chest = ae::Chest::new(entity.iid.clone(), field_string(entity, "reward").map(|value| parse_pickup_kind(&value)));
+            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::Chest(chest)))
+        }
+        "Breakable" => {
+            let mut breakable = ae::Breakable::new(entity.iid.clone(), field_i32(entity, "max_hp").unwrap_or(3));
+            if let Some(respawn) = parse_respawn(&field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string())) {
+                breakable.respawn = respawn;
+            }
+            breakable.solid = field_bool(entity, "solid").unwrap_or(false);
+            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::Breakable(breakable)))
+        }
+        "EnemySpawn" => RuntimeEntityConversion::Object(runtime_room_object(
+            entity,
             name,
             min,
             size,
-            brain: parse_boss_brain(&field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string())),
-        }),
-        "DebugLabel" => EntityConversion::Object(RoomObjectSpec::DebugLabel {
-            id: entity.iid.clone(),
+            ae::RoomObjectKind::EnemySpawn(parse_enemy_brain(&field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()))),
+        )),
+        "BossSpawn" => RuntimeEntityConversion::Object(runtime_room_object(
+            entity,
             name,
-            position: [min[0] + size[0] * 0.5, min[1] + size[1] * 0.5],
-            text: field_string(entity, "text").unwrap_or_else(|| entity.identifier.clone()),
-            category: parse_debug_label_kind(&field_string(entity, "category").unwrap_or_else(|| "Custom".to_string())),
-        }),
-        "CameraZone" | "StitchedBoundary" => EntityConversion::Ignored,
-        _ => EntityConversion::Error(format!("unsupported entity identifier '{}'", entity.identifier)),
+            min,
+            size,
+            ae::RoomObjectKind::BossSpawn(parse_boss_brain(&field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()))),
+        )),
+        "DebugLabel" => {
+            let pos = min + size * 0.5;
+            let aabb = ae::Aabb::new(pos, ae::Vec2::splat(1.0));
+            let label = ae::DebugLabel::new(
+                field_string(entity, "text").unwrap_or_else(|| entity.identifier.clone()),
+                pos,
+                parse_debug_label_kind(&field_string(entity, "category").unwrap_or_else(|| "Custom".to_string())),
+            );
+            RuntimeEntityConversion::Object(ae::RoomObject::new(
+                entity.iid.clone(),
+                name,
+                aabb,
+                ae::RoomObjectKind::DebugLabel(label),
+            ))
+        }
+        "CameraZone" | "StitchedBoundary" => RuntimeEntityConversion::Ignored,
+        _ => RuntimeEntityConversion::Error(format!("unsupported entity identifier '{}'", entity.identifier)),
     }
 }
 
@@ -888,102 +904,104 @@ fn field_bool(entity: &LdtkEntityInstance, name: &str) -> Option<bool> {
     })
 }
 
-fn parse_points(value: &str) -> Vec<[f32; 2]> {
+fn parse_points(value: &str) -> Vec<ae::Vec2> {
     value
         .split(';')
         .filter_map(|pair| {
             let mut parts = pair.split(',').map(str::trim);
             let x = parts.next()?.parse::<f32>().ok()?;
             let y = parts.next()?.parse::<f32>().ok()?;
-            Some([x, y])
+            Some(ae::Vec2::new(x, y))
         })
         .collect()
 }
 
-fn parse_path_mode(value: &str) -> KinematicPathModeSpec {
+fn parse_path_mode(value: &str) -> ae::KinematicPathMode {
     match value {
-        "Once" => KinematicPathModeSpec::Once,
-        "Loop" => KinematicPathModeSpec::Loop,
-        _ => KinematicPathModeSpec::PingPong,
+        "Once" => ae::KinematicPathMode::Once,
+        "Loop" => ae::KinematicPathMode::Loop,
+        _ => ae::KinematicPathMode::PingPong,
     }
 }
 
-fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<KinematicPathSpec> {
+fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<ae::KinematicPath> {
     let points = parse_points(&field_string(entity, "path_points").unwrap_or_default());
     if points.len() < 2 {
         return None;
     }
-    Some(KinematicPathSpec {
+    Some(ae::KinematicPath {
         points,
         speed: field_f32(entity, "path_speed").unwrap_or(100.0),
         mode: parse_path_mode(&field_string(entity, "path_mode").unwrap_or_else(|| "PingPong".to_string())),
+        start_offset_seconds: 0.0,
     })
 }
 
-fn parse_respawn(value: &str) -> Option<RespawnPolicySpec> {
+fn parse_respawn(value: &str) -> Option<ae::RespawnPolicy> {
     if let Some(seconds) = value.strip_prefix("AfterSeconds:").and_then(|text| text.parse::<f32>().ok()) {
-        Some(RespawnPolicySpec::AfterSeconds(seconds))
+        Some(ae::RespawnPolicy::AfterSeconds(seconds))
     } else {
         match value {
-            "Never" => Some(RespawnPolicySpec::Never),
-            "OnRoomReload" => Some(RespawnPolicySpec::OnRoomReload),
-            "Persistent" => Some(RespawnPolicySpec::Persistent),
+            "Never" => Some(ae::RespawnPolicy::Never),
+            "OnRoomReload" => Some(ae::RespawnPolicy::OnRoomReload),
+            "Persistent" => Some(ae::RespawnPolicy::Persistent),
             "None" | "" => None,
-            _ => Some(RespawnPolicySpec::Never),
+            _ => Some(ae::RespawnPolicy::Never),
         }
     }
 }
 
-fn parse_pickup_kind(value: &str) -> PickupKindSpec {
+fn parse_pickup_kind(value: &str) -> ae::PickupKind {
     if let Some(amount) = value.strip_prefix("health:").and_then(|text| text.parse::<i32>().ok()) {
-        PickupKindSpec::Health { amount }
+        ae::PickupKind::Health { amount }
     } else if let Some(amount) = value.strip_prefix("currency:").and_then(|text| text.parse::<i32>().ok()) {
-        PickupKindSpec::Currency { amount }
+        ae::PickupKind::Currency { amount }
     } else if let Some(ability_id) = value.strip_prefix("ability:") {
-        PickupKindSpec::Ability { ability_id: ability_id.to_string() }
+        ae::PickupKind::Ability { ability_id: ability_id.to_string() }
     } else if let Some(flag) = value.strip_prefix("flag:") {
-        PickupKindSpec::StoryFlag { flag: flag.to_string() }
+        ae::PickupKind::StoryFlag { flag: flag.to_string() }
     } else {
-        PickupKindSpec::Custom(value.to_string())
+        ae::PickupKind::Custom(value.to_string())
     }
 }
 
-fn parse_enemy_brain(value: &str) -> EnemyBrainSpec {
+fn parse_enemy_brain(value: &str) -> ae::EnemyBrain {
     if let Some(path_id) = value.strip_prefix("Patrol:") {
-        EnemyBrainSpec::Patrol { path_id: Some(path_id.to_string()) }
+        ae::EnemyBrain::Patrol { path_id: Some(path_id.to_string()) }
     } else if let Some(radius) = value.strip_prefix("Guard:").and_then(|text| text.parse::<f32>().ok()) {
-        EnemyBrainSpec::Guard { leash_radius: radius }
+        ae::EnemyBrain::Guard { leash_radius: radius }
     } else {
         match value {
-            "Passive" => EnemyBrainSpec::Passive,
-            other => EnemyBrainSpec::Custom(other.to_string()),
+            "Passive" => ae::EnemyBrain::Passive,
+            other => ae::EnemyBrain::Custom(other.to_string()),
         }
     }
 }
 
-fn parse_boss_brain(value: &str) -> BossBrainSpec {
+fn parse_boss_brain(value: &str) -> ae::BossBrain {
     if let Some(script_id) = value.strip_prefix("PhaseScript:") {
-        BossBrainSpec::PhaseScript { script_id: script_id.to_string() }
+        ae::BossBrain::PhaseScript { script_id: script_id.to_string() }
     } else {
         match value {
-            "Dormant" => BossBrainSpec::Dormant,
-            other => BossBrainSpec::Custom(other.to_string()),
+            "Dormant" => ae::BossBrain::Dormant,
+            other => ae::BossBrain::Custom(other.to_string()),
         }
     }
 }
 
-fn parse_debug_label_kind(value: &str) -> DebugLabelKindSpec {
+fn parse_debug_label_kind(value: &str) -> ae::DebugLabelKind {
     match value {
-        "Room" => DebugLabelKindSpec::Room,
-        "LoadingZone" => DebugLabelKindSpec::LoadingZone,
-        "Hazard" => DebugLabelKindSpec::Hazard,
-        "Enemy" => DebugLabelKindSpec::Enemy,
-        "Boss" => DebugLabelKindSpec::Boss,
-        "Interactable" => DebugLabelKindSpec::Interactable,
-        "Pickup" => DebugLabelKindSpec::Pickup,
-        _ => DebugLabelKindSpec::Custom,
+        "Room" => ae::DebugLabelKind::Room,
+        "LoadingZone" => ae::DebugLabelKind::LoadingZone,
+        "Hazard" => ae::DebugLabelKind::Hazard,
+        "Enemy" => ae::DebugLabelKind::Enemy,
+        "Boss" => ae::DebugLabelKind::Boss,
+        "Interactable" => ae::DebugLabelKind::Interactable,
+        "Pickup" => ae::DebugLabelKind::Pickup,
+        _ => ae::DebugLabelKind::Custom,
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -999,14 +1017,12 @@ mod tests {
     #[test]
     fn embedded_ldtk_composes_central_hub_complex() {
         let project = LdtkProject::load_embedded();
-        let manifest = project.to_transitional_room_manifest().expect("embedded LDtk should compose");
-        assert_eq!(manifest.start_room, "central_hub_complex");
-        assert!(manifest.rooms.len() > 1, "old sandbox rooms should be represented as LDtk active areas");
-        assert!(manifest.links.iter().any(|link| link.from_room == "central_hub_complex" && link.from_zone == "boss_door" && link.to_room == "basement_boss"));
-        let room = manifest.rooms.iter().find(|room| room.id == "central_hub_complex").expect("central hub active area exists");
-        assert!(room.size[1] > 1000.0, "basement should extend below hub");
-        assert!(!room.objects.iter().any(|object| matches!(object, RoomObjectSpec::BossSpawn { .. })), "boss belongs in the boss lab, not the stitched hub basement");
-        let boss_room = manifest.rooms.iter().find(|room| room.id == "basement_boss").expect("boss lab room exists");
-        assert!(boss_room.objects.iter().any(|object| matches!(object, RoomObjectSpec::BossSpawn { name, .. } if name.contains("clockwork warden"))));
+        let room_set = project.to_room_set().expect("embedded LDtk should compose");
+        assert!(room_set.rooms.len() > 1, "old sandbox rooms should be represented as LDtk active areas");
+        let room = room_set.rooms.iter().find(|room| room.id == "central_hub_complex").expect("central hub active area exists");
+        assert!(room.world.size.y > 1000.0, "basement should extend below hub");
+        assert!(!room.world.objects.iter().any(|object| matches!(&object.kind, ae::RoomObjectKind::BossSpawn(_))), "boss belongs in the boss lab, not the stitched hub basement");
+        let boss_room = room_set.rooms.iter().find(|room| room.id == "basement_boss").expect("boss lab room exists");
+        assert!(boss_room.world.objects.iter().any(|object| matches!(&object.kind, ae::RoomObjectKind::BossSpawn(_)) && object.name.contains("clockwork warden")));
     }
 }

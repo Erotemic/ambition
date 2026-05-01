@@ -1,7 +1,9 @@
 //! Data-driven sandbox room-set and loading-zone graph.
 //!
-//! Rooms can be authored by RON fixtures or by the LDtk adapter. This module
-//! turns the resolved room manifest into engine worlds plus a directed `petgraph` room graph.
+//! Rooms are runtime graph nodes built either from legacy RON fixtures or directly
+//! from LDtk-authored runtime data. This module owns transition graph assembly
+//! and arrival validation, but LDtk no longer has to pretend to be a RON
+//! `RoomManifestSpec` to create a playable `RoomSet`.
 //! Loading-zone links point at destination zones by name, so authoring no longer
 //! requires brittle hand-written spawn coordinates.
 
@@ -82,6 +84,20 @@ struct TransitionEdge {
     to_zone: String,
 }
 
+/// Authored directed connection between loading zones in runtime rooms.
+///
+/// This is intentionally independent from the retired RON world manifest so
+/// LDtk and future generators can build `RoomSet` directly from runtime room
+/// data.
+#[derive(Clone, Debug)]
+pub struct RoomLink {
+    pub from_room: String,
+    pub from_zone: String,
+    pub to_room: String,
+    pub to_zone: String,
+    pub bidirectional: bool,
+}
+
 /// Resolved transition from the active room to a graph-linked destination room.
 #[derive(Clone, Debug)]
 pub struct RoomTransition {
@@ -102,6 +118,25 @@ pub struct RoomSet {
 impl RoomSet {
     pub fn from_manifest(manifest: &RoomManifestSpec) -> Self {
         let rooms = manifest.rooms.iter().map(build_room_from_data).collect::<Vec<_>>();
+        let links = manifest
+            .links
+            .iter()
+            .map(|link| RoomLink {
+                from_room: link.from_room.clone(),
+                from_zone: link.from_zone.clone(),
+                to_room: link.to_room.clone(),
+                to_zone: link.to_zone.clone(),
+                bidirectional: link.bidirectional,
+            })
+            .collect::<Vec<_>>();
+        Self::from_parts(&manifest.start_room, rooms, links)
+    }
+
+    /// Build a runtime room graph from already-materialized runtime rooms.
+    ///
+    /// LDtk uses this path directly so it can own authored world data without
+    /// first converting through the legacy RON-shaped `RoomManifestSpec`.
+    pub fn from_parts(start_room: impl AsRef<str>, rooms: Vec<RoomSpec>, links: Vec<RoomLink>) -> Self {
         let mut graph = Graph::<String, TransitionEdge>::new();
         let mut room_nodes = Vec::new();
         let mut by_id = HashMap::new();
@@ -111,7 +146,7 @@ impl RoomSet {
             by_id.insert(room.id.clone(), (index, node));
         }
 
-        for link in &manifest.links {
+        for link in &links {
             let Some((_, from_node)) = by_id.get(&link.from_room).copied() else {
                 eprintln!("room graph warning: unknown source room '{}'", link.from_room);
                 continue;
@@ -140,7 +175,7 @@ impl RoomSet {
             }
         }
 
-        let active = by_id.get(&manifest.start_room).map(|(index, _)| *index).unwrap_or(0);
+        let active = by_id.get(start_room.as_ref()).map(|(index, _)| *index).unwrap_or(0);
         Self { rooms, active, graph, room_nodes }
     }
 

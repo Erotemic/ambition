@@ -37,7 +37,7 @@ use bevy_inspector_egui::{
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
 use bevy_material_ui::MaterialUiPlugin;
-use bevy_ecs_ldtk::{LdtkPlugin, LdtkWorldBundle};
+use bevy_ecs_ldtk::prelude::{LdtkPlugin, LdtkSettings, LdtkWorldBundle, LevelBackground};
 
 const BULLET_TIME_SCALE: f32 = 0.10;
 const BLINK_HOLD_SLOW_SCALE: f32 = 0.35;
@@ -75,6 +75,14 @@ fn main() {
         .insert_resource(room_set)
         .insert_resource(ldtk_index)
         .insert_resource(ldtk_world::LdtkHotReloadState::from_current_file())
+        .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
+        .insert_resource(LdtkSettings {
+            // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk
+            // own level/entity lifecycle without also drawing LDtk background
+            // rectangles behind every level.
+            level_background: LevelBackground::Nonexistent,
+            ..default()
+        })
         .insert_resource(sandbox_data)
         .insert_resource(DeveloperTools::default())
         .insert_resource(SandboxFeelTuning::default())
@@ -106,6 +114,7 @@ fn main() {
         // allocates collection handles. Keep this before `init_collection`.
         .add_plugins(LdtkPlugin)
         .init_collection::<loading::SandboxAssetCollection>()
+        .add_plugins(ldtk_world::AmbitionLdtkRegistrationPlugin)
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_plugins(ae::AmbitionStateMachinePlugin::default())
         .add_plugins(dialog::yarn_spinner_plugin())
@@ -129,6 +138,7 @@ fn main() {
                 handle_ldtk_hot_reload,
                 sandbox_update,
                 ldtk_world::sync_ldtk_level_set,
+                ldtk_world::sync_plugin_spawned_ambition_entities,
                 sync_visuals,
                 camera_follow,
                 debug_overlay::draw_debug_overlay,
@@ -339,18 +349,16 @@ fn setup(
         LdtkWorldBundle {
             ldtk_handle: ldtk_handle.into(),
             level_set: ldtk_index.level_set_for(&room_set.active_spec().id),
-            // Keep the plugin-owned LDtk world loaded and synchronized, but do
-            // not render it yet. Ambition still owns the visible/collidable
-            // runtime projection while we migrate entity categories one at a
-            // time. Without this guard, unregistered LDtk entity placeholders
-            // can render over the sandbox as large dark rectangles.
-            // AMBITION_REVIEW(spatial): remove or narrow this once LDtk
-            // tile/entity rendering is intentionally registered.
-            visibility: Visibility::Hidden,
+            // The LDtk root is now visible/active again. Ambition registers its
+            // current LDtk entity identifiers as marker bundles so
+            // bevy_ecs_ldtk owns entity lifecycle without drawing unregistered
+            // placeholder rectangles over the sandbox.
+            // AMBITION_REVIEW(spatial): migrate each registered marker from
+            // adapter-driven semantics to direct Ambition components.
             ..default()
         },
         ldtk_world::SandboxLdtkWorldRoot,
-        Name::new("Hidden LDtk World Root"),
+        Name::new("LDtk Runtime Spine Root"),
     ));
     let runtime = SandboxRuntime::new(
         &world.0,
@@ -1101,6 +1109,7 @@ fn update_hud(
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
     ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
+    ldtk_spine: Res<ldtk_world::LdtkRuntimeSpineStats>,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
@@ -1147,7 +1156,7 @@ fn update_hud(
     };
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -1165,6 +1174,7 @@ fn update_hud(
             ldtk_reload.last_status,
             ldtk_reload.auto_apply,
             ldtk_reload.pending,
+            ldtk_spine.spawned_entities,
             runtime.hitstun_timer,
             runtime.damage_invuln_timer,
             runtime.hitstop_timer,
@@ -1181,7 +1191,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\nLDtk spine: {} entities, rev {}, last {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -1225,6 +1235,9 @@ fn update_hud(
         runtime.damage_invuln_timer,
         runtime.time_scale,
         ldtk_reload.last_status,
+        ldtk_spine.spawned_entities,
+        ldtk_spine.revision,
+        if ldtk_spine.last_entity.is_empty() { "none" } else { &ldtk_spine.last_entity },
         window_line,
         runtime.player_health.current.max(0),
         runtime.player_health.max,

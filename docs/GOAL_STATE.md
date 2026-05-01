@@ -170,3 +170,10 @@ validate, hot-reload into the running sandbox, inspect with overview/debug
 visuals, and continue without restarting. LDtk should be first-class for authored
 spatial data, while Ambition retains typed gameplay semantics, validation,
 persistence policy, and reload reconciliation.
+
+
+## LDtk runtime spine migration
+
+Ambition is moving from a custom LDtk JSON adapter toward `bevy_ecs_ldtk` as the runtime spine. The sandbox now registers every current Ambition LDtk entity identifier as a lightweight plugin-spawned marker bundle, keeps the LDtk world root active, disables LDtk level-background rendering, and records plugin-spawned entity lifecycle in HUD/debug state. The next migration patches should consume those marker entities to attach typed Ambition components, then retire matching portions of the old `LDtk -> RoomManifestSpec -> RoomSet` conversion path.
+
+Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `tools/validate_ambition_ldtk.py` supports optional `--schema` and `--require-schema` flags while continuing to run Ambition-specific semantic validation without the schema file.

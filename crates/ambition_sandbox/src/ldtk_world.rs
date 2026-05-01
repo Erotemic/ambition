@@ -11,8 +11,8 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use bevy::asset::{AssetServer, Handle};
-use bevy::prelude::{Commands, Component, Query, Res, ResMut, Resource, Time, With};
-use bevy_ecs_ldtk::prelude::LevelSet;
+use bevy::prelude::{Added, App, Bundle, Commands, Component, Entity, Name, Plugin, Query, Res, ResMut, Resource, Time, With};
+use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntity, LdtkEntityAppExt, LevelSet};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -21,6 +21,93 @@ use crate::data::{
     InteractionKindSpec, LoadingZoneActivationSpec, LoadingZoneSpec, PickupKindSpec,
     RespawnPolicySpec, KinematicPathModeSpec, KinematicPathSpec, RoomLinkSpec, RoomManifestSpec, RoomObjectSpec, RoomSpecData, ShellSpec,
 };
+
+
+/// Lightweight bundle registered for every Ambition-authored LDtk entity.
+///
+/// This makes `bevy_ecs_ldtk` the owner of LDtk entity lifecycle/identity
+/// without letting the plugin render its default unregistered-entity
+/// placeholders. Ambition systems then consume the spawned `EntityInstance`
+/// component and attach gameplay semantics deliberately.
+#[derive(Bundle, LdtkEntity, Default)]
+pub struct AmbitionLdtkMarkerBundle {
+    #[from_entity_instance]
+    pub entity_instance: PluginEntityInstance,
+    pub marker: AmbitionLdtkMarker,
+}
+
+#[derive(Component, Default, Clone, Copy, Debug)]
+pub struct AmbitionLdtkMarker;
+
+#[derive(Component, Clone, Debug)]
+pub struct AmbitionLdtkEntity {
+    pub iid: String,
+    pub identifier: String,
+    pub px: [i32; 2],
+    pub size: [i32; 2],
+    pub world: Option<[i32; 2]>,
+}
+
+#[derive(Resource, Default, Clone, Debug)]
+pub struct LdtkRuntimeSpineStats {
+    pub spawned_entities: usize,
+    pub revision: u64,
+    pub last_entity: String,
+}
+
+pub struct AmbitionLdtkRegistrationPlugin;
+
+impl Plugin for AmbitionLdtkRegistrationPlugin {
+    fn build(&self, app: &mut App) {
+        for identifier in AMBITION_LDTK_ENTITY_IDENTIFIERS {
+            app.register_ldtk_entity::<AmbitionLdtkMarkerBundle>(identifier);
+        }
+    }
+}
+
+pub fn sync_plugin_spawned_ambition_entities(
+    mut commands: Commands,
+    mut stats: ResMut<LdtkRuntimeSpineStats>,
+    query: Query<(Entity, &PluginEntityInstance), Added<PluginEntityInstance>>,
+) {
+    for (entity, instance) in &query {
+        stats.spawned_entities = stats.spawned_entities.saturating_add(1);
+        stats.revision = stats.revision.saturating_add(1);
+        stats.last_entity = format!("{} {}", instance.identifier, instance.iid);
+        commands.entity(entity).insert((
+            AmbitionLdtkEntity {
+                iid: instance.iid.clone(),
+                identifier: instance.identifier.clone(),
+                px: [instance.px.x, instance.px.y],
+                size: [instance.width, instance.height],
+                world: instance.world_x.zip(instance.world_y).map(|(x, y)| [x, y]),
+            },
+            Name::new(format!("LDtk {} {}", instance.identifier, instance.iid)),
+        ));
+    }
+}
+
+pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
+    "PlayerStart",
+    "Solid",
+    "OneWayPlatform",
+    "BlinkWall",
+    "HazardBlock",
+    "PogoOrb",
+    "ReboundPad",
+    "LoadingZone",
+    "DamageVolume",
+    "KinematicPath",
+    "NpcSpawn",
+    "PickupSpawn",
+    "ChestSpawn",
+    "Breakable",
+    "EnemySpawn",
+    "BossSpawn",
+    "DebugLabel",
+    "CameraZone",
+    "StitchedBoundary",
+];
 
 pub const SANDBOX_LDTK_ASSET: &str = "ambition/worlds/sandbox.ldtk";
 
@@ -704,28 +791,7 @@ fn entity_to_spec(entity: &LdtkEntityInstance, offset: [f32; 2]) -> EntityConver
 }
 
 fn known_entity(identifier: &str) -> bool {
-    matches!(
-        identifier,
-        "PlayerStart"
-            | "Solid"
-            | "OneWayPlatform"
-            | "BlinkWall"
-            | "HazardBlock"
-            | "PogoOrb"
-            | "ReboundPad"
-            | "LoadingZone"
-            | "DamageVolume"
-            | "KinematicPath"
-            | "NpcSpawn"
-            | "PickupSpawn"
-            | "ChestSpawn"
-            | "Breakable"
-            | "EnemySpawn"
-            | "BossSpawn"
-            | "DebugLabel"
-            | "CameraZone"
-            | "StitchedBoundary"
-    )
+    AMBITION_LDTK_ENTITY_IDENTIFIERS.contains(&identifier)
 }
 
 fn pivot_is_top_left(entity: &LdtkEntityInstance) -> bool {

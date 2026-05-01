@@ -48,8 +48,7 @@ but Ambition still owns the gameplay invariants.
 
 - Listen to Bevy `AssetEvent<LdtkProject>` in addition to modification-time
   polling once the exact Bevy 0.18 message-reader API is settled.
-- Promote low-risk entities (`PlayerStart`, `DebugLabel`, `LoadingZone`,
-  `CameraZone`) to direct `bevy_ecs_ldtk` entity bundles.
+- Promote registered LDtk marker entities from lifecycle-only bundles into direct Ambition gameplay components.
 - Add raw-LDtk-vs-Ambition runtime debug overlays for every spatial entity.
 - Preserve collected chest/pickup state by stable LDtk IID across reloads.
 - Add safe policies for moving/deleting the current active area under the player.
@@ -69,10 +68,11 @@ direct `bevy_ecs_ldtk` spawning/hot reload will be partial or misleading.
 Fix the LDtk schema shape and validator before migrating more runtime categories
 onto direct LDtk-spawned entities.
 
-The first-class `LdtkWorldBundle` root is intentionally hidden during the
-transition. If a room shows large dark rectangles or other LDtk placeholder
-visuals, keep the root hidden and migrate the relevant LDtk entity/layer through
-a typed Ambition bundle instead of exposing the entire plugin-spawned hierarchy.
+The first-class `LdtkWorldBundle` root should stay visible/active. Ambition
+entity identifiers are registered as lightweight marker bundles so
+`bevy_ecs_ldtk` owns entity lifecycle without drawing unregistered placeholder
+rectangles. If placeholder visuals return, register the missing LDtk identifier
+or exclude/migrate that layer deliberately instead of hiding the whole root.
 
 ## Entity and field definition UID health
 
@@ -91,3 +91,11 @@ entity instance defUid == defs.entities[identifier].uid
 entity field instance defUid == defs.entities[identifier].fieldDefs[field].uid
 level field instance defUid == defs.levelFields[field].uid
 ```
+
+## Python schema validation
+
+Use Python's `jsonschema` package for official LDtk JSON Schema validation when
+strict editor-format validation is needed. Avoid adding Node/npm tooling for this
+path. The validator accepts `--schema tools/schemas/ldtk/JSON_SCHEMA.json` and
+`--require-schema`; without a local schema it still runs Ambition-specific
+validation.

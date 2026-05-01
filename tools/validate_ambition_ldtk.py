@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Validate the Ambition subset of LDtk used by the sandbox.
 
-This deliberately validates gameplay-authoring semantics rather than the full
-LDtk JSON schema. Use LDtk's official JSON schema for editor-format validation,
-and this script for Ambition-specific contracts: active-area stitching,
-PlayerStart counts, known entity identifiers, top-left pivots, and required
-custom fields.
+This script has two layers:
+
+1. Optional official LDtk JSON Schema validation through Python's `jsonschema`
+   package when `--schema` is provided, avoiding Node/npm tooling.
+2. Ambition-specific contracts: active-area stitching, PlayerStart counts,
+   known entity identifiers, top-left pivots, direct bevy_ecs_ldtk spawning
+   compatibility, and required custom fields.
 """
 from __future__ import annotations
 
@@ -103,13 +105,56 @@ def parse_points(value):
     return points
 
 
-def validate(path: Path):
+def validate_official_schema(project, schema_path: Path | None, require_schema: bool):
+    errors = []
+    warnings = []
+    if schema_path is None:
+        default_schema = Path("tools/schemas/ldtk/JSON_SCHEMA.json")
+        if default_schema.exists():
+            schema_path = default_schema
+        else:
+            if require_schema:
+                errors.append(
+                    "official LDtk JSON schema not checked; pass --schema tools/schemas/ldtk/JSON_SCHEMA.json "
+                    "after installing python package `jsonschema`"
+                )
+            return errors, warnings
+    try:
+        import jsonschema  # type: ignore[import-not-found]
+    except Exception as ex:  # noqa: BLE001 - command line validator should explain environment issues
+        message = f"python package `jsonschema` is required for official LDtk schema validation: {ex}"
+        if require_schema:
+            errors.append(message)
+        else:
+            warnings.append(message)
+        return errors, warnings
+    try:
+        schema = json.loads(schema_path.read_text())
+        jsonschema.Draft7Validator.check_schema(schema)
+        validator = jsonschema.Draft7Validator(schema)
+        schema_errors = sorted(validator.iter_errors(project), key=lambda error: list(error.path))
+    except Exception as ex:  # noqa: BLE001
+        errors.append(f"failed to validate official LDtk schema {schema_path}: {ex}")
+        return errors, warnings
+    for error in schema_errors:
+        path = ".".join(str(part) for part in error.absolute_path) or "<root>"
+        errors.append(f"LDtk JSON schema: {path}: {error.message}")
+    if not schema_errors:
+        warnings.append(f"official LDtk JSON schema passed: {schema_path}")
+    return errors, warnings
+
+
+def validate(path: Path, schema_path: Path | None = None, require_schema: bool = False):
     errors = []
     warnings = []
     try:
         project = json.loads(path.read_text())
     except Exception as ex:  # noqa: BLE001 - command line validator should print parser details
         return [f"failed to parse JSON: {ex}"], []
+
+    schema_errors, schema_warnings = validate_official_schema(project, schema_path, require_schema)
+    errors.extend(schema_errors)
+    warnings.extend(schema_warnings)
 
     levels = project.get("levels") or []
     if not levels:
@@ -391,8 +436,19 @@ def validate(path: Path):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=Path, help="Path to an Ambition-authored .ldtk file")
+    parser.add_argument(
+        "--schema",
+        type=Path,
+        default=None,
+        help="Optional path to the official LDtk JSON_SCHEMA.json; uses Python jsonschema, not npm",
+    )
+    parser.add_argument(
+        "--require-schema",
+        action="store_true",
+        help="Fail if official LDtk JSON schema validation cannot be run",
+    )
     args = parser.parse_args(argv)
-    errors, warnings = validate(args.path)
+    errors, warnings = validate(args.path, args.schema, args.require_schema)
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)
     for error in errors:

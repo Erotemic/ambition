@@ -175,3 +175,10 @@ that do not match `defs.entities[*].uid`, `bevy_ecs_ldtk` can panic in
 instance `defUid`, entity field instance `defUid`, and level field instance
 `defUid` synchronized with their definitions whenever generating or patching
 `sandbox.ldtk`, and keep `tools/validate_ambition_ldtk.py` strict about this.
+
+
+## LDtk runtime spine migration
+
+Ambition is moving from a custom LDtk JSON adapter toward `bevy_ecs_ldtk` as the runtime spine. The sandbox now registers every current Ambition LDtk entity identifier as a lightweight plugin-spawned marker bundle, keeps the LDtk world root active, disables LDtk level-background rendering, and records plugin-spawned entity lifecycle in HUD/debug state. The next migration patches should consume those marker entities to attach typed Ambition components, then retire matching portions of the old `LDtk -> RoomManifestSpec -> RoomSet` conversion path.
+
+Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `tools/validate_ambition_ldtk.py` supports optional `--schema` and `--require-schema` flags while continuing to run Ambition-specific semantic validation without the schema file.

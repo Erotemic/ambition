@@ -105,7 +105,7 @@ pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &Loa
     let size = zone.aabb.half * 2.0;
     let color = match zone.activation {
         LoadingZoneActivation::EdgeExit => Color::srgba(0.20, 0.95, 1.0, 0.22),
-        LoadingZoneActivation::Door => Color::srgba(0.32, 0.78, 1.0, 0.36),
+        LoadingZoneActivation::Door => Color::srgba(1.0, 0.72, 0.18, 0.46),
     };
     let _zone_label_for_future_text = zone.name;
     commands.spawn((

@@ -115,7 +115,11 @@ pub fn build_endgame_sandbox() -> World {
     // Shell. The world is intentionally larger than the first pass so the same
     // screen has more world-space resolution for movement tuning.
     blocks.push(Block::solid("floor", Vec2::new(0.0, h - 48.0), Vec2::new(w, 48.0)));
-    blocks.push(Block::solid("left wall", Vec2::new(0.0, 0.0), Vec2::new(36.0, h)));
+    // The left wall is split around the hub return opening. Automatic room
+    // transitions should feel like walking through a visible hole in the wall,
+    // not touching an invisible trigger inside the room.
+    blocks.push(Block::solid("left wall upper", Vec2::new(0.0, 0.0), Vec2::new(36.0, h - 236.0)));
+    blocks.push(Block::solid("left wall lower", Vec2::new(0.0, h - 48.0), Vec2::new(36.0, 48.0)));
     blocks.push(Block::solid("right wall", Vec2::new(w - 36.0, 0.0), Vec2::new(36.0, h)));
     blocks.push(Block::solid("ceiling lip", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)));
 

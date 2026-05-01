@@ -21,7 +21,7 @@ Current conceptual scales:
 
 - normal: `1.0`
 - early blink hold: about `0.08`
-- precision aim bullet-time: about `0.0035` (roughly 10x slower than the previous pass)
+- precision aim bullet-time: about `0.10` (slow enough to aim, fast enough to remain readable after the two-clock fix)
 - debug slow motion: about `0.25`
 
 These are presentation-layer values in the Bevy sandbox. The engine still receives a timestep and remains testable without Bevy.

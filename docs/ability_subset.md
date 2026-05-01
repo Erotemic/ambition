@@ -64,6 +64,6 @@ Current sandbox behavior:
 
 - Blink is still part of the sane subset.
 - Quick blink remains a tap/release movement verb.
-- Long-hold blink enters a gradual, very deep bullet-time ramp and exposes a controllable precision destination cursor. The current sandbox targets roughly 0.35% normal speed during full precision aim.
+- Long-hold blink enters a gradual, very deep bullet-time ramp and exposes a controllable precision destination cursor. The current sandbox targets roughly 10% normal speed during full precision aim.
 - Soft and hard blink walls are represented as engine geometry tiers. The current sandbox enables both tiers and makes all interior blink-walls passable except the central hard-solid pillar and outer room boundaries.
 - Fast-fall is explicit double-tap-down input, not `hold down`, so down+attack remains reserved for pogo/downward attack intent.

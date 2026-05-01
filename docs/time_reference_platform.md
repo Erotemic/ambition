@@ -19,8 +19,8 @@ once we decide how Ambition handles:
 
 Current time-scale tuning:
 
-- blink hold slow scale: `0.01`
-- precision blink bullet-time scale: `0.000035`
+- blink hold slow scale: `0.35`
+- precision blink bullet-time scale: `0.10`
 
 The precision scale is intentionally near-frozen. Because the blink destination
 cursor is currently updated inside the engine simulation step, its aim speed is

@@ -170,3 +170,6 @@ Additional design notes:
 
 The sandbox now uses a two-clock update path: real-time controls and scaled
 simulation time. See `docs/two_clock_simulation.md`.
+
+Additional layout notes:
+- `docs/room_layout_refactor.md`

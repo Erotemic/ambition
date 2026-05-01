@@ -23,8 +23,8 @@ use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution, WindowResizeConstraints};
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 
-const BULLET_TIME_SCALE: f32 = 0.000035;
-const BLINK_HOLD_SLOW_SCALE: f32 = 0.01;
+const BULLET_TIME_SCALE: f32 = 0.10;
+const BLINK_HOLD_SLOW_SCALE: f32 = 0.35;
 const DEBUG_SLOWMO_SCALE: f32 = 0.25;
 const TIME_RAMP_DOWN_RATE: f32 = 5.0;
 const TIME_RAMP_UP_RATE: f32 = 14.0;
@@ -177,6 +177,10 @@ fn setup(
     room_set: Res<rooms::RoomSet>,
     mut audio_sources: ResMut<Assets<AudioSource>>,
 ) {
+    for warning in room_set.layout_warnings() {
+        eprintln!("room layout warning: {warning}");
+    }
+
     // The sandbox uses centered world coordinates that match the default
     // Bevy 2D camera convention. With the window at 1600x900 and the generated
     // room at 1600x900, the default orthographic projection shows the whole

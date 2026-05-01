@@ -15,7 +15,6 @@ const DUMMY_GRAVITY: f32 = 1600.0;
 const DUMMY_GROUND_FRICTION: f32 = 820.0;
 const DUMMY_MAX_X_SPEED: f32 = 1400.0;
 const DUMMY_MAX_FALL_SPEED: f32 = 900.0;
-const DUMMY_MAX_SWEEP_STEP: f32 = 8.0;
 
 /// First-pass target archetypes used by the movement sandbox.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,9 +108,9 @@ impl Dummy {
     /// Advance dummy physics and collide against a full room.
     ///
     /// This is intentionally small and conservative rather than clever. The
-    /// dummy is an AABB body, so we resolve X and Y separately like the player.
-    /// The motion is sub-stepped when knockback is large so a sandbag cannot
-    /// skip across a thin wall in a single frame.
+    /// dummy is an AABB body, so we resolve X and Y separately like the player,
+    /// using Parry-backed swept casts so high knockback cannot tunnel through
+    /// thin walls in a single frame.
     pub fn update_in_world(&mut self, dt: f32, world: &World) -> bool {
         let respawn_pos = Vec2::new(self.spawn.x, 88.0);
         self.update_common_timers_and_respawn(dt, respawn_pos, |dummy, dt| {
@@ -120,20 +119,12 @@ impl Dummy {
             dummy.vel.x = dummy.vel.x.clamp(-DUMMY_MAX_X_SPEED, DUMMY_MAX_X_SPEED);
             dummy.vel.y = dummy.vel.y.min(DUMMY_MAX_FALL_SPEED);
 
-            let total_delta = dummy.vel * dt;
-            let largest = total_delta.x.abs().max(total_delta.y.abs());
-            let steps = (largest / DUMMY_MAX_SWEEP_STEP).ceil().max(1.0).min(64.0) as usize;
-            let step_dt = dt / steps as f32;
-            for _ in 0..steps {
-                dummy.pos.x += dummy.vel.x * step_dt;
-                resolve_dummy_x(world, dummy);
+            sweep_dummy_x(world, dummy, dummy.vel.x * dt);
 
-                let prev_bottom = dummy.aabb().bottom();
-                dummy.pos.y += dummy.vel.y * step_dt;
-                resolve_dummy_y(world, dummy, prev_bottom);
+            let prev_bottom = dummy.aabb().bottom();
+            sweep_dummy_y(world, dummy, dummy.vel.y * dt, prev_bottom);
 
-                apply_dummy_rebound(world, dummy);
-            }
+            apply_dummy_rebound(world, dummy);
         })
     }
 
@@ -170,6 +161,66 @@ fn dummy_collides_on_x(kind: BlockKind) -> bool {
 
 fn dummy_collides_on_y(kind: BlockKind) -> bool {
     matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay)
+}
+
+fn sweep_fraction(time_of_impact: f32) -> f32 {
+    time_of_impact.clamp(0.0, 1.0)
+}
+
+fn sweep_dummy_x(world: &World, dummy: &mut Dummy, delta_x: f32) {
+    let delta = Vec2::new(delta_x, 0.0);
+    if delta.x.abs() <= 1.0e-5 {
+        resolve_dummy_x(world, dummy);
+        return;
+    }
+
+    if let Some(hit) = world.first_body_sweep(dummy.aabb(), delta, |block| dummy_collides_on_x(block.kind)) {
+        dummy.pos.x += delta.x * sweep_fraction(hit.time_of_impact);
+        let body = dummy.aabb();
+        if delta.x > 0.0 {
+            dummy.pos.x += hit.block.aabb.left() - body.right();
+        } else {
+            dummy.pos.x += hit.block.aabb.right() - body.left();
+        }
+        dummy.vel.x = 0.0;
+    } else {
+        dummy.pos.x += delta.x;
+    }
+
+    // Shape casts catch fast motion; positional resolution remains as a cheap
+    // penetration repair for starts inside geometry or stacked contacts.
+    resolve_dummy_x(world, dummy);
+}
+
+fn sweep_dummy_y(world: &World, dummy: &mut Dummy, delta_y: f32, prev_bottom: f32) {
+    let delta = Vec2::new(0.0, delta_y);
+    if delta.y.abs() <= 1.0e-5 {
+        resolve_dummy_y(world, dummy, prev_bottom);
+        return;
+    }
+
+    if let Some(hit) = world.first_body_sweep(dummy.aabb(), delta, |block| {
+        if !dummy_collides_on_y(block.kind) {
+            false
+        } else if matches!(block.kind, BlockKind::OneWay) {
+            delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0
+        } else {
+            true
+        }
+    }) {
+        dummy.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
+        let body = dummy.aabb();
+        if delta.y > 0.0 || body.center.y < hit.block.aabb.center.y {
+            dummy.pos.y += hit.block.aabb.top() - body.bottom();
+        } else {
+            dummy.pos.y += hit.block.aabb.bottom() - body.top();
+        }
+        dummy.vel.y = 0.0;
+    } else {
+        dummy.pos.y += delta.y;
+    }
+
+    resolve_dummy_y(world, dummy, prev_bottom);
 }
 
 fn resolve_dummy_x(world: &World, dummy: &mut Dummy) {

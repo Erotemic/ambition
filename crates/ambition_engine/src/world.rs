@@ -101,6 +101,51 @@ pub struct World {
     pub blocks: Vec<Block>,
 }
 
+/// First collision along a swept body path.
+#[derive(Clone, Copy, Debug)]
+pub struct SweepHit<'a> {
+    pub block: &'a Block,
+    /// Normalized time along the requested delta, in `[0, 1]`.
+    pub time_of_impact: f32,
+}
+
+impl World {
+    /// True if `body` overlaps any block accepted by `predicate`.
+    pub fn body_overlaps_any<F>(&self, body: Aabb, mut predicate: F) -> bool
+    where
+        F: FnMut(&Block) -> bool,
+    {
+        self.blocks
+            .iter()
+            .any(|block| predicate(block) && body.intersects(block.aabb))
+    }
+
+    /// Return the earliest Parry-backed swept-AABB hit for `body` moving by `delta`.
+    ///
+    /// The predicate lets callers ask different gameplay questions from the same
+    /// geometry routine: player movement solids, blink blockers, one-way landing
+    /// tests, spawn blockers, and enemy collision can all share this path.
+    pub fn first_body_sweep<F>(&self, body: Aabb, delta: Vec2, mut predicate: F) -> Option<SweepHit<'_>>
+    where
+        F: FnMut(&Block) -> bool,
+    {
+        let mut best: Option<SweepHit<'_>> = None;
+        for block in &self.blocks {
+            if !predicate(block) {
+                continue;
+            }
+            let Some(time_of_impact) = body.sweep_time_of_impact(delta, block.aabb) else {
+                continue;
+            };
+            if best.map_or(true, |hit| time_of_impact < hit.time_of_impact) {
+                best = Some(SweepHit { block, time_of_impact });
+            }
+        }
+        best
+    }
+}
+
+
 /// Build the first Ambition endgame lab.
 ///
 /// All geometry is procedural/code data; there are no textures, sprites, maps,

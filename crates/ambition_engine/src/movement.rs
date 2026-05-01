@@ -897,22 +897,22 @@ fn integrate_velocity(
         player.vel.y = player.vel.y.min(fall_cap);
     }
 
-    // Resolve horizontal motion. This establishes wall contact for wall verbs.
+    // Resolve horizontal motion with a Parry-backed swept AABB. This
+    // establishes wall contact for wall verbs without letting high-speed dash
+    // or future knockback skip through a thin wall.
     player.on_wall = false;
     player.wall_normal_x = 0.0;
     player.wall_climbing = false;
     let was_clinging = player.wall_clinging;
     player.wall_clinging = false;
-    player.pos.x += player.vel.x * dt;
-    resolve_axis(world, player, Axis::X);
+    sweep_player_x(world, player, player.vel.x * dt);
 
     apply_wall_abilities(player, input, tuning, was_clinging, events);
 
     // Resolve vertical motion. Previous bottom determines one-way behavior.
     let prev_bottom = player.aabb().bottom();
     player.on_ground = false;
-    player.pos.y += player.vel.y * dt;
-    resolve_vertical(world, player, prev_bottom, input.axis_y > 0.35);
+    sweep_player_y(world, player, player.vel.y * dt, prev_bottom, input.axis_y > 0.35);
 
     if player.on_ground {
         player.refresh_movement_resources(tuning);
@@ -1010,6 +1010,73 @@ fn is_solid_for_axis(kind: BlockKind, axis: Axis) -> bool {
     }
 }
 
+fn sweep_fraction(time_of_impact: f32) -> f32 {
+    time_of_impact.clamp(0.0, 1.0)
+}
+
+fn sweep_player_x(world: &World, player: &mut Player, delta_x: f32) {
+    let delta = Vec2::new(delta_x, 0.0);
+    if delta.x.abs() <= 1.0e-5 {
+        resolve_axis(world, player, Axis::X);
+        return;
+    }
+
+    if let Some(hit) = world.first_body_sweep(player.aabb(), delta, |block| {
+        is_solid_for_axis(block.kind, Axis::X) && !matches!(block.kind, BlockKind::OneWay)
+    }) {
+        player.pos.x += delta.x * sweep_fraction(hit.time_of_impact);
+        let body = player.aabb();
+        if delta.x > 0.0 {
+            player.pos.x += hit.block.aabb.left() - body.right();
+            player.wall_normal_x = -1.0;
+        } else {
+            player.pos.x += hit.block.aabb.right() - body.left();
+            player.wall_normal_x = 1.0;
+        }
+        player.vel.x = 0.0;
+        player.on_wall = true;
+    } else {
+        player.pos.x += delta.x;
+    }
+
+    // Shape casts catch fast motion; positional resolution remains as a cheap
+    // penetration repair for starts inside geometry or stacked contacts.
+    resolve_axis(world, player, Axis::X);
+}
+
+fn sweep_player_y(world: &World, player: &mut Player, delta_y: f32, prev_bottom: f32, drop_through: bool) {
+    let delta = Vec2::new(0.0, delta_y);
+    if delta.y.abs() <= 1.0e-5 {
+        resolve_vertical(world, player, prev_bottom, drop_through);
+        return;
+    }
+
+    if let Some(hit) = world.first_body_sweep(player.aabb(), delta, |block| {
+        if !is_solid_for_axis(block.kind, Axis::Y) {
+            false
+        } else if matches!(block.kind, BlockKind::OneWay) {
+            let landing_from_above = delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0;
+            landing_from_above && !drop_through
+        } else {
+            true
+        }
+    }) {
+        player.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
+        let body = player.aabb();
+        if delta.y > 0.0 || body.center.y < hit.block.aabb.center.y {
+            player.pos.y += hit.block.aabb.top() - body.bottom();
+            player.on_ground = true;
+        } else {
+            player.pos.y += hit.block.aabb.bottom() - body.top();
+        }
+        player.vel.y = 0.0;
+    } else {
+        player.pos.y += delta.y;
+    }
+
+    resolve_vertical(world, player, prev_bottom, drop_through);
+}
+
 fn resolve_axis(world: &World, player: &mut Player, axis: Axis) {
     let mut aabb = player.aabb();
     for block in &world.blocks {
@@ -1102,8 +1169,9 @@ fn touching_rebound(world: &World, player: &Player) -> Option<Vec2> {
 /// Compute the furthest safe blink destination along `aim`.
 ///
 /// Blink should feel like a topological reposition, but it must not place the
-/// player inside solid geometry. The implementation samples along the segment
-/// and returns the last position whose player AABB does not overlap a solid.
+/// player inside solid geometry. The implementation uses a Parry-backed shape
+/// cast for hard blockers, then samples the remaining path so blink-through
+/// walls can be crossed without becoming valid resting positions.
 pub fn blink_destination(world: &World, player: &Player, aim: Vec2, max_distance: f32) -> Vec2 {
     let direction = aim.normalized_or(Vec2::new(player.facing, 0.0));
     blink_destination_to_point(world, player, player.pos + direction * max_distance)
@@ -1118,18 +1186,44 @@ pub fn blink_destination(world: &World, player: &Player, aim: Vec2, max_distance
 pub fn blink_destination_to_point(world: &World, player: &Player, target: Vec2) -> Vec2 {
     let start = player.pos;
     let half = player.size * 0.5;
+    let mut target = target;
+    target.x = target.x.clamp(half.x, world.size.x - half.x);
+    target.y = target.y.clamp(half.y, world.size.y - half.y);
     let delta = target - start;
     let distance = delta.length();
     if distance <= 1.0e-5 {
         return start;
     }
+
+    let start_body = Aabb::new(start, half);
+    let max_t = world
+        .first_body_sweep(start_body, delta, |block| blink_path_blocker(player, block.kind))
+        .map(|hit| hit.time_of_impact)
+        .unwrap_or(1.0);
+    let sweep_target = start + delta * max_t;
+    last_free_blink_position(world, player, start, sweep_target, half)
+}
+
+fn blink_path_blocker(player: &Player, kind: BlockKind) -> bool {
+    match kind {
+        BlockKind::Solid => true,
+        BlockKind::BlinkWall { tier } => !player_can_blink_through(player, tier),
+        BlockKind::OneWay | BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => false,
+    }
+}
+
+fn last_free_blink_position(world: &World, player: &Player, start: Vec2, target: Vec2, half: Vec2) -> Vec2 {
+    let delta = target - start;
+    let distance = delta.length();
+    if distance <= 1.0e-5 {
+        return start;
+    }
+
     let steps = ((distance / 14.0).ceil() as usize).clamp(8, 64);
     let mut last_safe = start;
     for step in 1..=steps {
         let t = step as f32 / steps as f32;
-        let mut candidate = start + delta * t;
-        candidate.x = candidate.x.clamp(half.x, world.size.x - half.x);
-        candidate.y = candidate.y.clamp(half.y, world.size.y - half.y);
+        let candidate = start + delta * t;
         let candidate_aabb = Aabb::new(candidate, half);
         match blink_collision(world, player, candidate_aabb) {
             BlinkCollision::Free => last_safe = candidate,

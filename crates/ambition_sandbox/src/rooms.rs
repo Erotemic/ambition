@@ -444,15 +444,14 @@ fn clamp_spawn_to_room(world: &ae::World, pos: ae::Vec2, half: ae::Vec2) -> ae::
 
 fn player_body_clear(world: &ae::World, center: ae::Vec2, half: ae::Vec2) -> bool {
     let body = ae::Aabb::new(center, half);
-    !world.blocks.iter().any(|block| {
-        let blocks_spawn = matches!(
+    !world.body_overlaps_any(body, |block| {
+        matches!(
             block.kind,
             ae::BlockKind::Solid
                 | ae::BlockKind::BlinkWall { .. }
                 | ae::BlockKind::OneWay
                 | ae::BlockKind::Hazard
                 | ae::BlockKind::Rebound { .. }
-        );
-        blocks_spawn && body.intersects(block.aabb)
+        )
     })
 }

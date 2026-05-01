@@ -25,7 +25,7 @@ The first design law is: **the game should be fun as raw collision boxes**.
 
 Install Rust from <https://rustup.rs/>.
 
-This project depends on Bevy for the graphics/audio shell, `leafwing-input-manager` for semantic keyboard/gamepad input, and `bevy-inspector-egui` for developer-only reflected tuning windows. The movement/collision core remains in `ambition_engine`.
+This project depends on Bevy for the graphics/audio shell, `leafwing-input-manager` for semantic keyboard/gamepad input, and `bevy-inspector-egui` for developer-only reflected tuning windows. The movement/collision core remains in `ambition_engine`, with `parry2d` handling reusable overlap and swept-AABB geometry queries.
 
 ## Run
 
@@ -93,6 +93,10 @@ The particle system is deliberately tiny and code-first. Each particle is a Bevy
 ## Movement tuning
 
 Movement constants live behind `MovementTuning` / `DEFAULT_TUNING` in `ambition_engine`. The public `update_player` function uses the default tuning, while `update_player_with_tuning` exists for later per-character, per-room, or experimental tuning passes.
+
+## Geometry queries
+
+`ambition_engine::Aabb` is still the public collision primitive, but its overlap and swept-box helpers now delegate to `parry2d`. See `docs/parry2d_geometry.md` for the current boundary: handcrafted kinematic movement stays in Ambition, while reusable geometric queries come from Parry.
 
 ## Bevy port notes
 

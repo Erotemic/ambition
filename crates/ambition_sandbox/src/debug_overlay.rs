@@ -69,6 +69,9 @@ pub fn draw_debug_overlay(
     if developer_tools.show_dummies {
         draw_dummy_debug(&mut gizmos, world, &runtime);
     }
+    if developer_tools.show_feature_hitboxes {
+        draw_feature_combat_debug(&mut gizmos, world, &runtime);
+    }
 }
 
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
@@ -235,6 +238,37 @@ fn draw_dummy_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRun
             gizmos.line_2d(full_a, full_b, gray());
             let hp_b = w2(world, ae::Vec2::new(left + (right - left) * ratio, y));
             gizmos.line_2d(full_a, hp_b, red());
+        }
+    }
+}
+
+fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
+    // Basement feature actors are sandbox runtime objects, not dummies. Draw their
+    // actual gameplay volumes so visual drift, bad authored sizes, and attack
+    // reach bugs are visible under the same F1/F3 debug workflow.
+    for hazard in &runtime.features.hazards {
+        if hazard.active() {
+            draw_aabb(gizmos, world, hazard.aabb(), red());
+        }
+    }
+
+    for enemy in &runtime.features.enemies {
+        if !enemy.alive {
+            continue;
+        }
+        draw_aabb(gizmos, world, enemy.aabb(), red());
+        if enemy.attack_timer > 0.0 {
+            draw_aabb(gizmos, world, enemy.attack_aabb(), yellow());
+        }
+    }
+
+    for boss in &runtime.features.bosses {
+        if !boss.alive {
+            continue;
+        }
+        draw_aabb(gizmos, world, boss.aabb(), magenta());
+        for volume in boss.attack_volumes() {
+            draw_aabb(gizmos, world, volume, yellow());
         }
     }
 }

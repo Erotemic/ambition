@@ -7,6 +7,7 @@
 //! be added behind the same boundary.
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use avian2d::prelude::*;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;

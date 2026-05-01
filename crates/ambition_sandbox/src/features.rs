@@ -409,11 +409,11 @@ impl HazardRuntime {
         }
     }
 
-    fn active(&self) -> bool {
+    pub fn active(&self) -> bool {
         self.volume.enabled
     }
 
-    fn aabb(&self) -> ae::Aabb {
+    pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 }
@@ -509,11 +509,11 @@ impl EnemyRuntime {
         }
     }
 
-    fn aabb(&self) -> ae::Aabb {
+    pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 
-    fn attack_aabb(&self) -> ae::Aabb {
+    pub fn attack_aabb(&self) -> ae::Aabb {
         ae::Aabb::new(
             self.pos + ae::Vec2::new(self.facing * (self.size.x * 0.55 + 24.0), -4.0),
             ae::Vec2::new(34.0, 28.0),
@@ -572,11 +572,11 @@ impl BossRuntime {
         }
     }
 
-    fn aabb(&self) -> ae::Aabb {
+    pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 
-    fn attack_volumes(&self) -> Vec<ae::Aabb> {
+    pub fn attack_volumes(&self) -> Vec<ae::Aabb> {
         if self.attack_timer <= 0.0 {
             return Vec::new();
         }

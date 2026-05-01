@@ -1,8 +1,9 @@
-//! Procedural audio for Ambition sandbox feedback.
+//! Procedural audio for Ambition sandbox feedback and music.
 //!
 //! The current implementation synthesizes tiny WAV files into in-memory Bevy
 //! `AudioSource` handles. This keeps the project assetless while leaving a clear
-//! seam for a future Kira/CPAL-backed `ambition_audio` crate.
+//! seam for a future Kira/CPAL-backed `ambition_audio` crate. The background
+//! track is intentionally chip-style rather than a droning ambience pad.
 
 use bevy::audio::AudioSource;
 use bevy::prelude::*;
@@ -54,7 +55,7 @@ impl SoundBank {
             reset: add(SynthSpec::reset()),
             death: add(SynthSpec::death()),
             respawn: add(SynthSpec::respawn()),
-            ambience: audio_sources.add(AudioSource { bytes: synth_ambience_wav_bytes(44_100).into() }),
+            ambience: audio_sources.add(AudioSource { bytes: synth_retro_theme_wav_bytes(44_100).into() }),
         }
     }
 
@@ -86,11 +87,12 @@ pub fn play_sound(commands: &mut Commands, bank: &SoundBank, cue: SoundCue) {
     ));
 }
 
-/// Start the generated background ambience loop.
+/// Start the generated background music loop.
 ///
 /// This intentionally uses Bevy's built-in audio for now. Once we need
 /// cross-fades, parameter automation, or layered adaptive music, this is the
-/// seam where Kira should replace the current simple playback path.
+/// seam where Kira should replace the current simple playback path. The public
+/// function keeps its original name so the call sites do not churn yet.
 pub fn play_ambience(commands: &mut Commands, bank: &SoundBank) {
     commands.spawn((
         AudioPlayer::new(bank.ambience()),
@@ -244,41 +246,221 @@ fn synth_wav_bytes(spec: SynthSpec, sample_rate: u32) -> Vec<u8> {
     bytes
 }
 
-fn synth_ambience_wav_bytes(sample_rate: u32) -> Vec<u8> {
-    let seconds = 18.0f32;
-    let sample_count = (seconds * sample_rate as f32) as usize;
+fn synth_retro_theme_wav_bytes(sample_rate: u32) -> Vec<u8> {
+    let bpm = 96.0f32;
+    let seconds_per_beat = 60.0 / bpm;
+    let total_beats = 32.0f32;
+    let seconds = total_beats * seconds_per_beat;
+    let sample_count = (seconds * sample_rate as f32).round() as usize;
     let mut pcm: Vec<i16> = Vec::with_capacity(sample_count * 2);
-    let root = 110.0f32;
-    let chord = [1.0, 1.5, 2.0, 2.5];
+    let mut noise_state = 0x45d9_f3bu32;
+
     for i in 0..sample_count {
         let t = i as f32 / sample_rate as f32;
-        let loop_t = i as f32 / sample_count as f32;
-        // Slow fade in/out keeps the loop calm instead of clicky.
-        let edge_fade = (loop_t.min(1.0 - loop_t) * 24.0).clamp(0.0, 1.0);
-        let breath = 0.55 + 0.45 * ((TAU * t / 7.5).sin() * 0.5 + 0.5);
-        let mut sample = 0.0f32;
-        for (idx, ratio) in chord.iter().enumerate() {
-            let freq = root * *ratio;
-            let phase = TAU * freq * t;
-            let slow_detune = (TAU * (0.031 + idx as f32 * 0.007) * t).sin() * 0.006;
-            sample += (phase * (1.0 + slow_detune)).sin() * 0.10;
-            sample += (phase * 0.5).sin() * 0.045;
-        }
-        // A sparse bell pulse gives a musical reference without dominating the sandbox.
-        let beat = (t / 3.0).fract();
-        if beat < 0.42 {
-            let env = (1.0 - beat / 0.42).powf(3.0);
-            let note_index = ((t / 3.0).floor() as usize) % 5;
-            let note = [220.0, 247.0, 277.0, 330.0, 277.0][note_index];
-            sample += (TAU * note * t).sin() * env * 0.060;
-            sample += (TAU * note * 2.01 * t).sin() * env * 0.025;
-        }
-        sample *= 0.32 * breath * edge_fade;
-        let v = (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-        pcm.push(v);
-        pcm.push(v);
+        let loop_beat = (t / seconds_per_beat).rem_euclid(total_beats);
+        let seam_fade = (loop_beat.min(total_beats - loop_beat) * 8.0).clamp(0.0, 1.0);
+        let mut left = 0.0f32;
+        let mut right = 0.0f32;
+
+        mix_stereo(
+            &mut left,
+            &mut right,
+            note_sequence_voice(&RETRO_LEAD, loop_beat, seconds_per_beat, 523.25, Waveform::Square, 0.375, t),
+            -0.18,
+        );
+        mix_stereo(
+            &mut left,
+            &mut right,
+            retro_arpeggio(loop_beat, seconds_per_beat, t),
+            0.22,
+        );
+        mix_stereo(
+            &mut left,
+            &mut right,
+            retro_bass(loop_beat, seconds_per_beat),
+            0.0,
+        );
+        mix_stereo(
+            &mut left,
+            &mut right,
+            retro_soft_drums(loop_beat, seconds_per_beat, t, &mut noise_state),
+            0.08,
+        );
+
+        // Leave plenty of headroom; the SFX should still read clearly over music.
+        left = (left * seam_fade * 0.72).clamp(-1.0, 1.0);
+        right = (right * seam_fade * 0.72).clamp(-1.0, 1.0);
+        pcm.push((left * i16::MAX as f32) as i16);
+        pcm.push((right * i16::MAX as f32) as i16);
     }
+
     wav_bytes_from_stereo_i16(&pcm, sample_rate)
+}
+
+const RETRO_LEAD: [(f32, f32, i32, f32); 31] = [
+    (0.00, 0.75, 0, 0.090),
+    (1.00, 0.75, 4, 0.082),
+    (2.00, 1.50, 7, 0.086),
+    (4.00, 0.75, 9, 0.084),
+    (5.00, 0.75, 7, 0.080),
+    (6.00, 1.50, 4, 0.082),
+    (8.00, 0.50, 2, 0.078),
+    (8.75, 0.50, 4, 0.078),
+    (9.50, 1.00, 7, 0.084),
+    (11.00, 0.75, 12, 0.088),
+    (12.00, 0.75, 11, 0.082),
+    (13.00, 0.75, 7, 0.080),
+    (14.00, 1.50, 4, 0.080),
+    (16.00, 0.75, 7, 0.086),
+    (17.00, 0.75, 9, 0.086),
+    (18.00, 1.50, 12, 0.090),
+    (20.00, 0.50, 14, 0.082),
+    (20.75, 0.50, 12, 0.082),
+    (21.50, 1.00, 9, 0.084),
+    (23.00, 0.75, 7, 0.080),
+    (24.00, 0.75, 4, 0.082),
+    (25.00, 0.75, 7, 0.084),
+    (26.00, 0.75, 9, 0.086),
+    (27.00, 0.75, 12, 0.088),
+    (28.00, 0.50, 11, 0.082),
+    (28.75, 0.50, 9, 0.082),
+    (29.50, 0.50, 7, 0.080),
+    (30.25, 0.50, 4, 0.078),
+    (31.00, 0.50, 2, 0.074),
+    (31.50, 0.25, 0, 0.070),
+    (31.75, 0.20, -12, 0.060),
+];
+
+const RETRO_CHORDS: [[i32; 4]; 8] = [
+    [0, 4, 7, 12],
+    [-5, -1, 2, 7],
+    [-3, 0, 4, 9],
+    [-7, -3, 0, 5],
+    [0, 4, 7, 11],
+    [2, 5, 9, 14],
+    [-5, -1, 2, 7],
+    [-7, -3, 0, 7],
+];
+
+const RETRO_BASS_ROOTS: [i32; 8] = [0, -5, -3, -7, 0, 2, -5, -7];
+
+fn note_sequence_voice(
+    events: &[(f32, f32, i32, f32)],
+    loop_beat: f32,
+    seconds_per_beat: f32,
+    root_hz: f32,
+    waveform: Waveform,
+    duty: f32,
+    time_seconds: f32,
+) -> f32 {
+    for event in events {
+        let (start, duration_beats, semitone, volume) = *event;
+        if loop_beat >= start && loop_beat < start + duration_beats {
+            let local_time = (loop_beat - start) * seconds_per_beat;
+            let duration = duration_beats * seconds_per_beat;
+            let freq = semitone_frequency(root_hz, semitone);
+            let vibrato = 1.0 + 0.0025 * (TAU * 5.4 * time_seconds).sin();
+            let phase = freq * local_time * vibrato;
+            return chip_wave(phase, waveform, duty) * note_envelope(local_time, duration, 0.006, 0.070) * volume;
+        }
+    }
+    0.0
+}
+
+fn retro_arpeggio(loop_beat: f32, seconds_per_beat: f32, time_seconds: f32) -> f32 {
+    let bar = ((loop_beat / 4.0).floor() as usize).min(RETRO_CHORDS.len() - 1);
+    let step = (loop_beat * 2.0).floor();
+    let step_index = step as usize % 4;
+    let local_time = (loop_beat - step * 0.5) * seconds_per_beat;
+    let freq = semitone_frequency(523.25, RETRO_CHORDS[bar][step_index]);
+    let shimmer = 1.0 + 0.0015 * (TAU * 6.0 * time_seconds).sin();
+    chip_wave(freq * local_time * shimmer, Waveform::Square, 0.25)
+        * note_envelope(local_time, 0.5 * seconds_per_beat, 0.003, 0.050)
+        * 0.036
+}
+
+fn retro_bass(loop_beat: f32, seconds_per_beat: f32) -> f32 {
+    let bar = ((loop_beat / 4.0).floor() as usize).min(RETRO_BASS_ROOTS.len() - 1);
+    let beat_in_bar = loop_beat - (bar as f32 * 4.0);
+    let beat_floor = beat_in_bar.floor();
+    let local_time = (beat_in_bar - beat_floor) * seconds_per_beat;
+    let chord_root = RETRO_BASS_ROOTS[bar];
+    let semitone = if beat_floor as i32 % 2 == 0 { chord_root } else { chord_root + 7 };
+    chip_wave(semitone_frequency(130.81, semitone) * local_time, Waveform::Triangle, 0.5)
+        * note_envelope(local_time, 0.92 * seconds_per_beat, 0.004, 0.090)
+        * 0.075
+}
+
+fn retro_soft_drums(
+    loop_beat: f32,
+    seconds_per_beat: f32,
+    time_seconds: f32,
+    noise_state: &mut u32,
+) -> f32 {
+    *noise_state = (*noise_state).wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+    let noise = (((*noise_state >> 8) as f32 / 0x00ff_ffff as f32) * 2.0) - 1.0;
+    let beat_floor = loop_beat.floor();
+    let beat_frac = loop_beat - beat_floor;
+    let beat_in_bar = beat_floor as i32 % 4;
+    let mut sample = 0.0f32;
+
+    if beat_frac < 0.16 && (beat_in_bar == 0 || beat_in_bar == 2) {
+        let local_time = beat_frac * seconds_per_beat;
+        let env = (1.0 - beat_frac / 0.16).clamp(0.0, 1.0).powf(2.0);
+        let freq = if beat_in_bar == 0 { 78.0 } else { 62.0 };
+        sample += (TAU * (freq - 18.0 * beat_frac) * local_time).sin() * env * 0.040;
+    }
+
+    if beat_frac < 0.13 && beat_in_bar == 2 {
+        let env = (1.0 - beat_frac / 0.13).clamp(0.0, 1.0).powf(2.0);
+        sample += noise * env * 0.030;
+    }
+
+    let eighth_frac = (loop_beat * 2.0).fract();
+    if eighth_frac < 0.07 {
+        let env = (1.0 - eighth_frac / 0.07).clamp(0.0, 1.0).powf(2.0);
+        // Slight periodic lift keeps the hat from becoming a harsh metronome.
+        let sway = 0.65 + 0.35 * (TAU * time_seconds / 8.0).sin().abs();
+        sample += noise * env * 0.010 * sway;
+    }
+
+    sample
+}
+
+fn semitone_frequency(root_hz: f32, semitone: i32) -> f32 {
+    root_hz * 2.0f32.powf(semitone as f32 / 12.0)
+}
+
+fn chip_wave(phase: f32, waveform: Waveform, duty: f32) -> f32 {
+    let p = phase.fract();
+    match waveform {
+        Waveform::Sine => (p * TAU).sin(),
+        Waveform::Square => {
+            if p < duty.clamp(0.05, 0.95) { 1.0 } else { -1.0 }
+        }
+        Waveform::Triangle => 1.0 - 4.0 * (p - 0.5).abs(),
+        Waveform::Saw => 2.0 * p - 1.0,
+    }
+}
+
+fn note_envelope(local_time: f32, duration: f32, attack: f32, release: f32) -> f32 {
+    if duration <= 0.0 || local_time < 0.0 || local_time > duration {
+        return 0.0;
+    }
+    if attack > 0.0 && local_time < attack {
+        return (local_time / attack).clamp(0.0, 1.0);
+    }
+    let release_start = (duration - release).max(attack);
+    if release > 0.0 && local_time > release_start {
+        return ((duration - local_time) / release).clamp(0.0, 1.0);
+    }
+    1.0
+}
+
+fn mix_stereo(left: &mut f32, right: &mut f32, sample: f32, pan: f32) {
+    let pan = pan.clamp(-1.0, 1.0);
+    *left += sample * (1.0 - pan * 0.35);
+    *right += sample * (1.0 + pan * 0.35);
 }
 
 fn wav_bytes_from_stereo_i16(pcm: &[i16], sample_rate: u32) -> Vec<u8> {

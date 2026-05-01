@@ -6,6 +6,10 @@
 //! state-driven arrangements rather than imported audio files.
 
 /// Small symbolic melodic/rhythmic seed.
+///
+/// The Bevy sandbox currently renders a concrete SNES-style loop from code in
+/// `ambition_sandbox::audio`. Longer-term, material like this should move toward
+/// these symbolic motifs plus room/state arrangement rules.
 #[derive(Clone, Debug)]
 pub struct Motif {
     pub name: &'static str,

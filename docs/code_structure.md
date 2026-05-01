@@ -12,7 +12,7 @@ file.
 - `config.rs` — window size, z layers, grid spacing, and world-to-Bevy coordinate conversion.
 - `input.rs` — generic action names, keyboard presets, gamepad semantic mapping, and `ControlFrame`.
 - `dummies.rs` — compatibility re-export for engine-owned dummy/enemy simulation.
-- `audio.rs` — procedural sound specs, WAV generation, `SoundBank`, and playback helper.
+- `audio.rs` — procedural sound specs, generated retro music, WAV generation, `SoundBank`, and playback helpers.
 - `fx.rs` — particles, impact rings, slash previews, and reset effects.
 - `rendering.rs` — render-only Bevy components, grid/block spawning, and visual state sync.
 - `main.rs` — Bevy app wiring, high-level sandbox update flow, HUD text, and attack orchestration.

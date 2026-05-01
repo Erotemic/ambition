@@ -18,6 +18,7 @@ use crate::rendering::RoomVisual;
 const SANDBOX_GRAVITY: f32 = 1250.0;
 const STATIC_COLLIDER_Z: f32 = WORLD_Z_BLOCK - 1.0;
 const DEBRIS_Z: f32 = WORLD_Z_FX - 2.0;
+const PHYSICS_DESPAWN_GRACE: f32 = 0.25;
 
 /// Runtime switch/tuning for secondary physics. It intentionally does not
 /// affect the custom player controller.
@@ -45,6 +46,20 @@ impl Default for PhysicsSandboxSettings {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PhysicsControlledPlayerPrototype;
 
+/// Marker for room-owned Avian entities so room transitions can retire them
+/// through the physics-safe path instead of despawning active bodies immediately.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PhysicsRoomEntity;
+
+/// A body that has been disabled and hidden, but not yet despawned. Giving
+/// Avian a short grace period to observe `RigidBodyDisabled`/`ColliderDisabled`
+/// before entity removal avoids noisy wake attempts against already-removed
+/// bodies during debris cleanup and room transitions.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PendingPhysicsDespawn {
+    pub timer: f32,
+}
+
 /// Ephemeral Avian dynamic body spawned from breakables, defeated enemies, and
 /// impact effects.
 #[derive(Component, Clone, Copy, Debug)]
@@ -68,7 +83,7 @@ impl Plugin for AmbitionPhysicsPlugin {
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
             .add_plugins(PhysicsPlugins::default())
-            .add_systems(Update, update_physics_debris_lifetimes);
+            .add_systems(Update, (update_physics_debris_lifetimes, complete_pending_physics_despawns).chain());
     }
 }
 
@@ -76,20 +91,46 @@ pub fn update_physics_debris_lifetimes(
     mut commands: Commands,
     time: Res<Time>,
     settings: Res<PhysicsSandboxSettings>,
-    mut query: Query<(Entity, &mut PhysicsDebris)>,
+    mut query: Query<(Entity, &mut PhysicsDebris, Option<&PendingPhysicsDespawn>)>,
 ) {
     let dt = time.delta_secs();
-    for (entity, mut debris) in &mut query {
+    for (entity, mut debris, pending) in &mut query {
+        if pending.is_some() {
+            continue;
+        }
         if !settings.debris_enabled {
-            commands.entity(entity).despawn();
+            retire_physics_entity(&mut commands, entity);
             continue;
         }
         debris.lifetime = debris.lifetime.min(settings.default_lifetime.max(0.1));
         debris.lifetime -= dt;
         if debris.lifetime <= 0.0 {
+            retire_physics_entity(&mut commands, entity);
+        }
+    }
+}
+
+pub fn complete_pending_physics_despawns(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut PendingPhysicsDespawn)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut pending) in &mut query {
+        pending.timer -= dt;
+        if pending.timer <= 0.0 {
             commands.entity(entity).despawn();
         }
     }
+}
+
+pub fn retire_physics_entity(commands: &mut Commands, entity: Entity) {
+    commands.entity(entity).insert((
+        RigidBodyDisabled,
+        ColliderDisabled,
+        PendingPhysicsDespawn { timer: PHYSICS_DESPAWN_GRACE },
+        Visibility::Hidden,
+    ));
 }
 
 /// Add an Avian static collider mirroring a room block so dynamic debris can
@@ -113,6 +154,7 @@ pub fn spawn_static_collider_for_block(
         Transform::from_translation(world_to_bevy(world, block.aabb.center(), STATIC_COLLIDER_Z)),
         Name::new(format!("Physics collider: {}", block.name)),
         RoomVisual,
+        PhysicsRoomEntity,
     ));
 }
 
@@ -164,6 +206,7 @@ fn spawn_debris_piece(
         PhysicsDebris { lifetime },
         Name::new("Physics debris"),
         RoomVisual,
+        PhysicsRoomEntity,
     ));
 }
 

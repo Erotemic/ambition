@@ -21,7 +21,6 @@ mod rooms;
 mod windowing;
 
 use ambition_engine as ae;
-use ambition_engine::AabbExt;
 use audio::{play_ambience, play_sound, SoundBank, SoundCue};
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
@@ -365,7 +364,7 @@ fn sandbox_update(
     mut runtime: ResMut<SandboxRuntime>,
     entities: Res<SceneEntities>,
     mut player_input: Query<(&mut ActionState<SandboxAction>, &mut InputMap<SandboxAction>), With<PlayerVisual>>,
-    room_visuals: Query<Entity, With<RoomVisual>>,
+    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) {
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
@@ -604,7 +603,7 @@ fn load_room(
     runtime: &mut SandboxRuntime,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
-    room_visuals: &Query<Entity, With<RoomVisual>>,
+    room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     transition: rooms::RoomTransition,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -615,8 +614,12 @@ fn load_room(
     let fly_enabled = runtime.player.fly_enabled;
     let edge_exit = matches!(transition.zone.activation, rooms::LoadingZoneActivation::EdgeExit);
 
-    for entity in room_visuals.iter() {
-        commands.entity(entity).despawn();
+    for (entity, physics_entity) in room_visuals.iter() {
+        if physics_entity.is_some() {
+            physics::retire_physics_entity(commands, entity);
+        } else {
+            commands.entity(entity).despawn();
+        }
     }
     let spec = room_set.set_active(transition.target_room).clone();
     world.0 = spec.world.clone();

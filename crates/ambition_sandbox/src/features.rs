@@ -674,10 +674,19 @@ impl EnemyRuntime {
         self.attack_aabb()
     }
 
-    fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
+    /// Always-on body contact damage volume for normal enemies.
+    ///
+    /// Sandbags intentionally opt out: they are hit-confirm / tuning targets,
+    /// not hostile actors. Their body AABB remains their player-attack hurtbox.
+    pub fn body_damage_aabb(&self) -> Option<ae::Aabb> {
         if self.archetype.is_sandbag() {
-            return None;
+            None
+        } else {
+            Some(self.aabb())
         }
+    }
+
+    fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
         if self.attack_timer > 0.0 && self.attack_aabb().strict_intersects(player_body) {
             return Some(PlayerDamageEvent {
                 mode: PlayerDamageMode::Knockback,
@@ -689,16 +698,18 @@ impl EnemyRuntime {
                 amount: 1,
             });
         }
-        if self.aabb().strict_intersects(player_body) {
-            return Some(PlayerDamageEvent {
-                mode: PlayerDamageMode::Knockback,
-                source: PlayerDamageSource::EnemyBody,
-                source_pos: self.pos,
-                impact_pos: midpoint(player_body.center(), self.pos),
-                knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
-                strength: 0.70,
-                amount: 1,
-            });
+        if let Some(body_damage) = self.body_damage_aabb() {
+            if body_damage.strict_intersects(player_body) {
+                return Some(PlayerDamageEvent {
+                    mode: PlayerDamageMode::Knockback,
+                    source: PlayerDamageSource::EnemyBody,
+                    source_pos: self.pos,
+                    impact_pos: midpoint(player_body.center(), body_damage.center()),
+                    knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
+                    strength: 0.70,
+                    amount: 1,
+                });
+            }
         }
         None
     }
@@ -775,6 +786,10 @@ impl BossRuntime {
         self.pattern_volumes()
     }
 
+    pub fn body_damage_aabb(&self) -> ae::Aabb {
+        self.aabb()
+    }
+
     fn pattern_volumes(&self) -> Vec<ae::Aabb> {
         let phase = ((self.pattern_timer / BOSS_ATTACK_COOLDOWN) as i32).rem_euclid(3);
         match phase {
@@ -804,12 +819,13 @@ impl BossRuntime {
                 });
             }
         }
-        if self.aabb().strict_intersects(player_body) {
+        let body_damage = self.body_damage_aabb();
+        if body_damage.strict_intersects(player_body) {
             return Some(PlayerDamageEvent {
                 mode: PlayerDamageMode::Knockback,
                 source: PlayerDamageSource::BossBody,
                 source_pos: self.pos,
-                impact_pos: midpoint(player_body.center(), self.pos),
+                impact_pos: midpoint(player_body.center(), body_damage.center()),
                 knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
                 strength: 1.0,
                 amount: 1,

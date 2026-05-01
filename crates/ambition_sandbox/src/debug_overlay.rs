@@ -261,7 +261,13 @@ fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &S
         if !enemy.alive {
             continue;
         }
-        draw_aabb(gizmos, world, enemy.aabb(), red());
+        if let Some(body_damage) = enemy.body_damage_aabb() {
+            // Always-on hostile body contact volume. This is separate from
+            // the player-attack hurtbox used to damage the enemy.
+            draw_aabb(gizmos, world, body_damage, red());
+        } else {
+            draw_aabb(gizmos, world, enemy.aabb(), orange());
+        }
         if enemy.attack_windup_timer > 0.0 {
             draw_aabb(gizmos, world, enemy.attack_telegraph_aabb(), orange());
         }
@@ -274,7 +280,7 @@ fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &S
         if !boss.alive {
             continue;
         }
-        draw_aabb(gizmos, world, boss.aabb(), magenta());
+        draw_aabb(gizmos, world, boss.body_damage_aabb(), magenta());
         for volume in boss.attack_telegraph_volumes() {
             draw_aabb(gizmos, world, volume, orange());
         }

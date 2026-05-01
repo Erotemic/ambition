@@ -12,8 +12,8 @@ rather than hard-coded to one keyboard layout.
 |---|---|---|---|---|---|---|
 | `ArrowsZxc` | Arrow keys | `Z` | `X` | `C` | Down + `X` | Secondary `A`, quick `E`, modifier `S`, utility `D`, map `Tab`, inventory `I` |
 | `WasdJkl` | `WASD` | `Space` | `J` | `K` | Down + `J` | Secondary `L`, quick `I`, modifier `Left Shift`, utility `U`, map `Tab`, inventory `V` |
-| `ArrowsQwer` | Arrow keys | `Q` | `E` | `W` | `R` or Down + `E` | Map `Tab`, inventory `I` |
-| `WasdUipo` | `WASD` | `U` | `P` | `I` | `O` or Down + `P` | Map `Tab`, inventory `V` |
+| `ArrowsQwer` | Arrow keys | `Q` | `E` | `W` | Down + `E` | Blink `R`, map `Tab`, inventory `I` |
+| `WasdUipo` | `WASD` | `U` | `P` | `I` | Down + `P` | Blink `O`, map `Tab`, inventory `V` |
 
 The `ArrowsZxc` preset is the default because it gives a compact, familiar
 keyboard action-platformer baseline without baking any specific game's verbs
@@ -27,10 +27,10 @@ into Ambition's terminology.
 | A / Cross | Jump | Jump / confirm |
 | X / Square | Primary attack | Slash; Down+Attack is pogo |
 | RT / R2 | Dash | Dash |
-| B / Circle | Secondary action | Placeholder |
+| B / Circle | Secondary action | Blink / special |
 | RB / R1 | Quick action | Placeholder |
 | LT / L2 | Modifier action | Placeholder |
-| Y / Triangle | Utility action | Placeholder |
+| Y / Triangle | Utility action | Fly toggle / utility |
 | LB / L1 | Map | Placeholder |
 | Back / Touchpad | Inventory/select | Inventory later; sandbox restart for now |
 | Start / Options | Pause | Pause/freeze |
@@ -48,10 +48,12 @@ into Ambition's terminology.
 
 ## Implementation note
 
-The current Bevy implementation lives in `crates/ambition_sandbox/src/main.rs` as
-`KeyboardPreset`, `MovementKeys`, `ActionKeys`, and `ControlFrame`. The engine
-still consumes a compact `InputState`, so key remapping can evolve without
-coupling movement physics to physical devices.
+The current Bevy implementation lives primarily in
+`crates/ambition_sandbox/src/input.rs`. Physical keyboard and gamepad bindings
+are collected by `leafwing-input-manager` into `SandboxAction` / `ActionState`,
+then converted into `ControlFrame`. The engine still consumes a compact
+`InputState`, so key remapping can evolve without coupling movement physics to
+physical devices. See `docs/leafwing_input_manager_port.md` for the port notes.
 
 ## Current action semantics
 
@@ -63,5 +65,5 @@ attach mechanics without changing the physical layout model.
 The current pogo rule is:
 
 - Most action-platformer layouts: hold Down and press Attack.
-- Chirality test layouts: use the dedicated fourth action key, or hold Down and
-  press Attack.
+- Current chirality test layouts: hold Down and press Attack. Their fourth action
+  keys are currently bound to Blink.

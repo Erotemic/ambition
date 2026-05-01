@@ -1,11 +1,40 @@
 //! Keyboard/gamepad semantic input model for the sandbox.
 //!
-//! `KeyboardPreset` is deliberately data-like: each preset maps physical keys to
-//! generic Ambition actions. Systems should consume `ControlFrame`, not hard-code
-//! key names or layout assumptions.
+//! Physical inputs are bound to `SandboxAction` with Leafwing Input Manager.
+//! The engine still consumes a compact `ControlFrame`, which keeps movement
+//! physics independent from keyboards, gamepads, UI rebinding, or replay input.
 
 use ambition_engine as ae;
 use bevy::prelude::*;
+use leafwing_input_manager::prelude::*;
+
+/// Logical player/sandbox inputs understood by the Bevy adapter layer.
+///
+/// `Move` is dual-axis so analog sticks and virtual D-pads can feed a single
+/// movement vector. The cardinal `Move*` button actions intentionally duplicate
+/// the directional bindings so systems can still detect edge-triggered gestures
+/// such as double-tap-down fast fall and double-tap-up door activation.
+#[derive(Actionlike, Clone, Copy, Debug, Hash, PartialEq, Eq, Reflect)]
+pub enum SandboxAction {
+    #[actionlike(DualAxis)]
+    Move,
+    MoveLeft,
+    MoveRight,
+    MoveUp,
+    MoveDown,
+    Jump,
+    Attack,
+    Dash,
+    Blink,
+    QuickAction,
+    Modifier,
+    Utility,
+    Map,
+    Inventory,
+    Pogo,
+    Reset,
+    Start,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PresetId {
@@ -172,6 +201,55 @@ impl KeyboardPreset {
         }
     }
 
+    /// Build a fresh Leafwing `InputMap` for this preset.
+    ///
+    /// Preset cycling swaps this component on the player entity. Keeping the
+    /// preset as data means later TOML/RON keybinding config can deserialize
+    /// into the same shape instead of rewriting gameplay systems.
+    pub fn input_map(&self) -> InputMap<SandboxAction> {
+        let keyboard_move = match self.id {
+            PresetId::ArrowsZxc | PresetId::ArrowsQwer => VirtualDPad::arrow_keys(),
+            PresetId::WasdJkl | PresetId::WasdUipo => VirtualDPad::wasd(),
+        };
+
+        let mut map = InputMap::default()
+            .with_dual_axis(SandboxAction::Move, keyboard_move)
+            .with_dual_axis(SandboxAction::Move, VirtualDPad::dpad())
+            .with_dual_axis(SandboxAction::Move, GamepadStick::LEFT)
+            .with(SandboxAction::MoveLeft, self.movement.left)
+            .with(SandboxAction::MoveRight, self.movement.right)
+            .with(SandboxAction::MoveUp, self.movement.up)
+            .with(SandboxAction::MoveDown, self.movement.down)
+            .with(SandboxAction::Jump, self.actions.jump)
+            .with(SandboxAction::Jump, GamepadButton::South)
+            .with(SandboxAction::Attack, self.actions.attack)
+            .with(SandboxAction::Attack, GamepadButton::West)
+            .with(SandboxAction::Dash, self.actions.dash)
+            .with(SandboxAction::Dash, GamepadButton::RightTrigger2)
+            .with(SandboxAction::Reset, self.actions.select_reset)
+            .with(SandboxAction::Reset, KeyCode::Delete)
+            .with(SandboxAction::Reset, KeyCode::Backspace)
+            .with(SandboxAction::Reset, GamepadButton::Select)
+            .with(SandboxAction::Start, self.actions.pause)
+            .with(SandboxAction::Start, GamepadButton::Start);
+
+        insert_optional(&mut map, SandboxAction::Blink, self.actions.secondary);
+        insert_optional(&mut map, SandboxAction::QuickAction, self.actions.quick_action);
+        insert_optional(&mut map, SandboxAction::Modifier, self.actions.modifier);
+        insert_optional(&mut map, SandboxAction::Utility, self.actions.utility);
+        insert_optional(&mut map, SandboxAction::Map, self.actions.map);
+        insert_optional(&mut map, SandboxAction::Inventory, self.actions.inventory);
+        insert_optional(&mut map, SandboxAction::Pogo, self.actions.dedicated_pogo);
+
+        map.insert(SandboxAction::Blink, GamepadButton::East);
+        map.insert(SandboxAction::QuickAction, GamepadButton::RightTrigger);
+        map.insert(SandboxAction::Modifier, GamepadButton::LeftTrigger2);
+        map.insert(SandboxAction::Utility, GamepadButton::North);
+        map.insert(SandboxAction::Map, GamepadButton::LeftTrigger);
+        map.insert(SandboxAction::Inventory, GamepadButton::Select);
+        map
+    }
+
     pub fn action_label(&self) -> String {
         let mut parts = vec![
             format!("Jump {}", key_name(self.actions.jump)),
@@ -209,11 +287,11 @@ pub struct ControlFrame {
     pub jump_held: bool,
     pub jump_released: bool,
     pub dash_pressed: bool,
-    /// Movement-up key was newly pressed this frame. The sandbox uses this
+    /// Movement-up input was newly pressed this frame. The sandbox uses this
     /// to require a double-tap-up door activation while flying, so upward
     /// flight does not accidentally enter doors.
     pub up_pressed: bool,
-    /// Movement-down key was newly pressed this frame. The sandbox uses this
+    /// Movement-down input was newly pressed this frame. The sandbox uses this
     /// to recognize double-tap-down for fast-fall without making down+attack
     /// automatically fast-fall.
     pub down_pressed: bool,
@@ -233,59 +311,31 @@ pub struct ControlFrame {
 }
 
 impl ControlFrame {
-    pub fn read(keys: &ButtonInput<KeyCode>, preset: KeyboardPreset) -> Self {
-        let mut axis_x = 0.0;
-        let mut axis_y = 0.0;
-        if keys.pressed(preset.movement.left) {
-            axis_x -= 1.0;
-        }
-        if keys.pressed(preset.movement.right) {
-            axis_x += 1.0;
-        }
-        if keys.pressed(preset.movement.up) {
-            axis_y -= 1.0;
-        }
-        if keys.pressed(preset.movement.down) {
-            axis_y += 1.0;
-        }
-        let up_pressed = keys.just_pressed(preset.movement.up);
-        let down_pressed = keys.just_pressed(preset.movement.down);
-        let interact_pressed = up_pressed;
-        let blink_key = preset.actions.secondary;
-        let blink_pressed = blink_key.map(|key| keys.just_pressed(key)).unwrap_or(false);
-        let blink_held = blink_key.map(|key| keys.pressed(key)).unwrap_or(false);
-        let blink_released = blink_key.map(|key| keys.just_released(key)).unwrap_or(false);
-        let fly_toggle_pressed = preset
-            .actions
-            .utility
-            .map(|key| keys.just_pressed(key))
-            .unwrap_or(false);
-        let reset_pressed = keys.just_pressed(preset.actions.select_reset)
-            || keys.just_pressed(KeyCode::Delete)
-            || keys.just_pressed(KeyCode::Backspace);
+    pub fn read(actions: &ActionState<SandboxAction>) -> Self {
+        let axis = actions.clamped_axis_pair(&SandboxAction::Move);
+        let up_pressed = actions.just_pressed(&SandboxAction::MoveUp);
+        let down_pressed = actions.just_pressed(&SandboxAction::MoveDown);
         Self {
-            axis_x,
-            axis_y,
-            jump_pressed: keys.just_pressed(preset.actions.jump),
-            jump_held: keys.pressed(preset.actions.jump),
-            jump_released: keys.just_released(preset.actions.jump),
-            dash_pressed: keys.just_pressed(preset.actions.dash),
+            axis_x: axis.x,
+            // Ambition's simulation uses screen-space world coordinates: +Y is
+            // downward. Leafwing's virtual D-pads use the usual +Y-up convention.
+            axis_y: -axis.y,
+            jump_pressed: actions.just_pressed(&SandboxAction::Jump),
+            jump_held: actions.pressed(&SandboxAction::Jump),
+            jump_released: actions.just_released(&SandboxAction::Jump),
+            dash_pressed: actions.just_pressed(&SandboxAction::Dash),
             up_pressed,
             down_pressed,
             fast_fall_pressed: false,
-            blink_pressed,
-            blink_held,
-            blink_released,
-            attack_pressed: keys.just_pressed(preset.actions.attack),
-            pogo_pressed: preset
-                .actions
-                .dedicated_pogo
-                .map(|key| keys.just_pressed(key))
-                .unwrap_or(false),
-            fly_toggle_pressed,
-            interact_pressed,
-            reset_pressed,
-            start_pressed: keys.just_pressed(preset.actions.pause),
+            blink_pressed: actions.just_pressed(&SandboxAction::Blink),
+            blink_held: actions.pressed(&SandboxAction::Blink),
+            blink_released: actions.just_released(&SandboxAction::Blink),
+            attack_pressed: actions.just_pressed(&SandboxAction::Attack),
+            pogo_pressed: actions.just_pressed(&SandboxAction::Pogo),
+            fly_toggle_pressed: actions.just_pressed(&SandboxAction::Utility),
+            interact_pressed: up_pressed,
+            reset_pressed: actions.just_pressed(&SandboxAction::Reset),
+            start_pressed: actions.just_pressed(&SandboxAction::Start),
         }
     }
 
@@ -311,7 +361,7 @@ impl ControlFrame {
 }
 
 pub const GAMEPAD_MAP: &[(&str, &str)] = &[
-    ("L-stick / D-pad", "movement"),
+    ("L-stick / D-pad", "movement / aim"),
     ("A / Cross", "jump / confirm"),
     ("X / Square", "primary attack"),
     ("RT / R2", "dash"),
@@ -323,6 +373,16 @@ pub const GAMEPAD_MAP: &[(&str, &str)] = &[
     ("Back / Touchpad", "inventory or sandbox reset"),
     ("Start / Options", "pause / menu"),
 ];
+
+fn insert_optional(
+    map: &mut InputMap<SandboxAction>,
+    action: SandboxAction,
+    key: Option<KeyCode>,
+) {
+    if let Some(key) = key {
+        map.insert(action, key);
+    }
+}
 
 fn key_name(key: KeyCode) -> &'static str {
     match key {

@@ -10,9 +10,11 @@ use bevy::prelude::*;
 
 use crate::config::world_to_bevy;
 use crate::dummies::DummyKind;
-use crate::input::ControlFrame;
+use crate::input::{ControlFrame, SandboxAction};
 use crate::platforms;
 use crate::{GameWorld, SandboxRuntime};
+use crate::rendering::{PlayerVisual, SceneEntities};
+use leafwing_input_manager::prelude::ActionState;
 
 fn cyan() -> Color { Color::srgba(0.30, 0.92, 1.00, 0.92) }
 fn blue() -> Color { Color::srgba(0.30, 0.55, 1.00, 0.90) }
@@ -26,19 +28,21 @@ fn gray() -> Color { Color::srgba(0.62, 0.66, 0.75, 0.46) }
 
 pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
-    keys: Res<ButtonInput<KeyCode>>,
     world: Res<GameWorld>,
     runtime: Res<SandboxRuntime>,
+    entities: Res<SceneEntities>,
+    action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
 ) {
     if !runtime.debug_enabled() {
         return;
     }
 
     let world = &world.0;
+    let actions = action_query.get(entities.player).ok();
     draw_room_bounds(&mut gizmos, world);
     draw_rebound_vectors(&mut gizmos, world);
     draw_moving_platform_debug(&mut gizmos, world, &runtime);
-    draw_player_debug(&mut gizmos, world, &runtime, &keys);
+    draw_player_debug(&mut gizmos, world, &runtime, actions);
     draw_dummy_debug(&mut gizmos, world, &runtime);
 }
 
@@ -51,7 +55,7 @@ fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     runtime: &SandboxRuntime,
-    keys: &ButtonInput<KeyCode>,
+    actions: Option<&ActionState<SandboxAction>>,
 ) {
     let player = &runtime.player;
     let body = player.aabb();
@@ -83,10 +87,14 @@ fn draw_player_debug(
     // Show the currently implied attack box while the attack key is held. This
     // brings back the old raw collision-box tuning view without requiring an
     // actual attack event every frame.
-    let preset = runtime.preset();
-    let controls = ControlFrame::read(keys, preset);
-    let dedicated_pogo_held = preset.actions.dedicated_pogo.map(|key| keys.pressed(key)).unwrap_or(false);
-    if keys.pressed(preset.actions.attack) || dedicated_pogo_held {
+    let controls = actions.map(ControlFrame::read).unwrap_or_default();
+    let attack_held = actions
+        .map(|actions| actions.pressed(&SandboxAction::Attack))
+        .unwrap_or(false);
+    let dedicated_pogo_held = actions
+        .map(|actions| actions.pressed(&SandboxAction::Pogo))
+        .unwrap_or(false);
+    if attack_held || dedicated_pogo_held {
         let hitbox = ae::slash_hitbox(player, controls.axis_y, dedicated_pogo_held || controls.pogo_pressed);
         draw_aabb(gizmos, world, hitbox, yellow());
     }

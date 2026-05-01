@@ -35,7 +35,8 @@ use fx::{
     spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
     spawn_slash_preview, ParticleKind,
 };
-use input::{ControlFrame, KeyboardPreset, GAMEPAD_MAP};
+use input::{ControlFrame, KeyboardPreset, SandboxAction, GAMEPAD_MAP};
+use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 use rendering::{camera_follow, dummy_color, spawn_room_visuals, sync_visuals, DummyVisual, HudText, PlayerVisual, RoomVisual, SceneEntities};
 
 fn main() {
@@ -61,6 +62,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -204,7 +206,9 @@ fn setup(
     // room at 1600x900, the default orthographic projection shows the whole
     // room without requiring a Bevy-version-sensitive ScalingMode import.
     commands.spawn(Camera2d);
-    commands.insert_resource(SandboxRuntime::new(&world.0));
+    let runtime = SandboxRuntime::new(&world.0);
+    let player_input_map = runtime.preset().input_map();
+    commands.insert_resource(runtime);
     let sound_bank = SoundBank::new(&mut audio_sources);
     play_ambience(&mut commands, &sound_bank);
     commands.insert_resource(sound_bank);
@@ -217,6 +221,8 @@ fn setup(
             Sprite::from_color(Color::srgba(0.80, 0.95, 1.0, 1.0), BVec2::new(28.0, 46.0)),
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
+            ActionState::<SandboxAction>::default(),
+            player_input_map,
         ))
         .id();
 
@@ -258,12 +264,20 @@ fn sandbox_update(
     mut room_set: ResMut<rooms::RoomSet>,
     bank: Res<SoundBank>,
     mut runtime: ResMut<SandboxRuntime>,
+    entities: Res<SceneEntities>,
+    mut player_input: Query<(&mut ActionState<SandboxAction>, &mut InputMap<SandboxAction>), With<PlayerVisual>>,
     room_visuals: Query<Entity, With<RoomVisual>>,
 ) {
-    handle_debug_hotkeys(&keys, &mut runtime);
+    let preset_changed = handle_debug_hotkeys(&keys, &mut runtime);
 
-    let preset = runtime.preset();
-    let mut controls = ControlFrame::read(&keys, preset);
+    let mut controls = ControlFrame::default();
+    if let Ok((mut action_state, mut input_map)) = player_input.get_mut(entities.player) {
+        if preset_changed {
+            *input_map = runtime.preset().input_map();
+            action_state.reset_all();
+        }
+        controls = ControlFrame::read(&action_state);
+    }
     if controls.start_pressed {
         runtime.freeze = !runtime.freeze;
     }
@@ -356,21 +370,25 @@ fn sandbox_update(
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
 }
 
-fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntime) {
+fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntime) -> bool {
+    let mut preset_changed = false;
     if keys.just_pressed(KeyCode::F1) {
         runtime.debug = !runtime.debug;
     }
     if keys.just_pressed(KeyCode::F9) {
         runtime.preset_index = (runtime.preset_index + runtime.presets.len() - 1) % runtime.presets.len();
         runtime.preset_flash = 1.2;
+        preset_changed = true;
     }
     if keys.just_pressed(KeyCode::F10) {
         runtime.preset_index = (runtime.preset_index + 1) % runtime.presets.len();
         runtime.preset_flash = 1.2;
+        preset_changed = true;
     }
     if keys.just_pressed(KeyCode::F2) {
         runtime.slowmo = !runtime.slowmo;
     }
+    preset_changed
 }
 
 fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {

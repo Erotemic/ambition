@@ -15,7 +15,7 @@ The first design law is: **the game should be fun as raw collision boxes**.
 - A generated room: solids, one-way shelves, hazard channels, pogo orbs, and rebound/impulse pads.
 - Endgame-style movement verbs: run, jump, double jump, variable jump height, wall jump, dash, pogo, slash/recoil, rebound pads.
 - Debug overlay: velocity, grounded/walled state, dash and air-jump availability, coyote/jump-buffer timers, combo algebra trace.
-- Four keyboard presets with `F9`/`F10` preset cycling.
+- Four keyboard presets with `F9`/`F10` preset cycling, now backed by Leafwing Input Manager `InputMap` / `ActionState` components.
 - Two easy-to-reach bashable dummies near spawn: one infinite-health sandbag and one finite-health respawning drop dummy.
 - Feedback: generated sound effects, hitstop, dummy hit-stun, hit flash, impact rings, and a small procedural particle system.
 - Full sandbox restart: reset restores player, enemies, particles, hitstop, slash previews, and transient effects.
@@ -25,7 +25,7 @@ The first design law is: **the game should be fun as raw collision boxes**.
 
 Install Rust from <https://rustup.rs/>.
 
-This project depends on Bevy for the graphics/input/audio shell. The movement/collision core remains in `ambition_engine`.
+This project depends on Bevy for the graphics/audio shell and `leafwing-input-manager` for semantic keyboard/gamepad input. The movement/collision core remains in `ambition_engine`.
 
 ## Run
 
@@ -113,7 +113,7 @@ The sandbox is intentionally an endgame lab, not a first level. The question it 
 ## Next good changes
 
 1. Add user-editable keybinding config, likely RON/TOML.
-2. Add gamepad input now that Bevy is the backend.
+2. Add explicit gamepad assignment / rebinding UI on top of the Leafwing input map.
 3. Add sloped collision / continuous rebound normals.
 4. Add user-visible tuning sliders/hotkeys for gravity, run speed, dash speed, and jump speed.
 5. Add a grappling/tether primitive.

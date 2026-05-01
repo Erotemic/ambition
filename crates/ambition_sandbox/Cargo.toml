@@ -9,3 +9,4 @@ description = "Bevy-powered playable sandbox for Ambition Engine."
 [dependencies]
 ambition_engine = { path = "../ambition_engine" }
 bevy = { version = "0.18.1", features = ["wav"] }
+leafwing-input-manager = "0.20"

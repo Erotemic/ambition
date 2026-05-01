@@ -130,3 +130,5 @@ See [two_clock_simulation.md](two_clock_simulation.md) for the current split
 between real-time control and scaled simulation time. This exists so precision
 blink can keep responsive aiming while gravity, enemies, platforms, and effects
 all slow down together.
+
+- `docs/transition_spawn_validation.md`: explains the current transition-arrival repair layer used while rooms are still sandbox-authored.

@@ -572,7 +572,7 @@ pub fn update_player_simulation_with_tuning(
 
     age_player(player, dt);
     update_simulation_timers(player, dt, tuning);
-    handle_jump_buffer(player, input, tuning, &mut events);
+    handle_jump_buffer(player, tuning, &mut events);
     integrate_velocity(world, player, input, dt, tuning, &mut events);
 
     if touching_hazard(world, player) || player.pos.y > world.size.y + 200.0 {
@@ -789,7 +789,6 @@ fn handle_attacks(
 
 fn handle_jump_buffer(
     player: &mut Player,
-    input: InputState,
     tuning: MovementTuning,
     events: &mut FrameEvents,
 ) {

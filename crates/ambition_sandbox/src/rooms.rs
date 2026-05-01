@@ -163,6 +163,28 @@ impl RoomSet {
                 }
             }
         }
+        for (room_index, room) in self.rooms.iter().enumerate() {
+            for zone in &room.loading_zones {
+                if let Some(target) = self.rooms.get(zone.target_room) {
+                    let repaired = validated_spawn(
+                        &target.world,
+                        zone.target_spawn,
+                        ae::Vec2::new(PLAYER_HALF_W * 2.0, PLAYER_HALF_H * 2.0),
+                    );
+                    let delta = repaired - zone.target_spawn;
+                    if delta.length() > 0.5 {
+                        warnings.push(format!(
+                            "room {room_index} '{}' loading zone '{}' repairs arrival by ({:+.1}, {:+.1}) into '{}'",
+                            room.world.name,
+                            zone.name,
+                            delta.x,
+                            delta.y,
+                            target.world.name,
+                        ));
+                    }
+                }
+            }
+        }
         warnings
     }
 }
@@ -253,6 +275,99 @@ fn low_side_opening(side: WallSide, h: f32) -> WallOpening {
     }
 }
 
+/// Horizontal inset used when arriving from an edge-exit.
+///
+/// Keeping this in one place makes paired room exits easier to reason about:
+/// if room A exits through its right edge, room B should spawn the player just
+/// inside its left edge opening, and vice versa.
+const EDGE_ARRIVAL_INSET: f32 = 92.0;
+
+// Current player body dimensions used by room-arrival repair. Keep this close
+// to the room graph until room loading moves into the pure engine.
+const PLAYER_HALF_W: f32 = 14.0;
+const PLAYER_HALF_H: f32 = 23.0;
+const SPAWN_MARGIN: f32 = 3.0;
+
+/// Spawn position just inside a side-wall opening.
+fn edge_arrival(side: WallSide, w: f32, h: f32) -> ae::Vec2 {
+    let x = match side {
+        WallSide::Left => EDGE_ARRIVAL_INSET,
+        WallSide::Right => w - EDGE_ARRIVAL_INSET,
+    };
+    ae::Vec2::new(x, h - 95.0)
+}
+
+/// Spawn position associated with an interior door trigger.
+///
+/// The player appears at the lower-middle of the door volume. Door zones require
+/// pressing up, so arriving inside a door zone is safe and makes the connection
+/// between paired doors visually obvious.
+fn door_arrival(min: ae::Vec2, size: ae::Vec2) -> ae::Vec2 {
+    // Put the player's feet just above the bottom of the door volume. The
+    // final room load still validates this against the destination world.
+    ae::Vec2::new(min.x + size.x * 0.5, min.y + size.y - PLAYER_HALF_H - SPAWN_MARGIN)
+}
+
+/// Clamp and repair a proposed player spawn so transitions never place the
+/// player outside the room or embedded in solids.
+///
+/// This makes room authoring much more forgiving: a loading zone can move, and
+/// the arrival point will be repaired to the nearest usable player center.
+pub fn validated_spawn(world: &ae::World, desired: ae::Vec2, player_size: ae::Vec2) -> ae::Vec2 {
+    let half = player_size * 0.5;
+    let base = clamp_spawn_to_room(world, desired, half);
+    if player_body_clear(world, base, half) {
+        return base;
+    }
+
+    // Prefer lifting upward because the most common mistake is embedding the
+    // player's feet in a floor or threshold. Then widen the search sideways.
+    const STEP: f32 = 8.0;
+    for y_step in 0..=96 {
+        let dy = -(y_step as f32) * STEP;
+        for x_step in 0..=96 {
+            if x_step == 0 {
+                let candidate = clamp_spawn_to_room(world, ae::Vec2::new(base.x, base.y + dy), half);
+                if player_body_clear(world, candidate, half) {
+                    return candidate;
+                }
+            } else {
+                for sign in [-1.0_f32, 1.0] {
+                    let dx = sign * x_step as f32 * STEP;
+                    let candidate = clamp_spawn_to_room(world, ae::Vec2::new(base.x + dx, base.y + dy), half);
+                    if player_body_clear(world, candidate, half) {
+                        return candidate;
+                    }
+                }
+            }
+        }
+    }
+
+    base
+}
+
+fn clamp_spawn_to_room(world: &ae::World, pos: ae::Vec2, half: ae::Vec2) -> ae::Vec2 {
+    ae::Vec2::new(
+        pos.x.clamp(half.x + SPAWN_MARGIN, world.size.x - half.x - SPAWN_MARGIN),
+        pos.y.clamp(half.y + SPAWN_MARGIN, world.size.y - half.y - SPAWN_MARGIN),
+    )
+}
+
+fn player_body_clear(world: &ae::World, center: ae::Vec2, half: ae::Vec2) -> bool {
+    let body = ae::Aabb::new(center, half);
+    !world.blocks.iter().any(|block| {
+        let blocks_spawn = matches!(
+            block.kind,
+            ae::BlockKind::Solid
+                | ae::BlockKind::BlinkWall { .. }
+                | ae::BlockKind::OneWay
+                | ae::BlockKind::Hazard
+                | ae::BlockKind::Rebound { .. }
+        );
+        blocks_spawn && body.intersects(block.aabb)
+    })
+}
+
 fn build_central_hub() -> RoomSpec {
     let w = 1800.0;
     let h = 1000.0;
@@ -292,28 +407,28 @@ fn build_central_hub() -> RoomSpec {
             ae::Vec2::new(w - 30.0, h - 224.0),
             ae::Vec2::new(30.0, 176.0),
             1,
-            ae::Vec2::new(210.0, 805.0),
+            edge_arrival(WallSide::Left, 3200.0, 900.0),
         ),
         LoadingZone::door(
             "to vertical shaft",
             ae::Vec2::new(840.0, 300.0),
             ae::Vec2::new(120.0, 122.0),
             2,
-            ae::Vec2::new(500.0, 2305.0),
+            door_arrival(ae::Vec2::new(438.0, 2400.0 - 190.0), ae::Vec2::new(124.0, 142.0)),
         ),
         LoadingZone::edge_exit(
             "to square arena",
             ae::Vec2::new(0.0, h - 224.0),
             ae::Vec2::new(30.0, 176.0),
             3,
-            ae::Vec2::new(1570.0, 1695.0),
+            edge_arrival(WallSide::Right, 1800.0, 1800.0),
         ),
         LoadingZone::door(
             "to tiny chamber",
             ae::Vec2::new(840.0, h - 190.0),
             ae::Vec2::new(120.0, 142.0),
             4,
-            ae::Vec2::new(150.0, 425.0),
+            edge_arrival(WallSide::Right, 900.0, 520.0),
         ),
     ];
     RoomSpec { world, loading_zones }
@@ -326,7 +441,7 @@ fn build_scroll_lab() -> RoomSpec {
         ae::Vec2::new(0.0, world.size.y - 224.0),
         ae::Vec2::new(30.0, 176.0),
         0,
-        ae::Vec2::new(1540.0, 905.0),
+        edge_arrival(WallSide::Right, 1800.0, 1000.0),
     )];
     RoomSpec { world, loading_zones }
 }
@@ -360,7 +475,7 @@ fn build_vertical_shaft() -> RoomSpec {
         ae::Vec2::new(438.0, h - 190.0),
         ae::Vec2::new(124.0, 142.0),
         0,
-        ae::Vec2::new(900.0, 405.0),
+        door_arrival(ae::Vec2::new(840.0, 300.0), ae::Vec2::new(120.0, 122.0)),
     )];
     RoomSpec { world, loading_zones }
 }
@@ -395,7 +510,7 @@ fn build_square_arena() -> RoomSpec {
         ae::Vec2::new(w - 30.0, h - 224.0),
         ae::Vec2::new(30.0, 176.0),
         0,
-        ae::Vec2::new(260.0, 905.0),
+        edge_arrival(WallSide::Left, 1800.0, 1000.0),
     )];
     RoomSpec { world, loading_zones }
 }
@@ -422,7 +537,7 @@ fn build_tiny_chamber() -> RoomSpec {
         ae::Vec2::new(w - 30.0, h - 224.0),
         ae::Vec2::new(30.0, 176.0),
         0,
-        ae::Vec2::new(1040.0, 905.0),
+        door_arrival(ae::Vec2::new(840.0, 1000.0 - 190.0), ae::Vec2::new(120.0, 142.0)),
     )];
     RoomSpec { world, loading_zones }
 }

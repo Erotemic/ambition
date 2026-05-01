@@ -382,6 +382,7 @@ fn load_room(
 ) {
     let old_velocity = runtime.player.vel;
     let abilities = runtime.player.abilities;
+    let fly_enabled = runtime.player.fly_enabled;
     let edge_exit = matches!(zone.activation, rooms::LoadingZoneActivation::EdgeExit);
 
     for entity in room_visuals.iter() {
@@ -394,7 +395,9 @@ fn load_room(
     // state, but preserve ability progression and, for edge exits, preserve
     // velocity so side-to-side room changes feel continuous. Door transitions
     // intentionally zero velocity because they are discrete interactions.
-    runtime.player = ae::Player::new_with_abilities(zone.target_spawn, abilities);
+    let arrival = rooms::validated_spawn(&world.0, zone.target_spawn, runtime.player.size);
+    runtime.player = ae::Player::new_with_abilities(arrival, abilities);
+    runtime.player.fly_enabled = fly_enabled && runtime.player.abilities.fly;
     if edge_exit {
         runtime.player.vel = old_velocity;
     }
@@ -404,7 +407,10 @@ fn load_room(
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
     runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
-    runtime.room_transition_cooldown = if edge_exit { 0.22 } else { 0.42 };
+    // This guard prevents immediate backtracking when arriving inside/near a
+    // paired zone. It should not feel like frozen input, so keep it short and
+    // rely on validated arrivals to do most of the safety work.
+    runtime.room_transition_cooldown = if edge_exit { 0.14 } else { 0.16 };
     runtime.preset_flash = 1.0;
 
     spawn_room_visuals(commands, &world.0, &spec.loading_zones);

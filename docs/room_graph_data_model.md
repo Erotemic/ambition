@@ -62,3 +62,19 @@ room-spec validator, but it catches common hand-authored layout mistakes while
 we expand the test room graph.
 
 See `docs/room_layout_refactor.md` for the current conventions.
+
+
+## Transition pairing convention
+
+Room transitions should be authored as paired endpoints, not arbitrary spawn
+positions. If the player exits through an edge opening in one room, the target
+spawn should be just inside the matching edge opening in the next room. If the
+player uses an interior door, the target spawn should be aligned with the paired
+door volume in the destination room.
+
+The current prototype still stores concrete `target_spawn` coordinates, but
+those coordinates are now produced with helpers such as `edge_arrival(...)` and
+`door_arrival(...)` instead of one-off magic numbers. The next data-driven step
+is to replace raw `target_spawn` with a named endpoint reference, e.g.
+`target_endpoint: "scroll_lab.left_exit"`, and let room validation resolve the
+spawn point.

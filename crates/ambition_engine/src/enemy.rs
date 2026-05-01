@@ -106,27 +106,6 @@ impl Dummy {
         killed
     }
 
-    /// Advance dummy physics and respawn timers against a flat floor only.
-    ///
-    /// This method is kept for compatibility with older callers and tiny tests.
-    /// New sandbox code should prefer [`Dummy::update_in_world`] so launched
-    /// enemies collide with walls, blink walls, one-way platforms, and moving
-    /// platform blocks instead of tunneling through room geometry.
-    pub fn update(&mut self, dt: f32, ground_y: f32) -> bool {
-        self.update_common_timers_and_respawn(dt, Vec2::new(self.spawn.x, 88.0), |dummy, dt| {
-            dummy.vel.y += DUMMY_GRAVITY * dt;
-            dummy.vel.x = approach(dummy.vel.x, 0.0, DUMMY_GROUND_FRICTION * dt);
-            dummy.vel.x = dummy.vel.x.clamp(-DUMMY_MAX_X_SPEED, DUMMY_MAX_X_SPEED);
-            dummy.vel.y = dummy.vel.y.min(DUMMY_MAX_FALL_SPEED);
-            dummy.pos += dummy.vel * dt;
-            let half_h = dummy.size.y * 0.5;
-            if dummy.pos.y + half_h >= ground_y {
-                dummy.pos.y = ground_y - half_h;
-                dummy.vel.y = 0.0;
-            }
-        })
-    }
-
     /// Advance dummy physics and collide against a full room.
     ///
     /// This is intentionally small and conservative rather than clever. The
@@ -152,6 +131,8 @@ impl Dummy {
                 let prev_bottom = dummy.aabb().bottom();
                 dummy.pos.y += dummy.vel.y * step_dt;
                 resolve_dummy_y(world, dummy, prev_bottom);
+
+                apply_dummy_rebound(world, dummy);
             }
         })
     }
@@ -229,6 +210,29 @@ fn resolve_dummy_y(world: &World, dummy: &mut Dummy, prev_bottom: f32) {
     }
 }
 
+/// Apply rebound pads to dummies as well as to the player.
+///
+/// Rebound pads are part of the movement sandbox's physics language, not a
+/// player-only gimmick. If a launched enemy intersects one, it should read as a
+/// real world object by converting the enemy's velocity too.
+fn apply_dummy_rebound(world: &World, dummy: &mut Dummy) {
+    let body = dummy.aabb();
+    for block in &world.blocks {
+        if let BlockKind::Rebound { impulse } = block.kind {
+            if body.intersects(block.aabb) {
+                if body.center.y < block.aabb.center.y {
+                    dummy.pos.y += block.aabb.top() - body.bottom();
+                } else if body.center.y > block.aabb.center.y {
+                    dummy.pos.y += block.aabb.bottom() - body.top();
+                }
+                dummy.vel = impulse;
+                dummy.hit_flash = dummy.hit_flash.max(0.10);
+                break;
+            }
+        }
+    }
+}
+
 /// Default sandbox dummy layout near the player spawn.
 pub fn spawn_dummies(world: &World) -> Vec<Dummy> {
     let ground_y = world.size.y - 48.0;
@@ -258,5 +262,26 @@ mod tests {
         dummy.update_in_world(1.0 / 30.0, &world);
         assert!(dummy.aabb().right() <= 200.0 + 0.01);
         assert_eq!(dummy.vel.x, 0.0);
+    }
+
+    #[test]
+    fn dummy_rebound_pad_converts_enemy_velocity() {
+        let pad = Block::rebound(
+            "test rebound",
+            Vec2::new(80.0, 130.0),
+            Vec2::new(120.0, 20.0),
+            Vec2::new(0.0, -700.0),
+        );
+        let floor = Block::solid("test floor", Vec2::new(0.0, 170.0), Vec2::new(500.0, 24.0));
+        let world = World {
+            name: "dummy rebound test",
+            size: Vec2::new(500.0, 220.0),
+            spawn: Vec2::new(100.0, 90.0),
+            blocks: vec![pad, floor],
+        };
+        let mut dummy = Dummy::infinite("test dummy", Vec2::new(120.0, 96.0));
+        dummy.vel.y = 320.0;
+        dummy.update_in_world(1.0 / 30.0, &world);
+        assert!(dummy.vel.y < -500.0, "expected rebound impulse, got {:?}", dummy.vel);
     }
 }

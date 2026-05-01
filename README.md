@@ -173,3 +173,5 @@ simulation time. See `docs/two_clock_simulation.md`.
 
 Additional layout notes:
 - `docs/room_layout_refactor.md`
+
+- `docs/core_and_bevy_boundary.md` - boundary between the reusable core and Bevy sandbox, including the vector-type direction.

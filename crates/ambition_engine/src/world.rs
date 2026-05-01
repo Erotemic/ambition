@@ -125,8 +125,10 @@ pub fn build_endgame_sandbox() -> World {
 
     // Reachable enemy test lane near spawn. This is deliberately simple:
     // immediate attack/pogo testing should not require completing the loop.
-    blocks.push(Block::blink_wall("dummy approach step", Vec2::new(120.0, 760.0), Vec2::new(170.0, 28.0), BlinkWallTier::Soft));
-    blocks.push(Block::one_way("dummy upper tap platform", Vec2::new(315.0, 704.0), Vec2::new(250.0, 16.0)));
+    // Keep the room entrance readable: the first fixtures start far enough
+    // inside that edge-exit arrivals have a few body lengths of clear space.
+    blocks.push(Block::blink_wall("dummy approach step", Vec2::new(330.0, 760.0), Vec2::new(170.0, 28.0), BlinkWallTier::Soft));
+    blocks.push(Block::one_way("dummy upper tap platform", Vec2::new(525.0, 704.0), Vec2::new(250.0, 16.0)));
 
     // A larger clockwise flow loop for endgame movement experiments.
     blocks.push(Block::blink_wall("left wall kick column", Vec2::new(100.0, 520.0), Vec2::new(58.0, 220.0), BlinkWallTier::Soft));
@@ -169,7 +171,7 @@ pub fn build_endgame_sandbox() -> World {
     // Rebound pads are explicit momentum converters.
     blocks.push(Block::rebound(
         "left launcher",
-        Vec2::new(72.0, 812.0),
+        Vec2::new(360.0, 812.0),
         Vec2::new(86.0, 22.0),
         Vec2::new(570.0, -810.0),
     ));

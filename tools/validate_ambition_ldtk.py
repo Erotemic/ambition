@@ -303,6 +303,54 @@ def _set_if_missing(mapping, key, value):
     return False
 
 
+VALUE_WRAPPER_ID_BY_HUMAN_TYPE = {
+    "Int": "V_Int",
+    "Float": "V_Float",
+    "Bool": "V_Bool",
+    "String": "V_String",
+    "Text": "V_String",
+    "Color": "V_String",
+    "Path": "V_String",
+    "EntityRef": "V_String",
+    "Tile": "V_String",
+}
+
+
+def _coerce_wrapper_param(human_type, value):
+    if human_type == "Int":
+        return int(value)
+    if human_type == "Float":
+        return float(value)
+    if human_type == "Bool":
+        return bool(value)
+    return str(value)
+
+
+def _normalize_default_override(field_def, human_type):
+    """Wrap raw `defaultOverride` values in LDtk's Haxe-enum ValueWrapper form.
+
+    LDtk encodes ValueWrapper as `{"id": "V_String", "params": [...]}` (or
+    V_Int/V_Float/V_Bool). Generated/agent-patched files often write the raw
+    value, which makes the editor crash with `No such constructor`.
+    """
+    if "defaultOverride" not in field_def:
+        return None
+    value = field_def["defaultOverride"]
+    if value is None:
+        return None
+    if isinstance(value, dict) and "id" in value and "params" in value:
+        return None
+    wrapper_id = VALUE_WRAPPER_ID_BY_HUMAN_TYPE.get(human_type)
+    if wrapper_id is None:
+        return None
+    if isinstance(value, list):
+        params = [_coerce_wrapper_param(human_type, v) for v in value]
+    else:
+        params = [_coerce_wrapper_param(human_type, value)]
+    field_def["defaultOverride"] = {"id": wrapper_id, "params": params}
+    return wrapper_id
+
+
 def normalize_field_def(field_def):
     changes = []
     identifier = field_def.get("identifier", "<unnamed>")
@@ -320,6 +368,9 @@ def normalize_field_def(field_def):
     if expected_type and field_def.get("type") != expected_type:
         field_def["type"] = expected_type
         changes.append(f"fieldDef {identifier}: set type={expected_type}")
+    wrapped = _normalize_default_override(field_def, human_type)
+    if wrapped is not None:
+        changes.append(f"fieldDef {identifier}: wrapped defaultOverride as {wrapped}")
     return changes
 
 

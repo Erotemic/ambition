@@ -142,7 +142,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Player Start",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Player Start"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -215,7 +220,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Solid",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Solid"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -288,7 +298,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -325,7 +340,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Loading Zone",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Loading Zone"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -362,7 +382,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Door",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Door"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -399,7 +424,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -436,7 +466,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -473,7 +508,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": true,
+            "defaultOverride": {
+              "id": "V_Bool",
+              "params": [
+                true
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -546,7 +586,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "One-way Platform",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "One-way Platform"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -619,7 +664,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Blink Wall",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Blink Wall"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -656,7 +706,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Soft",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Soft"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -729,7 +784,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Pogo Orb",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Pogo Orb"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -802,7 +862,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "NPC",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "NPC"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -839,7 +904,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Talk",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Talk"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -876,7 +946,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -949,7 +1024,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Debug Label",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Debug Label"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -986,7 +1066,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Label",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Label"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1023,7 +1108,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Custom",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Custom"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1096,7 +1186,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Enemy",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Enemy"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1133,7 +1228,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Passive",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Passive"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1206,7 +1306,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Hazard",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Hazard"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1279,7 +1384,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Rebound Pad",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Rebound Pad"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1316,7 +1426,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": 0.0,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [
+                0.0
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1353,7 +1468,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": 900.0,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [
+                900.0
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1426,7 +1546,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Damage Volume",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Damage Volume"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1463,7 +1588,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": 1.0,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [
+                1.0
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1500,7 +1630,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1537,7 +1672,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": 100.0,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [
+                100.0
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1574,7 +1714,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "PingPong",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "PingPong"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1647,7 +1792,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Kinematic Path",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Kinematic Path"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1684,7 +1834,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "0,0;64,0",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "0,0;64,0"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1721,7 +1876,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": 100.0,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [
+                100.0
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1758,7 +1918,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "PingPong",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "PingPong"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1831,7 +1996,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Boss",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Boss"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1868,7 +2038,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Dormant",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Dormant"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1941,7 +2116,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Breakable",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Breakable"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -1978,7 +2158,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": 3.0,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [
+                3.0
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2015,7 +2200,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": true,
+            "defaultOverride": {
+              "id": "V_Bool",
+              "params": [
+                true
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2052,7 +2242,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "OnRoomReload",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "OnRoomReload"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2125,7 +2320,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Pickup",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Pickup"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2162,7 +2362,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "health:1",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "health:1"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2235,7 +2440,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Chest",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Chest"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2272,7 +2482,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "health:1",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "health:1"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2345,7 +2560,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2382,7 +2602,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Camera Zone",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Camera Zone"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2419,7 +2644,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Follow",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Follow"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2492,7 +2722,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2529,7 +2764,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "Stitched Boundary",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "Stitched Boundary"
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2566,7 +2806,12 @@
             "max": null,
             "regex": null,
             "acceptFileTypes": null,
-            "defaultOverride": "",
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
             "textLanguageMode": null,
             "symmetricalRef": false,
             "autoChainRef": true,
@@ -2610,7 +2855,12 @@
         "max": null,
         "regex": null,
         "acceptFileTypes": null,
-        "defaultOverride": "",
+        "defaultOverride": {
+          "id": "V_String",
+          "params": [
+            ""
+          ]
+        },
         "textLanguageMode": null,
         "symmetricalRef": false,
         "autoChainRef": false,

@@ -24,3 +24,12 @@ that as an explicit reference. We will also likely find our own identity, and
 we should deny our influences. That's a theme of the game, standing on the
 shoulders of giants, consequences of actions, and sometime inevitability of
 outcomes.
+
+---
+
+
+The game should have the ability to be used by re-enforcement learning agents.
+It would also be nice to think of ways we could support multi-player. The way I
+like to use the blink ability conflicts with that to some degree, so separation
+of ingame and user-input timers may have to be restricted in multiplayer
+settings, but maybe the engine itself can support it elegantly.

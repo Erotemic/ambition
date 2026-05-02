@@ -203,6 +203,10 @@ The LDtk workflow now has dedicated Python tools: `tools/repair_ambition_ldtk.py
 
 The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
 
+## Headless simulation entry point (Phase 1)
+
+The sandbox crate is now a library + multi-binary package. The visible binary (`cargo run -p ambition_sandbox`) is unchanged; an additional `cargo run -p ambition_sandbox --bin headless [TICKS]` runs the simulation systems on a `MinimalPlugins`-based Bevy `App` with no rendering, audio, or windowing. Phase 1 validates that the embedded LDtk world parses, `RoomSet`/`LdtkRuntimeIndex` construct, and the runtime-spine systems tick on a no-display machine. It does not yet exercise `sandbox_update` (still presentation-coupled). See `docs/headless_simulation.md` for the contract and the Phase 2 events-refactor plan that will let the gameplay loop run headless. `SandboxRuntime`, `GameWorld`, and the time-scale constants moved to `lib.rs` so both binaries share the module graph.
+
 ## LDtk roadmap step 1 (Solid promotion, partial)
 
 Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities.

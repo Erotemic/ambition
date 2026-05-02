@@ -4,23 +4,13 @@
 //! Bevy sprites, and all audio is synthesized at startup into in-memory WAV
 //! assets. The platformer movement/collision core remains in `ambition_engine`.
 
-mod audio;
-mod config;
-mod data;
-mod dialog;
-mod debug_overlay;
-mod dev_tools;
-mod fx;
-mod features;
-mod game_mode;
-mod input;
-mod loading;
-mod ldtk_world;
-mod platforms;
-mod physics;
-mod rendering;
-mod rooms;
-mod windowing;
+// Sandbox modules and the cross-cutting `GameWorld` / `SandboxRuntime`
+// resources now live in `crates/ambition_sandbox/src/lib.rs` so both the
+// visible binary (this `main.rs`) and the headless binary (`bin/headless.rs`)
+// can share the same module graph and resource types. Submodules continue to
+// reference `crate::GameWorld` etc., which now resolves through the library
+// crate; this binary reaches them via the wildcard import below.
+use ambition_sandbox::*;
 
 use ambition_engine as ae;
 use audio::{play_ambience, play_sound, SoundBank, SoundCue};
@@ -38,20 +28,11 @@ use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
 use bevy_material_ui::MaterialUiPlugin;
 use bevy_ecs_ldtk::prelude::{LdtkPlugin, LdtkSettings, LdtkWorldBundle, LevelBackground};
-
-const BULLET_TIME_SCALE: f32 = 0.10;
-const BLINK_HOLD_SLOW_SCALE: f32 = 0.35;
-const DEBUG_SLOWMO_SCALE: f32 = 0.25;
-const TIME_RAMP_DOWN_RATE: f32 = 5.0;
-const TIME_RAMP_UP_RATE: f32 = 14.0;
-const DOWN_DOUBLE_TAP_WINDOW: f32 = 0.24;
-const UP_DOUBLE_TAP_WINDOW: f32 = 0.30;
 use fx::{
     spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
     spawn_slash_preview, ParticleKind,
 };
-use game_mode::GameMode;
-use input::{ControlFrame, KeyboardPreset, SandboxAction, GAMEPAD_MAP};
+use input::{ControlFrame, SandboxAction, GAMEPAD_MAP};
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 use rendering::{camera_follow, spawn_room_visuals, sync_visuals, HudText, PlayerVisual, RoomVisual, SceneEntities};
 
@@ -166,157 +147,9 @@ fn main() {
         .run();
 }
 
-#[derive(Resource, Clone)]
-pub struct GameWorld(pub ae::World);
-
-#[derive(Resource)]
-pub struct SandboxRuntime {
-    pub player: ae::Player,
-    pub player_health: ae::Health,
-    debug: bool,
-    slowmo: bool,
-    presets: Vec<KeyboardPreset>,
-    preset_index: usize,
-    preset_flash: f32,
-    pub flash_timer: f32,
-    hitstop_timer: f32,
-    damage_invuln_timer: f32,
-    hitstun_timer: f32,
-    last_safe_player_pos: ae::Vec2,
-    time_scale: f32,
-    down_tap_timer: f32,
-    up_tap_timer: f32,
-    interact_buffer_timer: f32,
-    pub moving_platform: platforms::MovingPlatformState,
-    pub features: features::FeatureRuntime,
-    pub dialogue: dialog::DialogState,
-    physics_settings: physics::PhysicsSandboxSettings,
-    pub room_transition_cooldown: f32,
-}
-
-impl SandboxRuntime {
-    fn new(
-        world: &ae::World,
-        abilities: ae::AbilitySet,
-        tuning: ae::MovementTuning,
-        physics_settings: physics::PhysicsSandboxSettings,
-    ) -> Self {
-        let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
-        player.refresh_movement_resources(tuning);
-        Self {
-            player,
-            player_health: ae::Health::new(5),
-            debug: true,
-            slowmo: false,
-            presets: KeyboardPreset::presets().to_vec(),
-            preset_index: 0,
-            preset_flash: 1.2,
-            flash_timer: 0.0,
-            hitstop_timer: 0.0,
-            damage_invuln_timer: 0.0,
-            hitstun_timer: 0.0,
-            last_safe_player_pos: world.spawn,
-            time_scale: 1.0,
-            down_tap_timer: 0.0,
-            up_tap_timer: 0.0,
-            interact_buffer_timer: 0.0,
-            moving_platform: platforms::MovingPlatformState::time_reference(world),
-            features: features::FeatureRuntime::from_world(world),
-            dialogue: dialog::DialogState::default(),
-            physics_settings,
-            room_transition_cooldown: 0.0,
-        }
-    }
-
-    fn reset(&mut self, world: &ae::World, tuning: ae::MovementTuning) {
-        self.player.reset_to(world.spawn);
-        self.player.refresh_movement_resources(tuning);
-        self.player_health.reset();
-        self.flash_timer = 0.18;
-        self.hitstop_timer = 0.0;
-        self.damage_invuln_timer = 0.0;
-        self.hitstun_timer = 0.0;
-        self.last_safe_player_pos = world.spawn;
-        self.time_scale = 1.0;
-        self.down_tap_timer = 0.0;
-        self.up_tap_timer = 0.0;
-        self.interact_buffer_timer = 0.0;
-        self.moving_platform = platforms::MovingPlatformState::time_reference(world);
-        self.features = features::FeatureRuntime::from_world(world);
-        self.dialogue.close();
-        self.room_transition_cooldown = 0.0;
-    }
-
-    fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {
-        self.down_tap_timer = (self.down_tap_timer - frame_dt).max(0.0);
-        if !down_pressed {
-            return false;
-        }
-        if self.down_tap_timer > 0.0 {
-            self.down_tap_timer = 0.0;
-            true
-        } else {
-            self.down_tap_timer = window;
-            false
-        }
-    }
-
-    fn register_up_tap(&mut self, up_pressed: bool, frame_dt: f32, window: f32) -> bool {
-        self.up_tap_timer = (self.up_tap_timer - frame_dt).max(0.0);
-        if !up_pressed {
-            return false;
-        }
-        if self.up_tap_timer > 0.0 {
-            self.up_tap_timer = 0.0;
-            true
-        } else {
-            self.up_tap_timer = window;
-            false
-        }
-    }
-
-    fn buffered_interact(&mut self, interact_pressed: bool, frame_dt: f32, window: f32) -> bool {
-        self.interact_buffer_timer = (self.interact_buffer_timer - frame_dt).max(0.0);
-        if interact_pressed {
-            self.interact_buffer_timer = window;
-        }
-        self.interact_buffer_timer > 0.0
-    }
-
-    fn clear_interact_buffer(&mut self) {
-        self.interact_buffer_timer = 0.0;
-    }
-
-    fn remember_safe_player_position(&mut self) {
-        if self.player.on_ground {
-            self.last_safe_player_pos = self.player.pos;
-        }
-    }
-
-    fn update_time_scale(&mut self, frame_dt: f32, feel: SandboxFeelTuning) {
-        let target = if self.hitstop_timer > 0.0 {
-            0.0
-        } else if self.player.blink_aiming {
-            feel.bullet_time_scale
-        } else if self.player.blink_hold_active {
-            feel.blink_hold_slow_scale
-        } else if self.slowmo {
-            feel.debug_slowmo_scale
-        } else {
-            1.0
-        };
-        let rate = if target < self.time_scale { feel.time_ramp_down_rate } else { feel.time_ramp_up_rate };
-        self.time_scale = move_toward(self.time_scale, target, rate * frame_dt);
-    }
-
-    pub(crate) fn preset(&self) -> KeyboardPreset {
-        self.presets[self.preset_index]
-    }
-
-    pub(crate) fn debug_enabled(&self) -> bool {
-        self.debug
-    }
-}
+// `GameWorld`, `SandboxRuntime`, and the time-scale ramp helper `move_toward`
+// have moved to `crate::lib` (`ambition_sandbox`) so both binaries can share
+// them. They are re-imported above through `use ambition_sandbox::*;`.
 
 fn setup(
     mut commands: Commands,
@@ -812,13 +645,8 @@ fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
     }
 }
 
-fn move_toward(value: f32, target: f32, delta: f32) -> f32 {
-    if value < target {
-        (value + delta).min(target)
-    } else {
-        (value - delta).max(target)
-    }
-}
+// `move_toward` has moved to `crate::lib` (`ambition_sandbox`) so the
+// `SandboxRuntime` impl can use it; it is re-imported via the wildcard above.
 
 fn reset_sandbox(
     commands: &mut Commands,

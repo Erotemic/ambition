@@ -221,13 +221,38 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
         "symmetricalRef",
     ]
 
+    field_def_type_by_human_type = {
+        "Int": "F_Int",
+        "Float": "F_Float",
+        "String": "F_String",
+        "Text": "F_Text",
+        "Bool": "F_Bool",
+        "Color": "F_Color",
+        "Point": "F_Point",
+        "Path": "F_Path",
+        "EntityRef": "F_EntityRef",
+        "Tile": "F_Tile",
+    }
+
     def validate_field_def_shape(owner, field_def):
+        field_name = f"{owner}.{field_def.get('identifier')}"
         for required in first_class_field_def_fields:
             if required not in field_def:
-                errors.append(f"field definition {owner}.{field_def.get('identifier')} is missing first-class LDtk field {required!r}")
+                errors.append(f"field definition {field_name} is missing first-class LDtk field {required!r}")
         allowed_refs = field_def.get("allowedRefs")
         if allowed_refs not in {"Any", "OnlySame", "OnlyTags", "OnlySpecificEntity"}:
-            errors.append(f"field definition {owner}.{field_def.get('identifier')} has invalid allowedRefs {allowed_refs!r}")
+            errors.append(f"field definition {field_name} has invalid allowedRefs {allowed_refs!r}")
+        human_type = field_def.get("__type")
+        internal_type = field_def.get("type")
+        expected_internal_type = field_def_type_by_human_type.get(human_type)
+        if expected_internal_type is not None and internal_type != expected_internal_type:
+            errors.append(
+                f"field definition {field_name} has type {internal_type!r}; expected {expected_internal_type!r} "
+                f"for __type {human_type!r}. LDtk's editor reads `type` as an internal FieldType constructor "
+                "such as F_String, not the human-readable type string."
+            )
+        if human_type is None or internal_type is None:
+            errors.append(f"field definition {field_name} must include both __type and type for LDtk editor round-tripping")
 
     for entity_def in defs.get("entities") or []:
         for required in ["allowOutOfBounds", "exportToToc", "nineSliceBorders", "tileOpacity"]:

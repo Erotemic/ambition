@@ -61,6 +61,7 @@ The validator checks Ambition-specific constraints:
 - `EdgeExit` loading zones touch a level edge and do not overlap solid wall collision,
 - transition arrivals computed from destination zones remain inside the target active area and do not start inside authored solids,
 - selected entity types have required custom fields,
+- LDtk FieldDef records use editor-openable internal `type` constructors such as `F_String` while keeping human-readable `__type` values such as `String`,
 - LDtk-authored moving damage volumes and `KinematicPath` entities have valid point/speed/mode fields.
 
 This validator is not a substitute for LDtk's official JSON schema. It validates Ambition's gameplay-authoring contract.

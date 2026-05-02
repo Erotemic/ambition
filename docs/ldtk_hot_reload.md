@@ -61,6 +61,10 @@ both `defs.entities[*].fieldDefs` and `defs.levelFields` need the first-class
 LDtk reference/display keys such as `allowedRefs`, `allowedRefTags`,
 `allowOutOfLevelRef`, `autoChainRef`, `editorDisplayScale`, `editorLinkStyle`,
 `editorShowInWorld`, `exportToToc`, `searchable`, and `symmetricalRef`.
+Field definitions also need editor-internal `type` values such as `F_String`
+rather than the human-readable `__type` value `String`; otherwise the LDtk
+editor can fail with `No such constructor String` even if Ambition's runtime
+JSON reader can still parse the file.
 
 If Bevy logs an LDtk asset loader error but the Ambition reload path still works,
 treat it as a real issue: the typed `LdtkProject` asset is not healthy, and

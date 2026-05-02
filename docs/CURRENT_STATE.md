@@ -152,6 +152,14 @@ first-class LDtk `FieldDef` keys for level fields, and the validator checks both
 entity field definitions and level field definitions for the required
 `bevy_ecs_ldtk`/LDtk schema fields.
 
+LDtk editor round-trip also requires `FieldDef.type` to use LDtk's internal
+`FieldType` constructor names, such as `F_String`, not the human-readable
+`__type` values such as `String`. The `activeArea` level field previously used
+`type: "String"`, which Bevy's early custom path tolerated but the LDtk 1.5.3
+editor rejected with `No such constructor String`. The sandbox LDtk file now
+uses `type: "F_String"` for `activeArea`, and the validator checks entity and
+level field definitions for this editor-openable shape.
+
 ## LDtk defUid spawn fix
 
 A user run confirmed that after the `allowedRefs` schema fix, `bevy_ecs_ldtk`

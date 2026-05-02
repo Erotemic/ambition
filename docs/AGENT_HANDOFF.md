@@ -166,6 +166,14 @@ schema keys expected by `bevy_ecs_ldtk`, including `allowedRefs`,
 `symmetricalRef`. A missing key can produce Bevy asset-loader errors even when
 Ambition's custom JSON adapter can still read and hot-reload the map.
 
+Field definitions have two type-looking fields with different meanings:
+`__type` is the human-readable type string used in instances/docs, while `type`
+is the editor's internal `FieldType` constructor. For example, a string field
+should use `__type: "String"` and `type: "F_String"`. Do not write
+`type: "String"`; LDtk 1.5.3 rejects that with `No such constructor String`
+and may crash while trying to inspect project settings. The validator must keep
+checking this for both entity field definitions and level field definitions.
+
 ## LDtk defUid compatibility lesson
 
 Direct `bevy_ecs_ldtk` spawning depends on LDtk instance `defUid` values, not

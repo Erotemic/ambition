@@ -6,12 +6,68 @@
 //! noise sources. RON continues to own cue frequencies, envelopes, gains, and
 //! the lo-fi music pattern.
 
+use ambition_engine as ae;
 use bevy::audio::AudioSource;
 use bevy::prelude::*;
 use fundsp::audiounit::AudioUnit;
 use fundsp::prelude as dsp;
 
 use crate::data::{AudioSpec, MusicSpec, NoteSpec, SfxSpec, SoundCueKey, WaveformSpec};
+
+/// Typed sandbox-side audio message (Bevy 0.18 buffered-message API; the
+/// pre-0.18 `Event`/`EventReader` names moved to observer-style one-shots).
+///
+/// Simulation systems emit `SfxMessage` values into a per-frame `Vec` (the
+/// "Vec collector" pattern documented in `docs/events_refactor_plan.md`).
+/// `sandbox_update` drains the Vec into the `Messages<SfxMessage>` resource
+/// at end-of-frame, and the presentation-side `audio_play_sfx_messages`
+/// system reads it and plays the actual sound. Headless builds omit the
+/// audio subscriber; messages accumulate until drained, costing nothing
+/// visible.
+///
+/// Each variant carries `pos` to set up future spatialized audio without
+/// another refactor; today's audio playback ignores it.
+#[derive(Message, Clone, Copy, Debug)]
+pub enum SfxMessage {
+    Jump { pos: ae::Vec2 },
+    DoubleJump { pos: ae::Vec2 },
+    Dash { pos: ae::Vec2 },
+    Blink { pos: ae::Vec2, precision: bool },
+    Pogo { pos: ae::Vec2 },
+    Slash { pos: ae::Vec2 },
+    Hit { pos: ae::Vec2 },
+    Death { pos: ae::Vec2 },
+    Reset { pos: ae::Vec2 },
+}
+
+impl SfxMessage {
+    pub fn cue(self) -> SoundCue {
+        match self {
+            SfxMessage::Jump { .. } => SoundCue::Jump,
+            SfxMessage::DoubleJump { .. } => SoundCue::DoubleJump,
+            SfxMessage::Dash { .. } => SoundCue::Dash,
+            SfxMessage::Blink { precision: false, .. } => SoundCue::Blink,
+            SfxMessage::Blink { precision: true, .. } => SoundCue::PrecisionBlink,
+            SfxMessage::Pogo { .. } => SoundCue::Pogo,
+            SfxMessage::Slash { .. } => SoundCue::Slash,
+            SfxMessage::Hit { .. } => SoundCue::Hit,
+            SfxMessage::Death { .. } => SoundCue::Death,
+            SfxMessage::Reset { .. } => SoundCue::Reset,
+        }
+    }
+}
+
+/// Presentation-side subscriber. Reads `SfxMessage`s and plays the actual
+/// sound through `SoundBank`. Skipped in headless builds.
+pub fn audio_play_sfx_messages(
+    mut commands: Commands,
+    mut messages: MessageReader<SfxMessage>,
+    bank: Res<SoundBank>,
+) {
+    for message in messages.read() {
+        play_sound(&mut commands, &bank, message.cue());
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SoundCue {
@@ -511,3 +567,41 @@ fn wav_bytes_from_stereo_i16(pcm: &[i16], sample_rate: u32) -> Vec<u8> {
     }
     bytes
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sfx_message_maps_to_sound_cue() {
+        let pos = ae::Vec2::ZERO;
+        assert_eq!(SfxMessage::Jump { pos }.cue(), SoundCue::Jump);
+        assert_eq!(SfxMessage::DoubleJump { pos }.cue(), SoundCue::DoubleJump);
+        assert_eq!(SfxMessage::Dash { pos }.cue(), SoundCue::Dash);
+        assert_eq!(
+            SfxMessage::Blink { pos, precision: false }.cue(),
+            SoundCue::Blink
+        );
+        assert_eq!(
+            SfxMessage::Blink { pos, precision: true }.cue(),
+            SoundCue::PrecisionBlink
+        );
+        assert_eq!(SfxMessage::Pogo { pos }.cue(), SoundCue::Pogo);
+        assert_eq!(SfxMessage::Slash { pos }.cue(), SoundCue::Slash);
+        assert_eq!(SfxMessage::Hit { pos }.cue(), SoundCue::Hit);
+        assert_eq!(SfxMessage::Death { pos }.cue(), SoundCue::Death);
+        assert_eq!(SfxMessage::Reset { pos }.cue(), SoundCue::Reset);
+    }
+
+    #[test]
+    fn sfx_message_carries_position() {
+        let pos = ae::Vec2::new(120.0, 64.0);
+        if let SfxMessage::Hit { pos: at } = (SfxMessage::Hit { pos }) {
+            assert_eq!(at, pos);
+        } else {
+            panic!("variant pattern match failed");
+        }
+    }
+}
+

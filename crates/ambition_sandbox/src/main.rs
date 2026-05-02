@@ -13,7 +13,7 @@
 use ambition_sandbox::*;
 
 use ambition_engine as ae;
-use audio::{play_ambience, play_sound, SoundBank, SoundCue};
+use audio::{audio_play_sfx_messages, play_ambience, SfxMessage, SoundBank};
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -71,6 +71,7 @@ fn main() {
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
         .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())
+        .add_message::<SfxMessage>()
         .insert_resource(LdtkSettings {
             // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk
             // own level/entity lifecycle without also drawing LDtk background
@@ -170,6 +171,11 @@ fn main() {
                 .chain(),
         )
         .add_systems(Update, rendering::sync_health_overlays.after(sync_visuals))
+        // Audio is presentation: subscribe to SfxMessage on the visible
+        // binary only. Headless builds omit this subscriber so the message
+        // queue drains without playing audio. The .after constraint pins
+        // playback to the same frame the simulation emitted the message.
+        .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
         .run();
 }
 
@@ -297,7 +303,6 @@ fn sandbox_update(
     keys: Res<ButtonInput<KeyCode>>,
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
-    bank: Res<SoundBank>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -306,6 +311,7 @@ fn sandbox_update(
     mut next_mode: ResMut<NextState<GameMode>>,
     mut runtime: ResMut<SandboxRuntime>,
     entities: Res<SceneEntities>,
+    mut sfx_writer: MessageWriter<SfxMessage>,
     mut player_input: Query<
         (
             &mut ActionState<SandboxAction>,
@@ -315,6 +321,11 @@ fn sandbox_update(
     >,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) {
+    // Per-frame Vec collector for SfxMessage. Helpers append events as the
+    // gameplay loop runs; we drain into the MessageWriter at every return
+    // point so the audio subscriber sees them this frame. Bevy 0.18 buffered
+    // events use the Message API (see feedback memory + ADR 0012).
+    let mut sfx: Vec<SfxMessage> = Vec::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let physics_settings = runtime.physics_settings;
@@ -382,7 +393,8 @@ fn sandbox_update(
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
 
     if controls.reset_pressed {
-        reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
+        reset_sandbox(&mut commands, &world.0, &mut sfx, &mut runtime, tuning, feel);
+        sfx_writer.write_batch(sfx.drain(..));
         return;
     } else {
         // Two-clock update:
@@ -403,13 +415,14 @@ fn sandbox_update(
             tuning,
         );
         if control_events.reset {
-            reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
+            reset_sandbox(&mut commands, &world.0, &mut sfx, &mut runtime, tuning, feel);
+            sfx_writer.write_batch(sfx.drain(..));
             return;
         }
         handle_player_events(
             &mut commands,
             &world.0,
-            &bank,
+            &mut sfx,
             &mut runtime,
             control_events,
             None,
@@ -437,13 +450,14 @@ fn sandbox_update(
             tuning,
         );
         if sim_events.reset {
-            reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
+            reset_sandbox(&mut commands, &world.0, &mut sfx, &mut runtime, tuning, feel);
+            sfx_writer.write_batch(sfx.drain(..));
             return;
         }
         handle_player_events(
             &mut commands,
             &world.0,
-            &bank,
+            &mut sfx,
             &mut runtime,
             sim_events,
             Some(was_grounded),
@@ -481,15 +495,16 @@ fn sandbox_update(
     handle_feature_events(
         &mut commands,
         &world.0,
-        &bank,
+        &mut sfx,
         &feature_events,
         physics_settings,
+        runtime.player.pos,
     );
     handle_player_heal_events(&mut runtime, &feature_events);
     handle_player_damage_events(
         &mut commands,
         &world.0,
-        &bank,
+        &mut sfx,
         &mut runtime,
         &feature_events,
         tuning,
@@ -508,10 +523,12 @@ fn sandbox_update(
         runtime.clear_interact_buffer();
         runtime.hitstop_timer = 0.0;
         next_mode.set(GameMode::Dialogue);
+        sfx_writer.write_batch(sfx.drain(..));
         return;
     }
     if feature_reset {
-        reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
+        reset_sandbox(&mut commands, &world.0, &mut sfx, &mut runtime, tuning, feel);
+        sfx_writer.write_batch(sfx.drain(..));
         return;
     }
 
@@ -522,7 +539,7 @@ fn sandbox_update(
             runtime.clear_interact_buffer();
             load_room(
                 &mut commands,
-                &bank,
+                &mut sfx,
                 &mut runtime,
                 &mut *world,
                 &mut *room_set,
@@ -532,6 +549,7 @@ fn sandbox_update(
                 feel,
                 physics_settings,
             );
+            sfx_writer.write_batch(sfx.drain(..));
             return;
         }
     }
@@ -540,7 +558,7 @@ fn sandbox_update(
         process_attack(
             &mut commands,
             &world.0,
-            &bank,
+            &mut sfx,
             &mut runtime,
             controls,
             tuning,
@@ -551,6 +569,7 @@ fn sandbox_update(
 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+    sfx_writer.write_batch(sfx.drain(..));
 }
 
 fn handle_debug_hotkeys(
@@ -760,7 +779,7 @@ fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
 fn reset_sandbox(
     commands: &mut Commands,
     world: &ae::World,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -769,13 +788,13 @@ fn reset_sandbox(
     runtime.reset(world, tuning);
     runtime.flash_timer = feel.reset_flash_time;
     let reset_to = runtime.player.pos;
-    play_sound(commands, bank, SoundCue::Reset);
+    sfx.push(SfxMessage::Reset { pos: reset_to });
     spawn_reset_effects(commands, world, reset_from, reset_to);
 }
 
 fn load_room(
     commands: &mut Commands,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     runtime: &mut SandboxRuntime,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
@@ -840,7 +859,9 @@ fn load_room(
 
     spawn_room_visuals(commands, &world.0, &spec.loading_zones, physics_settings);
     platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
-    play_sound(commands, bank, SoundCue::Reset);
+    sfx.push(SfxMessage::Reset {
+        pos: runtime.player.pos,
+    });
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was
@@ -865,15 +886,16 @@ fn load_room(
 fn handle_player_events(
     commands: &mut Commands,
     render_world: &ae::World,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     runtime: &mut SandboxRuntime,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
 ) {
+    let pos = runtime.player.pos;
     for op in &events.operations {
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
-                play_sound(commands, bank, SoundCue::Jump);
+                sfx.push(SfxMessage::Jump { pos });
                 spawn_dust(
                     commands,
                     render_world,
@@ -882,7 +904,7 @@ fn handle_player_events(
                 );
             }
             ae::MovementOp::DoubleJump => {
-                play_sound(commands, bank, SoundCue::DoubleJump);
+                sfx.push(SfxMessage::DoubleJump { pos });
                 spawn_burst(
                     commands,
                     render_world,
@@ -894,7 +916,7 @@ fn handle_player_events(
                 );
             }
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
-                play_sound(commands, bank, SoundCue::Dash);
+                sfx.push(SfxMessage::Dash { pos });
                 spawn_burst(
                     commands,
                     render_world,
@@ -920,24 +942,19 @@ fn handle_player_events(
                 );
             }
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
-                play_sound(commands, bank, SoundCue::Pogo);
+                sfx.push(SfxMessage::Pogo { pos });
             }
             ae::MovementOp::WallCling | ae::MovementOp::WallClimb | ae::MovementOp::Slash => {}
             ae::MovementOp::Reset => {
-                play_sound(commands, bank, SoundCue::Reset);
+                sfx.push(SfxMessage::Reset { pos });
             }
         }
     }
     for blink in &events.blinks {
-        play_sound(
-            commands,
-            bank,
-            if blink.precision {
-                SoundCue::PrecisionBlink
-            } else {
-                SoundCue::Blink
-            },
-        );
+        sfx.push(SfxMessage::Blink {
+            pos: blink.from,
+            precision: blink.precision,
+        });
         spawn_blink_effects(
             commands,
             render_world,
@@ -964,12 +981,13 @@ fn handle_player_events(
 fn handle_feature_events(
     commands: &mut Commands,
     world: &ae::World,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     events: &features::FeatureEvents,
     physics_settings: physics::PhysicsSandboxSettings,
+    player_pos: ae::Vec2,
 ) {
     if events.reset_player {
-        play_sound(commands, bank, SoundCue::Reset);
+        sfx.push(SfxMessage::Reset { pos: player_pos });
     }
     for physics_burst in &events.physics_bursts {
         let cue = match physics_burst.cue {
@@ -1020,7 +1038,7 @@ fn handle_player_heal_events(runtime: &mut SandboxRuntime, events: &features::Fe
 fn death_respawn_player(
     commands: &mut Commands,
     world: &ae::World,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -1033,14 +1051,14 @@ fn death_respawn_player(
     runtime.flash_timer = feel.reset_flash_time.max(0.35);
     runtime.features.banner = "PLAYER DOWN: respawned at room start with full HP".to_string();
     runtime.features.banner_timer = 2.4;
-    play_sound(commands, bank, SoundCue::Death);
+    sfx.push(SfxMessage::Death { pos: from });
     spawn_reset_effects(commands, world, from, to);
 }
 
 fn handle_player_damage_events(
     commands: &mut Commands,
     world: &ae::World,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     runtime: &mut SandboxRuntime,
     events: &features::FeatureEvents,
     tuning: ae::MovementTuning,
@@ -1053,7 +1071,7 @@ fn handle_player_damage_events(
         death_respawn_player(
             commands,
             world,
-            bank,
+            sfx,
             runtime,
             tuning,
             feel,
@@ -1066,7 +1084,7 @@ fn handle_player_damage_events(
             safe_respawn_player(
                 commands,
                 world,
-                bank,
+                sfx,
                 runtime,
                 tuning,
                 feel,
@@ -1074,7 +1092,7 @@ fn handle_player_damage_events(
             );
         }
         features::PlayerDamageMode::Knockback => {
-            apply_player_knockback(commands, world, bank, runtime, tuning, feel, damage);
+            apply_player_knockback(commands, world, sfx, runtime, tuning, feel, damage);
         }
     }
 }
@@ -1082,7 +1100,7 @@ fn handle_player_damage_events(
 fn safe_respawn_player(
     commands: &mut Commands,
     world: &ae::World,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -1096,14 +1114,14 @@ fn safe_respawn_player(
     runtime.hitstop_timer = 0.0;
     runtime.flash_timer = feel.reset_flash_time;
     runtime.time_scale = 1.0;
-    play_sound(commands, bank, SoundCue::Reset);
+    sfx.push(SfxMessage::Reset { pos: to });
     spawn_reset_effects(commands, world, from, to);
 }
 
 fn apply_player_knockback(
     commands: &mut Commands,
     world: &ae::World,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -1141,7 +1159,9 @@ fn apply_player_knockback(
     runtime.damage_invuln_timer = feel.knockback_invulnerability_time;
     runtime.hitstop_timer = feel.player_damage_hitstop_time;
     runtime.flash_timer = 0.20;
-    play_sound(commands, bank, SoundCue::Hit);
+    sfx.push(SfxMessage::Hit {
+        pos: damage.impact_pos,
+    });
     spawn_impact(commands, world, damage.impact_pos);
 }
 
@@ -1172,7 +1192,7 @@ fn controls_for_hitstun(
 fn process_attack(
     commands: &mut Commands,
     world: &ae::World,
-    bank: &SoundBank,
+    sfx: &mut Vec<SfxMessage>,
     runtime: &mut SandboxRuntime,
     controls: ControlFrame,
     tuning: ae::MovementTuning,
@@ -1182,7 +1202,8 @@ fn process_attack(
     if !runtime.player.abilities.attack {
         return;
     }
-    play_sound(commands, bank, SoundCue::Slash);
+    let player_pos = runtime.player.pos;
+    sfx.push(SfxMessage::Slash { pos: player_pos });
     let attack = ae::slash_hitbox(&runtime.player, controls.axis_y, controls.pogo_pressed);
     spawn_slash_preview(commands, world, attack);
     let mut landed = false;
@@ -1196,21 +1217,28 @@ fn process_attack(
         .messages
         .iter()
         .any(|message| message.contains("defeated"));
-    handle_feature_events(commands, world, bank, &feature_events, physics_settings);
+    handle_feature_events(
+        commands,
+        world,
+        sfx,
+        &feature_events,
+        physics_settings,
+        player_pos,
+    );
 
     if landed {
-        play_sound(commands, bank, SoundCue::Hit);
+        sfx.push(SfxMessage::Hit { pos: player_pos });
         runtime.hitstop_timer = feel.attack_hitstop_time;
         runtime.flash_timer = 0.16;
     }
     if killed {
-        play_sound(commands, bank, SoundCue::Death);
+        sfx.push(SfxMessage::Death { pos: player_pos });
     }
     if landed && runtime.player.abilities.pogo && (controls.pogo_pressed || controls.axis_y > 0.25)
     {
         runtime.player.vel.y = -tuning.pogo_speed;
         runtime.player.refresh_movement_resources(tuning);
-        play_sound(commands, bank, SoundCue::Pogo);
+        sfx.push(SfxMessage::Pogo { pos: player_pos });
     }
 }
 

@@ -13,7 +13,7 @@
 use ambition_sandbox::*;
 
 use ambition_engine as ae;
-use audio::{audio_play_sfx_messages, play_ambience, SfxMessage, SoundBank};
+use audio::{audio_play_sfx_messages, SfxMessage};
 use bevy::ecs::system::SystemParam;
 use fx::{vfx_spawn_messages, VfxMessage};
 use physics::{physics_spawn_debris_messages, DebrisBurstMessage};
@@ -33,18 +33,17 @@ struct SandboxEventWriters<'w> {
     debris: MessageWriter<'w, DebrisBurstMessage>,
 }
 use bevy::audio::AudioSource;
-use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResizeConstraints, WindowResolution};
 use bevy_asset_loader::asset_collection::AssetCollectionApp;
 use bevy_common_assets::ron::RonAssetPlugin;
-use bevy_ecs_ldtk::prelude::{LdtkPlugin, LdtkSettings, LdtkWorldBundle, LevelBackground};
+use bevy_ecs_ldtk::prelude::{LdtkPlugin, LdtkSettings, LevelBackground};
 use bevy_inspector_egui::{
     bevy_egui::EguiPlugin,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
 };
 use bevy_material_ui::MaterialUiPlugin;
-use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
+use config::{WINDOW_H, WINDOW_W};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
 // Phase 2 of the events refactor: simulation systems push fx::VfxMessage and
 // audio::SfxMessage values into per-frame Vec collectors instead of calling
@@ -210,6 +209,10 @@ fn main() {
 // have moved to `crate::lib` (`ambition_sandbox`) so both binaries can share
 // them. They are re-imported above through `use ambition_sandbox::*;`.
 
+/// Visible-binary startup system. Calls the simulation/presentation setup
+/// helpers from `crate::setup` in sequence. Slice 4 of ADR 0012 split the
+/// previous monolith so the headless binary (Slice 5) and any future RL
+/// adapter can call only the simulation half.
 fn setup(
     mut commands: Commands,
     world: Res<GameWorld>,
@@ -225,103 +228,33 @@ fn setup(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
 ) {
-    if let Some(handle) = sandbox_data_asset.as_ref() {
-        let _asset_handle_for_async_reload = handle.0.clone();
-    }
-    if let Some(collection) = sandbox_asset_collection.as_ref() {
-        let _loaded_sandbox_data_handle = collection.sandbox_data.clone();
-        let _loaded_ldtk_project_handle = collection.ldtk_project.clone();
-    }
-    for warning in room_set.layout_warnings() {
-        eprintln!("room layout warning: {warning}");
-    }
-
-    // The sandbox uses centered world coordinates that match the default
-    // Bevy 2D camera convention. With the window at 1600x900 and the generated
-    // room at 1600x900, the default orthographic projection shows the whole
-    // room without requiring a Bevy-version-sensitive ScalingMode import.
-    commands.spawn((Camera2d, Name::new("Main Camera")));
-
-    let ldtk_handle = ldtk_asset
-        .as_ref()
-        .map(|asset| asset.0.clone())
-        .or_else(|| {
-            sandbox_asset_collection
-                .as_ref()
-                .map(|collection| collection.ldtk_project.clone())
-        })
-        .unwrap_or_else(|| asset_server.load(ldtk_world::SANDBOX_LDTK_ASSET));
-    commands.spawn((
-        LdtkWorldBundle {
-            ldtk_handle: ldtk_handle.into(),
-            level_set: ldtk_index.level_set_for(&room_set.active_spec().id),
-            // The LDtk root is now visible/active again. Ambition registers its
-            // current LDtk entity identifiers as marker bundles so
-            // bevy_ecs_ldtk owns entity lifecycle without drawing unregistered
-            // placeholder rectangles over the sandbox.
-            // AMBITION_REVIEW(spatial): migrate each registered marker from
-            // adapter-driven semantics to direct Ambition components.
-            ..default()
+    let player = setup::simulation_world(
+        &mut commands,
+        setup::SimulationSetup {
+            world: &world,
+            room_set: &room_set,
+            ldtk_index: &ldtk_index,
+            sandbox_data: &sandbox_data,
+            editable_abilities: &editable_abilities,
+            editable_tuning: &editable_tuning,
+            physics_settings: *physics_settings,
+            sandbox_data_asset: sandbox_data_asset.as_deref(),
+            ldtk_asset: ldtk_asset.as_deref(),
+            sandbox_asset_collection: sandbox_asset_collection.as_deref(),
+            asset_server: &asset_server,
         },
-        ldtk_world::SandboxLdtkWorldRoot,
-        Name::new("LDtk Runtime Spine Root"),
-    ));
-    let runtime = SandboxRuntime::new(
-        &world.0,
-        editable_abilities.as_engine(),
-        editable_tuning.as_engine(),
-        *physics_settings,
     );
-    let player_input_map = runtime.preset().input_map();
-    commands.insert_resource(runtime);
-    let sound_bank = SoundBank::new(&mut audio_sources, &sandbox_data.audio);
-    play_ambience(&mut commands, &sound_bank);
-    commands.insert_resource(sound_bank);
-
-    spawn_room_visuals(
+    setup::presentation_world(
         &mut commands,
-        &world.0,
-        room_set.active_loading_zones(),
-        *physics_settings,
+        &mut audio_sources,
+        setup::PresentationSetup {
+            world: &world,
+            room_set: &room_set,
+            sandbox_data: &sandbox_data,
+            physics_settings: *physics_settings,
+        },
+        player,
     );
-    platforms::spawn_moving_platform(
-        &mut commands,
-        &world.0,
-        platforms::MovingPlatformState::time_reference(&world.0),
-    );
-
-    let player = commands
-        .spawn((
-            Sprite::from_color(Color::srgba(0.80, 0.95, 1.0, 1.0), BVec2::new(28.0, 46.0)),
-            Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
-            PlayerVisual,
-            Name::new("Player"),
-            ActionState::<SandboxAction>::default(),
-            player_input_map,
-        ))
-        .id();
-
-    let hud = commands
-        .spawn((
-            Text::new("Ambition"),
-            TextFont {
-                font_size: 14.0,
-                ..default()
-            },
-            TextColor(Color::srgba(0.82, 0.90, 1.0, 0.96)),
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(14.0),
-                top: Val::Px(10.0),
-                max_width: Val::Px(920.0),
-                ..default()
-            },
-            Name::new("Debug HUD"),
-            HudText,
-        ))
-        .id();
-
-    commands.insert_resource(SceneEntities { player, hud });
 }
 
 fn sandbox_update(

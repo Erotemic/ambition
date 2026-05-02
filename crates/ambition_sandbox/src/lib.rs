@@ -30,6 +30,7 @@ pub mod rooms;
 pub mod windowing;
 
 pub mod headless;
+pub mod setup;
 
 pub use game_mode::GameMode;
 pub use headless::{run_headless, HeadlessReport};

@@ -67,6 +67,102 @@ pub struct LdtkRuntimeSpineStats {
     pub sample_entity: String,
 }
 
+/// Ambition-facing role for a plugin-spawned LDtk entity.
+///
+/// These are deliberately narrower than the full LDtk identifier set. The
+/// first promoted runtime-spine categories are the low-risk entities that
+/// should be observable directly from `bevy_ecs_ldtk` before we migrate
+/// collision and gameplay-heavy objects.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum LdtkRuntimeRole {
+    PlayerStart,
+    LoadingZone,
+    DebugLabel,
+    CameraZone,
+    Other,
+}
+
+impl LdtkRuntimeRole {
+    pub fn from_identifier(identifier: &str) -> Self {
+        match identifier {
+            "PlayerStart" => Self::PlayerStart,
+            "LoadingZone" => Self::LoadingZone,
+            "DebugLabel" => Self::DebugLabel,
+            "CameraZone" => Self::CameraZone,
+            _ => Self::Other,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::PlayerStart => "player starts",
+            Self::LoadingZone => "loading zones",
+            Self::DebugLabel => "debug labels",
+            Self::CameraZone => "camera zones",
+            Self::Other => "other",
+        }
+    }
+
+    pub fn promoted(self) -> bool {
+        !matches!(self, Self::Other)
+    }
+}
+
+/// Runtime-spine view of a plugin-spawned LDtk entity in active-area-local
+/// Ambition coordinates.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LdtkRuntimeSpineEntity {
+    pub iid: String,
+    pub identifier: String,
+    pub role: LdtkRuntimeRole,
+    pub min: ae::Vec2,
+    pub size: ae::Vec2,
+}
+
+impl LdtkRuntimeSpineEntity {
+    pub fn aabb(&self) -> ae::Aabb {
+        ae::aabb_from_min_size(self.min, self.size)
+    }
+}
+
+/// Rebuilt every frame from plugin-spawned LDtk entities.
+///
+/// This is the first place where direct `bevy_ecs_ldtk` output becomes an
+/// Ambition runtime resource. For now it is used for debug/authoring overlays
+/// and HUD health checks; future patches should let promoted categories drive
+/// gameplay systems directly from this spine instead of the JSON adapter.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct LdtkRuntimeSpineIndex {
+    pub active_area: String,
+    pub entities: Vec<LdtkRuntimeSpineEntity>,
+    pub promoted_counts: BTreeMap<LdtkRuntimeRole, usize>,
+    pub revision: u64,
+}
+
+impl LdtkRuntimeSpineIndex {
+    pub fn promoted_summary(&self) -> String {
+        let mut parts = Vec::new();
+        for role in [
+            LdtkRuntimeRole::PlayerStart,
+            LdtkRuntimeRole::LoadingZone,
+            LdtkRuntimeRole::DebugLabel,
+            LdtkRuntimeRole::CameraZone,
+        ] {
+            let count = self.promoted_counts.get(&role).copied().unwrap_or(0);
+            parts.push(format!("{} {}", count, role.label()));
+        }
+        parts.join(", ")
+    }
+
+    fn replace_if_changed(&mut self, mut next: Self) {
+        next.entities.sort_by(|a, b| a.iid.cmp(&b.iid));
+        if self.active_area != next.active_area || self.entities != next.entities {
+            next.revision = self.revision.saturating_add(1);
+            *self = next;
+        }
+    }
+}
+
 pub struct AmbitionLdtkRegistrationPlugin;
 
 impl Plugin for AmbitionLdtkRegistrationPlugin {
@@ -99,6 +195,50 @@ pub fn sync_plugin_spawned_ambition_entities(
             ambition_entity,
         ));
     }
+}
+
+/// Rebuild an Ambition runtime-spine index from currently spawned LDtk entities.
+///
+/// `bevy_ecs_ldtk` owns the entity lifecycle; this system projects those
+/// entities into active-area-local Ambition coordinates so gameplay/debug
+/// systems can consume plugin output without reparsing the LDtk JSON file.
+pub fn rebuild_ldtk_runtime_spine_index(
+    room_set: Res<crate::rooms::RoomSet>,
+    runtime_index: Res<LdtkRuntimeIndex>,
+    mut spine_index: ResMut<LdtkRuntimeSpineIndex>,
+    query: Query<&AmbitionLdtkEntity>,
+) {
+    let active_area = room_set.active_spec().id.clone();
+    let origin = runtime_index
+        .area_bounds(&active_area)
+        .map(|bounds| [bounds.min_x, bounds.min_y])
+        .unwrap_or_else(|| runtime_index.active_area_origin());
+
+    let mut next = LdtkRuntimeSpineIndex {
+        active_area,
+        entities: Vec::new(),
+        promoted_counts: BTreeMap::new(),
+        revision: spine_index.revision,
+    };
+
+    for entity in &query {
+        let role = LdtkRuntimeRole::from_identifier(&entity.identifier);
+        if role.promoted() {
+            *next.promoted_counts.entry(role).or_default() += 1;
+        }
+        let raw_min = entity.world.unwrap_or(entity.px);
+        let min = ae::Vec2::new((raw_min[0] - origin[0]) as f32, (raw_min[1] - origin[1]) as f32);
+        let size = ae::Vec2::new(entity.size[0] as f32, entity.size[1] as f32);
+        next.entities.push(LdtkRuntimeSpineEntity {
+            iid: entity.iid.clone(),
+            identifier: entity.identifier.clone(),
+            role,
+            min,
+            size,
+        });
+    }
+
+    spine_index.replace_if_changed(next);
 }
 
 pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
@@ -242,10 +382,37 @@ pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetSer
 #[derive(Component)]
 pub struct SandboxLdtkWorldRoot;
 
+#[derive(Clone, Copy, Debug)]
+pub struct LdtkAreaBounds {
+    pub min_x: i32,
+    pub min_y: i32,
+    pub max_x: i32,
+    pub max_y: i32,
+}
+
+impl LdtkAreaBounds {
+    fn from_level(level: &LdtkLevel) -> Self {
+        Self {
+            min_x: level.world_x,
+            min_y: level.world_y,
+            max_x: level.world_x + level.px_wid,
+            max_y: level.world_y + level.px_hei,
+        }
+    }
+
+    fn include_level(&mut self, level: &LdtkLevel) {
+        self.min_x = self.min_x.min(level.world_x);
+        self.min_y = self.min_y.min(level.world_y);
+        self.max_x = self.max_x.max(level.world_x + level.px_wid);
+        self.max_y = self.max_y.max(level.world_y + level.px_hei);
+    }
+}
+
 #[derive(Resource, Clone, Debug)]
 pub struct LdtkRuntimeIndex {
     active_area: String,
     area_level_iids: BTreeMap<String, Vec<String>>,
+    area_bounds: BTreeMap<String, LdtkAreaBounds>,
     revision: u64,
     synced_revision: u64,
 }
@@ -253,12 +420,19 @@ pub struct LdtkRuntimeIndex {
 impl LdtkRuntimeIndex {
     pub fn from_project(project: &LdtkProject, start_area: impl Into<String>) -> Self {
         let mut area_level_iids: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut area_bounds: BTreeMap<String, LdtkAreaBounds> = BTreeMap::new();
         for level in &project.levels {
-            area_level_iids.entry(level.active_area()).or_default().push(level.iid.clone());
+            let active_area = level.active_area();
+            area_level_iids.entry(active_area.clone()).or_default().push(level.iid.clone());
+            area_bounds
+                .entry(active_area)
+                .and_modify(|bounds| bounds.include_level(level))
+                .or_insert_with(|| LdtkAreaBounds::from_level(level));
         }
         Self {
             active_area: start_area.into(),
             area_level_iids,
+            area_bounds,
             revision: 1,
             synced_revision: 0,
         }
@@ -276,6 +450,16 @@ impl LdtkRuntimeIndex {
         LevelSet::from_iids(self.level_iids_for(area))
     }
 
+    pub fn area_bounds(&self, area: &str) -> Option<LdtkAreaBounds> {
+        self.area_bounds.get(area).copied()
+    }
+
+    pub fn active_area_origin(&self) -> [i32; 2] {
+        self.area_bounds(self.active_area())
+            .map(|bounds| [bounds.min_x, bounds.min_y])
+            .unwrap_or([0, 0])
+    }
+
     pub fn set_active_area(&mut self, area: impl Into<String>) {
         self.active_area = area.into();
     }
@@ -284,6 +468,7 @@ impl LdtkRuntimeIndex {
         let replacement = Self::from_project(project, active_area);
         self.active_area = replacement.active_area;
         self.area_level_iids = replacement.area_level_iids;
+        self.area_bounds = replacement.area_bounds;
         self.revision = self.revision.saturating_add(1);
         self.synced_revision = self.synced_revision.min(self.revision.saturating_sub(1));
     }

@@ -82,6 +82,7 @@ fn main() {
         .insert_resource(ldtk_index)
         .insert_resource(ldtk_world::LdtkHotReloadState::from_current_file())
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
+        .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
         .insert_resource(LdtkSettings {
             // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk
             // own level/entity lifecycle without also drawing LDtk background
@@ -145,6 +146,7 @@ fn main() {
                 sandbox_update,
                 ldtk_world::sync_ldtk_level_set,
                 ldtk_world::sync_plugin_spawned_ambition_entities,
+                ldtk_world::rebuild_ldtk_runtime_spine_index,
                 sync_visuals,
                 camera_follow,
                 debug_overlay::draw_debug_overlay,
@@ -699,6 +701,59 @@ fn handle_ldtk_hot_reload(
     }
 }
 
+struct LdtkReloadTransaction {
+    project: ldtk_world::LdtkProject,
+    next_room_set: rooms::RoomSet,
+    next_spec: rooms::RoomSpec,
+    safe_player_pos: ae::Vec2,
+}
+
+fn prepare_ldtk_reload_transaction(
+    current_room_id: &str,
+    preserved_pos: ae::Vec2,
+    player_size: ae::Vec2,
+) -> Result<LdtkReloadTransaction, Vec<String>> {
+    let project = ldtk_world::LdtkProject::load_from_disk().map_err(|error| vec![error])?;
+    let report = project.validate();
+    report.print_to_stderr();
+    if !report.is_ok() {
+        return Err(report.errors);
+    }
+
+    let mut next_room_set = project.to_room_set()?;
+    let Some(next_active) = next_room_set
+        .rooms
+        .iter()
+        .position(|room| room.id == current_room_id)
+    else {
+        return Err(vec![format!(
+            "LDtk reload would delete current active area '{current_room_id}'. Move the player elsewhere or restore that activeArea before applying."
+        )]);
+    };
+    next_room_set.active = next_active;
+    let next_spec = next_room_set.active_spec().clone();
+
+    let mut hard_errors = Vec::new();
+    for warning in next_room_set.layout_warnings() {
+        if warning.contains("references missing") {
+            hard_errors.push(format!("LDtk reload graph error: {warning}"));
+        } else {
+            eprintln!("LDtk reload layout warning: {warning}");
+        }
+    }
+    if !hard_errors.is_empty() {
+        return Err(hard_errors);
+    }
+
+    let safe_player_pos = rooms::validated_spawn(&next_spec.world, preserved_pos, player_size);
+    Ok(LdtkReloadTransaction {
+        project,
+        next_room_set,
+        next_spec,
+        safe_player_pos,
+    })
+}
+
 fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     world: &mut GameWorld,
@@ -708,23 +763,14 @@ fn reload_ldtk_world_from_disk(
     tuning: ae::MovementTuning,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) -> Result<String, Vec<String>> {
-    let project = ldtk_world::LdtkProject::load_from_disk().map_err(|error| vec![error])?;
-    let report = project.validate();
-    report.print_to_stderr();
-    if !report.is_ok() {
-        return Err(report.errors);
-    }
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = runtime.player.pos;
-    let mut next_room_set = project.to_room_set()?;
-    let next_active = next_room_set
-        .rooms
-        .iter()
-        .position(|room| room.id == current_room_id)
-        .unwrap_or(next_room_set.active);
-    next_room_set.active = next_active;
-    let next_spec = next_room_set.active_spec().clone();
+    let transaction = prepare_ldtk_reload_transaction(&current_room_id, preserved_pos, runtime.player.size)?;
 
+    // Everything above this line is non-mutating: invalid edits, deleted active
+    // areas, bad graph links, and unsafe player positions are rejected before
+    // touching the live world. Only commit after the complete replacement room
+    // graph and repaired player position have been built.
     for (entity, physics_entity) in room_visuals.iter() {
         if physics_entity.is_some() {
             physics::retire_physics_entity(commands, entity);
@@ -733,13 +779,13 @@ fn reload_ldtk_world_from_disk(
         }
     }
 
-    *room_set = next_room_set;
-    world.0 = next_spec.world.clone();
+    let active_room = transaction.next_spec.id.clone();
+    *room_set = transaction.next_room_set;
+    world.0 = transaction.next_spec.world.clone();
 
-    let safe_pos = rooms::validated_spawn(&world.0, preserved_pos, runtime.player.size);
-    runtime.player.pos = safe_pos;
+    runtime.player.pos = transaction.safe_player_pos;
     runtime.player.refresh_movement_resources(tuning);
-    runtime.last_safe_player_pos = safe_pos;
+    runtime.last_safe_player_pos = transaction.safe_player_pos;
     runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
     runtime.features = features::FeatureRuntime::from_world(&world.0);
     runtime.dialogue.close();
@@ -748,12 +794,12 @@ fn reload_ldtk_world_from_disk(
     runtime.room_transition_cooldown = 0.10;
     runtime.preset_flash = 1.0;
 
-    ldtk_index.replace_from_project(&project, next_spec.id.clone());
+    ldtk_index.replace_from_project(&transaction.project, active_room.clone());
 
-    spawn_room_visuals(commands, &world.0, &next_spec.loading_zones, runtime.physics_settings);
+    spawn_room_visuals(commands, &world.0, &room_set.active_spec().loading_zones, runtime.physics_settings);
     platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
 
-    Ok(next_spec.id)
+    Ok(active_room)
 }
 
 fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
@@ -1111,6 +1157,7 @@ fn update_hud(
     developer_tools: Res<DeveloperTools>,
     ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
     ldtk_spine: Res<ldtk_world::LdtkRuntimeSpineStats>,
+    ldtk_spine_index: Res<ldtk_world::LdtkRuntimeSpineIndex>,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
@@ -1157,7 +1204,7 @@ fn update_hud(
     };
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -1176,7 +1223,8 @@ fn update_hud(
             ldtk_reload.auto_apply,
             ldtk_reload.pending,
             ldtk_spine.spawned_entities,
-            ldtk_spine.revision,
+            ldtk_spine_index.revision,
+            ldtk_spine_index.promoted_summary(),
             if ldtk_spine.last_entity.is_empty() { "none" } else { &ldtk_spine.last_entity },
             runtime.hitstun_timer,
             runtime.damage_invuln_timer,
@@ -1194,7 +1242,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\nLDtk spine: {} entities, rev {}, last {}, sample {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\nLDtk spine: {} entities, raw rev {}, promoted rev {}, promoted {}, last {}, sample {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -1240,6 +1288,8 @@ fn update_hud(
         ldtk_reload.last_status,
         ldtk_spine.spawned_entities,
         ldtk_spine.revision,
+        ldtk_spine_index.revision,
+        ldtk_spine_index.promoted_summary(),
         if ldtk_spine.last_entity.is_empty() { "none" } else { &ldtk_spine.last_entity },
         if ldtk_spine.sample_entity.is_empty() { "none" } else { &ldtk_spine.sample_entity },
         window_line,

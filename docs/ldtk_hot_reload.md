@@ -26,13 +26,15 @@ A reload does all of the following:
 1. Reads `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk` from disk.
 2. Runs the Ambition LDtk validator.
 3. Rejects the reload if validation fails, leaving the live world intact.
-4. Converts LDtk levels into the Ambition room manifest.
-5. Rebuilds `RoomSet`, `GameWorld`, feature runtime, moving-platform state, and
-   the LDtk runtime index.
-6. Preserves the player, abilities, HP, and velocity as much as possible.
-7. Repairs the player to the nearest valid spawn if the edited map places the
-   previous position inside collision.
-8. Despawns and respawns map-authored room visuals / physics mirrors.
+4. Builds the replacement `RoomSet` directly from LDtk-authored runtime data.
+5. Rejects the reload if the current active area was deleted/renamed or if the
+   room graph contains missing source/target zones.
+6. Computes the repaired player position in the replacement world before
+   mutating the live world.
+7. Commits the transaction by rebuilding `GameWorld`, feature runtime,
+   moving-platform state, room visuals/physics mirrors, and the LDtk runtime
+   index.
+8. Preserves the player, abilities, HP, and velocity as much as possible.
 
 ## Intentional constraints
 
@@ -48,10 +50,10 @@ but Ambition still owns the gameplay invariants.
 
 - Listen to Bevy `AssetEvent<LdtkProject>` in addition to modification-time
   polling once the exact Bevy 0.18 message-reader API is settled.
-- Promote registered LDtk marker entities from lifecycle-only bundles into direct Ambition gameplay components.
-- Add raw-LDtk-vs-Ambition runtime debug overlays for every spatial entity.
+- Promote collision and gameplay-heavy LDtk entities from runtime-spine debug resources into direct Ambition components.
+- Extend raw-LDtk-vs-Ambition overlays from promoted low-risk entities to every spatial entity.
 - Preserve collected chest/pickup state by stable LDtk IID across reloads.
-- Add safe policies for moving/deleting the current active area under the player.
+- Add explicit UI feedback for rejected reload transactions.
 
 ## `bevy_ecs_ldtk` loader health
 

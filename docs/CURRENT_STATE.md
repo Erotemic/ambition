@@ -199,3 +199,7 @@ The repaired map preserves the intended NPC move and the lower-door horizontal m
 ## LDtk editor-native tooling
 
 The LDtk workflow now has dedicated Python tools: `tools/repair_ambition_ldtk.py` repairs generated/agent-patched editor metadata, `tools/check_ldtk_editor_roundtrip.py` verifies the file is editor-roundtrip clean without mutating it, and `tools/fetch_ldtk_schema.py` fetches the official LDtk JSON Schema for optional Python `jsonschema` validation. The sandbox LDtk project now defines all supported Ambition entity identifiers, including `CameraZone` and `StitchedBoundary`, with colors/docs/default fields so supported objects can be added from the LDtk editor. See `docs/ldtk_authoring.md`.
+## LDtk runtime-spine update
+
+The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
+

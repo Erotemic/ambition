@@ -148,3 +148,7 @@ The LDtk project now includes definitions for every currently supported Ambition
 Use `tools/repair_ambition_ldtk.py` to normalize generated or agent-patched LDtk files before editor use, and `tools/check_ldtk_editor_roundtrip.py` to verify a file is ready for GUI editing without mutating it. Official LDtk schema validation is available through Python `jsonschema` when `tools/schemas/ldtk/JSON_SCHEMA.json` has been fetched with `tools/fetch_ldtk_schema.py`.
 
 See `docs/ldtk_authoring.md` for the level-design workflow and supported entity fields.
+## LDtk runtime-spine update
+
+The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
+

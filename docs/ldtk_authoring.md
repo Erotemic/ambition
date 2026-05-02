@@ -119,3 +119,45 @@ points such as `0,0;64,0`.
 Use `tools/repair_ambition_ldtk.py` after generated/agent patches. It can repair
 editor metadata and UID links derived from definitions, but it cannot infer
 lost gameplay values after LDtk has already saved fields as `null`.
+
+## Runtime-spine authoring and debug overlays
+
+The first promoted `bevy_ecs_ldtk` runtime-spine categories are:
+
+```text
+PlayerStart
+LoadingZone
+DebugLabel
+CameraZone
+```
+
+These entities are now consumed from the plugin-spawned LDtk hierarchy into an
+Ambition runtime-spine index every frame. The current gameplay room still uses
+Ambition's typed `RoomSet`/`World` projection, but the plugin-spawned entities
+are no longer only loader-health markers: they are visible in the HUD and debug
+gizmos as the first direct runtime-spine resource.
+
+When debug gizmos and loading-zone overlays are enabled, the overlay draws both:
+
+- Ambition runtime loading zones from the active `RoomSet`.
+- Promoted plugin-spawned LDtk entities in active-area-local coordinates.
+
+This lets authors compare raw LDtk placement against the current Ambition runtime
+projection after editor edits or hot reloads. If the raw LDtk outlines and
+runtime outlines drift apart, treat that as a migration bug before adding more
+content.
+
+## Hot reload transaction rules
+
+Hot reload should feel safe while editing. A reload prepares the replacement
+world completely before mutating the live world. The reload is rejected if:
+
+- the LDtk file cannot be parsed;
+- the Ambition validator reports errors;
+- the current active area was deleted or renamed;
+- room graph links reference missing source/target zones.
+
+Only after the replacement `RoomSet`, active room, level-set index, and repaired
+player position are ready does the sandbox despawn old room visuals/physics and
+commit the new world. This policy is intentionally conservative: move the player
+or change rooms before deleting the active area under them.

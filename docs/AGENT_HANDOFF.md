@@ -220,3 +220,7 @@ Startup should not use `.expect()` on LDtk room construction. If the embedded LD
 ## LDtk authoring tooling rule
 
 Before handing a generated or patched `.ldtk` file to the user for LDtk GUI editing, run `python tools/repair_ambition_ldtk.py --in-place crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk` and then `python tools/check_ldtk_editor_roundtrip.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`. Use Python `jsonschema` only for official LDtk schema validation; do not add npm/Node validation tooling. If a new Ambition LDtk entity is introduced, add an LDtk entity definition with docs/colors/default field values, register it with `bevy_ecs_ldtk`, update the validator, and update `docs/ldtk_authoring.md`.
+## LDtk runtime-spine update
+
+The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
+

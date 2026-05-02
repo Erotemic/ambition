@@ -34,6 +34,7 @@ pub fn draw_debug_overlay(
     runtime: Res<SandboxRuntime>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
+    ldtk_spine_index: Res<crate::ldtk_world::LdtkRuntimeSpineIndex>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
@@ -57,6 +58,7 @@ pub fn draw_debug_overlay(
     }
     if developer_tools.show_loading_zones {
         draw_loading_zones(&mut gizmos, world, room_set.active_loading_zones());
+        draw_ldtk_runtime_spine(&mut gizmos, world, &ldtk_spine_index);
     }
     if developer_tools.show_rebound_vectors {
         draw_rebound_vectors(&mut gizmos, world);
@@ -100,6 +102,23 @@ fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: &[LoadingZo
             LoadingZoneActivation::Door => yellow(),
         };
         draw_aabb(gizmos, world, zone.aabb, color);
+    }
+}
+
+fn draw_ldtk_runtime_spine(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    spine_index: &crate::ldtk_world::LdtkRuntimeSpineIndex,
+) {
+    for entity in &spine_index.entities {
+        let color = match entity.role {
+            crate::ldtk_world::LdtkRuntimeRole::PlayerStart => green(),
+            crate::ldtk_world::LdtkRuntimeRole::LoadingZone => Color::srgba(1.0, 1.0, 1.0, 0.70),
+            crate::ldtk_world::LdtkRuntimeRole::DebugLabel => magenta(),
+            crate::ldtk_world::LdtkRuntimeRole::CameraZone => blue(),
+            crate::ldtk_world::LdtkRuntimeRole::Other => continue,
+        };
+        draw_aabb(gizmos, world, entity.aabb(), color);
     }
 }
 

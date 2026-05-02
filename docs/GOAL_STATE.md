@@ -182,3 +182,7 @@ Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `t
 ## LDtk editor-native product goal
 
 LDtk should feel like a first-class editor for Ambition, not a fragile generated JSON artifact. Supported Ambition entities should have native LDtk definitions with useful colors, docs, defaults, and stable identifiers. The professional workflow should be: repair/check generated files, edit in LDtk, validate with Ambition plus optional official LDtk schema validation through Python `jsonschema`, and hot-reload safely into the sandbox.
+## LDtk runtime-spine update
+
+The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
+

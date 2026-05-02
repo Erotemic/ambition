@@ -69,7 +69,14 @@ pub fn sync_health_overlays(
             } else {
                 Color::srgba(1.00, 0.20, 0.22, 0.96)
             };
-            spawn_health_overlay(&mut commands, &world.0, &enemy.name, enemy.aabb(), enemy.health, color);
+            spawn_health_overlay(
+                &mut commands,
+                &world.0,
+                &enemy.name,
+                enemy.aabb(),
+                enemy.health,
+                color,
+            );
         }
     }
     for boss in &runtime.features.bosses {
@@ -116,15 +123,26 @@ fn spawn_health_overlay(
     let text = format!("{}/{}", health.current.max(0), health.max);
 
     commands.spawn((
-        Sprite::from_color(Color::srgba(0.02, 0.03, 0.05, 0.86), BVec2::new(width + 5.0, height + 5.0)),
-        Transform::from_translation(world_to_bevy(world, ae::Vec2::new(center_x, y), WORLD_Z_PLAYER + 12.0)),
+        Sprite::from_color(
+            Color::srgba(0.02, 0.03, 0.05, 0.86),
+            BVec2::new(width + 5.0, height + 5.0),
+        ),
+        Transform::from_translation(world_to_bevy(
+            world,
+            ae::Vec2::new(center_x, y),
+            WORLD_Z_PLAYER + 12.0,
+        )),
         Name::new(format!("Health bar bg: {name}")),
         HealthOverlayVisual,
     ));
     if fill_w > 0.5 {
         commands.spawn((
             Sprite::from_color(fill_color, BVec2::new(fill_w, height)),
-            Transform::from_translation(world_to_bevy(world, ae::Vec2::new(left + fill_w * 0.5, y), WORLD_Z_PLAYER + 13.0)),
+            Transform::from_translation(world_to_bevy(
+                world,
+                ae::Vec2::new(left + fill_w * 0.5, y),
+                WORLD_Z_PLAYER + 13.0,
+            )),
             Name::new(format!("Health bar fill: {name}")),
             HealthOverlayVisual,
         ));
@@ -136,7 +154,11 @@ fn spawn_health_overlay(
             ..default()
         },
         TextColor(Color::srgba(0.96, 0.98, 1.0, 0.98)),
-        Transform::from_translation(world_to_bevy(world, ae::Vec2::new(center_x, y - 13.0), WORLD_Z_PLAYER + 14.0)),
+        Transform::from_translation(world_to_bevy(
+            world,
+            ae::Vec2::new(center_x, y - 13.0),
+            WORLD_Z_PLAYER + 14.0,
+        )),
         Name::new(format!("Health label: {name}")),
         HealthOverlayVisual,
     ));
@@ -147,7 +169,10 @@ pub fn sync_visuals(
     runtime: Res<crate::SandboxRuntime>,
     entities: Res<SceneEntities>,
     mut player_query: Query<(&mut Transform, &mut Sprite), With<PlayerVisual>>,
-    mut feature_query: Query<(&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility), Without<PlayerVisual>>,
+    mut feature_query: Query<
+        (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
+        Without<PlayerVisual>,
+    >,
 ) {
     if let Ok((mut transform, mut sprite)) = player_query.get_mut(entities.player) {
         transform.translation = world_to_bevy(&world.0, runtime.player.pos, WORLD_Z_PLAYER);
@@ -164,7 +189,11 @@ pub fn sync_visuals(
         transform.translation = world_to_bevy(&world.0, view.pos, feature_z(view.kind));
         sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
         sprite.color = feature_color(view.kind, view.flash);
-        *visibility = if view.visible { Visibility::Visible } else { Visibility::Hidden };
+        *visibility = if view.visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 }
 
@@ -210,7 +239,12 @@ pub fn spawn_grid(commands: &mut Commands, world: &ae::World) {
     }
 }
 
-pub fn spawn_block(commands: &mut Commands, world: &ae::World, block: &ae::Block, physics_settings: physics::PhysicsSandboxSettings) {
+pub fn spawn_block(
+    commands: &mut Commands,
+    world: &ae::World,
+    block: &ae::Block,
+    physics_settings: physics::PhysicsSandboxSettings,
+) {
     let size = block.aabb.half_size() * 2.0;
     commands.spawn((
         Sprite::from_color(block_color(block.kind), BVec2::new(size.x, size.y)),
@@ -229,7 +263,11 @@ pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &Loa
     };
     commands.spawn((
         Sprite::from_color(color, BVec2::new(size.x, size.y)),
-        Transform::from_translation(world_to_bevy(world, zone.aabb.center(), WORLD_Z_BLOCK + 6.0)),
+        Transform::from_translation(world_to_bevy(
+            world,
+            zone.aabb.center(),
+            WORLD_Z_BLOCK + 6.0,
+        )),
         Name::new(format!("Loading zone: {}", zone.name)),
         RoomVisual,
     ));
@@ -240,8 +278,12 @@ pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &Loa
 pub fn block_color(kind: ae::BlockKind) -> Color {
     match kind {
         ae::BlockKind::Solid => Color::srgba(0.25, 0.28, 0.36, 1.0),
-        ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft } => Color::srgba(0.32, 0.20, 0.72, 0.88),
-        ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard } => Color::srgba(0.52, 0.14, 0.80, 0.96),
+        ae::BlockKind::BlinkWall {
+            tier: ae::BlinkWallTier::Soft,
+        } => Color::srgba(0.32, 0.20, 0.72, 0.88),
+        ae::BlockKind::BlinkWall {
+            tier: ae::BlinkWallTier::Hard,
+        } => Color::srgba(0.52, 0.14, 0.80, 0.96),
         ae::BlockKind::OneWay => Color::srgba(0.36, 0.43, 0.62, 0.92),
         ae::BlockKind::Hazard => Color::srgba(0.96, 0.18, 0.26, 0.92),
         ae::BlockKind::PogoOrb => Color::srgba(0.30, 0.95, 0.64, 0.95),
@@ -263,7 +305,11 @@ pub fn camera_follow(
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
-    let camera_scale = if developer_tools.overview_camera { overview_scale } else { 1.0 };
+    let camera_scale = if developer_tools.overview_camera {
+        overview_scale
+    } else {
+        1.0
+    };
 
     let target = if developer_tools.overview_camera {
         // AMBITION_REVIEW(spatial): overview centers the composed active area, not
@@ -280,7 +326,10 @@ pub fn camera_follow(
     let (view_w, view_h) = windows
         .single()
         .map(|w| (w.width(), w.height()))
-        .unwrap_or((crate::config::WINDOW_W as f32, crate::config::WINDOW_H as f32));
+        .unwrap_or((
+            crate::config::WINDOW_W as f32,
+            crate::config::WINDOW_H as f32,
+        ));
     let half_view_w = view_w * camera_scale * 0.5;
     let half_view_h = view_h * camera_scale * 0.5;
     let min_x = -world.0.size.x * 0.5 + half_view_w;
@@ -288,8 +337,16 @@ pub fn camera_follow(
     let min_y = -world.0.size.y * 0.5 + half_view_h;
     let max_y = world.0.size.y * 0.5 - half_view_h;
 
-    let x = if min_x <= max_x { target.x.clamp(min_x, max_x) } else { 0.0 };
-    let y = if min_y <= max_y { target.y.clamp(min_y, max_y) } else { 0.0 };
+    let x = if min_x <= max_x {
+        target.x.clamp(min_x, max_x)
+    } else {
+        0.0
+    };
+    let y = if min_y <= max_y {
+        target.y.clamp(min_y, max_y)
+    } else {
+        0.0
+    };
 
     for (mut transform, mut projection) in &mut query {
         if let Projection::Orthographic(orthographic) = &mut *projection {
@@ -305,13 +362,25 @@ pub fn spawn_room_object(commands: &mut Commands, world: &ae::World, object: &ae
         let size = object.aabb.half_size() * 2.0;
         commands.spawn((
             Sprite::from_color(feature_color(kind, false), BVec2::new(size.x, size.y)),
-            Transform::from_translation(world_to_bevy(world, object.aabb.center(), feature_z(kind))),
+            Transform::from_translation(world_to_bevy(
+                world,
+                object.aabb.center(),
+                feature_z(kind),
+            )),
             Name::new(format!("Room object: {}", object.name)),
-            FeatureVisual { id: object.id.clone() },
+            FeatureVisual {
+                id: object.id.clone(),
+            },
             RoomVisual,
         ));
         if matches!(kind, FeatureVisualKind::Npc | FeatureVisualKind::Chest) {
-            spawn_world_label(commands, world, object.aabb.center() + ae::Vec2::new(0.0, -object.aabb.half_size().y - 22.0), &object.name, 14.0);
+            spawn_world_label(
+                commands,
+                world,
+                object.aabb.center() + ae::Vec2::new(0.0, -object.aabb.half_size().y - 22.0),
+                &object.name,
+                14.0,
+            );
         }
     } else if let ae::RoomObjectKind::DebugLabel(label) = &object.kind {
         spawn_world_label(commands, world, label.position, &label.text, 14.0);
@@ -326,10 +395,16 @@ fn object_visual_kind(kind: &ae::RoomObjectKind) -> Option<FeatureVisualKind> {
         ae::RoomObjectKind::Pickup(_) => Some(FeatureVisualKind::Pickup),
         ae::RoomObjectKind::Chest(_) => Some(FeatureVisualKind::Chest),
         ae::RoomObjectKind::Breakable(_) => Some(FeatureVisualKind::Breakable),
-        ae::RoomObjectKind::Interactable(interactable) if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) => {
+        ae::RoomObjectKind::Interactable(interactable)
+            if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) =>
+        {
             Some(FeatureVisualKind::Npc)
         }
-        ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom(name)) if name.starts_with("sandbag_") => Some(FeatureVisualKind::Sandbag),
+        ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom(name))
+            if name.starts_with("sandbag_") =>
+        {
+            Some(FeatureVisualKind::Sandbag)
+        }
         ae::RoomObjectKind::EnemySpawn(_) => Some(FeatureVisualKind::Enemy),
         ae::RoomObjectKind::BossSpawn(_) => Some(FeatureVisualKind::Boss),
         _ => None,
@@ -365,7 +440,13 @@ fn feature_color(kind: FeatureVisualKind, flash: bool) -> Color {
     }
 }
 
-fn spawn_world_label(commands: &mut Commands, world: &ae::World, pos: ae::Vec2, text: &str, font_size: f32) {
+fn spawn_world_label(
+    commands: &mut Commands,
+    world: &ae::World,
+    pos: ae::Vec2,
+    text: &str,
+    font_size: f32,
+) {
     commands.spawn((
         Text2d::new(text.to_string()),
         TextFont {

@@ -161,7 +161,11 @@ impl AbilitySet {
 
     /// Number of air jumps granted by the active ability set.
     pub const fn air_jump_count(self, tuning_air_jumps: u8) -> u8 {
-        if self.double_jump { tuning_air_jumps } else { 0 }
+        if self.double_jump {
+            tuning_air_jumps
+        } else {
+            0
+        }
     }
 
     /// Number of dash charges granted by the active ability set.
@@ -206,7 +210,8 @@ impl AbilitySet {
             warnings.push("blink_through_hard_walls is enabled without blink_through_soft_walls");
         }
         if self.directional_special && !self.blink {
-            warnings.push("directional_special currently has no concrete verb unless blink is enabled");
+            warnings
+                .push("directional_special currently has no concrete verb unless blink is enabled");
         }
         if self.pogo && !self.attack {
             warnings.push("pogo is enabled but attack is disabled");
@@ -227,7 +232,9 @@ mod tests {
 
     #[test]
     fn sandbox_all_has_no_compatibility_warnings() {
-        assert!(AbilitySet::sandbox_all().compatibility_warnings().is_empty());
+        assert!(AbilitySet::sandbox_all()
+            .compatibility_warnings()
+            .is_empty());
     }
 
     #[test]
@@ -241,6 +248,8 @@ mod tests {
         assert!(warnings.iter().any(|w| w.contains("double_dash")));
         assert!(warnings.iter().any(|w| w.contains("wall_climb")));
         assert!(warnings.iter().any(|w| w.contains("precision_blink")));
-        assert!(warnings.iter().any(|w| w.contains("blink_through_soft_walls")));
+        assert!(warnings
+            .iter()
+            .any(|w| w.contains("blink_through_soft_walls")));
     }
 }

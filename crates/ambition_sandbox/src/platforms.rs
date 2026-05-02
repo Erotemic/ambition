@@ -69,7 +69,9 @@ impl MovingPlatformState {
             // axes. They are deliberately *not* hard blink blockers: if the
             // player has the soft blink-through upgrade, blink pathing may pass
             // through the moving platform just like a soft blink membrane.
-            kind: ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft },
+            kind: ae::BlockKind::BlinkWall {
+                tier: ae::BlinkWallTier::Soft,
+            },
         }
     }
 
@@ -103,7 +105,11 @@ pub fn world_with_moving_platform(world: &ae::World, platform: &MovingPlatformSt
 #[derive(Component)]
 pub struct MovingPlatformVisual;
 
-pub fn spawn_moving_platform(commands: &mut Commands, world: &ae::World, platform: MovingPlatformState) -> Entity {
+pub fn spawn_moving_platform(
+    commands: &mut Commands,
+    world: &ae::World,
+    platform: MovingPlatformState,
+) -> Entity {
     commands
         .spawn((
             Sprite::from_color(
@@ -124,7 +130,11 @@ pub fn sync_moving_platform(
     mut query: Query<(&mut Transform, &mut Sprite), With<MovingPlatformVisual>>,
 ) {
     for (mut transform, mut sprite) in &mut query {
-        transform.translation = world_to_bevy(&world.0, runtime.moving_platform.pos, WORLD_Z_BLOCK + 4.0);
-        sprite.custom_size = Some(BVec2::new(runtime.moving_platform.size.x, runtime.moving_platform.size.y));
+        transform.translation =
+            world_to_bevy(&world.0, runtime.moving_platform.pos, WORLD_Z_BLOCK + 4.0);
+        sprite.custom_size = Some(BVec2::new(
+            runtime.moving_platform.size.x,
+            runtime.moving_platform.size.y,
+        ));
     }
 }

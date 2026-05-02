@@ -49,7 +49,11 @@ impl fmt::Display for HeadlessReport {
         writeln!(f, "headless run completed: {} ticks", self.ticks_run)?;
         writeln!(f, "  active room    : {}", self.active_room)?;
         writeln!(f, "  rooms loaded   : {}", self.room_count)?;
-        writeln!(f, "  ldtk entities  : {} (spawned by bevy_ecs_ldtk)", self.spawned_entities)?;
+        writeln!(
+            f,
+            "  ldtk entities  : {} (spawned by bevy_ecs_ldtk)",
+            self.spawned_entities
+        )?;
         writeln!(f, "  spine revision : {}", self.spine_revision)?;
         write!(f, "  solid revision : {}", self.solid_index_revision)?;
         Ok(())
@@ -105,7 +109,9 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     }
 
     let world = app.world();
-    let stats = world.resource::<ldtk_world::LdtkRuntimeSpineStats>().clone();
+    let stats = world
+        .resource::<ldtk_world::LdtkRuntimeSpineStats>()
+        .clone();
     let spine_index = world.resource::<ldtk_world::LdtkRuntimeSpineIndex>();
     let solid_index = world.resource::<ldtk_world::LdtkRuntimeSolidIndex>();
     let active_room_after = world.resource::<RoomSet>().active_spec().id.clone();
@@ -128,7 +134,10 @@ mod tests {
     fn run_headless_completes_one_tick_without_panicking() {
         let report = run_headless(1).expect("headless one-tick run succeeds");
         assert_eq!(report.ticks_run, 1);
-        assert!(report.room_count > 0, "embedded LDtk should produce at least one room");
+        assert!(
+            report.room_count > 0,
+            "embedded LDtk should produce at least one room"
+        );
         assert!(!report.active_room.is_empty());
     }
 

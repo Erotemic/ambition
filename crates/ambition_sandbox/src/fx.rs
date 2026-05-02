@@ -118,9 +118,15 @@ pub fn update_slash_previews(
 pub fn spawn_slash_preview(commands: &mut Commands, world: &ae::World, hitbox: ae::Aabb) {
     let size = hitbox.half_size() * 2.0;
     commands.spawn((
-        Sprite::from_color(Color::srgba(1.0, 1.0, 0.35, 0.80), BVec2::new(size.x, size.y)),
+        Sprite::from_color(
+            Color::srgba(1.0, 1.0, 0.35, 0.80),
+            BVec2::new(size.x, size.y),
+        ),
         Transform::from_translation(world_to_bevy(world, hitbox.center(), WORLD_Z_FX + 2.0)),
-        SlashPreviewVisual { age: 0.0, duration: 0.10 },
+        SlashPreviewVisual {
+            age: 0.0,
+            duration: 0.10,
+        },
     ));
 }
 
@@ -137,7 +143,12 @@ pub fn spawn_impact(commands: &mut Commands, world: &ae::World, pos: ae::Vec2) {
     ));
 }
 
-pub fn spawn_reset_effects(commands: &mut Commands, world: &ae::World, from: ae::Vec2, to: ae::Vec2) {
+pub fn spawn_reset_effects(
+    commands: &mut Commands,
+    world: &ae::World,
+    from: ae::Vec2,
+    to: ae::Vec2,
+) {
     // Reset is a teleport-like state transition. Showing both endpoints avoids
     // the ambiguity where a burst at spawn can look like a coordinate bug when
     // the player reset from somewhere else.
@@ -183,7 +194,10 @@ pub fn spawn_burst(
         let radius = 2.0 + 2.5 * ((i * 5 + 1) % 7) as f32 / 6.0;
         let lifetime = 0.22 + 0.16 * ((i * 7 + 3) % 9) as f32 / 8.0;
         commands.spawn((
-            Sprite::from_color(rgba(color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3]), BVec2::splat(radius)),
+            Sprite::from_color(
+                rgba(color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3]),
+                BVec2::splat(radius),
+            ),
             Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX)),
             ParticleVisual {
                 kind,
@@ -231,10 +245,40 @@ pub fn spawn_dust(commands: &mut Commands, world: &ae::World, pos: ae::Vec2, fac
     }
 }
 
-pub fn spawn_blink_effects(commands: &mut Commands, world: &ae::World, from: ae::Vec2, to: ae::Vec2, precision: bool) {
-    let exit_color = if precision { [0.40, 0.34, 1.00, 0.78] } else { [0.24, 0.74, 1.00, 0.68] };
-    let entry_color = if precision { [0.92, 0.42, 1.00, 0.92] } else { [0.42, 1.00, 0.92, 0.90] };
-    spawn_burst(commands, world, from, if precision { 18 } else { 12 }, 250.0, exit_color, ParticleKind::Spark);
-    spawn_burst(commands, world, to, if precision { 28 } else { 18 }, 360.0, entry_color, ParticleKind::Spark);
+pub fn spawn_blink_effects(
+    commands: &mut Commands,
+    world: &ae::World,
+    from: ae::Vec2,
+    to: ae::Vec2,
+    precision: bool,
+) {
+    let exit_color = if precision {
+        [0.40, 0.34, 1.00, 0.78]
+    } else {
+        [0.24, 0.74, 1.00, 0.68]
+    };
+    let entry_color = if precision {
+        [0.92, 0.42, 1.00, 0.92]
+    } else {
+        [0.42, 1.00, 0.92, 0.90]
+    };
+    spawn_burst(
+        commands,
+        world,
+        from,
+        if precision { 18 } else { 12 },
+        250.0,
+        exit_color,
+        ParticleKind::Spark,
+    );
+    spawn_burst(
+        commands,
+        world,
+        to,
+        if precision { 28 } else { 18 },
+        360.0,
+        entry_color,
+        ParticleKind::Spark,
+    );
     spawn_impact(commands, world, to);
 }

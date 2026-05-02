@@ -11,15 +11,19 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 
 use bevy::asset::{AssetServer, Handle};
-use bevy::prelude::{Added, App, Bundle, Commands, Component, Entity, Name, Plugin, Query, Res, ResMut, Resource, Time, With};
-use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntity, LdtkEntityAppExt, LevelSet};
+use bevy::prelude::{
+    Added, App, Bundle, Commands, Component, Entity, Name, Plugin, Query, Res, ResMut, Resource,
+    Time, With,
+};
+use bevy_ecs_ldtk::prelude::{
+    EntityInstance as PluginEntityInstance, LdtkEntity, LdtkEntityAppExt, LevelSet,
+};
 use serde::Deserialize;
 use serde_json::Value;
 
 use ambition_engine as ae;
 
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSpec};
-
 
 /// Lightweight bundle registered for every Ambition-authored LDtk entity.
 ///
@@ -263,7 +267,10 @@ pub fn sync_plugin_spawned_ambition_entities(
         // identifier-string matching.
         let mut entity_commands = commands.entity(entity);
         entity_commands.insert((
-            Name::new(format!("LDtk {} {}", ambition_entity.identifier, ambition_entity.iid)),
+            Name::new(format!(
+                "LDtk {} {}",
+                ambition_entity.identifier, ambition_entity.iid
+            )),
             ambition_entity.clone(),
         ));
         if ambition_entity.identifier == "Solid" {
@@ -350,7 +357,10 @@ pub fn rebuild_ldtk_runtime_spine_index(
             *next.promoted_counts.entry(role).or_default() += 1;
         }
         let raw_min = entity.world.unwrap_or(entity.px);
-        let min = ae::Vec2::new((raw_min[0] - origin[0]) as f32, (raw_min[1] - origin[1]) as f32);
+        let min = ae::Vec2::new(
+            (raw_min[0] - origin[0]) as f32,
+            (raw_min[1] - origin[1]) as f32,
+        );
         let size = ae::Vec2::new(entity.size[0] as f32, entity.size[1] as f32);
         next.entities.push(LdtkRuntimeSpineEntity {
             iid: entity.iid.clone(),
@@ -398,7 +408,12 @@ pub fn sandbox_ldtk_modified_time() -> Result<SystemTime, String> {
     let path = sandbox_ldtk_path();
     fs::metadata(&path)
         .and_then(|metadata| metadata.modified())
-        .map_err(|error| format!("could not read LDtk modified time for {}: {error}", path.display()))
+        .map_err(|error| {
+            format!(
+                "could not read LDtk modified time for {}: {error}",
+                path.display()
+            )
+        })
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -433,7 +448,8 @@ impl LdtkHotReloadState {
             Ok(modified) => {
                 state.last_modified = Some(modified);
                 state.last_status = if cfg!(feature = "dev_hot_reload") {
-                    "LDtk hot reload watching; press F11 to apply, F12 toggles auto-apply".to_string()
+                    "LDtk hot reload watching; press F11 to apply, F12 toggles auto-apply"
+                        .to_string()
                 } else {
                     "LDtk hot reload polling; run with --features dev_hot_reload for Bevy file watching too".to_string()
                 };
@@ -491,7 +507,6 @@ pub fn poll_ldtk_file_changes(time: Res<Time>, mut state: ResMut<LdtkHotReloadSt
     }
 }
 
-
 const AMBITION_LAYER: &str = "Ambition";
 const GRID: i32 = 16;
 
@@ -546,7 +561,10 @@ impl LdtkRuntimeIndex {
         let mut area_bounds: BTreeMap<String, LdtkAreaBounds> = BTreeMap::new();
         for level in &project.levels {
             let active_area = level.active_area();
-            area_level_iids.entry(active_area.clone()).or_default().push(level.iid.clone());
+            area_level_iids
+                .entry(active_area.clone())
+                .or_default()
+                .push(level.iid.clone());
             area_bounds
                 .entry(active_area)
                 .and_modify(|bounds| bounds.include_level(level))
@@ -718,7 +736,9 @@ impl LdtkProject {
     pub fn validate(&self) -> LdtkValidationReport {
         let mut report = LdtkValidationReport::default();
         if self.json_version.trim().is_empty() {
-            report.errors.push("project jsonVersion is empty".to_string());
+            report
+                .errors
+                .push("project jsonVersion is empty".to_string());
         }
         if self.levels.is_empty() {
             report.errors.push("project has no levels".to_string());
@@ -731,7 +751,10 @@ impl LdtkProject {
 
         for level in &self.levels {
             if !level_ids.insert(level.identifier.clone()) {
-                report.errors.push(format!("duplicate LDtk level identifier '{}'", level.identifier));
+                report.errors.push(format!(
+                    "duplicate LDtk level identifier '{}'",
+                    level.identifier
+                ));
             }
             if level.px_wid <= 0 || level.px_hei <= 0 {
                 report.errors.push(format!(
@@ -746,7 +769,13 @@ impl LdtkProject {
                 ));
             }
             let active_area = level.active_area();
-            if level.raw_active_area().as_deref().map(str::trim).unwrap_or("").is_empty() {
+            if level
+                .raw_active_area()
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or("")
+                .is_empty()
+            {
                 report.errors.push(format!(
                     "level '{}' has a blank activeArea level field; LDtk editor round-trips must preserve this field",
                     level.identifier
@@ -755,7 +784,10 @@ impl LdtkProject {
             *level_count_by_area.entry(active_area.clone()).or_default() += 1;
 
             let Some(layer) = level.ambition_layer() else {
-                report.errors.push(format!("level '{}' is missing '{AMBITION_LAYER}' entity layer", level.identifier));
+                report.errors.push(format!(
+                    "level '{}' is missing '{AMBITION_LAYER}' entity layer",
+                    level.identifier
+                ));
                 continue;
             };
 
@@ -775,10 +807,18 @@ impl LdtkProject {
                 if entity.width <= 0 || entity.height <= 0 {
                     report.errors.push(format!(
                         "level '{}' entity '{}' ({}) has non-positive dimensions {}x{}",
-                        level.identifier, entity.identifier, entity.iid, entity.width, entity.height
+                        level.identifier,
+                        entity.identifier,
+                        entity.iid,
+                        entity.width,
+                        entity.height
                     ));
                 }
-                if entity.px[0] < 0 || entity.px[1] < 0 || entity.px[0] + entity.width > level.px_wid || entity.px[1] + entity.height > level.px_hei {
+                if entity.px[0] < 0
+                    || entity.px[1] < 0
+                    || entity.px[0] + entity.width > level.px_wid
+                    || entity.px[1] + entity.height > level.px_hei
+                {
                     report.errors.push(format!(
                         "level '{}' entity '{}' ({}) is outside level bounds",
                         level.identifier, entity.identifier, entity.iid
@@ -792,19 +832,28 @@ impl LdtkProject {
                 }
                 match entity.identifier.as_str() {
                     "PlayerStart" => {
-                        *player_starts_by_area.entry(active_area.clone()).or_default() += 1;
+                        *player_starts_by_area
+                            .entry(active_area.clone())
+                            .or_default() += 1;
                     }
                     "LoadingZone" => {
                         if field_string(entity, "id").is_none() {
-                            report.errors.push(format!("LoadingZone {} is missing string field 'id'", entity.iid));
+                            report.errors.push(format!(
+                                "LoadingZone {} is missing string field 'id'",
+                                entity.iid
+                            ));
                         }
-                        if field_string(entity, "target_room").is_none() || field_string(entity, "target_zone").is_none() {
+                        if field_string(entity, "target_room").is_none()
+                            || field_string(entity, "target_zone").is_none()
+                        {
                             report.errors.push(format!(
                                 "LoadingZone {} requires target_room and target_zone fields",
                                 entity.iid
                             ));
                         }
-                        if field_string(entity, "activation").unwrap_or_else(|| "Door".to_string()) == "EdgeExit" {
+                        if field_string(entity, "activation").unwrap_or_else(|| "Door".to_string())
+                            == "EdgeExit"
+                        {
                             if !entity_touches_level_edge(entity, level) {
                                 report.errors.push(format!(
                                     "EdgeExit LoadingZone {} in level '{}' must touch a level edge",
@@ -822,19 +871,30 @@ impl LdtkProject {
                         }
                     }
                     "BlinkWall" => {
-                        let tier = field_string(entity, "tier").unwrap_or_else(|| "Soft".to_string());
+                        let tier =
+                            field_string(entity, "tier").unwrap_or_else(|| "Soft".to_string());
                         if !matches!(tier.as_str(), "Soft" | "Hard") {
-                            report.errors.push(format!("BlinkWall {} has invalid tier '{tier}'", entity.iid));
+                            report.errors.push(format!(
+                                "BlinkWall {} has invalid tier '{tier}'",
+                                entity.iid
+                            ));
                         }
                     }
                     "ReboundPad" => {
-                        if field_f32(entity, "impulseX").is_none() || field_f32(entity, "impulseY").is_none() {
-                            report.errors.push(format!("ReboundPad {} requires impulseX and impulseY fields", entity.iid));
+                        if field_f32(entity, "impulseX").is_none()
+                            || field_f32(entity, "impulseY").is_none()
+                        {
+                            report.errors.push(format!(
+                                "ReboundPad {} requires impulseX and impulseY fields",
+                                entity.iid
+                            ));
                         }
                     }
                     "DebugLabel" => {
                         if field_string(entity, "text").is_none() {
-                            report.errors.push(format!("DebugLabel {} requires text field", entity.iid));
+                            report
+                                .errors
+                                .push(format!("DebugLabel {} requires text field", entity.iid));
                         }
                     }
                     _ => {}
@@ -855,12 +915,16 @@ impl LdtkProject {
 
         for (area, count) in player_starts_by_area {
             if count != 1 {
-                report.errors.push(format!("active area '{area}' has {count} PlayerStart entities; expected exactly 1"));
+                report.errors.push(format!(
+                    "active area '{area}' has {count} PlayerStart entities; expected exactly 1"
+                ));
             }
         }
         for area in level_count_by_area.keys() {
             if !self.area_has_player_start(area) {
-                report.errors.push(format!("active area '{area}' has no PlayerStart"));
+                report
+                    .errors
+                    .push(format!("active area '{area}' has no PlayerStart"));
             }
         }
 
@@ -882,7 +946,10 @@ impl LdtkProject {
 
         let mut area_levels: BTreeMap<String, Vec<&LdtkLevel>> = BTreeMap::new();
         for level in &self.levels {
-            area_levels.entry(level.active_area()).or_default().push(level);
+            area_levels
+                .entry(level.active_area())
+                .or_default()
+                .push(level);
         }
 
         let start_room = if area_levels.contains_key("central_hub_complex") {
@@ -932,12 +999,24 @@ impl LdtkProject {
         links
     }
 
-    fn compose_runtime_area(&self, area_id: &str, levels: &[&LdtkLevel]) -> Result<RoomSpec, Vec<String>> {
+    fn compose_runtime_area(
+        &self,
+        area_id: &str,
+        levels: &[&LdtkLevel],
+    ) -> Result<RoomSpec, Vec<String>> {
         let mut errors = Vec::new();
         let min_x = levels.iter().map(|level| level.world_x).min().unwrap_or(0) as f32;
         let min_y = levels.iter().map(|level| level.world_y).min().unwrap_or(0) as f32;
-        let max_x = levels.iter().map(|level| level.world_x + level.px_wid).max().unwrap_or(0) as f32;
-        let max_y = levels.iter().map(|level| level.world_y + level.px_hei).max().unwrap_or(0) as f32;
+        let max_x = levels
+            .iter()
+            .map(|level| level.world_x + level.px_wid)
+            .max()
+            .unwrap_or(0) as f32;
+        let max_y = levels
+            .iter()
+            .map(|level| level.world_y + level.px_hei)
+            .max()
+            .unwrap_or(0) as f32;
         let mut spawn = None;
         let mut blocks = Vec::new();
         let mut loading_zones = Vec::new();
@@ -949,7 +1028,10 @@ impl LdtkProject {
             // convention staying stable.
             let offset = ae::Vec2::new(level.world_x as f32 - min_x, level.world_y as f32 - min_y);
             let Some(layer) = level.ambition_layer() else {
-                errors.push(format!("level '{}' missing Ambition layer", level.identifier));
+                errors.push(format!(
+                    "level '{}' missing Ambition layer",
+                    level.identifier
+                ));
                 continue;
             };
             for entity in &layer.entity_instances {
@@ -959,7 +1041,9 @@ impl LdtkProject {
                     RuntimeEntityConversion::Zone(zone) => loading_zones.push(zone),
                     RuntimeEntityConversion::Object(object) => objects.push(object),
                     RuntimeEntityConversion::Ignored => {}
-                    RuntimeEntityConversion::Error(error) => errors.push(format!("{} {}: {error}", entity.identifier, entity.iid)),
+                    RuntimeEntityConversion::Error(error) => {
+                        errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
+                    }
                 }
             }
         }
@@ -986,7 +1070,12 @@ impl LdtkProject {
             level.active_area() == area
                 && level
                     .ambition_layer()
-                    .map(|layer| layer.entity_instances.iter().any(|entity| entity.identifier == "PlayerStart"))
+                    .map(|layer| {
+                        layer
+                            .entity_instances
+                            .iter()
+                            .any(|entity| entity.identifier == "PlayerStart")
+                    })
                     .unwrap_or(false)
         })
     }
@@ -1005,7 +1094,9 @@ impl LdtkLevel {
     }
 
     fn ambition_layer(&self) -> Option<&LdtkLayerInstance> {
-        self.layer_instances.iter().find(|layer| layer.identifier == AMBITION_LAYER)
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == AMBITION_LAYER)
     }
 
     fn field_string(&self, name: &str) -> Option<String> {
@@ -1057,10 +1148,17 @@ fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEn
         "Solid" => RuntimeEntityConversion::Block(ae::Block::solid(name, min, size)),
         "OneWayPlatform" => RuntimeEntityConversion::Block(ae::Block::one_way(name, min, size)),
         "BlinkWall" => {
-            let tier = match field_string(entity, "tier").unwrap_or_else(|| "Soft".to_string()).as_str() {
+            let tier = match field_string(entity, "tier")
+                .unwrap_or_else(|| "Soft".to_string())
+                .as_str()
+            {
                 "Soft" => ae::BlinkWallTier::Soft,
                 "Hard" => ae::BlinkWallTier::Hard,
-                other => return RuntimeEntityConversion::Error(format!("invalid BlinkWall tier '{other}'")),
+                other => {
+                    return RuntimeEntityConversion::Error(format!(
+                        "invalid BlinkWall tier '{other}'"
+                    ))
+                }
             };
             RuntimeEntityConversion::Block(ae::Block::blink_wall(name, min, size, tier))
         }
@@ -1076,12 +1174,20 @@ fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEn
             let Some(impulse_y) = field_f32(entity, "impulseY") else {
                 return RuntimeEntityConversion::Error("missing impulseY".to_string());
             };
-            RuntimeEntityConversion::Block(ae::Block::rebound(name, min, size, ae::Vec2::new(impulse_x, impulse_y)))
+            RuntimeEntityConversion::Block(ae::Block::rebound(
+                name,
+                min,
+                size,
+                ae::Vec2::new(impulse_x, impulse_y),
+            ))
         }
         "LoadingZone" => RuntimeEntityConversion::Zone(LoadingZone {
             id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
             name,
-            activation: match field_string(entity, "activation").unwrap_or_else(|| "Door".to_string()).as_str() {
+            activation: match field_string(entity, "activation")
+                .unwrap_or_else(|| "Door".to_string())
+                .as_str()
+            {
                 "EdgeExit" => LoadingZoneActivation::EdgeExit,
                 _ => LoadingZoneActivation::Door,
             },
@@ -1089,7 +1195,11 @@ fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEn
         }),
         "DamageVolume" => {
             let aabb = object_aabb(min, size);
-            let mut volume = ae::DamageVolume::new(entity.iid.clone(), aabb, field_i32(entity, "damage").unwrap_or(1));
+            let mut volume = ae::DamageVolume::new(
+                entity.iid.clone(),
+                aabb,
+                field_i32(entity, "damage").unwrap_or(1),
+            );
             volume.motion = parse_optional_path(entity);
             RuntimeEntityConversion::Object(ae::RoomObject::new(
                 entity.iid.clone(),
@@ -1101,57 +1211,105 @@ fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEn
         "KinematicPath" => {
             let points = parse_points(&field_string(entity, "points").unwrap_or_default());
             if points.len() < 2 {
-                return RuntimeEntityConversion::Error("KinematicPath requires at least two points".to_string());
+                return RuntimeEntityConversion::Error(
+                    "KinematicPath requires at least two points".to_string(),
+                );
             }
             let path = ae::KinematicPath {
                 points,
                 speed: field_f32(entity, "speed").unwrap_or(100.0),
-                mode: parse_path_mode(&field_string(entity, "mode").unwrap_or_else(|| "PingPong".to_string())),
+                mode: parse_path_mode(
+                    &field_string(entity, "mode").unwrap_or_else(|| "PingPong".to_string()),
+                ),
                 start_offset_seconds: 0.0,
             };
-            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::KinematicPath(path)))
+            RuntimeEntityConversion::Object(runtime_room_object(
+                entity,
+                name,
+                min,
+                size,
+                ae::RoomObjectKind::KinematicPath(path),
+            ))
         }
         "NpcSpawn" => {
             let interactable = ae::Interactable::new(
                 entity.iid.clone(),
                 field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
                 object_aabb(min, size),
-                ae::InteractionKind::Npc { dialogue_id: field_string(entity, "dialogue_id") },
+                ae::InteractionKind::Npc {
+                    dialogue_id: field_string(entity, "dialogue_id"),
+                },
             );
-            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::Interactable(interactable)))
+            RuntimeEntityConversion::Object(runtime_room_object(
+                entity,
+                name,
+                min,
+                size,
+                ae::RoomObjectKind::Interactable(interactable),
+            ))
         }
         "PickupSpawn" => {
             let pickup = ae::Pickup::new(
                 entity.iid.clone(),
-                parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
+                parse_pickup_kind(
+                    &field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string()),
+                ),
             );
-            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::Pickup(pickup)))
+            RuntimeEntityConversion::Object(runtime_room_object(
+                entity,
+                name,
+                min,
+                size,
+                ae::RoomObjectKind::Pickup(pickup),
+            ))
         }
         "ChestSpawn" => {
-            let chest = ae::Chest::new(entity.iid.clone(), field_string(entity, "reward").map(|value| parse_pickup_kind(&value)));
-            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::Chest(chest)))
+            let chest = ae::Chest::new(
+                entity.iid.clone(),
+                field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
+            );
+            RuntimeEntityConversion::Object(runtime_room_object(
+                entity,
+                name,
+                min,
+                size,
+                ae::RoomObjectKind::Chest(chest),
+            ))
         }
         "Breakable" => {
-            let mut breakable = ae::Breakable::new(entity.iid.clone(), field_i32(entity, "max_hp").unwrap_or(3));
-            if let Some(respawn) = parse_respawn(&field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string())) {
+            let mut breakable =
+                ae::Breakable::new(entity.iid.clone(), field_i32(entity, "max_hp").unwrap_or(3));
+            if let Some(respawn) = parse_respawn(
+                &field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string()),
+            ) {
                 breakable.respawn = respawn;
             }
             breakable.solid = field_bool(entity, "solid").unwrap_or(false);
-            RuntimeEntityConversion::Object(runtime_room_object(entity, name, min, size, ae::RoomObjectKind::Breakable(breakable)))
+            RuntimeEntityConversion::Object(runtime_room_object(
+                entity,
+                name,
+                min,
+                size,
+                ae::RoomObjectKind::Breakable(breakable),
+            ))
         }
         "EnemySpawn" => RuntimeEntityConversion::Object(runtime_room_object(
             entity,
             name,
             min,
             size,
-            ae::RoomObjectKind::EnemySpawn(parse_enemy_brain(&field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()))),
+            ae::RoomObjectKind::EnemySpawn(parse_enemy_brain(
+                &field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()),
+            )),
         )),
         "BossSpawn" => RuntimeEntityConversion::Object(runtime_room_object(
             entity,
             name,
             min,
             size,
-            ae::RoomObjectKind::BossSpawn(parse_boss_brain(&field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()))),
+            ae::RoomObjectKind::BossSpawn(parse_boss_brain(
+                &field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()),
+            )),
         )),
         "DebugLabel" => {
             let pos = min + size * 0.5;
@@ -1159,7 +1317,9 @@ fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEn
             let label = ae::DebugLabel::new(
                 field_string(entity, "text").unwrap_or_else(|| entity.identifier.clone()),
                 pos,
-                parse_debug_label_kind(&field_string(entity, "category").unwrap_or_else(|| "Custom".to_string())),
+                parse_debug_label_kind(
+                    &field_string(entity, "category").unwrap_or_else(|| "Custom".to_string()),
+                ),
             );
             RuntimeEntityConversion::Object(ae::RoomObject::new(
                 entity.iid.clone(),
@@ -1169,7 +1329,10 @@ fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEn
             ))
         }
         "CameraZone" | "StitchedBoundary" => RuntimeEntityConversion::Ignored,
-        _ => RuntimeEntityConversion::Error(format!("unsupported entity identifier '{}'", entity.identifier)),
+        _ => RuntimeEntityConversion::Error(format!(
+            "unsupported entity identifier '{}'",
+            entity.identifier
+        )),
     }
 }
 
@@ -1202,7 +1365,10 @@ fn entity_touches_level_edge(entity: &LdtkEntityInstance, level: &LdtkLevel) -> 
 }
 
 fn field_value<'a>(fields: &'a [LdtkFieldInstance], name: &str) -> Option<&'a Value> {
-    fields.iter().find(|field| field.identifier == name).map(|field| &field.value)
+    fields
+        .iter()
+        .find(|field| field.identifier == name)
+        .map(|field| &field.value)
 }
 
 fn value_to_string(value: &Value) -> Option<String> {
@@ -1270,13 +1436,18 @@ fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<ae::KinematicPath>
     Some(ae::KinematicPath {
         points,
         speed: field_f32(entity, "path_speed").unwrap_or(100.0),
-        mode: parse_path_mode(&field_string(entity, "path_mode").unwrap_or_else(|| "PingPong".to_string())),
+        mode: parse_path_mode(
+            &field_string(entity, "path_mode").unwrap_or_else(|| "PingPong".to_string()),
+        ),
         start_offset_seconds: 0.0,
     })
 }
 
 fn parse_respawn(value: &str) -> Option<ae::RespawnPolicy> {
-    if let Some(seconds) = value.strip_prefix("AfterSeconds:").and_then(|text| text.parse::<f32>().ok()) {
+    if let Some(seconds) = value
+        .strip_prefix("AfterSeconds:")
+        .and_then(|text| text.parse::<f32>().ok())
+    {
         Some(ae::RespawnPolicy::AfterSeconds(seconds))
     } else {
         match value {
@@ -1290,14 +1461,24 @@ fn parse_respawn(value: &str) -> Option<ae::RespawnPolicy> {
 }
 
 fn parse_pickup_kind(value: &str) -> ae::PickupKind {
-    if let Some(amount) = value.strip_prefix("health:").and_then(|text| text.parse::<i32>().ok()) {
+    if let Some(amount) = value
+        .strip_prefix("health:")
+        .and_then(|text| text.parse::<i32>().ok())
+    {
         ae::PickupKind::Health { amount }
-    } else if let Some(amount) = value.strip_prefix("currency:").and_then(|text| text.parse::<i32>().ok()) {
+    } else if let Some(amount) = value
+        .strip_prefix("currency:")
+        .and_then(|text| text.parse::<i32>().ok())
+    {
         ae::PickupKind::Currency { amount }
     } else if let Some(ability_id) = value.strip_prefix("ability:") {
-        ae::PickupKind::Ability { ability_id: ability_id.to_string() }
+        ae::PickupKind::Ability {
+            ability_id: ability_id.to_string(),
+        }
     } else if let Some(flag) = value.strip_prefix("flag:") {
-        ae::PickupKind::StoryFlag { flag: flag.to_string() }
+        ae::PickupKind::StoryFlag {
+            flag: flag.to_string(),
+        }
     } else {
         ae::PickupKind::Custom(value.to_string())
     }
@@ -1305,9 +1486,16 @@ fn parse_pickup_kind(value: &str) -> ae::PickupKind {
 
 fn parse_enemy_brain(value: &str) -> ae::EnemyBrain {
     if let Some(path_id) = value.strip_prefix("Patrol:") {
-        ae::EnemyBrain::Patrol { path_id: Some(path_id.to_string()) }
-    } else if let Some(radius) = value.strip_prefix("Guard:").and_then(|text| text.parse::<f32>().ok()) {
-        ae::EnemyBrain::Guard { leash_radius: radius }
+        ae::EnemyBrain::Patrol {
+            path_id: Some(path_id.to_string()),
+        }
+    } else if let Some(radius) = value
+        .strip_prefix("Guard:")
+        .and_then(|text| text.parse::<f32>().ok())
+    {
+        ae::EnemyBrain::Guard {
+            leash_radius: radius,
+        }
     } else {
         match value {
             "Passive" => ae::EnemyBrain::Passive,
@@ -1318,7 +1506,9 @@ fn parse_enemy_brain(value: &str) -> ae::EnemyBrain {
 
 fn parse_boss_brain(value: &str) -> ae::BossBrain {
     if let Some(script_id) = value.strip_prefix("PhaseScript:") {
-        ae::BossBrain::PhaseScript { script_id: script_id.to_string() }
+        ae::BossBrain::PhaseScript {
+            script_id: script_id.to_string(),
+        }
     } else {
         match value {
             "Dormant" => ae::BossBrain::Dormant,
@@ -1340,7 +1530,6 @@ fn parse_debug_label_kind(value: &str) -> ae::DebugLabelKind {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1356,12 +1545,38 @@ mod tests {
     fn embedded_ldtk_composes_central_hub_complex() {
         let project = LdtkProject::load_embedded();
         let room_set = project.to_room_set().expect("embedded LDtk should compose");
-        assert!(room_set.rooms.len() > 1, "old sandbox rooms should be represented as LDtk active areas");
-        let room = room_set.rooms.iter().find(|room| room.id == "central_hub_complex").expect("central hub active area exists");
-        assert!(room.world.size.y > 1000.0, "basement should extend below hub");
-        assert!(!room.world.objects.iter().any(|object| matches!(&object.kind, ae::RoomObjectKind::BossSpawn(_))), "boss belongs in the boss lab, not the stitched hub basement");
-        let boss_room = room_set.rooms.iter().find(|room| room.id == "basement_boss").expect("boss lab room exists");
-        assert!(boss_room.world.objects.iter().any(|object| matches!(&object.kind, ae::RoomObjectKind::BossSpawn(_)) && object.name.contains("clockwork warden")));
+        assert!(
+            room_set.rooms.len() > 1,
+            "old sandbox rooms should be represented as LDtk active areas"
+        );
+        let room = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id == "central_hub_complex")
+            .expect("central hub active area exists");
+        assert!(
+            room.world.size.y > 1000.0,
+            "basement should extend below hub"
+        );
+        assert!(
+            !room
+                .world
+                .objects
+                .iter()
+                .any(|object| matches!(&object.kind, ae::RoomObjectKind::BossSpawn(_))),
+            "boss belongs in the boss lab, not the stitched hub basement"
+        );
+        let boss_room = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id == "basement_boss")
+            .expect("boss lab room exists");
+        assert!(boss_room.world.objects.iter().any(|object| matches!(
+            &object.kind,
+            ae::RoomObjectKind::BossSpawn(_)
+        ) && object
+            .name
+            .contains("clockwork warden")));
     }
 
     #[test]
@@ -1370,7 +1585,10 @@ mod tests {
         assert_eq!(role, LdtkRuntimeRole::Solid);
         assert!(role.promoted(), "Solid is a Step 1 promoted runtime role");
         let summary = LdtkRuntimeSpineIndex::default().promoted_summary();
-        assert!(summary.contains("solids"), "promoted summary surfaces solid count: {summary}");
+        assert!(
+            summary.contains("solids"),
+            "promoted summary surfaces solid count: {summary}"
+        );
     }
 
     #[test]
@@ -1392,7 +1610,10 @@ mod tests {
             revision: 0,
         });
         assert_eq!(index.count(), 2);
-        assert_eq!(index.solids[0].iid, "solid-a", "solids are sorted by iid for stable diffs");
+        assert_eq!(
+            index.solids[0].iid, "solid-a",
+            "solids are sorted by iid for stable diffs"
+        );
         assert_eq!(index.revision, 1);
 
         let before = index.revision;
@@ -1401,6 +1622,9 @@ mod tests {
             solids: vec![solid_a, solid_b],
             revision: index.revision,
         });
-        assert_eq!(index.revision, before, "no-op replace must not bump revision");
+        assert_eq!(
+            index.revision, before,
+            "no-op replace must not bump revision"
+        );
     }
 }

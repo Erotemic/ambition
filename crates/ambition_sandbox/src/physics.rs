@@ -83,7 +83,14 @@ impl Plugin for AmbitionPhysicsPlugin {
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
             .add_plugins(PhysicsPlugins::default())
-            .add_systems(Update, (update_physics_debris_lifetimes, complete_pending_physics_despawns).chain());
+            .add_systems(
+                Update,
+                (
+                    update_physics_debris_lifetimes,
+                    complete_pending_physics_despawns,
+                )
+                    .chain(),
+            );
     }
 }
 
@@ -128,7 +135,9 @@ pub fn retire_physics_entity(commands: &mut Commands, entity: Entity) {
     commands.entity(entity).insert((
         RigidBodyDisabled,
         ColliderDisabled,
-        PendingPhysicsDespawn { timer: PHYSICS_DESPAWN_GRACE },
+        PendingPhysicsDespawn {
+            timer: PHYSICS_DESPAWN_GRACE,
+        },
         Visibility::Hidden,
     ));
 }
@@ -174,15 +183,30 @@ pub fn spawn_debris_burst(
     spec.lifetime = spec.lifetime.min(settings.default_lifetime.max(0.1));
     for index in 0..spec.count {
         let angle = seeded_angle(index, spec.count, pos);
-        let speed = spec.min_speed + (spec.max_speed - spec.min_speed) * index as f32 / spec.count.max(1) as f32;
+        let speed = spec.min_speed
+            + (spec.max_speed - spec.min_speed) * index as f32 / spec.count.max(1) as f32;
         let velocity = BVec2::new(angle.cos() * speed, angle.sin() * speed + spec.y_boost);
-        let angular = if index % 2 == 0 { spec.spin } else { -spec.spin };
-        let wobble = ((index as f32 * 1.37 + pos.x * 0.017 + pos.y * 0.011).sin() * 0.5 + 0.5).clamp(0.0, 1.0);
+        let angular = if index % 2 == 0 {
+            spec.spin
+        } else {
+            -spec.spin
+        };
+        let wobble = ((index as f32 * 1.37 + pos.x * 0.017 + pos.y * 0.011).sin() * 0.5 + 0.5)
+            .clamp(0.0, 1.0);
         let size = BVec2::new(
             spec.size.x * (0.75 + 0.50 * wobble),
             spec.size.y * (1.15 - 0.30 * wobble),
         );
-        spawn_debris_piece(commands, world, pos, size, velocity, angular, spec.color, spec.lifetime);
+        spawn_debris_piece(
+            commands,
+            world,
+            pos,
+            size,
+            velocity,
+            angular,
+            spec.color,
+            spec.lifetime,
+        );
     }
 }
 
@@ -211,7 +235,10 @@ fn spawn_debris_piece(
 }
 
 fn block_accepts_dynamic_debris(kind: ae::BlockKind) -> bool {
-    matches!(kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay)
+    matches!(
+        kind,
+        ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
+    )
 }
 
 #[derive(Clone, Copy, Debug)]

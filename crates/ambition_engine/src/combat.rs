@@ -148,14 +148,22 @@ pub fn slash_hitbox(player: &Player, axis_y: f32, forced_pogo: bool) -> Aabb {
         )
     } else {
         Aabb::new(
-            Vec2::new(body.center().x + player.facing * (body.half_size().x + 30.0), body.center().y - 2.0),
+            Vec2::new(
+                body.center().x + player.facing * (body.half_size().x + 30.0),
+                body.center().y - 2.0,
+            ),
             Vec2::new(34.0, 24.0),
         )
     }
 }
 
 /// Build a structured player slash hitbox from the legacy slash shape helper.
-pub fn player_slash_hitbox(player: &Player, axis_y: f32, forced_pogo: bool, damage_amount: i32) -> Hitbox {
+pub fn player_slash_hitbox(
+    player: &Player,
+    axis_y: f32,
+    forced_pogo: bool,
+    damage_amount: i32,
+) -> Hitbox {
     let kind = if forced_pogo || axis_y > 0.25 {
         DamageKind::Pogo
     } else {
@@ -186,7 +194,11 @@ mod tests {
 
     #[test]
     fn hazard_volume_overlaps_player_hurtbox() {
-        let hazard = DamageVolume::new("spike", Aabb::new(Vec2::new(20.0, 20.0), Vec2::new(10.0, 10.0)), 1);
+        let hazard = DamageVolume::new(
+            "spike",
+            Aabb::new(Vec2::new(20.0, 20.0), Vec2::new(10.0, 10.0)),
+            1,
+        );
         let hurtbox = Hurtbox::new(
             "player",
             Aabb::new(Vec2::new(25.0, 20.0), Vec2::new(10.0, 10.0)),

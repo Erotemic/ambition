@@ -15,7 +15,6 @@ pub const WINDOW_W: u32 = 1600;
 /// Default logical window height for initial windowed mode.
 pub const WINDOW_H: u32 = 900;
 
-
 pub const WORLD_Z_BLOCK: f32 = 0.0;
 pub const WORLD_Z_DUMMY: f32 = 10.0;
 pub const WORLD_Z_PLAYER: f32 = 20.0;

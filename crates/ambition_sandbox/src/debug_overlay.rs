@@ -13,20 +13,38 @@ use crate::config::world_to_bevy;
 use crate::dev_tools::DeveloperTools;
 use crate::input::{ControlFrame, SandboxAction};
 use crate::platforms;
+use crate::rendering::{PlayerVisual, SceneEntities};
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use crate::{GameMode, GameWorld, SandboxRuntime};
-use crate::rendering::{PlayerVisual, SceneEntities};
 use leafwing_input_manager::prelude::ActionState;
 
-fn cyan() -> Color { Color::srgba(0.30, 0.92, 1.00, 0.92) }
-fn blue() -> Color { Color::srgba(0.30, 0.55, 1.00, 0.90) }
-fn green() -> Color { Color::srgba(0.25, 1.00, 0.45, 0.90) }
-fn yellow() -> Color { Color::srgba(1.00, 0.92, 0.22, 0.95) }
-fn orange() -> Color { Color::srgba(1.00, 0.55, 0.16, 0.90) }
-fn magenta() -> Color { Color::srgba(1.00, 0.32, 0.92, 0.88) }
-fn red() -> Color { Color::srgba(1.00, 0.18, 0.22, 0.82) }
-fn white_dim() -> Color { Color::srgba(0.90, 0.95, 1.00, 0.40) }
-fn gray() -> Color { Color::srgba(0.62, 0.66, 0.75, 0.46) }
+fn cyan() -> Color {
+    Color::srgba(0.30, 0.92, 1.00, 0.92)
+}
+fn blue() -> Color {
+    Color::srgba(0.30, 0.55, 1.00, 0.90)
+}
+fn green() -> Color {
+    Color::srgba(0.25, 1.00, 0.45, 0.90)
+}
+fn yellow() -> Color {
+    Color::srgba(1.00, 0.92, 0.22, 0.95)
+}
+fn orange() -> Color {
+    Color::srgba(1.00, 0.55, 0.16, 0.90)
+}
+fn magenta() -> Color {
+    Color::srgba(1.00, 0.32, 0.92, 0.88)
+}
+fn red() -> Color {
+    Color::srgba(1.00, 0.18, 0.22, 0.82)
+}
+fn white_dim() -> Color {
+    Color::srgba(0.90, 0.95, 1.00, 0.40)
+}
+fn gray() -> Color {
+    Color::srgba(0.62, 0.66, 0.75, 0.46)
+}
 
 pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
@@ -49,7 +67,11 @@ pub fn draw_debug_overlay(
     // UI can respond, but debug combat/blink previews are gameplay-facing and
     // should not light up from those paused-mode inputs.
     let gameplay_active = mode.get().allows_gameplay();
-    let actions = if gameplay_active { action_query.get(entities.player).ok() } else { None };
+    let actions = if gameplay_active {
+        action_query.get(entities.player).ok()
+    } else {
+        None
+    };
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
     }
@@ -66,7 +88,14 @@ pub fn draw_debug_overlay(
     if developer_tools.show_moving_platform {
         draw_moving_platform_debug(&mut gizmos, world, &runtime);
     }
-    draw_player_debug(&mut gizmos, world, &runtime, actions, gameplay_active, &developer_tools);
+    draw_player_debug(
+        &mut gizmos,
+        world,
+        &runtime,
+        actions,
+        gameplay_active,
+        &developer_tools,
+    );
     if developer_tools.show_health_bars {
         draw_health_bars(&mut gizmos, world, &runtime);
     }
@@ -84,8 +113,12 @@ fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World) {
     for block in &world.blocks {
         let color = match block.kind {
             ae::BlockKind::Solid => gray(),
-            ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft } => magenta(),
-            ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard } => red(),
+            ae::BlockKind::BlinkWall {
+                tier: ae::BlinkWallTier::Soft,
+            } => magenta(),
+            ae::BlockKind::BlinkWall {
+                tier: ae::BlinkWallTier::Hard,
+            } => red(),
             ae::BlockKind::OneWay => blue(),
             ae::BlockKind::Hazard => red(),
             ae::BlockKind::PogoOrb => green(),
@@ -159,9 +192,18 @@ fn draw_player_debug(
             draw_arrow(gizmos, feet, feet + BVec2::new(0.0, 44.0), green());
         }
         if player.on_wall {
-            let side_x = if player.wall_normal_x < 0.0 { body.left() } else { body.right() };
+            let side_x = if player.wall_normal_x < 0.0 {
+                body.left()
+            } else {
+                body.right()
+            };
             let side = w2(world, ae::Vec2::new(side_x, player.pos.y));
-            draw_arrow(gizmos, side, side + BVec2::new(player.wall_normal_x * 48.0, 0.0), green());
+            draw_arrow(
+                gizmos,
+                side,
+                side + BVec2::new(player.wall_normal_x * 48.0, 0.0),
+                green(),
+            );
         }
     }
 
@@ -175,15 +217,25 @@ fn draw_player_debug(
     let dedicated_pogo_held = actions
         .map(|actions| actions.pressed(&SandboxAction::Pogo))
         .unwrap_or(false);
-    if gameplay_active && developer_tools.show_combat_preview && (attack_held || dedicated_pogo_held) {
-        let hitbox = ae::slash_hitbox(player, controls.axis_y, dedicated_pogo_held || controls.pogo_pressed);
+    if gameplay_active
+        && developer_tools.show_combat_preview
+        && (attack_held || dedicated_pogo_held)
+    {
+        let hitbox = ae::slash_hitbox(
+            player,
+            controls.axis_y,
+            dedicated_pogo_held || controls.pogo_pressed,
+        );
         draw_aabb(gizmos, world, hitbox, yellow());
     }
 
     // Blink aim preview. A quick tap blinks a short distance; once the hold
     // crosses the threshold, the engine sets `blink_aiming` and the sandbox
     // enters bullet-time while previewing the longer precision destination.
-    if gameplay_active && developer_tools.show_blink_preview && (controls.blink_held || player.blink_aiming) {
+    if gameplay_active
+        && developer_tools.show_blink_preview
+        && (controls.blink_held || player.blink_aiming)
+    {
         // Use the same temporary collision world that drives player movement.
         // Otherwise the preview can claim a blink is clear while release-time
         // resolution stops on sandbox-only geometry such as the moving platform.
@@ -201,12 +253,22 @@ fn draw_player_debug(
         };
         let target_center = w2(world, target);
         draw_arrow(gizmos, center, target_center, magenta());
-        draw_aabb(gizmos, world, ae::Aabb::new(target, player.size * 0.5), magenta());
+        draw_aabb(
+            gizmos,
+            world,
+            ae::Aabb::new(target, player.size * 0.5),
+            magenta(),
+        );
         // Raw desired cursor: useful when a hard wall blocks the actual blink.
         // If the raw cursor and safe destination diverge, the blocked segment
         // becomes obvious rather than feeling like the cursor is buggy.
         if (desired - target).length_squared() > 4.0 {
-            draw_aabb(gizmos, world, ae::Aabb::new(desired, player.size * 0.35), red());
+            draw_aabb(
+                gizmos,
+                world,
+                ae::Aabb::new(desired, player.size * 0.35),
+                red(),
+            );
             gizmos.line_2d(w2(world, desired), target_center, red());
         }
     }
@@ -216,7 +278,11 @@ fn draw_player_debug(
     let dash_slots = player.abilities.dash_charge_count().max(1) as usize;
     for i in 0..dash_slots {
         let x0 = player.pos.x - 28.0 + i as f32 * 12.0;
-        let color = if i < player.dash_charges_available as usize { yellow() } else { gray() };
+        let color = if i < player.dash_charges_available as usize {
+            yellow()
+        } else {
+            gray()
+        };
         let a = w2(world, ae::Vec2::new(x0, meter_y));
         let b = w2(world, ae::Vec2::new(x0 + 8.0, meter_y));
         gizmos.line_2d(a, b, color);
@@ -224,7 +290,11 @@ fn draw_player_debug(
     let air_jump_slots = player.abilities.air_jump_count(ae::AIR_JUMPS).max(1) as usize;
     for i in 0..air_jump_slots {
         let x0 = player.pos.x + 6.0 + i as f32 * 11.0;
-        let color = if i < player.air_jumps_available as usize { cyan() } else { gray() };
+        let color = if i < player.air_jumps_available as usize {
+            cyan()
+        } else {
+            gray()
+        };
         let a = w2(world, ae::Vec2::new(x0, meter_y));
         let b = w2(world, ae::Vec2::new(x0 + 7.0, meter_y));
         gizmos.line_2d(a, b, color);
@@ -239,11 +309,21 @@ fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &
 }
 
 fn draw_health_bars(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
-    draw_health_bar(gizmos, world, runtime.player.aabb(), runtime.player_health.ratio(), cyan());
+    draw_health_bar(
+        gizmos,
+        world,
+        runtime.player.aabb(),
+        runtime.player_health.ratio(),
+        cyan(),
+    );
 
     for enemy in &runtime.features.enemies {
         if enemy.alive {
-            let color = if enemy.archetype.is_sandbag() { orange() } else { red() };
+            let color = if enemy.archetype.is_sandbag() {
+                orange()
+            } else {
+                red()
+            };
             draw_health_bar(gizmos, world, enemy.aabb(), enemy.health.ratio(), color);
         }
     }
@@ -254,21 +334,40 @@ fn draw_health_bars(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRun
     }
     for breakable in &runtime.features.breakables {
         if !breakable.broken() {
-            draw_health_bar(gizmos, world, breakable.aabb(), breakable.breakable.health.ratio(), orange());
+            draw_health_bar(
+                gizmos,
+                world,
+                breakable.aabb(),
+                breakable.breakable.health.ratio(),
+                orange(),
+            );
         }
     }
 }
 
-fn draw_health_bar(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, ratio: f32, fill: Color) {
+fn draw_health_bar(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    aabb: ae::Aabb,
+    ratio: f32,
+    fill: Color,
+) {
     let width = (aabb.half_size().x * 2.0).max(28.0);
     let y = aabb.top() - 14.0;
     let left = aabb.center().x - width * 0.5;
     let right = aabb.center().x + width * 0.5;
     let fill_right = left + width * ratio.clamp(0.0, 1.0);
-    gizmos.line_2d(w2(world, ae::Vec2::new(left, y)), w2(world, ae::Vec2::new(right, y)), gray());
-    gizmos.line_2d(w2(world, ae::Vec2::new(left, y)), w2(world, ae::Vec2::new(fill_right, y)), fill);
+    gizmos.line_2d(
+        w2(world, ae::Vec2::new(left, y)),
+        w2(world, ae::Vec2::new(right, y)),
+        gray(),
+    );
+    gizmos.line_2d(
+        w2(world, ae::Vec2::new(left, y)),
+        w2(world, ae::Vec2::new(fill_right, y)),
+        fill,
+    );
 }
-
 
 fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
     // Basement feature actors are sandbox runtime objects. Draw their

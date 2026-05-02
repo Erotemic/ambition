@@ -118,4 +118,3 @@ pub struct MusicGainsSpec {
     pub bass: f32,
     pub drums: f32,
 }
-

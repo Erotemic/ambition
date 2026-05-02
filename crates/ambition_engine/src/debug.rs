@@ -47,6 +47,9 @@ pub struct DestinationLabel {
 
 impl DestinationLabel {
     pub fn text(&self) -> String {
-        format!("{} -> {}:{}", self.zone_id, self.destination_room, self.destination_zone)
+        format!(
+            "{} -> {}:{}",
+            self.zone_id, self.destination_room, self.destination_zone
+        )
     }
 }

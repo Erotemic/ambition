@@ -6,7 +6,6 @@
 //! noise sources. RON continues to own cue frequencies, envelopes, gains, and
 //! the lo-fi music pattern.
 
-
 use bevy::audio::AudioSource;
 use bevy::prelude::*;
 use fundsp::audiounit::AudioUnit;
@@ -68,7 +67,9 @@ impl SoundBank {
         let sample_rate = spec.sample_rate.max(8_000);
         let mut add = |cue: SoundCue| {
             let sfx = find_sfx(spec, cue);
-            audio_sources.add(AudioSource { bytes: synth_wav_bytes(sfx, sample_rate).into() })
+            audio_sources.add(AudioSource {
+                bytes: synth_wav_bytes(sfx, sample_rate).into(),
+            })
         };
         Self {
             jump: add(SoundCue::Jump),
@@ -82,7 +83,9 @@ impl SoundBank {
             reset: add(SoundCue::Reset),
             death: add(SoundCue::Death),
             respawn: add(SoundCue::Respawn),
-            ambience: audio_sources.add(AudioSource { bytes: synth_lofi_theme_wav_bytes(&spec.music, sample_rate).into() }),
+            ambience: audio_sources.add(AudioSource {
+                bytes: synth_lofi_theme_wav_bytes(&spec.music, sample_rate).into(),
+            }),
         }
     }
 
@@ -109,7 +112,11 @@ impl SoundBank {
 
 fn find_sfx(spec: &AudioSpec, cue: SoundCue) -> SfxSpec {
     let key = SoundCueKey::from(cue);
-    spec.sfx.iter().copied().find(|candidate| candidate.cue == key).unwrap_or_else(|| fallback_sfx(key))
+    spec.sfx
+        .iter()
+        .copied()
+        .find(|candidate| candidate.cue == key)
+        .unwrap_or_else(|| fallback_sfx(key))
 }
 
 fn fallback_sfx(cue: SoundCueKey) -> SfxSpec {
@@ -150,14 +157,22 @@ pub fn play_ambience(commands: &mut Commands, bank: &SoundBank) {
 
 fn synth_wav_bytes(spec: SfxSpec, sample_rate: u32) -> Vec<u8> {
     match spec.waveform {
-        WaveformSpec::Sine => synth_wav_bytes_with_fundsp_osc(spec, sample_rate, dsp::sine::<f32>()),
+        WaveformSpec::Sine => {
+            synth_wav_bytes_with_fundsp_osc(spec, sample_rate, dsp::sine::<f32>())
+        }
         WaveformSpec::Square => synth_wav_bytes_with_fundsp_osc(spec, sample_rate, dsp::square()),
-        WaveformSpec::Triangle => synth_wav_bytes_with_fundsp_osc(spec, sample_rate, dsp::triangle()),
+        WaveformSpec::Triangle => {
+            synth_wav_bytes_with_fundsp_osc(spec, sample_rate, dsp::triangle())
+        }
         WaveformSpec::Saw => synth_wav_bytes_with_fundsp_osc(spec, sample_rate, dsp::soft_saw()),
     }
 }
 
-fn synth_wav_bytes_with_fundsp_osc(mut spec: SfxSpec, sample_rate: u32, mut oscillator: impl AudioUnit) -> Vec<u8> {
+fn synth_wav_bytes_with_fundsp_osc(
+    mut spec: SfxSpec,
+    sample_rate: u32,
+    mut oscillator: impl AudioUnit,
+) -> Vec<u8> {
     let sample_count = ((spec.duration * sample_rate as f32).max(1.0)) as usize;
     let attack = (spec.attack * sample_rate as f32) as usize;
     let release = (spec.release * sample_rate as f32) as usize;
@@ -182,7 +197,11 @@ fn synth_wav_bytes_with_fundsp_osc(mut spec: SfxSpec, sample_rate: u32, mut osci
     spec.noise = spec.noise.clamp(0.0, 1.0);
 
     for i in 0..sample_count {
-        let t = if sample_count > 1 { i as f32 / (sample_count - 1) as f32 } else { 0.0 };
+        let t = if sample_count > 1 {
+            i as f32 / (sample_count - 1) as f32
+        } else {
+            0.0
+        };
         let freq = (spec.frequency + (spec.frequency_end - spec.frequency) * t).max(1.0);
         let tone = body_filter.filter_mono(oscillator.filter_mono(freq));
         let dust = noise_filter.filter_mono(noise.get_mono());
@@ -238,17 +257,51 @@ fn synth_lofi_theme_wav_bytes(spec: &MusicSpec, sample_rate: u32) -> Vec<u8> {
     for i in 0..sample_count {
         let t = i as f32 / sample_rate as f32;
         let loop_beat = (t / seconds_per_beat).rem_euclid(total_beats);
-        let seam_fade = dsp::smooth5((loop_beat.min(total_beats - loop_beat) * 3.0).clamp(0.0, 1.0));
+        let seam_fade =
+            dsp::smooth5((loop_beat.min(total_beats - loop_beat) * 3.0).clamp(0.0, 1.0));
         let mut left = 0.0f32;
         let mut right = 0.0f32;
 
-        mix_stereo(&mut left, &mut right, lofi_chord_pad(spec, loop_beat, seconds_per_beat, t), -0.10);
-        mix_stereo(&mut left, &mut right, note_sequence_voice(&spec.lead, loop_beat, seconds_per_beat, spec.root_hz, WaveformSpec::Triangle, 0.5, t) * spec.gains.lead, 0.12);
-        mix_stereo(&mut left, &mut right, lofi_soft_keys(spec, loop_beat, seconds_per_beat, t), 0.18);
-        mix_stereo(&mut left, &mut right, lofi_bass(spec, loop_beat, seconds_per_beat, t), -0.04);
+        mix_stereo(
+            &mut left,
+            &mut right,
+            lofi_chord_pad(spec, loop_beat, seconds_per_beat, t),
+            -0.10,
+        );
+        mix_stereo(
+            &mut left,
+            &mut right,
+            note_sequence_voice(
+                &spec.lead,
+                loop_beat,
+                seconds_per_beat,
+                spec.root_hz,
+                WaveformSpec::Triangle,
+                0.5,
+                t,
+            ) * spec.gains.lead,
+            0.12,
+        );
+        mix_stereo(
+            &mut left,
+            &mut right,
+            lofi_soft_keys(spec, loop_beat, seconds_per_beat, t),
+            0.18,
+        );
+        mix_stereo(
+            &mut left,
+            &mut right,
+            lofi_bass(spec, loop_beat, seconds_per_beat, t),
+            -0.04,
+        );
 
         let drum_noise_sample = drum_filter.filter_mono(drum_noise.get_mono());
-        mix_stereo(&mut left, &mut right, lofi_dusty_drums(loop_beat, seconds_per_beat, t, drum_noise_sample) * spec.gains.drums, 0.02);
+        mix_stereo(
+            &mut left,
+            &mut right,
+            lofi_dusty_drums(loop_beat, seconds_per_beat, t, drum_noise_sample) * spec.gains.drums,
+            0.02,
+        );
 
         left += hiss_left.get_mono() * spec.tape_hiss;
         right += hiss_right.get_mono() * spec.tape_hiss;
@@ -283,13 +336,19 @@ fn note_sequence_voice(
         let duration = note.duration * seconds_per_beat;
         let wow = 1.0 + 0.002 * dsp::sin_hz(0.31, time_seconds);
         let freq = semitone_frequency(root_hz, note.semitone) * wow;
-        let rounded = fundsp_wave_at(freq, local_time, waveform, duty) * 0.82 + dsp::sin_hz(freq, local_time) * 0.18;
+        let rounded = fundsp_wave_at(freq, local_time, waveform, duty) * 0.82
+            + dsp::sin_hz(freq, local_time) * 0.18;
         sample += rounded * note_envelope(local_time, duration, 0.045, 0.260) * note.volume;
     }
     sample
 }
 
-fn lofi_chord_pad(spec: &MusicSpec, loop_beat: f32, seconds_per_beat: f32, time_seconds: f32) -> f32 {
+fn lofi_chord_pad(
+    spec: &MusicSpec,
+    loop_beat: f32,
+    seconds_per_beat: f32,
+    time_seconds: f32,
+) -> f32 {
     if spec.chords.is_empty() {
         return 0.0;
     }
@@ -310,7 +369,12 @@ fn lofi_chord_pad(spec: &MusicSpec, loop_beat: f32, seconds_per_beat: f32, time_
     sample * note_envelope(local_time, duration, 0.180, 0.700)
 }
 
-fn lofi_soft_keys(spec: &MusicSpec, loop_beat: f32, seconds_per_beat: f32, time_seconds: f32) -> f32 {
+fn lofi_soft_keys(
+    spec: &MusicSpec,
+    loop_beat: f32,
+    seconds_per_beat: f32,
+    time_seconds: f32,
+) -> f32 {
     if spec.chords.is_empty() {
         return 0.0;
     }
@@ -326,8 +390,11 @@ fn lofi_soft_keys(spec: &MusicSpec, loop_beat: f32, seconds_per_beat: f32, time_
     let semitone = spec.chords[bar][step_index];
     let freq = semitone_frequency(spec.key_root_hz, semitone + 12);
     let wobble = 1.0 + 0.0030 * dsp::sin_hz(0.65, time_seconds);
-    let rounded = fundsp_wave_at(freq * wobble, local_time, WaveformSpec::Triangle, 0.5) * 0.70 + dsp::sin_hz(freq * wobble, local_time) * 0.30;
-    rounded * note_envelope(local_time, 0.42 * seconds_per_beat, 0.025, 0.180) * spec.gains.soft_keys
+    let rounded = fundsp_wave_at(freq * wobble, local_time, WaveformSpec::Triangle, 0.5) * 0.70
+        + dsp::sin_hz(freq * wobble, local_time) * 0.30;
+    rounded
+        * note_envelope(local_time, 0.42 * seconds_per_beat, 0.025, 0.180)
+        * spec.gains.soft_keys
 }
 
 fn lofi_bass(spec: &MusicSpec, loop_beat: f32, seconds_per_beat: f32, time_seconds: f32) -> f32 {
@@ -345,7 +412,8 @@ fn lofi_bass(spec: &MusicSpec, loop_beat: f32, seconds_per_beat: f32, time_secon
         2 => chord_root + 7,
         _ => chord_root,
     };
-    let freq = semitone_frequency(spec.bass_root_hz, semitone) * (1.0 + 0.0015 * dsp::sin_hz(0.22, time_seconds));
+    let freq = semitone_frequency(spec.bass_root_hz, semitone)
+        * (1.0 + 0.0015 * dsp::sin_hz(0.22, time_seconds));
     dsp::sin_hz(freq, local_time)
         * note_envelope(local_time, 0.86 * seconds_per_beat, 0.020, 0.210)
         * spec.gains.bass
@@ -385,7 +453,11 @@ fn fundsp_wave_at(freq: f32, time_seconds: f32, waveform: WaveformSpec, duty: f3
         WaveformSpec::Sine => dsp::sin_hz(freq, time_seconds),
         WaveformSpec::Square => {
             let phase = (freq * time_seconds).fract();
-            if phase < duty.clamp(0.05, 0.95) { 1.0 } else { -1.0 }
+            if phase < duty.clamp(0.05, 0.95) {
+                1.0
+            } else {
+                -1.0
+            }
         }
         WaveformSpec::Triangle => dsp::tri_hz(freq, time_seconds),
         WaveformSpec::Saw => 2.0 * (freq * time_seconds).fract() - 1.0,

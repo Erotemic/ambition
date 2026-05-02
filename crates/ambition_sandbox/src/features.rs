@@ -169,24 +169,36 @@ impl FeatureRuntime {
         for object in &world.objects {
             match &object.kind {
                 ae::RoomObjectKind::DamageVolume(volume) => {
-                    runtime.hazards.push(HazardRuntime::new(object, volume.clone()));
+                    runtime
+                        .hazards
+                        .push(HazardRuntime::new(object, volume.clone()));
                 }
                 ae::RoomObjectKind::Pickup(pickup) => {
-                    runtime.pickups.push(PickupRuntime::new(object, pickup.clone()));
+                    runtime
+                        .pickups
+                        .push(PickupRuntime::new(object, pickup.clone()));
                 }
                 ae::RoomObjectKind::Chest(chest) => {
-                    runtime.chests.push(ChestRuntime::new(object, chest.clone()));
+                    runtime
+                        .chests
+                        .push(ChestRuntime::new(object, chest.clone()));
                 }
                 ae::RoomObjectKind::Breakable(breakable) => {
-                    runtime.breakables.push(BreakableRuntime::new(object, breakable.clone()));
+                    runtime
+                        .breakables
+                        .push(BreakableRuntime::new(object, breakable.clone()));
                 }
                 ae::RoomObjectKind::Interactable(interactable) => {
                     if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
-                        runtime.npcs.push(NpcRuntime::new(object, interactable.clone()));
+                        runtime
+                            .npcs
+                            .push(NpcRuntime::new(object, interactable.clone()));
                     }
                 }
                 ae::RoomObjectKind::EnemySpawn(brain) => {
-                    runtime.enemies.push(EnemyRuntime::new(object, brain.clone(), &paths));
+                    runtime
+                        .enemies
+                        .push(EnemyRuntime::new(object, brain.clone(), &paths));
                 }
                 ae::RoomObjectKind::BossSpawn(brain) => {
                     runtime.bosses.push(BossRuntime::new(object, brain.clone()));
@@ -219,8 +231,11 @@ impl FeatureRuntime {
 
         for hazard in &mut self.hazards {
             hazard.update(dt);
-            if player_vulnerable && hazard.active() && hazard.aabb().strict_intersects(player_body) {
-                events.messages.push(format!("{} forced a safe respawn", hazard.name));
+            if player_vulnerable && hazard.active() && hazard.aabb().strict_intersects(player_body)
+            {
+                events
+                    .messages
+                    .push(format!("{} forced a safe respawn", hazard.name));
                 events.impacts.push(player.pos);
                 events.player_damage.push(PlayerDamageEvent {
                     mode: PlayerDamageMode::SafeRespawn,
@@ -242,7 +257,9 @@ impl FeatureRuntime {
                     if breakable.respawn_timer <= 0.0 {
                         breakable.breakable.state = ae::BreakableState::Intact;
                         breakable.breakable.health.reset();
-                        events.messages.push(format!("{} respawned", breakable.name));
+                        events
+                            .messages
+                            .push(format!("{} respawned", breakable.name));
                         events.bursts.push(breakable.pos);
                     }
                 }
@@ -252,10 +269,14 @@ impl FeatureRuntime {
             if breakable.breaks_on_stand() && player_is_standing_on(player_body, breakable.aabb()) {
                 breakable.stand_timer += dt;
                 if breakable.stand_timer >= BREAK_ON_STAND_SECONDS {
-                    let broke = breakable.breakable.apply_damage(breakable.breakable.health.current.max(1));
+                    let broke = breakable
+                        .breakable
+                        .apply_damage(breakable.breakable.health.current.max(1));
                     if broke {
                         breakable.start_respawn_timer();
-                        events.messages.push(format!("{} collapsed under weight", breakable.name));
+                        events
+                            .messages
+                            .push(format!("{} collapsed under weight", breakable.name));
                         events.bursts.push(breakable.pos);
                         events.physics_bursts.push(FeaturePhysicsBurst {
                             pos: breakable.pos,
@@ -302,7 +323,9 @@ impl FeatureRuntime {
             enemy.update(world, player, tuning, dt);
             if player_vulnerable && enemy.alive {
                 if let Some(damage) = enemy.player_damage(player_body) {
-                    events.messages.push(format!("{} hit the player", enemy.name));
+                    events
+                        .messages
+                        .push(format!("{} hit the player", enemy.name));
                     events.impacts.push(damage.impact_pos);
                     events.player_damage.push(damage);
                 }
@@ -313,7 +336,9 @@ impl FeatureRuntime {
             boss.update(world, player, tuning, dt);
             if player_vulnerable && boss.alive {
                 if let Some(damage) = boss.player_damage(player_body) {
-                    events.messages.push(format!("{} pattern hit the player", boss.name));
+                    events
+                        .messages
+                        .push(format!("{} pattern hit the player", boss.name));
                     events.impacts.push(damage.impact_pos);
                     events.player_damage.push(damage);
                 }
@@ -324,7 +349,12 @@ impl FeatureRuntime {
         events
     }
 
-    pub fn apply_player_attack(&mut self, attack: ae::Aabb, damage: i32, knock_x: f32) -> FeatureEvents {
+    pub fn apply_player_attack(
+        &mut self,
+        attack: ae::Aabb,
+        damage: i32,
+        knock_x: f32,
+    ) -> FeatureEvents {
         let mut events = FeatureEvents::default();
 
         for enemy in &mut self.enemies {
@@ -343,7 +373,9 @@ impl FeatureRuntime {
                     enemy.alive = false;
                     if enemy.archetype == EnemyArchetype::FiniteSandbag {
                         enemy.respawn_timer = 0.85;
-                        events.messages.push(format!("{} dropped; respawning", enemy.name));
+                        events
+                            .messages
+                            .push(format!("{} dropped; respawning", enemy.name));
                     } else {
                         events.messages.push(format!("defeated {}", enemy.name));
                     }
@@ -376,7 +408,9 @@ impl FeatureRuntime {
         for breakable in &mut self.breakables {
             if !breakable.broken() && attack.strict_intersects(breakable.aabb()) {
                 let broke = breakable.breakable.apply_damage(damage.max(1));
-                events.impacts.push(midpoint(attack.center(), breakable.pos));
+                events
+                    .impacts
+                    .push(midpoint(attack.center(), breakable.pos));
                 if broke {
                     breakable.start_respawn_timer();
                     events.messages.push(format!("broke {}", breakable.name));
@@ -412,7 +446,9 @@ impl FeatureRuntime {
                     size: enemy.size,
                     kind: enemy.visual_kind(),
                     visible: enemy.alive,
-                    flash: enemy.hit_flash > 0.0 || enemy.attack_windup_timer > 0.0 || enemy.attack_timer > 0.0,
+                    flash: enemy.hit_flash > 0.0
+                        || enemy.attack_windup_timer > 0.0
+                        || enemy.attack_timer > 0.0,
                 });
             }
         }
@@ -423,7 +459,9 @@ impl FeatureRuntime {
                     size: boss.size,
                     kind: FeatureVisualKind::Boss,
                     visible: boss.alive,
-                    flash: boss.hit_flash > 0.0 || boss.attack_windup_timer > 0.0 || boss.attack_timer > 0.0,
+                    flash: boss.hit_flash > 0.0
+                        || boss.attack_windup_timer > 0.0
+                        || boss.attack_timer > 0.0,
                 });
             }
         }
@@ -651,12 +689,17 @@ impl EnemyArchetype {
     }
 }
 
-
 impl EnemyRuntime {
-    fn new(object: &ae::RoomObject, brain: ae::EnemyBrain, paths: &[(String, ae::KinematicPath)]) -> Self {
+    fn new(
+        object: &ae::RoomObject,
+        brain: ae::EnemyBrain,
+        paths: &[(String, ae::KinematicPath)],
+    ) -> Self {
         let archetype = EnemyArchetype::from_brain(&brain);
         let motion = match &brain {
-            ae::EnemyBrain::Patrol { path_id: Some(path_id) } if !archetype.is_sandbag() => paths
+            ae::EnemyBrain::Patrol {
+                path_id: Some(path_id),
+            } if !archetype.is_sandbag() => paths
                 .iter()
                 .find(|(id, _)| id == path_id)
                 .map(|(_, path)| PathMotion::new(path.clone())),
@@ -683,7 +726,13 @@ impl EnemyRuntime {
         }
     }
 
-    fn update(&mut self, world: &ae::World, player: &ae::Player, tuning: FeatureCombatTuning, dt: f32) {
+    fn update(
+        &mut self,
+        world: &ae::World,
+        player: &ae::Player,
+        tuning: FeatureCombatTuning,
+        dt: f32,
+    ) {
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         if !self.alive {
             self.respawn_timer = (self.respawn_timer - dt).max(0.0);
@@ -716,7 +765,9 @@ impl EnemyRuntime {
                 ae::EnemyBrain::Guard { leash_radius } if distance_to_player <= leash_radius => {
                     delta_to_player.x.signum() * self.archetype.chase_speed()
                 }
-                ae::EnemyBrain::Custom(_) if distance_to_player <= self.archetype.aggro_radius() => {
+                ae::EnemyBrain::Custom(_)
+                    if distance_to_player <= self.archetype.aggro_radius() =>
+                {
                     delta_to_player.x.signum() * self.archetype.chase_speed()
                 }
                 ae::EnemyBrain::Passive => 0.0,
@@ -750,7 +801,14 @@ impl EnemyRuntime {
             && self.attack_timer <= 0.0
         {
             self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
-            self.attack_cooldown = ENEMY_ATTACK_COOLDOWN * if self.archetype == EnemyArchetype::SmallSkitter { 0.75 } else if self.archetype == EnemyArchetype::LargeBrute { 1.35 } else { 1.0 };
+            self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
+                * if self.archetype == EnemyArchetype::SmallSkitter {
+                    0.75
+                } else if self.archetype == EnemyArchetype::LargeBrute {
+                    1.35
+                } else {
+                    1.0
+                };
         }
     }
 
@@ -856,7 +914,13 @@ impl BossRuntime {
         }
     }
 
-    fn update(&mut self, world: &ae::World, player: &ae::Player, tuning: FeatureCombatTuning, dt: f32) {
+    fn update(
+        &mut self,
+        world: &ae::World,
+        player: &ae::Player,
+        tuning: FeatureCombatTuning,
+        dt: f32,
+    ) {
         if !self.alive {
             return;
         }
@@ -883,7 +947,10 @@ impl BossRuntime {
         if was_winding_up && self.attack_windup_timer <= 0.0 {
             self.attack_timer = tuning.boss_attack_active.max(0.01);
         }
-        if self.attack_cooldown <= 0.0 && self.attack_windup_timer <= 0.0 && self.attack_timer <= 0.0 {
+        if self.attack_cooldown <= 0.0
+            && self.attack_windup_timer <= 0.0
+            && self.attack_timer <= 0.0
+        {
             self.attack_windup_timer = tuning.boss_attack_windup.max(0.01);
             self.attack_cooldown = BOSS_ATTACK_COOLDOWN;
         }
@@ -946,8 +1013,14 @@ impl BossRuntime {
                 ae::Vec2::new(self.size.x * 0.75, 18.0),
             )],
             1 => vec![
-                ae::Aabb::new(self.pos + ae::Vec2::new(-self.size.x * 0.75, 0.0), ae::Vec2::new(22.0, self.size.y * 0.72)),
-                ae::Aabb::new(self.pos + ae::Vec2::new(self.size.x * 0.75, 0.0), ae::Vec2::new(22.0, self.size.y * 0.72)),
+                ae::Aabb::new(
+                    self.pos + ae::Vec2::new(-self.size.x * 0.75, 0.0),
+                    ae::Vec2::new(22.0, self.size.y * 0.72),
+                ),
+                ae::Aabb::new(
+                    self.pos + ae::Vec2::new(self.size.x * 0.75, 0.0),
+                    ae::Vec2::new(22.0, self.size.y * 0.72),
+                ),
             ],
             _ => vec![ae::Aabb::new(self.pos, self.size * 0.70)],
         }
@@ -955,7 +1028,11 @@ impl BossRuntime {
 
     fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
         if self.attack_timer > 0.0 {
-            if let Some(volume) = self.attack_volumes().into_iter().find(|volume| volume.strict_intersects(player_body)) {
+            if let Some(volume) = self
+                .attack_volumes()
+                .into_iter()
+                .find(|volume| volume.strict_intersects(player_body))
+            {
                 return Some(PlayerDamageEvent {
                     mode: PlayerDamageMode::Knockback,
                     source: PlayerDamageSource::BossAttack,
@@ -1028,7 +1105,8 @@ impl BreakableRuntime {
 }
 
 fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> bool {
-    let horizontally_overlaps = player.right() > platform.left() + 2.0 && player.left() < platform.right() - 2.0;
+    let horizontally_overlaps =
+        player.right() > platform.left() + 2.0 && player.left() < platform.right() - 2.0;
     let near_top = (player.bottom() - platform.top()).abs() <= 8.0;
     horizontally_overlaps && near_top
 }
@@ -1113,7 +1191,9 @@ impl NpcRuntime {
 
     fn message(&self) -> String {
         match &self.interactable.kind {
-            ae::InteractionKind::Npc { dialogue_id: Some(dialogue_id) } => {
+            ae::InteractionKind::Npc {
+                dialogue_id: Some(dialogue_id),
+            } => {
                 format!("{} opens dialogue {}", self.name, dialogue_id)
             }
             _ => format!("{} opens fallback dialogue", self.name),
@@ -1122,7 +1202,9 @@ impl NpcRuntime {
 
     fn dialogue_request(&self) -> NpcDialogueRequest {
         let dialogue_id = match &self.interactable.kind {
-            ae::InteractionKind::Npc { dialogue_id: Some(dialogue_id) } => dialogue_id.clone(),
+            ae::InteractionKind::Npc {
+                dialogue_id: Some(dialogue_id),
+            } => dialogue_id.clone(),
             _ => "generic_npc".to_string(),
         };
         NpcDialogueRequest {
@@ -1142,7 +1224,11 @@ pub struct PathMotion {
 
 impl PathMotion {
     fn new(path: ae::KinematicPath) -> Self {
-        Self { path, segment: 0, dir: 1 }
+        Self {
+            path,
+            segment: 0,
+            dir: 1,
+        }
     }
 
     fn advance(&mut self, mut pos: ae::Vec2, dt: f32) -> ae::Vec2 {
@@ -1151,7 +1237,11 @@ impl PathMotion {
         }
         let mut remaining = self.path.speed * dt;
         while remaining > 0.0 {
-            let target_index = if self.dir >= 0 { self.segment + 1 } else { self.segment };
+            let target_index = if self.dir >= 0 {
+                self.segment + 1
+            } else {
+                self.segment
+            };
             let Some(target) = self.path.points.get(target_index).copied() else {
                 break;
             };
@@ -1181,7 +1271,11 @@ impl PathMotion {
             }
             ae::KinematicPathMode::Loop => {
                 if self.dir >= 0 {
-                    self.segment = if self.segment >= last_segment { 0 } else { self.segment + 1 };
+                    self.segment = if self.segment >= last_segment {
+                        0
+                    } else {
+                        self.segment + 1
+                    };
                 } else if self.segment == 0 {
                     self.segment = last_segment;
                 } else {
@@ -1205,7 +1299,11 @@ impl PathMotion {
     }
 }
 
-pub fn world_with_sandbox_solids(world: &ae::World, platform: &MovingPlatformState, features: &FeatureRuntime) -> ae::World {
+pub fn world_with_sandbox_solids(
+    world: &ae::World,
+    platform: &MovingPlatformState,
+    features: &FeatureRuntime,
+) -> ae::World {
     let mut collision_world = crate::platforms::world_with_moving_platform(world, platform);
     for breakable in &features.breakables {
         if breakable.breakable.solid && !breakable.broken() {
@@ -1221,7 +1319,11 @@ pub fn world_with_sandbox_solids(world: &ae::World, platform: &MovingPlatformSta
 
 fn boss_space_is_free(world: &ae::World, pos: ae::Vec2, size: ae::Vec2) -> bool {
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    if aabb.left() < 0.0 || aabb.right() > world.size.x || aabb.top() < 0.0 || aabb.bottom() > world.size.y {
+    if aabb.left() < 0.0
+        || aabb.right() > world.size.x
+        || aabb.top() < 0.0
+        || aabb.bottom() > world.size.y
+    {
         return false;
     }
     !world.body_overlaps_any(aabb, |block| {
@@ -1244,12 +1346,20 @@ fn room_paths(world: &ae::World) -> Vec<(String, ae::KinematicPath)> {
 }
 
 fn blocked(world: &ae::World, aabb: ae::Aabb) -> bool {
-    world.body_overlaps_any(aabb, |block| matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }))
+    world.body_overlaps_any(aabb, |block| {
+        matches!(
+            block.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+        )
+    })
 }
 
 fn blocked_y(world: &ae::World, aabb: ae::Aabb) -> bool {
     world.body_overlaps_any(aabb, |block| {
-        matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay)
+        matches!(
+            block.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
+        )
     })
 }
 

@@ -107,7 +107,9 @@ impl DialogState {
             self.close();
             return true;
         }
-        let choice = &node.options[self.selected_option.min(node.options.len().saturating_sub(1))];
+        let choice = &node.options[self
+            .selected_option
+            .min(node.options.len().saturating_sub(1))];
         if let Some(note) = choice.note {
             self.last_note = note.to_string();
         } else {
@@ -330,7 +332,9 @@ const VAULT_RETURN_OPTIONS: &[DialogChoice] = &[
     DialogChoice {
         label: "Close the ledger.",
         next_node: None,
-        note: Some("Merchant UI is still a design sketch, but the dialogue contract is now explicit."),
+        note: Some(
+            "Merchant UI is still a design sketch, but the dialogue contract is now explicit.",
+        ),
         close_after: true,
     },
 ];
@@ -407,14 +411,12 @@ const MERCHANT_SEED_NODES: &[DialogNode] = &[
     },
 ];
 
-const GENERIC_OPTIONS: &[DialogChoice] = &[
-    DialogChoice {
-        label: "Close.",
-        next_node: None,
-        note: None,
-        close_after: true,
-    },
-];
+const GENERIC_OPTIONS: &[DialogChoice] = &[DialogChoice {
+    label: "Close.",
+    next_node: None,
+    note: None,
+    close_after: true,
+}];
 
 const GENERIC_NODES: &[DialogNode] = &[
     DialogNode {
@@ -501,12 +503,18 @@ pub fn sync_dialog_ui(
         .with_children(|parent| {
             parent.spawn((
                 Text::new(title),
-                TextFont { font_size: 22.0, ..default() },
+                TextFont {
+                    font_size: 22.0,
+                    ..default()
+                },
                 TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
             ));
             parent.spawn((
                 Text::new(body),
-                TextFont { font_size: 17.0, ..default() },
+                TextFont {
+                    font_size: 17.0,
+                    ..default()
+                },
                 TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
             ));
             if !options.is_empty() {
@@ -519,20 +527,29 @@ pub fn sync_dialog_ui(
                     };
                     parent.spawn((
                         Text::new(format!("{} {}", marker, option.label)),
-                        TextFont { font_size: 16.0, ..default() },
+                        TextFont {
+                            font_size: 16.0,
+                            ..default()
+                        },
                         TextColor(color),
                     ));
                 }
             } else {
                 parent.spawn((
                     Text::new("▶ Continue"),
-                    TextFont { font_size: 16.0, ..default() },
+                    TextFont {
+                        font_size: 16.0,
+                        ..default()
+                    },
                     TextColor(Color::srgba(1.00, 0.86, 0.34, 1.0)),
                 ));
             }
             parent.spawn((
                 Text::new(DIALOG_CONTINUE_HINT),
-                TextFont { font_size: 12.0, ..default() },
+                TextFont {
+                    font_size: 12.0,
+                    ..default()
+                },
                 TextColor(Color::srgba(0.62, 0.72, 0.84, 0.96)),
             ));
         });

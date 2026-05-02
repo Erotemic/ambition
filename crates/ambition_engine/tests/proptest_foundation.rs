@@ -1,4 +1,7 @@
-use ambition_engine::{AabbExt, aabb_from_min_size, BossPatternSchedule, KinematicPath, PhysicsBodySpec, RagdollSpec, Vec2};
+use ambition_engine::{
+    aabb_from_min_size, AabbExt, BossPatternSchedule, KinematicPath, PhysicsBodySpec, RagdollSpec,
+    Vec2,
+};
 use proptest::prelude::*;
 
 proptest! {
@@ -43,7 +46,12 @@ fn boss_pattern_schedules_have_finite_positive_timings() {
         BossPatternSchedule::gradient_sentinel_phase1(),
         BossPatternSchedule::gradient_sentinel_phase2(),
     ] {
-        assert!(schedule.is_valid(), "{} phase {} should be valid", schedule.boss_id, schedule.phase);
+        assert!(
+            schedule.is_valid(),
+            "{} phase {} should be valid",
+            schedule.boss_id,
+            schedule.phase
+        );
         assert!(schedule.total_time().is_finite());
         assert!(schedule.total_time() > 0.0);
     }

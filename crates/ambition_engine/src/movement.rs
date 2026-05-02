@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::abilities::AbilitySet;
 use crate::geometry::{Aabb, AabbExt};
-use crate::{approach, Vec2};
 use crate::world::{BlinkWallTier, BlockKind, World};
+use crate::{approach, Vec2};
 
 /// A symbolic movement operation that can be shown in the debug HUD.
 ///
@@ -267,20 +267,42 @@ impl Player {
             return "build a chain: jump, dash, pogo, rebound";
         };
         match (a, b) {
-            (MovementOp::Dash, MovementOp::Pogo) => "D o P: dash then pogo converts speed into height",
-            (MovementOp::Pogo, MovementOp::Dash) => "P o D: pogo then dash converts height into lateral routing",
-            (MovementOp::Jump, MovementOp::DoubleJump) => "J o DJ: save the second jump for route correction",
-            (MovementOp::Dash, MovementOp::DoubleJump) => "D o DJ: dash then double jump recovers a bad line",
-            (MovementOp::WallJump, MovementOp::Dash) => "WJ o D: wall jump then dash is a fast exit",
+            (MovementOp::Dash, MovementOp::Pogo) => {
+                "D o P: dash then pogo converts speed into height"
+            }
+            (MovementOp::Pogo, MovementOp::Dash) => {
+                "P o D: pogo then dash converts height into lateral routing"
+            }
+            (MovementOp::Jump, MovementOp::DoubleJump) => {
+                "J o DJ: save the second jump for route correction"
+            }
+            (MovementOp::Dash, MovementOp::DoubleJump) => {
+                "D o DJ: dash then double jump recovers a bad line"
+            }
+            (MovementOp::WallJump, MovementOp::Dash) => {
+                "WJ o D: wall jump then dash is a fast exit"
+            }
             (MovementOp::Dash, MovementOp::WallJump) => "D o WJ: dash into wall to bank momentum",
-            (MovementOp::WallCling, MovementOp::WallClimb) => "WC o W^: cling opens vertical routing",
-            (MovementOp::Rebound, MovementOp::Dash) => "R o D: launcher into dash preserves the loop",
+            (MovementOp::WallCling, MovementOp::WallClimb) => {
+                "WC o W^: cling opens vertical routing"
+            }
+            (MovementOp::Rebound, MovementOp::Dash) => {
+                "R o D: launcher into dash preserves the loop"
+            }
             (MovementOp::Dash, MovementOp::Slash) => "D o S: dash slash is a commitment",
             (MovementOp::Slash, MovementOp::Dash) => "S o D: slash dash is a correction",
-            (MovementOp::DoubleDash, MovementOp::DoubleJump) => "DD o DJ: spend horizontal resources before vertical recovery",
-            (MovementOp::Blink, MovementOp::Dash) => "B o D: blink then dash extends a chosen vector",
-            (MovementOp::Dash, MovementOp::Blink) => "D o B: dash then blink preserves intent but changes topology",
-            (MovementOp::PrecisionBlink, MovementOp::Slash) => "PB o S: aim blink into an exact hit",
+            (MovementOp::DoubleDash, MovementOp::DoubleJump) => {
+                "DD o DJ: spend horizontal resources before vertical recovery"
+            }
+            (MovementOp::Blink, MovementOp::Dash) => {
+                "B o D: blink then dash extends a chosen vector"
+            }
+            (MovementOp::Dash, MovementOp::Blink) => {
+                "D o B: dash then blink preserves intent but changes topology"
+            }
+            (MovementOp::PrecisionBlink, MovementOp::Slash) => {
+                "PB o S: aim blink into an exact hit"
+            }
             _ => "order matters: this trace is a movement algebra sketch",
         }
     }
@@ -495,7 +517,12 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     air_jumps: AIR_JUMPS,
 };
 
-pub fn update_player(world: &World, player: &mut Player, input: InputState, raw_dt: f32) -> FrameEvents {
+pub fn update_player(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    raw_dt: f32,
+) -> FrameEvents {
     update_player_with_tuning(world, player, input, raw_dt, DEFAULT_TUNING)
 }
 
@@ -511,7 +538,11 @@ pub fn update_player_with_tuning(
     raw_dt: f32,
     tuning: MovementTuning,
 ) -> FrameEvents {
-    let control_dt = if input.control_dt > 0.0 { input.control_dt } else { raw_dt };
+    let control_dt = if input.control_dt > 0.0 {
+        input.control_dt
+    } else {
+        raw_dt
+    };
     let mut events = update_player_control_with_tuning(world, player, input, control_dt, tuning);
     let sim_events = update_player_simulation_with_tuning(world, player, input, raw_dt, tuning);
     events.extend(sim_events);
@@ -606,10 +637,16 @@ fn age_player(player: &mut Player, dt: f32) {
     for mark in &mut player.combo {
         mark.age += dt;
     }
-    player.combo.retain(|m| m.age < 4.0 || m.op == MovementOp::Reset);
+    player
+        .combo
+        .retain(|m| m.age < 4.0 || m.op == MovementOp::Reset);
 }
 
-fn update_facing_and_control_intent(player: &mut Player, input: InputState, tuning: MovementTuning) {
+fn update_facing_and_control_intent(
+    player: &mut Player,
+    input: InputState,
+    tuning: MovementTuning,
+) {
     if input.axis_x.abs() > 0.1 {
         player.facing = input.axis_x.signum();
     }
@@ -685,14 +722,19 @@ fn handle_blink(
         // feel like a responsive UI control.
         let control_dt = dt.min(1.0 / 20.0);
         player.blink_hold_timer += control_dt;
-        if player.abilities.precision_blink && player.blink_hold_timer >= tuning.blink_hold_threshold {
+        if player.abilities.precision_blink
+            && player.blink_hold_timer >= tuning.blink_hold_threshold
+        {
             player.blink_aiming = true;
         }
         if player.blink_aiming {
             let aim_input = Vec2::new(input.axis_x, input.axis_y);
             if aim_input.length_squared() > 0.01 {
-                player.blink_aim_offset += aim_input * (tuning.precision_blink_aim_speed * control_dt);
-                player.blink_aim_offset = player.blink_aim_offset.clamp_length_max(tuning.precision_blink_distance);
+                player.blink_aim_offset +=
+                    aim_input * (tuning.precision_blink_aim_speed * control_dt);
+                player.blink_aim_offset = player
+                    .blink_aim_offset
+                    .clamp_length_max(tuning.precision_blink_distance);
             }
         }
     }
@@ -742,9 +784,17 @@ fn complete_blink(
     player.blink_hold_timer = 0.0;
     player.blink_aiming = false;
     player.blink_aim_offset = Vec2::new(tuning.blink_distance * player.facing, 0.0);
-    let op = if precision { MovementOp::PrecisionBlink } else { MovementOp::Blink };
+    let op = if precision {
+        MovementOp::PrecisionBlink
+    } else {
+        MovementOp::Blink
+    };
     events.op(player, op);
-    events.blinks.push(BlinkEvent { from, to, precision });
+    events.blinks.push(BlinkEvent {
+        from,
+        to,
+        precision,
+    });
 }
 
 /// Apply the movement-state aftermath of a completed blink.
@@ -807,11 +857,7 @@ fn handle_attacks(
     }
 }
 
-fn handle_jump_buffer(
-    player: &mut Player,
-    tuning: MovementTuning,
-    events: &mut FrameEvents,
-) {
+fn handle_jump_buffer(player: &mut Player, tuning: MovementTuning, events: &mut FrameEvents) {
     if player.jump_buffer_timer > 0.0 {
         if player.abilities.wall_jump && player.on_wall && !player.on_ground {
             player.vel.x = player.wall_normal_x * tuning.wall_jump_x;
@@ -850,7 +896,12 @@ fn handle_jump_release(player: &mut Player, input: InputState) {
     }
 }
 
-fn handle_dash(player: &mut Player, input: InputState, tuning: MovementTuning, events: &mut FrameEvents) {
+fn handle_dash(
+    player: &mut Player,
+    input: InputState,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
     if player.dash_buffer_timer > 0.0
         && player.abilities.dash
         && player.dash_charges_available > 0
@@ -892,11 +943,19 @@ fn integrate_velocity(
         }
 
         if player.abilities.move_horizontal {
-            let accel = if player.on_ground { tuning.run_accel } else { tuning.air_accel };
+            let accel = if player.on_ground {
+                tuning.run_accel
+            } else {
+                tuning.air_accel
+            };
             let target_vx = input.axis_x * tuning.max_run_speed;
             player.vel.x = approach(player.vel.x, target_vx, accel * dt);
 
-            let friction = if player.on_ground { tuning.ground_friction } else { tuning.air_friction };
+            let friction = if player.on_ground {
+                tuning.ground_friction
+            } else {
+                tuning.air_friction
+            };
             if input.axis_x.abs() <= 0.1 {
                 player.vel.x = approach(player.vel.x, 0.0, friction * dt);
             }
@@ -925,7 +984,13 @@ fn integrate_velocity(
     // Resolve vertical motion. Previous bottom determines one-way behavior.
     let prev_bottom = player.aabb().bottom();
     player.on_ground = false;
-    sweep_player_y(world, player, player.vel.y * dt, prev_bottom, input.axis_y > 0.35);
+    sweep_player_y(
+        world,
+        player,
+        player.vel.y * dt,
+        prev_bottom,
+        input.axis_y > 0.35,
+    );
 
     if player.on_ground {
         player.refresh_movement_resources(tuning);
@@ -968,8 +1033,14 @@ fn integrate_flight(player: &mut Player, input: InputState, dt: f32, tuning: Mov
         player.vel.y = approach(player.vel.y, target_y, tuning.flight_drag * dt);
     }
 
-    player.vel.x = player.vel.x.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
-    player.vel.y = player.vel.y.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+    player.vel.x = player
+        .vel
+        .x
+        .clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+    player.vel.y = player
+        .vel
+        .y
+        .clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
 }
 
 fn apply_wall_abilities(
@@ -983,7 +1054,8 @@ fn apply_wall_abilities(
         return;
     }
     // Pressing toward the wall means axis_x is opposite the collision normal.
-    let pressing_into_wall = input.axis_x.abs() > 0.1 && input.axis_x.signum() == -player.wall_normal_x;
+    let pressing_into_wall =
+        input.axis_x.abs() > 0.1 && input.axis_x.signum() == -player.wall_normal_x;
     if !pressing_into_wall {
         return;
     }
@@ -1057,7 +1129,13 @@ fn sweep_player_x(world: &World, player: &mut Player, delta_x: f32) {
     resolve_axis(world, player, Axis::X);
 }
 
-fn sweep_player_y(world: &World, player: &mut Player, delta_y: f32, prev_bottom: f32, drop_through: bool) {
+fn sweep_player_y(
+    world: &World,
+    player: &mut Player,
+    delta_y: f32,
+    prev_bottom: f32,
+    drop_through: bool,
+) {
     let delta = Vec2::new(0.0, delta_y);
     if delta.y.abs() <= 1.0e-5 {
         resolve_vertical(world, player, prev_bottom, drop_through);
@@ -1151,7 +1229,13 @@ fn try_pogo(world: &World, player: &mut Player, tuning: MovementTuning) -> bool 
         Vec2::new(feet.half_size().x * 0.76, 22.0),
     );
     let hit = world.blocks.iter().any(|block| {
-        let valid_target = matches!(block.kind, BlockKind::PogoOrb | BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::Rebound { .. });
+        let valid_target = matches!(
+            block.kind,
+            BlockKind::PogoOrb
+                | BlockKind::Solid
+                | BlockKind::BlinkWall { .. }
+                | BlockKind::Rebound { .. }
+        );
         valid_target && hitbox.strict_intersects(block.aabb)
     });
     if hit {
@@ -1177,7 +1261,6 @@ fn touching_rebound(world: &World, player: &Player) -> Option<Vec2> {
         _ => None,
     })
 }
-
 
 /// Compute the furthest safe blink destination along `aim`.
 ///
@@ -1210,7 +1293,9 @@ pub fn blink_destination_to_point(world: &World, player: &Player, target: Vec2) 
 
     let start_body = Aabb::new(start, half);
     let max_t = world
-        .first_body_sweep(start_body, delta, |block| blink_path_blocker(player, block.kind))
+        .first_body_sweep(start_body, delta, |block| {
+            blink_path_blocker(player, block.kind)
+        })
         .map(|hit| hit.time_of_impact)
         .unwrap_or(1.0);
     let sweep_target = start + delta * max_t;
@@ -1221,11 +1306,19 @@ fn blink_path_blocker(player: &Player, kind: BlockKind) -> bool {
     match kind {
         BlockKind::Solid => true,
         BlockKind::BlinkWall { tier } => !player_can_blink_through(player, tier),
-        BlockKind::OneWay | BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => false,
+        BlockKind::OneWay | BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => {
+            false
+        }
     }
 }
 
-fn last_free_blink_position(world: &World, player: &Player, start: Vec2, target: Vec2, half: Vec2) -> Vec2 {
+fn last_free_blink_position(
+    world: &World,
+    player: &Player,
+    start: Vec2,
+    target: Vec2,
+    half: Vec2,
+) -> Vec2 {
     let delta = target - start;
     let distance = delta.length();
     if distance <= 1.0e-5 {
@@ -1273,7 +1366,11 @@ fn blink_collision(world: &World, player: &Player, aabb: Aabb) -> BlinkCollision
             BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => {}
         }
     }
-    if pass_through { BlinkCollision::PassThrough } else { BlinkCollision::Free }
+    if pass_through {
+        BlinkCollision::PassThrough
+    } else {
+        BlinkCollision::Free
+    }
 }
 
 fn player_can_blink_through(player: &Player, tier: BlinkWallTier) -> bool {
@@ -1282,7 +1379,6 @@ fn player_can_blink_through(player: &Player, tier: BlinkWallTier) -> bool {
         BlinkWallTier::Hard => player.abilities.blink_through_hard_walls,
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1317,19 +1413,33 @@ mod tests {
         player.on_ground = false;
         player.coyote_timer = 0.0;
         player.vel = Vec2::ZERO;
-        let _ = update_player_with_tuning(&world, &mut player, InputState::default(), 1.0 / 60.0, DEFAULT_TUNING);
+        let _ = update_player_with_tuning(
+            &world,
+            &mut player,
+            InputState::default(),
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
         let normal_fall_speed = player.vel.y;
 
         let mut slow_player = Player::new(world.spawn);
         slow_player.on_ground = false;
         slow_player.coyote_timer = 0.0;
         slow_player.vel = Vec2::ZERO;
-        let _ = update_player_with_tuning(&world, &mut slow_player, InputState::default(), (1.0 / 60.0) * 0.001, DEFAULT_TUNING);
+        let _ = update_player_with_tuning(
+            &world,
+            &mut slow_player,
+            InputState::default(),
+            (1.0 / 60.0) * 0.001,
+            DEFAULT_TUNING,
+        );
 
         assert!(slow_player.vel.y > 0.0);
-        assert!(slow_player.vel.y < normal_fall_speed * 0.01, "tiny dt should not be clamped up to normal-ish gravity");
+        assert!(
+            slow_player.vel.y < normal_fall_speed * 0.01,
+            "tiny dt should not be clamped up to normal-ish gravity"
+        );
     }
-
 
     #[test]
     fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
@@ -1354,7 +1464,10 @@ mod tests {
                 DEFAULT_TUNING,
             );
         }
-        assert!(player.blink_aiming, "control time should enter precision aim quickly");
+        assert!(
+            player.blink_aiming,
+            "control time should enter precision aim quickly"
+        );
 
         // Game-time simulation is almost frozen, so gravity should barely change.
         let _ = update_player_simulation_with_tuning(
@@ -1370,7 +1483,6 @@ mod tests {
             player.vel.y
         );
     }
-
 
     #[test]
     fn held_blink_arms_when_cooldown_clears_without_new_press() {
@@ -1426,7 +1538,14 @@ mod tests {
         player.on_ground = false;
         player.coyote_timer = 0.0;
         player.air_jumps_available = 0;
-        let events = step(&world, &mut player, InputState { jump_pressed: true, ..Default::default() });
+        let events = step(
+            &world,
+            &mut player,
+            InputState {
+                jump_pressed: true,
+                ..Default::default()
+            },
+        );
         assert!(!events.operations.contains(&MovementOp::DoubleJump));
 
         abilities.double_jump = true;
@@ -1434,7 +1553,14 @@ mod tests {
         player.on_ground = false;
         player.coyote_timer = 0.0;
         player.air_jumps_available = 1;
-        let events = step(&world, &mut player, InputState { jump_pressed: true, ..Default::default() });
+        let events = step(
+            &world,
+            &mut player,
+            InputState {
+                jump_pressed: true,
+                ..Default::default()
+            },
+        );
         assert!(events.operations.contains(&MovementOp::DoubleJump));
     }
 
@@ -1454,7 +1580,10 @@ mod tests {
     fn wall_climb_requires_wall_cling() {
         let mut abilities = AbilitySet::sandbox_all();
         abilities.wall_cling = false;
-        assert!(abilities.compatibility_warnings().iter().any(|w| w.contains("wall_climb")));
+        assert!(abilities
+            .compatibility_warnings()
+            .iter()
+            .any(|w| w.contains("wall_climb")));
     }
 
     #[test]
@@ -1471,13 +1600,25 @@ mod tests {
             blink_held: true,
             ..Default::default()
         };
-        let _ = update_player_control_with_tuning(&world, &mut player, input, 1.0 / 60.0, DEFAULT_TUNING);
+        let _ = update_player_control_with_tuning(
+            &world,
+            &mut player,
+            input,
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
         let input = InputState {
             axis_x: 1.0,
             blink_released: true,
             ..Default::default()
         };
-        let events = update_player_control_with_tuning(&world, &mut player, input, 1.0 / 60.0, DEFAULT_TUNING);
+        let events = update_player_control_with_tuning(
+            &world,
+            &mut player,
+            input,
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
         assert_eq!(player.pos, start);
         assert!(events.blinks.is_empty());
     }
@@ -1487,17 +1628,25 @@ mod tests {
         let world = test_world();
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         let start = player.pos;
-        step(&world, &mut player, InputState {
-            axis_x: 1.0,
-            blink_pressed: true,
-            blink_held: true,
-            ..Default::default()
-        });
-        let events = step(&world, &mut player, InputState {
-            axis_x: 1.0,
-            blink_released: true,
-            ..Default::default()
-        });
+        step(
+            &world,
+            &mut player,
+            InputState {
+                axis_x: 1.0,
+                blink_pressed: true,
+                blink_held: true,
+                ..Default::default()
+            },
+        );
+        let events = step(
+            &world,
+            &mut player,
+            InputState {
+                axis_x: 1.0,
+                blink_released: true,
+                ..Default::default()
+            },
+        );
         assert!(player.pos.x > start.x + 20.0);
         assert_eq!(events.blinks.len(), 1);
         assert!(!events.blinks[0].precision);
@@ -1510,19 +1659,27 @@ mod tests {
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         for _ in 0..20 {
             let blink_pressed = !player.blink_hold_active;
-            step(&world, &mut player, InputState {
-                axis_x: 1.0,
-                blink_held: true,
-                blink_pressed,
-                ..Default::default()
-            });
+            step(
+                &world,
+                &mut player,
+                InputState {
+                    axis_x: 1.0,
+                    blink_held: true,
+                    blink_pressed,
+                    ..Default::default()
+                },
+            );
         }
         assert!(player.blink_aiming);
-        let events = step(&world, &mut player, InputState {
-            axis_x: 1.0,
-            blink_released: true,
-            ..Default::default()
-        });
+        let events = step(
+            &world,
+            &mut player,
+            InputState {
+                axis_x: 1.0,
+                blink_released: true,
+                ..Default::default()
+            },
+        );
         assert_eq!(events.blinks.len(), 1);
         assert!(events.blinks[0].precision);
         assert!(events.operations.contains(&MovementOp::PrecisionBlink));
@@ -1537,19 +1694,27 @@ mod tests {
 
         // Holding down is still useful for pogo / downward attack intent, but
         // should not automatically trigger fast-fall.
-        step(&world, &mut player, InputState {
-            axis_y: 1.0,
-            ..Default::default()
-        });
+        step(
+            &world,
+            &mut player,
+            InputState {
+                axis_y: 1.0,
+                ..Default::default()
+            },
+        );
         assert!(!player.fast_falling);
 
         // The presentation layer recognizes double-tap-down and sends this
         // explicit event to the engine.
-        step(&world, &mut player, InputState {
-            axis_y: 1.0,
-            fast_fall_pressed: true,
-            ..Default::default()
-        });
+        step(
+            &world,
+            &mut player,
+            InputState {
+                axis_y: 1.0,
+                fast_fall_pressed: true,
+                ..Default::default()
+            },
+        );
         assert!(player.fast_falling);
     }
 
@@ -1577,7 +1742,10 @@ mod tests {
             );
             assert_eq!(events.blinks.len(), 1);
             assert!(
-                player.vel.y <= DEFAULT_TUNING.blink_max_downward_speed + DEFAULT_TUNING.gravity / 60.0 + 1.0,
+                player.vel.y
+                    <= DEFAULT_TUNING.blink_max_downward_speed
+                        + DEFAULT_TUNING.gravity / 60.0
+                        + 1.0,
                 "blink should not preserve a large downward fall speed; got {}",
                 player.vel.y
             );
@@ -1595,12 +1763,22 @@ mod tests {
         let _events = update_player_with_tuning(
             &world,
             &mut player,
-            InputState { axis_x: 1.0, blink_released: true, ..Default::default() },
+            InputState {
+                axis_x: 1.0,
+                blink_released: true,
+                ..Default::default()
+            },
             1.0 / 60.0,
             DEFAULT_TUNING,
         );
         let after_blink_vy = player.vel.y;
-        let _events = update_player_with_tuning(&world, &mut player, InputState::default(), 1.0 / 240.0, DEFAULT_TUNING);
+        let _events = update_player_with_tuning(
+            &world,
+            &mut player,
+            InputState::default(),
+            1.0 / 240.0,
+            DEFAULT_TUNING,
+        );
         assert!(
             player.vel.y <= after_blink_vy + 0.1,
             "gravity should be suspended during the short post-blink grace window"
@@ -1636,19 +1814,29 @@ mod tests {
         let world = test_world();
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
         assert!(!player.fly_enabled);
-        let events = step(&world, &mut player, InputState {
-            fly_toggle_pressed: true,
-            ..Default::default()
-        });
+        let events = step(
+            &world,
+            &mut player,
+            InputState {
+                fly_toggle_pressed: true,
+                ..Default::default()
+            },
+        );
         assert!(player.fly_enabled);
         assert!(events.operations.contains(&MovementOp::FlyToggle));
         player.on_ground = false;
         player.vel = Vec2::ZERO;
-        step(&world, &mut player, InputState {
-            axis_y: -1.0,
-            ..Default::default()
-        });
-        assert!(player.vel.y < 0.0, "flying upward input should accelerate upward");
+        step(
+            &world,
+            &mut player,
+            InputState {
+                axis_y: -1.0,
+                ..Default::default()
+            },
+        );
+        assert!(
+            player.vel.y < 0.0,
+            "flying upward input should accelerate upward"
+        );
     }
-
 }

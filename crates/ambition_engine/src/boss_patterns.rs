@@ -58,7 +58,12 @@ pub struct BossPatternSchedule {
 }
 
 impl BossPatternSchedule {
-    pub fn new(boss_id: impl Into<String>, phase: u8, seed: u64, steps: Vec<BossPatternStep>) -> Self {
+    pub fn new(
+        boss_id: impl Into<String>,
+        phase: u8,
+        seed: u64,
+        steps: Vec<BossPatternStep>,
+    ) -> Self {
         Self {
             boss_id: boss_id.into(),
             phase,
@@ -102,7 +107,11 @@ impl BossPatternSchedule {
     }
 
     pub fn total_time(&self) -> f32 {
-        self.steps.iter().copied().map(BossPatternStep::total_time).sum()
+        self.steps
+            .iter()
+            .copied()
+            .map(BossPatternStep::total_time)
+            .sum()
     }
 
     pub fn summary(&self) -> String {
@@ -116,11 +125,7 @@ impl BossPatternSchedule {
         for (index, step) in self.steps.iter().enumerate() {
             out.push_str(&format!(
                 "\n{:02}: {:?} telegraph={:.3} active={:.3} recover={:.3}",
-                index,
-                step.attack,
-                step.telegraph,
-                step.active,
-                step.recover,
+                index, step.attack, step.telegraph, step.active, step.recover,
             ));
         }
         out

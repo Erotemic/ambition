@@ -104,13 +104,8 @@ impl AabbExt for Aabb {
 
         let lhs_shape = parry_cuboid(self);
         let rhs_shape = parry_cuboid(rhs);
-        query::intersection_test(
-            &parry_pose(self),
-            &lhs_shape,
-            &parry_pose(rhs),
-            &rhs_shape,
-        )
-        .unwrap_or(true)
+        query::intersection_test(&parry_pose(self), &lhs_shape, &parry_pose(rhs), &rhs_shape)
+            .unwrap_or(true)
     }
 
     /// Return the time in `[0, 1]` at which this box first touches `rhs` while
@@ -164,10 +159,10 @@ impl AabbExt for Aabb {
 }
 
 fn moves_into_touching_face(lhs: Aabb, delta: Vec2, rhs: Aabb) -> bool {
-    let y_ranges_overlap = lhs.bottom() > rhs.top() + CONTACT_EPS
-        && lhs.top() < rhs.bottom() - CONTACT_EPS;
-    let x_ranges_overlap = lhs.right() > rhs.left() + CONTACT_EPS
-        && lhs.left() < rhs.right() - CONTACT_EPS;
+    let y_ranges_overlap =
+        lhs.bottom() > rhs.top() + CONTACT_EPS && lhs.top() < rhs.bottom() - CONTACT_EPS;
+    let x_ranges_overlap =
+        lhs.right() > rhs.left() + CONTACT_EPS && lhs.left() < rhs.right() - CONTACT_EPS;
 
     let touching_rhs_left = nearly_equal(lhs.right(), rhs.left());
     let touching_rhs_right = nearly_equal(lhs.left(), rhs.right());
@@ -222,6 +217,9 @@ mod tests {
         let body = Aabb::new(Vec2::new(50.0, 80.0), Vec2::new(10.0, 20.0));
         let wall = Aabb::new(Vec2::new(70.0, 80.0), Vec2::new(10.0, 80.0));
         assert_eq!(body.right(), wall.left());
-        assert_eq!(body.sweep_time_of_impact(Vec2::new(8.0, 0.0), wall), Some(0.0));
+        assert_eq!(
+            body.sweep_time_of_impact(Vec2::new(8.0, 0.0), wall),
+            Some(0.0)
+        );
     }
 }

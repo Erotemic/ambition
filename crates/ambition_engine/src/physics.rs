@@ -46,7 +46,12 @@ pub enum PhysicsShape {
 impl PhysicsShape {
     pub fn is_valid(self) -> bool {
         match self {
-            Self::Box { half_size } => half_size.x.is_finite() && half_size.y.is_finite() && half_size.x > 0.0 && half_size.y > 0.0,
+            Self::Box { half_size } => {
+                half_size.x.is_finite()
+                    && half_size.y.is_finite()
+                    && half_size.x > 0.0
+                    && half_size.y > 0.0
+            }
             Self::Circle { radius } => radius.is_finite() && radius > 0.0,
         }
     }
@@ -102,7 +107,12 @@ pub struct PhysicsBodySpec {
 }
 
 impl PhysicsBodySpec {
-    pub fn new(id: impl Into<String>, role: PhysicsBodyRole, body_kind: PhysicsBodyKind, shape: PhysicsShape) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        role: PhysicsBodyRole,
+        body_kind: PhysicsBodyKind,
+        shape: PhysicsShape,
+    ) -> Self {
         Self {
             id: id.into(),
             role,

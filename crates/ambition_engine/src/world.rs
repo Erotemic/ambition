@@ -110,7 +110,12 @@ pub struct RoomObject {
 }
 
 impl RoomObject {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: Aabb, kind: RoomObjectKind) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: Aabb,
+        kind: RoomObjectKind,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
@@ -185,7 +190,12 @@ impl World {
     /// The predicate lets callers ask different gameplay questions from the same
     /// geometry routine: player movement solids, blink blockers, one-way landing
     /// tests, spawn blockers, and enemy collision can all share this path.
-    pub fn first_body_sweep<F>(&self, body: Aabb, delta: Vec2, mut predicate: F) -> Option<SweepHit<'_>>
+    pub fn first_body_sweep<F>(
+        &self,
+        body: Aabb,
+        delta: Vec2,
+        mut predicate: F,
+    ) -> Option<SweepHit<'_>>
     where
         F: FnMut(&Block) -> bool,
     {
@@ -198,7 +208,10 @@ impl World {
                 continue;
             };
             if best.map_or(true, |hit| time_of_impact < hit.time_of_impact) {
-                best = Some(SweepHit { block, time_of_impact });
+                best = Some(SweepHit {
+                    block,
+                    time_of_impact,
+                });
             }
         }
         best
@@ -211,7 +224,12 @@ mod tests {
 
     #[test]
     fn world_new_starts_without_authored_objects() {
-        let world = World::new("test", Vec2::new(100.0, 80.0), Vec2::new(20.0, 20.0), Vec::new());
+        let world = World::new(
+            "test",
+            Vec2::new(100.0, 80.0),
+            Vec2::new(20.0, 20.0),
+            Vec::new(),
+        );
         assert!(world.objects.is_empty());
     }
 }

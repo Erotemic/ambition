@@ -15,7 +15,6 @@ use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 
-
 /// How a loading zone should be activated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LoadingZoneActivation {
@@ -51,9 +50,15 @@ impl LoadingZone {
 
     pub fn hint(&self, _flying: bool) -> String {
         match self.activation {
-            LoadingZoneActivation::EdgeExit => format!("{}: {}", self.activation.label(), self.name),
+            LoadingZoneActivation::EdgeExit => {
+                format!("{}: {}", self.activation.label(), self.name)
+            }
             LoadingZoneActivation::Door => {
-                format!("{}: {} (Interact / double-tap up)", self.activation.label(), self.name)
+                format!(
+                    "{}: {} (Interact / double-tap up)",
+                    self.activation.label(),
+                    self.name
+                )
             }
         }
     }
@@ -109,7 +114,11 @@ impl RoomSet {
     ///
     /// LDtk uses this path directly so it can own authored world data without
     /// passing through a legacy RON world manifest.
-    pub fn from_parts(start_room: impl AsRef<str>, rooms: Vec<RoomSpec>, links: Vec<RoomLink>) -> Self {
+    pub fn from_parts(
+        start_room: impl AsRef<str>,
+        rooms: Vec<RoomSpec>,
+        links: Vec<RoomLink>,
+    ) -> Self {
         let mut graph = Graph::<String, TransitionEdge>::new();
         let mut room_nodes = Vec::new();
         let mut by_id = HashMap::new();
@@ -121,7 +130,10 @@ impl RoomSet {
 
         for link in &links {
             let Some((_, from_node)) = by_id.get(&link.from_room).copied() else {
-                eprintln!("room graph warning: unknown source room '{}'", link.from_room);
+                eprintln!(
+                    "room graph warning: unknown source room '{}'",
+                    link.from_room
+                );
                 continue;
             };
             let Some((_, to_node)) = by_id.get(&link.to_room).copied() else {
@@ -148,8 +160,16 @@ impl RoomSet {
             }
         }
 
-        let active = by_id.get(start_room.as_ref()).map(|(index, _)| *index).unwrap_or(0);
-        Self { rooms, active, graph, room_nodes }
+        let active = by_id
+            .get(start_room.as_ref())
+            .map(|(index, _)| *index)
+            .unwrap_or(0);
+        Self {
+            rooms,
+            active,
+            graph,
+            room_nodes,
+        }
     }
 
     pub fn active_spec(&self) -> &RoomSpec {
@@ -169,7 +189,11 @@ impl RoomSet {
         self.active_spec()
     }
 
-    pub fn transition_for_player(&self, player: &ae::Player, wants_interact: bool) -> Option<RoomTransition> {
+    pub fn transition_for_player(
+        &self,
+        player: &ae::Player,
+        wants_interact: bool,
+    ) -> Option<RoomTransition> {
         let body = player.aabb();
         let zone = self
             .active_loading_zones()
@@ -223,7 +247,9 @@ impl RoomSet {
                 for block in &room.world.blocks {
                     let active_fixture = matches!(
                         block.kind,
-                        ae::BlockKind::Rebound { .. } | ae::BlockKind::PogoOrb | ae::BlockKind::Hazard
+                        ae::BlockKind::Rebound { .. }
+                            | ae::BlockKind::PogoOrb
+                            | ae::BlockKind::Hazard
                     );
                     if active_fixture && block.aabb.strict_intersects(zone.aabb) {
                         warnings.push(format!(
@@ -258,7 +284,11 @@ impl RoomSet {
             };
             let target_world = &self.rooms[target_room].world;
             let arrival = arrival_from_target_zone(target_world, target_zone);
-            let repaired = validated_spawn(target_world, arrival, ae::Vec2::new(PLAYER_HALF_W * 2.0, PLAYER_HALF_H * 2.0));
+            let repaired = validated_spawn(
+                target_world,
+                arrival,
+                ae::Vec2::new(PLAYER_HALF_W * 2.0, PLAYER_HALF_H * 2.0),
+            );
             let delta = repaired - arrival;
             if delta.length() > 0.5 {
                 warnings.push(format!(
@@ -310,7 +340,10 @@ fn edge_arrival(world: &ae::World, zone: ae::Aabb) -> ae::Vec2 {
 }
 
 fn door_arrival(zone: ae::Aabb) -> ae::Vec2 {
-    ae::Vec2::new(zone.center().x, zone.bottom() - PLAYER_HALF_H - SPAWN_MARGIN)
+    ae::Vec2::new(
+        zone.center().x,
+        zone.bottom() - PLAYER_HALF_H - SPAWN_MARGIN,
+    )
 }
 
 /// Clamp and repair a proposed player spawn so transitions never place the
@@ -327,14 +360,16 @@ pub fn validated_spawn(world: &ae::World, desired: ae::Vec2, player_size: ae::Ve
         let dy = -(y_step as f32) * STEP;
         for x_step in 0..=96 {
             if x_step == 0 {
-                let candidate = clamp_spawn_to_room(world, ae::Vec2::new(base.x, base.y + dy), half);
+                let candidate =
+                    clamp_spawn_to_room(world, ae::Vec2::new(base.x, base.y + dy), half);
                 if player_body_clear(world, candidate, half) {
                     return candidate;
                 }
             } else {
                 for sign in [-1.0_f32, 1.0] {
                     let dx = sign * x_step as f32 * STEP;
-                    let candidate = clamp_spawn_to_room(world, ae::Vec2::new(base.x + dx, base.y + dy), half);
+                    let candidate =
+                        clamp_spawn_to_room(world, ae::Vec2::new(base.x + dx, base.y + dy), half);
                     if player_body_clear(world, candidate, half) {
                         return candidate;
                     }
@@ -348,8 +383,10 @@ pub fn validated_spawn(world: &ae::World, desired: ae::Vec2, player_size: ae::Ve
 
 fn clamp_spawn_to_room(world: &ae::World, pos: ae::Vec2, half: ae::Vec2) -> ae::Vec2 {
     ae::Vec2::new(
-        pos.x.clamp(half.x + SPAWN_MARGIN, world.size.x - half.x - SPAWN_MARGIN),
-        pos.y.clamp(half.y + SPAWN_MARGIN, world.size.y - half.y - SPAWN_MARGIN),
+        pos.x
+            .clamp(half.x + SPAWN_MARGIN, world.size.x - half.x - SPAWN_MARGIN),
+        pos.y
+            .clamp(half.y + SPAWN_MARGIN, world.size.y - half.y - SPAWN_MARGIN),
     )
 }
 

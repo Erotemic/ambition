@@ -240,7 +240,11 @@ impl KeyboardPreset {
             .with(SandboxAction::Start, GamepadButton::Start);
 
         insert_optional(&mut map, SandboxAction::Blink, self.actions.secondary);
-        insert_optional(&mut map, SandboxAction::QuickAction, self.actions.quick_action);
+        insert_optional(
+            &mut map,
+            SandboxAction::QuickAction,
+            self.actions.quick_action,
+        );
         insert_optional(&mut map, SandboxAction::Interact, self.actions.interact);
         insert_optional(&mut map, SandboxAction::Modifier, self.actions.modifier);
         insert_optional(&mut map, SandboxAction::Utility, self.actions.utility);
@@ -390,11 +394,7 @@ pub const GAMEPAD_MAP: &[(&str, &str)] = &[
     ("Start / Options", "pause / menu"),
 ];
 
-fn insert_optional(
-    map: &mut InputMap<SandboxAction>,
-    action: SandboxAction,
-    key: Option<KeyCode>,
-) {
+fn insert_optional(map: &mut InputMap<SandboxAction>, action: SandboxAction, key: Option<KeyCode>) {
     if let Some(key) = key {
         map.insert(action, key);
     }

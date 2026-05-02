@@ -19,7 +19,12 @@ pub struct Interactable {
 }
 
 impl Interactable {
-    pub fn new(id: impl Into<String>, prompt: impl Into<String>, aabb: Aabb, kind: InteractionKind) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        prompt: impl Into<String>,
+        aabb: Aabb,
+        kind: InteractionKind,
+    ) -> Self {
         Self {
             id: id.into(),
             prompt: prompt.into(),

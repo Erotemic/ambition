@@ -14,17 +14,17 @@
 pub mod audio;
 pub mod config;
 pub mod data;
-pub mod dialog;
 pub mod debug_overlay;
 pub mod dev_tools;
-pub mod fx;
+pub mod dialog;
 pub mod features;
+pub mod fx;
 pub mod game_mode;
 pub mod input;
-pub mod loading;
 pub mod ldtk_world;
-pub mod platforms;
+pub mod loading;
 pub mod physics;
+pub mod platforms;
 pub mod rendering;
 pub mod rooms;
 pub mod windowing;
@@ -174,7 +174,12 @@ impl SandboxRuntime {
         }
     }
 
-    pub fn buffered_interact(&mut self, interact_pressed: bool, frame_dt: f32, window: f32) -> bool {
+    pub fn buffered_interact(
+        &mut self,
+        interact_pressed: bool,
+        frame_dt: f32,
+        window: f32,
+    ) -> bool {
         self.interact_buffer_timer = (self.interact_buffer_timer - frame_dt).max(0.0);
         if interact_pressed {
             self.interact_buffer_timer = window;
@@ -204,7 +209,11 @@ impl SandboxRuntime {
         } else {
             1.0
         };
-        let rate = if target < self.time_scale { feel.time_ramp_down_rate } else { feel.time_ramp_up_rate };
+        let rate = if target < self.time_scale {
+            feel.time_ramp_down_rate
+        } else {
+            feel.time_ramp_up_rate
+        };
         self.time_scale = move_toward(self.time_scale, target, rate * frame_dt);
     }
 

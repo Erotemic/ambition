@@ -8,8 +8,8 @@
 //! feel and feedback, not to design final enemy AI.
 
 use crate::geometry::{Aabb, AabbExt};
-use crate::{approach, Vec2};
 use crate::world::{BlockKind, World};
+use crate::{approach, Vec2};
 
 const DUMMY_GRAVITY: f32 = 1600.0;
 const DUMMY_GROUND_FRICTION: f32 = 820.0;
@@ -128,7 +128,12 @@ impl Dummy {
         })
     }
 
-    fn update_common_timers_and_respawn<F>(&mut self, dt: f32, respawn_pos: Vec2, mut integrate_alive: F) -> bool
+    fn update_common_timers_and_respawn<F>(
+        &mut self,
+        dt: f32,
+        respawn_pos: Vec2,
+        mut integrate_alive: F,
+    ) -> bool
     where
         F: FnMut(&mut Dummy, f32),
     {
@@ -160,7 +165,10 @@ fn dummy_collides_on_x(kind: BlockKind) -> bool {
 }
 
 fn dummy_collides_on_y(kind: BlockKind) -> bool {
-    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay)
+    matches!(
+        kind,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
+    )
 }
 
 fn sweep_fraction(time_of_impact: f32) -> f32 {
@@ -174,7 +182,9 @@ fn sweep_dummy_x(world: &World, dummy: &mut Dummy, delta_x: f32) {
         return;
     }
 
-    if let Some(hit) = world.first_body_sweep(dummy.aabb(), delta, |block| dummy_collides_on_x(block.kind)) {
+    if let Some(hit) =
+        world.first_body_sweep(dummy.aabb(), delta, |block| dummy_collides_on_x(block.kind))
+    {
         dummy.pos.x += delta.x * sweep_fraction(hit.time_of_impact);
         let body = dummy.aabb();
         if delta.x > 0.0 {
@@ -288,8 +298,14 @@ fn apply_dummy_rebound(world: &World, dummy: &mut Dummy) {
 pub fn spawn_dummies(world: &World) -> Vec<Dummy> {
     let ground_y = world.size.y - 48.0;
     vec![
-        Dummy::infinite("infinite sandbag", Vec2::new(world.spawn.x + 170.0, ground_y - 33.0)),
-        Dummy::finite("finite drop dummy", Vec2::new(world.spawn.x + 300.0, ground_y - 29.0)),
+        Dummy::infinite(
+            "infinite sandbag",
+            Vec2::new(world.spawn.x + 170.0, ground_y - 33.0),
+        ),
+        Dummy::finite(
+            "finite drop dummy",
+            Vec2::new(world.spawn.x + 300.0, ground_y - 29.0),
+        ),
     ]
 }
 
@@ -335,6 +351,10 @@ mod tests {
         let mut dummy = Dummy::infinite("test dummy", Vec2::new(120.0, 96.0));
         dummy.vel.y = 320.0;
         dummy.update_in_world(1.0 / 30.0, &world);
-        assert!(dummy.vel.y < -500.0, "expected rebound impulse, got {:?}", dummy.vel);
+        assert!(
+            dummy.vel.y < -500.0,
+            "expected rebound impulse, got {:?}",
+            dummy.vel
+        );
     }
 }

@@ -17,24 +17,27 @@ use audio::{play_ambience, play_sound, SoundBank, SoundCue};
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
-use bevy::window::{PrimaryWindow, WindowResolution, WindowResizeConstraints};
-use bevy_common_assets::ron::RonAssetPlugin;
+use bevy::window::{PrimaryWindow, WindowResizeConstraints, WindowResolution};
 use bevy_asset_loader::asset_collection::AssetCollectionApp;
+use bevy_common_assets::ron::RonAssetPlugin;
+use bevy_ecs_ldtk::prelude::{LdtkPlugin, LdtkSettings, LdtkWorldBundle, LevelBackground};
 use bevy_inspector_egui::{
     bevy_egui::EguiPlugin,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
 };
+use bevy_material_ui::MaterialUiPlugin;
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
-use bevy_material_ui::MaterialUiPlugin;
-use bevy_ecs_ldtk::prelude::{LdtkPlugin, LdtkSettings, LdtkWorldBundle, LevelBackground};
 use fx::{
     spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
     spawn_slash_preview, ParticleKind,
 };
 use input::{ControlFrame, SandboxAction, GAMEPAD_MAP};
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
-use rendering::{camera_follow, spawn_room_visuals, sync_visuals, HudText, PlayerVisual, RoomVisual, SceneEntities};
+use rendering::{
+    camera_follow, spawn_room_visuals, sync_visuals, HudText, PlayerVisual, RoomVisual,
+    SceneEntities,
+};
 
 fn main() {
     let sandbox_data = data::SandboxDataSpec::load_embedded();
@@ -53,7 +56,10 @@ fn main() {
             std::process::exit(2);
         }
     };
-    let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(&ldtk_project, room_set.active_spec().id.clone());
+    let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(
+        &ldtk_project,
+        room_set.active_spec().id.clone(),
+    );
     let active_world = room_set.active_world().clone();
 
     App::new()
@@ -113,12 +119,32 @@ fn main() {
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<SandboxFeelTuning>()
-        .add_plugins(ResourceInspectorPlugin::<DeveloperTools>::default().run_if(dev_tools::inspector_visible))
-        .add_plugins(ResourceInspectorPlugin::<EditableAbilitySet>::default().run_if(dev_tools::inspector_visible))
-        .add_plugins(ResourceInspectorPlugin::<EditableMovementTuning>::default().run_if(dev_tools::inspector_visible))
-        .add_plugins(ResourceInspectorPlugin::<SandboxFeelTuning>::default().run_if(dev_tools::inspector_visible))
+        .add_plugins(
+            ResourceInspectorPlugin::<DeveloperTools>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
+        .add_plugins(
+            ResourceInspectorPlugin::<EditableAbilitySet>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
+        .add_plugins(
+            ResourceInspectorPlugin::<EditableMovementTuning>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
+        .add_plugins(
+            ResourceInspectorPlugin::<SandboxFeelTuning>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
         .add_plugins(WorldInspectorPlugin::new().run_if(dev_tools::world_inspector_visible))
-        .add_systems(Startup, (data::load_data_asset_handle, ldtk_world::load_ldtk_asset_handle, setup).chain())
+        .add_systems(
+            Startup,
+            (
+                data::load_data_asset_handle,
+                ldtk_world::load_ldtk_asset_handle,
+                setup,
+            )
+                .chain(),
+        )
         .add_systems(
             Update,
             (
@@ -186,7 +212,11 @@ fn setup(
     let ldtk_handle = ldtk_asset
         .as_ref()
         .map(|asset| asset.0.clone())
-        .or_else(|| sandbox_asset_collection.as_ref().map(|collection| collection.ldtk_project.clone()))
+        .or_else(|| {
+            sandbox_asset_collection
+                .as_ref()
+                .map(|collection| collection.ldtk_project.clone())
+        })
         .unwrap_or_else(|| asset_server.load(ldtk_world::SANDBOX_LDTK_ASSET));
     commands.spawn((
         LdtkWorldBundle {
@@ -215,8 +245,17 @@ fn setup(
     play_ambience(&mut commands, &sound_bank);
     commands.insert_resource(sound_bank);
 
-    spawn_room_visuals(&mut commands, &world.0, room_set.active_loading_zones(), *physics_settings);
-    platforms::spawn_moving_platform(&mut commands, &world.0, platforms::MovingPlatformState::time_reference(&world.0));
+    spawn_room_visuals(
+        &mut commands,
+        &world.0,
+        room_set.active_loading_zones(),
+        *physics_settings,
+    );
+    platforms::spawn_moving_platform(
+        &mut commands,
+        &world.0,
+        platforms::MovingPlatformState::time_reference(&world.0),
+    );
 
     let player = commands
         .spawn((
@@ -228,7 +267,6 @@ fn setup(
             player_input_map,
         ))
         .id();
-
 
     let hud = commands
         .spawn((
@@ -268,7 +306,13 @@ fn sandbox_update(
     mut next_mode: ResMut<NextState<GameMode>>,
     mut runtime: ResMut<SandboxRuntime>,
     entities: Res<SceneEntities>,
-    mut player_input: Query<(&mut ActionState<SandboxAction>, &mut InputMap<SandboxAction>), With<PlayerVisual>>,
+    mut player_input: Query<
+        (
+            &mut ActionState<SandboxAction>,
+            &mut InputMap<SandboxAction>,
+        ),
+        With<PlayerVisual>,
+    >,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) {
     let tuning = editable_tuning.as_engine();
@@ -303,7 +347,11 @@ fn sandbox_update(
     }
 
     if controls.start_pressed {
-        let next = if mode.get().allows_gameplay() { GameMode::Paused } else { GameMode::Playing };
+        let next = if mode.get().allows_gameplay() {
+            GameMode::Paused
+        } else {
+            GameMode::Playing
+        };
         next_mode.set(next);
         if let Ok((mut action_state, _)) = player_input.get_mut(entities.player) {
             action_state.reset_all();
@@ -327,8 +375,10 @@ fn sandbox_update(
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
     runtime.damage_invuln_timer = (runtime.damage_invuln_timer - frame_dt).max(0.0);
     runtime.hitstun_timer = (runtime.hitstun_timer - frame_dt).max(0.0);
-    controls.fast_fall_pressed = runtime.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
-    let door_double_tap_up = runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
+    controls.fast_fall_pressed =
+        runtime.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
+    let door_double_tap_up =
+        runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
 
     if controls.reset_pressed {
@@ -340,8 +390,18 @@ fn sandbox_update(
         // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
         let control_frame = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
         let input = control_frame.engine_input(frame_dt);
-        let control_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
-        let control_events = ae::update_player_control_with_tuning(&control_world, &mut runtime.player, input, frame_dt, tuning);
+        let control_world = features::world_with_sandbox_solids(
+            &world.0,
+            &runtime.moving_platform,
+            &runtime.features,
+        );
+        let control_events = ae::update_player_control_with_tuning(
+            &control_world,
+            &mut runtime.player,
+            input,
+            frame_dt,
+            tuning,
+        );
         if control_events.reset {
             reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
             return;
@@ -362,10 +422,20 @@ fn sandbox_update(
         if runtime.moving_platform.is_riding(&runtime.player) {
             runtime.player.pos += platform_delta;
         }
-        let collision_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
+        let collision_world = features::world_with_sandbox_solids(
+            &world.0,
+            &runtime.moving_platform,
+            &runtime.features,
+        );
 
         let was_grounded = runtime.player.on_ground;
-        let sim_events = ae::update_player_simulation_with_tuning(&collision_world, &mut runtime.player, input, sim_dt, tuning);
+        let sim_events = ae::update_player_simulation_with_tuning(
+            &collision_world,
+            &mut runtime.player,
+            input,
+            sim_dt,
+            tuning,
+        );
         if sim_events.reset {
             reset_sandbox(&mut commands, &world.0, &bank, &mut runtime, tuning, feel);
             return;
@@ -378,7 +448,6 @@ fn sandbox_update(
             sim_events,
             Some(was_grounded),
         );
-
     }
 
     // Context interaction is deliberately separate from raw up movement.
@@ -390,14 +459,12 @@ fn sandbox_update(
     } else {
         controls.interact_pressed || door_double_tap_up
     };
-    controls.interact_pressed = runtime.buffered_interact(
-        raw_interact_pressed,
-        frame_dt,
-        feel.interaction_buffer_time,
-    );
+    controls.interact_pressed =
+        runtime.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
 
     let feature_dt = sandbox_dt(&runtime, frame_dt);
-    let feature_world = features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
+    let feature_world =
+        features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
     let feature_player = runtime.player.clone();
     let player_vulnerable = runtime.damage_invuln_timer <= 0.0;
     let feature_events = runtime.features.update(
@@ -411,9 +478,23 @@ fn sandbox_update(
     let feature_reset = feature_events.reset_player;
     let feature_interaction_consumed = feature_events.consumed_interaction;
     let feature_damaged_player = !feature_events.player_damage.is_empty();
-    handle_feature_events(&mut commands, &world.0, &bank, &feature_events, physics_settings);
+    handle_feature_events(
+        &mut commands,
+        &world.0,
+        &bank,
+        &feature_events,
+        physics_settings,
+    );
     handle_player_heal_events(&mut runtime, &feature_events);
-    handle_player_damage_events(&mut commands, &world.0, &bank, &mut runtime, &feature_events, tuning, feel);
+    handle_player_damage_events(
+        &mut commands,
+        &world.0,
+        &bank,
+        &mut runtime,
+        &feature_events,
+        tuning,
+        feel,
+    );
     if !feature_damaged_player {
         runtime.remember_safe_player_position();
     }
@@ -421,7 +502,9 @@ fn sandbox_update(
         runtime.clear_interact_buffer();
     }
     if let Some(request) = &feature_events.dialogue_request {
-        runtime.dialogue.start(&request.dialogue_id, &request.npc_name);
+        runtime
+            .dialogue
+            .start(&request.dialogue_id, &request.npc_name);
         runtime.clear_interact_buffer();
         runtime.hitstop_timer = 0.0;
         next_mode.set(GameMode::Dialogue);
@@ -433,7 +516,9 @@ fn sandbox_update(
     }
 
     if runtime.room_transition_cooldown <= 0.0 {
-        if let Some(zone) = room_set.transition_for_player(&runtime.player, controls.interact_pressed) {
+        if let Some(zone) =
+            room_set.transition_for_player(&runtime.player, controls.interact_pressed)
+        {
             runtime.clear_interact_buffer();
             load_room(
                 &mut commands,
@@ -452,20 +537,34 @@ fn sandbox_update(
     }
 
     if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
-        process_attack(&mut commands, &world.0, &bank, &mut runtime, controls, tuning, feel, physics_settings);
+        process_attack(
+            &mut commands,
+            &world.0,
+            &bank,
+            &mut runtime,
+            controls,
+            tuning,
+            feel,
+            physics_settings,
+        );
     }
 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
 }
 
-fn handle_debug_hotkeys(keys: &ButtonInput<KeyCode>, runtime: &mut SandboxRuntime, tools: &mut DeveloperTools) -> bool {
+fn handle_debug_hotkeys(
+    keys: &ButtonInput<KeyCode>,
+    runtime: &mut SandboxRuntime,
+    tools: &mut DeveloperTools,
+) -> bool {
     let mut preset_changed = false;
     if keys.just_pressed(KeyCode::F1) {
         runtime.debug = !runtime.debug;
     }
     if keys.just_pressed(KeyCode::F9) {
-        runtime.preset_index = (runtime.preset_index + runtime.presets.len() - 1) % runtime.presets.len();
+        runtime.preset_index =
+            (runtime.preset_index + runtime.presets.len() - 1) % runtime.presets.len();
         runtime.preset_flash = 1.2;
         preset_changed = true;
     }
@@ -504,7 +603,11 @@ fn handle_ldtk_hot_reload(
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
         ldtk_reload.last_status = format!(
             "LDtk auto-apply {}",
-            if ldtk_reload.auto_apply { "enabled" } else { "disabled" }
+            if ldtk_reload.auto_apply {
+                "enabled"
+            } else {
+                "disabled"
+            }
         );
     }
 
@@ -600,7 +703,8 @@ fn reload_ldtk_world_from_disk(
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = runtime.player.pos;
-    let transaction = prepare_ldtk_reload_transaction(&current_room_id, preserved_pos, runtime.player.size)?;
+    let transaction =
+        prepare_ldtk_reload_transaction(&current_room_id, preserved_pos, runtime.player.size)?;
 
     // Everything above this line is non-mutating: invalid edits, deleted active
     // areas, bad graph links, and unsafe player positions are rejected before
@@ -631,7 +735,12 @@ fn reload_ldtk_world_from_disk(
 
     ldtk_index.replace_from_project(&transaction.project, active_room.clone());
 
-    spawn_room_visuals(commands, &world.0, &room_set.active_spec().loading_zones, runtime.physics_settings);
+    spawn_room_visuals(
+        commands,
+        &world.0,
+        &room_set.active_spec().loading_zones,
+        runtime.physics_settings,
+    );
     platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
 
     Ok(active_room)
@@ -679,7 +788,10 @@ fn load_room(
     let old_velocity = runtime.player.vel;
     let abilities = runtime.player.abilities;
     let fly_enabled = runtime.player.fly_enabled;
-    let edge_exit = matches!(transition.zone.activation, rooms::LoadingZoneActivation::EdgeExit);
+    let edge_exit = matches!(
+        transition.zone.activation,
+        rooms::LoadingZoneActivation::EdgeExit
+    );
 
     for (entity, physics_entity) in room_visuals.iter() {
         if physics_entity.is_some() {
@@ -702,7 +814,11 @@ fn load_room(
     if edge_exit {
         runtime.player.vel = old_velocity;
     }
-    runtime.flash_timer = if edge_exit { feel.edge_transition_flash } else { feel.door_transition_flash };
+    runtime.flash_timer = if edge_exit {
+        feel.edge_transition_flash
+    } else {
+        feel.door_transition_flash
+    };
     runtime.hitstop_timer = 0.0;
     runtime.damage_invuln_timer = 0.0;
     runtime.hitstun_timer = 0.0;
@@ -715,7 +831,11 @@ fn load_room(
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.
-    runtime.room_transition_cooldown = if edge_exit { feel.edge_transition_cooldown } else { feel.door_transition_cooldown };
+    runtime.room_transition_cooldown = if edge_exit {
+        feel.edge_transition_cooldown
+    } else {
+        feel.door_transition_cooldown
+    };
     runtime.preset_flash = 1.0;
 
     spawn_room_visuals(commands, &world.0, &spec.loading_zones, physics_settings);
@@ -725,7 +845,15 @@ fn load_room(
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was
         // expressed in the previous room's coordinate space.
-        spawn_burst(commands, &world.0, runtime.player.pos, 18, 260.0, [0.35, 0.95, 1.0, 0.75], ParticleKind::Dust);
+        spawn_burst(
+            commands,
+            &world.0,
+            runtime.player.pos,
+            18,
+            260.0,
+            [0.35, 0.95, 1.0, 0.75],
+            ParticleKind::Dust,
+        );
     } else {
         // Door transitions are discrete interactions, so a teleport-like effect
         // is acceptable; use the destination for both endpoints to avoid mixing
@@ -746,21 +874,50 @@ fn handle_player_events(
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
                 play_sound(commands, bank, SoundCue::Jump);
-                spawn_dust(commands, render_world, runtime.player.pos, runtime.player.facing);
+                spawn_dust(
+                    commands,
+                    render_world,
+                    runtime.player.pos,
+                    runtime.player.facing,
+                );
             }
             ae::MovementOp::DoubleJump => {
                 play_sound(commands, bank, SoundCue::DoubleJump);
-                spawn_burst(commands, render_world, runtime.player.pos, 14, 210.0, [0.70, 1.0, 0.86, 0.82], ParticleKind::Dust);
+                spawn_burst(
+                    commands,
+                    render_world,
+                    runtime.player.pos,
+                    14,
+                    210.0,
+                    [0.70, 1.0, 0.86, 0.82],
+                    ParticleKind::Dust,
+                );
             }
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
                 play_sound(commands, bank, SoundCue::Dash);
-                spawn_burst(commands, render_world, runtime.player.pos, 10, 330.0, [1.0, 0.86, 0.38, 0.90], ParticleKind::Spark);
+                spawn_burst(
+                    commands,
+                    render_world,
+                    runtime.player.pos,
+                    10,
+                    330.0,
+                    [1.0, 0.86, 0.38, 0.90],
+                    ParticleKind::Spark,
+                );
             }
             ae::MovementOp::Blink | ae::MovementOp::PrecisionBlink => {
                 // Blink visuals use the explicit `events.blinks` endpoint data below.
             }
             ae::MovementOp::FlyToggle => {
-                spawn_burst(commands, render_world, runtime.player.pos, 12, 180.0, [0.45, 0.82, 1.0, 0.72], ParticleKind::Dust);
+                spawn_burst(
+                    commands,
+                    render_world,
+                    runtime.player.pos,
+                    12,
+                    180.0,
+                    [0.45, 0.82, 1.0, 0.72],
+                    ParticleKind::Dust,
+                );
             }
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
                 play_sound(commands, bank, SoundCue::Pogo);
@@ -775,9 +932,19 @@ fn handle_player_events(
         play_sound(
             commands,
             bank,
-            if blink.precision { SoundCue::PrecisionBlink } else { SoundCue::Blink },
+            if blink.precision {
+                SoundCue::PrecisionBlink
+            } else {
+                SoundCue::Blink
+            },
         );
-        spawn_blink_effects(commands, render_world, blink.from, blink.to, blink.precision);
+        spawn_blink_effects(
+            commands,
+            render_world,
+            blink.from,
+            blink.to,
+            blink.precision,
+        );
     }
     if events.hazard || !events.operations.is_empty() {
         runtime.flash_timer = 0.12;
@@ -814,11 +981,33 @@ fn handle_feature_events(
     }
     for &pos in &events.impacts {
         spawn_impact(commands, world, pos);
-        spawn_burst(commands, world, pos, 14, 300.0, [1.0, 0.34, 0.28, 0.88], ParticleKind::Shard);
-        physics::spawn_debris_burst(commands, world, pos, physics::PhysicsDebrisCue::Impact, physics_settings);
+        spawn_burst(
+            commands,
+            world,
+            pos,
+            14,
+            300.0,
+            [1.0, 0.34, 0.28, 0.88],
+            ParticleKind::Shard,
+        );
+        physics::spawn_debris_burst(
+            commands,
+            world,
+            pos,
+            physics::PhysicsDebrisCue::Impact,
+            physics_settings,
+        );
     }
     for &pos in &events.bursts {
-        spawn_burst(commands, world, pos, 16, 230.0, [0.84, 0.95, 1.0, 0.82], ParticleKind::Spark);
+        spawn_burst(
+            commands,
+            world,
+            pos,
+            16,
+            230.0,
+            [0.84, 0.95, 1.0, 0.82],
+            ParticleKind::Spark,
+        );
     }
 }
 
@@ -861,12 +1050,28 @@ fn handle_player_damage_events(
         return;
     };
     if runtime.player_health.damage(damage.amount.max(1)) {
-        death_respawn_player(commands, world, bank, runtime, tuning, feel, damage.impact_pos);
+        death_respawn_player(
+            commands,
+            world,
+            bank,
+            runtime,
+            tuning,
+            feel,
+            damage.impact_pos,
+        );
         return;
     }
     match damage.mode {
         features::PlayerDamageMode::SafeRespawn => {
-            safe_respawn_player(commands, world, bank, runtime, tuning, feel, damage.impact_pos);
+            safe_respawn_player(
+                commands,
+                world,
+                bank,
+                runtime,
+                tuning,
+                feel,
+                damage.impact_pos,
+            );
         }
         features::PlayerDamageMode::Knockback => {
             apply_player_knockback(commands, world, bank, runtime, tuning, feel, damage);
@@ -905,15 +1110,34 @@ fn apply_player_knockback(
     damage: features::PlayerDamageEvent,
 ) {
     let _source_pos_for_future_directional_rules = damage.source_pos;
-    let boss_hit = matches!(damage.source, features::PlayerDamageSource::BossBody | features::PlayerDamageSource::BossAttack);
-    let dir = if damage.knockback_dir.abs() <= 0.001 { runtime.player.facing * -1.0 } else { damage.knockback_dir.signum() };
+    let boss_hit = matches!(
+        damage.source,
+        features::PlayerDamageSource::BossBody | features::PlayerDamageSource::BossAttack
+    );
+    let dir = if damage.knockback_dir.abs() <= 0.001 {
+        runtime.player.facing * -1.0
+    } else {
+        damage.knockback_dir.signum()
+    };
     let strength = damage.strength.max(0.0);
-    let knock_x = if boss_hit { feel.boss_knockback_x } else { feel.enemy_knockback_x };
-    let knock_y = if boss_hit { feel.boss_knockback_y } else { feel.enemy_knockback_y };
+    let knock_x = if boss_hit {
+        feel.boss_knockback_x
+    } else {
+        feel.enemy_knockback_x
+    };
+    let knock_y = if boss_hit {
+        feel.boss_knockback_y
+    } else {
+        feel.enemy_knockback_y
+    };
     runtime.player.vel.x = dir * knock_x * strength;
     runtime.player.vel.y = -knock_y * strength;
     runtime.player.refresh_movement_resources(tuning);
-    runtime.hitstun_timer = if boss_hit { feel.boss_hitstun_time } else { feel.enemy_hitstun_time } * strength.max(0.35);
+    runtime.hitstun_timer = if boss_hit {
+        feel.boss_hitstun_time
+    } else {
+        feel.enemy_hitstun_time
+    } * strength.max(0.35);
     runtime.damage_invuln_timer = feel.knockback_invulnerability_time;
     runtime.hitstop_timer = feel.player_damage_hitstop_time;
     runtime.flash_timer = 0.20;
@@ -921,7 +1145,11 @@ fn apply_player_knockback(
     spawn_impact(commands, world, damage.impact_pos);
 }
 
-fn controls_for_hitstun(mut controls: ControlFrame, feel: SandboxFeelTuning, hitstun_timer: f32) -> ControlFrame {
+fn controls_for_hitstun(
+    mut controls: ControlFrame,
+    feel: SandboxFeelTuning,
+    hitstun_timer: f32,
+) -> ControlFrame {
     if hitstun_timer <= 0.0 {
         return controls;
     }
@@ -951,16 +1179,23 @@ fn process_attack(
     feel: SandboxFeelTuning,
     physics_settings: physics::PhysicsSandboxSettings,
 ) {
-    if !runtime.player.abilities.attack { return; }
+    if !runtime.player.abilities.attack {
+        return;
+    }
     play_sound(commands, bank, SoundCue::Slash);
     let attack = ae::slash_hitbox(&runtime.player, controls.axis_y, controls.pogo_pressed);
     spawn_slash_preview(commands, world, attack);
     let mut landed = false;
     let mut killed = false;
     let player_facing = runtime.player.facing;
-    let feature_events = runtime.features.apply_player_attack(attack, 1, player_facing * 300.0);
+    let feature_events = runtime
+        .features
+        .apply_player_attack(attack, 1, player_facing * 300.0);
     landed |= !feature_events.impacts.is_empty();
-    killed |= feature_events.messages.iter().any(|message| message.contains("defeated"));
+    killed |= feature_events
+        .messages
+        .iter()
+        .any(|message| message.contains("defeated"));
     handle_feature_events(commands, world, bank, &feature_events, physics_settings);
 
     if landed {
@@ -971,7 +1206,8 @@ fn process_attack(
     if killed {
         play_sound(commands, bank, SoundCue::Death);
     }
-    if landed && runtime.player.abilities.pogo && (controls.pogo_pressed || controls.axis_y > 0.25) {
+    if landed && runtime.player.abilities.pogo && (controls.pogo_pressed || controls.axis_y > 0.25)
+    {
         runtime.player.vel.y = -tuning.pogo_speed;
         runtime.player.refresh_movement_resources(tuning);
         play_sound(commands, bank, SoundCue::Pogo);
@@ -1008,7 +1244,15 @@ fn update_hud(
         .features
         .enemies
         .iter()
-        .map(|e| format!("{} hp {}/{} alive {}", e.name, e.health.current.max(0), e.health.max, e.alive))
+        .map(|e| {
+            format!(
+                "{} hp {}/{} alive {}",
+                e.name,
+                e.health.current.max(0),
+                e.health.max,
+                e.alive
+            )
+        })
         .collect::<Vec<_>>()
         .join(" | ");
     let mut gamepad = String::new();
@@ -1017,7 +1261,14 @@ fn update_hud(
     }
     let window_line = windows
         .single()
-        .map(|w| format!("window: {:.0}x{:.0} {}", w.width(), w.height(), display_mode.label()))
+        .map(|w| {
+            format!(
+                "window: {:.0}x{:.0} {}",
+                w.width(),
+                w.height(),
+                display_mode.label()
+            )
+        })
         .unwrap_or_else(|_| format!("window: unknown {}", display_mode.label()));
     let zone_hint = {
         let hints = room_set.nearby_zone_hints(&runtime.player, runtime.player.fly_enabled);

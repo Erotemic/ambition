@@ -53,7 +53,12 @@ pub struct Actor {
 }
 
 impl Actor {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, kind: ActorKind, faction: ActorFaction) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        kind: ActorKind,
+        faction: ActorFaction,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),

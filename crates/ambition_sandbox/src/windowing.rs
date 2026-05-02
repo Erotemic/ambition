@@ -35,7 +35,9 @@ pub struct DisplayModeState {
 
 impl Default for DisplayModeState {
     fn default() -> Self {
-        Self { mode: DisplayModeKind::Windowed }
+        Self {
+            mode: DisplayModeKind::Windowed,
+        }
     }
 }
 
@@ -75,7 +77,9 @@ pub fn window_mode_hotkeys(
     window.mode = match mode {
         DisplayModeKind::Windowed => WindowMode::Windowed,
         DisplayModeKind::Borderless => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
-        DisplayModeKind::Fullscreen => WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current),
+        DisplayModeKind::Fullscreen => {
+            WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current)
+        }
     };
     state.mode = mode;
 }

@@ -904,8 +904,8 @@ impl LdtkProject {
                         continue;
                     }
                     if field.real_editor_values.is_empty() {
-                        report.errors.push(format!(
-                            "{} {} field '{}' has __value but empty realEditorValues; LDtk may erase this value when the level is edited",
+                        report.warnings.push(format!(
+                            "{} {} field '{}' has __value but empty realEditorValues; this is what LDtk writes for unedited fields that inherit a defaultOverride. Run `python3 tools/repair_ambition_ldtk.py --in-place <ldtk>` to normalize before committing.",
                             entity.identifier, entity.iid, field.identifier
                         ));
                     }

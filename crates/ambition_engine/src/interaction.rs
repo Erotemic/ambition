@@ -104,6 +104,33 @@ pub enum ChestState {
     Opened,
 }
 
+/// What causes a breakable to break.
+///
+/// Replaces an earlier magic-string check that decided "stand-to-crumble" by
+/// substring-matching on the entity name/id. Authors now pick the trigger
+/// explicitly per LDtk entity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum BreakableTrigger {
+    /// Only player attacks deal damage (default; original behavior).
+    #[default]
+    OnHit,
+    /// Crumbles after the player stands on it for a short window.
+    /// Stand-to-crumble requires `solid: true`.
+    OnStand,
+    /// Either trigger applies.
+    Either,
+}
+
+impl BreakableTrigger {
+    pub fn allows_hit(self) -> bool {
+        matches!(self, BreakableTrigger::OnHit | BreakableTrigger::Either)
+    }
+
+    pub fn allows_stand(self) -> bool {
+        matches!(self, BreakableTrigger::OnStand | BreakableTrigger::Either)
+    }
+}
+
 /// Breakable wall/platform/object semantics.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Breakable {
@@ -113,6 +140,7 @@ pub struct Breakable {
     pub respawn: RespawnPolicy,
     /// True for destructible platforms/walls that should contribute a temporary solid block.
     pub solid: bool,
+    pub trigger: BreakableTrigger,
     pub debris_cue: Option<String>,
 }
 
@@ -124,6 +152,7 @@ impl Breakable {
             health: Health::new(max_hp),
             respawn: RespawnPolicy::Never,
             solid: false,
+            trigger: BreakableTrigger::OnHit,
             debris_cue: None,
         }
     }

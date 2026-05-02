@@ -360,6 +360,9 @@ impl ControlFrame {
     }
 
     pub fn engine_input(self, control_dt: f32) -> ae::InputState {
+        // Down held + jump just-pressed is the explicit "drop through one-way"
+        // gesture. Holding down alone no longer drops the player through.
+        let drop_through_pressed = self.axis_y > 0.35 && self.jump_pressed;
         ae::InputState {
             axis_x: self.axis_x,
             axis_y: self.axis_y,
@@ -372,6 +375,7 @@ impl ControlFrame {
             blink_held: self.blink_held,
             blink_released: self.blink_released,
             fast_fall_pressed: self.fast_fall_pressed,
+            drop_through_pressed,
             attack_pressed: self.attack_pressed,
             pogo_pressed: self.pogo_pressed,
             reset_pressed: false,

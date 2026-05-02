@@ -406,7 +406,10 @@ impl FeatureRuntime {
         }
 
         for breakable in &mut self.breakables {
-            if !breakable.broken() && attack.strict_intersects(breakable.aabb()) {
+            if !breakable.broken()
+                && breakable.breaks_on_hit()
+                && attack.strict_intersects(breakable.aabb())
+            {
                 let broke = breakable.breakable.apply_damage(damage.max(1));
                 events
                     .impacts
@@ -1100,7 +1103,11 @@ impl BreakableRuntime {
     }
 
     fn breaks_on_stand(&self) -> bool {
-        self.breakable.solid && (self.id.contains("crumble") || self.name.contains("crumble"))
+        self.breakable.solid && self.breakable.trigger.allows_stand()
+    }
+
+    fn breaks_on_hit(&self) -> bool {
+        self.breakable.trigger.allows_hit()
     }
 }
 

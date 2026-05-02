@@ -1285,6 +1285,9 @@ fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEn
                 breakable.respawn = respawn;
             }
             breakable.solid = field_bool(entity, "solid").unwrap_or(false);
+            breakable.trigger = parse_breakable_trigger(
+                &field_string(entity, "trigger").unwrap_or_else(|| "OnHit".to_string()),
+            );
             RuntimeEntityConversion::Object(runtime_room_object(
                 entity,
                 name,
@@ -1441,6 +1444,14 @@ fn parse_optional_path(entity: &LdtkEntityInstance) -> Option<ae::KinematicPath>
         ),
         start_offset_seconds: 0.0,
     })
+}
+
+fn parse_breakable_trigger(value: &str) -> ae::BreakableTrigger {
+    match value.trim() {
+        "OnStand" => ae::BreakableTrigger::OnStand,
+        "Either" => ae::BreakableTrigger::Either,
+        _ => ae::BreakableTrigger::OnHit,
+    }
 }
 
 fn parse_respawn(value: &str) -> Option<ae::RespawnPolicy> {

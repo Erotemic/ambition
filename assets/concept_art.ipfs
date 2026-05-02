@@ -1,0 +1,17 @@
+type: ipfs-sidecar
+cid: bafybeidczkamrjiggoo6bgghoquscldaemrvwyt67vdegxbz6z6osjlkwy
+rel_path: concept_art
+size: 75.45 MiB
+num_items: 36
+add_config:
+  path: concept_art/
+  name:
+  recursive: true
+  progress: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+  pin: true
+  sidecar: true
+add_datetime: 2026-05-02T162220-5
+add_duration: 12.524260101024993

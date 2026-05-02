@@ -149,6 +149,11 @@ pub struct Player {
     pub jump_buffer_timer: f32,
     pub coyote_timer: f32,
     pub rebound_cooldown: f32,
+    /// Brief window after a one-way drop-through gesture during which the
+    /// vertical sweep continues to ignore one-way platforms. Without this the
+    /// player would be snapped back onto the platform on the next frame, while
+    /// still inside the landing-tolerance band.
+    pub drop_through_timer: f32,
     pub combo: Vec<ComboMark>,
     pub max_speed: f32,
     pub time_alive: f32,
@@ -197,6 +202,7 @@ impl Player {
             jump_buffer_timer: 0.0,
             coyote_timer: 0.0,
             rebound_cooldown: 0.0,
+            drop_through_timer: 0.0,
             combo: Vec::new(),
             max_speed: 0.0,
             time_alive: 0.0,
@@ -333,6 +339,10 @@ pub struct InputState {
     /// Double-tap-down gesture recognized by the input layer. This is separate
     /// from `axis_y` so down+attack can mean pogo without forcing fast-fall.
     pub fast_fall_pressed: bool,
+    /// Down-held + jump-pressed gesture: drop through one-way platforms.
+    /// The presentation layer composes this from raw inputs so the engine
+    /// does not have to reason about jump-vs-drop disambiguation itself.
+    pub drop_through_pressed: bool,
     pub attack_pressed: bool,
     /// Dedicated downward/pogo slash action. This is separate from
     /// `attack_pressed` so layouts can expose four main face-button verbs.
@@ -427,6 +437,11 @@ pub const FLIGHT_HOVER_SPEED: f32 = 42.0;
 pub const FLIGHT_HOVER_HZ: f32 = 0.85;
 pub const COYOTE_TIME: f32 = 0.120;
 pub const JUMP_BUFFER: f32 = 0.135;
+/// Window during which the vertical sweep continues to ignore one-way
+/// platforms after a drop-through gesture. Long enough to clear the 8px
+/// landing tolerance under typical gravity, short enough that the player can
+/// still re-land on a one-way they jump back up onto.
+pub const ONE_WAY_DROP_THROUGH_GRACE: f32 = 0.18;
 pub const POGO_SPEED: f32 = 810.0;
 pub const SLASH_RECOIL: f32 = 130.0;
 pub const AIR_JUMPS: u8 = 1;
@@ -619,7 +634,7 @@ pub fn update_player_simulation_with_tuning(
 
     age_player(player, dt);
     update_simulation_timers(player, dt, tuning);
-    handle_jump_buffer(player, tuning, &mut events);
+    handle_jump_buffer(world, player, input, tuning, &mut events);
     integrate_velocity(world, player, input, dt, tuning, &mut events);
 
     if touching_hazard(world, player) || player.pos.y > world.size.y + 200.0 {
@@ -663,6 +678,7 @@ fn update_simulation_timers(player: &mut Player, dt: f32, tuning: MovementTuning
     player.jump_buffer_timer = dec(player.jump_buffer_timer, dt);
     player.dash_buffer_timer = dec(player.dash_buffer_timer, dt);
     player.coyote_timer = dec(player.coyote_timer, dt);
+    player.drop_through_timer = dec(player.drop_through_timer, dt);
     player.dash_cooldown = dec(player.dash_cooldown, dt);
     player.blink_cooldown = dec(player.blink_cooldown, dt);
     player.blink_grace_timer = dec(player.blink_grace_timer, dt);
@@ -857,8 +873,31 @@ fn handle_attacks(
     }
 }
 
-fn handle_jump_buffer(player: &mut Player, tuning: MovementTuning, events: &mut FrameEvents) {
+fn handle_jump_buffer(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
     if player.jump_buffer_timer > 0.0 {
+        // Down + jump while standing on a one-way platform means "drop through",
+        // not "jump". Cancel the buffered jump so the vertical sweep can take
+        // the player past the platform on the next integration step.
+        if input.drop_through_pressed
+            && player.on_ground
+            && standing_on_one_way(world, player)
+        {
+            player.jump_buffer_timer = 0.0;
+            player.on_ground = false;
+            player.coyote_timer = 0.0;
+            // Latch the drop-through so subsequent frames keep ignoring the
+            // one-way until the player has cleared the landing tolerance band.
+            // Without this, the gesture only frees the player for a single
+            // frame and the resolve-up step snaps them back onto the platform.
+            player.drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
+            return;
+        }
         if player.abilities.wall_jump && player.on_wall && !player.on_ground {
             player.vel.x = player.wall_normal_x * tuning.wall_jump_x;
             player.vel.y = -tuning.jump_speed * 0.94;
@@ -984,12 +1023,13 @@ fn integrate_velocity(
     // Resolve vertical motion. Previous bottom determines one-way behavior.
     let prev_bottom = player.aabb().bottom();
     player.on_ground = false;
+    let drop_through = input.drop_through_pressed || player.drop_through_timer > 0.0;
     sweep_player_y(
         world,
         player,
         player.vel.y * dt,
         prev_bottom,
-        input.axis_y > 0.35,
+        drop_through,
     );
 
     if player.on_ground {
@@ -998,6 +1038,7 @@ fn integrate_velocity(
         player.fast_falling = false;
         player.wall_clinging = false;
         player.wall_climbing = false;
+        player.drop_through_timer = 0.0;
     }
 
     if player.abilities.rebound && player.rebound_cooldown <= 0.0 {
@@ -1166,6 +1207,25 @@ fn sweep_player_y(
     }
 
     resolve_vertical(world, player, prev_bottom, drop_through);
+}
+
+// AMBITION_REVIEW(spatial): one-way platform contact test. The 4px vertical
+// epsilon mirrors the landing tolerance used by the vertical sweep; if either
+// is changed the other should follow.
+fn standing_on_one_way(world: &World, player: &Player) -> bool {
+    let body = player.aabb();
+    for block in &world.blocks {
+        if !matches!(block.kind, BlockKind::OneWay) {
+            continue;
+        }
+        let horizontally_overlaps =
+            body.right() > block.aabb.left() + 1.0 && body.left() < block.aabb.right() - 1.0;
+        let near_top = (body.bottom() - block.aabb.top()).abs() <= 4.0;
+        if horizontally_overlaps && near_top {
+            return true;
+        }
+    }
+    false
 }
 
 fn resolve_axis(world: &World, player: &mut Player, axis: Axis) {
@@ -1683,6 +1743,84 @@ mod tests {
         assert_eq!(events.blinks.len(), 1);
         assert!(events.blinks[0].precision);
         assert!(events.operations.contains(&MovementOp::PrecisionBlink));
+    }
+
+    #[test]
+    fn one_way_platform_requires_down_plus_jump_to_drop_through() {
+        let mut world = test_world();
+        // One-way platform suspended above the floor. Player will land on it
+        // from above and we expect plain "down" alone to keep them resting.
+        let plat_top_y = 600.0;
+        world.blocks.push(Block::one_way(
+            "drop test platform",
+            Vec2::new(360.0, plat_top_y),
+            Vec2::new(180.0, 12.0),
+        ));
+
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        player.pos = Vec2::new(450.0, plat_top_y - player.size.y * 0.5);
+        player.vel = Vec2::ZERO;
+        player.on_ground = false;
+
+        // Settle onto the platform.
+        for _ in 0..6 {
+            step(&world, &mut player, InputState::default());
+        }
+        assert!(player.on_ground, "player should land on the one-way");
+        let resting_y = player.pos.y;
+
+        // Holding down alone must NOT drop through anymore.
+        for _ in 0..6 {
+            step(
+                &world,
+                &mut player,
+                InputState {
+                    axis_y: 1.0,
+                    ..Default::default()
+                },
+            );
+        }
+        assert!(
+            (player.pos.y - resting_y).abs() < 1.0,
+            "down-alone must not drop through one-way (moved {} px)",
+            player.pos.y - resting_y
+        );
+
+        // Down + jump (with the explicit drop_through_pressed gesture) drops.
+        // Critically the gesture only fires for one frame: the presentation
+        // layer recomputes drop_through_pressed each frame from
+        // `axis_y > 0.35 && jump_pressed`, and `jump_pressed` is just-pressed,
+        // so subsequent frames see drop_through_pressed=false. The engine must
+        // latch the drop-through internally for long enough to clear the
+        // landing-tolerance band.
+        step(
+            &world,
+            &mut player,
+            InputState {
+                axis_y: 1.0,
+                jump_pressed: true,
+                drop_through_pressed: true,
+                ..Default::default()
+            },
+        );
+        for _ in 0..10 {
+            step(
+                &world,
+                &mut player,
+                InputState {
+                    axis_y: 1.0,
+                    // jump_pressed and drop_through_pressed are NOT held: this
+                    // is exactly the input shape the sandbox produces after
+                    // the initial press.
+                    ..Default::default()
+                },
+            );
+        }
+        assert!(
+            player.pos.y > resting_y + 12.0,
+            "down+jump should drop the player below the one-way (delta {})",
+            player.pos.y - resting_y
+        );
     }
 
     #[test]

@@ -103,3 +103,15 @@ strict editor-format validation is needed. Avoid adding Node/npm tooling for thi
 path. The validator accepts `--schema tools/schemas/ldtk/JSON_SCHEMA.json` and
 `--require-schema`; without a local schema it still runs Ambition-specific
 validation.
+
+## Invalid editor round-trip handling
+
+If LDtk saves a level with missing required custom fields, hot reload should reject the edit and keep the last live world. Startup should print the validation failures and exit with a nonzero status instead of panicking with a Rust backtrace. This is important because the LDtk editor can rewrite a touched level if generated field instances were missing `realEditorValues`.
+
+Before doing a manual editor session on generated or heavily patched LDtk files, run:
+
+```bash
+python tools/validate_ambition_ldtk.py --normalize-editor-values crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+```
+
+Then open the file in LDtk, save, and re-run the validator. Any `LoadingZone` or `DebugLabel` missing required fields must be fixed before running the sandbox.

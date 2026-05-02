@@ -188,3 +188,9 @@ The legacy `rooms` block has also been removed from `crates/ambition_sandbox/ass
 ## LDtk runtime bridge confinement update
 
 LDtk is now the only checked-in sandbox world definition, and startup / hot-reload call sites use `LdtkProject::to_room_set()` directly. `ldtk_world.rs` now materializes runtime `RoomSpec`, `ae::World`, loading zones, objects, and `RoomLink`s directly. The next migration step is to consume plugin-spawned `EntityInstance` data category by category and eventually reduce custom JSON parsing.
+
+## LDtk editor round-trip repair
+
+A user edited `sandbox.ldtk` in LDtk 1.5.3 by moving existing entities, and LDtk saved the touched hub levels with null custom fields because generated field instances had parser-facing `__value` values but empty `realEditorValues`. The repaired sandbox LDtk file now includes editor values for all non-null field instances. The validator now rejects this lossy shape and supports `--normalize-editor-values` to fill editor values from existing `__value` data before opening the file in LDtk.
+
+The repaired map preserves the intended NPC move and the lower-door horizontal move, removes an accidental empty 1x1 `LoadingZone`, and lifts the lower-door trigger slightly so transition arrival no longer intersects the hub floor.

@@ -49,8 +49,43 @@ def field_value(fields, name, default=None):
     return default
 
 
+def editor_value_for(value, human_type):
+    if value is None:
+        return []
+    if human_type in {"String", "Text", "Color", "Path", "EntityRef", "Tile"}:
+        return [{"id": "V_String", "params": [str(value)]}]
+    if human_type == "Bool":
+        return [{"id": "V_Bool", "params": [bool(value)]}]
+    if human_type == "Int":
+        return [{"id": "V_Int", "params": [int(value)]}]
+    if human_type == "Float":
+        return [{"id": "V_Float", "params": [float(value)]}]
+    if isinstance(value, list):
+        values = []
+        for item in value:
+            values.extend(editor_value_for(item, human_type.replace("Array<", "").rstrip(">")))
+        return values
+    return [{"id": "V_String", "params": [str(value)]}]
+
+
+def validate_field_instance_editor_value(errors, owner, field):
+    value = field.get("__value")
+    if value is None:
+        return
+    editor_values = field.get("realEditorValues")
+    if not editor_values:
+        errors.append(
+            f"{owner} field {field.get('__identifier')!r} has __value but empty realEditorValues; "
+            "LDtk 1.5.3 may erase this field when the containing level is edited. "
+            "Run the validator after applying the editor-roundtrip repair patch."
+        )
+
+
 def active_area(level):
-    return field_value(level.get("fieldInstances", []), "activeArea", level.get("identifier", "<unnamed>"))
+    value = field_value(level.get("fieldInstances", []), "activeArea", None)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return level.get("identifier", "<unnamed>")
 
 
 def ambition_layer(level):
@@ -143,6 +178,26 @@ def validate_official_schema(project, schema_path: Path | None, require_schema: 
         warnings.append(f"official LDtk JSON schema passed: {schema_path}")
     return errors, warnings
 
+
+
+def normalize_editor_values(project):
+    changed = 0
+
+    def normalize_fields(fields):
+        nonlocal changed
+        for field in fields or []:
+            value = field.get("__value")
+            expected = editor_value_for(value, field.get("__type"))
+            if field.get("realEditorValues") != expected:
+                field["realEditorValues"] = expected
+                changed += 1
+
+    for level in project.get("levels") or []:
+        normalize_fields(level.get("fieldInstances") or [])
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances") or []:
+                normalize_fields(entity.get("fieldInstances") or [])
+    return changed
 
 def validate(path: Path, schema_path: Path | None = None, require_schema: bool = False):
     errors = []
@@ -287,6 +342,9 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
         if world_x % GRID or world_y % GRID:
             warnings.append(f"level {identifier!r} origin ({world_x}, {world_y}) is not {GRID}px aligned")
         area = str(active_area(level))
+        raw_active_area = field_value(level.get("fieldInstances") or [], "activeArea", None)
+        if raw_active_area is None or (isinstance(raw_active_area, str) and not raw_active_area.strip()):
+            errors.append(f"level {identifier!r} has blank activeArea; LDtk editor round-trips must preserve this level field")
         for field in level.get("fieldInstances") or []:
             field_ident = field.get("__identifier")
             expected_def_uid = level_field_def_uid_by_identifier.get(field_ident)
@@ -297,6 +355,7 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
                     f"level {identifier!r} field {field_ident!r} has defUid {field.get('defUid')!r}; "
                     f"expected level field definition uid {expected_def_uid!r}"
                 )
+            validate_field_instance_editor_value(errors, f"level {identifier!r}", field)
         levels_by_area[area].append(identifier)
         if area not in area_bounds:
             area_bounds[area] = [world_x, world_y, world_x + width, world_y + height]
@@ -350,6 +409,7 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
                         f"level {identifier!r} entity {entity_name(entity)} field {field_ident!r} has defUid {field.get('defUid')!r}; "
                         f"expected field definition uid {expected_field_def_uid!r}"
                     )
+                validate_field_instance_editor_value(errors, f"level {identifier!r} entity {entity_name(entity)}", field)
             if ident == "PlayerStart":
                 starts_by_area[area] += 1
             elif ident == "BlinkWall" and field_value(fields, "tier", "Soft") not in {"Soft", "Hard"}:
@@ -472,7 +532,22 @@ def main(argv=None):
         action="store_true",
         help="Fail if official LDtk JSON schema validation cannot be run",
     )
+    parser.add_argument(
+        "--normalize-editor-values",
+        action="store_true",
+        help="Rewrite realEditorValues from __value before validating so LDtk 1.5.3 preserves generated field values on editor save",
+    )
     args = parser.parse_args(argv)
+    if args.normalize_editor_values:
+        try:
+            project = json.loads(args.path.read_text())
+            changed = normalize_editor_values(project)
+            if changed:
+                args.path.write_text(json.dumps(project, indent=2) + "\n")
+                print(f"normalized {changed} field instance editor value records in {args.path}", file=sys.stderr)
+        except Exception as ex:  # noqa: BLE001
+            print(f"error: failed to normalize editor values: {ex}", file=sys.stderr)
+            return 1
     errors, warnings = validate(args.path, args.schema, args.require_schema)
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)

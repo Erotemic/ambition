@@ -202,3 +202,16 @@ The old checked-in RON room block has been removed from `crates/ambition_sandbox
 ## LDtk bridge migration note
 
 Prefer `LdtkProject::to_room_set()` for LDtk-derived runtime rooms. It materializes `RoomSpec`, `ae::World`, loading zones, room objects, and graph links directly. Do not reintroduce LDtk-to-RON-manifest call sites.
+
+## LDtk editor round-trip lesson
+
+When generating or patching `.ldtk` directly, do not leave `realEditorValues` empty for field instances that have non-null `__value`. Runtime parsers primarily read `__value`, but the LDtk editor uses `realEditorValues` while saving modified levels. Empty editor values can cause all custom fields in the touched level to be rewritten as null after a simple move operation.
+
+Run this before handing off generated LDtk files for GUI editing:
+
+```bash
+python tools/validate_ambition_ldtk.py --normalize-editor-values crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+python tools/validate_ambition_ldtk.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+```
+
+Startup should not use `.expect()` on LDtk room construction. If the embedded LDtk file is invalid, print all validator errors and exit nonzero; hot reload should continue to reject invalid edits while preserving the live world.

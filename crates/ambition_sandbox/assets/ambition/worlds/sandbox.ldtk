@@ -2339,7 +2339,10 @@
 			"__smartColor": "#84878D",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "", "__tile": null, "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "central_hub_complex", "__tile": null, "defUid": 4000, "realEditorValues": [{
+				"id": "V_String",
+				"params": ["central_hub_complex"]
+			}] }],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -2377,7 +2380,10 @@
 							"height": 46,
 							"defUid": 2000,
 							"px": [936,828],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "central_start", "__tile": null, "defUid": 3000, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["central_start"]
+							}] }],
 							"__worldX": 936,
 							"__worldY": 828
 						},
@@ -2393,7 +2399,10 @@
 							"height": 48,
 							"defUid": 2001,
 							"px": [0,976],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub floor west", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub floor west"]
+							}] }],
 							"__worldX": 0,
 							"__worldY": 976
 						},
@@ -2409,7 +2418,10 @@
 							"height": 48,
 							"defUid": 2001,
 							"px": [1140,976],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub floor east", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub floor east"]
+							}] }],
 							"__worldX": 1140,
 							"__worldY": 976
 						},
@@ -2425,7 +2437,10 @@
 							"height": 24,
 							"defUid": 2001,
 							"px": [0,0],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub ceiling", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub ceiling"]
+							}] }],
 							"__worldX": 0,
 							"__worldY": 0
 						},
@@ -2441,7 +2456,10 @@
 							"height": 764,
 							"defUid": 2001,
 							"px": [0,0],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub left wall upper", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub left wall upper"]
+							}] }],
 							"__worldX": 0,
 							"__worldY": 0
 						},
@@ -2457,7 +2475,10 @@
 							"height": 24,
 							"defUid": 2001,
 							"px": [0,952],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub left wall lower", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub left wall lower"]
+							}] }],
 							"__worldX": 0,
 							"__worldY": 952
 						},
@@ -2473,7 +2494,10 @@
 							"height": 764,
 							"defUid": 2001,
 							"px": [1864,0],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub right wall upper", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub right wall upper"]
+							}] }],
 							"__worldX": 1864,
 							"__worldY": 0
 						},
@@ -2489,7 +2513,10 @@
 							"height": 24,
 							"defUid": 2001,
 							"px": [1864,952],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub right wall lower", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub right wall lower"]
+							}] }],
 							"__worldX": 1864,
 							"__worldY": 952
 						},
@@ -2506,12 +2533,30 @@
 							"defUid": 2002,
 							"px": [1870,776],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "east_exit", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["east_exit"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "to scroll lab", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["to scroll lab"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "EdgeExit", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["EdgeExit"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "scroll_lab", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["scroll_lab"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "west_exit", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["west_exit"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 1870,
 							"__worldY": 776
@@ -2529,38 +2574,74 @@
 							"defUid": 2002,
 							"px": [0,776],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "west_exit", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["west_exit"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "to square arena", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["to square arena"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "EdgeExit", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["EdgeExit"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "square_arena", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["square_arena"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "east_exit", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["east_exit"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 0,
 							"__worldY": 776
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [55,18],
+							"__grid": [60,19],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFFFFF",
 							"iid": "LoadingZone-0009",
-							"width": 120,
-							"height": 122,
+							"width": 48,
+							"height": 112,
 							"defUid": 2002,
-							"px": [890,300],
+							"px": [962,316],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "upper_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["upper_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "to vertical shaft", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["to vertical shaft"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "vertical_shaft", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["vertical_shaft"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "bottom_door", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["bottom_door"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
-							"__worldX": 890,
-							"__worldY": 300
+							"__worldX": 962,
+							"__worldY": 316
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -2573,17 +2654,35 @@
 							"width": 64,
 							"height": 112,
 							"defUid": 2002,
-							"px": [484,872],
+							"px": [484,864],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "lower_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["lower_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "to tiny chamber", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["to tiny chamber"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "tiny_chamber", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["tiny_chamber"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "east_exit", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["east_exit"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 484,
-							"__worldY": 872
+							"__worldY": 864
 						},
 						{
 							"__identifier": "OneWayPlatform",
@@ -2597,7 +2696,10 @@
 							"height": 18,
 							"defUid": 2003,
 							"px": [700,720],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub center shelf", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub center shelf"]
+							}] }],
 							"__worldX": 700,
 							"__worldY": 720
 						},
@@ -2613,7 +2715,10 @@
 							"height": 18,
 							"defUid": 2003,
 							"px": [795,430],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub upper shelf", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub upper shelf"]
+							}] }],
 							"__worldX": 795,
 							"__worldY": 430
 						},
@@ -2630,8 +2735,14 @@
 							"defUid": 2004,
 							"px": [615,615],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": null, "__tile": null, "defUid": 3010, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "hub soft column", "__tile": null, "defUid": 3009, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hub soft column"]
+								}] },
+								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "__tile": null, "defUid": 3010, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Soft"]
+								}] }
 							],
 							"__worldX": 615,
 							"__worldY": 615
@@ -2649,15 +2760,21 @@
 							"defUid": 2004,
 							"px": [1260,610],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": null, "__tile": null, "defUid": 3010, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "hub right soft column", "__tile": null, "defUid": 3009, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hub right soft column"]
+								}] },
+								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "__tile": null, "defUid": 3010, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Soft"]
+								}] }
 							],
 							"__worldX": 1260,
 							"__worldY": 610
 						},
 						{
 							"__identifier": "PogoOrb",
-							"__grid": [58,36],
+							"__grid": [49,39],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -2666,10 +2783,13 @@
 							"width": 36,
 							"height": 36,
 							"defUid": 2005,
-							"px": [932,582],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3011, "realEditorValues": [] }],
-							"__worldX": 932,
-							"__worldY": 582
+							"px": [788,630],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hub routing note", "__tile": null, "defUid": 3011, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["hub routing note"]
+							}] }],
+							"__worldX": 788,
+							"__worldY": 630
 						},
 						{
 							"__identifier": "OneWayPlatform",
@@ -2683,7 +2803,10 @@
 							"height": 18,
 							"defUid": 2003,
 							"px": [770,930],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "drop lip platform", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["drop lip platform"]
+							}] }],
 							"__worldX": 770,
 							"__worldY": 930
 						},
@@ -2700,9 +2823,18 @@
 							"defUid": 2006,
 							"px": [1346,904],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3012, "realEditorValues": [] },
-								{ "__identifier": "prompt", "__type": "String", "__value": null, "__tile": null, "defUid": 3013, "realEditorValues": [] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": null, "__tile": null, "defUid": 3014, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "Kernel Guide NPC", "__tile": null, "defUid": 3012, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Kernel Guide NPC"]
+								}] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Talk", "__tile": null, "defUid": 3013, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Talk"]
+								}] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "hub_guide", "__tile": null, "defUid": 3014, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hub_guide"]
+								}] }
 							],
 							"__worldX": 1346,
 							"__worldY": 904
@@ -2720,9 +2852,18 @@
 							"defUid": 2007,
 							"px": [640,778],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": null, "__tile": null, "defUid": 3016, "realEditorValues": [] },
-								{ "__identifier": "category", "__type": "String", "__value": null, "__tile": null, "defUid": 3017, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "drop label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["drop label"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "Drop through the floor opening to reach the stitched basement", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Drop through the floor opening to reach the stitched basement"]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Room", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Room"]
+								}] }
 							],
 							"__worldX": 640,
 							"__worldY": 778
@@ -2740,35 +2881,21 @@
 							"defUid": 2007,
 							"px": [60,60],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": null, "__tile": null, "defUid": 3016, "realEditorValues": [] },
-								{ "__identifier": "category", "__type": "String", "__value": null, "__tile": null, "defUid": 3017, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "ldtk label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["ldtk label"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "LDtk-authored central_hub_complex: hub chunk, doors, and continuous basement", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["LDtk-authored central_hub_complex: hub chunk, doors, and continuous basement"]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Room", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Room"]
+								}] }
 							],
 							"__worldX": 60,
 							"__worldY": 60
-						},
-						{
-							"__identifier": "LoadingZone",
-							"__grid": [43,58],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFFFFF",
-							"iid": "3b819e20-21a0-11f1-a517-b3de7439d6fc",
-							"width": 1,
-							"height": 1,
-							"defUid": 2002,
-							"px": [688,928],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
-							],
-							"__worldX": 688,
-							"__worldY": 928
 						}
 					]
 				}
@@ -2794,7 +2921,10 @@
 			"__smartColor": "#84878D",
 			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "", "__tile": null, "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "central_hub_complex", "__tile": null, "defUid": 4000, "realEditorValues": [{
+				"id": "V_String",
+				"params": ["central_hub_complex"]
+			}] }],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -2832,7 +2962,10 @@
 							"height": 932,
 							"defUid": 2001,
 							"px": [0,0],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "basement left wall", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["basement left wall"]
+							}] }],
 							"__worldX": 0,
 							"__worldY": 1024
 						},
@@ -2848,7 +2981,10 @@
 							"height": 932,
 							"defUid": 2001,
 							"px": [1864,0],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "basement right wall", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["basement right wall"]
+							}] }],
 							"__worldX": 1864,
 							"__worldY": 1024
 						},
@@ -2864,7 +3000,10 @@
 							"height": 48,
 							"defUid": 2001,
 							"px": [0,932],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "basement floor", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["basement floor"]
+							}] }],
 							"__worldX": 0,
 							"__worldY": 1956
 						},
@@ -2880,7 +3019,10 @@
 							"height": 18,
 							"defUid": 2003,
 							"px": [770,100],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "basement catch platform", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["basement catch platform"]
+							}] }],
 							"__worldX": 770,
 							"__worldY": 1124
 						},
@@ -2896,7 +3038,10 @@
 							"height": 18,
 							"defUid": 2003,
 							"px": [260,610],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "basement hub upper rail", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["basement hub upper rail"]
+							}] }],
 							"__worldX": 260,
 							"__worldY": 1634
 						},
@@ -2912,7 +3057,10 @@
 							"height": 18,
 							"defUid": 2003,
 							"px": [230,720],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "basement hub mid left", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["basement hub mid left"]
+							}] }],
 							"__worldX": 230,
 							"__worldY": 1744
 						},
@@ -2928,7 +3076,10 @@
 							"height": 18,
 							"defUid": 2003,
 							"px": [1370,720],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "basement hub mid right", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["basement hub mid right"]
+							}] }],
 							"__worldX": 1370,
 							"__worldY": 1744
 						},
@@ -2944,7 +3095,10 @@
 							"height": 36,
 							"defUid": 2005,
 							"px": [932,542],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "basement guide orb", "__tile": null, "defUid": 3011, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["basement guide orb"]
+							}] }],
 							"__worldX": 932,
 							"__worldY": 1566
 						},
@@ -2961,12 +3115,30 @@
 							"defUid": 2002,
 							"px": [170,800],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "hazard_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hazard_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "hazards", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["hazards"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "basement_hazards", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["basement_hazards"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "return_door", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["return_door"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 170,
 							"__worldY": 1824
@@ -2984,12 +3156,30 @@
 							"defUid": 2002,
 							"px": [430,800],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "enemy_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["enemy_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "enemies", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["enemies"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "basement_enemies", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["basement_enemies"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "return_door", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["return_door"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 430,
 							"__worldY": 1824
@@ -3007,12 +3197,30 @@
 							"defUid": 2002,
 							"px": [690,800],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "boss_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "boss lab", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss lab"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "basement_boss", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["basement_boss"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "return_door", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["return_door"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 690,
 							"__worldY": 1824
@@ -3030,12 +3238,30 @@
 							"defUid": 2002,
 							"px": [1080,800],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "breakable_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["breakable_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "breakables", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["breakables"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "basement_breakables", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["basement_breakables"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "return_door", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["return_door"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 1080,
 							"__worldY": 1824
@@ -3053,12 +3279,30 @@
 							"defUid": 2002,
 							"px": [1340,800],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "treasure_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["treasure_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "treasure", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["treasure"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "basement_treasure", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["basement_treasure"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "return_door", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["return_door"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 1340,
 							"__worldY": 1824
@@ -3076,12 +3320,30 @@
 							"defUid": 2002,
 							"px": [1600,800],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": null, "__tile": null, "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": null, "__tile": null, "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": null, "__tile": null, "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": null, "__tile": null, "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": null, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+								{ "__identifier": "id", "__type": "String", "__value": "npc_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["npc_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "npcs", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["npcs"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "basement_npcs", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["basement_npcs"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "return_door", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["return_door"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
 							],
 							"__worldX": 1600,
 							"__worldY": 1824
@@ -3099,9 +3361,18 @@
 							"defUid": 2007,
 							"px": [570,688],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": null, "__tile": null, "defUid": 3016, "realEditorValues": [] },
-								{ "__identifier": "category", "__type": "String", "__value": null, "__tile": null, "defUid": 3017, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "basement hub sign", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["basement hub sign"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "Feature basement is stitched under the hub; doors branch to focused mechanic labs", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Feature basement is stitched under the hub; doors branch to focused mechanic labs"]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Room", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Room"]
+								}] }
 							],
 							"__worldX": 570,
 							"__worldY": 1712
@@ -3119,9 +3390,18 @@
 							"defUid": 2007,
 							"px": [970,528],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": null, "__tile": null, "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": null, "__tile": null, "defUid": 3016, "realEditorValues": [] },
-								{ "__identifier": "category", "__type": "String", "__value": null, "__tile": null, "defUid": 3017, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "overview label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["overview label"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "F5 toggles debug overview camera for large/stitched areas", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["F5 toggles debug overview camera for large/stitched areas"]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Room", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Room"]
+								}] }
 							],
 							"__worldX": 970,
 							"__worldY": 1552
@@ -3147,7 +3427,16 @@
 			"pxWid": 3200,
 			"pxHei": 900,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "scroll_lab", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "scroll_lab",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["scroll_lab"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -3169,7 +3458,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "scroll_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "scroll_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["scroll_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [196,782]
@@ -3182,7 +3480,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 3200,
 							"px": [0,0]
@@ -3195,7 +3502,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 3200,
 							"px": [0,852]
@@ -3208,7 +3524,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right wall"]
+								}]
+							}],
 							"height": 900,
 							"width": 36,
 							"px": [3164,0]
@@ -3222,12 +3547,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "west_exit", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to central hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "EdgeExit", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "east_exit", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "west_exit",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["west_exit"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to central hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to central hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "EdgeExit",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["EdgeExit"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "east_exit",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["east_exit"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 176,
 							"width": 30,
@@ -3242,8 +3621,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "upper infinite sandbag", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "sandbag_infinite", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "upper infinite sandbag",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["upper infinite sandbag"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "sandbag_infinite",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["sandbag_infinite"]
+									}]
+								}
 							],
 							"height": 66,
 							"width": 38,
@@ -3258,8 +3655,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "finite wing sandbag", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "sandbag_finite", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "finite wing sandbag",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["finite wing sandbag"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "sandbag_finite",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["sandbag_finite"]
+									}]
+								}
 							],
 							"height": 58,
 							"width": 34,
@@ -3274,8 +3689,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "sandbag approach step", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "sandbag approach step",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["sandbag approach step"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 28,
 							"width": 170,
@@ -3289,7 +3722,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "sandbag upper tap platform", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "sandbag upper tap platform",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["sandbag upper tap platform"]
+								}]
+							}],
 							"height": 16,
 							"width": 250,
 							"px": [525,704]
@@ -3303,8 +3745,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "left wall kick column", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "left wall kick column",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["left wall kick column"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 220,
 							"width": 58,
@@ -3318,7 +3778,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "middle shelf", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "middle shelf",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["middle shelf"]
+								}]
+							}],
 							"height": 18,
 							"width": 265,
 							"px": [430,610]
@@ -3332,8 +3801,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "upper left shelf", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "upper left shelf",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["upper left shelf"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 240,
@@ -3347,7 +3834,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "needle pillar", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "needle pillar",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["needle pillar"]
+								}]
+							}],
 							"height": 285,
 							"width": 58,
 							"px": [730,515]
@@ -3360,7 +3856,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "high bridge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "high bridge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["high bridge"]
+								}]
+							}],
 							"height": 18,
 							"width": 320,
 							"px": [850,330]
@@ -3374,8 +3879,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "right catch wall", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "right catch wall",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["right catch wall"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 330,
 							"width": 56,
@@ -3390,8 +3913,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "right return shelf", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "right return shelf",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["right return shelf"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 235,
@@ -3405,7 +3946,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling practice shelf", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling practice shelf",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling practice shelf"]
+								}]
+							}],
 							"height": 16,
 							"width": 190,
 							"px": [610,230]
@@ -3419,8 +3969,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "soft blink membrane", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "soft blink membrane",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["soft blink membrane"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 155,
 							"width": 20,
@@ -3435,8 +4003,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hard blink lock", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Hard", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "hard blink lock",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["hard blink lock"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Hard",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Hard"]
+									}]
+								}
 							],
 							"height": 150,
 							"width": 22,
@@ -3450,7 +4036,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "central spike channel", "defUid": 3020, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "central spike channel",
+								"defUid": 3020,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["central spike channel"]
+								}]
+							}],
 							"height": 22,
 							"width": 260,
 							"px": [570,830]
@@ -3463,7 +4058,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right spike channel", "defUid": 3020, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right spike channel",
+								"defUid": 3020,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right spike channel"]
+								}]
+							}],
 							"height": 22,
 							"width": 230,
 							"px": [930,830]
@@ -3476,7 +4080,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "high tooth", "defUid": 3020, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "high tooth",
+								"defUid": 3020,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["high tooth"]
+								}]
+							}],
 							"height": 24,
 							"width": 70,
 							"px": [1225,650]
@@ -3489,7 +4102,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "pogo alpha", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "pogo alpha",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["pogo alpha"]
+								}]
+							}],
 							"height": 38,
 							"width": 38,
 							"px": [536,486]
@@ -3502,7 +4124,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "pogo beta", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "pogo beta",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["pogo beta"]
+								}]
+							}],
 							"height": 38,
 							"width": 38,
 							"px": [831,451]
@@ -3515,7 +4146,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "pogo gamma", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "pogo gamma",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["pogo gamma"]
+								}]
+							}],
 							"height": 38,
 							"width": 38,
 							"px": [1116,536]
@@ -3528,7 +4168,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "pogo ceiling note", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "pogo ceiling note",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["pogo ceiling note"]
+								}]
+							}],
 							"height": 34,
 							"width": 34,
 							"px": [683,283]
@@ -3542,9 +4191,30 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "left launcher", "defUid": 3021, "realEditorValues": [] },
-								{ "__identifier": "impulseX", "__type": "Float", "__value": 570, "defUid": 3022, "realEditorValues": [] },
-								{ "__identifier": "impulseY", "__type": "Float", "__value": -810, "defUid": 3023, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "left launcher",
+									"defUid": 3021,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["left launcher"]
+									}]
+								},
+								{
+									"__identifier": "impulseX",
+									"__type": "Float",
+									"__value": 570,
+									"defUid": 3022,
+									"realEditorValues": [{ "id": "V_Float", "params": [570] }]
+								},
+								{
+									"__identifier": "impulseY",
+									"__type": "Float",
+									"__value": -810,
+									"defUid": 3023,
+									"realEditorValues": [{ "id": "V_Float", "params": [-810] }]
+								}
 							],
 							"height": 22,
 							"width": 86,
@@ -3559,9 +4229,30 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "right return launcher", "defUid": 3021, "realEditorValues": [] },
-								{ "__identifier": "impulseX", "__type": "Float", "__value": -720, "defUid": 3022, "realEditorValues": [] },
-								{ "__identifier": "impulseY", "__type": "Float", "__value": -680, "defUid": 3023, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "right return launcher",
+									"defUid": 3021,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["right return launcher"]
+									}]
+								},
+								{
+									"__identifier": "impulseX",
+									"__type": "Float",
+									"__value": -720,
+									"defUid": 3022,
+									"realEditorValues": [{ "id": "V_Float", "params": [-720] }]
+								},
+								{
+									"__identifier": "impulseY",
+									"__type": "Float",
+									"__value": -680,
+									"defUid": 3023,
+									"realEditorValues": [{ "id": "V_Float", "params": [-680] }]
+								}
 							],
 							"height": 24,
 							"width": 100,
@@ -3576,9 +4267,30 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "ceiling redirect", "defUid": 3021, "realEditorValues": [] },
-								{ "__identifier": "impulseX", "__type": "Float", "__value": 760, "defUid": 3022, "realEditorValues": [] },
-								{ "__identifier": "impulseY", "__type": "Float", "__value": 240, "defUid": 3023, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "ceiling redirect",
+									"defUid": 3021,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["ceiling redirect"]
+									}]
+								},
+								{
+									"__identifier": "impulseX",
+									"__type": "Float",
+									"__value": 760,
+									"defUid": 3022,
+									"realEditorValues": [{ "id": "V_Float", "params": [760] }]
+								},
+								{
+									"__identifier": "impulseY",
+									"__type": "Float",
+									"__value": 240,
+									"defUid": 3023,
+									"realEditorValues": [{ "id": "V_Float", "params": [240] }]
+								}
 							],
 							"height": 18,
 							"width": 180,
@@ -3593,8 +4305,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "scroll wing low wall", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "scroll wing low wall",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["scroll wing low wall"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 117,
 							"width": 34,
@@ -3608,7 +4338,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "scroll wing shelf A", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "scroll wing shelf A",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["scroll wing shelf A"]
+								}]
+							}],
 							"height": 18,
 							"width": 300,
 							"px": [1820,690]
@@ -3622,8 +4361,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "scroll wing membrane A", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "scroll wing membrane A",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["scroll wing membrane A"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 190,
 							"width": 32,
@@ -3637,7 +4394,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "scroll wing shelf B", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "scroll wing shelf B",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["scroll wing shelf B"]
+								}]
+							}],
 							"height": 18,
 							"width": 280,
 							"px": [2290,540]
@@ -3650,7 +4416,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "scroll wing pogo", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "scroll wing pogo",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["scroll wing pogo"]
+								}]
+							}],
 							"height": 38,
 							"width": 38,
 							"px": [2441,441]
@@ -3664,9 +4439,30 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "scroll wing launcher", "defUid": 3021, "realEditorValues": [] },
-								{ "__identifier": "impulseX", "__type": "Float", "__value": 630, "defUid": 3022, "realEditorValues": [] },
-								{ "__identifier": "impulseY", "__type": "Float", "__value": -720, "defUid": 3023, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "scroll wing launcher",
+									"defUid": 3021,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["scroll wing launcher"]
+									}]
+								},
+								{
+									"__identifier": "impulseX",
+									"__type": "Float",
+									"__value": 630,
+									"defUid": 3022,
+									"realEditorValues": [{ "id": "V_Float", "params": [630] }]
+								},
+								{
+									"__identifier": "impulseY",
+									"__type": "Float",
+									"__value": -720,
+									"defUid": 3023,
+									"realEditorValues": [{ "id": "V_Float", "params": [-720] }]
+								}
 							],
 							"height": 24,
 							"width": 120,
@@ -3680,7 +4476,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "door approach bridge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "door approach bridge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["door approach bridge"]
+								}]
+							}],
 							"height": 18,
 							"width": 210,
 							"px": [2850,650]
@@ -3693,7 +4498,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right room hard stopper", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right room hard stopper",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right room hard stopper"]
+								}]
+							}],
 							"height": 322,
 							"width": 24,
 							"px": [3000,530]
@@ -3733,7 +4547,16 @@
 			"pxWid": 1000,
 			"pxHei": 2400,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "vertical_shaft", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "vertical_shaft",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["vertical_shaft"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -3755,7 +4578,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [486,2282]
@@ -3768,7 +4600,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 1000,
 							"px": [0,0]
@@ -3781,7 +4622,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 1000,
 							"px": [0,2352]
@@ -3794,7 +4644,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 2400,
 							"width": 36,
 							"px": [0,0]
@@ -3807,7 +4666,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right wall"]
+								}]
+							}],
 							"height": 2400,
 							"width": 36,
 							"px": [964,0]
@@ -3821,12 +4689,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "bottom_door", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to central hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "upper_door", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "bottom_door",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["bottom_door"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to central hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to central hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "Door",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Door"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "upper_door",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["upper_door"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 142,
 							"width": 124,
@@ -3840,7 +4762,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft shelf 1", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft shelf 1",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft shelf 1"]
+								}]
+							}],
 							"height": 18,
 							"width": 290,
 							"px": [130,2090]
@@ -3853,7 +4784,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft shelf 2", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft shelf 2",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft shelf 2"]
+								}]
+							}],
 							"height": 18,
 							"width": 270,
 							"px": [570,1810]
@@ -3866,7 +4806,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft shelf 3", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft shelf 3",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft shelf 3"]
+								}]
+							}],
 							"height": 18,
 							"width": 250,
 							"px": [150,1510]
@@ -3879,7 +4828,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft shelf 4", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft shelf 4",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft shelf 4"]
+								}]
+							}],
 							"height": 18,
 							"width": 250,
 							"px": [610,1225]
@@ -3892,7 +4850,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft shelf 5", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft shelf 5",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft shelf 5"]
+								}]
+							}],
 							"height": 18,
 							"width": 260,
 							"px": [155,940]
@@ -3905,7 +4872,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft shelf 6", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft shelf 6",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft shelf 6"]
+								}]
+							}],
 							"height": 18,
 							"width": 260,
 							"px": [600,645]
@@ -3919,8 +4895,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "shaft soft divider", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "shaft soft divider",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["shaft soft divider"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 1180,
 							"width": 32,
@@ -3934,7 +4928,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft pogo 1", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft pogo 1",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft pogo 1"]
+								}]
+							}],
 							"height": 36,
 							"width": 36,
 							"px": [487,1642]
@@ -3947,7 +4950,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft pogo 2", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft pogo 2",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft pogo 2"]
+								}]
+							}],
 							"height": 36,
 							"width": 36,
 							"px": [482,1067]
@@ -3961,9 +4973,30 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "shaft bottom launcher", "defUid": 3021, "realEditorValues": [] },
-								{ "__identifier": "impulseX", "__type": "Float", "__value": 0, "defUid": 3022, "realEditorValues": [] },
-								{ "__identifier": "impulseY", "__type": "Float", "__value": -920, "defUid": 3023, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "shaft bottom launcher",
+									"defUid": 3021,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["shaft bottom launcher"]
+									}]
+								},
+								{
+									"__identifier": "impulseX",
+									"__type": "Float",
+									"__value": 0,
+									"defUid": 3022,
+									"realEditorValues": [{ "id": "V_Float", "params": [0] }]
+								},
+								{
+									"__identifier": "impulseY",
+									"__type": "Float",
+									"__value": -920,
+									"defUid": 3023,
+									"realEditorValues": [{ "id": "V_Float", "params": [-920] }]
+								}
 							],
 							"height": 24,
 							"width": 130,
@@ -3977,7 +5010,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "shaft low hazard", "defUid": 3020, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "shaft low hazard",
+								"defUid": 3020,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["shaft low hazard"]
+								}]
+							}],
 							"height": 24,
 							"width": 260,
 							"px": [620,2328]
@@ -4017,7 +5059,16 @@
 			"pxWid": 1800,
 			"pxHei": 1800,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "square_arena", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "square_arena",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["square_arena"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -4039,7 +5090,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [156,1672]
@@ -4052,7 +5112,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 1800,
 							"px": [0,0]
@@ -4065,7 +5134,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 1800,
 							"px": [0,1752]
@@ -4078,7 +5156,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 1800,
 							"width": 36,
 							"px": [0,0]
@@ -4092,12 +5179,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "east_exit", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to central hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "EdgeExit", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "west_exit", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "east_exit",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["east_exit"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to central hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to central hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "EdgeExit",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["EdgeExit"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "west_exit",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["west_exit"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 176,
 							"width": 30,
@@ -4112,8 +5253,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "mid infinite sandbag", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "sandbag_infinite", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "mid infinite sandbag",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["mid infinite sandbag"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "sandbag_infinite",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["sandbag_infinite"]
+									}]
+								}
 							],
 							"height": 66,
 							"width": 38,
@@ -4128,8 +5287,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "lower finite sandbag", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "sandbag_finite", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "lower finite sandbag",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["lower finite sandbag"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "sandbag_finite",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["sandbag_finite"]
+									}]
+								}
 							],
 							"height": 58,
 							"width": 34,
@@ -4143,7 +5320,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square center hard wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square center hard wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square center hard wall"]
+								}]
+							}],
 							"height": 520,
 							"width": 56,
 							"px": [872,720]
@@ -4156,7 +5342,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square lower left", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square lower left",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square lower left"]
+								}]
+							}],
 							"height": 18,
 							"width": 360,
 							"px": [240,1410]
@@ -4169,7 +5364,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square lower right", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square lower right",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square lower right"]
+								}]
+							}],
 							"height": 18,
 							"width": 360,
 							"px": [1200,1410]
@@ -4182,7 +5386,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square mid left", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square mid left",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square mid left"]
+								}]
+							}],
 							"height": 18,
 							"width": 330,
 							"px": [235,990]
@@ -4195,7 +5408,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square mid right", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square mid right",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square mid right"]
+								}]
+							}],
 							"height": 18,
 							"width": 330,
 							"px": [1235,990]
@@ -4208,7 +5430,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square high bridge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square high bridge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square high bridge"]
+								}]
+							}],
 							"height": 18,
 							"width": 460,
 							"px": [670,470]
@@ -4222,8 +5453,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "square soft left veil", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "square soft left veil",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["square soft left veil"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 360,
 							"width": 34,
@@ -4238,8 +5487,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "square soft right veil", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "square soft right veil",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["square soft right veil"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 360,
 							"width": 34,
@@ -4253,7 +5520,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square pogo left", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square pogo left",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square pogo left"]
+								}]
+							}],
 							"height": 36,
 							"width": 36,
 							"px": [537,1202]
@@ -4266,7 +5542,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square pogo right", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square pogo right",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square pogo right"]
+								}]
+							}],
 							"height": 36,
 							"width": 36,
 							"px": [1227,1202]
@@ -4280,9 +5565,30 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "square diagonal launcher", "defUid": 3021, "realEditorValues": [] },
-								{ "__identifier": "impulseX", "__type": "Float", "__value": -700, "defUid": 3022, "realEditorValues": [] },
-								{ "__identifier": "impulseY", "__type": "Float", "__value": -720, "defUid": 3023, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "square diagonal launcher",
+									"defUid": 3021,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["square diagonal launcher"]
+									}]
+								},
+								{
+									"__identifier": "impulseX",
+									"__type": "Float",
+									"__value": -700,
+									"defUid": 3022,
+									"realEditorValues": [{ "id": "V_Float", "params": [-700] }]
+								},
+								{
+									"__identifier": "impulseY",
+									"__type": "Float",
+									"__value": -720,
+									"defUid": 3023,
+									"realEditorValues": [{ "id": "V_Float", "params": [-720] }]
+								}
 							],
 							"height": 24,
 							"width": 130,
@@ -4296,7 +5602,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "square bottom hazard", "defUid": 3020, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "square bottom hazard",
+								"defUid": 3020,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["square bottom hazard"]
+								}]
+							}],
 							"height": 24,
 							"width": 360,
 							"px": [720,1730]
@@ -4336,7 +5651,16 @@
 			"pxWid": 900,
 			"pxHei": 520,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "tiny_chamber", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "tiny_chamber",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["tiny_chamber"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -4358,7 +5682,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "tiny_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "tiny_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["tiny_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [136,402]
@@ -4371,7 +5704,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 900,
 							"px": [0,0]
@@ -4384,7 +5726,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 900,
 							"px": [0,472]
@@ -4397,7 +5748,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 520,
 							"width": 36,
 							"px": [0,0]
@@ -4411,12 +5771,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "east_exit", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to central hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "EdgeExit", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "lower_door", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "east_exit",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["east_exit"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to central hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to central hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "EdgeExit",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["EdgeExit"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "lower_door",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["lower_door"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 176,
 							"width": 30,
@@ -4430,7 +5844,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "tiny hard center", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "tiny hard center",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["tiny hard center"]
+								}]
+							}],
 							"height": 172,
 							"width": 42,
 							"px": [420,300]
@@ -4443,7 +5866,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "tiny shelf", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "tiny shelf",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["tiny shelf"]
+								}]
+							}],
 							"height": 18,
 							"width": 220,
 							"px": [190,315]
@@ -4457,8 +5889,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "tiny soft gate", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "tiny soft gate",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["tiny soft gate"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 190,
 							"width": 30,
@@ -4472,7 +5922,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "tiny pogo", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "tiny pogo",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["tiny pogo"]
+								}]
+							}],
 							"height": 32,
 							"width": 32,
 							"px": [499,224]
@@ -4512,7 +5971,16 @@
 			"pxWid": 1800,
 			"pxHei": 900,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_hazards", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "basement_hazards",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["basement_hazards"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -4534,7 +6002,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hazard_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "hazard_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["hazard_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [156,782]
@@ -4547,7 +6024,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 1800,
 							"px": [0,0]
@@ -4560,7 +6046,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 1800,
 							"px": [0,852]
@@ -4573,7 +6068,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 900,
 							"width": 36,
 							"px": [0,0]
@@ -4586,7 +6090,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right wall"]
+								}]
+							}],
 							"height": 900,
 							"width": 36,
 							"px": [1764,0]
@@ -4600,12 +6113,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "return_door", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to basement hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "hazard_door", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "return_door",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["return_door"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to basement hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to basement hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "Door",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Door"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "hazard_door",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["hazard_door"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 142,
 							"width": 140,
@@ -4620,9 +6187,36 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hazard sign", "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": "Moving spike balls are DamageVolume + KinematicPath", "defUid": 3016, "realEditorValues": [] },
-								{ "__identifier": "category", "__type": "String", "__value": "Hazard", "defUid": 3017, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "hazard sign",
+									"defUid": 3015,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["hazard sign"]
+									}]
+								},
+								{
+									"__identifier": "text",
+									"__type": "String",
+									"__value": "Moving spike balls are DamageVolume + KinematicPath",
+									"defUid": 3016,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Moving spike balls are DamageVolume + KinematicPath"]
+									}]
+								},
+								{
+									"__identifier": "category",
+									"__type": "String",
+									"__value": "Hazard",
+									"defUid": 3017,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Hazard"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 620,
@@ -4637,11 +6231,50 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "moving spike ball A", "defUid": 3024, "realEditorValues": [] },
-								{ "__identifier": "damage", "__type": "Float", "__value": 1, "defUid": 3025, "realEditorValues": [] },
-								{ "__identifier": "path_points", "__type": "String", "__value": "380,590;680,590", "defUid": 3026, "realEditorValues": [] },
-								{ "__identifier": "path_speed", "__type": "Float", "__value": 150, "defUid": 3027, "realEditorValues": [] },
-								{ "__identifier": "path_mode", "__type": "String", "__value": "PingPong", "defUid": 3028, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "moving spike ball A",
+									"defUid": 3024,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["moving spike ball A"]
+									}]
+								},
+								{
+									"__identifier": "damage",
+									"__type": "Float",
+									"__value": 1,
+									"defUid": 3025,
+									"realEditorValues": [{ "id": "V_Float", "params": [1] }]
+								},
+								{
+									"__identifier": "path_points",
+									"__type": "String",
+									"__value": "380,590;680,590",
+									"defUid": 3026,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["380,590;680,590"]
+									}]
+								},
+								{
+									"__identifier": "path_speed",
+									"__type": "Float",
+									"__value": 150,
+									"defUid": 3027,
+									"realEditorValues": [{ "id": "V_Float", "params": [150] }]
+								},
+								{
+									"__identifier": "path_mode",
+									"__type": "String",
+									"__value": "PingPong",
+									"defUid": 3028,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["PingPong"]
+									}]
+								}
 							],
 							"height": 44,
 							"width": 44,
@@ -4656,11 +6289,50 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "vertical spike ball B", "defUid": 3024, "realEditorValues": [] },
-								{ "__identifier": "damage", "__type": "Float", "__value": 1, "defUid": 3025, "realEditorValues": [] },
-								{ "__identifier": "path_points", "__type": "String", "__value": "926,500;926,720", "defUid": 3026, "realEditorValues": [] },
-								{ "__identifier": "path_speed", "__type": "Float", "__value": 120, "defUid": 3027, "realEditorValues": [] },
-								{ "__identifier": "path_mode", "__type": "String", "__value": "PingPong", "defUid": 3028, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "vertical spike ball B",
+									"defUid": 3024,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["vertical spike ball B"]
+									}]
+								},
+								{
+									"__identifier": "damage",
+									"__type": "Float",
+									"__value": 1,
+									"defUid": 3025,
+									"realEditorValues": [{ "id": "V_Float", "params": [1] }]
+								},
+								{
+									"__identifier": "path_points",
+									"__type": "String",
+									"__value": "926,500;926,720",
+									"defUid": 3026,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["926,500;926,720"]
+									}]
+								},
+								{
+									"__identifier": "path_speed",
+									"__type": "Float",
+									"__value": 120,
+									"defUid": 3027,
+									"realEditorValues": [{ "id": "V_Float", "params": [120] }]
+								},
+								{
+									"__identifier": "path_mode",
+									"__type": "String",
+									"__value": "PingPong",
+									"defUid": 3028,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["PingPong"]
+									}]
+								}
 							],
 							"height": 52,
 							"width": 52,
@@ -4675,11 +6347,50 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "standard saw sweep", "defUid": 3024, "realEditorValues": [] },
-								{ "__identifier": "damage", "__type": "Float", "__value": 1, "defUid": 3025, "realEditorValues": [] },
-								{ "__identifier": "path_points", "__type": "String", "__value": "1250,704;1540,704", "defUid": 3026, "realEditorValues": [] },
-								{ "__identifier": "path_speed", "__type": "Float", "__value": 190, "defUid": 3027, "realEditorValues": [] },
-								{ "__identifier": "path_mode", "__type": "String", "__value": "PingPong", "defUid": 3028, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "standard saw sweep",
+									"defUid": 3024,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["standard saw sweep"]
+									}]
+								},
+								{
+									"__identifier": "damage",
+									"__type": "Float",
+									"__value": 1,
+									"defUid": 3025,
+									"realEditorValues": [{ "id": "V_Float", "params": [1] }]
+								},
+								{
+									"__identifier": "path_points",
+									"__type": "String",
+									"__value": "1250,704;1540,704",
+									"defUid": 3026,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["1250,704;1540,704"]
+									}]
+								},
+								{
+									"__identifier": "path_speed",
+									"__type": "Float",
+									"__value": 190,
+									"defUid": 3027,
+									"realEditorValues": [{ "id": "V_Float", "params": [190] }]
+								},
+								{
+									"__identifier": "path_mode",
+									"__type": "String",
+									"__value": "PingPong",
+									"defUid": 3028,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["PingPong"]
+									}]
+								}
 							],
 							"height": 28,
 							"width": 120,
@@ -4693,7 +6404,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hazard low bridge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "hazard low bridge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["hazard low bridge"]
+								}]
+							}],
 							"height": 18,
 							"width": 420,
 							"px": [310,720]
@@ -4706,7 +6426,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hazard vertical bridge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "hazard vertical bridge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["hazard vertical bridge"]
+								}]
+							}],
 							"height": 18,
 							"width": 280,
 							"px": [820,610]
@@ -4719,7 +6448,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hazard saw bridge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "hazard saw bridge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["hazard saw bridge"]
+								}]
+							}],
 							"height": 18,
 							"width": 430,
 							"px": [1180,760]
@@ -4732,7 +6470,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "hazard floor spikes", "defUid": 3020, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "hazard floor spikes",
+								"defUid": 3020,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["hazard floor spikes"]
+								}]
+							}],
 							"height": 22,
 							"width": 1040,
 							"px": [430,830]
@@ -4746,9 +6493,30 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "hazard escape launcher", "defUid": 3021, "realEditorValues": [] },
-								{ "__identifier": "impulseX", "__type": "Float", "__value": -520, "defUid": 3022, "realEditorValues": [] },
-								{ "__identifier": "impulseY", "__type": "Float", "__value": -680, "defUid": 3023, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "hazard escape launcher",
+									"defUid": 3021,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["hazard escape launcher"]
+									}]
+								},
+								{
+									"__identifier": "impulseX",
+									"__type": "Float",
+									"__value": -520,
+									"defUid": 3022,
+									"realEditorValues": [{ "id": "V_Float", "params": [-520] }]
+								},
+								{
+									"__identifier": "impulseY",
+									"__type": "Float",
+									"__value": -680,
+									"defUid": 3023,
+									"realEditorValues": [{ "id": "V_Float", "params": [-680] }]
+								}
 							],
 							"height": 24,
 							"width": 120,
@@ -4789,7 +6557,16 @@
 			"pxWid": 1800,
 			"pxHei": 900,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_enemies", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "basement_enemies",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["basement_enemies"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -4811,7 +6588,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "enemy_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "enemy_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["enemy_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [156,782]
@@ -4824,7 +6610,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 1800,
 							"px": [0,0]
@@ -4837,7 +6632,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 1800,
 							"px": [0,852]
@@ -4850,7 +6654,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 900,
 							"width": 36,
 							"px": [0,0]
@@ -4863,7 +6676,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right wall"]
+								}]
+							}],
 							"height": 900,
 							"width": 36,
 							"px": [1764,0]
@@ -4877,12 +6699,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "return_door", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to basement hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "enemy_door", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "return_door",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["return_door"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to basement hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to basement hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "Door",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Door"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "enemy_door",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["enemy_door"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 142,
 							"width": 140,
@@ -4897,10 +6773,43 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "enemy patrol path A", "defUid": 3029, "realEditorValues": [] },
-								{ "__identifier": "points", "__type": "String", "__value": "520,650;820,650", "defUid": 3030, "realEditorValues": [] },
-								{ "__identifier": "speed", "__type": "Float", "__value": 95, "defUid": 3031, "realEditorValues": [] },
-								{ "__identifier": "mode", "__type": "String", "__value": "PingPong", "defUid": 3032, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "enemy patrol path A",
+									"defUid": 3029,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["enemy patrol path A"]
+									}]
+								},
+								{
+									"__identifier": "points",
+									"__type": "String",
+									"__value": "520,650;820,650",
+									"defUid": 3030,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["520,650;820,650"]
+									}]
+								},
+								{
+									"__identifier": "speed",
+									"__type": "Float",
+									"__value": 95,
+									"defUid": 3031,
+									"realEditorValues": [{ "id": "V_Float", "params": [95] }]
+								},
+								{
+									"__identifier": "mode",
+									"__type": "String",
+									"__value": "PingPong",
+									"defUid": 3032,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["PingPong"]
+									}]
+								}
 							],
 							"height": 12,
 							"width": 360,
@@ -4915,8 +6824,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "patrol cutter", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "Patrol:enemy_patrol_a", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "patrol cutter",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["patrol cutter"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "Patrol:enemy_patrol_a",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Patrol:enemy_patrol_a"]
+									}]
+								}
 							],
 							"height": 58,
 							"width": 44,
@@ -4931,8 +6858,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "small skitter", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "small_skitter", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "small skitter",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["small skitter"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "small_skitter",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["small_skitter"]
+									}]
+								}
 							],
 							"height": 34,
 							"width": 30,
@@ -4947,8 +6892,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "guard striker", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "Guard:420", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "guard striker",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["guard striker"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "Guard:420",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Guard:420"]
+									}]
+								}
 							],
 							"height": 62,
 							"width": 48,
@@ -4963,8 +6926,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "medium striker", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "medium_striker", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "medium striker",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["medium striker"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "medium_striker",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["medium_striker"]
+									}]
+								}
 							],
 							"height": 66,
 							"width": 52,
@@ -4979,8 +6960,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "gradient seeker", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "gradient_seeker", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "gradient seeker",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["gradient seeker"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "gradient_seeker",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["gradient_seeker"]
+									}]
+								}
 							],
 							"height": 56,
 							"width": 42,
@@ -4995,8 +6994,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "large brute", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "large_brute", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "large brute",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["large brute"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "large_brute",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["large_brute"]
+									}]
+								}
 							],
 							"height": 96,
 							"width": 82,
@@ -5011,8 +7028,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "lab finite sandbag", "defUid": 3018, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "sandbag_finite", "defUid": 3019, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "lab finite sandbag",
+									"defUid": 3018,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["lab finite sandbag"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "sandbag_finite",
+									"defUid": 3019,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["sandbag_finite"]
+									}]
+								}
 							],
 							"height": 58,
 							"width": 34,
@@ -5027,15 +7062,36 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "enemy sign", "defUid": 3015, "realEditorValues": [] },
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "enemy sign",
+									"defUid": 3015,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["enemy sign"]
+									}]
+								},
 								{
 									"__identifier": "text",
 									"__type": "String",
 									"__value": "Enemy archetypes now cover small / medium / large aggression tests",
 									"defUid": 3016,
-									"realEditorValues": []
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Enemy archetypes now cover small / medium / large aggression tests"]
+									}]
 								},
-								{ "__identifier": "category", "__type": "String", "__value": "Enemy", "defUid": 3017, "realEditorValues": [] }
+								{
+									"__identifier": "category",
+									"__type": "String",
+									"__value": "Enemy",
+									"defUid": 3017,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Enemy"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 740,
@@ -5049,7 +7105,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "enemy patrol bridge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "enemy patrol bridge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["enemy patrol bridge"]
+								}]
+							}],
 							"height": 18,
 							"width": 430,
 							"px": [450,700]
@@ -5062,7 +7127,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "enemy guard bridge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "enemy guard bridge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["enemy guard bridge"]
+								}]
+							}],
 							"height": 18,
 							"width": 360,
 							"px": [980,735]
@@ -5076,8 +7150,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "enemy soft divider", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "enemy soft divider",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["enemy soft divider"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 220,
 							"width": 32,
@@ -5091,7 +7183,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "enemy pogo reset", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "enemy pogo reset",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["enemy pogo reset"]
+								}]
+							}],
 							"height": 36,
 							"width": 36,
 							"px": [1382,632]
@@ -5131,7 +7232,16 @@
 			"pxWid": 1900,
 			"pxHei": 980,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_boss", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "basement_boss",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["basement_boss"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -5153,7 +7263,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "boss_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [156,862]
@@ -5166,7 +7285,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 1900,
 							"px": [0,0]
@@ -5179,7 +7307,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 1900,
 							"px": [0,932]
@@ -5192,7 +7329,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 980,
 							"width": 36,
 							"px": [0,0]
@@ -5205,7 +7351,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right wall"]
+								}]
+							}],
 							"height": 980,
 							"width": 36,
 							"px": [1864,0]
@@ -5219,12 +7374,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "return_door", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to basement hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "boss_door", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "return_door",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["return_door"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to basement hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to basement hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "Door",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Door"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "boss_door",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["boss_door"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 142,
 							"width": 140,
@@ -5239,8 +7448,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "clockwork warden", "defUid": 3033, "realEditorValues": [] },
-								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:tri_slam_sweep_halo", "defUid": 3034, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "clockwork warden",
+									"defUid": 3033,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["clockwork warden"]
+									}]
+								},
+								{
+									"__identifier": "brain",
+									"__type": "String",
+									"__value": "PhaseScript:tri_slam_sweep_halo",
+									"defUid": 3034,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["PhaseScript:tri_slam_sweep_halo"]
+									}]
+								}
 							],
 							"height": 185,
 							"width": 150,
@@ -5255,9 +7482,36 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "boss sign", "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": "Boss cycles slam, side sweep, and halo contact patterns", "defUid": 3016, "realEditorValues": [] },
-								{ "__identifier": "category", "__type": "String", "__value": "Boss", "defUid": 3017, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "boss sign",
+									"defUid": 3015,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["boss sign"]
+									}]
+								},
+								{
+									"__identifier": "text",
+									"__type": "String",
+									"__value": "Boss cycles slam, side sweep, and halo contact patterns",
+									"defUid": 3016,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Boss cycles slam, side sweep, and halo contact patterns"]
+									}]
+								},
+								{
+									"__identifier": "category",
+									"__type": "String",
+									"__value": "Boss",
+									"defUid": 3017,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Boss"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 680,
@@ -5271,7 +7525,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss approach shelf", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "boss approach shelf",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss approach shelf"]
+								}]
+							}],
 							"height": 18,
 							"width": 310,
 							"px": [380,750]
@@ -5284,7 +7547,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss arena left shelf", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "boss arena left shelf",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss arena left shelf"]
+								}]
+							}],
 							"height": 18,
 							"width": 260,
 							"px": [790,650]
@@ -5297,7 +7569,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss arena right shelf", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "boss arena right shelf",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss arena right shelf"]
+								}]
+							}],
 							"height": 18,
 							"width": 260,
 							"px": [1190,650]
@@ -5310,7 +7591,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss pit spikes", "defUid": 3020, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "boss pit spikes",
+								"defUid": 3020,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss pit spikes"]
+								}]
+							}],
 							"height": 22,
 							"width": 780,
 							"px": [720,910]
@@ -5350,7 +7640,16 @@
 			"pxWid": 1800,
 			"pxHei": 900,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_breakables", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "basement_breakables",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["basement_breakables"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -5372,7 +7671,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "breakable_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "breakable_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["breakable_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [156,782]
@@ -5385,7 +7693,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 1800,
 							"px": [0,0]
@@ -5398,7 +7715,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 1800,
 							"px": [0,852]
@@ -5411,7 +7737,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 900,
 							"width": 36,
 							"px": [0,0]
@@ -5424,7 +7759,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right wall"]
+								}]
+							}],
 							"height": 900,
 							"width": 36,
 							"px": [1764,0]
@@ -5438,12 +7782,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "return_door", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to basement hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "breakable_door", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "return_door",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["return_door"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to basement hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to basement hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "Door",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Door"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "breakable_door",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["breakable_door"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 142,
 							"width": 140,
@@ -5458,10 +7856,43 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "respawning breakable platform", "defUid": 3035, "realEditorValues": [] },
-								{ "__identifier": "max_hp", "__type": "Float", "__value": 2, "defUid": 3036, "realEditorValues": [] },
-								{ "__identifier": "solid", "__type": "Bool", "__value": true, "defUid": 3037, "realEditorValues": [] },
-								{ "__identifier": "respawn", "__type": "String", "__value": "AfterSeconds:3.0", "defUid": 3038, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "respawning breakable platform",
+									"defUid": 3035,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["respawning breakable platform"]
+									}]
+								},
+								{
+									"__identifier": "max_hp",
+									"__type": "Float",
+									"__value": 2,
+									"defUid": 3036,
+									"realEditorValues": [{ "id": "V_Float", "params": [2] }]
+								},
+								{
+									"__identifier": "solid",
+									"__type": "Bool",
+									"__value": true,
+									"defUid": 3037,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ true ]
+									}]
+								},
+								{
+									"__identifier": "respawn",
+									"__type": "String",
+									"__value": "AfterSeconds:3.0",
+									"defUid": 3038,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["AfterSeconds:3.0"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 260,
@@ -5476,10 +7907,43 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "crumble stand-timer platform", "defUid": 3035, "realEditorValues": [] },
-								{ "__identifier": "max_hp", "__type": "Float", "__value": 2, "defUid": 3036, "realEditorValues": [] },
-								{ "__identifier": "solid", "__type": "Bool", "__value": true, "defUid": 3037, "realEditorValues": [] },
-								{ "__identifier": "respawn", "__type": "String", "__value": "AfterSeconds:3.5", "defUid": 3038, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "crumble stand-timer platform",
+									"defUid": 3035,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["crumble stand-timer platform"]
+									}]
+								},
+								{
+									"__identifier": "max_hp",
+									"__type": "Float",
+									"__value": 2,
+									"defUid": 3036,
+									"realEditorValues": [{ "id": "V_Float", "params": [2] }]
+								},
+								{
+									"__identifier": "solid",
+									"__type": "Bool",
+									"__value": true,
+									"defUid": 3037,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ true ]
+									}]
+								},
+								{
+									"__identifier": "respawn",
+									"__type": "String",
+									"__value": "AfterSeconds:3.5",
+									"defUid": 3038,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["AfterSeconds:3.5"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 220,
@@ -5494,10 +7958,43 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "non-respawn slash platform", "defUid": 3035, "realEditorValues": [] },
-								{ "__identifier": "max_hp", "__type": "Float", "__value": 2, "defUid": 3036, "realEditorValues": [] },
-								{ "__identifier": "solid", "__type": "Bool", "__value": true, "defUid": 3037, "realEditorValues": [] },
-								{ "__identifier": "respawn", "__type": "String", "__value": "Never", "defUid": 3038, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "non-respawn slash platform",
+									"defUid": 3035,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["non-respawn slash platform"]
+									}]
+								},
+								{
+									"__identifier": "max_hp",
+									"__type": "Float",
+									"__value": 2,
+									"defUid": 3036,
+									"realEditorValues": [{ "id": "V_Float", "params": [2] }]
+								},
+								{
+									"__identifier": "solid",
+									"__type": "Bool",
+									"__value": true,
+									"defUid": 3037,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ true ]
+									}]
+								},
+								{
+									"__identifier": "respawn",
+									"__type": "String",
+									"__value": "Never",
+									"defUid": 3038,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Never"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 260,
@@ -5512,10 +8009,43 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "breakable object crate", "defUid": 3035, "realEditorValues": [] },
-								{ "__identifier": "max_hp", "__type": "Float", "__value": 1, "defUid": 3036, "realEditorValues": [] },
-								{ "__identifier": "solid", "__type": "Bool", "__value": false, "defUid": 3037, "realEditorValues": [] },
-								{ "__identifier": "respawn", "__type": "String", "__value": "OnRoomReload", "defUid": 3038, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "breakable object crate",
+									"defUid": 3035,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["breakable object crate"]
+									}]
+								},
+								{
+									"__identifier": "max_hp",
+									"__type": "Float",
+									"__value": 1,
+									"defUid": 3036,
+									"realEditorValues": [{ "id": "V_Float", "params": [1] }]
+								},
+								{
+									"__identifier": "solid",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3037,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								},
+								{
+									"__identifier": "respawn",
+									"__type": "String",
+									"__value": "OnRoomReload",
+									"defUid": 3038,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["OnRoomReload"]
+									}]
+								}
 							],
 							"height": 70,
 							"width": 70,
@@ -5530,15 +8060,36 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "breakable sign", "defUid": 3015, "realEditorValues": [] },
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "breakable sign",
+									"defUid": 3015,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["breakable sign"]
+									}]
+								},
 								{
 									"__identifier": "text",
 									"__type": "String",
 									"__value": "Slash some platforms; crumble platforms break after standing too long",
 									"defUid": 3016,
-									"realEditorValues": []
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Slash some platforms; crumble platforms break after standing too long"]
+									}]
 								},
-								{ "__identifier": "category", "__type": "String", "__value": "Interactable", "defUid": 3017, "realEditorValues": [] }
+								{
+									"__identifier": "category",
+									"__type": "String",
+									"__value": "Interactable",
+									"defUid": 3017,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Interactable"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 740,
@@ -5552,7 +8103,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "breakable start ledge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "breakable start ledge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["breakable start ledge"]
+								}]
+							}],
 							"height": 18,
 							"width": 220,
 							"px": [280,760]
@@ -5565,7 +8125,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "breakable far ledge", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "breakable far ledge",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["breakable far ledge"]
+								}]
+							}],
 							"height": 18,
 							"width": 300,
 							"px": [1180,690]
@@ -5578,7 +8147,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "breakable pogo helper", "defUid": 3011, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "breakable pogo helper",
+								"defUid": 3011,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["breakable pogo helper"]
+								}]
+							}],
 							"height": 36,
 							"width": 36,
 							"px": [1012,522]
@@ -5618,7 +8196,16 @@
 			"pxWid": 1500,
 			"pxHei": 760,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_treasure", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "basement_treasure",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["basement_treasure"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -5640,7 +8227,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "treasure_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "treasure_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["treasure_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [156,642]
@@ -5653,7 +8249,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 1500,
 							"px": [0,0]
@@ -5666,7 +8271,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 1500,
 							"px": [0,712]
@@ -5679,7 +8293,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 760,
 							"width": 36,
 							"px": [0,0]
@@ -5692,7 +8315,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right wall"]
+								}]
+							}],
 							"height": 760,
 							"width": 36,
 							"px": [1464,0]
@@ -5706,12 +8338,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "return_door", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to basement hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "treasure_door", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "return_door",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["return_door"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to basement hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to basement hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "Door",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Door"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "treasure_door",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["treasure_door"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 142,
 							"width": 140,
@@ -5726,8 +8412,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "health pickup", "defUid": 3039, "realEditorValues": [] },
-								{ "__identifier": "kind", "__type": "String", "__value": "health:1", "defUid": 3040, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "health pickup",
+									"defUid": 3039,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["health pickup"]
+									}]
+								},
+								{
+									"__identifier": "kind",
+									"__type": "String",
+									"__value": "health:1",
+									"defUid": 3040,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["health:1"]
+									}]
+								}
 							],
 							"height": 34,
 							"width": 34,
@@ -5742,8 +8446,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "currency pickup", "defUid": 3039, "realEditorValues": [] },
-								{ "__identifier": "kind", "__type": "String", "__value": "currency:25", "defUid": 3040, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "currency pickup",
+									"defUid": 3039,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["currency pickup"]
+									}]
+								},
+								{
+									"__identifier": "kind",
+									"__type": "String",
+									"__value": "currency:25",
+									"defUid": 3040,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["currency:25"]
+									}]
+								}
 							],
 							"height": 34,
 							"width": 34,
@@ -5758,8 +8480,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "ability chest", "defUid": 3041, "realEditorValues": [] },
-								{ "__identifier": "reward", "__type": "String", "__value": "ability:test_key", "defUid": 3042, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "ability chest",
+									"defUid": 3041,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["ability chest"]
+									}]
+								},
+								{
+									"__identifier": "reward",
+									"__type": "String",
+									"__value": "ability:test_key",
+									"defUid": 3042,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["ability:test_key"]
+									}]
+								}
 							],
 							"height": 58,
 							"width": 76,
@@ -5774,8 +8514,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "story flag chest", "defUid": 3041, "realEditorValues": [] },
-								{ "__identifier": "reward", "__type": "String", "__value": "flag:opened_basement_story_chest", "defUid": 3042, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "story flag chest",
+									"defUid": 3041,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["story flag chest"]
+									}]
+								},
+								{
+									"__identifier": "reward",
+									"__type": "String",
+									"__value": "flag:opened_basement_story_chest",
+									"defUid": 3042,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["flag:opened_basement_story_chest"]
+									}]
+								}
 							],
 							"height": 58,
 							"width": 76,
@@ -5790,9 +8548,36 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "treasure sign", "defUid": 3015, "realEditorValues": [] },
-								{ "__identifier": "text", "__type": "String", "__value": "Walk into pickups; press Interact at chests", "defUid": 3016, "realEditorValues": [] },
-								{ "__identifier": "category", "__type": "String", "__value": "Pickup", "defUid": 3017, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "treasure sign",
+									"defUid": 3015,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["treasure sign"]
+									}]
+								},
+								{
+									"__identifier": "text",
+									"__type": "String",
+									"__value": "Walk into pickups; press Interact at chests",
+									"defUid": 3016,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Walk into pickups; press Interact at chests"]
+									}]
+								},
+								{
+									"__identifier": "category",
+									"__type": "String",
+									"__value": "Pickup",
+									"defUid": 3017,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Pickup"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 620,
@@ -5806,7 +8591,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "treasure shelf", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "treasure shelf",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["treasure shelf"]
+								}]
+							}],
 							"height": 18,
 							"width": 820,
 							"px": [420,670]
@@ -5846,7 +8640,16 @@
 			"pxWid": 1500,
 			"pxHei": 760,
 			"externalRelPath": null,
-			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_npcs", "defUid": 4000, "realEditorValues": [] }],
+			"fieldInstances": [{
+				"__identifier": "activeArea",
+				"__type": "String",
+				"__value": "basement_npcs",
+				"defUid": 4000,
+				"realEditorValues": [{
+					"id": "V_String",
+					"params": ["basement_npcs"]
+				}]
+			}],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
@@ -5868,7 +8671,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "npc_start", "defUid": 3000, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "npc_start",
+								"defUid": 3000,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["npc_start"]
+								}]
+							}],
 							"height": 46,
 							"width": 28,
 							"px": [156,642]
@@ -5881,7 +8693,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "ceiling",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["ceiling"]
+								}]
+							}],
 							"height": 24,
 							"width": 1500,
 							"px": [0,0]
@@ -5894,7 +8715,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "floor",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["floor"]
+								}]
+							}],
 							"height": 48,
 							"width": 1500,
 							"px": [0,712]
@@ -5907,7 +8737,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "left wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["left wall"]
+								}]
+							}],
 							"height": 760,
 							"width": 36,
 							"px": [0,0]
@@ -5920,7 +8759,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "defUid": 3001, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "right wall",
+								"defUid": 3001,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["right wall"]
+								}]
+							}],
 							"height": 760,
 							"width": 36,
 							"px": [1464,0]
@@ -5934,12 +8782,66 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "return_door", "defUid": 3002, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "to basement hub", "defUid": 3003, "realEditorValues": [] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "defUid": 3004, "realEditorValues": [] },
-								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "defUid": 3005, "realEditorValues": [] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "npc_door", "defUid": 3006, "realEditorValues": [] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "defUid": 3007, "realEditorValues": [] }
+								{
+									"__identifier": "id",
+									"__type": "String",
+									"__value": "return_door",
+									"defUid": 3002,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["return_door"]
+									}]
+								},
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "to basement hub",
+									"defUid": 3003,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["to basement hub"]
+									}]
+								},
+								{
+									"__identifier": "activation",
+									"__type": "String",
+									"__value": "Door",
+									"defUid": 3004,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Door"]
+									}]
+								},
+								{
+									"__identifier": "target_room",
+									"__type": "String",
+									"__value": "central_hub_complex",
+									"defUid": 3005,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["central_hub_complex"]
+									}]
+								},
+								{
+									"__identifier": "target_zone",
+									"__type": "String",
+									"__value": "npc_door",
+									"defUid": 3006,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["npc_door"]
+									}]
+								},
+								{
+									"__identifier": "bidirectional",
+									"__type": "Bool",
+									"__value": false,
+									"defUid": 3007,
+									"realEditorValues": [{
+										"id": "V_Bool",
+										"params": [ false ]
+									}]
+								}
 							],
 							"height": 142,
 							"width": 140,
@@ -5954,9 +8856,36 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Architect NPC", "defUid": 3012, "realEditorValues": [] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "Talk", "defUid": 3013, "realEditorValues": [] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "architect_intro", "defUid": 3014, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "Architect NPC",
+									"defUid": 3012,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Architect NPC"]
+									}]
+								},
+								{
+									"__identifier": "prompt",
+									"__type": "String",
+									"__value": "Talk",
+									"defUid": 3013,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Talk"]
+									}]
+								},
+								{
+									"__identifier": "dialogue_id",
+									"__type": "String",
+									"__value": "architect_intro",
+									"defUid": 3014,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["architect_intro"]
+									}]
+								}
 							],
 							"height": 68,
 							"width": 42,
@@ -5971,9 +8900,36 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Vault Keeper NPC", "defUid": 3012, "realEditorValues": [] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "Talk", "defUid": 3013, "realEditorValues": [] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "vault_keeper", "defUid": 3014, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "Vault Keeper NPC",
+									"defUid": 3012,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Vault Keeper NPC"]
+									}]
+								},
+								{
+									"__identifier": "prompt",
+									"__type": "String",
+									"__value": "Talk",
+									"defUid": 3013,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Talk"]
+									}]
+								},
+								{
+									"__identifier": "dialogue_id",
+									"__type": "String",
+									"__value": "vault_keeper",
+									"defUid": 3014,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["vault_keeper"]
+									}]
+								}
 							],
 							"height": 68,
 							"width": 42,
@@ -5988,9 +8944,36 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Merchant Prototype NPC", "defUid": 3012, "realEditorValues": [] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "Trade", "defUid": 3013, "realEditorValues": [] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "merchant_seed", "defUid": 3014, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "Merchant Prototype NPC",
+									"defUid": 3012,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Merchant Prototype NPC"]
+									}]
+								},
+								{
+									"__identifier": "prompt",
+									"__type": "String",
+									"__value": "Trade",
+									"defUid": 3013,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Trade"]
+									}]
+								},
+								{
+									"__identifier": "dialogue_id",
+									"__type": "String",
+									"__value": "merchant_seed",
+									"defUid": 3014,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["merchant_seed"]
+									}]
+								}
 							],
 							"height": 68,
 							"width": 42,
@@ -6005,15 +8988,38 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "npc sign", "defUid": 3015, "realEditorValues": [] },
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "npc sign",
+									"defUid": 3015,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["npc sign"]
+									}]
+								},
 								{
 									"__identifier": "text",
 									"__type": "String",
 									"__value": "Press Interact near NPCs. Dialogue pauses gameplay; choices sketch merchants and story flags.",
 									"defUid": 3016,
-									"realEditorValues": []
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": [
+											"Press Interact near NPCs. Dialogue pauses gameplay; choices sketch merchants and story flags."
+										]
+									}]
 								},
-								{ "__identifier": "category", "__type": "String", "__value": "Interactable", "defUid": 3017, "realEditorValues": [] }
+								{
+									"__identifier": "category",
+									"__type": "String",
+									"__value": "Interactable",
+									"defUid": 3017,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Interactable"]
+									}]
+								}
 							],
 							"height": 24,
 							"width": 850,
@@ -6027,7 +9033,16 @@
 							"__pivot": [0,0],
 							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "npc parlor shelf", "defUid": 3008, "realEditorValues": [] }],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__type": "String",
+								"__value": "npc parlor shelf",
+								"defUid": 3008,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["npc parlor shelf"]
+								}]
+							}],
 							"height": 18,
 							"width": 560,
 							"px": [480,670]
@@ -6041,8 +9056,26 @@
 							"__smartColor": "#ffffff",
 							"__tags": [],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "npc soft curtain", "defUid": 3009, "realEditorValues": [] },
-								{ "__identifier": "tier", "__type": "String", "__value": "Soft", "defUid": 3010, "realEditorValues": [] }
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "npc soft curtain",
+									"defUid": 3009,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["npc soft curtain"]
+									}]
+								},
+								{
+									"__identifier": "tier",
+									"__type": "String",
+									"__value": "Soft",
+									"defUid": 3010,
+									"realEditorValues": [{
+										"id": "V_String",
+										"params": ["Soft"]
+									}]
+								}
 							],
 							"height": 170,
 							"width": 32,

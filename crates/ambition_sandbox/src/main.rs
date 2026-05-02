@@ -62,9 +62,16 @@ fn main() {
     ldtk_report.print_to_stderr();
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
-    let room_set = ldtk_project
-        .to_room_set()
-        .expect("embedded LDtk world should validate and build Ambition rooms");
+    let room_set = match ldtk_project.to_room_set() {
+        Ok(room_set) => room_set,
+        Err(errors) => {
+            eprintln!("embedded LDtk world failed validation; fix crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk before running:");
+            for error in &errors {
+                eprintln!("  - {error}");
+            }
+            std::process::exit(2);
+        }
+    };
     let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(&ldtk_project, room_set.active_spec().id.clone());
     let active_world = room_set.active_world().clone();
 

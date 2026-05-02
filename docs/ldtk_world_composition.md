@@ -134,3 +134,9 @@ As of the LDtk runtime-spine migration, the old `rooms` block has been removed f
 ### Bridge removal status
 
 The old RON-shaped room manifest is no longer part of the sandbox runtime path. Runtime startup and hot reload ask LDtk for a `RoomSet` directly, and `ldtk_world.rs` materializes runtime `RoomSpec`, `ae::World`, loading zones, room objects, and graph links without using RON fixture structs. Remaining migration work should shrink the custom LDtk parser category by category as plugin-spawned `bevy_ecs_ldtk` marker entities become the source for Ambition runtime components.
+
+## LDtk editor round-trip values
+
+Generated or agent-patched LDtk files must populate `fieldInstances[*].realEditorValues` alongside the parser-friendly `__value` field. LDtk game/runtime documentation says game code can ignore `realEditorValues`, but the LDtk editor uses it as its raw editable representation when a level is opened and saved. If non-null `__value` fields have empty `realEditorValues`, moving an entity in the editor can cause the edited level to be saved with null custom fields.
+
+Ambition treats this as an authoring error. The validator rejects non-null field values with empty `realEditorValues`, and `tools/validate_ambition_ldtk.py --normalize-editor-values` can rewrite editor values from existing `__value` data before an editor round-trip. This cannot recover fields after the editor has already saved them as null; use the last known-good LDtk file or a patch that restores those values.

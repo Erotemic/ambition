@@ -368,6 +368,8 @@ pub struct LdtkFieldInstance {
     pub identifier: String,
     #[serde(rename = "__value")]
     pub value: Value,
+    #[serde(default, rename = "realEditorValues")]
+    pub real_editor_values: Vec<Value>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -436,6 +438,12 @@ impl LdtkProject {
                 ));
             }
             let active_area = level.active_area();
+            if level.raw_active_area().as_deref().map(str::trim).unwrap_or("").is_empty() {
+                report.errors.push(format!(
+                    "level '{}' has a blank activeArea level field; LDtk editor round-trips must preserve this field",
+                    level.identifier
+                ));
+            }
             *level_count_by_area.entry(active_area.clone()).or_default() += 1;
 
             let Some(layer) = level.ambition_layer() else {
@@ -522,6 +530,17 @@ impl LdtkProject {
                         }
                     }
                     _ => {}
+                }
+                for field in &entity.field_instances {
+                    if field.value.is_null() {
+                        continue;
+                    }
+                    if field.real_editor_values.is_empty() {
+                        report.errors.push(format!(
+                            "{} {} field '{}' has __value but empty realEditorValues; LDtk may erase this value when the level is edited",
+                            entity.identifier, entity.iid, field.identifier
+                        ));
+                    }
                 }
             }
         }
@@ -666,8 +685,14 @@ impl LdtkProject {
 }
 
 impl LdtkLevel {
-    fn active_area(&self) -> String {
+    fn raw_active_area(&self) -> Option<String> {
         self.field_string("activeArea")
+    }
+
+    fn active_area(&self) -> String {
+        self.raw_active_area()
+            .map(|area| area.trim().to_string())
+            .filter(|area| !area.is_empty())
             .unwrap_or_else(|| self.identifier.clone())
     }
 

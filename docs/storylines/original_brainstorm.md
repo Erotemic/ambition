@@ -10,3 +10,17 @@ The game and engine will be called ambition.
 ---
 
 There might also be a rougelike aspect to this. Perhaps at the start you can opt in / out of "sharing your data", and the upside is new generations - i.e. the next run gets to build off of what you did - but the downside is that enemies may now gain access to some of your abilities. Perhaps this is just one instance of the engine, maybe another instance is a pure semi-linear metroidvania. Maybe we have a pure rougelike, and a hybrid. We might also have a pure platformer.
+
+---
+
+
+The conduit humans give you quests. They just say do something and provide
+little to no help. You do get rewarded though, but its often an empty reward.
+
+The character is a robot, with a modifiable chassis. The story is driven by
+often passionate characters. I'm thinking shouting general trope. I think the
+character is going to feel a bit like the knight early on, so we can lean into
+that as an explicit reference. We will also likely find our own identity, and
+we should deny our influences. That's a theme of the game, standing on the
+shoulders of giants, consequences of actions, and sometime inevitability of
+outcomes.

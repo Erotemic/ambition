@@ -79,6 +79,7 @@ pub enum LdtkRuntimeRole {
     LoadingZone,
     DebugLabel,
     CameraZone,
+    Solid,
     Other,
 }
 
@@ -89,6 +90,7 @@ impl LdtkRuntimeRole {
             "LoadingZone" => Self::LoadingZone,
             "DebugLabel" => Self::DebugLabel,
             "CameraZone" => Self::CameraZone,
+            "Solid" => Self::Solid,
             _ => Self::Other,
         }
     }
@@ -99,6 +101,7 @@ impl LdtkRuntimeRole {
             Self::LoadingZone => "loading zones",
             Self::DebugLabel => "debug labels",
             Self::CameraZone => "camera zones",
+            Self::Solid => "solids",
             Self::Other => "other",
         }
     }
@@ -106,6 +109,24 @@ impl LdtkRuntimeRole {
     pub fn promoted(self) -> bool {
         !matches!(self, Self::Other)
     }
+}
+
+/// Typed Ambition collision component attached to plugin-spawned `Solid`
+/// entities.
+///
+/// The first collision-heavy LDtk category to leave the JSON-only adapter path:
+/// while `compose_runtime_area` still produces `ae::Block::solid()` entries for
+/// the runtime collision world, every spawned `Solid` LDtk entity now also
+/// carries this typed component so future systems can query ECS-side without
+/// reparsing the LDtk file. Once the raw-LDtk-vs-runtime overlay (Step 2 of the
+/// LDtk roadmap) verifies parity, the JSON path can be retired and these
+/// components become collision authority.
+#[derive(Component, Clone, Debug, Default)]
+pub struct LdtkSolid {
+    /// Top-left corner in LDtk-level-local pixel coordinates.
+    pub level_px: [i32; 2],
+    /// Width and height in pixels.
+    pub size: [i32; 2],
 }
 
 /// Runtime-spine view of a plugin-spawned LDtk entity in active-area-local
@@ -147,6 +168,7 @@ impl LdtkRuntimeSpineIndex {
             LdtkRuntimeRole::LoadingZone,
             LdtkRuntimeRole::DebugLabel,
             LdtkRuntimeRole::CameraZone,
+            LdtkRuntimeRole::Solid,
         ] {
             let count = self.promoted_counts.get(&role).copied().unwrap_or(0);
             parts.push(format!("{} {}", count, role.label()));
@@ -157,6 +179,50 @@ impl LdtkRuntimeSpineIndex {
     fn replace_if_changed(&mut self, mut next: Self) {
         next.entities.sort_by(|a, b| a.iid.cmp(&b.iid));
         if self.active_area != next.active_area || self.entities != next.entities {
+            next.revision = self.revision.saturating_add(1);
+            *self = next;
+        }
+    }
+}
+
+/// Active-area-local view of one promoted LDtk `Solid` entity.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LdtkRuntimeSolid {
+    pub iid: String,
+    /// Top-left corner in active-area-local Ambition coordinates.
+    pub min: ae::Vec2,
+    pub size: ae::Vec2,
+}
+
+impl LdtkRuntimeSolid {
+    pub fn aabb(&self) -> ae::Aabb {
+        ae::aabb_from_min_size(self.min, self.size)
+    }
+}
+
+/// Rebuilt every frame from plugin-spawned `Solid` LDtk entities carrying the
+/// typed `LdtkSolid` component.
+///
+/// This is the parallel ECS view of solid collision authored in LDtk. The
+/// runtime collision world (`ae::World::blocks`) is still populated by the
+/// JSON adapter for now; once the raw-LDtk-vs-runtime overlay (Step 2 of the
+/// LDtk roadmap) verifies parity, this index becomes the collision authority
+/// and the JSON path retires.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct LdtkRuntimeSolidIndex {
+    pub active_area: String,
+    pub solids: Vec<LdtkRuntimeSolid>,
+    pub revision: u64,
+}
+
+impl LdtkRuntimeSolidIndex {
+    pub fn count(&self) -> usize {
+        self.solids.len()
+    }
+
+    fn replace_if_changed(&mut self, mut next: Self) {
+        next.solids.sort_by(|a, b| a.iid.cmp(&b.iid));
+        if self.active_area != next.active_area || self.solids != next.solids {
             next.revision = self.revision.saturating_add(1);
             *self = next;
         }
@@ -190,11 +256,68 @@ pub fn sync_plugin_spawned_ambition_entities(
         };
         stats.last_entity = format!("{} {}", ambition_entity.identifier, ambition_entity.iid);
         stats.sample_entity = ambition_entity.summary();
-        commands.entity(entity).insert((
+
+        // Attach typed Ambition components for promoted collision-heavy LDtk
+        // categories. The generic `AmbitionLdtkEntity` always lands; typed
+        // sibling components let downstream systems query specifically without
+        // identifier-string matching.
+        let mut entity_commands = commands.entity(entity);
+        entity_commands.insert((
             Name::new(format!("LDtk {} {}", ambition_entity.identifier, ambition_entity.iid)),
-            ambition_entity,
+            ambition_entity.clone(),
         ));
+        if ambition_entity.identifier == "Solid" {
+            entity_commands.insert(LdtkSolid {
+                level_px: ambition_entity.px,
+                size: ambition_entity.size,
+            });
+        }
     }
+}
+
+/// Rebuild the active-area-local index of promoted LDtk `Solid` entities.
+///
+/// Mirrors `rebuild_ldtk_runtime_spine_index` but only collects entities that
+/// carry the typed `LdtkSolid` component, so future collision authority can
+/// query a tight collision-only view without iterating the broader spine.
+pub fn rebuild_ldtk_runtime_solid_index(
+    room_set: Res<crate::rooms::RoomSet>,
+    runtime_index: Res<LdtkRuntimeIndex>,
+    mut solid_index: ResMut<LdtkRuntimeSolidIndex>,
+    query: Query<&AmbitionLdtkEntity, With<LdtkSolid>>,
+) {
+    let active_area = room_set.active_spec().id.clone();
+    let origin = runtime_index
+        .area_bounds(&active_area)
+        .map(|bounds| [bounds.min_x, bounds.min_y])
+        .unwrap_or_else(|| runtime_index.active_area_origin());
+
+    let mut next = LdtkRuntimeSolidIndex {
+        active_area,
+        solids: Vec::new(),
+        revision: solid_index.revision,
+    };
+
+    for entity in &query {
+        let raw_min = entity.world.unwrap_or(entity.px);
+        // AMBITION_REVIEW(spatial): solid `min` is projected from LDtk world
+        // pixels into active-area-local Ambition coordinates by subtracting
+        // the area origin. This must stay consistent with the spine-index
+        // projection and with `compose_runtime_area`'s offset math, otherwise
+        // ECS-side collision will drift from the JSON-derived `world.blocks`.
+        let min = ae::Vec2::new(
+            (raw_min[0] - origin[0]) as f32,
+            (raw_min[1] - origin[1]) as f32,
+        );
+        let size = ae::Vec2::new(entity.size[0] as f32, entity.size[1] as f32);
+        next.solids.push(LdtkRuntimeSolid {
+            iid: entity.iid.clone(),
+            min,
+            size,
+        });
+    }
+
+    solid_index.replace_if_changed(next);
 }
 
 /// Rebuild an Ambition runtime-spine index from currently spawned LDtk entities.
@@ -926,6 +1049,11 @@ fn entity_to_runtime(entity: &LdtkEntityInstance, offset: ae::Vec2) -> RuntimeEn
     let name = field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
     match entity.identifier.as_str() {
         "PlayerStart" => RuntimeEntityConversion::Spawn(min + size * 0.5),
+        // AMBITION_REVIEW(spatial): transitional. Plugin-spawned `Solid`
+        // entities now also carry a typed `LdtkSolid` component and surface
+        // through `LdtkRuntimeSolidIndex`. Step 2 of the LDtk roadmap (raw
+        // LDtk vs runtime overlay) is the verification gate before this
+        // JSON-derived block path can be retired in favor of ECS authority.
         "Solid" => RuntimeEntityConversion::Block(ae::Block::solid(name, min, size)),
         "OneWayPlatform" => RuntimeEntityConversion::Block(ae::Block::one_way(name, min, size)),
         "BlinkWall" => {
@@ -1234,5 +1362,45 @@ mod tests {
         assert!(!room.world.objects.iter().any(|object| matches!(&object.kind, ae::RoomObjectKind::BossSpawn(_))), "boss belongs in the boss lab, not the stitched hub basement");
         let boss_room = room_set.rooms.iter().find(|room| room.id == "basement_boss").expect("boss lab room exists");
         assert!(boss_room.world.objects.iter().any(|object| matches!(&object.kind, ae::RoomObjectKind::BossSpawn(_)) && object.name.contains("clockwork warden")));
+    }
+
+    #[test]
+    fn solid_is_a_promoted_runtime_role() {
+        let role = LdtkRuntimeRole::from_identifier("Solid");
+        assert_eq!(role, LdtkRuntimeRole::Solid);
+        assert!(role.promoted(), "Solid is a Step 1 promoted runtime role");
+        let summary = LdtkRuntimeSpineIndex::default().promoted_summary();
+        assert!(summary.contains("solids"), "promoted summary surfaces solid count: {summary}");
+    }
+
+    #[test]
+    fn solid_index_replaces_only_when_changed() {
+        let mut index = LdtkRuntimeSolidIndex::default();
+        let solid_a = LdtkRuntimeSolid {
+            iid: "solid-a".to_string(),
+            min: ae::Vec2::ZERO,
+            size: ae::Vec2::new(64.0, 16.0),
+        };
+        let solid_b = LdtkRuntimeSolid {
+            iid: "solid-b".to_string(),
+            min: ae::Vec2::new(64.0, 0.0),
+            size: ae::Vec2::new(64.0, 16.0),
+        };
+        index.replace_if_changed(LdtkRuntimeSolidIndex {
+            active_area: "central_hub_complex".to_string(),
+            solids: vec![solid_b.clone(), solid_a.clone()],
+            revision: 0,
+        });
+        assert_eq!(index.count(), 2);
+        assert_eq!(index.solids[0].iid, "solid-a", "solids are sorted by iid for stable diffs");
+        assert_eq!(index.revision, 1);
+
+        let before = index.revision;
+        index.replace_if_changed(LdtkRuntimeSolidIndex {
+            active_area: "central_hub_complex".to_string(),
+            solids: vec![solid_a, solid_b],
+            revision: index.revision,
+        });
+        assert_eq!(index.revision, before, "no-op replace must not bump revision");
     }
 }

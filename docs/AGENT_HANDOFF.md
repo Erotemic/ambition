@@ -224,3 +224,9 @@ Before handing a generated or patched `.ldtk` file to the user for LDtk GUI edit
 
 The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
 
+## LDtk roadmap step 1 (Solid promotion, partial)
+
+Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities. Targets in order: `Solid`, `OneWayPlatform`, `DamageVolume`, `KinematicPath`, `CameraZone`.
+
+`Solid` is now partially promoted. Plugin-spawned `Solid` entities carry a typed `LdtkSolid` component (level-local px rect), and `LdtkRuntimeSolidIndex` holds the active-area-local view rebuilt each frame. The JSON adapter (`compose_runtime_area`) still produces `ae::Block::solid()` entries for `ae::World::blocks` so runtime collision authority is unchanged for now; the JSON `Solid` arm is marked transitional. Step 2 (raw-LDtk-vs-runtime overlay) is the verification gate before retiring the JSON path and letting `LdtkRuntimeSolidIndex` become collision authority. Follow-up step-1 patches do `OneWayPlatform`, then `DamageVolume`/`KinematicPath`/`CameraZone` using the same shape: typed component → sibling index resource → mark JSON path transitional → wait for overlay parity check before authority swap.
+

@@ -203,3 +203,9 @@ The LDtk workflow now has dedicated Python tools: `tools/repair_ambition_ldtk.py
 
 The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
 
+## LDtk roadmap step 1 (Solid promotion, partial)
+
+Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities.
+
+The first collision category, `Solid`, is now partially promoted. Every plugin-spawned `Solid` entity carries a typed `LdtkSolid` Ambition component, and a sibling `LdtkRuntimeSolidIndex` resource holds the active-area-local view rebuilt each frame. The JSON adapter still produces `ae::Block::solid()` entries for `ae::World::blocks` so runtime collision authority is unchanged for now; the JSON Solid path is marked transitional. The raw-LDtk-vs-runtime debug overlay (Step 2) is the verification gate before retiring the JSON path and letting `LdtkRuntimeSolidIndex` become collision authority. `OneWayPlatform`, `DamageVolume`, `KinematicPath`, and the remaining `CameraZone` work follow the same shape and ship in subsequent step-1 patches.
+

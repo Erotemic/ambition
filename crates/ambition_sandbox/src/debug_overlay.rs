@@ -116,6 +116,10 @@ fn draw_ldtk_runtime_spine(
             crate::ldtk_world::LdtkRuntimeRole::LoadingZone => Color::srgba(1.0, 1.0, 1.0, 0.70),
             crate::ldtk_world::LdtkRuntimeRole::DebugLabel => magenta(),
             crate::ldtk_world::LdtkRuntimeRole::CameraZone => blue(),
+            // Solid runtime rects are drawn by the dedicated Solid index pass
+            // so they can be color-keyed against the JSON-derived collision
+            // blocks during the Step 2 raw-vs-runtime overlay work.
+            crate::ldtk_world::LdtkRuntimeRole::Solid => continue,
             crate::ldtk_world::LdtkRuntimeRole::Other => continue,
         };
         draw_aabb(gizmos, world, entity.aabb(), color);

@@ -83,6 +83,7 @@ fn main() {
         .insert_resource(ldtk_world::LdtkHotReloadState::from_current_file())
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
+        .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())
         .insert_resource(LdtkSettings {
             // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk
             // own level/entity lifecycle without also drawing LDtk background
@@ -147,6 +148,7 @@ fn main() {
                 ldtk_world::sync_ldtk_level_set,
                 ldtk_world::sync_plugin_spawned_ambition_entities,
                 ldtk_world::rebuild_ldtk_runtime_spine_index,
+                ldtk_world::rebuild_ldtk_runtime_solid_index,
                 sync_visuals,
                 camera_follow,
                 debug_overlay::draw_debug_overlay,

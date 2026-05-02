@@ -45,6 +45,73 @@ pub enum ParticleKind {
     Shard,
 }
 
+/// Typed sandbox-side visual-effects message (Bevy 0.18 buffered Message
+/// API; the pre-0.18 `Event`/`EventReader` names moved to observer-style
+/// one-shots). Emitted by simulation systems via the Vec collector and
+/// drained into `Messages<VfxMessage>` by `sandbox_update`. The
+/// presentation-side `vfx_spawn_messages` subscriber spawns the actual
+/// particle/impact/slash entities.
+///
+/// Headless builds omit the subscriber; messages accumulate and drain
+/// without entity spawns.
+#[derive(Message, Clone, Copy, Debug)]
+pub enum VfxMessage {
+    Burst {
+        pos: ae::Vec2,
+        count: u32,
+        speed: f32,
+        color: [f32; 4],
+        kind: ParticleKind,
+    },
+    Dust {
+        pos: ae::Vec2,
+        facing: f32,
+    },
+    Impact {
+        pos: ae::Vec2,
+    },
+    BlinkEffects {
+        from: ae::Vec2,
+        to: ae::Vec2,
+        precision: bool,
+    },
+    SlashPreview {
+        hitbox: ae::Aabb,
+    },
+    ResetEffects {
+        from: ae::Vec2,
+        to: ae::Vec2,
+    },
+}
+
+/// Presentation-side subscriber. Reads `VfxMessage`s and spawns particle /
+/// impact / slash entities. Skipped in headless builds.
+pub fn vfx_spawn_messages(
+    mut commands: Commands,
+    mut messages: MessageReader<VfxMessage>,
+    world: Res<crate::GameWorld>,
+) {
+    let world = &world.0;
+    for message in messages.read() {
+        match *message {
+            VfxMessage::Burst { pos, count, speed, color, kind } => {
+                spawn_burst(&mut commands, world, pos, count as usize, speed, color, kind);
+            }
+            VfxMessage::Dust { pos, facing } => spawn_dust(&mut commands, world, pos, facing),
+            VfxMessage::Impact { pos } => spawn_impact(&mut commands, world, pos),
+            VfxMessage::BlinkEffects { from, to, precision } => {
+                spawn_blink_effects(&mut commands, world, from, to, precision);
+            }
+            VfxMessage::SlashPreview { hitbox } => {
+                spawn_slash_preview(&mut commands, world, hitbox);
+            }
+            VfxMessage::ResetEffects { from, to } => {
+                spawn_reset_effects(&mut commands, world, from, to);
+            }
+        }
+    }
+}
+
 pub fn update_particles(
     mut commands: Commands,
     time: Res<Time>,

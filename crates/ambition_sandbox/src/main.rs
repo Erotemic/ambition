@@ -14,6 +14,22 @@ use ambition_sandbox::*;
 
 use ambition_engine as ae;
 use audio::{audio_play_sfx_messages, play_ambience, SfxMessage, SoundBank};
+use bevy::ecs::system::SystemParam;
+use fx::{vfx_spawn_messages, VfxMessage};
+
+/// Bundled `MessageWriter`s for the sim → presentation event channel.
+///
+/// `sandbox_update` outgrew Bevy's 16-system-param limit when both audio
+/// and VFX writers were passed individually; bundling them in a single
+/// `SystemParam` keeps the sim system signature within budget while
+/// preserving the Vec-collector → drain pattern documented in
+/// `docs/events_refactor_plan.md`. Slice 3 will add a `debris` writer
+/// to this struct rather than growing the system signature again.
+#[derive(SystemParam)]
+struct SandboxEventWriters<'w> {
+    sfx: MessageWriter<'w, SfxMessage>,
+    vfx: MessageWriter<'w, VfxMessage>,
+}
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -28,10 +44,14 @@ use bevy_inspector_egui::{
 use bevy_material_ui::MaterialUiPlugin;
 use config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_PLAYER};
 use dev_tools::{DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning};
-use fx::{
-    spawn_blink_effects, spawn_burst, spawn_dust, spawn_impact, spawn_reset_effects,
-    spawn_slash_preview, ParticleKind,
-};
+// Phase 2 of the events refactor: simulation systems push fx::VfxMessage and
+// audio::SfxMessage values into per-frame Vec collectors instead of calling
+// spawn_* / play_sound directly. The presentation-side subscribers spawn the
+// actual particle entities. ParticleKind is still needed for the Burst
+// payload variant. The legacy fx::spawn_* helpers remain (used by the
+// presentation subscriber and a few transitional setup/load paths) but
+// gameplay no longer references them directly.
+use fx::ParticleKind;
 use input::{ControlFrame, SandboxAction, GAMEPAD_MAP};
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 use rendering::{
@@ -72,6 +92,7 @@ fn main() {
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
         .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())
         .add_message::<SfxMessage>()
+        .add_message::<VfxMessage>()
         .insert_resource(LdtkSettings {
             // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk
             // own level/entity lifecycle without also drawing LDtk background
@@ -171,11 +192,13 @@ fn main() {
                 .chain(),
         )
         .add_systems(Update, rendering::sync_health_overlays.after(sync_visuals))
-        // Audio is presentation: subscribe to SfxMessage on the visible
-        // binary only. Headless builds omit this subscriber so the message
-        // queue drains without playing audio. The .after constraint pins
-        // playback to the same frame the simulation emitted the message.
+        // Audio + VFX are presentation: subscribe on the visible binary
+        // only. Headless builds omit these subscribers so the message
+        // queues drain without entity spawns or audio playback. The
+        // `.after` constraints pin presentation to the same frame the
+        // simulation emitted the message.
         .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
+        .add_systems(Update, vfx_spawn_messages.after(sandbox_update))
         .run();
 }
 
@@ -311,7 +334,7 @@ fn sandbox_update(
     mut next_mode: ResMut<NextState<GameMode>>,
     mut runtime: ResMut<SandboxRuntime>,
     entities: Res<SceneEntities>,
-    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut event_writers: SandboxEventWriters,
     mut player_input: Query<
         (
             &mut ActionState<SandboxAction>,
@@ -321,11 +344,13 @@ fn sandbox_update(
     >,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) {
-    // Per-frame Vec collector for SfxMessage. Helpers append events as the
-    // gameplay loop runs; we drain into the MessageWriter at every return
-    // point so the audio subscriber sees them this frame. Bevy 0.18 buffered
-    // events use the Message API (see feedback memory + ADR 0012).
+    // Per-frame Vec collectors for SfxMessage and VfxMessage. Helpers append
+    // events as the gameplay loop runs; we drain into the MessageWriters at
+    // every return point so the audio/fx subscribers see them this frame.
+    // Bevy 0.18 buffered events use the Message API (see feedback memory +
+    // ADR 0012).
     let mut sfx: Vec<SfxMessage> = Vec::new();
+    let mut vfx: Vec<VfxMessage> = Vec::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let physics_settings = runtime.physics_settings;
@@ -393,8 +418,9 @@ fn sandbox_update(
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
 
     if controls.reset_pressed {
-        reset_sandbox(&mut commands, &world.0, &mut sfx, &mut runtime, tuning, feel);
-        sfx_writer.write_batch(sfx.drain(..));
+        reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
+        event_writers.sfx.write_batch(sfx.drain(..));
+        event_writers.vfx.write_batch(vfx.drain(..));
         return;
     } else {
         // Two-clock update:
@@ -415,18 +441,12 @@ fn sandbox_update(
             tuning,
         );
         if control_events.reset {
-            reset_sandbox(&mut commands, &world.0, &mut sfx, &mut runtime, tuning, feel);
-            sfx_writer.write_batch(sfx.drain(..));
+            reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
+            event_writers.sfx.write_batch(sfx.drain(..));
+            event_writers.vfx.write_batch(vfx.drain(..));
             return;
         }
-        handle_player_events(
-            &mut commands,
-            &world.0,
-            &mut sfx,
-            &mut runtime,
-            control_events,
-            None,
-        );
+        handle_player_events(&mut sfx, &mut vfx, &mut runtime, control_events, None);
 
         runtime.update_time_scale(frame_dt, feel);
         let sim_dt = sandbox_dt(&runtime, frame_dt);
@@ -450,18 +470,12 @@ fn sandbox_update(
             tuning,
         );
         if sim_events.reset {
-            reset_sandbox(&mut commands, &world.0, &mut sfx, &mut runtime, tuning, feel);
-            sfx_writer.write_batch(sfx.drain(..));
+            reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
+            event_writers.sfx.write_batch(sfx.drain(..));
+            event_writers.vfx.write_batch(vfx.drain(..));
             return;
         }
-        handle_player_events(
-            &mut commands,
-            &world.0,
-            &mut sfx,
-            &mut runtime,
-            sim_events,
-            Some(was_grounded),
-        );
+        handle_player_events(&mut sfx, &mut vfx, &mut runtime, sim_events, Some(was_grounded));
     }
 
     // Context interaction is deliberately separate from raw up movement.
@@ -496,15 +510,16 @@ fn sandbox_update(
         &mut commands,
         &world.0,
         &mut sfx,
+        &mut vfx,
         &feature_events,
         physics_settings,
         runtime.player.pos,
     );
     handle_player_heal_events(&mut runtime, &feature_events);
     handle_player_damage_events(
-        &mut commands,
         &world.0,
         &mut sfx,
+        &mut vfx,
         &mut runtime,
         &feature_events,
         tuning,
@@ -523,12 +538,14 @@ fn sandbox_update(
         runtime.clear_interact_buffer();
         runtime.hitstop_timer = 0.0;
         next_mode.set(GameMode::Dialogue);
-        sfx_writer.write_batch(sfx.drain(..));
+        event_writers.sfx.write_batch(sfx.drain(..));
+        event_writers.vfx.write_batch(vfx.drain(..));
         return;
     }
     if feature_reset {
-        reset_sandbox(&mut commands, &world.0, &mut sfx, &mut runtime, tuning, feel);
-        sfx_writer.write_batch(sfx.drain(..));
+        reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
+        event_writers.sfx.write_batch(sfx.drain(..));
+        event_writers.vfx.write_batch(vfx.drain(..));
         return;
     }
 
@@ -540,6 +557,7 @@ fn sandbox_update(
             load_room(
                 &mut commands,
                 &mut sfx,
+                &mut vfx,
                 &mut runtime,
                 &mut *world,
                 &mut *room_set,
@@ -549,7 +567,8 @@ fn sandbox_update(
                 feel,
                 physics_settings,
             );
-            sfx_writer.write_batch(sfx.drain(..));
+            event_writers.sfx.write_batch(sfx.drain(..));
+            event_writers.vfx.write_batch(vfx.drain(..));
             return;
         }
     }
@@ -559,6 +578,7 @@ fn sandbox_update(
             &mut commands,
             &world.0,
             &mut sfx,
+            &mut vfx,
             &mut runtime,
             controls,
             tuning,
@@ -569,7 +589,8 @@ fn sandbox_update(
 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
-    sfx_writer.write_batch(sfx.drain(..));
+    event_writers.sfx.write_batch(sfx.drain(..));
+    event_writers.vfx.write_batch(vfx.drain(..));
 }
 
 fn handle_debug_hotkeys(
@@ -777,9 +798,9 @@ fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
 // `SandboxRuntime` impl can use it; it is re-imported via the wildcard above.
 
 fn reset_sandbox(
-    commands: &mut Commands,
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -789,12 +810,16 @@ fn reset_sandbox(
     runtime.flash_timer = feel.reset_flash_time;
     let reset_to = runtime.player.pos;
     sfx.push(SfxMessage::Reset { pos: reset_to });
-    spawn_reset_effects(commands, world, reset_from, reset_to);
+    vfx.push(VfxMessage::ResetEffects {
+        from: reset_from,
+        to: reset_to,
+    });
 }
 
 fn load_room(
     commands: &mut Commands,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     runtime: &mut SandboxRuntime,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
@@ -866,27 +891,27 @@ fn load_room(
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was
         // expressed in the previous room's coordinate space.
-        spawn_burst(
-            commands,
-            &world.0,
-            runtime.player.pos,
-            18,
-            260.0,
-            [0.35, 0.95, 1.0, 0.75],
-            ParticleKind::Dust,
-        );
+        vfx.push(VfxMessage::Burst {
+            pos: runtime.player.pos,
+            count: 18,
+            speed: 260.0,
+            color: [0.35, 0.95, 1.0, 0.75],
+            kind: ParticleKind::Dust,
+        });
     } else {
         // Door transitions are discrete interactions, so a teleport-like effect
         // is acceptable; use the destination for both endpoints to avoid mixing
         // coordinate systems from two rooms.
-        spawn_reset_effects(commands, &world.0, runtime.player.pos, runtime.player.pos);
+        vfx.push(VfxMessage::ResetEffects {
+            from: runtime.player.pos,
+            to: runtime.player.pos,
+        });
     }
 }
 
 fn handle_player_events(
-    commands: &mut Commands,
-    render_world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     runtime: &mut SandboxRuntime,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
@@ -896,50 +921,42 @@ fn handle_player_events(
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
                 sfx.push(SfxMessage::Jump { pos });
-                spawn_dust(
-                    commands,
-                    render_world,
-                    runtime.player.pos,
-                    runtime.player.facing,
-                );
+                vfx.push(VfxMessage::Dust {
+                    pos: runtime.player.pos,
+                    facing: runtime.player.facing,
+                });
             }
             ae::MovementOp::DoubleJump => {
                 sfx.push(SfxMessage::DoubleJump { pos });
-                spawn_burst(
-                    commands,
-                    render_world,
-                    runtime.player.pos,
-                    14,
-                    210.0,
-                    [0.70, 1.0, 0.86, 0.82],
-                    ParticleKind::Dust,
-                );
+                vfx.push(VfxMessage::Burst {
+                    pos: runtime.player.pos,
+                    count: 14,
+                    speed: 210.0,
+                    color: [0.70, 1.0, 0.86, 0.82],
+                    kind: ParticleKind::Dust,
+                });
             }
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
                 sfx.push(SfxMessage::Dash { pos });
-                spawn_burst(
-                    commands,
-                    render_world,
-                    runtime.player.pos,
-                    10,
-                    330.0,
-                    [1.0, 0.86, 0.38, 0.90],
-                    ParticleKind::Spark,
-                );
+                vfx.push(VfxMessage::Burst {
+                    pos: runtime.player.pos,
+                    count: 10,
+                    speed: 330.0,
+                    color: [1.0, 0.86, 0.38, 0.90],
+                    kind: ParticleKind::Spark,
+                });
             }
             ae::MovementOp::Blink | ae::MovementOp::PrecisionBlink => {
                 // Blink visuals use the explicit `events.blinks` endpoint data below.
             }
             ae::MovementOp::FlyToggle => {
-                spawn_burst(
-                    commands,
-                    render_world,
-                    runtime.player.pos,
-                    12,
-                    180.0,
-                    [0.45, 0.82, 1.0, 0.72],
-                    ParticleKind::Dust,
-                );
+                vfx.push(VfxMessage::Burst {
+                    pos: runtime.player.pos,
+                    count: 12,
+                    speed: 180.0,
+                    color: [0.45, 0.82, 1.0, 0.72],
+                    kind: ParticleKind::Dust,
+                });
             }
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
                 sfx.push(SfxMessage::Pogo { pos });
@@ -955,25 +972,21 @@ fn handle_player_events(
             pos: blink.from,
             precision: blink.precision,
         });
-        spawn_blink_effects(
-            commands,
-            render_world,
-            blink.from,
-            blink.to,
-            blink.precision,
-        );
+        vfx.push(VfxMessage::BlinkEffects {
+            from: blink.from,
+            to: blink.to,
+            precision: blink.precision,
+        });
     }
     if events.hazard || !events.operations.is_empty() {
         runtime.flash_timer = 0.12;
     }
     if let Some(was_grounded) = was_grounded {
         if !was_grounded && runtime.player.on_ground {
-            spawn_dust(
-                commands,
-                render_world,
-                runtime.player.pos + ae::Vec2::new(0.0, runtime.player.size.y * 0.5),
-                runtime.player.facing,
-            );
+            vfx.push(VfxMessage::Dust {
+                pos: runtime.player.pos + ae::Vec2::new(0.0, runtime.player.size.y * 0.5),
+                facing: runtime.player.facing,
+            });
         }
     }
 }
@@ -982,6 +995,7 @@ fn handle_feature_events(
     commands: &mut Commands,
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     events: &features::FeatureEvents,
     physics_settings: physics::PhysicsSandboxSettings,
     player_pos: ae::Vec2,
@@ -989,6 +1003,8 @@ fn handle_feature_events(
     if events.reset_player {
         sfx.push(SfxMessage::Reset { pos: player_pos });
     }
+    // Avian2D debris spawning still goes through commands directly; Slice 3
+    // of the events refactor migrates it to a DebrisBurstMessage.
     for physics_burst in &events.physics_bursts {
         let cue = match physics_burst.cue {
             features::FeaturePhysicsCue::Breakable => physics::PhysicsDebrisCue::Breakable,
@@ -998,16 +1014,14 @@ fn handle_feature_events(
         physics::spawn_debris_burst(commands, world, physics_burst.pos, cue, physics_settings);
     }
     for &pos in &events.impacts {
-        spawn_impact(commands, world, pos);
-        spawn_burst(
-            commands,
-            world,
+        vfx.push(VfxMessage::Impact { pos });
+        vfx.push(VfxMessage::Burst {
             pos,
-            14,
-            300.0,
-            [1.0, 0.34, 0.28, 0.88],
-            ParticleKind::Shard,
-        );
+            count: 14,
+            speed: 300.0,
+            color: [1.0, 0.34, 0.28, 0.88],
+            kind: ParticleKind::Shard,
+        });
         physics::spawn_debris_burst(
             commands,
             world,
@@ -1017,15 +1031,13 @@ fn handle_feature_events(
         );
     }
     for &pos in &events.bursts {
-        spawn_burst(
-            commands,
-            world,
+        vfx.push(VfxMessage::Burst {
             pos,
-            16,
-            230.0,
-            [0.84, 0.95, 1.0, 0.82],
-            ParticleKind::Spark,
-        );
+            count: 16,
+            speed: 230.0,
+            color: [0.84, 0.95, 1.0, 0.82],
+            kind: ParticleKind::Spark,
+        });
     }
 }
 
@@ -1036,9 +1048,9 @@ fn handle_player_heal_events(runtime: &mut SandboxRuntime, events: &features::Fe
 }
 
 fn death_respawn_player(
-    commands: &mut Commands,
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -1052,13 +1064,13 @@ fn death_respawn_player(
     runtime.features.banner = "PLAYER DOWN: respawned at room start with full HP".to_string();
     runtime.features.banner_timer = 2.4;
     sfx.push(SfxMessage::Death { pos: from });
-    spawn_reset_effects(commands, world, from, to);
+    vfx.push(VfxMessage::ResetEffects { from, to });
 }
 
 fn handle_player_damage_events(
-    commands: &mut Commands,
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     runtime: &mut SandboxRuntime,
     events: &features::FeatureEvents,
     tuning: ae::MovementTuning,
@@ -1069,9 +1081,9 @@ fn handle_player_damage_events(
     };
     if runtime.player_health.damage(damage.amount.max(1)) {
         death_respawn_player(
-            commands,
             world,
             sfx,
+            vfx,
             runtime,
             tuning,
             feel,
@@ -1081,26 +1093,17 @@ fn handle_player_damage_events(
     }
     match damage.mode {
         features::PlayerDamageMode::SafeRespawn => {
-            safe_respawn_player(
-                commands,
-                world,
-                sfx,
-                runtime,
-                tuning,
-                feel,
-                damage.impact_pos,
-            );
+            safe_respawn_player(sfx, vfx, runtime, tuning, feel, damage.impact_pos);
         }
         features::PlayerDamageMode::Knockback => {
-            apply_player_knockback(commands, world, sfx, runtime, tuning, feel, damage);
+            apply_player_knockback(sfx, vfx, runtime, tuning, feel, damage);
         }
     }
 }
 
 fn safe_respawn_player(
-    commands: &mut Commands,
-    world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -1115,13 +1118,12 @@ fn safe_respawn_player(
     runtime.flash_timer = feel.reset_flash_time;
     runtime.time_scale = 1.0;
     sfx.push(SfxMessage::Reset { pos: to });
-    spawn_reset_effects(commands, world, from, to);
+    vfx.push(VfxMessage::ResetEffects { from, to });
 }
 
 fn apply_player_knockback(
-    commands: &mut Commands,
-    world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -1162,7 +1164,9 @@ fn apply_player_knockback(
     sfx.push(SfxMessage::Hit {
         pos: damage.impact_pos,
     });
-    spawn_impact(commands, world, damage.impact_pos);
+    vfx.push(VfxMessage::Impact {
+        pos: damage.impact_pos,
+    });
 }
 
 fn controls_for_hitstun(
@@ -1193,6 +1197,7 @@ fn process_attack(
     commands: &mut Commands,
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
     runtime: &mut SandboxRuntime,
     controls: ControlFrame,
     tuning: ae::MovementTuning,
@@ -1205,7 +1210,7 @@ fn process_attack(
     let player_pos = runtime.player.pos;
     sfx.push(SfxMessage::Slash { pos: player_pos });
     let attack = ae::slash_hitbox(&runtime.player, controls.axis_y, controls.pogo_pressed);
-    spawn_slash_preview(commands, world, attack);
+    vfx.push(VfxMessage::SlashPreview { hitbox: attack });
     let mut landed = false;
     let mut killed = false;
     let player_facing = runtime.player.facing;
@@ -1221,6 +1226,7 @@ fn process_attack(
         commands,
         world,
         sfx,
+        vfx,
         &feature_events,
         physics_settings,
         player_pos,

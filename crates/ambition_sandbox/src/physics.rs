@@ -76,6 +76,34 @@ pub enum PhysicsDebrisCue {
     BossRagdoll,
 }
 
+/// Typed sandbox-side physics-debris message. Simulation systems push these
+/// into a per-frame `Vec<DebrisBurstMessage>`; `sandbox_update` drains the
+/// Vec into `Messages<DebrisBurstMessage>` and the presentation-side
+/// `physics_spawn_debris_messages` subscriber spawns the actual Avian2D
+/// debris bodies. Headless builds omit the subscriber.
+///
+/// Bundled into the same `SandboxEventWriters` SystemParam as `SfxMessage`
+/// and `VfxMessage` to stay within Bevy's 16-system-param budget.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct DebrisBurstMessage {
+    pub pos: ae::Vec2,
+    pub cue: PhysicsDebrisCue,
+}
+
+/// Presentation-side subscriber. Reads `DebrisBurstMessage`s and spawns
+/// Avian2D debris bodies via the existing `spawn_debris_burst` helper.
+/// Skipped in headless builds.
+pub fn physics_spawn_debris_messages(
+    mut commands: Commands,
+    mut messages: MessageReader<DebrisBurstMessage>,
+    world: Res<crate::GameWorld>,
+    settings: Res<PhysicsSandboxSettings>,
+) {
+    for message in messages.read() {
+        spawn_debris_burst(&mut commands, &world.0, message.pos, message.cue, *settings);
+    }
+}
+
 pub struct AmbitionPhysicsPlugin;
 
 impl Plugin for AmbitionPhysicsPlugin {

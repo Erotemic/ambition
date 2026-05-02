@@ -16,19 +16,21 @@ use ambition_engine as ae;
 use audio::{audio_play_sfx_messages, play_ambience, SfxMessage, SoundBank};
 use bevy::ecs::system::SystemParam;
 use fx::{vfx_spawn_messages, VfxMessage};
+use physics::{physics_spawn_debris_messages, DebrisBurstMessage};
 
 /// Bundled `MessageWriter`s for the sim → presentation event channel.
 ///
-/// `sandbox_update` outgrew Bevy's 16-system-param limit when both audio
-/// and VFX writers were passed individually; bundling them in a single
-/// `SystemParam` keeps the sim system signature within budget while
-/// preserving the Vec-collector → drain pattern documented in
-/// `docs/events_refactor_plan.md`. Slice 3 will add a `debris` writer
-/// to this struct rather than growing the system signature again.
+/// `sandbox_update` outgrew Bevy's 16-system-param limit when individual
+/// writers were passed; bundling them in a single `SystemParam` keeps the
+/// sim system signature within budget while preserving the Vec-collector →
+/// drain pattern documented in `docs/events_refactor_plan.md`. Adding new
+/// channels to the sim → presentation seam happens here, not on the
+/// `sandbox_update` signature.
 #[derive(SystemParam)]
 struct SandboxEventWriters<'w> {
     sfx: MessageWriter<'w, SfxMessage>,
     vfx: MessageWriter<'w, VfxMessage>,
+    debris: MessageWriter<'w, DebrisBurstMessage>,
 }
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
@@ -93,6 +95,7 @@ fn main() {
         .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())
         .add_message::<SfxMessage>()
         .add_message::<VfxMessage>()
+        .add_message::<DebrisBurstMessage>()
         .insert_resource(LdtkSettings {
             // Ambition still renders runtime rooms for now; let bevy_ecs_ldtk
             // own level/entity lifecycle without also drawing LDtk background
@@ -199,6 +202,7 @@ fn main() {
         // simulation emitted the message.
         .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
         .add_systems(Update, vfx_spawn_messages.after(sandbox_update))
+        .add_systems(Update, physics_spawn_debris_messages.after(sandbox_update))
         .run();
 }
 
@@ -344,13 +348,14 @@ fn sandbox_update(
     >,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) {
-    // Per-frame Vec collectors for SfxMessage and VfxMessage. Helpers append
-    // events as the gameplay loop runs; we drain into the MessageWriters at
-    // every return point so the audio/fx subscribers see them this frame.
-    // Bevy 0.18 buffered events use the Message API (see feedback memory +
-    // ADR 0012).
+    // Per-frame Vec collectors for the sim → presentation event channels.
+    // Helpers append messages as the gameplay loop runs; we drain into the
+    // MessageWriters at every return point so the audio/fx/physics-debris
+    // subscribers see them this frame. Bevy 0.18 buffered events use the
+    // Message API (see feedback memory + ADR 0012).
     let mut sfx: Vec<SfxMessage> = Vec::new();
     let mut vfx: Vec<VfxMessage> = Vec::new();
+    let mut debris: Vec<DebrisBurstMessage> = Vec::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let physics_settings = runtime.physics_settings;
@@ -421,6 +426,7 @@ fn sandbox_update(
         reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
         event_writers.sfx.write_batch(sfx.drain(..));
         event_writers.vfx.write_batch(vfx.drain(..));
+        event_writers.debris.write_batch(debris.drain(..));
         return;
     } else {
         // Two-clock update:
@@ -444,6 +450,7 @@ fn sandbox_update(
             reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
             event_writers.sfx.write_batch(sfx.drain(..));
             event_writers.vfx.write_batch(vfx.drain(..));
+        event_writers.debris.write_batch(debris.drain(..));
             return;
         }
         handle_player_events(&mut sfx, &mut vfx, &mut runtime, control_events, None);
@@ -473,6 +480,7 @@ fn sandbox_update(
             reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
             event_writers.sfx.write_batch(sfx.drain(..));
             event_writers.vfx.write_batch(vfx.drain(..));
+        event_writers.debris.write_batch(debris.drain(..));
             return;
         }
         handle_player_events(&mut sfx, &mut vfx, &mut runtime, sim_events, Some(was_grounded));
@@ -507,12 +515,10 @@ fn sandbox_update(
     let feature_interaction_consumed = feature_events.consumed_interaction;
     let feature_damaged_player = !feature_events.player_damage.is_empty();
     handle_feature_events(
-        &mut commands,
-        &world.0,
         &mut sfx,
         &mut vfx,
+        &mut debris,
         &feature_events,
-        physics_settings,
         runtime.player.pos,
     );
     handle_player_heal_events(&mut runtime, &feature_events);
@@ -540,12 +546,14 @@ fn sandbox_update(
         next_mode.set(GameMode::Dialogue);
         event_writers.sfx.write_batch(sfx.drain(..));
         event_writers.vfx.write_batch(vfx.drain(..));
+        event_writers.debris.write_batch(debris.drain(..));
         return;
     }
     if feature_reset {
         reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
         event_writers.sfx.write_batch(sfx.drain(..));
         event_writers.vfx.write_batch(vfx.drain(..));
+        event_writers.debris.write_batch(debris.drain(..));
         return;
     }
 
@@ -569,21 +577,20 @@ fn sandbox_update(
             );
             event_writers.sfx.write_batch(sfx.drain(..));
             event_writers.vfx.write_batch(vfx.drain(..));
+        event_writers.debris.write_batch(debris.drain(..));
             return;
         }
     }
 
     if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
         process_attack(
-            &mut commands,
-            &world.0,
             &mut sfx,
             &mut vfx,
+            &mut debris,
             &mut runtime,
             controls,
             tuning,
             feel,
-            physics_settings,
         );
     }
 
@@ -591,6 +598,7 @@ fn sandbox_update(
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
     event_writers.sfx.write_batch(sfx.drain(..));
     event_writers.vfx.write_batch(vfx.drain(..));
+        event_writers.debris.write_batch(debris.drain(..));
 }
 
 fn handle_debug_hotkeys(
@@ -992,26 +1000,25 @@ fn handle_player_events(
 }
 
 fn handle_feature_events(
-    commands: &mut Commands,
-    world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    debris: &mut Vec<DebrisBurstMessage>,
     events: &features::FeatureEvents,
-    physics_settings: physics::PhysicsSandboxSettings,
     player_pos: ae::Vec2,
 ) {
     if events.reset_player {
         sfx.push(SfxMessage::Reset { pos: player_pos });
     }
-    // Avian2D debris spawning still goes through commands directly; Slice 3
-    // of the events refactor migrates it to a DebrisBurstMessage.
     for physics_burst in &events.physics_bursts {
         let cue = match physics_burst.cue {
             features::FeaturePhysicsCue::Breakable => physics::PhysicsDebrisCue::Breakable,
             features::FeaturePhysicsCue::EnemyRagdoll => physics::PhysicsDebrisCue::EnemyRagdoll,
             features::FeaturePhysicsCue::BossRagdoll => physics::PhysicsDebrisCue::BossRagdoll,
         };
-        physics::spawn_debris_burst(commands, world, physics_burst.pos, cue, physics_settings);
+        debris.push(DebrisBurstMessage {
+            pos: physics_burst.pos,
+            cue,
+        });
     }
     for &pos in &events.impacts {
         vfx.push(VfxMessage::Impact { pos });
@@ -1022,13 +1029,10 @@ fn handle_feature_events(
             color: [1.0, 0.34, 0.28, 0.88],
             kind: ParticleKind::Shard,
         });
-        physics::spawn_debris_burst(
-            commands,
-            world,
+        debris.push(DebrisBurstMessage {
             pos,
-            physics::PhysicsDebrisCue::Impact,
-            physics_settings,
-        );
+            cue: physics::PhysicsDebrisCue::Impact,
+        });
     }
     for &pos in &events.bursts {
         vfx.push(VfxMessage::Burst {
@@ -1194,15 +1198,13 @@ fn controls_for_hitstun(
 }
 
 fn process_attack(
-    commands: &mut Commands,
-    world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    debris: &mut Vec<DebrisBurstMessage>,
     runtime: &mut SandboxRuntime,
     controls: ControlFrame,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
-    physics_settings: physics::PhysicsSandboxSettings,
 ) {
     if !runtime.player.abilities.attack {
         return;
@@ -1222,15 +1224,7 @@ fn process_attack(
         .messages
         .iter()
         .any(|message| message.contains("defeated"));
-    handle_feature_events(
-        commands,
-        world,
-        sfx,
-        vfx,
-        &feature_events,
-        physics_settings,
-        player_pos,
-    );
+    handle_feature_events(sfx, vfx, debris, &feature_events, player_pos);
 
     if landed {
         sfx.push(SfxMessage::Hit { pos: player_pos });

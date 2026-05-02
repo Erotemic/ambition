@@ -17,6 +17,10 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+TOOLS_DIR = Path(__file__).resolve().parent
+DEFAULT_SCHEMA_PATH = TOOLS_DIR / "schemas" / "ldtk" / "JSON_SCHEMA.json"
+OFFICIAL_SCHEMA_URL = "https://ldtk.io/files/JSON_SCHEMA.json"
+
 KNOWN_ENTITIES = {
     "PlayerStart",
     "Solid",
@@ -40,6 +44,96 @@ KNOWN_ENTITIES = {
 }
 GRID = 16
 AMBITION_LAYER = "Ambition"
+
+FIRST_CLASS_FIELD_DEF_FIELDS = [
+    "allowOutOfLevelRef",
+    "allowedRefTags",
+    "allowedRefs",
+    "autoChainRef",
+    "editorDisplayScale",
+    "editorLinkStyle",
+    "editorShowInWorld",
+    "exportToToc",
+    "searchable",
+    "symmetricalRef",
+]
+
+FIELD_DEF_TYPE_BY_HUMAN_TYPE = {
+    "Int": "F_Int",
+    "Float": "F_Float",
+    "String": "F_String",
+    "Text": "F_Text",
+    "Bool": "F_Bool",
+    "Color": "F_Color",
+    "Point": "F_Point",
+    "Path": "F_Path",
+    "EntityRef": "F_EntityRef",
+    "Tile": "F_Tile",
+}
+
+FIELD_DEF_EDITOR_DEFAULTS = {
+    "acceptFileTypes": None,
+    "allowOutOfLevelRef": False,
+    "allowedRefTags": [],
+    "allowedRefs": "Any",
+    "allowedRefsEntityUid": None,
+    "arrayMaxLength": None,
+    "arrayMinLength": None,
+    "autoChainRef": True,
+    "canBeNull": True,
+    "defaultOverride": None,
+    "doc": None,
+    "editorAlwaysShow": False,
+    "editorCutLongValues": True,
+    "editorDisplayColor": None,
+    "editorDisplayMode": "NameAndValue",
+    "editorDisplayPos": "Above",
+    "editorDisplayScale": 1,
+    "editorLinkStyle": "StraightArrow",
+    "editorShowInWorld": False,
+    "editorTextPrefix": None,
+    "editorTextSuffix": None,
+    "exportToToc": False,
+    "isArray": False,
+    "max": None,
+    "min": None,
+    "regex": None,
+    "searchable": False,
+    "symmetricalRef": False,
+    "textLanguageMode": None,
+    "tilesetUid": None,
+    "useForSmartColor": False,
+}
+
+ENTITY_DEF_EDITOR_DEFAULTS = {
+    "allowOutOfBounds": False,
+    "doc": None,
+    "exportToToc": False,
+    "fillOpacity": 0.35,
+    "hollow": False,
+    "keepAspectRatio": False,
+    "limitBehavior": "DiscardOldOnes",
+    "limitScope": "PerLevel",
+    "lineOpacity": 1.0,
+    "maxCount": 0,
+    "maxHeight": 0,
+    "maxWidth": 0,
+    "minHeight": 0,
+    "minWidth": 0,
+    "nineSliceBorders": [],
+    "pivotX": 0.0,
+    "pivotY": 0.0,
+    "renderMode": "Rectangle",
+    "resizableX": True,
+    "resizableY": True,
+    "showName": True,
+    "tags": [],
+    "tileOpacity": 1.0,
+    "tileRect": None,
+    "tileRenderMode": "Cover",
+    "tilesetId": None,
+    "uiTileRect": None,
+}
 
 
 def field_value(fields, name, default=None):
@@ -144,14 +238,14 @@ def validate_official_schema(project, schema_path: Path | None, require_schema: 
     errors = []
     warnings = []
     if schema_path is None:
-        default_schema = Path("tools/schemas/ldtk/JSON_SCHEMA.json")
+        default_schema = DEFAULT_SCHEMA_PATH
         if default_schema.exists():
             schema_path = default_schema
         else:
             if require_schema:
                 errors.append(
-                    "official LDtk JSON schema not checked; pass --schema tools/schemas/ldtk/JSON_SCHEMA.json "
-                    "after installing python package `jsonschema`"
+                    f"official LDtk JSON schema not checked; fetch {OFFICIAL_SCHEMA_URL} to {DEFAULT_SCHEMA_PATH} "
+                    "and install python package `jsonschema`"
                 )
             return errors, warnings
     try:
@@ -198,6 +292,106 @@ def normalize_editor_values(project):
             for entity in layer.get("entityInstances") or []:
                 normalize_fields(entity.get("fieldInstances") or [])
     return changed
+
+
+def _set_if_missing(mapping, key, value):
+    if key not in mapping:
+        if isinstance(value, list):
+            value = list(value)
+        mapping[key] = value
+        return True
+    return False
+
+
+def normalize_field_def(field_def):
+    changes = []
+    identifier = field_def.get("identifier", "<unnamed>")
+    for key, value in FIELD_DEF_EDITOR_DEFAULTS.items():
+        if _set_if_missing(field_def, key, value):
+            changes.append(f"fieldDef {identifier}: added {key}")
+    human_type = field_def.get("__type")
+    if human_type is None and isinstance(field_def.get("type"), str):
+        inverse = {value: key for key, value in FIELD_DEF_TYPE_BY_HUMAN_TYPE.items()}
+        human_type = inverse.get(field_def.get("type"))
+        if human_type:
+            field_def["__type"] = human_type
+            changes.append(f"fieldDef {identifier}: restored __type={human_type}")
+    expected_type = FIELD_DEF_TYPE_BY_HUMAN_TYPE.get(human_type)
+    if expected_type and field_def.get("type") != expected_type:
+        field_def["type"] = expected_type
+        changes.append(f"fieldDef {identifier}: set type={expected_type}")
+    return changes
+
+
+def normalize_definitions_for_editor(project):
+    changes = []
+    defs = project.setdefault("defs", {})
+    for field_def in defs.get("levelFields") or []:
+        changes.extend(normalize_field_def(field_def))
+    for entity_def in defs.get("entities") or []:
+        identifier = entity_def.get("identifier", "<unnamed>")
+        for key, value in ENTITY_DEF_EDITOR_DEFAULTS.items():
+            if _set_if_missing(entity_def, key, value):
+                changes.append(f"entityDef {identifier}: added {key}")
+        for field_def in entity_def.get("fieldDefs") or []:
+            changes.extend(normalize_field_def(field_def))
+    return changes
+
+
+def sync_instance_definition_uids(project):
+    changes = []
+    defs = project.get("defs") or {}
+    entity_defs = {entity.get("identifier"): entity for entity in defs.get("entities") or []}
+    entity_field_defs = {
+        identifier: {field.get("identifier"): field for field in (entity.get("fieldDefs") or [])}
+        for identifier, entity in entity_defs.items()
+    }
+    level_field_defs = {field.get("identifier"): field for field in defs.get("levelFields") or []}
+
+    def sync_field_instances(fields, field_defs, owner):
+        for field in fields or []:
+            field_ident = field.get("__identifier")
+            field_def = field_defs.get(field_ident)
+            if not field_def:
+                continue
+            expected_uid = field_def.get("uid")
+            if expected_uid is not None and field.get("defUid") != expected_uid:
+                field["defUid"] = expected_uid
+                changes.append(f"{owner}.{field_ident}: set defUid={expected_uid}")
+            expected_type = field_def.get("__type")
+            if expected_type and field.get("__type") != expected_type:
+                field["__type"] = expected_type
+                changes.append(f"{owner}.{field_ident}: set __type={expected_type}")
+
+    for level in project.get("levels") or []:
+        level_name = level.get("identifier", "<unnamed-level>")
+        sync_field_instances(level.get("fieldInstances") or [], level_field_defs, f"level {level_name}")
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances") or []:
+                ident = entity.get("__identifier")
+                entity_def = entity_defs.get(ident)
+                owner = f"entity {level_name}/{ident}/{entity.get('iid', '<no-iid>')}"
+                if entity_def and entity_def.get("uid") is not None and entity.get("defUid") != entity_def.get("uid"):
+                    entity["defUid"] = entity_def.get("uid")
+                    changes.append(f"{owner}: set defUid={entity_def.get('uid')}")
+                sync_field_instances(entity.get("fieldInstances") or [], entity_field_defs.get(ident, {}), owner)
+    return changes
+
+
+def normalize_project_for_editor(project):
+    """Normalize generated/agent-patched LDtk JSON for LDtk GUI round-trips.
+
+    This intentionally avoids inventing gameplay values. It only repairs editor
+    representation fields, internal type constructors, and definition UIDs that
+    can be derived from existing definitions and parser-facing values.
+    """
+    changes = []
+    changes.extend(normalize_definitions_for_editor(project))
+    changes.extend(sync_instance_definition_uids(project))
+    editor_value_count = normalize_editor_values(project)
+    if editor_value_count:
+        changes.append(f"normalized {editor_value_count} field instance realEditorValues records")
+    return changes
 
 def validate(path: Path, schema_path: Path | None = None, require_schema: bool = False):
     errors = []
@@ -260,38 +454,15 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
         field_def.get("identifier"): field_def.get("uid")
         for field_def in defs.get("levelFields") or []
     }
+    missing_known_defs = sorted(KNOWN_ENTITIES - entity_defs)
+    if missing_known_defs:
+        errors.append("defs.entities is missing editor definitions for supported Ambition entities: " + ", ".join(missing_known_defs))
     missing_defs = sorted(KNOWN_ENTITIES.intersection({entity for level in levels for layer in (level.get("layerInstances") or []) for entity in [inst.get("__identifier") for inst in (layer.get("entityInstances") or [])] if entity}) - entity_defs)
     if missing_defs:
         errors.append("defs.entities is missing definitions for used Ambition entities: " + ", ".join(missing_defs))
-    first_class_field_def_fields = [
-        "allowOutOfLevelRef",
-        "allowedRefTags",
-        "allowedRefs",
-        "autoChainRef",
-        "editorDisplayScale",
-        "editorLinkStyle",
-        "editorShowInWorld",
-        "exportToToc",
-        "searchable",
-        "symmetricalRef",
-    ]
-
-    field_def_type_by_human_type = {
-        "Int": "F_Int",
-        "Float": "F_Float",
-        "String": "F_String",
-        "Text": "F_Text",
-        "Bool": "F_Bool",
-        "Color": "F_Color",
-        "Point": "F_Point",
-        "Path": "F_Path",
-        "EntityRef": "F_EntityRef",
-        "Tile": "F_Tile",
-    }
-
     def validate_field_def_shape(owner, field_def):
         field_name = f"{owner}.{field_def.get('identifier')}"
-        for required in first_class_field_def_fields:
+        for required in FIRST_CLASS_FIELD_DEF_FIELDS:
             if required not in field_def:
                 errors.append(f"field definition {field_name} is missing first-class LDtk field {required!r}")
         allowed_refs = field_def.get("allowedRefs")
@@ -299,7 +470,7 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
             errors.append(f"field definition {field_name} has invalid allowedRefs {allowed_refs!r}")
         human_type = field_def.get("__type")
         internal_type = field_def.get("type")
-        expected_internal_type = field_def_type_by_human_type.get(human_type)
+        expected_internal_type = FIELD_DEF_TYPE_BY_HUMAN_TYPE.get(human_type)
         if expected_internal_type is not None and internal_type != expected_internal_type:
             errors.append(
                 f"field definition {field_name} has type {internal_type!r}; expected {expected_internal_type!r} "
@@ -535,18 +706,27 @@ def main(argv=None):
     parser.add_argument(
         "--normalize-editor-values",
         action="store_true",
-        help="Rewrite realEditorValues from __value before validating so LDtk 1.5.3 preserves generated field values on editor save",
+        help="Rewrite editor-facing LDtk metadata from parser-facing values before validating",
+    )
+    parser.add_argument(
+        "--repair-editor-roundtrip",
+        action="store_true",
+        help="Alias for --normalize-editor-values; kept for level-design workflow readability",
     )
     args = parser.parse_args(argv)
-    if args.normalize_editor_values:
+    if args.normalize_editor_values or args.repair_editor_roundtrip:
         try:
             project = json.loads(args.path.read_text())
-            changed = normalize_editor_values(project)
-            if changed:
+            changes = normalize_project_for_editor(project)
+            if changes:
                 args.path.write_text(json.dumps(project, indent=2) + "\n")
-                print(f"normalized {changed} field instance editor value records in {args.path}", file=sys.stderr)
+                print(f"repaired {len(changes)} LDtk editor-roundtrip issue(s) in {args.path}", file=sys.stderr)
+                for change in changes[:20]:
+                    print(f"  - {change}", file=sys.stderr)
+                if len(changes) > 20:
+                    print(f"  ... {len(changes) - 20} more", file=sys.stderr)
         except Exception as ex:  # noqa: BLE001
-            print(f"error: failed to normalize editor values: {ex}", file=sys.stderr)
+            print(f"error: failed to repair editor-roundtrip values: {ex}", file=sys.stderr)
             return 1
     errors, warnings = validate(args.path, args.schema, args.require_schema)
     for warning in warnings:

@@ -140,3 +140,11 @@ The old RON-shaped room manifest is no longer part of the sandbox runtime path. 
 Generated or agent-patched LDtk files must populate `fieldInstances[*].realEditorValues` alongside the parser-friendly `__value` field. LDtk game/runtime documentation says game code can ignore `realEditorValues`, but the LDtk editor uses it as its raw editable representation when a level is opened and saved. If non-null `__value` fields have empty `realEditorValues`, moving an entity in the editor can cause the edited level to be saved with null custom fields.
 
 Ambition treats this as an authoring error. The validator rejects non-null field values with empty `realEditorValues`, and `tools/validate_ambition_ldtk.py --normalize-editor-values` can rewrite editor values from existing `__value` data before an editor round-trip. This cannot recover fields after the editor has already saved them as null; use the last known-good LDtk file or a patch that restores those values.
+
+## Editor-native definitions and tooling
+
+The LDtk project now includes definitions for every currently supported Ambition entity identifier, including editor-only markers such as `CameraZone` and `StitchedBoundary`. Entity definitions have colors, docs, default field values, and editor-visible field metadata so designers can add supported Ambition entities from the LDtk UI instead of hand-editing JSON.
+
+Use `tools/repair_ambition_ldtk.py` to normalize generated or agent-patched LDtk files before editor use, and `tools/check_ldtk_editor_roundtrip.py` to verify a file is ready for GUI editing without mutating it. Official LDtk schema validation is available through Python `jsonschema` when `tools/schemas/ldtk/JSON_SCHEMA.json` has been fetched with `tools/fetch_ldtk_schema.py`.
+
+See `docs/ldtk_authoring.md` for the level-design workflow and supported entity fields.

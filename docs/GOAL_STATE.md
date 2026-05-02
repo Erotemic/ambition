@@ -177,3 +177,8 @@ persistence policy, and reload reconciliation.
 Ambition is moving from a custom LDtk JSON adapter toward `bevy_ecs_ldtk` as the runtime spine. The sandbox now registers every current Ambition LDtk entity identifier as a lightweight plugin-spawned marker bundle, keeps the LDtk world root active, disables LDtk level-background rendering, and records plugin-spawned entity lifecycle in HUD/debug state. LDtk-derived world data now builds runtime `RoomSet` data directly through `RoomSet::from_parts`; the long-term goal is to consume plugin-spawned LDtk entities for more categories and shrink custom JSON parsing.
 
 Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `tools/validate_ambition_ldtk.py` supports optional `--schema` and `--require-schema` flags while continuing to run Ambition-specific semantic validation without the schema file.
+
+
+## LDtk editor-native product goal
+
+LDtk should feel like a first-class editor for Ambition, not a fragile generated JSON artifact. Supported Ambition entities should have native LDtk definitions with useful colors, docs, defaults, and stable identifiers. The professional workflow should be: repair/check generated files, edit in LDtk, validate with Ambition plus optional official LDtk schema validation through Python `jsonschema`, and hot-reload safely into the sandbox.

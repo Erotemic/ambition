@@ -194,3 +194,8 @@ LDtk is now the only checked-in sandbox world definition, and startup / hot-relo
 A user edited `sandbox.ldtk` in LDtk 1.5.3 by moving existing entities, and LDtk saved the touched hub levels with null custom fields because generated field instances had parser-facing `__value` values but empty `realEditorValues`. The repaired sandbox LDtk file now includes editor values for all non-null field instances. The validator now rejects this lossy shape and supports `--normalize-editor-values` to fill editor values from existing `__value` data before opening the file in LDtk.
 
 The repaired map preserves the intended NPC move and the lower-door horizontal move, removes an accidental empty 1x1 `LoadingZone`, and lifts the lower-door trigger slightly so transition arrival no longer intersects the hub floor.
+
+
+## LDtk editor-native tooling
+
+The LDtk workflow now has dedicated Python tools: `tools/repair_ambition_ldtk.py` repairs generated/agent-patched editor metadata, `tools/check_ldtk_editor_roundtrip.py` verifies the file is editor-roundtrip clean without mutating it, and `tools/fetch_ldtk_schema.py` fetches the official LDtk JSON Schema for optional Python `jsonschema` validation. The sandbox LDtk project now defines all supported Ambition entity identifiers, including `CameraZone` and `StitchedBoundary`, with colors/docs/default fields so supported objects can be added from the LDtk editor. See `docs/ldtk_authoring.md`.

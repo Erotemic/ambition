@@ -115,3 +115,14 @@ python tools/validate_ambition_ldtk.py --normalize-editor-values crates/ambition
 ```
 
 Then open the file in LDtk, save, and re-run the validator. Any `LoadingZone` or `DebugLabel` missing required fields must be fixed before running the sandbox.
+
+## Editor round-trip tooling
+
+Use dedicated tooling before and after LDtk GUI edits:
+
+```bash
+python tools/repair_ambition_ldtk.py --in-place crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+python tools/check_ldtk_editor_roundtrip.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+```
+
+`repair_ambition_ldtk.py` rewrites editor-facing metadata that can be derived from existing definitions and parser-facing values. `check_ldtk_editor_roundtrip.py` is non-mutating and fails if repair would change the file. This helps catch the class of bugs where LDtk preserves runtime `__value` data poorly because generated `realEditorValues` or definition metadata are incomplete.

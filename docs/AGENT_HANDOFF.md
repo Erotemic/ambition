@@ -215,3 +215,8 @@ python tools/validate_ambition_ldtk.py crates/ambition_sandbox/assets/ambition/w
 ```
 
 Startup should not use `.expect()` on LDtk room construction. If the embedded LDtk file is invalid, print all validator errors and exit nonzero; hot reload should continue to reject invalid edits while preserving the live world.
+
+
+## LDtk authoring tooling rule
+
+Before handing a generated or patched `.ldtk` file to the user for LDtk GUI editing, run `python tools/repair_ambition_ldtk.py --in-place crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk` and then `python tools/check_ldtk_editor_roundtrip.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`. Use Python `jsonschema` only for official LDtk schema validation; do not add npm/Node validation tooling. If a new Ambition LDtk entity is introduced, add an LDtk entity definition with docs/colors/default field values, register it with `bevy_ecs_ldtk`, update the validator, and update `docs/ldtk_authoring.md`.

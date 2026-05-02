@@ -1,32 +1,31 @@
 //! Headless simulation entry point.
 //!
-//! Phase 1 of the headless/RL track. Runs the sandbox simulation systems on a
-//! Bevy `App` built from `MinimalPlugins` plus the asset/state foundations that
-//! the runtime-spine systems need, with no windowing, rendering, audio, or
-//! input plugins. This validates that:
+//! Slice 5 of ADR 0012's events refactor: `run_headless` now drives the
+//! actual gameplay loop (`sandbox_update` and friends) by calling the
+//! shared `crate::app::add_simulation_plugins`. The visible binary's
+//! `crate::app::run_visible` calls the same helper plus
+//! `add_presentation_plugins`. Headless skips the presentation half so
+//! audio, VFX, debris, HUD, and inspector plugins are absent — the
+//! sim emits messages into the queue and the queue drains harmlessly.
 //!
-//! * the embedded LDtk world parses and validates,
-//! * the runtime `RoomSet` and `LdtkRuntimeIndex` construct from LDtk,
-//! * the runtime-spine systems compile and tick on a no-display machine.
-//!
-//! Phase 1 deliberately does **not** call `sandbox_update`, which still wires
-//! audio, particle, physics-debris, and HUD side effects directly. Once the
-//! sim/presentation events refactor lands, the same sim systems become
-//! callable headless and the gameplay loop can run here for RL training and
-//! CI smoke tests.
-//!
-//! It also does **not** install `bevy_ecs_ldtk::LdtkPlugin`, because that
-//! plugin's tile-rendering pipeline depends on Bevy's image/render plugins.
-//! Without LDtk-spawned entities the runtime-spine systems run as no-ops and
-//! the `HeadlessReport` reflects zero spawned entities — which is the correct
-//! Phase 1 outcome (the goal here is "no panic," not "RL-ready").
+//! Phase 1 (the original `run_headless` shape) only ticked the LDtk
+//! runtime-spine systems; this Phase 2 version runs the full gameplay
+//! loop including movement, collision, and the typed-event channels.
+//! `LdtkPlugin` is now installed by `add_simulation_plugins`; if its
+//! tile-rendering pipeline ever requires the render plugins we'll
+//! revisit by gating it or by promoting more LDtk entity categories
+//! to direct Ambition ECS spawns (per the LDtk runtime-spine roadmap).
 
 use std::fmt;
 
 use bevy::asset::AssetPlugin;
+use bevy::image::ImagePlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
+use bevy::time::TimePlugin;
+use bevy::transform::TransformPlugin;
 
+use crate::app::{add_simulation_plugins, init_sandbox_resources};
 use crate::game_mode::GameMode;
 use crate::ldtk_world;
 use crate::rooms::RoomSet;
@@ -62,10 +61,19 @@ impl fmt::Display for HeadlessReport {
 
 /// Run the sandbox simulation headless for `max_ticks` Bevy `Update` cycles.
 ///
-/// Returns a `HeadlessReport`. Validation failures from the embedded LDtk
-/// project propagate as `Err`, matching the production policy that an invalid
-/// LDtk file should be a hard error rather than a `.expect()` panic.
+/// Builds an `App` from `MinimalPlugins` plus the small set of Bevy
+/// foundation plugins the sim's resources / assets / states / transforms
+/// need, then composes `init_sandbox_resources` and
+/// `add_simulation_plugins` from `crate::app`. Calls `app.update()`
+/// `max_ticks` times and returns a `HeadlessReport`.
+///
+/// Validation failures from the embedded LDtk project propagate as `Err`,
+/// matching the production policy that an invalid LDtk file is a hard
+/// error rather than a `.expect()` panic.
 pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
+    // Validate the embedded LDtk file up front so we can return Err with a
+    // useful diagnostic. `init_sandbox_resources` does this too but exits
+    // the process on failure; tests want a structured error instead.
     let project = ldtk_world::LdtkProject::load_embedded();
     let report = project.validate();
     if !report.is_ok() {
@@ -75,34 +83,30 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
             report.errors.len()
         ));
     }
-    let room_set = project.to_room_set().map_err(|errors| errors.join("; "))?;
-    let active_room = room_set.active_spec().id.clone();
-    let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(&project, active_room);
-    let room_count = room_set.rooms.len();
+    if let Err(errors) = project.to_room_set() {
+        return Err(errors.join("; "));
+    }
+    let room_count = project
+        .to_room_set()
+        .expect("just validated above")
+        .rooms
+        .len();
 
     let mut app = App::new();
+    // Minimal Bevy foundation: time/transform/state/asset/image registries.
+    // ImagePlugin is included because bevy_ecs_ldtk's tile spawning touches
+    // Image asset handles even when no rendering happens; without it the
+    // asset type is unregistered and LdtkPlugin panics during setup.
     app.add_plugins(MinimalPlugins);
     app.add_plugins(AssetPlugin::default());
+    app.add_plugins(ImagePlugin::default());
+    app.add_plugins(TransformPlugin);
     app.add_plugins(StatesPlugin);
     app.init_state::<GameMode>();
+    let _ = TimePlugin; // re-export reference; MinimalPlugins already adds it.
 
-    app.insert_resource(room_set);
-    app.insert_resource(ldtk_index);
-    app.insert_resource(ldtk_world::LdtkHotReloadState::from_current_file());
-    app.insert_resource(ldtk_world::LdtkRuntimeSpineStats::default());
-    app.insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default());
-    app.insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default());
-
-    app.add_systems(
-        Update,
-        (
-            ldtk_world::poll_ldtk_file_changes,
-            ldtk_world::sync_plugin_spawned_ambition_entities,
-            ldtk_world::rebuild_ldtk_runtime_spine_index,
-            ldtk_world::rebuild_ldtk_runtime_solid_index,
-        )
-            .chain(),
-    );
+    init_sandbox_resources(&mut app);
+    add_simulation_plugins(&mut app);
 
     for _ in 0..max_ticks {
         app.update();

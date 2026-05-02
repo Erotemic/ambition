@@ -29,6 +29,7 @@ pub mod rendering;
 pub mod rooms;
 pub mod windowing;
 
+pub mod app;
 pub mod headless;
 pub mod setup;
 

@@ -18,7 +18,6 @@
 use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
-use bevy_ecs_ldtk::prelude::LdtkWorldBundle;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::audio::{play_ambience, SoundBank};
@@ -26,7 +25,7 @@ use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
 use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::input::SandboxAction;
-use crate::ldtk_world::{self, LdtkRuntimeIndex, SandboxLdtkAsset, SandboxLdtkWorldRoot};
+use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::loading::SandboxAssetCollection;
 use crate::physics::PhysicsSandboxSettings;
 use crate::platforms;
@@ -106,22 +105,15 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     for warning in room_set.layout_warnings() {
         eprintln!("room layout warning: {warning}");
     }
-
-    let ldtk_handle = ldtk_asset
-        .map(|asset| asset.0.clone())
-        .or_else(|| sandbox_asset_collection.map(|collection| collection.ldtk_project.clone()))
-        .unwrap_or_else(|| asset_server.load(ldtk_world::SANDBOX_LDTK_ASSET));
-    commands.spawn((
-        LdtkWorldBundle {
-            ldtk_handle: ldtk_handle.into(),
-            level_set: ldtk_index.level_set_for(&room_set.active_spec().id),
-            // AMBITION_REVIEW(spatial): migrate each registered marker from
-            // adapter-driven semantics to direct Ambition components.
-            ..default()
-        },
-        SandboxLdtkWorldRoot,
-        Name::new("LDtk Runtime Spine Root"),
-    ));
+    // The LdtkWorldBundle spawn lives in the Ldtk-runtime startup system
+    // (`crate::app::add_ldtk_runtime_plugin`) because asset_server.load on a
+    // typed `LdtkProject` handle requires `LdtkPlugin` to be registered.
+    // Headless builds skip LdtkPlugin (its tile pipeline needs RenderApp),
+    // so this function must not assume the LDtk asset type is available.
+    // Suppress the unused-binding warnings until follow-up patches retire
+    // the `ldtk_asset` / `ldtk_index` / `asset_server` params or move them.
+    let _ = (ldtk_asset, asset_server);
+    let _ = ldtk_index;
 
     let runtime = SandboxRuntime::new(
         &world.0,

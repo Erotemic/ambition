@@ -97,7 +97,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -112,8 +112,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -175,7 +175,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -190,8 +190,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -253,7 +253,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -268,8 +268,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "id",
@@ -541,7 +541,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -556,8 +556,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -619,7 +619,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -634,8 +634,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -739,7 +739,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -754,8 +754,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -817,7 +817,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -832,8 +832,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -979,7 +979,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -994,8 +994,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -1141,7 +1141,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -1156,8 +1156,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -1261,7 +1261,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -1276,8 +1276,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -1339,7 +1339,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -1354,8 +1354,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -1429,7 +1429,7 @@
             "defaultOverride": {
               "id": "V_Float",
               "params": [
-                0.0
+                0
               ]
             },
             "textLanguageMode": null,
@@ -1471,7 +1471,7 @@
             "defaultOverride": {
               "id": "V_Float",
               "params": [
-                900.0
+                900
               ]
             },
             "textLanguageMode": null,
@@ -1501,7 +1501,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -1516,8 +1516,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -1591,7 +1591,7 @@
             "defaultOverride": {
               "id": "V_Float",
               "params": [
-                1.0
+                1
               ]
             },
             "textLanguageMode": null,
@@ -1675,7 +1675,7 @@
             "defaultOverride": {
               "id": "V_Float",
               "params": [
-                100.0
+                100
               ]
             },
             "textLanguageMode": null,
@@ -1747,7 +1747,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -1762,8 +1762,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -1879,7 +1879,7 @@
             "defaultOverride": {
               "id": "V_Float",
               "params": [
-                100.0
+                100
               ]
             },
             "textLanguageMode": null,
@@ -1951,7 +1951,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -1966,8 +1966,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -2071,7 +2071,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -2086,8 +2086,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -2161,7 +2161,7 @@
             "defaultOverride": {
               "id": "V_Float",
               "params": [
-                3.0
+                3
               ]
             },
             "textLanguageMode": null,
@@ -2275,7 +2275,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -2290,8 +2290,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -2395,7 +2395,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -2410,8 +2410,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "name",
@@ -2515,7 +2515,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -2530,8 +2530,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "id",
@@ -2677,7 +2677,7 @@
         "minHeight": null,
         "maxHeight": null,
         "keepAspectRatio": false,
-        "tileOpacity": 1.0,
+        "tileOpacity": 1,
         "fillOpacity": 0.35,
         "lineOpacity": 1,
         "hollow": false,
@@ -2692,8 +2692,8 @@
         "maxCount": 0,
         "limitScope": "PerLayer",
         "limitBehavior": "DiscardOldOnes",
-        "pivotX": 0.0,
-        "pivotY": 0.0,
+        "pivotX": 0,
+        "pivotY": 0,
         "fieldDefs": [
           {
             "identifier": "id",
@@ -2946,7 +2946,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#41D1FF",
               "iid": "PlayerStart-0001",
               "width": 28,
               "height": 46,
@@ -2987,7 +2987,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#6B7280",
               "iid": "Solid-0002",
               "width": 760,
               "height": 48,
@@ -3028,7 +3028,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#6B7280",
               "iid": "Solid-0003",
               "width": 760,
               "height": 48,
@@ -3069,7 +3069,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#6B7280",
               "iid": "Solid-0004",
               "width": 1900,
               "height": 24,
@@ -3110,7 +3110,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#6B7280",
               "iid": "Solid-0005-upper",
               "width": 36,
               "height": 764,
@@ -3151,7 +3151,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#6B7280",
               "iid": "Solid-0005-lower",
               "width": 36,
               "height": 24,
@@ -3192,7 +3192,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#6B7280",
               "iid": "Solid-0006-upper",
               "width": 36,
               "height": 764,
@@ -3233,7 +3233,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#6B7280",
               "iid": "Solid-0006-lower",
               "width": 36,
               "height": 24,
@@ -3274,7 +3274,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#FFD166",
               "iid": "LoadingZone-0007",
               "width": 30,
               "height": 176,
@@ -3390,7 +3390,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#FFD166",
               "iid": "LoadingZone-0008",
               "width": 30,
               "height": 176,
@@ -3497,8 +3497,8 @@
             {
               "__identifier": "LoadingZone",
               "__grid": [
-                55,
-                18
+                59,
+                21
               ],
               "__pivot": [
                 0,
@@ -3506,14 +3506,14 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#FFD166",
               "iid": "LoadingZone-0009",
-              "width": 120,
-              "height": 122,
+              "width": 48,
+              "height": 80,
               "defUid": 2002,
               "px": [
-                890,
-                300
+                946,
+                348
               ],
               "fieldInstances": [
                 {
@@ -3607,14 +3607,14 @@
                   ]
                 }
               ],
-              "__worldX": 890,
-              "__worldY": 300
+              "__worldX": 946,
+              "__worldY": 348
             },
             {
               "__identifier": "LoadingZone",
               "__grid": [
                 30,
-                52
+                55
               ],
               "__pivot": [
                 0,
@@ -3622,14 +3622,14 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#FFD166",
               "iid": "LoadingZone-0010",
-              "width": 64,
-              "height": 112,
+              "width": 48,
+              "height": 96,
               "defUid": 2002,
               "px": [
                 484,
-                840
+                880
               ],
               "fieldInstances": [
                 {
@@ -3724,7 +3724,7 @@
                 }
               ],
               "__worldX": 484,
-              "__worldY": 840
+              "__worldY": 880
             },
             {
               "__identifier": "OneWayPlatform",
@@ -3738,7 +3738,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#A4D65E",
               "iid": "OneWayPlatform-0011",
               "width": 500,
               "height": 18,
@@ -3779,7 +3779,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#A4D65E",
               "iid": "OneWayPlatform-0012",
               "width": 310,
               "height": 18,
@@ -3820,7 +3820,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#B388FF",
               "iid": "BlinkWall-0013",
               "width": 32,
               "height": 230,
@@ -3876,7 +3876,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#B388FF",
               "iid": "BlinkWall-0014",
               "width": 32,
               "height": 235,
@@ -3932,7 +3932,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#00D4FF",
               "iid": "PogoOrb-0015",
               "width": 36,
               "height": 36,
@@ -3973,7 +3973,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#A4D65E",
               "iid": "OneWayPlatform-0016",
               "width": 360,
               "height": 18,
@@ -4014,7 +4014,7 @@
               ],
               "__tags": [],
               "__tile": null,
-              "__smartColor": "#FFFFFF",
+              "__smartColor": "#FF9EEA",
               "iid": "NpcSpawn-0017",
               "width": 42,
               "height": 68,
@@ -4076,7 +4076,7 @@
             {
               "__identifier": "DebugLabel",
               "__grid": [
-                40,
+                41,
                 48
               ],
               "__pivot": [
@@ -4087,11 +4087,11 @@
               "__tile": null,
               "__smartColor": "#FFFFFF",
               "iid": "DebugLabel-0018",
-              "width": 620,
+              "width": 560,
               "height": 24,
               "defUid": 2007,
               "px": [
-                640,
+                668,
                 778
               ],
               "fieldInstances": [
@@ -4141,7 +4141,7 @@
                   ]
                 }
               ],
-              "__worldX": 640,
+              "__worldX": 668,
               "__worldY": 778
             },
             {
@@ -6703,7 +6703,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        570.0
+                        570
                       ]
                     }
                   ]
@@ -6717,7 +6717,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        -810.0
+                        -810
                       ]
                     }
                   ]
@@ -6768,7 +6768,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        -720.0
+                        -720
                       ]
                     }
                   ]
@@ -6782,7 +6782,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        -680.0
+                        -680
                       ]
                     }
                   ]
@@ -6833,7 +6833,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        760.0
+                        760
                       ]
                     }
                   ]
@@ -6847,7 +6847,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        240.0
+                        240
                       ]
                     }
                   ]
@@ -7111,7 +7111,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        630.0
+                        630
                       ]
                     }
                   ]
@@ -7125,7 +7125,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        -720.0
+                        -720
                       ]
                     }
                   ]
@@ -7232,12 +7232,6 @@
       "useAutoIdentifier": false
     },
     {
-      "__bgColor": "#20242f",
-      "__bgPos": null,
-      "__neighbours": [],
-      "bgColor": null,
-      "bgPivotX": 0.5,
-      "bgPivotY": 0.5,
       "identifier": "vertical_shaft",
       "iid": "vertical_shaft-1290",
       "uid": 1291,
@@ -7246,12 +7240,22 @@
       "worldDepth": 0,
       "pxWid": 1000,
       "pxHei": 2400,
+      "__bgColor": "#20242F",
+      "bgColor": null,
+      "useAutoIdentifier": false,
+      "bgRelPath": null,
+      "bgPos": null,
+      "bgPivotX": 0.5,
+      "bgPivotY": 0.5,
+      "__smartColor": "#84878D",
+      "__bgPos": null,
       "externalRelPath": null,
       "fieldInstances": [
         {
           "__identifier": "activeArea",
           "__type": "String",
           "__value": "vertical_shaft",
+          "__tile": null,
           "defUid": 4000,
           "realEditorValues": [
             {
@@ -7266,35 +7270,55 @@
       "layerInstances": [
         {
           "__identifier": "Ambition",
-          "__cHei": 150,
+          "__type": "Entities",
           "__cWid": 63,
+          "__cHei": 150,
           "__gridSize": 16,
           "__opacity": 1,
           "__pxTotalOffsetX": 0,
           "__pxTotalOffsetY": 0,
           "__tilesetDefUid": null,
           "__tilesetRelPath": null,
+          "iid": "Ambition-1293",
+          "levelId": 1291,
+          "layerDefUid": 1070,
+          "pxOffsetX": 0,
+          "pxOffsetY": 0,
+          "visible": true,
+          "optionalRules": [],
+          "intGridCsv": [],
           "autoLayerTiles": [],
+          "seed": 0,
+          "overrideTilesetUid": null,
+          "gridTiles": [],
           "entityInstances": [
             {
-              "iid": "PlayerStart-0073",
-              "defUid": 2000,
               "__identifier": "PlayerStart",
               "__grid": [
-                30,
-                142
+                31,
+                143
               ],
               "__pivot": [
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#41D1FF",
+              "iid": "PlayerStart-0073",
+              "width": 28,
+              "height": 46,
+              "defUid": 2000,
+              "px": [
+                502,
+                2298
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft_start",
+                  "__tile": null,
                   "defUid": 3000,
                   "realEditorValues": [
                     {
@@ -7306,16 +7330,10 @@
                   ]
                 }
               ],
-              "height": 46,
-              "width": 28,
-              "px": [
-                486,
-                2282
-              ]
+              "__worldX": 502,
+              "__worldY": -310
             },
             {
-              "iid": "Solid-0074",
-              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -7325,13 +7343,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#6B7280",
+              "iid": "Solid-0074",
+              "width": 1000,
+              "height": 24,
+              "defUid": 2001,
+              "px": [
+                0,
+                0
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "ceiling",
+                  "__tile": null,
                   "defUid": 3001,
                   "realEditorValues": [
                     {
@@ -7343,16 +7371,10 @@
                   ]
                 }
               ],
-              "height": 24,
-              "width": 1000,
-              "px": [
-                0,
-                0
-              ]
+              "__worldX": 0,
+              "__worldY": -2608
             },
             {
-              "iid": "Solid-0075",
-              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -7362,13 +7384,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#6B7280",
+              "iid": "Solid-0075",
+              "width": 1000,
+              "height": 48,
+              "defUid": 2001,
+              "px": [
+                0,
+                2352
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "floor",
+                  "__tile": null,
                   "defUid": 3001,
                   "realEditorValues": [
                     {
@@ -7380,16 +7412,10 @@
                   ]
                 }
               ],
-              "height": 48,
-              "width": 1000,
-              "px": [
-                0,
-                2352
-              ]
+              "__worldX": 0,
+              "__worldY": -256
             },
             {
-              "iid": "Solid-0076",
-              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 0,
@@ -7399,13 +7425,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#6B7280",
+              "iid": "Solid-0076",
+              "width": 36,
+              "height": 2400,
+              "defUid": 2001,
+              "px": [
+                0,
+                0
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "left wall",
+                  "__tile": null,
                   "defUid": 3001,
                   "realEditorValues": [
                     {
@@ -7417,16 +7453,10 @@
                   ]
                 }
               ],
-              "height": 2400,
-              "width": 36,
-              "px": [
-                0,
-                0
-              ]
+              "__worldX": 0,
+              "__worldY": -2608
             },
             {
-              "iid": "Solid-0077",
-              "defUid": 2001,
               "__identifier": "Solid",
               "__grid": [
                 60,
@@ -7436,13 +7466,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#6B7280",
+              "iid": "Solid-0077",
+              "width": 36,
+              "height": 2400,
+              "defUid": 2001,
+              "px": [
+                964,
+                0
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "right wall",
+                  "__tile": null,
                   "defUid": 3001,
                   "realEditorValues": [
                     {
@@ -7454,32 +7494,36 @@
                   ]
                 }
               ],
-              "height": 2400,
-              "width": 36,
-              "px": [
-                964,
-                0
-              ]
+              "__worldX": 964,
+              "__worldY": -2608
             },
             {
-              "iid": "LoadingZone-0078",
-              "defUid": 2002,
               "__identifier": "LoadingZone",
               "__grid": [
                 27,
-                138
+                142
               ],
               "__pivot": [
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#FFD166",
+              "iid": "LoadingZone-0078",
+              "width": 48,
+              "height": 80,
+              "defUid": 2002,
+              "px": [
+                438,
+                2272
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "id",
                   "__type": "String",
                   "__value": "bottom_door",
+                  "__tile": null,
                   "defUid": 3002,
                   "realEditorValues": [
                     {
@@ -7494,6 +7538,7 @@
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "to central hub",
+                  "__tile": null,
                   "defUid": 3003,
                   "realEditorValues": [
                     {
@@ -7508,6 +7553,7 @@
                   "__identifier": "activation",
                   "__type": "String",
                   "__value": "Door",
+                  "__tile": null,
                   "defUid": 3004,
                   "realEditorValues": [
                     {
@@ -7522,6 +7568,7 @@
                   "__identifier": "target_room",
                   "__type": "String",
                   "__value": "central_hub_complex",
+                  "__tile": null,
                   "defUid": 3005,
                   "realEditorValues": [
                     {
@@ -7536,6 +7583,7 @@
                   "__identifier": "target_zone",
                   "__type": "String",
                   "__value": "upper_door",
+                  "__tile": null,
                   "defUid": 3006,
                   "realEditorValues": [
                     {
@@ -7550,6 +7598,7 @@
                   "__identifier": "bidirectional",
                   "__type": "Bool",
                   "__value": false,
+                  "__tile": null,
                   "defUid": 3007,
                   "realEditorValues": [
                     {
@@ -7561,16 +7610,10 @@
                   ]
                 }
               ],
-              "height": 142,
-              "width": 124,
-              "px": [
-                438,
-                2210
-              ]
+              "__worldX": 438,
+              "__worldY": -336
             },
             {
-              "iid": "OneWayPlatform-0079",
-              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 8,
@@ -7580,13 +7623,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#A4D65E",
+              "iid": "OneWayPlatform-0079",
+              "width": 290,
+              "height": 18,
+              "defUid": 2003,
+              "px": [
+                130,
+                2090
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 1",
+                  "__tile": null,
                   "defUid": 3008,
                   "realEditorValues": [
                     {
@@ -7598,16 +7651,10 @@
                   ]
                 }
               ],
-              "height": 18,
-              "width": 290,
-              "px": [
-                130,
-                2090
-              ]
+              "__worldX": 130,
+              "__worldY": -518
             },
             {
-              "iid": "OneWayPlatform-0080",
-              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 35,
@@ -7617,13 +7664,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#A4D65E",
+              "iid": "OneWayPlatform-0080",
+              "width": 270,
+              "height": 18,
+              "defUid": 2003,
+              "px": [
+                570,
+                1810
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 2",
+                  "__tile": null,
                   "defUid": 3008,
                   "realEditorValues": [
                     {
@@ -7635,16 +7692,10 @@
                   ]
                 }
               ],
-              "height": 18,
-              "width": 270,
-              "px": [
-                570,
-                1810
-              ]
+              "__worldX": 570,
+              "__worldY": -798
             },
             {
-              "iid": "OneWayPlatform-0081",
-              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 9,
@@ -7654,13 +7705,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#A4D65E",
+              "iid": "OneWayPlatform-0081",
+              "width": 250,
+              "height": 18,
+              "defUid": 2003,
+              "px": [
+                150,
+                1510
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 3",
+                  "__tile": null,
                   "defUid": 3008,
                   "realEditorValues": [
                     {
@@ -7672,16 +7733,10 @@
                   ]
                 }
               ],
-              "height": 18,
-              "width": 250,
-              "px": [
-                150,
-                1510
-              ]
+              "__worldX": 150,
+              "__worldY": -1098
             },
             {
-              "iid": "OneWayPlatform-0082",
-              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 38,
@@ -7691,13 +7746,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#A4D65E",
+              "iid": "OneWayPlatform-0082",
+              "width": 250,
+              "height": 18,
+              "defUid": 2003,
+              "px": [
+                610,
+                1225
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 4",
+                  "__tile": null,
                   "defUid": 3008,
                   "realEditorValues": [
                     {
@@ -7709,16 +7774,10 @@
                   ]
                 }
               ],
-              "height": 18,
-              "width": 250,
-              "px": [
-                610,
-                1225
-              ]
+              "__worldX": 610,
+              "__worldY": -1383
             },
             {
-              "iid": "OneWayPlatform-0083",
-              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 9,
@@ -7728,13 +7787,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#A4D65E",
+              "iid": "OneWayPlatform-0083",
+              "width": 260,
+              "height": 18,
+              "defUid": 2003,
+              "px": [
+                155,
+                940
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 5",
+                  "__tile": null,
                   "defUid": 3008,
                   "realEditorValues": [
                     {
@@ -7746,16 +7815,10 @@
                   ]
                 }
               ],
-              "height": 18,
-              "width": 260,
-              "px": [
-                155,
-                940
-              ]
+              "__worldX": 155,
+              "__worldY": -1668
             },
             {
-              "iid": "OneWayPlatform-0084",
-              "defUid": 2003,
               "__identifier": "OneWayPlatform",
               "__grid": [
                 37,
@@ -7765,13 +7828,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#A4D65E",
+              "iid": "OneWayPlatform-0084",
+              "width": 260,
+              "height": 18,
+              "defUid": 2003,
+              "px": [
+                600,
+                645
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft shelf 6",
+                  "__tile": null,
                   "defUid": 3008,
                   "realEditorValues": [
                     {
@@ -7783,16 +7856,10 @@
                   ]
                 }
               ],
-              "height": 18,
-              "width": 260,
-              "px": [
-                600,
-                645
-              ]
+              "__worldX": 600,
+              "__worldY": -1963
             },
             {
-              "iid": "BlinkWall-0085",
-              "defUid": 2004,
               "__identifier": "BlinkWall",
               "__grid": [
                 30,
@@ -7802,13 +7869,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#B388FF",
+              "iid": "BlinkWall-0085",
+              "width": 32,
+              "height": 1180,
+              "defUid": 2004,
+              "px": [
+                485,
+                760
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft soft divider",
+                  "__tile": null,
                   "defUid": 3009,
                   "realEditorValues": [
                     {
@@ -7823,6 +7900,7 @@
                   "__identifier": "tier",
                   "__type": "String",
                   "__value": "Soft",
+                  "__tile": null,
                   "defUid": 3010,
                   "realEditorValues": [
                     {
@@ -7834,32 +7912,36 @@
                   ]
                 }
               ],
-              "height": 1180,
-              "width": 32,
-              "px": [
-                485,
-                760
-              ]
+              "__worldX": 485,
+              "__worldY": -1848
             },
             {
-              "iid": "PogoOrb-0086",
-              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
-                30,
+                41,
                 102
               ],
               "__pivot": [
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#00D4FF",
+              "iid": "PogoOrb-0086",
+              "width": 36,
+              "height": 36,
+              "defUid": 2005,
+              "px": [
+                663,
+                1642
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft pogo 1",
+                  "__tile": null,
                   "defUid": 3011,
                   "realEditorValues": [
                     {
@@ -7871,16 +7953,10 @@
                   ]
                 }
               ],
-              "height": 36,
-              "width": 36,
-              "px": [
-                487,
-                1642
-              ]
+              "__worldX": 663,
+              "__worldY": -966
             },
             {
-              "iid": "PogoOrb-0087",
-              "defUid": 2005,
               "__identifier": "PogoOrb",
               "__grid": [
                 30,
@@ -7890,13 +7966,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#00D4FF",
+              "iid": "PogoOrb-0087",
+              "width": 36,
+              "height": 36,
+              "defUid": 2005,
+              "px": [
+                482,
+                1067
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft pogo 2",
+                  "__tile": null,
                   "defUid": 3011,
                   "realEditorValues": [
                     {
@@ -7908,32 +7994,36 @@
                   ]
                 }
               ],
-              "height": 36,
-              "width": 36,
-              "px": [
-                482,
-                1067
-              ]
+              "__worldX": 482,
+              "__worldY": -1541
             },
             {
-              "iid": "ReboundPad-0088",
-              "defUid": 2010,
               "__identifier": "ReboundPad",
               "__grid": [
-                15,
-                144
+                11,
+                139
               ],
               "__pivot": [
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#7BDFF2",
+              "iid": "ReboundPad-0088",
+              "width": 130,
+              "height": 24,
+              "defUid": 2010,
+              "px": [
+                176,
+                2228
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft bottom launcher",
+                  "__tile": null,
                   "defUid": 3021,
                   "realEditorValues": [
                     {
@@ -7948,12 +8038,13 @@
                   "__identifier": "impulseX",
                   "__type": "Float",
                   "__value": 0,
+                  "__tile": null,
                   "defUid": 3022,
                   "realEditorValues": [
                     {
                       "id": "V_Float",
                       "params": [
-                        0.0
+                        0
                       ]
                     }
                   ]
@@ -7962,27 +8053,22 @@
                   "__identifier": "impulseY",
                   "__type": "Float",
                   "__value": -920,
+                  "__tile": null,
                   "defUid": 3023,
                   "realEditorValues": [
                     {
                       "id": "V_Float",
                       "params": [
-                        -920.0
+                        -920
                       ]
                     }
                   ]
                 }
               ],
-              "height": 24,
-              "width": 130,
-              "px": [
-                240,
-                2308
-              ]
+              "__worldX": 176,
+              "__worldY": -380
             },
             {
-              "iid": "HazardBlock-0089",
-              "defUid": 2009,
               "__identifier": "HazardBlock",
               "__grid": [
                 38,
@@ -7992,13 +8078,23 @@
                 0,
                 0
               ],
-              "__smartColor": "#ffffff",
               "__tags": [],
+              "__tile": null,
+              "__smartColor": "#FF3B30",
+              "iid": "HazardBlock-0089",
+              "width": 260,
+              "height": 24,
+              "defUid": 2009,
+              "px": [
+                620,
+                2328
+              ],
               "fieldInstances": [
                 {
                   "__identifier": "name",
                   "__type": "String",
                   "__value": "shaft low hazard",
+                  "__tile": null,
                   "defUid": 3020,
                   "realEditorValues": [
                     {
@@ -8010,31 +8106,136 @@
                   ]
                 }
               ],
-              "height": 24,
-              "width": 260,
+              "__worldX": 620,
+              "__worldY": -280
+            },
+            {
+              "__identifier": "PogoOrb",
+              "__grid": [
+                36,
+                94
+              ],
+              "__pivot": [
+                0,
+                0
+              ],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#00D4FF",
+              "iid": "52de9150-21a0-11f1-ae06-d7e881144f6c",
+              "width": 32,
+              "height": 32,
+              "defUid": 2005,
               "px": [
-                620,
-                2328
-              ]
+                576,
+                1504
+              ],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "Pogo Orb",
+                  "__tile": null,
+                  "defUid": 3011,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "Pogo Orb"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "__worldX": 576,
+              "__worldY": -1104
+            },
+            {
+              "__identifier": "PogoOrb",
+              "__grid": [
+                47,
+                90
+              ],
+              "__pivot": [
+                0,
+                0
+              ],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#00D4FF",
+              "iid": "59085390-21a0-11f1-ae06-c5755a7f9b85",
+              "width": 32,
+              "height": 32,
+              "defUid": 2005,
+              "px": [
+                752,
+                1440
+              ],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "Pogo Orb",
+                  "__tile": null,
+                  "defUid": 3011,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "Pogo Orb"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "__worldX": 752,
+              "__worldY": -1168
+            },
+            {
+              "__identifier": "PogoOrb",
+              "__grid": [
+                39,
+                87
+              ],
+              "__pivot": [
+                0,
+                0
+              ],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#00D4FF",
+              "iid": "5d04d590-21a0-11f1-ae06-6bc18b1c3ccc",
+              "width": 36,
+              "height": 36,
+              "defUid": 2005,
+              "px": [
+                624,
+                1392
+              ],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "Pogo Orb",
+                  "__tile": null,
+                  "defUid": 3011,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "Pogo Orb"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "__worldX": 624,
+              "__worldY": -1216
             }
-          ],
-          "gridTiles": [],
-          "iid": "Ambition-1293",
-          "intGridCsv": [],
-          "layerDefUid": 1070,
-          "levelId": 1291,
-          "overrideTilesetUid": null,
-          "pxOffsetX": 0,
-          "pxOffsetY": 0,
-          "seed": 0,
-          "visible": true,
-          "__type": "Entities",
-          "optionalRules": [],
-          "intGrid": null
+          ]
         }
       ],
-      "__smartColor": "#20242f",
-      "useAutoIdentifier": false
+      "__neighbours": []
     },
     {
       "__bgColor": "#20242f",
@@ -8874,7 +9075,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        -700.0
+                        -700
                       ]
                     }
                   ]
@@ -8888,7 +9089,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        -720.0
+                        -720
                       ]
                     }
                   ]
@@ -9878,7 +10079,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        1.0
+                        1
                       ]
                     }
                   ]
@@ -9906,7 +10107,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        150.0
+                        150
                       ]
                     }
                   ]
@@ -9971,7 +10172,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        1.0
+                        1
                       ]
                     }
                   ]
@@ -9999,7 +10200,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        120.0
+                        120
                       ]
                     }
                   ]
@@ -10064,7 +10265,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        1.0
+                        1
                       ]
                     }
                   ]
@@ -10092,7 +10293,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        190.0
+                        190
                       ]
                     }
                   ]
@@ -10305,7 +10506,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        -520.0
+                        -520
                       ]
                     }
                   ]
@@ -10319,7 +10520,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        -680.0
+                        -680
                       ]
                     }
                   ]
@@ -10740,7 +10941,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        95.0
+                        95
                       ]
                     }
                   ]
@@ -12365,7 +12566,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        2.0
+                        2
                       ]
                     }
                   ]
@@ -12444,7 +12645,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        2.0
+                        2
                       ]
                     }
                   ]
@@ -12523,7 +12724,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        2.0
+                        2
                       ]
                     }
                   ]
@@ -12602,7 +12803,7 @@
                     {
                       "id": "V_Float",
                       "params": [
-                        1.0
+                        1
                       ]
                     }
                   ]

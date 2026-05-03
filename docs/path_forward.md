@@ -176,6 +176,27 @@ This is *cheap* and creates the natural homes for the IntGrid migration
 **Stop gate:** does the build still pass with no behavior change? `git
 log --stat` should show pure code movement (`-N M`).
 
+#### C status (focused 2-way split landed)
+
+Pulled all bevy_ecs_ldtk-using items out of `ldtk_world.rs` into
+`ldtk_world/bevy_runtime.rs` (528 lines): the `AmbitionLdtkRegistration`
+plugin + markers + spine types + spine systems + `LdtkRuntimeIndex` +
+`SandboxLdtkAsset`/`load_ldtk_asset_handle` + `SandboxLdtkWorldRoot` +
+`sync_ldtk_level_set` + the entity-identifier list. `ldtk_world.rs`
+shrank from 2360 to 1860 lines and is now bevy_ecs_ldtk-free except for
+the `pub use bevy_runtime::*` barrel re-export. `git log --stat` shows
+the expected pure-movement shape (-512 / +12).
+
+Default build passes; 31/31 lib tests pass; `--no-default-features
+--features headless,ldtk_runtime` still passes (no regression).
+
+The doc's full 7-way decomp (json/validate/compile/runtime_index/
+runtime_spine/hot_reload/bevy_plugin) is **not yet done** — that's
+finer-grained cleanup that can land in a follow-up. The current 2-way
+split already isolates the bevy_ecs_ldtk surface, which is what the
+A.2 `ldtk_runtime` gate needs to land cleanly. `features.rs` cleanup
+(hazards/enemies/bosses/breakables/pickups/npc) is also still TODO.
+
 ### D. Stabilize collision (~1-2 days)
 
 The bespoke snap logic in `movement.rs::sweep_player_x` /

@@ -209,17 +209,22 @@ pub fn sprite_render_size(spec: CharacterSheetSpec, collision: Vec2) -> Vec2 {
     Vec2::new(width, height)
 }
 
-/// Sprite anchor that places the character's feet near the bottom of the
-/// collision box. Per-spec so each generator output can pick its own y.
-pub fn feet_anchor_for(spec: CharacterSheetSpec) -> Anchor {
-    Anchor(Vec2::new(0.0, spec.feet_anchor_y))
-}
-
-/// Back-compat default-anchor helper used at the player spawn site, which
-/// still threads `ROBOT_SHEET` implicitly. Kept so existing call sites
-/// don't need to plumb the spec just to fetch the anchor.
-pub fn feet_anchor() -> Anchor {
-    feet_anchor_for(ROBOT_SHEET)
+/// Sprite anchor that places the rendered character's feet on the bottom
+/// of the collision box (rather than at its centre).
+///
+/// `spec.feet_anchor_y` records where feet sit *within the sprite frame*
+/// (Bevy convention — typically about -0.32 for these sheets, meaning feet
+/// are below sprite centre). If we used that anchor verbatim the feet
+/// would coincide with `transform.translation`, which is the collision
+/// *centre* — leaving everyone visually floating by half a collision
+/// height. Adding `collision.y / (2 * render_height)` shifts the anchor
+/// up inside the sprite, drawing the sprite lower in world space so the
+/// feet land on the collision bottom edge.
+pub fn feet_anchor_for(spec: CharacterSheetSpec, collision: Vec2) -> Anchor {
+    let render_height = collision.x.max(collision.y).max(8.0) * spec.collision_scale;
+    let half_collision_y = collision.y * 0.5;
+    let ay = spec.feet_anchor_y + half_collision_y / render_height;
+    Anchor(Vec2::new(0.0, ay))
 }
 
 /// Build the textured sprite for a character given its collision-box size.

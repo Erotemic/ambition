@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::boss_sprites::{self, BossAnimState, BossAnimator};
-use crate::character_sprites::{build_character_sprite, feet_anchor, CharacterAnimator};
+use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
 use crate::game_assets::{self, entity_sprite, entity_sprite_or_color, EntitySprite, GameAssets};
@@ -279,7 +279,7 @@ pub fn upgrade_enemy_sprites(
         let sprite = build_character_sprite(goblin, collision);
         commands.entity(entity).insert((
             sprite,
-            feet_anchor(),
+            feet_anchor_for(goblin.spec, collision),
             CharacterAnimator::new(goblin.spec),
         ));
     }
@@ -379,7 +379,7 @@ pub fn upgrade_boss_sprites(
         sprite.custom_size = Some(boss_asset.spec.render_size(collision));
         commands.entity(entity).insert((
             sprite,
-            boss_asset.spec.anchor(),
+            boss_asset.spec.collision_anchor(collision),
             BossAnimator::new(boss_asset.spec),
         ));
     }

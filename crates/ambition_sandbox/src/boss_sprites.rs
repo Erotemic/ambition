@@ -148,6 +148,17 @@ impl BossSheetSpec {
     pub fn anchor(&self) -> Anchor {
         Anchor(Vec2::new(0.0, self.feet_anchor_y))
     }
+
+    /// Collision-aware anchor that places the rendered boss's feet on the
+    /// bottom of the collision box rather than at its centre. Mirrors
+    /// `character_sprites::feet_anchor_for` — see that function for the
+    /// derivation.
+    pub fn collision_anchor(&self, collision: Vec2) -> Anchor {
+        let render_height = collision.x.max(collision.y).max(8.0) * self.collision_scale;
+        let half_collision_y = collision.y * 0.5;
+        let ay = self.feet_anchor_y + half_collision_y / render_height;
+        Anchor(Vec2::new(0.0, ay))
+    }
 }
 
 #[derive(Clone)]

@@ -21,7 +21,7 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::audio::{AudioLibrary, MusicPlaybackState};
-use crate::character_sprites::{build_character_sprite, feet_anchor, CharacterAnimator};
+use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
 use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -190,9 +190,11 @@ pub fn presentation_world(
     let player_collision = BVec2::new(28.0, 46.0);
     if let Some(asset) = &character_sprites.robot {
         let sprite = build_character_sprite(asset, player_collision);
-        commands
-            .entity(player)
-            .insert((sprite, feet_anchor(), CharacterAnimator::new(asset.spec)));
+        commands.entity(player).insert((
+            sprite,
+            feet_anchor_for(asset.spec, player_collision),
+            CharacterAnimator::new(asset.spec),
+        ));
     } else {
         commands.entity(player).insert(Sprite::from_color(
             Color::srgba(0.80, 0.95, 1.0, 1.0),

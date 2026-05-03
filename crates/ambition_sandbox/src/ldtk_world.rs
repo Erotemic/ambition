@@ -1041,17 +1041,15 @@ impl LdtkProject {
                         )),
                     }
                 }
-                for field in &entity.field_instances {
-                    if field.value.is_null() {
-                        continue;
-                    }
-                    if field.real_editor_values.is_empty() {
-                        report.warnings.push(format!(
-                            "{} {} field '{}' has __value but empty realEditorValues; this is what LDtk writes for unedited fields that inherit a defaultOverride. Run `python3 tools/repair_ambition_ldtk.py --in-place <ldtk>` to normalize before committing.",
-                            entity.identifier, entity.iid, field.identifier
-                        ));
-                    }
-                }
+                // Note: we deliberately do NOT warn on empty `realEditorValues`
+                // here. LDtk 1.5.3 emits that shape natively for fields that
+                // inherit their value from the entity-def `defaultOverride`,
+                // so flagging it would treat the editor's own output as a
+                // problem and break the contract that a file the LDtk editor
+                // writes must run unchanged. The historical
+                // `tools/repair_ambition_ldtk.py` script remains available for
+                // anyone who wants to canonicalize the JSON for diffs, but
+                // it is not required for runtime correctness.
             }
         }
 
@@ -1574,6 +1572,23 @@ fn parse_surface_spec(
                 "Either" => SurfaceBreakability::BreakOnHitOrStand,
                 other => return Err(format!("invalid Breakable trigger '{other}'")),
             };
+            // Tolerate the editor-default combo of OnStand + None. The LDtk
+            // Breakable entity-def has `collision` defaultOverride=None, so a
+            // freshly dropped breakable that has its trigger flipped to
+            // OnStand without also setting collision=Solid arrives here in a
+            // physically incoherent state (nothing to stand on). Rather than
+            // refuse to load the world, downgrade the trigger to OnHit and
+            // warn — the breakable is still hittable, the room still loads,
+            // and the author can fix the LDtk entity to get OnStand back.
+            if matches!(spec.breakability, SurfaceBreakability::BreakOnStand)
+                && matches!(spec.collision, SurfaceCollision::None)
+            {
+                eprintln!(
+                    "LDtk validation warning: Breakable {} has trigger=OnStand with collision=None; downgrading trigger to OnHit. Set the entity's collision field to Solid (or OneWayUp) in LDtk to keep the OnStand behavior.",
+                    spec.iid
+                );
+                spec.breakability = SurfaceBreakability::BreakOnHit;
+            }
             spec.respawn = parse_breakable_respawn(entity)?;
             spec.max_hp = field_i32(entity, "max_hp")
                 .or_else(|| field_i32(entity, "hp"))
@@ -2215,9 +2230,33 @@ mod tests {
         }
     }
 
-    /// `BreakOnStand` requires non-None collision: there must be a surface to stand on.
+    /// `BreakOnStand` requires non-None collision. The compile path stays
+    /// strict so the engine API never accepts the incoherent combo, but the
+    /// LDtk adapter auto-degrades it to `OnHit` so a freshly-dropped
+    /// breakable in the editor (whose collision defaultOverride is `None`)
+    /// does not refuse to load the world.
     #[test]
     fn breakable_on_stand_with_no_collision_is_rejected() {
+        // Engine compile path: still rejects the incoherent combo when handed
+        // a hand-crafted spec.
+        let bad_spec = LdtkSurfaceSpec {
+            iid: "test".into(),
+            name: "test".into(),
+            min: ae::Vec2::ZERO,
+            size: ae::Vec2::new(32.0, 32.0),
+            collision: SurfaceCollision::None,
+            breakability: SurfaceBreakability::BreakOnStand,
+            contact: SurfaceContact::None,
+            respawn: SurfaceRespawn::Never,
+            max_hp: 3,
+        };
+        let err = compile_surface(&bad_spec).expect_err("BreakOnStand requires collision");
+        assert!(
+            err.contains("BreakOnStand requires non-None collision"),
+            "{err}"
+        );
+
+        // LDtk adapter path: silently downgrades to OnHit so the world loads.
         let entity = make_entity(
             "Breakable",
             [32, 32],
@@ -2232,12 +2271,9 @@ mod tests {
             ae::Vec2::new(32.0, 32.0),
             "test".into(),
         )
-        .expect("parses");
-        let err = compile_surface(&spec).expect_err("BreakOnStand requires collision");
-        assert!(
-            err.contains("BreakOnStand requires non-None collision"),
-            "{err}"
-        );
+        .expect("LDtk-side parse degrades OnStand+None to OnHit");
+        assert!(matches!(spec.breakability, SurfaceBreakability::BreakOnHit));
+        compile_surface(&spec).expect("degraded spec compiles");
     }
 
     /// `respawn = AfterSeconds` requires a positive `respawn_seconds` field.

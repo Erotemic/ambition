@@ -168,7 +168,12 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(DeveloperTools::default())
         .insert_resource(SandboxFeelTuning::default())
         .insert_resource(editable_abilities)
-        .insert_resource(editable_tuning);
+        .insert_resource(editable_tuning)
+        // Sim/presentation seam for input (ADR 0012): the sim reads
+        // `Res<ControlFrame>`. Visible builds populate it from leafwing in
+        // `populate_control_frame_from_actions`; headless tests can write
+        // directly. Default = no buttons pressed = idle player.
+        .init_resource::<ControlFrame>();
 }
 
 /// Register core simulation plugins, message types, and the gameplay
@@ -315,6 +320,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 pause_menu::pause_menu_toggle,
                 inventory::inventory_input,
                 pause_menu::pause_menu_navigate,
+                populate_control_frame_from_actions,
             )
                 .chain()
                 .before(sandbox_update),
@@ -422,6 +428,40 @@ fn add_ui_plugins(app: &mut App) {
 #[cfg(not(feature = "ui"))]
 fn add_ui_plugins(_app: &mut App) {}
 
+/// Bridge leafwing's `ActionState` into the sim-side `ControlFrame` resource.
+///
+/// This is the visible-binary half of the ADR 0012 input seam. The sim
+/// reads `Res<ControlFrame>` only — it never queries `ActionState` —
+/// which means headless / RL drivers can populate the resource directly
+/// without an `InputManagerPlugin` in scope.
+///
+/// Dialogue mode also resets leafwing's pressed/just-pressed edges so
+/// action edges from the moment dialogue opened don't leak into the
+/// next gameplay frame.
+fn populate_control_frame_from_actions(
+    mode: Res<State<GameMode>>,
+    mut player_input: Query<&mut ActionState<SandboxAction>, With<PlayerVisual>>,
+    mut frame: ResMut<ControlFrame>,
+) {
+    if matches!(mode.get(), GameMode::Dialogue) {
+        if let Ok(mut action_state) = player_input.single_mut() {
+            action_state.reset_all();
+        }
+        *frame = ControlFrame::default();
+        return;
+    }
+    *frame = match player_input.single() {
+        Ok(action_state) => {
+            if mode.get().allows_gameplay() {
+                ControlFrame::read_gameplay(action_state)
+            } else {
+                ControlFrame::read_menu(action_state)
+            }
+        }
+        Err(_) => ControlFrame::default(),
+    };
+}
+
 // `GameWorld`, `SandboxRuntime`, and the time-scale ramp helper `move_toward`
 // have moved to `crate::lib` (`ambition_sandbox`) so both binaries can share
 // them. They are re-imported above through `use ambition_sandbox::*;`.
@@ -508,9 +548,8 @@ fn sandbox_update(
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut runtime: ResMut<SandboxRuntime>,
-    entities: Res<SceneEntities>,
     mut event_writers: SandboxEventWriters,
-    mut player_input: Query<&mut ActionState<SandboxAction>, With<PlayerVisual>>,
+    control_frame: Res<ControlFrame>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
@@ -527,24 +566,17 @@ fn sandbox_update(
     let physics_settings = runtime.physics_settings;
     dev_tools::sync_live_ability_edits(&mut runtime, editable_abilities.as_engine(), tuning);
 
-    // Debug hotkeys (preset cycling, F1/F2/F3/F4/F5 toggles) live in a
-    // separate presentation-side system that runs `.before(sandbox_update)`.
-    // sandbox_update no longer reads `Res<ButtonInput<KeyCode>>` so it can run
-    // on the headless App-builder track without an InputPlugin.
-
-    let mut controls = ControlFrame::default();
-    if let Ok(action_state) = player_input.get(entities.player) {
-        controls = if mode.get().allows_gameplay() {
-            ControlFrame::read_gameplay(action_state)
-        } else {
-            ControlFrame::read_menu(action_state)
-        };
-    }
+    // sandbox_update no longer queries leafwing directly. Input arrives
+    // through `Res<ControlFrame>` — visible builds derive it from
+    // ActionState in `populate_control_frame_from_actions` (runs
+    // `.before(sandbox_update)`); headless / RL drivers can write the
+    // resource directly. Debug hotkeys live in their own presentation-side
+    // system, also `.before(sandbox_update)`. Local mutable copy because
+    // the gameplay loop adjusts `controls.interact_pressed` via the input
+    // buffer (runtime state, not raw input).
+    let mut controls = *control_frame;
 
     if matches!(mode.get(), GameMode::Dialogue) {
-        if let Ok(mut action_state) = player_input.get_mut(entities.player) {
-            action_state.reset_all();
-        }
         let frame_dt = time.delta_secs();
         runtime.time_scale = 0.0;
         runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);

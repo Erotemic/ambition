@@ -292,7 +292,14 @@ impl KeyboardPreset {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+/// Per-frame snapshot of player input feeding the simulation.
+///
+/// Stored as a Bevy resource so the visible binary can populate it from
+/// `leafwing-input-manager` (presentation-side) and headless tests can
+/// pre-populate it directly without an InputPlugin in scope. The
+/// simulation reads `Res<ControlFrame>`; it never touches leafwing types
+/// — that's the ADR 0012 sim/presentation seam for the input channel.
+#[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct ControlFrame {
     pub axis_x: f32,
     pub axis_y: f32,

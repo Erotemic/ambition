@@ -133,6 +133,9 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio::SfxMessage;
+    use crate::input::ControlFrame;
+    use bevy::ecs::message::Messages;
 
     #[test]
     fn run_headless_completes_one_tick_without_panicking() {
@@ -149,5 +152,46 @@ mod tests {
     fn run_headless_runs_multiple_ticks() {
         let report = run_headless(8).expect("headless eight-tick run succeeds");
         assert_eq!(report.ticks_run, 8);
+    }
+
+    /// ADR 0012 step B stop gate: with `MinimalPlugins` only and no
+    /// AudioPlugin / RenderPlugin / inspector, can we drive
+    /// `sandbox_update` end-to-end and observe `SfxMessage` flow? This
+    /// proves the sim/presentation seam holds for the input + sfx
+    /// channels. Reset is the cheapest path: pressing Reset emits
+    /// `SfxMessage::Reset` synchronously, no spawn-position dependence.
+    #[test]
+    fn sim_emits_sfx_reset_when_control_frame_requests_reset() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin::default());
+        app.add_plugins(ImagePlugin::default());
+        app.add_plugins(TransformPlugin);
+        app.add_plugins(StatesPlugin);
+        app.init_state::<GameMode>();
+
+        crate::app::init_sandbox_resources(&mut app);
+        crate::app::add_simulation_plugins(&mut app);
+
+        // First tick runs Startup (spawns the player + SandboxRuntime).
+        app.update();
+
+        // Inject a "press reset" frame on the sim/presentation input seam.
+        *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
+            reset_pressed: true,
+            ..ControlFrame::default()
+        };
+
+        app.update();
+
+        let messages = app.world().resource::<Messages<SfxMessage>>();
+        let reset_count = messages
+            .iter_current_update_messages()
+            .filter(|m| matches!(m, SfxMessage::Reset { .. }))
+            .count();
+        assert!(
+            reset_count >= 1,
+            "expected at least one SfxMessage::Reset emitted by the sim; got {reset_count}",
+        );
     }
 }

@@ -309,13 +309,20 @@ fn int_grid_value_to_block(value: i32, min: ae::Vec2, size: ae::Vec2) -> Result<
     }
 }
 
-/// Greedy rectangle merge over the IntGrid. Walks cells in row-major
-/// order; for each unconsumed non-zero cell, finds the longest
-/// horizontal run of the same value, then extends that run downward as
-/// far as every column underneath holds the same value too. Marks every
-/// cell in the resulting rectangle as consumed and emits a single engine
-/// block. Worst case is one block per cell (checkerboard); typical
-/// floors / walls / pillars collapse to one block each.
+/// Horizontal-only merge: for each row, collapse adjacent same-value
+/// cells into a single engine block. Vertical merging is intentionally
+/// skipped — greedy row-major + vertical extension turns staircase /
+/// diagonal cell patterns into tall thin vertical strips (each diagonal
+/// step gets eaten by a 1-wide column merge), so the visual rendering
+/// no longer matches the editor. Horizontal-only keeps the floor-walk
+/// friction fix (long horizontal runs of cells collapse to one block)
+/// while letting non-rectangular shapes render as the per-cell mosaic
+/// the editor shows.
+///
+/// A column of cells stacked vertically therefore lowers into N small
+/// blocks rather than one tall block. That's acceptable for the current
+/// player sweep; the underlying snap-direction sensitivity is path_forward
+/// step D's responsibility, not this merge.
 fn emit_collision_blocks_from_intgrid(
     layer: &LdtkLayerInstance,
     offset: ae::Vec2,
@@ -336,61 +343,29 @@ fn emit_collision_blocks_from_intgrid(
         ));
     }
     let cells = &layer.int_grid_csv;
-    let mut consumed = vec![false; expected];
     let mut blocks = Vec::new();
 
     let cw_usize = cw as usize;
     for cy in 0..(ch as usize) {
-        for cx in 0..cw_usize {
-            let idx = cy * cw_usize + cx;
-            if consumed[idx] {
-                continue;
-            }
-            let value = cells[idx];
+        let mut cx = 0;
+        while cx < cw_usize {
+            let value = cells[cy * cw_usize + cx];
             if value == 0 {
+                cx += 1;
                 continue;
             }
-
-            // Extend rightward along this row while the value matches and
-            // the cell isn't already consumed.
+            // Find the maximal same-value run starting at (cx, cy).
             let mut x_end = cx + 1;
-            while x_end < cw_usize {
-                let next = cy * cw_usize + x_end;
-                if consumed[next] || cells[next] != value {
-                    break;
-                }
+            while x_end < cw_usize && cells[cy * cw_usize + x_end] == value {
                 x_end += 1;
             }
-
-            // Extend downward as long as every column [cx, x_end) holds
-            // the same value (and isn't already consumed).
-            let mut y_end = cy + 1;
-            'outer: while y_end < (ch as usize) {
-                for x in cx..x_end {
-                    let probe = y_end * cw_usize + x;
-                    if consumed[probe] || cells[probe] != value {
-                        break 'outer;
-                    }
-                }
-                y_end += 1;
-            }
-
-            // Consume the rectangle [cx, x_end) x [cy, y_end).
-            for y in cy..y_end {
-                for x in cx..x_end {
-                    consumed[y * cw_usize + x] = true;
-                }
-            }
-
             let min = ae::Vec2::new(cx as f32 * grid, cy as f32 * grid) + offset;
-            let size = ae::Vec2::new(
-                (x_end - cx) as f32 * grid,
-                (y_end - cy) as f32 * grid,
-            );
+            let size = ae::Vec2::new((x_end - cx) as f32 * grid, grid);
             let block = int_grid_value_to_block(value, min, size).map_err(|message| {
-                format!("rect at ({cx},{cy}) {}x{}: {message}", x_end - cx, y_end - cy)
+                format!("run at ({cx},{cy}) {}x1: {message}", x_end - cx)
             })?;
             blocks.push(block);
+            cx = x_end;
         }
     }
     Ok(blocks)
@@ -1763,20 +1738,39 @@ mod tests {
     }
 
     #[test]
-    fn intgrid_rect_merge_extends_a_full_rectangle_downward() {
-        // 3x2 block of same value should merge into one 48x32 block.
+    fn intgrid_rect_merge_does_not_collapse_columns_into_vertical_bars() {
+        // A staircase pattern is the regression case: greedy vertical
+        // merge previously collapsed each diagonal step into a tall
+        // 1-wide bar, which rendered as vertical walls instead of the
+        // staircase the editor shows. Horizontal-only merge keeps each
+        // cell's row the way the artist painted it — so a 3-step
+        // staircase produces 6 blocks (1 + 2 + 3 cells across), one per
+        // run, not three vertical bars.
         let layer = LdtkLayerInstance {
             identifier: "Collision".to_string(),
             layer_type: "IntGrid".to_string(),
             c_wid: 3,
-            c_hei: 2,
+            c_hei: 3,
             grid_size: 16,
             entity_instances: Vec::new(),
-            int_grid_csv: vec![1, 1, 1, 1, 1, 1],
+            int_grid_csv: vec![
+                0, 0, 1, // row 0
+                0, 1, 1, // row 1
+                1, 1, 1, // row 2
+            ],
         };
         let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO)
             .expect("merge succeeds");
-        assert_eq!(blocks.len(), 1, "filled rectangle should merge to one block");
+        assert_eq!(
+            blocks.len(),
+            3,
+            "staircase should produce one block per row, not collapsed verticals"
+        );
+        let widths: Vec<i32> = blocks
+            .iter()
+            .map(|b| (ae::AabbExt::half_size(b.aabb).x * 2.0 / 16.0).round() as i32)
+            .collect();
+        assert_eq!(widths, vec![1, 2, 3]);
     }
 
     #[test]

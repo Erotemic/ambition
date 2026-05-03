@@ -1,6 +1,149 @@
 I'm having ideas about how to write a game. The idea is that the player is an AI who doesn't really know what their purpose is. It's going to be like... Well, I want the engine to actually not care about what the story is. I want the engine to be something that allows for a really nice parkour, like 2D Metroidvania platformer experience that just feels really smooth and natural and has a high ceiling of complexity for control.
 
-I want to build the game with either something like Rust or Pygame, make it completely procedurally generated or at least generated from code written by AI.There's obviously going to be a theme of my own personal experiences in the story that I want to tell with it. But I do want to make the engine somewhat generic. I'm thinking that I'm going to not really reuse a standard engine. So it can sort of be an AI-first development process, and we'll try to avoid any artifacts that people could object to with AI, other than the fact of just how much energy it uses and other political problems. But some of those political problems are what I want to explore in the game. I'm thinking that your character could...have multiple paths.For instance, you can find humans in the game to work with, and some of those humans will just kind of be blind conduits for the AI. They won't really provide any input. They'll just, you know, they'll give you some sort of physical presence, but really they're not providing any value. They're just kind of using the AI and turning their own mind off, whereas, you know, some might be more higher value humans who collaborate, or maybe you don't have as much control from the AI's perspective, but the ceiling is much higher. Not really quite sure how to codify it. The game has to be snappy and good and fun first and foremost, but I think I want to design it in a way where it's gameplay first using just raw collision boxes, and then graphics come on the screen. on top of that.I want the game to be fun without graphics, if that's possible, and music, I suppose. Although I think some basic sounds might be necessary to really get that immersive feedback.maybe some effects would be useful.But I'm thinking in terms of the pathing of the story. You could have different avenues for funding. You could take less funding but do more meaningful work, environmental work. And, of course, this is related to issues I struggle with in my job. Or you could take sort of dirtier money, more ethically dubious money, and there would be some internal cost to doing that, sort of selling your soul. But maybe there's a middle ground where it's like you take some of that and then you're able to...pursue the lower monetary reward but higher emotional reward projects more rapidly. And maybe there's like a route where you're a purist and you only do the purely ethical work.It's handicapping at first, but maybe there's some big reward at the end.Similarly, for the ethically dubious work, maybe you get the monetary gains really, really quickly, but then what do you have to show for it?Thank you.Thank you.Thank you.I'm also noting that there's a lot of thank yous being input by the speech-to-text right now and I can't really control that very easily so I'm just gonna take those out and post.Thank you.Thank you.Thank you.I'm thinking there might be something like, because we are developing on this with AI, there's going to be some limits on traditional games. I want the game to feel large and immersive, but there's limits on traditional games where we might be able to overcome them. For instance, in A Link to the Past, one of the big things was there's two worlds. There's the dark world and the bright world, and they sort of mirror each other. But actually getting those worlds to mirror each other must have been a lot of work on developers. Whereas with AI, maybe that sort of work is easier. And we can increase the number of worlds, but we need to be careful not to increase the mental burden on the player. It's still ultimately a human playing this game, and it has to be fun for humans and interesting to humans. I'm also interested in...Thank you.No.I'm also interested in exploring a sort of mathematical angle to the game. Maybe there's like discoveries, sort of a lesson in history.you sort of start off with nothing because you're this new entity in the world. And maybe there's, I guess, it doesn't make a whole lot of sense. But we can roll with it. We can say you dropped into a world and you have nothing. So it's classic Metroidvania start. You start off with no items. But then you can build up theorems maybe in a historical progression, which was nonlinear in some sense. You know, multiple avenues to discovering the same thing. And that could be... The trick is going to be representing those things in gameplay. And I'd like to be very...principled about how I represent them so that some effect in the game is actually modeling the real mathematics. That would be really cool.Thank you.Thank you.And we could also include things like open problems, things that we don't know how to do yet. And it could be teased as limits of the game.Maybe in a first pass, it's not developed as an area. But maybe we can-- if a problem gets solved, we can add some DLC or something.It would be really cool if, you know...it allow players to sort of crowdsource solutions in some sense, but I don't know how feasible that is.Um...Thank you.Thank you.Thank you.Okay.*sigh*Thank you.Thank you.Thank you.Thank you.Man, this thank you problem is annoying.I'm using Vocalinux.Thank you.Thank you.Thank you.Thank you.Thank you.Thank you.Thank you.Thank you.Thank you.Thank you.Maybe one thing that would be cool is...You start off with some geometry, Euclid. You have some circles. You can do some circle movements. Maybe you get some sort of sine, cosine movements. And it would be really cool if you could, like...Connect those to the exponential and then all of a sudden you get an exponential shaped Motion which lets you You know bypass some platforming problems because you can go basically straight up at a slight angle with an exponential That would be super cool. And there's also the imaginary plane that could be represented in this sort of otherworld idea or second dark world We could you know, we could do quaternions if we wanted to that would be fun and we can get into some surreal numbers Do some Conway's Game of Life sort of stuff IThank you.Thank you.Thank you.Thank you.Thank you.I'm also thinking that we... Jeez, I had a really good... Oh, right. So combos is going to be really important. Having nice fluid motion where there are combinations of inputs. I'm thinking Hollow Knight is going to be... Any Metroidvania is going to be compared to Hollow Knight, or platformers are going to be compared to Celeste. A lot of new things are going to be perceived as clones of those. It's going to be very difficult to go away from that. But we can draw inspiration. And we should draw inspiration from other games. We should make explicit references. People love references, especially if they're very aware and the actual game is adding a lot of new value. But back to Hollow Knight, you have the pogoing. And just these very simple movements. The pogo refreshes the -, which means that you can... You can do a lot of very complex kinetic movement that just feels very good. And it's built from these simple components.Thank you.Thank you.Thank you.SighI'm thinking that ties into commutative and especially non-commutative algebras. You can have some sort of basic movement set where it's commutative. The order in which you input the motions leads to the same result. There's a lot of group theory we could do here. I think a lot of the motion will be modeled by groups. But non-associative movements are going to be really interesting because those are the ones where the order in which you perform the operations is going to matter. Maybe we can do some sort of connection with that. Or maybe there's some sort of albinization or whatever the word is to make something that was not commutative, commutative. That could be interesting to explore as a gameplay pattern. We can also explore the idea of compactification where we add additional points to something to sort of complete the space. I'm not sure how well that translates into gameplay. I think we just need to build a really slick platforming feel thing first.The question is how... there's going to be a trade-off between...between customization and like a really curated, excellent experience.Thank you.And I think we should go for the curated excellent experience first. And figure out how it can be built on there. But I want to really make some deep mechanics. Start simple, but they should express something very deep. And if possible, you know, relate that to mathematics. But that's more about the story than the...Then the actual engine, there's going to be some engine that underlies all of this that allows the story to be expressed.Um...Thank you.And I do want the game to be, you know, at least 100 hours of gameplay.I think there needs to be certain checkpoints for different levels of gamers, but it'd be really nice to explore something where the gameplay really goes beyond 100 hours, where it's like, you're not going to beat this game. Make a game where there's enough content, where it's actually thousands of hours to...to get to the end in a way where it's novel and meaningful. It's not just like-- it doesn't become a slog. It's always something new. And I think with AI generation, we can hit towards that. I guess that's going to make testing a huge problem.certain things about the game are gonna seem sloppy.But, uh...I guess, you know, we're going to deal with the current capabilities that we have, given that AI is in its early stages.Um...Thank you.I think the community versus associative idea is a really cool thing. Inverses is also going to be a fun thing to work with.Thank you.We have to also be mindful not to make it overwhelming, to make it optionally deep.Um...Thank you.But, you know, I want the rabbit hole to go down. I want it to go pretty fucking deep.Thank you.Thank you.Thank you.Thank you.
+I want to build the game with either something like Rust or Pygame, and make it
+  completely procedurally generated or at least generated from code written by
+  AI. There's going to be a theme of my own personal experiences in the
+  story that I want to tell with it.
+But I do want to make the engine somewhat generic.
+I'm thinking that I'm going to not reuse a standard engine.
+So it can be an AI-first development process, and we'll try to avoid any
+  artifacts that people could object to with AI, other than the fact of how
+  much energy it uses and other political problems.
+But some of those political problems are what I want to explore in the game.
+Your character could... have multiple paths. For instance, you
+  can find humans in the game to work with, and some of those humans will be blind conduits for the AI.
+They won't provide any input.
+They'll give you some physical presence, but
+  they're not providing any value.
+They're using the AI and turning their own mind off, whereas some might be higher-value humans who collaborate, or maybe you
+  don't have as much control from the AI's perspective, but the ceiling is much
+  higher.
+The game has to be snappy and good and fun first and foremost, but I think I
+  want to design it in a way where it's gameplay-first using raw collision
+  boxes, and then graphics come on the screen.
+On top of that, I want the game to be fun without graphics, if that's possible,
+  and music, I suppose.
+Although some basic sounds might be necessary to get that
+  immersive feedback. Maybe some effects would be useful. But I'm thinking in
+  terms of the pathing of the story.
+You could have different avenues for funding.
+You could take less funding but do more meaningful work, environmental work.
+And, of course, this is related to issues I struggle with in my job.
+Or you could take dirtier money, more ethically dubious money, and there
+  would be some internal cost to doing that, selling your soul.
+But maybe there's a middle ground where you take some of that and then
+  you're able to... pursue the lower monetary reward but higher emotional reward
+  projects more rapidly.
+And maybe there's a route where you're a purist and you only do the purely
+  ethical work. It's handicapping at first, but maybe there's some big reward at
+  the end. Similarly, for the ethically dubious work, maybe you get the monetary
+  gains quickly, but then what do you have to show for it? Because we are developing this with
+  AI, there are going to be some limits on traditional games.
+I want the game to feel large and immersive, but there are limits on traditional
+  games where we might be able to overcome them.
+For instance, in A Link to the Past, one of the big things was there's two
+  worlds.
+There's the dark world and the bright world, and they mirror each other.
+But getting those worlds to mirror each other must have been a lot of
+  work on developers.
+Whereas with AI, maybe that work is easier.
+And we can increase the number of worlds, but we need to be careful not to
+  increase the mental burden on the player.
+It's ultimately a human playing this game, and it has to be fun for humans
+  and interesting to humans.
+I'm also interested in exploring a mathematical
+  angle to the game.
+Maybe there are discoveries, a lesson in history. You start
+  off with nothing because you're this new entity in the world.
+And maybe there's, it doesn't make a whole lot of sense.
+But we can roll with it.
+We can say you dropped into a world and you have nothing.
+So it's classic Metroidvania start.
+You start off with no items.
+But then you can build up theorems maybe in a historical progression, which was
+  nonlinear in some sense.
+Multiple avenues to discovering the same thing.
+And that could be...
+The trick is going to be representing those things in gameplay.
+And I'd like to be principled about how I represent them so that some
+  effect in the game is modeling the real mathematics.
+That would be cool. And we could also include things like open problems,
+  things that we don't know how to do yet.
+And it could be teased as limits of the game. Maybe in a first pass, it's not
+  developed as an area.
+But maybe we can-- if a problem gets solved, we can add some DLC or something. It
+  would be cool if it would allow players to crowdsource
+  solutions in some sense, but I don't know how feasible that is. Maybe one thing
+  that would be cool is... You start off with some geometry, Euclid.
+You have some circles.
+You can do some circle movements.
+Maybe you get some sine, cosine movements.
+And it would be cool if you could connect those to the
+  exponential, and then all of a sudden you get an exponential-shaped motion
+  which lets you bypass some platforming problems because you can go
+  straight up at a slight angle with an exponential. That would be
+  super cool.
+And there's also the imaginary plane that could be represented in this otherworld idea or second dark world. We could do
+  quaternions if we wanted to. That would be fun, and we can get into some surreal
+  numbers, do some Conway's Game of Life stuff. So combos are going to be important.
+Having nice fluid motion where there are combinations of inputs.
+Any Metroidvania is going to be compared to Hollow Knight, or platformers are
+  going to be compared to Celeste.
+A lot of new things are going to be perceived as clones of those.
+It's going to be difficult to go away from that.
+But we can draw inspiration.
+And we should draw inspiration from other games.
+We should make explicit references.
+People love references, especially if they're aware and the actual game is
+  adding new value.
+But back to Hollow Knight, you have the pogoing.
+And these simple movements.
+The pogo refreshes the dash, which means that you can...
+You can do a lot of complex kinetic movement that feels good.
+And it's built from these simple components. That ties into
+  commutative and especially non-commutative algebras.
+You can have some basic movement set where it's commutative.
+The order in which you input the motions leads to the same result.
+There's a lot of group theory we could do here.
+I think a lot of the motion will be modeled by groups.
+But non-associative movements are going to be interesting because those
+  are the ones where the order in which you perform the operations is going to
+  matter.
+Maybe we can do some connection with that.
+Or maybe there's some abelianization or whatever the word is to make
+  something that was not commutative, commutative.
+That could be interesting to explore as a gameplay pattern.
+We can also explore the idea of compactification where we add additional points
+  to something to complete the space.
+I'm not sure how well that translates into gameplay.
+I think we need to build a slick platforming feel thing first. The
+  question is how...
+There's going to be a trade-off between... between customization and a
+  curated, excellent experience. And I think we should go for the curated
+  excellent experience first.
+And figure out how it can be built on there.
+But I want to make some deep mechanics.
+Start simple, but they should express something deep.
+And if possible, relate that to mathematics.
+But that's more about the story than the... Then the actual engine, there's going
+  to be some engine that underlies all of this that allows the story to be
+  expressed. And I do want the game to be at least 100 hours of
+  gameplay. I think there needs to be certain checkpoints for different levels of
+  gamers, but it'd be nice to explore something where the gameplay
+  goes beyond 100 hours, where you're not going to beat this game.
+Make a game where there's enough content, where it's thousands of hours
+  to... to get to the end in a way where it's novel and meaningful.
+It's not just like-- it doesn't become a slog.
+It's always something new.
+And I think with AI generation, we can hit towards that.
+That's going to make testing a huge problem. Certain things about the
+  game are gonna seem sloppy. But we're going to deal
+  with the current capabilities that we have, given that AI is in its early
+  stages. I think the commutative versus associative idea is a cool thing.
+Inverses are also going to be a fun thing to work with. We have to also be mindful
+  not to make it overwhelming, to make it optionally deep. But I want
+  the rabbit hole to go down.
+I want it to go pretty fucking deep.
 
 
 The first thing we need is a single room sandbox that showcases the ultimate endgame state. This is the state that should be massively replayable and rewarding to simply move around in. Our first pass doesn't need to be perfect, but this is the sandbox which we will use to test how good our endgame is. The sandbox might start brutally small, but it might expand over time. 

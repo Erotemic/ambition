@@ -16,7 +16,7 @@ use bevy::prelude::{
     Time, With,
 };
 use bevy_ecs_ldtk::prelude::{
-    EntityInstance as PluginEntityInstance, LdtkEntity, LdtkEntityAppExt, LdtkFields, LevelSet,
+    EntityInstance as PluginEntityInstance, LdtkEntity, LdtkEntityAppExt, LevelSet,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -383,19 +383,10 @@ pub fn sync_plugin_spawned_ambition_entities(
             )),
             ambition_entity.clone(),
         ));
-        // Plugin-spawned LDtk entities that resolve to a `Solid` collision
-        // surface get the typed `LdtkSolid` component so the
-        // `LdtkRuntimeSolidIndex` collision authority can pick them up
-        // without reparsing identifiers. We currently emit it for the
-        // legacy `Solid` identifier; native `Surface` entities are picked up
-        // here too by a runtime field check (collision string == "Solid").
-        let is_solid_collision = ambition_entity.identifier == "Solid"
-            || (ambition_entity.identifier == "Surface"
-                && instance
-                    .get_string_field("collision")
-                    .map(|value| value.as_str() == "Solid")
-                    .unwrap_or(false));
-        if is_solid_collision {
+        // Plugin-spawned `Solid` LDtk entities get the typed `LdtkSolid`
+        // component so the `LdtkRuntimeSolidIndex` collision authority can
+        // pick them up without reparsing identifiers.
+        if ambition_entity.identifier == "Solid" {
             entity_commands.insert(LdtkSolid {
                 level_px: ambition_entity.px,
                 size: ambition_entity.size,
@@ -498,12 +489,6 @@ pub fn rebuild_ldtk_runtime_spine_index(
 
 pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "PlayerStart",
-    // `Surface` is the preferred future authoring primitive for rectangular
-    // gameplay geometry / collision-like volumes. The identifiers listed below
-    // it (`Solid`, `OneWayPlatform`, `BlinkWall`, `HazardBlock`, `PogoOrb`,
-    // `ReboundPad`, `Breakable`) are kept as legacy aliases that compile down
-    // to the same `LdtkSurfaceSpec` representation.
-    "Surface",
     "Solid",
     "OneWayPlatform",
     "BlinkWall",
@@ -524,14 +509,16 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "StitchedBoundary",
 ];
 
-/// LDtk identifiers handled by the `Surface` compile pipeline.
+/// LDtk identifiers that lower into the typed runtime "surface" conversion
+/// pipeline.
 ///
-/// `Surface` is the canonical authoring primitive for rectangular collision-like
-/// gameplay geometry; the others are legacy aliases retained while existing
-/// LDtk projects migrate. Adding to this list also registers the identifier
-/// for `LdtkSurfaceSpec` parsing in `entity_to_runtime`.
-pub const SURFACE_LIKE_IDENTIFIERS: &[&str] = &[
-    "Surface",
+/// The LDtk editor keeps these visually/semantically distinct so designers
+/// pick the right primitive (Solid, OneWayPlatform, BlinkWall, HazardBlock,
+/// PogoOrb, ReboundPad, Breakable). Internally the parser collapses them to
+/// the same typed `LdtkSurfaceSpec` so collision/contact/breakability code
+/// has a single conversion path. There is intentionally no canonical
+/// generic `Surface` authoring entity; the editor stays differentiated.
+const SURFACE_LIKE_IDENTIFIERS: &[&str] = &[
     "Solid",
     "OneWayPlatform",
     "BlinkWall",
@@ -541,8 +528,8 @@ pub const SURFACE_LIKE_IDENTIFIERS: &[&str] = &[
     "Breakable",
 ];
 
-/// True if `identifier` should be parsed as an `LdtkSurfaceSpec`.
-pub fn is_surface_like_identifier(identifier: &str) -> bool {
+/// True if `identifier` lowers into `LdtkSurfaceSpec` via `parse_surface_spec`.
+fn is_surface_like_identifier(identifier: &str) -> bool {
     SURFACE_LIKE_IDENTIFIERS.contains(&identifier)
 }
 
@@ -1523,24 +1510,6 @@ fn parse_surface_spec(
     };
 
     match entity.identifier.as_str() {
-        "Surface" => {
-            spec.collision = parse_surface_collision(
-                &field_string(entity, "collision").unwrap_or_else(|| "None".to_string()),
-            )?;
-            spec.breakability = parse_surface_breakability(
-                &field_string(entity, "breakability")
-                    .unwrap_or_else(|| "Indestructible".to_string()),
-            )?;
-            spec.contact = parse_surface_contact(entity)?;
-            spec.respawn = parse_surface_respawn(entity)?;
-            spec.max_hp = field_i32(entity, "hp")
-                .or_else(|| field_i32(entity, "max_hp"))
-                .unwrap_or(if matches!(spec.breakability, SurfaceBreakability::Indestructible) {
-                    0
-                } else {
-                    3
-                });
-        }
         "Solid" => {
             spec.collision = SurfaceCollision::Solid;
         }
@@ -1578,10 +1547,23 @@ fn parse_surface_spec(
             };
         }
         "Breakable" => {
-            spec.collision = if field_bool(entity, "solid").unwrap_or(false) {
-                SurfaceCollision::Solid
-            } else {
-                SurfaceCollision::None
+            // Prefer the typed `collision` LocalEnum field. Fall back to the
+            // older `solid: Bool` for instances saved before the enum was
+            // added — those map true → Solid, false/absent → None.
+            spec.collision = match field_string(entity, "collision").as_deref() {
+                Some("None") => SurfaceCollision::None,
+                Some("Solid") => SurfaceCollision::Solid,
+                Some("OneWayUp") => SurfaceCollision::OneWayUp,
+                Some(other) => {
+                    return Err(format!("invalid Breakable collision '{other}'"));
+                }
+                None => {
+                    if field_bool(entity, "solid").unwrap_or(false) {
+                        SurfaceCollision::Solid
+                    } else {
+                        SurfaceCollision::None
+                    }
+                }
             };
             spec.breakability = match field_string(entity, "trigger")
                 .unwrap_or_else(|| "OnHit".to_string())
@@ -1592,10 +1574,10 @@ fn parse_surface_spec(
                 "Either" => SurfaceBreakability::BreakOnHitOrStand,
                 other => return Err(format!("invalid Breakable trigger '{other}'")),
             };
-            spec.respawn = parse_surface_respawn_legacy(
-                field_string(entity, "respawn").as_deref().unwrap_or("Never"),
-            )?;
-            spec.max_hp = field_i32(entity, "max_hp").unwrap_or(3);
+            spec.respawn = parse_breakable_respawn(entity)?;
+            spec.max_hp = field_i32(entity, "max_hp")
+                .or_else(|| field_i32(entity, "hp"))
+                .unwrap_or(3);
         }
         other => {
             return Err(format!(
@@ -1607,87 +1589,40 @@ fn parse_surface_spec(
     Ok(spec)
 }
 
-fn parse_surface_collision(value: &str) -> Result<SurfaceCollision, String> {
-    match value.trim() {
-        "None" => Ok(SurfaceCollision::None),
-        "Solid" => Ok(SurfaceCollision::Solid),
-        "OneWayUp" => Ok(SurfaceCollision::OneWayUp),
-        "BlinkSoft" => Ok(SurfaceCollision::BlinkSoft),
-        "BlinkHard" => Ok(SurfaceCollision::BlinkHard),
-        other => Err(format!("invalid Surface collision '{other}'")),
-    }
-}
-
-fn parse_surface_breakability(value: &str) -> Result<SurfaceBreakability, String> {
-    match value.trim() {
-        "Indestructible" => Ok(SurfaceBreakability::Indestructible),
-        "BreakOnHit" => Ok(SurfaceBreakability::BreakOnHit),
-        "BreakOnStand" => Ok(SurfaceBreakability::BreakOnStand),
-        "BreakOnHitOrStand" => Ok(SurfaceBreakability::BreakOnHitOrStand),
-        other => Err(format!("invalid Surface breakability '{other}'")),
-    }
-}
-
-fn parse_surface_contact(entity: &LdtkEntityInstance) -> Result<SurfaceContact, String> {
-    let raw = field_string(entity, "contact").unwrap_or_else(|| "None".to_string());
-    match raw.trim() {
-        "None" => Ok(SurfaceContact::None),
-        "Damage" => Ok(SurfaceContact::Damage {
-            amount: field_i32(entity, "damage").unwrap_or(1),
-        }),
-        "PogoRefresh" => Ok(SurfaceContact::PogoRefresh),
-        "Rebound" => {
-            let impulse_x = field_f32(entity, "rebound_x")
-                .or_else(|| field_f32(entity, "impulseX"))
-                .ok_or_else(|| "Rebound contact requires rebound_x".to_string())?;
-            let impulse_y = field_f32(entity, "rebound_y")
-                .or_else(|| field_f32(entity, "impulseY"))
-                .ok_or_else(|| "Rebound contact requires rebound_y".to_string())?;
-            Ok(SurfaceContact::Rebound {
-                impulse: ae::Vec2::new(impulse_x, impulse_y),
-            })
-        }
-        other => Err(format!("invalid Surface contact '{other}'")),
-    }
-}
-
-fn parse_surface_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn, String> {
+/// Parse the `Breakable.respawn` field plus its companion `respawn_seconds`.
+///
+/// Accepted forms:
+/// - `"Never"` (default), `"OnRoomReload"`
+/// - `"AfterSeconds"` paired with a positive `respawn_seconds` float field
+/// - legacy inline `"AfterSeconds:<n>"` shorthand (still accepted for older
+///   instances saved before `respawn_seconds` was added)
+/// - legacy `"Persistent"`, mapped to `Never`
+fn parse_breakable_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn, String> {
     let raw = field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string());
-    match raw.trim() {
-        "Never" => Ok(SurfaceRespawn::Never),
-        "OnRoomReload" => Ok(SurfaceRespawn::OnRoomReload),
-        "AfterSeconds" => {
-            let seconds = field_f32(entity, "respawn_seconds")
-                .ok_or_else(|| "AfterSeconds respawn requires respawn_seconds".to_string())?;
-            if !(seconds > 0.0) {
-                return Err("respawn_seconds must be > 0".to_string());
-            }
-            Ok(SurfaceRespawn::AfterSeconds(seconds))
-        }
-        other => Err(format!("invalid Surface respawn '{other}'")),
-    }
-}
-
-/// Legacy `Breakable.respawn` field accepted both compact strings (`"Never"`,
-/// `"OnRoomReload"`, `"Persistent"`) and a `"AfterSeconds:<n>"` shorthand.
-/// Surface only supports the engine-native respawn policies, so `"Persistent"`
-/// is mapped to `Never` for now (it lives in the engine but isn't used by the
-/// Surface compile path yet).
-fn parse_surface_respawn_legacy(value: &str) -> Result<SurfaceRespawn, String> {
-    let trimmed = value.trim();
+    let trimmed = raw.trim();
     if let Some(seconds) = trimmed
         .strip_prefix("AfterSeconds:")
         .and_then(|text| text.parse::<f32>().ok())
     {
         if !(seconds > 0.0) {
-            return Err(format!("invalid respawn '{trimmed}'"));
+            return Err(format!("AfterSeconds respawn requires positive seconds, got {seconds}"));
         }
         return Ok(SurfaceRespawn::AfterSeconds(seconds));
     }
     match trimmed {
         "Never" | "Persistent" | "" => Ok(SurfaceRespawn::Never),
         "OnRoomReload" => Ok(SurfaceRespawn::OnRoomReload),
-        other => Err(format!("invalid respawn '{other}'")),
+        "AfterSeconds" => {
+            let seconds = field_f32(entity, "respawn_seconds")
+                .ok_or_else(|| "AfterSeconds respawn requires respawn_seconds".to_string())?;
+            if !(seconds > 0.0) {
+                return Err(format!(
+                    "AfterSeconds respawn requires positive respawn_seconds, got {seconds}"
+                ));
+            }
+            Ok(SurfaceRespawn::AfterSeconds(seconds))
+        }
+        other => Err(format!("invalid Breakable respawn '{other}'")),
     }
 }
 
@@ -1997,8 +1932,6 @@ fn parse_debug_label_kind(value: &str) -> ae::DebugLabelKind {
 mod tests {
     use super::*;
 
-    use ae::AabbExt;
-
     fn make_entity(
         identifier: &str,
         size: [i32; 2],
@@ -2133,161 +2066,53 @@ mod tests {
     }
 
     #[test]
-    fn surface_solid_compiles_to_solid_block() {
-        let compiled = compile_identifier(
-            "Surface",
-            [128, 32],
-            &[("collision", Value::String("Solid".into()))],
-        );
+    fn one_way_platform_compiles_to_one_way_block() {
+        let compiled = compile_identifier("OneWayPlatform", [96, 16], &[]);
+        assert_eq!(compiled.blocks.len(), 1);
+        assert!(matches!(compiled.blocks[0].kind, ae::BlockKind::OneWay));
+    }
+
+    #[test]
+    fn solid_compiles_to_solid_block() {
+        let compiled = compile_identifier("Solid", [128, 32], &[]);
         assert_eq!(compiled.objects.len(), 0);
         assert_eq!(compiled.blocks.len(), 1);
-        assert!(matches!(
-            compiled.blocks[0].kind,
-            ae::BlockKind::Solid
-        ));
+        assert!(matches!(compiled.blocks[0].kind, ae::BlockKind::Solid));
     }
 
     #[test]
-    fn surface_one_way_compiles_to_one_way_block() {
-        let compiled = compile_identifier(
-            "Surface",
-            [96, 16],
-            &[("collision", Value::String("OneWayUp".into()))],
-        );
+    fn hazard_block_compiles_to_hazard_block() {
+        let compiled = compile_identifier("HazardBlock", [64, 16], &[]);
         assert_eq!(compiled.blocks.len(), 1);
-        assert!(matches!(
-            compiled.blocks[0].kind,
-            ae::BlockKind::OneWay
-        ));
+        assert!(matches!(compiled.blocks[0].kind, ae::BlockKind::Hazard));
     }
 
     #[test]
-    fn surface_breakable_solid_wall_emits_breakable_with_solid_collision() {
-        let compiled = compile_identifier(
-            "Surface",
-            [48, 48],
-            &[
-                ("collision", Value::String("Solid".into())),
-                ("breakability", Value::String("BreakOnHit".into())),
-                ("hp", Value::Number(serde_json::Number::from(2))),
-            ],
-        );
-        assert!(compiled.blocks.is_empty());
-        assert_eq!(compiled.objects.len(), 1);
-        match &compiled.objects[0].kind {
-            ae::RoomObjectKind::Breakable(breakable) => {
-                assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
-                assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
-                assert_eq!(breakable.health.max, 2);
-            }
-            other => panic!("expected Breakable, got {other:?}"),
-        }
+    fn pogo_orb_compiles_to_pogo_orb_block() {
+        let compiled = compile_identifier("PogoOrb", [32, 32], &[]);
+        assert_eq!(compiled.blocks.len(), 1);
+        assert!(matches!(compiled.blocks[0].kind, ae::BlockKind::PogoOrb));
     }
 
     #[test]
-    fn surface_breakable_one_way_emits_breakable_with_one_way_collision() {
+    fn rebound_pad_compiles_to_rebound_block() {
         let compiled = compile_identifier(
-            "Surface",
-            [80, 16],
+            "ReboundPad",
+            [32, 16],
             &[
-                ("collision", Value::String("OneWayUp".into())),
-                ("breakability", Value::String("BreakOnStand".into())),
-            ],
-        );
-        assert_eq!(compiled.objects.len(), 1);
-        match &compiled.objects[0].kind {
-            ae::RoomObjectKind::Breakable(breakable) => {
-                assert_eq!(breakable.collision, ae::BreakableCollision::OneWayUp);
-                assert_eq!(breakable.trigger, ae::BreakableTrigger::OnStand);
-            }
-            other => panic!("expected Breakable, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn surface_damage_contact_compiles_to_hazard_block() {
-        let compiled = compile_identifier(
-            "Surface",
-            [64, 16],
-            &[
-                ("collision", Value::String("None".into())),
-                ("contact", Value::String("Damage".into())),
+                ("impulseX", Value::Number(serde_json::Number::from(0))),
+                ("impulseY", Value::Number(serde_json::Number::from(-600))),
             ],
         );
         assert_eq!(compiled.blocks.len(), 1);
         assert!(matches!(
             compiled.blocks[0].kind,
-            ae::BlockKind::Hazard
+            ae::BlockKind::Rebound { .. }
         ));
     }
 
     #[test]
-    fn surface_break_on_stand_with_no_collision_is_rejected() {
-        let entity = make_entity(
-            "Surface",
-            [32, 32],
-            &[
-                ("collision", Value::String("None".into())),
-                ("breakability", Value::String("BreakOnStand".into())),
-            ],
-        );
-        let spec = parse_surface_spec(
-            &entity,
-            ae::Vec2::ZERO,
-            ae::Vec2::new(32.0, 32.0),
-            "test".into(),
-        )
-        .expect("parses");
-        let err = compile_surface(&spec).expect_err("BreakOnStand requires collision");
-        assert!(
-            err.contains("BreakOnStand requires non-None collision"),
-            "{err}"
-        );
-    }
-
-    #[test]
-    fn legacy_solid_alias_matches_native_surface_solid() {
-        let legacy = compile_identifier("Solid", [64, 16], &[]);
-        let native = compile_identifier(
-            "Surface",
-            [64, 16],
-            &[("collision", Value::String("Solid".into()))],
-        );
-        assert_eq!(legacy.blocks.len(), 1);
-        assert_eq!(native.blocks.len(), 1);
-        // Both should be solid blocks with the same kind/aabb shape.
-        assert!(matches!(legacy.blocks[0].kind, ae::BlockKind::Solid));
-        assert!(matches!(native.blocks[0].kind, ae::BlockKind::Solid));
-        assert_eq!(legacy.blocks[0].aabb.center(), native.blocks[0].aabb.center());
-        assert_eq!(
-            legacy.blocks[0].aabb.half_size(),
-            native.blocks[0].aabb.half_size()
-        );
-    }
-
-    #[test]
-    fn legacy_breakable_alias_maps_solid_field_to_collision() {
-        let compiled = compile_identifier(
-            "Breakable",
-            [32, 32],
-            &[
-                ("solid", Value::Bool(true)),
-                ("max_hp", Value::Number(serde_json::Number::from(4))),
-                ("trigger", Value::String("OnHit".into())),
-            ],
-        );
-        assert_eq!(compiled.objects.len(), 1);
-        match &compiled.objects[0].kind {
-            ae::RoomObjectKind::Breakable(breakable) => {
-                assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
-                assert_eq!(breakable.health.max, 4);
-            }
-            other => panic!("expected Breakable, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn legacy_blink_wall_alias_uses_tier_field() {
+    fn blink_wall_uses_tier_field() {
         let soft = compile_identifier(
             "BlinkWall",
             [32, 32],
@@ -2313,7 +2138,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_rebound_pad_requires_impulse_fields() {
+    fn rebound_pad_requires_impulse_fields() {
         let entity = make_entity("ReboundPad", [16, 16], &[]);
         let err = parse_surface_spec(
             &entity,
@@ -2325,11 +2150,174 @@ mod tests {
         assert!(err.contains("missing impulseX"), "{err}");
     }
 
+    /// New typed `collision` field on Breakable: Solid -> hard wall while intact.
     #[test]
-    fn surface_is_a_known_entity_identifier() {
-        assert!(known_entity("Surface"));
-        assert!(is_surface_like_identifier("Surface"));
-        // legacy aliases still route through the surface pipeline
+    fn breakable_collision_solid_emits_breakable_with_solid_collision() {
+        let compiled = compile_identifier(
+            "Breakable",
+            [48, 48],
+            &[
+                ("collision", Value::String("Solid".into())),
+                ("trigger", Value::String("OnHit".into())),
+                ("max_hp", Value::Number(serde_json::Number::from(2))),
+            ],
+        );
+        assert!(compiled.blocks.is_empty());
+        assert_eq!(compiled.objects.len(), 1);
+        match &compiled.objects[0].kind {
+            ae::RoomObjectKind::Breakable(breakable) => {
+                assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
+                assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
+                assert_eq!(breakable.health.max, 2);
+            }
+            other => panic!("expected Breakable, got {other:?}"),
+        }
+    }
+
+    /// New typed `collision` field on Breakable: OneWayUp -> one-way platform while intact.
+    #[test]
+    fn breakable_collision_one_way_up_emits_breakable_with_one_way_collision() {
+        let compiled = compile_identifier(
+            "Breakable",
+            [80, 16],
+            &[
+                ("collision", Value::String("OneWayUp".into())),
+                ("trigger", Value::String("OnStand".into())),
+            ],
+        );
+        assert_eq!(compiled.objects.len(), 1);
+        match &compiled.objects[0].kind {
+            ae::RoomObjectKind::Breakable(breakable) => {
+                assert_eq!(breakable.collision, ae::BreakableCollision::OneWayUp);
+                assert_eq!(breakable.trigger, ae::BreakableTrigger::OnStand);
+            }
+            other => panic!("expected Breakable, got {other:?}"),
+        }
+    }
+
+    /// `collision = None` on Breakable: pure trigger volume, contributes no collision.
+    #[test]
+    fn breakable_collision_none_contributes_no_collision() {
+        let compiled = compile_identifier(
+            "Breakable",
+            [32, 32],
+            &[
+                ("collision", Value::String("None".into())),
+                ("trigger", Value::String("OnHit".into())),
+            ],
+        );
+        assert_eq!(compiled.objects.len(), 1);
+        match &compiled.objects[0].kind {
+            ae::RoomObjectKind::Breakable(breakable) => {
+                assert_eq!(breakable.collision, ae::BreakableCollision::None);
+            }
+            other => panic!("expected Breakable, got {other:?}"),
+        }
+    }
+
+    /// `BreakOnStand` requires non-None collision: there must be a surface to stand on.
+    #[test]
+    fn breakable_on_stand_with_no_collision_is_rejected() {
+        let entity = make_entity(
+            "Breakable",
+            [32, 32],
+            &[
+                ("collision", Value::String("None".into())),
+                ("trigger", Value::String("OnStand".into())),
+            ],
+        );
+        let spec = parse_surface_spec(
+            &entity,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(32.0, 32.0),
+            "test".into(),
+        )
+        .expect("parses");
+        let err = compile_surface(&spec).expect_err("BreakOnStand requires collision");
+        assert!(
+            err.contains("BreakOnStand requires non-None collision"),
+            "{err}"
+        );
+    }
+
+    /// `respawn = AfterSeconds` requires a positive `respawn_seconds` field.
+    #[test]
+    fn breakable_after_seconds_requires_positive_respawn_seconds() {
+        let missing_field = make_entity(
+            "Breakable",
+            [32, 32],
+            &[
+                ("collision", Value::String("Solid".into())),
+                ("trigger", Value::String("OnHit".into())),
+                ("respawn", Value::String("AfterSeconds".into())),
+            ],
+        );
+        let err = parse_surface_spec(
+            &missing_field,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(32.0, 32.0),
+            "test".into(),
+        )
+        .expect_err("AfterSeconds without respawn_seconds is rejected");
+        assert!(err.contains("respawn_seconds"), "{err}");
+
+        let zero_seconds = make_entity(
+            "Breakable",
+            [32, 32],
+            &[
+                ("collision", Value::String("Solid".into())),
+                ("trigger", Value::String("OnHit".into())),
+                ("respawn", Value::String("AfterSeconds".into())),
+                ("respawn_seconds", Value::Number(serde_json::Number::from(0))),
+            ],
+        );
+        let err = parse_surface_spec(
+            &zero_seconds,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(32.0, 32.0),
+            "test".into(),
+        )
+        .expect_err("respawn_seconds must be positive");
+        assert!(err.contains("positive"), "{err}");
+    }
+
+    /// Legacy `solid: bool` field is still accepted for instances saved before
+    /// the typed `collision` enum was added.
+    #[test]
+    fn legacy_breakable_solid_field_is_still_accepted() {
+        let compiled = compile_identifier(
+            "Breakable",
+            [32, 32],
+            &[
+                ("solid", Value::Bool(true)),
+                ("max_hp", Value::Number(serde_json::Number::from(4))),
+                ("trigger", Value::String("OnHit".into())),
+            ],
+        );
+        assert_eq!(compiled.objects.len(), 1);
+        match &compiled.objects[0].kind {
+            ae::RoomObjectKind::Breakable(breakable) => {
+                assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
+                assert_eq!(breakable.health.max, 4);
+            }
+            other => panic!("expected Breakable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn no_surface_authoring_primitive_is_registered() {
+        // The LDtk editor stays differentiated; there should be no canonical
+        // generic Surface entity registered or routed through the parser.
+        assert!(
+            !known_entity("Surface"),
+            "Surface must not be a registered LDtk entity"
+        );
+        assert!(
+            !is_surface_like_identifier("Surface"),
+            "Surface must not route through the typed surface conversion path"
+        );
+        // Legacy differentiated identifiers DO still route through the
+        // typed conversion path.
         for id in [
             "Solid",
             "OneWayPlatform",
@@ -2341,7 +2329,6 @@ mod tests {
         ] {
             assert!(is_surface_like_identifier(id), "{id}");
         }
-        // non-surface entities are not surface-like
         for id in ["PlayerStart", "LoadingZone", "DebugLabel", "NpcSpawn"] {
             assert!(!is_surface_like_identifier(id), "{id}");
         }

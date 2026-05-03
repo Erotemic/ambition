@@ -688,8 +688,53 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
                     if field_value(fields, "path_mode", "PingPong") not in {"Once", "Loop", "PingPong"}:
                         errors.append(f"DamageVolume {entity.get('iid')} has invalid path_mode")
             elif ident == "Breakable":
+                # Breakable.collision: the typed enum field. Older instances
+                # may still use the boolean `solid` field; both are accepted
+                # but at most one should drive collision (the enum wins).
+                collision = field_value(fields, "collision")
+                if collision is not None and collision not in {"None", "Solid", "OneWayUp"}:
+                    errors.append(
+                        f"Breakable {entity.get('iid')} has invalid collision {collision!r}; "
+                        "must be one of None | Solid | OneWayUp"
+                    )
+                trigger = str(field_value(fields, "trigger", "OnHit"))
+                if trigger not in {"OnHit", "OnStand", "Either"}:
+                    errors.append(
+                        f"Breakable {entity.get('iid')} has invalid trigger {trigger!r}; "
+                        "must be one of OnHit | OnStand | Either"
+                    )
+                # Stand-to-break only makes sense when the breakable
+                # contributes collision while intact.
+                if trigger in {"OnStand", "Either"}:
+                    effective_collision = collision
+                    if effective_collision is None:
+                        effective_collision = (
+                            "Solid" if bool(field_value(fields, "solid", False)) else "None"
+                        )
+                    if effective_collision == "None":
+                        errors.append(
+                            f"Breakable {entity.get('iid')} trigger={trigger!r} requires "
+                            "collision != None (nothing to stand on)"
+                        )
+                # Respawn validation: typed `respawn = AfterSeconds` requires
+                # a positive `respawn_seconds` field; legacy inline shorthand
+                # `AfterSeconds:<n>` keeps working for older instances.
                 respawn = str(field_value(fields, "respawn", "Never"))
-                if not (respawn in {"Never", "OnRoomReload", "Persistent", "None"} or respawn.startswith("AfterSeconds:")):
+                if respawn == "AfterSeconds":
+                    seconds = field_value(fields, "respawn_seconds")
+                    try:
+                        seconds_value = float(seconds) if seconds is not None else 0.0
+                    except (TypeError, ValueError):
+                        seconds_value = 0.0
+                    if seconds_value <= 0.0:
+                        errors.append(
+                            f"Breakable {entity.get('iid')} respawn=AfterSeconds requires a "
+                            "positive respawn_seconds field"
+                        )
+                elif not (
+                    respawn in {"Never", "OnRoomReload", "Persistent", "None"}
+                    or respawn.startswith("AfterSeconds:")
+                ):
                     errors.append(f"Breakable {entity.get('iid')} has invalid respawn value {respawn!r}")
 
     for source_level, area, zone_id, target_room, target_zone in requested_links:

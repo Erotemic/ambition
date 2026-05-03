@@ -108,36 +108,31 @@ B without this answered.
 **Coordination:** the audio agent's branch is the natural owner of the
 `audio` feature gate.
 
-#### A.1 status (landed)
+#### A.1 + A.2 status (landed)
 
-Scaffolding + the `dev_tools` gate are in (`crates/ambition_sandbox/Cargo.toml`,
-`src/app.rs`). All heavy deps are flipped to `optional = true`; `default =
-["visible", "dev_tools"]` preserves prior behavior. Verified:
+Scaffolding + three gates are in. All heavy deps are flipped to `optional
+= true`; `default = ["visible", "dev_tools"]` preserves prior behavior.
 
-- `cargo check -p ambition_sandbox` (defaults) — passes, 37s
-- `cargo check -p ambition_sandbox --no-default-features --features visible`
-  — passes, 51s; `bevy-inspector-egui` and `bevy_egui` cleanly drop from
-  the dep graph (verified via `cargo tree`).
-- `cargo check -p ambition_sandbox --no-default-features --features visible,dev_hot_reload`
-  — passes; file watcher on, inspector still off.
-- All 30 sandbox lib tests pass under defaults.
-
-#### A.2 remaining gates (breadcrumb)
-
-`cargo check --no-default-features --features headless` reports 48 errors
-mapping to five un-gated subsystems. Each is its own follow-up commit:
-
-| Feature | Crates touched | Files needing `#[cfg]` |
+| Feature | Status | Approach |
 |---|---|---|
-| `audio` | `bevy_kira_audio`, `fundsp` | `audio.rs`, `app.rs`, `pause_menu.rs`, `setup.rs` (audio agent's territory) |
-| `input` | `leafwing-input-manager` | `input.rs`, `app.rs`, `debug_overlay.rs`, `inventory.rs`, `pause_menu.rs`, `setup.rs` |
-| `ui` | `bevy_material_ui`, `bevy_yarnspinner` | `dialog.rs`, `app.rs` (MaterialUiPlugin install) |
-| `physics_debris` | `avian2d` | `physics.rs`, plus extracting `DebrisBurstMessage` into a sim-only module so headless can keep `add_message::<DebrisBurstMessage>()` |
-| `ldtk_runtime` | `bevy_ecs_ldtk`, `bevy_asset_loader` | `ldtk_world.rs`, `loading.rs`, `setup.rs`, `app.rs`, `headless.rs` |
+| `dev_tools` | **landed** | Inspector imports + EguiPlugin + 4× ResourceInspectorPlugin + WorldInspectorPlugin extracted into `add_dev_tools_plugins`. |
+| `physics_debris` | **landed** | Sim-side types (PhysicsSandboxSettings, PhysicsDebrisCue, DebrisBurstMessage, PhysicsRoomEntity) stay always-available; avian impl + presentation systems cfg-gated; `retire_physics_entity` and `spawn_static_collider_for_block` get no-op stubs. |
+| `ui` | **landed** | `bevy_yarnspinner` + `bevy_material_ui` plugin installs gated; the dialogue runtime / overlay (`DialogState`, `dialog_input`, `sync_dialog_ui`) draw with core Bevy UI and stay installed unconditionally. |
+| `input` | **deferred → step B** | `sandbox_update` takes `Query<&mut ActionState<SandboxAction>, With<PlayerVisual>>` directly; cleanly gating leafwing means feeding input into the sim via a typed resource/message instead of a Bevy query. That's the ADR 0012 sim/presentation seam — explicit step B work. Until then, leafwing must stay enabled in any build that compiles the sim. |
+| `ldtk_runtime` | **deferred → step C** | `ldtk_world.rs` (~2k lines) interleaves the bevy_ecs_ldtk plugin glue with the sandbox-side parser/validator that headless uses. Step C explicitly splits this file; once split, the bevy half can be cleanly gated and the parser stays unconditional. |
+| `audio` | **partial blocker** | `audio.rs` itself splits cleanly (the message type is plain data, the rest is kira/fundsp). But `pause_menu.rs::pause_menu_navigate` couples leafwing input *and* `AudioChannel<MusicChannel>` in one Bevy system, so the audio gate is entangled with the input deferral. Worth bundling with the input gate after step B lands. Audio agent owns this surface. |
 
-`physics_debris` is the gnarliest because `DebrisBurstMessage` is part of
-the sim/presentation seam (`add_simulation_plugins` registers it for both
-binaries). The message type needs to move out of `physics.rs` first.
+Verified for the landed gates:
+
+- `cargo check -p ambition_sandbox` (defaults) — passes.
+- `cargo check -p ambition_sandbox --no-default-features --features ldtk_runtime,input,audio` — passes; avian2d / bevy_yarnspinner / bevy_material_ui / inspector drop from the dep tree.
+- 30/30 sandbox lib tests pass.
+
+The doc's full stop gate ("succeed without dragging Kira / inspector-egui /
+Avian / bevy_ecs_ldtk") needs `ldtk_runtime` and `audio` to land too — both
+blocked by structural prerequisites (B and C). Practical sequencing: do
+B → revisit `audio` + `input`, then C → revisit `ldtk_runtime`, then
+re-check the stop gate.
 
 ### B. Finish ADR 0012 events refactor (~1-2 days)
 

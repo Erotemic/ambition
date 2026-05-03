@@ -6,26 +6,34 @@
 //! source of truth for cue shapes and music arrangements.
 
 use ambition_engine as ae;
+#[cfg(feature = "audio")]
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+#[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::{
     AudioChannel, AudioControl, AudioEasing, AudioSource as KiraAudioSource, AudioTween, Frame,
     StaticSoundData, StaticSoundSettings,
 };
+#[cfg(feature = "audio")]
 use fundsp::audiounit::AudioUnit;
+#[cfg(feature = "audio")]
 use fundsp::prelude as dsp;
+#[cfg(feature = "audio")]
 use std::sync::Arc;
+#[cfg(feature = "audio")]
 use std::time::Duration;
 
-use crate::data::{
-    AudioSpec, MusicSpec, MusicTrackSpec, NoteSpec, SfxSpec, SoundCueKey, WaveformSpec,
-};
+use crate::data::SoundCueKey;
+#[cfg(feature = "audio")]
+use crate::data::{AudioSpec, MusicSpec, MusicTrackSpec, NoteSpec, SfxSpec, WaveformSpec};
 
 pub const ORIGINAL_TRACK_ID: &str = "original_lofi_loop";
 
+#[cfg(feature = "audio")]
 #[derive(Resource)]
 pub struct MusicChannel;
 
+#[cfg(feature = "audio")]
 #[derive(Resource)]
 pub struct SfxChannel;
 
@@ -78,6 +86,7 @@ impl SfxMessage {
 
 /// Presentation-side subscriber. Reads `SfxMessage`s and plays the actual
 /// sound through Kira's SFX channel. Skipped in headless builds.
+#[cfg(feature = "audio")]
 pub fn audio_play_sfx_messages(
     mut messages: MessageReader<SfxMessage>,
     library: Res<AudioLibrary>,
@@ -138,6 +147,7 @@ impl From<SoundCue> for SoundCueKey {
 }
 
 #[derive(Clone)]
+#[cfg(feature = "audio")]
 pub struct MusicTrackRuntime {
     pub id: String,
     pub display_name: String,
@@ -146,12 +156,14 @@ pub struct MusicTrackRuntime {
 }
 
 #[derive(Resource)]
+#[cfg(feature = "audio")]
 pub struct AudioLibrary {
     sfx: HashMap<SoundCue, Handle<KiraAudioSource>>,
     fallback_sfx: Handle<KiraAudioSource>,
     music_tracks: Vec<MusicTrackRuntime>,
 }
 
+#[cfg(feature = "audio")]
 impl AudioLibrary {
     pub fn new(audio_sources: &mut Assets<KiraAudioSource>, spec: &AudioSpec) -> Self {
         if let Err(error) = spec.validate() {
@@ -258,10 +270,12 @@ impl AudioLibrary {
 }
 
 #[derive(Resource, Clone, Debug)]
+#[cfg(feature = "audio")]
 pub struct MusicPlaybackState {
     pub active_track: String,
 }
 
+#[cfg(feature = "audio")]
 impl MusicPlaybackState {
     pub fn from_audio_spec(spec: &AudioSpec, library: &AudioLibrary) -> Self {
         let active_track = library
@@ -276,6 +290,7 @@ impl MusicPlaybackState {
     }
 }
 
+#[cfg(feature = "audio")]
 pub fn start_default_music(
     library: Res<AudioLibrary>,
     state: Res<MusicPlaybackState>,
@@ -284,6 +299,7 @@ pub fn start_default_music(
     play_music_track(&library, &state.active_track, &music_channel);
 }
 
+#[cfg(feature = "audio")]
 pub fn switch_to_music_track(
     library: &AudioLibrary,
     state: &mut MusicPlaybackState,
@@ -302,6 +318,7 @@ pub fn switch_to_music_track(
     play_music_track(library, next_track, music_channel);
 }
 
+#[cfg(feature = "audio")]
 fn play_music_track(
     library: &AudioLibrary,
     track_id: &str,
@@ -321,11 +338,13 @@ fn play_music_track(
 }
 
 #[derive(Clone, Debug)]
+#[cfg(feature = "audio")]
 pub struct RenderedAudio {
     pub sample_rate: u32,
     pub frames: Vec<Frame>,
 }
 
+#[cfg(feature = "audio")]
 impl RenderedAudio {
     pub fn duration_seconds(&self) -> f32 {
         self.frames.len() as f32 / self.sample_rate as f32
@@ -343,14 +362,17 @@ impl RenderedAudio {
     }
 }
 
+#[cfg(feature = "audio")]
 pub fn render_music_preview(track: &MusicTrackSpec, sample_rate: u32) -> RenderedAudio {
     render_lofi_theme(&track.arrangement, sample_rate.max(8_000))
 }
 
+#[cfg(feature = "audio")]
 pub fn render_music_preview_wav_bytes(spec: &MusicSpec, sample_rate: u32) -> Vec<u8> {
     wav_bytes_from_rendered_audio(&render_lofi_theme(spec, sample_rate.max(8_000)))
 }
 
+#[cfg(feature = "audio")]
 pub fn wav_bytes_from_rendered_audio(rendered: &RenderedAudio) -> Vec<u8> {
     let channels = 2u16;
     let bits_per_sample = 16u16;
@@ -381,6 +403,7 @@ pub fn wav_bytes_from_rendered_audio(rendered: &RenderedAudio) -> Vec<u8> {
     bytes
 }
 
+#[cfg(feature = "audio")]
 fn add_rendered_audio(
     audio_sources: &mut Assets<KiraAudioSource>,
     rendered: RenderedAudio,
@@ -388,6 +411,7 @@ fn add_rendered_audio(
     audio_sources.add(rendered.into_source())
 }
 
+#[cfg(feature = "audio")]
 fn find_sfx(spec: &AudioSpec, cue: SoundCue) -> SfxSpec {
     let key = SoundCueKey::from(cue);
     spec.sfx
@@ -397,6 +421,7 @@ fn find_sfx(spec: &AudioSpec, cue: SoundCue) -> SfxSpec {
         .unwrap_or_else(|| fallback_sfx(key))
 }
 
+#[cfg(feature = "audio")]
 fn fallback_sfx(cue: SoundCueKey) -> SfxSpec {
     let (waveform, frequency, frequency_end, duration, volume, noise) = match cue {
         SoundCueKey::Jump => (WaveformSpec::Sine, 460.0, 720.0, 0.085, 0.22, 0.0),
@@ -424,6 +449,7 @@ fn fallback_sfx(cue: SoundCueKey) -> SfxSpec {
     }
 }
 
+#[cfg(feature = "audio")]
 fn render_sfx(spec: SfxSpec, sample_rate: u32) -> RenderedAudio {
     match spec.waveform {
         WaveformSpec::Sine => render_sfx_with_fundsp_osc(spec, sample_rate, dsp::sine::<f32>()),
@@ -433,6 +459,7 @@ fn render_sfx(spec: SfxSpec, sample_rate: u32) -> RenderedAudio {
     }
 }
 
+#[cfg(feature = "audio")]
 fn render_sfx_with_fundsp_osc(
     mut spec: SfxSpec,
     sample_rate: u32,
@@ -481,6 +508,7 @@ fn render_sfx_with_fundsp_osc(
     }
 }
 
+#[cfg(feature = "audio")]
 fn envelope(index: usize, length: usize, attack: usize, release: usize) -> f32 {
     if attack > 0 && index < attack {
         return dsp::smooth5(index as f32 / attack as f32);
@@ -491,6 +519,7 @@ fn envelope(index: usize, length: usize, attack: usize, release: usize) -> f32 {
     1.0
 }
 
+#[cfg(feature = "audio")]
 fn render_lofi_theme(spec: &MusicSpec, sample_rate: u32) -> RenderedAudio {
     let bpm = spec.bpm.max(1.0);
     let seconds_per_beat = 60.0 / bpm;
@@ -587,6 +616,7 @@ fn render_lofi_theme(spec: &MusicSpec, sample_rate: u32) -> RenderedAudio {
     }
 }
 
+#[cfg(feature = "audio")]
 fn note_sequence_voice(
     notes: &[NoteSpec],
     loop_beat: f32,
@@ -613,6 +643,7 @@ fn note_sequence_voice(
     sample
 }
 
+#[cfg(feature = "audio")]
 fn lofi_chord_pad(
     spec: &MusicSpec,
     loop_beat: f32,
@@ -640,6 +671,7 @@ fn lofi_chord_pad(
     sample * note_envelope(local_time, duration, 0.180, 0.700)
 }
 
+#[cfg(feature = "audio")]
 fn lofi_soft_keys(
     spec: &MusicSpec,
     loop_beat: f32,
@@ -669,6 +701,7 @@ fn lofi_soft_keys(
         * spec.gains.soft_keys
 }
 
+#[cfg(feature = "audio")]
 fn lofi_bass(spec: &MusicSpec, loop_beat: f32, seconds_per_beat: f32, time_seconds: f32) -> f32 {
     if spec.bass_roots.is_empty() {
         return 0.0;
@@ -691,6 +724,7 @@ fn lofi_bass(spec: &MusicSpec, loop_beat: f32, seconds_per_beat: f32, time_secon
         * spec.gains.bass
 }
 
+#[cfg(feature = "audio")]
 fn lofi_dusty_drums(loop_beat: f32, seconds_per_beat: f32, time_seconds: f32, noise: f32) -> f32 {
     let beat_floor = loop_beat.floor();
     let beat_frac = loop_beat - beat_floor;
@@ -723,18 +757,22 @@ fn lofi_dusty_drums(loop_beat: f32, seconds_per_beat: f32, time_seconds: f32, no
     sample
 }
 
+#[cfg(feature = "audio")]
 fn music_bar_index(loop_beat: f32) -> usize {
     (loop_beat / 4.0).floor().max(0.0) as usize
 }
 
+#[cfg(feature = "audio")]
 fn beat_in_bar(loop_beat: f32) -> f32 {
     loop_beat - music_bar_index(loop_beat) as f32 * 4.0
 }
 
+#[cfg(feature = "audio")]
 fn semitone_frequency(root_hz: f32, semitone: i32) -> f32 {
     root_hz * 2.0f32.powf(semitone as f32 / 12.0)
 }
 
+#[cfg(feature = "audio")]
 fn fundsp_wave_at(freq: f32, time_seconds: f32, waveform: WaveformSpec, duty: f32) -> f32 {
     match waveform {
         WaveformSpec::Sine => dsp::sin_hz(freq, time_seconds),
@@ -751,6 +789,7 @@ fn fundsp_wave_at(freq: f32, time_seconds: f32, waveform: WaveformSpec, duty: f3
     }
 }
 
+#[cfg(feature = "audio")]
 fn note_envelope(local_time: f32, duration: f32, attack: f32, release: f32) -> f32 {
     if duration <= 0.0 || local_time < 0.0 || local_time > duration {
         return 0.0;
@@ -765,17 +804,19 @@ fn note_envelope(local_time: f32, duration: f32, attack: f32, release: f32) -> f
     1.0
 }
 
+#[cfg(feature = "audio")]
 fn mix_stereo(left: &mut f32, right: &mut f32, sample: f32, pan: f32) {
     let pan = pan.clamp(-1.0, 1.0);
     *left += sample * (1.0 - pan * 0.35);
     *right += sample * (1.0 + pan * 0.35);
 }
 
+#[cfg(feature = "audio")]
 fn dsp_soft_clip(sample: f32) -> f32 {
     dsp::softsign(sample * 1.25) / dsp::softsign(1.25)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "audio"))]
 mod tests {
     use super::*;
     use crate::data::SandboxDataSpec;

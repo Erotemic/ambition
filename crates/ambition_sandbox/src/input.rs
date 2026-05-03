@@ -6,6 +6,7 @@
 
 use ambition_engine as ae;
 use bevy::prelude::*;
+#[cfg(feature = "input")]
 use leafwing_input_manager::prelude::*;
 
 /// Logical player/sandbox inputs understood by the Bevy adapter layer.
@@ -14,6 +15,10 @@ use leafwing_input_manager::prelude::*;
 /// movement vector. The cardinal `Move*` button actions intentionally duplicate
 /// the directional bindings so systems can still detect edge-triggered gestures
 /// such as double-tap-down fast fall and double-tap-up door activation.
+///
+/// Gated behind `input`: this type pulls in leafwing's `Actionlike` trait.
+/// Sim-only builds use `ControlFrame` (always-available) on the seam instead.
+#[cfg(feature = "input")]
 #[derive(Actionlike, Clone, Copy, Debug, Hash, PartialEq, Eq, Reflect)]
 pub enum SandboxAction {
     #[actionlike(DualAxis)]
@@ -211,7 +216,9 @@ impl KeyboardPreset {
     ///
     /// Preset cycling swaps this component on the player entity. Keeping the
     /// preset as data means later TOML/RON keybinding config can deserialize
-    /// into the same shape instead of rewriting gameplay systems.
+    /// into the same shape instead of rewriting gameplay systems. Gated
+    /// behind `input` because the return type is leafwing-owned.
+    #[cfg(feature = "input")]
     pub fn input_map(&self) -> InputMap<SandboxAction> {
         let keyboard_move = match self.id {
             PresetId::ArrowsZxc | PresetId::ArrowsQwer => VirtualDPad::arrow_keys(),
@@ -331,6 +338,7 @@ pub struct ControlFrame {
 }
 
 impl ControlFrame {
+    #[cfg(feature = "input")]
     pub fn read_gameplay(actions: &ActionState<SandboxAction>) -> Self {
         let mut axis = actions.clamped_axis_pair(&SandboxAction::Move);
         // Walk modifier: Shift on keyboard, LT2 on gamepad. Cardinal /
@@ -373,6 +381,7 @@ impl ControlFrame {
         }
     }
 
+    #[cfg(feature = "input")]
     pub fn read_menu(actions: &ActionState<SandboxAction>) -> Self {
         Self {
             start_pressed: actions.just_pressed(&SandboxAction::Start),
@@ -419,6 +428,7 @@ pub const GAMEPAD_MAP: &[(&str, &str)] = &[
     ("Start / Options", "pause / menu"),
 ];
 
+#[cfg(feature = "input")]
 fn insert_optional(map: &mut InputMap<SandboxAction>, action: SandboxAction, key: Option<KeyCode>) {
     if let Some(key) = key {
         map.insert(action, key);

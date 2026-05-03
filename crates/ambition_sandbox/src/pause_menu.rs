@@ -9,11 +9,15 @@
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
+#[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioChannel;
+#[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
+#[cfg(feature = "audio")]
 use crate::audio::{switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState};
 use crate::game_mode::GameMode;
+#[cfg(feature = "input")]
 use crate::input::SandboxAction;
 use crate::inventory::InventoryUiState;
 
@@ -39,6 +43,7 @@ impl PauseMenuItem {
         }
     }
 
+    #[cfg(feature = "audio")]
     pub fn label(
         self,
         music_state: Option<&MusicPlaybackState>,
@@ -56,6 +61,11 @@ impl PauseMenuItem {
         }
     }
 
+    #[cfg(not(feature = "audio"))]
+    pub fn label(self) -> String {
+        self.static_label().to_string()
+    }
+
     pub const ALL: [Self; 4] = [Self::Resume, Self::MusicTrack, Self::Inventory, Self::Quit];
 }
 
@@ -68,6 +78,7 @@ pub struct PauseMenuState {
 /// Runs before `sandbox_update` consumes the start press so the gameplay
 /// loop's existing toggle path stays disabled while the menu is the
 /// authoritative driver of pause/resume.
+#[cfg(feature = "input")]
 pub fn pause_menu_toggle(
     action_state: Query<&ActionState<SandboxAction>>,
     mode: Res<State<GameMode>>,
@@ -97,6 +108,7 @@ pub fn pause_menu_toggle(
     }
 }
 
+#[cfg(all(feature = "input", feature = "audio"))]
 pub fn pause_menu_navigate(
     action_state: Query<&ActionState<SandboxAction>>,
     mode: Res<State<GameMode>>,
@@ -246,6 +258,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
 }
 
 /// Show/hide the pause overlay based on `GameMode` and update item highlights.
+#[cfg(feature = "audio")]
 pub fn sync_pause_menu(
     mode: Res<State<GameMode>>,
     state: Res<PauseMenuState>,
@@ -260,9 +273,6 @@ pub fn sync_pause_menu(
         &mut BackgroundColor,
     )>,
 ) {
-    // Hide while the inventory is open so it doesn't double-stack with the
-    // inventory panel; the inventory has its own dismiss handling and
-    // returns control to the pause menu when closed.
     let visible = matches!(mode.get(), GameMode::Paused) && !inventory.visible;
     for mut visibility in &mut roots {
         *visibility = if visible {
@@ -277,16 +287,52 @@ pub fn sync_pause_menu(
     let selected_item = PauseMenuItem::ALL.get(state.selected).copied();
     for (item, mut text, mut color, mut bg) in &mut items {
         **text = item.label(Some(&music_state), Some(&library));
-        let is_selected = Some(*item) == selected_item;
-        *color = if is_selected {
-            TextColor(Color::srgba(0.18, 0.06, 0.04, 1.0))
+        apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
+    }
+}
+
+/// Audio-off variant: same visibility logic, but item labels stay static
+/// (no music-track display) since the music subsystem is gone.
+#[cfg(not(feature = "audio"))]
+pub fn sync_pause_menu(
+    mode: Res<State<GameMode>>,
+    state: Res<PauseMenuState>,
+    inventory: Res<InventoryUiState>,
+    mut roots: Query<&mut Visibility, With<PauseMenuRoot>>,
+    mut items: Query<(
+        &PauseMenuItem,
+        &mut Text,
+        &mut TextColor,
+        &mut BackgroundColor,
+    )>,
+) {
+    let visible = matches!(mode.get(), GameMode::Paused) && !inventory.visible;
+    for mut visibility in &mut roots {
+        *visibility = if visible {
+            Visibility::Visible
         } else {
-            TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96))
-        };
-        *bg = if is_selected {
-            BackgroundColor(Color::srgba(0.95, 0.78, 0.32, 0.96))
-        } else {
-            BackgroundColor(Color::NONE)
+            Visibility::Hidden
         };
     }
+    if !visible {
+        return;
+    }
+    let selected_item = PauseMenuItem::ALL.get(state.selected).copied();
+    for (item, mut text, mut color, mut bg) in &mut items {
+        **text = item.label();
+        apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
+    }
+}
+
+fn apply_item_highlight(color: &mut TextColor, bg: &mut BackgroundColor, is_selected: bool) {
+    *color = if is_selected {
+        TextColor(Color::srgba(0.18, 0.06, 0.04, 1.0))
+    } else {
+        TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96))
+    };
+    *bg = if is_selected {
+        BackgroundColor(Color::srgba(0.95, 0.78, 0.32, 0.96))
+    } else {
+        BackgroundColor(Color::NONE)
+    };
 }

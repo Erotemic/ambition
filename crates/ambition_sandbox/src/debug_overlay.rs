@@ -11,11 +11,16 @@ use bevy::prelude::*;
 
 use crate::config::world_to_bevy;
 use crate::dev_tools::DeveloperTools;
-use crate::input::{ControlFrame, SandboxAction};
+use crate::input::ControlFrame;
+#[cfg(feature = "input")]
+use crate::input::SandboxAction;
 use crate::platforms;
-use crate::rendering::{PlayerVisual, SceneEntities};
+#[cfg(feature = "input")]
+use crate::rendering::PlayerVisual;
+use crate::rendering::SceneEntities;
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use crate::{GameMode, GameWorld, SandboxRuntime};
+#[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
 fn cyan() -> Color {
@@ -46,6 +51,15 @@ fn gray() -> Color {
     Color::srgba(0.62, 0.66, 0.75, 0.46)
 }
 
+/// No-op stub for builds without the `input` feature. The full overlay
+/// reads leafwing's `ActionState` to render combat/blink previews; without
+/// leafwing in scope, gizmos for those would have no input source. Sim
+/// gizmos that don't need input are also skipped to keep the chain
+/// signature stable across feature combinations.
+#[cfg(not(feature = "input"))]
+pub fn draw_debug_overlay() {}
+
+#[cfg(feature = "input")]
 pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<GameWorld>,
@@ -159,6 +173,7 @@ fn draw_ldtk_runtime_spine(
     }
 }
 
+#[cfg(feature = "input")]
 fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,

@@ -11,9 +11,12 @@
 //! a schema decision right now.
 
 use bevy::prelude::*;
+#[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
+#[cfg(feature = "input")]
 use crate::game_mode::GameMode;
+#[cfg(feature = "input")]
 use crate::input::SandboxAction;
 use crate::SandboxRuntime;
 
@@ -118,6 +121,7 @@ pub struct InventoryDescriptionText;
 #[derive(Component)]
 pub struct InventoryStatusText;
 
+#[cfg(feature = "input")]
 pub fn inventory_input(
     action_state: Query<&ActionState<SandboxAction>>,
     mut state: ResMut<InventoryUiState>,

@@ -27,16 +27,18 @@ use bevy_inspector_egui::{
     bevy_egui::EguiPlugin,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
 };
+#[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::{
     AudioApp, AudioPlugin as KiraAudioPlugin, AudioSource as KiraAudioSource,
 };
 #[cfg(feature = "ui")]
 use bevy_material_ui::MaterialUiPlugin;
+#[cfg(feature = "input")]
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 
-use crate::audio::{
-    audio_play_sfx_messages, start_default_music, MusicChannel, SfxChannel, SfxMessage,
-};
+use crate::audio::SfxMessage;
+#[cfg(feature = "audio")]
+use crate::audio::{audio_play_sfx_messages, start_default_music, MusicChannel, SfxChannel};
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
 use crate::debug_overlay;
@@ -48,7 +50,9 @@ use crate::features;
 use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::game_assets::{self, GameAssetConfig};
 use crate::game_mode::GameMode;
-use crate::input::{ControlFrame, SandboxAction, GAMEPAD_MAP};
+use crate::input::{ControlFrame, GAMEPAD_MAP};
+#[cfg(feature = "input")]
+use crate::input::SandboxAction;
 use crate::inventory;
 use crate::ldtk_world;
 use crate::loading;
@@ -290,10 +294,6 @@ fn spawn_ldtk_world_root(
 pub fn add_presentation_plugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .insert_resource(windowing::DisplayModeState::default())
-        .add_plugins(KiraAudioPlugin)
-        .add_audio_channel::<MusicChannel>()
-        .add_audio_channel::<SfxChannel>()
-        .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
@@ -302,6 +302,8 @@ pub fn add_presentation_plugins(app: &mut App) {
     add_dev_tools_plugins(app);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);
+    add_input_plugins(app);
+    add_audio_plugins(app);
 
     app.insert_resource(pause_menu::PauseMenuState::default())
         .insert_resource(inventory::InventoryUiState::default())
@@ -316,25 +318,11 @@ pub fn add_presentation_plugins(app: &mut App) {
         )
         .add_systems(
             Update,
-            (
-                pause_menu::pause_menu_toggle,
-                inventory::inventory_input,
-                pause_menu::pause_menu_navigate,
-                populate_control_frame_from_actions,
-            )
-                .chain()
-                .before(sandbox_update),
-        )
-        .add_systems(
-            Update,
             (pause_menu::sync_pause_menu, inventory::sync_inventory_panel).after(sandbox_update),
         )
         .add_systems(
             Startup,
-            (
-                setup_presentation_system.after(setup_simulation_system),
-                start_default_music.after(setup_presentation_system),
-            ),
+            setup_presentation_system.after(setup_simulation_system),
         )
         .add_systems(
             Update,
@@ -364,11 +352,11 @@ pub fn add_presentation_plugins(app: &mut App) {
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
         )
-        // Audio + VFX + debris subscribe on the visible binary only.
-        // Headless builds omit these so the message queues drain without
-        // entity spawns or audio playback. The `.after` constraints pin
-        // presentation to the same frame the simulation emitted the message.
-        .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
+        // VFX + debris subscribe on the visible binary only. Audio's
+        // subscriber lives in `add_audio_plugins` so the entire kira
+        // chain stays behind the `audio` feature. Headless builds omit
+        // these so the message queues drain without entity spawns or
+        // audio playback.
         .add_systems(Update, vfx_spawn_messages.after(sandbox_update));
 }
 
@@ -428,6 +416,72 @@ fn add_ui_plugins(app: &mut App) {
 #[cfg(not(feature = "ui"))]
 fn add_ui_plugins(_app: &mut App) {}
 
+/// Install the leafwing-input-manager plugin, the player-input attach
+/// startup system, and the bridge that keeps `Res<ControlFrame>` in sync
+/// with leafwing's `ActionState`. Gated behind `input` so headless /
+/// minimal builds can drop `leafwing-input-manager` from the dep graph;
+/// the sim itself reads `Res<ControlFrame>` (always-available) and is
+/// agnostic to where the frame came from.
+#[cfg(feature = "input")]
+fn add_input_plugins(app: &mut App) {
+    app.add_plugins(InputManagerPlugin::<SandboxAction>::default())
+        .add_systems(
+            Startup,
+            attach_player_input_components.after(setup_simulation_system),
+        )
+        .add_systems(
+            Update,
+            (
+                pause_menu::pause_menu_toggle,
+                inventory::inventory_input,
+                pause_menu::pause_menu_navigate,
+                populate_control_frame_from_actions,
+            )
+                .chain()
+                .before(sandbox_update),
+        )
+        .add_systems(Update, sync_preset_input_map.before(sandbox_update));
+}
+
+#[cfg(not(feature = "input"))]
+fn add_input_plugins(_app: &mut App) {}
+
+/// Install the kira audio backend, channel resources, default music
+/// startup, and the SFX subscriber. Gated by `audio` so headless / RL
+/// builds drop `bevy_kira_audio` and `fundsp` from the dep graph
+/// entirely. The sim still emits `SfxMessage`s; without this plugin the
+/// message queue just drains harmlessly per the ADR 0012 seam.
+#[cfg(feature = "audio")]
+fn add_audio_plugins(app: &mut App) {
+    app.add_plugins(KiraAudioPlugin)
+        .add_audio_channel::<MusicChannel>()
+        .add_audio_channel::<SfxChannel>()
+        .add_systems(
+            Startup,
+            start_default_music.after(setup_presentation_system),
+        )
+        .add_systems(Update, audio_play_sfx_messages.after(sandbox_update));
+}
+
+#[cfg(not(feature = "audio"))]
+fn add_audio_plugins(_app: &mut App) {}
+
+/// Presentation-side companion to `setup_simulation_system`: attach
+/// leafwing's `ActionState` and the active preset's `InputMap` to the
+/// player entity. Sim-only setup spawns the player without these so the
+/// sim path stays leafwing-free per the ADR 0012 input seam.
+#[cfg(feature = "input")]
+fn attach_player_input_components(
+    mut commands: Commands,
+    runtime: Res<SandboxRuntime>,
+    scene: Res<crate::rendering::SceneEntities>,
+) {
+    let input_map = runtime.preset().input_map();
+    commands
+        .entity(scene.player)
+        .insert((ActionState::<SandboxAction>::default(), input_map));
+}
+
 /// Bridge leafwing's `ActionState` into the sim-side `ControlFrame` resource.
 ///
 /// This is the visible-binary half of the ADR 0012 input seam. The sim
@@ -438,6 +492,7 @@ fn add_ui_plugins(_app: &mut App) {}
 /// Dialogue mode also resets leafwing's pressed/just-pressed edges so
 /// action edges from the moment dialogue opened don't leak into the
 /// next gameplay frame.
+#[cfg(feature = "input")]
 fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
     mut player_input: Query<&mut ActionState<SandboxAction>, With<PlayerVisual>>,
@@ -508,6 +563,7 @@ fn setup_simulation_system(
 /// player's Sprite, spawns Camera2d, room visuals, HUD text, generated
 /// Kira audio library, and overwrites SceneEntities to fill in the HUD
 /// entity.
+#[cfg(feature = "audio")]
 fn setup_presentation_system(
     mut commands: Commands,
     world: Res<GameWorld>,
@@ -525,6 +581,34 @@ fn setup_presentation_system(
     setup::presentation_world(
         &mut commands,
         &mut audio_sources,
+        setup::PresentationSetup {
+            world: &world,
+            room_set: &room_set,
+            sandbox_data: &sandbox_data,
+            physics_settings: *physics_settings,
+            game_assets: &game_assets,
+        },
+        scene_entities.player,
+    );
+    commands.insert_resource(game_assets);
+}
+
+#[cfg(not(feature = "audio"))]
+fn setup_presentation_system(
+    mut commands: Commands,
+    world: Res<GameWorld>,
+    room_set: Res<rooms::RoomSet>,
+    sandbox_data: Res<data::SandboxDataSpec>,
+    physics_settings: Res<physics::PhysicsSandboxSettings>,
+    asset_server: Res<AssetServer>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    asset_config: Res<GameAssetConfig>,
+    scene_entities: Res<SceneEntities>,
+) {
+    let game_assets =
+        game_assets::load_game_assets(&asset_config, &asset_server, &mut atlas_layouts);
+    setup::presentation_world(
+        &mut commands,
         setup::PresentationSetup {
             world: &world,
             room_set: &room_set,
@@ -828,16 +912,7 @@ fn handle_debug_hotkeys(
     keys: Res<ButtonInput<KeyCode>>,
     mut runtime: ResMut<SandboxRuntime>,
     mut tools: ResMut<DeveloperTools>,
-    entities: Res<SceneEntities>,
-    mut player_input: Query<
-        (
-            &mut ActionState<SandboxAction>,
-            &mut InputMap<SandboxAction>,
-        ),
-        With<PlayerVisual>,
-    >,
 ) {
-    let mut preset_changed = false;
     if keys.just_pressed(KeyCode::F1) {
         runtime.debug = !runtime.debug;
     }
@@ -845,12 +920,10 @@ fn handle_debug_hotkeys(
         runtime.preset_index =
             (runtime.preset_index + runtime.presets.len() - 1) % runtime.presets.len();
         runtime.preset_flash = 1.2;
-        preset_changed = true;
     }
     if keys.just_pressed(KeyCode::F10) {
         runtime.preset_index = (runtime.preset_index + 1) % runtime.presets.len();
         runtime.preset_flash = 1.2;
-        preset_changed = true;
     }
     if keys.just_pressed(KeyCode::F2) {
         runtime.slowmo = !runtime.slowmo;
@@ -864,13 +937,34 @@ fn handle_debug_hotkeys(
     if keys.just_pressed(KeyCode::F5) {
         tools.overview_camera = !tools.overview_camera;
     }
+}
 
-    if preset_changed {
-        if let Ok((mut action_state, mut input_map)) = player_input.get_mut(entities.player) {
-            *input_map = runtime.preset().input_map();
-            action_state.reset_all();
-        }
+/// When the player cycles input presets via F9/F10, sync leafwing's
+/// `InputMap` on the player entity so the next-frame inputs reflect the
+/// new preset. Detected by polling `runtime.preset_index`. Gated behind
+/// `input` because it owns leafwing components.
+#[cfg(feature = "input")]
+fn sync_preset_input_map(
+    runtime: Res<SandboxRuntime>,
+    mut last_preset: Local<Option<usize>>,
+    entities: Res<SceneEntities>,
+    mut player_input: Query<
+        (
+            &mut ActionState<SandboxAction>,
+            &mut InputMap<SandboxAction>,
+        ),
+        With<PlayerVisual>,
+    >,
+) {
+    let current = runtime.preset_index;
+    if *last_preset == Some(current) {
+        return;
     }
+    if let Ok((mut action_state, mut input_map)) = player_input.get_mut(entities.player) {
+        *input_map = runtime.preset().input_map();
+        action_state.reset_all();
+    }
+    *last_preset = Some(current);
 }
 
 fn handle_ldtk_hot_reload(

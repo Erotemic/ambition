@@ -17,16 +17,16 @@
 
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+#[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
-use leafwing_input_manager::prelude::ActionState;
 
+#[cfg(feature = "audio")]
 use crate::audio::{AudioLibrary, MusicPlaybackState};
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
 use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::game_assets::GameAssets;
-use crate::input::SandboxAction;
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::loading::SandboxAssetCollection;
 use crate::physics::PhysicsSandboxSettings;
@@ -76,7 +76,10 @@ pub struct PresentationSetup<'a> {
 ///   lifecycle and the runtime-spine systems have something to query
 /// * constructing `SandboxRuntime` and inserting it as a resource
 /// * spawning the player entity with the gameplay-essential components
-///   (`Transform`, `PlayerVisual`, `ActionState`, `InputMap`)
+///   (`Transform`, `PlayerVisual`). Leafwing's `ActionState` and
+///   `InputMap` get attached by the presentation-side
+///   `attach_player_input_components` startup system; sim-only builds
+///   stay leafwing-free per the ADR 0012 input seam.
 /// * inserting a `SceneEntities` resource with `hud: Entity::PLACEHOLDER`
 ///   that `presentation_world` overwrites once the HUD entity exists
 pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) -> Entity {
@@ -124,7 +127,6 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         editable_tuning.as_engine(),
         physics_settings,
     );
-    let player_input_map = runtime.preset().input_map();
     commands.insert_resource(runtime);
 
     let player = commands
@@ -132,8 +134,6 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
             Name::new("Player"),
-            ActionState::<SandboxAction>::default(),
-            player_input_map,
         ))
         .id();
 
@@ -151,28 +151,45 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
 /// presentation-only resources (`AudioLibrary`). Adds the player's `Sprite`
 /// to the entity returned by `simulation_world`.
 ///
-/// Skipped entirely in headless builds.
+/// Skipped entirely in headless builds. With the `audio` feature off
+/// the `KiraAudioSource` asset registry doesn't exist; the audio_sources
+/// parameter is gated out and the audio library / music state inserts
+/// are skipped.
+#[cfg(feature = "audio")]
 pub fn presentation_world(
     commands: &mut Commands,
     audio_sources: &mut Assets<KiraAudioSource>,
     params: PresentationSetup<'_>,
     player: Entity,
 ) {
+    let sandbox_data = params.sandbox_data;
+    presentation_world_inner(commands, params, player);
+    let audio_library = AudioLibrary::new(audio_sources, &sandbox_data.audio);
+    let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
+    commands.insert_resource(audio_library);
+    commands.insert_resource(music_state);
+}
+
+#[cfg(not(feature = "audio"))]
+pub fn presentation_world(
+    commands: &mut Commands,
+    params: PresentationSetup<'_>,
+    player: Entity,
+) {
+    presentation_world_inner(commands, params, player);
+}
+
+fn presentation_world_inner(commands: &mut Commands, params: PresentationSetup<'_>, player: Entity) {
     let PresentationSetup {
         world,
         room_set,
-        sandbox_data,
+        sandbox_data: _,
         physics_settings,
         game_assets,
     } = params;
     let character_sprites = &game_assets.characters;
 
     commands.spawn((Camera2d, Name::new("Main Camera")));
-
-    let audio_library = AudioLibrary::new(audio_sources, &sandbox_data.audio);
-    let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
-    commands.insert_resource(audio_library);
-    commands.insert_resource(music_state);
 
     spawn_room_visuals(
         commands,

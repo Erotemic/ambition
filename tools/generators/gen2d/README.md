@@ -43,3 +43,16 @@ assets/canonicals/canonicals_contact_sheet.png
 ## Console output
 
 `draw_character_canonicals.py` and `python -m proc2d_character_lab.cli draw-canonicals` print generated paths and, when Rich is installed, finish with a clickable `file://` link to `assets/canonicals/canonicals_contact_sheet.png`.
+
+Render non-character gameplay entity sprites:
+
+```bash
+python draw_game_entity_sprites.py
+python -m proc2d_character_lab.cli draw-entities
+```
+
+This writes individual static/state sprites to `./assets/entities`, plus `entity_manifest.yaml` and `entity_contact_sheet.png`. These are intended for chests, pickups, hazards, breakables, NPC terminals, boss placeholders, room fixtures, and moving-platform style objects that should not share the character animation schema.
+
+
+Additional default character target:
+- `proc2d_character_lab/configs/boss.yaml` -> `assets/boss_spritesheet.png` (AI Slop Zeta boss-specific attack sheet)

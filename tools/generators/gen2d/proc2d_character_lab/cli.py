@@ -8,6 +8,7 @@ from .adapters import TARGETS, get_adapter
 from .canonical import write_canonicals
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
+from .entities import write_entity_sprites
 from .sheet import write_spritesheet
 
 DEFAULT_CONFIG_DIR = Path("proc2d_character_lab/configs")
@@ -29,6 +30,10 @@ def draw_canonicals(config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | 
     return write_canonicals(config_dir, out_dir)
 
 
+def draw_entities(out_dir: str | Path = DEFAULT_ASSET_DIR / "entities") -> List[Path]:
+    return write_entity_sprites(out_dir)
+
+
 def _cmd_draw_all(args: argparse.Namespace) -> int:
     print_paths(draw_all(args.config_dir, args.out_dir))
     return 0
@@ -36,6 +41,11 @@ def _cmd_draw_all(args: argparse.Namespace) -> int:
 
 def _cmd_draw_canonicals(args: argparse.Namespace) -> int:
     print_canonical_outputs(draw_canonicals(args.config_dir, args.out_dir))
+    return 0
+
+
+def _cmd_draw_entities(args: argparse.Namespace) -> int:
+    print_paths(draw_entities(args.out_dir))
     return 0
 
 
@@ -77,6 +87,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "canonicals"))
     p.set_defaults(func=_cmd_draw_canonicals)
+
+    p = sub.add_parser("draw-entities", help="Render non-character gameplay entity sprites.")
+    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "entities"))
+    p.set_defaults(func=_cmd_draw_entities)
 
     p = sub.add_parser("list-targets")
     p.set_defaults(func=_cmd_list_targets)

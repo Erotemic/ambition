@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 from PIL import Image
 
 from .config import CharacterJob
+from .targets.boss_side import AISlopZetaGenerator, parse_background as boss_parse_background
 from .targets.goblin_side import SideGoblinGenerator, parse_background as goblin_parse_background
 from .targets.robot_side import SideRobotGenerator
 from .targets.robot25d import parse_background as robot_parse_background
@@ -71,6 +72,35 @@ class GoblinAdapter(BaseAdapter):
         )
 
 
+class BossAdapter(BaseAdapter):
+    target = "boss"
+
+    def __init__(self) -> None:
+        self.generator = AISlopZetaGenerator()
+
+    def animations(self) -> Dict[str, Dict[str, int]]:
+        return dict(self.generator.ANIMATIONS)
+
+    def canonical_pose(self) -> Tuple[str, int]:
+        return ("rest", 1)
+
+    def sample_spec(self, job: CharacterJob) -> Any:
+        return self.generator.sample_spec(job.seed, job.archetype)
+
+    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+        anim = self.animations()[animation]
+        return self.generator.render_animation_frame(
+            spec,
+            animation,
+            frame_index % anim["frames"],
+            anim["frames"],
+            size,
+            background=boss_parse_background(job.render.background),
+            supersample=job.render.supersample,
+            downsample=job.render.downsample,
+        )
+
+
 class RobotAdapter(BaseAdapter):
     target = "robot"
 
@@ -99,6 +129,7 @@ class RobotAdapter(BaseAdapter):
 
 
 TARGETS: Dict[str, BaseAdapter] = {
+    "boss": BossAdapter(),
     "goblin": GoblinAdapter(),
     "robot": RobotAdapter(),
 }

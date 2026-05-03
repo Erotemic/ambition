@@ -1,7 +1,7 @@
 target: goblin
 seed: 17
 archetype: shadow_scout
-held_item: spear
+held_item: sword
 animations:
 - idle
 - walk

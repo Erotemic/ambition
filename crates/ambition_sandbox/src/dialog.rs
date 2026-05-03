@@ -7,6 +7,7 @@
 //! gameplay semantics.
 
 use bevy::prelude::*;
+#[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::*;
 
 use crate::game_mode::GameMode;
@@ -15,7 +16,10 @@ const DIALOG_CONTINUE_HINT: &str = "Enter/Space/F/E: continue   Up/Down: choose 
 
 /// Marker plugin: registers Yarn Spinner so dialogue assets and future Yarn
 /// runners are available, while keeping this first sandbox dialogue view
-/// intentionally custom and game-feel oriented.
+/// intentionally custom and game-feel oriented. Gated behind the `ui`
+/// feature; the rest of this module's dialogue runtime + custom Bevy UI
+/// view does not depend on Yarn Spinner.
+#[cfg(feature = "ui")]
 pub fn yarn_spinner_plugin() -> YarnSpinnerPlugin {
     YarnSpinnerPlugin::new()
 }

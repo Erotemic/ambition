@@ -30,6 +30,7 @@ use bevy_inspector_egui::{
 use bevy_kira_audio::prelude::{
     AudioApp, AudioPlugin as KiraAudioPlugin, AudioSource as KiraAudioSource,
 };
+#[cfg(feature = "ui")]
 use bevy_material_ui::MaterialUiPlugin;
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 
@@ -288,8 +289,6 @@ pub fn add_presentation_plugins(app: &mut App) {
         .add_audio_channel::<MusicChannel>()
         .add_audio_channel::<SfxChannel>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
-        .add_plugins(dialog::yarn_spinner_plugin())
-        .add_plugins(MaterialUiPlugin)
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
@@ -297,6 +296,7 @@ pub fn add_presentation_plugins(app: &mut App) {
 
     add_dev_tools_plugins(app);
     add_physics_debris_plugins(app);
+    add_ui_plugins(app);
 
     app.insert_resource(pause_menu::PauseMenuState::default())
         .insert_resource(inventory::InventoryUiState::default())
@@ -408,6 +408,19 @@ fn add_physics_debris_plugins(app: &mut App) {
 
 #[cfg(not(feature = "physics_debris"))]
 fn add_physics_debris_plugins(_app: &mut App) {}
+
+/// Install UI-shell plugins: Yarn Spinner runtime and bevy_material_ui's
+/// styling layer. The dialogue overlay (`dialog::sync_dialog_ui`) draws
+/// with Bevy's core UI primitives and stays installed unconditionally;
+/// only the optional plugins live behind `ui`.
+#[cfg(feature = "ui")]
+fn add_ui_plugins(app: &mut App) {
+    app.add_plugins(dialog::yarn_spinner_plugin())
+        .add_plugins(MaterialUiPlugin);
+}
+
+#[cfg(not(feature = "ui"))]
+fn add_ui_plugins(_app: &mut App) {}
 
 // `GameWorld`, `SandboxRuntime`, and the time-scale ramp helper `move_toward`
 // have moved to `crate::lib` (`ambition_sandbox`) so both binaries can share

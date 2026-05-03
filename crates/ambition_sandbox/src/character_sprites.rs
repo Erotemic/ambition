@@ -67,6 +67,14 @@ pub struct CharacterSheetSpec {
     pub frame_sample_inset: u32,
 }
 
+// `feet_anchor_y` values were derived from the gen2d test
+// `test_spritesheet_emits_body_metrics`, which measures the opaque-pixel
+// bbox of frame 0 of the first animation. For the current generator
+// output, robot/goblin both have feet at image-y ≈ 107/128 → Bevy anchor
+// y = 0.5 - 107/128 ≈ -0.336. When the runtime starts loading the
+// `body_metrics` field directly from the sheet YAML, these constants
+// can be removed; until then they're tracked as derived data.
+
 pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
     frame_size: 128,
@@ -84,7 +92,7 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         AnimRow { frame_count: 6, duration_secs: 0.060 }, // Dash
     ],
     collision_scale: 2.1,
-    feet_anchor_y: -0.18,
+    feet_anchor_y: -0.336,
     frame_sample_inset: 1,
 };
 
@@ -105,7 +113,7 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         AnimRow { frame_count: 6, duration_secs: 0.060 }, // Dash
     ],
     collision_scale: 2.1,
-    feet_anchor_y: -0.18,
+    feet_anchor_y: -0.336,
     frame_sample_inset: 1,
 };
 

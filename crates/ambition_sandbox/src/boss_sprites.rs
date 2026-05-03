@@ -56,6 +56,10 @@ pub struct BossSheetSpec {
     pub frame_sample_inset: u32,
 }
 
+// `feet_anchor_y` matches the body-metrics measurement for the current
+// generator output — boss feet at image-y ≈ 109/128 → Bevy anchor y =
+// 0.5 - 109/128 ≈ -0.352. Kept as a constant until the runtime reads
+// `body_metrics` directly from the sheet YAML.
 pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     label_width: 100,
     frame_size: 128,
@@ -71,7 +75,7 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     // Bosses are visually larger than goblins; a slightly smaller scale
     // factor stops them from overpowering the rendered scene.
     collision_scale: 1.6,
-    feet_anchor_y: -0.18,
+    feet_anchor_y: -0.352,
     frame_sample_inset: 1,
 };
 

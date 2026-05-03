@@ -6,6 +6,7 @@ from proc2d_character_lab.adapters import get_adapter
 from proc2d_character_lab.cli import draw_all, draw_canonicals
 from proc2d_character_lab.config import CharacterJob
 from proc2d_character_lab.entities import ENTITY_SPECS, write_entity_sprites
+from proc2d_character_lab.sheet import build_spritesheet
 
 
 def _alpha_bbox_metrics(img):
@@ -128,3 +129,29 @@ def test_boss_attack_rows_render_non_empty():
         info = adapter.animations()[name]
         img = adapter.render_frame(spec, name, info["frames"] // 2, (128, 128), job)
         assert img.getchannel("A").getbbox() is not None, name
+
+
+def test_spritesheet_emits_body_metrics():
+    """Sprite manifests must carry measured body extent so Rust can align
+    sprites with collision boxes without hand-tuned anchor constants."""
+    for cfg_name in ("robot", "goblin", "boss"):
+        job = CharacterJob.load(Path(f"proc2d_character_lab/configs/{cfg_name}.yaml"))
+        # Truncate to one anim and skip supersampling so this test is fast.
+        job.animations = job.animations[:1]
+        job.render.supersample = 1
+        _, manifest = build_spritesheet(job)
+        assert "body_metrics" in manifest, cfg_name
+        bm = manifest["body_metrics"]
+
+        bbox = bm["body_pixel_bbox"]
+        assert bbox["w"] > 0 and bbox["h"] > 0, (cfg_name, bbox)
+
+        feet = bm["feet_pixel"]
+        assert 0 <= feet["x"] <= bm["frame_width"], (cfg_name, feet)
+        assert 0 <= feet["y"] <= bm["frame_height"], (cfg_name, feet)
+
+        # Bevy anchor convention: y in [-0.5, +0.5], 0=center, +0.5=top.
+        # Our characters all stand near the bottom of their frames, so the
+        # feet anchor should always be below center (negative).
+        anchor_y = bm["feet_anchor_norm"]["y"]
+        assert -0.5 <= anchor_y < 0.0, (cfg_name, anchor_y)

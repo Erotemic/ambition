@@ -53,7 +53,10 @@ impl Default for DeveloperTools {
             show_hud: true,
             compact_hud: true,
             show_room_bounds: true,
-            show_world_blocks: false,
+            // Default ON so collision rects are visible from the start —
+            // sprite art often has large transparent regions that cover
+            // less of the actual collision box than the eye reads.
+            show_world_blocks: true,
             show_loading_zones: true,
             show_player_hitbox: true,
             show_player_vectors: true,

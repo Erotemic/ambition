@@ -1216,7 +1216,7 @@ impl PickupRuntime {
         }
     }
 
-    fn aabb(&self) -> ae::Aabb {
+    pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 }
@@ -1243,7 +1243,7 @@ impl ChestRuntime {
         }
     }
 
-    fn aabb(&self) -> ae::Aabb {
+    pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 }
@@ -1268,7 +1268,7 @@ impl NpcRuntime {
         }
     }
 
-    fn aabb(&self) -> ae::Aabb {
+    pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 

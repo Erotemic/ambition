@@ -370,9 +370,9 @@ fn draw_health_bar(
 }
 
 fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
-    // Basement feature actors are sandbox runtime objects. Draw their
-    // actual gameplay volumes so visual drift, bad authored sizes, and attack
-    // reach bugs are visible under the same F1/F3 debug workflow.
+    // Sandbox runtime feature volumes — drawn so that visual drift, bad
+    // authored sizes, transparent sprite regions, and attack-reach bugs
+    // are all visible under the same F1/F3 debug workflow.
     for hazard in &runtime.features.hazards {
         if hazard.active() {
             draw_aabb(gizmos, world, hazard.aabb(), red());
@@ -409,6 +409,46 @@ fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &S
         for volume in boss.attack_volumes() {
             draw_aabb(gizmos, world, volume, yellow());
         }
+    }
+
+    // Breakables — color-keyed by collision behavior so the player can see
+    // at a glance whether a tile actually blocks movement. Broken ones are
+    // skipped (no live volume).
+    for breakable in &runtime.features.breakables {
+        if breakable.broken() {
+            continue;
+        }
+        let color = if breakable.breakable.pogo_refresh {
+            green()
+        } else {
+            match breakable.breakable.collision {
+                ae::BreakableCollision::Solid => gray(),
+                ae::BreakableCollision::OneWayUp => blue(),
+                ae::BreakableCollision::None => yellow(),
+            }
+        };
+        draw_aabb(gizmos, world, breakable.aabb(), color);
+    }
+
+    // Chests — visible whether opened or not so players can spot interactable
+    // bounds even when the open sprite is mostly transparent.
+    for chest in &runtime.features.chests {
+        let color = if chest.opened { gray() } else { yellow() };
+        draw_aabb(gizmos, world, chest.aabb(), color);
+    }
+
+    // Pickups — show only while still pickable.
+    for pickup in &runtime.features.pickups {
+        if !pickup.visible {
+            continue;
+        }
+        draw_aabb(gizmos, world, pickup.aabb(), green());
+    }
+
+    // NPCs — interactable but non-combat; use cyan so they don't read as
+    // hostile.
+    for npc in &runtime.features.npcs {
+        draw_aabb(gizmos, world, npc.aabb(), cyan());
     }
 }
 

@@ -291,22 +291,109 @@ const INT_GRID_BLINK_HARD: i32 = 4;
 
 fn int_grid_value_to_block(value: i32, min: ae::Vec2, size: ae::Vec2) -> Result<ae::Block, String> {
     match value {
-        INT_GRID_SOLID => Ok(ae::Block::solid("ldtk solid cell", min, size)),
-        INT_GRID_ONE_WAY => Ok(ae::Block::one_way("ldtk one-way cell", min, size)),
+        INT_GRID_SOLID => Ok(ae::Block::solid("ldtk solid", min, size)),
+        INT_GRID_ONE_WAY => Ok(ae::Block::one_way("ldtk one-way", min, size)),
         INT_GRID_BLINK_SOFT => Ok(ae::Block::blink_wall(
-            "ldtk blink-soft cell",
+            "ldtk blink-soft",
             min,
             size,
             ae::BlinkWallTier::Soft,
         )),
         INT_GRID_BLINK_HARD => Ok(ae::Block::blink_wall(
-            "ldtk blink-hard cell",
+            "ldtk blink-hard",
             min,
             size,
             ae::BlinkWallTier::Hard,
         )),
         other => Err(format!("unknown IntGrid value {other}")),
     }
+}
+
+/// Greedy rectangle merge over the IntGrid. Walks cells in row-major
+/// order; for each unconsumed non-zero cell, finds the longest
+/// horizontal run of the same value, then extends that run downward as
+/// far as every column underneath holds the same value too. Marks every
+/// cell in the resulting rectangle as consumed and emits a single engine
+/// block. Worst case is one block per cell (checkerboard); typical
+/// floors / walls / pillars collapse to one block each.
+fn emit_collision_blocks_from_intgrid(
+    layer: &LdtkLayerInstance,
+    offset: ae::Vec2,
+) -> Result<Vec<ae::Block>, String> {
+    let cw = layer.c_wid;
+    let ch = layer.c_hei;
+    let grid = layer.grid_size as f32;
+    if cw <= 0 || ch <= 0 || layer.int_grid_csv.is_empty() {
+        return Ok(Vec::new());
+    }
+    let expected = (cw as usize) * (ch as usize);
+    if layer.int_grid_csv.len() != expected {
+        return Err(format!(
+            "intGridCsv length {} does not match cWid*cHei = {}*{} = {expected}",
+            layer.int_grid_csv.len(),
+            cw,
+            ch
+        ));
+    }
+    let cells = &layer.int_grid_csv;
+    let mut consumed = vec![false; expected];
+    let mut blocks = Vec::new();
+
+    let cw_usize = cw as usize;
+    for cy in 0..(ch as usize) {
+        for cx in 0..cw_usize {
+            let idx = cy * cw_usize + cx;
+            if consumed[idx] {
+                continue;
+            }
+            let value = cells[idx];
+            if value == 0 {
+                continue;
+            }
+
+            // Extend rightward along this row while the value matches and
+            // the cell isn't already consumed.
+            let mut x_end = cx + 1;
+            while x_end < cw_usize {
+                let next = cy * cw_usize + x_end;
+                if consumed[next] || cells[next] != value {
+                    break;
+                }
+                x_end += 1;
+            }
+
+            // Extend downward as long as every column [cx, x_end) holds
+            // the same value (and isn't already consumed).
+            let mut y_end = cy + 1;
+            'outer: while y_end < (ch as usize) {
+                for x in cx..x_end {
+                    let probe = y_end * cw_usize + x;
+                    if consumed[probe] || cells[probe] != value {
+                        break 'outer;
+                    }
+                }
+                y_end += 1;
+            }
+
+            // Consume the rectangle [cx, x_end) x [cy, y_end).
+            for y in cy..y_end {
+                for x in cx..x_end {
+                    consumed[y * cw_usize + x] = true;
+                }
+            }
+
+            let min = ae::Vec2::new(cx as f32 * grid, cy as f32 * grid) + offset;
+            let size = ae::Vec2::new(
+                (x_end - cx) as f32 * grid,
+                (y_end - cy) as f32 * grid,
+            );
+            let block = int_grid_value_to_block(value, min, size).map_err(|message| {
+                format!("rect at ({cx},{cy}) {}x{}: {message}", x_end - cx, y_end - cy)
+            })?;
+            blocks.push(block);
+        }
+    }
+    Ok(blocks)
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -739,30 +826,21 @@ impl LdtkProject {
                 }
             }
 
-            // IntGrid `Collision` layer: each non-zero cell lowers into one
-            // engine block per cell. Values match `INT_GRID_*` below; the
-            // layer is optional, so missing it is fine. See
-            // `tools/ldtk_intgrid_migration.py` for the mapping authority.
+            // IntGrid `Collision` layer: greedy-merge runs of same-value
+            // cells into rectangles before emitting engine blocks. Per-cell
+            // blocks introduced perceptible friction during ground-walk
+            // because every 16px boundary became a potential snag against
+            // the bespoke sweep logic (path_forward step D); merging
+            // collapses a typical floor of N cells into one block while
+            // keeping the IntGrid as the authoring representation. See
+            // `tools/ldtk_intgrid_migration.py` for the value mapping.
             if let Some(layer) = level.collision_layer() {
-                let grid = layer.grid_size as f32;
-                let cw = layer.c_wid;
-                if cw > 0 && !layer.int_grid_csv.is_empty() {
-                    for (idx, &value) in layer.int_grid_csv.iter().enumerate() {
-                        if value == 0 {
-                            continue;
-                        }
-                        let cx = (idx as i32) % cw;
-                        let cy = (idx as i32) / cw;
-                        let min = ae::Vec2::new(cx as f32 * grid, cy as f32 * grid) + offset;
-                        let size = ae::Vec2::new(grid, grid);
-                        match int_grid_value_to_block(value, min, size) {
-                            Ok(block) => blocks.push(block),
-                            Err(message) => errors.push(format!(
-                                "level '{}' Collision cell ({cx},{cy}): {message}",
-                                level.identifier
-                            )),
-                        }
-                    }
+                match emit_collision_blocks_from_intgrid(layer, offset) {
+                    Ok(layer_blocks) => blocks.extend(layer_blocks),
+                    Err(message) => errors.push(format!(
+                        "level '{}' Collision: {message}",
+                        level.identifier
+                    )),
                 }
             }
         }
@@ -1635,21 +1713,96 @@ mod tests {
             .filter(|b| matches!(b.kind, ae::BlockKind::BlinkWall { .. }))
             .count();
         // Step E migration painted Solid + OneWayPlatform + BlinkWall in
-        // central_hub_main as IntGrid cells. The hub's collision world
-        // should now be dominated by per-cell blocks rather than a small
-        // number of large entity rectangles.
+        // central_hub_main as IntGrid cells; the rect-merge collapses
+        // adjacent same-value runs into single blocks. Each kind should
+        // still produce at least one block, and the total stays well
+        // below the unmerged 1004-cell count to confirm merging actually
+        // ran.
         assert!(
-            solid_blocks > 100,
-            "expected hundreds of solid IntGrid cells in central hub; got {solid_blocks}"
+            solid_blocks >= 1,
+            "expected at least one solid IntGrid block in central hub; got {solid_blocks}"
         );
         assert!(
-            one_way_blocks > 0,
-            "expected at least one OneWay IntGrid cell in central hub; got {one_way_blocks}"
+            one_way_blocks >= 1,
+            "expected at least one OneWay IntGrid block in central hub; got {one_way_blocks}"
         );
         assert!(
-            blink_blocks > 0,
-            "expected at least one BlinkWall IntGrid cell in central hub; got {blink_blocks}"
+            blink_blocks >= 1,
+            "expected at least one BlinkWall IntGrid block in central hub; got {blink_blocks}"
         );
+        let total = solid_blocks + one_way_blocks + blink_blocks;
+        eprintln!(
+            "central_hub_complex IntGrid blocks after merge: solid={solid_blocks} one_way={one_way_blocks} blink={blink_blocks} total={total}"
+        );
+        assert!(
+            total < 200,
+            "expected rect-merged collision count well below the 1004 unmerged cells; got {total}"
+        );
+    }
+
+    #[test]
+    fn intgrid_rect_merge_collapses_a_horizontal_run() {
+        // 5x1 row of value=1 cells should produce a single 5*16-wide block.
+        let layer = LdtkLayerInstance {
+            identifier: "Collision".to_string(),
+            layer_type: "IntGrid".to_string(),
+            c_wid: 5,
+            c_hei: 1,
+            grid_size: 16,
+            entity_instances: Vec::new(),
+            int_grid_csv: vec![1; 5],
+        };
+        let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO)
+            .expect("merge succeeds");
+        assert_eq!(blocks.len(), 1, "horizontal run should merge to one block");
+        let block = &blocks[0];
+        assert!(matches!(block.kind, ae::BlockKind::Solid));
+        let size = ae::AabbExt::half_size(block.aabb) * 2.0;
+        assert!((size.x - 80.0).abs() < 0.001, "merged width = 5 cells * 16px");
+        assert!((size.y - 16.0).abs() < 0.001, "merged height = 1 cell");
+    }
+
+    #[test]
+    fn intgrid_rect_merge_extends_a_full_rectangle_downward() {
+        // 3x2 block of same value should merge into one 48x32 block.
+        let layer = LdtkLayerInstance {
+            identifier: "Collision".to_string(),
+            layer_type: "IntGrid".to_string(),
+            c_wid: 3,
+            c_hei: 2,
+            grid_size: 16,
+            entity_instances: Vec::new(),
+            int_grid_csv: vec![1, 1, 1, 1, 1, 1],
+        };
+        let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO)
+            .expect("merge succeeds");
+        assert_eq!(blocks.len(), 1, "filled rectangle should merge to one block");
+    }
+
+    #[test]
+    fn intgrid_rect_merge_separates_distinct_values() {
+        // Row [Solid, Solid, OneWay, Solid] should produce 3 blocks: a
+        // 2-cell solid, a 1-cell one-way, and a 1-cell solid.
+        let layer = LdtkLayerInstance {
+            identifier: "Collision".to_string(),
+            layer_type: "IntGrid".to_string(),
+            c_wid: 4,
+            c_hei: 1,
+            grid_size: 16,
+            entity_instances: Vec::new(),
+            int_grid_csv: vec![
+                INT_GRID_SOLID,
+                INT_GRID_SOLID,
+                INT_GRID_ONE_WAY,
+                INT_GRID_SOLID,
+            ],
+        };
+        let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO)
+            .expect("merge succeeds");
+        assert_eq!(blocks.len(), 3);
+        assert!(matches!(blocks[0].kind, ae::BlockKind::Solid));
+        assert!(matches!(blocks[1].kind, ae::BlockKind::OneWay));
+        assert!(matches!(blocks[2].kind, ae::BlockKind::Solid));
     }
 
     #[test]

@@ -9,7 +9,7 @@ The sandbox shell has been ported to Bevy 0.18.1.
 - Player and dummies are Bevy sprite entities synchronized from `SandboxRuntime`.
 - Particles, impact flashes, and slash previews are transient ECS entities.
 - The debug HUD is Bevy UI text.
-- Generated sound effects are `AudioSource` assets played by spawning `AudioPlayer` entities with `PlaybackSettings::DESPAWN`.
+- Generated sound effects and music are Kira static sound assets played through typed `bevy_kira_audio` channels.
 
 ## What stayed backend-neutral
 
@@ -21,9 +21,9 @@ The sandbox shell has been ported to Bevy 0.18.1.
 
 The Bevy app is now the professional runtime shell, but Ambition Engine should not become tightly coupled to Bevy. Keeping movement/collision backend-neutral makes it easier to add deterministic tests, headless reachability checks, replay systems, and future renderer/audio experiments.
 
-## Bevy audio format feature note
+## Kira audio note
 
-Generated sound effects are synthesized into in-memory WAV bytes and inserted as `AudioSource` assets. Bevy's audio decoder requires the matching Cargo feature for encoded formats, so the sandbox enables the `wav` feature on the `bevy` dependency. Without it, Bevy may panic with `UnrecognizedFormat` when an SFX is played.
+The visible Bevy app installs `bevy_kira_audio::AudioPlugin` and registers separate music and SFX channels. The built-in Bevy audio feature is not part of the sandbox's Bevy feature set. Generated audio is still synthesized at startup from RON data, but it now becomes Kira `StaticSoundData` instead of encoded WAV bytes.
 
 ## Camera framing note
 

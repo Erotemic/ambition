@@ -12,7 +12,7 @@ file.
 - `config.rs` — window size, z layers, grid spacing, and world-to-Bevy coordinate conversion.
 - `input.rs` — generic action names, keyboard presets, gamepad semantic mapping, and `ControlFrame`.
 - `dummies.rs` — compatibility re-export for engine-owned dummy/enemy simulation.
-- `audio.rs` — procedural sound specs, generated lo-fi music, WAV generation, `SoundBank`, and playback helpers.
+- `audio.rs` — procedural sound specs, generated lo-fi music tracks, Kira audio library construction, channel playback, and track switching helpers.
 - `fx.rs` — particles, impact rings, slash previews, and reset effects.
 - `rendering.rs` — render-only Bevy components, grid/block spawning, and visual state sync.
 - `main.rs` — Bevy app wiring, high-level sandbox update flow, HUD text, and attack orchestration.
@@ -54,8 +54,8 @@ when they become painful:
    - Next step: add `EnemySpec` and simple behavior states once combat needs more than sandbags.
 
 5. **Audio backend**
-   - The audio module generates WAV bytes for Bevy audio. This is good enough for now.
-   - Next step: move symbolic sound specs into `ambition_audio` if/when we adopt Kira/CPAL.
+   - The audio module renders procedural frames into Kira static sound data and plays them through typed music/SFX channels.
+   - Next step: move symbolic sound specs into `ambition_audio` if the sandbox audio layer becomes shared across game crates.
 
 6. **Particle backend**
    - Particles are CPU-side sprite entities.

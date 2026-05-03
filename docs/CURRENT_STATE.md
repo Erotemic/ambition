@@ -33,7 +33,7 @@ The engine may depend on Bevy and Bevy-adjacent crates when useful. It should st
 - The plugin-owned LDtk world root is hidden until individual LDtk layers/entities are promoted to visible typed Ambition runtime bundles; this avoids placeholder LDtk rectangles rendering over the sandbox.
 - `bevy-inspector-egui` and Bevy Gizmos for dev tooling
 - `parry2d` for reusable geometry queries
-- FunDSP for startup-rendered generated audio
+- FunDSP for startup-rendered generated audio and `bevy_kira_audio` for sandbox playback, mixing channels, looping, and fades
 - Bevy/glam math types such as `Vec2` and `Aabb2d`
 - Bevy `States` for app-wide modes such as playing, paused, dialogue, transitions, and cutscenes
 - `seldom_state` foundation for per-entity state machines
@@ -46,7 +46,8 @@ The sandbox currently has:
 - an all-abilities movement testbed,
 - input presets through Leafwing,
 - pause/game-mode gating,
-- generated lo-fi audio and sound effects,
+- generated lo-fi music tracks and sound effects,
+- pause-menu music track switching,
 - LDtk-authored active-area composition for the central hub POC, with a live `bevy_ecs_ldtk` `LevelSet` synced to the active Ambition room,
 - a central hub with a literal drop-down basement stitched into one continuous active area, with the old sandbox doors and feature labs ported into LDtk-authored active areas,
 - central-hub side `EdgeExit` wall collision split around the exits so those zones are physically reachable,
@@ -73,6 +74,8 @@ crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
 Older root-level asset paths are obsolete unless a patch explicitly says otherwise.
+
+The audio manifest uses a track-list shape: `default_music_track` selects the startup track, and `music_tracks` contains procedural/declarative arrangements. The old 32-beat loop remains available as `original_lofi_loop`; the current default is a longer generated track for sandbox iteration. These names are implementation data, not final game promises.
 
 ## Stable decisions
 
@@ -216,4 +219,3 @@ Library structure: `lib.rs` declares `pub mod app;` (`crates/ambition_sandbox/sr
 Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities.
 
 The first collision category, `Solid`, is now partially promoted. Every plugin-spawned `Solid` entity carries a typed `LdtkSolid` Ambition component, and a sibling `LdtkRuntimeSolidIndex` resource holds the active-area-local view rebuilt each frame. The JSON adapter still produces `ae::Block::solid()` entries for `ae::World::blocks` so runtime collision authority is unchanged for now; the JSON Solid path is marked transitional. The raw-LDtk-vs-runtime debug overlay (Step 2) is the verification gate before retiring the JSON path and letting `LdtkRuntimeSolidIndex` become collision authority. `OneWayPlatform`, `DamageVolume`, `KinematicPath`, and the remaining `CameraZone` work follow the same shape and ship in subsequent step-1 patches.
-

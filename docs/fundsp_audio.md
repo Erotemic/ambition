@@ -1,18 +1,18 @@
 # FunDSP audio rendering
 
-Ambition still uses Bevy's built-in audio playback for now, but the generated-audio renderer now depends on FunDSP for synthesis and filtering primitives.
+Ambition uses FunDSP for generated-audio synthesis and `bevy_kira_audio` for visible playback.
 
 The current pipeline is:
 
 ```text
 RON audio specs
   -> FunDSP-backed startup rendering
-  -> in-memory WAV bytes
-  -> Bevy AudioSource handles
-  -> AudioPlayer entities
+  -> in-memory stereo frame buffers
+  -> Kira StaticSoundData assets
+  -> typed Kira music/SFX channels
 ```
 
-This is intentionally conservative. It avoids introducing a second runtime audio plugin while replacing the most fragile handmade DSP code with a dedicated audio library.
+The renderer stays data-driven and testable without an audio device. Kira owns runtime playback, channel-level fades, looping, and track switching.
 
 ## What FunDSP owns now
 
@@ -26,21 +26,20 @@ This is intentionally conservative. It avoids introducing a second runtime audio
 - waveform helpers for procedural notes;
 - smooth envelope shaping and soft clipping helpers.
 
-The sandbox still writes a tiny WAV header itself because Bevy's built-in `AudioSource` path already accepts WAV bytes, and keeping that boundary stable makes this patch much lower risk.
-
 ## What stays data-driven
 
 The following values are still authored in `crates/ambition_sandbox/assets/ambition/sandbox.ron`:
 
 - sample rate;
 - SFX cue frequencies, envelopes, durations, gains, noise amounts, and waveforms;
-- lo-fi BPM, loop length, note pattern, chords, bass roots, gains, low-pass warmth, and tape hiss.
+- default music track id;
+- lo-fi track ids/display names, BPM, loop length, note pattern, chords, bass roots, gains, low-pass warmth, and tape hiss.
 
 FunDSP is the renderer; RON remains the authoring layer.
 
-## Why not live FunDSP graphs yet?
+## Why not live FunDSP graphs?
 
-Live graphs are attractive for adaptive music, bullet-time pitch/filtering, room-specific ambience, and layered theorem-field effects. The current goal is smaller: improve the generated asset renderer without changing gameplay, scheduling, or Bevy audio playback. A future audio patch can route these generated sounds through Kira or another Bevy audio backend for buses, fades, pitch, and room transitions.
+Live graphs are attractive for adaptive music, bullet-time pitch/filtering, room-specific ambience, and layered theorem-field effects. The current path deliberately renders static procedural tracks at startup, then lets Kira handle playback. A future audio patch can add live graph scheduling or adaptive stems if the game design needs it.
 
 ## Compatibility note
 

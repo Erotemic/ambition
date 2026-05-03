@@ -4,16 +4,20 @@
 
 The sandbox creates short sound effects at startup from symbolic synth recipes. Each recipe defines waveform, frequency sweep, duration, envelope, volume, and optional noise.
 
-The code renders stereo 16-bit PCM into an in-memory WAV buffer and registers that buffer as a Bevy `AudioSource` asset. Playback uses `AudioPlayer` plus `PlaybackSettings::DESPAWN`, so one-shot sound entities clean themselves up after playback.
+The code renders stereo frames directly into Kira `StaticSoundData` and registers those as `bevy_kira_audio` assets. Playback uses typed Kira channels: `SfxChannel` for one-shot feedback and `MusicChannel` for looping generated tracks, fades, and track switching. Bevy's built-in audio feature is intentionally not enabled for the sandbox.
 
 This follows the same architectural shape as the older pygame prototype:
 
 1. identify the event by a small sound id;
-2. render or load a cached/generated PCM/WAV representation;
+2. render or load a cached/generated frame representation;
 3. play the resulting runtime sound object;
 4. keep sound design as data, not imported assets.
 
 For the current sandbox, the useful cues are jump, double jump, dash, slash, hit, pogo, reset, dummy death, and dummy respawn.
+
+## Generated music
+
+Music remains procedural/declarative in `crates/ambition_sandbox/assets/ambition/sandbox.ron`. The manifest now has `default_music_track` and a `music_tracks` list; each track has an id, display name, and arrangement body. The original 32-beat loop was ported as `original_lofi_loop`, and a longer 128-beat generated track is currently the default.
 
 ## Particle system
 
@@ -34,6 +38,6 @@ The next serious VFX step is to replace the current CPU sprite particle system w
 - a Bevy GPU particle plugin, or
 - a custom wgpu-backed particle renderer inside Ambition Engine.
 
-## Bevy audio format feature note
+## Kira audio feature note
 
-Generated sound effects are synthesized into in-memory WAV bytes and inserted as `AudioSource` assets. Bevy's audio decoder requires the matching Cargo feature for encoded formats, so the sandbox enables the `wav` feature on the `bevy` dependency. Without it, Bevy may panic with `UnrecognizedFormat` when an SFX is played.
+The sandbox depends on `bevy_kira_audio` with Kira's `wav` feature enabled because the crate's public re-exports expect a file-decoder error type behind Kira's Symphonia integration. Generated SFX and music do not write or check in audio files; they are still built in memory from data.

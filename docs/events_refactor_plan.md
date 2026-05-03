@@ -228,12 +228,12 @@ Split `setup` into:
   moving platform, `SandboxRuntime`, player entity with `Transform` +
   `ActionState::default()` + `InputMap::default()` + `PlayerVisual`.
 - `setup_presentation` — `Camera2d`, player `Sprite`, room-visual
-  `Sprite`s, HUD `Text`, `SoundBank` creation, `play_ambience` call
-  (or its event-equivalent if we add an `AmbienceStartEvent`).
+  `Sprite`s, HUD `Text`, generated audio library creation, and default
+  music startup.
 
-Post-split, `SoundBank` becomes a presentation-only resource (only the
-audio subscriber reads it). `update_hud` already reads only resources,
-no change needed.
+Post-split, the generated audio library is a presentation-only resource
+(only the audio subscriber and pause-menu music switcher read it).
+`update_hud` already reads only resources, no change needed.
 
 ### Slice 5 — App-builder split (~1 day)
 

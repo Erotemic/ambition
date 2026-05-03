@@ -4,7 +4,7 @@
 //! system in `main.rs` mixed simulation-only world construction
 //! (`SandboxRuntime`, `LdtkWorldBundle`, the player entity's gameplay
 //! components) with presentation-only spawns (Camera2d, sprites, HUD text,
-//! SoundBank, ambience playback). This module factors that into two
+//! and generated audio library setup). This module factors that into two
 //! reusable helpers so the visible binary can call both, the future Slice 5
 //! `add_simulation_plugins` / `add_presentation_plugins` split has a clean
 //! seam, and the headless binary can call `simulation_world` standalone
@@ -15,17 +15,17 @@
 //! parameters. They are not Bevy systems themselves; the outer `setup`
 //! system in `main.rs` does the param wiring and calls them in sequence.
 
-use bevy::audio::AudioSource;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
+use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::audio::{play_ambience, SoundBank};
+use crate::audio::{AudioLibrary, MusicPlaybackState};
 use crate::character_sprites::{build_character_sprite, feet_anchor, CharacterAnimator};
-use crate::game_assets::GameAssets;
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
 use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use crate::game_assets::GameAssets;
 use crate::input::SandboxAction;
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::loading::SandboxAssetCollection;
@@ -148,13 +148,13 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
 }
 
 /// Spawn presentation-only entities (Camera2d, sprites, HUD text) and
-/// presentation-only resources (`SoundBank`). Adds the player's `Sprite`
+/// presentation-only resources (`AudioLibrary`). Adds the player's `Sprite`
 /// to the entity returned by `simulation_world`.
 ///
 /// Skipped entirely in headless builds.
 pub fn presentation_world(
     commands: &mut Commands,
-    audio_sources: &mut Assets<AudioSource>,
+    audio_sources: &mut Assets<KiraAudioSource>,
     params: PresentationSetup<'_>,
     player: Entity,
 ) {
@@ -169,9 +169,10 @@ pub fn presentation_world(
 
     commands.spawn((Camera2d, Name::new("Main Camera")));
 
-    let sound_bank = SoundBank::new(audio_sources, &sandbox_data.audio);
-    play_ambience(commands, &sound_bank);
-    commands.insert_resource(sound_bank);
+    let audio_library = AudioLibrary::new(audio_sources, &sandbox_data.audio);
+    let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
+    commands.insert_resource(audio_library);
+    commands.insert_resource(music_state);
 
     spawn_room_visuals(
         commands,

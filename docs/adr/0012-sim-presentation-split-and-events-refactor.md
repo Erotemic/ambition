@@ -81,7 +81,7 @@ emission:
   debris plugin handles spawning bodies.
 - `update_hud` stays in presentation as it already only reads resources.
 - `setup`'s presentation responsibilities (Camera2d, player Sprite, room
-  visuals, HUD Text, SoundBank, ambience playback) split into a
+  visuals, HUD Text, generated audio library and music startup) split into a
   `setup_presentation` startup system that runs only in the visible
   binary.
 
@@ -156,8 +156,8 @@ Phase 2, in slices to keep each PR shippable:
    `physics::spawn_debris_burst` callers. Avian2D debris plugin
    subscribes (visible binary only).
 4. **Setup split.** Extract `setup_simulation` (resources + LdtkWorldBundle
-   spawn) from `setup_presentation` (Camera2d, Sprite, HUD, SoundBank,
-   ambience).
+   spawn) from `setup_presentation` (Camera2d, Sprite, HUD, generated audio
+   library).
 5. **App-builder split.** `add_simulation_plugins(app)` and
    `add_presentation_plugins(app)` registered uniformly. `run_headless`
    uses only the simulation side; `main.rs` (visible) uses both.

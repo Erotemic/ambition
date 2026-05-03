@@ -3,14 +3,16 @@
 //! The existing `GameMode::Paused` state already gates gameplay (input, sim,
 //! and feature updates short-circuit when not in `Playing`). This module
 //! adds the visible side: a translucent overlay with a small action menu
-//! (Resume / Inventory / Quit) and a focused selection that responds to
-//! both keyboard and gamepad navigation through the existing
+//! (Resume / Music / Inventory / Quit) and a focused selection that responds
+//! to both keyboard and gamepad navigation through the existing
 //! `SandboxAction` input map.
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
+use bevy_kira_audio::prelude::AudioChannel;
 use leafwing_input_manager::prelude::ActionState;
 
+use crate::audio::{switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState};
 use crate::game_mode::GameMode;
 use crate::input::SandboxAction;
 use crate::inventory::InventoryUiState;
@@ -22,20 +24,39 @@ pub struct PauseMenuRoot;
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PauseMenuItem {
     Resume,
+    MusicTrack,
     Inventory,
     Quit,
 }
 
 impl PauseMenuItem {
-    pub fn label(self) -> &'static str {
+    pub fn static_label(self) -> &'static str {
         match self {
             Self::Resume => "Resume",
+            Self::MusicTrack => "Music",
             Self::Inventory => "Inventory",
             Self::Quit => "Quit to Desktop",
         }
     }
 
-    pub const ALL: [Self; 3] = [Self::Resume, Self::Inventory, Self::Quit];
+    pub fn label(
+        self,
+        music_state: Option<&MusicPlaybackState>,
+        library: Option<&AudioLibrary>,
+    ) -> String {
+        match self {
+            Self::MusicTrack => {
+                let display = music_state
+                    .zip(library)
+                    .map(|(state, library)| state.active_display_name(library))
+                    .unwrap_or("Unavailable");
+                format!("Music: {display}  < / >")
+            }
+            _ => self.static_label().to_string(),
+        }
+    }
+
+    pub const ALL: [Self; 4] = [Self::Resume, Self::MusicTrack, Self::Inventory, Self::Quit];
 }
 
 #[derive(Resource, Default)]
@@ -83,6 +104,9 @@ pub fn pause_menu_navigate(
     mut next_mode: ResMut<NextState<GameMode>>,
     mut inventory: ResMut<InventoryUiState>,
     mut exit: MessageWriter<AppExit>,
+    library: Res<AudioLibrary>,
+    mut music_state: ResMut<MusicPlaybackState>,
+    music_channel: Res<AudioChannel<MusicChannel>>,
 ) {
     if !matches!(mode.get(), GameMode::Paused) {
         return;
@@ -107,12 +131,33 @@ pub fn pause_menu_navigate(
         state.selected = (state.selected + 1) % items.len();
     }
 
+    let item = items[state.selected];
+    if item == PauseMenuItem::MusicTrack {
+        let next_track = if actions.just_pressed(&SandboxAction::MoveLeft) {
+            library.previous_track_id(&music_state.active_track)
+        } else if actions.just_pressed(&SandboxAction::MoveRight) {
+            library.next_track_id(&music_state.active_track)
+        } else {
+            None
+        };
+        if let Some(next_track) = next_track.map(str::to_string) {
+            switch_to_music_track(&library, &mut music_state, &music_channel, &next_track);
+        }
+    }
+
     if actions.just_pressed(&SandboxAction::Jump) {
-        let item = items[state.selected];
         match item {
             PauseMenuItem::Resume => {
                 inventory.visible = false;
                 next_mode.set(GameMode::Playing);
+            }
+            PauseMenuItem::MusicTrack => {
+                if let Some(next_track) = library
+                    .next_track_id(&music_state.active_track)
+                    .map(str::to_string)
+                {
+                    switch_to_music_track(&library, &mut music_state, &music_channel, &next_track);
+                }
             }
             PauseMenuItem::Inventory => {
                 inventory.visible = true;
@@ -176,6 +221,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     commands.entity(panel).add_child(title);
 
     for item in PauseMenuItem::ALL {
+        let label = item.static_label();
         let entity = commands
             .spawn((
                 Node {
@@ -185,14 +231,14 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
-                Text::new(item.label()),
+                Text::new(label),
                 TextFont {
                     font_size: 18.0,
                     ..default()
                 },
                 TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96)),
                 item,
-                Name::new(format!("Pause item: {}", item.label())),
+                Name::new(format!("Pause item: {label}")),
             ))
             .id();
         commands.entity(panel).add_child(entity);
@@ -204,8 +250,15 @@ pub fn sync_pause_menu(
     mode: Res<State<GameMode>>,
     state: Res<PauseMenuState>,
     inventory: Res<InventoryUiState>,
+    library: Res<AudioLibrary>,
+    music_state: Res<MusicPlaybackState>,
     mut roots: Query<&mut Visibility, With<PauseMenuRoot>>,
-    mut items: Query<(&PauseMenuItem, &mut TextColor, &mut BackgroundColor)>,
+    mut items: Query<(
+        &PauseMenuItem,
+        &mut Text,
+        &mut TextColor,
+        &mut BackgroundColor,
+    )>,
 ) {
     // Hide while the inventory is open so it doesn't double-stack with the
     // inventory panel; the inventory has its own dismiss handling and
@@ -222,7 +275,8 @@ pub fn sync_pause_menu(
         return;
     }
     let selected_item = PauseMenuItem::ALL.get(state.selected).copied();
-    for (item, mut color, mut bg) in &mut items {
+    for (item, mut text, mut color, mut bg) in &mut items {
+        **text = item.label(Some(&music_state), Some(&library));
         let is_selected = Some(*item) == selected_item;
         *color = if is_selected {
             TextColor(Color::srgba(0.18, 0.06, 0.04, 1.0))

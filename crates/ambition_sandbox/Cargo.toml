@@ -13,13 +13,22 @@ dev_hot_reload = ["bevy/file_watcher"]
 [dependencies]
 ambition_engine = { path = "../ambition_engine" }
 avian2d = "0.5"
-bevy = { version = "0.18.1", features = ["wav"] }
+bevy = { version = "0.18.1", default-features = false, features = [
+    "default_app",
+    "default_platform",
+    "2d_bevy_render",
+    "ui_api",
+    "ui_bevy_render",
+    "scene",
+    "png",
+] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy_yarnspinner = "0.8"
-bevy_material_ui = "0.2.7"
+bevy_material_ui = { version = "0.2.7", default-features = false, features = ["bevy_minimal"] }
 bevy_asset_loader = "0.26"
 bevy_ecs_ldtk = "0.14"
 bevy-inspector-egui = "0.36"
+bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav"] }
 fundsp = "0.23"
 leafwing-input-manager = "0.20"
 petgraph = "0.8"

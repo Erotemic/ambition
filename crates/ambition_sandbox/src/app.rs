@@ -4,7 +4,7 @@
 //! Slice 5 of ADR 0012's events refactor moved this code out of `main.rs`
 //! into the library so the headless binary can drive the same gameplay loop
 //! (`sandbox_update` and friends) without InputPlugin / RenderPlugin /
-//! AudioPlugin. The visible binary's `fn main()` is now a thin shim that
+//! Kira audio. The visible binary's `fn main()` is now a thin shim that
 //! calls `run_visible`, which composes:
 //!
 //! * `init_sandbox_resources`: parse + validate the embedded LDtk world,
@@ -16,7 +16,6 @@
 //!   and input-driven systems. Visible calls this; headless does not.
 
 use ambition_engine as ae;
-use bevy::audio::AudioSource;
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResizeConstraints, WindowResolution};
@@ -27,11 +26,15 @@ use bevy_inspector_egui::{
     bevy_egui::EguiPlugin,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
 };
+use bevy_kira_audio::prelude::{
+    AudioApp, AudioPlugin as KiraAudioPlugin, AudioSource as KiraAudioSource,
+};
 use bevy_material_ui::MaterialUiPlugin;
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 
-use crate::audio::{audio_play_sfx_messages, SfxMessage};
-use crate::game_assets::{self, GameAssetConfig};
+use crate::audio::{
+    audio_play_sfx_messages, start_default_music, MusicChannel, SfxChannel, SfxMessage,
+};
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
 use crate::debug_overlay;
@@ -41,6 +44,7 @@ use crate::dev_tools::{
 use crate::dialog;
 use crate::features;
 use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
+use crate::game_assets::{self, GameAssetConfig};
 use crate::game_mode::GameMode;
 use crate::input::{ControlFrame, SandboxAction, GAMEPAD_MAP};
 use crate::inventory;
@@ -51,8 +55,8 @@ use crate::physics::{self, physics_spawn_debris_messages, DebrisBurstMessage};
 use crate::platforms;
 use crate::rendering::{
     animate_bosses, animate_enemies, animate_player, camera_follow, spawn_room_visuals,
-    sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, HudText, PlayerVisual,
-    RoomVisual, SceneEntities,
+    sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, HudText, PlayerVisual, RoomVisual,
+    SceneEntities,
 };
 use crate::rooms;
 use crate::setup;
@@ -277,6 +281,9 @@ fn spawn_ldtk_world_root(
 pub fn add_presentation_plugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .insert_resource(windowing::DisplayModeState::default())
+        .add_plugins(KiraAudioPlugin)
+        .add_audio_channel::<MusicChannel>()
+        .add_audio_channel::<SfxChannel>()
         // The inspector quick plugins require EguiPlugin to be registered first.
         .add_plugins(EguiPlugin::default())
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
@@ -312,7 +319,10 @@ pub fn add_presentation_plugins(app: &mut App) {
         .insert_resource(inventory::PlayerInventory::starter())
         .add_systems(
             Startup,
-            (pause_menu::spawn_pause_menu, inventory::spawn_inventory_panel)
+            (
+                pause_menu::spawn_pause_menu,
+                inventory::spawn_inventory_panel,
+            )
                 .after(setup_simulation_system),
         )
         .add_systems(
@@ -329,7 +339,13 @@ pub fn add_presentation_plugins(app: &mut App) {
             Update,
             (pause_menu::sync_pause_menu, inventory::sync_inventory_panel).after(sandbox_update),
         )
-        .add_systems(Startup, setup_presentation_system.after(setup_simulation_system))
+        .add_systems(
+            Startup,
+            (
+                setup_presentation_system.after(setup_simulation_system),
+                start_default_music.after(setup_presentation_system),
+            ),
+        )
         .add_systems(
             Update,
             (
@@ -354,7 +370,10 @@ pub fn add_presentation_plugins(app: &mut App) {
                 .chain()
                 .after(sandbox_update),
         )
-        .add_systems(Update, crate::rendering::sync_health_overlays.after(sync_visuals))
+        .add_systems(
+            Update,
+            crate::rendering::sync_health_overlays.after(sync_visuals),
+        )
         // Audio + VFX + debris subscribe on the visible binary only.
         // Headless builds omit these so the message queues drain without
         // entity spawns or audio playback. The `.after` constraints pin
@@ -407,15 +426,16 @@ fn setup_simulation_system(
 
 /// Presentation startup. Runs after `setup_simulation_system` so the
 /// SceneEntities resource (with player Entity) is visible. Adds the
-/// player's Sprite, spawns Camera2d, room visuals, HUD text, SoundBank,
-/// and overwrites SceneEntities to fill in the HUD entity.
+/// player's Sprite, spawns Camera2d, room visuals, HUD text, generated
+/// Kira audio library, and overwrites SceneEntities to fill in the HUD
+/// entity.
 fn setup_presentation_system(
     mut commands: Commands,
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data: Res<data::SandboxDataSpec>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
-    mut audio_sources: ResMut<Assets<AudioSource>>,
+    mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
@@ -548,7 +568,7 @@ fn sandbox_update(
             reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
             event_writers.sfx.write_batch(sfx.drain(..));
             event_writers.vfx.write_batch(vfx.drain(..));
-        event_writers.debris.write_batch(debris.drain(..));
+            event_writers.debris.write_batch(debris.drain(..));
             return;
         }
         // Damage breakable pogo orbs the player just bounced off. The
@@ -592,10 +612,16 @@ fn sandbox_update(
             reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
             event_writers.sfx.write_batch(sfx.drain(..));
             event_writers.vfx.write_batch(vfx.drain(..));
-        event_writers.debris.write_batch(debris.drain(..));
+            event_writers.debris.write_batch(debris.drain(..));
             return;
         }
-        handle_player_events(&mut sfx, &mut vfx, &mut runtime, sim_events, Some(was_grounded));
+        handle_player_events(
+            &mut sfx,
+            &mut vfx,
+            &mut runtime,
+            sim_events,
+            Some(was_grounded),
+        );
     }
 
     // Context interaction is deliberately separate from raw up movement.
@@ -690,7 +716,7 @@ fn sandbox_update(
             );
             event_writers.sfx.write_batch(sfx.drain(..));
             event_writers.vfx.write_batch(vfx.drain(..));
-        event_writers.debris.write_batch(debris.drain(..));
+            event_writers.debris.write_batch(debris.drain(..));
             return;
         }
     }
@@ -712,7 +738,7 @@ fn sandbox_update(
     runtime.slash_anim_timer = (runtime.slash_anim_timer - frame_dt).max(0.0);
     event_writers.sfx.write_batch(sfx.drain(..));
     event_writers.vfx.write_batch(vfx.drain(..));
-        event_writers.debris.write_batch(debris.drain(..));
+    event_writers.debris.write_batch(debris.drain(..));
 }
 
 /// Presentation-side debug hotkey reader.
@@ -1035,7 +1061,13 @@ fn load_room(
     };
     runtime.preset_flash = 1.0;
 
-    spawn_room_visuals(commands, &world.0, &spec.loading_zones, physics_settings, assets);
+    spawn_room_visuals(
+        commands,
+        &world.0,
+        &spec.loading_zones,
+        physics_settings,
+        assets,
+    );
     platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
     sfx.push(SfxMessage::Reset {
         pos: runtime.player.pos,
@@ -1229,15 +1261,7 @@ fn handle_player_damage_events(
         return;
     };
     if runtime.player_health.damage(damage.amount.max(1)) {
-        death_respawn_player(
-            world,
-            sfx,
-            vfx,
-            runtime,
-            tuning,
-            feel,
-            damage.impact_pos,
-        );
+        death_respawn_player(world, sfx, vfx, runtime, tuning, feel, damage.impact_pos);
         return;
     }
     match damage.mode {

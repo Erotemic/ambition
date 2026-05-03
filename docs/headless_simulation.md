@@ -43,9 +43,9 @@ coupled in non-trivial ways:
 - `sandbox_update` directly emits `play_sound` calls, `spawn_burst`,
   `spawn_dust`, `spawn_impact`, `spawn_blink_effects`, `spawn_slash_preview`,
   and physics debris bursts inside its event-handling helpers.
-- `setup` spawns rendering entities (Camera2d, player Sprite, room visuals,
-  HUD Text) and creates the audio `SoundBank`, which requires the
-  `AudioPlugin` and an `Assets<AudioSource>` resource.
+- presentation setup spawns rendering entities (Camera2d, player Sprite, room
+  visuals, HUD Text) and creates the generated Kira audio library, which is
+  only registered by the visible app path.
 - The hot-reload entry path reads `ButtonInput<KeyCode>`, which requires
   the input plugin.
 
@@ -60,7 +60,7 @@ instead of directly calling presentation APIs. Concretely:
 
 - `play_sound(commands, bank, SoundCue::Jump)` becomes
   `event_writer.send(SfxEvent::Jump { pos })`. An audio system in
-  presentation subscribes to `SfxEvent` and calls the actual Bevy audio API.
+  presentation subscribes to `SfxEvent` and plays the actual Kira SFX channel.
 - `spawn_burst(...)` becomes `event_writer.send(VfxEvent::Burst { ... })`,
   consumed by an fx system in presentation.
 - `physics::spawn_debris_burst(...)` is already partly engine-side

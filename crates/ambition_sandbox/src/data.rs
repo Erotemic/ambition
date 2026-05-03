@@ -16,6 +16,7 @@ use bevy::asset::{Asset, AssetServer};
 use bevy::prelude::{Commands, Handle, Res, Resource};
 use bevy::reflect::TypePath;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 pub const SANDBOX_DATA_ASSET: &str = "ambition/sandbox.ron";
 
@@ -47,7 +48,55 @@ pub fn load_data_asset_handle(mut commands: Commands, asset_server: Res<AssetSer
 pub struct AudioSpec {
     pub sample_rate: u32,
     pub sfx: Vec<SfxSpec>,
-    pub music: MusicSpec,
+    pub default_music_track: String,
+    pub music_tracks: Vec<MusicTrackSpec>,
+}
+
+impl AudioSpec {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.sample_rate < 8_000 {
+            return Err(format!(
+                "audio sample_rate must be at least 8000 Hz, got {}",
+                self.sample_rate
+            ));
+        }
+        if self.music_tracks.is_empty() {
+            return Err("audio music_tracks must contain at least one track".to_string());
+        }
+        let mut ids = HashSet::new();
+        for track in &self.music_tracks {
+            if track.id.trim().is_empty() {
+                return Err("music track id must not be empty".to_string());
+            }
+            if track.display_name.trim().is_empty() {
+                return Err(format!("music track '{}' display_name is empty", track.id));
+            }
+            if !ids.insert(track.id.as_str()) {
+                return Err(format!("duplicate music track id '{}'", track.id));
+            }
+            track.arrangement.validate().map_err(|error| {
+                format!("music track '{}' arrangement is invalid: {error}", track.id)
+            })?;
+        }
+        if self.track(&self.default_music_track).is_none() {
+            return Err(format!(
+                "default_music_track '{}' does not match any music_tracks id",
+                self.default_music_track
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn track(&self, id: &str) -> Option<&MusicTrackSpec> {
+        self.music_tracks.iter().find(|track| track.id == id)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct MusicTrackSpec {
+    pub id: String,
+    pub display_name: String,
+    pub arrangement: MusicSpec,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Hash)]
@@ -102,6 +151,38 @@ pub struct MusicSpec {
     pub gains: MusicGainsSpec,
 }
 
+impl MusicSpec {
+    pub fn duration_seconds(&self) -> f32 {
+        self.total_beats.max(1.0) * 60.0 / self.bpm.max(1.0)
+    }
+
+    pub fn bar_count(&self) -> usize {
+        (self.total_beats.max(1.0) / 4.0).ceil().max(1.0) as usize
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.bpm <= 0.0 {
+            return Err(format!("bpm must be positive, got {}", self.bpm));
+        }
+        if self.total_beats <= 0.0 {
+            return Err(format!(
+                "total_beats must be positive, got {}",
+                self.total_beats
+            ));
+        }
+        if self.root_hz <= 0.0 || self.bass_root_hz <= 0.0 || self.key_root_hz <= 0.0 {
+            return Err("root frequencies must be positive".to_string());
+        }
+        if self.chords.is_empty() {
+            return Err("chords must not be empty".to_string());
+        }
+        if self.bass_roots.is_empty() {
+            return Err("bass_roots must not be empty".to_string());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize)]
 pub struct NoteSpec {
     pub start: f32,
@@ -117,4 +198,48 @@ pub struct MusicGainsSpec {
     pub soft_keys: f32,
     pub bass: f32,
     pub drums: f32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_sandbox_data_parses_and_audio_validates() {
+        let spec = SandboxDataSpec::load_embedded();
+        spec.audio
+            .validate()
+            .expect("embedded audio spec validates");
+    }
+
+    #[test]
+    fn embedded_music_tracks_are_unique_and_default_resolves() {
+        let spec = SandboxDataSpec::load_embedded();
+        let mut ids = HashSet::new();
+        for track in &spec.audio.music_tracks {
+            assert!(ids.insert(track.id.as_str()), "duplicate id {}", track.id);
+        }
+        assert!(spec.audio.track(&spec.audio.default_music_track).is_some());
+    }
+
+    #[test]
+    fn embedded_music_tracks_include_original_and_long_default() {
+        let spec = SandboxDataSpec::load_embedded();
+        let original = spec
+            .audio
+            .track("original_lofi_loop")
+            .expect("original track exists");
+        let long = spec
+            .audio
+            .track("long_lofi_drift")
+            .expect("long track exists");
+        assert_eq!(spec.audio.default_music_track, "long_lofi_drift");
+        assert!((original.arrangement.duration_seconds() - (32.0 * 60.0 / 72.0)).abs() < 0.01);
+        let long_duration = long.arrangement.duration_seconds();
+        assert!(long_duration > original.arrangement.duration_seconds() * 3.0);
+        assert!(
+            (90.0..=120.0).contains(&long_duration),
+            "long duration was {long_duration}"
+        );
+    }
 }

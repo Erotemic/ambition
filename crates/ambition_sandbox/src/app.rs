@@ -22,6 +22,7 @@ use bevy::window::{PrimaryWindow, WindowResizeConstraints, WindowResolution};
 use bevy_asset_loader::asset_collection::AssetCollectionApp;
 use bevy_common_assets::ron::RonAssetPlugin;
 use bevy_ecs_ldtk::prelude::{LdtkPlugin, LdtkSettings, LevelBackground};
+#[cfg(feature = "dev_tools")]
 use bevy_inspector_egui::{
     bevy_egui::EguiPlugin,
     quick::{ResourceInspectorPlugin, WorldInspectorPlugin},
@@ -284,8 +285,6 @@ pub fn add_presentation_plugins(app: &mut App) {
         .add_plugins(KiraAudioPlugin)
         .add_audio_channel::<MusicChannel>()
         .add_audio_channel::<SfxChannel>()
-        // The inspector quick plugins require EguiPlugin to be registered first.
-        .add_plugins(EguiPlugin::default())
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_plugins(dialog::yarn_spinner_plugin())
         .add_plugins(MaterialUiPlugin)
@@ -296,25 +295,11 @@ pub fn add_presentation_plugins(app: &mut App) {
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
-        .register_type::<SandboxFeelTuning>()
-        .add_plugins(
-            ResourceInspectorPlugin::<DeveloperTools>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(
-            ResourceInspectorPlugin::<EditableAbilitySet>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(
-            ResourceInspectorPlugin::<EditableMovementTuning>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(
-            ResourceInspectorPlugin::<SandboxFeelTuning>::default()
-                .run_if(dev_tools::inspector_visible),
-        )
-        .add_plugins(WorldInspectorPlugin::new().run_if(dev_tools::world_inspector_visible))
-        .insert_resource(pause_menu::PauseMenuState::default())
+        .register_type::<SandboxFeelTuning>();
+
+    add_dev_tools_plugins(app);
+
+    app.insert_resource(pause_menu::PauseMenuState::default())
         .insert_resource(inventory::InventoryUiState::default())
         .insert_resource(inventory::PlayerInventory::starter())
         .add_systems(
@@ -382,6 +367,35 @@ pub fn add_presentation_plugins(app: &mut App) {
         .add_systems(Update, vfx_spawn_messages.after(sandbox_update))
         .add_systems(Update, physics_spawn_debris_messages.after(sandbox_update));
 }
+
+/// Install the egui inspector plugins. Gated by the `dev_tools` feature so
+/// shipping/headless builds don't pay for `bevy-inspector-egui` /
+/// `bevy_egui` in the dep graph. The inspector quick plugins require
+/// EguiPlugin first; that's why both live behind the same gate.
+#[cfg(feature = "dev_tools")]
+fn add_dev_tools_plugins(app: &mut App) {
+    app.add_plugins(EguiPlugin::default())
+        .add_plugins(
+            ResourceInspectorPlugin::<DeveloperTools>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
+        .add_plugins(
+            ResourceInspectorPlugin::<EditableAbilitySet>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
+        .add_plugins(
+            ResourceInspectorPlugin::<EditableMovementTuning>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
+        .add_plugins(
+            ResourceInspectorPlugin::<SandboxFeelTuning>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
+        .add_plugins(WorldInspectorPlugin::new().run_if(dev_tools::world_inspector_visible));
+}
+
+#[cfg(not(feature = "dev_tools"))]
+fn add_dev_tools_plugins(_app: &mut App) {}
 
 // `GameWorld`, `SandboxRuntime`, and the time-scale ramp helper `move_toward`
 // have moved to `crate::lib` (`ambition_sandbox`) so both binaries can share

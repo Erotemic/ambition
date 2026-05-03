@@ -108,6 +108,37 @@ B without this answered.
 **Coordination:** the audio agent's branch is the natural owner of the
 `audio` feature gate.
 
+#### A.1 status (landed)
+
+Scaffolding + the `dev_tools` gate are in (`crates/ambition_sandbox/Cargo.toml`,
+`src/app.rs`). All heavy deps are flipped to `optional = true`; `default =
+["visible", "dev_tools"]` preserves prior behavior. Verified:
+
+- `cargo check -p ambition_sandbox` (defaults) — passes, 37s
+- `cargo check -p ambition_sandbox --no-default-features --features visible`
+  — passes, 51s; `bevy-inspector-egui` and `bevy_egui` cleanly drop from
+  the dep graph (verified via `cargo tree`).
+- `cargo check -p ambition_sandbox --no-default-features --features visible,dev_hot_reload`
+  — passes; file watcher on, inspector still off.
+- All 30 sandbox lib tests pass under defaults.
+
+#### A.2 remaining gates (breadcrumb)
+
+`cargo check --no-default-features --features headless` reports 48 errors
+mapping to five un-gated subsystems. Each is its own follow-up commit:
+
+| Feature | Crates touched | Files needing `#[cfg]` |
+|---|---|---|
+| `audio` | `bevy_kira_audio`, `fundsp` | `audio.rs`, `app.rs`, `pause_menu.rs`, `setup.rs` (audio agent's territory) |
+| `input` | `leafwing-input-manager` | `input.rs`, `app.rs`, `debug_overlay.rs`, `inventory.rs`, `pause_menu.rs`, `setup.rs` |
+| `ui` | `bevy_material_ui`, `bevy_yarnspinner` | `dialog.rs`, `app.rs` (MaterialUiPlugin install) |
+| `physics_debris` | `avian2d` | `physics.rs`, plus extracting `DebrisBurstMessage` into a sim-only module so headless can keep `add_message::<DebrisBurstMessage>()` |
+| `ldtk_runtime` | `bevy_ecs_ldtk`, `bevy_asset_loader` | `ldtk_world.rs`, `loading.rs`, `setup.rs`, `app.rs`, `headless.rs` |
+
+`physics_debris` is the gnarliest because `DebrisBurstMessage` is part of
+the sim/presentation seam (`add_simulation_plugins` registers it for both
+binaries). The message type needs to move out of `physics.rs` first.
+
 ### B. Finish ADR 0012 events refactor (~1-2 days)
 
 ADR 0012 has identified the slices: SFX, VFX, debris, setup-split,

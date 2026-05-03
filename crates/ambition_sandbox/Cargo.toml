@@ -7,12 +7,42 @@ authors.workspace = true
 description = "Bevy-powered playable sandbox for Ambition Engine."
 
 [features]
-default = []
+# Default preserves prior behavior: full visible game + devtools (egui
+# inspector and Bevy's file watcher).
+default = ["visible", "dev_tools"]
+
+# Composite for the playable Bevy app. `cargo run` enables this via default.
+visible = ["ldtk_runtime", "input", "audio", "ui", "physics_debris"]
+
+# Composite for the headless simulation binary. Intentionally enables
+# nothing: this is the lever that strips heavy deps from the dep graph
+# once subsystem code-side gates land. See docs/path_forward.md step A.
+# As of this commit only `dev_tools` has a code gate; building headless
+# fully (without dragging Kira/Avian/inspector/bevy_ecs_ldtk) needs the
+# remaining subsystem gates.
+headless = []
+
+# Devtools: egui inspector plugins + Bevy file watcher for hot reload.
+dev_tools = ["dep:bevy-inspector-egui", "bevy/file_watcher"]
+
+# Backward-compat alias used by docs/CI before `dev_tools` existed.
+# File-watcher only, no inspector; matches prior `dev_hot_reload` semantics.
 dev_hot_reload = ["bevy/file_watcher"]
+
+# Subsystem gates. Deps are flipped to `optional = true` so toggling
+# these features actually moves crates in/out of the dep graph. Code
+# inside these subsystems is not yet cfg-gated end-to-end, so disabling
+# them today only works when paired with `--features visible` (where
+# they're all enabled).
+ldtk_runtime = ["dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
+audio = ["dep:bevy_kira_audio", "dep:fundsp"]
+ui = ["dep:bevy_material_ui", "dep:bevy_yarnspinner"]
+physics_debris = ["dep:avian2d"]
+input = ["dep:leafwing-input-manager"]
 
 [dependencies]
 ambition_engine = { path = "../ambition_engine" }
-avian2d = "0.5"
+avian2d = { version = "0.5", optional = true }
 bevy = { version = "0.18.1", default-features = false, features = [
     "default_app",
     "default_platform",
@@ -23,14 +53,14 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "png",
 ] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
-bevy_yarnspinner = "0.8"
-bevy_material_ui = { version = "0.2.7", default-features = false, features = ["bevy_minimal"] }
-bevy_asset_loader = "0.26"
-bevy_ecs_ldtk = "0.14"
-bevy-inspector-egui = "0.36"
-bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav"] }
-fundsp = "0.23"
-leafwing-input-manager = "0.20"
+bevy_yarnspinner = { version = "0.8", optional = true }
+bevy_material_ui = { version = "0.2.7", default-features = false, features = ["bevy_minimal"], optional = true }
+bevy_asset_loader = { version = "0.26", optional = true }
+bevy_ecs_ldtk = { version = "0.14", optional = true }
+bevy-inspector-egui = { version = "0.36", optional = true }
+bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav"], optional = true }
+fundsp = { version = "0.23", optional = true }
+leafwing-input-manager = { version = "0.20", optional = true }
 petgraph = "0.8"
 ron = "0.11"
 serde = { version = "1", features = ["derive"] }

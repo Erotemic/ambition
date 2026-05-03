@@ -56,17 +56,35 @@ def configure_scene(bpy, width: int, height: int, transparent: bool = True) -> N
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"
     scene.render.film_transparent = transparent
-    scene.eevee.taa_render_samples = 64
+    scene.eevee.taa_render_samples = 32
     scene.eevee.use_gtao = False
-    scene.eevee.use_bloom = True
-    scene.eevee.bloom_intensity = 0.025
-    scene.eevee.bloom_radius = 2.0
+    scene.eevee.use_bloom = False
+    scene.eevee.bloom_intensity = 0.0
+    scene.eevee.bloom_radius = 1.0
     scene.render.resolution_x = int(width)
     scene.render.resolution_y = int(height)
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
     scene.render.use_persistent_data = False
+    # Sprite-first rendering: avoid filmic washout.
+    try:
+        scene.display_settings.display_device = "sRGB"
+    except Exception:
+        pass
+    try:
+        scene.view_settings.view_transform = "Standard"
+    except Exception:
+        pass
+    try:
+        scene.view_settings.look = "None"
+    except Exception:
+        pass
+    try:
+        scene.view_settings.exposure = -0.10
+        scene.view_settings.gamma = 1.0
+    except Exception:
+        pass
     # Freestyle is the outline mechanism. Do not use inverted solidify shells for
     # outlines: they covered the whole character on some Blender versions.
     scene.render.use_freestyle = True
@@ -103,8 +121,8 @@ def configure_scene(bpy, width: int, height: int, transparent: bool = True) -> N
     world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
     if bg is not None:
-        bg.inputs[0].default_value = (0.78, 0.80, 0.84, 1.0)
-        bg.inputs[1].default_value = 0.72
+        bg.inputs[0].default_value = (0.50, 0.52, 0.58, 1.0)
+        bg.inputs[1].default_value = 0.22
 
 
 _MATERIAL_CACHE: Dict[Tuple[str, str, str, float], object] = {}
@@ -135,7 +153,11 @@ def _set_principled_input(bsdf, names, value) -> None:
 
 
 def ensure_toon_material(bpy, name: str, base_hex: str, shadow_hex: str, emission_strength: float = 0.0, texture_path: str | None = None, texture_mix: float = 0.28, texture_scale: float = 5.0):
-    """Create a stable toon material with optional generated image texture overlay."""
+    """Create a sprite-friendly toon material with optional generated texture overlay.
+
+    The goal is punchy pre-rendered 2D sprites, not physically-based realism.
+    Colors are boosted slightly so they survive downsampling into sprite sheets.
+    """
     key = (name, base_hex, shadow_hex, emission_strength, texture_path or "", float(texture_mix), float(texture_scale))
     if key in _MATERIAL_CACHE:
         return _MATERIAL_CACHE[key]
@@ -150,34 +172,34 @@ def ensure_toon_material(bpy, name: str, base_hex: str, shadow_hex: str, emissio
         if node.name not in {"Material Output"}:
             nodes.remove(node)
     output = nodes.get("Material Output")
+
     bsdf = nodes.new(type="ShaderNodeBsdfPrincipled")
-    bsdf.location = (380, 20)
-    _set_principled_input(bsdf, ["Base Color"], base)
-    _set_principled_input(bsdf, ["Roughness"], 0.56)
-    _set_principled_input(bsdf, ["Specular IOR Level", "Specular"], 0.24)
-    _set_principled_input(bsdf, ["Emission Color", "Emission"], base)
+    bsdf.location = (520, 20)
+    _set_principled_input(bsdf, ["Roughness"], 0.50)
+    _set_principled_input(bsdf, ["Specular IOR Level", "Specular"], 0.16)
     _set_principled_input(bsdf, ["Emission Strength"], max(0.0, float(emission_strength)))
     links.new(bsdf.outputs[0], output.inputs[0])
 
-    # Let generated textures read clearly at sprite scale.  We still clamp the
-    # mix, but much less aggressively than before so paneling / cloth patterns
-    # remain visible in canonicals and sprite sheets.
-    texture_mix = min(max(float(texture_mix), 0.0), 0.18)
+    rgb_node = nodes.new(type="ShaderNodeRGB")
+    rgb_node.location = (-640, 120)
+    rgb_node.outputs[0].default_value = base
+    color_socket = rgb_node.outputs[0]
 
+    texture_mix = min(max(float(texture_mix), 0.0), 0.58)
     if texture_path:
         texcoord = nodes.new(type="ShaderNodeTexCoord")
-        texcoord.location = (-980, -60)
+        texcoord.location = (-1160, -120)
         mapping = nodes.new(type="ShaderNodeMapping")
-        mapping.location = (-780, -60)
+        mapping.location = (-960, -120)
         mapping.inputs[3].default_value[0] = float(texture_scale)
         mapping.inputs[3].default_value[1] = float(texture_scale)
         mapping.inputs[3].default_value[2] = float(texture_scale)
         img_node = nodes.new(type="ShaderNodeTexImage")
-        img_node.location = (-560, -60)
+        img_node.location = (-760, -120)
         contrast_node = nodes.new(type="ShaderNodeBrightContrast")
-        contrast_node.location = (-360, -60)
-        contrast_node.inputs[1].default_value = 0.08
-        contrast_node.inputs[2].default_value = 1.75
+        contrast_node.location = (-560, -120)
+        contrast_node.inputs[1].default_value = 0.18
+        contrast_node.inputs[2].default_value = 2.5
         try:
             img_node.image = bpy.data.images.load(str(Path(texture_path).resolve()), check_existing=True)
         except TypeError:
@@ -189,11 +211,11 @@ def ensure_toon_material(bpy, name: str, base_hex: str, shadow_hex: str, emissio
             img_node.extension = "REPEAT"
             try:
                 img_node.projection = "BOX"
-                img_node.projection_blend = 0.24
+                img_node.projection_blend = 0.32
             except Exception:
                 pass
         mix_node = nodes.new(type="ShaderNodeMixRGB")
-        mix_node.location = (-120, 40)
+        mix_node.location = (-340, 50)
         mix_node.blend_type = "MIX"
         mix_node.inputs[0].default_value = float(texture_mix)
         mix_node.inputs[1].default_value = base
@@ -201,12 +223,24 @@ def ensure_toon_material(bpy, name: str, base_hex: str, shadow_hex: str, emissio
         links.new(mapping.outputs[0], img_node.inputs[0])
         links.new(img_node.outputs[0], contrast_node.inputs[0])
         links.new(contrast_node.outputs[0], mix_node.inputs[2])
-        links.new(mix_node.outputs[0], bsdf.inputs["Base Color"])
-        if "Emission Color" in bsdf.inputs:
-            links.new(mix_node.outputs[0], bsdf.inputs["Emission Color"])
+        color_socket = mix_node.outputs[0]
+
+    hsv_node = nodes.new(type="ShaderNodeHueSaturation")
+    hsv_node.location = (-60, 80)
+    hsv_node.inputs[0].default_value = 0.50
+    hsv_node.inputs[1].default_value = 1.35
+    hsv_node.inputs[2].default_value = 1.03
+    hsv_node.inputs[3].default_value = 1.0
+    links.new(color_socket, hsv_node.inputs[4])
+
+    links.new(hsv_node.outputs[0], bsdf.inputs["Base Color"])
+    if "Emission Color" in bsdf.inputs:
+        links.new(hsv_node.outputs[0], bsdf.inputs["Emission Color"])
+    elif "Emission" in bsdf.inputs:
+        links.new(hsv_node.outputs[0], bsdf.inputs["Emission"])
+
     _MATERIAL_CACHE[key] = mat
     return mat
-
 
 def add_outline_modifier(obj, bpy, thickness: float = 0.02) -> None:
     # No-op by design. The old inverted-hull Solidify outline pass caused the
@@ -343,7 +377,7 @@ def ensure_camera_and_lights(bpy, spec_view: Dict[str, float]):
     scene.collection.objects.link(sun)
     sun.location = (4.5, -4.5, 7.0)
     sun.rotation_euler = (math.radians(42), math.radians(8), math.radians(22))
-    sun_data.energy = 2.7
+    sun_data.energy = 2.2
     sun_data.angle = math.radians(8)
 
     fill_data = bpy.data.lights.new("FillArea", type="AREA")
@@ -351,7 +385,7 @@ def ensure_camera_and_lights(bpy, spec_view: Dict[str, float]):
     scene.collection.objects.link(fill)
     fill.location = (-2.4, -3.5, 2.7)
     fill.rotation_euler = (math.radians(78), 0.0, math.radians(-28))
-    fill_data.energy = 1200.0
+    fill_data.energy = 720.0
     fill_data.shape = "RECTANGLE"
     fill_data.size = 4.0
     fill_data.size_y = 4.0
@@ -361,7 +395,7 @@ def ensure_camera_and_lights(bpy, spec_view: Dict[str, float]):
     scene.collection.objects.link(rim)
     rim.location = (2.4, 2.2, 2.4)
     rim.rotation_euler = (math.radians(110), 0.0, math.radians(145))
-    rim_data.energy = 450.0
+    rim_data.energy = 220.0
     rim_data.shape = "RECTANGLE"
     rim_data.size = 2.5
     rim_data.size_y = 2.0
@@ -671,8 +705,8 @@ def build_robot(bpy, collection, spec: Dict[str, object], animation: str, index:
     pose = robot_pose(animation, index, frame_count)
     white = ensure_toon_material(bpy, "RobotWhite", spec["primary_color"], spec["primary_shadow"], texture_path=texture_paths.get("primary"), texture_mix=0.54, texture_scale=1.55)
     dark = ensure_toon_material(bpy, "RobotDark", spec["dark_color"], "#07070A", texture_path=texture_paths.get("dark"), texture_mix=0.42, texture_scale=1.65)
-    cyan = ensure_toon_material(bpy, "RobotCyan", spec["accent_color"], "#0DA4C5", emission_strength=0.40)
-    purple = ensure_toon_material(bpy, "RobotPurple", spec["accent2_color"], "#6F55C8", emission_strength=0.12)
+    cyan = ensure_toon_material(bpy, "RobotCyan", spec["accent_color"], "#0789A8", emission_strength=0.90)
+    purple = ensure_toon_material(bpy, "RobotPurple", spec["accent2_color"], "#5A38CC", emission_strength=0.30)
     metal = ensure_toon_material(bpy, "RobotMetal", spec["metal_color"], "#7D8796", texture_path=texture_paths.get("metal"), texture_mix=0.50, texture_scale=1.65)
 
     root = (pose["root_x"], 0.0, pose["root_z"])
@@ -780,8 +814,8 @@ def build_goblin(bpy, collection, spec: Dict[str, object], animation: str, index
     pose = goblin_pose(animation, index, frame_count)
     skin = ensure_toon_material(bpy, "GoblinSkin", spec["skin_color"], spec["skin_shadow"], texture_path=texture_paths.get("skin"), texture_mix=0.48, texture_scale=1.55)
     cloth = ensure_toon_material(bpy, "GoblinCloth", spec["cloth_color"], spec["cloth_shadow"], texture_path=texture_paths.get("cloth"), texture_mix=0.60, texture_scale=1.45)
-    accent = ensure_toon_material(bpy, "GoblinAccent", spec["accent_color"], spec["accent2_color"], emission_strength=0.08, texture_path=texture_paths.get("accent"), texture_mix=0.40, texture_scale=1.55)
-    eyes = ensure_toon_material(bpy, "GoblinEyes", spec["eye_color"], spec["accent_color"], emission_strength=0.34)
+    accent = ensure_toon_material(bpy, "GoblinAccent", spec["accent_color"], spec["accent2_color"], emission_strength=0.28, texture_path=texture_paths.get("accent"), texture_mix=0.56, texture_scale=1.55)
+    eyes = ensure_toon_material(bpy, "GoblinEyes", spec["eye_color"], spec["accent_color"], emission_strength=0.55)
     dark = ensure_toon_material(bpy, "GoblinDark", "#201628", "#09070C")
     metal = ensure_toon_material(bpy, "GoblinMetal", spec["metal_color"], "#7C74A2", texture_path=texture_paths.get("metal"), texture_mix=0.42, texture_scale=1.8)
 
@@ -842,8 +876,8 @@ def build_robot_construction(bpy, collection, spec: Dict[str, object], texture_p
     texture_paths = texture_paths or {}
     white = ensure_toon_material(bpy, "RobotWhite", spec["primary_color"], spec["primary_shadow"], texture_path=texture_paths.get("primary"), texture_mix=0.56, texture_scale=1.55)
     dark = ensure_toon_material(bpy, "RobotDark", spec["dark_color"], "#07070A", texture_path=texture_paths.get("dark"), texture_mix=0.44, texture_scale=1.60)
-    cyan = ensure_toon_material(bpy, "RobotCyan", spec["accent_color"], "#0DA4C5", emission_strength=0.32)
-    purple = ensure_toon_material(bpy, "RobotPurple", spec["accent2_color"], "#6F55C8", emission_strength=0.08)
+    cyan = ensure_toon_material(bpy, "RobotCyan", spec["accent_color"], "#0789A8", emission_strength=0.82)
+    purple = ensure_toon_material(bpy, "RobotPurple", spec["accent2_color"], "#5A38CC", emission_strength=0.26)
     metal = ensure_toon_material(bpy, "RobotMetal", spec["metal_color"], "#7D8796", texture_path=texture_paths.get("metal"), texture_mix=0.52, texture_scale=1.65)
 
     pelvis_center = (0.0, 0.0, 0.86)
@@ -903,8 +937,8 @@ def build_goblin_construction(bpy, collection, spec: Dict[str, object], texture_
     texture_paths = texture_paths or {}
     skin = ensure_toon_material(bpy, "GoblinSkin", spec["skin_color"], spec["skin_shadow"], texture_path=texture_paths.get("skin"), texture_mix=0.50, texture_scale=1.55)
     cloth = ensure_toon_material(bpy, "GoblinCloth", spec["cloth_color"], spec["cloth_shadow"], texture_path=texture_paths.get("cloth"), texture_mix=0.62, texture_scale=1.45)
-    accent = ensure_toon_material(bpy, "GoblinAccent", spec["accent_color"], spec["accent2_color"], emission_strength=0.08, texture_path=texture_paths.get("accent"), texture_mix=0.42, texture_scale=1.55)
-    eyes = ensure_toon_material(bpy, "GoblinEyes", spec["eye_color"], spec["accent_color"], emission_strength=0.26)
+    accent = ensure_toon_material(bpy, "GoblinAccent", spec["accent_color"], spec["accent2_color"], emission_strength=0.28, texture_path=texture_paths.get("accent"), texture_mix=0.58, texture_scale=1.55)
+    eyes = ensure_toon_material(bpy, "GoblinEyes", spec["eye_color"], spec["accent_color"], emission_strength=0.46)
     dark = ensure_toon_material(bpy, "GoblinDark", "#201628", "#09070C")
     metal = ensure_toon_material(bpy, "GoblinMetal", spec["metal_color"], "#7C74A2", texture_path=texture_paths.get("metal"), texture_mix=0.44, texture_scale=1.75)
 

@@ -31,12 +31,12 @@ class RobotSpec:
     forearm_length: float = 0.24
     leg_length: float = 0.30
     shin_length: float = 0.25
-    primary_color: str = "#F8F9FC"
-    primary_shadow: str = "#DDE3EF"
-    accent_color: str = "#27E7FF"
-    accent2_color: str = "#B285FF"
-    dark_color: str = "#19171F"
-    metal_color: str = "#B7C0CF"
+    primary_color: str = "#F6F7FB"
+    primary_shadow: str = "#CBD5E6"
+    accent_color: str = "#00E5FF"
+    accent2_color: str = "#8E5BFF"
+    dark_color: str = "#17141F"
+    metal_color: str = "#AEB8C8"
 
 
 @dataclass
@@ -55,14 +55,14 @@ class GoblinSpec:
     leg_length: float = 0.30
     shin_length: float = 0.26
     ear_length: float = 0.34
-    skin_color: str = "#5B5367"
-    skin_shadow: str = "#41384A"
-    cloth_color: str = "#241D2E"
-    cloth_shadow: str = "#17131D"
-    accent_color: str = "#E04FFF"
-    accent2_color: str = "#8B57FF"
-    eye_color: str = "#FF59F1"
-    metal_color: str = "#CFBEFF"
+    skin_color: str = "#7A6A97"
+    skin_shadow: str = "#564870"
+    cloth_color: str = "#4B2A6B"
+    cloth_shadow: str = "#2F1847"
+    accent_color: str = "#FF4FD8"
+    accent2_color: str = "#7D4DFF"
+    eye_color: str = "#FF9AF6"
+    metal_color: str = "#D5C1FF"
 
 
 CANONICAL_POSES = {

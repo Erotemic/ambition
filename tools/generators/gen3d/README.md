@@ -1,3 +1,15 @@
+## v31 notes
+
+- Switched rendering toward a sprite-first setup: Standard view transform instead of a washed-out filmic look.
+- Disabled bloom and reduced fill/rim lighting so the characters read with more contrast as standalone pre-rendered sprites.
+- Materials now push color through a hue/saturation node and stronger texture mix so accents and patterns should survive downsampling.
+
+## v30 notes
+
+- Boosted palette saturation and contrast so the goblin purples and robot cyan/purple accents read more clearly.
+- Increased texture influence and material contrast so generated textures should be more visible.
+- Darkened the world lighting slightly so character colors do not wash out as much.
+
 ## v29 notes
 
 - Added an explicit rendered version badge (for example `v0.4.4`) to canonical images, spritesheets, and contact sheets.

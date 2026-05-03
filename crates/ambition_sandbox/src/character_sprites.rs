@@ -67,13 +67,11 @@ pub struct CharacterSheetSpec {
     pub frame_sample_inset: u32,
 }
 
-// `feet_anchor_y` values were derived from the gen2d test
-// `test_spritesheet_emits_body_metrics`, which measures the opaque-pixel
-// bbox of frame 0 of the first animation. For the current generator
-// output, robot/goblin both have feet at image-y ≈ 107/128 → Bevy anchor
-// y = 0.5 - 107/128 ≈ -0.336. When the runtime starts loading the
-// `body_metrics` field directly from the sheet YAML, these constants
-// can be removed; until then they're tracked as derived data.
+// Frame counts, durations, label widths, and `feet_anchor_y` values are
+// kept in sync with `tools/generators/gen2d` output. After regenerating
+// sheets, mirror the new YAML headers + body_metrics here. When the
+// runtime gains a YAML loader for the `body_metrics` field, these
+// constants can be removed.
 
 pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
@@ -87,17 +85,17 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         AnimRow { frame_count: 8, duration_secs: 0.075 }, // Slash
         AnimRow { frame_count: 5, duration_secs: 0.090 }, // Hit
         AnimRow { frame_count: 8, duration_secs: 0.110 }, // Death
-        AnimRow { frame_count: 5, duration_secs: 0.060 }, // BlinkOut
-        AnimRow { frame_count: 5, duration_secs: 0.060 }, // BlinkIn
-        AnimRow { frame_count: 6, duration_secs: 0.060 }, // Dash
+        AnimRow { frame_count: 6, duration_secs: 0.062 }, // BlinkOut
+        AnimRow { frame_count: 6, duration_secs: 0.062 }, // BlinkIn
+        AnimRow { frame_count: 6, duration_secs: 0.065 }, // Dash
     ],
     collision_scale: 2.1,
-    feet_anchor_y: -0.336,
+    feet_anchor_y: -0.320,
     frame_sample_inset: 1,
 };
 
 pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 96,
+    label_width: 100,
     frame_size: 128,
     rows: [
         AnimRow { frame_count: 8, duration_secs: 0.120 }, // Idle
@@ -108,12 +106,12 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         AnimRow { frame_count: 7, duration_secs: 0.075 }, // Slash (goblin: 7)
         AnimRow { frame_count: 5, duration_secs: 0.090 }, // Hit
         AnimRow { frame_count: 8, duration_secs: 0.110 }, // Death
-        AnimRow { frame_count: 5, duration_secs: 0.060 }, // BlinkOut
-        AnimRow { frame_count: 5, duration_secs: 0.060 }, // BlinkIn
-        AnimRow { frame_count: 6, duration_secs: 0.060 }, // Dash
+        AnimRow { frame_count: 6, duration_secs: 0.062 }, // BlinkOut
+        AnimRow { frame_count: 6, duration_secs: 0.062 }, // BlinkIn
+        AnimRow { frame_count: 6, duration_secs: 0.065 }, // Dash
     ],
     collision_scale: 2.1,
-    feet_anchor_y: -0.336,
+    feet_anchor_y: -0.352,
     frame_sample_inset: 1,
 };
 

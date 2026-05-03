@@ -136,7 +136,6 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(ldtk_world::LdtkHotReloadState::from_current_file())
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
-        .insert_resource(ldtk_world::LdtkRuntimeSurfaceIndex::default())
         .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())
         // PhysicsSandboxSettings is read by setup_simulation_system; on the
         // visible binary AmbitionPhysicsPlugin re-inserts the default value
@@ -198,7 +197,6 @@ pub fn add_simulation_plugins(app: &mut App) {
                 sandbox_update,
                 ldtk_world::sync_plugin_spawned_ambition_entities,
                 ldtk_world::rebuild_ldtk_runtime_spine_index,
-                ldtk_world::rebuild_ldtk_runtime_surface_index,
                 ldtk_world::rebuild_ldtk_runtime_solid_index,
                 platforms::sync_moving_platform,
             )

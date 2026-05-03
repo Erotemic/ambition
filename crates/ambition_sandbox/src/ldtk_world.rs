@@ -16,15 +16,12 @@ use bevy::prelude::{
     Time, With,
 };
 use bevy_ecs_ldtk::prelude::{
-    EntityInstance as PluginEntityInstance, LdtkEntity, LdtkEntityAppExt, LevelSet,
+    EntityInstance as PluginEntityInstance, LdtkEntity, LdtkEntityAppExt, LdtkFields, LevelSet,
 };
 use serde::Deserialize;
 use serde_json::Value;
 
 use ambition_engine as ae;
-use ambition_engine::{
-    SurfaceBreakability, SurfaceCollision, SurfaceContact, SurfaceFixture, SurfaceRespawn,
-};
 
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSpec};
 
@@ -76,21 +73,17 @@ pub struct LdtkRuntimeSpineStats {
 
 /// Ambition-facing role for a plugin-spawned LDtk entity.
 ///
-/// Promoted roles are the categories that have a typed runtime model: the
-/// runtime spine reports their counts and downstream systems may query them
-/// directly without identifier-string matching. Adding a new promoted role
-/// also requires extending [`LdtkRuntimeRole::promoted`] usage sites.
-///
-/// `Surface` is the canonical promoted role for rectangular collision-like
-/// gameplay geometry. `Solid` remains a legacy alias and is reported under
-/// `Surface` so summaries don't double-count.
+/// These are deliberately narrower than the full LDtk identifier set. The
+/// first promoted runtime-spine categories are the low-risk entities that
+/// should be observable directly from `bevy_ecs_ldtk` before we migrate
+/// collision and gameplay-heavy objects.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LdtkRuntimeRole {
     PlayerStart,
     LoadingZone,
     DebugLabel,
     CameraZone,
-    Surface,
+    Solid,
     Other,
 }
 
@@ -101,7 +94,7 @@ impl LdtkRuntimeRole {
             "LoadingZone" => Self::LoadingZone,
             "DebugLabel" => Self::DebugLabel,
             "CameraZone" => Self::CameraZone,
-            id if is_surface_like_identifier(id) => Self::Surface,
+            "Solid" => Self::Solid,
             _ => Self::Other,
         }
     }
@@ -112,7 +105,7 @@ impl LdtkRuntimeRole {
             Self::LoadingZone => "loading zones",
             Self::DebugLabel => "debug labels",
             Self::CameraZone => "camera zones",
-            Self::Surface => "surfaces",
+            Self::Solid => "solids",
             Self::Other => "other",
         }
     }
@@ -122,30 +115,22 @@ impl LdtkRuntimeRole {
     }
 }
 
-/// Typed Ambition component attached to every plugin-spawned LDtk Surface
-/// (canonical `Surface` and legacy aliases such as `Solid`, `OneWayPlatform`,
-/// `BlinkWall`, `HazardBlock`, `PogoOrb`, `ReboundPad`, `Breakable`).
+/// Typed Ambition collision component attached to plugin-spawned `Solid`
+/// entities.
 ///
-/// Carries the lowered [`SurfaceFixture`] so collision/contact/lifetime
-/// systems can query the typed authoring data directly without reparsing the
-/// LDtk JSON file.
-#[derive(Component, Clone, Debug)]
-pub struct LdtkSurface {
+/// The first collision-heavy LDtk category to leave the JSON-only adapter path:
+/// while `compose_runtime_area` still produces `ae::Block::solid()` entries for
+/// the runtime collision world, every spawned `Solid` LDtk entity now also
+/// carries this typed component so future systems can query ECS-side without
+/// reparsing the LDtk file. Once the raw-LDtk-vs-runtime overlay (Step 2 of the
+/// LDtk roadmap) verifies parity, the JSON path can be retired and these
+/// components become collision authority.
+#[derive(Component, Clone, Debug, Default)]
+pub struct LdtkSolid {
     /// Top-left corner in LDtk-level-local pixel coordinates.
     pub level_px: [i32; 2],
     /// Width and height in pixels.
     pub size: [i32; 2],
-    /// Compiled engine-side runtime IR for this Surface.
-    pub fixture: SurfaceFixture,
-}
-
-impl LdtkSurface {
-    pub fn is_solid(&self) -> bool {
-        self.fixture.is_solid()
-    }
-    pub fn is_breakable(&self) -> bool {
-        self.fixture.is_breakable()
-    }
 }
 
 /// Runtime-spine view of a plugin-spawned LDtk entity in active-area-local
@@ -187,7 +172,7 @@ impl LdtkRuntimeSpineIndex {
             LdtkRuntimeRole::LoadingZone,
             LdtkRuntimeRole::DebugLabel,
             LdtkRuntimeRole::CameraZone,
-            LdtkRuntimeRole::Surface,
+            LdtkRuntimeRole::Solid,
         ] {
             let count = self.promoted_counts.get(&role).copied().unwrap_or(0);
             parts.push(format!("{} {}", count, role.label()));
@@ -204,71 +189,11 @@ impl LdtkRuntimeSpineIndex {
     }
 }
 
-/// Active-area-local view of one plugin-spawned LDtk Surface entity.
-#[derive(Clone, Debug, PartialEq)]
-pub struct LdtkRuntimeSurface {
-    pub iid: String,
-    /// Identifier (`Surface` for native, or one of the legacy aliases).
-    pub identifier: String,
-    /// Top-left corner in active-area-local Ambition coordinates.
-    pub min: ae::Vec2,
-    pub size: ae::Vec2,
-    pub fixture: SurfaceFixture,
-}
-
-impl LdtkRuntimeSurface {
-    pub fn aabb(&self) -> ae::Aabb {
-        ae::aabb_from_min_size(self.min, self.size)
-    }
-
-    pub fn is_solid(&self) -> bool {
-        self.fixture.is_solid()
-    }
-}
-
-/// Rebuilt every frame from plugin-spawned LDtk entities carrying the typed
-/// [`LdtkSurface`] component.
-///
-/// This is the parallel ECS view of every Surface authored in LDtk:
-/// canonical `Surface` entities and the legacy aliases. Collision/contact
-/// authority can iterate this resource without reparsing the LDtk JSON file.
-#[derive(Resource, Default, Clone, Debug)]
-pub struct LdtkRuntimeSurfaceIndex {
-    pub active_area: String,
-    pub surfaces: Vec<LdtkRuntimeSurface>,
-    pub revision: u64,
-}
-
-impl LdtkRuntimeSurfaceIndex {
-    pub fn count(&self) -> usize {
-        self.surfaces.len()
-    }
-
-    /// Iterate Surfaces whose collision is `Solid`. Useful for the legacy
-    /// `LdtkRuntimeSolidIndex` derived view and any system that only cares
-    /// about hard walls.
-    pub fn solids(&self) -> impl Iterator<Item = &LdtkRuntimeSurface> {
-        self.surfaces.iter().filter(|surface| surface.is_solid())
-    }
-
-    fn replace_if_changed(&mut self, mut next: Self) {
-        next.surfaces.sort_by(|a, b| a.iid.cmp(&b.iid));
-        if self.active_area != next.active_area || self.surfaces != next.surfaces {
-            next.revision = self.revision.saturating_add(1);
-            *self = next;
-        }
-    }
-}
-
-/// Active-area-local view of one solid LDtk surface (legacy compatibility
-/// shape).
-///
-/// Kept as a thin re-export of fields plus `aabb()` so existing collision
-/// callers do not have to change. New code should query
-/// [`LdtkRuntimeSurfaceIndex::solids`] instead.
+/// Active-area-local view of one promoted LDtk `Solid` entity.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LdtkRuntimeSolid {
     pub iid: String,
+    /// Top-left corner in active-area-local Ambition coordinates.
     pub min: ae::Vec2,
     pub size: ae::Vec2,
 }
@@ -279,12 +204,14 @@ impl LdtkRuntimeSolid {
     }
 }
 
-/// Derived compatibility view: solid Surfaces, projected from
-/// [`LdtkRuntimeSurfaceIndex`].
+/// Rebuilt every frame from plugin-spawned `Solid` LDtk entities carrying the
+/// typed `LdtkSolid` component.
 ///
-/// Existing callers that only need hard walls can keep using this resource;
-/// the broader [`LdtkRuntimeSurfaceIndex`] is the authoritative typed view
-/// and the source from which this index is rebuilt each frame.
+/// This is the parallel ECS view of solid collision authored in LDtk. The
+/// runtime collision world (`ae::World::blocks`) is still populated by the
+/// JSON adapter for now; once the raw-LDtk-vs-runtime overlay (Step 2 of the
+/// LDtk roadmap) verifies parity, this index becomes the collision authority
+/// and the JSON path retires.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct LdtkRuntimeSolidIndex {
     pub active_area: String,
@@ -306,13 +233,68 @@ impl LdtkRuntimeSolidIndex {
     }
 }
 
-/// LDtk-side authoring spec parsed out of one `Surface` entity (or a legacy
+/// Collision behavior contributed by an LDtk-authored `Surface`.
+///
+/// `Surface` is the authoring-time primitive: designers place a single
+/// rectangular entity and tweak its `collision`, `breakability`, `contact`,
+/// and `respawn` fields rather than swapping between a zoo of one-purpose
+/// entities. The compile step translates this into typed engine
+/// `Block`/`Breakable`/contact data.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum SurfaceCollision {
+    /// Pure trigger volume; bodies pass through.
+    #[default]
+    None,
+    /// Hard wall on both axes (legacy `Solid`).
+    Solid,
+    /// One-way landing: solid only when crossed from above (legacy `OneWayPlatform`).
+    OneWayUp,
+    /// Soft blink wall: solid until the player has the matching blink upgrade.
+    BlinkSoft,
+    /// Hard blink wall: solid until the player has the stronger blink upgrade.
+    BlinkHard,
+}
+
+/// Whether and how a `Surface` can be destroyed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum SurfaceBreakability {
+    #[default]
+    Indestructible,
+    BreakOnHit,
+    BreakOnStand,
+    BreakOnHitOrStand,
+}
+
+/// Side-effect applied to bodies that touch a `Surface`.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum SurfaceContact {
+    #[default]
+    None,
+    /// Damage / hazard reset (legacy `HazardBlock`).
+    Damage { amount: i32 },
+    /// Refreshes pogo / movement resources (legacy `PogoOrb`).
+    PogoRefresh,
+    /// Applies a fixed impulse on contact (legacy `ReboundPad`).
+    Rebound { impulse: ae::Vec2 },
+}
+
+/// When a destroyed `Surface` returns.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum SurfaceRespawn {
+    #[default]
+    Never,
+    OnRoomReload,
+    AfterSeconds(f32),
+}
+
+/// Typed intermediate representation for a single LDtk `Surface` (or legacy
 /// alias such as `Solid`, `OneWayPlatform`, `BlinkWall`, `HazardBlock`,
 /// `PogoOrb`, `ReboundPad`, `Breakable`).
 ///
-/// The four authoring axes (collision, breakability, contact, respawn) are
-/// engine-typed so this struct serves as the bridge between LDtk JSON and
-/// the runtime `ae::SurfaceFixture` used by collision/contact systems.
+/// This is the authoring-side data parsed straight out of LDtk JSON. The
+/// compile step (`compile_surface`) lowers it into engine-native runtime
+/// pieces (`ae::Block`, `ae::RoomObject`) so collision/contact systems never
+/// have to reparse strings or JSON.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LdtkSurfaceSpec {
     /// LDtk-stable instance id.
@@ -350,19 +332,6 @@ impl LdtkSurfaceSpec {
             contact: SurfaceContact::None,
             respawn: SurfaceRespawn::Never,
             max_hp: 0,
-        }
-    }
-
-    /// Lower the LDtk authoring spec into the engine-side typed runtime IR.
-    pub fn to_fixture(&self) -> SurfaceFixture {
-        SurfaceFixture {
-            name: self.name.clone(),
-            aabb: ae::aabb_from_min_size(self.min, self.size),
-            collision: self.collision,
-            breakability: self.breakability,
-            contact: self.contact,
-            respawn: self.respawn,
-            max_hp: self.max_hp,
         }
     }
 }
@@ -414,76 +383,37 @@ pub fn sync_plugin_spawned_ambition_entities(
             )),
             ambition_entity.clone(),
         ));
-        // Plugin-spawned LDtk entities for canonical `Surface` and the
-        // legacy collision/contact aliases get a typed `LdtkSurface` carrying
-        // the engine-side `SurfaceFixture`. Downstream collision/contact
-        // systems then query the typed component instead of reparsing LDtk
-        // identifiers or fields.
-        if is_surface_like_identifier(&ambition_entity.identifier) {
-            let sandbox_instance = plugin_instance_to_sandbox(instance);
-            let size = ae::Vec2::new(
-                ambition_entity.size[0] as f32,
-                ambition_entity.size[1] as f32,
-            );
-            let name = field_string(&sandbox_instance, "name")
-                .unwrap_or_else(|| ambition_entity.identifier.clone());
-            match parse_surface_spec(&sandbox_instance, ae::Vec2::ZERO, size, name) {
-                Ok(spec) => {
-                    entity_commands.insert(LdtkSurface {
-                        level_px: ambition_entity.px,
-                        size: ambition_entity.size,
-                        fixture: spec.to_fixture(),
-                    });
-                }
-                Err(error) => {
-                    eprintln!(
-                        "LDtk Surface {} ({}): could not parse spec at spawn time: {error}",
-                        ambition_entity.identifier, ambition_entity.iid
-                    );
-                }
-            }
+        // Plugin-spawned LDtk entities that resolve to a `Solid` collision
+        // surface get the typed `LdtkSolid` component so the
+        // `LdtkRuntimeSolidIndex` collision authority can pick them up
+        // without reparsing identifiers. We currently emit it for the
+        // legacy `Solid` identifier; native `Surface` entities are picked up
+        // here too by a runtime field check (collision string == "Solid").
+        let is_solid_collision = ambition_entity.identifier == "Solid"
+            || (ambition_entity.identifier == "Surface"
+                && instance
+                    .get_string_field("collision")
+                    .map(|value| value.as_str() == "Solid")
+                    .unwrap_or(false));
+        if is_solid_collision {
+            entity_commands.insert(LdtkSolid {
+                level_px: ambition_entity.px,
+                size: ambition_entity.size,
+            });
         }
     }
 }
 
-/// Convert a plugin-spawned `EntityInstance` into the sandbox's JSON-shaped
-/// `LdtkEntityInstance` so the same `parse_surface_spec` path serves both
-/// hot-reload JSON parsing and live ECS spawning.
+/// Rebuild the active-area-local index of promoted LDtk `Solid` entities.
 ///
-/// Field values round-trip via `serde_json` because `FieldValue` is
-/// `#[serde(untagged)]` — its serialized form matches the `__value` JSON the
-/// JSON-side parser already consumes.
-fn plugin_instance_to_sandbox(instance: &PluginEntityInstance) -> LdtkEntityInstance {
-    LdtkEntityInstance {
-        iid: instance.iid.clone(),
-        identifier: instance.identifier.clone(),
-        pivot: vec![instance.pivot.x, instance.pivot.y],
-        px: [instance.px.x, instance.px.y],
-        width: instance.width,
-        height: instance.height,
-        field_instances: instance
-            .field_instances
-            .iter()
-            .map(|field| LdtkFieldInstance {
-                identifier: field.identifier.clone(),
-                value: serde_json::to_value(&field.value).unwrap_or(Value::Null),
-                real_editor_values: Vec::new(),
-            })
-            .collect(),
-    }
-}
-
-/// Rebuild the typed Surface index from plugin-spawned LDtk entities.
-///
-/// Iterates every entity carrying a typed [`LdtkSurface`] component
-/// (canonical `Surface` plus legacy aliases) and projects them into
-/// active-area-local Ambition coordinates. Collision/contact systems should
-/// consume this resource rather than reparsing LDtk JSON.
-pub fn rebuild_ldtk_runtime_surface_index(
+/// Mirrors `rebuild_ldtk_runtime_spine_index` but only collects entities that
+/// carry the typed `LdtkSolid` component, so future collision authority can
+/// query a tight collision-only view without iterating the broader spine.
+pub fn rebuild_ldtk_runtime_solid_index(
     room_set: Res<crate::rooms::RoomSet>,
     runtime_index: Res<LdtkRuntimeIndex>,
-    mut surface_index: ResMut<LdtkRuntimeSurfaceIndex>,
-    query: Query<(&AmbitionLdtkEntity, &LdtkSurface)>,
+    mut solid_index: ResMut<LdtkRuntimeSolidIndex>,
+    query: Query<&AmbitionLdtkEntity, With<LdtkSolid>>,
 ) {
     let active_area = room_set.active_spec().id.clone();
     let origin = runtime_index
@@ -491,64 +421,31 @@ pub fn rebuild_ldtk_runtime_surface_index(
         .map(|bounds| [bounds.min_x, bounds.min_y])
         .unwrap_or_else(|| runtime_index.active_area_origin());
 
-    let mut next = LdtkRuntimeSurfaceIndex {
+    let mut next = LdtkRuntimeSolidIndex {
         active_area,
-        surfaces: Vec::new(),
-        revision: surface_index.revision,
+        solids: Vec::new(),
+        revision: solid_index.revision,
     };
 
-    for (entity, surface) in &query {
+    for entity in &query {
         let raw_min = entity.world.unwrap_or(entity.px);
-        // AMBITION_REVIEW(spatial): surface `min` is projected from LDtk
-        // world pixels into active-area-local Ambition coordinates by
-        // subtracting the area origin. This must stay consistent with the
-        // spine-index projection and `compose_runtime_area`'s offset math,
-        // otherwise ECS-side collision will drift from the JSON-derived
-        // `world.blocks`.
+        // AMBITION_REVIEW(spatial): solid `min` is projected from LDtk world
+        // pixels into active-area-local Ambition coordinates by subtracting
+        // the area origin. This must stay consistent with the spine-index
+        // projection and with `compose_runtime_area`'s offset math, otherwise
+        // ECS-side collision will drift from the JSON-derived `world.blocks`.
         let min = ae::Vec2::new(
             (raw_min[0] - origin[0]) as f32,
             (raw_min[1] - origin[1]) as f32,
         );
         let size = ae::Vec2::new(entity.size[0] as f32, entity.size[1] as f32);
-        let mut fixture = surface.fixture.clone();
-        // Re-anchor the fixture aabb to active-area-local coords so callers
-        // querying `LdtkRuntimeSurface::aabb()` and `surface.fixture.aabb`
-        // agree without an extra projection step.
-        fixture.aabb = ae::aabb_from_min_size(min, size);
-        next.surfaces.push(LdtkRuntimeSurface {
+        next.solids.push(LdtkRuntimeSolid {
             iid: entity.iid.clone(),
-            identifier: entity.identifier.clone(),
             min,
             size,
-            fixture,
         });
     }
 
-    surface_index.replace_if_changed(next);
-}
-
-/// Derive [`LdtkRuntimeSolidIndex`] from the broader [`LdtkRuntimeSurfaceIndex`].
-///
-/// This is a thin compatibility view: existing collision callers continue to
-/// see only solid surfaces, while new code should query the surface index
-/// directly. Whenever the surface index revision changes we rebuild the
-/// solid index from its solid filter.
-pub fn rebuild_ldtk_runtime_solid_index(
-    surface_index: Res<LdtkRuntimeSurfaceIndex>,
-    mut solid_index: ResMut<LdtkRuntimeSolidIndex>,
-) {
-    let next = LdtkRuntimeSolidIndex {
-        active_area: surface_index.active_area.clone(),
-        solids: surface_index
-            .solids()
-            .map(|surface| LdtkRuntimeSolid {
-                iid: surface.iid.clone(),
-                min: surface.min,
-                size: surface.size,
-            })
-            .collect(),
-        revision: solid_index.revision,
-    };
     solid_index.replace_if_changed(next);
 }
 
@@ -1155,15 +1052,6 @@ impl LdtkProject {
                             "{} {}: {error}",
                             entity.identifier, entity.iid
                         )),
-                    }
-                    // Nudge new authoring toward the canonical `Surface`
-                    // entity. Legacy aliases keep working but earn a warning
-                    // so the deprecation is visible in CI/dev output.
-                    if entity.identifier != "Surface" {
-                        report.warnings.push(format!(
-                            "level '{}' entity '{}' ({}) uses legacy surface-like identifier; new authoring should use Surface with collision/breakability/contact/respawn fields",
-                            level.identifier, entity.identifier, entity.iid
-                        ));
                     }
                 }
                 for field in &entity.field_instances {
@@ -1986,13 +1874,7 @@ fn field_f32(entity: &LdtkEntityInstance, name: &str) -> Option<f32> {
 
 fn field_i32(entity: &LdtkEntityInstance, name: &str) -> Option<i32> {
     field_value(&entity.field_instances, name).and_then(|value| match value {
-        // Surface fields like `hp` and `damage` are stored as `F_Float` in
-        // the LDtk file (matching existing conventions) but consumed as
-        // integers in Rust. Accept either.
-        Value::Number(number) => number
-            .as_i64()
-            .or_else(|| number.as_f64().map(|value| value as i64))
-            .map(|value| value as i32),
+        Value::Number(number) => number.as_i64().map(|value| value as i32),
         Value::String(text) => text.parse::<i32>().ok(),
         _ => None,
     })
@@ -2202,20 +2084,14 @@ mod tests {
     }
 
     #[test]
-    fn surface_is_a_promoted_runtime_role() {
-        for id in ["Surface", "Solid", "OneWayPlatform", "Breakable"] {
-            let role = LdtkRuntimeRole::from_identifier(id);
-            assert_eq!(
-                role,
-                LdtkRuntimeRole::Surface,
-                "{id} should resolve to the Surface runtime role"
-            );
-            assert!(role.promoted(), "Surface role is promoted");
-        }
+    fn solid_is_a_promoted_runtime_role() {
+        let role = LdtkRuntimeRole::from_identifier("Solid");
+        assert_eq!(role, LdtkRuntimeRole::Solid);
+        assert!(role.promoted(), "Solid is a Step 1 promoted runtime role");
         let summary = LdtkRuntimeSpineIndex::default().promoted_summary();
         assert!(
-            summary.contains("surfaces"),
-            "promoted summary surfaces surface count: {summary}"
+            summary.contains("solids"),
+            "promoted summary surfaces solid count: {summary}"
         );
     }
 
@@ -2469,173 +2345,5 @@ mod tests {
         for id in ["PlayerStart", "LoadingZone", "DebugLabel", "NpcSpawn"] {
             assert!(!is_surface_like_identifier(id), "{id}");
         }
-    }
-
-    #[test]
-    fn surface_spec_to_fixture_round_trips_axes() {
-        let spec = LdtkSurfaceSpec {
-            iid: "s1".into(),
-            name: "wall".into(),
-            min: ae::Vec2::new(10.0, 20.0),
-            size: ae::Vec2::new(64.0, 16.0),
-            collision: SurfaceCollision::OneWayUp,
-            breakability: SurfaceBreakability::BreakOnHit,
-            contact: SurfaceContact::None,
-            respawn: SurfaceRespawn::AfterSeconds(2.5),
-            max_hp: 5,
-        };
-        let fixture = spec.to_fixture();
-        assert_eq!(fixture.collision, SurfaceCollision::OneWayUp);
-        assert_eq!(fixture.breakability, SurfaceBreakability::BreakOnHit);
-        assert_eq!(fixture.contact, SurfaceContact::None);
-        assert_eq!(fixture.respawn, SurfaceRespawn::AfterSeconds(2.5));
-        assert_eq!(fixture.max_hp, 5);
-        assert!(fixture.is_one_way());
-        assert!(fixture.is_breakable());
-        assert!(!fixture.is_solid());
-    }
-
-    #[test]
-    fn embedded_ldtk_includes_native_surface_entity() {
-        let project = LdtkProject::load_embedded();
-        let mut surface_count = 0usize;
-        let mut migrated_iids: BTreeSet<String> = BTreeSet::new();
-        for level in &project.levels {
-            let Some(layer) = level.ambition_layer() else {
-                continue;
-            };
-            for entity in &layer.entity_instances {
-                if entity.identifier == "Surface" {
-                    surface_count += 1;
-                    migrated_iids.insert(entity.iid.clone());
-                }
-            }
-        }
-        assert!(
-            surface_count >= 4,
-            "expected several entities migrated to Surface, found {surface_count}"
-        );
-        // The migration script targets these representative iids; their
-        // presence here proves the migrated cases survive editor roundtrips.
-        for iid in [
-            "Solid-0002",
-            "OneWayPlatform-0011",
-            "5e418960-21a0-11f1-a1bc-8b5f68aa6b42",
-        ] {
-            assert!(
-                migrated_iids.contains(iid),
-                "expected {iid} to be a Surface; got {migrated_iids:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn embedded_ldtk_native_surfaces_compile_consistently() {
-        // Every Surface authored in the embedded LDtk file must parse and
-        // compile cleanly into engine runtime data. This is the end-to-end
-        // proof that the new authoring path produces real gameplay.
-        let project = LdtkProject::load_embedded();
-        let mut compiled_any = 0;
-        for level in &project.levels {
-            let Some(layer) = level.ambition_layer() else {
-                continue;
-            };
-            for entity in &layer.entity_instances {
-                if entity.identifier != "Surface" {
-                    continue;
-                }
-                let size = ae::Vec2::new(entity.width as f32, entity.height as f32);
-                let name = field_string(entity, "name").unwrap_or_else(|| "Surface".to_string());
-                let spec = parse_surface_spec(entity, ae::Vec2::ZERO, size, name)
-                    .expect("native Surface parses");
-                let compiled = compile_surface(&spec).expect("native Surface compiles");
-                // Every authored Surface should yield at least one runtime
-                // emission (a Block for static or an Object for breakable).
-                assert!(
-                    !compiled.blocks.is_empty() || !compiled.objects.is_empty(),
-                    "Surface {} produced no runtime emission",
-                    entity.iid
-                );
-                compiled_any += 1;
-            }
-        }
-        assert!(compiled_any >= 4, "compiled {compiled_any} surfaces");
-    }
-
-    #[test]
-    fn legacy_identifiers_emit_a_deprecation_warning() {
-        let project = LdtkProject::load_embedded();
-        let report = project.validate();
-        // Migrated entities (Solid-0002 etc.) should NOT trigger the
-        // legacy-identifier warning; surviving legacy walls still do.
-        let warnings = report.warnings.join("\n");
-        assert!(
-            warnings.contains("legacy surface-like identifier"),
-            "expected at least one legacy-identifier warning; warnings:\n{warnings}"
-        );
-        assert!(
-            !warnings.contains("Solid-0002"),
-            "migrated Solid-0002 should no longer warn:\n{warnings}"
-        );
-    }
-
-    #[test]
-    fn ldtk_surface_component_helpers_track_fixture_collision() {
-        let surface = LdtkSurface {
-            level_px: [0, 0],
-            size: [64, 16],
-            fixture: SurfaceFixture {
-                name: "test".into(),
-                aabb: ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(64.0, 16.0)),
-                collision: SurfaceCollision::Solid,
-                breakability: SurfaceBreakability::BreakOnHit,
-                contact: SurfaceContact::None,
-                respawn: SurfaceRespawn::Never,
-                max_hp: 1,
-            },
-        };
-        assert!(surface.is_solid());
-        assert!(surface.is_breakable());
-    }
-
-    #[test]
-    fn surface_index_solids_filter_returns_only_solid_collision() {
-        let mut index = LdtkRuntimeSurfaceIndex::default();
-        let solid_fixture = SurfaceFixture {
-            name: "solid".into(),
-            aabb: ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::splat(16.0)),
-            collision: SurfaceCollision::Solid,
-            breakability: SurfaceBreakability::Indestructible,
-            contact: SurfaceContact::None,
-            respawn: SurfaceRespawn::Never,
-            max_hp: 0,
-        };
-        let one_way_fixture = SurfaceFixture {
-            collision: SurfaceCollision::OneWayUp,
-            ..solid_fixture.clone()
-        };
-        index.replace_if_changed(LdtkRuntimeSurfaceIndex {
-            active_area: "central".into(),
-            surfaces: vec![
-                LdtkRuntimeSurface {
-                    iid: "a".into(),
-                    identifier: "Surface".into(),
-                    min: ae::Vec2::ZERO,
-                    size: ae::Vec2::splat(16.0),
-                    fixture: solid_fixture,
-                },
-                LdtkRuntimeSurface {
-                    iid: "b".into(),
-                    identifier: "Surface".into(),
-                    min: ae::Vec2::ZERO,
-                    size: ae::Vec2::splat(16.0),
-                    fixture: one_way_fixture,
-                },
-            ],
-            revision: 0,
-        });
-        let solids: Vec<&LdtkRuntimeSurface> = index.solids().collect();
-        assert_eq!(solids.len(), 1);
-        assert_eq!(solids[0].iid, "a");
     }
 }

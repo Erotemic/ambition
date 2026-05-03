@@ -266,6 +266,52 @@ What's next on this thread:
    today. Merging into rectangle runs would reduce the collision-world
    block count; profile first to confirm it matters.
 
+#### E known bug (open): LDtk editor / file disagree on cell content
+
+User reported (2026-05-03) that the LDtk editor shows staircase /
+diagonal cell patterns in `central_hub_main` that are **not present in
+the saved file**. After Ctrl+S in LDtk and verifying the file mtime
+updated, `tools/`-side dumps still showed only the migration's simple
+perimeter + platforms + blink pillars; the editor view didn't match.
+
+Hypotheses (none confirmed):
+- LDtk editor caching a stale buffer that re-saves don't flush.
+- LDtk auto-tile / preview rules generating ghost cells the file
+  doesn't actually contain.
+- Save dialog targeting a different file or a backup (`.bak`) the
+  game doesn't read.
+- A subtle interaction with the schema-repair pass we run after every
+  migration (`tools/repair_ambition_ldtk.py` rewrites field-instance
+  records).
+
+Until this is diagnosed, the IntGrid path is **suspect for handoff**.
+Anything authored in the editor that the game doesn't render is a
+silent data-loss hazard.
+
+Affected commit range (revertable as a unit if the issue blocks
+progress):
+- `14b20ec` Step E: IntGrid Collision layer for central_hub_main (the
+  migration that introduced the IntGrid layer).
+- `1739312` Greedy rect-merge (introduced a separate vertical-bar
+  rendering regression — fixed by `a4d436a`).
+- `a4d436a` Horizontal-only IntGrid merge (current fix; the editor
+  vs. file disagreement persists despite this fix because it lives
+  in code, not the file).
+
+Pre-IntGrid baseline if a revert is needed: `8bd0641` (Step C: split
+ldtk_world.rs along the bevy_ecs_ldtk seam) — last commit before E
+landed.
+
+Diagnostic next steps:
+1. Save in LDtk, then immediately dump `intGridCsv` for
+   `central_hub_main` and compare to the editor's visible cells. If
+   they disagree on what's in the file, the LDtk save path is dropping
+   data or writing somewhere unexpected.
+2. Verify which file LDtk is actually writing to (Save As path,
+   sandbox.ldtk vs sandbox.ldtk.bak, working directory).
+3. Audit `tools/repair_ambition_ldtk.py` and the validate scripts for
+   anything that touches `intGridCsv` or `layerInstances` ordering.
+
 ### F. Bug record/replay infrastructure (~1 day, depends on B)
 
 User's idea, expanded:

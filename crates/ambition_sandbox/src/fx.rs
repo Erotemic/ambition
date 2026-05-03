@@ -94,12 +94,30 @@ pub fn vfx_spawn_messages(
     let world = &world.0;
     for message in messages.read() {
         match *message {
-            VfxMessage::Burst { pos, count, speed, color, kind } => {
-                spawn_burst(&mut commands, world, pos, count as usize, speed, color, kind);
+            VfxMessage::Burst {
+                pos,
+                count,
+                speed,
+                color,
+                kind,
+            } => {
+                spawn_burst(
+                    &mut commands,
+                    world,
+                    pos,
+                    count as usize,
+                    speed,
+                    color,
+                    kind,
+                );
             }
             VfxMessage::Dust { pos, facing } => spawn_dust(&mut commands, world, pos, facing),
             VfxMessage::Impact { pos } => spawn_impact(&mut commands, world, pos),
-            VfxMessage::BlinkEffects { from, to, precision } => {
+            VfxMessage::BlinkEffects {
+                from,
+                to,
+                precision,
+            } => {
                 spawn_blink_effects(&mut commands, world, from, to, precision);
             }
             VfxMessage::SlashPreview { hitbox } => {

@@ -85,17 +85,50 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_width: 120,
     frame_height: 128,
     rows: [
-        AnimRow { frame_count: 8, duration_secs: 0.120 }, // Idle
-        AnimRow { frame_count: 8, duration_secs: 0.095 }, // Walk
-        AnimRow { frame_count: 8, duration_secs: 0.075 }, // Run
-        AnimRow { frame_count: 6, duration_secs: 0.095 }, // Jump
-        AnimRow { frame_count: 6, duration_secs: 0.095 }, // Fall
-        AnimRow { frame_count: 8, duration_secs: 0.075 }, // Slash
-        AnimRow { frame_count: 5, duration_secs: 0.090 }, // Hit
-        AnimRow { frame_count: 8, duration_secs: 0.110 }, // Death
-        AnimRow { frame_count: 6, duration_secs: 0.062 }, // BlinkOut
-        AnimRow { frame_count: 6, duration_secs: 0.062 }, // BlinkIn
-        AnimRow { frame_count: 6, duration_secs: 0.065 }, // Dash
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        }, // Idle
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.095,
+        }, // Walk
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.075,
+        }, // Run
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.095,
+        }, // Jump
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.095,
+        }, // Fall
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.075,
+        }, // Slash
+        AnimRow {
+            frame_count: 5,
+            duration_secs: 0.090,
+        }, // Hit
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.110,
+        }, // Death
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.062,
+        }, // BlinkOut
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.062,
+        }, // BlinkIn
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.065,
+        }, // Dash
     ],
     collision_scale: 2.1,
     feet_anchor_y: -0.320,
@@ -108,17 +141,50 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_width: 121,
     frame_height: 127,
     rows: [
-        AnimRow { frame_count: 8, duration_secs: 0.120 }, // Idle
-        AnimRow { frame_count: 8, duration_secs: 0.095 }, // Walk
-        AnimRow { frame_count: 8, duration_secs: 0.075 }, // Run
-        AnimRow { frame_count: 6, duration_secs: 0.095 }, // Jump
-        AnimRow { frame_count: 6, duration_secs: 0.095 }, // Fall
-        AnimRow { frame_count: 7, duration_secs: 0.075 }, // Slash (goblin: 7)
-        AnimRow { frame_count: 5, duration_secs: 0.090 }, // Hit
-        AnimRow { frame_count: 8, duration_secs: 0.110 }, // Death
-        AnimRow { frame_count: 6, duration_secs: 0.062 }, // BlinkOut
-        AnimRow { frame_count: 6, duration_secs: 0.062 }, // BlinkIn
-        AnimRow { frame_count: 6, duration_secs: 0.065 }, // Dash
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        }, // Idle
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.095,
+        }, // Walk
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.075,
+        }, // Run
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.095,
+        }, // Jump
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.095,
+        }, // Fall
+        AnimRow {
+            frame_count: 7,
+            duration_secs: 0.075,
+        }, // Slash (goblin: 7)
+        AnimRow {
+            frame_count: 5,
+            duration_secs: 0.090,
+        }, // Hit
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.110,
+        }, // Death
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.062,
+        }, // BlinkOut
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.062,
+        }, // BlinkIn
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.065,
+        }, // Dash
     ],
     collision_scale: 2.1,
     feet_anchor_y: -0.350,
@@ -187,10 +253,7 @@ impl CharacterSheetSpec {
                 // Inset on every side so bilinear filtering at the frame
                 // boundary cannot pull pixels from the next cell.
                 let min = UVec2::new(x + inset, y + inset);
-                let max = UVec2::new(
-                    x + self.frame_width - inset,
-                    y + self.frame_height - inset,
-                );
+                let max = UVec2::new(x + self.frame_width - inset, y + self.frame_height - inset);
                 layout.add_texture(URect { min, max });
             }
         }
@@ -293,7 +356,10 @@ fn asset_exists(rel_path: &str) -> bool {
     // when running through cargo. Mirror that here so the existence check
     // matches the asset server's lookup path.
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    Path::new(manifest_dir).join("assets").join(rel_path).exists()
+    Path::new(manifest_dir)
+        .join("assets")
+        .join(rel_path)
+        .exists()
 }
 
 /// Per-character animation cursor.

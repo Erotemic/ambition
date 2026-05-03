@@ -17,7 +17,9 @@ use fundsp::prelude as dsp;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::data::{AudioSpec, MusicSpec, NoteSpec, SfxSpec, SoundCueKey, WaveformSpec};
+use crate::data::{
+    AudioSpec, MusicSpec, MusicTrackSpec, NoteSpec, SfxSpec, SoundCueKey, WaveformSpec,
+};
 
 pub const ORIGINAL_TRACK_ID: &str = "original_lofi_loop";
 
@@ -339,6 +341,44 @@ impl RenderedAudio {
             },
         }
     }
+}
+
+pub fn render_music_preview(track: &MusicTrackSpec, sample_rate: u32) -> RenderedAudio {
+    render_lofi_theme(&track.arrangement, sample_rate.max(8_000))
+}
+
+pub fn render_music_preview_wav_bytes(spec: &MusicSpec, sample_rate: u32) -> Vec<u8> {
+    wav_bytes_from_rendered_audio(&render_lofi_theme(spec, sample_rate.max(8_000)))
+}
+
+pub fn wav_bytes_from_rendered_audio(rendered: &RenderedAudio) -> Vec<u8> {
+    let channels = 2u16;
+    let bits_per_sample = 16u16;
+    let bytes_per_sample = bits_per_sample / 8;
+    let data_bytes = rendered.frames.len() as u32 * channels as u32 * bytes_per_sample as u32;
+    let mut bytes = Vec::with_capacity(44 + data_bytes as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+    bytes.extend_from_slice(b"WAVE");
+    bytes.extend_from_slice(b"fmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&channels.to_le_bytes());
+    bytes.extend_from_slice(&rendered.sample_rate.to_le_bytes());
+    bytes.extend_from_slice(
+        &(rendered.sample_rate * channels as u32 * bytes_per_sample as u32).to_le_bytes(),
+    );
+    bytes.extend_from_slice(&(channels * bytes_per_sample).to_le_bytes());
+    bytes.extend_from_slice(&bits_per_sample.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data_bytes.to_le_bytes());
+    for frame in &rendered.frames {
+        let left = (frame.left.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+        let right = (frame.right.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+        bytes.extend_from_slice(&left.to_le_bytes());
+        bytes.extend_from_slice(&right.to_le_bytes());
+    }
+    bytes
 }
 
 fn add_rendered_audio(
@@ -835,5 +875,36 @@ mod tests {
             library.next_track_id(ORIGINAL_TRACK_ID),
             Some("long_lofi_drift")
         );
+    }
+
+    #[test]
+    fn preview_wav_writer_produces_riff_wave_header() {
+        let spec = SandboxDataSpec::load_embedded();
+        let track = spec
+            .audio
+            .track(ORIGINAL_TRACK_ID)
+            .expect("original track exists");
+        let rendered = render_music_preview(track, 8_000);
+        assert!(rendered.duration_seconds() > 0.0);
+        let wav = wav_bytes_from_rendered_audio(&rendered);
+        assert_eq!(&wav[0..4], b"RIFF");
+        assert_eq!(&wav[8..12], b"WAVE");
+        assert_eq!(&wav[12..16], b"fmt ");
+        assert_eq!(&wav[36..40], b"data");
+        assert!(wav.len() > 44);
+    }
+
+    #[test]
+    fn example_tune_parses_and_renders() {
+        let track: MusicTrackSpec = ron::from_str(include_str!(
+            "../assets/ambition/tune_examples/example_drift.ron"
+        ))
+        .expect("example tune parses");
+        track
+            .arrangement
+            .validate()
+            .expect("example tune validates");
+        let rendered = render_music_preview(&track, 8_000);
+        assert!(rendered.duration_seconds() > 0.0);
     }
 }

@@ -1029,18 +1029,16 @@ impl LdtkProject {
                     && entity.height > 0
                 {
                     let placeholder_min = ae::Vec2::ZERO;
-                    let placeholder_size =
-                        ae::Vec2::new(entity.width as f32, entity.height as f32);
-                    let name = field_string(entity, "name")
-                        .unwrap_or_else(|| entity.identifier.clone());
+                    let placeholder_size = ae::Vec2::new(entity.width as f32, entity.height as f32);
+                    let name =
+                        field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
                     match parse_surface_spec(entity, placeholder_min, placeholder_size, name)
                         .and_then(|spec| compile_surface(&spec))
                     {
                         Ok(_) => {}
-                        Err(error) => report.errors.push(format!(
-                            "{} {}: {error}",
-                            entity.identifier, entity.iid
-                        )),
+                        Err(error) => report
+                            .errors
+                            .push(format!("{} {}: {error}", entity.identifier, entity.iid)),
                     }
                 }
                 // Note: we deliberately do NOT warn on empty `realEditorValues`
@@ -1537,10 +1535,10 @@ fn parse_surface_spec(
             spec.contact = SurfaceContact::PogoRefresh;
         }
         "ReboundPad" => {
-            let impulse_x = field_f32(entity, "impulseX")
-                .ok_or_else(|| "missing impulseX".to_string())?;
-            let impulse_y = field_f32(entity, "impulseY")
-                .ok_or_else(|| "missing impulseY".to_string())?;
+            let impulse_x =
+                field_f32(entity, "impulseX").ok_or_else(|| "missing impulseX".to_string())?;
+            let impulse_y =
+                field_f32(entity, "impulseY").ok_or_else(|| "missing impulseY".to_string())?;
             spec.collision = SurfaceCollision::None;
             spec.contact = SurfaceContact::Rebound {
                 impulse: ae::Vec2::new(impulse_x, impulse_y),
@@ -1607,7 +1605,9 @@ fn parse_breakable_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn
         .and_then(|text| text.parse::<f32>().ok())
     {
         if !(seconds > 0.0) {
-            return Err(format!("AfterSeconds respawn requires positive seconds, got {seconds}"));
+            return Err(format!(
+                "AfterSeconds respawn requires positive seconds, got {seconds}"
+            ));
         }
         return Ok(SurfaceRespawn::AfterSeconds(seconds));
     }
@@ -2281,7 +2281,10 @@ mod tests {
                 ("collision", Value::String("Solid".into())),
                 ("trigger", Value::String("OnHit".into())),
                 ("respawn", Value::String("AfterSeconds".into())),
-                ("respawn_seconds", Value::Number(serde_json::Number::from(0))),
+                (
+                    "respawn_seconds",
+                    Value::Number(serde_json::Number::from(0)),
+                ),
             ],
         );
         let err = parse_surface_spec(

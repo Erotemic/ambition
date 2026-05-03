@@ -220,11 +220,8 @@ pub fn load_game_assets(
         return GameAssets::default();
     }
 
-    let characters = character_sprites::load_character_sprites_in(
-        asset_server,
-        layouts,
-        &config.sprite_folder,
-    );
+    let characters =
+        character_sprites::load_character_sprites_in(asset_server, layouts, &config.sprite_folder);
     let entities = load_entity_sprites(asset_server, &config.sprite_folder);
     let boss = boss_sprites::load_boss_sprite_in(asset_server, layouts, &config.sprite_folder);
 
@@ -260,7 +257,10 @@ fn asset_exists(rel_path: &str) -> bool {
     // when running through cargo. Mirror that here so the existence probe
     // matches the asset server's lookup path.
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    Path::new(manifest_dir).join("assets").join(rel_path).exists()
+    Path::new(manifest_dir)
+        .join("assets")
+        .join(rel_path)
+        .exists()
 }
 
 /// Build a `Sprite` for the given entity-sprite key, falling back to the
@@ -403,4 +403,3 @@ pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
         FeatureVisualKind::Enemy => None,
     }
 }
-

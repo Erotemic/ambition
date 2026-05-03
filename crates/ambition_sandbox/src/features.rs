@@ -559,10 +559,7 @@ impl FeatureRuntime {
 
     /// Snapshot the enemy state needed to drive its sprite animation.
     /// Returns `None` if no enemy with that id exists.
-    pub fn enemy_anim_state(
-        &self,
-        id: &str,
-    ) -> Option<crate::character_sprites::EnemyAnimState> {
+    pub fn enemy_anim_state(&self, id: &str) -> Option<crate::character_sprites::EnemyAnimState> {
         for enemy in &self.enemies {
             if enemy.id == id {
                 return Some(crate::character_sprites::EnemyAnimState {
@@ -592,10 +589,7 @@ impl FeatureRuntime {
     }
 
     /// Snapshot the boss state used to drive its spritesheet animation.
-    pub fn boss_anim_state(
-        &self,
-        id: &str,
-    ) -> Option<crate::boss_sprites::BossAnimState> {
+    pub fn boss_anim_state(&self, id: &str) -> Option<crate::boss_sprites::BossAnimState> {
         self.bosses
             .iter()
             .find(|b| b.id == id)
@@ -1429,9 +1423,9 @@ pub fn world_with_sandbox_solids(
             // `blink_through_hard_walls` can teleport through. Lower-tier
             // blink is still blocked, so the breakable still gates progress
             // until the player either earns the upgrade or breaks it.
-            ae::BreakableCollision::Solid => {
-                ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard }
-            }
+            ae::BreakableCollision::Solid => ae::BlockKind::BlinkWall {
+                tier: ae::BlinkWallTier::Hard,
+            },
             ae::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
         };
         collision_world.blocks.push(ae::Block {
@@ -1504,8 +1498,7 @@ fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
     // but a tiny epsilon avoids spurious mismatches if a future codepath
     // recomputes one of the AABBs from rounded coordinates.
     let eps = 0.5;
-    (a.center() - b.center()).length() <= eps
-        && (a.half_size() - b.half_size()).length() <= eps
+    (a.center() - b.center()).length() <= eps && (a.half_size() - b.half_size()).length() <= eps
 }
 
 fn midpoint(a: ae::Vec2, b: ae::Vec2) -> ae::Vec2 {

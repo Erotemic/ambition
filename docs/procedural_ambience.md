@@ -15,6 +15,8 @@ The goal is closer to "lo-fi beats to study or relax to" than arcade energy. Kee
 
 The manifest now supports multiple generated tracks via `default_music_track` and `music_tracks`. The old 32-beat loop is still available as data, and the current default track is longer and less repetitive for sandbox iteration.
 
+For a compact tune-format guide and WAV preview CLI workflow, see `docs/procedural_tune_authoring.md`.
+
 If Ambition's music becomes adaptive, layered, or timing-sensitive, move the audio layer behind an `ambition_audio` abstraction and extend the current Kira path with:
 
 - cross-fading;

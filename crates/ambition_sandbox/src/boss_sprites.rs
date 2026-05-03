@@ -69,13 +69,34 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     frame_width: 128,
     frame_height: 128,
     rows: [
-        AnimRow { frame_count: 8, duration_secs: 0.120 }, // Rest
-        AnimRow { frame_count: 7, duration_secs: 0.082 }, // FloorSlam
-        AnimRow { frame_count: 7, duration_secs: 0.072 }, // SideSweep
-        AnimRow { frame_count: 8, duration_secs: 0.092 }, // SpikeHalo
-        AnimRow { frame_count: 7, duration_secs: 0.062 }, // DashEcho
-        AnimRow { frame_count: 5, duration_secs: 0.090 }, // Hit
-        AnimRow { frame_count: 8, duration_secs: 0.110 }, // Death
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        }, // Rest
+        AnimRow {
+            frame_count: 7,
+            duration_secs: 0.082,
+        }, // FloorSlam
+        AnimRow {
+            frame_count: 7,
+            duration_secs: 0.072,
+        }, // SideSweep
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.092,
+        }, // SpikeHalo
+        AnimRow {
+            frame_count: 7,
+            duration_secs: 0.062,
+        }, // DashEcho
+        AnimRow {
+            frame_count: 5,
+            duration_secs: 0.090,
+        }, // Hit
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.110,
+        }, // Death
     ],
     // Bosses are visually larger than goblins; a slightly smaller scale
     // factor stops them from overpowering the rendered scene.
@@ -98,10 +119,7 @@ impl BossSheetSpec {
                 let x = self.label_width + col as u32 * self.frame_width;
                 let y = row_idx as u32 * self.frame_height;
                 let min = UVec2::new(x + inset, y + inset);
-                let max = UVec2::new(
-                    x + self.frame_width - inset,
-                    y + self.frame_height - inset,
-                );
+                let max = UVec2::new(x + self.frame_width - inset, y + self.frame_height - inset);
                 layout.add_texture(URect { min, max });
             }
         }

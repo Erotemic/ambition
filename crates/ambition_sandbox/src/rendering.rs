@@ -12,11 +12,9 @@ use bevy::window::PrimaryWindow;
 
 use crate::boss_sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor, CharacterAnimator};
-use crate::game_assets::{
-    self, entity_sprite, entity_sprite_or_color, EntitySprite, GameAssets,
-};
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
+use crate::game_assets::{self, entity_sprite, entity_sprite_or_color, EntitySprite, GameAssets};
 use crate::physics;
 use crate::rooms::{LoadingZone, LoadingZoneActivation};
 
@@ -320,10 +318,7 @@ pub fn animate_player(
 pub fn animate_enemies(
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
-    mut query: Query<
-        (&FeatureVisual, &mut Sprite, &mut CharacterAnimator),
-        Without<PlayerVisual>,
-    >,
+    mut query: Query<(&FeatureVisual, &mut Sprite, &mut CharacterAnimator), Without<PlayerVisual>>,
 ) {
     let dt = time.delta_secs();
     for (visual, mut sprite, mut animator) in &mut query {
@@ -471,7 +466,12 @@ pub fn spawn_block(
     let size = block.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
     let sprite = match assets {
-        Some(a) => entity_sprite_or_color(a, game_assets::block_sprite(block.kind), render, block_color(block.kind)),
+        Some(a) => entity_sprite_or_color(
+            a,
+            game_assets::block_sprite(block.kind),
+            render,
+            block_color(block.kind),
+        ),
         None => Sprite::from_color(block_color(block.kind), render),
     };
     commands.spawn((
@@ -496,7 +496,12 @@ pub fn spawn_loading_zone(
     };
     let render = BVec2::new(size.x, size.y);
     let sprite = match assets {
-        Some(a) => entity_sprite(a, game_assets::loading_zone_sprite(zone.activation), render, fallback_color),
+        Some(a) => entity_sprite(
+            a,
+            game_assets::loading_zone_sprite(zone.activation),
+            render,
+            fallback_color,
+        ),
         None => Sprite::from_color(fallback_color, render),
     };
     commands.spawn((

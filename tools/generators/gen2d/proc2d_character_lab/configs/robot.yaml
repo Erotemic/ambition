@@ -1,0 +1,27 @@
+target: robot
+seed: 7
+archetype: cute_scout
+animations:
+- idle
+- walk
+- run
+- jump
+- fall
+- slash
+- hit
+- death
+render:
+  frame_width: 128
+  frame_height: 128
+  supersample: 6
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 100
+  single_width: 256
+  single_height: 256
+notes: >-
+  Cute side-scroller robot. The head/shell staging reuses the old 2.5D robot head
+  treatment, but the posing now favors a consistent left-facing profile for quick game
+  iteration.

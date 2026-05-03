@@ -1,0 +1,29 @@
+target: goblin
+seed: 17
+archetype: shadow_scout
+held_item: spear
+animations:
+- idle
+- walk
+- run
+- jump
+- fall
+- slash
+- hurt
+- death
+render:
+  frame_width: 128
+  frame_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: '#F4F4F4'
+  border: 0
+  label_width: 112
+  single_width: 640
+  single_height: 640
+  blender_executable: null
+  engine: BLENDER_EEVEE
+notes: >-
+  Cute cel-shaded goblin rendered in Blender from the same side-scroller camera
+  as the sprite sheet output. Change held_item to sword, staff, club, knife, or gun.

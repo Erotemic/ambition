@@ -1,0 +1,26 @@
+target: goblin
+seed: 17
+archetype: default
+held_item: sword
+animations:
+- idle
+- walk
+- run
+- jump
+- fall
+- slash
+- hit
+- death
+render:
+  frame_width: 128
+  frame_height: 128
+  supersample: 6
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 96
+  single_width: 256
+  single_height: 256
+notes: >-
+  Side-view goblin tuned for side-scrolling games. Facing left in-sheet so it reads naturally for left-facing enemy passes. Change held_item to dagger, sword, or spear.

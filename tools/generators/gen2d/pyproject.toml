@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "proc2d-character-lab"
+version = "0.3.0"
+description = "YAML-driven procedural character rigging and polished 2.5D robot sprite-sheet generation"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Ambition procedural art prototype"}]
+license = {text = "MIT"}
+dependencies = [
+  "pillow>=10",
+  "pyyaml>=6",
+  "numpy>=1.24",
+  "typer>=0.9",
+  "rich>=13",
+  "pydantic>=2",
+]
+
+[project.scripts]
+pcg2d = "proc2d_character_lab.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["proc2d_character_lab*"]
+
+[tool.setuptools.package-data]
+proc2d_character_lab = ["configs/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

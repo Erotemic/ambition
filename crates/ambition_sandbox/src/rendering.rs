@@ -10,6 +10,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+use crate::boss_sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor, CharacterAnimator};
 use crate::game_assets::{
     self, entity_sprite, entity_sprite_or_color, EntitySprite, GameAssets,
@@ -336,6 +337,77 @@ pub fn animate_enemies(
             atlas.index = index;
         }
         sprite.flip_x = state.facing < 0.0;
+        sprite.color = if state.hit_flash {
+            Color::srgba(1.0, 0.55, 0.55, 1.0)
+        } else if state.attack_active || state.attack_windup {
+            Color::srgba(1.0, 0.85, 0.55, 1.0)
+        } else {
+            Color::WHITE
+        };
+    }
+}
+
+/// Replace the static `boss_core.png` look on boss feature entities with
+/// the animated boss spritesheet once the asset is available. Symmetric
+/// with `upgrade_enemy_sprites` but uses `BossAnimator` instead of
+/// `CharacterAnimator` because the boss generator emits its own row set.
+pub fn upgrade_boss_sprites(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    runtime: Res<crate::SandboxRuntime>,
+    new_bosses: Query<
+        (Entity, &FeatureVisual),
+        (Without<CharacterAnimator>, Without<BossAnimator>),
+    >,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    let Some(boss_asset) = &assets.boss else {
+        return;
+    };
+    for (entity, visual) in &new_bosses {
+        let Some(view) = runtime.features.view(&visual.id) else {
+            continue;
+        };
+        if !matches!(view.kind, FeatureVisualKind::Boss) {
+            continue;
+        }
+        let collision = BVec2::new(view.size.x, view.size.y);
+        let mut sprite = Sprite::from_atlas_image(
+            boss_asset.texture.clone(),
+            bevy::image::TextureAtlas {
+                layout: boss_asset.layout.clone(),
+                index: boss_asset.spec.flat_index(boss_sprites::BossAnim::Rest, 0),
+            },
+        );
+        sprite.custom_size = Some(boss_asset.spec.render_size(collision));
+        commands.entity(entity).insert((
+            sprite,
+            boss_asset.spec.anchor(),
+            BossAnimator::new(boss_asset.spec),
+        ));
+    }
+}
+
+/// Per-frame state-driven animation for boss entities.
+pub fn animate_bosses(
+    time: Res<Time>,
+    runtime: Res<crate::SandboxRuntime>,
+    mut query: Query<(&FeatureVisual, &mut Sprite, &mut BossAnimator), Without<PlayerVisual>>,
+) {
+    let dt = time.delta_secs();
+    for (visual, mut sprite, mut animator) in &mut query {
+        let Some(state): Option<BossAnimState> = runtime.features.boss_anim_state(&visual.id)
+        else {
+            continue;
+        };
+        let anim = boss_sprites::pick_boss_anim(state);
+        animator.request(anim);
+        let index = animator.tick(dt);
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = index;
+        }
         sprite.color = if state.hit_flash {
             Color::srgba(1.0, 0.55, 0.55, 1.0)
         } else if state.attack_active || state.attack_windup {

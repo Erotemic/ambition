@@ -6,12 +6,25 @@
 - `assets/entities/entity_manifest.yaml` maps each PNG to the Rust-ish gameplay vocabulary it is intended to support.
 - `assets/entities/entity_contact_sheet.png` gives a quick visual review grid.
 
-## P0: wire into Rust fallback pipeline
-- Add an optional `EntitySpriteAssets` resource analogous to `CharacterSpriteAssets`.
-- Load `assets/entities/*.png` without making missing files fatal.
-- Use entity sprites in `spawn_room_object`, `spawn_block`, `spawn_loading_zone`, and `spawn_moving_platform`, while retaining colored rectangle fallbacks.
-- Use runtime state to pick `chest_closed` vs `chest_open`, and `breakable_intact` vs `breakable_cracked` vs hidden/broken.
-- Resolve the character-sheet schema mismatch: Rust currently declares eight character rows, while the generator now emits `blink_out`, `blink_in`, and `dash` rows too.
+## P0: wire into Rust fallback pipeline (DONE)
+- ✅ `GameAssets` Bevy resource owns optional handles for character sheets,
+  the boss spritesheet, and per-entity static sprites.
+- ✅ `assets/entities/*.png` load non-fatally; missing files keep colored-
+  rectangle fallbacks. The new `--no-assets` CLI flag forces fallback for
+  every art layer.
+- ✅ `spawn_room_object`, `spawn_block`, `spawn_loading_zone` consume
+  entity sprites. `spawn_moving_platform` is the last hold-out — see P1.
+- ✅ `sync_visuals` flips `chest_closed`/`chest_open` and
+  `breakable_intact`/`cracked`/`broken` from runtime state.
+- ✅ Schema drift resolved: `CharacterAnim` now declares 11 rows (Idle/
+  Walk/Run/Jump/Fall/Slash/Hit/Death/BlinkOut/BlinkIn/Dash) matching the
+  generator's output. `Dash` is wired in `pick_player_anim`; BlinkOut/
+  BlinkIn await a `blink_anim_timer` companion to `slash_anim_timer`.
+- ✅ Boss has its own `BossAnim`/`BossSheetSpec`/`BossAnimator` pipeline
+  since its rows (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/
+  death) don't fit the character grid. Live boss feature entities now
+  get the animated spritesheet when present, with `boss_core.png` as the
+  fallback.
 
 ## P1: add compact animation sheets for entities that need motion
 - Chest opening: closed -> open -> reward flash.
@@ -23,7 +36,11 @@
 - Moving platform glow / direction marker.
 
 ## P2: improve metadata and engine usability
-- Emit per-sprite anchor, intended collision size, z-order class, and default custom-size hints.
+- ✅ Spritesheet manifest now emits `body_metrics` — measured opaque-pixel
+  bbox, feet-pixel coordinates, and Bevy-anchor-convention
+  `feet_anchor_norm` — from the first emitted frame, so future runtime
+  loaders can replace the per-spec `collision_scale`/`feet_anchor_y`
+  heuristic constants with values derived from the actual rendered art.
 - Emit an atlas option for all entity sprites to reduce Bevy texture handles.
 - Add LDtk identifier aliases in the manifest (`ChestSpawn`, `PickupSpawn`, `HazardBlock`, etc.).
 - Add themed palette variants per biome/room family.

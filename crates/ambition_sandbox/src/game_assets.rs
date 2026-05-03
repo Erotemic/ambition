@@ -30,6 +30,7 @@ use std::path::Path;
 use ambition_engine as ae;
 use bevy::prelude::*;
 
+use crate::boss_sprites::{self, BossSpriteAsset};
 use crate::character_sprites::{self, CharacterSpriteAssets};
 use crate::features::FeatureVisualKind;
 use crate::rooms::LoadingZoneActivation;
@@ -196,6 +197,12 @@ impl EntitySpriteSet {
 pub struct GameAssets {
     pub characters: CharacterSpriteAssets,
     pub entities: EntitySpriteSet,
+    /// Boss spritesheet — separate from `characters` because the boss
+    /// generator emits its own animation rows
+    /// (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/death) that
+    /// don't fit `CharacterAnim`. `None` falls back to the static
+    /// `EntitySprite::BossCore` image.
+    pub boss: Option<BossSpriteAsset>,
 }
 
 /// Build a fresh `GameAssets` from disk, honoring `config`.
@@ -219,6 +226,7 @@ pub fn load_game_assets(
         &config.sprite_folder,
     );
     let entities = load_entity_sprites(asset_server, &config.sprite_folder);
+    let boss = boss_sprites::load_boss_sprite_in(asset_server, layouts, &config.sprite_folder);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {
@@ -232,6 +240,7 @@ pub fn load_game_assets(
     GameAssets {
         characters,
         entities,
+        boss,
     }
 }
 

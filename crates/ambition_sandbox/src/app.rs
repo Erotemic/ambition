@@ -50,8 +50,9 @@ use crate::pause_menu;
 use crate::physics::{self, physics_spawn_debris_messages, DebrisBurstMessage};
 use crate::platforms;
 use crate::rendering::{
-    animate_enemies, animate_player, camera_follow, spawn_room_visuals, sync_visuals,
-    upgrade_enemy_sprites, HudText, PlayerVisual, RoomVisual, SceneEntities,
+    animate_bosses, animate_enemies, animate_player, camera_follow, spawn_room_visuals,
+    sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, HudText, PlayerVisual,
+    RoomVisual, SceneEntities,
 };
 use crate::rooms;
 use crate::setup;
@@ -337,8 +338,10 @@ pub fn add_presentation_plugins(app: &mut App) {
                 handle_debug_hotkeys,
                 sync_visuals,
                 upgrade_enemy_sprites,
+                upgrade_boss_sprites,
                 animate_player,
                 animate_enemies,
+                animate_bosses,
                 camera_follow,
                 debug_overlay::draw_debug_overlay,
                 fx::update_particles,

@@ -16,6 +16,9 @@ use crate::features::FeatureVisualKind;
 use crate::SandboxRuntime;
 
 /// Animation rows on each character sheet, in the order the generator emits.
+///
+/// The boss has its own row set; see `boss_sprites::BossAnim`. Robot/goblin
+/// share this 11-row layout.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CharacterAnim {
     Idle = 0,
@@ -26,6 +29,9 @@ pub enum CharacterAnim {
     Slash = 5,
     Hit = 6,
     Death = 7,
+    BlinkOut = 8,
+    BlinkIn = 9,
+    Dash = 10,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -37,13 +43,28 @@ pub struct AnimRow {
 /// Frame layout for one of the generated sheets.
 ///
 /// Frames are 128×128 with a per-row label strip on the left whose width
-/// differs between targets (robot 100, goblin 96). All eight rows have the
-/// same vertical pitch but different frame counts (e.g. goblin slash is 7).
+/// differs between targets (robot 100, goblin 96). All rows have the same
+/// vertical pitch but different frame counts (e.g. goblin slash is 7).
+///
+/// Tuning fields (`collision_scale`, `feet_anchor_y`, `frame_sample_inset`)
+/// live per-spec so each target can be tuned without touching globals —
+/// the prior version used module-level constants which forced identical
+/// scale/anchor across robot and goblin even though their rendered bodies
+/// occupy different fractions of the 128px frame.
 #[derive(Clone, Copy, Debug)]
 pub struct CharacterSheetSpec {
     pub label_width: u32,
     pub frame_size: u32,
-    pub rows: [AnimRow; 8],
+    pub rows: [AnimRow; 11],
+    /// Multiplier applied to the entity's collision-box max dimension to
+    /// derive the square render size.
+    pub collision_scale: f32,
+    /// Sprite anchor y (normalized; negative shifts the sprite up so feet
+    /// land near the collision-box bottom).
+    pub feet_anchor_y: f32,
+    /// Pixel inset on every URect to prevent bilinear filtering from
+    /// pulling neighboring frame pixels at the seam.
+    pub frame_sample_inset: u32,
 }
 
 pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
@@ -58,7 +79,13 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         AnimRow { frame_count: 8, duration_secs: 0.075 }, // Slash
         AnimRow { frame_count: 5, duration_secs: 0.090 }, // Hit
         AnimRow { frame_count: 8, duration_secs: 0.110 }, // Death
+        AnimRow { frame_count: 5, duration_secs: 0.060 }, // BlinkOut
+        AnimRow { frame_count: 5, duration_secs: 0.060 }, // BlinkIn
+        AnimRow { frame_count: 6, duration_secs: 0.060 }, // Dash
     ],
+    collision_scale: 2.1,
+    feet_anchor_y: -0.18,
+    frame_sample_inset: 1,
 };
 
 pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
@@ -73,55 +100,40 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         AnimRow { frame_count: 7, duration_secs: 0.075 }, // Slash (goblin: 7)
         AnimRow { frame_count: 5, duration_secs: 0.090 }, // Hit
         AnimRow { frame_count: 8, duration_secs: 0.110 }, // Death
+        AnimRow { frame_count: 5, duration_secs: 0.060 }, // BlinkOut
+        AnimRow { frame_count: 5, duration_secs: 0.060 }, // BlinkIn
+        AnimRow { frame_count: 6, duration_secs: 0.060 }, // Dash
     ],
+    collision_scale: 2.1,
+    feet_anchor_y: -0.18,
+    frame_sample_inset: 1,
 };
 
-/// Multiplier applied to an entity's collision-box max dimension to derive
-/// its square sprite render size. The generator's character occupies only
-/// part of the 128×128 frame, so the rendered quad must be larger than the
-/// collision box for the visible body to roughly match the hitbox.
+/// Per-target sprite render size. The generator's character occupies only
+/// part of the 128×128 frame, so the rendered quad must be larger than
+/// the collision box for the visible body to roughly match the hitbox.
 ///
-/// LIMITATION: this is a heuristic. A more polished pipeline would have
-/// `tools/generators/gen2d` emit per-target metadata that pins the
-/// character footprint inside the frame (feet pixel, height ratio) and
-/// then compose the sprite at the exact collision-aware size at gameplay
-/// time. Until then, callers can tweak `SPRITE_COLLISION_SCALE` and
-/// `FEET_ANCHOR_Y` if the sprites look off-center.
-///
-/// TODO(gen2d-collision-aware): teach the generator to write a sidecar
-/// (e.g. `*_spritesheet.metrics.yaml`) carrying `feet_y_pixel`,
-/// `body_height_pixel`, `body_width_pixel`. Replace this constant + the
-/// `FEET_ANCHOR_Y` constant with values derived from the metrics so
-/// every archetype lines up with its hitbox without per-target tweaks.
-pub const SPRITE_COLLISION_SCALE: f32 = 2.1;
-
-/// Custom sprite anchor on the y axis. `0.0` is the sprite center;
-/// negative values place the anchor below center, which shifts the
-/// rendered sprite UP so the character's feet land near the collision
-/// box's bottom edge instead of below it. Tuned to the procgen
-/// character lab's roughly-centered output where feet sit ~10% above
-/// the frame bottom.
-pub const FEET_ANCHOR_Y: f32 = -0.18;
-
-/// Sample inset (pixels) applied to every frame URect when building the
-/// atlas. Without this inset, bilinear filtering at the frame edges
-/// samples the neighboring frame and produces faint colored seams that
-/// flicker as the animation advances. 1px is enough at the current
-/// 128px frame size and bilinear filter; bump if seams reappear after
-/// switching filtering modes.
-pub const FRAME_SAMPLE_INSET: u32 = 1;
-
-/// Compute the square render size for a sprite given an entity's
-/// collision box.
-pub fn sprite_render_size(collision: Vec2) -> Vec2 {
-    let side = collision.x.max(collision.y).max(8.0) * SPRITE_COLLISION_SCALE;
+/// TODO(gen2d-collision-aware): teach the generator to write
+/// `body_pixel_extent` + `feet_y_pixel` into the spritesheet YAML and
+/// load them at runtime, replacing these per-spec constants with values
+/// derived from each sheet's actual rendered body. The per-spec tuning
+/// already isolates the override per target so the migration is local.
+pub fn sprite_render_size(spec: CharacterSheetSpec, collision: Vec2) -> Vec2 {
+    let side = collision.x.max(collision.y).max(8.0) * spec.collision_scale;
     Vec2::splat(side)
 }
 
 /// Sprite anchor that places the character's feet near the bottom of the
-/// collision box for the procgen character lab's frame layout.
+/// collision box. Per-spec so each generator output can pick its own y.
+pub fn feet_anchor_for(spec: CharacterSheetSpec) -> Anchor {
+    Anchor(Vec2::new(0.0, spec.feet_anchor_y))
+}
+
+/// Back-compat default-anchor helper used at the player spawn site, which
+/// still threads `ROBOT_SHEET` implicitly. Kept so existing call sites
+/// don't need to plumb the spec just to fetch the anchor.
 pub fn feet_anchor() -> Anchor {
-    Anchor(Vec2::new(0.0, FEET_ANCHOR_Y))
+    feet_anchor_for(ROBOT_SHEET)
 }
 
 /// Build the textured sprite for a character given its collision-box size.
@@ -135,7 +147,7 @@ pub fn build_character_sprite(asset: &CharacterSpriteAsset, collision: Vec2) -> 
             index: asset.spec.flat_index(CharacterAnim::Idle, 0),
         },
     );
-    sprite.custom_size = Some(sprite_render_size(collision));
+    sprite.custom_size = Some(sprite_render_size(asset.spec, collision));
     sprite
 }
 
@@ -145,7 +157,7 @@ impl CharacterSheetSpec {
         let total_w = self.label_width + max_frames * self.frame_size;
         let total_h = self.rows.len() as u32 * self.frame_size;
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
-        let inset = FRAME_SAMPLE_INSET.min(self.frame_size / 4);
+        let inset = self.frame_sample_inset.min(self.frame_size / 4);
         for (row_idx, row) in self.rows.iter().enumerate() {
             for col in 0..row.frame_count {
                 let x = self.label_width + col as u32 * self.frame_size;
@@ -332,9 +344,11 @@ fn non_looping(anim: CharacterAnim) -> bool {
 
 /// Pick the player's animation from runtime state.
 ///
-/// Priority: hit > slash > airborne (jump/fall) > run/walk/idle. Death is
-/// not represented yet — the player respawns instantly today, so there is
-/// no on-entity death window to animate.
+/// Priority: hit > slash > dash > airborne (jump/fall) > run/walk/idle.
+/// Death is not represented yet — the player respawns instantly today.
+/// `BlinkOut`/`BlinkIn` are not used yet because the runtime doesn't
+/// track a per-blink anim window; once a `blink_anim_timer` is added
+/// alongside `slash_anim_timer`, this function can switch on it.
 pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
     if runtime.hitstun_timer > 0.05 {
         return CharacterAnim::Hit;
@@ -343,6 +357,9 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
         return CharacterAnim::Slash;
     }
     let player = &runtime.player;
+    if player.dash_timer > 0.0 {
+        return CharacterAnim::Dash;
+    }
     if !player.on_ground {
         // Engine uses top-left coords: vel.y < 0 = moving up.
         if player.vel.y < -10.0 {

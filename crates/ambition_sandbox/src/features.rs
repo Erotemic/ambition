@@ -591,6 +591,23 @@ impl FeatureRuntime {
         self.chests.iter().find(|c| c.id == id).map(|c| c.opened)
     }
 
+    /// Snapshot the boss state used to drive its spritesheet animation.
+    pub fn boss_anim_state(
+        &self,
+        id: &str,
+    ) -> Option<crate::boss_sprites::BossAnimState> {
+        self.bosses
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| crate::boss_sprites::BossAnimState {
+                alive: b.alive,
+                attack_active: b.attack_timer > 0.0,
+                attack_windup: b.attack_windup_timer > 0.0,
+                hit_flash: b.hit_flash > 0.0,
+                pattern_timer: b.pattern_timer,
+            })
+    }
+
     pub fn feature_summary(&self) -> String {
         format!(
             "features: hazards {} enemies {}/{} bosses {}/{} breakables {}/{} chests {}/{} pickups {}/{} npcs {}",

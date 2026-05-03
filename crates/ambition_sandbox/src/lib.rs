@@ -12,6 +12,7 @@
 //! headless.
 
 pub mod audio;
+pub mod boss_sprites;
 pub mod character_sprites;
 pub mod config;
 pub mod data;

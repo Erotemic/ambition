@@ -10,8 +10,9 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::character_sprites::{
-    build_character_sprite, feet_anchor, CharacterAnimator, CharacterSpriteAssets,
+use crate::character_sprites::{build_character_sprite, feet_anchor, CharacterAnimator};
+use crate::game_assets::{
+    self, entity_sprite, entity_sprite_or_color, EntitySprite, GameAssets,
 };
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
@@ -171,6 +172,7 @@ pub fn sync_visuals(
     world: Res<crate::GameWorld>,
     runtime: Res<crate::SandboxRuntime>,
     entities: Res<SceneEntities>,
+    assets: Option<Res<GameAssets>>,
     mut player_query: Query<(&mut Transform, &mut Sprite), With<PlayerVisual>>,
     mut feature_query: Query<
         (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
@@ -179,10 +181,10 @@ pub fn sync_visuals(
 ) {
     if let Ok((mut transform, mut sprite)) = player_query.get_mut(entities.player) {
         transform.translation = world_to_bevy(&world.0, runtime.player.pos, WORLD_Z_PLAYER);
-        if sprite.texture_atlas.is_none() {
-            // Colored-rectangle fallback: stretch to the collision-box size
-            // and tint by flash. Textured sprites keep their authored size
-            // and are tinted in the animation system instead.
+        if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
+            // Colored-rectangle fallback only — stretch to the collision-box
+            // size and tint by flash. Textured sprites (atlas OR plain image)
+            // keep their authored size and are tinted in the animation system.
             sprite.custom_size = Some(BVec2::new(runtime.player.size.x, runtime.player.size.y));
             let alpha = if runtime.flash_timer > 0.0 { 0.72 } else { 1.0 };
             sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
@@ -195,9 +197,35 @@ pub fn sync_visuals(
             continue;
         };
         transform.translation = world_to_bevy(&world.0, view.pos, feature_z(view.kind));
-        if sprite.texture_atlas.is_none() {
+
+        // State-aware sprite swap for breakables and chests. Pickups are
+        // chosen at spawn time and never change kind. Enemies are animated
+        // through the character spritesheet path.
+        if let Some(assets) = assets.as_deref() {
+            if let Some(target_key) =
+                state_aware_entity_sprite(&visual.id, view.kind, &runtime.features)
+            {
+                if let Some(handle) = assets.entities.get(target_key) {
+                    if sprite.image != *handle {
+                        sprite.image = handle.clone();
+                    }
+                }
+            }
+        }
+
+        if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
+            // Bare colored rectangle (no entity sprite available, no atlas).
             sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
             sprite.color = feature_color(view.kind, view.flash);
+        } else if sprite.texture_atlas.is_none() {
+            // Textured single-image entity sprite. Keep author size; tint
+            // for hit-flash, otherwise white.
+            sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
+            sprite.color = if view.flash {
+                Color::srgba(1.0, 0.55, 0.55, 1.0)
+            } else {
+                Color::WHITE
+            };
         }
         *visibility = if view.visible {
             Visibility::Visible
@@ -207,19 +235,35 @@ pub fn sync_visuals(
     }
 }
 
+fn state_aware_entity_sprite(
+    id: &str,
+    kind: FeatureVisualKind,
+    features: &crate::features::FeatureRuntime,
+) -> Option<EntitySprite> {
+    match kind {
+        FeatureVisualKind::Breakable => features
+            .breakable_state(id)
+            .map(game_assets::breakable_state_sprite),
+        FeatureVisualKind::Chest => features
+            .chest_opened(id)
+            .map(game_assets::chest_state_sprite),
+        _ => None,
+    }
+}
+
 /// Replace the colored-rectangle sprite on enemy/sandbag entities with the
 /// goblin sprite-sheet sprite once the asset is available. Newly-spawned
 /// feature visuals (initial setup or room transitions) are picked up here.
 pub fn upgrade_enemy_sprites(
     mut commands: Commands,
-    sprites: Option<Res<CharacterSpriteAssets>>,
+    assets: Option<Res<GameAssets>>,
     runtime: Res<crate::SandboxRuntime>,
     new_features: Query<(Entity, &FeatureVisual), Without<CharacterAnimator>>,
 ) {
-    let Some(sprites) = sprites else {
+    let Some(assets) = assets else {
         return;
     };
-    let Some(goblin) = &sprites.goblin else {
+    let Some(goblin) = &assets.characters.goblin else {
         return;
     };
     for (entity, visual) in &new_features {
@@ -307,16 +351,17 @@ pub fn spawn_room_visuals(
     world: &ae::World,
     loading_zones: &[LoadingZone],
     physics_settings: physics::PhysicsSandboxSettings,
+    assets: Option<&GameAssets>,
 ) {
     spawn_grid(commands, world);
     for block in &world.blocks {
-        spawn_block(commands, world, block, physics_settings);
+        spawn_block(commands, world, block, physics_settings, assets);
     }
     for zone in loading_zones {
-        spawn_loading_zone(commands, world, zone);
+        spawn_loading_zone(commands, world, zone, assets);
     }
     for object in &world.objects {
-        spawn_room_object(commands, world, object);
+        spawn_room_object(commands, world, object, assets);
     }
 }
 
@@ -349,10 +394,16 @@ pub fn spawn_block(
     world: &ae::World,
     block: &ae::Block,
     physics_settings: physics::PhysicsSandboxSettings,
+    assets: Option<&GameAssets>,
 ) {
     let size = block.aabb.half_size() * 2.0;
+    let render = BVec2::new(size.x, size.y);
+    let sprite = match assets {
+        Some(a) => entity_sprite_or_color(a, game_assets::block_sprite(block.kind), render, block_color(block.kind)),
+        None => Sprite::from_color(block_color(block.kind), render),
+    };
     commands.spawn((
-        Sprite::from_color(block_color(block.kind), BVec2::new(size.x, size.y)),
+        sprite,
         Transform::from_translation(world_to_bevy(world, block.aabb.center(), WORLD_Z_BLOCK)),
         Name::new(format!("Block: {}", block.name)),
         RoomVisual,
@@ -360,14 +411,24 @@ pub fn spawn_block(
     physics::spawn_static_collider_for_block(commands, world, block, physics_settings);
 }
 
-pub fn spawn_loading_zone(commands: &mut Commands, world: &ae::World, zone: &LoadingZone) {
+pub fn spawn_loading_zone(
+    commands: &mut Commands,
+    world: &ae::World,
+    zone: &LoadingZone,
+    assets: Option<&GameAssets>,
+) {
     let size = zone.aabb.half_size() * 2.0;
-    let color = match zone.activation {
+    let fallback_color = match zone.activation {
         LoadingZoneActivation::EdgeExit => Color::srgba(0.20, 0.95, 1.0, 0.22),
         LoadingZoneActivation::Door => Color::srgba(1.0, 0.72, 0.18, 0.46),
     };
+    let render = BVec2::new(size.x, size.y);
+    let sprite = match assets {
+        Some(a) => entity_sprite(a, game_assets::loading_zone_sprite(zone.activation), render, fallback_color),
+        None => Sprite::from_color(fallback_color, render),
+    };
     commands.spawn((
-        Sprite::from_color(color, BVec2::new(size.x, size.y)),
+        sprite,
         Transform::from_translation(world_to_bevy(
             world,
             zone.aabb.center(),
@@ -462,11 +523,22 @@ pub fn camera_follow(
     }
 }
 
-pub fn spawn_room_object(commands: &mut Commands, world: &ae::World, object: &ae::RoomObject) {
+pub fn spawn_room_object(
+    commands: &mut Commands,
+    world: &ae::World,
+    object: &ae::RoomObject,
+    assets: Option<&GameAssets>,
+) {
     if let Some(kind) = object_visual_kind(&object.kind) {
         let size = object.aabb.half_size() * 2.0;
+        let render = BVec2::new(size.x, size.y);
+        let entity_key = game_assets::entity_sprite_for_room_object(&object.kind);
+        let sprite = match assets {
+            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false)),
+            None => Sprite::from_color(feature_color(kind, false), render),
+        };
         commands.spawn((
-            Sprite::from_color(feature_color(kind, false), BVec2::new(size.x, size.y)),
+            sprite,
             Transform::from_translation(world_to_bevy(
                 world,
                 object.aabb.center(),

@@ -31,7 +31,7 @@ use bevy_material_ui::MaterialUiPlugin;
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 
 use crate::audio::{audio_play_sfx_messages, SfxMessage};
-use crate::character_sprites;
+use crate::game_assets::{self, GameAssetConfig};
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
 use crate::debug_overlay;
@@ -76,6 +76,7 @@ pub struct SandboxEventWriters<'w> {
 /// Build + run the visible Bevy app. The thin `fn main()` shim in
 /// `src/main.rs` calls this.
 pub fn run_visible() {
+    let asset_config = GameAssetConfig::from_args();
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
@@ -93,6 +94,7 @@ pub fn run_visible() {
     }));
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     app.init_state::<GameMode>();
+    app.insert_resource(asset_config);
     init_sandbox_resources(&mut app);
     add_simulation_plugins(&mut app);
     add_ldtk_runtime_plugin(&mut app);
@@ -413,10 +415,11 @@ fn setup_presentation_system(
     mut audio_sources: ResMut<Assets<AudioSource>>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
 ) {
-    let character_sprites =
-        character_sprites::load_character_sprites(&asset_server, &mut atlas_layouts);
+    let game_assets =
+        game_assets::load_game_assets(&asset_config, &asset_server, &mut atlas_layouts);
     setup::presentation_world(
         &mut commands,
         &mut audio_sources,
@@ -425,11 +428,11 @@ fn setup_presentation_system(
             room_set: &room_set,
             sandbox_data: &sandbox_data,
             physics_settings: *physics_settings,
-            character_sprites: &character_sprites,
+            game_assets: &game_assets,
         },
         scene_entities.player,
     );
-    commands.insert_resource(character_sprites);
+    commands.insert_resource(game_assets);
 }
 
 fn sandbox_update(
@@ -447,6 +450,7 @@ fn sandbox_update(
     mut event_writers: SandboxEventWriters,
     mut player_input: Query<&mut ActionState<SandboxAction>, With<PlayerVisual>>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
     // Per-frame Vec collectors for the sim → presentation event channels.
     // Helpers append messages as the gameplay loop runs; we drain into the
@@ -679,6 +683,7 @@ fn sandbox_update(
                 tuning,
                 feel,
                 physics_settings,
+                game_assets.as_deref(),
             );
             event_writers.sfx.write_batch(sfx.drain(..));
             event_writers.vfx.write_batch(vfx.drain(..));
@@ -778,6 +783,7 @@ fn handle_ldtk_hot_reload(
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     editable_tuning: Res<EditableMovementTuning>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -805,6 +811,7 @@ fn handle_ldtk_hot_reload(
         &mut *ldtk_index,
         editable_tuning.as_engine(),
         &room_visuals,
+        game_assets.as_deref(),
     ) {
         Ok(active_room) => {
             ldtk_reload.mark_applied(&active_room);
@@ -880,6 +887,7 @@ fn reload_ldtk_world_from_disk(
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    assets: Option<&crate::game_assets::GameAssets>,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = runtime.player.pos;
@@ -920,6 +928,7 @@ fn reload_ldtk_world_from_disk(
         &world.0,
         &room_set.active_spec().loading_zones,
         runtime.physics_settings,
+        assets,
     );
     platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
 
@@ -968,6 +977,7 @@ fn load_room(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     physics_settings: physics::PhysicsSandboxSettings,
+    assets: Option<&crate::game_assets::GameAssets>,
 ) {
     let old_velocity = runtime.player.vel;
     let abilities = runtime.player.abilities;
@@ -1022,7 +1032,7 @@ fn load_room(
     };
     runtime.preset_flash = 1.0;
 
-    spawn_room_visuals(commands, &world.0, &spec.loading_zones, physics_settings);
+    spawn_room_visuals(commands, &world.0, &spec.loading_zones, physics_settings, assets);
     platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
     sfx.push(SfxMessage::Reset {
         pos: runtime.player.pos,

@@ -191,6 +191,11 @@ pub struct CharacterSpriteAsset {
 pub struct CharacterSpriteAssets {
     pub robot: Option<CharacterSpriteAsset>,
     pub goblin: Option<CharacterSpriteAsset>,
+    // The boss uses the entity-sprite path (`EntitySprite::BossCore`) rather
+    // than the character-spritesheet path: its generator emits non-standard
+    // animation rows (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/
+    // death) that don't fit `CharacterAnim`'s 8-variant grid. When/if the
+    // boss gets a CharacterAnim-compatible sheet, add a `boss` field here.
 }
 
 impl CharacterSpriteAssets {
@@ -202,29 +207,31 @@ impl CharacterSpriteAssets {
     }
 }
 
-pub const ROBOT_SPRITE_PATH: &str = "sprites/robot_spritesheet.png";
-pub const GOBLIN_SPRITE_PATH: &str = "sprites/goblin_spritesheet.png";
+const ROBOT_FILENAME: &str = "robot_spritesheet.png";
+const GOBLIN_FILENAME: &str = "goblin_spritesheet.png";
 
-/// Probe the sandbox `assets/` directory for the spritesheet PNGs. Missing
-/// files are not an error — callers fall back to colored rectangles.
-pub fn load_character_sprites(
+/// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
+/// Missing files are not an error — callers fall back to colored rectangles.
+pub fn load_character_sprites_in(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
+    sprite_folder: &str,
 ) -> CharacterSpriteAssets {
-    let robot = build_optional(asset_server, layouts, ROBOT_SPRITE_PATH, ROBOT_SHEET);
-    let goblin = build_optional(asset_server, layouts, GOBLIN_SPRITE_PATH, GOBLIN_SHEET);
+    let robot_rel = format!("{sprite_folder}/{ROBOT_FILENAME}");
+    let goblin_rel = format!("{sprite_folder}/{GOBLIN_FILENAME}");
 
-    if robot.is_none() {
-        eprintln!(
-            "[character_sprites] robot spritesheet not found at assets/{ROBOT_SPRITE_PATH} \
-             — falling back to colored rectangle"
-        );
-    }
-    if goblin.is_none() {
-        eprintln!(
-            "[character_sprites] goblin spritesheet not found at assets/{GOBLIN_SPRITE_PATH} \
-             — falling back to colored rectangle"
-        );
+    let robot = build_optional(asset_server, layouts, &robot_rel, ROBOT_SHEET);
+    let goblin = build_optional(asset_server, layouts, &goblin_rel, GOBLIN_SHEET);
+
+    for (name, rel, present) in [
+        ("robot", &robot_rel, robot.is_some()),
+        ("goblin", &goblin_rel, goblin.is_some()),
+    ] {
+        if !present {
+            eprintln!(
+                "[character_sprites] {name} spritesheet not found at assets/{rel} — falling back to colored rectangle"
+            );
+        }
     }
 
     CharacterSpriteAssets { robot, goblin }
@@ -233,7 +240,7 @@ pub fn load_character_sprites(
 fn build_optional(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    rel_path: &'static str,
+    rel_path: &str,
     spec: CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
     if !asset_exists(rel_path) {
@@ -241,7 +248,7 @@ fn build_optional(
     }
     let layout = layouts.add(spec.build_atlas());
     Some(CharacterSpriteAsset {
-        texture: asset_server.load(rel_path),
+        texture: asset_server.load(rel_path.to_string()),
         layout,
         spec,
     })

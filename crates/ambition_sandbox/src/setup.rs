@@ -21,9 +21,8 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::audio::{play_ambience, SoundBank};
-use crate::character_sprites::{
-    build_character_sprite, feet_anchor, CharacterAnimator, CharacterSpriteAssets,
-};
+use crate::character_sprites::{build_character_sprite, feet_anchor, CharacterAnimator};
+use crate::game_assets::GameAssets;
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
 use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -62,7 +61,7 @@ pub struct PresentationSetup<'a> {
     pub room_set: &'a RoomSet,
     pub sandbox_data: &'a SandboxDataSpec,
     pub physics_settings: PhysicsSandboxSettings,
-    pub character_sprites: &'a CharacterSpriteAssets,
+    pub game_assets: &'a GameAssets,
 }
 
 /// Spawn simulation-only entities and resources.
@@ -164,8 +163,9 @@ pub fn presentation_world(
         room_set,
         sandbox_data,
         physics_settings,
-        character_sprites,
+        game_assets,
     } = params;
+    let character_sprites = &game_assets.characters;
 
     commands.spawn((Camera2d, Name::new("Main Camera")));
 
@@ -178,6 +178,7 @@ pub fn presentation_world(
         &world.0,
         room_set.active_loading_zones(),
         physics_settings,
+        Some(game_assets),
     );
     platforms::spawn_moving_platform(
         commands,

@@ -578,6 +578,19 @@ impl FeatureRuntime {
         None
     }
 
+    /// Look up a breakable's current state by feature id (LDtk iid).
+    pub fn breakable_state(&self, id: &str) -> Option<ae::BreakableState> {
+        self.breakables
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| b.breakable.state)
+    }
+
+    /// Look up a chest's opened-flag by feature id.
+    pub fn chest_opened(&self, id: &str) -> Option<bool> {
+        self.chests.iter().find(|c| c.id == id).map(|c| c.opened)
+    }
+
     pub fn feature_summary(&self) -> String {
         format!(
             "features: hazards {} enemies {}/{} bosses {}/{} breakables {}/{} chests {}/{} pickups {}/{} npcs {}",

@@ -20,6 +20,7 @@ pub mod dev_tools;
 pub mod dialog;
 pub mod features;
 pub mod fx;
+pub mod game_assets;
 pub mod game_mode;
 pub mod input;
 pub mod inventory;

@@ -21,6 +21,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::ActionState;
 
 use crate::audio::{play_ambience, SoundBank};
+use crate::character_sprites::{CharacterAnimator, CharacterSpriteAssets};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
 use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -59,6 +60,7 @@ pub struct PresentationSetup<'a> {
     pub room_set: &'a RoomSet,
     pub sandbox_data: &'a SandboxDataSpec,
     pub physics_settings: PhysicsSandboxSettings,
+    pub character_sprites: &'a CharacterSpriteAssets,
 }
 
 /// Spawn simulation-only entities and resources.
@@ -160,6 +162,7 @@ pub fn presentation_world(
         room_set,
         sandbox_data,
         physics_settings,
+        character_sprites,
     } = params;
 
     commands.spawn((Camera2d, Name::new("Main Camera")));
@@ -180,10 +183,27 @@ pub fn presentation_world(
         platforms::MovingPlatformState::time_reference(&world.0),
     );
 
-    commands.entity(player).insert(Sprite::from_color(
-        Color::srgba(0.80, 0.95, 1.0, 1.0),
-        BVec2::new(28.0, 46.0),
-    ));
+    if let Some(asset) = &character_sprites.robot {
+        let mut sprite = Sprite::from_atlas_image(
+            asset.texture.clone(),
+            bevy::image::TextureAtlas {
+                layout: asset.layout.clone(),
+                index: asset.spec.flat_index(
+                    crate::character_sprites::CharacterAnim::Idle,
+                    0,
+                ),
+            },
+        );
+        sprite.custom_size = Some(asset.render_size);
+        commands
+            .entity(player)
+            .insert((sprite, CharacterAnimator::new(asset.spec)));
+    } else {
+        commands.entity(player).insert(Sprite::from_color(
+            Color::srgba(0.80, 0.95, 1.0, 1.0),
+            BVec2::new(28.0, 46.0),
+        ));
+    }
 
     let hud = commands
         .spawn((

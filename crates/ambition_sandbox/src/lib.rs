@@ -12,6 +12,7 @@
 //! headless.
 
 pub mod audio;
+pub mod character_sprites;
 pub mod config;
 pub mod data;
 pub mod debug_overlay;
@@ -21,8 +22,10 @@ pub mod features;
 pub mod fx;
 pub mod game_mode;
 pub mod input;
+pub mod inventory;
 pub mod ldtk_world;
 pub mod loading;
+pub mod pause_menu;
 pub mod physics;
 pub mod platforms;
 pub mod rendering;
@@ -93,6 +96,10 @@ pub struct SandboxRuntime {
     pub dialogue: dialog::DialogState,
     pub physics_settings: physics::PhysicsSandboxSettings,
     pub room_transition_cooldown: f32,
+    /// Time remaining on the player's slash animation. Set when an attack is
+    /// triggered so the sprite plays the Slash row even after the brief
+    /// hitstop window ends. Decays toward 0 in the gameplay loop.
+    pub slash_anim_timer: f32,
 }
 
 impl SandboxRuntime {
@@ -126,6 +133,7 @@ impl SandboxRuntime {
             dialogue: dialog::DialogState::default(),
             physics_settings,
             room_transition_cooldown: 0.0,
+            slash_anim_timer: 0.0,
         }
     }
 
@@ -146,6 +154,7 @@ impl SandboxRuntime {
         self.features = features::FeatureRuntime::from_world(world);
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
+        self.slash_anim_timer = 0.0;
     }
 
     pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {

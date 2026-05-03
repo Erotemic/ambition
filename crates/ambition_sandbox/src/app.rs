@@ -31,6 +31,7 @@ use bevy_material_ui::MaterialUiPlugin;
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 
 use crate::audio::{audio_play_sfx_messages, SfxMessage};
+use crate::character_sprites;
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
 use crate::debug_overlay;
@@ -42,13 +43,15 @@ use crate::features;
 use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::game_mode::GameMode;
 use crate::input::{ControlFrame, SandboxAction, GAMEPAD_MAP};
+use crate::inventory;
 use crate::ldtk_world;
 use crate::loading;
+use crate::pause_menu;
 use crate::physics::{self, physics_spawn_debris_messages, DebrisBurstMessage};
 use crate::platforms;
 use crate::rendering::{
-    camera_follow, spawn_room_visuals, sync_visuals, HudText, PlayerVisual, RoomVisual,
-    SceneEntities,
+    animate_enemies, animate_player, camera_follow, spawn_room_visuals, sync_visuals,
+    upgrade_enemy_sprites, HudText, PlayerVisual, RoomVisual, SceneEntities,
 };
 use crate::rooms;
 use crate::setup;
@@ -301,6 +304,28 @@ pub fn add_presentation_plugins(app: &mut App) {
                 .run_if(dev_tools::inspector_visible),
         )
         .add_plugins(WorldInspectorPlugin::new().run_if(dev_tools::world_inspector_visible))
+        .insert_resource(pause_menu::PauseMenuState::default())
+        .insert_resource(inventory::InventoryUiState::default())
+        .insert_resource(inventory::PlayerInventory::starter())
+        .add_systems(
+            Startup,
+            (pause_menu::spawn_pause_menu, inventory::spawn_inventory_panel)
+                .after(setup_simulation_system),
+        )
+        .add_systems(
+            Update,
+            (
+                pause_menu::pause_menu_toggle,
+                inventory::inventory_input,
+                pause_menu::pause_menu_navigate,
+            )
+                .chain()
+                .before(sandbox_update),
+        )
+        .add_systems(
+            Update,
+            (pause_menu::sync_pause_menu, inventory::sync_inventory_panel).after(sandbox_update),
+        )
         .add_systems(Startup, setup_presentation_system.after(setup_simulation_system))
         .add_systems(
             Update,
@@ -309,6 +334,9 @@ pub fn add_presentation_plugins(app: &mut App) {
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
                 sync_visuals,
+                upgrade_enemy_sprites,
+                animate_player,
+                animate_enemies,
                 camera_follow,
                 debug_overlay::draw_debug_overlay,
                 fx::update_particles,
@@ -383,8 +411,12 @@ fn setup_presentation_system(
     sandbox_data: Res<data::SandboxDataSpec>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut audio_sources: ResMut<Assets<AudioSource>>,
+    asset_server: Res<AssetServer>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     scene_entities: Res<SceneEntities>,
 ) {
+    let character_sprites =
+        character_sprites::load_character_sprites(&asset_server, &mut atlas_layouts);
     setup::presentation_world(
         &mut commands,
         &mut audio_sources,
@@ -393,9 +425,11 @@ fn setup_presentation_system(
             room_set: &room_set,
             sandbox_data: &sandbox_data,
             physics_settings: *physics_settings,
+            character_sprites: &character_sprites,
         },
         scene_entities.player,
     );
+    commands.insert_resource(character_sprites);
 }
 
 fn sandbox_update(
@@ -452,19 +486,11 @@ fn sandbox_update(
         return;
     }
 
-    if controls.start_pressed {
-        let next = if mode.get().allows_gameplay() {
-            GameMode::Paused
-        } else {
-            GameMode::Playing
-        };
-        next_mode.set(next);
-        if let Ok(mut action_state) = player_input.get_mut(entities.player) {
-            action_state.reset_all();
-        }
-        runtime.time_scale = if next.allows_gameplay() { 1.0 } else { 0.0 };
-        return;
-    }
+    // Pause/resume toggling has moved to `pause_menu::pause_menu_toggle`,
+    // which runs `.before(sandbox_update)`. The `start_pressed` flag is
+    // still read here for compile-completeness; the pause logic itself
+    // lives in the pause menu so it can drive a real overlay.
+    let _ = controls.start_pressed;
 
     let frame_dt = time.delta_secs();
     if !mode.get().allows_gameplay() {
@@ -661,6 +687,7 @@ fn sandbox_update(
 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+    runtime.slash_anim_timer = (runtime.slash_anim_timer - frame_dt).max(0.0);
     event_writers.sfx.write_batch(sfx.drain(..));
     event_writers.vfx.write_batch(vfx.drain(..));
         event_writers.debris.write_batch(debris.drain(..));
@@ -1302,6 +1329,10 @@ fn process_attack(
     }
     let player_pos = runtime.player.pos;
     sfx.push(SfxMessage::Slash { pos: player_pos });
+    // Roughly the slash sheet's eight 75ms frames; the animation system
+    // freezes on the last frame once `clip_held` is set, so this only
+    // needs to cover the typical clip duration.
+    runtime.slash_anim_timer = 0.60;
     let attack = ae::slash_hitbox(&runtime.player, controls.axis_y, controls.pogo_pressed);
     vfx.push(VfxMessage::SlashPreview { hitbox: attack });
     let mut landed = false;

@@ -515,6 +515,27 @@ impl FeatureRuntime {
         None
     }
 
+    /// Snapshot the enemy state needed to drive its sprite animation.
+    /// Returns `None` if no enemy with that id exists.
+    pub fn enemy_anim_state(
+        &self,
+        id: &str,
+    ) -> Option<crate::character_sprites::EnemyAnimState> {
+        for enemy in &self.enemies {
+            if enemy.id == id {
+                return Some(crate::character_sprites::EnemyAnimState {
+                    vel: enemy.vel,
+                    facing: enemy.facing,
+                    alive: enemy.alive,
+                    attack_active: enemy.attack_timer > 0.0,
+                    attack_windup: enemy.attack_windup_timer > 0.0,
+                    hit_flash: enemy.hit_flash > 0.0,
+                });
+            }
+        }
+        None
+    }
+
     pub fn feature_summary(&self) -> String {
         format!(
             "features: hazards {} enemies {}/{} bosses {}/{} breakables {}/{} chests {}/{} pickups {}/{} npcs {}",

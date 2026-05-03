@@ -10,6 +10,9 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+use crate::character_sprites::{
+    CharacterAnim, CharacterAnimator, CharacterSpriteAssets,
+};
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
 use crate::physics;
@@ -176,9 +179,14 @@ pub fn sync_visuals(
 ) {
     if let Ok((mut transform, mut sprite)) = player_query.get_mut(entities.player) {
         transform.translation = world_to_bevy(&world.0, runtime.player.pos, WORLD_Z_PLAYER);
-        sprite.custom_size = Some(BVec2::new(runtime.player.size.x, runtime.player.size.y));
-        let alpha = if runtime.flash_timer > 0.0 { 0.72 } else { 1.0 };
-        sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
+        if sprite.texture_atlas.is_none() {
+            // Colored-rectangle fallback: stretch to the collision-box size
+            // and tint by flash. Textured sprites keep their authored size
+            // and are tinted in the animation system instead.
+            sprite.custom_size = Some(BVec2::new(runtime.player.size.x, runtime.player.size.y));
+            let alpha = if runtime.flash_timer > 0.0 { 0.72 } else { 1.0 };
+            sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
+        }
     }
 
     for (visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
@@ -187,12 +195,113 @@ pub fn sync_visuals(
             continue;
         };
         transform.translation = world_to_bevy(&world.0, view.pos, feature_z(view.kind));
-        sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
-        sprite.color = feature_color(view.kind, view.flash);
+        if sprite.texture_atlas.is_none() {
+            sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
+            sprite.color = feature_color(view.kind, view.flash);
+        }
         *visibility = if view.visible {
             Visibility::Visible
         } else {
             Visibility::Hidden
+        };
+    }
+}
+
+/// Replace the colored-rectangle sprite on enemy/sandbag entities with the
+/// goblin sprite-sheet sprite once the asset is available. Newly-spawned
+/// feature visuals (initial setup or room transitions) are picked up here.
+pub fn upgrade_enemy_sprites(
+    mut commands: Commands,
+    sprites: Option<Res<CharacterSpriteAssets>>,
+    runtime: Res<crate::SandboxRuntime>,
+    new_features: Query<(Entity, &FeatureVisual), Without<CharacterAnimator>>,
+) {
+    let Some(sprites) = sprites else {
+        return;
+    };
+    let Some(goblin) = &sprites.goblin else {
+        return;
+    };
+    for (entity, visual) in &new_features {
+        let Some(view) = runtime.features.view(&visual.id) else {
+            continue;
+        };
+        if !matches!(
+            view.kind,
+            FeatureVisualKind::Enemy | FeatureVisualKind::Sandbag
+        ) {
+            continue;
+        }
+        let mut sprite = Sprite::from_atlas_image(
+            goblin.texture.clone(),
+            bevy::image::TextureAtlas {
+                layout: goblin.layout.clone(),
+                index: goblin.spec.flat_index(CharacterAnim::Idle, 0),
+            },
+        );
+        sprite.custom_size = Some(goblin.render_size);
+        commands
+            .entity(entity)
+            .insert((sprite, CharacterAnimator::new(goblin.spec)));
+    }
+}
+
+/// Drive the player sprite's animation state, atlas index, and facing flip.
+/// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
+pub fn animate_player(
+    time: Res<Time>,
+    runtime: Res<crate::SandboxRuntime>,
+    entities: Res<SceneEntities>,
+    mut query: Query<(&mut Sprite, &mut CharacterAnimator), With<PlayerVisual>>,
+) {
+    let Ok((mut sprite, mut animator)) = query.get_mut(entities.player) else {
+        return;
+    };
+    let anim = crate::character_sprites::pick_player_anim(&runtime);
+    animator.request(anim);
+    let index = animator.tick(time.delta_secs());
+    if let Some(atlas) = sprite.texture_atlas.as_mut() {
+        atlas.index = index;
+    }
+    sprite.flip_x = runtime.player.facing < 0.0;
+    // Keep the textured sprite at full opacity by default, with a subtle
+    // red tint when invulnerable / hit so the existing flash signal still
+    // reads. Tints multiply the texture color, so values below 1.0 darken
+    // the channel.
+    sprite.color = if runtime.flash_timer > 0.0 {
+        Color::srgba(1.0, 0.55, 0.55, 1.0)
+    } else {
+        Color::WHITE
+    };
+}
+
+/// Drive enemy sprite animation, atlas index, and facing flip.
+pub fn animate_enemies(
+    time: Res<Time>,
+    runtime: Res<crate::SandboxRuntime>,
+    mut query: Query<
+        (&FeatureVisual, &mut Sprite, &mut CharacterAnimator),
+        Without<PlayerVisual>,
+    >,
+) {
+    let dt = time.delta_secs();
+    for (visual, mut sprite, mut animator) in &mut query {
+        let Some(state) = runtime.features.enemy_anim_state(&visual.id) else {
+            continue;
+        };
+        let anim = crate::character_sprites::pick_enemy_anim(state);
+        animator.request(anim);
+        let index = animator.tick(dt);
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = index;
+        }
+        sprite.flip_x = state.facing < 0.0;
+        sprite.color = if state.hit_flash {
+            Color::srgba(1.0, 0.55, 0.55, 1.0)
+        } else if state.attack_active || state.attack_windup {
+            Color::srgba(1.0, 0.85, 0.55, 1.0)
+        } else {
+            Color::WHITE
         };
     }
 }

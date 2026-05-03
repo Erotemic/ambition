@@ -9,7 +9,7 @@ description = "Blender-first procedural character rigging and sprite-sheet gener
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{name = "Ambition procedural art prototype"}]
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 dependencies = [
   "pillow>=10",
   "pyyaml>=6",

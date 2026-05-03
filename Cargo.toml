@@ -7,7 +7,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-license = "MIT"
+license = "Apache-2.0"
 authors = ["Jon Crall + ChatGPT"]
 description = "Ambition: a code-generated endgame movement sandbox for a mathematical AI-first platformer."
 

@@ -277,7 +277,37 @@ pub fn poll_ldtk_file_changes(time: Res<Time>, mut state: ResMut<LdtkHotReloadSt
 }
 
 const AMBITION_LAYER: &str = "Ambition";
+const COLLISION_LAYER: &str = "Collision";
 const GRID: i32 = 16;
+
+// IntGrid value → engine block kind. Mirrors `tools/ldtk_intgrid_migration.py`;
+// the migration script is the source of truth for which value means what, but
+// any new value here that isn't covered there will fail validation at compose
+// time so authors can't silently introduce mismatched mappings.
+const INT_GRID_SOLID: i32 = 1;
+const INT_GRID_ONE_WAY: i32 = 2;
+const INT_GRID_BLINK_SOFT: i32 = 3;
+const INT_GRID_BLINK_HARD: i32 = 4;
+
+fn int_grid_value_to_block(value: i32, min: ae::Vec2, size: ae::Vec2) -> Result<ae::Block, String> {
+    match value {
+        INT_GRID_SOLID => Ok(ae::Block::solid("ldtk solid cell", min, size)),
+        INT_GRID_ONE_WAY => Ok(ae::Block::one_way("ldtk one-way cell", min, size)),
+        INT_GRID_BLINK_SOFT => Ok(ae::Block::blink_wall(
+            "ldtk blink-soft cell",
+            min,
+            size,
+            ae::BlinkWallTier::Soft,
+        )),
+        INT_GRID_BLINK_HARD => Ok(ae::Block::blink_wall(
+            "ldtk blink-hard cell",
+            min,
+            size,
+            ae::BlinkWallTier::Hard,
+        )),
+        other => Err(format!("unknown IntGrid value {other}")),
+    }
+}
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct LdtkProject {
@@ -309,8 +339,24 @@ pub struct LdtkLevel {
 pub struct LdtkLayerInstance {
     #[serde(rename = "__identifier")]
     pub identifier: String,
+    #[serde(rename = "__type", default)]
+    pub layer_type: String,
+    #[serde(rename = "__cWid", default)]
+    pub c_wid: i32,
+    #[serde(rename = "__cHei", default)]
+    pub c_hei: i32,
+    #[serde(rename = "__gridSize", default = "default_grid_size")]
+    pub grid_size: i32,
     #[serde(default, rename = "entityInstances")]
     pub entity_instances: Vec<LdtkEntityInstance>,
+    /// IntGrid cell values, row-major (`y * c_wid + x`), `0` = empty.
+    /// Only populated for layers whose `__type == "IntGrid"`.
+    #[serde(default, rename = "intGridCsv")]
+    pub int_grid_csv: Vec<i32>,
+}
+
+fn default_grid_size() -> i32 {
+    16
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -692,6 +738,33 @@ impl LdtkProject {
                     }
                 }
             }
+
+            // IntGrid `Collision` layer: each non-zero cell lowers into one
+            // engine block per cell. Values match `INT_GRID_*` below; the
+            // layer is optional, so missing it is fine. See
+            // `tools/ldtk_intgrid_migration.py` for the mapping authority.
+            if let Some(layer) = level.collision_layer() {
+                let grid = layer.grid_size as f32;
+                let cw = layer.c_wid;
+                if cw > 0 && !layer.int_grid_csv.is_empty() {
+                    for (idx, &value) in layer.int_grid_csv.iter().enumerate() {
+                        if value == 0 {
+                            continue;
+                        }
+                        let cx = (idx as i32) % cw;
+                        let cy = (idx as i32) / cw;
+                        let min = ae::Vec2::new(cx as f32 * grid, cy as f32 * grid) + offset;
+                        let size = ae::Vec2::new(grid, grid);
+                        match int_grid_value_to_block(value, min, size) {
+                            Ok(block) => blocks.push(block),
+                            Err(message) => errors.push(format!(
+                                "level '{}' Collision cell ({cx},{cy}): {message}",
+                                level.identifier
+                            )),
+                        }
+                    }
+                }
+            }
         }
 
         if !errors.is_empty() {
@@ -743,6 +816,12 @@ impl LdtkLevel {
         self.layer_instances
             .iter()
             .find(|layer| layer.identifier == AMBITION_LAYER)
+    }
+
+    fn collision_layer(&self) -> Option<&LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == COLLISION_LAYER)
     }
 
     fn field_string(&self, name: &str) -> Option<String> {
@@ -1526,6 +1605,51 @@ mod tests {
         ) && object
             .name
             .contains("clockwork warden")));
+    }
+
+    #[test]
+    fn central_hub_collision_layer_lowers_to_engine_blocks() {
+        let project = LdtkProject::load_embedded();
+        let room_set = project.to_room_set().expect("embedded LDtk should compose");
+        let hub = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id == "central_hub_complex")
+            .expect("central hub active area exists");
+        let solid_blocks = hub
+            .world
+            .blocks
+            .iter()
+            .filter(|b| matches!(b.kind, ae::BlockKind::Solid))
+            .count();
+        let one_way_blocks = hub
+            .world
+            .blocks
+            .iter()
+            .filter(|b| matches!(b.kind, ae::BlockKind::OneWay))
+            .count();
+        let blink_blocks = hub
+            .world
+            .blocks
+            .iter()
+            .filter(|b| matches!(b.kind, ae::BlockKind::BlinkWall { .. }))
+            .count();
+        // Step E migration painted Solid + OneWayPlatform + BlinkWall in
+        // central_hub_main as IntGrid cells. The hub's collision world
+        // should now be dominated by per-cell blocks rather than a small
+        // number of large entity rectangles.
+        assert!(
+            solid_blocks > 100,
+            "expected hundreds of solid IntGrid cells in central hub; got {solid_blocks}"
+        );
+        assert!(
+            one_way_blocks > 0,
+            "expected at least one OneWay IntGrid cell in central hub; got {one_way_blocks}"
+        );
+        assert!(
+            blink_blocks > 0,
+            "expected at least one BlinkWall IntGrid cell in central hub; got {blink_blocks}"
+        );
     }
 
     #[test]

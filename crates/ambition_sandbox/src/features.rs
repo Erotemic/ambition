@@ -406,6 +406,14 @@ impl FeatureRuntime {
         }
 
         for breakable in &mut self.breakables {
+            // Breakable pogo orbs take damage exclusively through the pogo
+            // bounce path (`on_pogo_bounce`). Slashing or pogoing onto one
+            // would otherwise apply two damage in a single frame — once
+            // here via the slash hitbox and once via the pogo callback —
+            // making a 3hp orb die in 2 bounces.
+            if breakable.breakable.pogo_refresh {
+                continue;
+            }
             if !breakable.broken()
                 && breakable.breaks_on_hit()
                 && attack.strict_intersects(breakable.aabb())

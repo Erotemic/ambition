@@ -430,6 +430,40 @@ impl FeatureRuntime {
         events
     }
 
+    /// Apply pogo-bounce damage to any breakable pogo orb whose runtime
+    /// AABB matches `orb_aabb` (engine-reported bounce source). Returns a
+    /// `FeatureEvents` describing impacts/messages/physics so the caller
+    /// can route them through the same audio/VFX/debris pipeline that
+    /// player-attack hits use.
+    pub fn on_pogo_bounce(&mut self, orb_aabb: ae::Aabb, damage: i32) -> FeatureEvents {
+        let mut events = FeatureEvents::default();
+        for breakable in &mut self.breakables {
+            if breakable.broken() {
+                continue;
+            }
+            if !breakable.breakable.pogo_refresh {
+                continue;
+            }
+            if !approximately_same_aabb(breakable.aabb(), orb_aabb) {
+                continue;
+            }
+            let broke = breakable.breakable.apply_damage(damage.max(1));
+            events.impacts.push(breakable.pos);
+            if broke {
+                breakable.start_respawn_timer();
+                events
+                    .messages
+                    .push(format!("shattered {}", breakable.name));
+                events.bursts.push(breakable.pos);
+                events.physics_bursts.push(FeaturePhysicsBurst {
+                    pos: breakable.pos,
+                    cue: FeaturePhysicsCue::Breakable,
+                });
+            }
+        }
+        events
+    }
+
     pub fn view(&self, id: &str) -> Option<FeatureView> {
         for hazard in &self.hazards {
             if hazard.id == id {
@@ -1337,6 +1371,18 @@ pub fn world_with_sandbox_solids(
         if breakable.broken() {
             continue;
         }
+        // Breakable pogo orbs contribute a pogo-orb block (no body collision)
+        // while intact, so the engine's pogo-bounce logic finds them; the
+        // bounce damage is routed back through `FeatureRuntime::on_pogo_bounce`
+        // by the gameplay loop.
+        if breakable.breakable.pogo_refresh {
+            collision_world.blocks.push(ae::Block {
+                name: format!("breakable-pogo {}", breakable.name),
+                aabb: breakable.aabb(),
+                kind: ae::BlockKind::PogoOrb,
+            });
+            continue;
+        }
         let kind = match breakable.breakable.collision {
             ae::BreakableCollision::None => continue,
             // Solid breakables behave like a hard blink wall for blink
@@ -1411,6 +1457,17 @@ fn approach(value: f32, target: f32, delta: f32) -> f32 {
     } else {
         (value - delta).max(target)
     }
+}
+
+fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
+    // Pogo-bounce routing matches an engine-reported orb AABB against
+    // sandbox-side breakable AABBs. The two are derived from the same
+    // entity placement so the values agree to floating-point tolerance,
+    // but a tiny epsilon avoids spurious mismatches if a future codepath
+    // recomputes one of the AABBs from rounded coordinates.
+    let eps = 0.5;
+    (a.center() - b.center()).length() <= eps
+        && (a.half_size() - b.half_size()).length() <= eps
 }
 
 fn midpoint(a: ae::Vec2, b: ae::Vec2) -> ae::Vec2 {

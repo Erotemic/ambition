@@ -172,6 +172,10 @@ pub struct Breakable {
     pub collision: BreakableCollision,
     pub trigger: BreakableTrigger,
     pub debris_cue: Option<String>,
+    /// True for breakable pogo orbs: while intact the breakable contributes
+    /// a `BlockKind::PogoOrb` to the collision world, and each successful
+    /// pogo bounce damages it. Doesn't change collision/trigger semantics.
+    pub pogo_refresh: bool,
 }
 
 impl Breakable {
@@ -184,6 +188,7 @@ impl Breakable {
             collision: BreakableCollision::None,
             trigger: BreakableTrigger::OnHit,
             debris_cue: None,
+            pogo_refresh: false,
         }
     }
 

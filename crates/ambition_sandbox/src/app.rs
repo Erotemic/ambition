@@ -544,6 +544,20 @@ fn sandbox_update(
         event_writers.debris.write_batch(debris.drain(..));
             return;
         }
+        // Damage breakable pogo orbs the player just bounced off. The
+        // engine reports orb AABBs; the sandbox matches them against
+        // breakables flagged `pogo_refresh` and routes hit/break events
+        // through the standard feature pipeline.
+        for &orb_aabb in &control_events.pogo_hits {
+            let feature_events = runtime.features.on_pogo_bounce(orb_aabb, 1);
+            handle_feature_events(
+                &mut sfx,
+                &mut vfx,
+                &mut debris,
+                &feature_events,
+                runtime.player.pos,
+            );
+        }
         handle_player_events(&mut sfx, &mut vfx, &mut runtime, control_events, None);
 
         runtime.update_time_scale(frame_dt, feel);

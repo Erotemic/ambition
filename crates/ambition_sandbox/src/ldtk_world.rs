@@ -501,7 +501,8 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "NpcSpawn",
     "PickupSpawn",
     "ChestSpawn",
-    "Breakable",
+    "BreakablePlatform",
+    "BreakablePogoOrb",
     "EnemySpawn",
     "BossSpawn",
     "DebugLabel",
@@ -525,7 +526,8 @@ const SURFACE_LIKE_IDENTIFIERS: &[&str] = &[
     "HazardBlock",
     "PogoOrb",
     "ReboundPad",
-    "Breakable",
+    "BreakablePlatform",
+    "BreakablePogoOrb",
 ];
 
 /// True if `identifier` lowers into `LdtkSurfaceSpec` via `parse_surface_spec`.
@@ -1544,57 +1546,40 @@ fn parse_surface_spec(
                 impulse: ae::Vec2::new(impulse_x, impulse_y),
             };
         }
-        "Breakable" => {
-            // Prefer the typed `collision` LocalEnum field. Fall back to the
-            // older `solid: Bool` for instances saved before the enum was
-            // added — those map true → Solid, false/absent → None.
+        "BreakablePlatform" => {
+            // Constrained breakable: `collision` must be Solid or OneWayUp
+            // (the LDtk enum has no None option), so the historically
+            // incoherent OnStand+None combo is unrepresentable in the
+            // editor — no degrade path needed.
             spec.collision = match field_string(entity, "collision").as_deref() {
-                Some("None") => SurfaceCollision::None,
-                Some("Solid") => SurfaceCollision::Solid,
+                Some("Solid") | None => SurfaceCollision::Solid,
                 Some("OneWayUp") => SurfaceCollision::OneWayUp,
                 Some(other) => {
-                    return Err(format!("invalid Breakable collision '{other}'"));
-                }
-                None => {
-                    if field_bool(entity, "solid").unwrap_or(false) {
-                        SurfaceCollision::Solid
-                    } else {
-                        SurfaceCollision::None
-                    }
+                    return Err(format!("invalid BreakablePlatform collision '{other}'"));
                 }
             };
             spec.breakability = match field_string(entity, "trigger")
-                .unwrap_or_else(|| "OnHit".to_string())
-                .as_str()
+                .as_deref()
+                .unwrap_or("OnHit")
             {
                 "OnHit" => SurfaceBreakability::BreakOnHit,
                 "OnStand" => SurfaceBreakability::BreakOnStand,
                 "Either" => SurfaceBreakability::BreakOnHitOrStand,
-                other => return Err(format!("invalid Breakable trigger '{other}'")),
+                other => return Err(format!("invalid BreakablePlatform trigger '{other}'")),
             };
-            // Tolerate the editor-default combo of OnStand + None. The LDtk
-            // Breakable entity-def historically had `collision`
-            // defaultOverride=None, so authored OnStand breakables arrive
-            // here in a physically incoherent state (nothing to stand on).
-            // The author's intent — "this should break when stood on" —
-            // strongly implies they want a standable platform, so default
-            // collision to Solid and warn. Choosing collision over trigger
-            // also preserves the visible behavior: the breakable is solid
-            // and stand-breaks. Authors who genuinely want a decorative
-            // breakable should leave trigger as OnHit (or Either).
-            if matches!(spec.breakability, SurfaceBreakability::BreakOnStand)
-                && matches!(spec.collision, SurfaceCollision::None)
-            {
-                eprintln!(
-                    "LDtk validation warning: Breakable {} has trigger=OnStand with collision=None; defaulting collision to Solid so the platform is standable. Set the LDtk entity's collision field explicitly to silence this warning, or use BreakablePlatform for a kind that disallows the None option.",
-                    spec.iid
-                );
-                spec.collision = SurfaceCollision::Solid;
-            }
             spec.respawn = parse_breakable_respawn(entity)?;
-            spec.max_hp = field_i32(entity, "max_hp")
-                .or_else(|| field_i32(entity, "hp"))
-                .unwrap_or(3);
+            spec.max_hp = field_i32(entity, "max_hp").unwrap_or(3);
+        }
+        "BreakablePogoOrb" => {
+            // Pogo-orb-with-health. No body collision; while intact the
+            // collision world gets a `BlockKind::PogoOrb` block emitted
+            // by `world_with_sandbox_solids`, and successful pogo bounces
+            // damage the orb until it breaks.
+            spec.collision = SurfaceCollision::None;
+            spec.breakability = SurfaceBreakability::BreakOnHit;
+            spec.contact = SurfaceContact::PogoRefresh;
+            spec.respawn = parse_breakable_respawn(entity)?;
+            spec.max_hp = field_i32(entity, "max_hp").unwrap_or(3);
         }
         other => {
             return Err(format!(
@@ -1672,7 +1657,16 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
             }
         }
         breakable_kind => {
-            if !matches!(spec.contact, SurfaceContact::None) {
+            // Allow exactly one breakable+contact combo: BreakablePogoOrb,
+            // which is BreakOnHit with collision=None and PogoRefresh contact.
+            // The runtime emits a `BlockKind::PogoOrb` block in
+            // `world_with_sandbox_solids` while the orb is intact, and the
+            // sandbox damages the orb on each pogo bounce. Other
+            // breakable+contact combos remain unsupported.
+            let pogo_orb_combo = matches!(spec.contact, SurfaceContact::PogoRefresh)
+                && matches!(spec.collision, SurfaceCollision::None)
+                && matches!(breakable_kind, SurfaceBreakability::BreakOnHit);
+            if !matches!(spec.contact, SurfaceContact::None) && !pogo_orb_combo {
                 return Err(format!(
                     "Surface {} combines breakability with contact; not yet supported",
                     spec.iid
@@ -1711,6 +1705,7 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 SurfaceRespawn::OnRoomReload => ae::RespawnPolicy::OnRoomReload,
                 SurfaceRespawn::AfterSeconds(seconds) => ae::RespawnPolicy::AfterSeconds(seconds),
             };
+            breakable.pogo_refresh = pogo_orb_combo;
             objects.push(ae::RoomObject::new(
                 spec.iid.clone(),
                 spec.name.clone(),
@@ -2167,11 +2162,12 @@ mod tests {
         assert!(err.contains("missing impulseX"), "{err}");
     }
 
-    /// New typed `collision` field on Breakable: Solid -> hard wall while intact.
+    /// `BreakablePlatform` with `collision=Solid` lowers to a Breakable
+    /// runtime object with hard collision while intact.
     #[test]
-    fn breakable_collision_solid_emits_breakable_with_solid_collision() {
+    fn breakable_platform_solid_compiles_with_solid_collision() {
         let compiled = compile_identifier(
-            "Breakable",
+            "BreakablePlatform",
             [48, 48],
             &[
                 ("collision", Value::String("Solid".into())),
@@ -2186,16 +2182,18 @@ mod tests {
                 assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
                 assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
                 assert_eq!(breakable.health.max, 2);
+                assert!(!breakable.pogo_refresh);
             }
             other => panic!("expected Breakable, got {other:?}"),
         }
     }
 
-    /// New typed `collision` field on Breakable: OneWayUp -> one-way platform while intact.
+    /// `BreakablePlatform` with `collision=OneWayUp` lowers to a Breakable
+    /// runtime object that lands as a one-way platform.
     #[test]
-    fn breakable_collision_one_way_up_emits_breakable_with_one_way_collision() {
+    fn breakable_platform_one_way_up_compiles() {
         let compiled = compile_identifier(
-            "Breakable",
+            "BreakablePlatform",
             [80, 16],
             &[
                 ("collision", Value::String("OneWayUp".into())),
@@ -2212,36 +2210,31 @@ mod tests {
         }
     }
 
-    /// `collision = None` on Breakable: pure trigger volume, contributes no collision.
+    /// `BreakablePlatform` rejects unknown collision values. The LDtk enum
+    /// has only Solid|OneWayUp, so the previous OnStand+None combo is
+    /// unrepresentable in the editor and we don't even need a degrade path.
     #[test]
-    fn breakable_collision_none_contributes_no_collision() {
-        let compiled = compile_identifier(
-            "Breakable",
+    fn breakable_platform_rejects_unknown_collision() {
+        let entity = make_entity(
+            "BreakablePlatform",
             [32, 32],
-            &[
-                ("collision", Value::String("None".into())),
-                ("trigger", Value::String("OnHit".into())),
-            ],
+            &[("collision", Value::String("None".into()))],
         );
-        assert_eq!(compiled.objects.len(), 1);
-        match &compiled.objects[0].kind {
-            ae::RoomObjectKind::Breakable(breakable) => {
-                assert_eq!(breakable.collision, ae::BreakableCollision::None);
-            }
-            other => panic!("expected Breakable, got {other:?}"),
-        }
+        let err = parse_surface_spec(
+            &entity,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(32.0, 32.0),
+            "p".into(),
+        )
+        .expect_err("None is not a valid BreakablePlatform collision");
+        assert!(err.contains("BreakablePlatform"), "{err}");
     }
 
-    /// `BreakOnStand` requires non-None collision. The compile path stays
-    /// strict so the engine API never accepts the incoherent combo, but the
-    /// LDtk adapter degrades it by promoting collision to Solid (preserving
-    /// the OnStand intent: a standable platform that breaks when stood on)
-    /// so a freshly-dropped breakable in the editor does not refuse to
-    /// load the world or end up as a non-collidable decoration.
+    /// Engine compile path stays strict: a hand-crafted incoherent combo
+    /// (BreakOnStand with collision=None) is still rejected, even though
+    /// the LDtk adapter can no longer produce one for BreakablePlatform.
     #[test]
-    fn breakable_on_stand_with_no_collision_is_rejected() {
-        // Engine compile path: still rejects the incoherent combo when handed
-        // a hand-crafted spec.
+    fn engine_compile_still_rejects_on_stand_without_collision() {
         let bad_spec = LdtkSurfaceSpec {
             iid: "test".into(),
             name: "test".into(),
@@ -2258,34 +2251,13 @@ mod tests {
             err.contains("BreakOnStand requires non-None collision"),
             "{err}"
         );
-
-        // LDtk adapter path: silently promotes collision to Solid so the
-        // breakable is actually standable, preserving the OnStand intent.
-        let entity = make_entity(
-            "Breakable",
-            [32, 32],
-            &[
-                ("collision", Value::String("None".into())),
-                ("trigger", Value::String("OnStand".into())),
-            ],
-        );
-        let spec = parse_surface_spec(
-            &entity,
-            ae::Vec2::ZERO,
-            ae::Vec2::new(32.0, 32.0),
-            "test".into(),
-        )
-        .expect("LDtk-side parse degrades OnStand+None to OnStand+Solid");
-        assert!(matches!(spec.breakability, SurfaceBreakability::BreakOnStand));
-        assert!(matches!(spec.collision, SurfaceCollision::Solid));
-        compile_surface(&spec).expect("degraded spec compiles");
     }
 
     /// `respawn = AfterSeconds` requires a positive `respawn_seconds` field.
     #[test]
-    fn breakable_after_seconds_requires_positive_respawn_seconds() {
+    fn breakable_platform_after_seconds_requires_positive_respawn_seconds() {
         let missing_field = make_entity(
-            "Breakable",
+            "BreakablePlatform",
             [32, 32],
             &[
                 ("collision", Value::String("Solid".into())),
@@ -2297,13 +2269,13 @@ mod tests {
             &missing_field,
             ae::Vec2::ZERO,
             ae::Vec2::new(32.0, 32.0),
-            "test".into(),
+            "p".into(),
         )
         .expect_err("AfterSeconds without respawn_seconds is rejected");
         assert!(err.contains("respawn_seconds"), "{err}");
 
         let zero_seconds = make_entity(
-            "Breakable",
+            "BreakablePlatform",
             [32, 32],
             &[
                 ("collision", Value::String("Solid".into())),
@@ -2316,29 +2288,29 @@ mod tests {
             &zero_seconds,
             ae::Vec2::ZERO,
             ae::Vec2::new(32.0, 32.0),
-            "test".into(),
+            "p".into(),
         )
         .expect_err("respawn_seconds must be positive");
         assert!(err.contains("positive"), "{err}");
     }
 
-    /// Legacy `solid: bool` field is still accepted for instances saved before
-    /// the typed `collision` enum was added.
+    /// `BreakablePogoOrb` lowers to a Breakable with the `pogo_refresh`
+    /// flag set, so the gameplay loop emits a PogoOrb collision-world
+    /// block while intact and routes pogo bounces back as damage.
     #[test]
-    fn legacy_breakable_solid_field_is_still_accepted() {
+    fn breakable_pogo_orb_compiles_with_pogo_flag() {
         let compiled = compile_identifier(
-            "Breakable",
-            [32, 32],
-            &[
-                ("solid", Value::Bool(true)),
-                ("max_hp", Value::Number(serde_json::Number::from(4))),
-                ("trigger", Value::String("OnHit".into())),
-            ],
+            "BreakablePogoOrb",
+            [36, 36],
+            &[("max_hp", Value::Number(serde_json::Number::from(4)))],
         );
+        assert!(compiled.blocks.is_empty());
         assert_eq!(compiled.objects.len(), 1);
         match &compiled.objects[0].kind {
             ae::RoomObjectKind::Breakable(breakable) => {
-                assert_eq!(breakable.collision, ae::BreakableCollision::Solid);
+                assert!(breakable.pogo_refresh);
+                assert_eq!(breakable.collision, ae::BreakableCollision::None);
+                assert_eq!(breakable.trigger, ae::BreakableTrigger::OnHit);
                 assert_eq!(breakable.health.max, 4);
             }
             other => panic!("expected Breakable, got {other:?}"),
@@ -2357,8 +2329,15 @@ mod tests {
             !is_surface_like_identifier("Surface"),
             "Surface must not route through the typed surface conversion path"
         );
-        // Legacy differentiated identifiers DO still route through the
-        // typed conversion path.
+        // The legacy generic `Breakable` is gone; only the narrow types
+        // remain.
+        assert!(!known_entity("Breakable"), "legacy Breakable was removed");
+        assert!(
+            !is_surface_like_identifier("Breakable"),
+            "legacy Breakable parser branch was removed"
+        );
+        // Differentiated identifiers DO still route through the typed
+        // conversion path.
         for id in [
             "Solid",
             "OneWayPlatform",
@@ -2366,7 +2345,8 @@ mod tests {
             "HazardBlock",
             "PogoOrb",
             "ReboundPad",
-            "Breakable",
+            "BreakablePlatform",
+            "BreakablePogoOrb",
         ] {
             assert!(is_surface_like_identifier(id), "{id}");
         }

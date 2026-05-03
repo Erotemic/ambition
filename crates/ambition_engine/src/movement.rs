@@ -371,6 +371,10 @@ pub struct FrameEvents {
     pub blinks: Vec<BlinkEvent>,
     pub reset: bool,
     pub hazard: bool,
+    /// AABBs of pogo-orb-like blocks the player bounced off this frame.
+    /// The sandbox uses this to damage breakable pogo orbs whose runtime
+    /// AABB matches; non-breakable pogo orbs are ignored.
+    pub pogo_hits: Vec<Aabb>,
 }
 
 impl FrameEvents {
@@ -388,6 +392,7 @@ impl FrameEvents {
         self.blinks.extend(other.blinks);
         self.reset |= other.reset;
         self.hazard |= other.hazard;
+        self.pogo_hits.extend(other.pogo_hits);
     }
 }
 
@@ -853,8 +858,9 @@ fn handle_attacks(
     }
     let can_pogo = player.abilities.pogo;
     if input.pogo_pressed && can_pogo {
-        if try_pogo(world, player, tuning) {
+        if let Some(orb_aabb) = try_pogo(world, player, tuning) {
             events.op(player, MovementOp::Pogo);
+            events.pogo_hits.push(orb_aabb);
         } else {
             // Dedicated pogo whiff still gives a tiny correction so it can be
             // tested as a fourth face-button verb without requiring a target.
@@ -862,8 +868,14 @@ fn handle_attacks(
             events.op(player, MovementOp::Slash);
         }
     } else if input.attack_pressed {
-        if can_pogo && input.axis_y > 0.25 && try_pogo(world, player, tuning) {
-            events.op(player, MovementOp::Pogo);
+        if can_pogo && input.axis_y > 0.25 {
+            if let Some(orb_aabb) = try_pogo(world, player, tuning) {
+                events.op(player, MovementOp::Pogo);
+                events.pogo_hits.push(orb_aabb);
+            } else {
+                player.vel.x -= player.facing * tuning.slash_recoil;
+                events.op(player, MovementOp::Slash);
+            }
         } else {
             // A small generated recoil/correction action. It exists to test
             // cancellability and non-commutative feel.
@@ -1282,13 +1294,19 @@ fn resolve_vertical(world: &World, player: &mut Player, prev_bottom: f32, drop_t
     }
 }
 
-fn try_pogo(world: &World, player: &mut Player, tuning: MovementTuning) -> bool {
+/// Attempt a pogo bounce. Returns the AABB of the orb-like block that was
+/// hit (for the sandbox to route damage to a breakable pogo orb), or `None`
+/// if no valid target was under the player's feet. Non-PogoOrb hits return
+/// the AABB too so callers don't need to second-guess the kind, but the
+/// sandbox damage path filters for orbs by matching against breakables
+/// flagged `pogo_refresh`.
+fn try_pogo(world: &World, player: &mut Player, tuning: MovementTuning) -> Option<Aabb> {
     let feet = player.aabb();
     let hitbox = Aabb::new(
         Vec2::new(feet.center().x, feet.bottom() + 18.0),
         Vec2::new(feet.half_size().x * 0.76, 22.0),
     );
-    let hit = world.blocks.iter().any(|block| {
+    let hit = world.blocks.iter().find(|block| {
         let valid_target = matches!(
             block.kind,
             BlockKind::PogoOrb
@@ -1298,12 +1316,15 @@ fn try_pogo(world: &World, player: &mut Player, tuning: MovementTuning) -> bool 
         );
         valid_target && hitbox.strict_intersects(block.aabb)
     });
-    if hit {
+    if let Some(block) = hit {
+        let aabb = block.aabb;
         player.vel.y = -tuning.pogo_speed;
         player.refresh_movement_resources(tuning);
         player.on_ground = false;
+        Some(aabb)
+    } else {
+        None
     }
-    hit
 }
 
 fn touching_hazard(world: &World, player: &Player) -> bool {
@@ -1976,5 +1997,42 @@ mod tests {
             player.vel.y < 0.0,
             "flying upward input should accelerate upward"
         );
+    }
+
+    /// A successful pogo bounce records the orb's AABB on `FrameEvents`,
+    /// so the sandbox can route damage to a matching breakable pogo orb.
+    #[test]
+    fn pogo_bounce_records_orb_aabb_on_frame_events() {
+        let mut world = test_world();
+        let orb_center = Vec2::new(700.0, 600.0);
+        world.blocks.push(Block::pogo_orb("orb", orb_center, 18.0));
+
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        // Place the player just above the orb so a downward pogo press hits it.
+        player.pos = Vec2::new(orb_center.x, orb_center.y - 24.0);
+        player.vel = Vec2::ZERO;
+        player.on_ground = false;
+
+        let events = update_player_control_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                pogo_pressed: true,
+                control_dt: 1.0 / 60.0,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+        assert!(
+            events.operations.contains(&MovementOp::Pogo),
+            "expected MovementOp::Pogo to fire, got {:?}",
+            events.operations
+        );
+        assert_eq!(events.pogo_hits.len(), 1, "{:?}", events.pogo_hits);
+        let hit = events.pogo_hits[0];
+        let dx = (hit.center().x - orb_center.x).abs();
+        let dy = (hit.center().y - orb_center.y).abs();
+        assert!(dx < 1.0 && dy < 1.0, "pogo_hit center {:?} != orb {:?}", hit.center(), orb_center);
     }
 }

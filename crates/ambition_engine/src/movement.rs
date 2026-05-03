@@ -1165,14 +1165,6 @@ fn sweep_player_x(world: &World, player: &mut Player, delta_x: f32) {
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         player.pos.x += delta.x * toi_fraction;
         let body = player.aabb();
-        // When the swept hit is a pre-existing overlap (ToI=0) AND the
-        // overlap is dominantly vertical, the contact is the perpendicular
-        // axis — typical case is feet/head poking into a wide floor or
-        // ceiling block. The horizontal snap path would push the player
-        // toward the block's near edge, which for a room-spanning floor
-        // lives off the opposite side of the room and teleports the
-        // player out of bounds. Skip the snap and finish the requested
-        // motion; `resolve_vertical` (next axis) handles the contact.
         let immediate_contact = hit.time_of_impact <= 1.0e-5;
         let overlap_x = (body.right().min(hit.block.aabb.right())
             - body.left().max(hit.block.aabb.left()))
@@ -1180,16 +1172,38 @@ fn sweep_player_x(world: &World, player: &mut Player, delta_x: f32) {
         let overlap_y = (body.bottom().min(hit.block.aabb.bottom())
             - body.top().max(hit.block.aabb.top()))
         .max(0.0);
+        // Skip the horizontal snap in two failure-mode cases:
+        // 1. The contact is dominantly *vertical* (player's head poking
+        //    into a wide ceiling, or feet poking into a wide floor). The
+        //    perpendicular `resolve_vertical` pass owns this contact;
+        //    pushing horizontally toward the block's far edge would
+        //    catapult the player across the entire room.
+        // 2. The contact is dominantly horizontal but the player is
+        //    *already moving away* from the block (e.g. wall-jump pushed
+        //    them off a wall they were sub-pixel-penetrating). The
+        //    delta-direction snap logic uses delta.x sign to pick a face;
+        //    when the player is on the far side from where delta.x points
+        //    that pick is wrong and pushes them through the block.
         let vertical_dominant = immediate_contact && overlap_y > 0.0 && overlap_x > overlap_y;
-        if vertical_dominant {
+        let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
+        let moving_away_from_block = (body_to_right_of_block && delta.x > 0.0)
+            || (!body_to_right_of_block && delta.x < 0.0);
+        let horizontal_overlap_moving_away =
+            immediate_contact && overlap_x > 0.0 && moving_away_from_block;
+        if vertical_dominant || horizontal_overlap_moving_away {
             player.pos.x += delta.x * (1.0 - toi_fraction);
         } else {
-            if delta.x > 0.0 {
-                player.pos.x += hit.block.aabb.left() - body.right();
-                player.wall_normal_x = -1.0;
-            } else {
+            // Pick the snap face from the player's *position relative to
+            // the block*, not from delta.x sign. The two only agree when
+            // the player is approaching from the side delta.x implies;
+            // for a pre-existing overlap they can disagree, which is the
+            // tunneling failure mode addressed above.
+            if body_to_right_of_block {
                 player.pos.x += hit.block.aabb.right() - body.left();
                 player.wall_normal_x = 1.0;
+            } else {
+                player.pos.x += hit.block.aabb.left() - body.right();
+                player.wall_normal_x = -1.0;
             }
             player.vel.x = 0.0;
             player.on_wall = true;
@@ -2136,6 +2150,57 @@ mod tests {
         assert!(
             player.pos.x - body.half_size().x >= 0.0,
             "wall jump punched the player through the left wall (body left = {})",
+            player.pos.x - body.half_size().x,
+        );
+    }
+
+    /// Closer match to the actual reported bug: the player has a tiny
+    /// residual penetration into the left wall (sub-pixel rounding from
+    /// the previous frame's snap) and is moving away from it on
+    /// wall-jump. The horizontal sweep finds the wall at ToI=0; the snap
+    /// uses delta direction (+x → "block is to my right") and pushes the
+    /// player through the wall by `wall.left() - body.right() = -63`.
+    #[test]
+    fn wall_jump_does_not_catapult_player_off_wall_overlap() {
+        let world = test_world();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        let body = player.aabb();
+        let left_wall_right = 36.0;
+        // Body penetrates wall by 1 px on the x-axis, mid-height of the
+        // room (no floor/ceiling overlap to confuse the issue).
+        player.pos.x = left_wall_right + body.half_size().x - 1.0;
+        player.pos.y = world.size.y * 0.5;
+        player.vel = Vec2::new(500.0, -650.0); // wall-jump initial velocities
+        player.on_ground = false;
+        player.on_wall = false;
+        player.wall_normal_x = 0.0;
+
+        let initial_x = player.pos.x;
+        let _ = update_player_simulation_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                axis_x: -1.0,
+                control_dt: 1.0 / 60.0,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+
+        // After one frame the player should be sitting at body.left ≈
+        // wall.right (the wall snap aligns them), or at most a few pixels
+        // to the right (motion delta). They must not be teleported by
+        // tens of pixels in any direction.
+        let dx = (player.pos.x - initial_x).abs();
+        assert!(
+            dx < 30.0,
+            "wall overlap caused horizontal teleport: dx={dx}, pos.x went from {initial_x} to {}",
+            player.pos.x,
+        );
+        assert!(
+            player.pos.x - body.half_size().x >= 0.0 - 0.5,
+            "player was punched through the left wall: body left = {}",
             player.pos.x - body.half_size().x,
         );
     }

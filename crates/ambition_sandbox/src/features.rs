@@ -1339,7 +1339,15 @@ pub fn world_with_sandbox_solids(
         }
         let kind = match breakable.breakable.collision {
             ae::BreakableCollision::None => continue,
-            ae::BreakableCollision::Solid => ae::BlockKind::Solid,
+            // Solid breakables behave like a hard blink wall for blink
+            // pathing: identical to BlockKind::Solid for ordinary movement
+            // (BlinkWall is solid on both axes), but max-tier blink with
+            // `blink_through_hard_walls` can teleport through. Lower-tier
+            // blink is still blocked, so the breakable still gates progress
+            // until the player either earns the upgrade or breaks it.
+            ae::BreakableCollision::Solid => {
+                ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard }
+            }
             ae::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
         };
         collision_world.blocks.push(ae::Block {

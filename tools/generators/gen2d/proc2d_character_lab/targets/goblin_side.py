@@ -1,44 +1,28 @@
 from __future__ import annotations
 
-"""Cute side-view goblin target for side-scrolling games."""
+"""Opaque right-facing green goblin target for side-scrolling games.
+
+The ``blink`` row is Ambition's short-range teleport / precision-blink ability,
+not an eyelid blink.  The goblin remains fully opaque inside the character
+silhouette; translucent pixels are reserved for outer antialiasing and FX.
+
+For this right-facing target, the far arm is drawn behind the body and the near
+weapon arm is drawn in front.  The head is drawn as a rigid local layer and then
+rotated as one unit, so ears, snout, eye, mouth, and teeth do not shear apart.
+"""
 
 import math
 import random
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, Optional, Tuple
 
-from PIL import Image, ImageChops, ImageColor, ImageDraw, ImageFilter
+from PIL import Image, ImageColor, ImageDraw
 
-try:
-    RESAMPLING = Image.Resampling
-except AttributeError:  # pragma: no cover
-    RESAMPLING = Image
+from .common_draw import RESAMPLING, draw_capsule, draw_rotated_ellipse, draw_rotated_rounded_rect
+from ..rig import add, clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep, vec
 
 Color = Tuple[int, int, int, int]
 Point = Tuple[float, float]
-
-
-def clamp(v: float, lo: float, hi: float) -> float:
-    return max(lo, min(hi, v))
-
-
-def lerp(a: float, b: float, t: float) -> float:
-    return a + (b - a) * t
-
-
-def smoothstep(t: float) -> float:
-    t = clamp(t, 0.0, 1.0)
-    return t * t * (3.0 - 2.0 * t)
-
-
-def ease_in_out_sine(t: float) -> float:
-    t = clamp(t, 0.0, 1.0)
-    return -(math.cos(math.pi * t) - 1.0) / 2.0
-
-
-def ease_out_cubic(t: float) -> float:
-    t = clamp(t, 0.0, 1.0)
-    return 1.0 - (1.0 - t) ** 3
 
 
 def rgba(value: str, alpha: int = 255) -> Color:
@@ -46,71 +30,24 @@ def rgba(value: str, alpha: int = 255) -> Color:
     return (r, g, b, alpha)
 
 
-def lighten(color: Color, amount: float) -> Color:
-    r, g, b, a = color
-    return (
-        int(lerp(r, 255, amount)),
-        int(lerp(g, 255, amount)),
-        int(lerp(b, 255, amount)),
-        a,
-    )
-
-
-def darken(color: Color, amount: float) -> Color:
-    r, g, b, a = color
-    return (int(r * (1 - amount)), int(g * (1 - amount)), int(b * (1 - amount)), a)
-
-
 def with_alpha(color: Color, alpha: int) -> Color:
     return (color[0], color[1], color[2], alpha)
 
 
 def parse_background(value: str) -> Optional[Color]:
-    return None if value.lower() == "transparent" else rgba(value)
+    return None if str(value).lower() == "transparent" else rgba(str(value))
 
 
-def add(a: Point, b: Point) -> Point:
-    return (a[0] + b[0], a[1] + b[1])
-
-
-def vec(length: float, degrees: float) -> Point:
-    a = math.radians(degrees)
-    return (math.cos(a) * length, math.sin(a) * length)
-
-
-def interp(a: Point, b: Point, t: float) -> Point:
-    return (lerp(a[0], b[0], t), lerp(a[1], b[1], t))
-
-
-def bbox_from_center(center: Point, w: float, h: float) -> Tuple[float, float, float, float]:
+def _bbox(center: Point, w: float, h: float) -> Tuple[float, float, float, float]:
     return (center[0] - w / 2.0, center[1] - h / 2.0, center[0] + w / 2.0, center[1] + h / 2.0)
 
 
-def solidify_layer_alpha(layer: Image.Image, opaque_mask: Image.Image) -> None:
-    layer.putalpha(ImageChops.lighter(layer.getchannel("A"), opaque_mask))
+def _paste_rotated_local(base: Image.Image, layer: Image.Image, center: Point, angle: float) -> None:
+    rotated = layer.rotate(angle, resample=RESAMPLING.BICUBIC, expand=True)
+    base.alpha_composite(rotated, (int(center[0] - rotated.width / 2), int(center[1] - rotated.height / 2)))
 
 
-@dataclass
-class GoblinPalette:
-    skin: Color
-    skin_top: Color
-    skin_shadow: Color
-    belly: Color
-    belly_shadow: Color
-    cloth: Color
-    cloth_dark: Color
-    eye: Color
-    eye_glow: Color
-    outline: Color
-    mouth: Color
-    tooth: Color
-    weapon: Color
-    weapon_dark: Color
-    metal: Color
-    shadow: Color
-
-
-@dataclass
+@dataclass(frozen=True)
 class GoblinSpec:
     target: str
     seed: int
@@ -144,19 +81,20 @@ class GoblinPose:
     body_tilt: float = 0.0
     head_tilt: float = 0.0
     crouch: float = 0.0
-    far_arm_upper: float = 125.0
-    far_arm_lower: float = 145.0
-    near_arm_upper: float = 30.0
+    far_arm_upper: float = 136.0
+    far_arm_lower: float = 152.0
+    near_arm_upper: float = 28.0
     near_arm_lower: float = 18.0
-    far_leg_upper: float = 88.0
+    far_leg_upper: float = 92.0
     far_leg_lower: float = 98.0
-    near_leg_upper: float = 60.0
+    near_leg_upper: float = 62.0
     near_leg_lower: float = 82.0
     blink: bool = False
     eye_squint: float = 0.0
     slash: float = 0.0
     slash_arc: float = 0.0
     recoil: float = 0.0
+    dash: float = 0.0
     collapse: float = 0.0
     dead: bool = False
 
@@ -173,68 +111,51 @@ class SideGoblinGenerator:
         "slash": {"frames": 7, "duration_ms": 75},
         "hit": {"frames": 5, "duration_ms": 90},
         "death": {"frames": 8, "duration_ms": 110},
+        # Ambition blink ability: teleport/precision-blink effect, not eyelids.
+        "blink": {"frames": 8, "duration_ms": 62},
+        "dash": {"frames": 6, "duration_ms": 65},
     }
 
-    PALETTES: Dict[str, GoblinPalette] = {
-        "classic": GoblinPalette(
-            skin=rgba("#6FAE4A"),
-            skin_top=rgba("#A6D872"),
-            skin_shadow=rgba("#3E6B29"),
-            belly=rgba("#8BC061"),
-            belly_shadow=rgba("#5B8C3E"),
-            cloth=rgba("#6B2B9E"),
-            cloth_dark=rgba("#4A1D6F"),
-            eye=rgba("#F04DFF"),
-            eye_glow=rgba("#FFAEFF"),
-            outline=rgba("#141518"),
-            mouth=rgba("#2A1C14"),
-            tooth=rgba("#F4ECD8"),
-            weapon=rgba("#A963F8"),
-            weapon_dark=rgba("#6A2CC1"),
-            metal=rgba("#E2E3EC"),
-            shadow=rgba("#000000", 34),
-        ),
-        "forest": GoblinPalette(
-            skin=rgba("#5B8E49"),
-            skin_top=rgba("#8FC06B"),
-            skin_shadow=rgba("#35542A"),
-            belly=rgba("#72A55A"),
-            belly_shadow=rgba("#4E7640"),
-            cloth=rgba("#6B2B9E"),
-            cloth_dark=rgba("#4A1D6F"),
-            eye=rgba("#EF4CFF"),
-            eye_glow=rgba("#F39BFF"),
-            outline=rgba("#141518"),
-            mouth=rgba("#221C23"),
-            tooth=rgba("#F2ECDD"),
-            weapon=rgba("#B069FF"),
-            weapon_dark=rgba("#6A2CC1"),
-            metal=rgba("#DDD7EA"),
-            shadow=rgba("#000000", 34),
-        ),
-        "void": GoblinPalette(
-            skin=rgba("#45404D"),
-            skin_top=rgba("#686074"),
-            skin_shadow=rgba("#2E2B35"),
-            belly=rgba("#544E61"),
-            belly_shadow=rgba("#3F3B48"),
-            cloth=rgba("#7D2BA6"),
-            cloth_dark=rgba("#5D1E7D"),
-            eye=rgba("#EC42FF"),
-            eye_glow=rgba("#F078FF"),
-            outline=rgba("#16141A"),
-            mouth=rgba("#251B28"),
-            tooth=rgba("#F5F0E8"),
-            weapon=rgba("#A55AF7"),
-            weapon_dark=rgba("#6D2AB5"),
-            metal=rgba("#DAD8E5"),
-            shadow=rgba("#000000", 34),
-        ),
+    PALETTES = {
+        "classic": {
+            "skin": rgba("#67A84B"),
+            "skin_top": rgba("#96D46B"),
+            "skin_shadow": rgba("#3D6C2B"),
+            "belly": rgba("#83BD5D"),
+            "cloth": rgba("#6D2BA0"),
+            "cloth_dark": rgba("#4B1E72"),
+            "eye": rgba("#F24DFF"),
+            "eye_glow": rgba("#FFD0FF"),
+            "outline": rgba("#15171B"),
+            "mouth": rgba("#2A1B18"),
+            "tooth": rgba("#F4EBD5"),
+            "weapon": rgba("#A963F8"),
+            "weapon_dark": rgba("#6A2CC1"),
+            "metal": rgba("#E2E4EA"),
+            "shadow": rgba("#000000", 34),
+        },
+        "forest": {
+            "skin": rgba("#5C9248"),
+            "skin_top": rgba("#8CC66B"),
+            "skin_shadow": rgba("#345B2A"),
+            "belly": rgba("#74AA58"),
+            "cloth": rgba("#6D2BA0"),
+            "cloth_dark": rgba("#4B1E72"),
+            "eye": rgba("#EF52FF"),
+            "eye_glow": rgba("#F6BCFF"),
+            "outline": rgba("#15171B"),
+            "mouth": rgba("#261D22"),
+            "tooth": rgba("#F4EBD5"),
+            "weapon": rgba("#B169FF"),
+            "weapon_dark": rgba("#6A2CC1"),
+            "metal": rgba("#DADCE4"),
+            "shadow": rgba("#000000", 34),
+        },
     }
 
     def sample_spec(self, seed: int, archetype: str = "default", held_item: Optional[str] = None) -> GoblinSpec:
         rng = random.Random(seed)
-        palette_name = "classic" if archetype == "default" else rng.choice(list(self.PALETTES.keys()))
+        palette_name = "classic" if archetype == "default" else "forest"
         if held_item is None:
             held_item = rng.choice(["dagger", "spear", "sword"])
         return GoblinSpec(
@@ -243,22 +164,22 @@ class SideGoblinGenerator:
             archetype=archetype,
             held_item=held_item,
             palette_name=palette_name,
-            head_w=rng.uniform(28.0, 32.0),
-            head_h=rng.uniform(23.0, 26.0),
-            snout_len=rng.uniform(6.5, 8.0),
-            ear_w=rng.uniform(14.0, 17.0),
-            ear_h=rng.uniform(10.0, 13.0),
-            body_w=rng.uniform(20.0, 23.0),
-            body_h=rng.uniform(17.0, 20.0),
-            arm_upper=rng.uniform(11.0, 13.0),
-            arm_lower=rng.uniform(10.0, 12.0),
+            head_w=rng.uniform(29.0, 32.0),
+            head_h=rng.uniform(23.5, 26.0),
+            snout_len=rng.uniform(7.0, 8.5),
+            ear_w=rng.uniform(15.0, 17.0),
+            ear_h=rng.uniform(11.0, 13.0),
+            body_w=rng.uniform(21.0, 23.0),
+            body_h=rng.uniform(18.0, 20.0),
+            arm_upper=rng.uniform(11.5, 13.0),
+            arm_lower=rng.uniform(10.5, 12.0),
             leg_upper=rng.uniform(11.0, 13.0),
-            leg_lower=rng.uniform(10.0, 12.0),
-            hand_r=rng.uniform(3.0, 3.8),
-            foot_w=rng.uniform(10.0, 12.0),
-            foot_h=rng.uniform(4.6, 5.6),
-            eye_w=rng.uniform(4.4, 5.4),
-            eye_h=rng.uniform(7.0, 8.8),
+            leg_lower=rng.uniform(10.5, 12.0),
+            hand_r=rng.uniform(3.2, 3.8),
+            foot_w=rng.uniform(10.5, 12.0),
+            foot_h=rng.uniform(4.8, 5.6),
+            eye_w=rng.uniform(4.5, 5.4),
+            eye_h=rng.uniform(7.2, 8.8),
             tooth_size=rng.uniform(2.4, 3.2),
         )
 
@@ -266,18 +187,31 @@ class SideGoblinGenerator:
         p = GoblinPose()
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
         wave = math.sin(t * math.tau)
-
         if animation == "idle":
             bob = abs(wave)
             p.body_bob = bob * 1.2
             p.body_tilt = -2.0 + wave * 1.2
             p.head_tilt = -3.0 + bob * 1.0
-            p.far_arm_upper = 136 + wave * 3
-            p.far_arm_lower = 152 + wave * 2
-            p.near_arm_upper = 28 - wave * 3
-            p.near_arm_lower = 18 - wave * 2
             p.blink = frame_index == frame_count // 2
             p.eye_squint = 0.10 if frame_index in {1, frame_count - 2} else 0.0
+        elif animation == "blink":
+            charge = 1.0 - smoothstep(clamp(t / 0.34, 0.0, 1.0))
+            arrive = smoothstep(clamp((t - 0.38) / 0.42, 0.0, 1.0))
+            pulse = math.sin(t * math.pi)
+            p.root_x = lerp(-3.5, 4.0, arrive) - 2.0 * charge
+            p.root_y = -1.0 * pulse
+            p.body_bob = 0.2 * pulse
+            p.body_tilt = -13.0 * charge + 7.0 * arrive
+            p.head_tilt = -8.0 * charge + 3.0 * arrive
+            p.far_arm_upper = 150 + 20 * charge + 10 * arrive
+            p.far_arm_lower = 158 + 18 * charge
+            p.near_arm_upper = 12 - 8 * charge + 24 * arrive
+            p.near_arm_lower = 8 - 6 * charge + 15 * arrive
+            p.far_leg_upper = 96 + 28 * pulse
+            p.far_leg_lower = 98 + 15 * pulse
+            p.near_leg_upper = 60 + 22 * pulse
+            p.near_leg_lower = 82 + 13 * pulse
+            p.eye_squint = 0.24 + 0.18 * pulse
         elif animation in {"walk", "run"}:
             stride = math.sin(t * math.tau)
             bounce = (1.0 - math.cos(t * math.tau * 2.0)) * 0.5
@@ -291,7 +225,7 @@ class SideGoblinGenerator:
             p.far_arm_lower = 152 + stride * (arm_amp * 0.6)
             p.near_arm_upper = 24 - stride * arm_amp
             p.near_arm_lower = 18 - stride * (arm_amp * 0.6)
-            p.far_leg_upper = 88 + stride * amp
+            p.far_leg_upper = 90 + stride * amp
             p.far_leg_lower = 96 - max(0.0, stride) * 18 + max(0.0, -stride) * 8
             p.near_leg_upper = 60 - stride * amp
             p.near_leg_lower = 82 - max(0.0, -stride) * 18 + max(0.0, stride) * 8
@@ -358,187 +292,208 @@ class SideGoblinGenerator:
             p.near_leg_lower = 96
             p.recoil = j
             p.eye_squint = 0.45
+        elif animation == "dash":
+            surge = ease_in_out_sine(t)
+            p.root_x = 5.5 + surge * 3.0
+            p.body_tilt = -17.0 + wave * 1.0
+            p.head_tilt = -8.0
+            p.far_arm_upper = 166 + wave * 2
+            p.far_arm_lower = 160 + wave * 2
+            p.near_arm_upper = 152 + wave * 2
+            p.near_arm_lower = 148 + wave * 2
+            p.far_leg_upper = 144 + wave * 2
+            p.far_leg_lower = 148 + wave * 2
+            p.near_leg_upper = 126 + wave * 2
+            p.near_leg_lower = 132 + wave * 2
+            p.dash = 1.0
+            p.eye_squint = 0.32
         elif animation == "death":
             fall = ease_out_cubic(t)
-            p.root_x = lerp(0.0, -10.0, fall)
-            p.root_y = lerp(0.0, 14.0, fall)
-            p.body_tilt = lerp(0.0, 64.0, fall)
-            p.head_tilt = lerp(0.0, 42.0, fall)
-            p.far_arm_upper = lerp(145.0, 210.0, fall)
-            p.far_arm_lower = lerp(156.0, 236.0, fall)
-            p.near_arm_upper = lerp(28.0, 84.0, fall)
-            p.near_arm_lower = lerp(18.0, 112.0, fall)
-            p.far_leg_upper = lerp(88.0, 146.0, fall)
-            p.far_leg_lower = lerp(98.0, 162.0, fall)
-            p.near_leg_upper = lerp(60.0, 108.0, fall)
-            p.near_leg_lower = lerp(82.0, 136.0, fall)
+            p.root_x = lerp(0.0, -5.0, fall)
+            p.root_y = lerp(0.0, 4.0, fall)
+            p.body_tilt = lerp(0.0, 74.0, fall)
+            p.head_tilt = lerp(0.0, 58.0, fall)
+            p.far_arm_upper = lerp(140.0, 206.0, fall)
+            p.far_arm_lower = lerp(152.0, 232.0, fall)
+            p.near_arm_upper = lerp(28.0, 92.0, fall)
+            p.near_arm_lower = lerp(18.0, 118.0, fall)
+            p.far_leg_upper = lerp(90.0, 150.0, fall)
+            p.far_leg_lower = lerp(96.0, 166.0, fall)
+            p.near_leg_upper = lerp(60.0, 110.0, fall)
+            p.near_leg_lower = lerp(82.0, 142.0, fall)
             p.collapse = fall
             p.dead = True
-            p.eye_squint = 0.6
+            p.eye_squint = 0.60
         return p
 
-    def _draw_capsule(self, draw: ImageDraw.ImageDraw, a: Point, b: Point, radius: float, fill: Color, outline: Color, outline_w: int) -> None:
-        draw.line([a, b], fill=outline, width=max(1, int(radius * 2 + outline_w * 2)))
-        draw.line([a, b], fill=fill, width=max(1, int(radius * 2)))
-        for c in [a, b]:
-            box = bbox_from_center(c, radius * 2 + outline_w * 2, radius * 2 + outline_w * 2)
-            draw.ellipse(box, fill=outline)
-            box = bbox_from_center(c, radius * 2, radius * 2)
-            draw.ellipse(box, fill=fill)
-
-    def _draw_foot(self, img: Image.Image, ankle: Point, w: float, h: float, fill: Color, outline: Color, outline_w: int) -> None:
+    def _draw_body(self, img: Image.Image, center: Point, spec: GoblinSpec, pal: Dict[str, Color], S: float, angle: float) -> None:
+        outline = pal["outline"]
+        draw_rotated_ellipse(img, center, (spec.body_w * S, spec.body_h * S), angle, pal["skin"], outline, 1.7 * S)
+        draw_rotated_ellipse(img, (center[0] + 2 * S, center[1] + 2 * S), (spec.body_w * 0.58 * S, spec.body_h * 0.60 * S), angle, pal["belly"], None, 0)
+        # Opaque cloth silhouette over body.
         layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(layer)
-        opaque_mask = Image.new("L", img.size, 0)
-        mdraw = ImageDraw.Draw(opaque_mask)
-        center = (ankle[0] + w * 0.30, ankle[1] + h * 0.15)
-        outer_box = bbox_from_center(center, w + outline_w * 2, h + outline_w * 2)
-        inner_box = bbox_from_center(center, w, h)
-        draw.rounded_rectangle(outer_box, radius=h * 0.6, fill=outline)
-        draw.rounded_rectangle(inner_box, radius=h * 0.6, fill=fill)
-        mdraw.rounded_rectangle(outer_box, radius=h * 0.6, fill=255)
-        shine = bbox_from_center((center[0] - w * 0.12, center[1] - h * 0.10), w * 0.45, h * 0.38)
-        draw.ellipse(shine, fill=with_alpha(lighten(fill, 0.15), 150))
-        solidify_layer_alpha(layer, opaque_mask)
+        d = ImageDraw.Draw(layer)
+        x, y = center
+        cloth = [(x - 8 * S, y + 7 * S), (x + 8 * S, y + 7 * S), (x + 11 * S, y + 15 * S), (x - 6 * S, y + 13 * S)]
+        d.polygon(cloth, fill=pal["cloth"], outline=outline)
+        d.line([cloth[0], cloth[2]], fill=pal["cloth_dark"], width=max(1, int(1.2 * S)))
         img.alpha_composite(layer)
 
-    def _draw_body(self, img: Image.Image, center: Point, spec: GoblinSpec, pal: GoblinPalette, px: float) -> None:
-        layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(layer)
-        opaque_mask = Image.new("L", img.size, 0)
-        mdraw = ImageDraw.Draw(opaque_mask)
-        outline_w = max(1, int(px * 0.20))
-        body_box = bbox_from_center(center, spec.body_w * px, spec.body_h * px)
-        outer_body_box = (body_box[0] - outline_w, body_box[1] - outline_w, body_box[2] + outline_w, body_box[3] + outline_w)
-        outer_radius = spec.body_h * px * 0.38
-        inner_radius = spec.body_h * px * 0.38
-        draw.rounded_rectangle(outer_body_box, radius=outer_radius, fill=pal.outline)
-        draw.rounded_rectangle(body_box, radius=inner_radius, fill=pal.skin)
-        mdraw.rounded_rectangle(outer_body_box, radius=outer_radius, fill=255)
-        belly_box = (body_box[0] + spec.body_w * px * 0.08, body_box[1] + spec.body_h * px * 0.22, body_box[2] - spec.body_w * px * 0.22, body_box[3] - spec.body_h * px * 0.10)
-        draw.rounded_rectangle(belly_box, radius=spec.body_h * px * 0.26, fill=pal.belly)
-        highlight = (body_box[0] + spec.body_w * px * 0.02, body_box[1] + spec.body_h * px * 0.02, body_box[2] - spec.body_w * px * 0.14, body_box[1] + spec.body_h * px * 0.42)
-        draw.rounded_rectangle(highlight, radius=spec.body_h * px * 0.20, fill=with_alpha(pal.skin_top, 170))
-        shadow = (body_box[0] + spec.body_w * px * 0.16, body_box[1] + spec.body_h * px * 0.48, body_box[2] - spec.body_w * px * 0.04, body_box[3] - spec.body_h * px * 0.04)
-        draw.rounded_rectangle(shadow, radius=spec.body_h * px * 0.18, fill=with_alpha(pal.belly_shadow, 155))
-        cloth = [
-            (center[0] - spec.body_w * px * 0.16, body_box[3] - spec.body_h * px * 0.02),
-            (center[0] + spec.body_w * px * 0.06, body_box[3] - spec.body_h * px * 0.02),
-            (center[0] + spec.body_w * px * 0.20, body_box[3] + spec.body_h * px * 0.28),
-            (center[0] - spec.body_w * px * 0.06, body_box[3] + spec.body_h * px * 0.18),
-        ]
-        draw.polygon(cloth, fill=pal.cloth, outline=pal.outline)
-        draw.line([cloth[0], cloth[2]], fill=pal.cloth_dark, width=max(1, int(px * 0.40)))
-        mdraw.polygon(cloth, fill=255)
-        solidify_layer_alpha(layer, opaque_mask)
-        img.alpha_composite(layer)
-
-    def _draw_head(self, img: Image.Image, center: Point, spec: GoblinSpec, pal: GoblinPalette, px: float, blink: bool, squint: float, dead: bool) -> Point:
-        layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(layer)
-        opaque_mask = Image.new("L", img.size, 0)
-        mdraw = ImageDraw.Draw(opaque_mask)
-        outline_w = max(1, int(px * 0.20))
-        head_box = bbox_from_center(center, spec.head_w * px, spec.head_h * px)
-        outer_head_box = (head_box[0] - outline_w, head_box[1] - outline_w, head_box[2] + outline_w, head_box[3] + outline_w)
-        # far ear
-        far_ear = [
-            (center[0] - spec.head_w * px * 0.18, center[1] - spec.head_h * px * 0.18),
-            (center[0] - spec.head_w * px * 0.62, center[1] - spec.ear_h * px * 0.25),
-            (center[0] - spec.head_w * px * 0.22, center[1] + spec.ear_h * px * 0.02),
-        ]
-        draw.polygon(far_ear, fill=darken(pal.skin_shadow, 0.08), outline=pal.outline)
-        mdraw.polygon(far_ear, fill=255)
-        # head
-        draw.ellipse(outer_head_box, fill=pal.outline)
-        draw.ellipse(head_box, fill=pal.skin)
-        mdraw.ellipse(outer_head_box, fill=255)
-        head_hi = (head_box[0] + spec.head_w * px * 0.04, head_box[1] + spec.head_h * px * 0.02, head_box[2] - spec.head_w * px * 0.18, head_box[1] + spec.head_h * px * 0.46)
-        draw.ellipse(head_hi, fill=with_alpha(pal.skin_top, 180))
-        head_shadow = (head_box[0] + spec.head_w * px * 0.10, head_box[1] + spec.head_h * px * 0.42, head_box[2] - spec.head_w * px * 0.02, head_box[3] - spec.head_h * px * 0.04)
-        draw.ellipse(head_shadow, fill=with_alpha(pal.skin_shadow, 150))
-        # snout / muzzle
-        snout_center = (center[0] + spec.head_w * px * 0.44, center[1] + spec.head_h * px * 0.10)
-        snout_box = bbox_from_center(snout_center, spec.snout_len * px * 1.5, spec.head_h * px * 0.34)
-        outer_snout_box = (snout_box[0] - outline_w, snout_box[1] - outline_w, snout_box[2] + outline_w, snout_box[3] + outline_w)
-        draw.ellipse(outer_snout_box, fill=pal.outline)
-        draw.ellipse(snout_box, fill=darken(pal.skin, 0.08))
-        mdraw.ellipse(outer_snout_box, fill=255)
-        # near ear
-        near_ear = [
-            (center[0] - spec.head_w * px * 0.05, center[1] - spec.head_h * px * 0.20),
-            (center[0] - spec.head_w * px * 0.80, center[1] - spec.ear_h * px * 0.34),
-            (center[0] - spec.head_w * px * 0.14, center[1] + spec.ear_h * px * 0.02),
-        ]
-        inner_ear = [interp(near_ear[0], near_ear[1], 0.56), interp(near_ear[1], near_ear[2], 0.40), interp(near_ear[2], near_ear[0], 0.34)]
-        draw.polygon(near_ear, fill=pal.skin_shadow, outline=pal.outline)
-        draw.polygon(inner_ear, fill=with_alpha(pal.cloth, 110), outline=with_alpha(pal.outline, 0))
-        mdraw.polygon(near_ear, fill=255)
-        # eye
-        eye_center = (center[0] + spec.head_w * px * 0.18, center[1] - spec.head_h * px * 0.02)
-        eye_h = spec.eye_h * px * (0.20 if blink else 1.0 - 0.5 * squint)
-        eye_box = bbox_from_center(eye_center, spec.eye_w * px, max(px * 0.6, eye_h))
+    def _draw_rigid_head(self, img: Image.Image, center: Point, spec: GoblinSpec, pal: Dict[str, Color], S: float, angle: float, blink: bool, squint: float, dead: bool) -> Point:
+        pad = int(math.ceil(54 * S))
+        layer = Image.new("RGBA", (pad * 2, pad * 2), (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        cx, cy = float(pad), float(pad)
+        outline = pal["outline"]
+        ow = 1.8 * S
+        # Ears point backward (left), while snout/eye face right.
+        far_ear = [(cx - 9 * S, cy - 5 * S), (cx - 29 * S, cy - 10 * S), (cx - 12 * S, cy + 4 * S)]
+        near_ear = [(cx - 3 * S, cy - 7 * S), (cx - 31 * S, cy - 13 * S), (cx - 10 * S, cy + 5 * S)]
+        d.polygon(far_ear, fill=pal["skin_shadow"], outline=outline)
+        # Head ellipse with opaque fill.
+        head_outer = _bbox((cx, cy), spec.head_w * S + 2 * ow, spec.head_h * S + 2 * ow)
+        head_inner = _bbox((cx, cy), spec.head_w * S, spec.head_h * S)
+        d.ellipse(head_outer, fill=outline)
+        d.ellipse(head_inner, fill=pal["skin"])
+        d.polygon(near_ear, fill=pal["skin"], outline=outline)
+        d.polygon([(cx - 15 * S, cy - 9 * S), (cx - 25 * S, cy - 10 * S), (cx - 13 * S, cy + 1 * S)], fill=pal["cloth"])
+        # Snout.
+        snout_center = (cx + spec.head_w * 0.42 * S, cy + 2.5 * S)
+        snout_outer = _bbox(snout_center, spec.snout_len * 1.65 * S + ow, spec.head_h * 0.38 * S + ow)
+        snout_inner = _bbox(snout_center, spec.snout_len * 1.65 * S, spec.head_h * 0.38 * S)
+        d.ellipse(snout_outer, fill=outline)
+        d.ellipse(snout_inner, fill=pal["skin_shadow"])
+        # Semi-transparent highlight composited over opaque base, preserving alpha.
+        detail = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+        hd = ImageDraw.Draw(detail)
+        hd.ellipse((cx - 8 * S, cy - 10 * S, cx + 12 * S, cy + 1 * S), fill=with_alpha(pal["skin_top"], 125))
+        layer.alpha_composite(detail)
+        # Eye.
+        eye_center = (cx + 7.5 * S, cy - 2.0 * S)
+        eye_h = spec.eye_h * S * (0.20 if blink else max(0.30, 1.0 - 0.5 * squint))
         if dead:
-            draw.line([(eye_box[0], eye_box[1]), (eye_box[2], eye_box[3])], fill=pal.eye, width=max(1, int(px * 0.5)))
-            draw.line([(eye_box[0], eye_box[3]), (eye_box[2], eye_box[1])], fill=pal.eye, width=max(1, int(px * 0.5)))
+            r = 3.0 * S
+            d.line([(eye_center[0] - r, eye_center[1] - r), (eye_center[0] + r, eye_center[1] + r)], fill=pal["eye"], width=max(1, int(1.2 * S)))
+            d.line([(eye_center[0] - r, eye_center[1] + r), (eye_center[0] + r, eye_center[1] - r)], fill=pal["eye"], width=max(1, int(1.2 * S)))
         elif blink:
-            draw.line([(eye_box[0], eye_center[1]), (eye_box[2], eye_center[1])], fill=pal.eye, width=max(1, int(px * 0.52)))
+            d.line([(eye_center[0] - 3 * S, eye_center[1]), (eye_center[0] + 3 * S, eye_center[1])], fill=pal["eye"], width=max(1, int(1.2 * S)))
         else:
-            draw.ellipse(eye_box, fill=pal.eye)
-            dot = bbox_from_center((eye_center[0] - px * 0.25, eye_center[1] - px * 0.40), px * 0.55, px * 0.55)
-            draw.ellipse(dot, fill=with_alpha(pal.eye_glow, 230))
-        # mouth and teeth
-        mouth_a = (snout_center[0] - spec.snout_len * px * 0.18, snout_center[1] + spec.head_h * px * 0.10)
-        mouth_b = (snout_center[0] + spec.snout_len * px * 0.32, snout_center[1] + spec.head_h * px * 0.12)
-        draw.line([mouth_a, mouth_b], fill=pal.mouth, width=max(1, int(px * 0.45)))
-        tooth1 = [(mouth_a[0] + px * 0.6, mouth_a[1]), (mouth_a[0] + px * 1.6, mouth_a[1]), (mouth_a[0] + px * 1.1, mouth_a[1] + spec.tooth_size * px)]
-        tooth2 = [(mouth_a[0] + px * 2.0, mouth_a[1] + px * 0.1), (mouth_a[0] + px * 3.0, mouth_a[1] + px * 0.1), (mouth_a[0] + px * 2.5, mouth_a[1] + spec.tooth_size * px * 0.8)]
-        draw.polygon(tooth1, fill=pal.tooth, outline=pal.outline)
-        draw.polygon(tooth2, fill=pal.tooth, outline=pal.outline)
-        solidify_layer_alpha(layer, opaque_mask)
-        img.alpha_composite(layer)
-        return (snout_center[0] + spec.snout_len * px * 0.60, snout_center[1] - spec.head_h * px * 0.04)
+            d.ellipse((eye_center[0] - spec.eye_w * S / 2, eye_center[1] - eye_h / 2, eye_center[0] + spec.eye_w * S / 2, eye_center[1] + eye_h / 2), fill=pal["eye"])
+            d.ellipse((eye_center[0] - 0.8 * S, eye_center[1] - 2.5 * S, eye_center[0] + 0.6 * S, eye_center[1] - 1.1 * S), fill=pal["eye_glow"])
+        # Mouth and teeth.
+        mouth_a = (snout_center[0] - 3 * S, snout_center[1] + 3 * S)
+        mouth_b = (snout_center[0] + 5 * S, snout_center[1] + 3.5 * S)
+        d.line([mouth_a, mouth_b], fill=pal["mouth"], width=max(1, int(1.1 * S)))
+        d.polygon([(mouth_a[0] + 1 * S, mouth_a[1]), (mouth_a[0] + 2.7 * S, mouth_a[1]), (mouth_a[0] + 1.9 * S, mouth_a[1] + spec.tooth_size * S)], fill=pal["tooth"], outline=outline)
 
-    def _draw_weapon(self, draw: ImageDraw.ImageDraw, hand: Point, spec: GoblinSpec, pal: GoblinPalette, px: float, slash: float, slash_arc: float) -> None:
-        handle_len = 6.0 * px
-        handle_tip = add(hand, vec(handle_len, -18))
-        draw.line([hand, handle_tip], fill=pal.outline, width=max(1, int(px * 0.66)))
-        draw.line([hand, handle_tip], fill=darken(pal.weapon_dark, 0.2), width=max(1, int(px * 0.38)))
+        _paste_rotated_local(img, layer, center, angle)
+        return (center[0] + spec.head_w * 0.42 * S + 6 * S, center[1] + 0.5 * S)
+
+    def _limb_chain(self, root: Point, upper: float, lower: float, a1: float, a2: float) -> Tuple[Point, Point]:
+        mid = add(root, vec(upper, a1))
+        end = add(mid, vec(lower, a2))
+        return mid, end
+
+    def _draw_weapon(self, d: ImageDraw.ImageDraw, hand: Point, spec: GoblinSpec, pal: Dict[str, Color], S: float, slash_arc: float) -> None:
+        angle = -18 + slash_arc * 36
+        handle = add(hand, vec(7 * S, angle))
+        d.line([hand, handle], fill=pal["outline"], width=max(1, int(2.0 * S)))
+        d.line([hand, handle], fill=pal["weapon_dark"], width=max(1, int(1.0 * S)))
         item = spec.held_item.lower()
         if item == "spear":
-            spear_tip = add(handle_tip, vec(18.0 * px, -4.0))
-            draw.line([handle_tip, spear_tip], fill=pal.outline, width=max(1, int(px * 0.60)))
-            draw.line([handle_tip, spear_tip], fill=pal.weapon, width=max(1, int(px * 0.34)))
-            tip_poly = [
-                spear_tip,
-                add(spear_tip, (-4.0 * px, -2.0 * px)),
-                add(spear_tip, (-3.2 * px, 2.0 * px)),
-            ]
-            draw.polygon(tip_poly, fill=pal.metal, outline=pal.outline)
+            tip = add(handle, vec(20 * S, angle + 2))
+            d.line([handle, tip], fill=pal["outline"], width=max(1, int(1.8 * S)))
+            d.line([handle, tip], fill=pal["weapon"], width=max(1, int(0.9 * S)))
+            d.polygon([tip, add(tip, (-5 * S, -3 * S)), add(tip, (-4 * S, 3 * S))], fill=pal["metal"], outline=pal["outline"])
         elif item == "sword":
-            blade_root = add(handle_tip, vec(5.5 * px, -8.0))
-            blade_tip = add(blade_root, vec(14.0 * px, -8.0))
-            blade_poly = [
-                add(blade_root, (-1.8 * px, -1.2 * px)),
-                blade_tip,
-                add(blade_root, (1.8 * px, 2.0 * px)),
-            ]
-            draw.polygon(blade_poly, fill=pal.metal, outline=pal.outline)
-            guard = bbox_from_center(blade_root, 3.0 * px, 1.5 * px)
-            draw.rounded_rectangle(guard, radius=px * 0.4, fill=pal.weapon, outline=pal.outline)
+            tip = add(handle, vec(18 * S, angle - 6))
+            d.line([handle, tip], fill=pal["outline"], width=max(1, int(4.0 * S)))
+            d.line([handle, tip], fill=pal["metal"], width=max(1, int(2.0 * S)))
         else:
-            dagger_root = add(handle_tip, vec(2.0 * px, -8.0))
-            dagger_tip = add(dagger_root, vec(8.0 * px, -6.0))
-            dagger_poly = [
-                add(dagger_root, (-1.5 * px, -1.2 * px)),
-                dagger_tip,
-                add(dagger_root, (1.2 * px, 1.8 * px)),
-            ]
-            draw.polygon(dagger_poly, fill=pal.metal, outline=pal.outline)
-        if slash_arc > 0.02:
-            bbox = (hand[0] - 12 * px, hand[1] - 26 * px, hand[0] + 28 * px, hand[1] + 20 * px)
-            draw.arc(bbox, start=-64, end=110, fill=with_alpha(pal.weapon, int(140 * slash_arc)), width=max(1, int(px * 0.48)))
-            draw.arc((bbox[0] - 3 * px, bbox[1] - 2 * px, bbox[2] + 1 * px, bbox[3] + 1 * px), start=-58, end=98, fill=with_alpha(pal.eye_glow, int(120 * slash_arc)), width=max(1, int(px * 0.28)))
+            tip = add(handle, vec(12 * S, angle - 10))
+            d.line([handle, tip], fill=pal["outline"], width=max(1, int(3.4 * S)))
+            d.line([handle, tip], fill=pal["metal"], width=max(1, int(1.7 * S)))
+
+    def _draw_blink_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int, pal: Dict[str, Color]) -> None:
+        d = ImageDraw.Draw(img)
+        t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+        charge = 1.0 - smoothstep(clamp(t / 0.35, 0.0, 1.0))
+        transit = math.sin(clamp((t - 0.12) / 0.72, 0.0, 1.0) * math.pi)
+        arrive = smoothstep(clamp((t - 0.45) / 0.40, 0.0, 1.0))
+        mid_y = ground_y - 51 * S
+        source_x = root_x - 24 * S
+        dest_x = root_x + 31 * S
+        d.line([(source_x, mid_y), (dest_x, mid_y - 5 * S)], fill=with_alpha(pal["eye"], int(45 + 105 * max(charge, transit))), width=max(1, int(1.1 * S)))
+        for rscale, alpha in [(1.0 + 0.55 * arrive, 150), (0.55 + 0.25 * charge, 95)]:
+            rx, ry = 7.5 * S * rscale, 13.0 * S * rscale
+            box = (dest_x - rx, mid_y - ry - 4 * S, dest_x + rx, mid_y + ry - 4 * S)
+            d.ellipse(box, outline=with_alpha(pal["eye"], int(alpha * max(0.25, charge + arrive))), width=max(1, int(1.3 * S)))
+        for i, frac in enumerate((0.0, 0.33, 0.66, 1.0)):
+            x = lerp(source_x, dest_x, frac)
+            h = (29.0 - i * 3.0 + transit * 5.0) * S
+            a = int((78 - i * 12) * transit)
+            if a > 0:
+                d.line([(x, mid_y - h / 2), (x + 7 * S, mid_y + h / 2)], fill=with_alpha(pal["cloth"], a), width=max(1, int(1.6 * S)))
+                d.line([(x + 3 * S, mid_y - h / 2), (x - 4 * S, mid_y + h / 2)], fill=with_alpha(pal["eye"], max(15, a - 18)), width=max(1, int(0.85 * S)))
+
+    def _render_highres(self, spec: GoblinSpec, animation: str, frame_index: int, frame_count: int, size: Tuple[int, int], background: Optional[Color], scale: int) -> Image.Image:
+        W, H = size[0] * scale, size[1] * scale
+        bg = (0, 0, 0, 0) if background is None else background
+        img = Image.new("RGBA", (W, H), bg)
+        S = float(scale)
+        pal = self.PALETTES.get(spec.palette_name, self.PALETTES["classic"])
+        p = self.pose_for_animation(animation, frame_index, frame_count)
+        ground_y = (101.0 + p.root_y) * S
+        root_x = (60.0 + p.root_x) * S
+        d = ImageDraw.Draw(img)
+        d.ellipse((root_x - 26 * S, ground_y - 5 * S, root_x + (31 + 13 * p.collapse) * S, ground_y + 6 * S), fill=(0, 0, 0, int(30 * (1 - 0.28 * p.collapse))))
+
+        if animation == "blink":
+            self._draw_blink_fx(img, root_x, ground_y, S, frame_index, frame_count, pal)
+
+        if p.dash:
+            for i in range(4):
+                y = (50 + i * 10 + math.sin(frame_index + i) * 2) * S
+                d.line([(14 * S, y), ((40 - i * 3) * S, y - 2 * S)], fill=(150, 212, 105, 90), width=max(1, int(1.5 * S)))
+
+        collapse = p.collapse
+        body_center = (root_x + lerp(0, 12 * S, collapse), ground_y - lerp(37 * S, 11 * S, collapse) + p.body_bob * S)
+        head_center = (root_x + lerp(16 * S, 37 * S, collapse), ground_y - lerp(62 * S, 15 * S, collapse) + p.body_bob * 0.45 * S)
+
+        hip_far = (body_center[0] - 5 * S, body_center[1] + 9 * S)
+        hip_near = (body_center[0] + 7 * S, body_center[1] + 9 * S)
+        shoulder_far = (body_center[0] - 8 * S, body_center[1] - 7 * S)
+        shoulder_near = (body_center[0] + 8 * S, body_center[1] - 7 * S)
+
+        # Legs.
+        for hip, a1, a2, tint, foot_shift in [
+            (hip_far, p.far_leg_upper, p.far_leg_lower, pal["skin_shadow"], -1.5),
+            (hip_near, p.near_leg_upper, p.near_leg_lower, pal["skin"], 3.0),
+        ]:
+            knee, ankle = self._limb_chain(hip, spec.leg_upper * S, spec.leg_lower * S, a1, a2)
+            draw_capsule(d, hip, knee, 2.5 * S, tint, pal["outline"], 1.2 * S)
+            draw_capsule(d, knee, ankle, 2.3 * S, tint, pal["outline"], 1.2 * S)
+            foot_center = (ankle[0] + spec.foot_w * 0.32 * S + foot_shift * S, min(ground_y - 2 * S, ankle[1] + 2 * S))
+            draw_rotated_rounded_rect(img, foot_center, (spec.foot_w * S, spec.foot_h * S), -5 + p.body_tilt * 0.08, spec.foot_h * 0.5 * S, tint, pal["outline"], 1.1 * S)
+
+        # Far arm behind body.
+        elbow, hand = self._limb_chain(shoulder_far, spec.arm_upper * S, spec.arm_lower * S, p.far_arm_upper, p.far_arm_lower)
+        draw_capsule(d, shoulder_far, elbow, 2.2 * S, pal["skin_shadow"], pal["outline"], 1.1 * S)
+        draw_capsule(d, elbow, hand, 2.1 * S, pal["skin_shadow"], pal["outline"], 1.1 * S)
+
+        self._draw_body(img, body_center, spec, pal, S, p.body_tilt)
+        self._draw_rigid_head(img, head_center, spec, pal, S, p.head_tilt, p.blink, p.eye_squint, p.dead)
+
+        # Near arm and weapon on top.
+        elbow, hand = self._limb_chain(shoulder_near, spec.arm_upper * S, spec.arm_lower * S, p.near_arm_upper, p.near_arm_lower)
+        draw_capsule(d, shoulder_near, elbow, 2.3 * S, pal["skin"], pal["outline"], 1.1 * S)
+        draw_capsule(d, elbow, hand, 2.2 * S, pal["skin"], pal["outline"], 1.1 * S)
+        d.ellipse((hand[0] - spec.hand_r * S, hand[1] - spec.hand_r * S, hand[0] + spec.hand_r * S, hand[1] + spec.hand_r * S), fill=pal["skin"], outline=pal["outline"], width=max(1, int(1.0 * S)))
+        if animation in {"slash", "idle", "walk", "run", "dash", "blink"}:
+            self._draw_weapon(d, hand, spec, pal, S, p.slash_arc)
+        if p.slash_arc > 0.18:
+            d.arc((hand[0] - 6 * S, hand[1] - 30 * S, hand[0] + 38 * S, hand[1] + 19 * S), start=-70, end=45, fill=(242, 77, 255, 155), width=max(1, int(2.2 * S)))
+        return img
 
     def render_animation_frame(
         self,
@@ -546,92 +501,11 @@ class SideGoblinGenerator:
         animation: str,
         frame_index: int,
         frame_count: int,
-        size: Tuple[int, int],
+        size: Tuple[int, int] = (128, 128),
         background: Optional[Color] = None,
         supersample: int = 4,
         downsample: str = "lanczos",
     ) -> Image.Image:
-        pose = self.pose_for_animation(animation, frame_index, frame_count)
-        resample = RESAMPLING.LANCZOS if downsample == "lanczos" else RESAMPLING.NEAREST
-        base_size = size if supersample <= 1 else (size[0] * supersample, size[1] * supersample)
-        img = self._render_core(spec, pose, base_size, background)
-        if supersample <= 1:
-            return img
-        return img.resize(size, resample)
-
-    def _render_core(self, spec: GoblinSpec, pose: GoblinPose, size: Tuple[int, int], background: Optional[Color]) -> Image.Image:
-        w, h = size
-        img = Image.new("RGBA", size, background if background is not None else (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        pal = self.PALETTES[spec.palette_name]
-        px = min(w, h) / 120.0
-        outline_w = max(1, int(px * 0.24))
-        ground_y = h * 0.84 + pose.root_y * px
-        root = (w * 0.45 + pose.root_x * px, ground_y)
-        hip = add(root, (0.0, -13.5 * px - pose.crouch * 4.0 * px - pose.body_bob * px))
-        torso = add(root, (2.0 * px, -28.0 * px - pose.crouch * 7.0 * px - pose.body_bob * px))
-        head = add(torso, (14.5 * px, -14.0 * px))
-        shoulder = add(torso, (3.0 * px, -3.0 * px))
-
-        far_shoulder = add(shoulder, (-1.5 * px, -1.0 * px))
-        near_shoulder = add(shoulder, (2.0 * px, 1.2 * px))
-        far_hip = add(hip, (-1.0 * px, -0.5 * px))
-        near_hip = add(hip, (1.6 * px, 1.2 * px))
-
-        # far limbs first
-        far_elbow = add(far_shoulder, vec(spec.arm_upper * px, pose.far_arm_upper))
-        far_hand = add(far_elbow, vec(spec.arm_lower * px, pose.far_arm_lower))
-        self._draw_capsule(draw, far_shoulder, far_elbow, 2.7 * px, darken(pal.skin_shadow, 0.05), pal.outline, outline_w)
-        self._draw_capsule(draw, far_elbow, far_hand, 2.5 * px, darken(pal.skin_shadow, 0.05), pal.outline, outline_w)
-        draw.ellipse(bbox_from_center(far_hand, spec.hand_r * px * 1.8, spec.hand_r * px * 1.8), fill=pal.outline)
-        draw.ellipse(bbox_from_center(far_hand, spec.hand_r * px * 1.45, spec.hand_r * px * 1.45), fill=pal.skin_shadow)
-
-        far_knee = add(far_hip, vec(spec.leg_upper * px, pose.far_leg_upper))
-        far_ankle = add(far_knee, vec(spec.leg_lower * px, pose.far_leg_lower))
-        self._draw_capsule(draw, far_hip, far_knee, 3.0 * px, darken(pal.skin_shadow, 0.02), pal.outline, outline_w)
-        self._draw_capsule(draw, far_knee, far_ankle, 2.8 * px, darken(pal.skin_shadow, 0.02), pal.outline, outline_w)
-        self._draw_foot(img, far_ankle, spec.foot_w * px, spec.foot_h * px, pal.skin_shadow, pal.outline, outline_w)
-
-        # torso / head
-        self._draw_body(img, torso, spec, pal, px)
-        muzzle_tip = self._draw_head(img, head, spec, pal, px, pose.blink, pose.eye_squint, pose.dead)
-
-        # near limbs
-        near_elbow = add(near_shoulder, vec(spec.arm_upper * px, pose.near_arm_upper))
-        near_hand = add(near_elbow, vec(spec.arm_lower * px, pose.near_arm_lower))
-        self._draw_capsule(draw, near_shoulder, near_elbow, 2.9 * px, pal.skin, pal.outline, outline_w)
-        self._draw_capsule(draw, near_elbow, near_hand, 2.7 * px, pal.skin, pal.outline, outline_w)
-        draw.ellipse(bbox_from_center(near_hand, spec.hand_r * px * 1.85, spec.hand_r * px * 1.85), fill=pal.outline)
-        draw.ellipse(bbox_from_center(near_hand, spec.hand_r * px * 1.48, spec.hand_r * px * 1.48), fill=pal.skin)
-        self._draw_weapon(draw, near_hand, spec, pal, px, pose.slash, pose.slash_arc)
-
-        near_knee = add(near_hip, vec(spec.leg_upper * px, pose.near_leg_upper))
-        near_ankle = add(near_knee, vec(spec.leg_lower * px, pose.near_leg_lower))
-        self._draw_capsule(draw, near_hip, near_knee, 3.2 * px, pal.skin, pal.outline, outline_w)
-        self._draw_capsule(draw, near_knee, near_ankle, 3.0 * px, pal.skin, pal.outline, outline_w)
-        self._draw_foot(img, near_ankle, spec.foot_w * px, spec.foot_h * px, pal.skin, pal.outline, outline_w)
-
-        # nose highlight and eye glow bloom
-        glow = Image.new("RGBA", size, (0, 0, 0, 0))
-        gdraw = ImageDraw.Draw(glow)
-        gdraw.ellipse(bbox_from_center((muzzle_tip[0] - 5.0 * px, muzzle_tip[1] - 5.0 * px), 2.4 * px, 2.4 * px), fill=with_alpha(pal.eye_glow, 90))
-        if pose.recoil > 0.0:
-            count = int(10 + pose.recoil * 28)
-            rng = random.Random(spec.seed + int(pose.recoil * 100))
-            for _ in range(count):
-                x = torso[0] + rng.uniform(-15.0, 18.0) * px
-                y = torso[1] + rng.uniform(-20.0, 18.0) * px
-                s = rng.uniform(0.4, 1.2) * px
-                gdraw.rectangle((x - s, y - s, x + s, y + s), fill=with_alpha(pal.eye_glow, rng.randint(50, 110)))
-        if pose.dead:
-            for i in range(8):
-                x = torso[0] + (i - 3.5) * 5.0 * px
-                y = torso[1] + 20.0 * px + abs(math.sin(i)) * 4.0 * px
-                s = 0.8 * px
-                gdraw.rectangle((x - s, y - s, x + s, y + s), fill=with_alpha(pal.eye_glow, 60))
-        glow = glow.filter(ImageFilter.GaussianBlur(radius=max(1, int(px * 0.8))))
-        img.alpha_composite(glow)
-        return img
-
-
-TARGETS: Dict[str, SideGoblinGenerator] = {SideGoblinGenerator.name: SideGoblinGenerator()}
+        high = self._render_highres(spec, animation, frame_index, frame_count, size, background, max(1, int(supersample)))
+        resample = RESAMPLING.NEAREST if downsample == "nearest" else RESAMPLING.LANCZOS
+        return high.resize(size, resample)

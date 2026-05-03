@@ -1,7 +1,4 @@
-"""Procedural 2D character rigging and sprite-sheet generation."""
+"""Procedural 2D Character Lab for Ambition generator prototypes."""
 
-from .adapters import TARGETS, get_adapter
-from .config import CharacterJob, load_job, save_job
-
-__all__ = ["TARGETS", "get_adapter", "CharacterJob", "load_job", "save_job"]
-__version__ = "0.3.0"
+__all__ = ["__version__"]
+__version__ = "0.2.0"

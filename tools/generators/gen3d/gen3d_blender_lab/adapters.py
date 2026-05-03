@@ -50,13 +50,13 @@ class RobotAdapter(BaseAdapter):
             archetype=job.archetype,
             view=view,
             head_size=head,
-            body_width=0.52 + rng.uniform(-0.02, 0.02),
-            body_height=0.40 + rng.uniform(-0.02, 0.02),
-            body_depth=0.34 + rng.uniform(-0.02, 0.02),
-            arm_length=0.29 + rng.uniform(-0.02, 0.02),
-            forearm_length=0.22 + rng.uniform(-0.02, 0.02),
-            leg_length=0.28 + rng.uniform(-0.02, 0.02),
-            shin_length=0.23 + rng.uniform(-0.02, 0.02),
+            body_width=0.46 + rng.uniform(-0.02, 0.02),
+            body_height=0.44 + rng.uniform(-0.02, 0.02),
+            body_depth=0.32 + rng.uniform(-0.02, 0.02),
+            arm_length=0.34 + rng.uniform(-0.02, 0.02),
+            forearm_length=0.24 + rng.uniform(-0.02, 0.02),
+            leg_length=0.30 + rng.uniform(-0.02, 0.02),
+            shin_length=0.25 + rng.uniform(-0.02, 0.02),
         )
 
 
@@ -68,7 +68,7 @@ class GoblinAdapter(BaseAdapter):
 
     def sample_spec(self, job: CharacterJob) -> Any:
         rng = random.Random(job.seed)
-        view = ViewSpec(camera_x=0.95, camera_y=-6.2, camera_z=1.34, target_z=1.06, ortho_scale=2.95)
+        view = ViewSpec(camera_x=1.55, camera_y=-6.7, camera_z=1.30, target_z=1.0, ortho_scale=3.08)
         archetype = job.archetype or "shadow_scout"
         item = job.held_item or "spear"
         return GoblinSpec(
@@ -77,15 +77,15 @@ class GoblinAdapter(BaseAdapter):
             archetype=archetype,
             held_item=item,
             view=view,
-            head_size=0.72 + rng.uniform(-0.03, 0.03),
-            body_width=0.42 + rng.uniform(-0.02, 0.02),
+            head_size=0.62 + rng.uniform(-0.03, 0.03),
+            body_width=0.38 + rng.uniform(-0.02, 0.02),
             body_height=0.42 + rng.uniform(-0.02, 0.02),
-            body_depth=0.32 + rng.uniform(-0.02, 0.02),
+            body_depth=0.30 + rng.uniform(-0.02, 0.02),
             arm_length=0.30 + rng.uniform(-0.02, 0.02),
-            forearm_length=0.24 + rng.uniform(-0.02, 0.02),
-            leg_length=0.27 + rng.uniform(-0.02, 0.02),
-            shin_length=0.24 + rng.uniform(-0.02, 0.02),
-            ear_length=0.42 + rng.uniform(-0.03, 0.03),
+            forearm_length=0.26 + rng.uniform(-0.02, 0.02),
+            leg_length=0.30 + rng.uniform(-0.02, 0.02),
+            shin_length=0.26 + rng.uniform(-0.02, 0.02),
+            ear_length=0.34 + rng.uniform(-0.03, 0.03),
         )
 
 

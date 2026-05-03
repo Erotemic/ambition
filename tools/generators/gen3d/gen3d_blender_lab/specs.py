@@ -8,13 +8,13 @@ from typing import Any, Dict, Optional
 class ViewSpec:
     facing: str = "right"
     camera_style: str = "side_3q"
-    camera_x: float = 1.05
-    camera_y: float = -6.0
-    camera_z: float = 1.45
+    camera_x: float = 2.05
+    camera_y: float = -6.2
+    camera_z: float = 1.42
     target_x: float = 0.0
     target_y: float = 0.0
     target_z: float = 1.1
-    ortho_scale: float = 2.75
+    ortho_scale: float = 2.92
 
 
 @dataclass
@@ -24,19 +24,19 @@ class RobotSpec:
     archetype: str
     view: ViewSpec
     head_size: float = 0.70
-    body_width: float = 0.52
-    body_height: float = 0.40
-    body_depth: float = 0.34
-    arm_length: float = 0.29
-    forearm_length: float = 0.22
-    leg_length: float = 0.28
-    shin_length: float = 0.23
+    body_width: float = 0.46
+    body_height: float = 0.44
+    body_depth: float = 0.32
+    arm_length: float = 0.34
+    forearm_length: float = 0.24
+    leg_length: float = 0.30
+    shin_length: float = 0.25
     primary_color: str = "#F8F9FC"
-    primary_shadow: str = "#D3DAE8"
+    primary_shadow: str = "#DDE3EF"
     accent_color: str = "#27E7FF"
     accent2_color: str = "#B285FF"
     dark_color: str = "#19171F"
-    metal_color: str = "#B8C2D2"
+    metal_color: str = "#B7C0CF"
 
 
 @dataclass
@@ -46,22 +46,22 @@ class GoblinSpec:
     archetype: str
     held_item: Optional[str]
     view: ViewSpec
-    head_size: float = 0.72
-    body_width: float = 0.42
+    head_size: float = 0.62
+    body_width: float = 0.38
     body_height: float = 0.42
-    body_depth: float = 0.32
+    body_depth: float = 0.30
     arm_length: float = 0.30
-    forearm_length: float = 0.24
-    leg_length: float = 0.27
-    shin_length: float = 0.24
-    ear_length: float = 0.42
-    skin_color: str = "#554B60"
-    skin_shadow: str = "#3D3444"
+    forearm_length: float = 0.26
+    leg_length: float = 0.30
+    shin_length: float = 0.26
+    ear_length: float = 0.34
+    skin_color: str = "#5B5367"
+    skin_shadow: str = "#41384A"
     cloth_color: str = "#241D2E"
     cloth_shadow: str = "#17131D"
     accent_color: str = "#E04FFF"
     accent2_color: str = "#8B57FF"
-    eye_color: str = "#EC58FF"
+    eye_color: str = "#FF59F1"
     metal_color: str = "#CFBEFF"
 
 

@@ -16,8 +16,6 @@ def _dataclass_dict(obj: Any) -> Dict[str, Any]:
 
 
 class BaseAdapter:
-    """Uniform wrapper for each procedural target backend."""
-
     target: str
 
     def animations(self) -> Dict[str, Dict[str, int]]:
@@ -56,9 +54,6 @@ class GoblinAdapter(BaseAdapter):
     def animations(self) -> Dict[str, Dict[str, int]]:
         return dict(self.generator.SPRITESHEET_ANIMATIONS)
 
-    def canonical_pose(self) -> Tuple[str, int]:
-        return ("idle", 1)
-
     def sample_spec(self, job: CharacterJob) -> Any:
         return self.generator.sample_spec(job.seed, job.archetype, job.held_item)
 
@@ -72,7 +67,7 @@ class GoblinAdapter(BaseAdapter):
             size,
             background=goblin_parse_background(job.render.background),
             supersample=job.render.supersample,
-            downsample="nearest" if job.render.downsample == "nearest" else "lanczos",
+            downsample=job.render.downsample,
         )
 
 
@@ -85,15 +80,13 @@ class RobotAdapter(BaseAdapter):
     def animations(self) -> Dict[str, Dict[str, int]]:
         return dict(self.generator.ANIMATIONS)
 
-    def canonical_pose(self) -> Tuple[str, int]:
-        return ("idle", 1)
-
     def sample_spec(self, job: CharacterJob) -> Any:
         return self.generator.sample_spec(job.seed, job.archetype)
 
     def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
         anim = self.animations()[animation]
-        frame = self.generator.render_animation_frame(
+        # Both robot and goblin are now natively right-facing; no adapter flip.
+        return self.generator.render_animation_frame(
             spec,
             animation,
             frame_index % anim["frames"],
@@ -103,7 +96,6 @@ class RobotAdapter(BaseAdapter):
             supersample=job.render.supersample,
             downsample=job.render.downsample,
         )
-        return frame.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
 
 
 TARGETS: Dict[str, BaseAdapter] = {

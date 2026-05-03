@@ -7,11 +7,13 @@ from typing import Optional
 import typer
 import yaml
 from rich.console import Console
+from rich.markup import escape
 
 from .adapters import TARGETS, get_adapter
 from .canonical import render_canonical, render_canonical_contact_sheet
 from .config import CharacterJob, RenderConfig, load_job, save_job
 from .sheet import render_spritesheet
+from .textures import generate_texture_pack
 
 DEFAULT_GEN3D_ROOT = Path(os.environ.get("GEN3D_BLENDER_LAB_ROOT", Path(__file__).resolve().parents[1]))
 DEFAULT_CONFIG_DIR = Path(os.environ.get("GEN3D_BLENDER_LAB_CONFIG_DIR", DEFAULT_GEN3D_ROOT / "gen3d_blender_lab" / "configs"))
@@ -19,6 +21,12 @@ DEFAULT_ASSET_DIR = Path(os.environ.get("GEN3D_BLENDER_LAB_ASSET_DIR", DEFAULT_G
 
 app = typer.Typer(help="Blender-first procedural character sprite generation.")
 console = Console()
+
+
+def _file_link(path: Path, label: str | None = None) -> str:
+    resolved = Path(path).expanduser().resolve()
+    text = escape(label or str(resolved))
+    return f"[link=file://{resolved}]{text}[/link]"
 
 
 @app.command("list-targets")
@@ -57,7 +65,8 @@ def canonical(config: Path, out: Path) -> None:
     job = load_job(config)
     adapter = get_adapter(job.target)
     info = render_canonical(adapter, job, out)
-    console.print(f"wrote {info['out']}")
+    out_path = Path(info["out"])
+    console.print(f"[bold green]Canonical image:[/bold green] {_file_link(out_path)}")
 
 
 @app.command("canonical-all")
@@ -84,7 +93,7 @@ def canonical_all(
     if contact_sheet:
         sheet_out = out_dir / "character_canonicals.png"
         render_canonical_contact_sheet(items, sheet_out, card_width=job.render.single_width, card_height=job.render.single_height)
-        console.print(f"[dim]contact sheet -> {sheet_out}[/dim]")
+        console.print(f"[bold green]Canonical contact sheet:[/bold green] {_file_link(sheet_out)}")
 
 
 @app.command("spritesheet")
@@ -94,8 +103,8 @@ def spritesheet(config: Path, out: Path, manifest_out: Optional[Path] = None) ->
     if manifest_out is None:
         manifest_out = out.with_suffix(".yaml")
     manifest = render_spritesheet(adapter, job, out, manifest_out)
-    console.print(f"wrote {out}")
-    console.print(f"wrote {manifest_out}")
+    console.print(f"[bold green]Sprite sheet:[/bold green] {_file_link(out)}")
+    console.print(f"[bold green]Manifest:[/bold green] {_file_link(manifest_out)}")
     console.print(f"frames: {len(manifest['frames'])}")
 
 
@@ -123,6 +132,34 @@ def draw_all(
         console.print(f"[bold]{stem}[/bold] -> {sheet_out}")
         console.print(f"[dim]{stem} manifest -> {manifest_out} ({len(manifest['frames'])} frames)[/dim]")
     console.print(f"rendered {len(configs)} character configs, {total_frames} frames total")
+    canonical_path = out_dir / "character_canonicals.png"
+    if canonical_path.exists():
+        console.print(f"[bold green]Canonical contact sheet:[/bold green] {_file_link(canonical_path)}")
+    else:
+        console.print("[dim]Canonical contact sheet not found yet. Run: python -m gen3d_blender_lab.cli canonical-all[/dim]")
+
+
+@app.command("textures-all")
+def textures_all(
+    config_dir: Path = typer.Option(DEFAULT_CONFIG_DIR, help="Directory containing character YAML configs."),
+    out_dir: Path = typer.Option(DEFAULT_ASSET_DIR / "textures", help="Directory where generated texture previews are written."),
+    pattern: str = typer.Option("*.yaml", help="Glob pattern for character YAML configs."),
+) -> None:
+    if not config_dir.exists():
+        raise typer.BadParameter(f"config directory does not exist: {config_dir}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    configs = sorted(config_dir.glob(pattern))
+    if not configs:
+        raise typer.BadParameter(f"no configs matched {pattern!r} in {config_dir}")
+    for config in configs:
+        job = load_job(config)
+        adapter = get_adapter(job.target)
+        spec = adapter.spec_dict(adapter.sample_spec(job))
+        tex_dir = out_dir / config.stem
+        texture_paths = generate_texture_pack(tex_dir, spec, adapter.target)
+        console.print(f"[bold]{config.stem}[/bold] textures -> {tex_dir}")
+        for key, path in sorted(texture_paths.items()):
+            console.print(f"[dim]{key}: {path}[/dim]")
 
 
 @app.command("validate-config")

@@ -138,3 +138,11 @@ YAML config
 - Simplified material nodes for stable colored renders across Blender 3.x/4.x.
 - Moved robot visor and goblin eyes onto the camera-facing side plane while preserving side-scroller travel direction.
 - Removed top in-image canonical labels; the contact sheet labels are now the canonical labels.
+
+## CLI output and logs
+
+Blender stdout/stderr is hidden by default to keep `draw-all` and `canonical-all` readable.
+If Blender fails, the tool writes `_blender_render.log` beside the active output frames and prints the last part of the log.
+Set `GEN3D_BLENDER_LAB_VERBOSE=1` to show Blender's raw output while debugging.
+
+The canonical commands print a Rich `file://` link to `assets/character_canonicals.png` so supported terminals can open the review image directly.

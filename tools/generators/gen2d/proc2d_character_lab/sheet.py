@@ -1,87 +1,92 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, List, Tuple
 
 import yaml
-from PIL import Image, ImageDraw
+from PIL import Image, ImageColor, ImageDraw, ImageFont
 
-from .adapters import BaseAdapter
+from .adapters import get_adapter
 from .config import CharacterJob
-from .rendering import load_font, parse_color, rounded_rect
 
 
-def render_spritesheet(adapter: BaseAdapter, job: CharacterJob, out: str | Path, manifest_out: Optional[str | Path] = None) -> Dict[str, Any]:
+def _parse_bg(value: str):
+    if str(value).lower() == "transparent":
+        return (0, 0, 0, 0)
+    r, g, b = ImageColor.getrgb(value)
+    return (r, g, b, 255)
+
+
+def _font(size: int = 12):
+    for name in ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf"):
+        try:
+            return ImageFont.truetype(name, size=size)
+        except OSError:
+            pass
+    return ImageFont.load_default()
+
+
+def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
+    adapter = get_adapter(job.target)
     spec = adapter.sample_spec(job)
-    anim_defs = adapter.animations()
-    animations = job.animations or adapter.default_animations()
-    for name in animations:
-        if name not in anim_defs:
-            raise ValueError(f"unknown animation {name!r} for {adapter.target}; available={sorted(anim_defs)}")
-
-    r = job.render
-    fw = r.frame_width
-    fh = r.frame_height
-    border = max(0, r.border)
-    label_w = max(0, r.label_width)
-    cols = max(anim_defs[name]["frames"] for name in animations)
-    row_h = fh + border * 2
-    sheet_w = label_w + cols * (fw + border * 2)
-    sheet_h = len(animations) * row_h
-    sheet = Image.new("RGBA", (sheet_w, sheet_h), parse_color(r.sheet_background))
+    animations = adapter.animations()
+    selected = [a for a in job.animations if a in animations]
+    missing = [a for a in job.animations if a not in animations]
+    if missing:
+        raise KeyError(f"unsupported animations for {job.target}: {missing}; available={sorted(animations)}")
+    fw, fh = job.render.frame_width, job.render.frame_height
+    label_w = max(0, job.render.label_width)
+    border = max(0, job.render.border)
+    max_frames = max(animations[a]["frames"] for a in selected)
+    sheet_w = label_w + max_frames * (fw + border) + border
+    sheet_h = len(selected) * (fh + border) + border
+    sheet = Image.new("RGBA", (sheet_w, sheet_h), _parse_bg(job.render.sheet_background))
     draw = ImageDraw.Draw(sheet)
-    font = load_font(max(12, int(fh * 0.16)))
-
+    font = _font(12)
     manifest: Dict[str, Any] = {
-        "meta": {
-            "generator": "proc2d-character-lab",
-            "target": adapter.target,
-            "seed": job.seed,
-            "archetype": job.archetype,
-            "held_item": job.held_item,
-            "frame_width": fw,
-            "frame_height": fh,
-            "border": border,
-            "label_width": label_w,
-            "animations": animations,
-            "spec": adapter.spec_dict(spec),
-        },
+        "target": job.target,
+        "seed": job.seed,
+        "archetype": job.archetype,
+        "held_item": job.held_item,
+        "frame_width": fw,
+        "frame_height": fh,
+        "label_width": label_w,
+        "border": border,
+        "spec": adapter.spec_dict(spec),
         "animations": {},
-        "frames": [],
     }
-
-    for row, anim in enumerate(animations):
-        row_y = row * row_h
+    for row, animation in enumerate(selected):
+        info = animations[animation]
+        y = border + row * (fh + border)
         if label_w:
-            label = anim.replace("_", " ").title()
-            bbox = draw.textbbox((0, 0), label, font=font)
-            tw = bbox[2] - bbox[0]
-            th = bbox[3] - bbox[1]
-            chip_pad_x = max(8, int(fw * 0.05))
-            chip_pad_y = max(4, int(fh * 0.035))
-            chip_w = min(label_w - 12, tw + chip_pad_x * 2)
-            chip_h = th + chip_pad_y * 2
-            chip_x0 = max(6, int((label_w - chip_w) / 2))
-            chip_y0 = int(row_y + (row_h - chip_h) / 2)
-            rounded_rect(draw, (chip_x0, chip_y0, chip_x0 + chip_w, chip_y0 + chip_h), radius=max(6, int(chip_h * 0.25)), fill=(232, 235, 241, 220), outline=(70, 76, 88, 230), width=1)
-            draw.text((chip_x0 + (chip_w - tw) / 2 - bbox[0], chip_y0 + (chip_h - th) / 2 - bbox[1]), label, font=font, fill=(20, 22, 28, 255))
-            draw.line([(label_w - 1, row_y + 6), (label_w - 1, row_y + row_h - 6)], fill=(128, 132, 144, 210), width=max(1, int(fh * 0.01)))
-        frame_count = anim_defs[anim]["frames"]
-        duration_ms = anim_defs[anim]["duration_ms"]
-        names = []
-        for idx in range(frame_count):
-            frame = adapter.render_frame(spec, anim, idx, (fw, fh), job)
-            x = label_w + idx * (fw + border * 2) + border
-            y = row_y + border
+            draw.text((8, y + 8), animation, fill=(255, 255, 255, 255), font=font)
+            draw.text((8, y + 23), f"{info['frames']}f/{info['duration_ms']}ms", fill=(190, 190, 190, 255), font=_font(10))
+        frames: List[Dict[str, Any]] = []
+        for frame_index in range(info["frames"]):
+            x = label_w + border + frame_index * (fw + border)
+            frame = adapter.render_frame(spec, animation, frame_index, (fw, fh), job)
             sheet.alpha_composite(frame, (x, y))
-            name = f"{anim}_{idx}"
-            manifest["frames"].append({"name": name, "animation": anim, "index": idx, "x": x, "y": y, "w": fw, "h": fh, "duration_ms": duration_ms})
-            names.append(name)
-        manifest["animations"][anim] = {"frames": names, "frame_count": frame_count, "duration_ms": duration_ms, "row": row, "label": anim.replace("_", " ").title()}
+            frames.append({
+                "index": frame_index,
+                "x": x,
+                "y": y,
+                "w": fw,
+                "h": fh,
+                "duration_ms": info["duration_ms"],
+            })
+        manifest["animations"][animation] = {"frames": frames, "duration_ms": info["duration_ms"]}
+    return sheet, manifest
 
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
-    sheet.save(out)
-    if manifest_out is not None:
-        Path(manifest_out).parent.mkdir(parents=True, exist_ok=True)
-        Path(manifest_out).write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
-    return manifest
+
+def write_spritesheet(job: CharacterJob, image_out: str | Path, manifest_out: str | Path | None = None) -> Tuple[Path, Path]:
+    image_out = Path(image_out)
+    if manifest_out is None:
+        manifest_out = image_out.with_suffix(".yaml")
+    manifest_out = Path(manifest_out)
+    image_out.parent.mkdir(parents=True, exist_ok=True)
+    manifest_out.parent.mkdir(parents=True, exist_ok=True)
+    sheet, manifest = build_spritesheet(job)
+    sheet.save(image_out)
+    with open(manifest_out, "w", encoding="utf8") as file:
+        yaml.safe_dump(manifest, file, sort_keys=False)
+    return image_out, manifest_out

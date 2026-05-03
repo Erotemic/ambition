@@ -1,61 +1,85 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+DEFAULT_ANIMATIONS = [
+    "idle",
+    "walk",
+    "run",
+    "jump",
+    "fall",
+    "slash",
+    "hit",
+    "death",
+    "blink",
+    "dash",
+]
 
 
-class RenderConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    frame_width: int = 192
-    frame_height: int = 192
-    supersample: int = 8
-    downsample: Literal["lanczos", "nearest"] = "lanczos"
+@dataclass
+class RenderConfig:
+    frame_width: int = 128
+    frame_height: int = 128
+    single_width: int = 128
+    single_height: int = 128
+    supersample: int = 4
+    downsample: str = "lanczos"
     background: str = "transparent"
     sheet_background: str = "transparent"
     border: int = 0
     label_width: int = 96
-    single_width: int = 512
-    single_height: int = 512
-
-    @field_validator("frame_width", "frame_height", "single_width", "single_height")
-    @classmethod
-    def positive_size(cls, value: int) -> int:
-        if value <= 0:
-            raise ValueError("render dimensions must be positive")
-        return value
 
 
-class CharacterJob(BaseModel):
-    """Editable YAML job for a procedural character render."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    target: Literal["goblin", "robot"] = "goblin"
+@dataclass
+class CharacterJob:
+    target: str
     seed: int = 0
     archetype: str = "default"
     held_item: Optional[str] = None
-    animations: List[str] = Field(default_factory=list)
-    render: RenderConfig = Field(default_factory=RenderConfig)
-    notes: str = ""
+    animations: List[str] = field(default_factory=lambda: list(DEFAULT_ANIMATIONS))
+    render: RenderConfig = field(default_factory=RenderConfig)
 
-    @field_validator("animations")
     @classmethod
-    def no_blank_animations(cls, value: List[str]) -> List[str]:
-        return [v for v in value if v]
+    def from_dict(cls, data: Dict[str, Any]) -> "CharacterJob":
+        render = RenderConfig(**dict(data.get("render") or {}))
+        animations = list(data.get("animations") or DEFAULT_ANIMATIONS)
+        return cls(
+            target=str(data["target"]),
+            seed=int(data.get("seed", 0)),
+            archetype=str(data.get("archetype", "default")),
+            held_item=data.get("held_item"),
+            animations=animations,
+            render=render,
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> "CharacterJob":
+        with open(path, "r", encoding="utf8") as file:
+            data = yaml.safe_load(file) or {}
+        if not isinstance(data, dict):
+            raise TypeError(f"expected mapping in {path!s}")
+        return cls.from_dict(data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "target": self.target,
+            "seed": self.seed,
+            "archetype": self.archetype,
+            "held_item": self.held_item,
+            "animations": list(self.animations),
+            "render": dict(self.render.__dict__),
+        }
 
 
-def load_job(path: str | Path) -> CharacterJob:
-    data = yaml.safe_load(Path(path).read_text())
-    if data is None:
-        data = {}
-    return CharacterJob.model_validate(data)
-
-
-def save_job(job: CharacterJob, path: str | Path) -> None:
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    data: Dict[str, Any] = job.model_dump(exclude_none=True)
-    Path(path).write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+def load_jobs(config_dir: str | Path) -> List[Tuple[Path, CharacterJob]]:
+    config_dir = Path(config_dir)
+    jobs: List[Tuple[Path, CharacterJob]] = []
+    for path in sorted(config_dir.glob("*.yaml")):
+        jobs.append((path, CharacterJob.load(path)))
+    if not jobs:
+        raise FileNotFoundError(f"no .yaml configs found in {config_dir}")
+    return jobs

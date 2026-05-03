@@ -3,8 +3,9 @@ from __future__ import annotations
 """Cute right-facing side-scroller robot target.
 
 The renderer keeps a fixed canvas, fixed ground anchor, and stable part sizes for
-every animation.  The ``blink`` row is the Ambition teleport / precision-blink
-ability, not an eyelid blink.  Eyelid blinks remain as incidental idle acting.
+every animation.  The ``blink_out`` and ``blink_in`` rows are the Ambition
+teleport / precision-blink ability split into source and destination phases, not
+an eyelid blink.  Eyelid blinks remain as incidental idle acting.
 
 The robot head is drawn as a rigid local layer and rotated as one unit so the
 visor, antenna, face, and shell keep their spatial relationship.  For a
@@ -58,8 +59,9 @@ class SideRobotGenerator:
         "slash": {"frames": 8, "duration_ms": 75},
         "hit": {"frames": 5, "duration_ms": 90},
         "death": {"frames": 8, "duration_ms": 110},
-        # Ambition blink ability: short teleport / precision-blink visual, not eyelids.
-        "blink": {"frames": 8, "duration_ms": 62},
+        # Ambition blink ability split into source/departure and destination/arrival.
+        "blink_out": {"frames": 6, "duration_ms": 62},
+        "blink_in": {"frames": 6, "duration_ms": 62},
         "dash": {"frames": 6, "duration_ms": 65},
     }
 
@@ -115,27 +117,45 @@ class SideRobotGenerator:
             p.head_tilt = -wave * 0.8
             p.blink = frame_index == frame_count // 2
             p.eye_squint = 0.08 if frame_index in {1, frame_count - 2} else 0.0
-        elif animation == "blink":
-            # Teleport/precision-blink: gather, vanish vector, arrival.  The
-            # character remains same-scale and anchored; the game-space movement
-            # is expressed with FX and a small local recoil, not by rescaling.
-            charge = 1.0 - smoothstep(clamp(t / 0.34, 0.0, 1.0))
-            arrive = smoothstep(clamp((t - 0.38) / 0.42, 0.0, 1.0))
+        elif animation == "blink_out":
+            # Source/departure phase: compress, brace, then shear into the portal.
+            charge = smoothstep(clamp(t / 0.46, 0.0, 1.0))
+            burst = smoothstep(clamp((t - 0.30) / 0.48, 0.0, 1.0))
             pulse = math.sin(t * math.pi)
-            p.root_x = lerp(-3.0, 4.0, arrive) - charge * 2.0
-            p.root_y = -pulse * 1.3
-            p.body_bob = 0.2 * pulse
-            p.body_tilt = -12.0 * charge + 7.0 * arrive
-            p.head_tilt = -5.0 * charge + 2.0 * arrive
-            p.far_arm_upper = lerp(152.0, 178.0, arrive) + charge * 10.0
-            p.far_arm_lower = lerp(132.0, 160.0, arrive)
-            p.near_arm_upper = lerp(22.0, 10.0, charge) + arrive * 18.0
-            p.near_arm_lower = lerp(18.0, 5.0, charge) + arrive * 12.0
-            p.far_leg_upper = lerp(105.0, 130.0, pulse)
-            p.far_leg_lower = lerp(96.0, 112.0, pulse)
-            p.near_leg_upper = lerp(72.0, 94.0, pulse)
-            p.near_leg_lower = lerp(85.0, 104.0, pulse)
-            p.eye_squint = 0.22 + 0.20 * pulse
+            p.root_x = -2.4 * charge - 2.0 * burst
+            p.root_y = 1.6 * charge - 2.2 * burst
+            p.body_bob = -1.3 * charge + 0.25 * pulse
+            p.body_tilt = -16.0 * charge - 12.0 * burst
+            p.head_tilt = -9.0 * charge - 4.0 * burst
+            p.far_arm_upper = 168.0 + 18.0 * charge
+            p.far_arm_lower = 148.0 + 30.0 * burst
+            p.near_arm_upper = 8.0 - 22.0 * charge
+            p.near_arm_lower = 4.0 - 20.0 * burst
+            p.far_leg_upper = 124.0 + 20.0 * charge
+            p.far_leg_lower = 72.0 + 20.0 * charge
+            p.near_leg_upper = 102.0 + 18.0 * charge
+            p.near_leg_lower = 64.0 + 14.0 * charge
+            p.eye_squint = 0.20 + 0.16 * pulse + 0.14 * burst
+        elif animation == "blink_in":
+            # Destination/arrival phase: assemble out of the portal into a low landing.
+            appear = smoothstep(clamp(t / 0.60, 0.0, 1.0))
+            settle = ease_out_cubic(appear)
+            recoil = 1.0 - settle
+            pulse = math.sin(t * math.pi)
+            p.root_x = 5.4 * recoil
+            p.root_y = 2.2 * recoil - 1.8 * pulse * recoil
+            p.body_bob = -1.0 * recoil + 0.2 * pulse
+            p.body_tilt = 18.0 * recoil - 2.0 * settle
+            p.head_tilt = 9.0 * recoil - 1.0 * settle
+            p.far_arm_upper = 188.0 - 34.0 * settle
+            p.far_arm_lower = 170.0 - 34.0 * settle
+            p.near_arm_upper = 48.0 - 30.0 * settle
+            p.near_arm_lower = 34.0 - 28.0 * settle
+            p.far_leg_upper = 136.0 - 32.0 * settle
+            p.far_leg_lower = 86.0 + 8.0 * recoil
+            p.near_leg_upper = 110.0 - 26.0 * settle
+            p.near_leg_lower = 80.0 + 10.0 * recoil
+            p.eye_squint = 0.28 + 0.20 * recoil
         elif animation in {"walk", "run"}:
             stride = math.sin(t * math.tau)
             bounce = (1.0 - math.cos(t * math.tau * 2.0)) * 0.5
@@ -260,35 +280,117 @@ class SideRobotGenerator:
         d = ImageDraw.Draw(img)
         d.ellipse((x - width / 2, ground_y - 5, x + width / 2, ground_y + 6), fill=(0, 0, 0, alpha))
 
-    def _draw_blink_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int) -> None:
+    def _draw_blink_out_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int) -> None:
         d = ImageDraw.Draw(img)
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
-        charge = 1.0 - smoothstep(clamp(t / 0.35, 0.0, 1.0))
-        transit = math.sin(clamp((t - 0.12) / 0.72, 0.0, 1.0) * math.pi)
-        arrive = smoothstep(clamp((t - 0.45) / 0.40, 0.0, 1.0))
+        charge = smoothstep(clamp(t / 0.56, 0.0, 1.0))
+        burst = smoothstep(clamp((t - 0.30) / 0.50, 0.0, 1.0))
         energy = self.PALETTE["visor_glow"]
         accent = self.PALETTE["accent"]
-        mid_y = ground_y - 52 * S
-        source_x = root_x - 24 * S
-        dest_x = root_x + 30 * S
+        source_x = root_x + 8 * S
+        mid_y = ground_y - 50 * S
 
-        # Precision-blink aim line and destination ring.
-        alpha_line = int(40 + 115 * max(charge, transit))
-        d.line([(source_x, mid_y), (dest_x, mid_y - 5 * S)], fill=_with_alpha(energy, alpha_line), width=max(1, int(1.2 * S)))
-        for rscale, alpha in [(1.0 + 0.5 * arrive, 150), (0.56 + 0.25 * charge, 105)]:
-            rx, ry = 7.0 * S * rscale, 13.0 * S * rscale
-            box = (dest_x - rx, mid_y - ry - 5 * S, dest_x + rx, mid_y + ry - 5 * S)
-            d.ellipse(box, outline=_with_alpha(energy, int(alpha * max(0.25, charge + arrive))), width=max(1, int(1.3 * S)))
+        # Expanding portal rings at the departure point.
+        for rscale, alpha in [
+            (0.62 + 0.55 * charge, int(145 * max(charge, 0.15))),
+            (0.40 + 0.85 * burst, int(118 * max(burst, 0.12))),
+        ]:
+            rx, ry = 8.0 * S * rscale, 14.0 * S * rscale
+            box = (source_x - rx, mid_y - ry - 4 * S, source_x + rx, mid_y + ry - 4 * S)
+            d.ellipse(box, outline=_with_alpha(energy, alpha), width=max(1, int(1.3 * S)))
 
-        # Departure/arrival slivers read like teleport afterimages without
-        # turning the character itself translucent.
-        for i, frac in enumerate((0.0, 0.33, 0.66, 1.0)):
-            x = lerp(source_x, dest_x, frac)
-            h = (31.0 - i * 3.4 + transit * 5.0) * S
-            a = int((85 - i * 14) * transit)
-            if a > 0:
-                d.line([(x, mid_y - h / 2), (x + 7 * S, mid_y + h / 2)], fill=_with_alpha(accent, a), width=max(1, int(1.8 * S)))
-                d.line([(x + 3 * S, mid_y - h / 2), (x - 4 * S, mid_y + h / 2)], fill=_with_alpha(energy, max(15, a - 20)), width=max(1, int(0.9 * S)))
+        # Vertical slivers and shard sparks make the disappearance read like teleportation.
+        for i, dx in enumerate((-10, -4, 3, 10)):
+            height = (28.0 - i * 2.4 + 9.0 * burst) * S
+            alpha = int((90 - i * 14) * max(charge, burst))
+            if alpha > 0:
+                x = source_x + dx * S
+                d.line([(x, mid_y - height / 2), (x + 6 * S, mid_y + height / 2)], fill=_with_alpha(accent, alpha), width=max(1, int(1.7 * S)))
+                d.line([(x + 2 * S, mid_y - height / 2), (x - 4 * S, mid_y + height / 2)], fill=_with_alpha(energy, max(20, alpha - 24)), width=max(1, int(0.9 * S)))
+
+        for i in range(4):
+            frac = i / 3.0 if 3 else 0.0
+            sx = source_x - 8 * S + frac * 18 * S
+            sy = mid_y - 12 * S - frac * 7 * S
+            ex = sx + (6 + i * 2) * S
+            ey = sy - (8 + i * 2) * S
+            d.line([(sx, sy), (ex, ey)], fill=_with_alpha(energy, int(65 * max(charge, burst))), width=max(1, int(1.0 * S)))
+
+        ripple_alpha = int(80 * max(charge, burst))
+        if ripple_alpha > 0:
+            d.ellipse((source_x - 18 * S, ground_y - 7 * S, source_x + 16 * S, ground_y + 1 * S), outline=_with_alpha(accent, ripple_alpha), width=max(1, int(1.0 * S)))
+
+    def _draw_blink_in_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int) -> None:
+        d = ImageDraw.Draw(img)
+        t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+        appear = smoothstep(clamp(t / 0.60, 0.0, 1.0))
+        settle = ease_out_cubic(appear)
+        energy = self.PALETTE["visor_glow"]
+        accent = self.PALETTE["accent"]
+        dest_x = root_x + 8 * S
+        mid_y = ground_y - 50 * S
+
+        for rscale, alpha in [
+            (1.25 - 0.45 * settle, int(155 * max(0.18, 1.0 - t * 0.55))),
+            (0.52 + 0.30 * appear, int(120 * max(0.20, 1.0 - t * 0.35))),
+        ]:
+            rx, ry = 8.5 * S * rscale, 14.0 * S * rscale
+            box = (dest_x - rx, mid_y - ry - 4 * S, dest_x + rx, mid_y + ry - 4 * S)
+            d.ellipse(box, outline=_with_alpha(energy, alpha), width=max(1, int(1.3 * S)))
+
+        for i, dx in enumerate((-14, -7, 0, 8, 14)):
+            height = (30.0 - i * 2.6 + 7.0 * (1.0 - settle)) * S
+            alpha = int((95 - i * 12) * max(0.18, 1.0 - t * 0.42))
+            x = dest_x + dx * S
+            d.line([(x, mid_y - height / 2), (dest_x, mid_y)], fill=_with_alpha(accent, alpha), width=max(1, int(1.6 * S)))
+            d.line([(x, mid_y + height / 2), (dest_x + 2 * S, mid_y - 2 * S)], fill=_with_alpha(energy, max(15, alpha - 18)), width=max(1, int(0.9 * S)))
+
+        ripple_alpha = int(78 * max(0.18, 1.0 - t * 0.35))
+        d.ellipse((dest_x - 18 * S, ground_y - 7 * S, dest_x + 16 * S, ground_y + 1 * S), outline=_with_alpha(energy, ripple_alpha), width=max(1, int(1.0 * S)))
+
+    def _composite_teleport_actor(self, base: Image.Image, actor: Image.Image, animation: str, frame_index: int, frame_count: int, S: float) -> None:
+        alpha_bbox = actor.getchannel("A").getbbox()
+        if alpha_bbox is None:
+            return
+        x1, y1, x2, y2 = alpha_bbox
+        t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+        slice_w = max(1, int(5 * S))
+        if animation == "blink_out":
+            progress = smoothstep(clamp((t - 0.02) / 0.98, 0.0, 1.0))
+            for i, x in enumerate(range(x1, x2, slice_w)):
+                strip = actor.crop((x, y1, min(x + slice_w, x2), y2))
+                if strip.getchannel("A").getbbox() is None:
+                    continue
+                frac = 0.5 if x2 == x1 else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                dx = (frac - 0.5) * (22.0 * S * progress) + math.sin(frac * math.pi * 7.0 + progress * 7.0) * 1.8 * S * progress
+                dy = -(5.0 + abs(frac - 0.5) * 18.0) * S * progress
+                alpha_scale = max(0.06, 1.0 - 0.88 * progress)
+                if progress > 0.35 and (i + int(progress * 10)) % 3 == 0:
+                    alpha_scale *= 0.35
+                a = strip.getchannel("A").point(lambda v, s=alpha_scale: max(0, min(255, int(v * s))))
+                strip.putalpha(a)
+                base.alpha_composite(strip, (int(x + dx), int(y1 + dy)))
+        else:
+            progress = smoothstep(clamp(t / 1.0, 0.0, 1.0))
+            for i, x in enumerate(range(x1, x2, slice_w)):
+                strip = actor.crop((x, y1, min(x + slice_w, x2), y2))
+                if strip.getchannel("A").getbbox() is None:
+                    continue
+                frac = 0.5 if x2 == x1 else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                dx = (frac - 0.5) * (24.0 * S * (1.0 - progress))
+                dy = -(3.0 + abs(frac - 0.5) * 16.0) * S * (1.0 - progress)
+                alpha_scale = min(1.0, 0.18 + 0.94 * progress)
+                if progress < 0.45 and (i + frame_index) % 4 == 0:
+                    alpha_scale *= 0.55
+                a = strip.getchannel("A").point(lambda v, s=alpha_scale: max(0, min(255, int(v * s))))
+                strip.putalpha(a)
+                base.alpha_composite(strip, (int(x + dx), int(y1 + dy)))
+            full_alpha = smoothstep(clamp((progress - 0.34) / 0.66, 0.0, 1.0))
+            if full_alpha > 0:
+                resolved = actor.copy()
+                a = resolved.getchannel("A").point(lambda v, s=full_alpha: max(0, min(255, int(v * s))))
+                resolved.putalpha(a)
+                base.alpha_composite(resolved)
 
     def _draw_rigid_head(self, img: Image.Image, center: Point, spec: BotSpec, pal: Dict[str, Color], S: float, angle: float, blink_closed: bool, squint: float, dead: bool) -> None:
         # Draw in head-local coordinates, then rotate/paste the full layer.  This
@@ -365,13 +467,18 @@ class SideRobotGenerator:
         self._draw_shadow(img, ground_y, root_x + 3 * S, (55 + 18 * p.collapse) * S, int(32 * (1 - 0.35 * p.collapse)))
         d = ImageDraw.Draw(img)
 
-        if animation == "blink":
-            self._draw_blink_fx(img, root_x, ground_y, S, frame_index, frame_count)
+        if animation == "blink_out":
+            self._draw_blink_out_fx(img, root_x, ground_y, S, frame_index, frame_count)
+        elif animation == "blink_in":
+            self._draw_blink_in_fx(img, root_x, ground_y, S, frame_index, frame_count)
 
         if p.dash:
             for i in range(4):
                 y = (49 + i * 12 + math.sin(frame_index + i) * 2) * S
                 d.line([(14 * S, y), ((43 - i * 3) * S, y - 2 * S)], fill=(12, 235, 255, 90), width=max(1, int(1.6 * S)))
+
+        character_img = img if animation not in {"blink_out", "blink_in"} else Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        character_draw = ImageDraw.Draw(character_img)
 
         # Stable body reference. Death moves to a lying pose without scaling.
         collapse = p.collapse
@@ -391,23 +498,28 @@ class SideRobotGenerator:
             (hip_near, p.near_leg_upper, p.near_leg_lower, pal["shell"], 3.0),
         ]:
             knee, ankle = self._leg_chain(hip, spec.leg_upper * S, spec.leg_lower * S, a1, a2)
-            draw_capsule(d, hip, knee, 2.9 * S, tint, pal["outline"], outline * 0.65)
-            draw_capsule(d, knee, ankle, 2.7 * S, tint, pal["outline"], outline * 0.65)
+            draw_capsule(character_draw, hip, knee, 2.9 * S, tint, pal["outline"], outline * 0.65)
+            draw_capsule(character_draw, knee, ankle, 2.7 * S, tint, pal["outline"], outline * 0.65)
             foot_w = 12 * S
             foot_h = 6 * S
             foot_center = (ankle[0] + (foot_w * 0.34) + foot_shift * S, min(ground_y - 2 * S, ankle[1] + 2 * S))
-            draw_rotated_rounded_rect(img, foot_center, (foot_w, foot_h), -4 + body_angle * 0.10, 3 * S, tint, pal["outline"], outline * 0.7)
+            draw_rotated_rounded_rect(character_img, foot_center, (foot_w, foot_h), -4 + body_angle * 0.10, 3 * S, tint, pal["outline"], outline * 0.7)
 
         # Far/back arm first so it disappears correctly behind the body.
-        self._draw_robot_arm(img, d, shoulder_far, p.far_arm_upper, p.far_arm_lower, pal["shell_side"], spec, pal, S, outline)
+        self._draw_robot_arm(character_img, character_draw, shoulder_far, p.far_arm_upper, p.far_arm_lower, pal["shell_side"], spec, pal, S, outline)
 
         # Body and rigid head.
-        draw_rotated_rounded_rect(img, body_center, (spec.body_w * S, spec.body_h * S), body_angle, 7 * S, pal["shell"], pal["outline"], outline)
-        draw_rotated_rounded_rect(img, (body_center[0] + 3 * S, body_center[1] - 1 * S), (10 * S, 9 * S), body_angle, 2.5 * S, pal["accent"], pal["outline"], outline * 0.45)
-        self._draw_rigid_head(img, head_center, spec, pal, S, head_angle, p.blink, p.eye_squint, p.dead)
+        draw_rotated_rounded_rect(character_img, body_center, (spec.body_w * S, spec.body_h * S), body_angle, 7 * S, pal["shell"], pal["outline"], outline)
+        draw_rotated_rounded_rect(character_img, (body_center[0] + 3 * S, body_center[1] - 1 * S), (10 * S, 9 * S), body_angle, 2.5 * S, pal["accent"], pal["outline"], outline * 0.45)
+        self._draw_rigid_head(character_img, head_center, spec, pal, S, head_angle, p.blink, p.eye_squint, p.dead)
 
         # Near/front arm and weapon after the torso/head.
-        self._draw_robot_arm(img, d, shoulder_near, p.near_arm_upper, p.near_arm_lower, pal["shell"], spec, pal, S, outline, p.slash, p.slash_arc)
+        self._draw_robot_arm(character_img, character_draw, shoulder_near, p.near_arm_upper, p.near_arm_lower, pal["shell"], spec, pal, S, outline, p.slash, p.slash_arc)
+
+        if animation in {"blink_out", "blink_in"}:
+            self._composite_teleport_actor(img, character_img, animation, frame_index, frame_count, S)
+        else:
+            img.alpha_composite(character_img)
 
         return img
 

@@ -6,7 +6,7 @@ from typing import Iterable, List
 
 from .adapters import TARGETS, get_adapter
 from .canonical import write_canonicals
-from .console import print_canonical_outputs
+from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
 from .sheet import write_spritesheet
 
@@ -30,8 +30,7 @@ def draw_canonicals(config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | 
 
 
 def _cmd_draw_all(args: argparse.Namespace) -> int:
-    for out in draw_all(args.config_dir, args.out_dir):
-        print(out)
+    print_paths(draw_all(args.config_dir, args.out_dir))
     return 0
 
 
@@ -49,8 +48,7 @@ def _cmd_list_targets(args: argparse.Namespace) -> int:
 
 def _cmd_spritesheet(args: argparse.Namespace) -> int:
     job = CharacterJob.load(args.config)
-    write_spritesheet(job, args.output, args.manifest_out)
-    print(args.output)
+    print_paths(write_spritesheet(job, args.output, args.manifest_out))
     return 0
 
 
@@ -62,7 +60,7 @@ def _cmd_single(args: argparse.Namespace) -> int:
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     img.save(output)
-    print(output)
+    print_paths([output])
     return 0
 
 

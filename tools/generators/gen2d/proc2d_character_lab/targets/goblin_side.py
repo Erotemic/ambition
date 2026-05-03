@@ -2,8 +2,9 @@ from __future__ import annotations
 
 """Opaque right-facing green goblin target for side-scrolling games.
 
-The ``blink`` row is Ambition's short-range teleport / precision-blink ability,
-not an eyelid blink.  The goblin remains fully opaque inside the character
+The ``blink_out`` and ``blink_in`` rows are Ambition's short-range teleport /
+precision-blink ability split into source and destination phases, not an eyelid
+blink.  The goblin remains fully opaque inside the character
 silhouette; translucent pixels are reserved for outer antialiasing and FX.
 
 For this right-facing target, the far arm is drawn behind the body and the near
@@ -111,8 +112,9 @@ class SideGoblinGenerator:
         "slash": {"frames": 7, "duration_ms": 75},
         "hit": {"frames": 5, "duration_ms": 90},
         "death": {"frames": 8, "duration_ms": 110},
-        # Ambition blink ability: teleport/precision-blink effect, not eyelids.
-        "blink": {"frames": 8, "duration_ms": 62},
+        # Ambition blink ability split into source/departure and destination/arrival.
+        "blink_out": {"frames": 6, "duration_ms": 62},
+        "blink_in": {"frames": 6, "duration_ms": 62},
         "dash": {"frames": 6, "duration_ms": 65},
     }
 
@@ -194,24 +196,43 @@ class SideGoblinGenerator:
             p.head_tilt = -3.0 + bob * 1.0
             p.blink = frame_index == frame_count // 2
             p.eye_squint = 0.10 if frame_index in {1, frame_count - 2} else 0.0
-        elif animation == "blink":
-            charge = 1.0 - smoothstep(clamp(t / 0.34, 0.0, 1.0))
-            arrive = smoothstep(clamp((t - 0.38) / 0.42, 0.0, 1.0))
+        elif animation == "blink_out":
+            charge = smoothstep(clamp(t / 0.46, 0.0, 1.0))
+            burst = smoothstep(clamp((t - 0.30) / 0.48, 0.0, 1.0))
             pulse = math.sin(t * math.pi)
-            p.root_x = lerp(-3.5, 4.0, arrive) - 2.0 * charge
-            p.root_y = -1.0 * pulse
-            p.body_bob = 0.2 * pulse
-            p.body_tilt = -13.0 * charge + 7.0 * arrive
-            p.head_tilt = -8.0 * charge + 3.0 * arrive
-            p.far_arm_upper = 150 + 20 * charge + 10 * arrive
-            p.far_arm_lower = 158 + 18 * charge
-            p.near_arm_upper = 12 - 8 * charge + 24 * arrive
-            p.near_arm_lower = 8 - 6 * charge + 15 * arrive
-            p.far_leg_upper = 96 + 28 * pulse
-            p.far_leg_lower = 98 + 15 * pulse
-            p.near_leg_upper = 60 + 22 * pulse
-            p.near_leg_lower = 82 + 13 * pulse
-            p.eye_squint = 0.24 + 0.18 * pulse
+            p.root_x = -2.0 * charge - 2.0 * burst
+            p.root_y = 1.3 * charge - 1.8 * burst
+            p.body_bob = -1.0 * charge + 0.18 * pulse
+            p.body_tilt = -15.0 * charge - 11.0 * burst
+            p.head_tilt = -11.0 * charge - 3.0 * burst
+            p.far_arm_upper = 166.0 + 20.0 * charge
+            p.far_arm_lower = 170.0 + 18.0 * burst
+            p.near_arm_upper = -2.0 - 14.0 * charge
+            p.near_arm_lower = -4.0 - 16.0 * burst
+            p.far_leg_upper = 122.0 + 18.0 * charge
+            p.far_leg_lower = 76.0 + 15.0 * charge
+            p.near_leg_upper = 92.0 + 16.0 * charge
+            p.near_leg_lower = 68.0 + 12.0 * charge
+            p.eye_squint = 0.22 + 0.14 * pulse + 0.14 * burst
+        elif animation == "blink_in":
+            appear = smoothstep(clamp(t / 0.60, 0.0, 1.0))
+            settle = ease_out_cubic(appear)
+            recoil = 1.0 - settle
+            pulse = math.sin(t * math.pi)
+            p.root_x = 4.8 * recoil
+            p.root_y = 1.8 * recoil - 1.6 * pulse * recoil
+            p.body_bob = -0.9 * recoil + 0.16 * pulse
+            p.body_tilt = 16.0 * recoil - 4.0 * settle
+            p.head_tilt = 10.0 * recoil - 2.0 * settle
+            p.far_arm_upper = 184.0 - 28.0 * settle
+            p.far_arm_lower = 176.0 - 18.0 * settle
+            p.near_arm_upper = 34.0 - 20.0 * settle
+            p.near_arm_lower = 26.0 - 18.0 * settle
+            p.far_leg_upper = 128.0 - 26.0 * settle
+            p.far_leg_lower = 84.0 + 10.0 * recoil
+            p.near_leg_upper = 104.0 - 22.0 * settle
+            p.near_leg_lower = 76.0 + 12.0 * recoil
+            p.eye_squint = 0.28 + 0.18 * recoil
         elif animation in {"walk", "run"}:
             stride = math.sin(t * math.tau)
             bounce = (1.0 - math.cos(t * math.tau * 2.0)) * 0.5
@@ -414,27 +435,111 @@ class SideGoblinGenerator:
             d.line([handle, tip], fill=pal["outline"], width=max(1, int(3.4 * S)))
             d.line([handle, tip], fill=pal["metal"], width=max(1, int(1.7 * S)))
 
-    def _draw_blink_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int, pal: Dict[str, Color]) -> None:
+    def _draw_blink_out_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int, pal: Dict[str, Color]) -> None:
         d = ImageDraw.Draw(img)
         t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
-        charge = 1.0 - smoothstep(clamp(t / 0.35, 0.0, 1.0))
-        transit = math.sin(clamp((t - 0.12) / 0.72, 0.0, 1.0) * math.pi)
-        arrive = smoothstep(clamp((t - 0.45) / 0.40, 0.0, 1.0))
-        mid_y = ground_y - 51 * S
-        source_x = root_x - 24 * S
-        dest_x = root_x + 31 * S
-        d.line([(source_x, mid_y), (dest_x, mid_y - 5 * S)], fill=with_alpha(pal["eye"], int(45 + 105 * max(charge, transit))), width=max(1, int(1.1 * S)))
-        for rscale, alpha in [(1.0 + 0.55 * arrive, 150), (0.55 + 0.25 * charge, 95)]:
-            rx, ry = 7.5 * S * rscale, 13.0 * S * rscale
+        charge = smoothstep(clamp(t / 0.56, 0.0, 1.0))
+        burst = smoothstep(clamp((t - 0.32) / 0.48, 0.0, 1.0))
+        source_x = root_x + 9 * S
+        mid_y = ground_y - 48 * S
+
+        for rscale, alpha in [
+            (0.62 + 0.55 * charge, int(145 * max(charge, 0.15))),
+            (0.44 + 0.70 * burst, int(110 * max(burst, 0.12))),
+        ]:
+            rx, ry = 8.0 * S * rscale, 13.0 * S * rscale
+            box = (source_x - rx, mid_y - ry - 4 * S, source_x + rx, mid_y + ry - 4 * S)
+            d.ellipse(box, outline=with_alpha(pal["eye"], alpha), width=max(1, int(1.3 * S)))
+
+        for i, dx in enumerate((-10, -4, 3, 10)):
+            height = (27.0 - i * 2.2 + 8.0 * burst) * S
+            alpha = int((88 - i * 14) * max(charge, burst))
+            if alpha > 0:
+                x = source_x + dx * S
+                d.line([(x, mid_y - height / 2), (x + 6 * S, mid_y + height / 2)], fill=with_alpha(pal["cloth"], alpha), width=max(1, int(1.6 * S)))
+                d.line([(x + 3 * S, mid_y - height / 2), (x - 4 * S, mid_y + height / 2)], fill=with_alpha(pal["eye"], max(18, alpha - 20)), width=max(1, int(0.9 * S)))
+
+        for i in range(4):
+            frac = i / 3.0 if 3 else 0.0
+            sx = source_x - 9 * S + frac * 18 * S
+            sy = mid_y - 11 * S - frac * 6 * S
+            ex = sx + (6 + i * 2) * S
+            ey = sy - (8 + i * 2) * S
+            d.line([(sx, sy), (ex, ey)], fill=with_alpha(pal["eye"], int(62 * max(charge, burst))), width=max(1, int(1.0 * S)))
+
+        ripple_alpha = int(76 * max(charge, burst))
+        if ripple_alpha > 0:
+            d.ellipse((source_x - 18 * S, ground_y - 7 * S, source_x + 15 * S, ground_y + 1 * S), outline=with_alpha(pal["cloth"], ripple_alpha), width=max(1, int(1.0 * S)))
+
+    def _draw_blink_in_fx(self, img: Image.Image, root_x: float, ground_y: float, S: float, frame_index: int, frame_count: int, pal: Dict[str, Color]) -> None:
+        d = ImageDraw.Draw(img)
+        t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+        appear = smoothstep(clamp(t / 0.60, 0.0, 1.0))
+        settle = ease_out_cubic(appear)
+        dest_x = root_x + 9 * S
+        mid_y = ground_y - 48 * S
+
+        for rscale, alpha in [
+            (1.25 - 0.45 * settle, int(150 * max(0.18, 1.0 - t * 0.55))),
+            (0.52 + 0.30 * appear, int(116 * max(0.20, 1.0 - t * 0.35))),
+        ]:
+            rx, ry = 8.2 * S * rscale, 13.0 * S * rscale
             box = (dest_x - rx, mid_y - ry - 4 * S, dest_x + rx, mid_y + ry - 4 * S)
-            d.ellipse(box, outline=with_alpha(pal["eye"], int(alpha * max(0.25, charge + arrive))), width=max(1, int(1.3 * S)))
-        for i, frac in enumerate((0.0, 0.33, 0.66, 1.0)):
-            x = lerp(source_x, dest_x, frac)
-            h = (29.0 - i * 3.0 + transit * 5.0) * S
-            a = int((78 - i * 12) * transit)
-            if a > 0:
-                d.line([(x, mid_y - h / 2), (x + 7 * S, mid_y + h / 2)], fill=with_alpha(pal["cloth"], a), width=max(1, int(1.6 * S)))
-                d.line([(x + 3 * S, mid_y - h / 2), (x - 4 * S, mid_y + h / 2)], fill=with_alpha(pal["eye"], max(15, a - 18)), width=max(1, int(0.85 * S)))
+            d.ellipse(box, outline=with_alpha(pal["eye"], alpha), width=max(1, int(1.3 * S)))
+
+        for i, dx in enumerate((-14, -7, 0, 8, 14)):
+            height = (28.0 - i * 2.5 + 7.0 * (1.0 - settle)) * S
+            alpha = int((92 - i * 12) * max(0.18, 1.0 - t * 0.42))
+            x = dest_x + dx * S
+            d.line([(x, mid_y - height / 2), (dest_x, mid_y)], fill=with_alpha(pal["cloth"], alpha), width=max(1, int(1.5 * S)))
+            d.line([(x, mid_y + height / 2), (dest_x + 2 * S, mid_y - 2 * S)], fill=with_alpha(pal["eye"], max(16, alpha - 18)), width=max(1, int(0.9 * S)))
+
+        ripple_alpha = int(76 * max(0.18, 1.0 - t * 0.35))
+        d.ellipse((dest_x - 18 * S, ground_y - 7 * S, dest_x + 15 * S, ground_y + 1 * S), outline=with_alpha(pal["eye"], ripple_alpha), width=max(1, int(1.0 * S)))
+
+    def _composite_teleport_actor(self, base: Image.Image, actor: Image.Image, animation: str, frame_index: int, frame_count: int, S: float) -> None:
+        alpha_bbox = actor.getchannel("A").getbbox()
+        if alpha_bbox is None:
+            return
+        x1, y1, x2, y2 = alpha_bbox
+        t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+        slice_w = max(1, int(5 * S))
+        if animation == "blink_out":
+            progress = smoothstep(clamp((t - 0.02) / 0.98, 0.0, 1.0))
+            for i, x in enumerate(range(x1, x2, slice_w)):
+                strip = actor.crop((x, y1, min(x + slice_w, x2), y2))
+                if strip.getchannel("A").getbbox() is None:
+                    continue
+                frac = 0.5 if x2 == x1 else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                dx = (frac - 0.5) * (21.0 * S * progress) + math.sin(frac * math.pi * 7.0 + progress * 6.0) * 1.6 * S * progress
+                dy = -(5.0 + abs(frac - 0.5) * 17.0) * S * progress
+                alpha_scale = max(0.06, 1.0 - 0.88 * progress)
+                if progress > 0.35 and (i + int(progress * 9)) % 3 == 0:
+                    alpha_scale *= 0.35
+                a = strip.getchannel("A").point(lambda v, s=alpha_scale: max(0, min(255, int(v * s))))
+                strip.putalpha(a)
+                base.alpha_composite(strip, (int(x + dx), int(y1 + dy)))
+        else:
+            progress = smoothstep(clamp(t / 1.0, 0.0, 1.0))
+            for i, x in enumerate(range(x1, x2, slice_w)):
+                strip = actor.crop((x, y1, min(x + slice_w, x2), y2))
+                if strip.getchannel("A").getbbox() is None:
+                    continue
+                frac = 0.5 if x2 == x1 else ((x + slice_w * 0.5) - x1) / float(max(1, x2 - x1))
+                dx = (frac - 0.5) * (22.0 * S * (1.0 - progress))
+                dy = -(3.0 + abs(frac - 0.5) * 15.0) * S * (1.0 - progress)
+                alpha_scale = min(1.0, 0.18 + 0.94 * progress)
+                if progress < 0.45 and (i + frame_index) % 4 == 0:
+                    alpha_scale *= 0.55
+                a = strip.getchannel("A").point(lambda v, s=alpha_scale: max(0, min(255, int(v * s))))
+                strip.putalpha(a)
+                base.alpha_composite(strip, (int(x + dx), int(y1 + dy)))
+            full_alpha = smoothstep(clamp((progress - 0.34) / 0.66, 0.0, 1.0))
+            if full_alpha > 0:
+                resolved = actor.copy()
+                a = resolved.getchannel("A").point(lambda v, s=full_alpha: max(0, min(255, int(v * s))))
+                resolved.putalpha(a)
+                base.alpha_composite(resolved)
 
     def _render_highres(self, spec: GoblinSpec, animation: str, frame_index: int, frame_count: int, size: Tuple[int, int], background: Optional[Color], scale: int) -> Image.Image:
         W, H = size[0] * scale, size[1] * scale
@@ -448,13 +553,18 @@ class SideGoblinGenerator:
         d = ImageDraw.Draw(img)
         d.ellipse((root_x - 26 * S, ground_y - 5 * S, root_x + (31 + 13 * p.collapse) * S, ground_y + 6 * S), fill=(0, 0, 0, int(30 * (1 - 0.28 * p.collapse))))
 
-        if animation == "blink":
-            self._draw_blink_fx(img, root_x, ground_y, S, frame_index, frame_count, pal)
+        if animation == "blink_out":
+            self._draw_blink_out_fx(img, root_x, ground_y, S, frame_index, frame_count, pal)
+        elif animation == "blink_in":
+            self._draw_blink_in_fx(img, root_x, ground_y, S, frame_index, frame_count, pal)
 
         if p.dash:
             for i in range(4):
                 y = (50 + i * 10 + math.sin(frame_index + i) * 2) * S
                 d.line([(14 * S, y), ((40 - i * 3) * S, y - 2 * S)], fill=(150, 212, 105, 90), width=max(1, int(1.5 * S)))
+
+        character_img = img if animation not in {"blink_out", "blink_in"} else Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        character_draw = ImageDraw.Draw(character_img)
 
         collapse = p.collapse
         body_center = (root_x + lerp(0, 12 * S, collapse), ground_y - lerp(37 * S, 11 * S, collapse) + p.body_bob * S)
@@ -471,28 +581,33 @@ class SideGoblinGenerator:
             (hip_near, p.near_leg_upper, p.near_leg_lower, pal["skin"], 3.0),
         ]:
             knee, ankle = self._limb_chain(hip, spec.leg_upper * S, spec.leg_lower * S, a1, a2)
-            draw_capsule(d, hip, knee, 2.5 * S, tint, pal["outline"], 1.2 * S)
-            draw_capsule(d, knee, ankle, 2.3 * S, tint, pal["outline"], 1.2 * S)
+            draw_capsule(character_draw, hip, knee, 2.5 * S, tint, pal["outline"], 1.2 * S)
+            draw_capsule(character_draw, knee, ankle, 2.3 * S, tint, pal["outline"], 1.2 * S)
             foot_center = (ankle[0] + spec.foot_w * 0.32 * S + foot_shift * S, min(ground_y - 2 * S, ankle[1] + 2 * S))
-            draw_rotated_rounded_rect(img, foot_center, (spec.foot_w * S, spec.foot_h * S), -5 + p.body_tilt * 0.08, spec.foot_h * 0.5 * S, tint, pal["outline"], 1.1 * S)
+            draw_rotated_rounded_rect(character_img, foot_center, (spec.foot_w * S, spec.foot_h * S), -5 + p.body_tilt * 0.08, spec.foot_h * 0.5 * S, tint, pal["outline"], 1.1 * S)
 
         # Far arm behind body.
         elbow, hand = self._limb_chain(shoulder_far, spec.arm_upper * S, spec.arm_lower * S, p.far_arm_upper, p.far_arm_lower)
-        draw_capsule(d, shoulder_far, elbow, 2.2 * S, pal["skin_shadow"], pal["outline"], 1.1 * S)
-        draw_capsule(d, elbow, hand, 2.1 * S, pal["skin_shadow"], pal["outline"], 1.1 * S)
+        draw_capsule(character_draw, shoulder_far, elbow, 2.2 * S, pal["skin_shadow"], pal["outline"], 1.1 * S)
+        draw_capsule(character_draw, elbow, hand, 2.1 * S, pal["skin_shadow"], pal["outline"], 1.1 * S)
 
-        self._draw_body(img, body_center, spec, pal, S, p.body_tilt)
-        self._draw_rigid_head(img, head_center, spec, pal, S, p.head_tilt, p.blink, p.eye_squint, p.dead)
+        self._draw_body(character_img, body_center, spec, pal, S, p.body_tilt)
+        self._draw_rigid_head(character_img, head_center, spec, pal, S, p.head_tilt, p.blink, p.eye_squint, p.dead)
 
         # Near arm and weapon on top.
         elbow, hand = self._limb_chain(shoulder_near, spec.arm_upper * S, spec.arm_lower * S, p.near_arm_upper, p.near_arm_lower)
-        draw_capsule(d, shoulder_near, elbow, 2.3 * S, pal["skin"], pal["outline"], 1.1 * S)
-        draw_capsule(d, elbow, hand, 2.2 * S, pal["skin"], pal["outline"], 1.1 * S)
-        d.ellipse((hand[0] - spec.hand_r * S, hand[1] - spec.hand_r * S, hand[0] + spec.hand_r * S, hand[1] + spec.hand_r * S), fill=pal["skin"], outline=pal["outline"], width=max(1, int(1.0 * S)))
-        if animation in {"slash", "idle", "walk", "run", "dash", "blink"}:
-            self._draw_weapon(d, hand, spec, pal, S, p.slash_arc)
+        draw_capsule(character_draw, shoulder_near, elbow, 2.3 * S, pal["skin"], pal["outline"], 1.1 * S)
+        draw_capsule(character_draw, elbow, hand, 2.2 * S, pal["skin"], pal["outline"], 1.1 * S)
+        character_draw.ellipse((hand[0] - spec.hand_r * S, hand[1] - spec.hand_r * S, hand[0] + spec.hand_r * S, hand[1] + spec.hand_r * S), fill=pal["skin"], outline=pal["outline"], width=max(1, int(1.0 * S)))
+        if animation in {"slash", "idle", "walk", "run", "dash", "blink_out", "blink_in"}:
+            self._draw_weapon(character_draw, hand, spec, pal, S, p.slash_arc)
         if p.slash_arc > 0.18:
-            d.arc((hand[0] - 6 * S, hand[1] - 30 * S, hand[0] + 38 * S, hand[1] + 19 * S), start=-70, end=45, fill=(242, 77, 255, 155), width=max(1, int(2.2 * S)))
+            character_draw.arc((hand[0] - 6 * S, hand[1] - 30 * S, hand[0] + 38 * S, hand[1] + 19 * S), start=-70, end=45, fill=(242, 77, 255, 155), width=max(1, int(2.2 * S)))
+
+        if animation in {"blink_out", "blink_in"}:
+            self._composite_teleport_actor(img, character_img, animation, frame_index, frame_count, S)
+        else:
+            img.alpha_composite(character_img)
         return img
 
     def render_animation_frame(

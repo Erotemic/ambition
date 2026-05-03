@@ -11,7 +11,8 @@ animations:
   - slash
   - hit
   - death
-  - blink
+  - blink_out
+  - blink_in
   - dash
 render:
   frame_width: 128

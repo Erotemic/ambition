@@ -15,8 +15,17 @@ def _path_uri(path: Path) -> str:
 
 
 def print_paths(paths: Iterable[str | Path]) -> None:
-    for path in paths:
-        print(path)
+    outputs: List[Path] = [Path(path) for path in paths]
+    try:
+        from rich import print as rich_print
+    except Exception:  # pragma: no cover - fallback when Rich is not installed
+        for path in outputs:
+            print(path)
+        return
+
+    for path in outputs:
+        uri = _path_uri(path)
+        rich_print(f"[link={uri}]{path}[/link]")
 
 
 def print_canonical_outputs(paths: Iterable[str | Path]) -> None:
@@ -28,8 +37,7 @@ def print_canonical_outputs(paths: Iterable[str | Path]) -> None:
             print(path)
         return
 
-    for path in outputs:
-        rich_print(str(path))
+    print_paths(outputs)
 
     contact = next((p for p in outputs if p.name == "canonicals_contact_sheet.png"), None)
     if contact is not None:

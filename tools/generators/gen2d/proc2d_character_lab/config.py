@@ -15,7 +15,8 @@ DEFAULT_ANIMATIONS = [
     "slash",
     "hit",
     "death",
-    "blink",
+    "blink_out",
+    "blink_in",
     "dash",
 ]
 

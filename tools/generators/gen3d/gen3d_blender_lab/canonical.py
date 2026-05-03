@@ -25,20 +25,42 @@ def render_canonical(adapter: BaseAdapter, job: CharacterJob, out: str | Path) -
     width = job.render.single_width
     height = job.render.single_height
     with TemporaryDirectory(prefix="gen3d_canonical_") as d:
-        raw = Path(d) / f"{adapter.target}_canonical_raw.png"
-        req = [{
-            "animation": animation,
-            "frame_index": frame_index,
-            "frame_count": adapter.animations()[animation]["frames"],
-            "width": width,
-            "height": height,
-            "out_path": str(raw),
-        }]
+        construction_raw = Path(d) / f"{adapter.target}_construction_raw.png"
+        side_raw = Path(d) / f"{adapter.target}_side_raw.png"
+        req = [
+            {
+                "animation": "idle",
+                "frame_index": 0,
+                "frame_count": adapter.animations()["idle"]["frames"],
+                "width": width,
+                "height": height,
+                "out_path": str(construction_raw),
+                "render_variant": "construction",
+            },
+            {
+                "animation": animation,
+                "frame_index": frame_index,
+                "frame_count": adapter.animations()[animation]["frames"],
+                "width": width,
+                "height": height,
+                "out_path": str(side_raw),
+                "render_variant": "side_pose",
+            },
+        ]
         render_requests(adapter, job, req, mode="canonical")
-        img = Image.open(raw).convert("RGBA")
+        construction_img = Image.open(construction_raw).convert("RGBA")
+        side_img = Image.open(side_raw).convert("RGBA")
         background = (0, 0, 0, 0) if job.render.background.lower() == "transparent" else ImageColor.getcolor(job.render.background, "RGBA")
-        canvas = Image.new("RGBA", (width, height), background)
-        canvas.alpha_composite(img, (0, 0))
+        label_h = 42
+        gutter = 18
+        canvas = Image.new("RGBA", (width * 2 + gutter, height + label_h), background)
+        canvas.alpha_composite(construction_img, (0, label_h))
+        canvas.alpha_composite(side_img, (width + gutter, label_h))
+        draw = ImageDraw.Draw(canvas)
+        font = _load_font(22)
+        fill = (28, 30, 38, 255)
+        draw.text((16, 10), "Construction View", font=font, fill=fill)
+        draw.text((width + gutter + 16, 10), "Side Pose", font=font, fill=fill)
         out = Path(out)
         out.parent.mkdir(parents=True, exist_ok=True)
         canvas.save(out)
@@ -47,13 +69,20 @@ def render_canonical(adapter: BaseAdapter, job: CharacterJob, out: str | Path) -
         "animation": animation,
         "frame_index": frame_index,
         "out": str(out),
+        "width": width * 2 + gutter,
+        "height": height + label_h,
     }
 
 
-def render_canonical_contact_sheet(items: List[Dict[str, Any]], out: str | Path, card_width: int = 512, card_height: int = 512) -> None:
+def render_canonical_contact_sheet(items: List[Dict[str, Any]], out: str | Path, card_width: int | None = None, card_height: int | None = None) -> None:
     if not items:
         raise ValueError("No canonical items to render")
-    cols = min(3, max(1, len(items)))
+    if card_width is None or card_height is None:
+        sample = Image.open(items[0]["out"]).convert("RGBA")
+        inferred_w, inferred_h = sample.size
+        card_width = card_width or inferred_w
+        card_height = card_height or inferred_h
+    cols = min(2, max(1, len(items)))
     rows = (len(items) + cols - 1) // cols
     margin = 24
     label_h = 52

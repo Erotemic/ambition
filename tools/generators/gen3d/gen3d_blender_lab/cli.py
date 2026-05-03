@@ -6,6 +6,7 @@ from typing import Optional
 
 import typer
 import yaml
+from PIL import Image, ImageDraw, ImageFont
 from rich.console import Console
 from rich.markup import escape
 
@@ -21,6 +22,37 @@ DEFAULT_ASSET_DIR = Path(os.environ.get("GEN3D_BLENDER_LAB_ASSET_DIR", DEFAULT_G
 
 app = typer.Typer(help="Blender-first procedural character sprite generation.")
 console = Console()
+
+
+def _texture_preview_sheet(texture_groups: list[tuple[str, dict[str, str]]], out_path: Path) -> Path:
+    if not texture_groups:
+        return out_path
+    tile = 128
+    gutter = 14
+    header_h = 34
+    label_h = 22
+    max_cols = max(len(paths) for _, paths in texture_groups)
+    width = 180 + max_cols * (tile + gutter) + gutter
+    height = gutter + len(texture_groups) * (header_h + tile + label_h + gutter)
+    sheet = Image.new("RGBA", (width, height), (245, 247, 250, 255))
+    draw = ImageDraw.Draw(sheet)
+    font_big = ImageFont.load_default()
+    font_small = ImageFont.load_default()
+    y = gutter
+    for stem, texmap in texture_groups:
+        draw.text((gutter, y), stem, fill=(24, 26, 34, 255), font=font_big)
+        x = 180
+        y_img = y + header_h
+        for key, path in sorted(texmap.items()):
+            img = Image.open(path).convert("RGBA").resize((tile, tile))
+            sheet.alpha_composite(img, (x, y_img))
+            draw.rectangle((x, y_img, x + tile, y_img + tile), outline=(80, 84, 96, 255), width=1)
+            draw.text((x + 4, y_img + tile + 2), key, fill=(40, 42, 52, 255), font=font_small)
+            x += tile + gutter
+        y += header_h + tile + label_h + gutter
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(out_path)
+    return out_path
 
 
 def _file_link(path: Path, label: str | None = None) -> str:
@@ -92,7 +124,7 @@ def canonical_all(
         console.print(f"[bold]{config.stem}[/bold] -> {out}")
     if contact_sheet:
         sheet_out = out_dir / "character_canonicals.png"
-        render_canonical_contact_sheet(items, sheet_out, card_width=job.render.single_width, card_height=job.render.single_height)
+        render_canonical_contact_sheet(items, sheet_out)
         console.print(f"[bold green]Canonical contact sheet:[/bold green] {_file_link(sheet_out)}")
 
 
@@ -151,15 +183,20 @@ def textures_all(
     configs = sorted(config_dir.glob(pattern))
     if not configs:
         raise typer.BadParameter(f"no configs matched {pattern!r} in {config_dir}")
+    texture_groups = []
     for config in configs:
         job = load_job(config)
         adapter = get_adapter(job.target)
         spec = adapter.spec_dict(adapter.sample_spec(job))
         tex_dir = out_dir / config.stem
         texture_paths = generate_texture_pack(tex_dir, spec, adapter.target)
+        texture_groups.append((config.stem, texture_paths))
         console.print(f"[bold]{config.stem}[/bold] textures -> {tex_dir}")
         for key, path in sorted(texture_paths.items()):
             console.print(f"[dim]{key}: {path}[/dim]")
+    preview_out = out_dir / "texture_previews.png"
+    _texture_preview_sheet(texture_groups, preview_out)
+    console.print(f"[bold green]Texture preview sheet:[/bold green] {_file_link(preview_out)}")
 
 
 @app.command("validate-config")

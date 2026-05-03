@@ -43,8 +43,8 @@ def _draw_robot_texture(size: int, base_hex: str, shadow_hex: str, accent_hex: s
     draw = ImageDraw.Draw(img, 'RGBA')
 
     # Large, visible panel blocks.
-    panel_fill = _rgb01_to_u8(_mix(base, shadow, 0.18 if not dark else 0.08)) + (36,)
-    edge = _rgb01_to_u8(_mix(shadow, (0.03, 0.03, 0.04), 0.40 if not dark else 0.25)) + (70,)
+    panel_fill = _rgb01_to_u8(_mix(base, shadow, 0.18 if not dark else 0.08)) + (92,)
+    edge = _rgb01_to_u8(_mix(shadow, (0.03, 0.03, 0.04), 0.40 if not dark else 0.25)) + (120,)
     blocks = [
         (0.06, 0.08, 0.44, 0.44),
         (0.52, 0.12, 0.90, 0.38),
@@ -56,9 +56,9 @@ def _draw_robot_texture(size: int, base_hex: str, shadow_hex: str, accent_hex: s
         draw.rounded_rectangle(rect, radius=size * 0.05, fill=panel_fill, outline=edge, width=max(1, size // 64))
 
     # Accent stripe and small bright insert.
-    stripe = _rgb01_to_u8(_mix(accent, base, 0.28)) + (72,)
+    stripe = _rgb01_to_u8(_mix(accent, base, 0.22)) + (136,)
     draw.rounded_rectangle((size * 0.10, size * 0.70, size * 0.90, size * 0.80), radius=size * 0.04, fill=stripe)
-    draw.rounded_rectangle((size * 0.68, size * 0.18, size * 0.84, size * 0.30), radius=size * 0.02, fill=(255, 255, 255, 80))
+    draw.rounded_rectangle((size * 0.68, size * 0.18, size * 0.84, size * 0.30), radius=size * 0.02, fill=(255, 255, 255, 120))
 
     # Bolts.
     bolt_color = _rgb01_to_u8(_mix(shadow, (0.0, 0.0, 0.0), 0.35)) + (88,)
@@ -67,8 +67,8 @@ def _draw_robot_texture(size: int, base_hex: str, shadow_hex: str, accent_hex: s
         x = int(size * ox)
         y = int(size * oy)
         draw.ellipse((x - r, y - r, x + r, y + r), fill=bolt_color)
-        draw.line((x - r + 1, y, x + r - 1, y), fill=(255, 255, 255, 80), width=max(1, size // 128))
-        draw.line((x, y - r + 1, x, y + r - 1), fill=(255, 255, 255, 80), width=max(1, size // 128))
+        draw.line((x - r + 1, y, x + r - 1, y), fill=(255, 255, 255, 120), width=max(1, size // 128))
+        draw.line((x, y - r + 1, x, y + r - 1), fill=(255, 255, 255, 120), width=max(1, size // 128))
 
     # Subtle noise and scratches.
     rng = np.random.default_rng(0 if dark else 1)
@@ -82,7 +82,7 @@ def _draw_robot_texture(size: int, base_hex: str, shadow_hex: str, accent_hex: s
         y0 = int(rng.integers(0, size - 1))
         x1 = min(size - 1, x0 + int(rng.integers(size // 24, size // 8)))
         y1 = min(size - 1, y0 + int(rng.integers(1, size // 26)))
-        draw.line((x0, y0, x1, y1), fill=(255, 255, 255, 10), width=max(1, size // 100))
+        draw.line((x0, y0, x1, y1), fill=(255, 255, 255, 24), width=max(1, size // 100))
 
     out.parent.mkdir(parents=True, exist_ok=True)
     img.save(out)
@@ -101,10 +101,10 @@ def _draw_goblin_skin_texture(size: int, base_hex: str, shadow_hex: str, eye_hex
         x = int(rng.integers(0, size))
         y = int(rng.integers(0, size))
         r = int(rng.integers(max(2, size // 36), max(4, size // 18)))
-        col = _rgb01_to_u8(_mix(shadow, base, 0.25)) + (rng.integers(20, 38),)
+        col = _rgb01_to_u8(_mix(shadow, base, 0.25)) + (rng.integers(44, 76),)
         draw.ellipse((x - r, y - r, x + r, y + r), fill=col)
 
-    tint = _rgb01_to_u8(_mix(eye, shadow, 0.70)) + (20,)
+    tint = _rgb01_to_u8(_mix(eye, shadow, 0.58)) + (54,)
     draw.polygon([(size * 0.06, size * 0.36), (size * 0.44, size * 0.28), (size * 0.72, size * 0.38), (size * 0.20, size * 0.46)], fill=tint)
     draw.polygon([(size * 0.12, size * 0.58), (size * 0.54, size * 0.50), (size * 0.82, size * 0.60), (size * 0.26, size * 0.68)], fill=tint)
 
@@ -125,12 +125,12 @@ def _draw_goblin_cloth_texture(size: int, base_hex: str, shadow_hex: str, accent
     draw = ImageDraw.Draw(img, 'RGBA')
     rng = np.random.default_rng(7)
 
-    band = _rgb01_to_u8(_mix(accent, base, 0.55)) + (18,)
+    band = _rgb01_to_u8(_mix(accent, base, 0.45)) + (54,)
     spacing = max(18, size // 4)
     for offset in range(-size, size * 2, spacing):
         draw.line((offset, 0, offset + size, size), fill=band, width=max(1, size // 48))
     for y in range(max(12, size // 7), size, max(12, size // 7)):
-        draw.line((0, y, size, y), fill=(255, 255, 255, 10), width=max(1, size // 96))
+        draw.line((0, y, size, y), fill=(255, 255, 255, 28), width=max(1, size // 96))
 
     arr = np.asarray(img).astype(np.float32)
     arr += rng.normal(0.0, 2.5, size=(size, size, 1))

@@ -159,10 +159,10 @@ def ensure_toon_material(bpy, name: str, base_hex: str, shadow_hex: str, emissio
     _set_principled_input(bsdf, ["Emission Strength"], max(0.0, float(emission_strength)))
     links.new(bsdf.outputs[0], output.inputs[0])
 
-    # Texture overlays should read as subtle surface variation at sprite scale,
-    # not as large busy decals.  Clamp the mix so generated procedural textures
-    # cannot dominate the silhouette or cause apparent layering artifacts.
-    texture_mix = min(max(float(texture_mix), 0.0), 0.18)
+    # Let generated textures read clearly at sprite scale.  We still clamp the
+    # mix, but much less aggressively than before so paneling / cloth patterns
+    # remain visible in canonicals and sprite sheets.
+    texture_mix = min(max(float(texture_mix), 0.0), 0.42)
 
     if texture_path:
         texcoord = nodes.new(type="ShaderNodeTexCoord")
@@ -174,6 +174,10 @@ def ensure_toon_material(bpy, name: str, base_hex: str, shadow_hex: str, emissio
         mapping.inputs[3].default_value[2] = float(texture_scale)
         img_node = nodes.new(type="ShaderNodeTexImage")
         img_node.location = (-560, -60)
+        contrast_node = nodes.new(type="ShaderNodeBrightContrast")
+        contrast_node.location = (-360, -60)
+        contrast_node.inputs[1].default_value = 0.04
+        contrast_node.inputs[2].default_value = 1.2
         try:
             img_node.image = bpy.data.images.load(str(Path(texture_path).resolve()), check_existing=True)
         except TypeError:
@@ -189,13 +193,14 @@ def ensure_toon_material(bpy, name: str, base_hex: str, shadow_hex: str, emissio
             except Exception:
                 pass
         mix_node = nodes.new(type="ShaderNodeMixRGB")
-        mix_node.location = (-180, 40)
+        mix_node.location = (-120, 40)
         mix_node.blend_type = "MIX"
         mix_node.inputs[0].default_value = float(texture_mix)
         mix_node.inputs[1].default_value = base
         links.new(texcoord.outputs["Generated"], mapping.inputs[0])
         links.new(mapping.outputs[0], img_node.inputs[0])
-        links.new(img_node.outputs[0], mix_node.inputs[2])
+        links.new(img_node.outputs[0], contrast_node.inputs[0])
+        links.new(contrast_node.outputs[0], mix_node.inputs[2])
         links.new(mix_node.outputs[0], bsdf.inputs["Base Color"])
         if "Emission Color" in bsdf.inputs:
             links.new(mix_node.outputs[0], bsdf.inputs["Emission Color"])
@@ -360,6 +365,46 @@ def ensure_camera_and_lights(bpy, spec_view: Dict[str, float]):
     rim_data.shape = "RECTANGLE"
     rim_data.size = 2.5
     rim_data.size_y = 2.0
+
+
+def configure_camera_for_variant(bpy, spec_view: Dict[str, float], variant: str) -> None:
+    scene = bpy.context.scene
+    cam = scene.camera
+    if cam is None:
+        ensure_camera_and_lights(bpy, spec_view)
+        cam = scene.camera
+    cam_data = cam.data
+    if variant == "construction":
+        cam_data.ortho_scale = 3.35
+        cam.location = (0.0, -7.4, 1.45)
+        look_at(cam, (0.0, 0.0, 1.18), _blender_modules()[1])
+    else:
+        # Keep a stable side scroller staging camera. The character itself will
+        # be yawed into pose space, which preserves intuitive front-build axes.
+        cam_data.ortho_scale = 3.10
+        cam.location = (0.0, -7.0, 1.40)
+        look_at(cam, (0.0, 0.0, 1.12), _blender_modules()[1])
+
+
+def create_rig_root(bpy, collection, name: str = "RigRoot"):
+    empty = bpy.data.objects.new(name, None)
+    empty.empty_display_type = "PLAIN_AXES"
+    empty.location = (0.0, 0.0, 0.0)
+    collection.objects.link(empty)
+    return empty
+
+
+def parent_collection_objects(collection, parent) -> None:
+    for obj in list(collection.objects):
+        if obj == parent:
+            continue
+        obj.parent = parent
+
+
+def pose_collection_side_scroller(bpy, collection, yaw_deg: float = 72.0) -> None:
+    rig_root = create_rig_root(bpy, collection, name="RigRoot")
+    parent_collection_objects(collection, rig_root)
+    rig_root.rotation_euler = (0.0, 0.0, math.radians(float(yaw_deg)))
 
 
 def point_from(origin: Sequence[float], length: float, angle_deg: float, depth: float = 0.0) -> Tuple[float, float, float]:
@@ -624,11 +669,11 @@ def goblin_pose(animation: str, index: int, frame_count: int) -> Dict[str, float
 def build_robot(bpy, collection, spec: Dict[str, object], animation: str, index: int, frame_count: int, texture_paths: Dict[str, str] | None = None):
     texture_paths = texture_paths or {}
     pose = robot_pose(animation, index, frame_count)
-    white = ensure_toon_material(bpy, "RobotWhite", spec["primary_color"], spec["primary_shadow"], texture_path=texture_paths.get("primary"), texture_mix=0.16, texture_scale=2.6)
-    dark = ensure_toon_material(bpy, "RobotDark", spec["dark_color"], "#07070A", texture_path=texture_paths.get("dark"), texture_mix=0.12, texture_scale=2.8)
+    white = ensure_toon_material(bpy, "RobotWhite", spec["primary_color"], spec["primary_shadow"], texture_path=texture_paths.get("primary"), texture_mix=0.30, texture_scale=2.1)
+    dark = ensure_toon_material(bpy, "RobotDark", spec["dark_color"], "#07070A", texture_path=texture_paths.get("dark"), texture_mix=0.24, texture_scale=2.2)
     cyan = ensure_toon_material(bpy, "RobotCyan", spec["accent_color"], "#0DA4C5", emission_strength=0.40)
     purple = ensure_toon_material(bpy, "RobotPurple", spec["accent2_color"], "#6F55C8", emission_strength=0.12)
-    metal = ensure_toon_material(bpy, "RobotMetal", spec["metal_color"], "#7D8796", texture_path=texture_paths.get("metal"), texture_mix=0.14, texture_scale=3.2)
+    metal = ensure_toon_material(bpy, "RobotMetal", spec["metal_color"], "#7D8796", texture_path=texture_paths.get("metal"), texture_mix=0.26, texture_scale=2.5)
 
     root = (pose["root_x"], 0.0, pose["root_z"])
     pelvis_center = (root[0] - 0.01, 0.0, root[2] + 0.88)
@@ -643,17 +688,17 @@ def build_robot(bpy, collection, spec: Dict[str, object], animation: str, index:
     primitive_cylinder_segment(bpy, collection, "robot_neck", (torso_center[0] + 0.02, 0.0, torso_center[2] + 0.23), (head_center[0] - 0.08, 0.0, head_center[2] - 0.27), 0.038, metal, outline=0.0)
     primitive_cube(bpy, collection, "robot_backpack", (torso_center[0] - 0.10, 0.13, torso_center[2] + 0.02), (0.06, 0.09, 0.12), metal, bevel=0.04, outline=0.012)
 
-    face_y = -spec["head_size"] * 0.43
-    primitive_cube(bpy, collection, "robot_face_bezel", (head_center[0] + spec["head_size"] * 0.06, face_y, head_center[2] + 0.00), (spec["head_size"] * 0.28, 0.028, spec["head_size"] * 0.22), dark, rotation=head_rot, bevel=0.07, outline=0.0)
-    primitive_cube(bpy, collection, "robot_eye_window", (head_center[0] + spec["head_size"] * 0.08, face_y - 0.018, head_center[2] + 0.02), (0.110, 0.012, 0.110), cyan, rotation=head_rot, bevel=0.026, outline=0.0)
-    primitive_cube(bpy, collection, "robot_eye_core", (head_center[0] + spec["head_size"] * 0.10, face_y - 0.024, head_center[2] + 0.02), (0.052, 0.006, 0.074), dark, rotation=head_rot, bevel=0.010, outline=0.0)
-    primitive_cube(bpy, collection, "robot_eye_glint", (head_center[0] + spec["head_size"] * 0.14, face_y - 0.028, head_center[2] + 0.06), (0.012, 0.004, 0.020), white, rotation=head_rot, bevel=0.004, outline=0.0)
-    primitive_cube(bpy, collection, "robot_smile", (head_center[0] + spec["head_size"] * 0.09, face_y - 0.020, head_center[2] - 0.08), (0.070, 0.008, 0.018), cyan, rotation=head_rot, bevel=0.006, outline=0.0)
-    primitive_cube(bpy, collection, "robot_cheek_dot", (head_center[0] + 0.02, face_y - 0.020, head_center[2] - 0.01), (0.018, 0.006, 0.018), purple, rotation=head_rot, bevel=0.006, outline=0.0)
+    face_y = -spec["head_size"] * 0.31
+    primitive_cube(bpy, collection, "robot_face_bezel", (head_center[0] + spec["head_size"] * 0.02, face_y, head_center[2] + 0.00), (spec["head_size"] * 0.25, 0.020, spec["head_size"] * 0.19), dark, rotation=head_rot, bevel=0.05, outline=0.0)
+    primitive_cube(bpy, collection, "robot_eye_window", (head_center[0] + spec["head_size"] * 0.03, face_y - 0.013, head_center[2] + 0.02), (0.120, 0.008, 0.102), cyan, rotation=head_rot, bevel=0.020, outline=0.0)
+    primitive_cube(bpy, collection, "robot_eye_core", (head_center[0] + spec["head_size"] * 0.03, face_y - 0.017, head_center[2] + 0.02), (0.046, 0.004, 0.068), dark, rotation=head_rot, bevel=0.008, outline=0.0)
+    primitive_cube(bpy, collection, "robot_eye_glint", (head_center[0] + spec["head_size"] * 0.09, face_y - 0.019, head_center[2] + 0.06), (0.010, 0.003, 0.018), white, rotation=head_rot, bevel=0.003, outline=0.0)
+    primitive_cube(bpy, collection, "robot_smile", (head_center[0] + spec["head_size"] * 0.03, face_y - 0.014, head_center[2] - 0.08), (0.070, 0.004, 0.016), cyan, rotation=head_rot, bevel=0.005, outline=0.0)
+    primitive_cube(bpy, collection, "robot_cheek_dot", (head_center[0] - 0.08, face_y - 0.012, head_center[2] - 0.01), (0.015, 0.003, 0.015), purple, rotation=head_rot, bevel=0.004, outline=0.0)
 
-    primitive_cube(bpy, collection, "robot_chest_panel", (torso_center[0] + 0.11, -0.22, torso_center[2] + 0.02), (0.12, 0.022, 0.15), dark, rotation=torso_rot, bevel=0.03, outline=0.0)
-    primitive_cube(bpy, collection, "robot_chest_core", (torso_center[0] + 0.12, -0.255, torso_center[2] + 0.03), (0.056, 0.012, 0.094), cyan, rotation=torso_rot, bevel=0.015, outline=0.0)
-    primitive_cube(bpy, collection, "robot_hip_light", (pelvis_center[0] + 0.07, -0.21, pelvis_center[2] + 0.01), (0.030, 0.008, 0.044), purple, rotation=torso_rot, bevel=0.010, outline=0.0)
+    primitive_cube(bpy, collection, "robot_chest_panel", (torso_center[0] + 0.07, -0.135, torso_center[2] + 0.03), (0.115, 0.016, 0.145), dark, rotation=torso_rot, bevel=0.025, outline=0.0)
+    primitive_cube(bpy, collection, "robot_chest_core", (torso_center[0] + 0.07, -0.150, torso_center[2] + 0.03), (0.050, 0.008, 0.090), cyan, rotation=torso_rot, bevel=0.012, outline=0.0)
+    primitive_cube(bpy, collection, "robot_hip_light", (pelvis_center[0] + 0.02, -0.105, pelvis_center[2] + 0.01), (0.030, 0.006, 0.040), purple, rotation=torso_rot, bevel=0.008, outline=0.0)
     primitive_cube(bpy, collection, "robot_side_ear", (head_center[0] - 0.10, 0.15, head_center[2] + 0.03), (0.045, 0.065, 0.085), purple, bevel=0.03, outline=0.010)
     primitive_cylinder_segment(bpy, collection, "robot_antenna_stem", (head_center[0] - 0.06, -0.04, head_center[2] + spec["head_size"] * 0.30), (head_center[0] - 0.06, -0.04, head_center[2] + spec["head_size"] * 0.54), 0.016, purple, outline=0.0)
     primitive_uv_sphere(bpy, collection, "robot_antenna_tip", (head_center[0] - 0.06, -0.04, head_center[2] + spec["head_size"] * 0.62), (0.043, 0.043, 0.043), purple, outline=0.0)
@@ -727,12 +772,12 @@ def add_goblin_weapon(bpy, collection, item: str, hand: Sequence[float], angle_d
 def build_goblin(bpy, collection, spec: Dict[str, object], animation: str, index: int, frame_count: int, texture_paths: Dict[str, str] | None = None):
     texture_paths = texture_paths or {}
     pose = goblin_pose(animation, index, frame_count)
-    skin = ensure_toon_material(bpy, "GoblinSkin", spec["skin_color"], spec["skin_shadow"], texture_path=texture_paths.get("skin"), texture_mix=0.15, texture_scale=2.8)
-    cloth = ensure_toon_material(bpy, "GoblinCloth", spec["cloth_color"], spec["cloth_shadow"], texture_path=texture_paths.get("cloth"), texture_mix=0.14, texture_scale=2.7)
-    accent = ensure_toon_material(bpy, "GoblinAccent", spec["accent_color"], spec["accent2_color"], emission_strength=0.08, texture_path=texture_paths.get("accent"), texture_mix=0.10, texture_scale=3.5)
+    skin = ensure_toon_material(bpy, "GoblinSkin", spec["skin_color"], spec["skin_shadow"], texture_path=texture_paths.get("skin"), texture_mix=0.28, texture_scale=2.2)
+    cloth = ensure_toon_material(bpy, "GoblinCloth", spec["cloth_color"], spec["cloth_shadow"], texture_path=texture_paths.get("cloth"), texture_mix=0.26, texture_scale=2.0)
+    accent = ensure_toon_material(bpy, "GoblinAccent", spec["accent_color"], spec["accent2_color"], emission_strength=0.08, texture_path=texture_paths.get("accent"), texture_mix=0.20, texture_scale=2.3)
     eyes = ensure_toon_material(bpy, "GoblinEyes", spec["eye_color"], spec["accent_color"], emission_strength=0.34)
     dark = ensure_toon_material(bpy, "GoblinDark", "#201628", "#09070C")
-    metal = ensure_toon_material(bpy, "GoblinMetal", spec["metal_color"], "#7C74A2", texture_path=texture_paths.get("metal"), texture_mix=0.12, texture_scale=3.2)
+    metal = ensure_toon_material(bpy, "GoblinMetal", spec["metal_color"], "#7C74A2", texture_path=texture_paths.get("metal"), texture_mix=0.22, texture_scale=2.4)
 
     root = (pose["root_x"], 0.0, pose["root_z"])
     pelvis_center = (root[0] - 0.06, 0.0, root[2] + 0.84)
@@ -740,22 +785,22 @@ def build_goblin(bpy, collection, spec: Dict[str, object], animation: str, index
     head_center = (root[0] + 0.17, 0.0, root[2] + 1.50)
 
     primitive_uv_sphere(bpy, collection, "goblin_body", torso_center, (spec["body_width"] * 0.64, spec["body_depth"] * 0.58, spec["body_height"] * 0.58), cloth, outline=0.018)
-    primitive_cube(bpy, collection, "goblin_tunic", (torso_center[0] + 0.05, -0.16, torso_center[2] - 0.02), (0.17, 0.11, 0.18), accent, bevel=0.03, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_belt", (pelvis_center[0] + 0.10, -0.17, pelvis_center[2] + 0.08), (0.15, 0.025, 0.04), dark, bevel=0.01, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tunic", (torso_center[0] + 0.03, -0.10, torso_center[2] - 0.02), (0.17, 0.08, 0.18), accent, bevel=0.03, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_belt", (pelvis_center[0] + 0.08, -0.11, pelvis_center[2] + 0.08), (0.15, 0.018, 0.04), dark, bevel=0.01, outline=0.0)
     primitive_uv_sphere(bpy, collection, "goblin_head", head_center, (spec["head_size"] * 0.42, spec["head_size"] * 0.31, spec["head_size"] * 0.39), skin, outline=0.018)
-    primitive_cone_segment(bpy, collection, "goblin_nose", (head_center[0] + 0.15, -0.14, head_center[2] + 0.00), (head_center[0] + 0.22, -0.15, head_center[2] - 0.01), 0.022, 0.0, skin, outline=0.0)
+    primitive_cone_segment(bpy, collection, "goblin_nose", (head_center[0] + 0.12, -0.11, head_center[2] + 0.00), (head_center[0] + 0.18, -0.12, head_center[2] - 0.01), 0.018, 0.0, skin, outline=0.0)
     primitive_cone_segment(bpy, collection, "goblin_ear_front", (head_center[0] - 0.03, -0.13, head_center[2] + 0.06), (head_center[0] + spec["ear_length"] * 0.84, -0.17, head_center[2] + 0.17), 0.075, 0.0, skin)
     primitive_cone_segment(bpy, collection, "goblin_ear_back", (head_center[0] - 0.12, 0.11, head_center[2] + 0.06), (head_center[0] + spec["ear_length"] * 0.62, 0.14, head_center[2] + 0.14), 0.055, 0.0, skin)
-    face_y = -spec["head_size"] * 0.40
-    primitive_cube(bpy, collection, "goblin_eye_bezel", (head_center[0] + 0.08, face_y, head_center[2] + 0.03), (0.11, 0.018, 0.08), dark, bevel=0.02, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_eye_front", (head_center[0] + 0.11, face_y - 0.010, head_center[2] + 0.04), (0.050, 0.009, 0.032), eyes, rotation=(0.0, math.radians(-4.0), math.radians(-12.0)), bevel=0.018, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_eye_back", (head_center[0] + 0.02, face_y - 0.010, head_center[2] + 0.01), (0.038, 0.009, 0.026), eyes, rotation=(0.0, math.radians(-4.0), math.radians(-10.0)), bevel=0.018, outline=0.0)
-    primitive_cylinder_segment(bpy, collection, "goblin_brow_front", (head_center[0] + 0.05, face_y - 0.002, head_center[2] + 0.10), (head_center[0] + 0.14, face_y - 0.008, head_center[2] + 0.11), 0.013, dark, outline=0.0)
-    primitive_cylinder_segment(bpy, collection, "goblin_brow_back", (head_center[0] - 0.03, face_y - 0.002, head_center[2] + 0.07), (head_center[0] + 0.04, face_y - 0.008, head_center[2] + 0.08), 0.011, dark, outline=0.0)
-    primitive_cylinder_segment(bpy, collection, "goblin_mouth", (head_center[0] + 0.08, face_y - 0.006, head_center[2] - 0.07), (head_center[0] + 0.16, face_y - 0.008, head_center[2] - 0.08), 0.010, dark, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_tooth1", (head_center[0] + 0.13, face_y - 0.014, head_center[2] - 0.08), (0.010, 0.006, 0.020), metal, bevel=0.003, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_tooth2", (head_center[0] + 0.18, face_y - 0.014, head_center[2] - 0.09), (0.010, 0.006, 0.018), metal, bevel=0.003, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_waistcloth", (pelvis_center[0] + 0.13, -0.10, pelvis_center[2] + 0.00), (0.12, 0.14, 0.12), accent, rotation=(0.0, 0.0, math.radians(8)), bevel=0.03, outline=0.010)
+    face_y = -spec["head_size"] * 0.30
+    primitive_cube(bpy, collection, "goblin_eye_bezel", (head_center[0] + 0.06, face_y, head_center[2] + 0.03), (0.10, 0.012, 0.07), dark, bevel=0.02, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_front", (head_center[0] + 0.09, face_y - 0.006, head_center[2] + 0.04), (0.044, 0.005, 0.028), eyes, rotation=(0.0, math.radians(-4.0), math.radians(-10.0)), bevel=0.014, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_back", (head_center[0] + 0.00, face_y - 0.006, head_center[2] + 0.01), (0.032, 0.005, 0.023), eyes, rotation=(0.0, math.radians(-4.0), math.radians(-8.0)), bevel=0.014, outline=0.0)
+    primitive_cylinder_segment(bpy, collection, "goblin_brow_front", (head_center[0] + 0.03, face_y - 0.001, head_center[2] + 0.10), (head_center[0] + 0.10, face_y - 0.004, head_center[2] + 0.11), 0.010, dark, outline=0.0)
+    primitive_cylinder_segment(bpy, collection, "goblin_brow_back", (head_center[0] - 0.04, face_y - 0.001, head_center[2] + 0.07), (head_center[0] + 0.02, face_y - 0.004, head_center[2] + 0.08), 0.009, dark, outline=0.0)
+    primitive_cylinder_segment(bpy, collection, "goblin_mouth", (head_center[0] + 0.07, face_y - 0.004, head_center[2] - 0.07), (head_center[0] + 0.13, face_y - 0.005, head_center[2] - 0.08), 0.008, dark, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth1", (head_center[0] + 0.10, face_y - 0.008, head_center[2] - 0.08), (0.008, 0.004, 0.016), metal, bevel=0.003, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth2", (head_center[0] + 0.14, face_y - 0.008, head_center[2] - 0.09), (0.008, 0.004, 0.015), metal, bevel=0.003, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_waistcloth", (pelvis_center[0] + 0.10, -0.07, pelvis_center[2] + 0.00), (0.11, 0.10, 0.12), accent, rotation=(0.0, 0.0, math.radians(8)), bevel=0.03, outline=0.010)
 
     shoulder_front = (torso_center[0] + 0.20, -0.060, torso_center[2] + 0.07)
     shoulder_back = (torso_center[0] - 0.17, 0.115, torso_center[2] + 0.03)
@@ -788,12 +833,132 @@ def build_goblin(bpy, collection, spec: Dict[str, object], animation: str, index
 
 
 
+def build_robot_construction(bpy, collection, spec: Dict[str, object], texture_paths: Dict[str, str] | None = None):
+    texture_paths = texture_paths or {}
+    white = ensure_toon_material(bpy, "RobotWhite", spec["primary_color"], spec["primary_shadow"], texture_path=texture_paths.get("primary"), texture_mix=0.34, texture_scale=1.9)
+    dark = ensure_toon_material(bpy, "RobotDark", spec["dark_color"], "#07070A", texture_path=texture_paths.get("dark"), texture_mix=0.28, texture_scale=2.0)
+    cyan = ensure_toon_material(bpy, "RobotCyan", spec["accent_color"], "#0DA4C5", emission_strength=0.32)
+    purple = ensure_toon_material(bpy, "RobotPurple", spec["accent2_color"], "#6F55C8", emission_strength=0.08)
+    metal = ensure_toon_material(bpy, "RobotMetal", spec["metal_color"], "#7D8796", texture_path=texture_paths.get("metal"), texture_mix=0.30, texture_scale=2.2)
+
+    pelvis_center = (0.0, 0.0, 0.86)
+    torso_center = (0.0, 0.0, 1.18)
+    head_center = (0.0, 0.0, 1.66)
+    head_half_w = spec["head_size"] * 0.44
+    head_half_d = spec["head_size"] * 0.33
+    body_half_w = spec["body_width"] * 0.48
+    body_half_d = spec["body_depth"] * 0.34
+
+    primitive_cube(bpy, collection, "robot_pelvis", pelvis_center, (spec["body_width"] * 0.34, spec["body_depth"] * 0.24, spec["body_height"] * 0.16), white, bevel=0.08, outline=0.018)
+    primitive_cube(bpy, collection, "robot_body", torso_center, (body_half_w, body_half_d, spec["body_height"] * 0.40), white, bevel=0.13, outline=0.018)
+    primitive_cube(bpy, collection, "robot_head", head_center, (head_half_w, head_half_d, spec["head_size"] * 0.38), white, bevel=0.18, outline=0.018)
+    primitive_cylinder_segment(bpy, collection, "robot_neck", (0.0, 0.0, torso_center[2] + 0.24), (0.0, 0.0, head_center[2] - 0.28), 0.038, metal, outline=0.0)
+
+    face_y = -head_half_d - 0.022
+    primitive_cube(bpy, collection, "robot_face_bezel", (0.0, face_y, head_center[2] + 0.01), (head_half_w * 0.68, 0.020, spec["head_size"] * 0.18), dark, bevel=0.06, outline=0.0)
+    primitive_cube(bpy, collection, "robot_face_screen", (0.0, face_y - 0.011, head_center[2] + 0.01), (head_half_w * 0.56, 0.006, spec["head_size"] * 0.14), cyan, bevel=0.02, outline=0.0)
+    primitive_cube(bpy, collection, "robot_eye_left", (-0.072, face_y - 0.022, head_center[2] + 0.04), (0.032, 0.006, 0.048), dark, bevel=0.01, outline=0.0)
+    primitive_cube(bpy, collection, "robot_eye_right", (0.072, face_y - 0.022, head_center[2] + 0.04), (0.032, 0.006, 0.048), dark, bevel=0.01, outline=0.0)
+    primitive_cube(bpy, collection, "robot_mouth", (0.0, face_y - 0.020, head_center[2] - 0.07), (0.080, 0.006, 0.016), dark, bevel=0.006, outline=0.0)
+    primitive_cube(bpy, collection, "robot_cheek_left", (-0.13, face_y - 0.012, head_center[2] - 0.02), (0.018, 0.004, 0.018), purple, bevel=0.004, outline=0.0)
+    primitive_cube(bpy, collection, "robot_cheek_right", (0.13, face_y - 0.012, head_center[2] - 0.02), (0.018, 0.004, 0.018), purple, bevel=0.004, outline=0.0)
+    primitive_cube(bpy, collection, "robot_chest_panel", (0.0, -body_half_d - 0.020, torso_center[2] + 0.03), (0.14, 0.020, 0.17), dark, bevel=0.03, outline=0.0)
+    primitive_cube(bpy, collection, "robot_chest_core", (0.0, -body_half_d - 0.036, torso_center[2] + 0.03), (0.060, 0.010, 0.10), cyan, bevel=0.014, outline=0.0)
+    primitive_cube(bpy, collection, "robot_hip_light", (0.0, -spec["body_depth"] * 0.21, pelvis_center[2] + 0.00), (0.036, 0.008, 0.040), purple, bevel=0.010, outline=0.0)
+    primitive_cylinder_segment(bpy, collection, "robot_antenna_stem", (0.0, 0.0, head_center[2] + spec["head_size"] * 0.30), (0.0, 0.0, head_center[2] + spec["head_size"] * 0.54), 0.016, purple, outline=0.0)
+    primitive_uv_sphere(bpy, collection, "robot_antenna_tip", (0.0, 0.0, head_center[2] + spec["head_size"] * 0.62), (0.042, 0.042, 0.042), purple, outline=0.0)
+
+    shoulder_left = (-body_half_w - 0.02, 0.0, torso_center[2] + 0.07)
+    shoulder_right = (body_half_w + 0.02, 0.0, torso_center[2] + 0.07)
+    elbow_left = (-body_half_w - 0.08, 0.0, torso_center[2] - 0.18)
+    elbow_right = (body_half_w + 0.08, 0.0, torso_center[2] - 0.18)
+    wrist_left = (-body_half_w - 0.07, 0.0, torso_center[2] - 0.44)
+    wrist_right = (body_half_w + 0.07, 0.0, torso_center[2] - 0.44)
+    for side, shoulder, elbow, wrist in (("left", shoulder_left, elbow_left, wrist_left), ("right", shoulder_right, elbow_right, wrist_right)):
+        primitive_uv_sphere(bpy, collection, f"robot_shoulder_{side}", shoulder, (0.070, 0.054, 0.070), white)
+        primitive_cylinder_segment(bpy, collection, f"robot_upperarm_{side}", shoulder, elbow, 0.052, white)
+        primitive_uv_sphere(bpy, collection, f"robot_elbow_{side}", elbow, (0.036, 0.032, 0.036), metal, outline=0.0)
+        primitive_cylinder_segment(bpy, collection, f"robot_forearm_{side}", elbow, wrist, 0.046, white)
+        primitive_uv_sphere(bpy, collection, f"robot_hand_{side}", wrist, (0.060, 0.048, 0.060), white)
+
+    hip_left = (-0.13, 0.0, pelvis_center[2] - 0.05)
+    hip_right = (0.13, 0.0, pelvis_center[2] - 0.05)
+    knee_left = (-0.13, 0.0, 0.46)
+    knee_right = (0.13, 0.0, 0.46)
+    ankle_left = (-0.13, 0.0, 0.16)
+    ankle_right = (0.13, 0.0, 0.16)
+    for side, hip, knee, ankle in (("left", hip_left, knee_left, ankle_left), ("right", hip_right, knee_right, ankle_right)):
+        primitive_cylinder_segment(bpy, collection, f"robot_thigh_{side}", hip, knee, 0.056, white)
+        primitive_uv_sphere(bpy, collection, f"robot_knee_{side}", knee, (0.038, 0.034, 0.038), metal, outline=0.0)
+        primitive_cylinder_segment(bpy, collection, f"robot_shin_{side}", knee, ankle, 0.050, white)
+        primitive_cube(bpy, collection, f"robot_foot_{side}", (ankle[0], -0.015, 0.04), (0.11, 0.080, 0.040), white, bevel=0.04, outline=0.012)
+
+
+def build_goblin_construction(bpy, collection, spec: Dict[str, object], texture_paths: Dict[str, str] | None = None):
+    texture_paths = texture_paths or {}
+    skin = ensure_toon_material(bpy, "GoblinSkin", spec["skin_color"], spec["skin_shadow"], texture_path=texture_paths.get("skin"), texture_mix=0.32, texture_scale=2.0)
+    cloth = ensure_toon_material(bpy, "GoblinCloth", spec["cloth_color"], spec["cloth_shadow"], texture_path=texture_paths.get("cloth"), texture_mix=0.30, texture_scale=2.0)
+    accent = ensure_toon_material(bpy, "GoblinAccent", spec["accent_color"], spec["accent2_color"], emission_strength=0.08, texture_path=texture_paths.get("accent"), texture_mix=0.24, texture_scale=2.2)
+    eyes = ensure_toon_material(bpy, "GoblinEyes", spec["eye_color"], spec["accent_color"], emission_strength=0.26)
+    dark = ensure_toon_material(bpy, "GoblinDark", "#201628", "#09070C")
+    metal = ensure_toon_material(bpy, "GoblinMetal", spec["metal_color"], "#7C74A2", texture_path=texture_paths.get("metal"), texture_mix=0.26, texture_scale=2.2)
+
+    pelvis_center = (0.0, 0.0, 0.82)
+    torso_center = (0.0, 0.0, 1.08)
+    head_center = (0.0, 0.0, 1.50)
+    head_half_d = spec["head_size"] * 0.31
+
+    primitive_uv_sphere(bpy, collection, "goblin_body", torso_center, (spec["body_width"] * 0.64, spec["body_depth"] * 0.56, spec["body_height"] * 0.58), cloth, outline=0.018)
+    primitive_cube(bpy, collection, "goblin_tunic", (0.0, -0.01, torso_center[2] - 0.10), (0.18, 0.12, 0.22), accent, bevel=0.03, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_belt", (0.0, -0.17, pelvis_center[2] + 0.09), (0.20, 0.025, 0.04), dark, bevel=0.01, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_waistcloth", (0.0, -0.10, pelvis_center[2] + 0.00), (0.12, 0.14, 0.12), accent, bevel=0.03, outline=0.010)
+    primitive_uv_sphere(bpy, collection, "goblin_head", head_center, (spec["head_size"] * 0.42, spec["head_size"] * 0.31, spec["head_size"] * 0.39), skin, outline=0.018)
+    primitive_cone_segment(bpy, collection, "goblin_ear_left", (-0.12, -0.02, head_center[2] + 0.06), (-0.38, -0.02, head_center[2] + 0.12), 0.065, 0.0, skin)
+    primitive_cone_segment(bpy, collection, "goblin_ear_right", (0.12, -0.02, head_center[2] + 0.06), (0.38, -0.02, head_center[2] + 0.12), 0.065, 0.0, skin)
+    face_y = -head_half_d - 0.018
+    primitive_cube(bpy, collection, "goblin_eye_bezel", (0.0, face_y, head_center[2] + 0.03), (0.16, 0.016, 0.07), dark, bevel=0.02, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_left", (-0.060, face_y - 0.008, head_center[2] + 0.03), (0.034, 0.008, 0.028), eyes, bevel=0.012, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_right", (0.060, face_y - 0.008, head_center[2] + 0.03), (0.034, 0.008, 0.028), eyes, bevel=0.012, outline=0.0)
+    primitive_cylinder_segment(bpy, collection, "goblin_brow_left", (-0.095, face_y - 0.002, head_center[2] + 0.10), (-0.030, face_y - 0.006, head_center[2] + 0.11), 0.010, dark, outline=0.0)
+    primitive_cylinder_segment(bpy, collection, "goblin_brow_right", (0.030, face_y - 0.006, head_center[2] + 0.11), (0.095, face_y - 0.002, head_center[2] + 0.10), 0.010, dark, outline=0.0)
+    primitive_cone_segment(bpy, collection, "goblin_nose", (0.0, face_y - 0.004, head_center[2] - 0.00), (0.0, face_y - 0.12, head_center[2] - 0.03), 0.028, 0.0, skin, outline=0.0)
+    primitive_cylinder_segment(bpy, collection, "goblin_mouth", (-0.04, face_y - 0.006, head_center[2] - 0.09), (0.04, face_y - 0.006, head_center[2] - 0.09), 0.010, dark, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth1", (-0.02, face_y - 0.012, head_center[2] - 0.10), (0.010, 0.006, 0.018), metal, bevel=0.003, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth2", (0.02, face_y - 0.012, head_center[2] - 0.10), (0.010, 0.006, 0.018), metal, bevel=0.003, outline=0.0)
+
+    shoulder_left = (-0.18, 0.0, torso_center[2] + 0.05)
+    shoulder_right = (0.18, 0.0, torso_center[2] + 0.05)
+    elbow_left = (-0.24, 0.0, 0.86)
+    elbow_right = (0.24, 0.0, 0.86)
+    wrist_left = (-0.26, 0.0, 0.58)
+    wrist_right = (0.26, 0.0, 0.58)
+    for side, shoulder, elbow, wrist in (("left", shoulder_left, elbow_left, wrist_left), ("right", shoulder_right, elbow_right, wrist_right)):
+        primitive_uv_sphere(bpy, collection, f"goblin_shoulder_{side}", shoulder, (0.05, 0.04, 0.05), skin)
+        primitive_cylinder_segment(bpy, collection, f"goblin_upperarm_{side}", shoulder, elbow, 0.048, skin)
+        primitive_cylinder_segment(bpy, collection, f"goblin_forearm_{side}", elbow, wrist, 0.040, skin)
+        primitive_uv_sphere(bpy, collection, f"goblin_hand_{side}", wrist, (0.050, 0.040, 0.050), skin)
+    add_goblin_weapon(bpy, collection, str(spec.get("held_item") or "spear"), wrist_right, 0.0, metal, accent)
+
+    hip_left = (-0.10, 0.0, 0.74)
+    hip_right = (0.10, 0.0, 0.74)
+    knee_left = (-0.10, 0.0, 0.40)
+    knee_right = (0.10, 0.0, 0.40)
+    ankle_left = (-0.10, 0.0, 0.14)
+    ankle_right = (0.10, 0.0, 0.14)
+    for side, hip, knee, ankle in (("left", hip_left, knee_left, ankle_left), ("right", hip_right, knee_right, ankle_right)):
+        primitive_cylinder_segment(bpy, collection, f"goblin_thigh_{side}", hip, knee, 0.050, skin)
+        primitive_cylinder_segment(bpy, collection, f"goblin_shin_{side}", knee, ankle, 0.042, skin)
+        primitive_cube(bpy, collection, f"goblin_foot_{side}", (ankle[0], -0.01, 0.04), (0.10, 0.06, 0.04), skin, bevel=0.03, outline=0.012)
+
+
 def render_request(bpy, req: Dict[str, object], payload: Dict[str, object]) -> None:
     scene = bpy.context.scene
     scene.render.resolution_x = int(req["width"])
     scene.render.resolution_y = int(req["height"])
     target = payload["target"]
     spec = payload["spec"]
+    variant = str(req.get("render_variant") or "side_pose")
+    configure_camera_for_variant(bpy, spec["view"], variant)
     # Remove existing character collections
     for collection in list(bpy.data.collections):
         if collection.name.startswith("Character_"):
@@ -801,10 +966,19 @@ def render_request(bpy, req: Dict[str, object], payload: Dict[str, object]) -> N
                 bpy.data.objects.remove(obj, do_unlink=True)
             bpy.data.collections.remove(collection)
     collection = create_collection(bpy, f"Character_{target}")
+    texture_paths = payload.get("texture_paths") or {}
     if target == "robot":
-        build_robot(bpy, collection, spec, req["animation"], int(req["frame_index"]), int(req["frame_count"]), payload.get("texture_paths") or {})
+        if variant == "construction":
+            build_robot_construction(bpy, collection, spec, texture_paths)
+        else:
+            build_robot(bpy, collection, spec, req["animation"], int(req["frame_index"]), int(req["frame_count"]), texture_paths)
+            pose_collection_side_scroller(bpy, collection, yaw_deg=64.0)
     elif target == "goblin":
-        build_goblin(bpy, collection, spec, req["animation"], int(req["frame_index"]), int(req["frame_count"]), payload.get("texture_paths") or {})
+        if variant == "construction":
+            build_goblin_construction(bpy, collection, spec, texture_paths)
+        else:
+            build_goblin(bpy, collection, spec, req["animation"], int(req["frame_index"]), int(req["frame_count"]), texture_paths)
+            pose_collection_side_scroller(bpy, collection, yaw_deg=64.0)
     else:
         raise KeyError(target)
     scene.render.filepath = str(Path(req["out_path"]).resolve())
@@ -819,6 +993,7 @@ def main() -> None:
     clear_scene(bpy)
     configure_scene(bpy, int(first["width"]), int(first["height"]), transparent=True)
     ensure_camera_and_lights(bpy, payload["spec"]["view"])
+    configure_camera_for_variant(bpy, payload["spec"]["view"], str(first.get("render_variant") or "side_pose"))
     for req in payload["requests"]:
         Path(req["out_path"]).parent.mkdir(parents=True, exist_ok=True)
         render_request(bpy, req, payload)

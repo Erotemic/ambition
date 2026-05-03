@@ -38,10 +38,11 @@ def test_render_default_assets(tmp_path):
         assert path.exists(), path
 
 
-def test_animation_sets_include_blink_and_dash():
+def test_animation_sets_include_blink_parts_and_dash():
     for target in ["robot", "goblin"]:
         adapter = get_adapter(target)
-        assert "blink" in adapter.animations()
+        assert "blink_out" in adapter.animations()
+        assert "blink_in" in adapter.animations()
         assert "dash" in adapter.animations()
 
 
@@ -63,15 +64,13 @@ def test_death_frames_keep_visible_mass_and_anchor():
             assert m["w"] >= first["w"] * 0.70, (job.target, metrics)
 
 
-def test_blink_animation_is_teleport_not_eyelid_blink():
+def test_blink_parts_are_teleport_not_eyelid_blink():
     for target in ["robot", "goblin"]:
         adapter = get_adapter(target)
-        spec = adapter.sample_spec(CharacterJob.load(Path("proc2d_character_lab/configs") / f"{target}.yaml"))
-        # The animation named "blink" represents Ambition's teleport ability.
-        # Incidental eyelid blinking can happen in idle, but the blink row itself
-        # should not close the eye / visor as its primary action.
+        adapter.sample_spec(CharacterJob.load(Path("proc2d_character_lab/configs") / f"{target}.yaml"))
         generator = adapter.generator
-        info = adapter.animations()["blink"]
-        for idx in range(info["frames"]):
-            pose = generator.pose_for_animation("blink", idx, info["frames"])
-            assert not pose.blink
+        for name in ["blink_out", "blink_in"]:
+            info = adapter.animations()[name]
+            for idx in range(info["frames"]):
+                pose = generator.pose_for_animation(name, idx, info["frames"])
+                assert not pose.blink

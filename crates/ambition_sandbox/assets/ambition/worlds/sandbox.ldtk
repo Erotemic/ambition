@@ -7707,12 +7707,6 @@
 			"__neighbours": []
 		},
 		{
-			"__bgColor": "#20242f",
-			"__bgPos": null,
-			"__neighbours": [],
-			"bgColor": null,
-			"bgPivotX": 0.5,
-			"bgPivotY": 0.5,
 			"identifier": "basement_boss",
 			"iid": "basement_boss-1532",
 			"uid": 1533,
@@ -7721,398 +7715,315 @@
 			"worldDepth": 0,
 			"pxWid": 1900,
 			"pxHei": 980,
+			"__bgColor": "#20242F",
+			"bgColor": null,
+			"useAutoIdentifier": false,
+			"bgRelPath": null,
+			"bgPos": null,
+			"bgPivotX": 0.5,
+			"bgPivotY": 0.5,
+			"__smartColor": "#84878D",
+			"__bgPos": null,
 			"externalRelPath": null,
-			"fieldInstances": [{
-				"__identifier": "activeArea",
-				"__type": "String",
-				"__value": "basement_boss",
-				"defUid": 4000,
-				"realEditorValues": [{
-					"id": "V_String",
-					"params": ["basement_boss"]
-				}]
-			}],
+			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_boss", "__tile": null, "defUid": 4000, "realEditorValues": [{
+				"id": "V_String",
+				"params": ["basement_boss"]
+			}] }],
 			"layerInstances": [
 				{
 					"__identifier": "Ambition",
-					"__cHei": 62,
+					"__type": "Entities",
 					"__cWid": 119,
+					"__cHei": 62,
 					"__gridSize": 16,
 					"__opacity": 1,
 					"__pxTotalOffsetX": 0,
 					"__pxTotalOffsetY": 0,
 					"__tilesetDefUid": null,
 					"__tilesetRelPath": null,
+					"iid": "Ambition-1535",
+					"levelId": 1533,
+					"layerDefUid": 1070,
+					"pxOffsetX": 0,
+					"pxOffsetY": 0,
+					"visible": true,
+					"optionalRules": [],
+					"intGridCsv": [],
 					"autoLayerTiles": [],
+					"seed": 0,
+					"overrideTilesetUid": null,
+					"gridTiles": [],
 					"entityInstances": [
 						{
-							"iid": "PlayerStart-0152",
-							"defUid": 2000,
 							"__identifier": "PlayerStart",
 							"__grid": [9,53],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "boss_start",
-								"defUid": 3000,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["boss_start"]
-								}]
-							}],
-							"height": 46,
+							"__tile": null,
+							"__smartColor": "#41D1FF",
+							"iid": "PlayerStart-0152",
 							"width": 28,
-							"px": [156,862]
+							"height": 46,
+							"defUid": 2000,
+							"px": [156,862],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss_start", "__tile": null, "defUid": 3000, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["boss_start"]
+							}] }],
+							"__worldX": 6364,
+							"__worldY": 1886
 						},
 						{
-							"iid": "Solid-0153",
-							"defUid": 2001,
 							"__identifier": "Solid",
 							"__grid": [0,0],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "ceiling",
-								"defUid": 3001,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["ceiling"]
-								}]
-							}],
-							"height": 24,
+							"__tile": null,
+							"__smartColor": "#6B7280",
+							"iid": "Solid-0153",
 							"width": 1900,
-							"px": [0,0]
+							"height": 24,
+							"defUid": 2001,
+							"px": [0,0],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "ceiling", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["ceiling"]
+							}] }],
+							"__worldX": 6208,
+							"__worldY": 1024
 						},
 						{
-							"iid": "Solid-0154",
-							"defUid": 2001,
 							"__identifier": "Solid",
 							"__grid": [0,58],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "floor",
-								"defUid": 3001,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["floor"]
-								}]
-							}],
-							"height": 48,
+							"__tile": null,
+							"__smartColor": "#6B7280",
+							"iid": "Solid-0154",
 							"width": 1900,
-							"px": [0,932]
+							"height": 48,
+							"defUid": 2001,
+							"px": [0,932],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "floor", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["floor"]
+							}] }],
+							"__worldX": 6208,
+							"__worldY": 1956
 						},
 						{
-							"iid": "Solid-0155",
-							"defUid": 2001,
 							"__identifier": "Solid",
 							"__grid": [0,0],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "left wall",
-								"defUid": 3001,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["left wall"]
-								}]
-							}],
-							"height": 980,
+							"__tile": null,
+							"__smartColor": "#6B7280",
+							"iid": "Solid-0155",
 							"width": 36,
-							"px": [0,0]
+							"height": 980,
+							"defUid": 2001,
+							"px": [0,0],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "left wall", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["left wall"]
+							}] }],
+							"__worldX": 6208,
+							"__worldY": 1024
 						},
 						{
-							"iid": "Solid-0156",
-							"defUid": 2001,
 							"__identifier": "Solid",
 							"__grid": [116,0],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "right wall",
-								"defUid": 3001,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["right wall"]
-								}]
-							}],
-							"height": 980,
+							"__tile": null,
+							"__smartColor": "#6B7280",
+							"iid": "Solid-0156",
 							"width": 36,
-							"px": [1864,0]
+							"height": 980,
+							"defUid": 2001,
+							"px": [1864,0],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "right wall", "__tile": null, "defUid": 3001, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["right wall"]
+							}] }],
+							"__worldX": 8072,
+							"__worldY": 1024
 						},
 						{
-							"iid": "LoadingZone-0157",
-							"defUid": 2002,
 							"__identifier": "LoadingZone",
 							"__grid": [5,49],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [
-								{
-									"__identifier": "id",
-									"__type": "String",
-									"__value": "return_door",
-									"defUid": 3002,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["return_door"]
-									}]
-								},
-								{
-									"__identifier": "name",
-									"__type": "String",
-									"__value": "to basement hub",
-									"defUid": 3003,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["to basement hub"]
-									}]
-								},
-								{
-									"__identifier": "activation",
-									"__type": "String",
-									"__value": "Door",
-									"defUid": 3004,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["Door"]
-									}]
-								},
-								{
-									"__identifier": "target_room",
-									"__type": "String",
-									"__value": "central_hub_complex",
-									"defUid": 3005,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["central_hub_complex"]
-									}]
-								},
-								{
-									"__identifier": "target_zone",
-									"__type": "String",
-									"__value": "boss_door",
-									"defUid": 3006,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["boss_door"]
-									}]
-								},
-								{
-									"__identifier": "bidirectional",
-									"__type": "Bool",
-									"__value": false,
-									"defUid": 3007,
-									"realEditorValues": [{
-										"id": "V_Bool",
-										"params": [ false ]
-									}]
-								}
-							],
-							"height": 142,
+							"__tile": null,
+							"__smartColor": "#FFD166",
+							"iid": "LoadingZone-0157",
 							"width": 140,
-							"px": [95,790]
+							"height": 142,
+							"defUid": 2002,
+							"px": [95,790],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "return_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["return_door"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "to basement hub", "__tile": null, "defUid": 3003, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["to basement hub"]
+								}] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Door"]
+								}] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "__tile": null, "defUid": 3005, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["central_hub_complex"]
+								}] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "boss_door", "__tile": null, "defUid": 3006, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss_door"]
+								}] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [{
+									"id": "V_Bool",
+									"params": [ false ]
+								}] }
+							],
+							"__worldX": 6303,
+							"__worldY": 1814
 						},
 						{
-							"iid": "BossSpawn-0158",
-							"defUid": 2013,
 							"__identifier": "BossSpawn",
 							"__grid": [63,29],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [
-								{
-									"__identifier": "name",
-									"__type": "String",
-									"__value": "clockwork warden",
-									"defUid": 3033,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["clockwork warden"]
-									}]
-								},
-								{
-									"__identifier": "brain",
-									"__type": "String",
-									"__value": "PhaseScript:tri_slam_sweep_halo",
-									"defUid": 3034,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["PhaseScript:tri_slam_sweep_halo"]
-									}]
-								}
-							],
-							"height": 185,
+							"__tile": null,
+							"__smartColor": "#C77DFF",
+							"iid": "BossSpawn-0158",
 							"width": 150,
-							"px": [1020,465]
-						},
-						{
-							"iid": "DebugLabel-0159",
-							"defUid": 2007,
-							"__identifier": "DebugLabel",
-							"__grid": [36,31],
-							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
-							"__tags": [],
+							"height": 185,
+							"defUid": 2013,
+							"px": [1020,465],
 							"fieldInstances": [
-								{
-									"__identifier": "name",
-									"__type": "String",
-									"__value": "boss sign",
-									"defUid": 3015,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["boss sign"]
-									}]
-								},
-								{
-									"__identifier": "text",
-									"__type": "String",
-									"__value": "Boss cycles slam, side sweep, and halo contact patterns",
-									"defUid": 3016,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["Boss cycles slam, side sweep, and halo contact patterns"]
-									}]
-								},
-								{
-									"__identifier": "category",
-									"__type": "String",
-									"__value": "Boss",
-									"defUid": 3017,
-									"realEditorValues": [{
-										"id": "V_String",
-										"params": ["Boss"]
-									}]
-								}
+								{ "__identifier": "name", "__type": "String", "__value": "clockwork warden", "__tile": null, "defUid": 3033, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["clockwork warden"]
+								}] },
+								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:tri_slam_sweep_halo", "__tile": null, "defUid": 3034, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["PhaseScript:tri_slam_sweep_halo"]
+								}] }
 							],
-							"height": 24,
-							"width": 680,
-							"px": [580,508]
+							"__worldX": 7228,
+							"__worldY": 1489
 						},
 						{
-							"iid": "OneWayPlatform-0160",
-							"defUid": 2003,
+							"__identifier": "DebugLabel",
+							"__grid": [5,38],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FFFFFF",
+							"iid": "DebugLabel-0159",
+							"width": 680,
+							"height": 24,
+							"defUid": 2007,
+							"px": [84,620],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "boss sign", "__tile": null, "defUid": 3015, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["boss sign"]
+								}] },
+								{ "__identifier": "text", "__type": "String", "__value": "Boss cycles slam, side sweep, and halo contact patterns", "__tile": null, "defUid": 3016, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Boss cycles slam, side sweep, and halo contact patterns"]
+								}] },
+								{ "__identifier": "category", "__type": "String", "__value": "Boss", "__tile": null, "defUid": 3017, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Boss"]
+								}] }
+							],
+							"__worldX": 6292,
+							"__worldY": 1644
+						},
+						{
 							"__identifier": "OneWayPlatform",
 							"__grid": [23,46],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "boss approach shelf",
-								"defUid": 3008,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["boss approach shelf"]
-								}]
-							}],
-							"height": 18,
+							"__tile": null,
+							"__smartColor": "#A4D65E",
+							"iid": "OneWayPlatform-0160",
 							"width": 310,
-							"px": [380,750]
+							"height": 18,
+							"defUid": 2003,
+							"px": [380,750],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss approach shelf", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["boss approach shelf"]
+							}] }],
+							"__worldX": 6588,
+							"__worldY": 1774
 						},
 						{
-							"iid": "OneWayPlatform-0161",
-							"defUid": 2003,
 							"__identifier": "OneWayPlatform",
 							"__grid": [49,40],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "boss arena left shelf",
-								"defUid": 3008,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["boss arena left shelf"]
-								}]
-							}],
-							"height": 18,
+							"__tile": null,
+							"__smartColor": "#A4D65E",
+							"iid": "OneWayPlatform-0161",
 							"width": 260,
-							"px": [790,650]
+							"height": 18,
+							"defUid": 2003,
+							"px": [790,650],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss arena left shelf", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["boss arena left shelf"]
+							}] }],
+							"__worldX": 6998,
+							"__worldY": 1674
 						},
 						{
-							"iid": "OneWayPlatform-0162",
-							"defUid": 2003,
 							"__identifier": "OneWayPlatform",
 							"__grid": [74,40],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "boss arena right shelf",
-								"defUid": 3008,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["boss arena right shelf"]
-								}]
-							}],
-							"height": 18,
+							"__tile": null,
+							"__smartColor": "#A4D65E",
+							"iid": "OneWayPlatform-0162",
 							"width": 260,
-							"px": [1190,650]
+							"height": 18,
+							"defUid": 2003,
+							"px": [1190,650],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss arena right shelf", "__tile": null, "defUid": 3008, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["boss arena right shelf"]
+							}] }],
+							"__worldX": 7398,
+							"__worldY": 1674
 						},
 						{
-							"iid": "HazardBlock-0163",
-							"defUid": 2009,
 							"__identifier": "HazardBlock",
 							"__grid": [45,56],
 							"__pivot": [0,0],
-							"__smartColor": "#ffffff",
 							"__tags": [],
-							"fieldInstances": [{
-								"__identifier": "name",
-								"__type": "String",
-								"__value": "boss pit spikes",
-								"defUid": 3020,
-								"realEditorValues": [{
-									"id": "V_String",
-									"params": ["boss pit spikes"]
-								}]
-							}],
-							"height": 22,
+							"__tile": null,
+							"__smartColor": "#FF3B30",
+							"iid": "HazardBlock-0163",
 							"width": 780,
-							"px": [720,910]
+							"height": 22,
+							"defUid": 2009,
+							"px": [720,910],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "boss pit spikes", "__tile": null, "defUid": 3020, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["boss pit spikes"]
+							}] }],
+							"__worldX": 6928,
+							"__worldY": 1934
 						}
-					],
-					"gridTiles": [],
-					"iid": "Ambition-1535",
-					"intGridCsv": [],
-					"layerDefUid": 1070,
-					"levelId": 1533,
-					"overrideTilesetUid": null,
-					"pxOffsetX": 0,
-					"pxOffsetY": 0,
-					"seed": 0,
-					"visible": true,
-					"__type": "Entities",
-					"optionalRules": [],
-					"intGrid": null
+					]
 				}
 			],
-			"__smartColor": "#20242f",
-			"useAutoIdentifier": false
+			"__neighbours": []
 		},
 		{
 			"identifier": "basement_breakables",
@@ -8300,16 +8211,16 @@
 						},
 						{
 							"__identifier": "Breakable",
-							"__grid": [29,43],
+							"__grid": [38,43],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#D8A15D",
 							"iid": "Breakable-0170",
-							"width": 260,
-							"height": 24,
+							"width": 64,
+							"height": 32,
 							"defUid": 2014,
-							"px": [470,690],
+							"px": [618,690],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "respawning breakable platform", "__tile": null, "defUid": 3035, "realEditorValues": [{
 									"id": "V_String",
@@ -8327,23 +8238,25 @@
 								{ "__identifier": "trigger", "__type": "String", "__value": "OnHit", "__tile": null, "defUid": 3043, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["OnHit"]
-								}] }
+								}] },
+								{ "__identifier": "collision", "__type": "LocalEnum.BreakableCollision", "__value": "None", "__tile": null, "defUid": 4040, "realEditorValues": [] },
+								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4041, "realEditorValues": [] }
 							],
-							"__worldX": 8678,
+							"__worldX": 8826,
 							"__worldY": 1714
 						},
 						{
 							"__identifier": "Breakable",
-							"__grid": [48,40],
+							"__grid": [46,40],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#D8A15D",
 							"iid": "Breakable-0171",
-							"width": 220,
-							"height": 24,
+							"width": 64,
+							"height": 32,
 							"defUid": 2014,
-							"px": [780,650],
+							"px": [748,650],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "crumble stand-timer platform", "__tile": null, "defUid": 3035, "realEditorValues": [{
 									"id": "V_String",
@@ -8361,23 +8274,25 @@
 								{ "__identifier": "trigger", "__type": "String", "__value": "OnStand", "__tile": null, "defUid": 3043, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["OnStand"]
-								}] }
+								}] },
+								{ "__identifier": "collision", "__type": "LocalEnum.BreakableCollision", "__value": "None", "__tile": null, "defUid": 4040, "realEditorValues": [] },
+								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4041, "realEditorValues": [] }
 							],
-							"__worldX": 8988,
+							"__worldX": 8956,
 							"__worldY": 1674
 						},
 						{
 							"__identifier": "Breakable",
-							"__grid": [61,35],
+							"__grid": [55,37],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#D8A15D",
 							"iid": "Breakable-0172",
-							"width": 260,
-							"height": 24,
+							"width": 64,
+							"height": 32,
 							"defUid": 2014,
-							"px": [980,575],
+							"px": [884,599],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "non-respawn slash platform", "__tile": null, "defUid": 3035, "realEditorValues": [{
 									"id": "V_String",
@@ -8395,10 +8310,12 @@
 								{ "__identifier": "trigger", "__type": "String", "__value": "OnHit", "__tile": null, "defUid": 3043, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["OnHit"]
-								}] }
+								}] },
+								{ "__identifier": "collision", "__type": "LocalEnum.BreakableCollision", "__value": "None", "__tile": null, "defUid": 4040, "realEditorValues": [] },
+								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4041, "realEditorValues": [] }
 							],
-							"__worldX": 9188,
-							"__worldY": 1599
+							"__worldX": 9092,
+							"__worldY": 1623
 						},
 						{
 							"__identifier": "Breakable",
@@ -8429,14 +8346,16 @@
 								{ "__identifier": "trigger", "__type": "String", "__value": "OnHit", "__tile": null, "defUid": 3043, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["OnHit"]
-								}] }
+								}] },
+								{ "__identifier": "collision", "__type": "LocalEnum.BreakableCollision", "__value": "None", "__tile": null, "defUid": 4040, "realEditorValues": [] },
+								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4041, "realEditorValues": [] }
 							],
 							"__worldX": 9508,
 							"__worldY": 1768
 						},
 						{
 							"__identifier": "DebugLabel",
-							"__grid": [28,31],
+							"__grid": [3,36],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -8445,7 +8364,7 @@
 							"width": 740,
 							"height": 24,
 							"defUid": 2007,
-							"px": [450,503],
+							"px": [50,583],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "breakable sign", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
@@ -8460,8 +8379,8 @@
 									"params": ["Interactable"]
 								}] }
 							],
-							"__worldX": 8658,
-							"__worldY": 1527
+							"__worldX": 8258,
+							"__worldY": 1607
 						},
 						{
 							"__identifier": "OneWayPlatform",
@@ -8519,6 +8438,30 @@
 							}] }],
 							"__worldX": 9476,
 							"__worldY": 1498
+						},
+						{
+							"__identifier": "Breakable",
+							"__grid": [63,35],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#D8A15D",
+							"iid": "eb744330-21a0-11f1-9794-4f4e0f22366c",
+							"width": 64,
+							"height": 24,
+							"defUid": 2014,
+							"px": [1008,560],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Breakable", "__tile": null, "defUid": 3035, "realEditorValues": [] },
+								{ "__identifier": "max_hp", "__type": "Float", "__value": 3, "__tile": null, "defUid": 3036, "realEditorValues": [] },
+								{ "__identifier": "solid", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3037, "realEditorValues": [] },
+								{ "__identifier": "respawn", "__type": "String", "__value": "OnRoomReload", "__tile": null, "defUid": 3038, "realEditorValues": [] },
+								{ "__identifier": "trigger", "__type": "String", "__value": "OnHit", "__tile": null, "defUid": 3043, "realEditorValues": [] },
+								{ "__identifier": "collision", "__type": "LocalEnum.BreakableCollision", "__value": "None", "__tile": null, "defUid": 4040, "realEditorValues": [] },
+								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4041, "realEditorValues": [] }
+							],
+							"__worldX": 9216,
+							"__worldY": 1584
 						}
 					]
 				}

@@ -41,8 +41,8 @@ pub use debug::{DebugLabel, DebugLabelKind, DestinationLabel};
 pub use enemy::{spawn_dummies, Dummy, DummyKind};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
 pub use interaction::{
-    Breakable, BreakableState, BreakableTrigger, Chest, ChestState, Interactable, InteractionKind,
-    Pickup, PickupKind,
+    Breakable, BreakableCollision, BreakableState, BreakableTrigger, Chest, ChestState,
+    Interactable, InteractionKind, Pickup, PickupKind,
 };
 pub use movement::{
     blink_destination, blink_destination_to_point, update_player, update_player_control,

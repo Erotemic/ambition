@@ -1103,7 +1103,7 @@ impl BreakableRuntime {
     }
 
     fn breaks_on_stand(&self) -> bool {
-        self.breakable.solid && self.breakable.trigger.allows_stand()
+        self.breakable.collision.blocks_movement() && self.breakable.trigger.allows_stand()
     }
 
     fn breaks_on_hit(&self) -> bool {
@@ -1313,13 +1313,19 @@ pub fn world_with_sandbox_solids(
 ) -> ae::World {
     let mut collision_world = crate::platforms::world_with_moving_platform(world, platform);
     for breakable in &features.breakables {
-        if breakable.breakable.solid && !breakable.broken() {
-            collision_world.blocks.push(ae::Block {
-                name: format!("breakable {}", breakable.name),
-                aabb: breakable.aabb(),
-                kind: ae::BlockKind::Solid,
-            });
+        if breakable.broken() {
+            continue;
         }
+        let kind = match breakable.breakable.collision {
+            ae::BreakableCollision::None => continue,
+            ae::BreakableCollision::Solid => ae::BlockKind::Solid,
+            ae::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
+        };
+        collision_world.blocks.push(ae::Block {
+            name: format!("breakable {}", breakable.name),
+            aabb: breakable.aabb(),
+            kind,
+        });
     }
     collision_world
 }

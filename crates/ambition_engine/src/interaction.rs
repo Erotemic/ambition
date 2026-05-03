@@ -115,7 +115,8 @@ pub enum BreakableTrigger {
     #[default]
     OnHit,
     /// Crumbles after the player stands on it for a short window.
-    /// Stand-to-crumble requires `solid: true`.
+    /// Stand-to-crumble requires the breakable to contribute non-`None`
+    /// collision while intact (see [`BreakableCollision`]).
     OnStand,
     /// Either trigger applies.
     Either,
@@ -131,6 +132,35 @@ impl BreakableTrigger {
     }
 }
 
+/// What kind of collision a breakable contributes while it is still intact.
+///
+/// Replaces the older `solid: bool` knob with a typed shape so authoring
+/// tooling (LDtk Surface) can compile down a single rectangular volume into
+/// either a hard wall, a one-way landing, or a pure trigger volume.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum BreakableCollision {
+    /// Pure trigger volume: damage/contact events apply, but the player passes
+    /// through it. Useful for breakable scenery that does not block movement.
+    #[default]
+    None,
+    /// Hard collision on both axes while intact (legacy `solid: true`).
+    Solid,
+    /// One-way landing platform while intact: solid only when crossed from above.
+    OneWayUp,
+}
+
+impl BreakableCollision {
+    /// True if the breakable currently blocks movement on any axis.
+    pub fn blocks_movement(self) -> bool {
+        !matches!(self, BreakableCollision::None)
+    }
+
+    /// True if the breakable presents a hard wall while intact.
+    pub fn is_solid(self) -> bool {
+        matches!(self, BreakableCollision::Solid)
+    }
+}
+
 /// Breakable wall/platform/object semantics.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Breakable {
@@ -138,8 +168,8 @@ pub struct Breakable {
     pub state: BreakableState,
     pub health: Health,
     pub respawn: RespawnPolicy,
-    /// True for destructible platforms/walls that should contribute a temporary solid block.
-    pub solid: bool,
+    /// Collision shape contributed while the breakable is intact.
+    pub collision: BreakableCollision,
     pub trigger: BreakableTrigger,
     pub debris_cue: Option<String>,
 }
@@ -151,7 +181,7 @@ impl Breakable {
             state: BreakableState::Intact,
             health: Health::new(max_hp),
             respawn: RespawnPolicy::Never,
-            solid: false,
+            collision: BreakableCollision::None,
             trigger: BreakableTrigger::OnHit,
             debris_cue: None,
         }

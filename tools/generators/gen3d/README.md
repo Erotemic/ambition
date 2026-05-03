@@ -1,3 +1,21 @@
+
+## v0.4.10
+
+- Refined goblin side-pose facial registration so the nose sits more centrally relative to the rotated eye line.
+- Pushed the dagger arm farther out from the torso silhouette so the right arm reads cleanly in the side sprite instead of merging into the body.
+- Kept the side-pose head derived from the same canonical construction layout instead of introducing a separate side-view head description.
+
+## v0.4.9
+
+- Reworked the goblin side-pose head to reuse the same canonical head layout as the construction view and then rotate it into the gameplay pose.
+- Head attachments (ears, eye sockets, eyes, nose, mouth, teeth) are now positioned from canonical local coordinates via a shared head transform instead of a separate ad hoc side-view layout.
+- This should keep the near ear attached behind the face plane and preserve a more principled 3/4 face read in the side sprite.
+
+## v0.4.8
+
+- Corrected goblin ear diagnosis: the close-up showed the ear was not disappearing; it was pushed too far into the face plane and overlapping the eye/nose region.
+- Moved the near ear higher and behind the visible face plane, reduced its thickness, and added a small inner-ear accent so it reads as an ear instead of a horn.
+- Kept the goblin head / face visible while preserving the sprite-first v0.4.6+ color pipeline.
 ## v31 notes
 
 - Switched rendering toward a sprite-first setup: Standard view transform instead of a washed-out filmic look.
@@ -177,3 +195,9 @@ If Blender fails, the tool writes `_blender_render.log` beside the active output
 Set `GEN3D_BLENDER_LAB_VERBOSE=1` to show Blender's raw output while debugging.
 
 The canonical commands print a Rich `file://` link to `assets/character_canonicals.png` so supported terminals can open the review image directly.
+
+## v0.4.7
+
+- Adjusted goblin side-pose presentation to preserve clearer 3/4 face readability in sprite renders.
+- Moved the near goblin ear forward and outward so it remains visible instead of collapsing into the head silhouette.
+- Reduced goblin side-pose yaw slightly to keep the face readable for 2D pre-rendered sprite use.

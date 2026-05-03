@@ -47,7 +47,7 @@ pub struct DeveloperTools {
 impl Default for DeveloperTools {
     fn default() -> Self {
         Self {
-            inspector_visible: true,
+            inspector_visible: false,
             world_inspector_visible: false,
             gizmos_enabled: true,
             show_hud: true,

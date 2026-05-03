@@ -1162,17 +1162,38 @@ fn sweep_player_x(world: &World, player: &mut Player, delta_x: f32) {
     if let Some(hit) = world.first_body_sweep(player.aabb(), delta, |block| {
         is_solid_for_axis(block.kind, Axis::X) && !matches!(block.kind, BlockKind::OneWay)
     }) {
-        player.pos.x += delta.x * sweep_fraction(hit.time_of_impact);
+        let toi_fraction = sweep_fraction(hit.time_of_impact);
+        player.pos.x += delta.x * toi_fraction;
         let body = player.aabb();
-        if delta.x > 0.0 {
-            player.pos.x += hit.block.aabb.left() - body.right();
-            player.wall_normal_x = -1.0;
+        // When the swept hit is a pre-existing overlap (ToI=0) AND the
+        // overlap is dominantly vertical, the contact is the perpendicular
+        // axis — typical case is feet/head poking into a wide floor or
+        // ceiling block. The horizontal snap path would push the player
+        // toward the block's near edge, which for a room-spanning floor
+        // lives off the opposite side of the room and teleports the
+        // player out of bounds. Skip the snap and finish the requested
+        // motion; `resolve_vertical` (next axis) handles the contact.
+        let immediate_contact = hit.time_of_impact <= 1.0e-5;
+        let overlap_x = (body.right().min(hit.block.aabb.right())
+            - body.left().max(hit.block.aabb.left()))
+        .max(0.0);
+        let overlap_y = (body.bottom().min(hit.block.aabb.bottom())
+            - body.top().max(hit.block.aabb.top()))
+        .max(0.0);
+        let vertical_dominant = immediate_contact && overlap_y > 0.0 && overlap_x > overlap_y;
+        if vertical_dominant {
+            player.pos.x += delta.x * (1.0 - toi_fraction);
         } else {
-            player.pos.x += hit.block.aabb.right() - body.left();
-            player.wall_normal_x = 1.0;
+            if delta.x > 0.0 {
+                player.pos.x += hit.block.aabb.left() - body.right();
+                player.wall_normal_x = -1.0;
+            } else {
+                player.pos.x += hit.block.aabb.right() - body.left();
+                player.wall_normal_x = 1.0;
+            }
+            player.vel.x = 0.0;
+            player.on_wall = true;
         }
-        player.vel.x = 0.0;
-        player.on_wall = true;
     } else {
         player.pos.x += delta.x;
     }
@@ -1251,6 +1272,26 @@ fn resolve_axis(world: &World, player: &mut Player, axis: Axis) {
         }
         match axis {
             Axis::X => {
+                // Only resolve as a horizontal contact when the overlap is
+                // shallower in x than in y. Otherwise this is a vertical
+                // contact (player's head poking into a wide ceiling, or feet
+                // poking into a wide floor) and the appropriate axis is the
+                // perpendicular `resolve_vertical` pass — pushing
+                // horizontally instead can catapult the player across the
+                // entire room (the floor/ceiling block spans the whole
+                // width, so its near edge is far away). Concrete repro: a
+                // wall-jump off the left wall while feet barely overlap the
+                // floor used to teleport the player tens of pixels left
+                // through the wall.
+                let overlap_x = (aabb.right().min(block.aabb.right())
+                    - aabb.left().max(block.aabb.left()))
+                .max(0.0);
+                let overlap_y = (aabb.bottom().min(block.aabb.bottom())
+                    - aabb.top().max(block.aabb.top()))
+                .max(0.0);
+                if overlap_x > overlap_y {
+                    continue;
+                }
                 if aabb.center().x < block.aabb.center().x {
                     let push = block.aabb.left() - aabb.right();
                     player.pos.x += push;
@@ -2034,5 +2075,68 @@ mod tests {
         let dx = (hit.center().x - orb_center.x).abs();
         let dy = (hit.center().y - orb_center.y).abs();
         assert!(dx < 1.0 && dy < 1.0, "pogo_hit center {:?} != orb {:?}", hit.center(), orb_center);
+    }
+
+    /// Wall-jumping off the left wall while the player's body slightly
+    /// overlaps a wide horizontal block (floor/ceiling) must not catapult
+    /// the player out the opposite side of the room.
+    ///
+    /// Reproduction in the square_arena: player is wall-clinging the left
+    /// wall low enough that their feet still poke into the floor block.
+    /// `resolve_axis(Axis::X)` saw the residual floor overlap and tried to
+    /// resolve it *horizontally* — the floor block spans the whole room,
+    /// so its left edge is at x=0, which produced a single-frame push
+    /// equal to the negative of the player's right edge (~58 pixels left)
+    /// and dumped the player at negative x.
+    #[test]
+    fn wall_jump_does_not_catapult_through_left_wall() {
+        let world = test_world();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+
+        // Park the player against the left wall with a tiny overlap into the
+        // floor (1 pixel deep) — the kind of residual penetration the engine
+        // tolerates between sweeps.
+        let body = player.aabb();
+        let left_wall_right = 36.0;
+        let floor_top = world.size.y - 48.0;
+        player.pos.x = left_wall_right + body.half_size().x; // touching wall on its right edge
+        player.pos.y = floor_top - body.half_size().y + 1.0; // bottom 1 px below floor top
+        player.vel = Vec2::ZERO;
+        player.on_ground = false;
+        player.on_wall = true;
+        player.wall_normal_x = 1.0;
+        player.coyote_timer = 0.0;
+
+        let initial_x = player.pos.x;
+        let _ = update_player_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                axis_x: -1.0,
+                axis_y: 0.0,
+                jump_pressed: true,
+                jump_held: true,
+                control_dt: 1.0 / 60.0,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+
+        // After one wall-jump frame the player should be drifting *right*
+        // (away from the wall) or at worst still touching it — never past
+        // the wall's right edge in the negative-x direction by tens of
+        // pixels.
+        assert!(
+            player.pos.x >= initial_x - 1.0,
+            "wall jump pushed player to x={} from x={} — expected to stay near or right of starting position",
+            player.pos.x,
+            initial_x,
+        );
+        assert!(
+            player.pos.x - body.half_size().x >= 0.0,
+            "wall jump punched the player through the left wall (body left = {})",
+            player.pos.x - body.half_size().x,
+        );
     }
 }

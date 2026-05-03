@@ -1,3 +1,22 @@
+## v29 notes
+
+- Added an explicit rendered version badge (for example `v0.4.4`) to canonical images, spritesheets, and contact sheets.
+- Added CLI startup version printing and manifest metadata version to help debug whether a new package was actually unpacked and executed.
+- This release is primarily for iteration/debug visibility rather than character design changes.
+
+## v28 notes
+
+- Based on v27 / v15 track.
+- Goblin side pose is turned further toward the camera (yaw 30 degrees instead of 40) so the face reads more clearly in motion.
+- Goblin side head-face pieces and front ear were pushed further into view to improve facial readability and ear silhouette.
+- Accent colors are less pastel and more saturated, with slightly stronger texture mixing so materials read a bit richer.
+
+## v27 notes
+
+- Based directly on v15.
+- Robot remains on the v15 side-pose code path.
+- Goblin side pose yaw reduced from 56 degrees to 40 degrees so the face stays more visible in side movement renders.
+
 # gen3d blender lab
 
 Blender-first procedural 3D character sprite generation for Ambition.

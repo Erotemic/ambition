@@ -967,10 +967,10 @@ def build_goblin_construction(bpy, collection, spec: Dict[str, object], texture_
 def _clean_materials_robot(bpy, spec: Dict[str, object], texture_paths: Dict[str, str] | None = None):
     texture_paths = texture_paths or {}
     return {
-        "body": ensure_toon_material(bpy, "SimpleRobotCream", "#EEE6D8", "#CFC7B8", texture_path=texture_paths.get("primary"), texture_mix=0.035, texture_scale=1.4),
+        "body": ensure_toon_material(bpy, "SimpleRobotCream", "#F0ECE2", "#C8C1B2", texture_path=texture_paths.get("primary"), texture_mix=0.060, texture_scale=1.4),
         "dark": ensure_toon_material(bpy, "SimpleRobotScreen", "#161B1F", "#06080A", emission_strength=0.0),
-        "cyan": ensure_toon_material(bpy, "SimpleRobotCyan", "#25F4FF", "#0AAFC2", emission_strength=0.42),
-        "purple": ensure_toon_material(bpy, "SimpleRobotPurple", "#8F4AE1", "#5A2B98", emission_strength=0.10),
+        "cyan": ensure_toon_material(bpy, "SimpleRobotCyan", "#18F6FF", "#008FA8", emission_strength=0.52),
+        "purple": ensure_toon_material(bpy, "SimpleRobotPurple", "#A83CFF", "#5F169E", emission_strength=0.16),
         "joint": ensure_toon_material(bpy, "SimpleRobotJoint", "#6C6C68", "#333333", texture_path=texture_paths.get("metal"), texture_mix=0.025, texture_scale=1.4),
     }
 
@@ -978,10 +978,10 @@ def _clean_materials_robot(bpy, spec: Dict[str, object], texture_paths: Dict[str
 def _clean_materials_goblin(bpy, spec: Dict[str, object], texture_paths: Dict[str, str] | None = None):
     texture_paths = texture_paths or {}
     return {
-        "skin": ensure_toon_material(bpy, "SimpleGoblinSkin", "#3B3746", "#211F29", texture_path=texture_paths.get("skin"), texture_mix=0.045, texture_scale=1.2),
-        "skin_dark": ensure_toon_material(bpy, "SimpleGoblinSkinDark", "#27232F", "#15131A"),
-        "eye": ensure_toon_material(bpy, "SimpleGoblinEye", "#F47BFF", "#9B35D8", emission_strength=0.45),
-        "cloth": ensure_toon_material(bpy, "SimpleGoblinCloth", "#7A43A9", "#4A246E", texture_path=texture_paths.get("cloth"), texture_mix=0.040, texture_scale=1.1),
+        "skin": ensure_toon_material(bpy, "SimpleGoblinSkin", "#5B5272", "#2D253B", texture_path=texture_paths.get("skin"), texture_mix=0.070, texture_scale=1.2),
+        "skin_dark": ensure_toon_material(bpy, "SimpleGoblinSkinDark", "#3E3650", "#1F1A28"),
+        "eye": ensure_toon_material(bpy, "SimpleGoblinEye", "#FF6AF4", "#B218D6", emission_strength=0.55),
+        "cloth": ensure_toon_material(bpy, "SimpleGoblinCloth", "#A14BE2", "#5C2497", texture_path=texture_paths.get("cloth"), texture_mix=0.065, texture_scale=1.1),
         "belt": ensure_toon_material(bpy, "SimpleGoblinBelt", "#6A4A34", "#33251C"),
         "metal": ensure_toon_material(bpy, "SimpleGoblinMetal", "#8E8E8A", "#555552", texture_path=texture_paths.get("metal"), texture_mix=0.025, texture_scale=1.3),
         "dark": ensure_toon_material(bpy, "SimpleGoblinDark", "#131019", "#08070B"),
@@ -1051,13 +1051,13 @@ def build_goblin(bpy, collection, spec: Dict[str, object], animation: str, index
     lean = math.radians(-5.0)
     primitive_uv_sphere(bpy, collection, "goblin_body", torso, (0.245, 0.205, 0.330), m["skin_dark"], rotation=(0.0, lean, 0.0), outline=0.016)
     primitive_uv_sphere(bpy, collection, "goblin_head", head, (0.350, 0.280, 0.320), m["skin"], rotation=(0.0, math.radians(-2.0), 0.0), outline=0.016)
-    primitive_cone_segment(bpy, collection, "goblin_ear_front", (head[0] + 0.235, -0.025, head[2] + 0.035), (head[0] + 0.555, -0.030, head[2] + 0.125), 0.070, 0.000, m["skin"], outline=0.012)
-    primitive_cone_segment(bpy, collection, "goblin_ear_back", (head[0] - 0.110, 0.065, head[2] + 0.030), (head[0] + 0.180, 0.080, head[2] + 0.095), 0.055, 0.000, m["skin"], outline=0.010)
+    primitive_cone_segment(bpy, collection, "goblin_ear_front", (head[0] + 0.215, -0.030, head[2] + 0.030), (head[0] + 0.610, -0.038, head[2] + 0.135), 0.082, 0.000, m["skin"], outline=0.012)
+    primitive_cone_segment(bpy, collection, "goblin_ear_back", (head[0] - 0.125, 0.060, head[2] + 0.028), (head[0] + 0.145, 0.074, head[2] + 0.088), 0.048, 0.000, m["skin"], outline=0.010)
     fy = -0.285
-    primitive_cube(bpy, collection, "goblin_eye_socket", (head[0] + 0.070, fy - 0.004, head[2] + 0.030), (0.065, 0.012, 0.052), m["dark"], bevel=0.018, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_eye", (head[0] + 0.070, fy - 0.015, head[2] + 0.035), (0.038, 0.006, 0.034), m["eye"], bevel=0.010, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_mouth", (head[0] + 0.090, fy - 0.013, head[2] - 0.085), (0.045, 0.006, 0.016), m["dark"], bevel=0.004, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_tooth", (head[0] + 0.095, fy - 0.019, head[2] - 0.105), (0.008, 0.004, 0.016), m["metal"], bevel=0.002, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_socket", (head[0] + 0.095, fy - 0.004, head[2] + 0.032), (0.070, 0.012, 0.054), m["dark"], bevel=0.018, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye", (head[0] + 0.095, fy - 0.015, head[2] + 0.037), (0.040, 0.006, 0.036), m["eye"], bevel=0.010, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_mouth", (head[0] + 0.118, fy - 0.013, head[2] - 0.082), (0.048, 0.006, 0.016), m["dark"], bevel=0.004, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth", (head[0] + 0.122, fy - 0.019, head[2] - 0.102), (0.008, 0.004, 0.016), m["metal"], bevel=0.002, outline=0.0)
     primitive_cube(bpy, collection, "goblin_belt", (torso[0] + 0.020, -0.145, 0.740 + bob), (0.215, 0.016, 0.035), m["belt"], bevel=0.010, outline=0.006)
     primitive_cube(bpy, collection, "goblin_loincloth", (torso[0] + 0.020, -0.150, 0.600 + bob), (0.090, 0.016, 0.120), m["cloth"], bevel=0.014, outline=0.006)
 
@@ -1185,7 +1185,9 @@ def render_request(bpy, req: Dict[str, object], payload: Dict[str, object]) -> N
             build_goblin_construction(bpy, collection, spec, texture_paths)
         else:
             build_goblin(bpy, collection, spec, req["animation"], int(req["frame_index"]), int(req["frame_count"]), texture_paths)
-            pose_collection_side_scroller(bpy, collection, yaw_deg=56.0)
+            # Keep the v15 look, but turn the goblin a bit less so the player can
+            # clearly read the face during side-scroller movement.
+            pose_collection_side_scroller(bpy, collection, yaw_deg=30.0)
     else:
         raise KeyError(target)
     scene.render.filepath = str(Path(req["out_path"]).resolve())

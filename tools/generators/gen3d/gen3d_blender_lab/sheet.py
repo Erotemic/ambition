@@ -10,6 +10,7 @@ from PIL import Image, ImageColor, ImageDraw, ImageFont
 from .adapters import BaseAdapter
 from .blender_backend.driver import render_requests
 from .config import CharacterJob
+from . import __version__
 
 
 def parse_color(value: str):
@@ -31,6 +32,23 @@ def rounded_rect(draw: ImageDraw.ImageDraw, box, radius: int, fill, outline, wid
     except AttributeError:
         draw.rectangle(box, fill=fill, outline=outline, width=width)
 
+
+
+def stamp_version(img: Image.Image, text: str | None = None) -> None:
+    text = text or f"v{__version__}"
+    draw = ImageDraw.Draw(img)
+    font = load_font(16)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    pad_x = 8
+    pad_y = 5
+    x1 = img.width - 12
+    y0 = 10
+    x0 = x1 - tw - pad_x * 2
+    y1 = y0 + th + pad_y * 2
+    rounded_rect(draw, (x0, y0, x1, y1), radius=8, fill=(232, 235, 241, 230), outline=(70, 76, 88, 220), width=1)
+    draw.text((x0 + pad_x, y0 + pad_y - 1), text, font=font, fill=(20, 22, 28, 255))
 
 def render_spritesheet(adapter: BaseAdapter, job: CharacterJob, out: str | Path, manifest_out: str | Path | None = None) -> Dict[str, Any]:
     animations = job.animations or adapter.default_animations()
@@ -61,6 +79,7 @@ def render_spritesheet(adapter: BaseAdapter, job: CharacterJob, out: str | Path,
             "label_width": label_w,
             "animations": animations,
             "spec": adapter.spec_dict(adapter.sample_spec(job)),
+            "version": __version__,
         },
         "animations": {},
         "frames": [],
@@ -115,6 +134,7 @@ def render_spritesheet(adapter: BaseAdapter, job: CharacterJob, out: str | Path,
                 names.append(name)
             manifest["animations"][anim] = {"frames": names, "frame_count": frame_count, "duration_ms": duration_ms, "row": row, "label": anim.replace("_", " ").title()}
 
+    stamp_version(sheet)
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(out)

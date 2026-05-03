@@ -14,6 +14,7 @@ from .adapters import TARGETS, get_adapter
 from .canonical import render_canonical, render_canonical_contact_sheet
 from .config import CharacterJob, RenderConfig, load_job, save_job
 from .sheet import render_spritesheet
+from . import __version__
 from .textures import generate_texture_pack
 
 DEFAULT_GEN3D_ROOT = Path(os.environ.get("GEN3D_BLENDER_LAB_ROOT", Path(__file__).resolve().parents[1]))

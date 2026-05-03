@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::character_sprites::{
-    CharacterAnim, CharacterAnimator, CharacterSpriteAssets,
+    build_character_sprite, feet_anchor, CharacterAnimator, CharacterSpriteAssets,
 };
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
@@ -232,17 +232,13 @@ pub fn upgrade_enemy_sprites(
         ) {
             continue;
         }
-        let mut sprite = Sprite::from_atlas_image(
-            goblin.texture.clone(),
-            bevy::image::TextureAtlas {
-                layout: goblin.layout.clone(),
-                index: goblin.spec.flat_index(CharacterAnim::Idle, 0),
-            },
-        );
-        sprite.custom_size = Some(goblin.render_size);
-        commands
-            .entity(entity)
-            .insert((sprite, CharacterAnimator::new(goblin.spec)));
+        let collision = BVec2::new(view.size.x, view.size.y);
+        let sprite = build_character_sprite(goblin, collision);
+        commands.entity(entity).insert((
+            sprite,
+            feet_anchor(),
+            CharacterAnimator::new(goblin.spec),
+        ));
     }
 }
 

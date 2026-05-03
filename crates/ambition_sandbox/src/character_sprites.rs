@@ -10,6 +10,7 @@ use std::path::Path;
 use ambition_engine as ae;
 use bevy::math::URect;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 
 use crate::features::FeatureVisualKind;
 use crate::SandboxRuntime;
@@ -75,12 +76,68 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     ],
 };
 
-/// Render size for the player sprite. The character only fills part of the
-/// 128×128 frame; rendering at this size keeps the visible body close in
-/// scale to the 28×46 collision box without distorting the source frames.
-pub const PLAYER_SPRITE_SIZE: Vec2 = Vec2::new(96.0, 96.0);
-/// Render size for goblin enemies.
-pub const GOBLIN_SPRITE_SIZE: Vec2 = Vec2::new(96.0, 96.0);
+/// Multiplier applied to an entity's collision-box max dimension to derive
+/// its square sprite render size. The generator's character occupies only
+/// part of the 128×128 frame, so the rendered quad must be larger than the
+/// collision box for the visible body to roughly match the hitbox.
+///
+/// LIMITATION: this is a heuristic. A more polished pipeline would have
+/// `tools/generators/gen2d` emit per-target metadata that pins the
+/// character footprint inside the frame (feet pixel, height ratio) and
+/// then compose the sprite at the exact collision-aware size at gameplay
+/// time. Until then, callers can tweak `SPRITE_COLLISION_SCALE` and
+/// `FEET_ANCHOR_Y` if the sprites look off-center.
+///
+/// TODO(gen2d-collision-aware): teach the generator to write a sidecar
+/// (e.g. `*_spritesheet.metrics.yaml`) carrying `feet_y_pixel`,
+/// `body_height_pixel`, `body_width_pixel`. Replace this constant + the
+/// `FEET_ANCHOR_Y` constant with values derived from the metrics so
+/// every archetype lines up with its hitbox without per-target tweaks.
+pub const SPRITE_COLLISION_SCALE: f32 = 2.1;
+
+/// Custom sprite anchor on the y axis. `0.0` is the sprite center;
+/// negative values place the anchor below center, which shifts the
+/// rendered sprite UP so the character's feet land near the collision
+/// box's bottom edge instead of below it. Tuned to the procgen
+/// character lab's roughly-centered output where feet sit ~10% above
+/// the frame bottom.
+pub const FEET_ANCHOR_Y: f32 = -0.18;
+
+/// Sample inset (pixels) applied to every frame URect when building the
+/// atlas. Without this inset, bilinear filtering at the frame edges
+/// samples the neighboring frame and produces faint colored seams that
+/// flicker as the animation advances. 1px is enough at the current
+/// 128px frame size and bilinear filter; bump if seams reappear after
+/// switching filtering modes.
+pub const FRAME_SAMPLE_INSET: u32 = 1;
+
+/// Compute the square render size for a sprite given an entity's
+/// collision box.
+pub fn sprite_render_size(collision: Vec2) -> Vec2 {
+    let side = collision.x.max(collision.y).max(8.0) * SPRITE_COLLISION_SCALE;
+    Vec2::splat(side)
+}
+
+/// Sprite anchor that places the character's feet near the bottom of the
+/// collision box for the procgen character lab's frame layout.
+pub fn feet_anchor() -> Anchor {
+    Anchor(Vec2::new(0.0, FEET_ANCHOR_Y))
+}
+
+/// Build the textured sprite for a character given its collision-box size.
+/// The sprite is square (the source frames are 128×128, distortion would
+/// look bad), so any non-square hitbox uses the larger axis for sizing.
+pub fn build_character_sprite(asset: &CharacterSpriteAsset, collision: Vec2) -> Sprite {
+    let mut sprite = Sprite::from_atlas_image(
+        asset.texture.clone(),
+        bevy::image::TextureAtlas {
+            layout: asset.layout.clone(),
+            index: asset.spec.flat_index(CharacterAnim::Idle, 0),
+        },
+    );
+    sprite.custom_size = Some(sprite_render_size(collision));
+    sprite
+}
 
 impl CharacterSheetSpec {
     pub fn build_atlas(&self) -> TextureAtlasLayout {
@@ -88,12 +145,18 @@ impl CharacterSheetSpec {
         let total_w = self.label_width + max_frames * self.frame_size;
         let total_h = self.rows.len() as u32 * self.frame_size;
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
+        let inset = FRAME_SAMPLE_INSET.min(self.frame_size / 4);
         for (row_idx, row) in self.rows.iter().enumerate() {
             for col in 0..row.frame_count {
                 let x = self.label_width + col as u32 * self.frame_size;
                 let y = row_idx as u32 * self.frame_size;
-                let min = UVec2::new(x, y);
-                let max = UVec2::new(x + self.frame_size, y + self.frame_size);
+                // Inset on every side so bilinear filtering at the frame
+                // boundary cannot pull pixels from the next cell.
+                let min = UVec2::new(x + inset, y + inset);
+                let max = UVec2::new(
+                    x + self.frame_size - inset,
+                    y + self.frame_size - inset,
+                );
                 layout.add_texture(URect { min, max });
             }
         }
@@ -121,7 +184,6 @@ pub struct CharacterSpriteAsset {
     pub texture: Handle<Image>,
     pub layout: Handle<TextureAtlasLayout>,
     pub spec: CharacterSheetSpec,
-    pub render_size: Vec2,
 }
 
 /// Holds optional spritesheet handles. `None` = file missing → fallback.
@@ -149,20 +211,8 @@ pub fn load_character_sprites(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> CharacterSpriteAssets {
-    let robot = build_optional(
-        asset_server,
-        layouts,
-        ROBOT_SPRITE_PATH,
-        ROBOT_SHEET,
-        PLAYER_SPRITE_SIZE,
-    );
-    let goblin = build_optional(
-        asset_server,
-        layouts,
-        GOBLIN_SPRITE_PATH,
-        GOBLIN_SHEET,
-        GOBLIN_SPRITE_SIZE,
-    );
+    let robot = build_optional(asset_server, layouts, ROBOT_SPRITE_PATH, ROBOT_SHEET);
+    let goblin = build_optional(asset_server, layouts, GOBLIN_SPRITE_PATH, GOBLIN_SHEET);
 
     if robot.is_none() {
         eprintln!(
@@ -185,7 +235,6 @@ fn build_optional(
     layouts: &mut Assets<TextureAtlasLayout>,
     rel_path: &'static str,
     spec: CharacterSheetSpec,
-    render_size: Vec2,
 ) -> Option<CharacterSpriteAsset> {
     if !asset_exists(rel_path) {
         return None;
@@ -195,7 +244,6 @@ fn build_optional(
         texture: asset_server.load(rel_path),
         layout,
         spec,
-        render_size,
     })
 }
 

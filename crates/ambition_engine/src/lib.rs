@@ -23,6 +23,7 @@ pub mod music;
 pub mod physics;
 pub mod scalar;
 pub mod state_machines;
+pub mod surface;
 pub mod world;
 
 // Re-export the public surface so story/sandbox crates can treat the engine as
@@ -43,6 +44,9 @@ pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
 pub use interaction::{
     Breakable, BreakableCollision, BreakableState, BreakableTrigger, Chest, ChestState,
     Interactable, InteractionKind, Pickup, PickupKind,
+};
+pub use surface::{
+    SurfaceBreakability, SurfaceCollision, SurfaceContact, SurfaceFixture, SurfaceRespawn,
 };
 pub use movement::{
     blink_destination, blink_destination_to_point, update_player, update_player_control,

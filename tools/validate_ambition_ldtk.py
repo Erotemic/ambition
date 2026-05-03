@@ -23,6 +23,11 @@ OFFICIAL_SCHEMA_URL = "https://ldtk.io/files/JSON_SCHEMA.json"
 
 KNOWN_ENTITIES = {
     "PlayerStart",
+    # Canonical authoring primitive for rectangular collision-like geometry.
+    # The Solid/OneWayPlatform/BlinkWall/HazardBlock/PogoOrb/ReboundPad/
+    # Breakable identifiers below are kept as legacy aliases that compile to
+    # the same runtime data (see crates/ambition_sandbox/src/ldtk_world.rs).
+    "Surface",
     "Solid",
     "OneWayPlatform",
     "BlinkWall",
@@ -41,6 +46,18 @@ KNOWN_ENTITIES = {
     "DebugLabel",
     "CameraZone",
     "StitchedBoundary",
+}
+
+# Legacy identifiers that compile through the Surface pipeline. New authoring
+# work should use a `Surface` entity with appropriate field values instead.
+LEGACY_SURFACE_IDENTIFIERS = {
+    "Solid",
+    "OneWayPlatform",
+    "BlinkWall",
+    "HazardBlock",
+    "PogoOrb",
+    "ReboundPad",
+    "Breakable",
 }
 GRID = 16
 AMBITION_LAYER = "Ambition"
@@ -594,7 +611,18 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
         if layer.get("__type") != "Entities":
             errors.append(f"level {identifier!r} Ambition layer must have __type='Entities' for direct bevy_ecs_ldtk spawning")
 
-        solids = [entity for entity in layer.get("entityInstances") or [] if entity.get("__identifier") == "Solid"]
+        # Solid wall geometry can be authored either as the legacy `Solid`
+        # identifier or as a `Surface` with `collision = Solid`. Both cases
+        # must participate in EdgeExit overlap checks below.
+        solids = [
+            entity
+            for entity in layer.get("entityInstances") or []
+            if entity.get("__identifier") == "Solid"
+            or (
+                entity.get("__identifier") == "Surface"
+                and field_value(entity.get("fieldInstances") or [], "collision") == "Solid"
+            )
+        ]
         for solid in solids:
             sx, sy, sw, sh = rect(solid)
             area_solids[area].append((world_x + sx, world_y + sy, sw, sh, identifier, entity_name(solid)))
@@ -632,6 +660,13 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
                         f"expected field definition uid {expected_field_def_uid!r}"
                     )
                 validate_field_instance_editor_value(errors, f"level {identifier!r} entity {entity_name(entity)}", field)
+            if ident in LEGACY_SURFACE_IDENTIFIERS:
+                warnings.append(
+                    f"level {identifier!r} entity {entity_name(entity)} uses legacy "
+                    f"surface-like identifier {ident!r}; new authoring should use "
+                    f"a Surface entity (see ldtk_world.rs SURFACE_LIKE_IDENTIFIERS)"
+                )
+
             if ident == "PlayerStart":
                 starts_by_area[area] += 1
             elif ident == "BlinkWall" and field_value(fields, "tier", "Soft") not in {"Soft", "Hard"}:

@@ -87,6 +87,14 @@ pub fn pause_menu_navigate(
     if !matches!(mode.get(), GameMode::Paused) {
         return;
     }
+    // The inventory overlay covers the pause menu and reads the same nav
+    // actions for its own selection. Without this guard the pause menu
+    // silently scrolls (and confirms!) in the background while the
+    // inventory is open — e.g. using a Spare Battery while pause's
+    // selected index has rolled onto "Quit" would fire AppExit.
+    if inventory.visible {
+        return;
+    }
     let Ok(actions) = action_state.single() else {
         return;
     };

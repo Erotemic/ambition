@@ -161,7 +161,7 @@ impl KeyboardPreset {
                 secondary: Some(KeyCode::KeyR),
                 quick_action: None,
                 interact: Some(KeyCode::KeyF),
-                modifier: None,
+                modifier: Some(KeyCode::ShiftLeft),
                 utility: None,
                 map: Some(KeyCode::Tab),
                 inventory: Some(KeyCode::KeyI),
@@ -189,7 +189,7 @@ impl KeyboardPreset {
                 secondary: Some(KeyCode::KeyO),
                 quick_action: None,
                 interact: Some(KeyCode::KeyE),
-                modifier: None,
+                modifier: Some(KeyCode::ShiftLeft),
                 utility: None,
                 map: Some(KeyCode::Tab),
                 inventory: Some(KeyCode::KeyV),
@@ -325,7 +325,21 @@ pub struct ControlFrame {
 
 impl ControlFrame {
     pub fn read_gameplay(actions: &ActionState<SandboxAction>) -> Self {
-        let axis = actions.clamped_axis_pair(&SandboxAction::Move);
+        let mut axis = actions.clamped_axis_pair(&SandboxAction::Move);
+        // Walk modifier: Shift on keyboard, LT2 on gamepad. Cardinal /
+        // D-pad input arrives at unit magnitude (run); the modifier caps
+        // the move vector so digital input becomes walk speed. Analog
+        // sticks already pace via magnitude — capping at WALK_FACTOR
+        // only kicks in when the stick is pushed past walk speed, so
+        // LT2 acts as a "max-speed governor" for stick users while
+        // letting them still creep slowly without the modifier.
+        if actions.pressed(&SandboxAction::Modifier) {
+            const WALK_FACTOR: f32 = 0.45;
+            let magnitude = axis.length();
+            if magnitude > WALK_FACTOR {
+                axis = axis * (WALK_FACTOR / magnitude);
+            }
+        }
         let up_pressed = actions.just_pressed(&SandboxAction::MoveUp);
         let down_pressed = actions.just_pressed(&SandboxAction::MoveDown);
         Self {

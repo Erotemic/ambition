@@ -1573,21 +1573,23 @@ fn parse_surface_spec(
                 other => return Err(format!("invalid Breakable trigger '{other}'")),
             };
             // Tolerate the editor-default combo of OnStand + None. The LDtk
-            // Breakable entity-def has `collision` defaultOverride=None, so a
-            // freshly dropped breakable that has its trigger flipped to
-            // OnStand without also setting collision=Solid arrives here in a
-            // physically incoherent state (nothing to stand on). Rather than
-            // refuse to load the world, downgrade the trigger to OnHit and
-            // warn — the breakable is still hittable, the room still loads,
-            // and the author can fix the LDtk entity to get OnStand back.
+            // Breakable entity-def historically had `collision`
+            // defaultOverride=None, so authored OnStand breakables arrive
+            // here in a physically incoherent state (nothing to stand on).
+            // The author's intent — "this should break when stood on" —
+            // strongly implies they want a standable platform, so default
+            // collision to Solid and warn. Choosing collision over trigger
+            // also preserves the visible behavior: the breakable is solid
+            // and stand-breaks. Authors who genuinely want a decorative
+            // breakable should leave trigger as OnHit (or Either).
             if matches!(spec.breakability, SurfaceBreakability::BreakOnStand)
                 && matches!(spec.collision, SurfaceCollision::None)
             {
                 eprintln!(
-                    "LDtk validation warning: Breakable {} has trigger=OnStand with collision=None; downgrading trigger to OnHit. Set the entity's collision field to Solid (or OneWayUp) in LDtk to keep the OnStand behavior.",
+                    "LDtk validation warning: Breakable {} has trigger=OnStand with collision=None; defaulting collision to Solid so the platform is standable. Set the LDtk entity's collision field explicitly to silence this warning, or use BreakablePlatform for a kind that disallows the None option.",
                     spec.iid
                 );
-                spec.breakability = SurfaceBreakability::BreakOnHit;
+                spec.collision = SurfaceCollision::Solid;
             }
             spec.respawn = parse_breakable_respawn(entity)?;
             spec.max_hp = field_i32(entity, "max_hp")
@@ -2232,9 +2234,10 @@ mod tests {
 
     /// `BreakOnStand` requires non-None collision. The compile path stays
     /// strict so the engine API never accepts the incoherent combo, but the
-    /// LDtk adapter auto-degrades it to `OnHit` so a freshly-dropped
-    /// breakable in the editor (whose collision defaultOverride is `None`)
-    /// does not refuse to load the world.
+    /// LDtk adapter degrades it by promoting collision to Solid (preserving
+    /// the OnStand intent: a standable platform that breaks when stood on)
+    /// so a freshly-dropped breakable in the editor does not refuse to
+    /// load the world or end up as a non-collidable decoration.
     #[test]
     fn breakable_on_stand_with_no_collision_is_rejected() {
         // Engine compile path: still rejects the incoherent combo when handed
@@ -2256,7 +2259,8 @@ mod tests {
             "{err}"
         );
 
-        // LDtk adapter path: silently downgrades to OnHit so the world loads.
+        // LDtk adapter path: silently promotes collision to Solid so the
+        // breakable is actually standable, preserving the OnStand intent.
         let entity = make_entity(
             "Breakable",
             [32, 32],
@@ -2271,8 +2275,9 @@ mod tests {
             ae::Vec2::new(32.0, 32.0),
             "test".into(),
         )
-        .expect("LDtk-side parse degrades OnStand+None to OnHit");
-        assert!(matches!(spec.breakability, SurfaceBreakability::BreakOnHit));
+        .expect("LDtk-side parse degrades OnStand+None to OnStand+Solid");
+        assert!(matches!(spec.breakability, SurfaceBreakability::BreakOnStand));
+        assert!(matches!(spec.collision, SurfaceCollision::Solid));
         compile_surface(&spec).expect("degraded spec compiles");
     }
 

@@ -7,17 +7,26 @@
 //! be added behind the same boundary.
 
 use ambition_engine as ae;
+#[cfg(feature = "physics_debris")]
 use ambition_engine::AabbExt;
+#[cfg(feature = "physics_debris")]
 use avian2d::prelude::*;
+#[cfg(feature = "physics_debris")]
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
+#[cfg(feature = "physics_debris")]
 use crate::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_FX};
+#[cfg(feature = "physics_debris")]
 use crate::rendering::RoomVisual;
 
+#[cfg(feature = "physics_debris")]
 const SANDBOX_GRAVITY: f32 = 1250.0;
+#[cfg(feature = "physics_debris")]
 const STATIC_COLLIDER_Z: f32 = WORLD_Z_BLOCK - 1.0;
+#[cfg(feature = "physics_debris")]
 const DEBRIS_Z: f32 = WORLD_Z_FX - 2.0;
+#[cfg(feature = "physics_debris")]
 const PHYSICS_DESPAWN_GRACE: f32 = 0.25;
 
 /// Runtime switch/tuning for secondary physics. It intentionally does not
@@ -55,6 +64,7 @@ pub struct PhysicsRoomEntity;
 /// Avian a short grace period to observe `RigidBodyDisabled`/`ColliderDisabled`
 /// before entity removal avoids noisy wake attempts against already-removed
 /// bodies during debris cleanup and room transitions.
+#[cfg(feature = "physics_debris")]
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PendingPhysicsDespawn {
     pub timer: f32,
@@ -62,6 +72,7 @@ pub struct PendingPhysicsDespawn {
 
 /// Ephemeral Avian dynamic body spawned from breakables, defeated enemies, and
 /// impact effects.
+#[cfg(feature = "physics_debris")]
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PhysicsDebris {
     pub lifetime: f32,
@@ -93,6 +104,7 @@ pub struct DebrisBurstMessage {
 /// Presentation-side subscriber. Reads `DebrisBurstMessage`s and spawns
 /// Avian2D debris bodies via the existing `spawn_debris_burst` helper.
 /// Skipped in headless builds.
+#[cfg(feature = "physics_debris")]
 pub fn physics_spawn_debris_messages(
     mut commands: Commands,
     mut messages: MessageReader<DebrisBurstMessage>,
@@ -104,8 +116,10 @@ pub fn physics_spawn_debris_messages(
     }
 }
 
+#[cfg(feature = "physics_debris")]
 pub struct AmbitionPhysicsPlugin;
 
+#[cfg(feature = "physics_debris")]
 impl Plugin for AmbitionPhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(PhysicsSandboxSettings::default())
@@ -122,6 +136,7 @@ impl Plugin for AmbitionPhysicsPlugin {
     }
 }
 
+#[cfg(feature = "physics_debris")]
 pub fn update_physics_debris_lifetimes(
     mut commands: Commands,
     time: Res<Time>,
@@ -145,6 +160,7 @@ pub fn update_physics_debris_lifetimes(
     }
 }
 
+#[cfg(feature = "physics_debris")]
 pub fn complete_pending_physics_despawns(
     mut commands: Commands,
     time: Res<Time>,
@@ -159,6 +175,10 @@ pub fn complete_pending_physics_despawns(
     }
 }
 
+/// Tear down an Avian-managed entity safely. With `physics_debris` off this
+/// is a no-op — sim code (room transitions) calls it unconditionally and
+/// should compile/run regardless of whether debris bodies actually exist.
+#[cfg(feature = "physics_debris")]
 pub fn retire_physics_entity(commands: &mut Commands, entity: Entity) {
     commands.entity(entity).insert((
         RigidBodyDisabled,
@@ -170,8 +190,13 @@ pub fn retire_physics_entity(commands: &mut Commands, entity: Entity) {
     ));
 }
 
+#[cfg(not(feature = "physics_debris"))]
+pub fn retire_physics_entity(_commands: &mut Commands, _entity: Entity) {}
+
 /// Add an Avian static collider mirroring a room block so dynamic debris can
 /// bounce against the level. Player collision does not use these bodies.
+/// No-op without the `physics_debris` feature.
+#[cfg(feature = "physics_debris")]
 pub fn spawn_static_collider_for_block(
     commands: &mut Commands,
     world: &ae::World,
@@ -195,8 +220,18 @@ pub fn spawn_static_collider_for_block(
     ));
 }
 
+#[cfg(not(feature = "physics_debris"))]
+pub fn spawn_static_collider_for_block(
+    _commands: &mut Commands,
+    _world: &ae::World,
+    _block: &ae::Block,
+    _settings: PhysicsSandboxSettings,
+) {
+}
+
 /// Spawn a deterministic burst of dynamic bodies at an Ambition world-space
 /// position. `cue` chooses count, size, color, lifetime, and impulse.
+#[cfg(feature = "physics_debris")]
 pub fn spawn_debris_burst(
     commands: &mut Commands,
     world: &ae::World,
@@ -238,6 +273,7 @@ pub fn spawn_debris_burst(
     }
 }
 
+#[cfg(feature = "physics_debris")]
 fn spawn_debris_piece(
     commands: &mut Commands,
     world: &ae::World,
@@ -262,6 +298,7 @@ fn spawn_debris_piece(
     ));
 }
 
+#[cfg(feature = "physics_debris")]
 fn block_accepts_dynamic_debris(kind: ae::BlockKind) -> bool {
     matches!(
         kind,
@@ -269,6 +306,7 @@ fn block_accepts_dynamic_debris(kind: ae::BlockKind) -> bool {
     )
 }
 
+#[cfg(feature = "physics_debris")]
 #[derive(Clone, Copy, Debug)]
 struct DebrisRecipe {
     count: usize,
@@ -281,6 +319,7 @@ struct DebrisRecipe {
     color: Color,
 }
 
+#[cfg(feature = "physics_debris")]
 fn debris_recipe(cue: PhysicsDebrisCue) -> DebrisRecipe {
     match cue {
         PhysicsDebrisCue::Impact => DebrisRecipe {
@@ -326,6 +365,7 @@ fn debris_recipe(cue: PhysicsDebrisCue) -> DebrisRecipe {
     }
 }
 
+#[cfg(feature = "physics_debris")]
 fn seeded_angle(index: usize, count: usize, pos: ae::Vec2) -> f32 {
     let phase = (pos.x * 0.013 + pos.y * 0.021).sin() * 0.45;
     let base = std::f32::consts::TAU * (index as f32 + 0.35) / count.max(1) as f32;

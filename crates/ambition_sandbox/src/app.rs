@@ -52,7 +52,9 @@ use crate::inventory;
 use crate::ldtk_world;
 use crate::loading;
 use crate::pause_menu;
-use crate::physics::{self, physics_spawn_debris_messages, DebrisBurstMessage};
+#[cfg(feature = "physics_debris")]
+use crate::physics::physics_spawn_debris_messages;
+use crate::physics::{self, DebrisBurstMessage};
 use crate::platforms;
 use crate::rendering::{
     animate_bosses, animate_enemies, animate_player, camera_follow, spawn_room_visuals,
@@ -288,16 +290,13 @@ pub fn add_presentation_plugins(app: &mut App) {
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_plugins(dialog::yarn_spinner_plugin())
         .add_plugins(MaterialUiPlugin)
-        // Avian2D — secondary physics for debris/ragdoll visuals (ADR 0007).
-        // Visible-binary only because Avian's collider backend needs
-        // ScenePlugin's SceneSpawner.
-        .add_plugins(physics::AmbitionPhysicsPlugin)
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<SandboxFeelTuning>();
 
     add_dev_tools_plugins(app);
+    add_physics_debris_plugins(app);
 
     app.insert_resource(pause_menu::PauseMenuState::default())
         .insert_resource(inventory::InventoryUiState::default())
@@ -364,8 +363,7 @@ pub fn add_presentation_plugins(app: &mut App) {
         // entity spawns or audio playback. The `.after` constraints pin
         // presentation to the same frame the simulation emitted the message.
         .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
-        .add_systems(Update, vfx_spawn_messages.after(sandbox_update))
-        .add_systems(Update, physics_spawn_debris_messages.after(sandbox_update));
+        .add_systems(Update, vfx_spawn_messages.after(sandbox_update));
 }
 
 /// Install the egui inspector plugins. Gated by the `dev_tools` feature so
@@ -396,6 +394,20 @@ fn add_dev_tools_plugins(app: &mut App) {
 
 #[cfg(not(feature = "dev_tools"))]
 fn add_dev_tools_plugins(_app: &mut App) {}
+
+/// Install the Avian2D secondary-physics plugin and its presentation-side
+/// debris subscriber. Gated by `physics_debris` so headless / minimal
+/// builds drop `avian2d` from the dep graph entirely. Per ADR 0007, this
+/// is secondary physics for debris/ragdoll visuals only — the player
+/// controller stays kinematic.
+#[cfg(feature = "physics_debris")]
+fn add_physics_debris_plugins(app: &mut App) {
+    app.add_plugins(physics::AmbitionPhysicsPlugin)
+        .add_systems(Update, physics_spawn_debris_messages.after(sandbox_update));
+}
+
+#[cfg(not(feature = "physics_debris"))]
+fn add_physics_debris_plugins(_app: &mut App) {}
 
 // `GameWorld`, `SandboxRuntime`, and the time-scale ramp helper `move_toward`
 // have moved to `crate::lib` (`ambition_sandbox`) so both binaries can share

@@ -54,10 +54,15 @@ pub struct AnimRow {
 #[derive(Clone, Copy, Debug)]
 pub struct CharacterSheetSpec {
     pub label_width: u32,
-    pub frame_size: u32,
+    /// Per-frame width in source-image pixels. The generator now crops
+    /// each sheet to the union of opaque-pixel bboxes across every frame,
+    /// so this is *not* always 128 anymore — robot is 120, goblin 121.
+    pub frame_width: u32,
+    pub frame_height: u32,
     pub rows: [AnimRow; 11],
     /// Multiplier applied to the entity's collision-box max dimension to
-    /// derive the square render size.
+    /// derive the rendered sprite's height. Width is derived from the
+    /// cropped frame's aspect ratio so the character isn't squashed.
     pub collision_scale: f32,
     /// Sprite anchor y (normalized; negative shifts the sprite up so feet
     /// land near the collision-box bottom).
@@ -75,7 +80,10 @@ pub struct CharacterSheetSpec {
 
 pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
-    frame_size: 128,
+    // After the gen2d union-bbox crop the robot sheet is 120 wide × 128
+    // tall (down from 128×128). Mirror that here.
+    frame_width: 120,
+    frame_height: 128,
     rows: [
         AnimRow { frame_count: 8, duration_secs: 0.120 }, // Idle
         AnimRow { frame_count: 8, duration_secs: 0.095 }, // Walk
@@ -96,7 +104,9 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 
 pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
-    frame_size: 128,
+    // After the gen2d union-bbox crop the goblin sheet is 121×127.
+    frame_width: 121,
+    frame_height: 127,
     rows: [
         AnimRow { frame_count: 8, duration_secs: 0.120 }, // Idle
         AnimRow { frame_count: 8, duration_secs: 0.095 }, // Walk
@@ -111,7 +121,7 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         AnimRow { frame_count: 6, duration_secs: 0.065 }, // Dash
     ],
     collision_scale: 2.1,
-    feet_anchor_y: -0.352,
+    feet_anchor_y: -0.350,
     frame_sample_inset: 1,
 };
 
@@ -125,8 +135,12 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// derived from each sheet's actual rendered body. The per-spec tuning
 /// already isolates the override per target so the migration is local.
 pub fn sprite_render_size(spec: CharacterSheetSpec, collision: Vec2) -> Vec2 {
-    let side = collision.x.max(collision.y).max(8.0) * spec.collision_scale;
-    Vec2::splat(side)
+    // Height is collision-driven; width preserves the cropped frame's
+    // aspect ratio so the character isn't horizontally squashed when the
+    // generator crop produces non-square frames (e.g. robot 120×128).
+    let height = collision.x.max(collision.y).max(8.0) * spec.collision_scale;
+    let width = height * (spec.frame_width as f32 / spec.frame_height as f32);
+    Vec2::new(width, height)
 }
 
 /// Sprite anchor that places the character's feet near the bottom of the
@@ -160,20 +174,22 @@ pub fn build_character_sprite(asset: &CharacterSpriteAsset, collision: Vec2) -> 
 impl CharacterSheetSpec {
     pub fn build_atlas(&self) -> TextureAtlasLayout {
         let max_frames = self.rows.iter().map(|r| r.frame_count).max().unwrap_or(0) as u32;
-        let total_w = self.label_width + max_frames * self.frame_size;
-        let total_h = self.rows.len() as u32 * self.frame_size;
+        let total_w = self.label_width + max_frames * self.frame_width;
+        let total_h = self.rows.len() as u32 * self.frame_height;
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
-        let inset = self.frame_sample_inset.min(self.frame_size / 4);
+        let inset = self
+            .frame_sample_inset
+            .min(self.frame_width.min(self.frame_height) / 4);
         for (row_idx, row) in self.rows.iter().enumerate() {
             for col in 0..row.frame_count {
-                let x = self.label_width + col as u32 * self.frame_size;
-                let y = row_idx as u32 * self.frame_size;
+                let x = self.label_width + col as u32 * self.frame_width;
+                let y = row_idx as u32 * self.frame_height;
                 // Inset on every side so bilinear filtering at the frame
                 // boundary cannot pull pixels from the next cell.
                 let min = UVec2::new(x + inset, y + inset);
                 let max = UVec2::new(
-                    x + self.frame_size - inset,
-                    y + self.frame_size - inset,
+                    x + self.frame_width - inset,
+                    y + self.frame_height - inset,
                 );
                 layout.add_texture(URect { min, max });
             }

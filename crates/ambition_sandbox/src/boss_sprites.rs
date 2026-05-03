@@ -41,15 +41,20 @@ pub struct AnimRow {
 #[derive(Clone, Copy, Debug)]
 pub struct BossSheetSpec {
     pub label_width: u32,
-    pub frame_size: u32,
+    /// Per-frame size in source-image pixels after the gen2d union-bbox
+    /// crop. Boss currently fills its 128×128 canvas (spike_halo radial
+    /// pose), so the crop is a no-op for now; a future tighter pose set
+    /// would shrink these values.
+    pub frame_width: u32,
+    pub frame_height: u32,
     pub rows: [AnimRow; 7],
     /// Multiplier applied to an entity's collision-box max dimension to
-    /// derive its square sprite render size. Bosses tend to be large so
-    /// this is typically smaller than the character default.
+    /// derive the rendered sprite's height. Width is derived from the
+    /// cropped frame's aspect ratio so the boss isn't squashed.
     pub collision_scale: f32,
     /// Custom sprite anchor on the y axis. Tuned per sheet because each
     /// generator's character takes different vertical space within the
-    /// 128px frame.
+    /// frame.
     pub feet_anchor_y: f32,
     /// Sample inset (pixels) on every URect to prevent bilinear filtering
     /// from sampling neighboring frames.
@@ -61,7 +66,8 @@ pub struct BossSheetSpec {
 // the manifest's `body_metrics.feet_anchor_norm.y`.
 pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     label_width: 100,
-    frame_size: 128,
+    frame_width: 128,
+    frame_height: 128,
     rows: [
         AnimRow { frame_count: 8, duration_secs: 0.120 }, // Rest
         AnimRow { frame_count: 7, duration_secs: 0.082 }, // FloorSlam
@@ -81,18 +87,20 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
 impl BossSheetSpec {
     pub fn build_atlas(&self) -> TextureAtlasLayout {
         let max_frames = self.rows.iter().map(|r| r.frame_count).max().unwrap_or(0) as u32;
-        let total_w = self.label_width + max_frames * self.frame_size;
-        let total_h = self.rows.len() as u32 * self.frame_size;
+        let total_w = self.label_width + max_frames * self.frame_width;
+        let total_h = self.rows.len() as u32 * self.frame_height;
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
-        let inset = self.frame_sample_inset.min(self.frame_size / 4);
+        let inset = self
+            .frame_sample_inset
+            .min(self.frame_width.min(self.frame_height) / 4);
         for (row_idx, row) in self.rows.iter().enumerate() {
             for col in 0..row.frame_count {
-                let x = self.label_width + col as u32 * self.frame_size;
-                let y = row_idx as u32 * self.frame_size;
+                let x = self.label_width + col as u32 * self.frame_width;
+                let y = row_idx as u32 * self.frame_height;
                 let min = UVec2::new(x + inset, y + inset);
                 let max = UVec2::new(
-                    x + self.frame_size - inset,
-                    y + self.frame_size - inset,
+                    x + self.frame_width - inset,
+                    y + self.frame_height - inset,
                 );
                 layout.add_texture(URect { min, max });
             }
@@ -112,8 +120,11 @@ impl BossSheetSpec {
     }
 
     pub fn render_size(&self, collision: Vec2) -> Vec2 {
-        let side = collision.x.max(collision.y).max(8.0) * self.collision_scale;
-        Vec2::splat(side)
+        // Height collision-driven; width preserves the cropped frame's
+        // aspect ratio so the boss isn't squashed when frames are non-square.
+        let height = collision.x.max(collision.y).max(8.0) * self.collision_scale;
+        let width = height * (self.frame_width as f32 / self.frame_height as f32);
+        Vec2::new(width, height)
     }
 
     pub fn anchor(&self) -> Anchor {

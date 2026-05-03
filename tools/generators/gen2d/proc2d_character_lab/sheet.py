@@ -67,7 +67,30 @@ def _measure_body_extent(frame: Image.Image) -> Dict[str, Any] | None:
     }
 
 
+# Pixels of safety padding kept around the union bbox before cropping. Anti-
+# aliased character edges are only slightly transparent, so without a small
+# pad bilinear sampling could clip them. Two pixels is enough at the current
+# 128px source frames.
+_CROP_PADDING = 2
+
+
 def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
+    """Render every frame at the configured canvas size, then crop the entire
+    sheet to the *union* of all opaque-pixel bboxes across every frame.
+
+    Uniform per-sheet cropping (rather than per-frame) keeps the character
+    anchored consistently across animations: a wide-arm spike_halo pose and a
+    compact rest pose share the same pixel-space frame so the runtime can
+    place sprites at a single fixed anchor without compensating for shifting
+    bbox origins. The downside is that the crop only saves the margin that
+    *every* animation can spare; tall jumps and wide attacks pull the union
+    out toward the original canvas size.
+
+    The returned manifest carries the cropped frame dimensions in the
+    standard `frame_width`/`frame_height` fields, plus a `crop` block that
+    records the original canvas size and crop offset for debugging or for
+    runtime loaders that need the unpadded dimensions.
+    """
     adapter = get_adapter(job.target)
     spec = adapter.sample_spec(job)
     animations = adapter.animations()
@@ -75,10 +98,47 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
     missing = [a for a in job.animations if a not in animations]
     if missing:
         raise KeyError(f"unsupported animations for {job.target}: {missing}; available={sorted(animations)}")
-    fw, fh = job.render.frame_width, job.render.frame_height
+    src_fw, src_fh = job.render.frame_width, job.render.frame_height
     label_w = max(0, job.render.label_width)
     border = max(0, job.render.border)
     max_frames = max(animations[a]["frames"] for a in selected)
+
+    # Pass 1: render every frame at full canvas size and accumulate the
+    # union of opaque-pixel bboxes.
+    rendered: List[List[Image.Image]] = []
+    union_min_x, union_min_y = src_fw, src_fh
+    union_max_x, union_max_y = 0, 0
+    any_visible = False
+    for animation in selected:
+        info = animations[animation]
+        row_frames: List[Image.Image] = []
+        for frame_index in range(info["frames"]):
+            frame = adapter.render_frame(spec, animation, frame_index, (src_fw, src_fh), job)
+            row_frames.append(frame)
+            bbox = frame.getbbox()
+            if bbox is not None:
+                any_visible = True
+                x_min, y_min, x_max, y_max = bbox
+                union_min_x = min(union_min_x, x_min)
+                union_min_y = min(union_min_y, y_min)
+                union_max_x = max(union_max_x, x_max)
+                union_max_y = max(union_max_y, y_max)
+        rendered.append(row_frames)
+
+    if any_visible:
+        crop_min_x = max(0, union_min_x - _CROP_PADDING)
+        crop_min_y = max(0, union_min_y - _CROP_PADDING)
+        crop_max_x = min(src_fw, union_max_x + _CROP_PADDING)
+        crop_max_y = min(src_fh, union_max_y + _CROP_PADDING)
+    else:
+        # Defensive fallback: completely transparent input keeps the original
+        # canvas size so downstream code never sees a zero-sized frame.
+        crop_min_x, crop_min_y = 0, 0
+        crop_max_x, crop_max_y = src_fw, src_fh
+    fw = crop_max_x - crop_min_x
+    fh = crop_max_y - crop_min_y
+
+    # Pass 2: compose the sheet with cropped frames.
     sheet_w = label_w + max_frames * (fw + border) + border
     sheet_h = len(selected) * (fh + border) + border
     sheet = Image.new("RGBA", (sheet_w, sheet_h), _parse_bg(job.render.sheet_background))
@@ -94,21 +154,27 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
         "label_width": label_w,
         "border": border,
         "spec": adapter.spec_dict(spec),
+        "crop": {
+            "source_frame_width": src_fw,
+            "source_frame_height": src_fh,
+            "offset": {"x": int(crop_min_x), "y": int(crop_min_y)},
+            "padding_px": _CROP_PADDING,
+        },
         "animations": {},
     }
     body_metric_frame: Image.Image | None = None
-    for row, animation in enumerate(selected):
+    for row_idx, animation in enumerate(selected):
         info = animations[animation]
-        y = border + row * (fh + border)
+        y = border + row_idx * (fh + border)
         if label_w:
             draw.text((8, y + 8), animation, fill=(255, 255, 255, 255), font=font)
             draw.text((8, y + 23), f"{info['frames']}f/{info['duration_ms']}ms", fill=(190, 190, 190, 255), font=_font(10))
-        frames: List[Dict[str, Any]] = []
-        for frame_index in range(info["frames"]):
+        frame_records: List[Dict[str, Any]] = []
+        for frame_index, src_frame in enumerate(rendered[row_idx]):
+            cropped = src_frame.crop((crop_min_x, crop_min_y, crop_max_x, crop_max_y))
             x = label_w + border + frame_index * (fw + border)
-            frame = adapter.render_frame(spec, animation, frame_index, (fw, fh), job)
-            sheet.alpha_composite(frame, (x, y))
-            frames.append({
+            sheet.alpha_composite(cropped, (x, y))
+            frame_records.append({
                 "index": frame_index,
                 "x": x,
                 "y": y,
@@ -119,10 +185,11 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
             # Use the first frame of the first emitted animation as the
             # canonical reference pose for body-extent measurement. Idle/Rest
             # is what the gameplay code shows when the entity is at rest, so
-            # its bbox is the most representative.
+            # its bbox is the most representative — and it's already in
+            # cropped-frame pixel coordinates.
             if body_metric_frame is None:
-                body_metric_frame = frame
-        manifest["animations"][animation] = {"frames": frames, "duration_ms": info["duration_ms"]}
+                body_metric_frame = cropped
+        manifest["animations"][animation] = {"frames": frame_records, "duration_ms": info["duration_ms"]}
     metrics = _measure_body_extent(body_metric_frame) if body_metric_frame is not None else None
     if metrics is not None:
         manifest["body_metrics"] = metrics

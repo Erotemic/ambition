@@ -171,15 +171,15 @@ pub fn presentation_world(
 }
 
 #[cfg(not(feature = "audio"))]
-pub fn presentation_world(
+pub fn presentation_world(commands: &mut Commands, params: PresentationSetup<'_>, player: Entity) {
+    presentation_world_inner(commands, params, player);
+}
+
+fn presentation_world_inner(
     commands: &mut Commands,
     params: PresentationSetup<'_>,
     player: Entity,
 ) {
-    presentation_world_inner(commands, params, player);
-}
-
-fn presentation_world_inner(commands: &mut Commands, params: PresentationSetup<'_>, player: Entity) {
     let PresentationSetup {
         world,
         room_set,

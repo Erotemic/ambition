@@ -28,7 +28,6 @@ use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSp
 pub mod bevy_runtime;
 pub use bevy_runtime::*;
 
-
 /// Collision behavior contributed by an LDtk-authored `Surface`.
 ///
 /// `Surface` is the authoring-time primitive: designers place a single
@@ -138,7 +137,6 @@ pub struct SurfaceCompiled {
     pub blocks: Vec<ae::Block>,
     pub objects: Vec<ae::RoomObject>,
 }
-
 
 /// LDtk identifiers that lower into the typed runtime "surface" conversion
 /// pipeline.
@@ -407,7 +405,11 @@ fn emit_collision_blocks_from_intgrid(
         let min = ae::Vec2::new(cx as f32 * grid, cy as f32 * grid) + offset;
         let size = ae::Vec2::new((x_end - cx) as f32 * grid, (y_end - cy) as f32 * grid);
         let block = int_grid_value_to_block(value, min, size).map_err(|message| {
-            format!("rect at ({cx},{cy}) {}x{}: {message}", x_end - cx, y_end - cy)
+            format!(
+                "rect at ({cx},{cy}) {}x{}: {message}",
+                x_end - cx,
+                y_end - cy
+            )
         })?;
         blocks.push(block);
     }
@@ -855,10 +857,9 @@ impl LdtkProject {
             if let Some(layer) = level.collision_layer() {
                 match emit_collision_blocks_from_intgrid(layer, offset) {
                     Ok(layer_blocks) => blocks.extend(layer_blocks),
-                    Err(message) => errors.push(format!(
-                        "level '{}' Collision: {message}",
-                        level.identifier
-                    )),
+                    Err(message) => {
+                        errors.push(format!("level '{}' Collision: {message}", level.identifier))
+                    }
                 }
             }
         }
@@ -1770,13 +1771,16 @@ mod tests {
             entity_instances: Vec::new(),
             int_grid_csv: vec![1; 5],
         };
-        let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO)
-            .expect("merge succeeds");
+        let blocks =
+            emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
         assert_eq!(blocks.len(), 1, "horizontal run should merge to one block");
         let block = &blocks[0];
         assert!(matches!(block.kind, ae::BlockKind::Solid));
         let size = ae::AabbExt::half_size(block.aabb) * 2.0;
-        assert!((size.x - 80.0).abs() < 0.001, "merged width = 5 cells * 16px");
+        assert!(
+            (size.x - 80.0).abs() < 0.001,
+            "merged width = 5 cells * 16px"
+        );
         assert!((size.y - 16.0).abs() < 0.001, "merged height = 1 cell");
     }
 
@@ -1802,8 +1806,8 @@ mod tests {
                 1, 1, 1, // row 2
             ],
         };
-        let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO)
-            .expect("merge succeeds");
+        let blocks =
+            emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
         assert_eq!(
             blocks.len(),
             3,
@@ -1834,8 +1838,8 @@ mod tests {
                 INT_GRID_SOLID,
             ],
         };
-        let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO)
-            .expect("merge succeeds");
+        let blocks =
+            emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
         assert_eq!(blocks.len(), 3);
         assert!(matches!(blocks[0].kind, ae::BlockKind::Solid));
         assert!(matches!(blocks[1].kind, ae::BlockKind::OneWay));

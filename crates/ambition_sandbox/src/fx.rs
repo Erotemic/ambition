@@ -426,7 +426,8 @@ pub fn update_blink_preview(
     // Match the debug overlay's destination resolution exactly. The
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
-    let blink_world = crate::platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
+    let blink_world =
+        crate::platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
     let target = if player.blink_aiming {
         ae::blink_destination_to_point(&blink_world, player, player.pos + player.blink_aim_offset)
     } else {
@@ -467,7 +468,11 @@ pub fn update_blink_preview(
             let offset = ae::Vec2::new(angle.cos(), angle.sin()) * radius;
             commands.spawn((
                 Sprite::from_color(color, BVec2::splat(ember_size.max(1.0))),
-                Transform::from_translation(world_to_bevy(&world.0, target + offset, WORLD_Z_FX + 1.5)),
+                Transform::from_translation(world_to_bevy(
+                    &world.0,
+                    target + offset,
+                    WORLD_Z_FX + 1.5,
+                )),
                 BlinkPreviewVisual { angle_offset },
             ));
         }

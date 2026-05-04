@@ -527,4 +527,3 @@ pub fn sync_ldtk_level_set(
     }
     index.mark_level_set_synced();
 }
-

@@ -44,14 +44,14 @@ use crate::data;
 use crate::debug_overlay;
 use crate::dev_tools::{self, DeveloperTools, EditableAbilitySet, EditableMovementTuning};
 use crate::dialog;
-use crate::feel::SandboxFeelTuning;
 use crate::features;
+use crate::feel::SandboxFeelTuning;
 use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::game_assets::{self, GameAssetConfig};
 use crate::game_mode::GameMode;
-use crate::input::{ControlFrame, GAMEPAD_MAP};
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
+use crate::input::{ControlFrame, GAMEPAD_MAP};
 use crate::inventory;
 use crate::ldtk_world;
 use crate::loading;
@@ -83,6 +83,46 @@ pub struct SandboxEventWriters<'w> {
     sfx: MessageWriter<'w, SfxMessage>,
     vfx: MessageWriter<'w, VfxMessage>,
     debris: MessageWriter<'w, DebrisBurstMessage>,
+}
+
+/// Per-frame Vec collectors for the sim → presentation event channels.
+///
+/// `sandbox_update` is the only producer; phase helpers append messages as
+/// the gameplay loop runs and `flush_feedback` drains them into the
+/// `MessageWriter`s at every return point. Keeping the collectors on a
+/// single struct lets phase helpers take one parameter instead of three.
+struct FrameFeedback {
+    sfx: Vec<SfxMessage>,
+    vfx: Vec<VfxMessage>,
+    debris: Vec<DebrisBurstMessage>,
+}
+
+impl FrameFeedback {
+    fn new() -> Self {
+        Self {
+            sfx: Vec::new(),
+            vfx: Vec::new(),
+            debris: Vec::new(),
+        }
+    }
+}
+
+/// Local control-flow signal for `sandbox_update` phase helpers. `Return`
+/// means the phase wants `sandbox_update` to flush feedback and stop the
+/// frame here; `Continue` means proceed to the next phase.
+#[must_use]
+enum PhaseOutcome {
+    Continue,
+    Return,
+}
+
+/// Drain the per-frame `FrameFeedback` into the bundled `MessageWriter`s.
+/// Call at every `sandbox_update` return point so audio/fx/debris
+/// subscribers see the messages this frame.
+fn flush_feedback(feedback: &mut FrameFeedback, writers: &mut SandboxEventWriters) {
+    writers.sfx.write_batch(feedback.sfx.drain(..));
+    writers.vfx.write_batch(feedback.vfx.drain(..));
+    writers.debris.write_batch(feedback.debris.drain(..));
 }
 
 /// Build + run the visible Bevy app. The thin `fn main()` shim in
@@ -638,6 +678,33 @@ fn setup_presentation_system(
     commands.insert_resource(game_assets);
 }
 
+/// Bevy gameplay system that drives the sandbox simulation.
+///
+/// This is intentionally a thin orchestrator around named `*_phase`
+/// helpers — the function body should make the gameplay frame order
+/// readable in one screen so future agents can find the right phase by
+/// grep without reading the whole loop.
+///
+/// The next likely refactor is promoting these phase helpers into
+/// individually ordered Bevy systems / `SimSet`s once their behavior is
+/// covered by tests. Until then, keep them as plain functions on a
+/// shared `&mut SandboxRuntime` + `&mut FrameFeedback` so the borrow
+/// graph stays linear.
+///
+/// Phase order (each phase comments its scope and what it should not own):
+/// 1. `mode_gate_phase` — dialogue / pause / non-gameplay early returns.
+/// 2. `input_timer_phase` — gameplay timer decay + double-tap detection.
+/// 3. `reset_phase` — explicit reset input.
+/// 4. `player_control_phase` — control-clock player update + pogo routing.
+/// 5. `player_simulation_phase` — sim-clock player update + landing dust.
+/// 6. `interaction_input_phase` — interact / double-tap-up + buffering.
+/// 7. `feature_runtime_phase` — `runtime.features.update` + feedback.
+/// 8. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
+/// 9. `room_transition_phase` — loading-zone transition + `load_room`.
+/// 10. `attack_phase` — slash/pogo attack triggering.
+/// 11. `cleanup_timers_phase` — flash/preset/slash animation timer decay.
+/// 12. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
+///     `DebrisBurstMessage` queues into the bundled writers.
 fn sandbox_update(
     mut commands: Commands,
     time: Res<Time>,
@@ -654,14 +721,7 @@ fn sandbox_update(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
-    // Per-frame Vec collectors for the sim → presentation event channels.
-    // Helpers append messages as the gameplay loop runs; we drain into the
-    // MessageWriters at every return point so the audio/fx/physics-debris
-    // subscribers see them this frame. Bevy 0.18 buffered events use the
-    // Message API (see feedback memory + ADR 0012).
-    let mut sfx: Vec<SfxMessage> = Vec::new();
-    let mut vfx: Vec<VfxMessage> = Vec::new();
-    let mut debris: Vec<DebrisBurstMessage> = Vec::new();
+    let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let physics_settings = runtime.physics_settings;
@@ -673,15 +733,16 @@ fn sandbox_update(
     // `.before(sandbox_update)`); headless / RL drivers can write the
     // resource directly. Debug hotkeys live in their own presentation-side
     // system, also `.before(sandbox_update)`. Local mutable copy because
-    // the gameplay loop adjusts `controls.interact_pressed` via the input
-    // buffer (runtime state, not raw input).
+    // `interaction_input_phase` rewrites `controls.interact_pressed` via
+    // the input buffer (runtime state, not raw input).
     let mut controls = *control_frame;
+    let frame_dt = time.delta_secs();
 
-    if matches!(mode.get(), GameMode::Dialogue) {
-        let frame_dt = time.delta_secs();
-        runtime.time_scale = 0.0;
-        runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
-        runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+    if matches!(
+        mode_gate_phase(mode.get(), &mut runtime, frame_dt),
+        PhaseOutcome::Return
+    ) {
+        flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
 
@@ -691,18 +752,160 @@ fn sandbox_update(
     // lives in the pause menu so it can drive a real overlay.
     let _ = controls.start_pressed;
 
-    let frame_dt = time.delta_secs();
-    if !mode.get().allows_gameplay() {
+    let door_double_tap_up = input_timer_phase(&mut controls, &mut runtime, feel, frame_dt);
+
+    if matches!(
+        reset_phase(
+            &controls,
+            &world.0,
+            &mut runtime,
+            &mut feedback,
+            tuning,
+            feel
+        ),
+        PhaseOutcome::Return
+    ) {
+        flush_feedback(&mut feedback, &mut event_writers);
+        return;
+    }
+
+    if matches!(
+        player_control_phase(
+            controls,
+            &world.0,
+            &mut runtime,
+            &mut feedback,
+            tuning,
+            feel,
+            frame_dt,
+        ),
+        PhaseOutcome::Return
+    ) {
+        flush_feedback(&mut feedback, &mut event_writers);
+        return;
+    }
+
+    if matches!(
+        player_simulation_phase(
+            controls,
+            &world.0,
+            &mut runtime,
+            &mut feedback,
+            tuning,
+            feel,
+            frame_dt,
+        ),
+        PhaseOutcome::Return
+    ) {
+        flush_feedback(&mut feedback, &mut event_writers);
+        return;
+    }
+
+    interaction_input_phase(
+        &mut controls,
+        &mut runtime,
+        feel,
+        door_double_tap_up,
+        frame_dt,
+    );
+
+    let feature_events = feature_runtime_phase(
+        &controls,
+        &world.0,
+        &mut runtime,
+        &mut feedback,
+        feel,
+        frame_dt,
+    );
+
+    if matches!(
+        damage_heal_dialogue_phase(
+            &world.0,
+            &mut runtime,
+            &mut feedback,
+            &feature_events,
+            &mut next_mode,
+            tuning,
+            feel,
+        ),
+        PhaseOutcome::Return
+    ) {
+        flush_feedback(&mut feedback, &mut event_writers);
+        return;
+    }
+
+    if matches!(
+        room_transition_phase(
+            &mut commands,
+            &controls,
+            &mut world,
+            &mut room_set,
+            &mut runtime,
+            &mut feedback,
+            &room_visuals,
+            tuning,
+            feel,
+            physics_settings,
+            game_assets.as_deref(),
+        ),
+        PhaseOutcome::Return
+    ) {
+        flush_feedback(&mut feedback, &mut event_writers);
+        return;
+    }
+
+    attack_phase(&controls, &mut runtime, &mut feedback, tuning, feel);
+
+    cleanup_timers_phase(&mut runtime, frame_dt);
+
+    flush_feedback(&mut feedback, &mut event_writers);
+}
+
+/// Phase 1 — dialogue / pause / non-gameplay early returns.
+///
+/// Owns: zeroing `time_scale`, decaying `flash_timer` + `preset_flash` in
+/// modes that intentionally suspend gameplay.
+///
+/// Should not own: gameplay input edits, movement, combat, or room
+/// transitions. New "in dialogue / paused / cutscene" timer decay
+/// belongs here; new gameplay logic does not.
+fn mode_gate_phase(mode: &GameMode, runtime: &mut SandboxRuntime, frame_dt: f32) -> PhaseOutcome {
+    if matches!(mode, GameMode::Dialogue) {
+        runtime.time_scale = 0.0;
+        runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
+        runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+        return PhaseOutcome::Return;
+    }
+    if !mode.allows_gameplay() {
         // Pause, dialogue, and transition modes intentionally do not consume
-        // gameplay inputs or advance simulation timers. Developer hotkeys above
-        // and HUD sync below remain responsive because those systems are outside
+        // gameplay inputs or advance simulation timers. Developer hotkeys
+        // and HUD sync remain responsive because those systems are outside
         // this early return.
         runtime.time_scale = 0.0;
         runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
         runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
-        return;
+        return PhaseOutcome::Return;
     }
+    PhaseOutcome::Continue
+}
 
+/// Phase 2 — gameplay timer decay + semantic input tweaks.
+///
+/// Owns: per-frame decay of `room_transition_cooldown`,
+/// `damage_invuln_timer`, `hitstun_timer`, `hitstop_timer`; rewriting
+/// `controls.fast_fall_pressed` from a down double-tap; producing the
+/// `door_double_tap_up` signal returned to the caller.
+///
+/// Should not own: movement, combat, feature runtime updates. New
+/// gameplay-only timers and new input-edge gestures belong here. Returns
+/// the door / NPC double-tap-up signal so `interaction_input_phase` can
+/// fold it in alongside the explicit `Interact` action.
+fn input_timer_phase(
+    controls: &mut ControlFrame,
+    runtime: &mut SandboxRuntime,
+    feel: SandboxFeelTuning,
+    frame_dt: f32,
+) -> bool {
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
     runtime.damage_invuln_timer = (runtime.damage_invuln_timer - frame_dt).max(0.0);
     runtime.hitstun_timer = (runtime.hitstun_timer - frame_dt).max(0.0);
@@ -711,95 +914,187 @@ fn sandbox_update(
     let door_double_tap_up =
         runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
+    door_double_tap_up
+}
 
+/// Phase 3 — explicit reset input.
+///
+/// Owns: routing the `reset_pressed` button through `reset_sandbox`. New
+/// "the player asked for a reset / restart" branches belong here; engine
+/// or feature-driven resets stay in `player_control_phase`,
+/// `player_simulation_phase`, or `damage_heal_dialogue_phase`.
+fn reset_phase(
+    controls: &ControlFrame,
+    world: &ae::World,
+    runtime: &mut SandboxRuntime,
+    feedback: &mut FrameFeedback,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+) -> PhaseOutcome {
     if controls.reset_pressed {
-        reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
-        event_writers.sfx.write_batch(sfx.drain(..));
-        event_writers.vfx.write_batch(vfx.drain(..));
-        event_writers.debris.write_batch(debris.drain(..));
-        return;
-    } else {
-        // Two-clock update:
-        // - control_dt is real time for responsive inputs and precision-blink aim;
-        // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
-        let control_frame = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
-        let input = control_frame.engine_input(frame_dt);
-        let control_world = features::world_with_sandbox_solids(
-            &world.0,
-            &runtime.moving_platform,
-            &runtime.features,
-        );
-        let control_events = ae::update_player_control_with_tuning(
-            &control_world,
-            &mut runtime.player,
-            input,
-            frame_dt,
+        reset_sandbox(
+            world,
+            &mut feedback.sfx,
+            &mut feedback.vfx,
+            runtime,
             tuning,
+            feel,
         );
-        if control_events.reset {
-            reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
-            event_writers.sfx.write_batch(sfx.drain(..));
-            event_writers.vfx.write_batch(vfx.drain(..));
-            event_writers.debris.write_batch(debris.drain(..));
-            return;
-        }
-        // Damage breakable pogo orbs the player just bounced off. The
-        // engine reports orb AABBs; the sandbox matches them against
-        // breakables flagged `pogo_refresh` and routes hit/break events
-        // through the standard feature pipeline.
-        for &orb_aabb in &control_events.pogo_hits {
-            let feature_events = runtime.features.on_pogo_bounce(orb_aabb, 1);
-            handle_feature_events(
-                &mut sfx,
-                &mut vfx,
-                &mut debris,
-                &feature_events,
-                runtime.player.pos,
-            );
-        }
-        handle_player_events(&mut sfx, &mut vfx, &mut runtime, control_events, None);
+        return PhaseOutcome::Return;
+    }
+    PhaseOutcome::Continue
+}
 
-        runtime.update_time_scale(frame_dt, feel);
-        let sim_dt = sandbox_dt(&runtime, frame_dt);
-
-        let platform_delta = runtime.moving_platform.update(sim_dt);
-        if runtime.moving_platform.is_riding(&runtime.player) {
-            runtime.player.pos += platform_delta;
-        }
-        let collision_world = features::world_with_sandbox_solids(
-            &world.0,
-            &runtime.moving_platform,
-            &runtime.features,
-        );
-
-        let was_grounded = runtime.player.on_ground;
-        let sim_events = ae::update_player_simulation_with_tuning(
-            &collision_world,
-            &mut runtime.player,
-            input,
-            sim_dt,
+/// Phase 4 — control-clock half of the two-clock player update.
+///
+/// Owns: hitstun-filtered control snapshot, real-time `frame_dt`
+/// `update_player_control_with_tuning` call, pogo-bounce → feature-event
+/// routing, `handle_player_events` for the control-clock pass.
+///
+/// Should not own: gravity/platform/AI ticks (those run on `sim_dt` in
+/// `player_simulation_phase`). New responsive-input mechanics that need
+/// real time (jump buffers, blink aim, dash chains) belong here. Returns
+/// `Return` if the engine asked for a sandbox reset.
+fn player_control_phase(
+    controls: ControlFrame,
+    world: &ae::World,
+    runtime: &mut SandboxRuntime,
+    feedback: &mut FrameFeedback,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+    frame_dt: f32,
+) -> PhaseOutcome {
+    // Two-clock update:
+    // - control_dt is real time for responsive inputs and precision-blink aim;
+    // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
+    let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
+    let input = filtered.engine_input(frame_dt);
+    let control_world =
+        features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
+    let control_events = ae::update_player_control_with_tuning(
+        &control_world,
+        &mut runtime.player,
+        input,
+        frame_dt,
+        tuning,
+    );
+    if control_events.reset {
+        reset_sandbox(
+            world,
+            &mut feedback.sfx,
+            &mut feedback.vfx,
+            runtime,
             tuning,
+            feel,
         );
-        if sim_events.reset {
-            reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
-            event_writers.sfx.write_batch(sfx.drain(..));
-            event_writers.vfx.write_batch(vfx.drain(..));
-            event_writers.debris.write_batch(debris.drain(..));
-            return;
-        }
-        handle_player_events(
-            &mut sfx,
-            &mut vfx,
-            &mut runtime,
-            sim_events,
-            Some(was_grounded),
+        return PhaseOutcome::Return;
+    }
+    // Damage breakable pogo orbs the player just bounced off. The
+    // engine reports orb AABBs; the sandbox matches them against
+    // breakables flagged `pogo_refresh` and routes hit/break events
+    // through the standard feature pipeline.
+    for &orb_aabb in &control_events.pogo_hits {
+        let feature_events = runtime.features.on_pogo_bounce(orb_aabb, 1);
+        handle_feature_events(
+            &mut feedback.sfx,
+            &mut feedback.vfx,
+            &mut feedback.debris,
+            &feature_events,
+            runtime.player.pos,
         );
     }
+    handle_player_events(
+        &mut feedback.sfx,
+        &mut feedback.vfx,
+        runtime,
+        control_events,
+        None,
+    );
+    PhaseOutcome::Continue
+}
 
-    // Context interaction is deliberately separate from raw up movement.
-    // Up is too valuable for platforming/flight/aiming to double as a one-tap
-    // door or NPC trigger, so doors/NPCs/chests accept either the dedicated
-    // Interact action or a deliberate double-tap-up gesture.
+/// Phase 5 — sim-clock half of the two-clock player update.
+///
+/// Owns: `update_time_scale` (hitstop / bullet-time / slowmo ramp),
+/// scaled `sim_dt`, moving-platform tick + ride-along, sandbox-side
+/// solid rebuild, `update_player_simulation_with_tuning`, landing-dust
+/// feedback through `handle_player_events`.
+///
+/// Should not own: feature-runtime ticks or interact-buffering. New
+/// game-time-affected motion (gravity tweaks, platform AI, knockback
+/// resolution) belongs here. Returns `Return` if simulation asked for a
+/// sandbox reset.
+fn player_simulation_phase(
+    controls: ControlFrame,
+    world: &ae::World,
+    runtime: &mut SandboxRuntime,
+    feedback: &mut FrameFeedback,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+    frame_dt: f32,
+) -> PhaseOutcome {
+    let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
+    let input = filtered.engine_input(frame_dt);
+
+    runtime.update_time_scale(frame_dt, feel);
+    let sim_dt = sandbox_dt(runtime, frame_dt);
+
+    let platform_delta = runtime.moving_platform.update(sim_dt);
+    if runtime.moving_platform.is_riding(&runtime.player) {
+        runtime.player.pos += platform_delta;
+    }
+    let collision_world =
+        features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
+
+    let was_grounded = runtime.player.on_ground;
+    let sim_events = ae::update_player_simulation_with_tuning(
+        &collision_world,
+        &mut runtime.player,
+        input,
+        sim_dt,
+        tuning,
+    );
+    if sim_events.reset {
+        reset_sandbox(
+            world,
+            &mut feedback.sfx,
+            &mut feedback.vfx,
+            runtime,
+            tuning,
+            feel,
+        );
+        return PhaseOutcome::Return;
+    }
+    handle_player_events(
+        &mut feedback.sfx,
+        &mut feedback.vfx,
+        runtime,
+        sim_events,
+        Some(was_grounded),
+    );
+    PhaseOutcome::Continue
+}
+
+/// Phase 6 — interact / double-tap-up + buffering.
+///
+/// Owns: hitstun gating of interaction, folding the explicit `Interact`
+/// action together with the `door_double_tap_up` signal from
+/// `input_timer_phase`, writing the buffered result back into
+/// `controls.interact_pressed` via `runtime.buffered_interact`.
+///
+/// Should not own: actually triggering doors, NPCs, chests, or pickups —
+/// `feature_runtime_phase` and `room_transition_phase` consume the
+/// buffered signal. Up is too valuable for platforming/flight/aiming to
+/// double as a one-tap door or NPC trigger, so doors/NPCs/chests accept
+/// either the dedicated `Interact` action or a deliberate double-tap-up
+/// gesture.
+fn interaction_input_phase(
+    controls: &mut ControlFrame,
+    runtime: &mut SandboxRuntime,
+    feel: SandboxFeelTuning,
+    door_double_tap_up: bool,
+    frame_dt: f32,
+) {
     let raw_interact_pressed = if runtime.hitstun_timer > 0.0 {
         false
     } else {
@@ -807,10 +1102,30 @@ fn sandbox_update(
     };
     controls.interact_pressed =
         runtime.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
+}
 
-    let feature_dt = sandbox_dt(&runtime, frame_dt);
+/// Phase 7 — feature runtime tick.
+///
+/// Owns: per-frame `runtime.features.update` call for hazards, enemies,
+/// bosses, breakables, pickups, chests, and NPCs; routing the resulting
+/// audio/vfx/debris cues through `handle_feature_events`.
+///
+/// Should not own: applying the resulting damage / heals / dialogue /
+/// reset flags — those are intentionally split into
+/// `damage_heal_dialogue_phase` so the side-effect surface is grep-able
+/// in one place. Returns the raw `FeatureEvents` so the next phase can
+/// consume them.
+fn feature_runtime_phase(
+    controls: &ControlFrame,
+    world: &ae::World,
+    runtime: &mut SandboxRuntime,
+    feedback: &mut FrameFeedback,
+    feel: SandboxFeelTuning,
+    frame_dt: f32,
+) -> features::FeatureEvents {
+    let feature_dt = sandbox_dt(runtime, frame_dt);
     let feature_world =
-        features::world_with_sandbox_solids(&world.0, &runtime.moving_platform, &runtime.features);
+        features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
     let feature_player = runtime.player.clone();
     let player_vulnerable = runtime.damage_invuln_timer <= 0.0;
     let feature_events = runtime.features.update(
@@ -821,23 +1136,46 @@ fn sandbox_update(
         feel.feature_combat_tuning(),
         feature_dt,
     );
-    let feature_reset = feature_events.reset_player;
-    let feature_interaction_consumed = feature_events.consumed_interaction;
-    let feature_damaged_player = !feature_events.player_damage.is_empty();
     handle_feature_events(
-        &mut sfx,
-        &mut vfx,
-        &mut debris,
+        &mut feedback.sfx,
+        &mut feedback.vfx,
+        &mut feedback.debris,
         &feature_events,
         runtime.player.pos,
     );
-    handle_player_heal_events(&mut runtime, &feature_events);
+    feature_events
+}
+
+/// Phase 8 — apply heals/damage, dialogue start, feature-driven reset.
+///
+/// Owns: `handle_player_heal_events`, `handle_player_damage_events`,
+/// `remember_safe_player_position` when the player wasn't damaged this
+/// frame, clearing the interact buffer when a feature consumed it,
+/// starting `GameMode::Dialogue` on a feature-issued dialogue request,
+/// routing feature-driven reset through `reset_sandbox`.
+///
+/// Should not own: the feature tick itself (that's
+/// `feature_runtime_phase`) or attack / room-transition routing. Returns
+/// `Return` if dialogue started or the feature requested a sandbox
+/// reset.
+fn damage_heal_dialogue_phase(
+    world: &ae::World,
+    runtime: &mut SandboxRuntime,
+    feedback: &mut FrameFeedback,
+    feature_events: &features::FeatureEvents,
+    next_mode: &mut NextState<GameMode>,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+) -> PhaseOutcome {
+    let feature_damaged_player = !feature_events.player_damage.is_empty();
+    let feature_interaction_consumed = feature_events.consumed_interaction;
+    handle_player_heal_events(runtime, feature_events);
     handle_player_damage_events(
-        &world.0,
-        &mut sfx,
-        &mut vfx,
-        &mut runtime,
-        &feature_events,
+        world,
+        &mut feedback.sfx,
+        &mut feedback.vfx,
+        runtime,
+        feature_events,
         tuning,
         feel,
     );
@@ -854,63 +1192,107 @@ fn sandbox_update(
         runtime.clear_interact_buffer();
         runtime.hitstop_timer = 0.0;
         next_mode.set(GameMode::Dialogue);
-        event_writers.sfx.write_batch(sfx.drain(..));
-        event_writers.vfx.write_batch(vfx.drain(..));
-        event_writers.debris.write_batch(debris.drain(..));
-        return;
+        return PhaseOutcome::Return;
     }
-    if feature_reset {
-        reset_sandbox(&world.0, &mut sfx, &mut vfx, &mut runtime, tuning, feel);
-        event_writers.sfx.write_batch(sfx.drain(..));
-        event_writers.vfx.write_batch(vfx.drain(..));
-        event_writers.debris.write_batch(debris.drain(..));
-        return;
+    if feature_events.reset_player {
+        reset_sandbox(
+            world,
+            &mut feedback.sfx,
+            &mut feedback.vfx,
+            runtime,
+            tuning,
+            feel,
+        );
+        return PhaseOutcome::Return;
     }
+    PhaseOutcome::Continue
+}
 
-    if runtime.room_transition_cooldown <= 0.0 {
-        if let Some(zone) =
-            room_set.transition_for_player(&runtime.player, controls.interact_pressed)
-        {
-            runtime.clear_interact_buffer();
-            load_room(
-                &mut commands,
-                &mut sfx,
-                &mut vfx,
-                &mut runtime,
-                &mut *world,
-                &mut *room_set,
-                &room_visuals,
-                zone,
-                tuning,
-                feel,
-                physics_settings,
-                game_assets.as_deref(),
-            );
-            event_writers.sfx.write_batch(sfx.drain(..));
-            event_writers.vfx.write_batch(vfx.drain(..));
-            event_writers.debris.write_batch(debris.drain(..));
-            return;
-        }
+/// Phase 9 — loading-zone transition + `load_room`.
+///
+/// Owns: cooldown gate, `room_set.transition_for_player` query against
+/// the buffered interact signal, clearing the interact buffer on a
+/// matched transition, calling `load_room` for the actual swap.
+///
+/// Should not own: which buttons trigger a transition (that's
+/// `interaction_input_phase`) or per-zone content rebuild (that's
+/// `load_room`). Returns `Return` if a transition fired this frame.
+fn room_transition_phase(
+    commands: &mut Commands,
+    controls: &ControlFrame,
+    world: &mut GameWorld,
+    room_set: &mut rooms::RoomSet,
+    runtime: &mut SandboxRuntime,
+    feedback: &mut FrameFeedback,
+    room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+    physics_settings: physics::PhysicsSandboxSettings,
+    game_assets: Option<&crate::game_assets::GameAssets>,
+) -> PhaseOutcome {
+    if runtime.room_transition_cooldown > 0.0 {
+        return PhaseOutcome::Continue;
     }
+    let Some(zone) = room_set.transition_for_player(&runtime.player, controls.interact_pressed)
+    else {
+        return PhaseOutcome::Continue;
+    };
+    runtime.clear_interact_buffer();
+    load_room(
+        commands,
+        &mut feedback.sfx,
+        &mut feedback.vfx,
+        runtime,
+        world,
+        room_set,
+        room_visuals,
+        zone,
+        tuning,
+        feel,
+        physics_settings,
+        game_assets,
+    );
+    PhaseOutcome::Return
+}
 
+/// Phase 10 — slash / pogo attack triggering.
+///
+/// Owns: hitstun gate, attack/pogo button check, dispatching to
+/// `process_attack` (which itself emits sfx/vfx/debris and runs the
+/// feature-side hit application).
+///
+/// Should not own: damage application semantics — those live in
+/// `process_attack` and the engine. New attack archetypes should add
+/// branches here only when the trigger condition differs.
+fn attack_phase(
+    controls: &ControlFrame,
+    runtime: &mut SandboxRuntime,
+    feedback: &mut FrameFeedback,
+    tuning: ae::MovementTuning,
+    feel: SandboxFeelTuning,
+) {
     if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
         process_attack(
-            &mut sfx,
-            &mut vfx,
-            &mut debris,
-            &mut runtime,
-            controls,
+            &mut feedback.sfx,
+            &mut feedback.vfx,
+            &mut feedback.debris,
+            runtime,
+            *controls,
             tuning,
             feel,
         );
     }
+}
 
+/// Phase 11 — flash / preset / slash animation timer decay.
+///
+/// Owns: real-time decay of `flash_timer`, `preset_flash`,
+/// `slash_anim_timer`. New presentation-flash timers belong here;
+/// gameplay timers belong in `input_timer_phase`.
+fn cleanup_timers_phase(runtime: &mut SandboxRuntime, frame_dt: f32) {
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
     runtime.slash_anim_timer = (runtime.slash_anim_timer - frame_dt).max(0.0);
-    event_writers.sfx.write_batch(sfx.drain(..));
-    event_writers.vfx.write_batch(vfx.drain(..));
-    event_writers.debris.write_batch(debris.drain(..));
 }
 
 /// Presentation-side debug hotkey reader.

@@ -98,6 +98,37 @@ direction of `delta`.** When you see an unconditional `pos += block_top
 hundreds of pixels away from the body? Add the symmetric overlap-shape
 guard `resolve_axis(Axis::X)` already had.
 
+### Followup: predicate evolution
+
+The first revision of the side-contact filter required `overlap_x > 0`
+(actual penetration). It missed the *exact-edge-touching* case
+(`body.left == wall.right` to within float precision), where Parry's
+`cast_shapes(stop_at_penetration=true)` still returns `time_of_impact
+= 0` and the snap teleports the player to a different position
+(`pos.y = wall.top - half_height = 32 - 23 = 9` for the second
+reproduction). The next dump (`debug_traces/ambition_trace_1777905256-*`)
+showed the exact-edge case as `inside solid (ldtk solid)` at `(62, 9)`.
+
+The current predicate (`body_is_side_contact`) keys on the body's
+y-range being nested inside the block's y-range — independent of
+x-overlap — and catches edge-touching and penetrating side contacts
+uniformly. The integration test
+`square_arena_wall_cling_full_world_does_not_teleport` in
+`crates/ambition_sandbox/tests/repro_walls.rs` replays the live
+trace pose against the actual square_arena world; the unit test
+`body_is_side_contact_classifies_walls_vs_floors` pins the
+predicate against floor-landing, top-corner-landing, and ceiling-
+hit cases so the side-contact filter cannot silently grow into
+legitimate vertical-landing geometry.
+
+When this trace recorder is used to diagnose a future collision-
+escape bug, the **CollisionCorrection event** with the offending
+`unexplained delta Npx (vel-budget Mpx)` line is the smoking-gun
+event to look for. Compare the `before` and `after` x to see which
+axis owns the bug, and look for the snap target by computing
+`block_top = after.y + half_height` (or `block_bottom = after.y -
+half_height` for upward sweeps).
+
 ---
 
 

@@ -1248,7 +1248,7 @@ fn sweep_player_y(
         // belongs to the x-axis sweep/resolve. The vertical sweep should
         // not see it. See `docs/lessons_learned.md` for the trace
         // signature and the regression test.
-        if dominantly_horizontal_overlap(start_body, block.aabb) {
+        if body_is_side_contact(start_body, block.aabb) {
             return false;
         }
         true
@@ -1269,22 +1269,31 @@ fn sweep_player_y(
     resolve_vertical(world, player, prev_bottom, drop_through);
 }
 
-/// True when `body` is already overlapping `block` and the existing overlap
-/// is wider on the y axis than on the x axis — i.e. this is a side-wall
-/// contact, not a vertical landing.
+/// True when `body`'s vertical range fits entirely inside `block`'s
+/// vertical range — i.e. the body is *alongside* the block, not above
+/// or below it. The y-axis sweep / resolve cannot legitimately produce
+/// a contact in that geometry: any landing has the body's bottom
+/// approaching the block's top from above, and any ceiling hit has the
+/// body's top approaching the block's bottom from below. A body
+/// fully nested inside the block's y-range can only be touching the
+/// block on its left or right *side*, which the x-axis sweep / resolve
+/// owns.
 ///
-/// This is the symmetric counterpart to the `overlap_x > overlap_y` guard
-/// already used by `resolve_axis(Axis::X)`. Edge-touching bodies (zero
-/// x-overlap) are not considered side-wall contacts; only actual
-/// penetration counts. Without this guard, vertical sweeps and
-/// `resolve_vertical` could snap the player to a tall wall's far edge.
-fn dominantly_horizontal_overlap(body: Aabb, block: Aabb) -> bool {
-    let overlap_x = (body.right().min(block.right()) - body.left().max(block.left())).max(0.0);
-    if overlap_x <= 0.0 {
-        return false;
-    }
-    let overlap_y = (body.bottom().min(block.bottom()) - body.top().max(block.top())).max(0.0);
-    overlap_y > overlap_x
+/// This is the symmetric counterpart to the `overlap_x > overlap_y`
+/// guard `resolve_axis(Axis::X)` already uses. The first revision of
+/// this fix required `overlap_x > 0` (strict penetration), which
+/// missed the trace's *exact-edge-touching* case (`body.left ==
+/// wall.right` to within float precision). The current predicate
+/// catches both edge-touching and penetrating side contacts because
+/// the y-range test is independent of x-overlap.
+///
+/// Tolerance: a 1e-4 epsilon on the y-range bounds so a body whose
+/// top exactly equals the block's top (e.g. a player standing at the
+/// same height as a one-tile-tall ledge corner) is still classified
+/// as a side-contact when the bottom is also inside.
+fn body_is_side_contact(body: Aabb, block: Aabb) -> bool {
+    const Y_NESTED_EPS: f32 = 1.0e-4;
+    body.top() >= block.top() - Y_NESTED_EPS && body.bottom() <= block.bottom() + Y_NESTED_EPS
 }
 
 // AMBITION_REVIEW(spatial): one-way platform contact test. The 4px vertical
@@ -1368,17 +1377,15 @@ fn resolve_vertical(world: &World, player: &mut Player, prev_bottom: f32, drop_t
             }
         }
         // AMBITION_REVIEW(spatial): symmetric to `resolve_axis(Axis::X)`.
-        // Only resolve as a vertical contact when overlap is shallower in
-        // y than x. Otherwise this is a side-wall contact — the x-axis
-        // sweep/resolve owns it. Pushing vertically here can catapult the
-        // player to the wall block's top edge if the wall spans the full
-        // room height (concrete repro: wall-clinging on a tall left wall
-        // whose top is at world y=0 used to teleport the player to
-        // y = top - half_height = -23). Skipping OneWay because OneWay is
-        // by construction wider than tall.
-        if !matches!(block.kind, BlockKind::OneWay)
-            && dominantly_horizontal_overlap(aabb, block.aabb)
-        {
+        // If the body's y-range is entirely nested inside the block's
+        // y-range, this is a side-wall contact — the x-axis sweep /
+        // resolve owns it. Pushing vertically here can catapult the
+        // player to the wall block's top edge if the wall spans the
+        // full room height (concrete repro: wall-clinging on a tall
+        // left wall whose top is at world y=32 used to teleport the
+        // player to y = top - half_height = 9). Skipping OneWay
+        // because OneWay is by construction wider than tall.
+        if !matches!(block.kind, BlockKind::OneWay) && body_is_side_contact(aabb, block.aabb) {
             continue;
         }
         if aabb.center().y < block.aabb.center().y {
@@ -2326,38 +2333,129 @@ mod tests {
         );
     }
 
-    /// Direct unit test of `dominantly_horizontal_overlap`. The helper is
-    /// the source of truth for "is this a side-wall contact, not a
-    /// vertical landing"; both `sweep_player_y` and `resolve_vertical`
-    /// consult it to avoid the wall-cling teleport class.
+    /// Guards against `body_is_side_contact` being too broad. Player
+    /// descending onto the *top corner* of a tall solid (a pillar) with
+    /// slight x overlap should still resolve as a normal landing —
+    /// `on_ground = true`, `pos.y` snaps so `body.bottom = pillar.top`.
+    /// If this test ever starts failing, the side-contact filter has
+    /// expanded into legitimate vertical-landing geometry.
     #[test]
-    fn dominantly_horizontal_overlap_classifies_walls_vs_floors() {
-        // A floor (wide and shallow) overlapping the player's feet:
-        // overlap_x is the body width (28), overlap_y is small (4 px feet
-        // poke). overlap_x > overlap_y → NOT dominantly horizontal.
+    fn descending_onto_top_corner_of_tall_block_lands_normally() {
+        // World with a tall pillar centered horizontally.
+        let world = World {
+            name: "pillar".into(),
+            size: Vec2::new(800.0, 600.0),
+            spawn: Vec2::new(50.0, 50.0),
+            blocks: vec![Block::solid(
+                "pillar",
+                Vec2::new(380.0, 200.0),
+                Vec2::new(40.0, 400.0),
+            )],
+            objects: Vec::new(),
+        };
+        // Pillar AABB: (380, 200) → (420, 600). Top = 200, bottom = 600.
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        // Position player so body slightly overlaps the pillar on x and is
+        // about to land on its top: body x range covers ~[380-14+5, 380+5+14)
+        // = [371, 405) with player half-width 14. With pos.x = 391,
+        // body.left = 377 < pillar.left = 380, body.right = 405 > 380 →
+        // x overlap of 25 px. body.top is well above pillar.top, body.bottom
+        // is just above pillar.top.
+        player.pos = Vec2::new(391.0, 200.0 - 23.0 - 0.5);
+        // Falling straight down at a typical mid-arc speed.
+        player.vel = Vec2::new(0.0, 200.0);
+        player.on_ground = false;
+        player.on_wall = false;
+
+        let _ = update_player_simulation_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                control_dt: 1.0 / 60.0,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+
+        let body = player.aabb();
+        assert!(
+            player.on_ground,
+            "descending onto pillar top should land (on_ground = true); got pos={:?}",
+            player.pos
+        );
+        // body.bottom should be at or extremely near the pillar's top.
+        assert!(
+            (body.bottom() - 200.0).abs() < 1.0,
+            "body.bottom should snap to pillar.top = 200; got {} (pos.y = {})",
+            body.bottom(),
+            player.pos.y,
+        );
+    }
+
+    /// Direct unit test of `body_is_side_contact`. Both `sweep_player_y`
+    /// and `resolve_vertical` consult it to avoid the wall-cling teleport
+    /// class. The first revision used `overlap_x > 0` and missed the
+    /// exact-edge-touching case captured in
+    /// `debug_traces/ambition_trace_1777905256-*.json`; the predicate
+    /// now keys on the body's y-range being nested inside the block's
+    /// y-range, which catches edge-touching and penetrating side
+    /// contacts uniformly.
+    #[test]
+    fn body_is_side_contact_classifies_walls_vs_floors() {
+        // Player about to land on a wide floor: body.top < floor.top,
+        // so body's y-range is NOT nested inside floor's y-range. Not
+        // a side contact.
         let body = Aabb::new(Vec2::new(50.0, 100.0), Vec2::new(14.0, 23.0));
         let floor = Aabb::new(Vec2::new(80.0, 125.0), Vec2::new(60.0, 6.0));
         assert!(
-            !dominantly_horizontal_overlap(body, floor),
-            "feet poking shallowly into a wide floor must NOT be classified as a wall contact"
+            !body_is_side_contact(body, floor),
+            "player about to land on a wide floor must NOT be classified as a side contact"
         );
 
-        // A tall left wall (left=0, right=36, top=0, bottom=900). Body
-        // edge-touching the wall on the right (body.left = wall.right):
-        // overlap_x is 0, so the helper returns false (edge-touching is
-        // not a wall contact for this guard).
+        // Tall left wall, body fully alongside it (body's y-range is
+        // strictly inside the wall's y-range). Edge-touching on x.
+        // Side contact regardless of x-overlap.
         let wall = Aabb::new(Vec2::new(18.0, 450.0), Vec2::new(18.0, 450.0));
-        let edge_touching = Aabb::new(Vec2::new(36.0 + 14.0, 450.0), Vec2::new(14.0, 23.0));
-        assert!(!dominantly_horizontal_overlap(edge_touching, wall));
+        let body_alongside_edge = Aabb::new(Vec2::new(36.0 + 14.0, 450.0), Vec2::new(14.0, 23.0));
+        assert!(
+            body_is_side_contact(body_alongside_edge, wall),
+            "body alongside a tall wall (edge-touching on x) must be a side contact"
+        );
 
-        // Body penetrating the wall by 1 px on x: overlap_x = 1,
-        // overlap_y = full body height (46). overlap_y > overlap_x →
-        // dominantly horizontal (a side-wall contact).
+        // Same wall, body penetrating by 1 px on x. Still alongside on y.
         let body_inside_wall =
             Aabb::new(Vec2::new(36.0 + 14.0 - 1.0, 450.0), Vec2::new(14.0, 23.0));
         assert!(
-            dominantly_horizontal_overlap(body_inside_wall, wall),
-            "1 px penetration into a tall wall must be classified as a side-wall contact"
+            body_is_side_contact(body_inside_wall, wall),
+            "body penetrating a tall wall on x is still a side contact"
+        );
+
+        // Player landing on the top corner of a tall block (small x
+        // overlap, body.bottom near block.top, body.top above block.top).
+        // The body's y-range is NOT nested inside the block's y-range
+        // (body.top < block.top), so this is a real vertical contact —
+        // NOT a side contact. Guards against the predicate becoming too
+        // broad.
+        let pillar = Aabb::new(Vec2::new(900.0, 800.0), Vec2::new(40.0, 200.0));
+        let body_landing_on_pillar = Aabb::new(
+            Vec2::new(900.0 - 40.0 + 5.0, 600.0 - 23.0 + 1.0),
+            Vec2::new(14.0, 23.0),
+        );
+        assert!(
+            !body_is_side_contact(body_landing_on_pillar, pillar),
+            "descending onto the top edge of a tall block (slight x overlap, body.top above block.top) must NOT be classified as a side contact"
+        );
+
+        // Player jumping up into a thick ceiling block (body.bottom
+        // crossing block.bottom from below). body.bottom > block.bottom
+        // → not nested → real vertical contact.
+        let ceiling = Aabb::new(Vec2::new(900.0, 200.0), Vec2::new(400.0, 100.0));
+        let body_under_ceiling =
+            Aabb::new(Vec2::new(900.0, 300.0 + 23.0 - 1.0), Vec2::new(14.0, 23.0));
+        assert!(
+            !body_is_side_contact(body_under_ceiling, ceiling),
+            "rising into a thick ceiling (body.bottom poking past block.bottom) must NOT be classified as a side contact"
         );
     }
 }

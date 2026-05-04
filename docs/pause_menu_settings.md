@@ -62,8 +62,8 @@ Steps (all in `crates/ambition_sandbox/src/settings.rs`):
 Settings that mutate window state should call
 `settings::apply_display_mode` (or the equivalent helper for the new
 resource) so the same logic runs whether the user reached it via the
-menu or via a developer hotkey. The previous `pause_menu::apply_display_mode`
-moved into the settings module; the F6/F7 hotkeys now delegate there too.
+menu or via a developer hotkey. Display-mode mutation lives in the
+settings module; the F6/F7 hotkeys delegate there.
 
 ## Developer hotkeys
 
@@ -77,7 +77,7 @@ remain as a developer convenience:
 (`docs/gameplay_trace_recorder.md`); exclusive fullscreen is reachable
 only through the menu now.
 
-The hotkeys delegate to `pause_menu::apply_display_mode` so the menu
+The hotkeys delegate to `settings::apply_display_mode` so the menu
 and the keystrokes never drift out of sync.
 
 ## Audio-off compatibility

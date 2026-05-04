@@ -13,10 +13,14 @@
 //!   non-finite pos/vel, has absurd velocity, or sits inside a `Solid`
 //!   after movement resolution.
 //!
-//! Dumps are written under `debug_traces/ambition_trace_YYYYMMDD_HHMMSS.{json,md}`
-//! relative to the sandbox working directory. JSON is the machine-readable
-//! source of truth; the Markdown file is a human summary built from the
-//! same snapshot. Path generation is offline-safe (no system calls).
+//! Dumps are written to
+//! `debug_traces/ambition_trace_{secs}-{nanos}-{seq}_{Dd}d{HH}h{MM}m{SS}s.{json,md}`
+//! relative to the sandbox working directory. The `{secs}-{nanos}-{seq}`
+//! prefix makes filenames unique even when two dumps fire in the same
+//! nanosecond (the `{seq}` segment is a process-wide atomic counter).
+//! JSON is the machine-readable source of truth; the Markdown file is a
+//! human summary built from the same snapshot. Path generation is
+//! offline-safe (no system calls).
 //!
 //! See `docs/gameplay_trace_recorder.md` for the workflow and bug-reporting
 //! checklist.

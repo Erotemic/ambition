@@ -64,8 +64,8 @@ impl DisplayModeState {
 /// the way to reach it.
 ///
 /// The actual mode-application logic lives in
-/// `crate::pause_menu::apply_display_mode` so the menu and the
-/// hotkeys stay in lock-step. Adding a new mode happens in one place.
+/// `crate::settings::apply_display_mode` so the menu and the hotkeys
+/// stay in lock-step. Adding a new mode happens in one place.
 pub fn window_mode_hotkeys(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<DisplayModeState>,

@@ -110,9 +110,14 @@ Dumps are written under `debug_traces/` relative to the sandbox
 working directory. Each dump produces two files:
 
 ```
-debug_traces/ambition_trace_<unixsecs>_<DdHHhMMmSSs>.json
-debug_traces/ambition_trace_<unixsecs>_<DdHHhMMmSSs>.md
+debug_traces/ambition_trace_{secs}-{nanos}-{seq}_{Dd}d{HH}h{MM}m{SS}s.json
+debug_traces/ambition_trace_{secs}-{nanos}-{seq}_{Dd}d{HH}h{MM}m{SS}s.md
 ```
+
+Example: `ambition_trace_1777905256-095151097-000000_20577d14h34m16s.json`.
+The `{secs}-{nanos}-{seq}` prefix guarantees uniqueness even when two
+dumps fire in the same nanosecond, and lexical order matches
+chronological order.
 
 The JSON is the machine-readable source of truth. The Markdown summary
 includes:

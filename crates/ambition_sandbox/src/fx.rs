@@ -38,6 +38,16 @@ pub struct SlashPreviewVisual {
     duration: f32,
 }
 
+/// One ember of the live blink-destination indicator. Spawned in a small
+/// rotating ring at the predicted teleport landing while the blink button is
+/// held, despawned when the player releases or the blink ability is gated.
+#[derive(Component)]
+pub struct BlinkPreviewVisual {
+    /// Phase offset around the ring, in radians. Each ember has a distinct
+    /// constant so the ring keeps its shape while the ring as a whole spins.
+    angle_offset: f32,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ParticleKind {
     Spark,
@@ -366,4 +376,100 @@ pub fn spawn_blink_effects(
         ParticleKind::Spark,
     );
     spawn_impact(commands, world, to);
+}
+
+/// Live ring of orbiting embers showing where the next blink will land.
+///
+/// Runs every frame while the blink button is held (or aim is engaged) and
+/// the player has the `blink` ability. Mirrors the destination resolution
+/// used by the engine and the `show_blink_preview` debug overlay so the
+/// preview can never disagree with the eventual teleport endpoint:
+/// precision aim uses `blink_destination_to_point` against the steered
+/// offset, quick-tap uses `blink_destination` along input/facing.
+///
+/// The blink button shares ground with menu input, so this honours the same
+/// gameplay-only gate as `draw_player_debug` — paused / dialog states do not
+/// light up the ring.
+#[cfg(feature = "input")]
+pub fn update_blink_preview(
+    mut commands: Commands,
+    time: Res<Time>,
+    world: Res<crate::GameWorld>,
+    runtime: Res<crate::SandboxRuntime>,
+    mode: Res<State<crate::game_mode::GameMode>>,
+    scene: Res<crate::rendering::SceneEntities>,
+    action_query: Query<
+        &leafwing_input_manager::prelude::ActionState<crate::input::SandboxAction>,
+        bevy::prelude::With<crate::rendering::PlayerVisual>,
+    >,
+    mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
+) {
+    use crate::input::ControlFrame;
+
+    let player = &runtime.player;
+    let actions = if mode.get().allows_gameplay() {
+        action_query.get(scene.player).ok()
+    } else {
+        None
+    };
+    let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
+
+    let active = player.abilities.blink && (controls.blink_held || player.blink_aiming);
+
+    if !active {
+        for (entity, _, _, _) in &existing {
+            commands.entity(entity).despawn();
+        }
+        return;
+    }
+
+    // Match the debug overlay's destination resolution exactly. The
+    // moving-platform-aware temporary world is what the actual blink
+    // resolves against, so the preview must use it too.
+    let blink_world = crate::platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
+    let target = if player.blink_aiming {
+        ae::blink_destination_to_point(&blink_world, player, player.pos + player.blink_aim_offset)
+    } else {
+        let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
+            .normalize_or(ae::Vec2::new(player.facing, 0.0));
+        ae::blink_destination(&blink_world, player, aim, ae::BLINK_DISTANCE)
+    };
+
+    let precision = player.blink_aiming;
+    // Match the post-blink burst palette so the preview reads as
+    // "this is what's about to happen here".
+    let color = if precision {
+        rgba(0.92, 0.42, 1.00, 0.85)
+    } else {
+        rgba(0.42, 1.00, 0.92, 0.80)
+    };
+
+    const RING_EMBERS: usize = 4;
+    let radius = player.size.min_element() * 0.45;
+    let spin = time.elapsed_secs() * 2.4;
+    let pulse = 1.0 + 0.18 * (time.elapsed_secs() * 5.5).sin();
+    let ember_size = (player.size.min_element() * 0.18) * pulse;
+
+    let mut emitted = 0;
+    for (_, ember, mut transform, mut sprite) in &mut existing {
+        let angle = spin + ember.angle_offset;
+        let offset = ae::Vec2::new(angle.cos(), angle.sin()) * radius;
+        transform.translation = world_to_bevy(&world.0, target + offset, WORLD_Z_FX + 1.5);
+        sprite.custom_size = Some(BVec2::splat(ember_size.max(1.0)));
+        sprite.color = color;
+        emitted += 1;
+    }
+
+    if emitted == 0 {
+        for i in 0..RING_EMBERS {
+            let angle_offset = TAU * (i as f32) / RING_EMBERS as f32;
+            let angle = spin + angle_offset;
+            let offset = ae::Vec2::new(angle.cos(), angle.sin()) * radius;
+            commands.spawn((
+                Sprite::from_color(color, BVec2::splat(ember_size.max(1.0))),
+                Transform::from_translation(world_to_bevy(&world.0, target + offset, WORLD_Z_FX + 1.5)),
+                BlinkPreviewVisual { angle_offset },
+            ));
+        }
+    }
 }

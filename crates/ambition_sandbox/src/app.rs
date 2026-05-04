@@ -371,6 +371,11 @@ pub fn add_presentation_plugins(app: &mut App) {
         // these so the message queues drain without entity spawns or
         // audio playback.
         .add_systems(Update, vfx_spawn_messages.after(sandbox_update));
+    // Live blink-destination preview ring. Reads leafwing action state to
+    // know when the blink button is held, so it lives behind the `input`
+    // feature alongside the other gameplay-input-driven presentation.
+    #[cfg(feature = "input")]
+    app.add_systems(Update, fx::update_blink_preview.after(sandbox_update));
 }
 
 /// Install the egui inspector plugins. Gated by the `dev_tools` feature so

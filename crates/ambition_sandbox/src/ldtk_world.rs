@@ -309,20 +309,26 @@ fn int_grid_value_to_block(value: i32, min: ae::Vec2, size: ae::Vec2) -> Result<
     }
 }
 
-/// Horizontal-only merge: for each row, collapse adjacent same-value
-/// cells into a single engine block. Vertical merging is intentionally
-/// skipped — greedy row-major + vertical extension turns staircase /
-/// diagonal cell patterns into tall thin vertical strips (each diagonal
-/// step gets eaten by a 1-wide column merge), so the visual rendering
-/// no longer matches the editor. Horizontal-only keeps the floor-walk
-/// friction fix (long horizontal runs of cells collapse to one block)
-/// while letting non-rectangular shapes render as the per-cell mosaic
-/// the editor shows.
+/// Two-pass rectangle merge over the IntGrid:
+///   1. Per-row horizontal coalesce: each row collapses adjacent
+///      same-value cells into a single run.
+///   2. Per-column vertical merge: adjacent rows that produced the
+///      *exact same span* (same x extent, same value) are stacked into
+///      one taller block.
 ///
-/// A column of cells stacked vertically therefore lowers into N small
-/// blocks rather than one tall block. That's acceptable for the current
-/// player sweep; the underlying snap-direction sensitivity is path_forward
-/// step D's responsibility, not this merge.
+/// This correctly handles:
+///   - Long horizontal floors (pass 1 merges them; pass 2 finds nothing
+///     more to do) → one block. Floor-walk friction fix preserved.
+///   - Vertical walls of N-cell-wide cells stacked vertically (pass 1
+///     produces N identical 1-tall blocks; pass 2 stacks them into one
+///     N×H block) → one block. Wall-slide grinding fix.
+///   - Staircase / diagonal patterns: pass 1 produces blocks of varying
+///     widths per row (1, 2, 3, …); pass 2 finds no two adjacent rows
+///     with the same span so nothing merges. Staircases stay per-row
+///     visually (matches the editor's rendering). Regression fix from
+///     the earlier greedy-row-major bug.
+///
+/// Invariant: every cell ends up covered by exactly one block.
 fn emit_collision_blocks_from_intgrid(
     layer: &LdtkLayerInstance,
     offset: ae::Vec2,
@@ -343,10 +349,12 @@ fn emit_collision_blocks_from_intgrid(
         ));
     }
     let cells = &layer.int_grid_csv;
-    let mut blocks = Vec::new();
-
     let cw_usize = cw as usize;
-    for cy in 0..(ch as usize) {
+    let ch_usize = ch as usize;
+
+    // Pass 1: produce per-row runs as (cx, x_end, cy, value).
+    let mut runs: Vec<(usize, usize, usize, i32)> = Vec::new();
+    for cy in 0..ch_usize {
         let mut cx = 0;
         while cx < cw_usize {
             let value = cells[cy * cw_usize + cx];
@@ -354,19 +362,54 @@ fn emit_collision_blocks_from_intgrid(
                 cx += 1;
                 continue;
             }
-            // Find the maximal same-value run starting at (cx, cy).
             let mut x_end = cx + 1;
             while x_end < cw_usize && cells[cy * cw_usize + x_end] == value {
                 x_end += 1;
             }
-            let min = ae::Vec2::new(cx as f32 * grid, cy as f32 * grid) + offset;
-            let size = ae::Vec2::new((x_end - cx) as f32 * grid, grid);
-            let block = int_grid_value_to_block(value, min, size).map_err(|message| {
-                format!("run at ({cx},{cy}) {}x1: {message}", x_end - cx)
-            })?;
-            blocks.push(block);
+            runs.push((cx, x_end, cy, value));
             cx = x_end;
         }
+    }
+
+    // Pass 2: stack runs vertically when the next-row run has the same
+    // [cx, x_end) span and value. `consumed[i] = true` means run i was
+    // already stacked into an earlier rectangle. Sweep in run-order
+    // (row-major); for each unconsumed run, walk forward looking for
+    // the matching run on the next row.
+    let mut consumed = vec![false; runs.len()];
+    // Index runs by (cy, cx) for O(1) lookup of "what's the run on the
+    // next row that starts at this cx?".
+    let mut by_row_cx: std::collections::HashMap<(usize, usize), usize> =
+        std::collections::HashMap::with_capacity(runs.len());
+    for (i, &(cx, _, cy, _)) in runs.iter().enumerate() {
+        by_row_cx.insert((cy, cx), i);
+    }
+
+    let mut blocks = Vec::new();
+    for i in 0..runs.len() {
+        if consumed[i] {
+            continue;
+        }
+        let (cx, x_end, cy, value) = runs[i];
+        let mut y_end = cy + 1;
+        while y_end < ch_usize {
+            let Some(&next_idx) = by_row_cx.get(&(y_end, cx)) else {
+                break;
+            };
+            let (n_cx, n_x_end, _, n_value) = runs[next_idx];
+            if consumed[next_idx] || n_cx != cx || n_x_end != x_end || n_value != value {
+                break;
+            }
+            consumed[next_idx] = true;
+            y_end += 1;
+        }
+
+        let min = ae::Vec2::new(cx as f32 * grid, cy as f32 * grid) + offset;
+        let size = ae::Vec2::new((x_end - cx) as f32 * grid, (y_end - cy) as f32 * grid);
+        let block = int_grid_value_to_block(value, min, size).map_err(|message| {
+            format!("rect at ({cx},{cy}) {}x{}: {message}", x_end - cx, y_end - cy)
+        })?;
+        blocks.push(block);
     }
     Ok(blocks)
 }

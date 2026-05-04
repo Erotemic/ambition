@@ -243,13 +243,13 @@ they don't fit a grid.
 collision + AutoLayer tiles AND ship the existing gameplay (no
 regressions)? If yes, the migration template works for the rest.
 
-#### E status (collision IntGrid landed for central_hub_main)
+#### E status (collision IntGrid landed across every gameplay level)
 
-`central_hub_main` now uses an IntGrid `Collision` layer for its static
+Every gameplay level now uses an IntGrid `Collision` layer for its static
 collision. `tools/ldtk_intgrid_migration.py` adds the layer def + per-level
 instances and lowers the existing rectangular Solid / OneWayPlatform /
-BlinkWall entities into cells (12 entities → 1004 cells in
-`central_hub_main`). The Rust runtime now reads `intGridCsv` and lowers
+BlinkWall entities into cells (107 entities → 14581 cells across the 12
+levels in sandbox.ldtk). The Rust runtime reads `intGridCsv` and lowers
 non-zero values into engine blocks — value 1 = Solid, 2 = OneWayUp,
 3 = BlinkSoft, 4 = BlinkHard. `int_grid_value_to_block` is the
 authoritative mapping; new tile types extend it.
@@ -259,12 +259,10 @@ What's next on this thread:
    (one colored quad per cell). AutoLayer rules with a tileset PNG would
    replace those quads with real tile art; we don't ship a tileset yet
    so this stays as follow-up.
-2. Migrate the remaining levels (`scroll_lab`, `square_arena`, etc.) the
-   same way. The migration script's `LEVELS_TO_MIGRATE` list is a single
-   line to extend; rerun + roundtrip-check + commit.
-3. Optimization — adjacent same-value cells emit one block per cell
-   today. Merging into rectangle runs would reduce the collision-world
-   block count; profile first to confirm it matters.
+2. Optimization — adjacent same-value cells emit one block per cell
+   today. The two-pass rectangle merge already collapses runs and
+   stacks; profile under load to see if a more aggressive merge is
+   warranted.
 
 #### E known bug (resolved): cWid mismatch caused staircase smear
 

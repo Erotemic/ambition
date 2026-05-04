@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""One-shot migration: introduce an IntGrid `Collision` layer to sandbox.ldtk
-and rewrite static collision entities (Solid / OneWayPlatform / BlinkWall)
-in the central_hub_main level into IntGrid cells.
+"""Migration: introduce an IntGrid `Collision` layer to sandbox.ldtk and
+rewrite static collision entities (Solid / OneWayPlatform / BlinkWall) in
+every gameplay level into IntGrid cells.
 
-Per `docs/path_forward.md` step E. Idempotent — running twice is a no-op
-(detects the existing Collision layer and skips). LDtk 1.5.3 round-trip
-must still work after this script runs (verified by repair script).
+Per `docs/path_forward.md` step E. Idempotent at the level granularity:
+- If the Collision layer def is missing, it is created and an empty
+  Collision instance is added to every level.
+- Each level in `LEVELS_TO_MIGRATE` whose Collision instance is still
+  empty has its surface entities painted into cells; any subsequent run
+  is a no-op for already-migrated levels.
+
+LDtk 1.5.3 round-trip must still work after this script runs (verified by
+the repair script).
 
 Layer values:
     1 = Solid (matches existing Solid entity collision)
@@ -37,8 +43,10 @@ INT_GRID_VALUES = [
     {"value": VALUE_BLINK_HARD, "identifier": "BlinkHard", "color": "#7C3AED", "tile": None, "groupUid": 0},
 ]
 
-# Levels to migrate. Start with the central hub; extend as we validate the path.
-LEVELS_TO_MIGRATE = ["central_hub_main"]
+# Levels to migrate. The static-collision pipeline now applies to every
+# gameplay level; `None` means "every level in the project". Keep the list
+# here so callers can scope a one-off run by editing this constant.
+LEVELS_TO_MIGRATE: list[str] | None = None
 
 # Entities that lower into IntGrid cells. The mapping captures the value the
 # cell should take, plus how to read the wall tier for BlinkWall.
@@ -177,13 +185,23 @@ def fill_cells(intgrid: list[int], cw: int, px: int, py: int, w: int, h: int, va
     return count
 
 
-def migrate_level(doc: dict, level: dict, layer_def_uid: int, instance_uid: int) -> tuple[int, int]:
-    """Returns (cells_painted, entities_removed)."""
+def migrate_level(level: dict) -> tuple[int, int]:
+    """Paint surface entities into the level's existing Collision IntGrid
+    instance. Returns (cells_painted, entities_removed)."""
     cw = cells_for_size(level["pxWid"])
     ch = cells_for_size(level["pxHei"])
-    intgrid = [0] * (cw * ch)
 
-    # Pull the Ambition entity layer + walk its entityInstances.
+    coll_inst = next(
+        (l for l in level["layerInstances"] if l["__identifier"] == "Collision"),
+        None,
+    )
+    if coll_inst is None:
+        raise RuntimeError(
+            f"level {level['identifier']!r} is missing a Collision layer instance; "
+            "run the script once with the layer def absent to create instances first"
+        )
+    intgrid = coll_inst["intGridCsv"]
+
     ambition_layer = next(l for l in level["layerInstances"] if l["__identifier"] == "Ambition")
     survivors = []
     cells_painted = 0
@@ -198,11 +216,6 @@ def migrate_level(doc: dict, level: dict, layer_def_uid: int, instance_uid: int)
         cells_painted += fill_cells(intgrid, cw, px, py, w, h, value)
         entities_removed += 1
     ambition_layer["entityInstances"] = survivors
-
-    # Insert the Collision layer instance. LDtk lists layer instances in the
-    # order their defs appear in defs.layers; we'll fix the order at the end.
-    coll_inst = make_collision_layer_instance(level, layer_def_uid, instance_uid, intgrid)
-    level["layerInstances"].append(coll_inst)
     return cells_painted, entities_removed
 
 
@@ -215,44 +228,47 @@ def main() -> int:
 
     layers = doc["defs"]["layers"]
     existing = collision_layer_def(layers)
-    if existing is not None:
-        print(f"Collision layer already exists (uid={existing['uid']}); nothing to do.")
-        return 0
 
-    # 1) Add the layer def. New defs go in front of Entities so the IntGrid
-    # renders behind entities in the editor / runtime. LDtk renders earlier
-    # entries on top, so prepend.
-    layer_def_uid = next_uid(doc)
-    coll_def = make_collision_layer_def(layer_def_uid)
-    layers.insert(0, coll_def)
+    if existing is None:
+        # First-time install: add the layer def and an empty Collision
+        # instance to every level. New defs go in front of Entities so the
+        # IntGrid renders behind entities in the editor / runtime. LDtk
+        # renders earlier entries on top, so prepend.
+        layer_def_uid = next_uid(doc)
+        layers.insert(0, make_collision_layer_def(layer_def_uid))
 
-    # 2) Walk levels: every level gets a Collision layerInstance (empty by
-    # default); the targeted levels also have their static-collision
-    # entities lowered into cells.
-    total_cells = 0
-    total_removed = 0
-    levels_touched = 0
-    instance_uid_counter = layer_def_uid + 1
-    for level in doc["levels"]:
-        # All levels need an instance for the new layer def, otherwise LDtk
-        # complains about missing layer data.
-        if level["identifier"] in LEVELS_TO_MIGRATE:
-            cells, removed = migrate_level(doc, level, layer_def_uid, instance_uid_counter)
-            total_cells += cells
-            total_removed += removed
-            levels_touched += 1
-        else:
+        instance_uid_counter = layer_def_uid + 1
+        for level in doc["levels"]:
             cw = cells_for_size(level["pxWid"])
             ch = cells_for_size(level["pxHei"])
             empty = [0] * (cw * ch)
             level["layerInstances"].append(
                 make_collision_layer_instance(level, layer_def_uid, instance_uid_counter, empty)
             )
-        # Reorder so Collision precedes Ambition (matches the def order).
+            instance_uid_counter += 1
+        print(f"Added Collision IntGrid layer def (uid={layer_def_uid}).")
+    else:
+        layer_def_uid = existing["uid"]
+
+    # Walk levels and lower static-collision entities into the existing
+    # Collision instances. Already-migrated levels (no surface entities
+    # remain on the Ambition layer) are no-ops.
+    total_cells = 0
+    total_removed = 0
+    levels_touched = 0
+    for level in doc["levels"]:
+        if LEVELS_TO_MIGRATE is not None and level["identifier"] not in LEVELS_TO_MIGRATE:
+            continue
+        cells, removed = migrate_level(level)
+        if removed > 0:
+            levels_touched += 1
+        total_cells += cells
+        total_removed += removed
+        # Keep the layer-instance order consistent with the def order so the
+        # editor sees Collision behind Ambition.
         level["layerInstances"].sort(
             key=lambda li: 0 if li["__identifier"] == "Collision" else 1
         )
-        instance_uid_counter += 1
 
     # Custom serializer: collapse `intGridCsv` (and similarly large numeric
     # arrays) onto a single line. Default `json.dump(indent=2)` expands every
@@ -263,7 +279,6 @@ def main() -> int:
     LDTK_PATH.write_text(text + "\n")
 
     print(
-        f"Added Collision IntGrid layer (uid={layer_def_uid}). "
         f"Migrated {levels_touched} level(s): {total_cells} cells painted, "
         f"{total_removed} entities removed."
     )

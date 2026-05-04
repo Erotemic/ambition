@@ -259,6 +259,8 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_message::<VfxMessage>()
         .add_message::<DebrisBurstMessage>()
         .register_type::<GameMode>()
+        .insert_resource(crate::trace::GameplayTraceBuffer::default())
+        .insert_resource(crate::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
         .add_plugins(ae::AmbitionStateMachinePlugin::default())
         .add_systems(
@@ -276,6 +278,18 @@ pub fn add_simulation_plugins(app: &mut App) {
                 platforms::sync_moving_platform,
             )
                 .chain(),
+        )
+        // Trace recorder lives at the simulation seam: `record_frame_system`
+        // captures one frame per Update tick after `sandbox_update` has
+        // resolved player state; `flush_pending_dump` writes any pending
+        // dump to disk on the same tick. Both run on the simulation half
+        // so headless and visible builds share trace output.
+        .add_systems(
+            Update,
+            (
+                crate::trace::record_frame_system.after(sandbox_update),
+                crate::trace::flush_pending_dump.after(crate::trace::record_frame_system),
+            ),
         );
 }
 
@@ -382,6 +396,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 dialog::dialog_input,
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
+                crate::trace::handle_trace_hotkey,
                 sync_visuals,
                 upgrade_enemy_sprites,
                 upgrade_boss_sprites,
@@ -1989,6 +2004,8 @@ fn update_hud(
     ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
     ldtk_spine: Res<ldtk_world::LdtkRuntimeSpineStats>,
     ldtk_spine_index: Res<ldtk_world::LdtkRuntimeSpineIndex>,
+    trace: Res<crate::trace::GameplayTraceBuffer>,
+    mechanics: Res<crate::mechanics::MechanicsRegistry>,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
@@ -2048,9 +2065,28 @@ fn update_hud(
     } else {
         String::new()
     };
+    let locomotion = ae::LocomotionState::from_player(&runtime.player).label();
+    let body_mode = ae::BodyMode::from_player(&runtime.player).label();
+    let trace_status = match (&trace.last_dump_status, &trace.last_dump_path) {
+        (Some(status), _) => status.clone(),
+        (None, _) => format!(
+            "{} frames / {} events buffered (F8 dump)",
+            trace.frame_count(),
+            trace.event_count()
+        ),
+    };
+    let mechanics_summary = format!(
+        "stable={} backend={} planned={}",
+        mechanics.count_by_maturity(crate::mechanics::MechanicMaturity::Stable),
+        mechanics.count_by_maturity(crate::mechanics::MechanicMaturity::Backend),
+        mechanics.count_by_maturity(crate::mechanics::MechanicMaturity::Planned),
+    );
+    let mechanics_line = format!(
+        "\nLOCO: {locomotion}  BODY: {body_mode}  MECH: {mechanics_summary}  TRACE: {trace_status}"
+    );
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -2079,6 +2115,7 @@ fn update_hud(
             developer_tools.overview_camera,
             runtime.features.feature_summary(),
             feature_banner,
+            mechanics_line,
         );
         return;
     }
@@ -2088,7 +2125,7 @@ fn update_hud(
         String::new()
     };
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 fullscreen  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\nLDtk spine: {} entities, raw rev {}, promoted rev {}, promoted {}, last {}, sample {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}\n",
+        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 trace dump  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\nLDtk spine: {} entities, raw rev {}, promoted rev {}, promoted {}, last {}, sample {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}{}\n",
         world.0.name,
         mode.get().label(),
         "Bevy backend",
@@ -2146,5 +2183,6 @@ fn update_hud(
         gamepad,
         flash_line,
         feature_banner,
+        mechanics_line,
     );
 }

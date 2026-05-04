@@ -28,10 +28,10 @@ These are the highest-level engine systems. Many named mechanics below become ea
 - [~] Projectile / damage backend
 - [~] Bullet-time-compatible timing
 
-- [ ] Explicit `PlayerMode` / `LocomotionState` enum
-- [ ] Alternate player body shapes
-- [ ] Collision-safe body resize
-- [ ] General resource meter backend
+- [x] Explicit `PlayerMode` / `LocomotionState` enum (`ambition_engine::LocomotionState`)
+- [x] Alternate player body shapes (`ambition_engine::BodyMode` / `BodyShape`)
+- [x] Collision-safe body resize (`BodyShape::fits_at`; the *backend*; gameplay verbs still pending)
+- [x] General resource meter backend (`ambition_engine::ResourceMeter`)
 - [ ] Player projectile action backend
 - [ ] Aim-mode abstraction
 - [ ] Moving-platform carry velocity
@@ -881,9 +881,9 @@ The most valuable next backend systems are the ones that unlock whole mechanic f
 
 ## Tier 1: high-leverage movement expressibility
 
-* [ ] Explicit `PlayerMode` / `LocomotionState`
-* [ ] Alternate body shapes
-* [ ] Collision-safe body resize
+* [x] Explicit `PlayerMode` / `LocomotionState`
+* [x] Alternate body shapes
+* [x] Collision-safe body resize
 * [ ] Generic ray / shape-cast targeting API
 * [ ] Surface tangent / normal query
 * [ ] Parametric curve movement backend

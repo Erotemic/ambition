@@ -224,6 +224,33 @@ Before handing a generated or patched `.ldtk` file to the user for LDtk GUI edit
 
 The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
 
+## Gameplay flight recorder
+
+- `F8` writes a `debug_traces/ambition_trace_*.json` + `.md` pair.
+- The recorder also auto-dumps when it detects player OOB (non-finite
+  pos/vel, AABB outside world envelope by more than the margin, AABB
+  inside a `Solid`, or absurd velocity).
+- Buffer lives in `crate::trace::GameplayTraceBuffer` (sandbox-side
+  resource); dumps work in headless and visible builds.
+- Attach both files to OOB / collision-escape bug reports. The `.md`
+  is a 120-frame summary; the `.json` is the full 240-frame ring.
+- See `docs/gameplay_trace_recorder.md` and the tests in
+  `crates/ambition_sandbox/src/trace.rs`.
+
+## Tier-1 player primitives in the engine
+
+`ambition_engine::player_state` provides:
+
+- `LocomotionState` (Grounded/Airborne/Dashing/Blinking/WallSlide/
+  Crouching/MorphBall/GrappleAiming/…)
+- `BodyMode` + `BodyShape::fits_at` (collision-safe resize query)
+- `ResourceMeter` (stamina/mana/ammo/charge with regen+decay)
+
+These are the backends; mechanics (crouch, morph ball, grapple,
+projectile, parry, functional zip) are listed in
+`crate::mechanics::MechanicsRegistry` with maturity. See
+`docs/mechanics/body_modes.md`.
+
 ## LDtk roadmap step 1 (Solid promotion, partial)
 
 Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities. Targets in order: `Solid`, `OneWayPlatform`, `DamageVolume`, `KinematicPath`, `CameraZone`.

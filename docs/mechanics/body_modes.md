@@ -1,0 +1,126 @@
+# Body modes & locomotion state
+
+Three Tier-1 backend primitives from `docs/mechanics_checklist.md` are now
+landed in the engine. They are the foundation for the planned crouch /
+crawl / morph-ball / projectile / hover / charge / etc. mechanics.
+
+## `LocomotionState`
+
+```rust
+ambition_engine::player_state::LocomotionState
+```
+
+Explicit movement-mode enum. Replaces "infer from on_ground / dash_timer /
+blink_aiming / wall_clinging" booleans for HUD, trace, and AI consumers.
+
+Variants cover the shipping verbs and the planned-but-not-yet-wired ones
+(Crouching, Crawling, Sliding, MorphBall, GrappleAiming, GrapplePulling,
+CurveRiding, Hitstun) so adding a new mechanic does not require also
+adding a new state variant in a downstream crate.
+
+`LocomotionState::from_player(&Player)` is the minimum-viable projection
+from the existing `Player` struct: it inspects the same fields the old
+ad-hoc code already uses. Mechanics that own dedicated state machines
+(future `seldom_state` `PlayerLocomotionMachine`, etc.) should bypass
+this and drive the resource directly.
+
+## `BodyMode` and `BodyShape`
+
+```rust
+ambition_engine::player_state::{BodyMode, BodyShape}
+```
+
+`BodyMode` is the stance enum: `Standing`, `Crouching`, `Crawling`,
+`Sliding`, `MorphBall`. `BodyMode::shape(base_size)` returns a
+`BodyShape { mode, size }` with the per-mode AABB size. The size table
+lives in `shape()` and intentionally does not adapt to player tuning —
+shape constants are part of the gameplay contract.
+
+`BodyShape::fits_at(center, world, predicate)` is the collision-safe
+resize primitive. Pass the predicate that defines what "blocks" a body
+swap; typically `|b| matches!(b.kind, BlockKind::Solid)`.
+
+This is enough to build, in this order:
+
+1. **Crouch** — listen for "Down held while grounded", swap to
+   `Crouching`. To stand back up, query `Standing.shape(...).fits_at(...)`
+   first; if it returns false, stay crouched and emit a "blocked
+   stand-up" trace event.
+2. **Crawl through low tunnel** — author a sandbox station with a
+   `Solid` ceiling that has a one-tile-tall gap below it. `Crawling`
+   shape fits; `Standing` does not. The collision-safe resize check is
+   what gates re-entry.
+3. **Morph ball** — same shape, smaller AABB on both axes. Add an
+   "input gesture: down + down" path; reuse the same `fits_at` gate to
+   reject unmorphing into a low ceiling.
+
+Each of those becomes a sandbox proof for the underlying primitive
+without each verb needing its own bespoke collision code.
+
+## `ResourceMeter`
+
+```rust
+ambition_engine::player_state::ResourceMeter
+```
+
+Generic clamped meter with regen and decay rates. Use it for stamina,
+mana, ammo, charge, hover fuel, oxygen, rage / super, or any other
+"fills up over time, drains on use, has a hard cap" mechanic.
+
+Key methods:
+
+- `try_spend(cost) -> bool` — consumes if affordable, leaves the
+  meter unchanged otherwise. Always honors the floor at zero.
+- `tick_regen(dt)` / `tick_decay(dt)` — independent so mechanics that
+  should regen only when idle (or decay only while in use) can call
+  the matching half. `tick(dt)` runs both.
+- `fraction()` / `is_full()` / `is_empty()` — HUD bar helpers.
+
+The meter is intentionally serde-`Serialize` so a future save system
+or RL observation can include it without an adapter.
+
+## What this enables next
+
+These primitives unlock the following mechanic checklist boxes (from
+`docs/mechanics_checklist.md`) once the corresponding sandbox station
+is wired:
+
+- crouch / crawl / morph ball (body-state mechanics)
+- collision-safe resize / unmorph validation
+- compact hitbox mode
+- alternate hurtbox by stance
+- stamina / mana / ammo / hover fuel meters
+
+The grapple, projectile, parry, and curve-motion mechanics from the
+checklist need additional backends (targeting / shape-cast API,
+projectile spawner, curve sampler) that are deliberately not in this
+patch. They are listed in `MechanicsRegistry` with maturity `Planned`
+so the HUD shows them and the next agent can pick them up.
+
+## How to surface a new body-mode-driven mechanic
+
+1. Add a `MechanicEntry` to `crate::mechanics::default_entries` with
+   the right category and `Planned` / `Prototype` maturity.
+2. Add a `BodyMode` variant if needed (rare — the existing five
+   cover most ground-locomotion shapes).
+3. Implement the input → state → resize logic in a new sandbox
+   module. Call `BodyShape::fits_at` before committing the swap.
+4. Emit a `GameplayTraceEvent::PlayerModeChanged` so the trace
+   recorder captures the transition.
+5. Bump the registry entry's maturity once the mechanic is playable
+   in a sandbox station.
+
+## Tests
+
+`crates/ambition_engine/src/player_state.rs` tests cover:
+
+- `LocomotionState::from_player` for grounded / airborne / dashing /
+  blink-aiming defaults,
+- `BodyMode::shape` produces smaller shapes for crouch and morph,
+- `BodyShape::fits_at` returns true in open space, false against a
+  solid block,
+- `ResourceMeter::try_spend` succeeds / fails correctly,
+- regen clamps to max, decay clamps to zero,
+- `fraction` handles zero `max` without dividing by zero.
+
+Run with `cargo test -p ambition_engine player_state::`.

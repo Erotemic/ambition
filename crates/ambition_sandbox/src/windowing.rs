@@ -7,7 +7,7 @@
 //! more of the room instead of scaling the simulation oddly.
 
 use bevy::prelude::*;
-use bevy::window::{MonitorSelection, PrimaryWindow, VideoModeSelection, WindowMode};
+use bevy::window::PrimaryWindow;
 
 /// User-facing display modes supported by the sandbox.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,11 +47,25 @@ impl DisplayModeState {
     }
 }
 
-/// Runtime display-mode hotkeys.
+/// Runtime display-mode hotkeys (developer convenience).
 ///
-/// - F6: windowed
-/// - F7: borderless fullscreen on the current monitor
-/// - F8: exclusive fullscreen using the monitor's current video mode
+/// The primary user-facing surface is the pause menu's Settings page
+/// (`crate::pause_menu`), which exposes Display Mode as a row that
+/// cycles Windowed / Borderless / Fullscreen with Left/Right and
+/// Confirm. These F-keys remain as a dev shortcut so you can flip
+/// between modes without going through the menu while iterating:
+///
+/// - `F6`: windowed
+/// - `F7`: borderless fullscreen
+///
+/// `F8` is reserved for the gameplay trace recorder dump (see
+/// `crate::trace::handle_trace_hotkey`). Exclusive fullscreen used to
+/// be on `F8` but is rarely useful for sandbox dev; the menu remains
+/// the way to reach it.
+///
+/// The actual mode-application logic lives in
+/// `crate::pause_menu::apply_display_mode` so the menu and the
+/// hotkeys stay in lock-step. Adding a new mode happens in one place.
 pub fn window_mode_hotkeys(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<DisplayModeState>,
@@ -61,25 +75,10 @@ pub fn window_mode_hotkeys(
         Some(DisplayModeKind::Windowed)
     } else if keys.just_pressed(KeyCode::F7) {
         Some(DisplayModeKind::Borderless)
-    } else if keys.just_pressed(KeyCode::F8) {
-        Some(DisplayModeKind::Fullscreen)
     } else {
         None
     };
-
-    let Some(mode) = requested else {
-        return;
-    };
-    let Ok(mut window) = windows.single_mut() else {
-        return;
-    };
-
-    window.mode = match mode {
-        DisplayModeKind::Windowed => WindowMode::Windowed,
-        DisplayModeKind::Borderless => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
-        DisplayModeKind::Fullscreen => {
-            WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current)
-        }
-    };
-    state.mode = mode;
+    if let Some(mode) = requested {
+        crate::pause_menu::apply_display_mode(mode, &mut state, &mut windows);
+    }
 }

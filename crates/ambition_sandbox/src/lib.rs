@@ -28,11 +28,13 @@ pub mod input;
 pub mod inventory;
 pub mod ldtk_world;
 pub mod loading;
+pub mod mechanics;
 pub mod pause_menu;
 pub mod physics;
 pub mod platforms;
 pub mod rendering;
 pub mod rooms;
+pub mod trace;
 pub mod windowing;
 
 pub mod app;

@@ -219,3 +219,49 @@ Library structure: `lib.rs` declares `pub mod app;` (`crates/ambition_sandbox/sr
 Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities.
 
 The first collision category, `Solid`, is now partially promoted. Every plugin-spawned `Solid` entity carries a typed `LdtkSolid` Ambition component, and a sibling `LdtkRuntimeSolidIndex` resource holds the active-area-local view rebuilt each frame. The JSON adapter still produces `ae::Block::solid()` entries for `ae::World::blocks` so runtime collision authority is unchanged for now; the JSON Solid path is marked transitional. The raw-LDtk-vs-runtime debug overlay (Step 2) is the verification gate before retiring the JSON path and letting `LdtkRuntimeSolidIndex` become collision authority. `OneWayPlatform`, `DamageVolume`, `KinematicPath`, and the remaining `CameraZone` work follow the same shape and ship in subsequent step-1 patches.
+
+## Gameplay flight recorder + Tier-1 mechanic primitives
+
+The sandbox now has a rolling per-frame trace recorder and three engine-side
+mechanic primitives:
+
+- `crate::trace::GameplayTraceBuffer` records 240 player snapshots and 240
+  events, dumps to `debug_traces/ambition_trace_*.json` + `.md` on `F8` or
+  on automatic OOB detection (NaN/inf pos/vel, AABB outside world envelope
+  with margin, AABB inside `Solid`, absurd velocity).
+  See `docs/gameplay_trace_recorder.md`.
+- `ambition_engine::LocomotionState` (Grounded / Airborne / Dashing /
+  Blinking / WallSlide / Crouching / MorphBall / GrappleAiming /
+  CurveRiding / …) is the explicit movement-mode enum.
+- `ambition_engine::BodyMode` + `BodyShape::fits_at` is the
+  alternate-body-shape vocabulary plus the collision-safe resize query
+  used to gate stand-up / unmorph against ceilings.
+- `ambition_engine::ResourceMeter` is the generic stamina/mana/ammo/charge
+  primitive (regen + decay tick, `try_spend`, `fraction` for HUD bars).
+
+These primitives are Bevy-free so they survive both the visible binary and
+headless. The HUD now shows current locomotion / body-mode / mechanic-count
+summary / latest trace status. F8 was previously bound to exclusive
+fullscreen; that binding was removed (F7 borderless covers the dev case).
+
+`crate::mechanics::MechanicsRegistry` is a small in-memory catalog of
+playable verbs and Planned mechanics (crouch / morph / grapple / projectile /
+parry / functional zip) that the HUD can summarize and that future patches
+can append to without restructuring.
+
+See `docs/mechanics/body_modes.md` for how to build mechanics on top of
+these primitives.
+
+## Pause-menu Settings page
+
+The pause overlay now has a Settings sub-page reachable from the top
+page. The first row is **Display Mode** (Windowed / Borderless /
+Fullscreen, cycled with Left/Right or Confirm). The page is the
+designated home for future user-facing toggles (volume, gamma,
+controls, accessibility); see `docs/pause_menu_settings.md` for the
+extension recipe (add a `SettingsItem` variant, append to `ALL`,
+implement `label`, handle in `handle_settings_input`).
+
+The display-mode F6/F7 dev hotkeys still work and now delegate to
+`pause_menu::apply_display_mode`, so the menu and the keystrokes
+stay in lock-step.

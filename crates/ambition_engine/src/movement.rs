@@ -896,10 +896,7 @@ fn handle_jump_buffer(
         // Down + jump while standing on a one-way platform means "drop through",
         // not "jump". Cancel the buffered jump so the vertical sweep can take
         // the player past the platform on the next integration step.
-        if input.drop_through_pressed
-            && player.on_ground
-            && standing_on_one_way(world, player)
-        {
+        if input.drop_through_pressed && player.on_ground && standing_on_one_way(world, player) {
             player.jump_buffer_timer = 0.0;
             player.on_ground = false;
             player.coyote_timer = 0.0;
@@ -1036,13 +1033,7 @@ fn integrate_velocity(
     let prev_bottom = player.aabb().bottom();
     player.on_ground = false;
     let drop_through = input.drop_through_pressed || player.drop_through_timer > 0.0;
-    sweep_player_y(
-        world,
-        player,
-        player.vel.y * dt,
-        prev_bottom,
-        drop_through,
-    );
+    sweep_player_y(world, player, player.vel.y * dt, prev_bottom, drop_through);
 
     if player.on_ground {
         player.refresh_movement_resources(tuning);
@@ -1186,8 +1177,8 @@ fn sweep_player_x(world: &World, player: &mut Player, delta_x: f32) {
         //    that pick is wrong and pushes them through the block.
         let vertical_dominant = immediate_contact && overlap_y > 0.0 && overlap_x > overlap_y;
         let body_to_right_of_block = body.center().x > hit.block.aabb.center().x;
-        let moving_away_from_block = (body_to_right_of_block && delta.x > 0.0)
-            || (!body_to_right_of_block && delta.x < 0.0);
+        let moving_away_from_block =
+            (body_to_right_of_block && delta.x > 0.0) || (!body_to_right_of_block && delta.x < 0.0);
         let horizontal_overlap_moving_away =
             immediate_contact && overlap_x > 0.0 && moving_away_from_block;
         if vertical_dominant || horizontal_overlap_moving_away {
@@ -2088,7 +2079,12 @@ mod tests {
         let hit = events.pogo_hits[0];
         let dx = (hit.center().x - orb_center.x).abs();
         let dy = (hit.center().y - orb_center.y).abs();
-        assert!(dx < 1.0 && dy < 1.0, "pogo_hit center {:?} != orb {:?}", hit.center(), orb_center);
+        assert!(
+            dx < 1.0 && dy < 1.0,
+            "pogo_hit center {:?} != orb {:?}",
+            hit.center(),
+            orb_center
+        );
     }
 
     /// Wall-jumping off the left wall while the player's body slightly

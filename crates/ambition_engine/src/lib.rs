@@ -21,6 +21,7 @@ pub mod interaction;
 pub mod movement;
 pub mod music;
 pub mod physics;
+pub mod player_state;
 pub mod scalar;
 pub mod state_machines;
 pub mod world;
@@ -59,6 +60,7 @@ pub use movement::{
 pub use physics::{
     PhysicsBodyKind, PhysicsBodyRole, PhysicsBodySpec, PhysicsMaterial, PhysicsShape, RagdollSpec,
 };
+pub use player_state::{BodyMode, BodyShape, LocomotionState, ResourceMeter};
 pub use scalar::approach;
 pub use state_machines::{
     state_machine_vocabulary, AmbitionStateMachineActor, AmbitionStateMachinePlugin, BossDefeated,

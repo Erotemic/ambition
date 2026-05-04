@@ -474,7 +474,11 @@ pub fn load_character_sprites_in(
         }
     }
 
-    CharacterSpriteAssets { robot, goblin, sandbag }
+    CharacterSpriteAssets {
+        robot,
+        goblin,
+        sandbag,
+    }
 }
 
 fn build_optional(

@@ -889,7 +889,7 @@ sprites:
     - 567
     - 59
     - 115
-    pivot:
+    pivot: &id001
     - 29
     - 18
     tags:
@@ -897,9 +897,7 @@ sprites:
     - capsule
     - vertical
     anchors:
-      shoulder:
-      - 29
-      - 18
+      shoulder: *id001
       wrist:
       - 30
       - 102
@@ -923,23 +921,22 @@ sprites:
       selected_area_px: 4430
       output_padding: 4
       warnings: []
+    pivot_anchor: shoulder
   arm_capsule_diagonal_a:
     rect:
     - 149
     - 575
     - 95
     - 97
-    pivot:
+    pivot: &id002
+    - 16
     - 18
-    - 20
     tags:
     - arm
     - capsule
     - diagonal
     anchors:
-      shoulder:
-      - 16
-      - 18
+      shoulder: *id002
       wrist:
       - 76
       - 79
@@ -963,23 +960,22 @@ sprites:
       selected_area_px: 4350
       output_padding: 4
       warnings: []
+    pivot_anchor: shoulder
   arm_capsule_diagonal_b:
     rect:
     - 268
     - 578
     - 92
     - 95
-    pivot:
-    - 18
-    - 18
+    pivot: &id003
+    - 16
+    - 17
     tags:
     - arm
     - capsule
     - diagonal
     anchors:
-      shoulder:
-      - 16
-      - 17
+      shoulder: *id003
       wrist:
       - 73
       - 78
@@ -1003,23 +999,22 @@ sprites:
       selected_area_px: 4040
       output_padding: 4
       warnings: []
+    pivot_anchor: shoulder
   arm_upper_vertical:
     rect:
     - 407
     - 556
     - 57
     - 146
-    pivot:
-    - 30
-    - 14
+    pivot: &id004
+    - 28
+    - 18
     tags:
     - arm
     - upper
     - vertical
     anchors:
-      shoulder:
-      - 28
-      - 18
+      shoulder: *id004
       wrist:
       - 27
       - 126
@@ -1043,23 +1038,22 @@ sprites:
       selected_area_px: 5560
       output_padding: 4
       warnings: []
+    pivot_anchor: shoulder
   arm_bent_down:
     rect:
     - 527
     - 554
     - 87
     - 151
-    pivot:
-    - 18
-    - 20
+    pivot: &id005
+    - 16
+    - 19
     tags:
     - arm
     - bent
     - down
     anchors:
-      shoulder:
-      - 16
-      - 19
+      shoulder: *id005
       wrist:
       - 31
       - 139
@@ -1083,6 +1077,7 @@ sprites:
       selected_area_px: 6711
       output_padding: 4
       warnings: []
+    pivot_anchor: shoulder
   arm_forearm_vertical:
     rect:
     - 644
@@ -1129,17 +1124,15 @@ sprites:
     - 553
     - 82
     - 136
-    pivot:
-    - 30
+    pivot: &id006
+    - 28
     - 16
     tags:
     - arm
     - bent
     - up
     anchors:
-      shoulder:
-      - 28
-      - 16
+      shoulder: *id006
       wrist:
       - 59
       - 117
@@ -1163,23 +1156,22 @@ sprites:
       selected_area_px: 5838
       output_padding: 4
       warnings: []
+    pivot_anchor: shoulder
   hand_open_down:
     rect:
     - 866
     - 573
     - 117
     - 117
-    pivot:
-    - 34
+    pivot: &id007
+    - 32
     - 15
     tags:
     - hand
     - open
     - down
     anchors:
-      wrist:
-      - 32
-      - 15
+      wrist: *id007
     refine:
       output_padding: 4
       search_padding: 8
@@ -1200,13 +1192,14 @@ sprites:
       selected_area_px: 7349
       output_padding: 4
       warnings: []
+    pivot_anchor: wrist
   hand_fist:
     rect:
     - 992
     - 577
     - 97
     - 97
-    pivot:
+    pivot: &id008
     - 78
     - 70
     tags:
@@ -1214,9 +1207,7 @@ sprites:
     - fist
     - combat
     anchors:
-      wrist:
-      - 78
-      - 70
+      wrist: *id008
     refine:
       output_padding: 4
       search_padding: 8
@@ -1237,23 +1228,22 @@ sprites:
       selected_area_px: 5982
       output_padding: 4
       warnings: []
+    pivot_anchor: wrist
   hand_spread:
     rect:
     - 1120
     - 565
     - 127
     - 119
-    pivot:
-    - 36
-    - 105
+    pivot: &id009
+    - 33
+    - 106
     tags:
     - hand
     - spread
     - open
     anchors:
-      wrist:
-      - 33
-      - 106
+      wrist: *id009
     refine:
       output_padding: 4
       search_padding: 8
@@ -1274,24 +1264,23 @@ sprites:
       selected_area_px: 7529
       output_padding: 4
       warnings: []
+    pivot_anchor: wrist
   arm_blaster:
     rect:
     - 1261
     - 606
     - 169
     - 81
-    pivot:
-    - 13
-    - 31
+    pivot: &id010
+    - 12
+    - 33
     tags:
     - arm
     - weapon
     - blaster
     - purple
     anchors:
-      shoulder:
-      - 12
-      - 33
+      shoulder: *id010
       wrist:
       - 84
       - 50
@@ -1315,13 +1304,14 @@ sprites:
       selected_area_px: 5775
       output_padding: 4
       warnings: []
+    pivot_anchor: shoulder
   leg_straight_left:
     rect:
     - 40
     - 721
     - 58
     - 169
-    pivot:
+    pivot: &id011
     - 23
     - 20
     tags:
@@ -1329,9 +1319,7 @@ sprites:
     - straight
     - left
     anchors:
-      hip:
-      - 23
-      - 20
+      hip: *id011
       ankle:
       - 29
       - 143
@@ -1358,13 +1346,14 @@ sprites:
       selected_area_px: 7270
       output_padding: 4
       warnings: []
+    pivot_anchor: hip
   leg_bent_left:
     rect:
     - 180
     - 730
     - 97
     - 158
-    pivot:
+    pivot: &id012
     - 20
     - 18
     tags:
@@ -1372,9 +1361,7 @@ sprites:
     - bent
     - left
     anchors:
-      hip:
-      - 20
-      - 18
+      hip: *id012
       ankle:
       - 44
       - 137
@@ -1401,23 +1388,22 @@ sprites:
       selected_area_px: 7887
       output_padding: 4
       warnings: []
+    pivot_anchor: hip
   leg_straight_right:
     rect:
     - 369
     - 719
     - 60
     - 159
-    pivot:
-    - 29
-    - 17
+    pivot: &id013
+    - 31
+    - 16
     tags:
     - leg
     - straight
     - right
     anchors:
-      hip:
-      - 31
-      - 16
+      hip: *id013
       ankle:
       - 30
       - 135
@@ -1444,13 +1430,14 @@ sprites:
       selected_area_px: 6816
       output_padding: 4
       warnings: []
+    pivot_anchor: hip
   leg_bent_right:
     rect:
     - 519
     - 724
     - 91
     - 154
-    pivot:
+    pivot: &id014
     - 20
     - 18
     tags:
@@ -1458,9 +1445,7 @@ sprites:
     - bent
     - right
     anchors:
-      hip:
-      - 20
-      - 18
+      hip: *id014
       ankle:
       - 50
       - 134
@@ -1487,6 +1472,7 @@ sprites:
       selected_area_px: 7866
       output_padding: 4
       warnings: []
+    pivot_anchor: hip
   foot_flat:
     rect:
     - 716

@@ -152,6 +152,17 @@ Click/drag to set the selected anchor.  Use arrow keys for one-pixel nudges.
 Keep anchor names hidden while visually placing points unless labels are needed
 for disambiguation.
 
+Use **Use selected as pivot** (`Ctrl+P`) or the `pivot follows` dropdown when the
+component pivot should be exactly the same point as a named anchor.  The editor
+stores `pivot_anchor` and mirrors that anchor into the legacy `pivot` field on
+save, so the compositor and older scripts still see a numeric pivot.
+
+The editor's right pane renders the configured spritesheet after every anchor
+change.  It renders from unsaved in-memory metadata, so you can immediately see
+how a shoulder, hip, wrist, or pivot edit affects the current run row before
+committing the YAML.  Pass `--preview-config examples/robot_rig_job_full.yaml`
+when you want a full-sheet preview instead of the focused row.
+
 Use these placement rules:
 
 - arm anchors go on the center of the actual black connector cap/cuff, not on the

@@ -241,21 +241,19 @@ def test_run_torso_lean_forward_anchors_are_on_visible_sockets():
     import yaml
     meta = yaml.safe_load((root / "metadata" / "robot_components.refined.yaml").read_text())
     anchors = meta["sprites"]["torso_lean_forward"]["anchors"]
-    # v19: these anchors must live on the visible connector geometry, not in
-    # the center of the tilted body.  This keeps all run/dash/jump poses from
-    # solving arms and legs into a component pile-up.
-    # v23: the running torso uses side-specific semantic anchors.  The
-    # back shoulder sits on the visible purple pod; the front shoulder sits
-    # on the forward/right side of the tilted body instead of next to it.
-    assert 43 <= anchors["shoulder_left"][0] <= 51
-    assert 58 <= anchors["shoulder_left"][1] <= 66
-    assert 92 <= anchors["shoulder_right"][0] <= 104
-    assert 82 <= anchors["shoulder_right"][1] <= 94
-    # Hips should be tucked under the lower shell, not at foot/crop extremes.
-    assert 36 <= anchors["hip_left"][0] <= 44
-    assert 130 <= anchors["hip_left"][1] <= 140
-    assert 64 <= anchors["hip_right"][0] <= 76
-    assert 140 <= anchors["hip_right"][1] <= 150
+    # These anchors are user-editable.  Keep the regression semantic instead of
+    # hard-coding one old hand-tuned pixel solution: shoulders must be separated
+    # on their visible side sockets, and hips must be lower than shoulders and
+    # separated enough for the endpoint solver to avoid component pile-ups.
+    assert anchors["shoulder_left"][0] < anchors["shoulder_right"][0]
+    assert anchors["shoulder_right"][0] - anchors["shoulder_left"][0] >= 45
+    assert max(anchors["shoulder_left"][1], anchors["shoulder_right"][1]) < min(anchors["hip_left"][1], anchors["hip_right"][1])
+    assert anchors["hip_left"][0] < anchors["hip_right"][0]
+    assert anchors["hip_right"][0] - anchors["hip_left"][0] >= 20
+    for name in ["shoulder_left", "shoulder_right", "hip_left", "hip_right"]:
+        x, y = anchors[name]
+        assert 0 <= x <= meta["sprites"]["torso_lean_forward"]["rect"][2]
+        assert 0 <= y <= meta["sprites"]["torso_lean_forward"]["rect"][3]
 
 
 def test_v20_run_zorder_and_anchor_nudges():

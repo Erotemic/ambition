@@ -15,7 +15,7 @@ image:
 metadata_quality:
   rect_precision: rough_approximate
   pivot_precision: draft_approximate
-  anchor_precision: draft_approximate
+  anchor_precision: synced_from_user_refined_yaml
   workflow:
   - Author or generate rough boxes in this YAML.
   - Run refine to locate actual foreground components inside each rough search window.
@@ -28,7 +28,6 @@ metadata_quality:
     mask, then shrinks/expands to a padded true extent.
   - HIT is recoil/stagger only and must not be generated as a death pose.
   - TELEPORT replaces the old blink action; blink remains a face expression only.
-  - anchors manually synced from refined metadata by tools/anchor_editor.py
 refinement:
   source: rough_yaml
   default_search_padding: 8
@@ -565,7 +564,7 @@ sprites:
     - 551
     - 91
     - 147
-    pivot:
+    pivot: &id001
     - 45
     - 34
     tags:
@@ -573,9 +572,7 @@ sprites:
     - capsule
     - vertical
     anchors:
-      shoulder:
-      - 45
-      - 34
+      shoulder: *id001
       wrist:
       - 46
       - 118
@@ -583,23 +580,22 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: shoulder
   arm_capsule_diagonal_a:
     rect:
     - 133
     - 559
     - 127
     - 129
-    pivot:
+    pivot: &id002
+    - 32
     - 34
-    - 36
     tags:
     - arm
     - capsule
     - diagonal
     anchors:
-      shoulder:
-      - 32
-      - 34
+      shoulder: *id002
       wrist:
       - 92
       - 95
@@ -607,23 +603,22 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: shoulder
   arm_capsule_diagonal_b:
     rect:
     - 252
     - 562
     - 124
     - 127
-    pivot:
-    - 34
-    - 34
+    pivot: &id003
+    - 32
+    - 33
     tags:
     - arm
     - capsule
     - diagonal
     anchors:
-      shoulder:
-      - 32
-      - 33
+      shoulder: *id003
       wrist:
       - 89
       - 94
@@ -631,23 +626,22 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: shoulder
   arm_upper_vertical:
     rect:
     - 391
     - 540
     - 89
     - 178
-    pivot:
-    - 46
-    - 30
+    pivot: &id004
+    - 44
+    - 34
     tags:
     - arm
     - upper
     - vertical
     anchors:
-      shoulder:
-      - 44
-      - 34
+      shoulder: *id004
       wrist:
       - 43
       - 142
@@ -655,23 +649,22 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: shoulder
   arm_bent_down:
     rect:
     - 511
     - 538
     - 119
     - 183
-    pivot:
-    - 34
-    - 36
+    pivot: &id005
+    - 32
+    - 35
     tags:
     - arm
     - bent
     - down
     anchors:
-      shoulder:
-      - 32
-      - 35
+      shoulder: *id005
       wrist:
       - 47
       - 155
@@ -679,6 +672,7 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: shoulder
   arm_forearm_vertical:
     rect:
     - 628
@@ -709,17 +703,15 @@ sprites:
     - 537
     - 114
     - 168
-    pivot:
-    - 46
+    pivot: &id006
+    - 44
     - 32
     tags:
     - arm
     - bent
     - up
     anchors:
-      shoulder:
-      - 44
-      - 32
+      shoulder: *id006
       wrist:
       - 75
       - 133
@@ -727,34 +719,34 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: shoulder
   hand_open_down:
     rect:
     - 850
     - 557
     - 149
     - 149
-    pivot:
-    - 50
+    pivot: &id007
+    - 48
     - 31
     tags:
     - hand
     - open
     - down
     anchors:
-      wrist:
-      - 48
-      - 31
+      wrist: *id007
     refine:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: false
+    pivot_anchor: wrist
   hand_fist:
     rect:
     - 976
     - 561
     - 129
     - 129
-    pivot:
+    pivot: &id008
     - 94
     - 86
     tags:
@@ -762,52 +754,48 @@ sprites:
     - fist
     - combat
     anchors:
-      wrist:
-      - 94
-      - 86
+      wrist: *id008
     refine:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: false
+    pivot_anchor: wrist
   hand_spread:
     rect:
     - 1104
     - 549
     - 159
     - 151
-    pivot:
-    - 52
-    - 121
+    pivot: &id009
+    - 49
+    - 122
     tags:
     - hand
     - spread
     - open
     anchors:
-      wrist:
-      - 49
-      - 122
+      wrist: *id009
     refine:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: false
+    pivot_anchor: wrist
   arm_blaster:
     rect:
     - 1245
     - 590
     - 201
     - 113
-    pivot:
-    - 29
-    - 47
+    pivot: &id010
+    - 28
+    - 49
     tags:
     - arm
     - weapon
     - blaster
     - purple
     anchors:
-      shoulder:
-      - 28
-      - 49
+      shoulder: *id010
       wrist:
       - 100
       - 66
@@ -815,13 +803,14 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: shoulder
   leg_straight_left:
     rect:
     - 24
     - 705
     - 90
     - 201
-    pivot:
+    pivot: &id011
     - 39
     - 36
     tags:
@@ -829,9 +818,7 @@ sprites:
     - straight
     - left
     anchors:
-      hip:
-      - 39
-      - 36
+      hip: *id011
       ankle:
       - 45
       - 159
@@ -842,13 +829,14 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: hip
   leg_bent_left:
     rect:
     - 164
     - 714
     - 129
     - 190
-    pivot:
+    pivot: &id012
     - 36
     - 34
     tags:
@@ -856,9 +844,7 @@ sprites:
     - bent
     - left
     anchors:
-      hip:
-      - 36
-      - 34
+      hip: *id012
       ankle:
       - 60
       - 153
@@ -869,23 +855,22 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: hip
   leg_straight_right:
     rect:
     - 353
     - 703
     - 92
     - 191
-    pivot:
-    - 45
-    - 33
+    pivot: &id013
+    - 47
+    - 32
     tags:
     - leg
     - straight
     - right
     anchors:
-      hip:
-      - 47
-      - 32
+      hip: *id013
       ankle:
       - 46
       - 151
@@ -896,13 +881,14 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: hip
   leg_bent_right:
     rect:
     - 503
     - 708
     - 123
     - 186
-    pivot:
+    pivot: &id014
     - 36
     - 34
     tags:
@@ -910,9 +896,7 @@ sprites:
     - bent
     - right
     anchors:
-      hip:
-      - 36
-      - 34
+      hip: *id014
       ankle:
       - 66
       - 150
@@ -923,6 +907,7 @@ sprites:
       output_padding: 4
       search_padding: 8
       keep_multiple_components: true
+    pivot_anchor: hip
   foot_flat:
     rect:
     - 700

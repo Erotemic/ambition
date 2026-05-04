@@ -207,6 +207,18 @@ python tools/anchor_editor.py metadata/robot_components.refined.yaml \
 Use the GUI to select a component, select `pivot` or a named anchor, then click
 or drag the anchor to the desired pixel.  Arrow keys nudge the selected point by
 one pixel.  Press `Ctrl+S` or the **Save** button to write the updated metadata.
+
+The editor now supports **pivot follows anchor**.  Select a named anchor and press
+**Use selected as pivot** (`Ctrl+P`), or pick that anchor in the `pivot follows`
+dropdown.  This stores `pivot_anchor: <anchor-name>` and keeps the numeric
+`pivot` synchronized for compatibility.  This avoids the overlap problem where
+you could not click the pivot and an anchor into exactly the same pixel.
+
+The right pane renders the configured spritesheet live after each edit, using
+unsaved in-memory metadata.  By default it previews `examples/robot_rig_job.yaml`
+(the focused run row).  Use `--preview-config examples/robot_rig_job_full.yaml`
+for the full sheet, `Ctrl+R` to force refresh, or `--no-live-preview` on slow
+machines.
 When `--rough-metadata` is supplied, the editor also writes equivalent rough-local
 anchor positions so a future green-screen refinement pass preserves the manual
 edits instead of reverting them.
@@ -218,6 +230,11 @@ python tools/anchor_editor.py metadata/robot_components.refined.yaml \
   --slices output/slices \
   --anchor-report output/anchor_report.json \
   --sprites torso_lean_forward leg_bent_right leg_bent_left hand_fist
+
+python tools/anchor_editor.py metadata/robot_components.refined.yaml \
+  --slices output/slices \
+  --preview-config examples/robot_rig_job.yaml \
+  --render-preview output/anchor_editor_preview.png
 ```
 
 Recommended anchor workflow now becomes:

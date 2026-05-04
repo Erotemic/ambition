@@ -1,16 +1,4 @@
 
-## v0.4.10
-
-- Refined goblin side-pose facial registration so the nose sits more centrally relative to the rotated eye line.
-- Pushed the dagger arm farther out from the torso silhouette so the right arm reads cleanly in the side sprite instead of merging into the body.
-- Kept the side-pose head derived from the same canonical construction layout instead of introducing a separate side-view head description.
-
-## v0.4.9
-
-- Reworked the goblin side-pose head to reuse the same canonical head layout as the construction view and then rotate it into the gameplay pose.
-- Head attachments (ears, eye sockets, eyes, nose, mouth, teeth) are now positioned from canonical local coordinates via a shared head transform instead of a separate ad hoc side-view layout.
-- This should keep the near ear attached behind the face plane and preserve a more principled 3/4 face read in the side sprite.
-
 ## v0.4.8
 
 - Corrected goblin ear diagnosis: the close-up showed the ear was not disappearing; it was pushed too far into the face plane and overlapping the eye/nose region.

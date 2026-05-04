@@ -347,6 +347,32 @@ def primitive_cone_segment(bpy, collection, name, p1, p2, radius1, radius2, mate
     return obj
 
 
+def primitive_torus_band(bpy, collection, name, location, major_xy, minor_radius, material, rotation=(0.0, 0.0, 0.0), outline=0.010):
+    """Create a belt-like band that wraps around the torso."""
+    major_x, major_y = major_xy
+    base_minor = max(float(minor_radius), 1e-4)
+    bpy.ops.mesh.primitive_torus_add(
+        major_segments=40,
+        minor_segments=12,
+        major_radius=1.0,
+        minor_radius=0.10,
+        location=location,
+        rotation=rotation,
+    )
+    obj = bpy.context.object
+    obj.name = name
+    obj.scale = (float(major_x), float(major_y), base_minor / 0.10)
+    set_smooth(obj)
+    if obj.data.materials:
+        obj.data.materials[0] = material
+    else:
+        obj.data.materials.append(material)
+    if outline > 0.0:
+        add_outline_modifier(obj, bpy, thickness=outline)
+    link_object(collection, obj)
+    return obj
+
+
 def create_collection(bpy, name: str):
     collection = bpy.data.collections.new(name)
     bpy.context.scene.collection.children.link(collection)
@@ -1054,9 +1080,11 @@ def build_goblin_construction(bpy, collection, spec: Dict[str, object], texture_
     primitive_cube(bpy, collection, "goblin_mouth", (0.0, fy - 0.013, 1.365), (0.055, 0.006, 0.016), m["dark"], bevel=0.004, outline=0.0)
     primitive_cube(bpy, collection, "goblin_tooth_left", (-0.025, fy - 0.019, 1.345), (0.008, 0.004, 0.018), m["metal"], bevel=0.002, outline=0.0)
     primitive_cube(bpy, collection, "goblin_tooth_right", (0.025, fy - 0.019, 1.345), (0.008, 0.004, 0.018), m["metal"], bevel=0.002, outline=0.0)
-    # Belt + loincloth only.  No chest block.
-    primitive_cube(bpy, collection, "goblin_belt", (0.0, -0.150, 0.760), (0.225, 0.018, 0.035), m["belt"], bevel=0.012, outline=0.006)
-    primitive_cube(bpy, collection, "goblin_loincloth", (0.0, -0.155, 0.630), (0.095, 0.018, 0.125), m["cloth"], bevel=0.016, outline=0.006)
+    # Belt + loincloth only. Use an actual wrapped band so it reads like a belt
+    # around the waist rather than a rectangular prism clipping through the belly.
+    primitive_torus_band(bpy, collection, "goblin_belt", (0.0, 0.0, 0.760), (0.205, 0.168), 0.024, m["belt"], outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_buckle", (0.0, -0.195, 0.760), (0.040, 0.010, 0.026), m["cloth"], bevel=0.008, outline=0.004)
+    primitive_cube(bpy, collection, "goblin_loincloth", (0.0, -0.215, 0.630), (0.095, 0.018, 0.125), m["cloth"], bevel=0.016, outline=0.006)
 
     # Front-facing neutral limbs.
     joints = {
@@ -1076,73 +1104,75 @@ def build_goblin_construction(bpy, collection, spec: Dict[str, object], texture_
 
 
 def build_goblin(bpy, collection, spec: Dict[str, object], animation: str, index: int, frame_count: int, texture_paths: Dict[str, str] | None = None):
-    # Side gameplay pose: keep the successful sprite-first color pipeline, but
-    # derive the goblin head attachments from the same canonical head layout used
-    # in construction view and rotate that layout into the gameplay pose.  This
-    # is more principled than authoring a separate ad hoc side-view face.
+    # Side gameplay pose: preserve the v15 readability, but deliberately stage the
+    # goblin as a 3/4 side view so the face is readable in a pre-rendered sprite.
+    # The near ear is pushed forward/outward to avoid disappearing into the head
+    # silhouette after the side-scroller yaw is applied.
     m = _clean_materials_goblin(bpy, spec, texture_paths)
     phase = 2.0 * math.pi * (index / max(1, frame_count))
     bob = 0.025 * math.sin(phase) if animation in {"idle", "walk", "run"} else 0.0
-    torso = (0.015, 0.0, 0.90 + bob)
-    head = (0.055, 0.0, 1.458 + bob)
-    lean = math.radians(-3.0)
+    torso = (0.020, 0.0, 0.90 + bob)
+    head = (0.105, 0.0, 1.425 + bob)
+    lean = math.radians(-4.0)
     primitive_uv_sphere(bpy, collection, "goblin_body", torso, (0.245, 0.205, 0.330), m["skin_dark"], rotation=(0.0, lean, 0.0), outline=0.016)
-    primitive_uv_sphere(bpy, collection, "goblin_head", head, (0.355, 0.285, 0.325), m["skin"], outline=0.016)
+    primitive_uv_sphere(bpy, collection, "goblin_head", head, (0.355, 0.282, 0.322), m["skin"], rotation=(0.0, math.radians(0.0), 0.0), outline=0.016)
 
-    # Rotate the canonical head layout slightly toward the camera so the player
-    # can still read the face while the sprite moves sideways.
-    head_yaw = math.radians(-20.0)
-    face_rot = (0.0, 0.0, head_yaw)
-
-    def head_pt(x: float, y: float, z: float):
-        c = math.cos(head_yaw)
-        s = math.sin(head_yaw)
-        xr = x * c - y * s
-        yr = x * s + y * c
-        return (head[0] + xr, head[1] + yr, head[2] + z)
-
-    # Canonical ear anchors, rotated as one coherent head.  The front ear gets a
-    # subtle inner-ear accent, but stays attached behind the facial feature zone.
-    ear_left_base = head_pt(-0.255, -0.015, 0.040)
-    ear_left_tip = head_pt(-0.565, -0.025, 0.150)
-    ear_right_base = head_pt(0.255, -0.015, 0.040)
-    ear_right_tip = head_pt(0.565, -0.025, 0.150)
-    primitive_cone_segment(bpy, collection, "goblin_ear_left", ear_left_base, ear_left_tip, 0.075, 0.000, m["skin"], outline=0.012)
-    primitive_cone_segment(bpy, collection, "goblin_ear_right", ear_right_base, ear_right_tip, 0.075, 0.000, m["skin"], outline=0.012)
+    # Near ear: keep it as a silhouette feature *behind* the face plane.  The
+    # previous pass pushed it toward the camera, which made it overlap the eye
+    # and read like a horn/nose in close-up.  This is higher, thinner, and tucked
+    # behind the visible face so the eye / mouth remain unobstructed.
     primitive_cone_segment(
-        bpy, collection, "goblin_ear_right_inner",
-        head_pt(0.295, -0.020, 0.055),
-        head_pt(0.475, -0.028, 0.120),
+        bpy, collection, "goblin_ear_front",
+        (head[0] + 0.185, -0.070, head[2] + 0.105),
+        (head[0] + 0.575, -0.035, head[2] + 0.205),
+        0.070, 0.000, m["skin"], outline=0.012,
+    )
+    # Small inner-ear accent gives the ear its own read without covering facial features.
+    primitive_cone_segment(
+        bpy, collection, "goblin_ear_front_inner",
+        (head[0] + 0.220, -0.086, head[2] + 0.105),
+        (head[0] + 0.455, -0.064, head[2] + 0.165),
         0.030, 0.000, m["skin_dark"], outline=0.000,
     )
+    # Far ear remains smaller and more tucked back for depth ordering.
+    primitive_cone_segment(
+        bpy, collection, "goblin_ear_back",
+        (head[0] - 0.178, 0.112, head[2] + 0.055),
+        (head[0] + 0.035, 0.165, head[2] + 0.130),
+        0.045, 0.000, m["skin_dark"], outline=0.010,
+    )
+    fy = -0.285
+    # Face stays on the visible plane and is unobstructed by the ear.
+    primitive_cube(bpy, collection, "goblin_eye_socket", (head[0] + 0.055, fy - 0.004, head[2] + 0.034), (0.092, 0.012, 0.058), m["dark"], bevel=0.018, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye", (head[0] + 0.067, fy - 0.015, head[2] + 0.040), (0.048, 0.006, 0.039), m["eye"], bevel=0.010, outline=0.0)
+    primitive_cone_segment(bpy, collection, "goblin_nose", (head[0] + 0.128, fy - 0.006, head[2] - 0.004), (head[0] + 0.225, fy - 0.020, head[2] - 0.018), 0.020, 0.000, m["skin_dark"], outline=0.0)
+    primitive_cube(bpy, collection, "goblin_mouth", (head[0] + 0.095, fy - 0.013, head[2] - 0.086), (0.052, 0.006, 0.016), m["dark"], bevel=0.004, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth", (head[0] + 0.100, fy - 0.019, head[2] - 0.106), (0.009, 0.004, 0.016), m["metal"], bevel=0.002, outline=0.0)
+    primitive_torus_band(
+        bpy, collection, "goblin_belt",
+        (torso[0] + 0.010, 0.0, 0.740 + bob),
+        (0.195, 0.160),
+        0.022,
+        m["belt"],
+        rotation=(0.0, math.radians(-6.0), 0.0),
+        outline=0.006,
+    )
+    primitive_cube(bpy, collection, "goblin_belt_buckle", (torso[0] + 0.040, -0.188, 0.740 + bob), (0.036, 0.010, 0.024), m["cloth"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.008, outline=0.004)
+    primitive_cube(bpy, collection, "goblin_loincloth", (torso[0] + 0.040, -0.205, 0.600 + bob), (0.086, 0.016, 0.118), m["cloth"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.014, outline=0.006)
 
-    # Canonical face pieces, now rotated with the head rather than manually
-    # re-authored for a side view.
-    primitive_cube(bpy, collection, "goblin_eye_socket_left", head_pt(-0.080, -0.296, 0.025), (0.060, 0.012, 0.048), m["dark"], rotation=face_rot, bevel=0.018, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_eye_socket_right", head_pt(0.080, -0.296, 0.025), (0.060, 0.012, 0.048), m["dark"], rotation=face_rot, bevel=0.018, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_eye_left", head_pt(-0.080, -0.307, 0.030), (0.036, 0.006, 0.032), m["eye"], rotation=face_rot, bevel=0.010, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_eye_right", head_pt(0.080, -0.307, 0.030), (0.036, 0.006, 0.032), m["eye"], rotation=face_rot, bevel=0.010, outline=0.0)
-    primitive_cone_segment(bpy, collection, "goblin_nose", head_pt(0.000, -0.292, -0.004), head_pt(0.095, -0.304, -0.018), 0.020, 0.000, m["skin_dark"], outline=0.0)
-    primitive_cube(bpy, collection, "goblin_mouth", head_pt(0.000, -0.305, -0.095), (0.055, 0.006, 0.016), m["dark"], rotation=face_rot, bevel=0.004, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_tooth_left", head_pt(-0.025, -0.311, -0.115), (0.008, 0.004, 0.018), m["metal"], rotation=face_rot, bevel=0.002, outline=0.0)
-    primitive_cube(bpy, collection, "goblin_tooth_right", head_pt(0.025, -0.311, -0.115), (0.008, 0.004, 0.018), m["metal"], rotation=face_rot, bevel=0.002, outline=0.0)
-
-    primitive_cube(bpy, collection, "goblin_belt", (torso[0] + 0.012, -0.145, 0.740 + bob), (0.215, 0.016, 0.035), m["belt"], rotation=(0.0, math.radians(-8.0), 0.0), bevel=0.010, outline=0.006)
-    primitive_cube(bpy, collection, "goblin_loincloth", (torso[0] + 0.016, -0.150, 0.600 + bob), (0.088, 0.016, 0.120), m["cloth"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.014, outline=0.006)
-
-    shoulder_f = (torso[0] + 0.285, -0.065, torso[2] + 0.115)
-    elbow_f = (torso[0] + 0.425, -0.095, torso[2] - 0.010)
-    hand_f = (torso[0] + 0.545, -0.115, torso[2] - 0.155)
-    shoulder_b = (torso[0] - 0.170, 0.070, torso[2] + 0.095)
-    elbow_b = (torso[0] - 0.240, 0.085, torso[2] - 0.105)
-    hand_b = (torso[0] - 0.245, 0.090, torso[2] - 0.295)
+    shoulder_f = (torso[0] + 0.190, -0.030, torso[2] + 0.120)
+    elbow_f = (torso[0] + 0.275, -0.035, torso[2] - 0.085)
+    hand_f = (torso[0] + 0.360, -0.040, torso[2] - 0.230)
+    shoulder_b = (torso[0] - 0.160, 0.055, torso[2] + 0.090)
+    elbow_b = (torso[0] - 0.220, 0.065, torso[2] - 0.125)
+    hand_b = (torso[0] - 0.225, 0.070, torso[2] - 0.330)
     primitive_cylinder_segment(bpy, collection, "goblin_upperarm_front", shoulder_f, elbow_f, 0.050, m["skin"], outline=0.010)
     primitive_cylinder_segment(bpy, collection, "goblin_forearm_front", elbow_f, hand_f, 0.044, m["skin"], outline=0.010)
     primitive_uv_sphere(bpy, collection, "goblin_hand_front", hand_f, (0.058, 0.048, 0.058), m["skin"], outline=0.010)
     primitive_cylinder_segment(bpy, collection, "goblin_upperarm_back", shoulder_b, elbow_b, 0.044, m["skin"], outline=0.008)
     primitive_cylinder_segment(bpy, collection, "goblin_forearm_back", elbow_b, hand_b, 0.038, m["skin"], outline=0.008)
     primitive_uv_sphere(bpy, collection, "goblin_hand_back", hand_b, (0.050, 0.042, 0.050), m["skin"], outline=0.008)
-    _dagger_simple(bpy, collection, hand_f, m["metal"], m["cloth"], angle_deg=-28.0, prefix="goblin_dagger")
+    _dagger_simple(bpy, collection, hand_f, m["metal"], m["cloth"], angle_deg=-35.0, prefix="goblin_dagger")
 
     # Stance: bent front leg and planted rear leg.
     hip_f = (torso[0] + 0.110, -0.030, 0.640 + bob)
@@ -1159,7 +1189,184 @@ def build_goblin(bpy, collection, spec: Dict[str, object], animation: str, index
 
 def build_robot_construction(bpy, collection, spec: Dict[str, object], texture_paths: Dict[str, str] | None = None):
     m = _clean_materials_robot(bpy, spec, texture_paths)
-    # Cute / chibi robot proportions: keep the existing head size, but shrink the body.
+    head = (0.0, 0.0, 1.58)
+    torso = (0.0, 0.0, 1.03)
+    primitive_cube(bpy, collection, "robot_head", head, (0.360, 0.285, 0.275), m["body"], bevel=0.135, outline=0.014)
+    primitive_cube(bpy, collection, "robot_face_screen", (0.0, -0.296, 1.585), (0.230, 0.012, 0.135), m["dark"], bevel=0.055, outline=0.0)
+    primitive_uv_sphere(bpy, collection, "robot_eye_left", (-0.070, -0.308, 1.600), (0.030, 0.006, 0.058), m["cyan"], outline=0.0)
+    primitive_uv_sphere(bpy, collection, "robot_eye_right", (0.070, -0.308, 1.600), (0.030, 0.006, 0.058), m["cyan"], outline=0.0)
+    primitive_cube(bpy, collection, "robot_ear_left", (-0.385, -0.005, 1.575), (0.045, 0.085, 0.110), m["purple"], bevel=0.035, outline=0.008)
+    primitive_cube(bpy, collection, "robot_ear_right", (0.385, -0.005, 1.575), (0.045, 0.085, 0.110), m["purple"], bevel=0.035, outline=0.008)
+    primitive_cylinder_segment(bpy, collection, "robot_antenna_stem", (0.0, 0.0, 1.855), (0.0, 0.0, 2.035), 0.016, m["joint"], outline=0.0)
+    primitive_uv_sphere(bpy, collection, "robot_antenna_tip", (0.0, 0.0, 2.095), (0.052, 0.052, 0.052), m["purple"], outline=0.006)
+    primitive_cube(bpy, collection, "robot_torso", torso, (0.235, 0.190, 0.275), m["body"], bevel=0.105, outline=0.014)
+    primitive_cube(bpy, collection, "robot_chest_screen", (0.0, -0.202, 1.055), (0.070, 0.010, 0.080), m["dark"], bevel=0.020, outline=0.0)
+    primitive_cube(bpy, collection, "robot_chest_core", (0.0, -0.212, 1.055), (0.050, 0.006, 0.060), m["cyan"], bevel=0.012, outline=0.0)
+
+    shoulder_l, shoulder_r = (-0.285, 0.0, 1.095), (0.285, 0.0, 1.095)
+    elbow_l, elbow_r = (-0.355, 0.0, 0.855), (0.355, 0.0, 0.855)
+    hand_l, hand_r = (-0.345, 0.0, 0.650), (0.345, 0.0, 0.650)
+    for side, shoulder, elbow, hand in (("l", shoulder_l, elbow_l, hand_l), ("r", shoulder_r, elbow_r, hand_r)):
+        primitive_uv_sphere(bpy, collection, f"robot_shoulder_{side}", shoulder, (0.060, 0.052, 0.060), m["joint"], outline=0.008)
+        primitive_cylinder_segment(bpy, collection, f"robot_upperarm_{side}", shoulder, elbow, 0.050, m["body"], outline=0.010)
+        primitive_cylinder_segment(bpy, collection, f"robot_forearm_{side}", elbow, hand, 0.046, m["body"], outline=0.010)
+        primitive_uv_sphere(bpy, collection, f"robot_hand_{side}", hand, (0.066, 0.052, 0.066), m["body"], outline=0.010)
+    for side, x in (("l", -0.115), ("r", 0.115)):
+        hip = (x, 0.0, 0.755)
+        knee = (x, 0.0, 0.430)
+        ankle = (x, 0.0, 0.140)
+        primitive_uv_sphere(bpy, collection, f"robot_hip_{side}", hip, (0.055, 0.050, 0.055), m["joint"], outline=0.006)
+        primitive_cylinder_segment(bpy, collection, f"robot_thigh_{side}", hip, knee, 0.055, m["body"], outline=0.010)
+        primitive_cylinder_segment(bpy, collection, f"robot_shin_{side}", knee, ankle, 0.050, m["body"], outline=0.010)
+        primitive_cube(bpy, collection, f"robot_foot_{side}", (x + (0.025 if side == "r" else -0.025), -0.025, 0.045), (0.105, 0.075, 0.045), m["body"], bevel=0.035, outline=0.010)
+
+
+def build_robot(bpy, collection, spec: Dict[str, object], animation: str, index: int, frame_count: int, texture_paths: Dict[str, str] | None = None):
+    m = _clean_materials_robot(bpy, spec, texture_paths)
+    phase = 2.0 * math.pi * (index / max(1, frame_count))
+    stride = math.sin(phase) if animation in {"walk", "run", "dash"} else 0.0
+    head = (0.100, 0.0, 1.58)
+    torso = (0.035, 0.0, 1.02)
+    primitive_cube(bpy, collection, "robot_head", head, (0.360, 0.285, 0.275), m["body"], rotation=(0.0, math.radians(-3.0), 0.0), bevel=0.135, outline=0.014)
+    primitive_cube(bpy, collection, "robot_face_screen", (head[0] + 0.025, -0.296, head[2] + 0.005), (0.230, 0.012, 0.135), m["dark"], rotation=(0.0, math.radians(-3.0), 0.0), bevel=0.055, outline=0.0)
+    primitive_uv_sphere(bpy, collection, "robot_eye_left", (head[0] - 0.045, -0.308, head[2] + 0.020), (0.030, 0.006, 0.058), m["cyan"], outline=0.0)
+    primitive_uv_sphere(bpy, collection, "robot_eye_right", (head[0] + 0.095, -0.308, head[2] + 0.020), (0.030, 0.006, 0.058), m["cyan"], outline=0.0)
+    primitive_cube(bpy, collection, "robot_side_ear", (head[0] - 0.335, 0.090, head[2]), (0.050, 0.095, 0.115), m["purple"], bevel=0.035, outline=0.008)
+    primitive_cylinder_segment(bpy, collection, "robot_antenna_stem", (head[0], 0.0, 1.855), (head[0], 0.0, 2.035), 0.016, m["joint"], outline=0.0)
+    primitive_uv_sphere(bpy, collection, "robot_antenna_tip", (head[0], 0.0, 2.095), (0.052, 0.052, 0.052), m["purple"], outline=0.006)
+    primitive_cube(bpy, collection, "robot_torso", torso, (0.235, 0.190, 0.275), m["body"], rotation=(0.0, math.radians(-2.0), 0.0), bevel=0.105, outline=0.014)
+    primitive_cube(bpy, collection, "robot_chest_screen", (torso[0] + 0.035, -0.202, torso[2] + 0.030), (0.070, 0.010, 0.080), m["dark"], bevel=0.020, outline=0.0)
+    primitive_cube(bpy, collection, "robot_chest_core", (torso[0] + 0.035, -0.212, torso[2] + 0.030), (0.050, 0.006, 0.060), m["cyan"], bevel=0.012, outline=0.0)
+
+    # Jogging pose with one arm/leg forward.
+    shoulder_f, shoulder_b = (torso[0] + 0.245, -0.020, torso[2] + 0.080), (torso[0] - 0.205, 0.060, torso[2] + 0.075)
+    elbow_f, elbow_b = (torso[0] + 0.380, -0.025, torso[2] - 0.090), (torso[0] - 0.330, 0.065, torso[2] - 0.080)
+    hand_f, hand_b = (torso[0] + 0.480, -0.030, torso[2] + 0.005), (torso[0] - 0.355, 0.070, torso[2] - 0.300)
+    for name, shoulder, elbow, hand in (("front", shoulder_f, elbow_f, hand_f), ("back", shoulder_b, elbow_b, hand_b)):
+        primitive_uv_sphere(bpy, collection, f"robot_shoulder_{name}", shoulder, (0.060, 0.052, 0.060), m["joint"], outline=0.008)
+        primitive_cylinder_segment(bpy, collection, f"robot_upperarm_{name}", shoulder, elbow, 0.050, m["body"], outline=0.010)
+        primitive_cylinder_segment(bpy, collection, f"robot_forearm_{name}", elbow, hand, 0.046, m["body"], outline=0.010)
+        primitive_uv_sphere(bpy, collection, f"robot_hand_{name}", hand, (0.066, 0.052, 0.066), m["body"], outline=0.010)
+    hip_f, hip_b = (torso[0] + 0.105, -0.020, 0.745), (torso[0] - 0.105, 0.050, 0.745)
+    knee_f, knee_b = (torso[0] + 0.285, -0.020, 0.455), (torso[0] - 0.255, 0.050, 0.485)
+    ankle_f, ankle_b = (torso[0] + 0.395, -0.020, 0.205), (torso[0] - 0.305, 0.050, 0.160)
+    for name, hip, knee, ankle in (("front", hip_f, knee_f, ankle_f), ("back", hip_b, knee_b, ankle_b)):
+        primitive_uv_sphere(bpy, collection, f"robot_hip_{name}", hip, (0.055, 0.050, 0.055), m["joint"], outline=0.006)
+        primitive_cylinder_segment(bpy, collection, f"robot_thigh_{name}", hip, knee, 0.055, m["body"], outline=0.010)
+        primitive_cylinder_segment(bpy, collection, f"robot_shin_{name}", knee, ankle, 0.050, m["body"], outline=0.010)
+        primitive_cube(bpy, collection, f"robot_foot_{name}", (ankle[0] + 0.075, ankle[1] - 0.020, 0.060), (0.120, 0.080, 0.050), m["body"], bevel=0.035, outline=0.010)
+
+# REBUILT_V39_OVERRIDES
+# These final definitions intentionally override earlier experimental definitions.
+
+def build_goblin_construction(bpy, collection, spec: Dict[str, object], texture_paths: Dict[str, str] | None = None):
+    m = _clean_materials_goblin(bpy, spec, texture_paths)
+    torso = (0.0, 0.0, 0.93)
+    head = (0.0, 0.0, 1.46)
+    primitive_uv_sphere(bpy, collection, "goblin_body", torso, (0.245, 0.205, 0.330), m["skin_dark"], outline=0.016)
+    primitive_uv_sphere(bpy, collection, "goblin_head", head, (0.355, 0.285, 0.325), m["skin"], outline=0.016)
+    primitive_cone_segment(bpy, collection, "goblin_ear_left", (-0.255, -0.015, 1.50), (-0.565, -0.025, 1.61), 0.075, 0.000, m["skin"], outline=0.012)
+    primitive_cone_segment(bpy, collection, "goblin_ear_right", (0.255, -0.015, 1.50), (0.565, -0.025, 1.61), 0.075, 0.000, m["skin"], outline=0.012)
+    fy = -0.292
+    primitive_cube(bpy, collection, "goblin_eye_socket_left", (-0.080, fy - 0.004, 1.485), (0.060, 0.012, 0.048), m["dark"], bevel=0.018, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_socket_right", (0.080, fy - 0.004, 1.485), (0.060, 0.012, 0.048), m["dark"], bevel=0.018, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_left", (-0.080, fy - 0.015, 1.490), (0.036, 0.006, 0.032), m["eye"], bevel=0.010, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_right", (0.080, fy - 0.015, 1.490), (0.036, 0.006, 0.032), m["eye"], bevel=0.010, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_mouth", (0.0, fy - 0.013, 1.365), (0.055, 0.006, 0.016), m["dark"], bevel=0.004, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth_left", (-0.025, fy - 0.019, 1.345), (0.008, 0.004, 0.018), m["metal"], bevel=0.002, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth_right", (0.025, fy - 0.019, 1.345), (0.008, 0.004, 0.018), m["metal"], bevel=0.002, outline=0.0)
+
+    # Wrapped belt: front/back/side straps plus buckle instead of one clipped cuboid.
+    belt_z = 0.760
+    primitive_cube(bpy, collection, "goblin_belt_front", (0.0, -0.215, belt_z), (0.210, 0.015, 0.032), m["belt"], bevel=0.010, outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_back", (0.0, 0.215, belt_z), (0.210, 0.015, 0.032), m["belt"], bevel=0.010, outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_left", (-0.205, 0.0, belt_z), (0.020, 0.160, 0.032), m["belt"], bevel=0.010, outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_right", (0.205, 0.0, belt_z), (0.020, 0.160, 0.032), m["belt"], bevel=0.010, outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_buckle", (0.0, -0.238, belt_z), (0.045, 0.010, 0.024), m["cloth"], bevel=0.008, outline=0.004)
+    primitive_cube(bpy, collection, "goblin_loincloth", (0.0, -0.235, 0.630), (0.095, 0.018, 0.125), m["cloth"], bevel=0.016, outline=0.006)
+
+    joints = {
+        "shoulder_l": (-0.250, 0.0, 1.03), "elbow_l": (-0.305, 0.0, 0.78), "hand_l": (-0.295, 0.0, 0.56),
+        "shoulder_r": (0.250, 0.0, 1.03), "elbow_r": (0.305, 0.0, 0.78), "hand_r": (0.295, 0.0, 0.56),
+        "hip_l": (-0.115, 0.0, 0.66), "knee_l": (-0.115, 0.0, 0.36), "ankle_l": (-0.115, 0.0, 0.12),
+        "hip_r": (0.115, 0.0, 0.66), "knee_r": (0.115, 0.0, 0.36), "ankle_r": (0.115, 0.0, 0.12),
+    }
+    for side in ("l", "r"):
+        primitive_cylinder_segment(bpy, collection, f"goblin_upperarm_{side}", joints[f"shoulder_{side}"], joints[f"elbow_{side}"], 0.050, m["skin"], outline=0.010)
+        primitive_cylinder_segment(bpy, collection, f"goblin_forearm_{side}", joints[f"elbow_{side}"], joints[f"hand_{side}"], 0.044, m["skin"], outline=0.010)
+        primitive_uv_sphere(bpy, collection, f"goblin_hand_{side}", joints[f"hand_{side}"], (0.058, 0.048, 0.058), m["skin"], outline=0.010)
+        primitive_cylinder_segment(bpy, collection, f"goblin_thigh_{side}", joints[f"hip_{side}"], joints[f"knee_{side}"], 0.055, m["skin"], outline=0.010)
+        primitive_cylinder_segment(bpy, collection, f"goblin_shin_{side}", joints[f"knee_{side}"], joints[f"ankle_{side}"], 0.048, m["skin"], outline=0.010)
+        primitive_cube(bpy, collection, f"goblin_foot_{side}", (joints[f"ankle_{side}"][0] + (0.035 if side == "r" else -0.035), -0.015, 0.045), (0.105, 0.065, 0.042), m["skin"], bevel=0.035, outline=0.010)
+    _dagger_simple(bpy, collection, joints["hand_r"], m["metal"], m["cloth"], angle_deg=-58.0, prefix="goblin_dagger")
+
+
+def build_goblin(bpy, collection, spec: Dict[str, object], animation: str, index: int, frame_count: int, texture_paths: Dict[str, str] | None = None):
+    m = _clean_materials_goblin(bpy, spec, texture_paths)
+    phase = 2.0 * math.pi * (index / max(1, frame_count))
+    bob = 0.025 * math.sin(phase) if animation in {"idle", "walk", "run"} else 0.0
+    torso = (0.015, 0.0, 0.90 + bob)
+    head = (0.055, 0.0, 1.458 + bob)
+    lean = math.radians(-3.0)
+    primitive_uv_sphere(bpy, collection, "goblin_body", torso, (0.245, 0.205, 0.330), m["skin_dark"], rotation=(0.0, lean, 0.0), outline=0.016)
+    primitive_uv_sphere(bpy, collection, "goblin_head", head, (0.355, 0.285, 0.325), m["skin"], outline=0.016)
+
+    head_yaw = math.radians(-20.0)
+    face_rot = (0.0, 0.0, head_yaw)
+    def head_pt(x: float, y: float, z: float):
+        c = math.cos(head_yaw); s = math.sin(head_yaw)
+        return (head[0] + x * c - y * s, head[1] + x * s + y * c, head[2] + z)
+
+    primitive_cone_segment(bpy, collection, "goblin_ear_left", head_pt(-0.255, -0.015, 0.040), head_pt(-0.565, -0.025, 0.150), 0.075, 0.000, m["skin"], outline=0.012)
+    primitive_cone_segment(bpy, collection, "goblin_ear_right", head_pt(0.255, -0.015, 0.040), head_pt(0.565, -0.025, 0.150), 0.075, 0.000, m["skin"], outline=0.012)
+    primitive_cone_segment(bpy, collection, "goblin_ear_right_inner", head_pt(0.295, -0.020, 0.055), head_pt(0.475, -0.028, 0.120), 0.030, 0.000, m["skin_dark"], outline=0.000)
+
+    primitive_cube(bpy, collection, "goblin_eye_socket_left", head_pt(-0.080, -0.296, 0.025), (0.060, 0.012, 0.048), m["dark"], rotation=face_rot, bevel=0.018, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_socket_right", head_pt(0.080, -0.296, 0.025), (0.060, 0.012, 0.048), m["dark"], rotation=face_rot, bevel=0.018, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_left", head_pt(-0.080, -0.307, 0.030), (0.036, 0.006, 0.032), m["eye"], rotation=face_rot, bevel=0.010, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_eye_right", head_pt(0.080, -0.307, 0.030), (0.036, 0.006, 0.032), m["eye"], rotation=face_rot, bevel=0.010, outline=0.0)
+    primitive_cone_segment(bpy, collection, "goblin_nose", head_pt(0.000, -0.292, -0.004), head_pt(0.095, -0.304, -0.018), 0.020, 0.000, m["skin_dark"], outline=0.0)
+    primitive_cube(bpy, collection, "goblin_mouth", head_pt(0.000, -0.305, -0.095), (0.055, 0.006, 0.016), m["dark"], rotation=face_rot, bevel=0.004, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth_left", head_pt(-0.025, -0.311, -0.115), (0.008, 0.004, 0.018), m["metal"], rotation=face_rot, bevel=0.002, outline=0.0)
+    primitive_cube(bpy, collection, "goblin_tooth_right", head_pt(0.025, -0.311, -0.115), (0.008, 0.004, 0.018), m["metal"], rotation=face_rot, bevel=0.002, outline=0.0)
+
+    belt_z = 0.740 + bob
+    belt_cx = torso[0] + 0.012
+    primitive_cube(bpy, collection, "goblin_belt_front", (belt_cx + 0.010, -0.215, belt_z), (0.205, 0.014, 0.032), m["belt"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.010, outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_back", (belt_cx - 0.010, 0.180, belt_z), (0.165, 0.012, 0.030), m["belt"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.010, outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_left", (belt_cx - 0.185, 0.010, belt_z), (0.018, 0.120, 0.032), m["belt"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.010, outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_right", (belt_cx + 0.195, -0.020, belt_z), (0.020, 0.145, 0.032), m["belt"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.010, outline=0.006)
+    primitive_cube(bpy, collection, "goblin_belt_buckle", (belt_cx + 0.018, -0.235, belt_z), (0.040, 0.010, 0.022), m["cloth"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.008, outline=0.004)
+    primitive_cube(bpy, collection, "goblin_loincloth", (torso[0] + 0.016, -0.235, 0.600 + bob), (0.088, 0.016, 0.120), m["cloth"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.014, outline=0.006)
+
+    shoulder_f = (torso[0] + 0.285, -0.065, torso[2] + 0.115)
+    elbow_f = (torso[0] + 0.425, -0.095, torso[2] - 0.010)
+    hand_f = (torso[0] + 0.545, -0.115, torso[2] - 0.155)
+    shoulder_b = (torso[0] - 0.170, 0.070, torso[2] + 0.095)
+    elbow_b = (torso[0] - 0.240, 0.085, torso[2] - 0.105)
+    hand_b = (torso[0] - 0.245, 0.090, torso[2] - 0.295)
+    primitive_cylinder_segment(bpy, collection, "goblin_upperarm_front", shoulder_f, elbow_f, 0.050, m["skin"], outline=0.010)
+    primitive_cylinder_segment(bpy, collection, "goblin_forearm_front", elbow_f, hand_f, 0.044, m["skin"], outline=0.010)
+    primitive_uv_sphere(bpy, collection, "goblin_hand_front", hand_f, (0.058, 0.048, 0.058), m["skin"], outline=0.010)
+    primitive_cylinder_segment(bpy, collection, "goblin_upperarm_back", shoulder_b, elbow_b, 0.044, m["skin"], outline=0.008)
+    primitive_cylinder_segment(bpy, collection, "goblin_forearm_back", elbow_b, hand_b, 0.038, m["skin"], outline=0.008)
+    primitive_uv_sphere(bpy, collection, "goblin_hand_back", hand_b, (0.050, 0.042, 0.050), m["skin"], outline=0.008)
+    _dagger_simple(bpy, collection, hand_f, m["metal"], m["cloth"], angle_deg=-28.0, prefix="goblin_dagger")
+
+    hip_f = (torso[0] + 0.110, -0.030, 0.640 + bob)
+    knee_f = (torso[0] + 0.220, -0.030, 0.360 + bob)
+    ankle_f = (torso[0] + 0.320, -0.030, 0.130 + bob)
+    hip_b = (torso[0] - 0.095, 0.050, 0.640 + bob)
+    knee_b = (torso[0] - 0.170, 0.050, 0.350 + bob)
+    ankle_b = (torso[0] - 0.235, 0.050, 0.120 + bob)
+    for name, hip, knee, ankle, radius in (("front", hip_f, knee_f, ankle_f, 0.052), ("back", hip_b, knee_b, ankle_b, 0.046)):
+        primitive_cylinder_segment(bpy, collection, f"goblin_thigh_{name}", hip, knee, radius, m["skin"], outline=0.010)
+        primitive_cylinder_segment(bpy, collection, f"goblin_shin_{name}", knee, ankle, radius * 0.86, m["skin"], outline=0.010)
+        primitive_cube(bpy, collection, f"goblin_foot_{name}", (ankle[0] + 0.050, ankle[1] - 0.010, 0.045), (0.115, 0.065, 0.042), m["skin"], bevel=0.035, outline=0.010)
+
+
+def build_robot_construction(bpy, collection, spec: Dict[str, object], texture_paths: Dict[str, str] | None = None):
+    m = _clean_materials_robot(bpy, spec, texture_paths)
     head = (0.0, 0.0, 1.36)
     torso = (0.0, 0.0, 0.88)
     primitive_cube(bpy, collection, "robot_head", head, (0.360, 0.285, 0.275), m["body"], bevel=0.135, outline=0.014)
@@ -1173,8 +1380,6 @@ def build_robot_construction(bpy, collection, spec: Dict[str, object], texture_p
     primitive_cube(bpy, collection, "robot_torso", torso, (0.185, 0.155, 0.165), m["body"], bevel=0.095, outline=0.014)
     primitive_cube(bpy, collection, "robot_chest_screen", (0.0, -0.167, 0.895), (0.060, 0.010, 0.065), m["dark"], bevel=0.020, outline=0.0)
     primitive_cube(bpy, collection, "robot_chest_core", (0.0, -0.177, 0.895), (0.044, 0.006, 0.048), m["cyan"], bevel=0.012, outline=0.0)
-
-    # Stubbier arms / legs for a cuter sprite silhouette.
     shoulder_l, shoulder_r = (-0.215, 0.0, 0.920), (0.215, 0.0, 0.920)
     elbow_l, elbow_r = (-0.255, 0.0, 0.805), (0.255, 0.0, 0.805)
     hand_l, hand_r = (-0.245, 0.0, 0.700), (0.245, 0.0, 0.700)
@@ -1184,9 +1389,7 @@ def build_robot_construction(bpy, collection, spec: Dict[str, object], texture_p
         primitive_cylinder_segment(bpy, collection, f"robot_forearm_{side}", elbow, hand, 0.042, m["body"], outline=0.010)
         primitive_uv_sphere(bpy, collection, f"robot_hand_{side}", hand, (0.060, 0.050, 0.060), m["body"], outline=0.010)
     for side, x in (("l", -0.090), ("r", 0.090)):
-        hip = (x, 0.0, 0.625)
-        knee = (x, 0.0, 0.525)
-        ankle = (x, 0.0, 0.440)
+        hip = (x, 0.0, 0.625); knee = (x, 0.0, 0.525); ankle = (x, 0.0, 0.440)
         primitive_uv_sphere(bpy, collection, f"robot_hip_{side}", hip, (0.050, 0.046, 0.050), m["joint"], outline=0.006)
         primitive_cylinder_segment(bpy, collection, f"robot_thigh_{side}", hip, knee, 0.048, m["body"], outline=0.010)
         primitive_cylinder_segment(bpy, collection, f"robot_shin_{side}", knee, ankle, 0.044, m["body"], outline=0.010)
@@ -1195,9 +1398,6 @@ def build_robot_construction(bpy, collection, spec: Dict[str, object], texture_p
 
 def build_robot(bpy, collection, spec: Dict[str, object], animation: str, index: int, frame_count: int, texture_paths: Dict[str, str] | None = None):
     m = _clean_materials_robot(bpy, spec, texture_paths)
-    phase = 2.0 * math.pi * (index / max(1, frame_count))
-    stride = math.sin(phase) if animation in {"walk", "run", "dash"} else 0.0
-    # Cute / chibi robot proportions: same head, smaller body.
     head = (0.100, 0.0, 1.36)
     torso = (0.030, 0.0, 0.88)
     primitive_cube(bpy, collection, "robot_head", head, (0.360, 0.285, 0.275), m["body"], rotation=(0.0, math.radians(-6.0), 0.0), bevel=0.135, outline=0.014)
@@ -1210,8 +1410,6 @@ def build_robot(bpy, collection, spec: Dict[str, object], animation: str, index:
     primitive_cube(bpy, collection, "robot_torso", torso, (0.185, 0.155, 0.165), m["body"], rotation=(0.0, math.radians(-4.0), 0.0), bevel=0.095, outline=0.014)
     primitive_cube(bpy, collection, "robot_chest_screen", (torso[0] + 0.030, -0.167, torso[2] + 0.015), (0.060, 0.010, 0.065), m["dark"], bevel=0.020, outline=0.0)
     primitive_cube(bpy, collection, "robot_chest_core", (torso[0] + 0.030, -0.177, torso[2] + 0.015), (0.044, 0.006, 0.048), m["cyan"], bevel=0.012, outline=0.0)
-
-    # Compact jog pose with stubbier limbs.
     shoulder_f, shoulder_b = (torso[0] + 0.195, -0.026, torso[2] + 0.048), (torso[0] - 0.165, 0.054, torso[2] + 0.044)
     elbow_f, elbow_b = (torso[0] + 0.280, -0.034, torso[2] - 0.015), (torso[0] - 0.235, 0.065, torso[2] - 0.010)
     hand_f, hand_b = (torso[0] + 0.340, -0.040, torso[2] + 0.010), (torso[0] - 0.250, 0.074, torso[2] - 0.110)
@@ -1228,6 +1426,7 @@ def build_robot(bpy, collection, spec: Dict[str, object], animation: str, index:
         primitive_cylinder_segment(bpy, collection, f"robot_thigh_{name}", hip, knee, 0.048, m["body"], outline=0.010)
         primitive_cylinder_segment(bpy, collection, f"robot_shin_{name}", knee, ankle, 0.044, m["body"], outline=0.010)
         primitive_cube(bpy, collection, f"robot_foot_{name}", (ankle[0] + 0.050, ankle[1] - 0.016, 0.390), (0.104, 0.076, 0.042), m["body"], bevel=0.032, outline=0.010)
+
 # END SIMPLIFIED_TARGET_OVERRIDES
 
 def render_request(bpy, req: Dict[str, object], payload: Dict[str, object]) -> None:

@@ -176,3 +176,12 @@ It would also be nice to think of ways we could support multi-player. The way I
 like to use the blink ability conflicts with that to some degree, so separation
 of ingame and user-input timers may have to be restricted in multiplayer
 settings, but maybe the engine itself can support it elegantly.
+
+---
+
+Clear and obvious references to previous games might be fun. I'm thinking mario
+fireballs are fairly iconic. You might also have the Nintendo police get angry
+at you if you have them. I think having a lot of conflicting factions that you
+have to navigate will help make this fun and open ended.
+
+

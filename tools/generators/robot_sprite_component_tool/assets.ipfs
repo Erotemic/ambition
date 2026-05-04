@@ -1,0 +1,17 @@
+type: ipfs-sidecar
+cid: bafybeifdexkcmefg2z5hcpgqh5w7jccwstt4652la7isyx3iozzq3esmdy
+rel_path: assets
+size: 1.36 MiB
+num_items: 2
+add_config:
+  path: /home/joncrall/code/ambition/tools/generators/robot_sprite_component_tool/assets
+  name:
+  recursive: true
+  progress: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+  pin: true
+  sidecar: true
+add_datetime: 2026-05-04T093832-5
+add_duration: 1.7283959978958592

@@ -475,17 +475,6 @@ pub fn spawn_block(
     // rectangles) keep the textured path because their footprints match
     // the texture aspect ratio.
     let is_intgrid_block = block.name.starts_with("ldtk ");
-    // TEMP DIAGNOSTIC: log every block spawn so we can count duplicates.
-    eprintln!(
-        "[block-spawn] kind={:?} name={:?} min=({:.0},{:.0}) size=({:.0}x{:.0}) intgrid={}",
-        block.kind,
-        block.name,
-        block.aabb.min.x,
-        block.aabb.min.y,
-        size.x,
-        size.y,
-        is_intgrid_block
-    );
     let sprite = if is_intgrid_block {
         Sprite::from_color(block_color(block.kind), render)
     } else {

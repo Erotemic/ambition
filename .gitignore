@@ -44,3 +44,9 @@ temp/
 
 # Rust analyzer local project file
 rust-project.json
+
+debug_traces
+__pycache__
+*.png
+tools/generators/robot_sprite_component_tool/output
+tools/generators/robot_sprite_component_tool/assets

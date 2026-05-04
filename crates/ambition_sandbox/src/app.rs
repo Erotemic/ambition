@@ -1194,8 +1194,17 @@ fn damage_heal_dialogue_phase(
         tuning,
         feel,
     );
-    if !feature_damaged_player {
-        runtime.remember_safe_player_position();
+    {
+        let safe_world =
+            features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
+        let ctx = crate::SafePositionContext {
+            damaged_this_frame: feature_damaged_player,
+            in_hitstun: runtime.hitstun_timer > 0.0,
+            feature_requested_reset: feature_events.reset_player,
+            blink_grace_active: runtime.player.blink_grace_timer > 0.0,
+            room_transitioning: runtime.room_transition_cooldown > 0.0,
+        };
+        runtime.remember_safe_player_position(&safe_world, ctx);
     }
     if feature_interaction_consumed {
         runtime.clear_interact_buffer();

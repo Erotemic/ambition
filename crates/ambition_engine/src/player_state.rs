@@ -211,6 +211,74 @@ impl BodyShape {
     }
 }
 
+/// Result of [`classify_player_safety`]. The recorder, OOB detector,
+/// and "remember safe spawn point" logic all consult this so a single
+/// place defines what counts as a legal player position.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PlayerSafetyVerdict {
+    /// Position and velocity are finite, AABB is inside the world
+    /// envelope, and the player isn't overlapping any block matched by
+    /// the caller's predicate (typically `BlockKind::Solid`).
+    Safe,
+    /// `pos.x` or `pos.y` is NaN/inf.
+    PositionNonFinite,
+    /// `vel.x` or `vel.y` is NaN/inf.
+    VelocityNonFinite,
+    /// AABB is outside the world envelope on the named axis (`'x'` or
+    /// `'y'`). Callers can include the margin they tolerate.
+    OutsideWorldEnvelope { axis: char },
+    /// AABB strictly intersects a block accepted by the caller's
+    /// predicate (typically a `Solid`).
+    InsideSolid,
+}
+
+impl PlayerSafetyVerdict {
+    pub fn is_safe(self) -> bool {
+        matches!(self, PlayerSafetyVerdict::Safe)
+    }
+}
+
+/// Single source of truth for "is this player position legal?". Used by
+/// the trace recorder's OOB detector and by the sandbox runtime's
+/// "remember last safe position" logic. Sharing the predicate prevents
+/// the two definitions from drifting (concrete repro that motivated
+/// this helper: the trace-recorded `last_safe_pos` was being set to
+/// `(62, -23)`, an above-world position the OOB detector explicitly
+/// rejected one frame later).
+///
+/// `margin` is the tolerance beyond the world envelope. Pass `0.0`
+/// for a strict "inside the world" check; the trace recorder uses a
+/// looser margin so the camera can briefly extend past the room
+/// without auto-dumping.
+pub fn classify_player_safety<F>(
+    player: &crate::movement::Player,
+    world: &crate::world::World,
+    margin: f32,
+    mut solid_predicate: F,
+) -> PlayerSafetyVerdict
+where
+    F: FnMut(&crate::world::Block) -> bool,
+{
+    if !player.pos.x.is_finite() || !player.pos.y.is_finite() {
+        return PlayerSafetyVerdict::PositionNonFinite;
+    }
+    if !player.vel.x.is_finite() || !player.vel.y.is_finite() {
+        return PlayerSafetyVerdict::VelocityNonFinite;
+    }
+    let aabb = player.aabb();
+    use crate::geometry::AabbExt;
+    if aabb.left() < -margin || aabb.right() > world.size.x + margin {
+        return PlayerSafetyVerdict::OutsideWorldEnvelope { axis: 'x' };
+    }
+    if aabb.top() < -margin || aabb.bottom() > world.size.y + margin {
+        return PlayerSafetyVerdict::OutsideWorldEnvelope { axis: 'y' };
+    }
+    if world.body_overlaps_any(aabb, |b| solid_predicate(b)) {
+        return PlayerSafetyVerdict::InsideSolid;
+    }
+    PlayerSafetyVerdict::Safe
+}
+
 /// Generic resource meter (stamina / mana / ammo / charge / hover fuel).
 ///
 /// `current` is clamped to `[0, max]`. `regen_rate` adds per second

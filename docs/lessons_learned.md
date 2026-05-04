@@ -5,6 +5,103 @@ Ordered newest-first. Each lesson should make the next time you hit the
 same class of bug 10× faster — symptom recognition, where to look, and
 what the fix looks like in this codebase specifically.
 
+## Wall-cling y-sweep teleports player to wall's far edge
+
+**Date:** 2026-05-04. **Fixed in:** the next commit.
+
+### Symptom
+
+Player wall-clinging on a tall side-wall (e.g. `square_arena`'s left
+wall, top at world `y=0`, bottom at the room floor) suddenly teleports
+to `(prev_x, -23.0)` — exactly `0 − half_height` — and is reported as
+`Grounded`. Subsequent leftward input then walks them off this invisible
+ledge above the world, and the OOB detector fires a few frames later.
+
+Two consecutive trace dumps captured the pattern. The post-fix-recorder
+trace shows the smoking-gun event:
+
+```
+t= 1962  CollisionCorrection :: (62.0, 1678.7) → (62.0, -23.0)
+                                [unexplained delta 1701.7px (vel-budget 17.2px)]
+t= 1962  PlayerModeChanged    :: WallCling → Grounded
+```
+
+### Root cause
+
+`movement::sweep_player_y` was returning a `time_of_impact = 0` swept
+hit on the wall block the body was edge-touching / fractionally
+penetrating on the X axis. The snap branch then unconditionally pushed
+the body's bottom to the wall's TOP edge:
+
+```rust
+if delta.y > 0.0 || body.center().y < hit.block.aabb.center().y {
+    player.pos.y += hit.block.aabb.top() - body.bottom();
+    player.on_ground = true;
+}
+```
+
+For a wall whose top is at world `y=0` and a body at `y≈1700`, this
+push is `0 - 1700 = -1700` — a 1700-px upward teleport.
+
+The symmetric guard already existed in `resolve_axis(Axis::X)` (with a
+clear comment), but `sweep_player_y` and `resolve_vertical` were
+missing it.
+
+### Fix
+
+Two-part:
+
+1. New helper `dominantly_horizontal_overlap(body, block)` — true when
+   the body's existing overlap with `block` is wider on the y axis than
+   the x axis. Side-wall contacts have large y-overlap; floor/ceiling
+   contacts have large x-overlap.
+2. Both `sweep_player_y`'s `first_body_sweep` predicate and
+   `resolve_vertical` skip blocks where this returns true. The X-axis
+   sweep / resolve owns those.
+
+Plus a regression test (`wall_cling_does_not_teleport_to_wall_top_on_y_sweep`)
+that reproduces the exact pose: wall-cling on a tall left wall (top at
+y=0) with `wall_slide_speed` downward, sub-pixel penetration into the
+wall on x. Pre-fix: player teleports to y≈-23. Post-fix: |dy| < 50 px,
+player stays in the world.
+
+### Trace coverage that made the fix takeable
+
+The ad-hoc trace recorder added shortly before this bug (see
+`docs/gameplay_trace_recorder.md`) made the diagnosis 10× faster. Two
+recorder upgrades from this fix's patch are worth keeping in mind:
+
+- **`nearby_collision` now uses the feature-augmented collision world.**
+  The wall the player was clinging to wasn't in `GameWorld.0.blocks`
+  (it came from `runtime.features` via `world_with_sandbox_solids`), so
+  the trace's nearby-collision view was empty and the wall was
+  invisible. The recorder now calls `features::world_with_sandbox_solids`
+  the same way `sandbox_update` does.
+- **`last_safe_player_pos` is gated by `classify_player_safety`.** The
+  pre-fix trace recorded `last_safe_player_pos = (62, -23)` because
+  the player was technically `on_ground` after the teleport. The new
+  gate refuses to remember any position that the OOB detector would
+  reject, and also refuses while the player is taking damage / in
+  hitstun / in blink-grace / mid-room-transition.
+
+The shared classifier (`ambition_engine::classify_player_safety`) is
+the single source of truth so the trace's OOB detector and the
+sandbox's safe-pos gate cannot drift again.
+
+### Takeaway
+
+**A swept hit with `time_of_impact = 0` on an already-overlapping
+block is not a landing — it's an existing contact, and the snap
+direction has to come from the *shape* of the overlap, not the
+direction of `delta`.** When you see an unconditional `pos += block_top
+- body.bottom` in collision code, ask: what if the block's top is
+hundreds of pixels away from the body? Add the symmetric overlap-shape
+guard `resolve_axis(Axis::X)` already had.
+
+---
+
+
+
 ## bevy_ecs_ldtk renders IntGrid cells by default, even with no tileset
 
 **Date:** 2026-05-04. **Fixed in:** `ded1dc2`.

@@ -51,6 +51,46 @@ use bevy::prelude::Resource;
 use feel::SandboxFeelTuning;
 use input::KeyboardPreset;
 
+/// Per-frame conditions that gate writes to `SandboxRuntime::last_safe_player_pos`.
+/// We refuse to record a position as "safe" while any of these flags are
+/// set so an in-flight reset / hazard respawn / room transition cannot
+/// pollute the safe spawn point. Construct with [`SafePositionContext::frame`].
+#[derive(Clone, Copy, Debug)]
+pub struct SafePositionContext {
+    /// True if the player took damage this frame.
+    pub damaged_this_frame: bool,
+    /// True if hitstun is active (player has reduced control).
+    pub in_hitstun: bool,
+    /// True if a feature requested a player reset this frame.
+    pub feature_requested_reset: bool,
+    /// True if the post-blink grace timer is currently active.
+    pub blink_grace_active: bool,
+    /// True if a room transition fired or is cooling down this frame.
+    pub room_transitioning: bool,
+}
+
+impl SafePositionContext {
+    /// "All safe": no damage, no hitstun, no reset, no blink grace, no
+    /// transition. Useful for tests.
+    pub fn ideal() -> Self {
+        Self {
+            damaged_this_frame: false,
+            in_hitstun: false,
+            feature_requested_reset: false,
+            blink_grace_active: false,
+            room_transitioning: false,
+        }
+    }
+
+    pub fn is_eligible(&self) -> bool {
+        !self.damaged_this_frame
+            && !self.in_hitstun
+            && !self.feature_requested_reset
+            && !self.blink_grace_active
+            && !self.room_transitioning
+    }
+}
+
 /// Active room's collision world, exposed as a Bevy resource.
 ///
 /// Sandbox systems read collision through this wrapper so simulation logic
@@ -198,8 +238,31 @@ impl SandboxRuntime {
         self.interact_buffer_timer = 0.0;
     }
 
-    pub fn remember_safe_player_position(&mut self) {
-        if self.player.on_ground {
+    /// Record the current player position as "the last known safe spot"
+    /// when (and only when) every predicate of safety holds. Call sites
+    /// pass the same augmented collision world the engine simulated
+    /// against this frame so the gate matches reality.
+    ///
+    /// The flags allow the caller to suppress this write during damage
+    /// resolution, hazard respawn, hitstun, post-blink grace, or room
+    /// transitions where the player position is intentionally being
+    /// teleported and shouldn't be remembered as safe. See
+    /// `docs/lessons_learned.md` for the OOB trace where a wall-cling
+    /// teleport polluted `last_safe_player_pos` with `(62, -23)`.
+    pub fn remember_safe_player_position(&mut self, world: &ae::World, ctx: SafePositionContext) {
+        if !self.player.on_ground {
+            return;
+        }
+        if !ctx.is_eligible() {
+            return;
+        }
+        let verdict = ae::classify_player_safety(&self.player, world, 0.0, |block| {
+            matches!(
+                block.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            )
+        });
+        if verdict.is_safe() {
             self.last_safe_player_pos = self.player.pos;
         }
     }
@@ -240,5 +303,117 @@ pub fn move_toward(value: f32, target: f32, delta: f32) -> f32 {
         (value + delta).min(target)
     } else {
         (value - delta).max(target)
+    }
+}
+
+#[cfg(test)]
+mod safe_pos_tests {
+    use super::*;
+    use ambition_engine::Block;
+
+    fn dummy_world() -> ae::World {
+        ae::World::new(
+            "test",
+            ae::Vec2::new(1800.0, 1800.0),
+            ae::Vec2::new(170.0, 1695.0),
+            vec![Block::solid(
+                "left wall",
+                ae::Vec2::new(0.0, 0.0),
+                ae::Vec2::new(36.0, 1800.0),
+            )],
+        )
+    }
+
+    fn runtime_with_player_at(world: &ae::World, pos: ae::Vec2) -> SandboxRuntime {
+        let mut runtime = SandboxRuntime::new(
+            world,
+            ae::AbilitySet::sandbox_all(),
+            ae::DEFAULT_TUNING,
+            physics::PhysicsSandboxSettings::default(),
+        );
+        // Force a known starting "safe pos" we can detect changes from.
+        runtime.last_safe_player_pos = ae::Vec2::new(170.0, 1695.0);
+        runtime.player.pos = pos;
+        runtime.player.on_ground = true;
+        runtime
+    }
+
+    /// The OOB y=-23 position (above the world envelope) must NOT be
+    /// recorded as safe even though `on_ground` is true. This is the
+    /// invariant the wall-cling teleport bug violated for two consecutive
+    /// reproductions before the fix.
+    #[test]
+    fn rejects_position_above_world_envelope() {
+        let world = dummy_world();
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(62.0, -23.0));
+        let initial = runtime.last_safe_player_pos;
+        runtime.remember_safe_player_position(&world, SafePositionContext::ideal());
+        assert_eq!(
+            runtime.last_safe_player_pos, initial,
+            "above-world position must not become last_safe_player_pos"
+        );
+    }
+
+    /// The position update should fire when the player is grounded inside
+    /// the world envelope and not overlapping a Solid.
+    #[test]
+    fn accepts_legitimate_grounded_position() {
+        let world = dummy_world();
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(200.0, 900.0));
+        runtime.remember_safe_player_position(&world, SafePositionContext::ideal());
+        assert_eq!(
+            runtime.last_safe_player_pos,
+            ae::Vec2::new(200.0, 900.0),
+            "a legal grounded position should be remembered"
+        );
+    }
+
+    /// Even if the player is grounded somewhere legitimate, an in-flight
+    /// reset / damage / hitstun / blink / room transition must veto the
+    /// write so the safe pos doesn't drift while the player is being
+    /// teleported.
+    #[test]
+    fn vetoes_write_during_damage_or_reset() {
+        let world = dummy_world();
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(200.0, 900.0));
+        let initial = runtime.last_safe_player_pos;
+        let mut ctx = SafePositionContext::ideal();
+        ctx.damaged_this_frame = true;
+        runtime.remember_safe_player_position(&world, ctx);
+        assert_eq!(runtime.last_safe_player_pos, initial);
+
+        let mut ctx = SafePositionContext::ideal();
+        ctx.feature_requested_reset = true;
+        runtime.remember_safe_player_position(&world, ctx);
+        assert_eq!(runtime.last_safe_player_pos, initial);
+
+        let mut ctx = SafePositionContext::ideal();
+        ctx.in_hitstun = true;
+        runtime.remember_safe_player_position(&world, ctx);
+        assert_eq!(runtime.last_safe_player_pos, initial);
+
+        let mut ctx = SafePositionContext::ideal();
+        ctx.blink_grace_active = true;
+        runtime.remember_safe_player_position(&world, ctx);
+        assert_eq!(runtime.last_safe_player_pos, initial);
+
+        let mut ctx = SafePositionContext::ideal();
+        ctx.room_transitioning = true;
+        runtime.remember_safe_player_position(&world, ctx);
+        assert_eq!(runtime.last_safe_player_pos, initial);
+    }
+
+    /// A position INSIDE a Solid block is not safe even if `on_ground`
+    /// is true. Mirror of `classify_player_safety`'s InsideSolid case.
+    #[test]
+    fn rejects_position_inside_solid() {
+        let world = dummy_world();
+        // The left wall's right edge is at x=36; place the player center
+        // at x=18 with half-width 14, body covers x=4..32 — fully inside
+        // the wall.
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(18.0, 900.0));
+        let initial = runtime.last_safe_player_pos;
+        runtime.remember_safe_player_position(&world, SafePositionContext::ideal());
+        assert_eq!(runtime.last_safe_player_pos, initial);
     }
 }

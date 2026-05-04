@@ -1227,15 +1227,31 @@ fn sweep_player_y(
         return;
     }
 
+    let start_body = player.aabb();
     if let Some(hit) = world.first_body_sweep(player.aabb(), delta, |block| {
         if !is_solid_for_axis(block.kind, Axis::Y) {
-            false
-        } else if matches!(block.kind, BlockKind::OneWay) {
-            let landing_from_above = delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0;
-            landing_from_above && !drop_through
-        } else {
-            true
+            return false;
         }
+        if matches!(block.kind, BlockKind::OneWay) {
+            let landing_from_above = delta.y >= 0.0 && prev_bottom <= block.aabb.top() + 8.0;
+            return landing_from_above && !drop_through;
+        }
+        // AMBITION_REVIEW(spatial): reject blocks the body is already
+        // overlapping dominantly on the y axis. Concrete repro: a player
+        // wall-clinging on a tall left-side wall whose top is at world
+        // y=0 used to get a `time_of_impact = 0` hit on the wall during
+        // the downward y-sweep, then snap the body's bottom to the wall's
+        // top — teleporting the player from `(62, 1678)` to `(62, -23)`
+        // (= `0 - half_height`). The fix mirrors `resolve_axis(Axis::X)`'s
+        // overlap-shape guard: when the existing x-overlap is non-zero
+        // and the y-overlap is larger, this is a *side-wall* contact and
+        // belongs to the x-axis sweep/resolve. The vertical sweep should
+        // not see it. See `docs/lessons_learned.md` for the trace
+        // signature and the regression test.
+        if dominantly_horizontal_overlap(start_body, block.aabb) {
+            return false;
+        }
+        true
     }) {
         player.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
         let body = player.aabb();
@@ -1251,6 +1267,24 @@ fn sweep_player_y(
     }
 
     resolve_vertical(world, player, prev_bottom, drop_through);
+}
+
+/// True when `body` is already overlapping `block` and the existing overlap
+/// is wider on the y axis than on the x axis — i.e. this is a side-wall
+/// contact, not a vertical landing.
+///
+/// This is the symmetric counterpart to the `overlap_x > overlap_y` guard
+/// already used by `resolve_axis(Axis::X)`. Edge-touching bodies (zero
+/// x-overlap) are not considered side-wall contacts; only actual
+/// penetration counts. Without this guard, vertical sweeps and
+/// `resolve_vertical` could snap the player to a tall wall's far edge.
+fn dominantly_horizontal_overlap(body: Aabb, block: Aabb) -> bool {
+    let overlap_x = (body.right().min(block.right()) - body.left().max(block.left())).max(0.0);
+    if overlap_x <= 0.0 {
+        return false;
+    }
+    let overlap_y = (body.bottom().min(block.bottom()) - body.top().max(block.top())).max(0.0);
+    overlap_y > overlap_x
 }
 
 // AMBITION_REVIEW(spatial): one-way platform contact test. The 4px vertical
@@ -1332,6 +1366,20 @@ fn resolve_vertical(world: &World, player: &mut Player, prev_bottom: f32, drop_t
             if !landing_from_above || drop_through {
                 continue;
             }
+        }
+        // AMBITION_REVIEW(spatial): symmetric to `resolve_axis(Axis::X)`.
+        // Only resolve as a vertical contact when overlap is shallower in
+        // y than x. Otherwise this is a side-wall contact — the x-axis
+        // sweep/resolve owns it. Pushing vertically here can catapult the
+        // player to the wall block's top edge if the wall spans the full
+        // room height (concrete repro: wall-clinging on a tall left wall
+        // whose top is at world y=0 used to teleport the player to
+        // y = top - half_height = -23). Skipping OneWay because OneWay is
+        // by construction wider than tall.
+        if !matches!(block.kind, BlockKind::OneWay)
+            && dominantly_horizontal_overlap(aabb, block.aabb)
+        {
+            continue;
         }
         if aabb.center().y < block.aabb.center().y {
             let push = block.aabb.top() - aabb.bottom();
@@ -2204,6 +2252,112 @@ mod tests {
             player.pos.x - body.half_size().x >= 0.0 - 0.5,
             "player was punched through the left wall: body left = {}",
             player.pos.x - body.half_size().x,
+        );
+    }
+
+    /// Regression: reproduces the wall-cling → Grounded teleport captured
+    /// in `debug_traces/ambition_trace_1777903935-558508824-000000_*.json`.
+    /// The player wall-clings on a tall left-side wall (top at world y=0,
+    /// bottom at world's floor) and slides downward at `wall_slide_speed`.
+    /// Before the fix, the y-axis sweep would return `time_of_impact = 0`
+    /// on the wall (the body was edge-touching / fractionally penetrating
+    /// it), then unconditionally snap the body's bottom to the wall's TOP
+    /// edge — teleporting the player ~1700 px upward to
+    /// `y = 0 - half_height = -23`.
+    ///
+    /// The fix filters dominantly-horizontal overlaps out of the y-sweep
+    /// and adds the symmetric guard to `resolve_vertical`. After the fix
+    /// the player either stays roughly where they were (continuing the
+    /// wall slide) or moves by at most one frame's worth of velocity.
+    #[test]
+    fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
+        let world = test_world();
+        // Wall-cling pose: edge-touching left wall (wall.right = 36),
+        // mid-room vertically, with wall_slide_speed downward.
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        let half = player.size * 0.5;
+        let wall_right = 36.0;
+        // 0.05 px penetration into the wall — within the kind of float
+        // fuzz that survives between the x-sweep and the y-sweep.
+        player.pos.x = wall_right + half.x - 0.05;
+        player.pos.y = world.size.y * 0.5; // ~450, well inside the room
+        player.vel = Vec2::new(0.0, DEFAULT_TUNING.wall_slide_speed);
+        player.on_ground = false;
+        player.on_wall = true;
+        player.wall_normal_x = 1.0;
+        player.wall_clinging = true;
+
+        let initial_y = player.pos.y;
+        let _ = update_player_simulation_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                axis_x: -1.0, // pressing into the wall
+                control_dt: 1.0 / 60.0,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+
+        // Hard invariant: after one sim step the y position must still be
+        // inside the world envelope, and the y delta must be bounded by
+        // the velocity-budget plus a small slop. The pre-fix behavior
+        // teleported to y ≈ -23 (about 470 px above start); the post-fix
+        // behavior should be |dy| < 50 px.
+        assert!(
+            player.pos.y >= 0.0 && player.pos.y <= world.size.y,
+            "wall-cling y-sweep teleported player out of the world envelope: pos.y = {} (world.size.y = {})",
+            player.pos.y,
+            world.size.y,
+        );
+        let dy = (player.pos.y - initial_y).abs();
+        assert!(
+            dy < 50.0,
+            "wall-cling y-sweep moved player by {dy} px in one frame; expected at most a few pixels of slide",
+        );
+        // The player must not have transitioned to Grounded against a
+        // surface that doesn't exist at this y. The bug snapped the body
+        // bottom to the wall's TOP (y=0) and set on_ground=true.
+        assert!(
+            !player.on_ground,
+            "wall-cling y-sweep falsely set on_ground; player was supposedly grounded at y={}",
+            player.pos.y,
+        );
+    }
+
+    /// Direct unit test of `dominantly_horizontal_overlap`. The helper is
+    /// the source of truth for "is this a side-wall contact, not a
+    /// vertical landing"; both `sweep_player_y` and `resolve_vertical`
+    /// consult it to avoid the wall-cling teleport class.
+    #[test]
+    fn dominantly_horizontal_overlap_classifies_walls_vs_floors() {
+        // A floor (wide and shallow) overlapping the player's feet:
+        // overlap_x is the body width (28), overlap_y is small (4 px feet
+        // poke). overlap_x > overlap_y → NOT dominantly horizontal.
+        let body = Aabb::new(Vec2::new(50.0, 100.0), Vec2::new(14.0, 23.0));
+        let floor = Aabb::new(Vec2::new(80.0, 125.0), Vec2::new(60.0, 6.0));
+        assert!(
+            !dominantly_horizontal_overlap(body, floor),
+            "feet poking shallowly into a wide floor must NOT be classified as a wall contact"
+        );
+
+        // A tall left wall (left=0, right=36, top=0, bottom=900). Body
+        // edge-touching the wall on the right (body.left = wall.right):
+        // overlap_x is 0, so the helper returns false (edge-touching is
+        // not a wall contact for this guard).
+        let wall = Aabb::new(Vec2::new(18.0, 450.0), Vec2::new(18.0, 450.0));
+        let edge_touching = Aabb::new(Vec2::new(36.0 + 14.0, 450.0), Vec2::new(14.0, 23.0));
+        assert!(!dominantly_horizontal_overlap(edge_touching, wall));
+
+        // Body penetrating the wall by 1 px on x: overlap_x = 1,
+        // overlap_y = full body height (46). overlap_y > overlap_x →
+        // dominantly horizontal (a side-wall contact).
+        let body_inside_wall =
+            Aabb::new(Vec2::new(36.0 + 14.0 - 1.0, 450.0), Vec2::new(14.0, 23.0));
+        assert!(
+            dominantly_horizontal_overlap(body_inside_wall, wall),
+            "1 px penetration into a tall wall must be classified as a side-wall contact"
         );
     }
 }

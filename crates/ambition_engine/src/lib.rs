@@ -60,7 +60,10 @@ pub use movement::{
 pub use physics::{
     PhysicsBodyKind, PhysicsBodyRole, PhysicsBodySpec, PhysicsMaterial, PhysicsShape, RagdollSpec,
 };
-pub use player_state::{BodyMode, BodyShape, LocomotionState, ResourceMeter};
+pub use player_state::{
+    classify_player_safety, BodyMode, BodyShape, LocomotionState, PlayerSafetyVerdict,
+    ResourceMeter,
+};
 pub use scalar::approach;
 pub use state_machines::{
     state_machine_vocabulary, AmbitionStateMachineActor, AmbitionStateMachinePlugin, BossDefeated,

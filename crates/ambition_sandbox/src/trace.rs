@@ -496,32 +496,42 @@ impl GameplayTraceBuffer {
 /// Inspect the current player state against the active world and produce
 /// the *first* OOB reason found, if any. Order matters: NaN/inf should
 /// be reported before "outside envelope" because both can be true.
+///
+/// The world envelope / inside-solid check is delegated to
+/// `ae::classify_player_safety` so the trace recorder and
+/// `SandboxRuntime::remember_safe_player_position` use the same
+/// definition. The recorder layers the trace-only "absurd velocity"
+/// rule on top.
 pub fn detect_oob(player: &ae::Player, world: &ae::World, margin: f32) -> Option<OobReason> {
-    if !player.pos.x.is_finite() || !player.pos.y.is_finite() {
-        return Some(OobReason::PositionNonFinite);
-    }
-    if !player.vel.x.is_finite() || !player.vel.y.is_finite() {
-        return Some(OobReason::VelocityNonFinite);
-    }
     let speed = player.vel.length();
-    if speed > ABSURD_VELOCITY_MAGNITUDE {
+    if speed.is_finite() && speed > ABSURD_VELOCITY_MAGNITUDE {
         return Some(OobReason::AbsurdVelocity { magnitude: speed });
     }
-    let aabb = player.aabb();
-    if aabb.left() < -margin || aabb.right() > world.size.x + margin {
-        return Some(OobReason::OutsideWorldEnvelope { axis: 'x' });
-    }
-    if aabb.top() < -margin || aabb.bottom() > world.size.y + margin {
-        return Some(OobReason::OutsideWorldEnvelope { axis: 'y' });
-    }
-    for block in &world.blocks {
-        if matches!(block.kind, ae::BlockKind::Solid) && aabb.strict_intersects(block.aabb) {
-            return Some(OobReason::InsideSolid {
-                block_name: block.name.clone(),
-            });
+    match ae::classify_player_safety(player, world, margin, |b| {
+        matches!(b.kind, ae::BlockKind::Solid)
+    }) {
+        ae::PlayerSafetyVerdict::Safe => None,
+        ae::PlayerSafetyVerdict::PositionNonFinite => Some(OobReason::PositionNonFinite),
+        ae::PlayerSafetyVerdict::VelocityNonFinite => Some(OobReason::VelocityNonFinite),
+        ae::PlayerSafetyVerdict::OutsideWorldEnvelope { axis } => {
+            Some(OobReason::OutsideWorldEnvelope { axis })
+        }
+        ae::PlayerSafetyVerdict::InsideSolid => {
+            // Find which block we're inside so the dump names it. The
+            // shared classifier doesn't return the block reference (it
+            // takes a predicate closure to stay engine-side); a small
+            // second walk here is fine for the "we're already in trouble"
+            // path.
+            let aabb = player.aabb();
+            let block_name = world
+                .blocks
+                .iter()
+                .find(|b| matches!(b.kind, ae::BlockKind::Solid) && aabb.strict_intersects(b.aabb))
+                .map(|b| b.name.clone())
+                .unwrap_or_else(|| "<unknown>".into());
+            Some(OobReason::InsideSolid { block_name })
         }
     }
-    None
 }
 
 fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTraceShape> {
@@ -1225,6 +1235,14 @@ pub fn handle_trace_hotkey(
 /// against the previous tick's snapshot (input edges, locomotion
 /// changes, dash/jump/blink heuristics, room transitions, resets,
 /// damage, and unexplained position deltas).
+///
+/// The trace's collision view (`nearby_collision`, `detect_oob`'s
+/// inside-solid check) uses the same `world_with_sandbox_solids` view
+/// that `sandbox_update` feeds to the engine. Without that, the trace
+/// would miss feature-runtime solids the player can collide with —
+/// which is exactly what happened in the May 2026 wall-cling teleport
+/// trace, where `nearby_collision` was empty even though the player
+/// was clinging to a wall.
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     runtime: Res<SandboxRuntime>,
@@ -1246,6 +1264,12 @@ pub fn record_frame_system(
     let locomotion = locomotion_state.label().to_string();
     let body_mode = body_mode_state.label().to_string();
 
+    let augmented_world = crate::features::world_with_sandbox_solids(
+        &world.0,
+        &runtime.moving_platform,
+        &runtime.features,
+    );
+
     // Synthesize events from the diff before pushing the frame so the
     // event tick aligns with the frame the user will see in the dump.
     synthesize_events_from_diff(
@@ -1261,7 +1285,7 @@ pub fn record_frame_system(
     record_simulation_frame(
         &mut buffer,
         &runtime,
-        &world.0,
+        &augmented_world,
         *control_frame,
         real_dt,
         sim_dt,

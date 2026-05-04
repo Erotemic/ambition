@@ -251,7 +251,7 @@ fn state_aware_entity_sprite(
 }
 
 /// Replace the colored-rectangle sprite on enemy/sandbag entities with the
-/// goblin sprite-sheet sprite once the asset is available. Newly-spawned
+/// appropriate character sprite-sheet sprite once the asset is available. Newly-spawned
 /// feature visuals (initial setup or room transitions) are picked up here.
 pub fn upgrade_enemy_sprites(
     mut commands: Commands,
@@ -260,9 +260,6 @@ pub fn upgrade_enemy_sprites(
     new_features: Query<(Entity, &FeatureVisual), Without<CharacterAnimator>>,
 ) {
     let Some(assets) = assets else {
-        return;
-    };
-    let Some(goblin) = &assets.characters.goblin else {
         return;
     };
     for (entity, visual) in &new_features {
@@ -275,12 +272,15 @@ pub fn upgrade_enemy_sprites(
         ) {
             continue;
         }
+        let Some(character_asset) = assets.characters.enemy_asset(view.kind) else {
+            continue;
+        };
         let collision = BVec2::new(view.size.x, view.size.y);
-        let sprite = build_character_sprite(goblin, collision);
+        let sprite = build_character_sprite(character_asset, collision);
         commands.entity(entity).insert((
             sprite,
-            feet_anchor_for(goblin.spec, collision),
-            CharacterAnimator::new(goblin.spec),
+            feet_anchor_for(character_asset.spec, collision),
+            CharacterAnimator::new(character_asset.spec),
         ));
     }
 }

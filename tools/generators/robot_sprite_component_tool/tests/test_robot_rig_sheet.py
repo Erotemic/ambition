@@ -328,3 +328,41 @@ def test_anchor_editor_headless_report(tmp_path):
     ids = {row["sprite"] for row in data["sprites"]}
     assert ids == {"torso_lean_forward", "hand_fist"}
     assert data["sprites"][0]["anchors"]
+
+
+def test_pose_override_zorder_and_per_frame_rotation(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    tool = _load_tool(root)
+    override_path = tmp_path / "pose_overrides.yaml"
+    override_path.write_text(yaml.safe_dump({
+        "version": "0.1",
+        "animations": {
+            "run": {
+                "frames": {
+                    "0": {
+                        "front_arm_angle": 33.0,
+                        "back_arm_angle": -21.0,
+                        "front_wrist_delta": [20.0, 18.0],
+                        "z_order": ["fx_behind", "back_leg", "torso", "front_leg", "back_arm", "back_hand", "front_arm", "front_hand", "head", "fx_front"],
+                    }
+                }
+            }
+        },
+    }, sort_keys=False), encoding="utf8")
+    job = tool.RigJob.load(root / "examples" / "robot_rig_job.yaml")
+    job.pose_overrides = override_path
+    atlas = tool.ComponentAtlas(job.metadata, job.slices)
+    assembler = tool.RobotAssembler(atlas, job.render, tool.load_pose_overrides(job.pose_overrides))
+    _frame, manifest = assembler.render_frame("run", 0)
+    pose = manifest["pose"]
+    assert pose["overrides_applied"]["front_arm_angle"] == 33.0
+    assert pose["arm_mounts"]["front_wrist_delta"] == [20.0, 18.0]
+    assert pose["arm_mounts"]["z_order"].index("torso") < pose["arm_mounts"]["z_order"].index("back_arm")
+
+
+def test_relevant_animations_for_component_filters_preview_scope():
+    root = Path(__file__).resolve().parents[1]
+    tool = _load_tool(root)
+    animations = tool.relevant_animations_for_sprite("fx_slash_arc")
+    assert animations == ["slash"]
+    assert "run" in tool.relevant_animations_for_sprite("torso_lean_forward")

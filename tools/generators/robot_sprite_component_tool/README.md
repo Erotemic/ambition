@@ -243,3 +243,26 @@ Recommended anchor workflow now becomes:
 rough YAML boxes -> programmatic crop refinement -> manual anchor edit GUI ->
 component anchor QA sheet -> run/debug-frame preview -> final spritesheet
 ```
+
+## v29 GUI pose/z-order editor
+
+The anchor editor now covers both local component anchors and frame-specific rig tuning:
+
+```bash
+python tools/anchor_editor.py metadata/robot_components.refined.yaml \
+  --slices output/slices \
+  --rough-metadata metadata/robot_components.rough.yaml \
+  --pose-overrides metadata/robot_pose_overrides.yaml \
+  --preview-config examples/robot_rig_job.yaml
+```
+
+New behavior:
+
+- The anchor canvas and spritesheet preview are separated by a draggable splitter.
+- The preview renders from the current unsaved metadata and unsaved pose/z-order overrides.
+- By default the preview filters to animations that use the selected component. For example, selecting `fx_slash_arc` only previews `slash`, while selecting `torso_lean_forward` previews the animations that use that torso.
+- The GUI includes per-animation/per-frame pose entries for right/front and left/back limb fields such as `front_wrist_delta`, `back_wrist_delta`, `front_arm_angle`, `back_arm_angle`, `front_hand_angle`, `back_hand_angle`, `front_leg_angle`, and `back_leg_angle`.
+- The GUI includes a bottom-to-top z-order list. Move entries up/down and apply them to the selected animation frame.
+- Pose/z-order edits are saved to `metadata/robot_pose_overrides.yaml`. Anchor edits still save to the refined metadata and optionally sync to rough metadata.
+
+The compositor applies pose overrides after the procedural default pose is generated, so manual edits are small YAML deltas instead of a full replacement animation system.

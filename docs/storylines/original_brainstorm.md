@@ -185,3 +185,13 @@ at you if you have them. I think having a lot of conflicting factions that you
 have to navigate will help make this fun and open ended.
 
 
+----
+
+
+Factions are going to be important. It will also help the story have a lot of
+very heavy handed satire.  We can probably go as far as making a faction for
+directions on a political compass. Elves and goblins will also be a faction to
+give an idea of the scope and absurdity.  But for the left/right I think we
+need to have an NPC. The right has the "Coal Bear", a literal bear. The left
+will have a "Coal Bert", reminiscent of the sesame street character. They will
+both have a Steve or Stephen nickname.

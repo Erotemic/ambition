@@ -182,3 +182,46 @@ python tools/robot_rig_sheet.py component-anchors examples/robot_rig_job.yaml ou
 python tools/robot_rig_sheet.py debug-frame examples/robot_rig_job.yaml output/assembled/robot_run_frame0_anchor_attach.png --animation run --frame-index 0 --zoom 5 --pad 30 --background black
 python tools/robot_rig_sheet.py spritesheet examples/robot_rig_job.yaml output/assembled/robot_run_arm_preview.png
 ```
+
+## v29 pose and z-order editing loop
+
+Use `tools/anchor_editor.py` as the main tuning UI once component anchors are roughly correct.  The editor now has a draggable splitter between the component-local anchor canvas and the live spritesheet preview, so give the preview enough space when tuning full rows.
+
+The live preview is rendered from unsaved in-memory state.  This includes:
+
+- unsaved local anchor / pivot edits in `robot_components.refined.yaml`,
+- unsaved pose overrides,
+- unsaved z-order overrides.
+
+The preview filters to animations related to the currently selected component by default.  This avoids re-rendering the full sheet when editing a single part.  Disable **relevant animations only** in the GUI when a full-job preview is useful.
+
+Manual pose/z-order edits are stored in `metadata/robot_pose_overrides.yaml`:
+
+```yaml
+version: "0.1"
+animations:
+  run:
+    frames:
+      "0":
+        front_wrist_delta: [20, 18]
+        back_wrist_delta: [-10, 13]
+        front_arm_angle: -8
+        back_arm_angle: 8
+        z_order:
+          - fx_behind
+          - back_leg
+          - back_hand
+          - back_arm
+          - torso
+          - front_leg
+          - front_arm
+          - front_hand
+          - head
+          - fx_front
+```
+
+Z-order is interpreted bottom-to-top.  Use `front_*` for the near/right side of the robot and `back_*` for the far/left side.  Keep anchor placement, frame pose, and z-order as separate concepts: fix component-local anchors first, then edit per-frame joint targets and rotations, and only then adjust z-order.
+
+## External editor note
+
+A general 2D animation editor can help with drawing or previewing sprites, but the current pipeline needs custom metadata: green-screen refinement, per-component crop rects, local anchors, pivot aliases, side-specific front/back semantics, and a YAML pose-override layer that feeds `robot_rig_sheet.py`.  The bespoke editor is therefore kept as the source of truth for this repo.  It can still coexist with external art tools: export cleaned component PNGs from an art editor, then use this GUI to place anchors and tune pose/z-order overrides.

@@ -2,6 +2,7 @@
 # Paths are relative to this YAML file.
 metadata: ../metadata/robot_components.refined.yaml
 slices: ../output/slices
+pose_overrides: ../metadata/robot_pose_overrides.yaml
 output_dir: ../output/assembled
 animations:
   - idle

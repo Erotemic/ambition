@@ -15,10 +15,12 @@ use bevy::sprite::Anchor;
 use crate::features::FeatureVisualKind;
 use crate::SandboxRuntime;
 
-/// Animation rows on each character sheet, in the order the generator emits.
+/// Animation ids that a character sheet may define.
 ///
-/// The boss has its own row set; see `boss_sprites::BossAnim`. Robot/goblin
-/// share this 11-row layout.
+/// The boss has its own row set; see `boss_sprites::BossAnim`. A sheet no
+/// longer has to contain every row here: `CharacterSheetSpec` maps unsupported
+/// animation requests back to `Idle`, so simple characters can emit only their
+/// relevant rows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CharacterAnim {
     Idle = 0,
@@ -42,9 +44,10 @@ pub struct AnimRow {
 
 /// Frame layout for one of the generated sheets.
 ///
-/// Frames are 128×128 with a per-row label strip on the left whose width
-/// differs between targets (robot 100, goblin 96). All rows have the same
-/// vertical pitch but different frame counts (e.g. goblin slash is 7).
+/// Frames are 128x128 with a per-row label strip on the left whose width
+/// differs between targets. Rows are sparse and ordered exactly as the
+/// generator emits them, so a sandbag can list only idle/hit/death while the
+/// player can still list the full movement/combat set.
 ///
 /// Tuning fields (`collision_scale`, `feet_anchor_y`, `frame_sample_inset`)
 /// live per-spec so each target can be tuned without touching globals —
@@ -59,7 +62,7 @@ pub struct CharacterSheetSpec {
     /// so this is *not* always 128 anymore — robot is 120, goblin 121.
     pub frame_width: u32,
     pub frame_height: u32,
-    pub rows: [AnimRow; 11],
+    pub rows: &'static [(CharacterAnim, AnimRow)],
     /// Multiplier applied to the entity's collision-box max dimension to
     /// derive the rendered sprite's height. Width is derived from the
     /// cropped frame's aspect ratio so the character isn't squashed.
@@ -80,55 +83,88 @@ pub struct CharacterSheetSpec {
 
 pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
-    // After the gen2d union-bbox crop the robot sheet is 120 wide × 128
-    // tall (down from 128×128). Mirror that here.
+    // After the gen2d union-bbox crop the robot sheet is 120 wide x 128
+    // tall (down from 128x128). Mirror that here.
     frame_width: 120,
     frame_height: 128,
-    rows: [
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        }, // Idle
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.095,
-        }, // Walk
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.075,
-        }, // Run
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.095,
-        }, // Jump
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.095,
-        }, // Fall
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.075,
-        }, // Slash
-        AnimRow {
-            frame_count: 5,
-            duration_secs: 0.090,
-        }, // Hit
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.110,
-        }, // Death
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.062,
-        }, // BlinkOut
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.062,
-        }, // BlinkIn
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.065,
-        }, // Dash
+    rows: &[
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.120,
+            },
+        ),
+        (
+            CharacterAnim::Walk,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Run,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::Jump,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Fall,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Slash,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::Hit,
+            AnimRow {
+                frame_count: 5,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            CharacterAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+        (
+            CharacterAnim::BlinkOut,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::BlinkIn,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::Dash,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.065,
+            },
+        ),
     ],
     collision_scale: 2.1,
     feet_anchor_y: -0.320,
@@ -137,57 +173,122 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 
 pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
-    // After the gen2d union-bbox crop the goblin sheet is 121×127.
+    // After the gen2d union-bbox crop the goblin sheet is 121x127.
     frame_width: 121,
     frame_height: 127,
-    rows: [
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        }, // Idle
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.095,
-        }, // Walk
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.075,
-        }, // Run
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.095,
-        }, // Jump
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.095,
-        }, // Fall
-        AnimRow {
-            frame_count: 7,
-            duration_secs: 0.075,
-        }, // Slash (goblin: 7)
-        AnimRow {
-            frame_count: 5,
-            duration_secs: 0.090,
-        }, // Hit
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.110,
-        }, // Death
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.062,
-        }, // BlinkOut
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.062,
-        }, // BlinkIn
-        AnimRow {
-            frame_count: 6,
-            duration_secs: 0.065,
-        }, // Dash
+    rows: &[
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.120,
+            },
+        ),
+        (
+            CharacterAnim::Walk,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Run,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::Jump,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Fall,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Slash,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::Hit,
+            AnimRow {
+                frame_count: 5,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            CharacterAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+        (
+            CharacterAnim::BlinkOut,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::BlinkIn,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::Dash,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.065,
+            },
+        ),
     ],
     collision_scale: 2.1,
     feet_anchor_y: -0.350,
+    frame_sample_inset: 1,
+};
+
+pub const SANDBAG_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 100,
+    frame_width: 128,
+    frame_height: 128,
+    rows: &[
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.120,
+            },
+        ),
+        (
+            CharacterAnim::Hit,
+            AnimRow {
+                frame_count: 4,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::Death,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.112,
+            },
+        ),
+    ],
+    collision_scale: 1.38,
+    feet_anchor_y: -0.438,
     frame_sample_inset: 1,
 };
 
@@ -243,15 +344,40 @@ pub fn build_character_sprite(asset: &CharacterSpriteAsset, collision: Vec2) -> 
 }
 
 impl CharacterSheetSpec {
+    fn row_index(&self, anim: CharacterAnim) -> Option<usize> {
+        self.rows.iter().position(|(row_anim, _)| *row_anim == anim)
+    }
+
+    pub fn resolve_anim(&self, anim: CharacterAnim) -> CharacterAnim {
+        if self.row_index(anim).is_some() {
+            anim
+        } else {
+            CharacterAnim::Idle
+        }
+    }
+
+    fn row(&self, anim: CharacterAnim) -> AnimRow {
+        let resolved = self.resolve_anim(anim);
+        let idx = self
+            .row_index(resolved)
+            .expect("character sprite sheet must define an Idle row");
+        self.rows[idx].1
+    }
+
     pub fn build_atlas(&self) -> TextureAtlasLayout {
-        let max_frames = self.rows.iter().map(|r| r.frame_count).max().unwrap_or(0) as u32;
+        let max_frames = self
+            .rows
+            .iter()
+            .map(|(_, row)| row.frame_count)
+            .max()
+            .unwrap_or(0) as u32;
         let total_w = self.label_width + max_frames * self.frame_width;
         let total_h = self.rows.len() as u32 * self.frame_height;
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
         let inset = self
             .frame_sample_inset
             .min(self.frame_width.min(self.frame_height) / 4);
-        for (row_idx, row) in self.rows.iter().enumerate() {
+        for (row_idx, (_, row)) in self.rows.iter().enumerate() {
             for col in 0..row.frame_count {
                 let x = self.label_width + col as u32 * self.frame_width;
                 let y = row_idx as u32 * self.frame_height;
@@ -266,18 +392,24 @@ impl CharacterSheetSpec {
     }
 
     pub fn flat_index(&self, anim: CharacterAnim, frame: usize) -> usize {
-        let row = anim as usize;
-        let frames_before: usize = self.rows[..row].iter().map(|r| r.frame_count).sum();
-        let max_frame = self.rows[row].frame_count.saturating_sub(1);
+        let resolved = self.resolve_anim(anim);
+        let row = self
+            .row_index(resolved)
+            .expect("character sprite sheet must define an Idle row");
+        let frames_before: usize = self.rows[..row]
+            .iter()
+            .map(|(_, row)| row.frame_count)
+            .sum();
+        let max_frame = self.rows[row].1.frame_count.saturating_sub(1);
         frames_before + frame.min(max_frame)
     }
 
     pub fn frame_count(&self, anim: CharacterAnim) -> usize {
-        self.rows[anim as usize].frame_count
+        self.row(anim).frame_count
     }
 
     pub fn frame_duration(&self, anim: CharacterAnim) -> f32 {
-        self.rows[anim as usize].duration_secs
+        self.row(anim).duration_secs
     }
 }
 
@@ -293,6 +425,7 @@ pub struct CharacterSpriteAsset {
 pub struct CharacterSpriteAssets {
     pub robot: Option<CharacterSpriteAsset>,
     pub goblin: Option<CharacterSpriteAsset>,
+    pub sandbag: Option<CharacterSpriteAsset>,
     // The boss uses the entity-sprite path (`EntitySprite::BossCore`) rather
     // than the character-spritesheet path: its generator emits non-standard
     // animation rows (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/
@@ -303,7 +436,8 @@ pub struct CharacterSpriteAssets {
 impl CharacterSpriteAssets {
     pub fn enemy_asset(&self, kind: FeatureVisualKind) -> Option<&CharacterSpriteAsset> {
         match kind {
-            FeatureVisualKind::Enemy | FeatureVisualKind::Sandbag => self.goblin.as_ref(),
+            FeatureVisualKind::Enemy => self.goblin.as_ref(),
+            FeatureVisualKind::Sandbag => self.sandbag.as_ref().or(self.goblin.as_ref()),
             _ => None,
         }
     }
@@ -311,6 +445,7 @@ impl CharacterSpriteAssets {
 
 const ROBOT_FILENAME: &str = "robot_spritesheet.png";
 const GOBLIN_FILENAME: &str = "goblin_spritesheet.png";
+const SANDBAG_FILENAME: &str = "sandbag_spritesheet.png";
 
 /// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
 /// Missing files are not an error — callers fall back to colored rectangles.
@@ -321,13 +456,16 @@ pub fn load_character_sprites_in(
 ) -> CharacterSpriteAssets {
     let robot_rel = format!("{sprite_folder}/{ROBOT_FILENAME}");
     let goblin_rel = format!("{sprite_folder}/{GOBLIN_FILENAME}");
+    let sandbag_rel = format!("{sprite_folder}/{SANDBAG_FILENAME}");
 
     let robot = build_optional(asset_server, layouts, &robot_rel, ROBOT_SHEET);
     let goblin = build_optional(asset_server, layouts, &goblin_rel, GOBLIN_SHEET);
+    let sandbag = build_optional(asset_server, layouts, &sandbag_rel, SANDBAG_SHEET);
 
     for (name, rel, present) in [
         ("robot", &robot_rel, robot.is_some()),
         ("goblin", &goblin_rel, goblin.is_some()),
+        ("sandbag", &sandbag_rel, sandbag.is_some()),
     ] {
         if !present {
             eprintln!(
@@ -336,7 +474,7 @@ pub fn load_character_sprites_in(
         }
     }
 
-    CharacterSpriteAssets { robot, goblin }
+    CharacterSpriteAssets { robot, goblin, sandbag }
 }
 
 fn build_optional(
@@ -391,6 +529,7 @@ impl CharacterAnimator {
     }
 
     pub fn request(&mut self, anim: CharacterAnim) {
+        let anim = self.spec.resolve_anim(anim);
         if self.current == anim {
             return;
         }
@@ -402,7 +541,7 @@ impl CharacterAnimator {
 
     /// Advance the animation. Returns the flat atlas index for the current frame.
     pub fn tick(&mut self, dt: f32) -> usize {
-        let row = self.spec.rows[self.current as usize];
+        let row = self.spec.row(self.current);
         if row.frame_count == 0 || row.duration_secs <= 0.0 {
             return self.spec.flat_index(self.current, self.frame);
         }

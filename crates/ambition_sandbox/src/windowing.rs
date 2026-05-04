@@ -79,6 +79,6 @@ pub fn window_mode_hotkeys(
         None
     };
     if let Some(mode) = requested {
-        crate::pause_menu::apply_display_mode(mode, &mut state, &mut windows);
+        crate::settings::apply_display_mode(mode, &mut state, &mut windows);
     }
 }

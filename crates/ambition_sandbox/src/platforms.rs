@@ -60,6 +60,13 @@ impl MovingPlatformState {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 
+    /// Direction of travel along the platform's authored sweep, +1 or -1.
+    /// Exposed for trace/HUD readers that want to surface the platform's
+    /// motion phase without owning its private state.
+    pub fn direction(&self) -> f32 {
+        self.dir
+    }
+
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
             name: "moving time-reference platform".to_string(),

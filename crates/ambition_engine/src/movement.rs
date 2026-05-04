@@ -158,6 +158,11 @@ pub struct Player {
     pub max_speed: f32,
     pub time_alive: f32,
     pub resets: u32,
+    /// Authoritative body-shape stance. Default is `Standing`. Sandbox
+    /// systems writing crouch / morph / slide should set this directly,
+    /// gated on `BodyShape::fits_at` for collision-safe resize.
+    /// Trace/HUD readers consult this field instead of inferring.
+    pub body_mode: crate::player_state::BodyMode,
 }
 
 impl Player {
@@ -207,6 +212,7 @@ impl Player {
             max_speed: 0.0,
             time_alive: 0.0,
             resets: 0,
+            body_mode: crate::player_state::BodyMode::Standing,
         }
     }
 

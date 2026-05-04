@@ -263,5 +263,36 @@ extension recipe (add a `SettingsItem` variant, append to `ALL`,
 implement `label`, handle in `handle_settings_input`).
 
 The display-mode F6/F7 dev hotkeys still work and now delegate to
-`pause_menu::apply_display_mode`, so the menu and the keystrokes
-stay in lock-step.
+`settings::apply_display_mode`, so the menu and the keystrokes stay in
+lock-step.
+
+## Trace recorder hardening (post-baseline)
+
+The recorder is now useful as the first-line collision/OOB debugging
+tool:
+
+- **Filenames** include unix seconds, sub-second nanoseconds, and a
+  process-wide atomic counter, so dumps in the same nanosecond cannot
+  overwrite each other.
+- **Synthesized events** are diffed each tick from the previous sim
+  snapshot — input edges, locomotion / body changes, dash / double
+  jump / jump heuristics, blink start + precision, damage / death,
+  reset, room transition, and (the smoking-gun event for the active
+  OOB bug) `CollisionCorrection` for unexplained position deltas
+  larger than what the player's velocity can produce. The recorder
+  stays a passive observer; phase helpers can still push events
+  directly when they have non-state-derivable info.
+- **Moving platforms** populate `GameplayTraceFrame.moving_platforms`
+  with pos / size / AABB / direction / riding / distance fields so
+  platform-related tunneling becomes visible in the trace.
+- **BodyMode** is now an authoritative field on `ambition_engine::Player`.
+  Sandbox systems that drive crouch / morph / slide should write
+  `player.body_mode`; the trace and HUD consult `BodyMode::from_player`
+  which reads the field. Single source of truth.
+
+Settings extracted into `crate::settings` (vocabulary +
+mutation logic). The pause menu became a thin renderer/controller
+that decodes `ActionState` into a compact `NavInput` and dispatches
+to `settings::handle_action`. Audio-off (`--no-default-features
+--features input`) compiles and runs with the Music row replaced by
+a placeholder.

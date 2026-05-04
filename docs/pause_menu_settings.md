@@ -19,6 +19,23 @@ Currently exposes:
 
 The page is reached via the **Settings** entry on the top page.
 
+## Architecture
+
+The settings page splits into two modules:
+
+- [`crate::settings`](../crates/ambition_sandbox/src/settings.rs) owns
+  the vocabulary (`SettingsItem`, `SettingsAction`, `SettingsView`,
+  `SettingsOutcome`) and the per-row mutation logic
+  (`handle_action`, `apply_display_mode`).
+- [`crate::pause_menu`](../crates/ambition_sandbox/src/pause_menu.rs) is
+  the renderer/controller: it spawns the UI nodes, decodes
+  `ActionState` into a compact `NavInput`, dispatches to
+  `settings::handle_action`, and reads the page page back into UI text.
+
+The pause menu does not own any setting's business logic. Adding a new
+setting touches `settings.rs` only; the renderer picks it up
+automatically through `SettingsItem::ALL`.
+
 ## Adding a new settings row
 
 The intent is to make this page the home for any user-facing toggle —
@@ -26,23 +43,27 @@ volume, gamma, controls, accessibility, etc. — so they have one
 discoverable location and the harness gets used as more options
 appear.
 
-Steps:
+Steps (all in `crates/ambition_sandbox/src/settings.rs`):
 
-1. Add a variant to `SettingsItem` in `crates/ambition_sandbox/src/pause_menu.rs`.
-2. Append it to `SettingsItem::ALL` in the order you want users to
-   navigate.
+1. Add a variant to `SettingsItem`.
+2. Append it to `SettingsItem::ALL` in the desired display order.
 3. Implement `SettingsItem::label` so the row text shows the current
-   value (e.g. `format!("Master Volume: {value}%  < / >")`).
-4. Handle the row in `handle_settings_input` — typically Left/Right
-   cycle, Confirm advances. Mutate the relevant resource directly.
-5. Adjust `spawn_pause_menu` only if the new row needs custom spawning
-   beyond the existing `for item in SettingsItem::ALL` loop. The loop
-   already creates one Text entity per item.
+   value (e.g. `format!("Master Volume: {value}%  < / >")`). Add a
+   matching field to `SettingsView` if the value lives in a resource
+   the renderer doesn't already inspect.
+4. Add a match arm in `handle_action` to mutate the relevant resource on
+   `Prev`/`Next`/`Confirm`. Setting-specific mutation logic should live
+   close to the resource it owns (audio volume → `audio.rs`, controls →
+   `input.rs`); `handle_action` only routes.
+5. The pause menu's `spawn_pause_menu` already loops over
+   `SettingsItem::ALL` and spawns one Text entity per item — no
+   renderer change needed unless the row needs a non-standard widget.
 
 Settings that mutate window state should call
-`pause_menu::apply_display_mode` (or the equivalent helper for the new
+`settings::apply_display_mode` (or the equivalent helper for the new
 resource) so the same logic runs whether the user reached it via the
-menu or via a developer hotkey.
+menu or via a developer hotkey. The previous `pause_menu::apply_display_mode`
+moved into the settings module; the F6/F7 hotkeys now delegate there too.
 
 ## Developer hotkeys
 
@@ -59,14 +80,29 @@ only through the menu now.
 The hotkeys delegate to `pause_menu::apply_display_mode` so the menu
 and the keystrokes never drift out of sync.
 
+## Audio-off compatibility
+
+The navigation system compiles and runs with `--no-default-features
+--features input` (no audio). The Music row still appears on the top
+page so menu indices stay stable, but its label collapses to
+`"Music: <audio disabled>"` and selecting it is a no-op.
+
 ## Tests
+
+`crates/ambition_sandbox/src/settings.rs` covers:
+
+- `SettingsItem::ALL` lists known rows,
+- `next_display_mode` / `prev_display_mode` cycle correctly (forward
+  three times returns to the start),
+- `SettingsItem::DisplayMode.label` includes the current mode label,
+- `SettingsItem::Back.label` is the static "Back" string.
 
 `crates/ambition_sandbox/src/pause_menu.rs` covers:
 
 - `PauseMenuState::default` lands on the top page,
 - `enter_page` resets `selected` to zero,
-- `next_display_mode` / `prev_display_mode` cycle correctly,
-- `SettingsItem::DisplayMode.label` includes the current mode label,
-- `PauseMenuItem::ALL` includes `Settings`.
+- `PauseMenuItem::ALL` includes `Settings`,
+- `MenuSettingsItem` re-export resolves.
 
-Run with `cargo test -p ambition_sandbox pause_menu::`.
+Run with `cargo test -p ambition_sandbox settings::` and
+`cargo test -p ambition_sandbox pause_menu::`.

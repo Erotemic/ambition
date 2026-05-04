@@ -25,7 +25,19 @@ use std::collections::VecDeque;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Process-wide monotonically increasing sequence appended to dump
+/// filenames so two dumps requested in the same nanosecond cannot
+/// collide. Uses `Relaxed` ordering because the value's only purpose
+/// is uniqueness within the running process — there are no
+/// happens-before relationships to preserve.
+static DUMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+fn next_dump_sequence() -> u64 {
+    DUMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+}
 
 use ae::AabbExt;
 use ambition_engine as ae;
@@ -160,7 +172,17 @@ pub struct CollisionTraceShape {
 pub struct MovingPlatformTraceState {
     pub pos: TracePoint,
     pub size: TracePoint,
-    pub phase: f32,
+    pub aabb: TraceAabb,
+    /// Direction of travel along the platform's authored path, +1 or -1.
+    /// Used by the trace to spot platform-related OOB / tunneling
+    /// patterns (e.g. an OOB always coincides with the platform at the
+    /// far end of its sweep).
+    pub direction: f32,
+    /// True if the player is currently riding this platform per
+    /// `MovingPlatformState::is_riding`.
+    pub player_riding: bool,
+    /// Distance from player center to platform center in world units.
+    pub player_distance: f32,
 }
 
 /// One per-frame snapshot. Heavy fields (collision shapes, moving
@@ -335,6 +357,43 @@ impl OobReason {
     }
 }
 
+/// Snapshot of the gameplay state we diff against on each tick to
+/// synthesize per-frame events without threading a Vec collector
+/// through every `sandbox_update` phase. Stored on the buffer so the
+/// recorder is the single owner of trace state.
+///
+/// `fly_enabled` and `fast_falling` are recorded for future event
+/// detection (e.g. flight toggles, fast-fall edges) — they are
+/// captured now so the snapshot shape stays stable as we add more
+/// diffs.
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+struct PreviousFrameSnapshot {
+    pos: ae::Vec2,
+    vel: ae::Vec2,
+    on_ground: bool,
+    fly_enabled: bool,
+    blink_aiming: bool,
+    blink_grace_timer: f32,
+    fast_falling: bool,
+    dash_charges_available: u8,
+    air_jumps_available: u8,
+    resets: u32,
+    hp_current: i32,
+    locomotion: ae::LocomotionState,
+    body_mode: ae::BodyMode,
+    active_area: String,
+    controls: ControlFrame,
+}
+
+/// If the per-frame position delta exceeds the maximum movement we'd
+/// expect from the player's velocity (plus a small slack), the
+/// recorder treats it as a teleport / collision correction and emits
+/// a `CollisionCorrection` event. This catches the active OOB bug
+/// where the player teleports from a wall-cling position to an
+/// out-of-world ledge with no input change.
+const TELEPORT_DETECTION_SLACK_PX: f32 = 16.0;
+
 /// Top-level rolling buffer.
 #[derive(Resource, Debug)]
 pub struct GameplayTraceBuffer {
@@ -355,6 +414,8 @@ pub struct GameplayTraceBuffer {
     /// useful "first OOB frame" output without indexing into an empty
     /// buffer.
     has_recorded_any: bool,
+    /// Frame-to-frame diff source for synthetic events.
+    previous: Option<PreviousFrameSnapshot>,
 }
 
 impl Default for GameplayTraceBuffer {
@@ -377,6 +438,7 @@ impl GameplayTraceBuffer {
             dump_request: None,
             auto_dump_armed: true,
             has_recorded_any: false,
+            previous: None,
         }
     }
 
@@ -491,6 +553,7 @@ fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTrac
 /// Build a `GameplayTraceFrame` from current sim resources. This lives
 /// next to `record_frame_in_simulation` so the sandbox phase pipeline
 /// can call it once per `sandbox_update` tick.
+#[allow(clippy::too_many_arguments)]
 pub fn build_frame(
     runtime: &SandboxRuntime,
     world: &ae::World,
@@ -539,7 +602,219 @@ pub fn build_frame(
         },
         controls: controls.into(),
         nearby_collision: nearby_collision(world, player),
-        moving_platforms: Vec::new(),
+        moving_platforms: build_moving_platform_states(runtime),
+    }
+}
+
+/// Snapshot the active moving platforms into trace shapes. Today the
+/// sandbox owns exactly one moving platform on `runtime.moving_platform`;
+/// the function returns a `Vec` so future patches that add more
+/// platforms (or move them onto entity components) can append entries
+/// without changing the trace schema.
+fn build_moving_platform_states(runtime: &SandboxRuntime) -> Vec<MovingPlatformTraceState> {
+    let p = &runtime.moving_platform;
+    let aabb = p.aabb();
+    let player_distance = (runtime.player.pos - p.pos).length();
+    vec![MovingPlatformTraceState {
+        pos: p.pos.into(),
+        size: p.size.into(),
+        aabb: aabb.into(),
+        direction: p.direction(),
+        player_riding: p.is_riding(&runtime.player),
+        player_distance,
+    }]
+}
+
+/// Diff the current player+control state against the previous snapshot
+/// and synthesize gameplay events. The buffer is the single owner of
+/// trace state so this stays alongside `record_frame`.
+///
+/// Events emitted, in order:
+///
+/// 1. `RoomTransition` (if `active_area` changed),
+/// 2. `Reset` (if `player.resets` increased),
+/// 3. `CollisionCorrection` for unexplained position deltas — i.e.
+///    deltas larger than what the recent velocity could produce. This
+///    catches teleports that aren't covered by `Reset` /
+///    `RoomTransition`.
+/// 4. `LocomotionChanged`,
+/// 5. `Dash`, `DoubleJump`, `Jump` (heuristics from charge / vel deltas),
+/// 6. `Blink` start / fail,
+/// 7. `Damage` (HP delta),
+/// 8. `InputEdge` for newly-pressed buttons.
+///
+/// The recorder is intentionally a passive observer. Sandbox phases
+/// can still push richer events directly via `buffer.push_event` if
+/// they have non-state-derivable info (e.g. "pogo missed because
+/// target was a non-pogo block"), but the diff gives us a useful
+/// timeline without touching every phase helper.
+fn synthesize_events_from_diff(
+    buffer: &mut GameplayTraceBuffer,
+    runtime: &SandboxRuntime,
+    controls: ControlFrame,
+    real_dt: f32,
+    active_area: &str,
+    locomotion: ae::LocomotionState,
+    body_mode: ae::BodyMode,
+) {
+    let Some(prev) = buffer.previous.clone() else {
+        return;
+    };
+    let tick = buffer.tick;
+    let player = &runtime.player;
+    let cur_pos = player.pos;
+    let cur_vel = player.vel;
+
+    let mut suppressed_teleport = false;
+
+    if prev.active_area != active_area {
+        buffer.push_event(GameplayTraceEvent::RoomTransition {
+            tick,
+            from: prev.active_area.clone(),
+            to: active_area.into(),
+        });
+        suppressed_teleport = true;
+    }
+
+    if player.resets > prev.resets {
+        buffer.push_event(GameplayTraceEvent::Reset { tick });
+        suppressed_teleport = true;
+    }
+
+    // Position-delta vs velocity-budget check. Catches teleports that
+    // aren't covered by Reset / RoomTransition. This is the OOB-debug
+    // smoking-gun event: a 1500-px jump in one tick will surface here.
+    let dpos = cur_pos - prev.pos;
+    let dlen = dpos.length();
+    let max_speed = prev.vel.length().max(cur_vel.length());
+    let budget = max_speed * real_dt.max(0.0) + TELEPORT_DETECTION_SLACK_PX;
+    if !suppressed_teleport && dlen > budget && dlen > TELEPORT_DETECTION_SLACK_PX {
+        buffer.push_event(GameplayTraceEvent::CollisionCorrection {
+            tick,
+            before: prev.pos.into(),
+            after: cur_pos.into(),
+            reason: format!(
+                "unexplained delta {:.1}px (vel-budget {:.1}px)",
+                dlen, budget
+            ),
+        });
+    }
+
+    if prev.locomotion != locomotion {
+        buffer.push_event(GameplayTraceEvent::PlayerModeChanged {
+            tick,
+            from: prev.locomotion.label().into(),
+            to: locomotion.label().into(),
+        });
+    }
+    if prev.body_mode != body_mode {
+        buffer.push_event(GameplayTraceEvent::PlayerModeChanged {
+            tick,
+            from: format!("body:{}", prev.body_mode.label()),
+            to: format!("body:{}", body_mode.label()),
+        });
+    }
+
+    if player.dash_charges_available < prev.dash_charges_available {
+        buffer.push_event(GameplayTraceEvent::Dash { tick });
+    }
+    if player.air_jumps_available < prev.air_jumps_available {
+        buffer.push_event(GameplayTraceEvent::DoubleJump { tick });
+    } else if !prev.on_ground && cur_vel.y < prev.vel.y - 50.0 && controls.jump_pressed {
+        // Jump-edge heuristic: y velocity went meaningfully more
+        // negative (Ambition's screen-space +y is down so upward
+        // jumps make vel.y decrease) on a frame where the player
+        // pressed jump, while the player was airborne.
+        buffer.push_event(GameplayTraceEvent::Jump { tick });
+    } else if prev.on_ground && !player.on_ground && controls.jump_pressed && cur_vel.y < 0.0 {
+        buffer.push_event(GameplayTraceEvent::Jump { tick });
+    }
+
+    if !prev.blink_aiming && player.blink_aiming {
+        buffer.push_event(GameplayTraceEvent::Blink {
+            tick,
+            from: prev.pos.into(),
+            to: cur_pos.into(),
+            precision: false,
+        });
+    }
+    // Blink-fired heuristic: blink_grace_timer just became positive,
+    // which the engine sets after a successful blink commit.
+    if prev.blink_grace_timer <= 0.0 && player.blink_grace_timer > 0.0 {
+        buffer.push_event(GameplayTraceEvent::Blink {
+            tick,
+            from: prev.pos.into(),
+            to: cur_pos.into(),
+            precision: true,
+        });
+    }
+
+    if runtime.player_health.current < prev.hp_current {
+        let amount = (prev.hp_current - runtime.player_health.current).max(0);
+        buffer.push_event(GameplayTraceEvent::Damage {
+            tick,
+            source: "feature".into(),
+            amount,
+        });
+        if runtime.player_health.current <= 0 {
+            buffer.push_event(GameplayTraceEvent::Death { tick });
+        }
+    }
+
+    if controls.attack_pressed && !prev.controls.attack_pressed {
+        buffer.push_event(GameplayTraceEvent::Attack {
+            tick,
+            kind: "slash".into(),
+        });
+    }
+    if controls.pogo_pressed && !prev.controls.pogo_pressed {
+        buffer.push_event(GameplayTraceEvent::Attack {
+            tick,
+            kind: "pogo".into(),
+        });
+    }
+
+    // Input edges for the bool fields the player can newly press this
+    // frame. We compare against the previous frame's `controls` so a
+    // genuine press → release → press in one tick still records the
+    // press (the previous frame's value was already false).
+    let pairs: &[(&str, bool, bool)] = &[
+        ("Jump", controls.jump_pressed, prev.controls.jump_pressed),
+        ("Dash", controls.dash_pressed, prev.controls.dash_pressed),
+        ("Blink", controls.blink_pressed, prev.controls.blink_pressed),
+        ("Up", controls.up_pressed, prev.controls.up_pressed),
+        ("Down", controls.down_pressed, prev.controls.down_pressed),
+        (
+            "Attack",
+            controls.attack_pressed,
+            prev.controls.attack_pressed,
+        ),
+        ("Pogo", controls.pogo_pressed, prev.controls.pogo_pressed),
+        (
+            "Interact",
+            controls.interact_pressed,
+            prev.controls.interact_pressed,
+        ),
+        ("Reset", controls.reset_pressed, prev.controls.reset_pressed),
+        ("Start", controls.start_pressed, prev.controls.start_pressed),
+        (
+            "FlyToggle",
+            controls.fly_toggle_pressed,
+            prev.controls.fly_toggle_pressed,
+        ),
+        (
+            "FastFall",
+            controls.fast_fall_pressed,
+            prev.controls.fast_fall_pressed,
+        ),
+    ];
+    for (label, cur, prev_v) in pairs {
+        if *cur && !*prev_v {
+            buffer.push_event(GameplayTraceEvent::InputEdge {
+                tick,
+                action: (*label).into(),
+            });
+        }
     }
 }
 
@@ -595,28 +870,35 @@ pub fn dump_paths(dir: &Path, timestamp_label: &str) -> (PathBuf, PathBuf) {
     (json, md)
 }
 
-fn timestamp_label(ts: SystemTime) -> String {
-    // Avoid pulling chrono just for a label. UNIX seconds + naive tick is
-    // sufficient: the interesting field is "different invocations get
-    // different filenames", not human readability of seconds.
-    let secs = ts
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+/// Format a unique, lexically-sortable label for a dump filename.
+///
+/// Format: `{secs:010}-{nanos:09}-{seq:06}_{Dd}d{HH}h{MM}m{SS}s`.
+/// The `seq` segment is a process-wide atomic counter, so two dumps
+/// taken in the same nanosecond still get distinct paths. Lexical
+/// order matches chronological order so `ls -1` lists dumps in the
+/// order they were taken.
+fn timestamp_label_with_seq(ts: SystemTime, seq: u64) -> String {
+    let dur = ts.duration_since(UNIX_EPOCH).unwrap_or_default();
+    let secs = dur.as_secs();
+    let nanos = dur.subsec_nanos();
     let total_minutes = secs / 60;
     let seconds = secs % 60;
     let total_hours = total_minutes / 60;
     let minutes = total_minutes % 60;
     let total_days = total_hours / 24;
     let hours = total_hours % 24;
-    // Approximate calendar conversion is intentional; the label only
-    // needs to be unique-ish per dump. Prefix with raw seconds so even
-    // sub-second collisions sort correctly when several dumps happen
-    // back-to-back during a debug session.
     format!(
-        "{secs:010}_{}d{:02}h{:02}m{:02}s",
+        "{secs:010}-{nanos:09}-{seq:06}_{}d{:02}h{:02}m{:02}s",
         total_days, hours, minutes, seconds
     )
+}
+
+/// Convenience wrapper used by `write_dump`: pulls a fresh sequence
+/// counter and formats `ts` against it. Tests can call
+/// `timestamp_label_with_seq` directly with explicit sequences to
+/// pin behavior.
+fn timestamp_label(ts: SystemTime) -> String {
+    timestamp_label_with_seq(ts, next_dump_sequence())
 }
 
 /// Convert the buffer into a `DumpPayload` and write JSON + Markdown to
@@ -839,6 +1121,37 @@ pub fn default_dump_dir() -> PathBuf {
     PathBuf::from("debug_traces")
 }
 
+/// Replace the diff snapshot with the just-recorded frame's state.
+/// Caller drives this after `record_simulation_frame` so the next
+/// tick's `synthesize_events_from_diff` sees an up-to-date baseline.
+pub(crate) fn update_previous_snapshot(
+    buffer: &mut GameplayTraceBuffer,
+    runtime: &SandboxRuntime,
+    controls: ControlFrame,
+    active_area: &str,
+    locomotion: ae::LocomotionState,
+    body_mode: ae::BodyMode,
+) {
+    let player = &runtime.player;
+    buffer.previous = Some(PreviousFrameSnapshot {
+        pos: player.pos,
+        vel: player.vel,
+        on_ground: player.on_ground,
+        fly_enabled: player.fly_enabled,
+        blink_aiming: player.blink_aiming,
+        blink_grace_timer: player.blink_grace_timer,
+        fast_falling: player.fast_falling,
+        dash_charges_available: player.dash_charges_available,
+        air_jumps_available: player.air_jumps_available,
+        resets: player.resets,
+        hp_current: runtime.player_health.current,
+        locomotion,
+        body_mode,
+        active_area: active_area.into(),
+        controls,
+    });
+}
+
 /// SystemParam-friendly bundle: gives `sandbox_update` everything it
 /// needs to record one frame and (if requested) write a dump.
 #[allow(clippy::too_many_arguments)]
@@ -908,7 +1221,10 @@ pub fn handle_trace_hotkey(
 /// Bevy system: when in scope, writes one trace frame per Update tick by
 /// reading the resources `sandbox_update` already consumes. We keep this
 /// outside the phase pipeline so the recorder stays out of `sandbox_update`'s
-/// 16-system-param budget.
+/// 16-system-param budget. Synthesizes per-frame events by diffing
+/// against the previous tick's snapshot (input edges, locomotion
+/// changes, dash/jump/blink heuristics, room transitions, resets,
+/// damage, and unexplained position deltas).
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     runtime: Res<SandboxRuntime>,
@@ -925,12 +1241,23 @@ pub fn record_frame_system(
         .map(|r| r.active_spec().id.clone())
         .unwrap_or_else(|| "<unknown>".into());
     let mode_label = format!("{:?}", mode.get());
-    let locomotion = ae::LocomotionState::from_player(&runtime.player)
-        .label()
-        .to_string();
-    let body_mode = ae::BodyMode::from_player(&runtime.player)
-        .label()
-        .to_string();
+    let locomotion_state = ae::LocomotionState::from_player(&runtime.player);
+    let body_mode_state = ae::BodyMode::from_player(&runtime.player);
+    let locomotion = locomotion_state.label().to_string();
+    let body_mode = body_mode_state.label().to_string();
+
+    // Synthesize events from the diff before pushing the frame so the
+    // event tick aligns with the frame the user will see in the dump.
+    synthesize_events_from_diff(
+        &mut buffer,
+        &runtime,
+        *control_frame,
+        real_dt,
+        &active_area,
+        locomotion_state,
+        body_mode_state,
+    );
+
     record_simulation_frame(
         &mut buffer,
         &runtime,
@@ -942,6 +1269,20 @@ pub fn record_frame_system(
         &active_area,
         &locomotion,
         &body_mode,
+    );
+
+    // Update the diff snapshot AFTER recording so the next tick's
+    // `synthesize_events_from_diff` can compare against this frame's
+    // state. Setting it after `record_simulation_frame` also means a
+    // panic / early return upstream leaves the previous snapshot in
+    // place rather than corrupting the timeline.
+    update_previous_snapshot(
+        &mut buffer,
+        &runtime,
+        *control_frame,
+        &active_area,
+        locomotion_state,
+        body_mode_state,
     );
 }
 
@@ -1197,5 +1538,234 @@ mod tests {
         let json_body = std::fs::read_to_string(&json_path).unwrap();
         assert!(json_body.contains("\"schema_version\": 1"));
         assert!(json_body.contains("\"dump_reason\""));
+    }
+
+    /// P1 — `timestamp_label` calls in quick succession (same nanosecond
+    /// or not) must produce distinct strings, because the atomic
+    /// sequence counter is appended.
+    #[test]
+    fn timestamp_label_unique_in_tight_loop() {
+        let now = SystemTime::now();
+        // Use a fixed `ts` so the seconds/nanoseconds segments do not
+        // change between calls; the only differentiator left is the
+        // atomic sequence.
+        let labels: Vec<String> = (0..32).map(|_| timestamp_label(now)).collect();
+        let unique: std::collections::HashSet<&String> = labels.iter().collect();
+        assert_eq!(
+            unique.len(),
+            labels.len(),
+            "all dump labels in a tight loop must be unique; got {labels:?}"
+        );
+    }
+
+    /// P1 — `timestamp_label_with_seq` lets tests pin a sequence value
+    /// for stable expectations. Two distinct sequences must produce
+    /// different strings even when `ts` is identical.
+    #[test]
+    fn timestamp_label_with_seq_is_stable_per_seq() {
+        let now = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_777_902_031);
+        let a = timestamp_label_with_seq(now, 0);
+        let b = timestamp_label_with_seq(now, 1);
+        assert_ne!(a, b);
+        // Same inputs produce same output.
+        assert_eq!(a, timestamp_label_with_seq(now, 0));
+    }
+
+    fn make_runtime(world: &ae::World, player: ae::Player) -> SandboxRuntime {
+        SandboxRuntime {
+            player,
+            player_health: ae::Health::new(5),
+            debug: false,
+            slowmo: false,
+            presets: crate::input::KeyboardPreset::presets().to_vec(),
+            preset_index: 0,
+            preset_flash: 0.0,
+            flash_timer: 0.0,
+            hitstop_timer: 0.0,
+            damage_invuln_timer: 0.0,
+            hitstun_timer: 0.0,
+            last_safe_player_pos: ae::Vec2::ZERO,
+            time_scale: 1.0,
+            down_tap_timer: 0.0,
+            up_tap_timer: 0.0,
+            interact_buffer_timer: 0.0,
+            moving_platform: crate::platforms::MovingPlatformState::time_reference(world),
+            features: crate::features::FeatureRuntime::from_world(world),
+            dialogue: crate::dialog::DialogState::default(),
+            physics_settings: crate::physics::PhysicsSandboxSettings::default(),
+            room_transition_cooldown: 0.0,
+            slash_anim_timer: 0.0,
+        }
+    }
+
+    /// P2 — pressing a button that wasn't pressed last frame should
+    /// emit an `InputEdge` event. We seed the buffer with an initial
+    /// snapshot, then call `synthesize_events_from_diff` directly so
+    /// the test doesn't need a full Bevy App.
+    #[test]
+    fn synthesizes_input_edge_event_on_button_press() {
+        let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+        let world = dummy_world();
+        let runtime = make_runtime(&world, dummy_player(ae::Vec2::new(50.0, 50.0)));
+        // Seed previous snapshot with no buttons pressed.
+        update_previous_snapshot(
+            &mut buf,
+            &runtime,
+            ControlFrame::default(),
+            "test",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+        // Player starts pressing Jump this frame.
+        let mut controls = ControlFrame::default();
+        controls.jump_pressed = true;
+        synthesize_events_from_diff(
+            &mut buf,
+            &runtime,
+            controls,
+            0.016,
+            "test",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+        let edges: Vec<_> = buf
+            .events()
+            .filter_map(|e| match e {
+                GameplayTraceEvent::InputEdge { action, .. } => Some(action.clone()),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            edges.iter().any(|a| a == "Jump"),
+            "expected Jump InputEdge; got {edges:?}"
+        );
+    }
+
+    /// P2 — an unexplained position delta (much larger than the velocity
+    /// budget) should produce a `CollisionCorrection` event so the
+    /// trace surfaces teleports of the kind that landed in
+    /// `debug_traces/ambition_trace_1777902031_*.json`.
+    #[test]
+    fn synthesizes_collision_correction_on_unexplained_teleport() {
+        let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+        let world = dummy_world();
+        let runtime_prev = make_runtime(&world, dummy_player(ae::Vec2::new(62.0, 1564.0)));
+        update_previous_snapshot(
+            &mut buf,
+            &runtime_prev,
+            ControlFrame::default(),
+            "square_arena",
+            ae::LocomotionState::WallCling,
+            ae::BodyMode::Standing,
+        );
+        // Now jump to a wildly different position with no plausible
+        // velocity to explain it. Same active area + same `resets` so
+        // the teleport detector isn't suppressed by Reset/RoomTransition.
+        let mut player2 = dummy_player(ae::Vec2::new(62.0, -23.0));
+        player2.vel = ae::Vec2::ZERO;
+        let runtime_cur = make_runtime(&world, player2);
+        synthesize_events_from_diff(
+            &mut buf,
+            &runtime_cur,
+            ControlFrame::default(),
+            0.0069,
+            "square_arena",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+        let teleports: Vec<_> = buf
+            .events()
+            .filter(|e| matches!(e, GameplayTraceEvent::CollisionCorrection { .. }))
+            .collect();
+        assert_eq!(
+            teleports.len(),
+            1,
+            "expected one CollisionCorrection event for the teleport; got {teleports:?}"
+        );
+    }
+
+    /// P2 — incrementing `player.resets` should emit a `Reset` event
+    /// AND suppress the teleport detector (the player position can
+    /// legitimately jump to spawn on reset).
+    #[test]
+    fn reset_emits_event_and_suppresses_teleport_event() {
+        let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
+        let world = dummy_world();
+        let runtime_prev = make_runtime(&world, dummy_player(ae::Vec2::new(50.0, 50.0)));
+        update_previous_snapshot(
+            &mut buf,
+            &runtime_prev,
+            ControlFrame::default(),
+            "test",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+        let mut player2 = dummy_player(ae::Vec2::new(150.0, 150.0));
+        player2.resets = runtime_prev.player.resets + 1;
+        let runtime_cur = make_runtime(&world, player2);
+        synthesize_events_from_diff(
+            &mut buf,
+            &runtime_cur,
+            ControlFrame::default(),
+            0.016,
+            "test",
+            ae::LocomotionState::Grounded,
+            ae::BodyMode::Standing,
+        );
+        let resets: Vec<_> = buf
+            .events()
+            .filter(|e| matches!(e, GameplayTraceEvent::Reset { .. }))
+            .collect();
+        assert_eq!(resets.len(), 1, "expected one Reset event");
+        let teleports: Vec<_> = buf
+            .events()
+            .filter(|e| matches!(e, GameplayTraceEvent::CollisionCorrection { .. }))
+            .collect();
+        assert!(
+            teleports.is_empty(),
+            "Reset should suppress the teleport detector"
+        );
+    }
+
+    /// P3 — frame snapshots include a populated `moving_platforms` slot
+    /// with the active sandbox platform.
+    #[test]
+    fn frame_includes_moving_platform_state() {
+        let world = dummy_world();
+        let player = dummy_player(ae::Vec2::new(50.0, 50.0));
+        let runtime = make_runtime(&world, player);
+        let frame = build_frame(
+            &runtime,
+            &world,
+            ControlFrame::default(),
+            0.016,
+            0.016,
+            "Playing",
+            "test",
+            0,
+            0,
+            "Grounded",
+            "Standing",
+        );
+        assert_eq!(
+            frame.moving_platforms.len(),
+            1,
+            "expected one moving-platform entry per frame"
+        );
+        let platform = &frame.moving_platforms[0];
+        assert!(platform.size.x > 0.0);
+        assert!(platform.size.y > 0.0);
+        assert!(platform.player_distance > 0.0);
+    }
+
+    /// P4 — `BodyMode::from_player` reads `player.body_mode` (the
+    /// authoritative field). Default is `Standing`; setting the field
+    /// changes what the recorder/HUD see.
+    #[test]
+    fn body_mode_reads_authoritative_field() {
+        let mut player = dummy_player(ae::Vec2::ZERO);
+        assert_eq!(ae::BodyMode::from_player(&player), ae::BodyMode::Standing);
+        player.body_mode = ae::BodyMode::MorphBall;
+        assert_eq!(ae::BodyMode::from_player(&player), ae::BodyMode::MorphBall);
     }
 }

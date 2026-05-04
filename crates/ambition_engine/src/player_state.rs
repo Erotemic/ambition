@@ -148,10 +148,12 @@ impl BodyMode {
         }
     }
 
-    /// Best-effort projection from the player. Without a dedicated
-    /// `BodyMode` resource the inferred value is always `Standing`.
-    pub fn from_player(_player: &Player) -> Self {
-        BodyMode::Standing
+    /// Read the player's authoritative `body_mode` field. Sandbox systems
+    /// that drive crouch / morph / slide should write `player.body_mode`
+    /// directly; gameplay reads (HUD, trace, AI) should call this so
+    /// there is exactly one source of truth.
+    pub fn from_player(player: &Player) -> Self {
+        player.body_mode
     }
 
     pub fn shape(self, base_size: Vec2) -> BodyShape {

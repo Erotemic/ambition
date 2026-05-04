@@ -24,13 +24,56 @@ frames, ~4 seconds at 60 Hz). The frame includes:
 - raw `ControlFrame` snapshot
 - nearby collision shapes within ~220 px sorted by distance (capped to
   32 entries to keep dumps small)
-- moving-platform state slot reserved for future entries
+- moving-platform state — pos, size, AABB, direction (+1/-1), riding flag, distance from player
 
 A separate ring of 240 `GameplayTraceEvent`s captures discrete
 sim-side events: jumps, dashes, blinks, attacks, damage, room
 transitions, OOB detections, and (when wired) collision corrections.
 The `record_frame_system` always pushes a frame; events are appended
 when the simulation pipeline emits them or when OOB detection fires.
+
+## Synthesized events (diff-based)
+
+The recorder is a passive observer. Each tick, `record_frame_system`
+diffs the current sim state against the previous frame's snapshot and
+synthesizes events without touching `sandbox_update`'s phase pipeline.
+This avoids threading a Vec collector through every helper while still
+producing a useful timeline.
+
+Currently emitted:
+
+| Event                  | Trigger                                                                 |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `RoomTransition`       | `active_area` changed since last tick                                   |
+| `Reset`                | `player.resets` increased                                               |
+| `CollisionCorrection`  | position delta exceeds the velocity-budget by more than 16 px and no Reset/RoomTransition fired this tick. Catches teleports / unexpected pos jumps. |
+| `PlayerModeChanged`    | `LocomotionState` or `BodyMode` differs                                 |
+| `Dash`                 | `dash_charges_available` decreased                                      |
+| `DoubleJump`           | `air_jumps_available` decreased                                         |
+| `Jump`                 | upward velocity edge while jump was pressed                             |
+| `Blink` (start)        | `blink_aiming` flipped from false → true                                |
+| `Blink` (precision)    | `blink_grace_timer` flipped from ≤0 → >0                                |
+| `Damage` / `Death`     | `player_health.current` decreased                                       |
+| `Attack`               | `attack_pressed` / `pogo_pressed` edge                                  |
+| `InputEdge`            | for each `ControlFrame` button: previous-frame false, current true      |
+| `OobDetected`          | `detect_oob` returns Some                                               |
+
+Helpers may still call `buffer.push_event` directly for events that
+aren't derivable from state (e.g. "pogo bounce found no valid orb"); the
+diff-based path is the cheap default.
+
+## Filename uniqueness
+
+Dump filenames embed the unix seconds, the sub-second nanoseconds, and a
+process-wide atomic sequence so two dumps in the same nanosecond still
+get distinct paths:
+
+```
+debug_traces/ambition_trace_{secs}-{nanos}-{seq}_{Dd}d{HH}h{MM}m{SS}s.{json,md}
+```
+
+Lexical order matches chronological order, so `ls -1 debug_traces` lists
+dumps in the order they were taken.
 
 ## Hotkeys and triggers
 

@@ -1,33 +1,24 @@
-//! Pause menu overlay.
+//! Pause menu overlay (UI shell + navigation).
 //!
-//! The existing `GameMode::Paused` state already gates gameplay (input, sim,
-//! and feature updates short-circuit when not in `Playing`). This module
-//! adds the visible side: a translucent overlay with a small action menu
-//! and a focused selection that responds to both keyboard and gamepad
-//! navigation through the existing `SandboxAction` input map.
+//! `GameMode::Paused` already gates gameplay. This module is the
+//! visible side: a translucent overlay with a small action menu and
+//! a focused selection that responds to keyboard / gamepad through
+//! `SandboxAction`.
 //!
 //! The menu has two pages:
 //!
 //! * `Top` — Resume / Settings / Music / Inventory / Quit.
-//! * `Settings` — Display Mode / Back. New settings rows go here.
+//! * `Settings` — Display Mode / Back. The vocabulary for this page
+//!   lives in [`crate::settings`]; this module is only the renderer
+//!   and controller.
 //!
-//! Adding a new settings option:
-//!
-//! 1. Add a variant to `SettingsItem`.
-//! 2. Add it to `SettingsItem::ALL` (the navigation order).
-//! 3. Implement `label` so the row knows how to render its current value.
-//! 4. Handle Left/Right and Confirm in `handle_settings_input`.
-//! 5. Add a presentation-side row entity in `spawn_pause_menu` (the
-//!    existing loop over `SettingsItem::ALL` already does this; extending
-//!    the enum is enough).
-//!
-//! Settings that affect simulation rules (input bindings, time-scale
-//! preferences, etc.) should still live in their own modules; this menu
-//! is only the surface that exposes them.
+//! When `audio` is disabled the Music row is replaced with a
+//! placeholder and the navigation system uses the audio-free path so
+//! `--no-default-features --features input` still compiles.
 
 use bevy::app::AppExit;
 use bevy::prelude::*;
-use bevy::window::{MonitorSelection, PrimaryWindow, VideoModeSelection, WindowMode};
+use bevy::window::PrimaryWindow;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioChannel;
 #[cfg(feature = "input")]
@@ -39,30 +30,30 @@ use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
 use crate::inventory::InventoryUiState;
-use crate::windowing::{DisplayModeKind, DisplayModeState};
+use crate::settings::{
+    handle_action as handle_settings_action, SettingsAction, SettingsItem, SettingsOutcome,
+    SettingsView,
+};
+use crate::windowing::DisplayModeState;
 
-/// Top-level entity tagging for the pause overlay.
+/// Re-export the settings-row component so other modules that want to
+/// query menu rows by tag don't need to remember which module owns it.
+pub use crate::settings::SettingsItem as MenuSettingsItem;
+
 #[derive(Component)]
 pub struct PauseMenuRoot;
 
-/// Tag for the settings sub-panel container; lets `sync_pause_menu`
-/// show/hide the right page without despawning.
 #[derive(Component)]
 pub struct PauseMenuTopPanel;
 
 #[derive(Component)]
 pub struct PauseMenuSettingsPanel;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PauseMenuPage {
+    #[default]
     Top,
     Settings,
-}
-
-impl Default for PauseMenuPage {
-    fn default() -> Self {
-        Self::Top
-    }
 }
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,9 +94,14 @@ impl PauseMenuItem {
         }
     }
 
+    /// Audio-off label: Music row stays visible (so menu indices match)
+    /// but its current value collapses to a placeholder.
     #[cfg(not(feature = "audio"))]
     pub fn label(self) -> String {
-        self.static_label().to_string()
+        match self {
+            Self::MusicTrack => "Music: <audio disabled>".into(),
+            _ => self.static_label().to_string(),
+        }
     }
 
     pub const ALL: [Self; 5] = [
@@ -115,34 +111,6 @@ impl PauseMenuItem {
         Self::Inventory,
         Self::Quit,
     ];
-}
-
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SettingsItem {
-    DisplayMode,
-    Back,
-}
-
-impl SettingsItem {
-    pub const ALL: [Self; 2] = [Self::DisplayMode, Self::Back];
-
-    pub fn static_label(self) -> &'static str {
-        match self {
-            Self::DisplayMode => "Display Mode",
-            Self::Back => "Back",
-        }
-    }
-
-    /// Render the row text including the current value when relevant.
-    /// Adding a new settings row that exposes a value: extend the match
-    /// here with a `format!("Label: {value}  < / >")` so users know
-    /// Left/Right cycles the value.
-    pub fn label(self, display_mode: DisplayModeKind) -> String {
-        match self {
-            Self::DisplayMode => format!("Display Mode: {}  < / >", display_mode.label()),
-            Self::Back => self.static_label().to_string(),
-        }
-    }
 }
 
 #[derive(Resource, Default)]
@@ -161,9 +129,6 @@ impl PauseMenuState {
 }
 
 /// `MenuToggle` input opens/closes the pause menu by toggling `GameMode`.
-/// Runs before `sandbox_update` consumes the start press so the gameplay
-/// loop's existing toggle path stays disabled while the menu is the
-/// authoritative driver of pause/resume.
 #[cfg(feature = "input")]
 pub fn pause_menu_toggle(
     action_state: Query<&ActionState<SandboxAction>>,
@@ -175,8 +140,7 @@ pub fn pause_menu_toggle(
     let Ok(actions) = action_state.single() else {
         return;
     };
-    let toggle = actions.just_pressed(&SandboxAction::Start);
-    if !toggle {
+    if !actions.just_pressed(&SandboxAction::Start) {
         return;
     }
     match mode.get() {
@@ -185,8 +149,6 @@ pub fn pause_menu_toggle(
             next_mode.set(GameMode::Paused);
         }
         GameMode::Paused => {
-            // Pressing pause again resumes immediately and closes the
-            // inventory if it was open from the menu.
             inventory.visible = false;
             next_mode.set(GameMode::Playing);
         }
@@ -194,7 +156,30 @@ pub fn pause_menu_toggle(
     }
 }
 
-#[cfg(all(feature = "input", feature = "audio"))]
+/// Compact navigation actions decoded from the leafwing `ActionState`.
+/// Sharing this type between the audio-on and audio-off navigators
+/// keeps the menu logic in one place.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct NavInput {
+    up: bool,
+    down: bool,
+    left: bool,
+    right: bool,
+    confirm: bool,
+}
+
+#[cfg(feature = "input")]
+fn read_nav_input(actions: &ActionState<SandboxAction>) -> NavInput {
+    NavInput {
+        up: actions.just_pressed(&SandboxAction::MoveUp),
+        down: actions.just_pressed(&SandboxAction::MoveDown),
+        left: actions.just_pressed(&SandboxAction::MoveLeft),
+        right: actions.just_pressed(&SandboxAction::MoveRight),
+        confirm: actions.just_pressed(&SandboxAction::Jump),
+    }
+}
+
+#[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub fn pause_menu_navigate(
     action_state: Query<&ActionState<SandboxAction>>,
@@ -203,11 +188,11 @@ pub fn pause_menu_navigate(
     mut next_mode: ResMut<NextState<GameMode>>,
     mut inventory: ResMut<InventoryUiState>,
     mut exit: MessageWriter<AppExit>,
-    library: Res<AudioLibrary>,
-    mut music_state: ResMut<MusicPlaybackState>,
-    music_channel: Res<AudioChannel<MusicChannel>>,
     mut display_state: ResMut<DisplayModeState>,
     windows: Query<&mut Window, With<PrimaryWindow>>,
+    #[cfg(feature = "audio")] library: Res<AudioLibrary>,
+    #[cfg(feature = "audio")] mut music_state: ResMut<MusicPlaybackState>,
+    #[cfg(feature = "audio")] music_channel: Res<AudioChannel<MusicChannel>>,
 ) {
     if !matches!(mode.get(), GameMode::Paused) {
         return;
@@ -218,49 +203,57 @@ pub fn pause_menu_navigate(
     let Ok(actions) = action_state.single() else {
         return;
     };
+    let nav = read_nav_input(actions);
 
     match state.page {
-        PauseMenuPage::Top => handle_top_input(
-            actions,
-            &mut state,
-            &mut next_mode,
-            &mut inventory,
-            &mut exit,
-            &library,
-            &mut music_state,
-            &music_channel,
-        ),
+        PauseMenuPage::Top => {
+            handle_top_input(
+                nav,
+                &mut state,
+                &mut next_mode,
+                &mut inventory,
+                &mut exit,
+                #[cfg(feature = "audio")]
+                &library,
+                #[cfg(feature = "audio")]
+                &mut music_state,
+                #[cfg(feature = "audio")]
+                &music_channel,
+            );
+        }
         PauseMenuPage::Settings => {
-            handle_settings_input(actions, &mut state, &mut display_state, windows)
+            handle_settings_input(nav, &mut state, &mut display_state, windows);
         }
     }
 }
 
-#[cfg(all(feature = "input", feature = "audio"))]
+#[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 fn handle_top_input(
-    actions: &ActionState<SandboxAction>,
+    nav: NavInput,
     state: &mut PauseMenuState,
     next_mode: &mut NextState<GameMode>,
     inventory: &mut InventoryUiState,
     exit: &mut MessageWriter<AppExit>,
-    library: &AudioLibrary,
-    music_state: &mut MusicPlaybackState,
-    music_channel: &AudioChannel<MusicChannel>,
+    #[cfg(feature = "audio")] library: &AudioLibrary,
+    #[cfg(feature = "audio")] music_state: &mut MusicPlaybackState,
+    #[cfg(feature = "audio")] music_channel: &AudioChannel<MusicChannel>,
 ) {
     let items = PauseMenuItem::ALL;
-    if actions.just_pressed(&SandboxAction::MoveUp) {
+    if nav.up {
         state.selected = (state.selected + items.len() - 1) % items.len();
     }
-    if actions.just_pressed(&SandboxAction::MoveDown) {
+    if nav.down {
         state.selected = (state.selected + 1) % items.len();
     }
 
     let item = items[state.selected];
+
+    #[cfg(feature = "audio")]
     if item == PauseMenuItem::MusicTrack {
-        let next_track = if actions.just_pressed(&SandboxAction::MoveLeft) {
+        let next_track = if nav.left {
             library.previous_track_id(&music_state.active_track)
-        } else if actions.just_pressed(&SandboxAction::MoveRight) {
+        } else if nav.right {
             library.next_track_id(&music_state.active_track)
         } else {
             None
@@ -270,7 +263,7 @@ fn handle_top_input(
         }
     }
 
-    if actions.just_pressed(&SandboxAction::Jump) {
+    if nav.confirm {
         match item {
             PauseMenuItem::Resume => {
                 inventory.visible = false;
@@ -280,11 +273,14 @@ fn handle_top_input(
                 state.enter_page(PauseMenuPage::Settings);
             }
             PauseMenuItem::MusicTrack => {
-                if let Some(next_track) = library
-                    .next_track_id(&music_state.active_track)
-                    .map(str::to_string)
+                #[cfg(feature = "audio")]
                 {
-                    switch_to_music_track(library, music_state, music_channel, &next_track);
+                    if let Some(next_track) = library
+                        .next_track_id(&music_state.active_track)
+                        .map(str::to_string)
+                    {
+                        switch_to_music_track(library, music_state, music_channel, &next_track);
+                    }
                 }
             }
             PauseMenuItem::Inventory => {
@@ -301,81 +297,35 @@ fn handle_top_input(
 
 #[cfg(feature = "input")]
 fn handle_settings_input(
-    actions: &ActionState<SandboxAction>,
+    nav: NavInput,
     state: &mut PauseMenuState,
     display_state: &mut DisplayModeState,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     let items = SettingsItem::ALL;
-    if actions.just_pressed(&SandboxAction::MoveUp) {
+    if nav.up {
         state.selected = (state.selected + items.len() - 1) % items.len();
     }
-    if actions.just_pressed(&SandboxAction::MoveDown) {
+    if nav.down {
         state.selected = (state.selected + 1) % items.len();
     }
 
     let item = items[state.selected];
-    let mut requested_mode: Option<DisplayModeKind> = None;
-    if item == SettingsItem::DisplayMode {
-        if actions.just_pressed(&SandboxAction::MoveLeft) {
-            requested_mode = Some(prev_display_mode(display_state.mode));
-        }
-        if actions.just_pressed(&SandboxAction::MoveRight) {
-            requested_mode = Some(next_display_mode(display_state.mode));
-        }
-    }
-
-    if actions.just_pressed(&SandboxAction::Jump) {
-        match item {
-            SettingsItem::DisplayMode => {
-                requested_mode = Some(next_display_mode(display_state.mode));
-            }
-            SettingsItem::Back => {
-                state.enter_page(PauseMenuPage::Top);
-            }
-        }
-    }
-
-    if let Some(mode) = requested_mode {
-        apply_display_mode(mode, display_state, &mut windows);
-    }
-}
-
-fn next_display_mode(current: DisplayModeKind) -> DisplayModeKind {
-    match current {
-        DisplayModeKind::Windowed => DisplayModeKind::Borderless,
-        DisplayModeKind::Borderless => DisplayModeKind::Fullscreen,
-        DisplayModeKind::Fullscreen => DisplayModeKind::Windowed,
-    }
-}
-
-fn prev_display_mode(current: DisplayModeKind) -> DisplayModeKind {
-    match current {
-        DisplayModeKind::Windowed => DisplayModeKind::Fullscreen,
-        DisplayModeKind::Borderless => DisplayModeKind::Windowed,
-        DisplayModeKind::Fullscreen => DisplayModeKind::Borderless,
-    }
-}
-
-/// Apply a `DisplayModeKind` to the primary window. Shared between the
-/// settings menu and `crate::windowing::window_mode_hotkeys` so both
-/// surfaces produce the same WindowMode mapping.
-pub(crate) fn apply_display_mode(
-    mode: DisplayModeKind,
-    state: &mut DisplayModeState,
-    windows: &mut Query<&mut Window, With<PrimaryWindow>>,
-) {
-    let Ok(mut window) = windows.single_mut() else {
-        return;
+    let action = if nav.left {
+        Some(SettingsAction::Prev)
+    } else if nav.right {
+        Some(SettingsAction::Next)
+    } else if nav.confirm {
+        Some(SettingsAction::Confirm)
+    } else {
+        None
     };
-    window.mode = match mode {
-        DisplayModeKind::Windowed => WindowMode::Windowed,
-        DisplayModeKind::Borderless => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
-        DisplayModeKind::Fullscreen => {
-            WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current)
+    if let Some(action) = action {
+        let outcome = handle_settings_action(item, action, display_state, &mut windows);
+        if matches!(outcome, SettingsOutcome::Back) {
+            state.enter_page(PauseMenuPage::Top);
         }
-    };
-    state.mode = mode;
+    }
 }
 
 pub fn spawn_pause_menu(mut commands: Commands) {
@@ -556,15 +506,9 @@ pub fn sync_pause_menu(
         return;
     }
 
-    let on_top = matches!(state.page, PauseMenuPage::Top);
-    for mut node in &mut top_panels {
-        node.display = if on_top { Display::Flex } else { Display::None };
-    }
-    for mut node in &mut settings_panels {
-        node.display = if on_top { Display::None } else { Display::Flex };
-    }
-
-    if on_top {
+    apply_page_visibility(state.page, &mut top_panels, &mut settings_panels);
+    let view = SettingsView::from_state(&display_state);
+    if matches!(state.page, PauseMenuPage::Top) {
         let selected_item = PauseMenuItem::ALL.get(state.selected).copied();
         for (item, mut text, mut color, mut bg) in &mut top_items {
             **text = item.label(Some(&music_state), Some(&library));
@@ -573,14 +517,12 @@ pub fn sync_pause_menu(
     } else {
         let selected_item = SettingsItem::ALL.get(state.selected).copied();
         for (item, mut text, mut color, mut bg) in &mut settings_items {
-            **text = item.label(display_state.mode);
+            **text = item.label(&view);
             apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
         }
     }
 }
 
-/// Audio-off variant: same visibility logic, but item labels stay static
-/// (no music-track display) since the music subsystem is gone.
 #[cfg(not(feature = "audio"))]
 #[allow(clippy::too_many_arguments)]
 pub fn sync_pause_menu(
@@ -624,14 +566,9 @@ pub fn sync_pause_menu(
     if !visible {
         return;
     }
-    let on_top = matches!(state.page, PauseMenuPage::Top);
-    for mut node in &mut top_panels {
-        node.display = if on_top { Display::Flex } else { Display::None };
-    }
-    for mut node in &mut settings_panels {
-        node.display = if on_top { Display::None } else { Display::Flex };
-    }
-    if on_top {
+    apply_page_visibility(state.page, &mut top_panels, &mut settings_panels);
+    let view = SettingsView::from_state(&display_state);
+    if matches!(state.page, PauseMenuPage::Top) {
         let selected_item = PauseMenuItem::ALL.get(state.selected).copied();
         for (item, mut text, mut color, mut bg) in &mut top_items {
             **text = item.label();
@@ -640,9 +577,26 @@ pub fn sync_pause_menu(
     } else {
         let selected_item = SettingsItem::ALL.get(state.selected).copied();
         for (item, mut text, mut color, mut bg) in &mut settings_items {
-            **text = item.label(display_state.mode);
+            **text = item.label(&view);
             apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
         }
+    }
+}
+
+fn apply_page_visibility(
+    page: PauseMenuPage,
+    top_panels: &mut Query<&mut Node, (With<PauseMenuTopPanel>, Without<PauseMenuSettingsPanel>)>,
+    settings_panels: &mut Query<
+        &mut Node,
+        (With<PauseMenuSettingsPanel>, Without<PauseMenuTopPanel>),
+    >,
+) {
+    let on_top = matches!(page, PauseMenuPage::Top);
+    for mut node in &mut *top_panels {
+        node.display = if on_top { Display::Flex } else { Display::None };
+    }
+    for mut node in &mut *settings_panels {
+        node.display = if on_top { Display::None } else { Display::Flex };
     }
 }
 
@@ -682,48 +636,14 @@ mod tests {
     }
 
     #[test]
-    fn next_display_mode_cycles_forward() {
-        assert_eq!(
-            next_display_mode(DisplayModeKind::Windowed),
-            DisplayModeKind::Borderless
-        );
-        assert_eq!(
-            next_display_mode(DisplayModeKind::Borderless),
-            DisplayModeKind::Fullscreen
-        );
-        assert_eq!(
-            next_display_mode(DisplayModeKind::Fullscreen),
-            DisplayModeKind::Windowed
-        );
-    }
-
-    #[test]
-    fn prev_display_mode_cycles_backward() {
-        assert_eq!(
-            prev_display_mode(DisplayModeKind::Windowed),
-            DisplayModeKind::Fullscreen
-        );
-        assert_eq!(
-            prev_display_mode(DisplayModeKind::Fullscreen),
-            DisplayModeKind::Borderless
-        );
-        assert_eq!(
-            prev_display_mode(DisplayModeKind::Borderless),
-            DisplayModeKind::Windowed
-        );
-    }
-
-    #[test]
-    fn settings_item_label_includes_current_value() {
-        let label = SettingsItem::DisplayMode.label(DisplayModeKind::Borderless);
-        assert!(label.contains("borderless"));
-        assert!(SettingsItem::Back
-            .label(DisplayModeKind::Windowed)
-            .eq("Back"));
-    }
-
-    #[test]
     fn pause_menu_item_all_includes_settings() {
         assert!(PauseMenuItem::ALL.contains(&PauseMenuItem::Settings));
+    }
+
+    /// `MenuSettingsItem` is the public re-export so other modules can
+    /// query rows by tag without crossing the private boundary.
+    #[test]
+    fn menu_settings_item_is_settings_item() {
+        let _ = MenuSettingsItem::DisplayMode;
     }
 }

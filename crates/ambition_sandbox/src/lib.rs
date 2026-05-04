@@ -34,6 +34,7 @@ pub mod physics;
 pub mod platforms;
 pub mod rendering;
 pub mod rooms;
+pub mod settings;
 pub mod trace;
 pub mod windowing;
 

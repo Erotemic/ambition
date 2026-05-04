@@ -465,14 +465,28 @@ pub fn spawn_block(
 ) {
     let size = block.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
-    let sprite = match assets {
-        Some(a) => entity_sprite_or_color(
-            a,
-            game_assets::block_sprite(block.kind),
-            render,
-            block_color(block.kind),
-        ),
-        None => Sprite::from_color(block_color(block.kind), render),
+    // IntGrid-derived blocks (named "ldtk *" by `int_grid_value_to_block`)
+    // can be arbitrary aspect ratios (1904×32 floors, 48×240 pillars, …).
+    // Stretching the entity-art textures across those produces the
+    // false-pattern artefacts the user reported (the texture's internal
+    // structure smears into apparent repetition). Render them as flat
+    // colored quads until per-cell tile rendering with a real tileset
+    // lands; entity-derived blocks (e.g. the basement's authored Solid
+    // rectangles) keep the textured path because their footprints match
+    // the texture aspect ratio.
+    let is_intgrid_block = block.name.starts_with("ldtk ");
+    let sprite = if is_intgrid_block {
+        Sprite::from_color(block_color(block.kind), render)
+    } else {
+        match assets {
+            Some(a) => entity_sprite_or_color(
+                a,
+                game_assets::block_sprite(block.kind),
+                render,
+                block_color(block.kind),
+            ),
+            None => Sprite::from_color(block_color(block.kind), render),
+        }
     };
     commands.spawn((
         sprite,

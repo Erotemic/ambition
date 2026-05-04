@@ -9,11 +9,6 @@
 use ambition_engine as ae;
 use bevy::prelude::*;
 
-use crate::{
-    BLINK_HOLD_SLOW_SCALE, BULLET_TIME_SCALE, DEBUG_SLOWMO_SCALE, DOWN_DOUBLE_TAP_WINDOW,
-    TIME_RAMP_DOWN_RATE, TIME_RAMP_UP_RATE, UP_DOUBLE_TAP_WINDOW,
-};
-
 /// Top-level switches for debug UI and gizmo layers.
 #[derive(Resource, Reflect, Clone, Debug)]
 #[reflect(Resource)]
@@ -78,100 +73,6 @@ pub fn inspector_visible(tools: Res<DeveloperTools>) -> bool {
 
 pub fn world_inspector_visible(tools: Res<DeveloperTools>) -> bool {
     tools.world_inspector_visible
-}
-
-/// Sandbox-only time/input feel constants that used to be compile-time values.
-#[derive(Resource, Reflect, Clone, Copy, Debug)]
-#[reflect(Resource)]
-pub struct SandboxFeelTuning {
-    pub bullet_time_scale: f32,
-    pub blink_hold_slow_scale: f32,
-    pub debug_slowmo_scale: f32,
-    pub time_ramp_down_rate: f32,
-    pub time_ramp_up_rate: f32,
-    pub down_double_tap_window: f32,
-    pub up_double_tap_window: f32,
-    pub interaction_buffer_time: f32,
-    pub attack_hitstop_time: f32,
-    pub reset_flash_time: f32,
-    pub edge_transition_cooldown: f32,
-    pub door_transition_cooldown: f32,
-    pub edge_transition_flash: f32,
-    pub door_transition_flash: f32,
-    /// Seconds of warning before a basement enemy attack becomes harmful.
-    pub enemy_attack_windup: f32,
-    /// Seconds an enemy attack hitbox remains active after windup.
-    pub enemy_attack_active: f32,
-    /// Seconds of warning before a basement boss pattern becomes harmful.
-    pub boss_attack_windup: f32,
-    /// Seconds a boss attack pattern remains active after windup.
-    pub boss_attack_active: f32,
-    /// Horizontal velocity applied when normal enemies hurt the player.
-    pub enemy_knockback_x: f32,
-    /// Upward velocity applied when normal enemies hurt the player.
-    pub enemy_knockback_y: f32,
-    /// Horizontal velocity applied when bosses hurt the player.
-    pub boss_knockback_x: f32,
-    /// Upward velocity applied when bosses hurt the player.
-    pub boss_knockback_y: f32,
-    /// Player-control scale while in hitstun; 0 is no movement authority.
-    pub hitstun_control_scale: f32,
-    /// Hitstun duration for ordinary enemy/body hits.
-    pub enemy_hitstun_time: f32,
-    /// Hitstun duration for boss hits.
-    pub boss_hitstun_time: f32,
-    /// Post-hit invulnerability after enemy/boss knockback.
-    pub knockback_invulnerability_time: f32,
-    /// Post-respawn invulnerability after lava/spike-style hazard recovery.
-    pub hazard_respawn_invulnerability_time: f32,
-    /// Hitstop on the receiving side of enemy/boss damage.
-    pub player_damage_hitstop_time: f32,
-}
-
-impl Default for SandboxFeelTuning {
-    fn default() -> Self {
-        Self {
-            bullet_time_scale: BULLET_TIME_SCALE,
-            blink_hold_slow_scale: BLINK_HOLD_SLOW_SCALE,
-            debug_slowmo_scale: DEBUG_SLOWMO_SCALE,
-            time_ramp_down_rate: TIME_RAMP_DOWN_RATE,
-            time_ramp_up_rate: TIME_RAMP_UP_RATE,
-            down_double_tap_window: DOWN_DOUBLE_TAP_WINDOW,
-            up_double_tap_window: UP_DOUBLE_TAP_WINDOW,
-            interaction_buffer_time: 0.120,
-            attack_hitstop_time: 0.055,
-            reset_flash_time: 0.18,
-            edge_transition_cooldown: 0.14,
-            door_transition_cooldown: 0.16,
-            edge_transition_flash: 0.24,
-            door_transition_flash: 0.24,
-            enemy_attack_windup: 0.36,
-            enemy_attack_active: 0.20,
-            boss_attack_windup: 0.52,
-            boss_attack_active: 0.32,
-            enemy_knockback_x: 360.0,
-            enemy_knockback_y: 260.0,
-            boss_knockback_x: 460.0,
-            boss_knockback_y: 330.0,
-            hitstun_control_scale: 0.18,
-            enemy_hitstun_time: 0.24,
-            boss_hitstun_time: 0.36,
-            knockback_invulnerability_time: 0.75,
-            hazard_respawn_invulnerability_time: 1.10,
-            player_damage_hitstop_time: 0.070,
-        }
-    }
-}
-
-impl SandboxFeelTuning {
-    pub fn feature_combat_tuning(self) -> crate::features::FeatureCombatTuning {
-        crate::features::FeatureCombatTuning {
-            enemy_attack_windup: self.enemy_attack_windup,
-            enemy_attack_active: self.enemy_attack_active,
-            boss_attack_windup: self.boss_attack_windup,
-            boss_attack_active: self.boss_attack_active,
-        }
-    }
 }
 
 /// Reflected mirror of `ambition_engine::AbilitySet` for live inspector editing.

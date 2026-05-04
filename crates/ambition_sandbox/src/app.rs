@@ -42,10 +42,9 @@ use crate::audio::{audio_play_sfx_messages, start_default_music, MusicChannel, S
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
 use crate::debug_overlay;
-use crate::dev_tools::{
-    self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, SandboxFeelTuning,
-};
+use crate::dev_tools::{self, DeveloperTools, EditableAbilitySet, EditableMovementTuning};
 use crate::dialog;
+use crate::feel::SandboxFeelTuning;
 use crate::features;
 use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::game_assets::{self, GameAssetConfig};

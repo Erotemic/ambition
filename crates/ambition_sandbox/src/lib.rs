@@ -20,6 +20,7 @@ pub mod debug_overlay;
 pub mod dev_tools;
 pub mod dialog;
 pub mod features;
+pub mod feel;
 pub mod fx;
 pub mod game_assets;
 pub mod game_mode;
@@ -44,18 +45,8 @@ pub use headless::{run_headless, HeadlessReport};
 use ambition_engine as ae;
 use bevy::prelude::Resource;
 
-use dev_tools::SandboxFeelTuning;
+use feel::SandboxFeelTuning;
 use input::KeyboardPreset;
-
-/// Default time-scale tuning constants. Submodules read these via `crate::*`
-/// when constructing `SandboxFeelTuning::default()`.
-pub const BULLET_TIME_SCALE: f32 = 0.10;
-pub const BLINK_HOLD_SLOW_SCALE: f32 = 0.35;
-pub const DEBUG_SLOWMO_SCALE: f32 = 0.25;
-pub const TIME_RAMP_DOWN_RATE: f32 = 5.0;
-pub const TIME_RAMP_UP_RATE: f32 = 14.0;
-pub const DOWN_DOUBLE_TAP_WINDOW: f32 = 0.24;
-pub const UP_DOUBLE_TAP_WINDOW: f32 = 0.30;
 
 /// Active room's collision world, exposed as a Bevy resource.
 ///

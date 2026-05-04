@@ -100,9 +100,6 @@ A Python binding via PyO3 is then a separate, optional layer.
   `crate::` paths continue to resolve. They are still the SP-only shape
   per the architecture targets memory; future patches should migrate
   per-player state onto a Player entity.
-- The constants `BULLET_TIME_SCALE`, `BLINK_HOLD_SLOW_SCALE`,
-  `DEBUG_SLOWMO_SCALE`, `TIME_RAMP_*`, and `*_DOUBLE_TAP_WINDOW` moved with
-  them since `dev_tools::SandboxFeelTuning` constructs defaults from them.
 - All `pub(crate)` fields on `SandboxRuntime` were widened to `pub` because
   the binary `main.rs` is now a separate crate from the library and needs
   access for HUD reads and `sandbox_update` writes. This is a structural

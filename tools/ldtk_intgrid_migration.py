@@ -121,12 +121,23 @@ def make_collision_layer_def(uid: int) -> dict:
     }
 
 
+def cells_for_size(px: int) -> int:
+    """LDtk computes layer cWid/cHei as `ceil(level_px / gridSize)` and the
+    intGridCsv array length is `cWid * cHei`. Earlier versions of this
+    script used floor division, which left the array one cell short on
+    any axis whose level dimension wasn't a multiple of `GRID`. LDtk
+    silently re-strode the array on load (stride 119 vs 118 for a 1900px
+    level) and the cells smeared into a one-cell-per-row staircase.
+    Always use ceil here."""
+    return (px + GRID - 1) // GRID
+
+
 def make_collision_layer_instance(level: dict, layer_def_uid: int, uid: int, intgrid_csv: list[int]) -> dict:
     return {
         "__identifier": "Collision",
         "__type": "IntGrid",
-        "__cWid": level["pxWid"] // GRID,
-        "__cHei": level["pxHei"] // GRID,
+        "__cWid": cells_for_size(level["pxWid"]),
+        "__cHei": cells_for_size(level["pxHei"]),
         "__gridSize": GRID,
         "__opacity": 1,
         "__pxTotalOffsetX": 0,
@@ -168,8 +179,8 @@ def fill_cells(intgrid: list[int], cw: int, px: int, py: int, w: int, h: int, va
 
 def migrate_level(doc: dict, level: dict, layer_def_uid: int, instance_uid: int) -> tuple[int, int]:
     """Returns (cells_painted, entities_removed)."""
-    cw = level["pxWid"] // GRID
-    ch = level["pxHei"] // GRID
+    cw = cells_for_size(level["pxWid"])
+    ch = cells_for_size(level["pxHei"])
     intgrid = [0] * (cw * ch)
 
     # Pull the Ambition entity layer + walk its entityInstances.
@@ -231,7 +242,9 @@ def main() -> int:
             total_removed += removed
             levels_touched += 1
         else:
-            empty = [0] * ((level["pxWid"] // GRID) * (level["pxHei"] // GRID))
+            cw = cells_for_size(level["pxWid"])
+            ch = cells_for_size(level["pxHei"])
+            empty = [0] * (cw * ch)
             level["layerInstances"].append(
                 make_collision_layer_instance(level, layer_def_uid, instance_uid_counter, empty)
             )

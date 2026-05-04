@@ -1,0 +1,26 @@
+# Starter assembly job for tools/robot_rig_sheet.py.
+# Paths are relative to this YAML file.
+metadata: ../metadata/robot_components.refined.yaml
+slices: ../output/slices
+output_dir: ../output/assembled
+animations:
+  - idle
+  - walk
+  - run
+  - jump
+  - fall
+  - slash
+  - hit
+  - death
+  - teleport
+  - dash
+render:
+  frame_width: 192
+  frame_height: 192
+  label_width: 58
+  border: 2
+  sheet_background: transparent
+  frame_background: transparent
+  scale: 0.275
+  root_x: 0
+  root_y: -28

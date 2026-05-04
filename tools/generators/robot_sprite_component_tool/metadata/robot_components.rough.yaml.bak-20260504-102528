@@ -1,0 +1,1107 @@
+version: 0.2.0
+name: cute_robot_component_sheet_greenscreen
+description: Rough component atlas metadata for a green-screen robot component sheet.
+  Run refine before slicing; rough boxes are approximate and corrected with green-screen
+  foreground connected-component analysis.
+image:
+  file: ../assets/robot_components_greenscreen.png
+  size:
+  - 1448
+  - 1086
+  background: greenscreen
+  background_color_hint: '#09F50D'
+  coordinate_system: pixels_top_left
+  units: px
+metadata_quality:
+  rect_precision: rough_approximate
+  pivot_precision: draft_approximate
+  anchor_precision: draft_approximate
+  workflow:
+  - Author or generate rough boxes in this YAML.
+  - Run refine to locate actual foreground components inside each rough search window.
+  - Run slice on refined metadata to extract each sprite and key out the greenscreen.
+  - Use contact-sheet to visually QA extracted components.
+  notes:
+  - Rough boxes are intentionally padded but avoid containing neighboring component
+    centers.
+  - The refinement step selects connected foreground components using the green-screen
+    mask, then shrinks/expands to a padded true extent.
+  - HIT is recoil/stagger only and must not be generated as a death pose.
+  - TELEPORT replaces the old blink action; blink remains a face expression only.
+  - anchors manually synced from refined metadata by tools/anchor_editor.py
+refinement:
+  source: rough_yaml
+  default_search_padding: 8
+  output_padding: 4
+  background_estimate: median_border_color
+  background_distance_transparent: 38
+  background_distance_opaque: 92
+  component_selection:
+    center_inside_rough_rect: true
+    min_component_area: 18
+    min_overlap_fraction: 0.18
+    keep_multiple_components: true
+  despill_green: true
+  warnings:
+  - warn when no foreground is found
+  - warn when selected foreground touches the search-window boundary
+  - warn when a refined crop nearly touches a neighboring component
+  clamp_points_to_crop: true
+style:
+  character: cute white cartoon robot
+  linework: thick rounded black outline with clean inked silhouette
+  shading: soft cel-shaded highlights, no painterly smudging
+  palette:
+    body: '#f7f7f2'
+    visor: '#0b0f12'
+    eyes: '#00eaff'
+    accent_purple: '#a55cff'
+    joint_dark: '#202326'
+    effect_cyan: '#33eaff'
+    effect_purple: '#9d4dff'
+  rendering_rules:
+  - preserve thick black outline
+  - keep shapes rounded and toy-like
+  - avoid hard mechanical angles
+  - avoid blurry/smudged edges
+  - avoid text inside production sprite sheets
+  - use cyan glow only for eyes, teleport, dash, and hit particles
+  - use purple energy primarily for slash/weapon effects
+generator_instructions:
+  purpose: Guide an image generator or procedural compositor when using these robot
+    components as reusable parts.
+  high_level_rule: Use these elements as a clean design vocabulary. The rig may transform
+    parts for pose, but final animation frames may be beautified/redrawn to preserve
+    the polished AI-generated look.
+  positive_prompt: polished cute white cartoon robot, thick clean black outlines,
+    cyan glowing digital eyes, purple antenna and accents, rounded toy-like proportions,
+    crisp sprite component, consistent lighting, solid green-screen or transparent
+    background, centered reusable game asset
+  negative_prompt: blurry, smudged, painterly, distorted, warped text, fake labels,
+    inconsistent proportions, messy outlines, low resolution, grungy, over-detailed
+    mechanical parts, death pose for hit reaction
+  composition_rules:
+  - Do not generate labels, timing text, frame numbers, or grid lines inside final
+    sprites.
+  - Keep each component centered in its crop with enough padding for rotation.
+  - Maintain matching line weight across head, body, limbs, antenna, and effects.
+  - Use deterministic code for final atlas layout, spacing, labels, and frame timing
+    metadata.
+  - Prefer a single solid green-screen background when alpha is unavailable so the
+    slicer can remove it deterministically.
+sprites:
+  head_front:
+    rect:
+    - 20
+    - 32
+    - 208
+    - 207
+    pivot:
+    - 104
+    - 176
+    tags:
+    - head
+    - front
+    - neutral
+    - with_antenna
+    anchors:
+      neck:
+      - 104
+      - 176
+      face_socket:
+      - 124
+      - 111
+      antenna_socket:
+      - 37
+      - 24
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  head_tilt_left:
+    rect:
+    - 218
+    - 38
+    - 198
+    - 206
+    pivot:
+    - 108
+    - 176
+    tags:
+    - head
+    - tilt
+    - left
+    - with_antenna
+    anchors:
+      neck:
+      - 108
+      - 176
+      face_socket:
+      - 128
+      - 111
+      antenna_socket:
+      - 44
+      - 24
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  head_tilt_right:
+    rect:
+    - 398
+    - 38
+    - 197
+    - 206
+    pivot:
+    - 102
+    - 176
+    tags:
+    - head
+    - tilt
+    - right
+    - with_antenna
+    anchors:
+      neck:
+      - 102
+      - 176
+      face_socket:
+      - 122
+      - 111
+      antenna_socket:
+      - 35
+      - 24
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  head_squash_blink:
+    rect:
+    - 584
+    - 101
+    - 201
+    - 147
+    pivot:
+    - 104
+    - 132
+    tags:
+    - head
+    - squash
+    - blink
+    - with_antenna
+    anchors:
+      neck:
+      - 104
+      - 141
+      face_socket:
+      - 124
+      - 86
+      antenna_socket:
+      - 38
+      - 26
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  visor_blank:
+    rect:
+    - 785
+    - 80
+    - 161
+    - 127
+    pivot:
+    - 80
+    - 63
+    tags:
+    - visor
+    - face
+    - blank
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  face_eyes_open:
+    rect:
+    - 945
+    - 83
+    - 162
+    - 124
+    pivot:
+    - 81
+    - 62
+    tags:
+    - face
+    - expression
+    - neutral
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  face_blink:
+    rect:
+    - 1106
+    - 83
+    - 163
+    - 124
+    pivot:
+    - 81
+    - 62
+    tags:
+    - face
+    - expression
+    - blink
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  face_happy:
+    rect:
+    - 1268
+    - 83
+    - 162
+    - 124
+    pivot:
+    - 81
+    - 62
+    tags:
+    - face
+    - expression
+    - happy
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  face_angry:
+    rect:
+    - 810
+    - 212
+    - 157
+    - 123
+    pivot:
+    - 78
+    - 61
+    tags:
+    - face
+    - expression
+    - angry
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  face_sad:
+    rect:
+    - 964
+    - 212
+    - 155
+    - 123
+    pivot:
+    - 77
+    - 61
+    tags:
+    - face
+    - expression
+    - sad
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  face_dead_x:
+    rect:
+    - 1117
+    - 213
+    - 155
+    - 122
+    pivot:
+    - 77
+    - 61
+    tags:
+    - face
+    - expression
+    - dead
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  face_teleport_scan:
+    rect:
+    - 1267
+    - 211
+    - 156
+    - 124
+    pivot:
+    - 78
+    - 62
+    tags:
+    - face
+    - expression
+    - teleport
+    - scan
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  torso_front:
+    rect:
+    - 25
+    - 329
+    - 204
+    - 210
+    pivot:
+    - 102
+    - 128
+    tags:
+    - torso
+    - front
+    - standing
+    anchors:
+      neck:
+      - 102
+      - 38
+      shoulder_left:
+      - 50
+      - 84
+      shoulder_right:
+      - 154
+      - 84
+      hip_left:
+      - 74
+      - 160
+      hip_right:
+      - 130
+      - 160
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  torso_lean_back:
+    rect:
+    - 264
+    - 332
+    - 193
+    - 205
+    pivot:
+    - 94
+    - 126
+    tags:
+    - torso
+    - lean
+    - back
+    anchors:
+      neck:
+      - 96
+      - 38
+      shoulder_left:
+      - 50
+      - 86
+      shoulder_right:
+      - 142
+      - 86
+      hip_left:
+      - 71
+      - 159
+      hip_right:
+      - 116
+      - 159
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  torso_lean_forward:
+    rect:
+    - 478
+    - 335
+    - 180
+    - 202
+    pivot:
+    - 71
+    - 156
+    tags:
+    - torso
+    - lean
+    - forward
+    anchors:
+      neck:
+      - 120
+      - 44
+      shoulder_left:
+      - 63
+      - 78
+      shoulder_right:
+      - 114
+      - 104
+      hip_left:
+      - 56
+      - 151
+      hip_right:
+      - 86
+      - 161
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  torso_prone:
+    rect:
+    - 647
+    - 381
+    - 188
+    - 150
+    pivot:
+    - 104
+    - 92
+    tags:
+    - torso
+    - prone
+    - grounded
+    anchors:
+      neck:
+      - 54
+      - 68
+      shoulder_left:
+      - 58
+      - 88
+      shoulder_right:
+      - 140
+      - 88
+      hip_left:
+      - 104
+      - 100
+      hip_right:
+      - 148
+      - 100
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  antenna_short:
+    rect:
+    - 855
+    - 354
+    - 83
+    - 184
+    pivot:
+    - 42
+    - 144
+    tags:
+    - antenna
+    - short
+    anchors:
+      base:
+      - 42
+      - 156
+      tip:
+      - 42
+      - 42
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  antenna_tall:
+    rect:
+    - 982
+    - 327
+    - 84
+    - 215
+    pivot:
+    - 42
+    - 197
+    tags:
+    - antenna
+    - tall
+    anchors:
+      base:
+      - 42
+      - 197
+      tip:
+      - 42
+      - 17
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  side_pod_left:
+    rect:
+    - 1124
+    - 365
+    - 125
+    - 170
+    pivot:
+    - 62
+    - 85
+    tags:
+    - side_pod
+    - left
+    - purple
+    anchors:
+      socket:
+      - 62
+      - 85
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  side_pod_right:
+    rect:
+    - 1278
+    - 365
+    - 132
+    - 170
+    pivot:
+    - 66
+    - 85
+    tags:
+    - side_pod
+    - right
+    - purple
+    anchors:
+      socket:
+      - 66
+      - 85
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  arm_capsule_vertical:
+    rect:
+    - 26
+    - 551
+    - 91
+    - 147
+    pivot:
+    - 45
+    - 34
+    tags:
+    - arm
+    - capsule
+    - vertical
+    anchors:
+      shoulder:
+      - 45
+      - 34
+      wrist:
+      - 45
+      - 107
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  arm_capsule_diagonal_a:
+    rect:
+    - 133
+    - 559
+    - 127
+    - 129
+    pivot:
+    - 63
+    - 19
+    tags:
+    - arm
+    - capsule
+    - diagonal
+    anchors:
+      shoulder:
+      - 63
+      - 19
+      wrist:
+      - 63
+      - 109
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  arm_capsule_diagonal_b:
+    rect:
+    - 252
+    - 562
+    - 124
+    - 127
+    pivot:
+    - 62
+    - 19
+    tags:
+    - arm
+    - capsule
+    - diagonal
+    anchors:
+      shoulder:
+      - 62
+      - 19
+      wrist:
+      - 62
+      - 107
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  arm_upper_vertical:
+    rect:
+    - 391
+    - 540
+    - 89
+    - 178
+    pivot:
+    - 44
+    - 34
+    tags:
+    - arm
+    - upper
+    - vertical
+    anchors:
+      shoulder:
+      - 44
+      - 34
+      wrist:
+      - 44
+      - 120
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  arm_bent_down:
+    rect:
+    - 511
+    - 538
+    - 119
+    - 183
+    pivot:
+    - 59
+    - 27
+    tags:
+    - arm
+    - bent
+    - down
+    anchors:
+      shoulder:
+      - 59
+      - 27
+      wrist:
+      - 59
+      - 155
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  arm_forearm_vertical:
+    rect:
+    - 628
+    - 537
+    - 97
+    - 173
+    pivot:
+    - 45
+    - 34
+    tags:
+    - arm
+    - forearm
+    - vertical
+    anchors:
+      elbow:
+      - 45
+      - 34
+      wrist:
+      - 45
+      - 127
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  arm_bent_up:
+    rect:
+    - 738
+    - 537
+    - 114
+    - 168
+    pivot:
+    - 57
+    - 25
+    tags:
+    - arm
+    - bent
+    - up
+    anchors:
+      shoulder:
+      - 57
+      - 25
+      wrist:
+      - 57
+      - 142
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  hand_open_down:
+    rect:
+    - 850
+    - 557
+    - 149
+    - 149
+    pivot:
+    - 41
+    - 44
+    tags:
+    - hand
+    - open
+    - down
+    anchors:
+      wrist:
+      - 41
+      - 44
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  hand_fist:
+    rect:
+    - 976
+    - 561
+    - 129
+    - 129
+    pivot:
+    - 94
+    - 86
+    tags:
+    - hand
+    - fist
+    - combat
+    anchors:
+      wrist:
+      - 94
+      - 86
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  hand_spread:
+    rect:
+    - 1104
+    - 549
+    - 159
+    - 151
+    pivot:
+    - 34
+    - 83
+    tags:
+    - hand
+    - spread
+    - open
+    anchors:
+      wrist:
+      - 28
+      - 83
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: false
+  arm_blaster:
+    rect:
+    - 1245
+    - 590
+    - 201
+    - 113
+    pivot:
+    - 100
+    - 16
+    tags:
+    - arm
+    - weapon
+    - blaster
+    - purple
+    anchors:
+      shoulder:
+      - 100
+      - 16
+      wrist:
+      - 100
+      - 96
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  leg_straight_left:
+    rect:
+    - 24
+    - 705
+    - 90
+    - 201
+    pivot:
+    - 39
+    - 36
+    tags:
+    - leg
+    - straight
+    - left
+    anchors:
+      hip:
+      - 39
+      - 36
+      ankle:
+      - 45
+      - 159
+      ground:
+      - 45
+      - 177
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  leg_bent_left:
+    rect:
+    - 164
+    - 714
+    - 129
+    - 190
+    pivot:
+    - 36
+    - 34
+    tags:
+    - leg
+    - bent
+    - left
+    anchors:
+      hip:
+      - 36
+      - 34
+      ankle:
+      - 60
+      - 153
+      ground:
+      - 59
+      - 168
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  leg_straight_right:
+    rect:
+    - 353
+    - 703
+    - 92
+    - 191
+    pivot:
+    - 40
+    - 34
+    tags:
+    - leg
+    - straight
+    - right
+    anchors:
+      hip:
+      - 40
+      - 34
+      ankle:
+      - 46
+      - 151
+      ground:
+      - 46
+      - 167
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  leg_bent_right:
+    rect:
+    - 503
+    - 708
+    - 123
+    - 186
+    pivot:
+    - 36
+    - 34
+    tags:
+    - leg
+    - bent
+    - right
+    anchors:
+      hip:
+      - 36
+      - 34
+      ankle:
+      - 66
+      - 150
+      ground:
+      - 66
+      - 164
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  foot_flat:
+    rect:
+    - 700
+    - 775
+    - 141
+    - 114
+    pivot:
+    - 70
+    - 79
+    tags:
+    - foot
+    - flat
+    - grounded
+    anchors:
+      ankle:
+      - 70
+      - 22
+      ground:
+      - 70
+      - 97
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  foot_angled:
+    rect:
+    - 876
+    - 738
+    - 125
+    - 142
+    pivot:
+    - 62
+    - 99
+    tags:
+    - foot
+    - angled
+    anchors:
+      ankle:
+      - 62
+      - 28
+      ground:
+      - 62
+      - 122
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  foot_grounded:
+    rect:
+    - 1061
+    - 765
+    - 143
+    - 120
+    pivot:
+    - 71
+    - 84
+    tags:
+    - foot
+    - grounded
+    anchors:
+      ankle:
+      - 71
+      - 24
+      ground:
+      - 71
+      - 103
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  foot_point:
+    rect:
+    - 1278
+    - 745
+    - 114
+    - 140
+    pivot:
+    - 57
+    - 98
+    tags:
+    - foot
+    - point
+    anchors:
+      ankle:
+      - 57
+      - 28
+      ground:
+      - 57
+      - 120
+    refine:
+      output_padding: 4
+      search_padding: 8
+      keep_multiple_components: true
+  fx_dash_streak:
+    rect:
+    - 19
+    - 906
+    - 394
+    - 133
+    pivot:
+    - 197
+    - 66
+    tags:
+    - effect
+    - dash
+    - cyan
+    - behind_character
+    refine:
+      min_component_area: 6
+      output_padding: 8
+      keep_multiple_components: true
+      search_padding: 12
+  fx_hit_particles:
+    rect:
+    - 414
+    - 886
+    - 333
+    - 175
+    pivot:
+    - 166
+    - 87
+    tags:
+    - effect
+    - hit
+    - particles
+    - cyan
+    - front
+    refine:
+      min_component_area: 6
+      output_padding: 8
+      keep_multiple_components: true
+      search_padding: 12
+  fx_slash_arc:
+    rect:
+    - 787
+    - 873
+    - 359
+    - 177
+    pivot:
+    - 179
+    - 88
+    tags:
+    - effect
+    - slash
+    - purple
+    - front
+    refine:
+      min_component_area: 6
+      output_padding: 8
+      keep_multiple_components: true
+      search_padding: 12
+aliases:
+  joint_large: arm_capsule_vertical
+  joint_medium: arm_capsule_diagonal_a
+  joint_small: arm_capsule_diagonal_b
+  joint_tiny: arm_upper_vertical
+rig:
+  root:
+    pivot:
+    - 0
+    - 0
+    meaning: character ground contact point
+  draw_order:
+  - fx_behind
+  - back_arm
+  - back_leg
+  - torso
+  - side_pods
+  - front_leg
+  - head
+  - face
+  - antenna
+  - front_arm
+  - hands
+  - weapon
+  - fx_front
+animation_vocabulary:
+  hit: brief recoil/stagger, use hurt face, recover to idle; never collapse
+  death: separate collapse/downed state
+  teleport: idle -> cyan particles -> vanish -> reappear; replaces old blink action
+  slash: front arm leads, purple slash arc on front layer
+  dash: cyan streaks behind character

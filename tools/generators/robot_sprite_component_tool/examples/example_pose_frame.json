@@ -1,0 +1,17 @@
+{
+  "version": "0.1.0",
+  "description": "Example of a single procedural pose frame that a rig compositor could render before optional AI cleanup.",
+  "canvas": {"size": [256, 256], "root": [128, 210]},
+  "draw_order": ["fx_behind", "back_leg", "back_arm", "torso", "front_leg", "head", "face", "front_arm", "fx_front"],
+  "parts": {
+    "torso": {"sprite": "torso_lean_forward", "pos": [128, 150], "rotation_deg": -6, "scale": 0.7},
+    "head": {"sprite": "head_tilt_right", "attach": "torso.neck", "rotation_deg": 4, "scale": 0.62},
+    "face": {"sprite": "face_eyes_open", "attach": "head.face_socket", "rotation_deg": 0, "scale": 0.55},
+    "back_leg": {"sprite": "leg_bent_left", "attach": "torso.hip_left", "rotation_deg": 18, "scale": 0.55},
+    "front_leg": {"sprite": "leg_straight_right", "attach": "torso.hip_right", "rotation_deg": -18, "scale": 0.55},
+    "back_arm": {"sprite": "arm_bent_down", "attach": "torso.shoulder_left", "rotation_deg": 40, "scale": 0.52},
+    "front_arm": {"sprite": "arm_blaster", "attach": "torso.shoulder_right", "rotation_deg": -12, "scale": 0.55},
+    "fx_front": {"sprite": "fx_slash_arc", "pos": [170, 125], "rotation_deg": 0, "scale": 0.45, "visible": false},
+    "fx_behind": {"sprite": "fx_dash_streak", "pos": [86, 170], "rotation_deg": 0, "scale": 0.45, "visible": true}
+  }
+}

@@ -1,0 +1,20 @@
+[project]
+name = "robot-sprite-component-tool"
+version = "0.6.0"
+description = "Green-screen component extraction, metadata refinement, and procedural sprite-sheet assembly for a cute robot rig."
+requires-python = ">=3.9"
+dependencies = [
+  "pillow>=10.0",
+  "numpy>=1.24",
+  "PyYAML>=6.0",
+  "opencv-python-headless>=4.8",
+]
+
+[tool.robot_sprite_component_tool]
+default_rough_metadata = "metadata/robot_components.rough.yaml"
+default_refined_metadata = "metadata/robot_components.refined.yaml"
+source_image = "assets/robot_components_greenscreen.png"
+
+[project.scripts]
+robot-asset-tool = "tools.robot_asset_tool:main"
+robot-rig-sheet = "tools.robot_rig_sheet:main"

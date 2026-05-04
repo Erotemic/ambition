@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RobotComponentMetadata",
+  "type": "object",
+  "required": ["version", "image", "sprites"],
+  "properties": {
+    "version": {"type": "string"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "image": {
+      "type": "object",
+      "required": ["file", "size", "coordinate_system"],
+      "properties": {
+        "file": {"type": "string"},
+        "size": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"type": "integer", "minimum": 1}
+        },
+        "background": {"type": "string"},
+        "background_color_hint": {"type": "string"},
+        "estimated_background_rgb": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"type": "integer", "minimum": 0, "maximum": 255}
+        },
+        "coordinate_system": {"type": "string"},
+        "units": {"type": "string"}
+      }
+    },
+    "refinement": {"type": "object"},
+    "style": {"type": "object"},
+    "generator_instructions": {"type": "object"},
+    "aliases": {"type": "object"},
+    "rig": {"type": "object"},
+    "animation_vocabulary": {"type": "object"},
+    "sprites": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["rect", "pivot"],
+        "properties": {
+          "rect": {"$ref": "#/$defs/rect"},
+          "rough_rect": {"$ref": "#/$defs/rect"},
+          "pivot": {"$ref": "#/$defs/point"},
+          "anchors": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/$defs/point"}
+          },
+          "tags": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "refine": {"type": "object"},
+          "refined": {"type": "object"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "rect": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"type": "integer"}
+    },
+    "point": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"type": "integer"}
+    }
+  }
+}

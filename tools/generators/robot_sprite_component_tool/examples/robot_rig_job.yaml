@@ -1,0 +1,17 @@
+# Focused one-row preview job for tuning arm z-order and hand placement.
+# Use examples/robot_rig_job_full.yaml for the full sheet.
+metadata: ../metadata/robot_components.refined.yaml
+slices: ../output/slices
+output_dir: ../output/assembled
+animations:
+- run
+render:
+  frame_width: 192
+  frame_height: 192
+  label_width: 58
+  border: 2
+  sheet_background: transparent
+  frame_background: transparent
+  scale: 0.275
+  root_x: 0
+  root_y: -28

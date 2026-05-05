@@ -61,6 +61,10 @@ pub enum PauseMenuItem {
     Settings,
     MusicTrack,
     Inventory,
+    /// Wipe the persisted save + rebuild the runtime — every NPC
+    /// alive again, every encounter armed, player back at the start
+    /// room. Triggered via `crate::reset::SandboxResetRequested`.
+    ResetSandbox,
     Quit,
 }
 
@@ -71,6 +75,7 @@ impl PauseMenuItem {
             Self::Settings => "Settings",
             Self::MusicTrack => "Music",
             Self::Inventory => "Inventory",
+            Self::ResetSandbox => "Reset Sandbox",
             Self::Quit => "Quit to Desktop",
         }
     }
@@ -103,11 +108,12 @@ impl PauseMenuItem {
         }
     }
 
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Resume,
         Self::Settings,
         Self::MusicTrack,
         Self::Inventory,
+        Self::ResetSandbox,
         Self::Quit,
     ];
 }
@@ -257,6 +263,7 @@ pub fn pause_menu_navigate(
     mut exit: MessageWriter<AppExit>,
     mut display_state: ResMut<DisplayModeState>,
     mut user_settings: ResMut<UserSettings>,
+    mut reset_request: ResMut<crate::reset::SandboxResetRequested>,
     windows: Query<&mut Window, With<PrimaryWindow>>,
     #[cfg(feature = "audio")] library: Res<AudioLibrary>,
     #[cfg(feature = "audio")] mut music_state: ResMut<MusicPlaybackState>,
@@ -303,6 +310,7 @@ pub fn pause_menu_navigate(
                 &mut next_mode,
                 &mut inventory,
                 &mut exit,
+                &mut reset_request,
                 #[cfg(feature = "audio")]
                 &library,
                 #[cfg(feature = "audio")]
@@ -333,6 +341,7 @@ fn handle_top_input(
     next_mode: &mut NextState<GameMode>,
     inventory: &mut InventoryUiState,
     exit: &mut MessageWriter<AppExit>,
+    reset_request: &mut crate::reset::SandboxResetRequested,
     #[cfg(feature = "audio")] library: &AudioLibrary,
     #[cfg(feature = "audio")] music_state: &mut MusicPlaybackState,
     #[cfg(feature = "audio")] music_channel: &AudioChannel<MusicChannel>,
@@ -385,6 +394,14 @@ fn handle_top_input(
                 inventory.visible = true;
                 inventory.selected = 0;
                 inventory.opened_from_pause = true;
+            }
+            PauseMenuItem::ResetSandbox => {
+                // Queue the reset and return to gameplay so the
+                // processor system can run on the next frame. The
+                // banner ("SANDBOX RESET") confirms the action.
+                reset_request.request();
+                inventory.visible = false;
+                next_mode.set(GameMode::Playing);
             }
             PauseMenuItem::Quit => {
                 exit.write(AppExit::Success);
@@ -808,6 +825,18 @@ mod tests {
     #[test]
     fn pause_menu_item_all_includes_settings() {
         assert!(PauseMenuItem::ALL.contains(&PauseMenuItem::Settings));
+    }
+
+    /// `ResetSandbox` is the user-facing entry point for the
+    /// "wipe the save and rebuild the runtime" flow. Pin it here so
+    /// a future menu-shape refactor can't silently drop it.
+    #[test]
+    fn pause_menu_item_all_includes_reset_sandbox() {
+        assert!(PauseMenuItem::ALL.contains(&PauseMenuItem::ResetSandbox));
+        assert_eq!(
+            PauseMenuItem::ResetSandbox.static_label(),
+            "Reset Sandbox"
+        );
     }
 
     /// `MenuSettingsItem` is the public re-export so other modules can

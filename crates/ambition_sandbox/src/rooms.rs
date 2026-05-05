@@ -105,6 +105,10 @@ pub struct RoomTransition {
 pub struct RoomSet {
     pub rooms: Vec<RoomSpec>,
     pub active: usize,
+    /// Index of the room the player starts in on a fresh sandbox.
+    /// Captured at `from_parts` time so the "reset sandbox" flow can
+    /// warp the player back without round-tripping through LDtk.
+    pub start: usize,
     graph: Graph<String, TransitionEdge>,
     room_nodes: Vec<NodeIndex>,
 }
@@ -167,6 +171,7 @@ impl RoomSet {
         Self {
             rooms,
             active,
+            start: active,
             graph,
             room_nodes,
         }

@@ -331,6 +331,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::features::FeatureEventBus::default())
         .insert_resource(crate::map_menu::MapMenuState::default())
         .insert_resource(crate::CameraEaseState::default())
+        .insert_resource(crate::reset::SandboxResetRequested::default())
         .add_systems(
             Update,
             (
@@ -372,20 +373,35 @@ pub fn add_simulation_plugins(app: &mut App) {
                 .chain()
                 .after(crate::encounter::sync_encounter_controller_states),
         )
+        // Populate the encounter / quest / boss registries from the LDtk
+        // project + save. These run on Update (not Startup) with their
+        // existing `specs_loaded` / `initialized` short-circuits so:
+        //   1. The first Update tick populates them (Startup is done by
+        //      the time any Update fires, so SandboxLdtkProject + save
+        //      are ready).
+        //   2. The "reset sandbox" flow (`process_sandbox_reset_request`)
+        //      can flip those flags back to false and the next tick
+        //      repopulates from the freshly-cleared save — without us
+        //      having to inline the populate logic in two places.
+        // The cost when already loaded is one ResMut acquisition + one
+        // bool check per registry per frame: negligible.
         .add_systems(
-            Startup,
+            Update,
             (
                 crate::quest::populate_quest_registry,
                 crate::boss_encounter::populate_boss_encounter_registry,
-            )
-                .after(setup_simulation_system),
+                crate::encounter::populate_encounter_registry,
+            ),
         )
-        // Populate the encounter registry from the LDtk file once
-        // resources are inserted. Save state is read here so a saved
-        // Cleared encounter starts in `Cleared` instead of `Inactive`.
+        // Sandbox reset processor: consumes pending reset requests
+        // (set by the pause-menu "Reset Sandbox" item or any other
+        // caller). Runs after `sandbox_update` so it can't race with
+        // in-flight gameplay mutations, and before the populate
+        // systems on the next frame so they see the cleared
+        // registries when re-running.
         .add_systems(
-            Startup,
-            crate::encounter::populate_encounter_registry.after(setup_simulation_system),
+            Update,
+            crate::reset::process_sandbox_reset_request.after(sandbox_update),
         )
         // Trace recorder lives at the simulation seam: `record_frame_system`
         // captures one frame per Update tick after `sandbox_update` has

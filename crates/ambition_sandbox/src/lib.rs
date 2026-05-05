@@ -42,6 +42,7 @@ pub mod physics;
 pub mod platforms;
 pub mod projectile;
 pub mod rendering;
+pub mod reset;
 pub mod rooms;
 pub mod save;
 pub mod settings;

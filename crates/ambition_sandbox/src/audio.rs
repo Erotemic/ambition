@@ -110,6 +110,31 @@ pub fn amplitude_to_decibels(linear: f32) -> f32 {
     20.0 * clamped.log10()
 }
 
+/// Presentation-side system: react to `EncounterMusicRequest`. When
+/// the desired track changes (intro→default or default→intro), swap
+/// the music channel via the existing `switch_to_music_track` helper.
+/// Default reverts to the user's original startup track.
+#[cfg(feature = "audio")]
+pub fn apply_encounter_music(
+    library: Res<AudioLibrary>,
+    mut music_state: ResMut<MusicPlaybackState>,
+    music_channel: Res<AudioChannel<MusicChannel>>,
+    mut request: ResMut<crate::encounter::EncounterMusicRequest>,
+    sandbox_data: Res<crate::data::SandboxDataSpec>,
+) {
+    if request.desired_track == request.last_applied {
+        return;
+    }
+    let target = match &request.desired_track {
+        Some(track) => track.clone(),
+        None => sandbox_data.audio.default_music_track.clone(),
+    };
+    if music_state.active_track != target && library.track(&target).is_some() {
+        switch_to_music_track(&library, &mut music_state, &music_channel, &target);
+    }
+    request.last_applied = request.desired_track.clone();
+}
+
 /// Presentation-side system: detect changes in
 /// `UserSettings.audio` and push the new volumes to the music / SFX
 /// channels. Runs every frame; the underlying channel call is cheap.
@@ -937,18 +962,28 @@ mod tests {
         let spec = SandboxDataSpec::load_embedded();
         let mut assets = Assets::<KiraAudioSource>::default();
         let library = AudioLibrary::new(&mut assets, &spec.audio);
-        assert_eq!(library.track_count(), 2);
-        assert_eq!(
-            library.next_track_id("long_lofi_drift"),
-            Some(ORIGINAL_TRACK_ID)
-        );
+        // 3 tracks since the encounter music addition: original lofi
+        // loop, long lofi drift, pulse drift voyage (encounter intro).
+        assert_eq!(library.track_count(), 3);
+        // long_lofi_drift is index 1; previous wraps to index 0 (original).
         assert_eq!(
             library.previous_track_id("long_lofi_drift"),
             Some(ORIGINAL_TRACK_ID)
         );
+        // Original cycles forward to long_lofi_drift.
         assert_eq!(
             library.next_track_id(ORIGINAL_TRACK_ID),
             Some("long_lofi_drift")
+        );
+        // The encounter track is reachable as the third.
+        assert_eq!(
+            library.next_track_id("long_lofi_drift"),
+            Some("pulse_drift_voyage")
+        );
+        // And the cycle wraps back to original from the encounter track.
+        assert_eq!(
+            library.next_track_id("pulse_drift_voyage"),
+            Some(ORIGINAL_TRACK_ID)
         );
     }
 

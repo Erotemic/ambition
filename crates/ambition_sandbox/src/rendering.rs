@@ -436,6 +436,62 @@ pub fn spawn_room_visuals(
     }
 }
 
+/// Spawn `FeatureVisual` entities for `FeatureRuntime` enemies that
+/// don't have one yet. Static LDtk-derived enemies get their visuals
+/// from `spawn_room_visuals` at room load; encounter-spawned enemies
+/// (`FeatureRuntime::spawn_enemy`) appear after that point and need a
+/// per-frame discovery pass to attach their sprite.
+///
+/// Bevy automatically picks up the new sprites from then on:
+/// `sync_visuals` reads the matching `FeatureView` and `upgrade_enemy_sprites`
+/// swaps in the character spritesheet on the same frame.
+pub fn spawn_dynamic_feature_visuals(
+    mut commands: Commands,
+    runtime: Res<crate::SandboxRuntime>,
+    world: Res<crate::GameWorld>,
+    assets: Option<Res<GameAssets>>,
+    existing: Query<&FeatureVisual>,
+) {
+    if runtime.features.enemies.is_empty() {
+        return;
+    }
+    let known: std::collections::HashSet<&str> = existing.iter().map(|v| v.id.as_str()).collect();
+    let assets_ref = assets.as_deref();
+    for enemy in &runtime.features.enemies {
+        if known.contains(enemy.id.as_str()) {
+            continue;
+        }
+        let archetype_kind = if matches!(enemy.brain, ae::EnemyBrain::Custom(ref n) if n.starts_with("sandbag_"))
+        {
+            FeatureVisualKind::Sandbag
+        } else {
+            FeatureVisualKind::Enemy
+        };
+        let render = BVec2::new(enemy.size.x, enemy.size.y);
+        let entity_kind = ae::RoomObjectKind::EnemySpawn(enemy.brain.clone());
+        let entity_key = game_assets::entity_sprite_for_room_object(&entity_kind);
+        let sprite = match assets_ref {
+            Some(a) => {
+                entity_sprite_or_color(a, entity_key, render, feature_color(archetype_kind, false))
+            }
+            None => Sprite::from_color(feature_color(archetype_kind, false), render),
+        };
+        commands.spawn((
+            sprite,
+            Transform::from_translation(world_to_bevy(
+                &world.0,
+                enemy.pos,
+                feature_z(archetype_kind),
+            )),
+            Name::new(format!("Encounter mob: {}", enemy.name)),
+            FeatureVisual {
+                id: enemy.id.clone(),
+            },
+            RoomVisual,
+        ));
+    }
+}
+
 pub fn spawn_grid(commands: &mut Commands, world: &ae::World) {
     let grid_color = Color::srgba(0.12, 0.15, 0.22, 0.28);
     let mut x = 0.0;
@@ -677,9 +733,7 @@ fn object_visual_kind(kind: &ae::RoomObjectKind) -> Option<FeatureVisualKind> {
         {
             Some(FeatureVisualKind::Npc)
         }
-        ae::RoomObjectKind::Interactable(interactable)
-            if matches!(&interactable.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:")) =>
-        {
+        ae::RoomObjectKind::Interactable(interactable) if matches!(&interactable.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:")) => {
             Some(FeatureVisualKind::Switch)
         }
         ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom(name))

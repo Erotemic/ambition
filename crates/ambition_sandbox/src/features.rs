@@ -214,6 +214,45 @@ impl FeatureRuntime {
             switch.on = on;
         }
     }
+
+    /// Spawn a fresh enemy at runtime. Used by the encounter system's
+    /// wave loop to introduce mobs after the camera + music intro
+    /// rather than placing them as static LDtk EnemySpawn entities.
+    /// Bypasses the patrol-path lookup since encounter mobs use chase
+    /// AI by default.
+    pub fn spawn_enemy(
+        &mut self,
+        id: String,
+        brain: ae::EnemyBrain,
+        pos: ae::Vec2,
+        size: ae::Vec2,
+    ) {
+        let archetype = EnemyArchetype::from_brain(&brain);
+        let aabb = ae::Aabb::new(pos, size * 0.5);
+        let object = ae::RoomObject::new(
+            id.clone(),
+            id.clone(),
+            aabb,
+            ae::RoomObjectKind::EnemySpawn(brain.clone()),
+        );
+        let mut runtime = EnemyRuntime::new(&object, brain, &[]);
+        runtime.archetype = archetype;
+        runtime.health = ae::Health::new(archetype.max_health());
+        // Encounter spawns shouldn't auto-respawn even if they happen
+        // to be a sandbag archetype — set respawn timer to a value
+        // longer than any reasonable encounter so the wave clears.
+        runtime.respawn_timer = 999_999.0;
+        self.enemies.push(runtime);
+    }
+
+    /// Remove all enemies whose id starts with `encounter:<id>:` —
+    /// called when the encounter is reset via the switch so a fresh
+    /// attempt doesn't inherit half-dead carryover mobs from the
+    /// previous attempt.
+    pub fn despawn_encounter_enemies(&mut self, encounter_id: &str) {
+        let prefix = format!("encounter:{encounter_id}:");
+        self.enemies.retain(|e| !e.id.starts_with(&prefix));
+    }
 }
 
 impl FeatureRuntime {

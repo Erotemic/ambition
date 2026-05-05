@@ -1,153 +1,182 @@
 # Mob lab encounter
 
-A scripted basement encounter room with seldom_state-vocabulary
-state, camera zoom-out on engagement, and a reset switch outside the
-arena that clears the persisted defeat state.
+A scripted basement encounter room with hallway → arena layout, a
+dynamically-spawned lock wall, intro phase with music swap and camera
+zoom, multi-wave enemy spawning (including delayed sub-spawns), and
+a free-toggle reset switch outside the arena.
 
-## Layout (LDtk)
+## Map (LDtk)
 
-The `mob_lab` active area is a single 1024×768 level with two
-chambers separated by a divider wall:
-
-```
-┌──────────────────────────────────────────┐
-│ [back door]  [Switch]   ┃   [arena]      │
-│                          ┃   [enemy]     │
-│                          ┃   [enemy]     │
-│  antechamber             ┃   [enemy]     │
-│                                          │
-└──────────────────────────────────────────┘
-                ↑                ↑
-                EncounterTrigger threshold
-```
-
-- `LoadingZone lab_entry` (left edge) connects bidirectionally to
-  `central_hub_complex/lab_door` in `central_hub_basement`.
-- `Switch mob_lab_reset_switch` sits in the antechamber. Walking up
-  to it and pressing Interact resets the encounter (clears the
-  persisted defeat state and returns the registry to `Inactive` so a
-  fresh attempt is available).
-- `EncounterTrigger` AABB straddles the divider opening. Player
-  enters → encounter advances to `Active`, exits seal, camera zooms
-  to `1.6`.
-- Three `EnemySpawn` markers form wave 1 (sandbag dummies for now).
-- `CameraZone mob_lab_arena` covers the arena half so future
-  presentation can override the camera bounds during the fight.
-
-The whole area was authored by re-runnable Python:
+`mob_lab` is a single 1600×768 level with two chambers separated by a
+divider gap and jambs. The whole level was authored from
+`tools/specs/mob_lab_area.yaml` via:
 
 ```bash
 python tools/register_ldtk_entity_def.py \
     tools/specs/encounter_and_switch_entities.yaml --in-place
+python tools/register_ldtk_entity_def.py \
+    tools/specs/lockwall_entity.yaml --in-place
 python tools/author_ldtk_area.py tools/specs/mob_lab_area.yaml
-python tools/add_ldtk_entity_to_level.py tools/specs/hub_lab_door.yaml --in-place
+python tools/add_ldtk_entity_to_level.py \
+    tools/specs/hub_lab_door.yaml --in-place
 ```
 
-Re-run any of those if the LDtk file gets out of sync; the tools
-refuse to clobber existing content and `validate_ambition_ldtk.py`
-runs automatically.
-
-## Runtime
-
 ```
-Engine — seldom_state vocabulary (state_machines.rs)
-  EncounterDormant
-  EncounterStarting { remaining }
-  EncounterActive { wave_index, remaining_mobs, total_waves }
-  EncounterCleared
-  EncounterFailed
-  SwitchOff { id } / SwitchOn { id }
-
-Sandbox — encounter.rs
-  EncounterRegistry (Resource)
-    encounters: BTreeMap<String, EncounterState>
-    .ensure(id) / .get(id) / .any_lock_active() / .active_camera_zoom()
-  EncounterController (Component on per-encounter entity, marker)
-  SwitchActivationQueue (Resource): drained by update_encounters_from_world
-  SwitchActivation { id, action, target_encounter }
-    parse_custom("switch:<id>:<action>:<target>") -> Option<Self>
++----------------------------------------------+
+|                                              |  ← arena ceiling
+|   hallway (closed)         |  arena (open)   |
+|                            |                 |
+|  ████ ceiling              |                 |
+|                            |                 |
+|  [door↓→hub]  [Switch] ──/ \── threshold ──── |
+|  ████████████████████  ████████████████████  | ← floor (continuous)
++----------------------------------------------+
+                               ↑
+                  EncounterTrigger AABB starts the encounter
+                  LockWall fills the gap when Active
 ```
 
-### State machine
+- `PlayerStart` lands on the hallway floor — no more falling from a
+  ceiling.
+- `Switch mob_lab_reset_switch` is in the hallway, between the hub
+  door and the divider gap. Pressing Interact toggles between
+  Cleared (green) and Inactive (red); free toggle in the sandbox.
+- `LockWall mob_lab_lock` fills the doorway gap (224×384) only while
+  the encounter is in `Starting` or `Active`.
+- `EncounterTrigger mob_lab` sits just inside the arena.
+- `CameraZone mob_lab_arena` covers the arena half.
 
-The encounter resource is the source of truth for the live phase.
-Each encounter also has a `seldom_state`-style controller entity
-that carries one of the engine state components matching the live
-phase, so HUD / debug / future per-entity logic can query by
-component without touching the resource. Keeping both in sync is
-done by `sync_encounter_controller_states`, which removes all
-encounter state components and inserts the matching one whenever
-the registry changes.
+## Wave script (hard-coded in `crate::encounter::mob_lab_wave_specs`)
 
-The `StateMachinePlugin` from `seldom_state` is registered (in
-`add_simulation_plugins`) so future patches can promote the encounter
-to a transition-driven state machine without restructuring.
+| Wave | Mobs                                           | Timing                  |
+| ---- | ---------------------------------------------- | ----------------------- |
+| 1    | 2 × `medium_striker` (one each side)           | Spawn together at wave start |
+| 2    | 2 × `medium_striker` + 1 × `large_brute`       | 2 goblins immediate; big goblin at +3.5s (regardless of wave-2 clear) |
+| 3    | 2 × `large_brute`                              | Spawn together         |
 
-### Camera zoom
+Sandbag archetypes are intentionally avoided: their built-in respawn
+timer would prevent waves from clearing. The dynamic enemy spawner
+sets `respawn_timer = 999_999.0` on every encounter spawn as belt-
+and-braces.
 
-`camera_follow` reads `EncounterRegistry::active_camera_zoom()`
-each frame. When any encounter is in `Active` and its spec has
-`camera_zoom > 1.0`, the orthographic camera scales by that factor.
-Overview-camera dev mode still trumps encounter zoom.
+## Phase machine
 
-### Switch → encounter reset
+```
+Inactive  ──player crosses trigger──▶  Starting{remaining}
+                                         │
+                                         │ tick down by dt
+                                         ▼
+                                       Active{wave_index, remaining_mobs}
+                                         │   │   │
+                                         │   │   └── wave clears ──▶ Cleared
+                                         │   │
+                                         │   └── all waves done ──▶ Cleared
+                                         │
+                                         └── player dies ──▶ Failed
+```
 
-When the player overlaps the switch and presses `Interact`,
-`FeatureRuntime::update` pushes the switch's `Custom("switch:...")`
-payload into `FeatureEvents::switch_activations`. `sandbox_update`
-parses each payload and pushes a `SwitchActivation` into the
-`SwitchActivationQueue`. `update_encounters_from_world` drains the
-queue, applies the matching reset to the targeted encounter, toggles
-the persisted switch state in the save, and clears the persisted
-encounter state.
+`Starting` (intro window — 2.5s by default) is when the camera
+zoom + lock wall + music swap apply, but no mobs spawn yet. Wave 1
+mobs only land once `Starting` elapses.
+
+The seldom_state state-component vocabulary
+(`EncounterDormant` / `EncounterStarting` / `EncounterActive` /
+`EncounterCleared` / `EncounterFailed` from
+`ambition_engine::state_machines`) is mirrored onto a per-encounter
+`EncounterController` Bevy entity so HUD / debug systems can query
+by state component instead of by resource lookup.
+
+## Lock wall
+
+`sync_lock_walls` runs each frame and:
+
+1. Builds the desired set of `(encounter_id, min, size)` tuples from
+   every encounter currently in `Starting` or `Active` whose spec
+   has a `LockWall`.
+2. Drops any `world.blocks` whose name starts with `lockwall:` and
+   isn't in the desired set.
+3. Inserts a `Block::solid("lockwall:<id>", min, size)` for any
+   desired entry not already present.
+
+Block name format `lockwall:<encounter_id>` lets the system find and
+remove only its own blocks; static LDtk solids are unaffected.
+
+## Camera zoom
+
+`EncounterRegistry::active_camera_zoom()` returns the first
+`Starting`/`Active` encounter's spec.camera_zoom (defaults 1.6 for
+mob_lab). `camera_follow` reads it each frame and applies it as the
+orthographic projection scale. Overview-camera dev mode (`F5`) still
+trumps the encounter zoom.
+
+## Music swap
+
+The encounter spec carries a `music_track` id (`"pulse_drift_voyage"`
+for mob_lab — added to `sandbox.ron` from
+`tune_examples/pulse_voyage_drift.ron`). Each frame
+`update_encounters_from_world` writes the desired track id to
+`EncounterMusicRequest`; the audio-feature-gated
+`apply_encounter_music` system swaps Kira's music channel when the
+desired track changes.
+
+When all encounters are out of `Starting`/`Active`, the desired
+track collapses back to `sandbox_data.audio.default_music_track`.
+
+## Switch behavior
+
+The reset switch is a colored block (red = encounter armed / Inactive,
+green = encounter Cleared / disabled). Pressing Interact:
+
+1. Toggles the encounter phase between `Cleared` and `Inactive`.
+2. Toggles the persisted switch on/off (so the visual color
+   reads from the save unambiguously after reload).
+3. Despawns any encounter mobs spawned by previous attempts via
+   `FeatureRuntime::despawn_encounter_enemies`, so a fresh attempt
+   starts with a clean field.
+
+Free toggle: pressing the switch never requires beating the encounter
+first, so the sandbox can swap arming on/off whenever.
+
+## Cancellation on leave
+
+Encounters in `Starting` or `Active` only persist while the player is
+in the matching active area. Walking back through `lab_entry` snaps
+the encounter to `Inactive`, releasing the lock wall and camera
+zoom + reverting the music to the default track. A fresh attempt is
+available next time the player re-enters the trigger.
 
 ## Persistence
 
-The defeat state of each encounter and the on/off state of each
-switch live in `~/.local/share/ambition/sandbox_save.ron` (XDG/macOS/
-Windows-conventional path). See `docs/save_and_settings.md` for the
-full file layout and load/save semantics.
-
-`update_encounters_from_world` projects the live phase to
-`PersistedEncounterState` each frame and writes via
-`SandboxSave::data_mut`; the change-detection-based
-`autosave_sandbox_save` system writes to disk on the next frame.
-`Active` and `Inactive` collapse to `Untouched` (no entry); `Cleared`
-and `Failed` survive.
-
-`Switch` payloads with `action: "ResetEncounter"` clear the persisted
-encounter state for `target_encounter` and toggle the switch's own
-persisted on/off.
+- `Cleared` and `Failed` survive reload via
+  `~/.local/share/ambition/sandbox_save.ron` (or OS equivalent).
+- `Inactive`, `Starting`, and `Active` collapse to `Untouched`
+  in the save.
+- Switch on/off persists separately in the save's `switches` list,
+  but is also re-derived from the encounter phase on every save
+  write so the two stay in sync.
 
 ## Tests
 
-`cargo test -p ambition_sandbox --lib encounter::` covers (17 tests):
+`cargo test -p ambition_sandbox --lib encounter::` (22 tests) covers:
 
-- state machine lifecycle (entry, multi-wave clear, death-during-
-  active failure, retry reset, lock state, HUD summary),
-- `SwitchActivation::parse_custom` (full / empty target / non-switch),
-- `EncounterRegistry` (ensure, camera zoom selection, fallback to 1.0),
-- `EncounterState::apply_persisted` / `to_persisted` (Active collapses
-  to Untouched, Cleared keeps lock off),
-- `load_encounter_specs_from_ldtk` against the embedded `mob_lab`
-  area (wave count, camera_zoom > 1.0, persisted state passthrough).
+- state-machine lifecycle (entry, multi-wave clear, death-during-
+  active failure, retry reset, lock state, HUD summary);
+- intro phase delays first wave spawn until elapsed;
+- delayed sub-spawn holds then fires;
+- wave clears only when both pending and alive mobs are resolved;
+- `sync_lock_walls` inserts and removes the named block;
+- `mob_lab_loaded_spec_has_three_waves_lockwall_and_intro` verifies
+  the embedded LDtk file produces the canonical wave structure;
+- switch payload parsing + registry helpers as before.
 
-## What's deferred
+## What's still deferred
 
-- **Actual mob spawning during waves.** The encounter system
-  surfaces `EnemySpawned` events with the spec's `kind` strings
-  ("sandbag_finite") but doesn't yet plug into `FeatureRuntime`'s
-  enemy spawn pipeline — the LDtk EnemySpawn markers in the level
-  spawn directly via the existing JSON-adapter path. A future
-  follow-up replaces those markers with encounter-spawned enemies
-  so retries actually re-spawn fresh dummies.
-- **Exit lock enforcement.** `EncounterRegistry::any_lock_active()`
-  returns true while an encounter is Active, but `room_transition_phase`
-  doesn't yet consult it. A future patch suppresses LoadingZone
-  routing while a lock is active.
-- **Multi-wave authoring from LDtk.** Today every EnemySpawn marker
-  in the area collapses into wave 1; a future patch reads a `wave`
-  Int field on each `EnemySpawn` to assemble multi-wave specs.
-- **Switch toggle visual.** The switch toggles its persisted state
-  but no sprite swap happens; future patches can render the on/off
-  state via the `SwitchOn` / `SwitchOff` engine components.
+- **Smooth camera zoom interpolation.** Today the scale snaps to 1.6
+  on `Starting` start. A future patch can ease over `intro_seconds`.
+- **Switch sprite swap.** Today the switch is a colored block. A
+  future patch can swap to authored on/off sprites.
+- **Multiple encounters.** The system handles multi-encounter
+  registration but only mob_lab has hard-coded waves; future
+  rooms register a wave builder via the same pattern.
+- **Encounter UI.** No HUD wave indicator yet — `hud_summary()`
+  exists but isn't wired into the on-screen overlay.

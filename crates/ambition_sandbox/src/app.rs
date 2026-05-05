@@ -39,7 +39,8 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 use crate::audio::SfxMessage;
 #[cfg(feature = "audio")]
 use crate::audio::{
-    apply_audio_settings, audio_play_sfx_messages, start_default_music, MusicChannel, SfxChannel,
+    apply_audio_settings, apply_encounter_music, audio_play_sfx_messages, start_default_music,
+    MusicChannel, SfxChannel,
 };
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
@@ -287,6 +288,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::encounter::EncounterState::default())
         .insert_resource(crate::encounter::EncounterRegistry::default())
         .insert_resource(crate::encounter::SwitchActivationQueue::default())
+        .insert_resource(crate::encounter::EncounterMusicRequest::default())
         // Sandbox save game (encounter defeat + switch state).
         // Loaded from disk by `load_save_at_startup` in the
         // presentation half so headless / RL drivers don't touch
@@ -455,6 +457,9 @@ pub fn add_presentation_plugins(app: &mut App) {
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
                 crate::trace::handle_trace_hotkey,
+                // Spawn visual entities for encounter-spawned enemies
+                // BEFORE sync_visuals reads positions for them.
+                crate::rendering::spawn_dynamic_feature_visuals,
                 sync_visuals,
                 upgrade_enemy_sprites,
                 upgrade_boss_sprites,
@@ -596,7 +601,10 @@ fn add_audio_plugins(app: &mut App) {
         // Push UserSettings.audio (master/music/sfx/mute) into the
         // Kira channels whenever the user changes the menu sliders.
         // Cheap; the system early-returns when settings are unchanged.
-        .add_systems(Update, apply_audio_settings.after(sandbox_update));
+        .add_systems(Update, apply_audio_settings.after(sandbox_update))
+        // React to encounter music requests: swap to the encounter
+        // track on Active, restore default on Cleared / leave.
+        .add_systems(Update, apply_encounter_music.after(sandbox_update));
 }
 
 #[cfg(not(feature = "audio"))]

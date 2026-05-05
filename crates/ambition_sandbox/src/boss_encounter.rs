@@ -62,6 +62,44 @@ pub fn default_boss_specs() -> Vec<ae::BossEncounterSpec> {
     vec![ae::BossEncounterSpec::gradient_sentinel()]
 }
 
+/// Sanitize an authored boss `name` into a stable encounter id. Lowercases,
+/// strips non-alphanumeric characters, replaces spaces with underscores.
+/// `"Clockwork Warden"` → `"clockwork_warden"`.
+pub fn encounter_id_from_name(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut prev_was_underscore = false;
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+            prev_was_underscore = false;
+        } else if !prev_was_underscore && !out.is_empty() {
+            out.push('_');
+            prev_was_underscore = true;
+        }
+    }
+    while out.ends_with('_') {
+        out.pop();
+    }
+    if out.is_empty() {
+        "boss".to_string()
+    } else {
+        out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encounter_id_from_name_normalizes_capitalization_and_spaces() {
+        assert_eq!(encounter_id_from_name("Clockwork Warden"), "clockwork_warden");
+        assert_eq!(encounter_id_from_name("Gradient Sentinel"), "gradient_sentinel");
+        assert_eq!(encounter_id_from_name("BOSS-of-the-Year!"), "boss_of_the_year");
+        assert_eq!(encounter_id_from_name("   "), "boss");
+    }
+}
+
 pub fn populate_boss_encounter_registry(
     mut registry: ResMut<BossEncounterRegistry>,
     save: Res<crate::save::SandboxSave>,
@@ -112,18 +150,21 @@ pub fn update_boss_encounters(
         .map(|b| (b.id.clone(), b.name.clone(), b.pos, b.health.current, b.health.max))
         .collect();
 
-    // Lazy registration: any boss runtime in the current room that
-    // doesn't yet have an encounter spec gets a generic
-    // gradient-sentinel-based spec registered against the boss
-    // runtime id. Authored specs take precedence (ensure is no-op
-    // if already present); naming the LDtk Bosses with the engine
-    // spec id pulls them into a tuned encounter.
-    for (boss_id, boss_name, _pos, _hp, max_hp) in &bosses_in_room {
-        if registry.encounters.contains_key(boss_id) {
+    // Lazy registration: derive a *semantic* encounter id from the
+    // boss's authored `name` (e.g. "clockwork warden" →
+    // "clockwork_warden"). The LDtk iid (`BossSpawn-0158`) lives on
+    // as the runtime_id link so combat damage still reaches the
+    // right `BossRuntime`. Authored specs (registered before this
+    // system runs) take precedence; only bosses without a spec fall
+    // through to the auto-registered defaults.
+    for (boss_runtime_id, boss_name, _pos, _hp, max_hp) in &bosses_in_room {
+        let encounter_id = encounter_id_from_name(boss_name);
+        registry.link_runtime(&encounter_id, boss_runtime_id);
+        if registry.encounters.contains_key(&encounter_id) {
             continue;
         }
         let mut spec = ae::BossEncounterSpec::gradient_sentinel();
-        spec.id = boss_id.clone();
+        spec.id = encounter_id.clone();
         spec.name = boss_name.clone();
         // Pick up the runtime's authored max_hp so the encounter
         // doesn't replace it on first link.
@@ -132,21 +173,18 @@ pub fn update_boss_encounters(
     }
 
     // Wake up an encounter whose boss is now visible in the room.
-    for (boss_id, _name, _pos, _hp, _max) in &bosses_in_room {
-        // Match the encounter id by the boss runtime id (sandbox
-        // convention: BossSpawn name == encounter id == boss runtime
-        // id). Future content can map them through LDtk fields.
-        if let Some(state) = registry.encounters.get_mut(boss_id) {
+    for (_runtime_id, boss_name, _pos, _hp, _max) in &bosses_in_room {
+        let encounter_id = encounter_id_from_name(boss_name);
+        if let Some(state) = registry.encounters.get_mut(&encounter_id) {
             if matches!(state.phase, ae::BossEncounterPhase::Dormant) && state.hp > 0 {
                 let evs = state.enter_intro();
                 publish_events(
-                    boss_id,
+                    &encounter_id,
                     &evs,
                     &mut music_request,
                     &mut cutscene_queue,
                     &mut runtime.features,
                 );
-                registry.link_runtime(boss_id, boss_id);
             }
         }
     }

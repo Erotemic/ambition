@@ -511,11 +511,21 @@ pub fn add_presentation_plugins(app: &mut App) {
         )
         .add_systems(
             Update,
-            (pause_menu::sync_pause_menu, inventory::sync_inventory_panel).after(sandbox_update),
+            (
+                pause_menu::sync_pause_menu,
+                inventory::sync_inventory_panel,
+                crate::map_menu::sync_map_menu,
+            )
+                .after(sandbox_update),
         )
         .add_systems(
             Startup,
-            setup_presentation_system.after(setup_simulation_system),
+            (
+                setup_presentation_system,
+                crate::map_menu::populate_map_rooms,
+                crate::map_menu::spawn_map_menu,
+            )
+                .after(setup_simulation_system),
         )
         .add_systems(
             Update,

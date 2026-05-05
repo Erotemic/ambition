@@ -262,6 +262,11 @@ impl FeatureRuntime {
         }
         for idx in to_convert.into_iter().rev() {
             let npc = self.npcs.remove(idx);
+            // If we already killed this hostile NPC in a prior
+            // session, leave them dead — don't re-spawn the enemy.
+            if save.flag(&format!("enemy_{}_dead", npc.id)) {
+                continue;
+            }
             // Spawn a striker-style enemy with the same id so any
             // quest hooks / save flags keyed on the NPC id still
             // resolve. The enemy id mirrors the NPC id so the
@@ -274,6 +279,16 @@ impl FeatureRuntime {
             );
             self.banner = format!("{} attacks!", npc.name);
             self.banner_timer = 1.5;
+        }
+        // Authored enemies (LDtk EnemySpawn) that were killed and
+        // recorded in the save should also stay dead.
+        for enemy in &mut self.enemies {
+            if save.flag(&format!("enemy_{}_dead", enemy.id))
+                && !enemy.id.starts_with("encounter:")
+            {
+                enemy.alive = false;
+                enemy.health.current = 0;
+            }
         }
         // Boss defeats: hide already-cleared bosses by marking the
         // runtime dead. New `BossSpawn` instances from the LDtk
@@ -611,6 +626,20 @@ impl FeatureRuntime {
                             .push(format!("{} dropped; respawning", enemy.name));
                     } else {
                         events.messages.push(format!("defeated {}", enemy.name));
+                        // Persist non-respawning enemy deaths so the
+                        // room load doesn't bring them back. Encounter
+                        // mobs (id prefix "encounter:") skip this —
+                        // their lifecycle is owned by the encounter
+                        // state machine, which will re-spawn them on
+                        // re-trigger.
+                        if !enemy.id.starts_with("encounter:")
+                            && enemy.archetype != EnemyArchetype::InfiniteSandbag
+                            && enemy.archetype != EnemyArchetype::FiniteSandbag
+                        {
+                            events
+                                .flag_writes
+                                .push((format!("enemy_{}_dead", enemy.id), true));
+                        }
                     }
                     events.bursts.push(enemy.pos);
                     events.physics_bursts.push(FeaturePhysicsBurst {

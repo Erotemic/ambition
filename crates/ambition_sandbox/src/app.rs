@@ -191,7 +191,8 @@ pub fn init_sandbox_resources(app: &mut App) {
     );
     let active_world = room_set.active_world().clone();
 
-    app.insert_resource(GameWorld(active_world))
+    app.insert_resource(ldtk_world::SandboxLdtkProject(ldtk_project.clone()))
+        .insert_resource(GameWorld(active_world))
         .insert_resource(room_set)
         .insert_resource(ldtk_index)
         .insert_resource(ldtk_world::LdtkHotReloadState::from_current_file())
@@ -279,11 +280,13 @@ pub fn add_simulation_plugins(app: &mut App) {
             (data::load_data_asset_handle, setup_simulation_system).chain(),
         )
         .insert_resource(crate::projectile::PlayerProjectileState::default())
-        // Encounter system foundation. Today the resource starts
-        // empty — the LDtk loader will populate `spec` when the
-        // mob-lab markers land in `sandbox.ldtk`. The state machine
-        // and tests still cover the lock / wave / fail behavior.
+        // Encounter system. The legacy single-encounter `EncounterState`
+        // resource stays for backwards-compat tests; the live
+        // multi-encounter store is `EncounterRegistry`, populated
+        // from LDtk by `populate_encounter_registry`.
         .insert_resource(crate::encounter::EncounterState::default())
+        .insert_resource(crate::encounter::EncounterRegistry::default())
+        .insert_resource(crate::encounter::SwitchActivationQueue::default())
         // Sandbox save game (encounter defeat + switch state).
         // Loaded from disk by `load_save_at_startup` in the
         // presentation half so headless / RL drivers don't touch
@@ -303,8 +306,17 @@ pub fn add_simulation_plugins(app: &mut App) {
                 ldtk_world::check_ldtk_runtime_spine_parity,
                 platforms::sync_moving_platform,
                 crate::projectile::update_projectiles,
+                crate::encounter::update_encounters_from_world,
+                crate::encounter::sync_encounter_controller_states,
             )
                 .chain(),
+        )
+        // Populate the encounter registry from the LDtk file once
+        // resources are inserted. Save state is read here so a saved
+        // Cleared encounter starts in `Cleared` instead of `Inactive`.
+        .add_systems(
+            Startup,
+            crate::encounter::populate_encounter_registry.after(setup_simulation_system),
         )
         // Trace recorder lives at the simulation seam: `record_frame_system`
         // captures one frame per Update tick after `sandbox_update` has
@@ -798,6 +810,7 @@ fn sandbox_update(
     mut event_writers: SandboxEventWriters,
     control_frame: Res<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
+    mut switch_queue: ResMut<crate::encounter::SwitchActivationQueue>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
@@ -908,6 +921,15 @@ fn sandbox_update(
         feel,
         frame_dt,
     );
+
+    // Drain switch activations into the encounter system's queue.
+    // The encounter `update_encounters_from_world` system reads it
+    // after `sandbox_update` fires.
+    for payload in &feature_events.switch_activations {
+        if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
+            switch_queue.0.push(activation);
+        }
+    }
 
     if matches!(
         damage_heal_dialogue_phase(

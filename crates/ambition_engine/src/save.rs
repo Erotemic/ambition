@@ -54,10 +54,7 @@ pub struct PersistedSwitch {
 
 impl PersistedSwitch {
     pub fn new(id: impl Into<String>, on: bool) -> Self {
-        Self {
-            id: id.into(),
-            on,
-        }
+        Self { id: id.into(), on }
     }
 }
 

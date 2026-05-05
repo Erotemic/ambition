@@ -11,12 +11,16 @@
 //! file. Today the resource is initialized empty; a follow-up patch
 //! adds the LDtk markers + the spawn pipeline.
 
+use std::collections::BTreeMap;
+
 use bevy::math::bounding::IntersectsVolume;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use ambition_engine as ae;
 use ambition_engine::PersistedEncounterState;
+
+use crate::ldtk_world::LdtkProject;
 
 /// One mob to spawn during a wave. Position is local to the
 /// encounter room (LDtk authoring will translate marker → spec).
@@ -328,6 +332,329 @@ impl EncounterEvent {
     }
 }
 
+// ─── Registry + LDtk loader + Bevy systems ──────────────────────────────
+
+/// Multi-encounter registry. Keyed by encounter id (matching the
+/// `EncounterTrigger.id` field in LDtk). Replaces the older
+/// single-encounter `Res<EncounterState>` so the sandbox can carry
+/// more than one encounter at once.
+#[derive(Resource, Default)]
+pub struct EncounterRegistry {
+    pub encounters: BTreeMap<String, EncounterState>,
+    /// Tracks whether the current LDtk file has been scanned for
+    /// encounter triggers yet. Reset by hot reload so an edited LDtk
+    /// re-populates the specs.
+    pub specs_loaded: bool,
+}
+
+impl EncounterRegistry {
+    pub fn get(&self, id: &str) -> Option<&EncounterState> {
+        self.encounters.get(id)
+    }
+
+    pub fn get_mut(&mut self, id: &str) -> Option<&mut EncounterState> {
+        self.encounters.get_mut(id)
+    }
+
+    pub fn ensure(&mut self, id: &str) -> &mut EncounterState {
+        self.encounters.entry(id.to_string()).or_default()
+    }
+
+    /// True if any encounter is currently locking exits.
+    pub fn any_lock_active(&self) -> bool {
+        self.encounters.values().any(|e| e.lock_active)
+    }
+
+    /// Camera zoom multiplier sourced from the active encounter (if
+    /// any). 1.0 if no encounter is active.
+    pub fn active_camera_zoom(&self) -> f32 {
+        for state in self.encounters.values() {
+            if matches!(state.phase, EncounterPhase::Active { .. }) {
+                if let Some(spec) = &state.spec {
+                    if spec.camera_zoom > 1.0 {
+                        return spec.camera_zoom;
+                    }
+                }
+            }
+        }
+        1.0
+    }
+}
+
+/// One activation request from a switch interaction.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SwitchActivation {
+    pub id: String,
+    pub action: String,
+    pub target_encounter: String,
+}
+
+impl SwitchActivation {
+    /// Parse the `Custom("switch:<id>:<action>:<target>")` payload
+    /// produced by `entity_to_runtime` for `Switch` LDtk entities.
+    pub fn parse_custom(payload: &str) -> Option<Self> {
+        let mut parts = payload.split(':');
+        if parts.next()? != "switch" {
+            return None;
+        }
+        let id = parts.next()?.to_string();
+        let action = parts.next()?.to_string();
+        let target_encounter = parts.next().unwrap_or("").to_string();
+        Some(Self {
+            id,
+            action,
+            target_encounter,
+        })
+    }
+}
+
+/// Marker component for the per-encounter seldom_state controller
+/// entity. The encounter system spawns one per registered encounter
+/// and keeps its sparse-set state component (`EncounterDormant`,
+/// `EncounterActive`, `EncounterCleared`, `EncounterFailed`) in sync
+/// with the registry's phase. HUD / debug systems can query by state
+/// component without touching the resource.
+#[derive(Component, Clone, Debug)]
+pub struct EncounterController {
+    pub encounter_id: String,
+}
+
+/// Read all `EncounterTrigger` markers in the active LDtk project,
+/// build matching `EncounterSpec`s, and register them.
+///
+/// Runs once after startup (or after a hot reload). Idempotent: it
+/// only adds encounters that aren't already registered, so manual
+/// registrations from tests or future story crates aren't clobbered.
+pub fn load_encounter_specs_from_ldtk(
+    project: &LdtkProject,
+    save: &ae::SandboxSaveData,
+) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
+    let mut out = Vec::new();
+    for level in &project.levels {
+        let area_id = level.active_area();
+        let Some(layer) = level.ambition_layer() else {
+            continue;
+        };
+        // Find the encounter trigger first (only one per area for now).
+        let Some(trigger) = layer
+            .entity_instances
+            .iter()
+            .find(|e| e.identifier == "EncounterTrigger")
+        else {
+            continue;
+        };
+        let trigger_id = crate::ldtk_world::field_string(trigger, "id")
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| area_id.clone());
+        let camera_zoom = crate::ldtk_world::field_f32(trigger, "camera_zoom").unwrap_or(1.5);
+        // Encounter trigger position in level-local coords. Encounter
+        // logic uses active-area-local coords so add the level's
+        // offset within its activeArea origin (we approximate with
+        // the level's worldX/Y for now — the sandbox keeps both in
+        // the same frame for single-level areas like mob_lab).
+        let trigger_min = [trigger.px[0] as f32, trigger.px[1] as f32];
+        let trigger_size = [trigger.width as f32, trigger.height as f32];
+
+        // Collect EnemySpawn entities in the same level into one
+        // wave; future patches can extend with per-spawn `wave` ints.
+        let mut wave_mobs = Vec::new();
+        for entity in &layer.entity_instances {
+            if entity.identifier != "EnemySpawn" {
+                continue;
+            }
+            let kind = crate::ldtk_world::field_string(entity, "brain")
+                .unwrap_or_else(|| "sandbag_finite".into());
+            wave_mobs.push(EncounterMobSpec {
+                kind,
+                spawn: [
+                    entity.px[0] as f32 + entity.width as f32 * 0.5,
+                    entity.px[1] as f32 + entity.height as f32 * 0.5,
+                ],
+            });
+        }
+        let waves = if wave_mobs.is_empty() {
+            Vec::new()
+        } else {
+            vec![EncounterWaveSpec {
+                label: "wave 1".into(),
+                mobs: wave_mobs,
+            }]
+        };
+
+        let spec = EncounterSpec {
+            id: trigger_id.clone(),
+            waves,
+            trigger_min,
+            trigger_size,
+            camera_zoom,
+        };
+        let persisted = save.encounter(&trigger_id);
+        out.push((trigger_id, spec, persisted));
+    }
+    out
+}
+
+/// Bevy startup system: load encounter specs from the embedded LDtk
+/// project and apply persisted states from the save.
+pub fn populate_encounter_registry(
+    mut registry: ResMut<EncounterRegistry>,
+    save: Res<crate::save::SandboxSave>,
+    project: Res<crate::ldtk_world::SandboxLdtkProject>,
+    mut commands: Commands,
+) {
+    if registry.specs_loaded {
+        return;
+    }
+    let entries = load_encounter_specs_from_ldtk(&project.0, save.data());
+    for (id, spec, persisted) in entries {
+        let state = registry.ensure(&id);
+        state.spec = Some(spec);
+        state.apply_persisted(persisted);
+        // One controller entity per encounter. The state component is
+        // attached separately by `sync_encounter_controller_states` so
+        // hot reload + spec changes can flip components without
+        // respawning entities.
+        commands.spawn((
+            EncounterController {
+                encounter_id: id.clone(),
+            },
+            Name::new(format!("EncounterController:{id}")),
+        ));
+    }
+    registry.specs_loaded = true;
+}
+
+/// Mirror the registry's live `EncounterPhase` onto the matching
+/// controller entity's seldom_state state component. Drops any other
+/// encounter-state component first so phase changes are clean.
+pub fn sync_encounter_controller_states(
+    registry: Res<EncounterRegistry>,
+    mut commands: Commands,
+    controllers: Query<(Entity, &EncounterController)>,
+) {
+    if !registry.is_changed() {
+        return;
+    }
+    for (entity, controller) in &controllers {
+        let Some(state) = registry.get(&controller.encounter_id) else {
+            continue;
+        };
+        let mut entity_commands = commands.entity(entity);
+        entity_commands
+            .remove::<ae::EncounterDormant>()
+            .remove::<ae::EncounterStarting>()
+            .remove::<ae::EncounterActive>()
+            .remove::<ae::EncounterCleared>()
+            .remove::<ae::EncounterFailed>();
+        match state.phase {
+            EncounterPhase::Inactive => {
+                entity_commands.insert(ae::EncounterDormant);
+            }
+            EncounterPhase::Active {
+                wave_index,
+                remaining_mobs,
+            } => {
+                let total_waves = state
+                    .spec
+                    .as_ref()
+                    .map(|s| s.waves.len() as u8)
+                    .unwrap_or(0);
+                entity_commands.insert(ae::EncounterActive {
+                    wave_index: wave_index as u8,
+                    remaining_mobs: remaining_mobs as u8,
+                    total_waves,
+                });
+            }
+            EncounterPhase::Cleared => {
+                entity_commands.insert(ae::EncounterCleared);
+            }
+            EncounterPhase::Failed => {
+                entity_commands.insert(ae::EncounterFailed);
+            }
+        }
+    }
+}
+
+/// Drive each registered encounter from the player's position +
+/// switch activations. Routes `EncounterEvent`s through the trace
+/// recorder, mirrors phase changes into the save resource, and
+/// handles switch reset commands.
+pub fn update_encounters_from_world(
+    mut registry: ResMut<EncounterRegistry>,
+    mut save: ResMut<crate::save::SandboxSave>,
+    mut switch_activations: ResMut<SwitchActivationQueue>,
+    mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
+    runtime: Res<crate::SandboxRuntime>,
+    room_set: Res<crate::rooms::RoomSet>,
+) {
+    let active_area = room_set.active_spec().id.clone();
+    let player_pos = runtime.player.pos;
+    let player_size = runtime.player.size;
+    let mut events: Vec<(String, Vec<EncounterEvent>)> = Vec::new();
+
+    // Trigger entry: only the active area's encounter can fire.
+    if let Some(state) = registry.encounters.get_mut(&active_area) {
+        let started = state.maybe_start(player_pos, player_size);
+        if !started.is_empty() {
+            events.push((active_area.clone(), started));
+        }
+    }
+
+    // Switch activations: drain the queue and apply.
+    let activations = std::mem::take(&mut switch_activations.0);
+    for activation in activations {
+        let target_id = if activation.target_encounter.is_empty() {
+            active_area.clone()
+        } else {
+            activation.target_encounter.clone()
+        };
+        let Some(state) = registry.encounters.get_mut(&target_id) else {
+            continue;
+        };
+        if matches!(activation.action.as_str(), "ResetEncounter") {
+            state.reset_for_retry();
+            // Force inactive even if Active (shouldn't happen — switch
+            // is outside the locked room, but be safe).
+            state.phase = EncounterPhase::Inactive;
+            state.lock_active = false;
+            // Toggle the persisted switch state so the save reflects
+            // that the player has interacted with it at least once.
+            let new_state = !save.data().switch(&activation.id);
+            save.data_mut().set_switch(&activation.id, new_state);
+            // Clear the persisted encounter so a fresh attempt starts.
+            save.data_mut()
+                .set_encounter(&target_id, PersistedEncounterState::Untouched);
+        }
+    }
+
+    // Project current phases to the save (Cleared/Failed survive,
+    // Inactive collapses to Untouched, Active doesn't write yet).
+    for (id, state) in registry.encounters.iter() {
+        let persisted = state.to_persisted();
+        let current = save.data().encounter(id);
+        if persisted != current {
+            save.data_mut().set_encounter(id, persisted);
+        }
+    }
+
+    // Push trace events.
+    let tick = trace.current_tick();
+    for (encounter_id, evs) in events {
+        for ev in evs {
+            trace.push_event(crate::trace::GameplayTraceEvent::Sfx {
+                tick,
+                label: format!("encounter:{encounter_id}:{}", ev.label()),
+            });
+        }
+    }
+}
+
+/// FIFO queue of switch activations produced by the feature runtime
+/// each frame. The encounter system drains it and applies the
+/// matching reset.
+#[derive(Resource, Default)]
+pub struct SwitchActivationQueue(pub Vec<SwitchActivation>);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -454,5 +781,105 @@ mod tests {
         let summary = state.hud_summary();
         assert!(summary.contains("wave 1/2"));
         assert!(summary.contains("remaining 1"));
+    }
+
+    // ── SwitchActivation parsing ──────────────────────────────────
+
+    #[test]
+    fn switch_activation_parses_full_payload() {
+        let act = SwitchActivation::parse_custom("switch:reset:ResetEncounter:mob_lab").unwrap();
+        assert_eq!(act.id, "reset");
+        assert_eq!(act.action, "ResetEncounter");
+        assert_eq!(act.target_encounter, "mob_lab");
+    }
+
+    #[test]
+    fn switch_activation_tolerates_empty_target() {
+        let act = SwitchActivation::parse_custom("switch:reset:ResetEncounter:").unwrap();
+        assert_eq!(act.target_encounter, "");
+    }
+
+    #[test]
+    fn switch_activation_rejects_non_switch_payload() {
+        assert!(SwitchActivation::parse_custom("door:foo:bar").is_none());
+        assert!(SwitchActivation::parse_custom("switch").is_none());
+    }
+
+    // ── EncounterRegistry ──────────────────────────────────────────
+
+    #[test]
+    fn registry_ensure_creates_default_state() {
+        let mut reg = EncounterRegistry::default();
+        let state = reg.ensure("mob_lab");
+        assert_eq!(state.phase, EncounterPhase::Inactive);
+    }
+
+    #[test]
+    fn registry_active_camera_zoom_picks_active_encounter() {
+        let mut reg = EncounterRegistry::default();
+        let mut spec = lab_spec();
+        spec.camera_zoom = 1.6;
+        let state = reg.ensure("mob_lab");
+        state.spec = Some(spec);
+        state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+        assert_eq!(reg.active_camera_zoom(), 1.6);
+    }
+
+    #[test]
+    fn registry_camera_zoom_falls_back_to_one_when_inactive() {
+        let mut reg = EncounterRegistry::default();
+        reg.ensure("mob_lab").spec = Some({
+            let mut s = lab_spec();
+            s.camera_zoom = 1.6;
+            s
+        });
+        // Phase still Inactive — no zoom applied.
+        assert_eq!(reg.active_camera_zoom(), 1.0);
+    }
+
+    #[test]
+    fn apply_persisted_cleared_keeps_lock_off() {
+        let mut state = EncounterState::default();
+        state.spec = Some(lab_spec());
+        state.apply_persisted(PersistedEncounterState::Cleared);
+        assert_eq!(state.phase, EncounterPhase::Cleared);
+        assert!(!state.lock_active);
+    }
+
+    #[test]
+    fn to_persisted_collapses_active_to_untouched() {
+        let mut state = EncounterState::default();
+        state.spec = Some(lab_spec());
+        state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+        assert_eq!(state.to_persisted(), PersistedEncounterState::Untouched);
+    }
+
+    // ── LDtk loader ────────────────────────────────────────────────
+
+    #[test]
+    fn load_encounter_specs_picks_up_mob_lab() {
+        let project = LdtkProject::load_embedded();
+        let save = ae::SandboxSaveData::default();
+        let entries = load_encounter_specs_from_ldtk(&project, &save);
+        let mob_lab = entries
+            .iter()
+            .find(|(id, _, _)| id == "mob_lab")
+            .expect("mob_lab encounter should be loadable");
+        assert!(!mob_lab.1.waves.is_empty());
+        assert!(mob_lab.1.camera_zoom > 1.0);
+        assert_eq!(mob_lab.2, PersistedEncounterState::Untouched);
+    }
+
+    #[test]
+    fn load_encounter_specs_respects_persisted_cleared() {
+        let project = LdtkProject::load_embedded();
+        let mut save = ae::SandboxSaveData::default();
+        save.set_encounter("mob_lab", PersistedEncounterState::Cleared);
+        let entries = load_encounter_specs_from_ldtk(&project, &save);
+        let (_, _, state) = entries
+            .iter()
+            .find(|(id, _, _)| id == "mob_lab")
+            .expect("mob_lab encounter should be loadable");
+        assert_eq!(*state, PersistedEncounterState::Cleared);
     }
 }

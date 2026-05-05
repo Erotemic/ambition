@@ -166,7 +166,10 @@ mod tests {
         save.set_switch("reset_switch", true);
         write_save(&path, &save).unwrap();
         let restored = load_save(&path);
-        assert_eq!(restored.encounter("mob_lab"), PersistedEncounterState::Cleared);
+        assert_eq!(
+            restored.encounter("mob_lab"),
+            PersistedEncounterState::Cleared
+        );
         assert!(restored.switch("reset_switch"));
         let _ = fs::remove_dir_all(&root);
     }

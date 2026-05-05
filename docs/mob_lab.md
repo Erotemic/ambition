@@ -1,115 +1,153 @@
 # Mob lab encounter
 
-A reusable encounter / wave system for the basement "mob lab"
-sandbox area. The foundation lands as a self-contained Bevy
-resource + state machine; the actual LDtk room and the spawn
-pipeline are deferred and documented here.
+A scripted basement encounter room with seldom_state-vocabulary
+state, camera zoom-out on engagement, and a reset switch outside the
+arena that clears the persisted defeat state.
 
-## What lands now
+## Layout (LDtk)
+
+The `mob_lab` active area is a single 1024×768 level with two
+chambers separated by a divider wall:
 
 ```
-crates/ambition_sandbox/src/encounter.rs
-  EncounterMobSpec / EncounterWaveSpec / EncounterSpec
-    (authored data — what to spawn, where, in what order)
-  EncounterPhase  Inactive | Active{wave_index, remaining_mobs} | Cleared | Failed
-  EncounterState  (Bevy resource)
-    .maybe_start(player_pos, player_size)  → Vec<EncounterEvent>
-    .on_mob_defeated()                     → Vec<EncounterEvent>
-    .on_player_death()                     → Vec<EncounterEvent>
-    .reset_for_retry()
-    .hud_summary()
-  EncounterEvent  Started | WaveStarted | EnemySpawned | Cleared
-                  | Failed | LockChanged
+┌──────────────────────────────────────────┐
+│ [back door]  [Switch]   ┃   [arena]      │
+│                          ┃   [enemy]     │
+│                          ┃   [enemy]     │
+│  antechamber             ┃   [enemy]     │
+│                                          │
+└──────────────────────────────────────────┘
+                ↑                ↑
+                EncounterTrigger threshold
 ```
 
-The resource is registered in `add_simulation_plugins` with `spec`
-set to `None`; once an LDtk-authored encounter is present the
-loader will populate it.
+- `LoadingZone lab_entry` (left edge) connects bidirectionally to
+  `central_hub_complex/lab_door` in `central_hub_basement`.
+- `Switch mob_lab_reset_switch` sits in the antechamber. Walking up
+  to it and pressing Interact resets the encounter (clears the
+  persisted defeat state and returns the registry to `Inactive` so a
+  fresh attempt is available).
+- `EncounterTrigger` AABB straddles the divider opening. Player
+  enters → encounter advances to `Active`, exits seal, camera zooms
+  to `1.6`.
+- Three `EnemySpawn` markers form wave 1 (sandbag dummies for now).
+- `CameraZone mob_lab_arena` covers the arena half so future
+  presentation can override the camera bounds during the fight.
 
-## Lock / unlock semantics
+The whole area was authored by re-runnable Python:
 
-- Player enters the trigger AABB → state advances to
-  `Active { wave_index: 0, remaining_mobs: <wave 0 size> }`,
-  `lock_active = true`, fires `Started` + `WaveStarted` +
-  `EnemySpawned` per mob + `LockChanged { locked: true }`.
-- Mob defeated → `on_mob_defeated()` decrements `remaining_mobs`;
-  when zero it advances to the next wave (`WaveStarted` +
-  `EnemySpawned` events) or marks the encounter `Cleared` (with
-  `LockChanged { locked: false }`) if no wave remains.
-- Player dies → `on_player_death()` marks the encounter `Failed`,
-  releases the lock, and emits `Failed` + `LockChanged`.
-- After respawn the sandbox calls `reset_for_retry()` which returns
-  to `Inactive` so the next trigger entry restarts the encounter.
+```bash
+python tools/register_ldtk_entity_def.py \
+    tools/specs/encounter_and_switch_entities.yaml --in-place
+python tools/author_ldtk_area.py tools/specs/mob_lab_area.yaml
+python tools/add_ldtk_entity_to_level.py tools/specs/hub_lab_door.yaml --in-place
+```
 
-The locked state is intentionally a single boolean on the
-`EncounterState` resource. The exit-lock behavior itself
-(suppressing room transitions in the matching `LoadingZone`) is
-sandbox-side and lives next to the loading-zone consumer once the
-LDtk markers land.
+Re-run any of those if the LDtk file gets out of sync; the tools
+refuse to clobber existing content and `validate_ambition_ldtk.py`
+runs automatically.
 
-## What's deferred (LDtk room + spawn pipeline)
+## Runtime
 
-The following pieces still need authoring + wiring before the lab
-is playable in the visible binary. They're called out here so the
-next agent can pick this up without re-deriving the design:
+```
+Engine — seldom_state vocabulary (state_machines.rs)
+  EncounterDormant
+  EncounterStarting { remaining }
+  EncounterActive { wave_index, remaining_mobs, total_waves }
+  EncounterCleared
+  EncounterFailed
+  SwitchOff { id } / SwitchOn { id }
 
-1. **LDtk authoring** — extend
-   `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`:
-   - new active area `mob_lab` reachable from the basement via a
-     `LoadingZone` round trip,
-   - `Solid` floor / walls / ceiling boundary of the lab,
-   - one `LoadingZone` for entrance + one for exit (the exit zone
-     is suppressed while the encounter is locked),
-   - `EnemySpawn` markers for each wave's mobs,
-   - a custom `EncounterTrigger` entity for the activation AABB
-     plus a wave-ordering int field,
-   - a `CameraZone` matching the lab interior with the
-     `camera_zoom = 1.5` zoom-out factor.
+Sandbox — encounter.rs
+  EncounterRegistry (Resource)
+    encounters: BTreeMap<String, EncounterState>
+    .ensure(id) / .get(id) / .any_lock_active() / .active_camera_zoom()
+  EncounterController (Component on per-encounter entity, marker)
+  SwitchActivationQueue (Resource): drained by update_encounters_from_world
+  SwitchActivation { id, action, target_encounter }
+    parse_custom("switch:<id>:<action>:<target>") -> Option<Self>
+```
 
-   Update `tools/validate_ambition_ldtk.py` to know the new entity
-   identifier, then run the standard repair / round-trip / validate
-   triple before saving.
+### State machine
 
-2. **Loader** — extend `LdtkProject::to_room_set` (or a new
-   `EncounterSpec::from_ldtk_area` helper) to read the mob_lab
-   area's encounter trigger + spawn markers and populate
-   `EncounterState.spec`.
+The encounter resource is the source of truth for the live phase.
+Each encounter also has a `seldom_state`-style controller entity
+that carries one of the engine state components matching the live
+phase, so HUD / debug / future per-entity logic can query by
+component without touching the resource. Keeping both in sync is
+done by `sync_encounter_controller_states`, which removes all
+encounter state components and inserts the matching one whenever
+the registry changes.
 
-3. **Spawn pipeline** — when `EncounterEvent::EnemySpawned` fires,
-   the sandbox must spawn the actual enemy entity (today
-   `features::FeatureRuntime` owns enemy lifetime; either reuse it
-   or carry the enemy spec through the encounter event payload).
+The `StateMachinePlugin` from `seldom_state` is registered (in
+`add_simulation_plugins`) so future patches can promote the encounter
+to a transition-driven state machine without restructuring.
 
-4. **Lock enforcement** — the exit `LoadingZone` consumer should
-   read `EncounterState.lock_active` and refuse the room
-   transition while the encounter is active.
+### Camera zoom
 
-5. **Camera zoom-out** — `CameraZone` already supports a zoom
-   factor; the encounter starting / clearing should toggle the
-   relevant zone or override the camera-follow scale by
-   `spec.camera_zoom`.
+`camera_follow` reads `EncounterRegistry::active_camera_zoom()`
+each frame. When any encounter is in `Active` and its spec has
+`camera_zoom > 1.0`, the orthographic camera scales by that factor.
+Overview-camera dev mode still trumps encounter zoom.
 
-6. **Trace plumbing** — extend `GameplayTraceEvent` with an
-   `Encounter` variant (mirror of the `Projectile` shape) and
-   project `EncounterEvent::label()` through the trace recorder.
+### Switch → encounter reset
 
-## Tests landed today
+When the player overlaps the switch and presses `Interact`,
+`FeatureRuntime::update` pushes the switch's `Custom("switch:...")`
+payload into `FeatureEvents::switch_activations`. `sandbox_update`
+parses each payload and pushes a `SwitchActivation` into the
+`SwitchActivationQueue`. `update_encounters_from_world` drains the
+queue, applies the matching reset to the targeted encounter, toggles
+the persisted switch state in the save, and clears the persisted
+encounter state.
 
-`cargo test -p ambition_sandbox --lib encounter::` covers:
+## Persistence
 
-- entering the trigger starts the first wave,
-- standing outside the trigger does not start,
-- defeating each wave eventually clears the encounter,
-- player death during an active encounter unlocks + marks failed,
-- `reset_for_retry()` returns to `Inactive` after failure,
-- HUD summary shows wave progress (`wave 1/2  remaining 1`).
+The defeat state of each encounter and the on/off state of each
+switch live in `~/.local/share/ambition/sandbox_save.ron` (XDG/macOS/
+Windows-conventional path). See `docs/save_and_settings.md` for the
+full file layout and load/save semantics.
 
-## Why a foundation-only landing
+`update_encounters_from_world` projects the live phase to
+`PersistedEncounterState` each frame and writes via
+`SandboxSave::data_mut`; the change-detection-based
+`autosave_sandbox_save` system writes to disk on the next frame.
+`Active` and `Inactive` collapse to `Untouched` (no entry); `Cleared`
+and `Failed` survive.
 
-The encounter system has well-defined semantics that benefit from
-unit tests; landing it as a typed state machine plus events lets
-the LDtk authoring + spawn pipeline land in a focused follow-up
-patch without inventing the model under time pressure. The state
-machine is small enough to be obvious and pure enough to be
-testable — the next agent can wire spawning, locking, and zoom on
-top without reverse-engineering the lifecycle.
+`Switch` payloads with `action: "ResetEncounter"` clear the persisted
+encounter state for `target_encounter` and toggle the switch's own
+persisted on/off.
+
+## Tests
+
+`cargo test -p ambition_sandbox --lib encounter::` covers (17 tests):
+
+- state machine lifecycle (entry, multi-wave clear, death-during-
+  active failure, retry reset, lock state, HUD summary),
+- `SwitchActivation::parse_custom` (full / empty target / non-switch),
+- `EncounterRegistry` (ensure, camera zoom selection, fallback to 1.0),
+- `EncounterState::apply_persisted` / `to_persisted` (Active collapses
+  to Untouched, Cleared keeps lock off),
+- `load_encounter_specs_from_ldtk` against the embedded `mob_lab`
+  area (wave count, camera_zoom > 1.0, persisted state passthrough).
+
+## What's deferred
+
+- **Actual mob spawning during waves.** The encounter system
+  surfaces `EnemySpawned` events with the spec's `kind` strings
+  ("sandbag_finite") but doesn't yet plug into `FeatureRuntime`'s
+  enemy spawn pipeline — the LDtk EnemySpawn markers in the level
+  spawn directly via the existing JSON-adapter path. A future
+  follow-up replaces those markers with encounter-spawned enemies
+  so retries actually re-spawn fresh dummies.
+- **Exit lock enforcement.** `EncounterRegistry::any_lock_active()`
+  returns true while an encounter is Active, but `room_transition_phase`
+  doesn't yet consult it. A future patch suppresses LoadingZone
+  routing while a lock is active.
+- **Multi-wave authoring from LDtk.** Today every EnemySpawn marker
+  in the area collapses into wave 1; a future patch reads a `wave`
+  Int field on each `EnemySpawn` to assemble multi-wave specs.
+- **Switch toggle visual.** The switch toggles its persisted state
+  but no sprite swap happens; future patches can render the on/off
+  state via the `SwitchOn` / `SwitchOff` engine components.

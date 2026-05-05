@@ -424,6 +424,12 @@ pub struct LdtkProject {
     pub levels: Vec<LdtkLevel>,
 }
 
+/// Bevy resource wrapper so other systems (encounter loader) can read
+/// the parsed LDtk project without re-parsing the file. Inserted in
+/// `init_sandbox_resources`; refreshed by hot reload.
+#[derive(bevy::prelude::Resource, Clone, Debug)]
+pub struct SandboxLdtkProject(pub LdtkProject);
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct LdtkLevel {
     pub identifier: String,
@@ -902,14 +908,14 @@ impl LdtkLevel {
         self.field_string("activeArea")
     }
 
-    fn active_area(&self) -> String {
+    pub fn active_area(&self) -> String {
         self.raw_active_area()
             .map(|area| area.trim().to_string())
             .filter(|area| !area.is_empty())
             .unwrap_or_else(|| self.identifier.clone())
     }
 
-    fn ambition_layer(&self) -> Option<&LdtkLayerInstance> {
+    pub fn ambition_layer(&self) -> Option<&LdtkLayerInstance> {
         self.layer_instances
             .iter()
             .find(|layer| layer.identifier == AMBITION_LAYER)
@@ -1517,11 +1523,11 @@ fn value_to_string(value: &Value) -> Option<String> {
     }
 }
 
-fn field_string(entity: &LdtkEntityInstance, name: &str) -> Option<String> {
+pub(crate) fn field_string(entity: &LdtkEntityInstance, name: &str) -> Option<String> {
     field_value(&entity.field_instances, name).and_then(value_to_string)
 }
 
-fn field_f32(entity: &LdtkEntityInstance, name: &str) -> Option<f32> {
+pub(crate) fn field_f32(entity: &LdtkEntityInstance, name: &str) -> Option<f32> {
     field_value(&entity.field_instances, name).and_then(|value| match value {
         Value::Number(number) => number.as_f64().map(|value| value as f32),
         Value::String(text) => text.parse::<f32>().ok(),

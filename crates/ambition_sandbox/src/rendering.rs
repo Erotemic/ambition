@@ -558,14 +558,19 @@ pub fn camera_follow(
     world: Res<crate::GameWorld>,
     runtime: Res<crate::SandboxRuntime>,
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
+    encounter_registry: Res<crate::encounter::EncounterRegistry>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
+    // Encounter scale: when an encounter is in Active phase, zoom out
+    // by the spec's `camera_zoom` factor. Overview camera trumps
+    // encounter zoom for dev convenience.
+    let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
     let camera_scale = if developer_tools.overview_camera {
         overview_scale
     } else {
-        1.0
+        encounter_scale
     };
 
     let target = if developer_tools.overview_camera {

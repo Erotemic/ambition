@@ -113,6 +113,11 @@ pub struct FeatureEvents {
     pub physics_bursts: Vec<FeaturePhysicsBurst>,
     pub player_damage: Vec<PlayerDamageEvent>,
     pub player_heal: i32,
+    /// Switch interactables the player activated this frame. Drained
+    /// by the encounter system into `SwitchActivationQueue`. The
+    /// payload is the Custom string from `Interactable::Custom("switch:...")`
+    /// — the consumer parses it via `SwitchActivation::parse_custom`.
+    pub switch_activations: Vec<String>,
 }
 
 impl FeatureEvents {
@@ -128,6 +133,8 @@ impl FeatureEvents {
         self.physics_bursts.append(&mut other.physics_bursts);
         self.player_damage.append(&mut other.player_damage);
         self.player_heal += other.player_heal;
+        self.switch_activations
+            .append(&mut other.switch_activations);
     }
 }
 
@@ -147,8 +154,41 @@ pub struct FeatureRuntime {
     pub pickups: Vec<PickupRuntime>,
     pub chests: Vec<ChestRuntime>,
     pub npcs: Vec<NpcRuntime>,
+    pub switches: Vec<SwitchRuntime>,
     pub banner: String,
     pub banner_timer: f32,
+}
+
+/// Runtime state of a `Switch` interactable. The custom payload comes
+/// from the LDtk `Switch` entity via `entity_to_runtime`; the
+/// encounter system parses it on activation.
+#[derive(Clone, Debug)]
+pub struct SwitchRuntime {
+    pub id: String,
+    pub name: String,
+    pub pos: ae::Vec2,
+    pub size: ae::Vec2,
+    pub interactable: ae::Interactable,
+    /// The `Custom("switch:...")` payload string. Cached here so the
+    /// activation event doesn't have to re-pattern-match `kind`.
+    pub custom_payload: String,
+}
+
+impl SwitchRuntime {
+    fn new(object: &ae::RoomObject, interactable: ae::Interactable, payload: String) -> Self {
+        Self {
+            id: object.id.clone(),
+            name: object.name.clone(),
+            pos: object.aabb.center(),
+            size: object.aabb.half_size() * 2.0,
+            interactable,
+            custom_payload: payload,
+        }
+    }
+
+    pub fn aabb(&self) -> ae::Aabb {
+        ae::Aabb::new(self.pos, self.size * 0.5)
+    }
 }
 
 impl FeatureRuntime {
@@ -162,6 +202,7 @@ impl FeatureRuntime {
             pickups: Vec::new(),
             chests: Vec::new(),
             npcs: Vec::new(),
+            switches: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -193,6 +234,14 @@ impl FeatureRuntime {
                         runtime
                             .npcs
                             .push(NpcRuntime::new(object, interactable.clone()));
+                    } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
+                        if payload.starts_with("switch:") {
+                            runtime.switches.push(SwitchRuntime::new(
+                                object,
+                                interactable.clone(),
+                                payload.clone(),
+                            ));
+                        }
                     }
                 }
                 ae::RoomObjectKind::EnemySpawn(brain) => {
@@ -315,6 +364,16 @@ impl FeatureRuntime {
                     events.messages.push(npc.message());
                     events.dialogue_request = Some(npc.dialogue_request());
                     events.bursts.push(npc.pos);
+                }
+            }
+            for switch in &mut self.switches {
+                if switch.aabb().strict_intersects(player_body) {
+                    events.consumed_interaction = true;
+                    events.messages.push(format!("activated {}", switch.name));
+                    events
+                        .switch_activations
+                        .push(switch.custom_payload.clone());
+                    events.bursts.push(switch.pos);
                 }
             }
         }

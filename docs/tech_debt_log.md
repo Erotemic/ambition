@@ -65,6 +65,54 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Runtime / state
 
+- **HIGH — Wall-cling on the mob_lab lock wall teleports player onto
+  the arena ceiling**
+  - Trace: `debug_traces/ambition_trace_1777995217-972692847-000000_20578d15h33m37s`.
+  - Repro shape: enter `mob_lab`, the encounter starts, the runtime-
+    inserted `lockwall:mob_lab` block (LDtk px (480, 400) size
+    (224, 208)) materializes between the hallway and arena. While
+    wall-clinging on the lock wall's right edge (player x=718,
+    lock_wall.right=704), the next y-sweep snaps the player from
+    `(718, 434.1)` to `(718, -23)` — exactly `arena_ceiling.top - half_height`
+    (`0 - 23`). The player then ping-pongs between `y=-23` (sitting
+    on the ceiling, AABB.bottom = 0) and `y=423` (re-clinging on
+    the lock wall) every time they press Jump. The auto-OOB
+    detector does not fire because the 46 px excursion above the
+    world envelope is within `OOB_MARGIN = 96.0`.
+  - Same *shape* as the resolved "Wall-cling y-sweep teleports
+    player to wall's far edge" lesson in
+    `docs/lessons_learned.md`: an unconditional
+    `pos.y += hit.block.aabb.top() - body.bottom()` snap when the
+    swept hit returns `time_of_impact = 0`. The `body_is_side_contact`
+    predicate added by that fix correctly skips the LOCK WALL (body
+    y-range is nested inside lockwall y-range 400–608) — so the
+    offending hit must be on a different block. The most likely
+    suspect from the trace's "nearby collision" report is
+    `arena_ceiling` (top at y=0, body.bottom at y=457 → snap delta
+    -457 ≈ matches the observed -457.1 px correction).
+  - Hypothesis to test: parry `cast_shapes(stop_at_penetration=true)`
+    is returning a `time_of_impact = 0` hit on `arena_ceiling`
+    when the body is starting from an exact-edge-touching configuration
+    against the LOCK WALL. The vertical sweep then snaps to the
+    ceiling's top instead of the (correctly-skipped) lock wall's
+    top. This is one degree removed from the original lesson — the
+    skip predicate filters the wall the body is touching, not the
+    bogus far-block hit.
+  - Repro target for the fix: an integration test in
+    `crates/ambition_sandbox/tests/repro_walls.rs` that places the
+    player wall-clinging on a lock-wall-shaped block with an
+    arena_ceiling-shaped block above and asserts no >100 px y-snap
+    after one update. Mirror of the existing
+    `square_arena_wall_cling_full_world_does_not_teleport`.
+  - Bumping `OOB_MARGIN` is NOT the fix — it would just hide the
+    teleport. The right fix is rejecting `time_of_impact = 0` hits
+    that snap the body MORE than the velocity budget for the
+    frame, which is also what the `CollisionCorrection` event in
+    the trace measures (`unexplained delta 457.1px (vel-budget 16.1px)`).
+  - Until fixed, runtime-inserted blocks (lock walls, future
+    encounter geometry) live alongside this bug. Document any new
+    runtime block insertion with this caveat.
+
 - **MED — `EnemyRuntime` movement still pre-computes `desired_x` from
   brain enums, then overrides via `ai_mode`**
   - File: `crates/ambition_sandbox/src/features.rs:EnemyRuntime::update`

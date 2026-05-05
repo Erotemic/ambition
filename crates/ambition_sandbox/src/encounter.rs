@@ -922,6 +922,20 @@ pub fn sync_encounter_controller_states(
 /// recorder, mirrors phase changes into the save resource, and
 /// handles switch toggle commands.
 ///
+/// Drop the encounter's reward chest (if any) and clear the persisted
+/// "reward dropped" flag so the next clear pays out a fresh chest.
+/// Called by the switch-reset re-arming branch; pure helper so unit
+/// tests can drive the cycle without a Bevy app.
+pub fn clear_encounter_reward(
+    features: &mut crate::features::FeatureRuntime,
+    save: &mut ae::SandboxSaveData,
+    encounter_id: &str,
+) {
+    features.despawn_encounter_chest(encounter_id);
+    let reward_flag = format!("encounter_{encounter_id}_reward_dropped");
+    save.set_flag(reward_flag, false);
+}
+
 /// Encounter cancellation: encounters that are `Active` only persist
 /// while the player is in the matching active area. Walking out
 /// (e.g. through the entry LoadingZone) resets the encounter to
@@ -1106,17 +1120,22 @@ pub fn update_encounters_from_world(
                 .and_then(|e| e.spec.as_ref())
             {
                 let trigger = spec.trigger_aabb();
+                let chest_size = ae::Vec2::new(28.0, 28.0);
+                // Place the chest on the floor: the trigger AABB sits
+                // on top of the arena floor, so its `max.y` (the lower
+                // edge in y-down world space) is the floor surface.
+                // Snapping the chest's bottom edge to that line lands
+                // it visibly on the ground rather than floating in the
+                // middle of the trigger.
+                let chest_pos = ae::Vec2::new(
+                    trigger.center().x,
+                    trigger.max.y - chest_size.y * 0.5,
+                );
                 let reward = ae::PickupKind::Health { amount: 2 };
                 let chest_id = format!("encounter_chest_{encounter_id}");
-                runtime.features.spawn_chest(
-                    chest_id,
-                    Some(reward),
-                    ae::Vec2::new(
-                        trigger.center().x,
-                        trigger.center().y - 8.0,
-                    ),
-                    ae::Vec2::new(28.0, 28.0),
-                );
+                runtime
+                    .features
+                    .spawn_chest(chest_id, Some(reward), chest_pos, chest_size);
                 save.data_mut().set_flag(reward_flag, true);
             }
         }
@@ -1174,6 +1193,13 @@ pub fn update_encounters_from_world(
                 }
             }
             runtime.features.despawn_encounter_enemies(&target_id);
+            // Also drop any reward chest from a prior clear so the
+            // next clear pays out fresh, and clear the persisted
+            // "reward dropped" flag so re-clearing actually re-spawns
+            // the chest. The orphaned `FeatureVisual` entity is
+            // healed by `sync_visuals` on the next spawn (same id →
+            // same entity, sprite restored from `chest_state_sprite`).
+            clear_encounter_reward(&mut runtime.features, save.data_mut(), &target_id);
         }
     }
 
@@ -1881,6 +1907,160 @@ mod tests {
     }
 
     // ── Lock wall sync ─────────────────────────────────────────────
+
+    // ── Encounter reward chest cleanup ────────────────────────────
+
+    fn empty_features() -> crate::features::FeatureRuntime {
+        crate::features::FeatureRuntime {
+            hazards: Vec::new(),
+            enemies: Vec::new(),
+            bosses: Vec::new(),
+            breakables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            npcs: Vec::new(),
+            switches: Vec::new(),
+            water_volumes: Vec::new(),
+            banner: String::new(),
+            banner_timer: 0.0,
+        }
+    }
+
+    /// `clear_encounter_reward` must drop the matching reward chest
+    /// AND reset the persisted "reward dropped" flag so a re-clear
+    /// pays out a fresh chest. Authored chests with unrelated ids
+    /// must survive.
+    #[test]
+    fn clear_encounter_reward_drops_chest_and_resets_flag() {
+        let mut features = empty_features();
+        // Authored chest (different id) — must NOT be removed.
+        features.spawn_chest(
+            "authored_treasure".into(),
+            None,
+            ae::Vec2::new(50.0, 50.0),
+            ae::Vec2::new(28.0, 28.0),
+        );
+        // Reward chest from a prior clear.
+        features.spawn_chest(
+            "encounter_chest_mob_lab".into(),
+            Some(ae::PickupKind::Health { amount: 2 }),
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::new(28.0, 28.0),
+        );
+        let mut save = ae::SandboxSaveData::default();
+        save.set_flag("encounter_mob_lab_reward_dropped", true);
+
+        clear_encounter_reward(&mut features, &mut save, "mob_lab");
+
+        assert!(
+            features.chests.iter().all(|c| c.id != "encounter_chest_mob_lab"),
+            "encounter chest must be despawned"
+        );
+        assert!(
+            features.chests.iter().any(|c| c.id == "authored_treasure"),
+            "authored chest must survive"
+        );
+        assert!(
+            !save.flag("encounter_mob_lab_reward_dropped"),
+            "reward-dropped flag must be cleared"
+        );
+    }
+
+    /// Despawning the encounter chest is an exact-id match: chests
+    /// for OTHER encounters must not be touched.
+    #[test]
+    fn despawn_encounter_chest_only_targets_matching_encounter() {
+        let mut features = empty_features();
+        features.spawn_chest(
+            "encounter_chest_mob_lab".into(),
+            None,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(28.0, 28.0),
+        );
+        features.spawn_chest(
+            "encounter_chest_boss_room".into(),
+            None,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(28.0, 28.0),
+        );
+        features.despawn_encounter_chest("mob_lab");
+        assert_eq!(features.chests.len(), 1);
+        assert_eq!(features.chests[0].id, "encounter_chest_boss_room");
+    }
+
+    /// The clear → reset → re-clear cycle: after the cleanup helper
+    /// runs, calling `spawn_chest` with the same encounter chest id
+    /// successfully creates a fresh chest (the previous one is gone
+    /// AND the de-dup guard inside `spawn_chest` does not fire).
+    #[test]
+    fn clear_then_respawn_yields_a_fresh_chest() {
+        let mut features = empty_features();
+        let mut save = ae::SandboxSaveData::default();
+
+        // First clear: chest spawned, flag set.
+        features.spawn_chest(
+            "encounter_chest_mob_lab".into(),
+            Some(ae::PickupKind::Health { amount: 2 }),
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(28.0, 28.0),
+        );
+        save.set_flag("encounter_mob_lab_reward_dropped", true);
+        // Mark the chest as opened so we can detect "fresh" vs. "stale"
+        // after the re-spawn cycle.
+        features.chests[0].opened = true;
+
+        // Switch reset: wipe the chest + the flag.
+        clear_encounter_reward(&mut features, &mut save, "mob_lab");
+        assert!(features.chests.is_empty());
+        assert!(!save.flag("encounter_mob_lab_reward_dropped"));
+
+        // Second clear: chest re-spawns with `opened = false`.
+        features.spawn_chest(
+            "encounter_chest_mob_lab".into(),
+            Some(ae::PickupKind::Health { amount: 2 }),
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(28.0, 28.0),
+        );
+        assert_eq!(features.chests.len(), 1);
+        assert!(
+            !features.chests[0].opened,
+            "re-spawned chest must start closed (fresh state)"
+        );
+    }
+
+    /// Reward chests for the mob_lab encounter spawn on the floor:
+    /// the chest's bottom edge sits on the trigger AABB's `max.y`
+    /// (the lower edge in y-down world space), which is the arena
+    /// floor surface. Walking the chest-spawn code path manually
+    /// because the actual call lives inside the big Bevy system; the
+    /// formula is small enough to lift here for a regression test.
+    #[test]
+    fn encounter_reward_chest_spawns_on_trigger_floor() {
+        let mut features = empty_features();
+        let spec = lab_spec(); // trigger_min [0,0], trigger_size [400,200]
+        let trigger = spec.trigger_aabb();
+        let chest_size = ae::Vec2::new(28.0, 28.0);
+        let chest_pos = ae::Vec2::new(
+            trigger.center().x,
+            trigger.max.y - chest_size.y * 0.5,
+        );
+        features.spawn_chest(
+            "encounter_chest_mob_lab".into(),
+            Some(ae::PickupKind::Health { amount: 2 }),
+            chest_pos,
+            chest_size,
+        );
+        let chest = &features.chests[0];
+        // Bottom edge of chest AABB = chest.pos.y + half.y == trigger.max.y.
+        let chest_bottom = chest.pos.y + chest.size.y * 0.5;
+        assert!(
+            (chest_bottom - trigger.max.y).abs() < 1e-3,
+            "chest bottom ({chest_bottom}) must rest on trigger floor ({})",
+            trigger.max.y
+        );
+        // Centered horizontally on the trigger.
+        assert!((chest.pos.x - trigger.center().x).abs() < 1e-3);
+    }
 
     #[test]
     fn sync_lock_walls_inserts_and_removes_block() {

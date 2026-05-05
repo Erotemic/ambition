@@ -352,6 +352,15 @@ impl FeatureRuntime {
         self.enemies.retain(|e| !e.id.starts_with(&prefix));
     }
 
+    /// Remove the encounter-spawned chest, if any. The encounter
+    /// system uses a fixed `encounter_chest_<id>` id when it drops the
+    /// victory chest, so the matching chest is the one to drop on
+    /// switch reset. Authored chests (different ids) are untouched.
+    pub fn despawn_encounter_chest(&mut self, encounter_id: &str) {
+        let target = format!("encounter_chest_{encounter_id}");
+        self.chests.retain(|c| c.id != target);
+    }
+
     /// Spawn a chest at runtime. Used by the encounter system to drop
     /// a victory reward when an arena clears, and available as a
     /// general utility for code-built rooms / cutscenes.

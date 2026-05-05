@@ -11,7 +11,7 @@
   "iid": "ambition-sandbox-world",
   "jsonVersion": "1.5.3",
   "appBuildId": 473703,
-  "nextUid": 4104,
+  "nextUid": 4123,
   "identifierStyle": "Free",
   "toc": [],
   "worldLayout": "Free",
@@ -20606,7 +20606,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFD166",
-              "iid": "LoadingZone-4103",
+              "iid": "LoadingZone-4122",
               "width": 60,
               "height": 132,
               "defUid": 2002,
@@ -98668,8 +98668,8 @@
     },
     {
       "identifier": "mob_lab",
-      "iid": "mob_lab-4085",
-      "uid": 4085,
+      "iid": "mob_lab-4104",
+      "uid": 4104,
       "worldX": 14000,
       "worldY": 1024,
       "worldDepth": 0,
@@ -98706,7 +98706,7 @@
         {
           "__identifier": "Collision",
           "__type": "IntGrid",
-          "iid": "Collision-4086",
+          "iid": "Collision-4105",
           "layerDefUid": 5024,
           "intGridCsv": [
             0,
@@ -103518,13 +103518,13 @@
           "__pxTotalOffsetY": 0,
           "__tilesetDefUid": null,
           "__tilesetRelPath": null,
-          "levelId": 4085,
+          "levelId": 4104,
           "pxOffsetX": 0,
           "pxOffsetY": 0,
           "visible": true,
           "optionalRules": [],
           "autoLayerTiles": [],
-          "seed": 4085,
+          "seed": 4104,
           "overrideTilesetUid": null,
           "gridTiles": [],
           "entityInstances": []
@@ -103532,7 +103532,7 @@
         {
           "__identifier": "Ambition",
           "__type": "Entities",
-          "iid": "Ambition-4087",
+          "iid": "Ambition-4106",
           "layerDefUid": 1070,
           "intGridCsv": [],
           "__cWid": 100,
@@ -103543,13 +103543,13 @@
           "__pxTotalOffsetY": 0,
           "__tilesetDefUid": null,
           "__tilesetRelPath": null,
-          "levelId": 4085,
+          "levelId": 4104,
           "pxOffsetX": 0,
           "pxOffsetY": 0,
           "visible": true,
           "optionalRules": [],
           "autoLayerTiles": [],
-          "seed": 4085,
+          "seed": 4104,
           "overrideTilesetUid": null,
           "gridTiles": [],
           "entityInstances": [
@@ -103566,7 +103566,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#6B7280",
-              "iid": "Solid-4088",
+              "iid": "Solid-4107",
               "width": 1600,
               "height": 32,
               "defUid": 2001,
@@ -103605,7 +103605,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#6B7280",
-              "iid": "Solid-4089",
+              "iid": "Solid-4108",
               "width": 480,
               "height": 32,
               "defUid": 2001,
@@ -103644,7 +103644,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#6B7280",
-              "iid": "Solid-4090",
+              "iid": "Solid-4109",
               "width": 16,
               "height": 608,
               "defUid": 2001,
@@ -103683,7 +103683,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#6B7280",
-              "iid": "Solid-4091",
+              "iid": "Solid-4110",
               "width": 16,
               "height": 608,
               "defUid": 2001,
@@ -103722,7 +103722,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#6B7280",
-              "iid": "Solid-4092",
+              "iid": "Solid-4111",
               "width": 1568,
               "height": 16,
               "defUid": 2001,
@@ -103752,7 +103752,7 @@
               "__identifier": "Solid",
               "__grid": [
                 29,
-                14
+                0
               ],
               "__pivot": [
                 0,
@@ -103761,13 +103761,13 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#6B7280",
-              "iid": "Solid-4093",
+              "iid": "Solid-4112",
               "width": 16,
-              "height": 384,
+              "height": 400,
               "defUid": 2001,
               "px": [
                 464,
-                224
+                0
               ],
               "fieldInstances": [
                 {
@@ -103800,9 +103800,9 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#6B7280",
-              "iid": "Solid-4094",
+              "iid": "Solid-4113",
               "width": 16,
-              "height": 608,
+              "height": 400,
               "defUid": 2001,
               "px": [
                 704,
@@ -103839,7 +103839,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#41D1FF",
-              "iid": "PlayerStart-4095",
+              "iid": "PlayerStart-4114",
               "width": 28,
               "height": 46,
               "defUid": 2000,
@@ -103878,7 +103878,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFD166",
-              "iid": "LoadingZone-4096",
+              "iid": "LoadingZone-4115",
               "width": 48,
               "height": 96,
               "defUid": 2002,
@@ -103992,7 +103992,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFC857",
-              "iid": "Switch-4097",
+              "iid": "Switch-4116",
               "width": 24,
               "height": 32,
               "defUid": 4051,
@@ -104082,7 +104082,7 @@
               "__identifier": "LockWall",
               "__grid": [
                 30,
-                14
+                25
               ],
               "__pivot": [
                 0,
@@ -104091,13 +104091,13 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#9E9E9E",
-              "iid": "LockWall-4098",
+              "iid": "LockWall-4117",
               "width": 224,
-              "height": 384,
+              "height": 208,
               "defUid": 4084,
               "px": [
                 480,
-                224
+                400
               ],
               "fieldInstances": [
                 {
@@ -104135,8 +104135,8 @@
             {
               "__identifier": "EncounterTrigger",
               "__grid": [
-                45,
-                24
+                57,
+                25
               ],
               "__pivot": [
                 0,
@@ -104145,13 +104145,13 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FF7AB6",
-              "iid": "EncounterTrigger-4099",
-              "width": 200,
-              "height": 224,
+              "iid": "EncounterTrigger-4118",
+              "width": 240,
+              "height": 208,
               "defUid": 4045,
               "px": [
-                720,
-                384
+                920,
+                400
               ],
               "fieldInstances": [
                 {
@@ -104187,14 +104187,14 @@
                 {
                   "__identifier": "camera_zoom",
                   "__type": "Float",
-                  "__value": 1.6,
+                  "__value": 1.4,
                   "__tile": null,
                   "defUid": 4044,
                   "realEditorValues": [
                     {
                       "id": "V_Float",
                       "params": [
-                        1.6
+                        1.4
                       ]
                     }
                   ]
@@ -104214,7 +104214,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#86A8E7",
-              "iid": "CameraZone-4100",
+              "iid": "CameraZone-4119",
               "width": 880,
               "height": 768,
               "defUid": 4002,
@@ -104283,8 +104283,8 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFFFFF",
-              "iid": "DebugLabel-4101",
-              "width": 320,
+              "iid": "DebugLabel-4120",
+              "width": 380,
               "height": 24,
               "defUid": 2007,
               "px": [
@@ -104310,14 +104310,14 @@
                 {
                   "__identifier": "text",
                   "__type": "String",
-                  "__value": "Hallway \u2014 toggle switch to arm/disable lab",
+                  "__value": "Switch: red = armed, green = disabled",
                   "__tile": null,
                   "defUid": 3016,
                   "realEditorValues": [
                     {
                       "id": "V_String",
                       "params": [
-                        "Hallway \u2014 toggle switch to arm/disable lab"
+                        "Switch: red = armed, green = disabled"
                       ]
                     }
                   ]
@@ -104352,7 +104352,7 @@
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFFFFF",
-              "iid": "DebugLabel-4102",
+              "iid": "DebugLabel-4121",
               "width": 560,
               "height": 24,
               "defUid": 2007,
@@ -104379,14 +104379,14 @@
                 {
                   "__identifier": "text",
                   "__type": "String",
-                  "__value": "Cross threshold to start encounter",
+                  "__value": "Walk past the marker to start the encounter",
                   "__tile": null,
                   "defUid": 3016,
                   "realEditorValues": [
                     {
                       "id": "V_String",
                       "params": [
-                        "Cross threshold to start encounter"
+                        "Walk past the marker to start the encounter"
                       ]
                     }
                   ]

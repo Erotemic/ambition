@@ -727,10 +727,13 @@ pub fn load_encounter_specs_from_ldtk(
 /// the divider-jamb edge (~x=720) to the back wall (~x=1584). The
 /// arena is roughly 850x600 of usable space.
 pub fn mob_lab_wave_specs() -> Vec<EncounterWaveSpec> {
-    // Active-area-local coords: arena floor is y=608, the divider is
-    // at x=480-720; place mobs in the right half of the room.
-    let left_x: f32 = 850.0;
-    let right_x: f32 = 1450.0;
+    // Active-area-local coords. The arena floor is y=608 and the
+    // doorway opening is at x=480-704. The encounter trigger spans
+    // x=920-1160, so wave mobs sit deeper still — past the trigger
+    // so they're visible after the camera zooms out and so the
+    // player has crossed into the arena before the wall slams.
+    let left_x: f32 = 1180.0;
+    let right_x: f32 = 1500.0;
     let floor_y: f32 = 580.0; // ~30 px above the floor (mob centered)
     let goblin_size = [22.0, 38.0];
     let big_size = [32.0, 56.0];
@@ -1379,6 +1382,48 @@ mod tests {
             .find(|(id, _, _)| id == "mob_lab")
             .expect("mob_lab encounter should be loadable");
         assert_eq!(*state, PersistedEncounterState::Cleared);
+    }
+
+    #[test]
+    fn ldtk_switch_runtime_id_matches_activation_payload() {
+        // Regression for the bug where the Switch RoomObject id was
+        // entity.iid (e.g. "Switch-4072") but the
+        // SwitchActivation payload's id was the LDtk `id` field
+        // ("mob_lab_reset_switch"). That mismatch made
+        // `FeatureRuntime::set_switch_on(activation.id)` a no-op and
+        // the switch sprite stayed stuck red.
+        let project = LdtkProject::load_embedded();
+        let room_set = project.to_room_set().expect("mob_lab world composes");
+        let mob_lab = room_set
+            .rooms
+            .iter()
+            .find(|r| r.id == "mob_lab")
+            .expect("mob_lab room");
+        let switch_object = mob_lab
+            .world
+            .objects
+            .iter()
+            .find(|o| {
+                matches!(
+                    &o.kind,
+                    ae::RoomObjectKind::Interactable(i)
+                        if matches!(&i.kind, ae::InteractionKind::Custom(s)
+                            if s.starts_with("switch:"))
+                )
+            })
+            .expect("mob_lab has a switch interactable");
+        let payload = match &switch_object.kind {
+            ae::RoomObjectKind::Interactable(i) => match &i.kind {
+                ae::InteractionKind::Custom(s) => s.clone(),
+                _ => panic!("switch kind"),
+            },
+            _ => panic!("switch object kind"),
+        };
+        let activation = SwitchActivation::parse_custom(&payload).expect("parse");
+        assert_eq!(
+            switch_object.id, activation.id,
+            "RoomObject.id must equal the SwitchActivation.id so set_switch_on works"
+        );
     }
 
     #[test]

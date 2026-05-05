@@ -2,29 +2,29 @@
 #
 # Layout (1600x768):
 #
-#   +-----------------------------------------------------+
-#   |                       (open ceiling)                |
-#   |  hallway              |       arena                 |
-#   |                       |                             |
-#   |                       |                             |
-#   |  ┌──────────┐         |                             |
-#   |  │entry door│  Switch │  [LockWall slot]            |
-#   |  │          │         │                             |
-#   |  └──────────┘  ──────/ \─── divider opening ──── ── │
-#   |  ████████████████████   ████████████████████████████│ ← floor
-#   +-----------------------------------------------------+
+#   +---------------------------------------------------+
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒ arena ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+#   |                ▒|        |                        |
+#   |  hallway       ▒|        |       arena            |
+#   |▒hwy ceil▒▒▒▒▒▒▒▒|        |                        |
+#   |                 |        |                        |
+#   | [door]  [Switch]│  ░░░░░░│ [trigger]  [mobs]      |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +---------------------------------------------------+
+#                    └ jambs └─ LockWall slot ─┘
+#                              (floor-level gap)
 #
-# - Hallway floor + arena floor share y=608. The opening between them
-#   is at x≈480-700, full-height (no ceiling block to fall through).
-# - PlayerStart is in the hallway near the back door; the player walks
-#   right through the threshold into the arena.
-# - The Switch sits in the hallway at chest height of the player.
-# - The LockWall fills the doorway only while the encounter is Active.
-# - The EncounterTrigger AABB straddles the threshold in the arena half
-#   so crossing it (even briefly) starts the encounter.
-# - Wave enemy spawns are not LDtk EnemySpawn entities — the encounter
-#   system spawns mobs dynamically on its own timeline (see
-#   `crate::encounter::mob_lab_wave_specs`).
+# Key changes from the previous draft:
+# - Divider jambs only exist ABOVE the doorway opening (y=0-400) so
+#   the floor-level gap (y=400-608) is always open by default. The
+#   player walks freely from hallway to arena until the encounter
+#   triggers.
+# - LockWall fills the floor-level gap only. When the encounter goes
+#   Active, the wall slams in here, sealing the player in. When the
+#   encounter Clears (or the player walks back out), the wall removes
+#   itself and the doorway is open again.
+# - EncounterTrigger is deeper in the arena, well past the doorway,
+#   so the lock wall closes BEHIND the player as the encounter starts.
 id: mob_lab
 level_id: mob_lab
 world_x: 14000
@@ -39,7 +39,7 @@ entities:
     size: [1600, 32]
     fields: { name: floor }
 
-  # --- Hallway ceiling (so the player has a real corridor, not a pit).
+  # --- Hallway ceiling (so the player has a real corridor).
   - type: Solid
     px: [0, 224]
     size: [480, 32]
@@ -61,15 +61,17 @@ entities:
     size: [1568, 16]
     fields: { name: arena_ceiling }
 
-  # --- Divider posts: short jambs on either side of the threshold so
-  # the doorway has a visible frame even when the LockWall is gone.
+  # --- Divider jambs: ONLY above the doorway opening (y=0-400) so the
+  # floor-level passage (y=400-608) is open whenever the LockWall is
+  # absent. These give the doorway a visible frame; the LockWall is
+  # the only thing that ever closes the player's path.
   - type: Solid
-    px: [464, 224]
-    size: [16, 384]
+    px: [464, 0]
+    size: [16, 400]
     fields: { name: divider_jamb_left }
   - type: Solid
     px: [704, 0]
-    size: [16, 608]
+    size: [16, 400]
     fields: { name: divider_jamb_right }
 
   # --- PlayerStart in the hallway, on the floor.
@@ -90,7 +92,10 @@ entities:
       target_zone: lab_door
       bidirectional: true
 
-  # --- The reset switch (in the hallway, before the threshold).
+  # --- The reset / arm switch (in the hallway, before the threshold).
+  # Pressing Interact toggles whether the encounter is armed (red) or
+  # disabled (green). Walking past the trigger only fires the
+  # encounter when this switch is red.
   - type: Switch
     px: [320, 576]
     size: [24, 32]
@@ -101,25 +106,27 @@ entities:
       target_encounter: mob_lab
       action: ResetEncounter
 
-  # --- LockWall: the slot the encounter spawns a Solid into while
-  # Active. Position fills the doorway opening; the encounter system
-  # reads this entity's px+size from the LDtk project.
+  # --- LockWall: fills the floor-level doorway gap when the encounter
+  # is in Starting / Active. Always absent when the encounter is
+  # Inactive / Cleared / Failed.
   - type: LockWall
-    px: [480, 224]
-    size: [224, 384]
+    px: [480, 400]
+    size: [224, 208]
     fields:
       id: mob_lab_lock
       name: mob_lab_lock
 
-  # --- Encounter trigger AABB: just inside the arena so crossing the
-  # threshold (left → right) fires it.
+  # --- Encounter trigger: deep enough in the arena that the LockWall
+  # closes BEHIND the player when it fires (the wall is at x=480-704;
+  # the trigger starts at x=920, so the player has cleared the doorway
+  # by ~216px before the wall slams).
   - type: EncounterTrigger
-    px: [720, 384]
-    size: [200, 224]
+    px: [920, 400]
+    size: [240, 208]
     fields:
       id: mob_lab
       name: mob_lab_trigger
-      camera_zoom: 1.6
+      camera_zoom: 1.4
 
   # --- Camera zone over the arena half.
   - type: CameraZone
@@ -130,15 +137,15 @@ entities:
   # --- Debug labels for in-game orientation.
   - type: DebugLabel
     px: [80, 240]
-    size: [320, 24]
+    size: [380, 24]
     fields:
       name: lab_label_hallway
-      text: "Hallway — toggle switch to arm/disable lab"
+      text: "Switch: red = armed, green = disabled"
       category: Custom
   - type: DebugLabel
     px: [780, 32]
     size: [560, 24]
     fields:
       name: lab_label_arena
-      text: "Cross threshold to start encounter"
+      text: "Walk past the marker to start the encounter"
       category: Custom

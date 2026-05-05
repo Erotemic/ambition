@@ -716,6 +716,7 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "StitchedBoundary",
     "EncounterTrigger",
     "Switch",
+    "LockWall",
 ];
 
 #[derive(Resource, Clone, Debug)]

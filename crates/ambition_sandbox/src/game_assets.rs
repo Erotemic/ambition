@@ -401,5 +401,9 @@ pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
         // Enemies are animated; rendering handles them through the
         // character spritesheet, not a static entity sprite.
         FeatureVisualKind::Enemy => None,
+        // Switches render as a colored block (red / green) rather
+        // than a static entity sprite — see `feature_color` and
+        // `switch_on_color` in `rendering.rs`.
+        FeatureVisualKind::Switch => None,
     }
 }

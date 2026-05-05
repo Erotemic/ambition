@@ -35,6 +35,7 @@ KNOWN_ENTITIES = {
     "HazardBlock",
     "KinematicPath",
     "LoadingZone",
+    "LockWall",
     "NpcSpawn",
     "OneWayPlatform",
     "PickupSpawn",

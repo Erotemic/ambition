@@ -1,40 +1,86 @@
-# Mob lab — basement encounter room with the reset-switch antechamber.
+# Mob lab — basement encounter room.
 #
-# Layout (one level, two chambers separated by a gap with a vertical
-# divider wall):
+# Layout (1600x768):
 #
-#   ┌──────────────────────────────────────────┐
-#   │ antechamber (switch + back door)         │
-#   │  [door↓→hub]  [Switch]  ─────  [trigger]→ │
-#   │                              ░░░░░░░░░░░ │  ← divider wall (dotted = floor opening)
-#   │                                          │
-#   │ lab interior (encounter zone)            │
-#   │   [enemy] [enemy] [enemy] [enemy]        │
-#   └──────────────────────────────────────────┘
+#   +-----------------------------------------------------+
+#   |                       (open ceiling)                |
+#   |  hallway              |       arena                 |
+#   |                       |                             |
+#   |                       |                             |
+#   |  ┌──────────┐         |                             |
+#   |  │entry door│  Switch │  [LockWall slot]            |
+#   |  │          │         │                             |
+#   |  └──────────┘  ──────/ \─── divider opening ──── ── │
+#   |  ████████████████████   ████████████████████████████│ ← floor
+#   +-----------------------------------------------------+
 #
-# `EncounterTrigger` is at the threshold between antechamber and the
-# lab interior. The switch (`reset_switch`) sits in the antechamber.
-# The level's `LoadingZone` `lab_entry` connects back to
-# central_hub_complex/lab_door (added separately by
-# tools/specs/hub_lab_door.yaml).
+# - Hallway floor + arena floor share y=608. The opening between them
+#   is at x≈480-700, full-height (no ceiling block to fall through).
+# - PlayerStart is in the hallway near the back door; the player walks
+#   right through the threshold into the arena.
+# - The Switch sits in the hallway at chest height of the player.
+# - The LockWall fills the doorway only while the encounter is Active.
+# - The EncounterTrigger AABB straddles the threshold in the arena half
+#   so crossing it (even briefly) starts the encounter.
+# - Wave enemy spawns are not LDtk EnemySpawn entities — the encounter
+#   system spawns mobs dynamically on its own timeline (see
+#   `crate::encounter::mob_lab_wave_specs`).
 id: mob_lab
 level_id: mob_lab
-world_x: 14000          # right of basement_npcs (12000–13500)
+world_x: 14000
 world_y: 1024
-px_wid: 1024
+px_wid: 1600
 px_hei: 768
-fill_collision: solid_border
+fill_collision: empty
 entities:
-  # PlayerStart — the spawn the LoadingZone targets when the player
-  # walks into mob_lab from the hub.
+  # --- Floor (hallway + arena, full width). 32px thick.
+  - type: Solid
+    px: [0, 608]
+    size: [1600, 32]
+    fields: { name: floor }
+
+  # --- Hallway ceiling (so the player has a real corridor, not a pit).
+  - type: Solid
+    px: [0, 224]
+    size: [480, 32]
+    fields: { name: hallway_ceiling }
+
+  # --- Hallway back wall (left side of the level).
+  - type: Solid
+    px: [0, 0]
+    size: [16, 608]
+    fields: { name: hallway_back_wall }
+
+  # --- Arena outer walls.
+  - type: Solid
+    px: [1584, 0]
+    size: [16, 608]
+    fields: { name: arena_back_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [1568, 16]
+    fields: { name: arena_ceiling }
+
+  # --- Divider posts: short jambs on either side of the threshold so
+  # the doorway has a visible frame even when the LockWall is gone.
+  - type: Solid
+    px: [464, 224]
+    size: [16, 384]
+    fields: { name: divider_jamb_left }
+  - type: Solid
+    px: [704, 0]
+    size: [16, 608]
+    fields: { name: divider_jamb_right }
+
+  # --- PlayerStart in the hallway, on the floor.
   - type: PlayerStart
-    px: [80, 64]
+    px: [80, 562]
+    size: [28, 46]
     fields: { name: lab_entry_spawn }
 
-  # Loading zone back to the central hub. Two-way once the matching
-  # zone is added to central_hub_basement (tools/specs/hub_lab_door.yaml).
+  # --- Loading zone back to the central hub.
   - type: LoadingZone
-    px: [16, 80]
+    px: [16, 512]
     size: [48, 96]
     fields:
       id: lab_entry
@@ -44,67 +90,54 @@ entities:
       target_zone: lab_door
       bidirectional: true
 
-  # Switch — the encounter reset.
+  # --- The reset switch (in the hallway, before the threshold).
   - type: Switch
-    px: [200, 96]
+    px: [320, 576]
     size: [24, 32]
     fields:
       id: mob_lab_reset_switch
       name: mob_lab_reset_switch
-      prompt: "Reset mob lab"
+      prompt: "Toggle mob lab"
       target_encounter: mob_lab
       action: ResetEncounter
 
-  # Divider wall between antechamber and lab interior. Leaves a 96px
-  # opening at the bottom for the encounter trigger / player passage.
-  - type: Solid
-    px: [400, 0]
-    size: [32, 540]
-    fields: { name: divider_wall }
+  # --- LockWall: the slot the encounter spawns a Solid into while
+  # Active. Position fills the doorway opening; the encounter system
+  # reads this entity's px+size from the LDtk project.
+  - type: LockWall
+    px: [480, 224]
+    size: [224, 384]
+    fields:
+      id: mob_lab_lock
+      name: mob_lab_lock
 
-  # Encounter trigger — the threshold the player crosses to start it.
+  # --- Encounter trigger AABB: just inside the arena so crossing the
+  # threshold (left → right) fires it.
   - type: EncounterTrigger
-    px: [432, 384]
-    size: [96, 256]
+    px: [720, 384]
+    size: [200, 224]
     fields:
       id: mob_lab
       name: mob_lab_trigger
       camera_zoom: 1.6
 
-  # Wave 1 (3 sandbag dummies, easy intro).
-  - type: EnemySpawn
-    px: [600, 600]
-    size: [32, 64]
-    fields: { name: wave1_a, brain: sandbag_finite }
-  - type: EnemySpawn
-    px: [720, 600]
-    size: [32, 64]
-    fields: { name: wave1_b, brain: sandbag_finite }
-  - type: EnemySpawn
-    px: [840, 600]
-    size: [32, 64]
-    fields: { name: wave1_c, brain: sandbag_finite }
-
-  # Camera zone over the lab interior so the encounter zoom-out
-  # targets a clear bounded region.
+  # --- Camera zone over the arena half.
   - type: CameraZone
-    px: [432, 0]
-    size: [592, 768]
+    px: [704, 0]
+    size: [880, 768]
     fields: { id: mob_lab_arena, name: mob_lab_arena, mode: Encounter }
 
-  # Debug labels for in-game orientation. Explicit sizes so they fit
-  # within level bounds (DebugLabel's authored default is 620x24 which
-  # would overflow this 1024-wide level when placed mid-room).
+  # --- Debug labels for in-game orientation.
   - type: DebugLabel
-    px: [60, 32]
+    px: [80, 240]
     size: [320, 24]
     fields:
-      name: lab_label_antechamber
-      text: "Antechamber — switch resets the lab"
+      name: lab_label_hallway
+      text: "Hallway — toggle switch to arm/disable lab"
       category: Custom
   - type: DebugLabel
-    px: [500, 32]
-    size: [480, 24]
+    px: [780, 32]
+    size: [560, 24]
     fields:
       name: lab_label_arena
       text: "Cross threshold to start encounter"

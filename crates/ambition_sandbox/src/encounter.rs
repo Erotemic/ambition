@@ -578,13 +578,20 @@ pub fn sync_encounter_controller_states(
 /// Drive each registered encounter from the player's position +
 /// switch activations. Routes `EncounterEvent`s through the trace
 /// recorder, mirrors phase changes into the save resource, and
-/// handles switch reset commands.
+/// handles switch toggle commands.
+///
+/// Encounter cancellation: encounters that are `Active` only persist
+/// while the player is in the matching active area. Walking out
+/// (e.g. through the entry LoadingZone) resets the encounter to
+/// `Inactive` so the camera zoom + lock release on exit. This is
+/// deliberate sandbox UX — the encounter is "in play" only while the
+/// player is actually inside the room.
 pub fn update_encounters_from_world(
     mut registry: ResMut<EncounterRegistry>,
     mut save: ResMut<crate::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
-    runtime: Res<crate::SandboxRuntime>,
+    mut runtime: ResMut<crate::SandboxRuntime>,
     room_set: Res<crate::rooms::RoomSet>,
 ) {
     let active_area = room_set.active_spec().id.clone();
@@ -592,15 +599,36 @@ pub fn update_encounters_from_world(
     let player_size = runtime.player.size;
     let mut events: Vec<(String, Vec<EncounterEvent>)> = Vec::new();
 
-    // Trigger entry: only the active area's encounter can fire.
-    if let Some(state) = registry.encounters.get_mut(&active_area) {
-        let started = state.maybe_start(player_pos, player_size);
-        if !started.is_empty() {
-            events.push((active_area.clone(), started));
+    // Cancel `Active` encounters whose area the player has left. The
+    // camera zoom + lock can't keep enforcing themselves outside the
+    // room, so the encounter snaps back to Inactive (a fresh attempt
+    // is available next time the player re-enters the trigger).
+    for (id, state) in registry.encounters.iter_mut() {
+        if matches!(state.phase, EncounterPhase::Active { .. }) && id != &active_area {
+            state.phase = EncounterPhase::Inactive;
+            state.lock_active = false;
+            events.push((id.clone(), vec![EncounterEvent::LockChanged { locked: false }]));
         }
     }
 
-    // Switch activations: drain the queue and apply.
+    // Trigger entry: only the active area's encounter can fire, and
+    // only when its persisted state isn't Cleared (a Cleared encounter
+    // is "off" — the player can re-arm it via the switch).
+    if let Some(state) = registry.encounters.get_mut(&active_area) {
+        if matches!(state.phase, EncounterPhase::Inactive) {
+            let started = state.maybe_start(player_pos, player_size);
+            if !started.is_empty() {
+                events.push((active_area.clone(), started));
+            }
+        }
+    }
+
+    // Switch toggles. Pressing the switch flips between Cleared (green
+    // / encounter disabled) and Inactive (red / encounter armed). The
+    // sandbox makes this a free toggle — pressing the switch never
+    // requires beating the encounter first. Future story crates can
+    // gate on the persisted encounter state if they want one-way
+    // semantics.
     let activations = std::mem::take(&mut switch_activations.0);
     for activation in activations {
         let target_id = if activation.target_encounter.is_empty() {
@@ -612,19 +640,40 @@ pub fn update_encounters_from_world(
             continue;
         };
         if matches!(activation.action.as_str(), "ResetEncounter") {
-            state.reset_for_retry();
-            // Force inactive even if Active (shouldn't happen — switch
-            // is outside the locked room, but be safe).
-            state.phase = EncounterPhase::Inactive;
+            // Toggle: Cleared ↔ Inactive. Active / Failed both fold
+            // into Inactive on press (ResetEncounter is a "make this
+            // encounter armed again" verb).
+            let now_cleared = matches!(state.phase, EncounterPhase::Cleared);
+            state.phase = if now_cleared {
+                EncounterPhase::Inactive
+            } else {
+                EncounterPhase::Cleared
+            };
             state.lock_active = false;
-            // Toggle the persisted switch state so the save reflects
-            // that the player has interacted with it at least once.
-            let new_state = !save.data().switch(&activation.id);
-            save.data_mut().set_switch(&activation.id, new_state);
-            // Clear the persisted encounter so a fresh attempt starts.
-            save.data_mut()
-                .set_encounter(&target_id, PersistedEncounterState::Untouched);
+            // Persisted switch reflects the encounter state so the
+            // visual color reads from the save unambiguously after a
+            // reload: switch on (green) ⇔ encounter Cleared.
+            let target_on = matches!(state.phase, EncounterPhase::Cleared);
+            save.data_mut().set_switch(&activation.id, target_on);
+            // Update the runtime switch's color immediately so the
+            // sprite tint flips on the same frame instead of waiting
+            // for the save → render path.
+            runtime.features.set_switch_on(&activation.id, target_on);
         }
+    }
+
+    // Sync runtime switch colors with the persisted save state every
+    // frame (cheap; the loop is bounded by switch count). Covers the
+    // case where the save was loaded at startup and the runtime
+    // hasn't been told yet.
+    let switch_states: Vec<(String, bool)> = save
+        .data()
+        .switches
+        .iter()
+        .map(|s| (s.id.clone(), s.on))
+        .collect();
+    for (id, on) in switch_states {
+        runtime.features.set_switch_on(&id, on);
     }
 
     // Project current phases to the save (Cleared/Failed survive,

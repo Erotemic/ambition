@@ -1163,6 +1163,9 @@ fn entity_to_runtime(
         // generic `RoomObject` shape. Skipping here keeps composition
         // free of encounter-specific routing.
         "EncounterTrigger" => Ok(RuntimeEntityEmission::ignored()),
+        // LockWall is a marker for an encounter-spawned Solid; the
+        // encounter system reads it off the project directly.
+        "LockWall" => Ok(RuntimeEntityEmission::ignored()),
         // Switches are interactables routed through `FeatureRuntime`.
         // The id / target_encounter / action fields are encoded into
         // an `InteractionKind::Custom` payload so the switch handler

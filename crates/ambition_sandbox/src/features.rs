@@ -29,6 +29,9 @@ pub enum FeatureVisualKind {
     Chest,
     Pickup,
     Npc,
+    /// Latched switch. Renders as a colored block whose color depends
+    /// on `FeatureView::switch_on` (red = off, green = on).
+    Switch,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -38,6 +41,10 @@ pub struct FeatureView {
     pub kind: FeatureVisualKind,
     pub visible: bool,
     pub flash: bool,
+    /// For `FeatureVisualKind::Switch`: true when the switch reads as
+    /// "on" (encounter cleared / reset path armed). Renders green when
+    /// true, red when false. Ignored for other kinds.
+    pub switch_on: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -172,6 +179,12 @@ pub struct SwitchRuntime {
     /// The `Custom("switch:...")` payload string. Cached here so the
     /// activation event doesn't have to re-pattern-match `kind`.
     pub custom_payload: String,
+    /// Live on/off state for color rendering. The encounter system
+    /// keeps this in sync with the persisted save state + the live
+    /// encounter phase: `on = true` means the encounter is `Cleared`
+    /// or has been disabled by the user; `on = false` means the
+    /// encounter is armed (will fire when the player enters).
+    pub on: bool,
 }
 
 impl SwitchRuntime {
@@ -183,11 +196,23 @@ impl SwitchRuntime {
             size: object.aabb.half_size() * 2.0,
             interactable,
             custom_payload: payload,
+            on: false,
         }
     }
 
     pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
+    }
+}
+
+impl FeatureRuntime {
+    /// Set the on/off rendering state for a named switch (no-op if the
+    /// id doesn't exist). The encounter system calls this whenever
+    /// the persisted switch state or live encounter phase changes.
+    pub fn set_switch_on(&mut self, id: &str, on: bool) {
+        if let Some(switch) = self.switches.iter_mut().find(|s| s.id == id) {
+            switch.on = on;
+        }
     }
 }
 
@@ -540,6 +565,7 @@ impl FeatureRuntime {
                     kind: FeatureVisualKind::Hazard,
                     visible: hazard.active(),
                     flash: false,
+                    switch_on: false,
                 });
             }
         }
@@ -553,6 +579,7 @@ impl FeatureRuntime {
                     flash: enemy.hit_flash > 0.0
                         || enemy.attack_windup_timer > 0.0
                         || enemy.attack_timer > 0.0,
+                    switch_on: false,
                 });
             }
         }
@@ -566,6 +593,7 @@ impl FeatureRuntime {
                     flash: boss.hit_flash > 0.0
                         || boss.attack_windup_timer > 0.0
                         || boss.attack_timer > 0.0,
+                    switch_on: false,
                 });
             }
         }
@@ -577,6 +605,7 @@ impl FeatureRuntime {
                     kind: FeatureVisualKind::Breakable,
                     visible: !breakable.broken(),
                     flash: breakable.breakable.state == ae::BreakableState::Cracking,
+                    switch_on: false,
                 });
             }
         }
@@ -588,6 +617,7 @@ impl FeatureRuntime {
                     kind: FeatureVisualKind::Pickup,
                     visible: pickup.visible,
                     flash: false,
+                    switch_on: false,
                 });
             }
         }
@@ -599,6 +629,7 @@ impl FeatureRuntime {
                     kind: FeatureVisualKind::Chest,
                     visible: true,
                     flash: chest.opened,
+                    switch_on: false,
                 });
             }
         }
@@ -610,6 +641,19 @@ impl FeatureRuntime {
                     kind: FeatureVisualKind::Npc,
                     visible: true,
                     flash: false,
+                    switch_on: false,
+                });
+            }
+        }
+        for switch in &self.switches {
+            if switch.id == id {
+                return Some(FeatureView {
+                    pos: switch.pos,
+                    size: switch.size,
+                    kind: FeatureVisualKind::Switch,
+                    visible: true,
+                    flash: false,
+                    switch_on: switch.on,
                 });
             }
         }

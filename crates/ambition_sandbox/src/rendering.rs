@@ -215,7 +215,11 @@ pub fn sync_visuals(
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Bare colored rectangle (no entity sprite available, no atlas).
             sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
-            sprite.color = feature_color(view.kind, view.flash);
+            sprite.color = if matches!(view.kind, FeatureVisualKind::Switch) && view.switch_on {
+                switch_on_color()
+            } else {
+                feature_color(view.kind, view.flash)
+            };
         } else if sprite.texture_atlas.is_none() {
             // Textured single-image entity sprite. Keep author size; tint
             // for hit-flash, otherwise white.
@@ -673,6 +677,11 @@ fn object_visual_kind(kind: &ae::RoomObjectKind) -> Option<FeatureVisualKind> {
         {
             Some(FeatureVisualKind::Npc)
         }
+        ae::RoomObjectKind::Interactable(interactable)
+            if matches!(&interactable.kind, ae::InteractionKind::Custom(s) if s.starts_with("switch:")) =>
+        {
+            Some(FeatureVisualKind::Switch)
+        }
         ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom(name))
             if name.starts_with("sandbag_") =>
         {
@@ -691,6 +700,7 @@ fn feature_z(kind: FeatureVisualKind) -> f32 {
         FeatureVisualKind::Pickup => WORLD_Z_DUMMY + 4.0,
         FeatureVisualKind::Chest => WORLD_Z_DUMMY + 3.0,
         FeatureVisualKind::Npc => WORLD_Z_DUMMY + 2.0,
+        FeatureVisualKind::Switch => WORLD_Z_DUMMY + 2.0,
         FeatureVisualKind::Enemy => WORLD_Z_DUMMY + 1.0,
         FeatureVisualKind::Sandbag => WORLD_Z_DUMMY + 1.0,
         FeatureVisualKind::Boss => WORLD_Z_DUMMY + 1.0,
@@ -710,7 +720,18 @@ fn feature_color(kind: FeatureVisualKind, flash: bool) -> Color {
         FeatureVisualKind::Chest => Color::srgba(1.0, 0.74, 0.22, 0.96),
         FeatureVisualKind::Pickup => Color::srgba(0.42, 1.0, 0.74, 0.96),
         FeatureVisualKind::Npc => Color::srgba(0.42, 0.78, 1.0, 0.96),
+        // Default off-state color for switches (red — encounter armed).
+        // The on-state override happens in `sync_visuals` via the
+        // `FeatureView::switch_on` flag.
+        FeatureVisualKind::Switch => Color::srgba(0.95, 0.18, 0.18, 1.0),
     }
+}
+
+/// Switch on-color: green = encounter cleared / armed for fresh attempt
+/// disabled. Used as an override on top of `feature_color` when
+/// `FeatureView::switch_on` is true.
+pub fn switch_on_color() -> Color {
+    Color::srgba(0.20, 0.90, 0.30, 1.0)
 }
 
 fn spawn_world_label(

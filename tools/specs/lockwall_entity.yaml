@@ -1,0 +1,17 @@
+# Adds the LockWall entity type. A LockWall marks where a Solid block
+# is dynamically spawned by the encounter system when the encounter
+# becomes Active (sealing the player in) and removed when the
+# encounter clears or the player leaves.
+entities:
+  - identifier: LockWall
+    color: "#9E9E9E"
+    width: 32
+    height: 200
+    docs: |
+      Marker for an encounter-spawned Solid block. The encounter
+      system reads the LockWall's px/size and inserts a matching
+      `ae::Block::solid` into the active world while the encounter is
+      Active. The LDtk entity itself contributes no static collision.
+    fields:
+      - { name: id,   type: String, default: "" }
+      - { name: name, type: String, default: "" }

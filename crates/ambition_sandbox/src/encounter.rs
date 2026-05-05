@@ -907,6 +907,7 @@ pub fn update_encounters_from_world(
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut world: ResMut<crate::GameWorld>,
     mut music_request: ResMut<EncounterMusicRequest>,
+    mut quests: ResMut<crate::quest::QuestRegistry>,
     room_set: Res<crate::rooms::RoomSet>,
 ) {
     let active_area = room_set.active_spec().id.clone();
@@ -1031,6 +1032,10 @@ pub fn update_encounters_from_world(
             runtime.features.set_switch_on(&switch_id, true);
         }
         runtime.features.despawn_encounter_enemies(&encounter_id);
+        // Quest hook: a "clear encounter" step can advance now.
+        quests.push_event(ae::QuestAdvanceEvent::EncounterCleared(
+            encounter_id.clone(),
+        ));
     }
 
     // 6. Switch toggles. Just toggle the persisted switch state; the
@@ -1040,6 +1045,15 @@ pub fn update_encounters_from_world(
     //    phase back to Inactive so the next trigger fires cleanly.
     let activations = std::mem::take(&mut switch_activations.0);
     for activation in activations {
+        // Quest hook: every switch interaction sets a generic flag
+        // that quests can listen for. Specific switches will key on
+        // their own ids via `switch:<id>` flags.
+        save.data_mut().set_flag("test_switch_toggled", true);
+        save.data_mut()
+            .set_flag(format!("switch_{}_used", activation.id), true);
+        quests.push_event(ae::QuestAdvanceEvent::FlagSet(
+            "test_switch_toggled".into(),
+        ));
         if !matches!(activation.action.as_str(), "ResetEncounter") {
             continue;
         }

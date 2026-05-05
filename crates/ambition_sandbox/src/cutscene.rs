@@ -108,6 +108,52 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
 #[derive(Resource, Default)]
 pub struct CutsceneTriggerQueue(pub Vec<String>);
 
+/// Mapping from room id → cutscene id to play the first time the
+/// player walks into that room. Drained by `auto_trigger_room_cutscenes`.
+#[derive(Resource, Default)]
+pub struct RoomCutsceneBindings {
+    pub bindings: Vec<(String, String)>,
+}
+
+impl RoomCutsceneBindings {
+    pub fn defaults() -> Self {
+        Self {
+            bindings: vec![
+                // Plays the first time the player enters the hub.
+                ("central_hub_main".into(), "test_intro".into()),
+                // Plays the first time the player enters the
+                // (existing) basement boss arena. The `seen_flag`
+                // guards against replays.
+                (
+                    "basement_boss".into(),
+                    "boss_intro_gradient_sentinel".into(),
+                ),
+            ],
+        }
+    }
+}
+
+/// Bevy system: when the active room changes, queue up a cutscene if
+/// the new room has a binding and the cutscene hasn't been seen.
+pub fn auto_trigger_room_cutscenes(
+    bindings: Res<RoomCutsceneBindings>,
+    room_set: Res<crate::rooms::RoomSet>,
+    mut queue: ResMut<CutsceneTriggerQueue>,
+    mut last_room: Local<Option<String>>,
+) {
+    let current = room_set.active_spec().id.clone();
+    let changed = last_room.as_deref() != Some(current.as_str());
+    if !changed {
+        return;
+    }
+    *last_room = Some(current.clone());
+    for (room_id, cutscene_id) in &bindings.bindings {
+        if room_id == &current {
+            queue.request(cutscene_id);
+        }
+    }
+}
+
 impl CutsceneTriggerQueue {
     pub fn request(&mut self, id: impl Into<String>) {
         self.0.push(id.into());

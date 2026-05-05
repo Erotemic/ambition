@@ -134,10 +134,14 @@ impl BossEncounterSpec {
             death_seconds: 2.4,
             stagger_threshold: 6,
             stagger_window_seconds: 1.5,
-            music_intro: "boss_intro".into(),
-            music_phase1: "boss_phase1".into(),
-            music_phase2: "boss_phase2".into(),
-            music_enrage: "boss_enrage".into(),
+            // Reuse the existing sandbox tracks until dedicated boss
+            // music ships. The point of the per-phase ids is to wire
+            // the swap mechanism end-to-end; future audio can swap
+            // these strings without code changes.
+            music_intro: "pulse_drift_voyage".into(),
+            music_phase1: "pulse_drift_voyage".into(),
+            music_phase2: "original_lofi_loop".into(),
+            music_enrage: "original_lofi_loop".into(),
         }
     }
 }

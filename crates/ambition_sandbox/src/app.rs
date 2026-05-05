@@ -99,6 +99,15 @@ pub struct SandboxQueues<'w> {
     pub feature_bus: ResMut<'w, crate::features::FeatureEventBus>,
 }
 
+/// Bundle of progression resources read by the HUD. Same packing
+/// trick as `SandboxQueues` — keeps the HUD's parameter count low.
+#[derive(SystemParam)]
+pub struct ProgressionResources<'w> {
+    pub quests: Res<'w, crate::quest::QuestRegistry>,
+    pub cutscene: Res<'w, crate::cutscene::ActiveCutscene>,
+    pub bosses: Res<'w, crate::boss_encounter::BossEncounterRegistry>,
+}
+
 /// Per-frame Vec collectors for the sim → presentation event channels.
 ///
 /// `sandbox_update` is the only producer; phase helpers append messages as
@@ -312,6 +321,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::cutscene::ActiveCutscene::default())
         .insert_resource(crate::cutscene::CutsceneTriggerQueue::default())
         .insert_resource(crate::cutscene::CutsceneAdvanceRequest::default())
+        .insert_resource(crate::cutscene::RoomCutsceneBindings::defaults())
         .insert_resource(crate::boss_encounter::BossEncounterRegistry::default())
         .insert_resource(crate::features::FeatureEventBus::default())
         .add_systems(
@@ -329,11 +339,13 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::projectile::update_projectiles,
                 crate::encounter::update_encounters_from_world,
                 crate::encounter::sync_encounter_controller_states,
+                crate::cutscene::auto_trigger_room_cutscenes,
                 crate::cutscene::drain_cutscene_triggers,
                 crate::cutscene::tick_active_cutscene,
                 crate::features::drain_feature_event_bus,
                 crate::boss_encounter::update_boss_encounters,
                 crate::features::sync_features_with_save,
+                crate::quest::push_room_entered_quest_events,
                 crate::quest::apply_quest_advance_events,
             )
                 .chain(),
@@ -676,10 +688,28 @@ fn populate_control_frame_from_actions(
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
+    cutscene: Res<crate::cutscene::ActiveCutscene>,
+    mut cutscene_request: ResMut<crate::cutscene::CutsceneAdvanceRequest>,
 ) {
     if matches!(mode.get(), GameMode::Dialogue) {
         if let Ok(mut action_state) = player_input.single_mut() {
             action_state.reset_all();
+        }
+        *frame = ControlFrame::default();
+        return;
+    }
+    // Cutscene takes precedence over gameplay input. We snapshot
+    // interact_pressed into the dismiss request and zero out the
+    // gameplay frame so movement / attack can't fire while a beat
+    // plays.
+    if cutscene.is_playing() {
+        if let Ok(action_state) = player_input.single() {
+            let interact = action_state
+                .pressed(&SandboxAction::Interact)
+                || action_state.pressed(&SandboxAction::Jump);
+            if interact {
+                cutscene_request.dismiss_dialogue = true;
+            }
         }
         *frame = ControlFrame::default();
         return;
@@ -2170,10 +2200,14 @@ fn update_hud(
     ldtk_spine_index: Res<ldtk_world::LdtkRuntimeSpineIndex>,
     trace: Res<crate::trace::GameplayTraceBuffer>,
     mechanics: Res<crate::mechanics::MechanicsRegistry>,
+    progression: ProgressionResources,
     windows: Query<&Window, With<PrimaryWindow>>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
+    let quest_registry = &progression.quests;
+    let cutscene = &progression.cutscene;
+    let boss_registry = &progression.bosses;
     let Ok(mut text) = query.get_mut(entities.hud) else {
         return;
     };
@@ -2229,6 +2263,40 @@ fn update_hud(
     } else {
         String::new()
     };
+    let quest_lines = quest_registry.quest_log_lines();
+    let quest_line = if quest_lines.is_empty() {
+        String::new()
+    } else {
+        format!("\nQUESTS: {}", quest_lines.join("  ::  "))
+    };
+    let cutscene_line = if let Some(rt) = cutscene.runtime.as_ref() {
+        let beat = match cutscene.current_dialogue.as_ref() {
+            Some((speaker, text)) => format!("[{speaker}]  {text}  (E to continue)"),
+            None => match cutscene.current_banner.as_ref() {
+                Some((banner, _)) => format!("// {banner}"),
+                None => format!("cutscene: beat {}", rt.beat_index),
+            },
+        };
+        format!("\nCUTSCENE: {beat}")
+    } else {
+        String::new()
+    };
+    let boss_line = if let Some((id, phase)) = boss_registry.active_phase() {
+        if let Some(state) = boss_registry.get(id) {
+            format!(
+                "\nBOSS [{}] {} hp {}/{} ({:.0}%)",
+                id,
+                phase.label(),
+                state.hp,
+                state.spec.max_hp,
+                state.hp_fraction() * 100.0,
+            )
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
     let locomotion = ae::LocomotionState::from_player(&runtime.player).label();
     let body_mode = ae::BodyMode::from_player(&runtime.player).label();
     let trace_status = match (&trace.last_dump_status, &trace.last_dump_path) {
@@ -2250,7 +2318,7 @@ fn update_hud(
     );
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -2279,6 +2347,9 @@ fn update_hud(
             developer_tools.overview_camera,
             runtime.features.feature_summary(),
             feature_banner,
+            quest_line,
+            cutscene_line,
+            boss_line,
             mechanics_line,
         );
         return;
@@ -2349,4 +2420,9 @@ fn update_hud(
         feature_banner,
         mechanics_line,
     );
+    if !quest_line.is_empty() || !cutscene_line.is_empty() || !boss_line.is_empty() {
+        text.push_str(&quest_line);
+        text.push_str(&cutscene_line);
+        text.push_str(&boss_line);
+    }
 }

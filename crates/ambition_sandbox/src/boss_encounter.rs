@@ -105,15 +105,34 @@ pub fn update_boss_encounters(
 
     // Build a list of boss runtime ids alive in the current room so we
     // can wake up encounters when the player walks in.
-    let bosses_in_room: Vec<(String, ae::Vec2, i32, i32)> = runtime
+    let bosses_in_room: Vec<(String, String, ae::Vec2, i32, i32)> = runtime
         .features
         .bosses
         .iter()
-        .map(|b| (b.id.clone(), b.pos, b.health.current, b.health.max))
+        .map(|b| (b.id.clone(), b.name.clone(), b.pos, b.health.current, b.health.max))
         .collect();
 
+    // Lazy registration: any boss runtime in the current room that
+    // doesn't yet have an encounter spec gets a generic
+    // gradient-sentinel-based spec registered against the boss
+    // runtime id. Authored specs take precedence (ensure is no-op
+    // if already present); naming the LDtk Bosses with the engine
+    // spec id pulls them into a tuned encounter.
+    for (boss_id, boss_name, _pos, _hp, max_hp) in &bosses_in_room {
+        if registry.encounters.contains_key(boss_id) {
+            continue;
+        }
+        let mut spec = ae::BossEncounterSpec::gradient_sentinel();
+        spec.id = boss_id.clone();
+        spec.name = boss_name.clone();
+        // Pick up the runtime's authored max_hp so the encounter
+        // doesn't replace it on first link.
+        spec.max_hp = (*max_hp).max(1);
+        registry.ensure(spec);
+    }
+
     // Wake up an encounter whose boss is now visible in the room.
-    for (boss_id, _pos, _hp, _max) in &bosses_in_room {
+    for (boss_id, _name, _pos, _hp, _max) in &bosses_in_room {
         // Match the encounter id by the boss runtime id (sandbox
         // convention: BossSpawn name == encounter id == boss runtime
         // id). Future content can map them through LDtk fields.

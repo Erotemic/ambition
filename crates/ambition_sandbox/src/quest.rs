@@ -134,6 +134,21 @@ pub fn populate_quest_registry(
     registry.initialized = true;
 }
 
+/// Push a `RoomEntered` quest event whenever the active room
+/// changes. Idempotent: only fires the frame the room id flips.
+pub fn push_room_entered_quest_events(
+    room_set: Res<crate::rooms::RoomSet>,
+    mut registry: ResMut<QuestRegistry>,
+    mut last_room: Local<Option<String>>,
+) {
+    let current = room_set.active_spec().id.clone();
+    if last_room.as_deref() == Some(current.as_str()) {
+        return;
+    }
+    *last_room = Some(current.clone());
+    registry.push_event(ae::QuestAdvanceEvent::RoomEntered(current));
+}
+
 /// Drain pending advance events into the registry and write quest
 /// progress back to the save resource. Runs each frame.
 pub fn apply_quest_advance_events(

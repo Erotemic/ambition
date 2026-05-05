@@ -25,14 +25,29 @@ use crate::geometry::{aabb_from_min_size, Aabb, AabbExt};
 use crate::player_state::ResourceMeter;
 
 /// What kind of projectile to spawn.
+///
+/// The three variants form a "tier" of motion-input difficulty:
+///   - `Fireball`: tap (or release-from-charge) the fire button. No
+///     motion required. Bouncing, mild arc. Charges into bigger
+///     variants via `ProjectileSpec.charge_tier`.
+///   - `Hadouken`: a 2-step grace quarter-circle
+///     (`Down → Right`) plus fire. Easier on keyboard than the
+///     traditional 3-step gesture; the trade-off is a weaker
+///     projectile than `HadoukenSuper`.
+///   - `HadoukenSuper`: the traditional 3-step quarter-circle
+///     (`Down → DownRight → Right`) plus fire. Strongest
+///     projectile in the basic kit, costs the most resource.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ProjectileKind {
-    /// Cheap fireball. Mostly horizontal travel with mild arc.
+    /// Cheap, bouncing fireball with a mild arc. Charges via hold-
+    /// then-release; tier scales size and damage on `ProjectileSpec`.
     Fireball,
-    /// Hadouken-style power projectile. Recognized after a
-    /// quarter-circle (or half-circle) input motion plus the fire
-    /// button. More damage, larger hitbox, larger resource cost.
+    /// Grace-input Hadouken. Travels horizontally, expires on first
+    /// solid contact (no bounces).
     Hadouken,
+    /// Full-input Hadouken. Same trajectory shape as `Hadouken` but
+    /// chunkier hitbox, more damage, longer cooldown.
+    HadoukenSuper,
 }
 
 impl ProjectileKind {
@@ -41,23 +56,28 @@ impl ProjectileKind {
         match self {
             Self::Fireball => 1.0,
             Self::Hadouken => 3.0,
+            Self::HadoukenSuper => 5.0,
         }
     }
 
-    /// Damage dealt on hit.
+    /// Damage dealt on hit. Fireball charge tiers scale on top of
+    /// this baseline via `ProjectileSpec::with_charge_tier`.
     pub fn damage(self) -> i32 {
         match self {
             Self::Fireball => 1,
             Self::Hadouken => 3,
+            Self::HadoukenSuper => 5,
         }
     }
 
-    /// Cooldown after firing, in seconds. The Hadouken cooldown is
-    /// longer so the player can't bypass the cost by spamming.
+    /// Cooldown after firing, in seconds. Higher-tier projectiles
+    /// have longer cooldowns so the player can't bypass the cost by
+    /// spamming.
     pub fn cooldown(self) -> f32 {
         match self {
             Self::Fireball => 0.30,
             Self::Hadouken => 0.55,
+            Self::HadoukenSuper => 0.85,
         }
     }
 
@@ -66,6 +86,7 @@ impl ProjectileKind {
         match self {
             Self::Fireball => 360.0,
             Self::Hadouken => 520.0,
+            Self::HadoukenSuper => 640.0,
         }
     }
 
@@ -75,14 +96,19 @@ impl ProjectileKind {
         match self {
             Self::Fireball => 1.20,
             Self::Hadouken => 1.60,
+            Self::HadoukenSuper => 1.80,
         }
     }
 
-    /// Hitbox half-extent (pixels). Hadouken is chunkier.
+    /// Hitbox half-extent (pixels). Higher tiers are chunkier so the
+    /// player can see (and aim) the difference at a glance.
     pub fn half_extent(self) -> Vec2 {
         match self {
-            Self::Fireball => Vec2::new(8.0, 6.0),
-            Self::Hadouken => Vec2::new(14.0, 10.0),
+            // Fireball was 8×6, bumped to 12×9 so the basic
+            // projectile reads at a glance even before charging.
+            Self::Fireball => Vec2::new(12.0, 9.0),
+            Self::Hadouken => Vec2::new(16.0, 12.0),
+            Self::HadoukenSuper => Vec2::new(22.0, 16.0),
         }
     }
 
@@ -90,6 +116,7 @@ impl ProjectileKind {
         match self {
             Self::Fireball => "fireball",
             Self::Hadouken => "hadouken",
+            Self::HadoukenSuper => "hadouken_super",
         }
     }
 }
@@ -116,6 +143,42 @@ pub struct ProjectileSpec {
     /// arcade-style arc: positive value pulls down (recall +Y is down
     /// in the sandbox simulation).
     pub gravity: f32,
+    /// Fireball charge tier (0 = light tap, 1 = medium hold, 2 = heavy
+    /// charge). Hadouken / HadoukenSuper ignore this — their stats
+    /// come from the kind. Stored so the trace and the visual layer
+    /// can read which tier was fired.
+    pub charge_tier: u8,
+}
+
+/// Fireball charge mechanic tuning. The sandbox samples hold time on
+/// the fire button and quantizes into one of three tiers via
+/// `FireballChargeTuning::tier_for_hold`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FireballChargeTuning {
+    /// Hold time threshold (seconds) for tier 1 (medium charge).
+    pub medium_after: f32,
+    /// Hold time threshold (seconds) for tier 2 (heavy charge).
+    pub heavy_after: f32,
+}
+
+impl FireballChargeTuning {
+    /// Default thresholds: light <0.35s, medium 0.35–0.85s, heavy
+    /// 0.85s+. Tuned to feel like a brief hold for medium and a
+    /// noticeable wind-up for heavy.
+    pub const DEFAULT: Self = Self {
+        medium_after: 0.35,
+        heavy_after: 0.85,
+    };
+
+    pub fn tier_for_hold(self, hold_seconds: f32) -> u8 {
+        if hold_seconds >= self.heavy_after {
+            2
+        } else if hold_seconds >= self.medium_after {
+            1
+        } else {
+            0
+        }
+    }
 }
 
 impl ProjectileSpec {
@@ -137,9 +200,29 @@ impl ProjectileSpec {
             half_extent: kind.half_extent(),
             gravity: match kind {
                 ProjectileKind::Fireball => 360.0,
-                ProjectileKind::Hadouken => 0.0,
+                ProjectileKind::Hadouken | ProjectileKind::HadoukenSuper => 0.0,
             },
+            charge_tier: 0,
         }
+    }
+
+    /// Apply a fireball charge tier (0–2). Multiplies damage and
+    /// hitbox half-extent so a "heavy" charge is visibly larger and
+    /// hits harder. Tier 0 is the no-charge baseline (no change).
+    /// Non-Fireball kinds ignore the tier — they don't charge.
+    pub fn with_charge_tier(mut self, tier: u8) -> Self {
+        if !matches!(self.kind, ProjectileKind::Fireball) {
+            return self;
+        }
+        self.charge_tier = tier.min(2);
+        let (size_mult, damage_mult) = match self.charge_tier {
+            0 => (1.0, 1.0),
+            1 => (1.4, 2.0),
+            _ => (1.8, 3.0),
+        };
+        self.half_extent *= size_mult;
+        self.damage = ((self.damage as f32) * damage_mult).round().max(1.0) as i32;
+        self
     }
 
     pub fn initial_velocity(&self) -> Vec2 {
@@ -394,6 +477,31 @@ impl MotionInputBuffer {
             MotionDirection::DownLeft,
             MotionDirection::Left,
         ]) {
+            return Some(facing);
+        }
+        None
+    }
+
+    /// Recognize a *grace* quarter-circle: just `Down → Right` (or
+    /// its mirror), without requiring the diagonal `DownRight`
+    /// midpoint. Hitting the diagonal is awkward on a keyboard with
+    /// 4 cardinal arrow keys, so the grace shape is the easy-mode
+    /// path to a Hadouken; the full 3-step
+    /// (`detect_quarter_circle`) gates the stronger projectile.
+    ///
+    /// IMPORTANT: this MUST be checked AFTER `detect_quarter_circle`
+    /// because a 3-step Down → DownRight → Right also satisfies
+    /// "Down somewhere before Right" and would match the grace form
+    /// — caller decides which gate fires first.
+    pub fn detect_quarter_circle_grace(&self) -> Option<f32> {
+        if let Some(facing) =
+            self.detect_sequence(&[MotionDirection::Down, MotionDirection::Right])
+        {
+            return Some(facing);
+        }
+        if let Some(facing) =
+            self.detect_sequence(&[MotionDirection::Down, MotionDirection::Left])
+        {
             return Some(facing);
         }
         None
@@ -780,6 +888,127 @@ mod tests {
         let wall = block_aabb(Vec2::new(60.0, 0.0), Vec2::new(32.0, 400.0));
         let outcome = body.resolve_solid_hit(wall);
         assert_eq!(outcome, ProjectileSolidHit::Expired);
+    }
+
+    /// Grace QCF detector accepts the easier 2-step keyboard motion
+    /// (Down → Right) without requiring the diagonal midpoint that a
+    /// 4-key arrow setup can't easily reach.
+    #[test]
+    fn grace_quarter_circle_recognizes_two_step() {
+        let mut buf = MotionInputBuffer::new(0.5);
+        let mut t = 0.0;
+        for dir in [MotionDirection::Down, MotionDirection::Right] {
+            buf.push(dir, t);
+            t += 0.04;
+        }
+        assert_eq!(buf.detect_quarter_circle_grace(), Some(1.0));
+        // The grace shape is a SUBSEQUENCE of the full QCF, so a
+        // 3-step input also satisfies it.
+        let mut buf = MotionInputBuffer::new(0.5);
+        let mut t = 0.0;
+        for dir in [
+            MotionDirection::Down,
+            MotionDirection::DownRight,
+            MotionDirection::Right,
+        ] {
+            buf.push(dir, t);
+            t += 0.04;
+        }
+        assert_eq!(buf.detect_quarter_circle_grace(), Some(1.0));
+    }
+
+    /// The grace shape rejects a "straight forward press" (Right
+    /// only) — the player must have crouched at some point. Without
+    /// this, holding Right would always count as a Hadouken on the
+    /// next fire press.
+    #[test]
+    fn grace_quarter_circle_rejects_straight_forward_only() {
+        let mut buf = MotionInputBuffer::new(0.5);
+        buf.push(MotionDirection::Right, 0.0);
+        buf.push(MotionDirection::Right, 0.04);
+        assert_eq!(buf.detect_quarter_circle_grace(), None);
+    }
+
+    /// Fireball charge tiers scale damage and hitbox size on the
+    /// spec. Hadouken / Super ignore the tier — they don't charge.
+    #[test]
+    fn charge_tier_scales_fireball_size_and_damage() {
+        let baseline = ProjectileSpec::new(
+            ProjectileKind::Fireball,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let medium = ProjectileSpec::new(
+            ProjectileKind::Fireball,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        )
+        .with_charge_tier(1);
+        let heavy = ProjectileSpec::new(
+            ProjectileKind::Fireball,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        )
+        .with_charge_tier(2);
+        // Size monotonically increases with tier.
+        assert!(medium.half_extent.x > baseline.half_extent.x);
+        assert!(heavy.half_extent.x > medium.half_extent.x);
+        // Damage monotonically increases with tier.
+        assert!(medium.damage > baseline.damage);
+        assert!(heavy.damage > medium.damage);
+        // Hadouken with a charge tier ignores the request.
+        let hadouken_baseline = ProjectileSpec::new(
+            ProjectileKind::Hadouken,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let hadouken_charged = ProjectileSpec::new(
+            ProjectileKind::Hadouken,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        )
+        .with_charge_tier(2);
+        assert_eq!(hadouken_charged.damage, hadouken_baseline.damage);
+        assert_eq!(hadouken_charged.half_extent, hadouken_baseline.half_extent);
+    }
+
+    /// `FireballChargeTuning::tier_for_hold` quantizes hold-seconds
+    /// into 0/1/2. The thresholds are an authoring concern, but the
+    /// monotonicity contract is critical: a longer hold never
+    /// returns a smaller tier.
+    #[test]
+    fn fireball_charge_thresholds_quantize_monotonically() {
+        let tuning = FireballChargeTuning::DEFAULT;
+        assert_eq!(tuning.tier_for_hold(0.0), 0);
+        assert_eq!(tuning.tier_for_hold(0.10), 0);
+        assert_eq!(tuning.tier_for_hold(0.50), 1);
+        assert_eq!(tuning.tier_for_hold(1.20), 2);
+        // Monotonic over a wide range.
+        let mut last = 0u8;
+        for ms in (0..2000).step_by(50) {
+            let t = tuning.tier_for_hold(ms as f32 / 1000.0);
+            assert!(t >= last, "tier went backward at {ms}ms ({t} < {last})");
+            last = t;
+        }
+    }
+
+    /// HadoukenSuper has strictly stronger stats than the grace
+    /// Hadouken. Pinning the relative ordering so a future tuning
+    /// pass doesn't accidentally make the harder gesture weaker.
+    #[test]
+    fn hadouken_super_dominates_hadouken_stats() {
+        assert!(ProjectileKind::HadoukenSuper.damage() > ProjectileKind::Hadouken.damage());
+        assert!(ProjectileKind::HadoukenSuper.cost() > ProjectileKind::Hadouken.cost());
+        assert!(ProjectileKind::HadoukenSuper.speed() > ProjectileKind::Hadouken.speed());
+        let super_hb = ProjectileKind::HadoukenSuper.half_extent();
+        let normal_hb = ProjectileKind::Hadouken.half_extent();
+        assert!(super_hb.x > normal_hb.x);
+        assert!(super_hb.y > normal_hb.y);
     }
 
     #[test]

@@ -78,8 +78,8 @@ pub use player_state::{
     ResourceMeter,
 };
 pub use projectile::{
-    MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody, ProjectileKind,
-    ProjectileSolidHit, ProjectileSpawner, ProjectileSpec, SpawnFailure,
+    FireballChargeTuning, MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody,
+    ProjectileKind, ProjectileSolidHit, ProjectileSpawner, ProjectileSpec, SpawnFailure,
 };
 pub use quest::{
     QuestAdvanceEvent, QuestSpec, QuestState, QuestStepCondition, QuestStepSpec,

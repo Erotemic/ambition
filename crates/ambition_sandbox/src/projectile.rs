@@ -38,12 +38,28 @@ pub struct PlayerProjectileState {
     /// observe motion / collision without rendering machinery.
     pub bodies: Vec<PlayerProjectile>,
     pub unlocked: ProjectileUnlocks,
+    pub charge_tuning: ae::FireballChargeTuning,
+    /// Hold-time accumulator for the fireball charge mechanic.
+    /// `Some(t)` while the player is holding the fire button without
+    /// having consumed the press for a Hadouken / HadoukenSuper.
+    /// `None` when not charging.
+    ///
+    /// Lifecycle:
+    /// - press WITHOUT a recent motion gesture → `Some(0.0)`.
+    /// - hold → tick `dt`.
+    /// - release → fire a Fireball with the tier derived from the
+    ///   accumulated hold, then back to `None`.
+    /// - press WITH a recent motion gesture → fires Hadouken/Super
+    ///   immediately and stays `None` (no charge bleeds into the
+    ///   following frame).
+    pub charging: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProjectileUnlocks {
     pub fireball: bool,
     pub hadouken: bool,
+    pub hadouken_super: bool,
 }
 
 impl Default for ProjectileUnlocks {
@@ -51,6 +67,7 @@ impl Default for ProjectileUnlocks {
         Self {
             fireball: true,
             hadouken: true,
+            hadouken_super: true,
         }
     }
 }
@@ -63,6 +80,8 @@ impl Default for PlayerProjectileState {
             clock: 0.0,
             bodies: Vec::new(),
             unlocked: ProjectileUnlocks::default(),
+            charge_tuning: ae::FireballChargeTuning::DEFAULT,
+            charging: None,
         }
     }
 }
@@ -210,57 +229,110 @@ pub fn update_projectiles(
     }
     state.bodies = still_alive;
 
+    let facing = if runtime.player.facing.abs() < f32::EPSILON {
+        1.0
+    } else {
+        runtime.player.facing.signum()
+    };
+    let origin = ae::Vec2::new(
+        runtime.player.pos.x + facing * (runtime.player.size.x * 0.5 + 4.0),
+        runtime.player.pos.y - runtime.player.size.y * 0.20,
+    );
+    let direction = ae::Vec2::new(facing, 0.0);
+    let damage_mult = user_settings.gameplay.player_damage_multiplier;
+
+    // Press edge: try Hadouken tiers first (most-specific motion gate
+    // wins), else start charging a Fireball. Order matters — the
+    // grace shape is a SUBSEQUENCE of the full QCF, so check Super
+    // first; otherwise a 3-step input would fire a weak Hadouken.
     if control_frame.projectile_pressed {
-        let facing = if runtime.player.facing.abs() < f32::EPSILON {
-            1.0
-        } else {
-            runtime.player.facing.signum()
-        };
+        let super_qcf = state.motion_buffer.detect_quarter_circle();
         let half_circle = state.motion_buffer.detect_half_circle();
-        let want_hadouken = half_circle.is_some()
-            && state.unlocked.hadouken
-            && state.spawner.meter.current >= ae::ProjectileKind::Hadouken.cost();
-        let kind = if want_hadouken {
-            ae::ProjectileKind::Hadouken
+        let grace_qcf = state.motion_buffer.detect_quarter_circle_grace();
+
+        let motion_kind = if (super_qcf.is_some() || half_circle.is_some())
+            && state.unlocked.hadouken_super
+        {
+            Some(ae::ProjectileKind::HadoukenSuper)
+        } else if grace_qcf.is_some() && state.unlocked.hadouken {
+            Some(ae::ProjectileKind::Hadouken)
         } else {
-            ae::ProjectileKind::Fireball
+            None
         };
-        let unlocked = match kind {
-            ae::ProjectileKind::Hadouken => state.unlocked.hadouken,
-            ae::ProjectileKind::Fireball => state.unlocked.fireball,
-        };
-        if unlocked {
-            let origin = ae::Vec2::new(
-                runtime.player.pos.x + facing * (runtime.player.size.x * 0.5 + 4.0),
-                runtime.player.pos.y - runtime.player.size.y * 0.20,
-            );
-            let direction = ae::Vec2::new(facing, 0.0);
-            match state.spawner.try_spawn(
+
+        if let Some(kind) = motion_kind {
+            // Motion gesture committed — fire immediately, do not
+            // start a charge for this press.
+            try_fire_projectile(
+                &mut state,
                 kind,
                 origin,
                 direction,
-                user_settings.gameplay.player_damage_multiplier,
-            ) {
-                Ok(spec) => {
-                    state.bodies.push(PlayerProjectile {
-                        body: ae::ProjectileBody::from_spec(spec),
-                    });
-                    events.push(ProjectileTraceEvent::Fired { kind });
-                    if matches!(kind, ae::ProjectileKind::Hadouken) {
-                        state.motion_buffer.clear();
-                    }
-                }
-                Err(ae::SpawnFailure::OutOfResource) => {
-                    events.push(ProjectileTraceEvent::BlockedByResource { kind });
-                }
-                Err(ae::SpawnFailure::Cooldown) => {}
-            }
+                damage_mult,
+                0,
+                &mut events,
+            );
+            state.motion_buffer.clear();
+            state.charging = None;
+        } else if state.unlocked.fireball {
+            // Begin charging the Fireball. Release-edge below
+            // commits the charged shot.
+            state.charging = Some(0.0);
+        }
+    } else if control_frame.projectile_held {
+        if let Some(t) = state.charging.as_mut() {
+            *t += dt;
+        }
+    } else if control_frame.projectile_released {
+        if let Some(hold) = state.charging.take() {
+            let tier = state.charge_tuning.tier_for_hold(hold);
+            try_fire_projectile(
+                &mut state,
+                ae::ProjectileKind::Fireball,
+                origin,
+                direction,
+                damage_mult,
+                tier,
+                &mut events,
+            );
         }
     }
 
     let tick = trace.current_tick();
     for event in events {
         trace.push_event(event.into_trace_event(tick));
+    }
+}
+
+/// Run the spawner's cooldown / resource-meter checks for `kind`,
+/// apply the (Fireball-only) charge tier, and append the result to
+/// the body list and trace events. Pulled out of `update_projectiles`
+/// so the press path and the release path share one code path —
+/// keeps "spawned a projectile" a single place to grep.
+fn try_fire_projectile(
+    state: &mut PlayerProjectileState,
+    kind: ae::ProjectileKind,
+    origin: ae::Vec2,
+    direction: ae::Vec2,
+    damage_mult: f32,
+    charge_tier: u8,
+    events: &mut Vec<ProjectileTraceEvent>,
+) {
+    match state
+        .spawner
+        .try_spawn(kind, origin, direction, damage_mult)
+    {
+        Ok(spec) => {
+            let spec = spec.with_charge_tier(charge_tier);
+            state.bodies.push(PlayerProjectile {
+                body: ae::ProjectileBody::from_spec(spec),
+            });
+            events.push(ProjectileTraceEvent::Fired { kind });
+        }
+        Err(ae::SpawnFailure::OutOfResource) => {
+            events.push(ProjectileTraceEvent::BlockedByResource { kind });
+        }
+        Err(ae::SpawnFailure::Cooldown) => {}
     }
 }
 
@@ -328,6 +400,13 @@ fn forward_damage_feedback(
 #[derive(Component)]
 pub struct PlayerProjectileVisual;
 
+/// Marker on the charge-indicator sprite that hovers in front of
+/// the player while they're holding the fire button. Rebuilt each
+/// tick from `PlayerProjectileState::charging` like the projectile
+/// sprites, so it disappears the moment the charge resolves.
+#[derive(Component)]
+pub struct PlayerChargeVisual;
+
 /// Mirror `PlayerProjectileState::bodies` onto Bevy sprite entities so
 /// the player can actually see what they fired. Runs after
 /// `update_projectiles` (which produces the body Vec) and on the
@@ -342,12 +421,57 @@ pub struct PlayerProjectileVisual;
 pub fn sync_projectile_visuals(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
+    runtime: Res<crate::SandboxRuntime>,
     state: Res<PlayerProjectileState>,
     assets: Option<Res<crate::game_assets::GameAssets>>,
     existing: Query<Entity, With<PlayerProjectileVisual>>,
+    existing_charge: Query<Entity, With<PlayerChargeVisual>>,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
+    }
+    for entity in &existing_charge {
+        commands.entity(entity).despawn();
+    }
+    // Charge indicator: a growing tinted quad in front of the player.
+    // Size scales with the live charge tier so the player sees the
+    // "winding up" state and can time the release. Only rendered
+    // while `state.charging` is `Some` AND the press hasn't yet
+    // committed to a Hadouken motion.
+    if let Some(hold) = state.charging {
+        let tier = state.charge_tuning.tier_for_hold(hold);
+        let base = ae::ProjectileKind::Fireball.half_extent();
+        let (size_mult, alpha) = match tier {
+            0 => (0.7, 0.55),
+            1 => (1.1, 0.78),
+            _ => (1.5, 0.95),
+        };
+        let render_size = bevy::math::Vec2::new(
+            base.x * 2.0 * size_mult,
+            base.y * 2.0 * size_mult,
+        );
+        let facing = if runtime.player.facing.abs() < f32::EPSILON {
+            1.0
+        } else {
+            runtime.player.facing.signum()
+        };
+        let charge_pos = ae::Vec2::new(
+            runtime.player.pos.x + facing * (runtime.player.size.x * 0.5 + 6.0),
+            runtime.player.pos.y - runtime.player.size.y * 0.20,
+        );
+        commands.spawn((
+            Sprite::from_color(
+                Color::srgba(1.0, 0.74, 0.30, alpha),
+                bevy::math::Vec2::new(render_size.x, render_size.y),
+            ),
+            Transform::from_translation(crate::config::world_to_bevy(
+                &world.0,
+                charge_pos,
+                crate::config::WORLD_Z_PLAYER + 1.5,
+            )),
+            PlayerChargeVisual,
+            Name::new("Player projectile charge indicator"),
+        ));
     }
     let handle = assets
         .as_deref()
@@ -365,6 +489,9 @@ pub fn sync_projectile_visuals(
         let tint = match body.kind {
             ae::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
             ae::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
+            // Stronger tint for the Super so the player can see at a
+            // glance that they fired the harder gesture.
+            ae::ProjectileKind::HadoukenSuper => Color::srgba(0.30, 0.55, 1.0, 1.0),
         };
         let mut sprite = match handle.clone() {
             Some(image) => Sprite {
@@ -389,6 +516,7 @@ pub fn sync_projectile_visuals(
             Name::new(match body.kind {
                 ae::ProjectileKind::Fireball => "Player projectile: fireball",
                 ae::ProjectileKind::Hadouken => "Player projectile: hadouken",
+                ae::ProjectileKind::HadoukenSuper => "Player projectile: hadouken_super",
             }),
         ));
     }
@@ -443,22 +571,188 @@ mod tests {
         time.advance_by(std::time::Duration::from_secs_f32(dt_seconds));
     }
 
+    /// Helper: press the projectile button (no motion) and immediately
+    /// release it on the same press-release pair. Equivalent to a
+    /// "tap" in the new charge model — fires a tier-0 fireball.
+    fn tap_projectile(app: &mut App) {
+        // Press frame: just_pressed=true, held=true (Bevy's button
+        // semantics — pressed state lasts as long as held), released=false.
+        // The system enters the press branch and starts charging.
+        {
+            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+            frame.projectile_pressed = true;
+            frame.projectile_held = true;
+            frame.projectile_released = false;
+        }
+        advance_time(app, 0.016);
+        app.update();
+        // Release frame: just_pressed=false, held=false, released=true.
+        {
+            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+            frame.projectile_pressed = false;
+            frame.projectile_held = false;
+            frame.projectile_released = true;
+        }
+        advance_time(app, 0.016);
+        app.update();
+        // Reset the edge for the next test step.
+        {
+            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+            frame.projectile_released = false;
+        }
+    }
+
     #[test]
-    fn projectile_pressed_spawns_one_fireball() {
+    fn tap_release_fires_one_fireball() {
+        let mut app = min_app();
+        tap_projectile(&mut app);
+        let state = app.world().resource::<PlayerProjectileState>();
+        assert_eq!(state.bodies.len(), 1);
+        assert_eq!(state.bodies[0].body.kind, ProjectileKind::Fireball);
+        // Tap-release is below the medium threshold → tier 0.
+        assert_eq!(state.bodies[0].body.kind, ProjectileKind::Fireball);
+    }
+
+    /// Pressing without releasing is "still charging" — no body
+    /// spawns yet, but `state.charging` is `Some`.
+    #[test]
+    fn press_without_release_only_starts_charge() {
         let mut app = min_app();
         {
             let mut frame = app.world_mut().resource_mut::<ControlFrame>();
             frame.projectile_pressed = true;
+            frame.projectile_held = true;
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        let state = app.world().resource::<PlayerProjectileState>();
+        assert!(
+            state.bodies.is_empty(),
+            "press without release must not spawn a fireball"
+        );
+        assert!(
+            state.charging.is_some(),
+            "press without motion must start a charge"
+        );
+    }
+
+    /// Holding past the medium-charge threshold and releasing fires a
+    /// fireball with tier 1 (visibly bigger half-extent + bumped damage).
+    #[test]
+    fn held_release_after_medium_threshold_fires_charged_fireball() {
+        let mut app = min_app();
+        // Press frame.
+        {
+            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+            frame.projectile_pressed = true;
+            frame.projectile_held = true;
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        // Hold for several ticks — accumulate ~0.5s, well past the
+        // 0.35s medium threshold but under the 0.85s heavy threshold.
+        for _ in 0..30 {
+            {
+                let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+                frame.projectile_pressed = false;
+                frame.projectile_held = true;
+            }
+            advance_time(&mut app, 0.016);
+            app.update();
+        }
+        // Release.
+        {
+            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+            frame.projectile_held = false;
+            frame.projectile_released = true;
         }
         advance_time(&mut app, 0.016);
         app.update();
         let state = app.world().resource::<PlayerProjectileState>();
         assert_eq!(state.bodies.len(), 1);
-        assert_eq!(state.bodies[0].body.kind, ProjectileKind::Fireball);
+        let body = &state.bodies[0].body;
+        assert_eq!(body.kind, ProjectileKind::Fireball);
+        // Tier-1 size scaling is 1.4x on baseline half-extent (12, 9)
+        // → at least 16x12 — meaningfully bigger than tier 0.
+        let baseline = ae::ProjectileKind::Fireball.half_extent();
+        assert!(
+            body.half_extent.x > baseline.x * 1.2,
+            "charged fireball must be visibly larger; got {:?} vs baseline {:?}",
+            body.half_extent,
+            baseline
+        );
+        // Tier-1 damage scaling is 2x baseline (1) = 2.
+        assert!(body.damage >= 2);
     }
 
+    /// Grace QCF (Down → Right) + press fires a regular Hadouken
+    /// IMMEDIATELY (no charging needed). The motion press takes
+    /// precedence over the charge-start path.
     #[test]
-    fn half_circle_then_press_spawns_hadouken() {
+    fn grace_qcf_then_press_fires_hadouken_immediately() {
+        let mut app = min_app();
+        {
+            let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+            let mut t = 0.0;
+            for dir in [MotionDirection::Down, MotionDirection::Right] {
+                state.motion_buffer.push(dir, t);
+                t += 0.04;
+            }
+            state.clock = t;
+        }
+        {
+            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+            frame.projectile_pressed = true;
+            frame.projectile_held = true;
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        let state = app.world().resource::<PlayerProjectileState>();
+        assert_eq!(state.bodies.len(), 1);
+        assert_eq!(state.bodies[0].body.kind, ProjectileKind::Hadouken);
+        assert!(
+            state.charging.is_none(),
+            "motion-press must NOT start a charge"
+        );
+    }
+
+    /// Full QCF (Down → DownRight → Right) + press fires the SUPER
+    /// variant. The Super gate is checked before the grace gate so a
+    /// 3-step input fires the stronger projectile, not a weak one.
+    #[test]
+    fn full_qcf_then_press_fires_hadouken_super() {
+        let mut app = min_app();
+        {
+            let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+            let mut t = 0.0;
+            for dir in [
+                MotionDirection::Down,
+                MotionDirection::DownRight,
+                MotionDirection::Right,
+            ] {
+                state.motion_buffer.push(dir, t);
+                t += 0.04;
+            }
+            state.clock = t;
+        }
+        {
+            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
+            frame.projectile_pressed = true;
+            frame.projectile_held = true;
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        let state = app.world().resource::<PlayerProjectileState>();
+        assert_eq!(state.bodies.len(), 1);
+        assert_eq!(state.bodies[0].body.kind, ProjectileKind::HadoukenSuper);
+    }
+
+    /// Half-circle motion (the historic Hadouken trigger) keeps
+    /// firing the SUPER variant — pin behavior so users with that
+    /// muscle memory still get a Hadouken (just upgraded to the
+    /// stronger one). The 3-step QCF is the simpler new path.
+    #[test]
+    fn half_circle_still_fires_hadouken_super() {
         let mut app = min_app();
         {
             let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
@@ -478,29 +772,21 @@ mod tests {
         {
             let mut frame = app.world_mut().resource_mut::<ControlFrame>();
             frame.projectile_pressed = true;
+            frame.projectile_held = true;
         }
         advance_time(&mut app, 0.016);
         app.update();
         let state = app.world().resource::<PlayerProjectileState>();
         assert_eq!(state.bodies.len(), 1);
-        assert_eq!(state.bodies[0].body.kind, ProjectileKind::Hadouken);
+        assert_eq!(state.bodies[0].body.kind, ProjectileKind::HadoukenSuper);
     }
 
     #[test]
     fn cooldown_blocks_second_fire_in_same_window() {
         let mut app = min_app();
-        {
-            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
-            frame.projectile_pressed = true;
-        }
-        advance_time(&mut app, 0.016);
-        app.update();
-        {
-            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
-            frame.projectile_pressed = true;
-        }
-        advance_time(&mut app, 0.016);
-        app.update();
+        tap_projectile(&mut app);
+        // Don't advance past the cooldown — second tap should be no-op.
+        tap_projectile(&mut app);
         let state = app.world().resource::<PlayerProjectileState>();
         assert_eq!(state.bodies.len(), 1);
     }
@@ -512,12 +798,7 @@ mod tests {
             let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
             state.spawner.meter.current = 0.0;
         }
-        {
-            let mut frame = app.world_mut().resource_mut::<ControlFrame>();
-            frame.projectile_pressed = true;
-        }
-        advance_time(&mut app, 0.016);
-        app.update();
+        tap_projectile(&mut app);
         let state = app.world().resource::<PlayerProjectileState>();
         assert!(state.bodies.is_empty());
     }

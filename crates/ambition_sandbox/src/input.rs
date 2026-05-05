@@ -414,8 +414,16 @@ pub struct ControlFrame {
     pub interact_pressed: bool,
     pub reset_pressed: bool,
     pub start_pressed: bool,
-    /// Player projectile / spell action edge.
+    /// Player projectile / spell action — newly pressed this frame.
     pub projectile_pressed: bool,
+    /// Player projectile button is currently held. Used by the
+    /// fireball charge mechanic to accumulate hold time. Whenever
+    /// the button is held, the charge timer ticks; release-edge
+    /// (`projectile_released`) commits the charged shot.
+    pub projectile_held: bool,
+    /// Player projectile button was released this frame. Triggers
+    /// the actual fireball spawn when a charge was in progress.
+    pub projectile_released: bool,
     /// Right stick / aim vector after deadzone is applied. Blink aim and
     /// any future twin-stick aiming should consume this instead of
     /// reading raw axes — the deadzone here is what fixes Xbox 360
@@ -530,6 +538,8 @@ impl ControlFrame {
             reset_pressed: actions.just_pressed(&SandboxAction::Reset),
             start_pressed: actions.just_pressed(&SandboxAction::Start),
             projectile_pressed: actions.just_pressed(&SandboxAction::Projectile),
+            projectile_held: actions.pressed(&SandboxAction::Projectile),
+            projectile_released: actions.just_released(&SandboxAction::Projectile),
             aim_x: aim_x_raw,
             // Match the sim's +Y-down convention.
             aim_y: -aim_y,

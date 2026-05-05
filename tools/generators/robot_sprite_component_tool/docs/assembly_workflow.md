@@ -50,8 +50,11 @@ recipes.  The important variables are:
 
 - `root_offset`: stable per-frame root motion;
 - `torso_angle`, `head_angle`, limb angles: pose timing;
-- per-part scales: `torso_scale`, `head_scale`, `arm_scale`, `hand_scale`,
-  `leg_scale`, `face_scale`;
+- per-part scales: `torso_scale`, `head_scale`, `front_arm_scale`,
+  `back_arm_scale`, `front_hand_scale`, `back_hand_scale`,
+  `front_leg_scale`, `back_leg_scale`, `face_scale`; legacy group defaults
+  `arm_scale`, `hand_scale`, and `leg_scale` seed procedural poses but should
+  not be used by the GUI for per-instance edits;
 - `fx_behind` / `fx_front`: effect sprite, offset, scale, angle, and opacity.
 
 Keep labels in the preview / game sheet unless a downstream engine export
@@ -158,9 +161,11 @@ stores `pivot_anchor` and mirrors that anchor into the legacy `pivot` field on
 save, so the compositor and older scripts still see a numeric pivot.
 
 The editor's right pane renders the configured spritesheet after every anchor
-change.  It renders from unsaved in-memory metadata, so you can immediately see
+change. It renders from unsaved in-memory metadata, so you can immediately see
 how a shoulder, hip, wrist, or pivot edit affects the current run row before
-committing the YAML.  Pass `--preview-config examples/robot_rig_job_full.yaml`
+committing the YAML. The preview pane is large, scrollable, and has fit/native
+controls. Use native mode when exact pixels matter; use fit mode for full-row or
+full-sheet context. Pass `--preview-config examples/robot_rig_job_full.yaml`
 when you want a full-sheet preview instead of the focused row.
 
 Use these placement rules:
@@ -183,45 +188,102 @@ python tools/robot_rig_sheet.py debug-frame examples/robot_rig_job.yaml output/a
 python tools/robot_rig_sheet.py spritesheet examples/robot_rig_job.yaml output/assembled/robot_run_arm_preview.png
 ```
 
-## v29 pose and z-order editing loop
+## v30 integrated rig/pose editor
 
-Use `tools/anchor_editor.py` as the main tuning UI once component anchors are roughly correct.  The editor now has a draggable splitter between the component-local anchor canvas and the live spritesheet preview, so give the preview enough space when tuning full rows.
+For placement work that depends on how a component is used inside a specific animation frame, prefer the integrated editor:
 
-The live preview is rendered from unsaved in-memory state.  This includes:
-
-- unsaved local anchor / pivot edits in `robot_components.refined.yaml`,
-- unsaved pose overrides,
-- unsaved z-order overrides.
-
-The preview filters to animations related to the currently selected component by default.  This avoids re-rendering the full sheet when editing a single part.  Disable **relevant animations only** in the GUI when a full-job preview is useful.
-
-Manual pose/z-order edits are stored in `metadata/robot_pose_overrides.yaml`:
-
-```yaml
-version: "0.1"
-animations:
-  run:
-    frames:
-      "0":
-        front_wrist_delta: [20, 18]
-        back_wrist_delta: [-10, 13]
-        front_arm_angle: -8
-        back_arm_angle: 8
-        z_order:
-          - fx_behind
-          - back_leg
-          - back_hand
-          - back_arm
-          - torso
-          - front_leg
-          - front_arm
-          - front_hand
-          - head
-          - fx_front
+```bash
+python tools/rig_pose_editor.py examples/robot_rig_job.yaml
 ```
 
-Z-order is interpreted bottom-to-top.  Use `front_*` for the near/right side of the robot and `back_*` for the far/left side.  Keep anchor placement, frame pose, and z-order as separate concepts: fix component-local anchors first, then edit per-frame joint targets and rotations, and only then adjust z-order.
+This editor complements the lower-level anchor editor.  It exposes three layers at once:
 
-## External editor note
+1. **Component-local anchors** in `metadata/robot_components.refined.yaml`.
+2. **Logical part instances** such as `front_arm`, `back_arm`, `front_leg`, and `back_leg` in each animation frame.
+3. **Per-frame pose overrides** in `metadata/robot_pose_overrides.yaml`.
 
-A general 2D animation editor can help with drawing or previewing sprites, but the current pipeline needs custom metadata: green-screen refinement, per-component crop rects, local anchors, pivot aliases, side-specific front/back semantics, and a YAML pose-override layer that feeds `robot_rig_sheet.py`.  The bespoke editor is therefore kept as the source of truth for this repo.  It can still coexist with external art tools: export cleaned component PNGs from an art editor, then use this GUI to place anchors and tune pose/z-order overrides.
+Important GUI affordances:
+
+- The main window uses draggable split panes, so the component editor and spritesheet preview can be resized interactively.
+- The left tree is animation-oriented: animation -> frame -> part instance.  Selecting a part selects the art asset it currently uses.
+- A component and an instance are intentionally different.  The `front_arm` and `back_arm` instances may use the same art, but they can have different angle, z-order, endpoint deltas, and sprite variants.
+- When editing a torso anchor, select the anchor and press **Navigate: joint -> connected part** to jump to the instance attached to that joint in the currently selected frame.  For example, `torso_lean_forward.shoulder_left` navigates to the `back_arm` instance when the current run frame uses that shoulder socket.
+- The preview highlights the selected part instance on the generated spritesheet.
+- The preview can filter to only animations that use the selected component, which keeps iteration focused.
+- The z-order list edits the current animation frame bottom-to-top.  Changes are stored in `metadata/robot_pose_overrides.yaml` and are rendered by `robot_rig_sheet.py`.
+- The animation timing panel changes frame count and ms/frame.  The animated preview pane can play the selected action at the encoded timing.
+
+Headless commands for CI or screenshots:
+
+```bash
+python tools/rig_pose_editor.py examples/robot_rig_job.yaml \
+  --render-preview output/assembled/rig_pose_editor_preview.png
+
+python tools/rig_pose_editor.py examples/robot_rig_job.yaml \
+  --anchor-report output/assembled/rig_pose_editor_instances.json
+```
+
+The output report lists every rendered part instance, its current art, target anchor, connection, z-index, and endpoint target.  This is useful for debugging whether z-order or part-side semantics are wrong before visually tuning the art.
+
+## PySide6 pose-authoring workflow
+
+Use the PySide6 editor for interactive pose and anchor work:
+
+```bash
+python tools/rig_pose_editor_pyside.py examples/robot_rig_job.yaml
+```
+
+Recommended workflow:
+
+1. Select an animation/frame/logical part instance in the tree.
+2. Use the component pane to inspect or move the art asset's local anchors.
+3. Use **Navigate joint -> connected part** to jump from a torso joint to the currently connected part instance.
+4. Edit the instance art, rotation, endpoint deltas, frame timing, z-order, and part visibility. The z-order list is checkable; unchecked roles are hidden in previews and sheets while their rig targets remain in the manifest for debugging.
+5. Use the animated preview controls to play/pause, step one frame at a time, or drag the timeline slider to inspect a static frame.
+6. Author rough motion with sparse keyframes first. Numeric values and 2D coordinates interpolate between authored frames, so a frame-0 and last-frame edit affects the in-between frames until a middle keyframe overrides the curve.
+7. Watch the spritesheet preview and animated action preview update from the current unsaved state.
+8. Save to write both `metadata/robot_components.refined.yaml` and `metadata/robot_pose_overrides.yaml`.
+
+The model intentionally distinguishes art from logical parts: the front arm and back arm can use the same PNG but keep different instance-level transforms and z-order. This is the preferred way to handle right/left limb control without duplicating component art.
+
+The Tk editor remains available only as a legacy fallback. New GUI work should target `tools/rig_pose_editor_pyside.py`.
+
+## v35 rig-constraint visibility and standard authoring policy
+
+The renderer now treats each logical part as a child attachment constrained to a
+parent socket.  The manifest records this explicitly for every rendered part:
+
+- `joint`: semantic connection name such as `front_shoulder`, `front_wrist`, or
+  `neck`.
+- `child`: the child sprite and local anchor being snapped.
+- `parent`: the parent role/sprite/socket that receives the child anchor.
+- `parent_target`: the evaluated world-space parent socket.
+- `child_anchor_world`: the evaluated world-space child anchor after transform.
+- `snap_error_px`: distance between `parent_target` and `child_anchor_world`.
+
+A healthy rigid attachment has `snap_error_px` near zero.  If the sprite looks
+visually disconnected while snap error is zero, the transform math is correct and
+the art metadata/socket semantics are wrong.  Move or rename the stable
+component-local socket rather than stacking per-frame offsets.
+
+For compatibility with standard 2D/2.5D skeletal animation tools, the preferred
+editing model is:
+
+```text
+stable component-local anchors / sockets
+  -> logical child attachment chooses a child anchor
+  -> parent socket determines the bind connection
+  -> animation keyframes move bones/endpoints/draw order/visibility
+  -> rare corrective socket offsets are advanced overrides only
+```
+
+Do not use per-frame parent/child joint deltas as the normal workflow.  They are
+supported only as advanced corrective offsets when the source art lacks a clean
+socket.  Normal frame keys should tune endpoint targets such as
+`front_wrist_delta` or `front_ground_delta`, local part angles, draw order, and
+visibility.
+
+
+## Scale editing policy
+
+Scale defaults are intentionally all 1.0 for every logical instance. The renderer may report an effective solved scale for endpoint-constrained arms or legs, but the GUI does not write that solved value back into pose data unless the scale control itself is edited. Frame-level scale overrides are exact-frame corrective edits; use top-level or animation `defaults` for broad scale calibration.

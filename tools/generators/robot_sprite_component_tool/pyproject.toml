@@ -1,6 +1,6 @@
 [project]
 name = "robot-sprite-component-tool"
-version = "0.6.0"
+version = "0.9.0"
 description = "Green-screen component extraction, metadata refinement, and procedural sprite-sheet assembly for a cute robot rig."
 requires-python = ">=3.9"
 dependencies = [
@@ -8,6 +8,7 @@ dependencies = [
   "numpy>=1.24",
   "PyYAML>=6.0",
   "opencv-python-headless>=4.8",
+  "PySide6>=6.6",
 ]
 
 [tool.robot_sprite_component_tool]
@@ -16,5 +17,9 @@ default_refined_metadata = "metadata/robot_components.refined.yaml"
 source_image = "assets/robot_components_greenscreen.png"
 
 [project.scripts]
+robot-rig-pose-editor = "tools.rig_pose_editor_pyside:main"
+robot-rig-pose-editor-qt-compat = "tools.rig_pose_editor_qt:main"
+robot-rig-pose-editor-tk-legacy = "tools.rig_pose_editor:main_tk_legacy"
 robot-asset-tool = "tools.robot_asset_tool:main"
 robot-rig-sheet = "tools.robot_rig_sheet:main"
+robot-skelform-export = "tools.skelform_export:main"

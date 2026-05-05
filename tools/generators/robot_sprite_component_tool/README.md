@@ -214,11 +214,14 @@ dropdown.  This stores `pivot_anchor: <anchor-name>` and keeps the numeric
 `pivot` synchronized for compatibility.  This avoids the overlap problem where
 you could not click the pivot and an anchor into exactly the same pixel.
 
-The right pane renders the configured spritesheet live after each edit, using
-unsaved in-memory metadata.  By default it previews `examples/robot_rig_job.yaml`
-(the focused run row).  Use `--preview-config examples/robot_rig_job_full.yaml`
-for the full sheet, `Ctrl+R` to force refresh, or `--no-live-preview` on slow
-machines.
+The right pane is now a larger scrollable live preview. It renders the configured
+spritesheet after each edit from the current unsaved in-memory metadata, not from
+the last saved YAML file. By default it previews `examples/robot_rig_job.yaml`
+(the focused run row). Use `--preview-config examples/robot_rig_job_full.yaml`
+for the full sheet, `Ctrl+R` to force refresh, or `--no-live-preview` /
+`--manual-preview` on slow machines. The preview controls include enable/live
+toggles, fit/native display, background, and max preview raster size. Native mode
+keeps the rendered sheet at full size and uses scrollbars.
 When `--rough-metadata` is supplied, the editor also writes equivalent rough-local
 anchor positions so a future green-screen refinement pass preserves the manual
 edits instead of reverting them.
@@ -244,25 +247,97 @@ rough YAML boxes -> programmatic crop refinement -> manual anchor edit GUI ->
 component anchor QA sheet -> run/debug-frame preview -> final spritesheet
 ```
 
-## v29 GUI pose/z-order editor
 
-The anchor editor now covers both local component anchors and frame-specific rig tuning:
+## Integrated rig / pose editor
+
+Use the integrated PySide6 editor when you need to tune how component anchors affect actual animations.  The stable command is:
 
 ```bash
-python tools/anchor_editor.py metadata/robot_components.refined.yaml \
-  --slices output/slices \
-  --rough-metadata metadata/robot_components.rough.yaml \
-  --pose-overrides metadata/robot_pose_overrides.yaml \
-  --preview-config examples/robot_rig_job.yaml
+python tools/rig_pose_editor.py examples/robot_rig_job.yaml
 ```
 
-New behavior:
+That direct script now delegates to `tools/rig_pose_editor_pyside.py`, so older instructions no longer accidentally launch the stale Tk editor.
 
-- The anchor canvas and spritesheet preview are separated by a draggable splitter.
-- The preview renders from the current unsaved metadata and unsaved pose/z-order overrides.
-- By default the preview filters to animations that use the selected component. For example, selecting `fx_slash_arc` only previews `slash`, while selecting `torso_lean_forward` previews the animations that use that torso.
-- The GUI includes per-animation/per-frame pose entries for right/front and left/back limb fields such as `front_wrist_delta`, `back_wrist_delta`, `front_arm_angle`, `back_arm_angle`, `front_hand_angle`, `back_hand_angle`, `front_leg_angle`, and `back_leg_angle`.
-- The GUI includes a bottom-to-top z-order list. Move entries up/down and apply them to the selected animation frame.
-- Pose/z-order edits are saved to `metadata/robot_pose_overrides.yaml`. Anchor edits still save to the refined metadata and optionally sync to rough metadata.
+It shows an animation/frame/part tree, the selected component's local anchors, a live highlighted spritesheet preview, a per-frame z-order / visibility editor, per-instance art/rotation/endpoint controls, frame-count/timing controls, and an animated action preview with play/pause, previous/next, and a frame slider. It edits component metadata plus `metadata/robot_pose_overrides.yaml`, so one art asset can be reused by multiple logical instances such as `front_arm` and `back_arm` with different transforms.
 
-The compositor applies pose overrides after the procedural default pose is generated, so manual edits are small YAML deltas instead of a full replacement animation system.
+Pose overrides are sparse keyframes. Numeric fields and 2D coordinate fields interpolate between authored frames, so setting frame 0 and the last frame gives a useful coarse pass for everything in between. Add a middle-frame edit only when you need more detail. Visibility toggles are stored as `hidden_parts` / `visible_parts` and are honored by both previews and exported sheets.
+
+Useful non-GUI checks:
+
+```bash
+python tools/rig_pose_editor.py examples/robot_rig_job.yaml --render-preview output/assembled/rig_pose_editor_preview.png
+python tools/rig_pose_editor.py examples/robot_rig_job.yaml --anchor-report output/assembled/rig_pose_editor_instances.json
+```
+
+## PySide6 rig pose editor
+
+The primary interactive editor is now the PySide6 rig pose editor. Either command is valid:
+
+```bash
+python tools/rig_pose_editor.py examples/robot_rig_job.yaml
+python tools/rig_pose_editor_pyside.py examples/robot_rig_job.yaml
+```
+
+This uses PySide6 rather than PyQt6 to avoid the PyQt licensing concern while keeping the Qt widget stack and API style. The old `tools/rig_pose_editor_qt.py` command remains as a compatibility shim that delegates to the PySide6 implementation.
+
+Install GUI dependencies with:
+
+```bash
+pip install -r requirements.txt
+```
+
+The PySide6 editor replaces the Tk layout for the active rig-authoring workflow. It provides native draggable splitters, scrollable graphics views, an animation/frame/part tree, component-local anchor editing, logical part-instance editing, checkable z-order / visibility rows, frame count / frame-duration controls, relevant-animation filtering, highlighted spritesheet preview, and an animated action preview with play/pause plus timeline stepping. It renders from the current unsaved in-memory metadata and pose overrides, and every GUI edit queues an immediate preview refresh.
+
+Headless CI/debug modes do not require PySide6:
+
+```bash
+python tools/rig_pose_editor_pyside.py examples/robot_rig_job.yaml \
+  --render-preview output/assembled/rig_pose_editor_pyside_preview.png \
+  --animations run
+
+python tools/rig_pose_editor_pyside.py examples/robot_rig_job.yaml \
+  --anchor-report output/assembled/rig_pose_editor_pyside_instances.json
+```
+
+The old Tk editor remains available only as a fallback via the console entrypoint:
+
+```bash
+robot-rig-pose-editor-tk-legacy examples/robot_rig_job.yaml
+```
+
+## v35 rig-constraint editor pass
+
+The PySide6 pose editor now has a **Rig joint constraints for current frame**
+panel.  For each rendered part it shows the semantic joint, child sprite anchor,
+parent socket, visibility state, and snap error in pixels.  Use this panel to
+answer questions like “does `front_arm.shoulder` actually snap to
+`torso.shoulder_right`?” without inferring the relationship from colors or role
+names.
+
+The intended authoring policy is standard skeletal-rig style: keep component
+anchors/sockets stable in local art space, then animate bones/endpoints, draw
+order, visibility, and sparse keyframes.  Per-frame parent/child joint deltas
+remain possible through advanced socket-offset fields, but they should be rare
+corrective overrides rather than the default animation workflow.
+
+
+## Scale editing policy
+
+Scale defaults are intentionally all 1.0 for every logical instance. The renderer may report an effective solved scale for endpoint-constrained arms or legs, but the GUI does not write that solved value back into pose data unless the scale control itself is edited. Frame-level scale overrides are exact-frame corrective edits; use top-level or animation `defaults` for broad scale calibration.
+
+
+## Canonical atlas update
+
+- `metadata/robot_components.refined.yaml` now points to the new cute/stubby modular sheet.
+- Legacy atlas metadata was preserved as `metadata/robot_components_legacy.refined.yaml`.
+- Legacy extracted slices were preserved in `output/slices_legacy/`.
+
+## SkelForm export
+
+Export one editable pose to SkelForm:
+
+```bash
+python tools/skelform_export.py examples/robot_rig_job.yaml output/skelform/robot_pose_run_000.skf --animation run --frame-index 0
+```
+
+The exporter clips textures from the green-screen atlas using a threshold alpha ramp and writes a `.skf` package containing `armature.json`, `editor.json`, `atlas0.png`, `thumbnail.png`, and `readme.md`.

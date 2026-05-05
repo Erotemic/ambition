@@ -41,3 +41,8 @@ For normal single-part components, rough entries set `keep_multiple_components: 
 - Use per-sprite `refine` overrides for effects, particles, and other multi-part sprites.
 - Rebuild the contact sheet after every rough metadata edit.
 - Treat pivots and anchors as rigging hints; they are automatically shifted into the refined crop coordinate system.
+
+
+## Scale editing policy
+
+Scale defaults are intentionally all 1.0 for every logical instance. The renderer may report an effective solved scale for endpoint-constrained arms or legs, but the GUI does not write that solved value back into pose data unless the scale control itself is edited. Frame-level scale overrides are exact-frame corrective edits; use top-level or animation `defaults` for broad scale calibration.

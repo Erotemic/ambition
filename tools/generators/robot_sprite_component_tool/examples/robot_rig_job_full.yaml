@@ -1,20 +1,17 @@
-# Starter assembly job for tools/robot_rig_sheet.py.
-# Paths are relative to this YAML file.
 metadata: ../metadata/robot_components.refined.yaml
 slices: ../output/slices
-pose_overrides: ../metadata/robot_pose_overrides.yaml
 output_dir: ../output/assembled
 animations:
-  - idle
-  - walk
-  - run
-  - jump
-  - fall
-  - slash
-  - hit
-  - death
-  - teleport
-  - dash
+- idle
+- walk
+- run
+- jump
+- fall
+- slash
+- hit
+- death
+- teleport
+- dash
 render:
   frame_width: 192
   frame_height: 192
@@ -25,3 +22,4 @@ render:
   scale: 0.275
   root_x: 0
   root_y: -28
+pose_overrides: ../metadata/robot_pose_overrides.yaml

@@ -146,6 +146,7 @@ dependencies = [
  "proptest",
  "seldom_state",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -15,7 +15,7 @@ Typical workflow:
 3. Click on the enlarged sprite to move that point.
 4. Use ``Use selected as pivot`` or the ``pivot follows`` dropdown when the
    component pivot should be exactly the same location as a named anchor.
-5. Watch the live spritesheet preview on the right update from unsaved metadata.
+5. Watch the larger live spritesheet preview on the right update from the current unsaved metadata.
 6. Save.  If ``--rough-metadata`` is supplied, equivalent rough-local points are
    updated so the green-screen refinement pass will preserve the manual edits.
 
@@ -27,6 +27,7 @@ anchor choices are visible immediately.
 from __future__ import annotations
 
 import argparse
+import copy
 import importlib.util
 import json
 import math
@@ -129,12 +130,16 @@ class PreviewConfig:
     """Live-preview rendering settings for the editor."""
 
     config: Optional[Path] = None
-    pose_overrides: Optional[Path] = None
     enabled: bool = True
-    max_width: int = 1200
-    max_height: int = 620
-    debounce_ms: int = 120
-    relevant_only: bool = True
+    # The preview pane is intentionally large because a row-oriented sheet can
+    # be much wider than it is tall.  The canvas has scrollbars, so these are
+    # display raster limits, not hard widget sizes.
+    max_width: int = 1400
+    max_height: int = 820
+    debounce_ms: int = 80
+    live_unsaved: bool = True
+    fit_to_view: bool = True
+    background: str = "black"
 
 
 def infer_preview_config(metadata_path: Path, explicit: Optional[Path] = None) -> Optional[Path]:
@@ -153,32 +158,6 @@ def infer_preview_config(metadata_path: Path, explicit: Optional[Path] = None) -
     return None
 
 
-def infer_pose_overrides_path(metadata_path: Path, explicit: Optional[Path] = None, preview_config: Optional[Path] = None) -> Path:
-    """Find or create the pose-override YAML path used by GUI pose/z-order edits."""
-    if explicit is not None:
-        return explicit.resolve()
-    if preview_config and preview_config.exists():
-        data = load_yaml(preview_config)
-        pov = data.get("pose_overrides")
-        if pov:
-            path = Path(pov)
-            if not path.is_absolute():
-                path = (preview_config.parent / path).resolve()
-            return path
-    return (metadata_path.resolve().parent / "robot_pose_overrides.yaml").resolve()
-
-
-def load_pose_overrides_file(path: Optional[Path]) -> Dict[str, Any]:
-    if path is None or not path.exists():
-        return {"version": "0.1", "animations": {}}
-    return load_yaml(path) or {"version": "0.1", "animations": {}}
-
-
-def save_pose_overrides_file(path: Path, data: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    save_yaml(path, data)
-
-
 def load_robot_rig_sheet_module():
     """Import the sibling compositor without requiring package installation."""
     tool_path = Path(__file__).with_name("robot_rig_sheet.py")
@@ -191,8 +170,21 @@ def load_robot_rig_sheet_module():
     return module
 
 
-def preview_fit_image(img: Image.Image, max_width: int, max_height: int, bg: str = "black") -> Image.Image:
-    """Composite and shrink a live preview image for display in Tk."""
+def preview_fit_image(
+    img: Image.Image,
+    max_width: int,
+    max_height: int,
+    bg: str = "black",
+    *,
+    fit_to_view: bool = True,
+    allow_upscale: bool = False,
+) -> Image.Image:
+    """Composite a live preview image for Tk display.
+
+    When ``fit_to_view`` is true, the rendered sheet is scaled down to the
+    preview raster limit.  When false, the preview is kept at native size and
+    the preview canvas scrollbars expose the whole image.
+    """
     img = img.convert("RGBA")
     if bg == "checker":
         base = checkerboard(img.size, cell=12)
@@ -201,8 +193,14 @@ def preview_fit_image(img: Image.Image, max_width: int, max_height: int, bg: str
     else:
         base = Image.new("RGBA", img.size, (0, 0, 0, 255))
     base.alpha_composite(img)
-    scale = min(max_width / max(1, base.width), max_height / max(1, base.height), 1.0)
+    if not fit_to_view:
+        return base
+    scale = min(max_width / max(1, base.width), max_height / max(1, base.height))
+    if not allow_upscale:
+        scale = min(scale, 1.0)
     out_size = (max(1, int(round(base.width * scale))), max(1, int(round(base.height * scale))))
+    if out_size == base.size:
+        return base
     return base.resize(out_size, Image.Resampling.LANCZOS)
 
 
@@ -210,44 +208,39 @@ def render_preview_image(
     metadata: Mapping[str, Any],
     preview_config: Path,
     *,
-    pose_overrides: Optional[Mapping[str, Any]] = None,
-    animations: Optional[List[str]] = None,
-    max_width: int = 1200,
-    max_height: int = 620,
+    max_width: int = 1400,
+    max_height: int = 820,
     bg: str = "black",
+    fit_to_view: bool = True,
 ) -> Image.Image:
-    """Render the configured sprite sheet using unsaved in-memory metadata and pose overrides."""
+    """Render the configured sprite sheet using unsaved in-memory metadata.
+
+    The editor writes a temporary metadata file from the in-memory metadata
+    dictionary.  This means the preview reflects current GUI edits even before
+    the YAML is saved to disk.
+    """
     rig = load_robot_rig_sheet_module()
+    metadata_snapshot = copy.deepcopy(dict(metadata))
     with tempfile.NamedTemporaryFile("w", suffix=".yaml", encoding="utf8", delete=False) as temp:
         temp_path = Path(temp.name)
-        yaml.safe_dump(dict(metadata), temp, sort_keys=False, allow_unicode=True)
-    temp_pose_path: Optional[Path] = None
+        yaml.safe_dump(metadata_snapshot, temp, sort_keys=False, allow_unicode=True)
+        temp.flush()
     try:
         job = rig.RigJob.load(preview_config)
         job.metadata = temp_path
-        if pose_overrides is not None:
-            with tempfile.NamedTemporaryFile("w", suffix=".yaml", encoding="utf8", delete=False) as ptemp:
-                temp_pose_path = Path(ptemp.name)
-                yaml.safe_dump(dict(pose_overrides), ptemp, sort_keys=False, allow_unicode=True)
-            job.pose_overrides = temp_pose_path
-        if animations:
-            job.animations = [a for a in animations if a in rig.ANIMATIONS]
         sheet, _manifest = rig.build_spritesheet(job)
-        return preview_fit_image(sheet, max_width=max_width, max_height=max_height, bg=bg)
+        return preview_fit_image(sheet, max_width=max_width, max_height=max_height, bg=bg, fit_to_view=fit_to_view)
     finally:
-        for pth in [temp_path, temp_pose_path]:
-            if pth is not None:
-                try:
-                    pth.unlink()
-                except OSError:
-                    pass
+        try:
+            temp_path.unlink()
+        except OSError:
+            pass
 
 @dataclass
 class EditorPaths:
     metadata: Path
     slices: Path
     rough_metadata: Optional[Path] = None
-    pose_overrides: Optional[Path] = None
 
 
 class AnchorEditorApp:
@@ -290,15 +283,15 @@ class AnchorEditorApp:
         self._zoom_var = tk.IntVar(value=self.zoom)
         self._pivot_source_var = tk.StringVar(value="__custom__")
         self._preview_status = tk.StringVar(value="Preview not rendered yet")
-        self._preview_relevant_only = tk.BooleanVar(value=self.preview.relevant_only)
-        self._animation_var = tk.StringVar(value="run")
-        self._frame_var = tk.IntVar(value=0)
-        self._pose_value_vars: Dict[str, Any] = {}
-        self._pose_unsaved = False
+        self._preview_enabled_var = tk.BooleanVar(value=self.preview.enabled)
+        self._preview_fit_var = tk.BooleanVar(value=self.preview.fit_to_view)
+        self._preview_live_var = tk.BooleanVar(value=self.preview.live_unsaved)
+        self._preview_bg_var = tk.StringVar(value=self.preview.background)
+        self._preview_width_var = tk.IntVar(value=self.preview.max_width)
+        self._preview_height_var = tk.IntVar(value=self.preview.max_height)
 
         self.metadata = load_yaml(paths.metadata)
         self.rough_metadata = load_yaml(paths.rough_metadata) if paths.rough_metadata else None
-        self.pose_overrides = load_pose_overrides_file(paths.pose_overrides)
         self.sprites: Dict[str, Dict[str, Any]] = self.metadata.get("sprites", {})
         if not self.sprites:
             raise RuntimeError(f"No sprites found in {paths.metadata}")
@@ -316,7 +309,10 @@ class AnchorEditorApp:
         ttk = self.ttk
         root = self.root
 
+        root.geometry("1900x1050")
+        root.minsize(1300, 760)
         root.columnconfigure(1, weight=1)
+        root.columnconfigure(2, weight=3)
         root.rowconfigure(0, weight=1)
 
         left = ttk.Frame(root, padding=6)
@@ -327,7 +323,7 @@ class AnchorEditorApp:
         filt = ttk.Entry(left, textvariable=self._filter_var, width=28)
         filt.grid(row=1, column=0, sticky="ew", pady=(0, 6))
 
-        self.sprite_list = tk.Listbox(left, exportselection=False, width=32, height=24)
+        self.sprite_list = tk.Listbox(left, exportselection=False, width=32, height=28)
         self.sprite_list.grid(row=2, column=0, sticky="nsew")
         scroll = ttk.Scrollbar(left, command=self.sprite_list.yview)
         scroll.grid(row=2, column=1, sticky="ns")
@@ -336,7 +332,7 @@ class AnchorEditorApp:
         anchor_frame = ttk.LabelFrame(left, text="Anchors", padding=6)
         anchor_frame.grid(row=3, column=0, sticky="ew", pady=(8, 0))
         anchor_frame.columnconfigure(0, weight=1)
-        self.anchor_list = tk.Listbox(anchor_frame, exportselection=False, height=7)
+        self.anchor_list = tk.Listbox(anchor_frame, exportselection=False, height=8)
         self.anchor_list.grid(row=0, column=0, columnspan=4, sticky="ew")
         self.anchor_entry = ttk.Entry(anchor_frame, width=18)
         self.anchor_entry.grid(row=1, column=0, sticky="ew", pady=(4, 0))
@@ -371,14 +367,11 @@ class AnchorEditorApp:
         ttk.Button(buttons, text="Backup", command=self.backup).grid(row=0, column=1, sticky="ew", padx=(4, 0))
         ttk.Button(buttons, text="Reload", command=self.reload).grid(row=0, column=2, sticky="ew", padx=(4, 0))
 
-        # Anchor canvas and spritesheet preview are inside a PanedWindow, so the
-        # user can drag-resize between detailed point placement and the live sheet.
-        paned = ttk.Panedwindow(root, orient=tk.HORIZONTAL)
-        paned.grid(row=0, column=1, sticky="nsew")
-
-        center = ttk.Frame(paned, padding=6)
+        center = ttk.Frame(root, padding=6)
+        center.grid(row=0, column=1, sticky="nsew")
         center.columnconfigure(0, weight=1)
         center.rowconfigure(0, weight=1)
+
         self.canvas = tk.Canvas(center, background="#202020", highlightthickness=0)
         self.canvas.grid(row=0, column=0, sticky="nsew")
         xscroll = ttk.Scrollbar(center, orient="horizontal", command=self.canvas.xview)
@@ -387,75 +380,53 @@ class AnchorEditorApp:
         yscroll.grid(row=0, column=1, sticky="ns")
         self.canvas.configure(xscrollcommand=xscroll.set, yscrollcommand=yscroll.set)
 
-        right = ttk.LabelFrame(paned, text="Live spritesheet preview / pose overrides", padding=6)
+        right = ttk.LabelFrame(root, text="Live spritesheet preview (unsaved in-memory metadata)", padding=6)
+        right.grid(row=0, column=2, sticky="nsew", padx=(0, 6), pady=6)
         right.columnconfigure(0, weight=1)
         right.rowconfigure(2, weight=1)
-        paned.add(center, weight=3)
-        paned.add(right, weight=4)
 
-        preview_controls = ttk.Frame(right)
-        preview_controls.grid(row=0, column=0, sticky="ew")
-        preview_controls.columnconfigure(1, weight=1)
-        ttk.Checkbutton(preview_controls, text="relevant animations only", variable=self._preview_relevant_only, command=lambda: self.schedule_preview_update(force=True)).grid(row=0, column=0, sticky="w")
-        ttk.Label(preview_controls, textvariable=self._preview_status, anchor="w").grid(row=0, column=1, sticky="ew", padx=(8, 0))
-        ttk.Button(preview_controls, text="Render now", command=lambda: self.update_preview(force=True)).grid(row=0, column=2, sticky="e")
+        preview_label = ttk.Label(right, textvariable=self._preview_status, anchor="w")
+        preview_label.grid(row=0, column=0, sticky="ew")
 
-        preview_frame = ttk.Frame(right)
-        preview_frame.grid(row=2, column=0, sticky="nsew", pady=(4, 4))
-        preview_frame.columnconfigure(0, weight=1)
-        preview_frame.rowconfigure(0, weight=1)
-        self.preview_canvas = tk.Canvas(preview_frame, background="#101010", highlightthickness=0, width=920, height=430)
-        self.preview_canvas.grid(row=0, column=0, sticky="nsew")
-        px = ttk.Scrollbar(preview_frame, orient="horizontal", command=self.preview_canvas.xview)
-        py = ttk.Scrollbar(preview_frame, orient="vertical", command=self.preview_canvas.yview)
-        px.grid(row=1, column=0, sticky="ew")
-        py.grid(row=0, column=1, sticky="ns")
-        self.preview_canvas.configure(xscrollcommand=px.set, yscrollcommand=py.set)
+        preview_opts = ttk.Frame(right)
+        preview_opts.grid(row=1, column=0, sticky="ew", pady=(4, 6))
+        ttk.Checkbutton(preview_opts, text="live unsaved", variable=self._preview_live_var, command=self._on_preview_controls_changed).grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(preview_opts, text="enable", variable=self._preview_enabled_var, command=self._on_preview_controls_changed).grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Checkbutton(preview_opts, text="fit", variable=self._preview_fit_var, command=self._on_preview_controls_changed).grid(row=0, column=2, sticky="w", padx=(8, 0))
+        ttk.Label(preview_opts, text="max w").grid(row=0, column=3, sticky="e", padx=(12, 2))
+        ttk.Spinbox(preview_opts, from_=320, to=4096, increment=80, textvariable=self._preview_width_var, width=6, command=self._on_preview_controls_changed).grid(row=0, column=4, sticky="w")
+        ttk.Label(preview_opts, text="max h").grid(row=0, column=5, sticky="e", padx=(8, 2))
+        ttk.Spinbox(preview_opts, from_=160, to=4096, increment=80, textvariable=self._preview_height_var, width=6, command=self._on_preview_controls_changed).grid(row=0, column=6, sticky="w")
+        ttk.Label(preview_opts, text="bg").grid(row=0, column=7, sticky="e", padx=(8, 2))
+        ttk.Combobox(preview_opts, textvariable=self._preview_bg_var, width=8, values=["black", "checker", "white"], state="readonly").grid(row=0, column=8, sticky="w")
+        ttk.Button(preview_opts, text="Render now", command=lambda: self.update_preview(force=True)).grid(row=0, column=9, sticky="e", padx=(12, 0))
 
-        pose_frame = ttk.LabelFrame(right, text="Frame pose / z-order overrides", padding=6)
-        pose_frame.grid(row=3, column=0, sticky="ew")
-        for c in range(8):
-            pose_frame.columnconfigure(c, weight=1)
-        ttk.Label(pose_frame, text="anim").grid(row=0, column=0, sticky="w")
-        self.animation_combo = ttk.Combobox(pose_frame, textvariable=self._animation_var, values=["run"], width=12, state="readonly")
-        self.animation_combo.grid(row=0, column=1, sticky="ew")
-        ttk.Label(pose_frame, text="frame").grid(row=0, column=2, sticky="e")
-        self.frame_spin = ttk.Spinbox(pose_frame, from_=0, to=7, textvariable=self._frame_var, width=4, command=self._on_pose_context_changed)
-        self.frame_spin.grid(row=0, column=3, sticky="w")
-        ttk.Button(pose_frame, text="Apply pose", command=self.apply_pose_entries).grid(row=0, column=4, sticky="ew", padx=(4, 0))
-        ttk.Button(pose_frame, text="Clear frame override", command=self.clear_frame_override).grid(row=0, column=5, columnspan=2, sticky="ew", padx=(4, 0))
-
-        self.pose_field_frame = ttk.Frame(pose_frame)
-        self.pose_field_frame.grid(row=1, column=0, columnspan=5, sticky="ew", pady=(6, 0))
-        field_names = [
-            "front_wrist_delta", "back_wrist_delta", "front_arm_angle", "back_arm_angle",
-            "front_hand_angle", "back_hand_angle", "front_leg_angle", "back_leg_angle",
-            "torso_angle", "head_angle",
-        ]
-        for i, fname in enumerate(field_names):
-            row = i // 2
-            col = (i % 2) * 2
-            ttk.Label(self.pose_field_frame, text=fname).grid(row=row, column=col, sticky="e", padx=(0, 3), pady=1)
-            var = tk.StringVar(value="")
-            ent = ttk.Entry(self.pose_field_frame, textvariable=var, width=14)
-            ent.grid(row=row, column=col + 1, sticky="ew", padx=(0, 8), pady=1)
-            self._pose_value_vars[fname] = var
-            var.trace_add("write", lambda *_: self._mark_pose_dirty())
-        self.pose_field_frame.columnconfigure(1, weight=1)
-        self.pose_field_frame.columnconfigure(3, weight=1)
-
-        zframe = ttk.Frame(pose_frame)
-        zframe.grid(row=1, column=5, columnspan=3, sticky="nsew", pady=(6, 0))
-        ttk.Label(zframe, text="z-order bottom -> top").grid(row=0, column=0, columnspan=3, sticky="w")
-        self.zorder_list = tk.Listbox(zframe, exportselection=False, height=7, width=18)
-        self.zorder_list.grid(row=1, column=0, rowspan=4, sticky="nsew")
-        ttk.Button(zframe, text="Up", command=lambda: self.move_zorder(-1)).grid(row=1, column=1, sticky="ew", padx=(4, 0))
-        ttk.Button(zframe, text="Down", command=lambda: self.move_zorder(1)).grid(row=2, column=1, sticky="ew", padx=(4, 0))
-        ttk.Button(zframe, text="Apply z", command=self.apply_zorder).grid(row=3, column=1, sticky="ew", padx=(4, 0))
-        ttk.Button(zframe, text="Reset z", command=self.reset_zorder).grid(row=4, column=1, sticky="ew", padx=(4, 0))
+        preview_area = ttk.Frame(right)
+        preview_area.grid(row=2, column=0, sticky="nsew")
+        preview_area.columnconfigure(0, weight=1)
+        preview_area.rowconfigure(0, weight=1)
+        self.preview_canvas = tk.Canvas(right, background="#101010", highlightthickness=0, width=1100, height=720)
+        self.preview_canvas.grid(row=2, column=0, sticky="nsew")
+        p_xscroll = ttk.Scrollbar(right, orient="horizontal", command=self.preview_canvas.xview)
+        p_yscroll = ttk.Scrollbar(right, orient="vertical", command=self.preview_canvas.yview)
+        p_xscroll.grid(row=3, column=0, sticky="ew")
+        p_yscroll.grid(row=2, column=1, sticky="ns")
+        self.preview_canvas.configure(xscrollcommand=p_xscroll.set, yscrollcommand=p_yscroll.set)
 
         status = ttk.Label(root, textvariable=self._status, anchor="w", padding=(6, 3))
-        status.grid(row=1, column=0, columnspan=2, sticky="ew")
+        status.grid(row=1, column=0, columnspan=3, sticky="ew")
+
+    def _on_preview_controls_changed(self) -> None:
+        self.preview.enabled = bool(self._preview_enabled_var.get())
+        self.preview.live_unsaved = bool(self._preview_live_var.get())
+        self.preview.fit_to_view = bool(self._preview_fit_var.get())
+        try:
+            self.preview.max_width = max(1, int(self._preview_width_var.get()))
+            self.preview.max_height = max(1, int(self._preview_height_var.get()))
+        except Exception:
+            pass
+        self.preview.background = self._preview_bg_var.get()
+        self.schedule_preview_update(force=True)
 
     def _bind_events(self) -> None:
         self.sprite_list.bind("<<ListboxSelect>>", self._on_sprite_list_select)
@@ -463,8 +434,7 @@ class AnchorEditorApp:
         self._filter_var.trace_add("write", lambda *_: self._populate_sprite_list())
         self._bg_var.trace_add("write", lambda *_: self.redraw())
         self._pivot_source_var.trace_add("write", self._on_pivot_source_changed)
-        self._animation_var.trace_add("write", lambda *_: self._on_pose_context_changed())
-        self._frame_var.trace_add("write", lambda *_: self._on_pose_context_changed())
+        self._preview_bg_var.trace_add("write", lambda *_: self._on_preview_controls_changed())
         self.canvas.bind("<Button-1>", self.on_canvas_down)
         self.canvas.bind("<B1-Motion>", self.on_canvas_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_canvas_up)
@@ -534,8 +504,6 @@ class AnchorEditorApp:
             self._selected_anchor.set(anchors[0])
         self._sync_xy_vars()
         self.redraw()
-        self._refresh_relevant_animation_choices()
-        self._load_pose_entries_from_effective_pose()
         self._status.set(f"Selected sprite {name}")
 
     def _anchor_names(self) -> List[str]:
@@ -779,152 +747,6 @@ class AnchorEditorApp:
             self.redraw()
             self.schedule_preview_update()
 
-    def _rig_module(self):
-        return load_robot_rig_sheet_module()
-
-    def _relevant_animations(self) -> List[str]:
-        if not self._preview_relevant_only.get():
-            rig = self._rig_module()
-            return list(rig.DEFAULT_ANIMATIONS)
-        rig = self._rig_module()
-        return rig.relevant_animations_for_sprite(self._current_sprite_name(), self.pose_overrides)
-
-    def _refresh_relevant_animation_choices(self) -> None:
-        if not hasattr(self, "animation_combo"):
-            return
-        rig = self._rig_module()
-        vals = self._relevant_animations()
-        self.animation_combo.configure(values=vals)
-        if self._animation_var.get() not in vals:
-            self._animation_var.set(vals[0] if vals else "run")
-        max_frame = rig.ANIMATIONS.get(self._animation_var.get(), {"frames": 1})["frames"] - 1
-        self.frame_spin.configure(to=max_frame)
-        if self._frame_var.get() > max_frame:
-            self._frame_var.set(max_frame)
-
-    def _current_frame_override(self, create: bool = True) -> Dict[str, Any]:
-        anim = self._animation_var.get() or "run"
-        idx = int(self._frame_var.get())
-        if create:
-            root = self.pose_overrides.setdefault("animations", {}).setdefault(anim, {}).setdefault("frames", {})
-            return root.setdefault(str(idx), {})
-        return (((self.pose_overrides.get("animations") or {}).get(anim, {}) or {}).get("frames") or {}).get(str(idx), {}) or {}
-
-    def _effective_pose(self):
-        rig = self._rig_module()
-        anim = self._animation_var.get() or "run"
-        info = rig.ANIMATIONS.get(anim, {"frames": 1})
-        idx = max(0, min(int(self._frame_var.get()), info["frames"] - 1))
-        pose = rig.animation_pose(anim, idx, info["frames"], rig.RenderConfig().scale)
-        rig.apply_pose_overrides(pose, self.pose_overrides, anim, idx)
-        return pose
-
-    @staticmethod
-    def _format_pose_value(value: Any) -> str:
-        if value is None:
-            return ""
-        if isinstance(value, (tuple, list)) and len(value) == 2:
-            return f"{float(value[0]):.2f},{float(value[1]):.2f}"
-        if isinstance(value, float):
-            return f"{value:.2f}"
-        return str(value)
-
-    @staticmethod
-    def _parse_pose_entry(name: str, text: str) -> Any:
-        rig = load_robot_rig_sheet_module()
-        typ = rig.POSE_FIELD_TYPES.get(name, "float")
-        text = text.strip()
-        if typ == "point_or_none" and text == "":
-            return None
-        if typ in {"point", "point_or_none"}:
-            parts = [p.strip() for p in text.replace(" ", ",").split(",") if p.strip()]
-            if len(parts) != 2:
-                raise ValueError(f"{name} expects x,y")
-            return [float(parts[0]), float(parts[1])]
-        if typ == "float":
-            return float(text)
-        return text
-
-    def _load_pose_entries_from_effective_pose(self) -> None:
-        if not hasattr(self, "zorder_list"):
-            return
-        pose = self._effective_pose()
-        for fname, var in self._pose_value_vars.items():
-            var.set(self._format_pose_value(getattr(pose, fname)))
-        self.zorder_list.delete(0, self.tk.END)
-        for item in list(getattr(pose, "z_order", [])):
-            self.zorder_list.insert(self.tk.END, item)
-
-    def _on_pose_context_changed(self) -> None:
-        if not hasattr(self, "frame_spin"):
-            return
-        self._refresh_relevant_animation_choices()
-        self._load_pose_entries_from_effective_pose()
-        self.schedule_preview_update()
-
-    def _mark_pose_dirty(self) -> None:
-        # Entry edits are not applied until Apply Pose, but keep previews explicit.
-        pass
-
-    def apply_pose_entries(self) -> None:
-        try:
-            frame = self._current_frame_override(create=True)
-            for fname, var in self._pose_value_vars.items():
-                frame[fname] = self._parse_pose_entry(fname, var.get())
-        except Exception as ex:
-            self._status.set(f"Pose apply failed: {ex}")
-            return
-        self._pose_unsaved = True
-        self.unsaved = True
-        self._status.set(f"Applied pose override for {self._animation_var.get()} frame {self._frame_var.get()}")
-        self.schedule_preview_update(force=True)
-
-    def clear_frame_override(self) -> None:
-        anim = self._animation_var.get() or "run"
-        idx = str(int(self._frame_var.get()))
-        frames = (((self.pose_overrides.get("animations") or {}).get(anim, {}) or {}).get("frames") or {})
-        if idx in frames:
-            del frames[idx]
-            self._pose_unsaved = True
-            self.unsaved = True
-        self._load_pose_entries_from_effective_pose()
-        self.schedule_preview_update(force=True)
-
-    def _zorder_values(self) -> List[str]:
-        return [self.zorder_list.get(i) for i in range(self.zorder_list.size())]
-
-    def move_zorder(self, direction: int) -> None:
-        sel = self.zorder_list.curselection()
-        if not sel:
-            return
-        i = int(sel[0])
-        j = i + direction
-        if j < 0 or j >= self.zorder_list.size():
-            return
-        vals = self._zorder_values()
-        vals[i], vals[j] = vals[j], vals[i]
-        self.zorder_list.delete(0, self.tk.END)
-        for v in vals:
-            self.zorder_list.insert(self.tk.END, v)
-        self.zorder_list.selection_set(j)
-        self.apply_zorder()
-
-    def apply_zorder(self) -> None:
-        frame = self._current_frame_override(create=True)
-        frame["z_order"] = self._zorder_values()
-        self._pose_unsaved = True
-        self.unsaved = True
-        self._status.set(f"Applied z-order override for {self._animation_var.get()} frame {self._frame_var.get()}")
-        self.schedule_preview_update(force=True)
-
-    def reset_zorder(self) -> None:
-        frame = self._current_frame_override(create=True)
-        frame.pop("z_order", None)
-        self._pose_unsaved = True
-        self.unsaved = True
-        self._load_pose_entries_from_effective_pose()
-        self.schedule_preview_update(force=True)
-
     def redraw(self) -> None:
         name = self._current_sprite_name()
         if not name:
@@ -959,6 +781,9 @@ class AnchorEditorApp:
         if not self.preview.enabled or self.preview.config is None:
             self._preview_status.set("Live preview disabled or no preview config found")
             return
+        if not self.preview.live_unsaved and not force:
+            self._preview_status.set("Preview stale; live unsaved preview is off. Press Render now / Ctrl+R.")
+            return
         if force:
             if self._preview_after_id is not None:
                 try:
@@ -982,22 +807,22 @@ class AnchorEditorApp:
         self._preview_after_id = None
         try:
             self._sync_all_pivots_from_aliases()
-            animations = self._relevant_animations() if self._preview_relevant_only.get() else None
             img = render_preview_image(
                 self.metadata,
                 self.preview.config,
-                pose_overrides=self.pose_overrides,
-                animations=animations,
                 max_width=self.preview.max_width,
                 max_height=self.preview.max_height,
-                bg="black",
+                bg=self.preview.background,
+                fit_to_view=self.preview.fit_to_view,
             )
             self._preview_photo = ImageTk.PhotoImage(img)
             self.preview_canvas.delete("all")
             self.preview_canvas.create_image(0, 0, image=self._preview_photo, anchor="nw")
             self.preview_canvas.configure(scrollregion=(0, 0, img.width, img.height))
-            anim_txt = ",".join(self._relevant_animations()) if self._preview_relevant_only.get() else "all"
-            self._preview_status.set(f"Live unsaved preview: {anim_txt} ({img.width}x{img.height})")
+            live = "live-unsaved" if self.preview.live_unsaved else "manual-unsaved"
+            dirty = "dirty" if self.unsaved else "saved"
+            fit = "fit" if self.preview.fit_to_view else "native"
+            self._preview_status.set(f"{live} preview: {self.preview.config.name} ({img.width}x{img.height}, {fit}, {dirty})")
         except Exception as ex:
             self._preview_status.set(f"Preview render failed: {ex}")
 
@@ -1061,12 +886,6 @@ class AnchorEditorApp:
             self._sync_to_rough()
             save_yaml(self.paths.rough_metadata, self.rough_metadata)
             msg += f" and synced {self.paths.rough_metadata}"
-        if self.paths.pose_overrides is not None:
-            if self.paths.pose_overrides.exists():
-                backup_file(self.paths.pose_overrides)
-            save_pose_overrides_file(self.paths.pose_overrides, self.pose_overrides)
-            msg += f" and saved pose overrides {self.paths.pose_overrides}"
-            self._pose_unsaved = False
         self.unsaved = False
         self._status.set(msg)
 
@@ -1076,7 +895,6 @@ class AnchorEditorApp:
             return
         self.metadata = load_yaml(self.paths.metadata)
         self.rough_metadata = load_yaml(self.paths.rough_metadata) if self.paths.rough_metadata else None
-        self.pose_overrides = load_pose_overrides_file(self.paths.pose_overrides)
         self.sprites = self.metadata.get("sprites", {})
         self.sprite_names = sorted(self.sprites.keys())
         self._populate_sprite_list()
@@ -1126,11 +944,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--background", choices=["checker", "black", "white"], default="checker", help="Preview background")
     parser.add_argument("--show-names", action="store_true", help="Show anchor names on the canvas")
     parser.add_argument("--preview-config", type=Path, default=None, help="Rig job YAML to render live in the right-side preview pane; defaults to examples/robot_rig_job.yaml when available")
-    parser.add_argument("--pose-overrides", type=Path, default=None, help="Pose/z-order override YAML edited by the GUI; defaults to metadata/robot_pose_overrides.yaml")
     parser.add_argument("--no-live-preview", action="store_true", help="Disable live spritesheet preview rendering")
     parser.add_argument("--render-preview", type=Path, default=None, help="Render the preview spritesheet once and exit instead of opening the GUI")
-    parser.add_argument("--preview-max-width", type=int, default=1200, help="Maximum live preview display width")
-    parser.add_argument("--preview-max-height", type=int, default=620, help="Maximum live preview display height")
+    parser.add_argument("--preview-max-width", type=int, default=1400, help="Maximum live preview display width")
+    parser.add_argument("--preview-max-height", type=int, default=820, help="Maximum live preview display height")
+    parser.add_argument("--preview-native", action="store_true", help="Show the live preview at native rendered size with scrollbars instead of fitting to preview limits")
+    parser.add_argument("--manual-preview", action="store_true", help="Do not auto-render on every edit; press Ctrl+R / Render now to preview unsaved metadata")
     parser.add_argument("--anchor-report", type=Path, default=None, help="Write a JSON anchor report and exit instead of opening the GUI")
     parser.add_argument("--sprites", nargs="*", default=None, help="Sprite ids to include in --anchor-report")
     return parser
@@ -1143,7 +962,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     slices = args.slices.resolve()
     rough = args.rough_metadata.resolve() if args.rough_metadata else None
     preview_config = infer_preview_config(metadata, args.preview_config)
-    pose_overrides_path = infer_pose_overrides_path(metadata, args.pose_overrides, preview_config)
     if args.anchor_report:
         write_anchor_report(metadata, slices, args.anchor_report.resolve(), args.sprites)
         print(f"Wrote {args.anchor_report}")
@@ -1153,8 +971,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("ERROR: no preview config found; pass --preview-config", file=sys.stderr)
             return 2
         meta = load_yaml(metadata)
-        pose_overrides = load_pose_overrides_file(pose_overrides_path)
-        img = render_preview_image(meta, preview_config, pose_overrides=pose_overrides, max_width=args.preview_max_width, max_height=args.preview_max_height, bg="black")
+        img = render_preview_image(meta, preview_config, max_width=args.preview_max_width, max_height=args.preview_max_height, bg="black", fit_to_view=not args.preview_native)
         args.render_preview.parent.mkdir(parents=True, exist_ok=True)
         img.save(args.render_preview)
         print(f"Wrote {args.render_preview}")
@@ -1168,14 +985,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     root = tk.Tk()
     preview = PreviewConfig(
         config=preview_config,
-        pose_overrides=pose_overrides_path,
         enabled=not args.no_live_preview,
         max_width=args.preview_max_width,
         max_height=args.preview_max_height,
+        live_unsaved=not args.manual_preview,
+        fit_to_view=not args.preview_native,
     )
     AnchorEditorApp(
         root,
-        EditorPaths(metadata=metadata, slices=slices, rough_metadata=rough, pose_overrides=pose_overrides_path),
+        EditorPaths(metadata=metadata, slices=slices, rough_metadata=rough),
         zoom=args.zoom,
         background=args.background,
         show_names=args.show_names,

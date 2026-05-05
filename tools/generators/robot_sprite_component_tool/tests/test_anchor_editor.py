@@ -42,22 +42,31 @@ def test_anchor_report_includes_pivot_anchor(tmp_path):
     assert '"pivot_anchor": "wrist"' in text
 
 
-def test_anchor_editor_preview_accepts_unsaved_pose_overrides(tmp_path):
+def test_anchor_editor_preview_uses_unsaved_metadata_state(tmp_path):
+    """Live preview must render from in-memory metadata, not only saved YAML."""
+    import copy
+    from PIL import ImageChops
+
     root = Path(__file__).resolve().parents[1]
     editor = _load_anchor_editor(root)
     meta = editor.load_yaml(root / "metadata" / "robot_components.refined.yaml")
     config = root / "examples" / "robot_rig_job.yaml"
-    overrides = {
-        "version": "0.1",
-        "animations": {
-            "run": {
-                "frames": {
-                    "0": {"z_order": ["fx_behind", "torso", "back_leg", "front_leg", "back_arm", "back_hand", "front_arm", "front_hand", "head", "fx_front"]}
-                }
-            }
-        },
-    }
-    img = editor.render_preview_image(meta, config, pose_overrides=overrides, animations=["run"], max_width=360, max_height=180, bg="black")
-    assert isinstance(img, Image.Image)
-    assert img.width <= 360
-    assert img.getbbox() is not None
+    # Check the raw compositor output to verify the temporary metadata written
+    # by render_preview_image comes from the in-memory dictionary.
+    editor.preview_fit_image = lambda img, *args, **kwargs: img.convert("RGBA")
+    original = editor.render_preview_image(meta, config, max_width=640, max_height=260, bg="black")
+    edited = copy.deepcopy(meta)
+    # Move a run-critical shoulder far enough that the rendered sheet must change.
+    edited["sprites"]["torso_lean_forward"]["anchors"]["shoulder_right"] = [300, 0]
+    changed = editor.render_preview_image(edited, config, max_width=640, max_height=260, bg="black")
+    assert original.size == changed.size
+    assert ImageChops.difference(original, changed).getbbox() is not None
+
+
+def test_anchor_editor_preview_defaults_are_large():
+    root = Path(__file__).resolve().parents[1]
+    editor = _load_anchor_editor(root)
+    cfg = editor.PreviewConfig()
+    assert cfg.max_width >= 1200
+    assert cfg.max_height >= 700
+    assert cfg.live_unsaved is True

@@ -1,12 +1,6 @@
-# Robot Sprite Component Tool Manifest
+# Package manifest
 
-- `.pytest_cache/.gitignore`
-- `.pytest_cache/CACHEDIR.TAG`
-- `.pytest_cache/README.md`
-- `.pytest_cache/v/cache/nodeids`
-- `MANIFEST.md`
 - `README.md`
-- `anchor_report.json`
 - `assets/robot_components_greenscreen.png`
 - `docs/assembly_workflow.md`
 - `docs/metadata_workflow.md`
@@ -19,10 +13,13 @@
 - `metadata/robot_pose_overrides.yaml`
 - `output/anchor_report_sample.json`
 - `output/anchor_report_v27.json`
+- `output/assembled/anchor_editor_live_preview_native_v28.png`
 - `output/assembled/anchor_editor_live_preview_v27.png`
-- `output/assembled/anchor_editor_live_preview_v29.png`
+- `output/assembled/anchor_editor_live_preview_v28.png`
 - `output/assembled/hit_02.json`
 - `output/assembled/hit_02.png`
+- `output/assembled/rig_pose_editor_instances_v30.json`
+- `output/assembled/rig_pose_editor_preview_v30.png`
 - `output/assembled/robot_assembled_spritesheet.png`
 - `output/assembled/robot_assembled_spritesheet.yaml`
 - `output/assembled/robot_assembled_spritesheet_full_v11.png`
@@ -49,8 +46,8 @@
 - `output/assembled/robot_assembled_spritesheet_full_v23.yaml`
 - `output/assembled/robot_assembled_spritesheet_full_v27.png`
 - `output/assembled/robot_assembled_spritesheet_full_v27.yaml`
-- `output/assembled/robot_assembled_spritesheet_full_v29.png`
-- `output/assembled/robot_assembled_spritesheet_full_v29.yaml`
+- `output/assembled/robot_assembled_spritesheet_full_v30.png`
+- `output/assembled/robot_assembled_spritesheet_full_v30.yaml`
 - `output/assembled/robot_assembled_spritesheet_v10.png`
 - `output/assembled/robot_assembled_spritesheet_v10.yaml`
 - `output/assembled/robot_assembled_spritesheet_v8.png`
@@ -98,8 +95,8 @@
 - `output/assembled/robot_run_arm_preview_v23.yaml`
 - `output/assembled/robot_run_arm_preview_v27.png`
 - `output/assembled/robot_run_arm_preview_v27.yaml`
-- `output/assembled/robot_run_arm_preview_v29.png`
-- `output/assembled/robot_run_arm_preview_v29.yaml`
+- `output/assembled/robot_run_arm_preview_v30.png`
+- `output/assembled/robot_run_arm_preview_v30.yaml`
 - `output/assembled/robot_run_component_debug_v13.png`
 - `output/assembled/robot_run_component_debug_v13.yaml`
 - `output/assembled/robot_run_component_debug_v14.png`
@@ -132,10 +129,10 @@
 - `output/assembled/robot_run_debug_v13c.yaml`
 - `output/assembled/robot_run_frame0_anchor_attach_v23.json`
 - `output/assembled/robot_run_frame0_anchor_attach_v23.png`
-- `output/assembled/test_debug_v29.json`
-- `output/assembled/test_debug_v29.png`
-- `output/assembled/test_v29.png`
-- `output/assembled/test_v29.yaml`
+- `output/assembled/test_debug_v30.json`
+- `output/assembled/test_debug_v30.png`
+- `output/assembled/test_v30.png`
+- `output/assembled/test_v30.yaml`
 - `output/contact_sheet.png`
 - `output/refinement_report.json`
 - `output/slices/antenna_short.png`
@@ -181,14 +178,46 @@
 - `output/slices/torso_lean_forward.png`
 - `output/slices/torso_prone.png`
 - `output/slices/visor_blank.png`
-- `preview_test.png`
 - `prompts/generator_instructions.md`
 - `pyproject.toml`
 - `requirements.txt`
 - `tests/__init__.py`
+- `tests/__pycache__/__init__.cpython-313.pyc`
+- `tests/__pycache__/test_anchor_editor.cpython-313-pytest-9.0.2.pyc`
+- `tests/__pycache__/test_rig_pose_editor.cpython-313-pytest-9.0.2.pyc`
+- `tests/__pycache__/test_robot_rig_sheet.cpython-313-pytest-9.0.2.pyc`
 - `tests/test_anchor_editor.py`
+- `tests/test_rig_pose_editor.py`
 - `tests/test_robot_rig_sheet.py`
 - `tools/__init__.py`
+- `tools/__pycache__/__init__.cpython-313.pyc`
+- `tools/__pycache__/anchor_editor.cpython-313.pyc`
+- `tools/__pycache__/rig_pose_editor.cpython-313.pyc`
+- `tools/__pycache__/robot_rig_sheet.cpython-313.pyc`
 - `tools/anchor_editor.py`
+- `tools/rig_pose_editor.py`
 - `tools/robot_asset_tool.py`
 - `tools/robot_rig_sheet.py`
+- `tools/robot_rig_sheet.py.v29bak`
+
+### v31 PySide6 editor switch
+
+- Added `tools/rig_pose_editor_pyside.py` as the primary interactive editor.
+- Added PySide6 to project dependencies and the `robot-rig-pose-editor` entry point.
+- Kept `tools/rig_pose_editor.py` as a Tk legacy fallback.
+- Added headless PySide editor preview/report modes for CI environments without Qt.
+
+### v32 PySide6 licensing switch
+
+- Switched the primary Qt GUI backend from PyQt6 to PySide6.
+- Replaced the runtime dependency with `PySide6>=6.6` in both `pyproject.toml` and `requirements.txt`.
+- Added `tools/rig_pose_editor_pyside.py` as the primary editor module and updated `robot-rig-pose-editor` to point at it.
+- Kept `tools/rig_pose_editor_qt.py` as a compatibility shim for old commands.
+- Kept headless preview/report modes dependency-light so CI can validate the editor model without importing Qt.
+
+### v33 entrypoint crash fix
+
+- Fixed the direct-script crash from `python tools/rig_pose_editor.py examples/robot_rig_job.yaml` by making the default legacy filename delegate to the PySide6 editor.
+- Preserved the old Tk implementation as `main_tk_legacy` and repaired its missing `on_pose_controls_changed` callback for emergency fallback.
+- Updated the `robot-rig-pose-editor-tk-legacy` console entrypoint to call `tools.rig_pose_editor:main_tk_legacy`.
+- Updated README command guidance so the stable direct-script command opens the PySide6 editor.

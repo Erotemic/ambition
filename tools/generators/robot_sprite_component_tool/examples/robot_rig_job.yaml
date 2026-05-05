@@ -1,8 +1,5 @@
-# Focused one-row preview job for tuning arm z-order and hand placement.
-# Use examples/robot_rig_job_full.yaml for the full sheet.
 metadata: ../metadata/robot_components.refined.yaml
 slices: ../output/slices
-pose_overrides: ../metadata/robot_pose_overrides.yaml
 output_dir: ../output/assembled
 animations:
 - run
@@ -16,3 +13,4 @@ render:
   scale: 0.275
   root_x: 0
   root_y: -28
+pose_overrides: ../metadata/robot_pose_overrides.yaml

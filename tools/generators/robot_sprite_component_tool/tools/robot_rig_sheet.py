@@ -14,7 +14,6 @@ and sprite-sheet manifests without asking an image model to do layout.
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import math
 from dataclasses import dataclass, field
@@ -44,61 +43,263 @@ ANIMATIONS: Dict[str, Dict[str, int]] = {
 
 DEFAULT_ANIMATIONS = list(ANIMATIONS.keys())
 
+# Bottom-to-top drawing order.  The GUI can override this per animation/frame.
 DEFAULT_Z_ORDER = [
     "fx_behind",
+    "back_foot",
     "back_leg",
     "back_hand",
     "back_arm",
     "torso",
     "front_leg",
+    "front_foot",
     "front_arm",
     "front_hand",
     "head",
     "fx_front",
 ]
 
-POSE_FIELD_TYPES = {
-    # Scalars exposed in the GUI / override YAML.
-    "torso_angle": "float",
-    "head_angle": "float",
-    "head_inherit_torso": "float",
-    "front_arm_angle": "float",
-    "back_arm_angle": "float",
-    "front_hand_angle": "float",
-    "back_hand_angle": "float",
-    "front_leg_angle": "float",
-    "back_leg_angle": "float",
-    "arm_scale": "float",
-    "hand_scale": "float",
-    "leg_scale": "float",
-    "torso_scale": "float",
-    "head_scale": "float",
-    "hand_follow": "float",
-    # Side-specific vector targets / offsets.
-    "front_wrist_delta": "point_or_none",
-    "back_wrist_delta": "point_or_none",
-    "front_hand_offset": "point",
-    "back_hand_offset": "point",
-    "front_shoulder_offset": "point",
-    "back_shoulder_offset": "point",
-    "front_hip_offset": "point",
-    "back_hip_offset": "point",
-    "head_offset": "point",
-    "torso_offset": "point",
-    "root_offset": "point",
-    # Sprite choices can also be overridden from YAML, even though the initial
-    # GUI focuses on numeric tuning.
-    "front_arm_sprite": "str",
-    "back_arm_sprite": "str",
-    "front_hand_sprite": "str",
-    "back_hand_sprite": "str",
-    "front_leg_sprite": "str",
-    "back_leg_sprite": "str",
-    "torso_sprite": "str",
-    "head_sprite": "str",
-    "face_sprite": "str",
-    "z_order": "list",
+PART_SPRITE_FIELDS = {
+    "torso": "torso_sprite",
+    "head": "head_sprite",
+    "front_arm": "front_arm_sprite",
+    "back_arm": "back_arm_sprite",
+    "front_hand": "front_hand_sprite",
+    "back_hand": "back_hand_sprite",
+    "front_leg": "front_leg_sprite",
+    "back_leg": "back_leg_sprite",
+    "front_foot": "front_foot_sprite",
+    "back_foot": "back_foot_sprite",
+    "face": "face_sprite",
 }
+
+PART_ANGLE_FIELDS = {
+    "torso": "torso_angle",
+    "head": "head_angle",
+    "front_arm": "front_arm_angle",
+    "back_arm": "back_arm_angle",
+    "front_hand": "front_hand_angle",
+    "back_hand": "back_hand_angle",
+    "front_leg": "front_leg_angle",
+    "back_leg": "back_leg_angle",
+    "front_foot": "front_foot_angle",
+    "back_foot": "back_foot_angle",
+}
+
+PART_SCALE_FIELDS = {
+    "torso": "torso_scale",
+    "head": "head_scale",
+    "face": "face_scale",
+    "front_arm": "front_arm_scale",
+    "back_arm": "back_arm_scale",
+    "front_hand": "front_hand_scale",
+    "back_hand": "back_hand_scale",
+    "front_leg": "front_leg_scale",
+    "back_leg": "back_leg_scale",
+    "front_foot": "front_foot_scale",
+    "back_foot": "back_foot_scale",
+}
+
+SCALE_OVERRIDE_FIELDS = set(PART_SCALE_FIELDS.values()) | {"arm_scale", "hand_scale", "leg_scale", "foot_scale"}
+
+
+def load_pose_overrides(path: str | Path | None) -> Dict[str, Any]:
+    if path is None:
+        return {}
+    path = Path(path)
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf8")) or {}
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def animation_info(name: str, overrides: Mapping[str, Any] | None = None) -> Dict[str, int]:
+    """Return frame count and duration, honoring optional GUI overrides."""
+    base = dict(ANIMATIONS.get(name, {"frames": 1, "duration_ms": 100}))
+    overrides = overrides or {}
+    anim_data = (overrides.get("animations") or {}).get(name) or {}
+    frames_value = anim_data.get("frames")
+    # Backward compatibility: very early pose files used ``frames`` as the
+    # frame-override mapping.  Only treat it as a count when it is scalar.
+    if frames_value is not None and not isinstance(frames_value, dict):
+        base["frames"] = max(1, int(frames_value))
+    if "duration_ms" in anim_data:
+        base["duration_ms"] = max(1, int(anim_data["duration_ms"]))
+    if "fps" in anim_data:
+        fps = max(1e-6, float(anim_data["fps"]))
+        base["duration_ms"] = max(1, int(round(1000.0 / fps)))
+    return base
+
+
+def _frame_override_map(overrides: Mapping[str, Any] | None, animation: str) -> Dict[Any, Any]:
+    """Return raw sparse frame overrides for an animation."""
+    if not overrides:
+        return {}
+    anim_data = (overrides.get("animations") or {}).get(animation) or {}
+    frames = anim_data.get("frame_overrides")
+    if frames is None and isinstance(anim_data.get("frames"), dict):
+        frames = anim_data.get("frames")
+    return frames if isinstance(frames, dict) else {}
+
+
+def _frame_override_data(overrides: Mapping[str, Any] | None, animation: str, idx: int) -> Dict[str, Any]:
+    frames = _frame_override_map(overrides, animation)
+    data = frames.get(str(idx)) or frames.get(idx) or {}
+    return data if isinstance(data, dict) else {}
+
+
+def _as_point_or_none(value: Any) -> Point | None:
+    if isinstance(value, (list, tuple)) and len(value) == 2:
+        try:
+            return (float(value[0]), float(value[1]))
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _as_number_or_none(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _interp_value(a: Any, b: Any, t: float) -> Any:
+    """Interpolate values that have a clear numeric meaning; otherwise hold."""
+    pa = _as_point_or_none(a)
+    pb = _as_point_or_none(b)
+    if pa is not None and pb is not None:
+        return [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t]
+    na = _as_number_or_none(a)
+    nb = _as_number_or_none(b)
+    if na is not None and nb is not None:
+        return na + (nb - na) * t
+    # Strings, lists like z_order / hidden_parts, and dict-ish settings are
+    # intentionally stepped instead of interpolated.  This lets visibility and
+    # art choices act as coarse keyframes while coordinates/angles tween.
+    return a if t < 0.5 else b
+
+
+def interpolated_frame_overrides(overrides: Mapping[str, Any] | None, animation: str, idx: int) -> Dict[str, Any]:
+    """Return sparse frame overrides evaluated at ``idx``.
+
+    Numeric fields and 2D point fields are linearly interpolated between sparse
+    keyframes.  With edits on frame 0 and the last frame, all intermediate
+    frames inherit a natural tween.  Non-numeric fields such as chosen art,
+    z-order, and part visibility use nearest-keyframe hold semantics.
+    """
+    frames = _frame_override_map(overrides, animation)
+    numeric_keys: List[int] = []
+    keyed: Dict[int, Dict[str, Any]] = {}
+    for raw_key, raw_data in frames.items():
+        try:
+            k = int(raw_key)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(raw_data, dict):
+            numeric_keys.append(k)
+            keyed[k] = raw_data
+    if not keyed:
+        return {}
+    keys = sorted(set(numeric_keys))
+    exact = keyed.get(int(idx))
+    out: Dict[str, Any] = {}
+    all_fields = set()
+    for data in keyed.values():
+        all_fields.update(data.keys())
+    for field in sorted(all_fields):
+        if field in {"notes", "label"}:
+            continue
+        field_keys = [k for k in keys if field in keyed.get(k, {})]
+        if not field_keys:
+            continue
+        if idx in field_keys:
+            out[field] = keyed[idx][field]
+            continue
+        # Scale is a stable rig calibration/default, not a tween channel.  A
+        # frame-level scale edit is exact-only; use top-level or animation
+        # defaults for scale that should apply broadly.
+        if field in SCALE_OVERRIDE_FIELDS or field.endswith("_scale"):
+            continue
+        prev_keys = [k for k in field_keys if k < idx]
+        next_keys = [k for k in field_keys if k > idx]
+        if prev_keys and next_keys:
+            pk = max(prev_keys)
+            nk = min(next_keys)
+            t = (idx - pk) / float(max(1, nk - pk))
+            out[field] = _interp_value(keyed[pk][field], keyed[nk][field], t)
+        elif prev_keys:
+            out[field] = keyed[max(prev_keys)][field]
+        elif next_keys:
+            out[field] = keyed[min(next_keys)][field]
+    if exact:
+        # Preserve exact non-interpolatable values and any fields that failed to
+        # evaluate above.  Exact frame data is always authoritative.
+        out.update({k: v for k, v in exact.items() if k not in {"notes", "label"}})
+    return out
+
+
+def _apply_pose_data(pose: "RobotPose", data: Mapping[str, Any]) -> None:
+    for key, value in data.items():
+        if key in {"notes", "label"}:
+            continue
+        if key == "z_order":
+            if isinstance(value, list):
+                pose.z_order = [str(v) for v in value]
+            continue
+        if key in {"hidden_parts", "visible_parts"}:
+            if value is None:
+                setattr(pose, key, [] if key == "hidden_parts" else None)
+            elif isinstance(value, (list, tuple, set)):
+                setattr(pose, key, [str(v) for v in value])
+            else:
+                setattr(pose, key, [str(value)])
+            continue
+        if not hasattr(pose, key):
+            continue
+        cur = getattr(pose, key)
+        if isinstance(cur, tuple) or key.endswith("_delta") or key.endswith("_offset"):
+            pt = _as_point_or_none(value)
+            if pt is not None:
+                setattr(pose, key, pt)
+        elif isinstance(cur, list):
+            setattr(pose, key, list(value) if isinstance(value, list) else value)
+        elif isinstance(cur, str):
+            setattr(pose, key, str(value))
+        elif isinstance(cur, bool):
+            setattr(pose, key, bool(value))
+        elif isinstance(cur, int):
+            setattr(pose, key, int(value))
+        elif isinstance(cur, float):
+            setattr(pose, key, float(value))
+        elif cur is None:
+            pt = _as_point_or_none(value)
+            setattr(pose, key, pt if pt is not None else value)
+        else:
+            setattr(pose, key, value)
+
+
+def apply_pose_overrides(pose: "RobotPose", animation: str, idx: int, overrides: Mapping[str, Any] | None) -> "RobotPose":
+    """Apply GUI-authored animation defaults and sparse keyframe overrides."""
+    if not overrides:
+        return pose
+    _apply_pose_data(pose, overrides.get("defaults") or {})
+    anim_data = (overrides.get("animations") or {}).get(animation) or {}
+    _apply_pose_data(pose, anim_data.get("defaults") or {})
+    _apply_pose_data(pose, interpolated_frame_overrides(overrides, animation, idx))
+    return pose
+
+
+def pose_sprite_refs(pose: "RobotPose") -> Dict[str, str]:
+    return {role: getattr(pose, field_name) for role, field_name in PART_SPRITE_FIELDS.items() if hasattr(pose, field_name)}
+
+
+def base_sprite_name(name: str) -> str:
+    return str(name).split("@")[0]
 
 
 @dataclass
@@ -133,18 +334,20 @@ class RigJob:
         metadata = Path(data.get("metadata", "../metadata/robot_components.refined.yaml"))
         slices = Path(data.get("slices", "../output/slices"))
         output_dir = Path(data.get("output_dir", "../output/assembled"))
-        pose_overrides_data = data.get("pose_overrides", "../metadata/robot_pose_overrides.yaml")
-        pose_overrides = Path(pose_overrides_data) if pose_overrides_data else None
+        pose_overrides = data.get("pose_overrides", None)
+        if pose_overrides is None:
+            default_pose = (base / "../metadata/robot_pose_overrides.yaml").resolve()
+            pose_overrides = default_pose if default_pose.exists() else None
+        else:
+            pose_overrides = Path(pose_overrides)
         if not metadata.is_absolute():
             metadata = (base / metadata).resolve()
         if not slices.is_absolute():
             slices = (base / slices).resolve()
         if not output_dir.is_absolute():
             output_dir = (base / output_dir).resolve()
-        if pose_overrides is not None and not pose_overrides.is_absolute():
-            pose_overrides = (base / pose_overrides).resolve()
-        if pose_overrides is not None and not pose_overrides.exists():
-            pose_overrides = None
+        if pose_overrides is not None and not Path(pose_overrides).is_absolute():
+            pose_overrides = (base / Path(pose_overrides)).resolve()
         animations = list(data.get("animations", DEFAULT_ANIMATIONS))
         return cls(metadata=metadata, slices=slices, animations=animations, render=render, output_dir=output_dir, pose_overrides=pose_overrides)
 
@@ -451,6 +654,8 @@ DEBUG_COLORS: Dict[str, RGBA] = {
     "front_hand": (255, 60, 60, 235),
     "back_leg": (170, 80, 255, 220),
     "front_leg": (255, 150, 40, 220),
+    "back_foot": (120, 60, 210, 235),
+    "front_foot": (255, 190, 50, 235),
     "fx": (50, 240, 255, 170),
 }
 
@@ -498,110 +703,59 @@ def transformed_point(local_point: Point, local_anchor: Point, target: Point, sc
     return (target[0] + rx, target[1] + ry)
 
 
+def transformed_bounds(size: Tuple[int, int], local_anchor: Point, target: Point, scale: float, angle: float) -> List[float]:
+    """Approximate the frame-local bounds of a transformed sprite.
+
+    This uses the transformed image corners, which is intentionally cheap and
+    deterministic for editor hit-testing.  It may slightly overestimate the
+    clickable region for transparent corners, but it follows the same anchor,
+    scale, and rotation model as the compositor.
+    """
+    w, h = size
+    pts = [
+        transformed_point((0.0, 0.0), local_anchor, target, scale, angle),
+        transformed_point((float(w), 0.0), local_anchor, target, scale, angle),
+        transformed_point((0.0, float(h)), local_anchor, target, scale, angle),
+        transformed_point((float(w), float(h)), local_anchor, target, scale, angle),
+    ]
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return [min(xs), min(ys), max(xs), max(ys)]
+
+
 def midpoint(a: Point, b: Point) -> Point:
     return ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
 
 
-def load_pose_overrides(path: str | Path | None) -> Dict[str, Any]:
-    if path is None:
-        return {}
-    path = Path(path)
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf8")) or {}
-
-
-def point_from_value(value: Any) -> Point:
-    if value is None:
-        return (0.0, 0.0)
-    if isinstance(value, (list, tuple)) and len(value) == 2:
-        return (float(value[0]), float(value[1]))
-    raise ValueError(f"expected [x, y] point, got {value!r}")
-
-
-def _frame_override_map(overrides: Mapping[str, Any], animation: str, idx: int) -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
-    if not overrides:
-        return out
-    for src in (overrides.get("defaults") or {}, (overrides.get("animations") or {}).get(animation, {}).get("defaults") or {}):
-        out.update(src)
-    anim = (overrides.get("animations") or {}).get(animation, {}) or {}
-    frames = anim.get("frames") or {}
-    frame_data = frames.get(idx, frames.get(str(idx), {})) or {}
-    out.update(frame_data)
-    return out
-
-
-def apply_pose_overrides(pose: "RobotPose", overrides: Mapping[str, Any], animation: str, idx: int) -> Dict[str, Any]:
-    """Apply default/animation/frame override values to a generated pose."""
-    data = _frame_override_map(overrides, animation, idx)
-    applied: Dict[str, Any] = {}
-    for key, value in data.items():
-        if key not in POSE_FIELD_TYPES or not hasattr(pose, key):
-            continue
-        typ = POSE_FIELD_TYPES[key]
-        if typ == "float":
-            setattr(pose, key, float(value))
-        elif typ == "point":
-            setattr(pose, key, point_from_value(value))
-        elif typ == "point_or_none":
-            setattr(pose, key, None if value is None else point_from_value(value))
-        elif typ == "str":
-            setattr(pose, key, str(value))
-        elif typ == "list":
-            setattr(pose, key, [str(v) for v in value])
-        else:
-            setattr(pose, key, value)
-        applied[key] = getattr(pose, key)
-    return applied
-
-
-def pose_sprite_ids(pose: "RobotPose") -> List[str]:
-    """Return physical sprite ids used by a pose, stripping virtual variants."""
-    ids: List[str] = []
-    for attr in (
-        "torso_sprite", "head_sprite", "face_sprite",
-        "front_arm_sprite", "back_arm_sprite", "front_hand_sprite", "back_hand_sprite",
-        "front_leg_sprite", "back_leg_sprite",
-    ):
-        val = getattr(pose, attr, None)
-        if val:
-            ids.append(str(val).split("@")[0])
-    for fx in pose.fx_behind + pose.fx_front:
-        if fx.get("sprite"):
-            ids.append(str(fx["sprite"]).split("@")[0])
-    return ids
-
-
-def relevant_animations_for_sprite(sprite_id: str, overrides: Mapping[str, Any] | None = None) -> List[str]:
-    """Find built-in animations that use a physical sprite id in any frame."""
-    base = str(sprite_id).split("@")[0]
-    found: List[str] = []
-    overrides = overrides or {}
-    for anim, info in ANIMATIONS.items():
-        for idx in range(info["frames"]):
-            pose = animation_pose(anim, idx, info["frames"], RenderConfig().scale)
-            apply_pose_overrides(pose, overrides, anim, idx)
-            if base in pose_sprite_ids(pose):
-                found.append(anim)
-                break
-    return found or ["run"]
+def distance(a: Point, b: Point) -> float:
+    return math.hypot(float(a[0]) - float(b[0]), float(a[1]) - float(b[1]))
 
 
 @dataclass
 class RobotPose:
     scale: float
-    # Per-part scale multipliers keep the component rig cute/stubby.  The
-    # extracted source parts are not all drawn at the same semantic scale, so
-    # applying the global scale uniformly makes hands too large and limbs too
-    # tall.  These multipliers are deliberately exposed in pose data so future
-    # YAML-driven poses can tune them without changing the compositor.
-    torso_scale: float = 0.94
-    head_scale: float = 1.32
+    # Per-part scale multipliers are rig calibration values, not animation
+    # channels.  Defaults are 1.0 for all logical instances; use top-level or
+    # animation defaults in YAML to change a whole rig/action, and use exact
+    # frame overrides only for rare corrective edits.
+    torso_scale: float = 1.0
+    head_scale: float = 1.0
     face_scale: float = 1.0
-    arm_scale: float = 0.62
-    hand_scale: float = 0.56
-    leg_scale: float = 0.58
+    # Legacy group scale fields remain for older pose data, but all new editing
+    # uses explicit per-role scale fields.  Hands may move when arm endpoints
+    # move; that is joint attachment, not scale coupling.
+    arm_scale: float = 1.0
+    hand_scale: float = 1.0
+    leg_scale: float = 1.0
+    foot_scale: float = 1.0
+    front_arm_scale: float = 1.0
+    back_arm_scale: float = 1.0
+    front_hand_scale: float = 1.0
+    back_hand_scale: float = 1.0
+    front_leg_scale: float = 1.0
+    back_leg_scale: float = 1.0
+    front_foot_scale: float = 1.0
+    back_foot_scale: float = 1.0
     root_offset: Point = (0.0, 0.0)
     torso_sprite: str = "torso_front"
     torso_angle: float = 0.0
@@ -623,17 +777,16 @@ class RobotPose:
     front_hand_angle: float = 0.0
     back_hand_angle: float = 0.0
     hand_follow: float = 0.78
-    # Local torso-space offsets applied to shoulder sockets before mounting arms.
-    # This seats arms under the purple shoulder pods instead of pinning them to
-    # the exact pod center, and it benefits every animation that uses the rig.
-    front_shoulder_offset: Point = (12.0, 36.0)
-    back_shoulder_offset: Point = (-12.0, 36.0)
-    # Local torso-space hip offsets applied before mounting legs.  The source
-    # torso hip anchors are close together; spreading them slightly keeps the
-    # run/walk legs from collapsing into a colored knot under the body and
-    # benefits all generated animations.
-    front_hip_offset: Point = (18.0, 4.0)
-    back_hip_offset: Point = (-18.0, 4.0)
+    # Advanced corrective socket offsets in local torso space.  Standard rig
+    # authoring should keep component-local sockets stable and animate bones or
+    # endpoints, not keyframe parent/child joint deltas.  These fields remain
+    # available for rare art-correction cases, but the editor labels them as
+    # advanced so normal edits stay on bones/endpoints.
+    front_shoulder_offset: Point = (0.0, 0.0)
+    back_shoulder_offset: Point = (0.0, 0.0)
+    # Advanced corrective hip offsets, same policy as shoulder offsets.
+    front_hip_offset: Point = (0.0, 0.0)
+    back_hip_offset: Point = (0.0, 0.0)
     # Optional endpoint-solved arm targets in final frame pixels, relative to
     # the corrected shoulder target.  When provided, the compositor computes
     # the arm scale/angle so the source arm's shoulder and wrist anchors map
@@ -646,12 +799,48 @@ class RobotPose:
     back_hand_offset: Point = (0.0, 0.0)
     front_leg_sprite: str = "leg_straight_right"
     back_leg_sprite: str = "leg_straight_left"
+    front_foot_sprite: str = "foot_flat"
+    back_foot_sprite: str = "foot_flat"
     front_leg_angle: float = 0.0
     back_leg_angle: float = 0.0
+    front_foot_angle: float = 0.0
+    back_foot_angle: float = 0.0
+    front_foot_offset: Point = (0.0, 0.0)
+    back_foot_offset: Point = (0.0, 0.0)
+    # Optional endpoint-solved leg ground targets in final-frame pixels,
+    # relative to the corrected hip target.  These let the GUI pose editor move
+    # feet/ground targets instead of only rotating a baked leg image.
+    front_ground_delta: Point | None = None
+    back_ground_delta: Point | None = None
+    z_order: List[str] = field(default_factory=lambda: list(DEFAULT_Z_ORDER))
+    # Editing aid / production option: hide selected logical parts while still
+    # solving the rig and reporting their manifests.  ``visible_parts`` can be
+    # used as a whitelist; ``hidden_parts`` always wins.
+    hidden_parts: List[str] = field(default_factory=list)
+    visible_parts: List[str] | None = None
     opacity: float = 1.0
     fx_behind: List[Dict[str, Any]] = field(default_factory=list)
     fx_front: List[Dict[str, Any]] = field(default_factory=list)
-    z_order: List[str] = field(default_factory=lambda: list(DEFAULT_Z_ORDER))
+
+
+def role_scale_multiplier(pose: RobotPose, role: str) -> float:
+    """Return the stable scale multiplier for one logical role.
+
+    All new rig data is instance-scoped and defaults to 1.0.  Group fields are
+    only a compatibility fallback for older YAML files.
+    """
+    specific = getattr(pose, f"{role}_scale", None)
+    if specific is not None:
+        return float(specific)
+    if role.endswith("_arm"):
+        return float(getattr(pose, "arm_scale", 1.0))
+    if role.endswith("_hand"):
+        return float(getattr(pose, "hand_scale", 1.0))
+    if role.endswith("_leg"):
+        return float(getattr(pose, "leg_scale", 1.0))
+    if role.endswith("_foot"):
+        return float(getattr(pose, "foot_scale", 1.0))
+    return float(getattr(pose, f"{role}_scale", 1.0))
 
 
 def animation_pose(name: str, idx: int, frames: int, base_scale: float) -> RobotPose:
@@ -699,7 +888,6 @@ def animation_pose(name: str, idx: int, frames: int, base_scale: float) -> Robot
         p.front_leg_sprite = "leg_bent_right" if wave < -0.15 else "leg_straight_right"
         p.back_leg_sprite = "leg_bent_left" if wave > 0.15 else "leg_straight_left"
         p.front_hand_sprite = "hand_open_down"
-        p.hand_scale = 0.48
 
     elif name == "run":
         # Run is rhythmic locomotion.  It gets only a modest heel streak so it
@@ -731,8 +919,6 @@ def animation_pose(name: str, idx: int, frames: int, base_scale: float) -> Robot
         p.back_leg_sprite = "leg_bent_left" if wave < -0.30 else "leg_straight_left"
         p.front_hand_sprite = "hand_fist@flip_x"
         p.back_hand_sprite = "hand_fist"
-        p.arm_scale = 0.45
-        p.hand_scale = 0.62
         p.hand_follow = 0.75
         # v23: the run torso now has semantic side-specific sockets.  Avoid
         # global compensating offsets; let the anchors themselves define where
@@ -741,12 +927,13 @@ def animation_pose(name: str, idx: int, frames: int, base_scale: float) -> Robot
         p.back_hip_offset = (0.0, 0.0)
         p.front_shoulder_offset = (0.0, 0.0)
         p.back_shoulder_offset = (0.0, 0.0)
-        # Endpoint targets are final-frame pixels relative to the corrected
-        # shoulder.  Keep the run silhouette simple at this tiny sprite size:
-        # the near/right arm stays outside the body, while the far/left arm is
-        # short and partly hidden behind the torso.
-        p.front_wrist_delta = (14.0 + 2.0 * wave, 15.0 - 1.5 * abs(wave))
-        p.back_wrist_delta = (-10.0 - 1.5 * wave, 13.0 - 1.0 * abs(wave))
+        # Keep connected parts driven by their anchors rather than
+        # per-frame corrective endpoint deltas.  The run defaults rely on
+        # shoulder/hip/ankle/wrist constraints with zero corrective offsets.
+        p.front_wrist_delta = None
+        p.back_wrist_delta = None
+        p.front_ground_delta = None
+        p.back_ground_delta = None
         p.front_hand_offset = (0.0, 0.0)
         p.back_hand_offset = (0.0, 0.0)
         if idx % 2 == 1:
@@ -854,7 +1041,6 @@ def animation_pose(name: str, idx: int, frames: int, base_scale: float) -> Robot
         p.back_leg_sprite = "leg_straight_left"
         p.front_leg_angle = 12
         p.back_leg_angle = -6
-        p.hand_scale = 0.50
         p.hand_follow = 0.88
         if 1 <= idx <= frames - 2:
             p.fx_front.append({
@@ -887,7 +1073,6 @@ def animation_pose(name: str, idx: int, frames: int, base_scale: float) -> Robot
         # Stumble with normal/sad face, then collapse with dead face.  The root
         # drifts down but the final frame stays within the same cell.
         d = smoothstep(t)
-        p.hand_scale = 0.43
         p.front_hand_sprite = "hand_open_down"
         p.face_sprite = "face_sad" if idx < 3 else "face_dead_x"
         p.head_sprite = "head_tilt_right" if idx >= 2 else "head_front"
@@ -947,7 +1132,6 @@ def animation_pose(name: str, idx: int, frames: int, base_scale: float) -> Robot
         p.front_arm_angle = -58
         p.back_arm_angle = 34
         p.front_hand_sprite = "hand_fist@flip_x"
-        p.hand_scale = 0.50
         p.hand_follow = 0.88
         p.fx_behind.append({"sprite": "fx_dash_streak", "target_offset": (-38, -22), "scale": 0.22, "opacity": 0.70})
 
@@ -958,10 +1142,10 @@ def animation_pose(name: str, idx: int, frames: int, base_scale: float) -> Robot
 
 
 class RobotAssembler:
-    def __init__(self, atlas: ComponentAtlas, render: RenderConfig, pose_overrides: Optional[Mapping[str, Any]] = None):
+    def __init__(self, atlas: ComponentAtlas, render: RenderConfig, pose_overrides: Mapping[str, Any] | None = None):
         self.atlas = atlas
         self.render = render
-        self.pose_overrides = dict(pose_overrides or {})
+        self.pose_overrides = pose_overrides or {}
         self._head_face_cache: Dict[Tuple[str, str], Image.Image] = {}
 
     def _component_anchor_worlds(self, sprite: str, local_anchor: Point, target: Point, scale: float, angle: float) -> Dict[str, Point]:
@@ -977,7 +1161,7 @@ class RobotAssembler:
         frame: Image.Image,
         sprite: str,
         target: Point,
-        anchor: str | Point | None,
+        anchor: str | None,
         scale: float,
         angle: float = 0.0,
         opacity: float = 1.0,
@@ -987,36 +1171,12 @@ class RobotAssembler:
         img = self.atlas.image(sprite)
         if debug_color is not None:
             img = solidify_alpha(img, debug_color)
-        if isinstance(anchor, (tuple, list)) and len(anchor) == 2:
-            local_anchor = (float(anchor[0]), float(anchor[1]))
-        else:
-            local_anchor = self.atlas.anchor(sprite, anchor)
+        local_anchor = self.atlas.anchor(sprite, anchor)
         paste_transformed(frame, img, target, local_anchor, scale, angle, opacity)
         worlds = self._component_anchor_worlds(sprite, local_anchor, target, scale, angle)
         if debug_color is not None:
             draw = ImageDraw.Draw(frame)
             draw_anchor_marker(draw, target, debug_color, debug_label)
-        return worlds
-
-    def _paste_image_for_sprite(
-        self,
-        frame: Image.Image,
-        sprite: str,
-        img: Image.Image,
-        target: Point,
-        local_anchor: Point,
-        scale: float,
-        angle: float = 0.0,
-        opacity: float = 1.0,
-        debug_color: RGBA | None = None,
-        debug_label: str | None = None,
-    ) -> Dict[str, Point]:
-        if debug_color is not None:
-            img = solidify_alpha(img, debug_color)
-        paste_transformed(frame, img, target, local_anchor, scale, angle, opacity)
-        worlds = self._component_anchor_worlds(sprite, local_anchor, target, scale, angle)
-        if debug_color is not None:
-            draw_anchor_marker(ImageDraw.Draw(frame), target, debug_color, debug_label)
         return worlds
 
     def _head_image(self, head_sprite: str, face_sprite: str | None) -> Image.Image:
@@ -1063,28 +1223,84 @@ class RobotAssembler:
         dst_len = max(1e-6, math.hypot(dx, dy))
         src_angle = math.degrees(math.atan2(src[1], src[0]))
         dst_angle = math.degrees(math.atan2(dy, dx))
-        scale = clamp(dst_len / src_len, default_scale * 0.55, default_scale * 1.80)
+        # Do not clamp endpoint-solved scales.  Clamping makes the manifest say
+        # the wrist/ground target is one place while the transformed component
+        # endpoint lands somewhere else.  A connected rig joint must be exact;
+        # unusual proportions should be fixed by editing anchors, scale
+        # defaults, or endpoint deltas instead of silently violating the
+        # constraint.
+        scale = dst_len / src_len
         angle = dst_angle - src_angle
         if not math.isfinite(scale) or not math.isfinite(angle):
             return default_scale, default_angle, shoulder_target
         return scale, angle, wrist_target
 
+    def _solve_leg_endpoint(
+        self,
+        sprite: str,
+        hip_target: Point,
+        ground_delta: Point,
+        torso_angle: float,
+        default_scale: float,
+        default_angle: float,
+    ) -> Tuple[float, float, Point]:
+        hip_local = self.atlas.anchor(sprite, "hip")
+        ground_local = self.atlas.anchor(sprite, "ground")
+        src = (ground_local[0] - hip_local[0], ground_local[1] - hip_local[1])
+        src_len = max(1e-6, math.hypot(src[0], src[1]))
+        dx, dy = rotate_vec(float(ground_delta[0]), float(ground_delta[1]), torso_angle)
+        ground_target = (hip_target[0] + dx, hip_target[1] + dy)
+        dst_len = max(1e-6, math.hypot(dx, dy))
+        src_angle = math.degrees(math.atan2(src[1], src[0]))
+        dst_angle = math.degrees(math.atan2(dy, dx))
+        # Do not clamp endpoint-solved scales.  Clamping makes the manifest say
+        # the wrist/ground target is one place while the transformed component
+        # endpoint lands somewhere else.  A connected rig joint must be exact;
+        # unusual proportions should be fixed by editing anchors, scale
+        # defaults, or endpoint deltas instead of silently violating the
+        # constraint.
+        scale = dst_len / src_len
+        angle = dst_angle - src_angle
+        if not math.isfinite(scale) or not math.isfinite(angle):
+            return default_scale, default_angle, hip_target
+        return scale, angle, ground_target
+
     def render_frame(self, animation: str, frame_index: int, debug_parts: bool = False) -> Tuple[Image.Image, Dict[str, Any]]:
-        if animation not in ANIMATIONS:
+        if animation not in ANIMATIONS and animation not in (self.pose_overrides.get("animations") or {}):
             raise KeyError(f"unsupported animation {animation!r}; available={sorted(ANIMATIONS)}")
-        info = ANIMATIONS[animation]
+        info = animation_info(animation, self.pose_overrides)
         idx = frame_index % info["frames"]
         pose = animation_pose(animation, idx, info["frames"], self.render.scale)
-        applied_overrides = apply_pose_overrides(pose, self.pose_overrides, animation, idx)
+        pose = apply_pose_overrides(pose, animation, idx, self.pose_overrides)
         w, h = self.render.frame_width, self.render.frame_height
         frame = Image.new("RGBA", (w, h), parse_bg(self.render.frame_background))
         root = (w / 2.0 + self.render.root_x + pose.root_offset[0], h + self.render.root_y + pose.root_offset[1])
         S = pose.scale
         torsoS = S * pose.torso_scale
         headS = S * pose.head_scale
-        armS = S * pose.arm_scale
-        handS = S * pose.hand_scale
-        legS = S * pose.leg_scale
+        faceS = S * pose.face_scale
+        back_armS = S * role_scale_multiplier(pose, "back_arm")
+        front_armS = S * role_scale_multiplier(pose, "front_arm")
+        back_handS = S * role_scale_multiplier(pose, "back_hand")
+        front_handS = S * role_scale_multiplier(pose, "front_hand")
+        back_legS = S * role_scale_multiplier(pose, "back_leg")
+        front_legS = S * role_scale_multiplier(pose, "front_leg")
+        back_footS = S * role_scale_multiplier(pose, "back_foot")
+        front_footS = S * role_scale_multiplier(pose, "front_foot")
+
+        hidden_parts = {str(v) for v in (pose.hidden_parts or [])}
+        visible_parts = None if pose.visible_parts is None else {str(v) for v in pose.visible_parts}
+
+        def is_visible(role: str) -> bool:
+            if role in hidden_parts:
+                return False
+            if visible_parts is not None and role not in visible_parts:
+                return False
+            return True
+
+        if is_visible("fx_behind"):
+            for fx in pose.fx_behind:
+                self._draw_fx(frame, fx, root, S, debug_parts=debug_parts)
 
         # Use the selected leg assets to decide where the hips should sit above
         # the root/ground.  This locks every frame to one root baseline and
@@ -1093,7 +1309,7 @@ class RobotAssembler:
         front_ground = self.atlas.anchor(pose.front_leg_sprite, "ground")
         back_hip = self.atlas.anchor(pose.back_leg_sprite, "hip")
         back_ground = self.atlas.anchor(pose.back_leg_sprite, "ground")
-        hip_to_ground = max(front_ground[1] - front_hip[1], back_ground[1] - back_hip[1]) * legS
+        hip_to_ground = max(front_ground[1] - front_hip[1], back_ground[1] - back_hip[1]) * max(front_legS, back_legS)
         hip_target = (root[0] + pose.torso_offset[0], root[1] - hip_to_ground + pose.torso_offset[1])
 
         torso_info = self.atlas.info(pose.torso_sprite)
@@ -1101,89 +1317,237 @@ class RobotAssembler:
         hip_r = tuple(map(float, torso_info["anchors"]["hip_right"]))
         torso_hip_anchor = midpoint(hip_l, hip_r)
         torso_anchors = self._component_anchor_worlds(pose.torso_sprite, torso_hip_anchor, hip_target, torsoS, pose.torso_angle)
+
+        # Arm mount points are nudged down/inward from the raw shoulder-pod
+        # centers.  This keeps the arms visually socketed under the pod while
+        # avoiding the pasted-on look caused by anchoring directly to the pod
+        # center.  These corrected targets are used by every animation.
         back_shoulder_target = self._offset_from_torso(torso_anchors["shoulder_left"], pose.back_shoulder_offset, torsoS, pose.torso_angle)
         front_shoulder_target = self._offset_from_torso(torso_anchors["shoulder_right"], pose.front_shoulder_offset, torsoS, pose.torso_angle)
+
+        # Draw order follows the visible side-view robot anatomy:
+        # - left/back leg is behind the body
+        # - left/back hand is behind the left/back arm
+        # - torso sits over the far-side limbs
+        # - right/front leg is in front of the body
+        # - right/front hand is in front of the right/front arm
+        # This keeps the run pose from turning into a pile-up while preserving
+        # tied anchor constraints for every limb chain.
         back_hip_target = self._offset_from_torso(torso_anchors["hip_left"], pose.back_hip_offset, torsoS, pose.torso_angle)
         front_hip_target = self._offset_from_torso(torso_anchors["hip_right"], pose.front_hip_offset, torsoS, pose.torso_angle)
 
-        # Endpoint-solve arms before drawing.  Z-order can now be edited because
-        # placement and compositing are separate phases.
-        if pose.back_wrist_delta is not None:
-            back_arm_scale, back_arm_angle, back_wrist_target = self._solve_arm_endpoint(
-                pose.back_arm_sprite, back_shoulder_target, pose.back_wrist_delta, pose.torso_angle, armS, pose.back_arm_angle
+        # Build drawable component items first, then draw them in an editable
+        # bottom-to-top z-order.  This separates skeleton placement from layer
+        # ordering, which is essential for GUI tuning.
+        components: Dict[str, Dict[str, Any]] = {}
+
+        if pose.back_ground_delta is not None:
+            back_leg_scale, back_leg_angle, back_ground_target = self._solve_leg_endpoint(
+                pose.back_leg_sprite, back_hip_target, pose.back_ground_delta, pose.torso_angle, back_legS, pose.back_leg_angle
             )
         else:
-            back_arm_scale, back_arm_angle, back_wrist_target = armS, pose.back_arm_angle, None
+            back_leg_scale, back_leg_angle = back_legS, pose.back_leg_angle
+            back_ground_target = transformed_point(self.atlas.anchor(pose.back_leg_sprite, "ground"), self.atlas.anchor(pose.back_leg_sprite, "hip"), back_hip_target, back_leg_scale, back_leg_angle)
+        components["back_leg"] = {
+            "role": "back_leg", "sprite": pose.back_leg_sprite, "target": back_hip_target, "anchor": "hip",
+            "scale": back_leg_scale, "angle": back_leg_angle, "opacity": pose.opacity,
+            "debug_color": DEBUG_COLORS["back_leg"] if debug_parts else None,
+            "connects_to": {"role": "torso", "sprite": pose.torso_sprite, "anchor": "hip_left"},
+            "joint": "back_hip", "parent_target": back_hip_target,
+            "endpoint": back_ground_target,
+        }
+        back_leg_worlds = self._component_anchor_worlds(
+            pose.back_leg_sprite, self.atlas.anchor(pose.back_leg_sprite, "hip"), back_hip_target, back_leg_scale, back_leg_angle
+        )
+        back_ankle_target = back_leg_worlds.get("ankle", back_ground_target)
+        back_ankle_target = (back_ankle_target[0] + pose.back_foot_offset[0], back_ankle_target[1] + pose.back_foot_offset[1])
+        components["back_foot"] = {
+            "role": "back_foot", "sprite": pose.back_foot_sprite, "target": back_ankle_target, "anchor": "ankle",
+            "scale": back_footS, "angle": pose.back_foot_angle, "opacity": pose.opacity,
+            "debug_color": DEBUG_COLORS["back_foot"] if debug_parts else None,
+            "connects_to": {"role": "back_leg", "sprite": pose.back_leg_sprite, "anchor": "ankle"},
+            "joint": "back_ankle", "parent_target": back_ankle_target,
+            "endpoint": transformed_point(self.atlas.anchor(pose.back_foot_sprite, "ground"), self.atlas.anchor(pose.back_foot_sprite, "ankle"), back_ankle_target, back_footS, pose.back_foot_angle),
+        }
+
+        if pose.front_ground_delta is not None:
+            front_leg_scale, front_leg_angle, front_ground_target = self._solve_leg_endpoint(
+                pose.front_leg_sprite, front_hip_target, pose.front_ground_delta, pose.torso_angle, front_legS, pose.front_leg_angle
+            )
+        else:
+            front_leg_scale, front_leg_angle = front_legS, pose.front_leg_angle
+            front_ground_target = transformed_point(self.atlas.anchor(pose.front_leg_sprite, "ground"), self.atlas.anchor(pose.front_leg_sprite, "hip"), front_hip_target, front_leg_scale, front_leg_angle)
+        components["front_leg"] = {
+            "role": "front_leg", "sprite": pose.front_leg_sprite, "target": front_hip_target, "anchor": "hip",
+            "scale": front_leg_scale, "angle": front_leg_angle, "opacity": pose.opacity,
+            "debug_color": DEBUG_COLORS["front_leg"] if debug_parts else None,
+            "connects_to": {"role": "torso", "sprite": pose.torso_sprite, "anchor": "hip_right"},
+            "joint": "front_hip", "parent_target": front_hip_target,
+            "endpoint": front_ground_target,
+        }
+        front_leg_worlds = self._component_anchor_worlds(
+            pose.front_leg_sprite, self.atlas.anchor(pose.front_leg_sprite, "hip"), front_hip_target, front_leg_scale, front_leg_angle
+        )
+        front_ankle_target = front_leg_worlds.get("ankle", front_ground_target)
+        front_ankle_target = (front_ankle_target[0] + pose.front_foot_offset[0], front_ankle_target[1] + pose.front_foot_offset[1])
+        components["front_foot"] = {
+            "role": "front_foot", "sprite": pose.front_foot_sprite, "target": front_ankle_target, "anchor": "ankle",
+            "scale": front_footS, "angle": pose.front_foot_angle, "opacity": pose.opacity,
+            "debug_color": DEBUG_COLORS["front_foot"] if debug_parts else None,
+            "connects_to": {"role": "front_leg", "sprite": pose.front_leg_sprite, "anchor": "ankle"},
+            "joint": "front_ankle", "parent_target": front_ankle_target,
+            "endpoint": transformed_point(self.atlas.anchor(pose.front_foot_sprite, "ground"), self.atlas.anchor(pose.front_foot_sprite, "ankle"), front_ankle_target, front_footS, pose.front_foot_angle),
+        }
+
+        if pose.back_wrist_delta is not None:
+            back_arm_scale, back_arm_angle, back_wrist_target = self._solve_arm_endpoint(
+                pose.back_arm_sprite, back_shoulder_target, pose.back_wrist_delta, pose.torso_angle, back_armS, pose.back_arm_angle
+            )
+        else:
+            back_arm_scale, back_arm_angle, back_wrist_target = back_armS, pose.back_arm_angle, None
         back_arm_preview = self._component_anchor_worlds(pose.back_arm_sprite, self.atlas.anchor(pose.back_arm_sprite, "shoulder"), back_shoulder_target, back_arm_scale, back_arm_angle)
-        if back_wrist_target is None:
-            back_wrist_target = back_arm_preview.get("wrist", back_shoulder_target)
+        # Attach children to the arm's actual transformed wrist anchor.  This is
+        # intentionally derived from the transformed component, not from an
+        # independent intended target, so connected anchors stay coincident even
+        # after scale/rotation policy changes.
+        back_wrist_target = back_arm_preview.get("wrist", back_shoulder_target)
         back_wrist = (back_wrist_target[0] + pose.back_hand_offset[0], back_wrist_target[1] + pose.back_hand_offset[1])
+        components["back_arm"] = {
+            "role": "back_arm", "sprite": pose.back_arm_sprite, "target": back_shoulder_target, "anchor": "shoulder",
+            "scale": back_arm_scale, "angle": back_arm_angle, "opacity": pose.opacity,
+            "debug_color": DEBUG_COLORS["back_arm"] if debug_parts else None,
+            "connects_to": {"role": "torso", "sprite": pose.torso_sprite, "anchor": "shoulder_left"},
+            "joint": "back_shoulder", "parent_target": back_shoulder_target,
+            "endpoint": back_wrist_target,
+        }
+        components["back_hand"] = {
+            "role": "back_hand", "sprite": pose.back_hand_sprite, "target": back_wrist, "anchor": "wrist",
+            "scale": back_handS, "angle": pose.back_hand_angle + back_arm_angle * pose.hand_follow, "opacity": pose.opacity,
+            "debug_color": DEBUG_COLORS["back_hand"] if debug_parts else None,
+            "connects_to": {"role": "back_arm", "sprite": pose.back_arm_sprite, "anchor": "wrist"},
+            "joint": "back_wrist", "parent_target": back_wrist,
+        }
 
         if pose.front_wrist_delta is not None:
             front_arm_scale, front_arm_angle, front_wrist_target = self._solve_arm_endpoint(
-                pose.front_arm_sprite, front_shoulder_target, pose.front_wrist_delta, pose.torso_angle, armS, pose.front_arm_angle
+                pose.front_arm_sprite, front_shoulder_target, pose.front_wrist_delta, pose.torso_angle, front_armS, pose.front_arm_angle
             )
         else:
-            front_arm_scale, front_arm_angle, front_wrist_target = armS, pose.front_arm_angle, None
+            front_arm_scale, front_arm_angle, front_wrist_target = front_armS, pose.front_arm_angle, None
         front_arm_preview = self._component_anchor_worlds(pose.front_arm_sprite, self.atlas.anchor(pose.front_arm_sprite, "shoulder"), front_shoulder_target, front_arm_scale, front_arm_angle)
-        if front_wrist_target is None:
-            front_wrist_target = front_arm_preview.get("wrist", front_shoulder_target)
+        # Attach children to the arm's actual transformed wrist anchor.
+        front_wrist_target = front_arm_preview.get("wrist", front_shoulder_target)
         front_wrist = (front_wrist_target[0] + pose.front_hand_offset[0], front_wrist_target[1] + pose.front_hand_offset[1])
-
-        torso_neck = torso_anchors["neck"]
-        head_target = (torso_neck[0] + pose.head_offset[0], torso_neck[1] + pose.head_offset[1])
-        head_world_angle = pose.head_angle + pose.torso_angle * pose.head_inherit_torso
-        head_img = self._head_image(pose.head_sprite, pose.face_sprite)
-        if debug_parts:
-            head_img = alpha_multiply(solidify_alpha(head_img, DEBUG_COLORS["head"]), 0.58)
-        head_local_anchor = self.atlas.anchor(pose.head_sprite, "neck")
-
-        # Prepare drawable parts.  Each part is keyed by the semantic layer name
-        # used in ``pose.z_order`` and in the GUI z-order editor.
-        part_specs: Dict[str, Dict[str, Any]] = {
-            "back_leg": dict(kind="sprite", sprite=pose.back_leg_sprite, target=back_hip_target, anchor="hip", scale=legS, angle=pose.back_leg_angle, color=DEBUG_COLORS["back_leg"], label="back_leg"),
-            "front_leg": dict(kind="sprite", sprite=pose.front_leg_sprite, target=front_hip_target, anchor="hip", scale=legS, angle=pose.front_leg_angle, color=DEBUG_COLORS["front_leg"], label="front_leg"),
-            "back_hand": dict(kind="sprite", sprite=pose.back_hand_sprite, target=back_wrist, anchor="wrist", scale=handS, angle=pose.back_hand_angle + back_arm_angle * pose.hand_follow, color=DEBUG_COLORS["back_hand"], label="back_wr"),
-            "back_arm": dict(kind="sprite", sprite=pose.back_arm_sprite, target=back_shoulder_target, anchor="shoulder", scale=back_arm_scale, angle=back_arm_angle, color=DEBUG_COLORS["back_arm"], label="back_sh"),
-            "front_arm": dict(kind="sprite", sprite=pose.front_arm_sprite, target=front_shoulder_target, anchor="shoulder", scale=front_arm_scale, angle=front_arm_angle, color=DEBUG_COLORS["front_arm"], label="front_sh"),
-            "front_hand": dict(kind="sprite", sprite=pose.front_hand_sprite, target=front_wrist, anchor="wrist", scale=handS, angle=pose.front_hand_angle + front_arm_angle * pose.hand_follow, color=DEBUG_COLORS["front_hand"], label="front_wr"),
-            "torso": dict(kind="image", sprite=pose.torso_sprite, img=self.atlas.image(pose.torso_sprite), target=hip_target, anchor=torso_hip_anchor, scale=torsoS, angle=pose.torso_angle, color=DEBUG_COLORS["torso"], label="torso_hips"),
-            "head": dict(kind="image", sprite=pose.head_sprite, img=head_img, target=head_target, anchor=head_local_anchor, scale=headS, angle=head_world_angle, color=DEBUG_COLORS["head"], label="head_neck"),
+        components["front_arm"] = {
+            "role": "front_arm", "sprite": pose.front_arm_sprite, "target": front_shoulder_target, "anchor": "shoulder",
+            "scale": front_arm_scale, "angle": front_arm_angle, "opacity": pose.opacity,
+            "debug_color": DEBUG_COLORS["front_arm"] if debug_parts else None,
+            "connects_to": {"role": "torso", "sprite": pose.torso_sprite, "anchor": "shoulder_right"},
+            "joint": "front_shoulder", "parent_target": front_shoulder_target,
+            "endpoint": front_wrist_target,
+        }
+        components["front_hand"] = {
+            "role": "front_hand", "sprite": pose.front_hand_sprite, "target": front_wrist, "anchor": "wrist",
+            "scale": front_handS, "angle": pose.front_hand_angle + front_arm_angle * pose.hand_follow, "opacity": pose.opacity,
+            "debug_color": DEBUG_COLORS["front_hand"] if debug_parts else None,
+            "connects_to": {"role": "front_arm", "sprite": pose.front_arm_sprite, "anchor": "wrist"},
+            "joint": "front_wrist", "parent_target": front_wrist,
         }
 
-        drawn_order: List[str] = []
-        order = list(pose.z_order or DEFAULT_Z_ORDER)
-        # Ensure every core part is drawn once, even if a hand-edited z-order is
-        # missing an entry.
-        for fallback in DEFAULT_Z_ORDER:
-            if fallback not in order:
-                order.append(fallback)
-        for layer in order:
-            if layer == "fx_behind":
-                for fx in pose.fx_behind:
-                    self._draw_fx(frame, fx, root, S, debug_parts=debug_parts)
-                drawn_order.append(layer)
-                continue
-            if layer == "fx_front":
-                for fx in pose.fx_front:
-                    self._draw_fx(frame, fx, root, S, debug_parts=debug_parts)
-                drawn_order.append(layer)
-                continue
-            spec = part_specs.get(layer)
-            if spec is None:
-                continue
-            if spec["kind"] == "sprite":
-                self._paste_sprite(
-                    frame, spec["sprite"], spec["target"], spec["anchor"], spec["scale"], spec["angle"], pose.opacity,
-                    spec["color"] if debug_parts else None, spec["label"] if debug_parts else None,
-                )
-            else:
-                self._paste_image_for_sprite(
-                    frame, spec["sprite"], spec["img"], spec["target"], spec["anchor"], spec["scale"], spec["angle"], pose.opacity,
-                    spec["color"] if debug_parts else None, spec["label"] if debug_parts else None,
-                )
-            drawn_order.append(layer)
+        torso_img = self.atlas.image(pose.torso_sprite)
+        if debug_parts:
+            torso_img = solidify_alpha(torso_img, DEBUG_COLORS["torso"])
+        components["torso"] = {
+            "role": "torso", "sprite": pose.torso_sprite, "image": torso_img, "target": hip_target,
+            "local_anchor": torso_hip_anchor, "anchor": "hip_mid", "scale": torsoS, "angle": pose.torso_angle,
+            "opacity": pose.opacity, "debug_color": DEBUG_COLORS["torso"] if debug_parts else None,
+            "connects_to": {"role": "root", "anchor": "hip_mid"},
+            "joint": "root_hip", "parent_target": hip_target,
+        }
 
+        # Draw z-ordered body items.  Unrecognized roles are ignored; missing
+        # roles fall back to the default order so partial GUI overrides are safe.
+        draw_order = list(pose.z_order or DEFAULT_Z_ORDER)
+        for role in DEFAULT_Z_ORDER:
+            if role in components and role not in draw_order:
+                draw_order.append(role)
+        component_manifests: List[Dict[str, Any]] = []
+        drawn_anchors: Dict[str, Dict[str, Point]] = {}
+
+        def component_worlds(item: Mapping[str, Any]) -> Dict[str, Point]:
+            local_anchor = item.get("local_anchor")
+            if local_anchor is None:
+                local_anchor = self.atlas.anchor(item["sprite"], item.get("anchor", "pivot"))
+            return self._component_anchor_worlds(item["sprite"], local_anchor, item["target"], item["scale"], item["angle"])
+
+        def _rounded_point(pt: Point | None) -> List[float] | None:
+            if pt is None:
+                return None
+            return [round(float(pt[0]), 2), round(float(pt[1]), 2)]
+
+        def _rounded_rect(rect: Sequence[float] | None) -> List[float] | None:
+            if rect is None:
+                return None
+            return [round(float(v), 2) for v in rect]
+
+        def component_bounds(item: Mapping[str, Any]) -> List[float]:
+            local_anchor = item.get("local_anchor")
+            if local_anchor is None:
+                local_anchor = self.atlas.anchor(item["sprite"], item.get("anchor", "pivot"))
+            img = item.get("image")
+            if img is None:
+                img = self.atlas.image(item["sprite"])
+            return transformed_bounds((int(img.width), int(img.height)), local_anchor, item["target"], item["scale"], item["angle"])
+
+        def append_component_manifest(role: str, item: Mapping[str, Any], visible: bool, worlds: Mapping[str, Point]) -> None:
+            child_anchor_name = str(item.get("anchor") or "pivot")
+            child_world = worlds.get(child_anchor_name, item.get("target"))
+            parent_target = item.get("parent_target") or item.get("target")
+            snap_error = distance(child_world, parent_target) if child_world is not None and parent_target is not None else None
+            component_manifests.append({
+                "role": role,
+                "sprite": item["sprite"],
+                "anchor": child_anchor_name,
+                "target": _rounded_point(item["target"]),
+                "scale": round(float(item["scale"]), 4),
+                "angle": round(float(item["angle"]), 3),
+                "visible": bool(visible),
+                "joint": item.get("joint"),
+                "connects_to": item.get("connects_to"),
+                "parent_target": _rounded_point(parent_target),
+                "child_anchor_world": _rounded_point(child_world),
+                "snap_error_px": None if snap_error is None else round(float(snap_error), 4),
+                "endpoint": _rounded_point(item.get("endpoint")),
+                "endpoint_anchor_world": _rounded_point(worlds.get("wrist") or worlds.get("ground") or worlds.get("ankle")),
+                "endpoint_snap_error_px": (
+                    None
+                    if item.get("endpoint") is None
+                    else round(float(distance(worlds.get("wrist") or worlds.get("ground") or worlds.get("ankle") or item["target"], item.get("endpoint"))), 4)
+                ),
+                "bounds": _rounded_rect(component_bounds(item)),
+                "z_index": len(component_manifests),
+            })
+
+        for role in draw_order:
+            if role in {"fx_behind", "fx_front", "head"}:
+                continue
+            item = components.get(role)
+            if item is None:
+                continue
+            visible = is_visible(role)
+            if "image" in item:
+                worlds = self._component_anchor_worlds(item["sprite"], item["local_anchor"], item["target"], item["scale"], item["angle"])
+                if visible:
+                    paste_transformed(frame, item["image"], item["target"], item["local_anchor"], item["scale"], item["angle"], item["opacity"])
+                    if debug_parts:
+                        draw_anchor_marker(ImageDraw.Draw(frame), item["target"], item["debug_color"])
+            else:
+                if visible:
+                    worlds = self._paste_sprite(frame, item["sprite"], item["target"], item["anchor"], item["scale"], item["angle"], item["opacity"], item["debug_color"], role if debug_parts else None)
+                else:
+                    worlds = component_worlds(item)
+            drawn_anchors[role] = worlds
+            append_component_manifest(role, item, visible, worlds)
         if debug_parts:
             d = ImageDraw.Draw(frame)
             # Skeleton links: no text, only component colors.  Hollow white dots
@@ -1199,8 +1563,47 @@ class RobotAssembler:
             for pt in [torso_anchors["shoulder_left"], torso_anchors["shoulder_right"], torso_anchors["hip_left"], torso_anchors["hip_right"], torso_anchors["neck"]]:
                 x, y = pt
                 d.ellipse((x - 3, y - 3, x + 3, y + 3), outline=(255, 255, 255, 230), width=1)
-            for pt, col in [(back_hip_target, DEBUG_COLORS["back_leg"]), (front_hip_target, DEBUG_COLORS["front_leg"]), (root, (255,255,255,240)), (head_target, DEBUG_COLORS["head"])]:
+            for pt, col in [(back_hip_target, DEBUG_COLORS["back_leg"]), (front_hip_target, DEBUG_COLORS["front_leg"]), (root, (255,255,255,240))]:
                 draw_anchor_marker(d, pt, col)
+
+        # Head with baked expression.  Expressions are fitted to the detected
+        # visor in the selected head sprite, then transformed as one unit; this
+        # keeps hurt/dead/teleport/blink overlays locked to tilted heads.
+        torso_neck = torso_anchors["neck"]
+        head_target = (torso_neck[0] + pose.head_offset[0], torso_neck[1] + pose.head_offset[1])
+        head_world_angle = pose.head_angle + pose.torso_angle * pose.head_inherit_torso
+        head_img = self._head_image(pose.head_sprite, pose.face_sprite)
+        if debug_parts:
+            head_img = alpha_multiply(solidify_alpha(head_img, DEBUG_COLORS["head"]), 0.58)
+        head_local_anchor = self.atlas.anchor(pose.head_sprite, "neck")
+        head_visible = is_visible("head")
+        if head_visible:
+            paste_transformed(frame, head_img, head_target, head_local_anchor, headS, head_world_angle, pose.opacity)
+        head_anchors = self._component_anchor_worlds(pose.head_sprite, head_local_anchor, head_target, headS, head_world_angle)
+        if debug_parts and head_visible:
+            draw_anchor_marker(ImageDraw.Draw(frame), head_target, DEBUG_COLORS["head"], "head_neck")
+        head_child_world = head_anchors.get("neck", head_target)
+        head_snap_error = distance(head_child_world, torso_neck)
+        component_manifests.append({
+            "role": "head",
+            "sprite": pose.head_sprite,
+            "anchor": "neck",
+            "target": [round(head_target[0], 2), round(head_target[1], 2)],
+            "scale": round(float(headS), 4),
+            "angle": round(float(head_world_angle), 3),
+            "visible": bool(head_visible),
+            "joint": "neck",
+            "connects_to": {"role": "torso", "sprite": pose.torso_sprite, "anchor": "neck"},
+            "parent_target": [round(torso_neck[0], 2), round(torso_neck[1], 2)],
+            "child_anchor_world": [round(head_child_world[0], 2), round(head_child_world[1], 2)],
+            "snap_error_px": round(float(head_snap_error), 4),
+            "bounds": _rounded_rect(transformed_bounds((head_img.width, head_img.height), head_local_anchor, head_target, headS, head_world_angle)),
+            "z_index": len(component_manifests),
+        })
+
+        if is_visible("fx_front"):
+            for fx in pose.fx_front:
+                self._draw_fx(frame, fx, root, S, debug_parts=debug_parts)
 
         manifest = {
             "animation": animation,
@@ -1214,7 +1617,6 @@ class RobotAssembler:
                 "face_sprite": pose.face_sprite,
                 "opacity": round(pose.opacity, 3),
                 "debug_parts": bool(debug_parts),
-                "overrides_applied": {k: (list(v) if isinstance(v, tuple) else v) for k, v in applied_overrides.items()},
                 "head_mount": {
                     "torso_neck": [round(torso_neck[0], 2), round(torso_neck[1], 2)],
                     "head_target": [round(head_target[0], 2), round(head_target[1], 2)],
@@ -1223,12 +1625,42 @@ class RobotAssembler:
                     "head_world_angle": round(head_world_angle, 2),
                     "head_inherit_torso": round(pose.head_inherit_torso, 3),
                 },
+                "z_order": draw_order,
+                "hidden_parts": sorted(hidden_parts),
+                "visible_parts": sorted(visible_parts) if visible_parts is not None else None,
+                "components": component_manifests,
+                "rig_constraints": [
+                    {
+                        "role": c.get("role"),
+                        "joint": c.get("joint"),
+                        "child": {"sprite": c.get("sprite"), "anchor": c.get("anchor")},
+                        "parent": c.get("connects_to"),
+                        "parent_target": c.get("parent_target"),
+                        "child_anchor_world": c.get("child_anchor_world"),
+                        "snap_error_px": c.get("snap_error_px"),
+                        "visible": c.get("visible"),
+                    }
+                    for c in component_manifests
+                    if c.get("connects_to") is not None
+                ],
                 "part_scales": {
                     "torso": round(pose.torso_scale, 3),
                     "head": round(pose.head_scale, 3),
-                    "arm": round(pose.arm_scale, 3),
-                    "hand": round(pose.hand_scale, 3),
-                    "leg": round(pose.leg_scale, 3),
+                    "face": round(pose.face_scale, 3),
+                    "front_arm": round(role_scale_multiplier(pose, "front_arm"), 3),
+                    "back_arm": round(role_scale_multiplier(pose, "back_arm"), 3),
+                    "front_hand": round(role_scale_multiplier(pose, "front_hand"), 3),
+                    "back_hand": round(role_scale_multiplier(pose, "back_hand"), 3),
+                    "front_leg": round(role_scale_multiplier(pose, "front_leg"), 3),
+                    "back_leg": round(role_scale_multiplier(pose, "back_leg"), 3),
+                    "front_foot": round(role_scale_multiplier(pose, "front_foot"), 3),
+                    "back_foot": round(role_scale_multiplier(pose, "back_foot"), 3),
+                    "legacy_groups": {
+                        "arm": round(pose.arm_scale, 3),
+                        "hand": round(pose.hand_scale, 3),
+                        "leg": round(pose.leg_scale, 3),
+                        "foot": round(pose.foot_scale, 3),
+                    },
                 },
                 "arm_mounts": {
                     "back_shoulder_raw": [round(torso_anchors["shoulder_left"][0], 2), round(torso_anchors["shoulder_left"][1], 2)],
@@ -1244,7 +1676,7 @@ class RobotAssembler:
                     "back_wrist_delta": None if pose.back_wrist_delta is None else [round(pose.back_wrist_delta[0], 2), round(pose.back_wrist_delta[1], 2)],
                     "front_wrist_delta": None if pose.front_wrist_delta is None else [round(pose.front_wrist_delta[0], 2), round(pose.front_wrist_delta[1], 2)],
                     "hand_follow": round(pose.hand_follow, 3),
-                    "z_order": drawn_order,
+                    "z_order": ["back_foot", "back_leg", "back_hand", "back_arm", "torso", "front_leg", "front_foot", "front_arm", "front_hand", "head", "fx_front"],
                 },
                 "leg_mounts": {
                     "back_hip_raw": [round(torso_anchors["hip_left"][0], 2), round(torso_anchors["hip_left"][1], 2)],
@@ -1253,6 +1685,8 @@ class RobotAssembler:
                     "front_hip_target": [round(front_hip_target[0], 2), round(front_hip_target[1], 2)],
                     "back_hip_offset": [round(pose.back_hip_offset[0], 2), round(pose.back_hip_offset[1], 2)],
                     "front_hip_offset": [round(pose.front_hip_offset[0], 2), round(pose.front_hip_offset[1], 2)],
+                    "back_ankle": [round(back_ankle_target[0], 2), round(back_ankle_target[1], 2)],
+                    "front_ankle": [round(front_ankle_target[0], 2), round(front_ankle_target[1], 2)],
                 },
             },
         }
@@ -1293,15 +1727,17 @@ def bbox_warnings(bbox: Optional[Tuple[int, int, int, int]], width: int, height:
 
 def build_spritesheet(job: RigJob, debug_parts: bool = False) -> Tuple[Image.Image, Dict[str, Any]]:
     atlas = ComponentAtlas(job.metadata, job.slices)
-    assembler = RobotAssembler(atlas, job.render, load_pose_overrides(job.pose_overrides))
-    selected = [a for a in job.animations if a in ANIMATIONS]
-    missing = [a for a in job.animations if a not in ANIMATIONS]
+    pose_overrides = load_pose_overrides(job.pose_overrides)
+    assembler = RobotAssembler(atlas, job.render, pose_overrides=pose_overrides)
+    valid_names = set(ANIMATIONS) | set((pose_overrides.get("animations") or {}).keys())
+    selected = [a for a in job.animations if a in valid_names]
+    missing = [a for a in job.animations if a not in valid_names]
     if missing:
         raise KeyError(f"unsupported animations: {missing}; available={sorted(ANIMATIONS)}")
     fw, fh = job.render.frame_width, job.render.frame_height
     label_w = max(0, job.render.label_width)
     border = max(0, job.render.border)
-    max_frames = max(ANIMATIONS[a]["frames"] for a in selected)
+    max_frames = max(animation_info(a, pose_overrides)["frames"] for a in selected)
     sheet_w = label_w + border + max_frames * (fw + border)
     sheet_h = border + len(selected) * (fh + border)
     sheet = Image.new("RGBA", (sheet_w, sheet_h), parse_bg(job.render.sheet_background))
@@ -1310,6 +1746,7 @@ def build_spritesheet(job: RigJob, debug_parts: bool = False) -> Tuple[Image.Ima
         "target": "component_robot",
         "metadata": str(job.metadata),
         "slices": str(job.slices),
+        "pose_overrides": str(job.pose_overrides) if job.pose_overrides else None,
         "frame_width": fw,
         "frame_height": fh,
         "label_width": label_w,
@@ -1323,7 +1760,7 @@ def build_spritesheet(job: RigJob, debug_parts: bool = False) -> Tuple[Image.Ima
         ],
     }
     for row, animation in enumerate(selected):
-        info = ANIMATIONS[animation]
+        info = animation_info(animation, pose_overrides)
         y = border + row * (fh + border)
         if label_w:
             draw.text((8, y + 8), animation, fill=(255, 255, 255, 255), font=font(12))
@@ -1368,7 +1805,7 @@ def write_spritesheet(job: RigJob, image_out: str | Path, manifest_out: str | Pa
 
 def write_single(job: RigJob, output: str | Path, animation: str, frame_index: int, debug_parts: bool = False) -> Path:
     atlas = ComponentAtlas(job.metadata, job.slices)
-    assembler = RobotAssembler(atlas, job.render, load_pose_overrides(job.pose_overrides))
+    assembler = RobotAssembler(atlas, job.render, pose_overrides=load_pose_overrides(job.pose_overrides))
     image, manifest = assembler.render_frame(animation, frame_index, debug_parts=debug_parts)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -1380,7 +1817,7 @@ def write_single(job: RigJob, output: str | Path, animation: str, frame_index: i
 def write_debug_frame(job: RigJob, output: str | Path, animation: str, frame_index: int, zoom: int = 5, pad: int = 30, background: str = "black") -> Path:
     """Render a large cropped single-frame debug view with tied anchors visible."""
     atlas = ComponentAtlas(job.metadata, job.slices)
-    assembler = RobotAssembler(atlas, job.render, load_pose_overrides(job.pose_overrides))
+    assembler = RobotAssembler(atlas, job.render, pose_overrides=load_pose_overrides(job.pose_overrides))
     image, manifest = assembler.render_frame(animation, frame_index, debug_parts=True)
     bbox = frame_alpha_bbox(image)
     if bbox is not None:

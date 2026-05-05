@@ -7,6 +7,7 @@
 
 use ambition_engine as ae;
 use ambition_engine::AabbExt;
+use bevy::prelude::*;
 
 use crate::platforms::MovingPlatformState;
 
@@ -125,6 +126,23 @@ pub struct FeatureEvents {
     /// payload is the Custom string from `Interactable::Custom("switch:...")`
     /// — the consumer parses it via `SwitchActivation::parse_custom`.
     pub switch_activations: Vec<String>,
+    /// Per-boss damage events from this frame's player attack(s).
+    /// `(boss_runtime_id, damage_amount)`. Drained by
+    /// `boss_encounter::record_boss_damage` so the encounter phase
+    /// machine can react.
+    pub boss_damage: Vec<(String, i32)>,
+    /// NPCs the player struck this frame. Used by the hostile-NPC
+    /// system to convert peaceful NPCs into combat encounters.
+    /// `(npc_id, npc_pos)`.
+    pub npc_struck: Vec<(String, ae::Vec2)>,
+    /// Quest advance events surfaced from gameplay this frame
+    /// (e.g. NPC talked, item collected). Drained by
+    /// `quest::apply_quest_advance_events`. Kept as `String` payloads
+    /// so the engine doesn't need a Bevy-aware enum here.
+    pub quest_advance: Vec<ae::QuestAdvanceEvent>,
+    /// Save flags to set this frame. `(flag_id, on)`. Routed by the
+    /// sandbox runtime into `SandboxSave`.
+    pub flag_writes: Vec<(String, bool)>,
 }
 
 impl FeatureEvents {
@@ -142,6 +160,10 @@ impl FeatureEvents {
         self.player_heal += other.player_heal;
         self.switch_activations
             .append(&mut other.switch_activations);
+        self.boss_damage.append(&mut other.boss_damage);
+        self.npc_struck.append(&mut other.npc_struck);
+        self.quest_advance.append(&mut other.quest_advance);
+        self.flag_writes.append(&mut other.flag_writes);
     }
 }
 
@@ -206,6 +228,31 @@ impl SwitchRuntime {
 }
 
 impl FeatureRuntime {
+    /// Idempotently sync save-derived state onto the live runtime.
+    /// Called every frame so a freshly-loaded room reflects boss
+    /// defeats, NPC hostility, etc. Cheap (linear in feature counts).
+    pub fn apply_save(&mut self, save: &ae::SandboxSaveData) {
+        for npc in &mut self.npcs {
+            let flag_id = npc.flag_id();
+            if save.flag(&flag_id) && !npc.hostile {
+                npc.hostile = true;
+                npc.strikes = NPC_HOSTILE_STRIKE_THRESHOLD;
+            }
+        }
+        // Boss defeats: hide already-cleared bosses by marking the
+        // runtime dead. New `BossSpawn` instances from the LDtk
+        // file all start `alive=true`, so this is the gate.
+        for boss in &mut self.bosses {
+            if matches!(
+                save.boss(&boss.id),
+                ae::PersistedEncounterState::Cleared
+            ) {
+                boss.alive = false;
+                boss.health.current = 0;
+            }
+        }
+    }
+
     /// Set the on/off rendering state for a named switch (no-op if the
     /// id doesn't exist). The encounter system calls this whenever
     /// the persisted switch state or live encounter phase changes.
@@ -426,7 +473,18 @@ impl FeatureRuntime {
                 if npc.aabb().strict_intersects(player_body) {
                     events.consumed_interaction = true;
                     events.messages.push(npc.message());
-                    events.dialogue_request = Some(npc.dialogue_request());
+                    if !npc.hostile {
+                        events.dialogue_request = Some(npc.dialogue_request());
+                        // Quest hook: "talked to NPC" + a generic
+                        // "met any hub NPC" flag the tutorial quest
+                        // listens for.
+                        events
+                            .quest_advance
+                            .push(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()));
+                        events
+                            .flag_writes
+                            .push(("met_any_hub_npc".into(), true));
+                    }
                     events.bursts.push(npc.pos);
                 }
             }
@@ -465,6 +523,23 @@ impl FeatureRuntime {
                     events.impacts.push(damage.impact_pos);
                     events.player_damage.push(damage);
                 }
+            }
+        }
+
+        // Hostile NPCs deal contact damage like a slow striker. They
+        // don't track player position the way `EnemyRuntime` does
+        // yet — they just punch out if the player is in their AABB.
+        for npc in &mut self.npcs {
+            npc.hit_flash = (npc.hit_flash - dt).max(0.0);
+            if !player_vulnerable {
+                continue;
+            }
+            if let Some(damage) = npc.hostile_damage(player_body) {
+                events
+                    .messages
+                    .push(format!("{} struck the player", npc.name));
+                events.impacts.push(damage.impact_pos);
+                events.player_damage.push(damage);
             }
         }
 
@@ -514,8 +589,10 @@ impl FeatureRuntime {
         for boss in &mut self.bosses {
             if boss.alive && attack.strict_intersects(boss.aabb()) {
                 boss.hit_flash = 0.18;
-                let killed = boss.health.damage(damage.max(1));
+                let amount = damage.max(1);
+                let killed = boss.health.damage(amount);
                 events.impacts.push(midpoint(attack.center(), boss.pos));
+                events.boss_damage.push((boss.id.clone(), amount));
                 if killed {
                     boss.alive = false;
                     events.messages.push(format!("defeated boss {}", boss.name));
@@ -524,6 +601,40 @@ impl FeatureRuntime {
                         pos: boss.pos,
                         cue: FeaturePhysicsCue::BossRagdoll,
                     });
+                }
+            }
+        }
+
+        // NPC strikes — non-hostile NPCs accumulate hits; once they
+        // cross `NPC_HOSTILE_STRIKE_THRESHOLD` they flip hostile and
+        // begin acting like a striker enemy. Already-hostile NPCs
+        // take real damage like any other enemy. The save flag write
+        // (`npc_<id>_hostile`) is queued via `flag_writes` so the
+        // sandbox runtime persists it.
+        for npc in &mut self.npcs {
+            if !attack.strict_intersects(npc.aabb()) {
+                continue;
+            }
+            npc.hit_flash = 0.18;
+            events.impacts.push(midpoint(attack.center(), npc.pos));
+            events.npc_struck.push((npc.id.clone(), npc.pos));
+            if npc.hostile {
+                // Hostile NPC takes a damage tick; if it dies, fall
+                // through and let the death cleanup happen on the
+                // next room enter.
+                npc.strikes = npc.strikes.saturating_add(1);
+                if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD * 2 {
+                    events
+                        .messages
+                        .push(format!("{} flees the room", npc.name));
+                }
+            } else {
+                npc.strikes = npc.strikes.saturating_add(1);
+                if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
+                    npc.hostile = true;
+                    events.messages.push(format!("{} turns hostile", npc.name));
+                    events.flag_writes.push((npc.flag_id(), true));
+                    events.bursts.push(npc.pos);
                 }
             }
         }
@@ -1408,7 +1519,108 @@ pub struct NpcRuntime {
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
     pub interactable: ae::Interactable,
+    /// Hostility flag. Becomes true after the player strikes the NPC
+    /// enough times to provoke them. While hostile, talking is
+    /// disabled and the NPC begins acting like a striker enemy. The
+    /// flag is mirrored into `SandboxSave` (`flag_writes`) so it
+    /// persists across rooms / saves.
+    pub hostile: bool,
+    /// Hits the NPC has taken since the last reset. Crosses
+    /// `HOSTILE_THRESHOLD` to flip hostile.
+    pub strikes: i32,
+    /// Brief flash after a strike — used by the renderer to flicker
+    /// the NPC red without changing the dialog system.
+    pub hit_flash: f32,
 }
+
+/// Apply save-derived state (NPC hostility, boss defeats) onto the
+/// live `FeatureRuntime`. Public free function so room-load paths
+/// that already hold the save can apply it inline; a Bevy system
+/// (`sync_features_with_save`) calls it each frame as a safety net.
+pub fn apply_save_to_features(features: &mut FeatureRuntime, save: &ae::SandboxSaveData) {
+    features.apply_save(save);
+}
+
+/// Bevy system: keep the feature runtime in sync with the save
+/// resource. Runs each frame; cheap idempotent linear pass.
+pub fn sync_features_with_save(
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    save: Res<crate::save::SandboxSave>,
+) {
+    apply_save_to_features(&mut runtime.features, save.data());
+}
+
+/// Cross-system bus for feature events that need to fan out to
+/// resources `sandbox_update` doesn't hold. Refilled each frame in
+/// `feature_runtime_phase`; drained by `drain_feature_event_bus`.
+#[derive(Resource, Default)]
+pub struct FeatureEventBus {
+    pub boss_damage: Vec<(String, i32)>,
+    pub npc_struck: Vec<(String, ae::Vec2)>,
+    pub quest_advance: Vec<ae::QuestAdvanceEvent>,
+    pub flag_writes: Vec<(String, bool)>,
+}
+
+impl FeatureEventBus {
+    pub fn ingest(&mut self, events: &FeatureEvents) {
+        self.boss_damage.extend(events.boss_damage.iter().cloned());
+        self.npc_struck.extend(events.npc_struck.iter().cloned());
+        self.quest_advance
+            .extend(events.quest_advance.iter().cloned());
+        self.flag_writes.extend(events.flag_writes.iter().cloned());
+    }
+}
+
+/// Bevy system: drain `FeatureEventBus` into the right downstream
+/// systems. Splits the work across resources so `sandbox_update`
+/// stays under the system-param limit.
+pub fn drain_feature_event_bus(
+    mut bus: ResMut<FeatureEventBus>,
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut save: ResMut<crate::save::SandboxSave>,
+    mut quests: ResMut<crate::quest::QuestRegistry>,
+    mut boss_registry: ResMut<crate::boss_encounter::BossEncounterRegistry>,
+    mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
+    mut cutscene_queue: ResMut<crate::cutscene::CutsceneTriggerQueue>,
+) {
+    // Flag writes first so quest conditions that read flags see them
+    // this same frame.
+    let flags = std::mem::take(&mut bus.flag_writes);
+    for (id, on) in flags {
+        // Mirror flag write into a quest advance event so any quest
+        // step keyed on this flag can react.
+        if on {
+            quests.push_event(ae::QuestAdvanceEvent::FlagSet(id.clone()));
+        }
+        save.data_mut().set_flag(id, on);
+    }
+    // Quest advance events from gameplay (NPC talked, etc.).
+    let advances = std::mem::take(&mut bus.quest_advance);
+    for ev in advances {
+        quests.push_event(ev);
+    }
+    // Boss damage routes through the boss encounter machine.
+    let boss_damage = std::mem::take(&mut bus.boss_damage);
+    for (boss_id, amount) in boss_damage {
+        crate::boss_encounter::record_boss_damage(
+            &mut boss_registry,
+            &mut music_request,
+            &mut cutscene_queue,
+            &mut runtime.features,
+            &boss_id,
+            amount,
+        );
+    }
+    // NPC strikes are reportable for the trace; the actual hostility
+    // flip happens inside `apply_player_attack`. Drain to avoid
+    // accumulation.
+    bus.npc_struck.clear();
+}
+
+/// Number of player attacks before a peaceful NPC turns hostile.
+/// Three lets the player commit to the choice intentionally without
+/// flipping by accident on a stray slash.
+pub const NPC_HOSTILE_STRIKE_THRESHOLD: i32 = 3;
 
 impl NpcRuntime {
     fn new(object: &ae::RoomObject, interactable: ae::Interactable) -> Self {
@@ -1418,6 +1630,9 @@ impl NpcRuntime {
             pos: object.aabb.center(),
             size: object.aabb.half_size() * 2.0,
             interactable,
+            hostile: false,
+            strikes: 0,
+            hit_flash: 0.0,
         }
     }
 
@@ -1425,7 +1640,14 @@ impl NpcRuntime {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 
+    pub fn flag_id(&self) -> String {
+        format!("npc_{}_hostile", self.id)
+    }
+
     fn message(&self) -> String {
+        if self.hostile {
+            return format!("{} attacks!", self.name);
+        }
         match &self.interactable.kind {
             ae::InteractionKind::Npc {
                 dialogue_id: Some(dialogue_id),
@@ -1448,6 +1670,27 @@ impl NpcRuntime {
             npc_name: self.name.clone(),
             dialogue_id,
         }
+    }
+
+    /// Body damage volume returned while hostile (for "NPC walks into
+    /// player" damage). Returns None for a peaceful NPC.
+    pub fn hostile_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
+        if !self.hostile {
+            return None;
+        }
+        let aabb = self.aabb();
+        if !aabb.strict_intersects(player_body) {
+            return None;
+        }
+        Some(PlayerDamageEvent {
+            mode: PlayerDamageMode::Knockback,
+            source: PlayerDamageSource::EnemyBody,
+            source_pos: self.pos,
+            impact_pos: midpoint(player_body.center(), aabb.center()),
+            knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
+            strength: 0.85,
+            amount: 1,
+        })
     }
 }
 

@@ -90,6 +90,15 @@ pub struct SandboxEventWriters<'w> {
     debris: MessageWriter<'w, DebrisBurstMessage>,
 }
 
+/// Queues the simulation half writes to during `sandbox_update`.
+/// Bundled in a single `SystemParam` so sandbox_update stays within
+/// Bevy's 16-system-param budget (otherwise each ResMut counts).
+#[derive(SystemParam)]
+pub struct SandboxQueues<'w> {
+    pub switch_queue: ResMut<'w, crate::encounter::SwitchActivationQueue>,
+    pub feature_bus: ResMut<'w, crate::features::FeatureEventBus>,
+}
+
 /// Per-frame Vec collectors for the sim → presentation event channels.
 ///
 /// `sandbox_update` is the only producer; phase helpers append messages as
@@ -295,6 +304,16 @@ pub fn add_simulation_plugins(app: &mut App) {
         // disk; mutated by encounter + switch systems; written by
         // `autosave_sandbox_save` when change-detection fires.
         .insert_resource(crate::save::SandboxSave::default())
+        // Quest + cutscene systems. Both are sim-side state machines
+        // that read/write the save resource and surface HUD lines via
+        // the encounter overlay.
+        .insert_resource(crate::quest::QuestRegistry::default())
+        .insert_resource(crate::cutscene::default_cutscene_library())
+        .insert_resource(crate::cutscene::ActiveCutscene::default())
+        .insert_resource(crate::cutscene::CutsceneTriggerQueue::default())
+        .insert_resource(crate::cutscene::CutsceneAdvanceRequest::default())
+        .insert_resource(crate::boss_encounter::BossEncounterRegistry::default())
+        .insert_resource(crate::features::FeatureEventBus::default())
         .add_systems(
             Update,
             (
@@ -310,8 +329,22 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::projectile::update_projectiles,
                 crate::encounter::update_encounters_from_world,
                 crate::encounter::sync_encounter_controller_states,
+                crate::cutscene::drain_cutscene_triggers,
+                crate::cutscene::tick_active_cutscene,
+                crate::features::drain_feature_event_bus,
+                crate::boss_encounter::update_boss_encounters,
+                crate::features::sync_features_with_save,
+                crate::quest::apply_quest_advance_events,
             )
                 .chain(),
+        )
+        .add_systems(
+            Startup,
+            (
+                crate::quest::populate_quest_registry,
+                crate::boss_encounter::populate_boss_encounter_registry,
+            )
+                .after(setup_simulation_system),
         )
         // Populate the encounter registry from the LDtk file once
         // resources are inserted. Save state is read here so a saved
@@ -818,10 +851,12 @@ fn sandbox_update(
     mut event_writers: SandboxEventWriters,
     control_frame: Res<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
-    mut switch_queue: ResMut<crate::encounter::SwitchActivationQueue>,
+    mut queues: SandboxQueues,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
+    let switch_queue = &mut queues.switch_queue;
+    let feature_bus = &mut queues.feature_bus;
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
@@ -938,6 +973,10 @@ fn sandbox_update(
             switch_queue.0.push(activation);
         }
     }
+    // Forward boss-damage / quest / flag events to downstream
+    // systems via the bus. Drained next frame by
+    // `drain_feature_event_bus`.
+    feature_bus.ingest(&feature_events);
 
     if matches!(
         damage_heal_dialogue_phase(

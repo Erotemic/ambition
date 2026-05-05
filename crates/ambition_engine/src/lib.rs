@@ -12,8 +12,10 @@
 
 pub mod abilities;
 pub mod actor;
+pub mod boss_encounter;
 pub mod boss_patterns;
 pub mod combat;
+pub mod cutscene;
 pub mod debug;
 pub mod enemy;
 pub mod geometry;
@@ -23,6 +25,7 @@ pub mod music;
 pub mod physics;
 pub mod player_state;
 pub mod projectile;
+pub mod quest;
 pub mod save;
 pub mod scalar;
 pub mod state_machines;
@@ -36,10 +39,14 @@ pub use actor::{
     KinematicPathMode, RespawnPolicy,
 };
 pub use bevy_math::Vec2;
+pub use boss_encounter::{
+    BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
+};
 pub use boss_patterns::{BossAttackKind, BossPatternSchedule, BossPatternStep};
 pub use combat::{
     player_slash_hitbox, slash_hitbox, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
+pub use cutscene::{CutsceneBeat, CutsceneEvent, CutsceneRuntime, CutsceneScript};
 pub use debug::{DebugLabel, DebugLabelKind, DestinationLabel};
 pub use enemy::{spawn_dummies, Dummy, DummyKind};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt};
@@ -70,8 +77,12 @@ pub use projectile::{
     MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody, ProjectileKind,
     ProjectileSpawner, ProjectileSpec, SpawnFailure,
 };
+pub use quest::{
+    QuestAdvanceEvent, QuestSpec, QuestState, QuestStepCondition, QuestStepSpec,
+};
 pub use save::{
-    PersistedEncounter, PersistedEncounterState, PersistedSwitch, SandboxSaveData,
+    PersistedBossDefeat, PersistedEncounter, PersistedEncounterState, PersistedFlag,
+    PersistedQuest, PersistedQuestState, PersistedSwitch, SandboxSaveData,
     CURRENT_SAVE_VERSION,
 };
 pub use scalar::approach;

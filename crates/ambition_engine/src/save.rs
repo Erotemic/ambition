@@ -58,8 +58,83 @@ impl PersistedSwitch {
     }
 }
 
+/// One persisted boss defeat record.
+///
+/// The terminal state is the same vocabulary as encounters
+/// (`Cleared`/`Failed`) so save UIs can render bosses and encounters
+/// uniformly. A "phase reached" snapshot would be a separate type;
+/// today we only persist the terminal outcome to keep the schema
+/// flat.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedBossDefeat {
+    pub id: String,
+    pub state: PersistedEncounterState,
+}
+
+impl PersistedBossDefeat {
+    pub fn new(id: impl Into<String>, state: PersistedEncounterState) -> Self {
+        Self {
+            id: id.into(),
+            state,
+        }
+    }
+}
+
+/// Persisted progress for a single quest.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedQuest {
+    pub id: String,
+    pub state: PersistedQuestState,
+    /// Index of the active step (0-based). Ignored for `NotStarted` /
+    /// `Completed` / `Failed` but kept on the wire so the save can
+    /// remember mid-quest progress.
+    #[serde(default)]
+    pub step: u8,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PersistedQuestState {
+    #[default]
+    NotStarted,
+    InProgress,
+    Completed,
+    Failed,
+}
+
+impl PersistedQuest {
+    pub fn new(id: impl Into<String>, state: PersistedQuestState, step: u8) -> Self {
+        Self {
+            id: id.into(),
+            state,
+            step,
+        }
+    }
+}
+
+/// A named on/off world flag. Used for "cutscene_X_seen",
+/// "npc_Y_hostile", "tutorial_Z_complete" and other one-shot facts
+/// that don't fit the encounter / switch / quest vocabularies.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedFlag {
+    pub id: String,
+    pub on: bool,
+}
+
+impl PersistedFlag {
+    pub fn new(id: impl Into<String>, on: bool) -> Self {
+        Self {
+            id: id.into(),
+            on,
+        }
+    }
+}
+
 /// Top-level sandbox save. Versioned so a future schema change can
 /// migrate or refuse to load gracefully.
+///
+/// Designed to be open-set / extensible: every collection takes
+/// `#[serde(default)]` so older saves load against newer schemas with
+/// missing fields filling in as empty.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SandboxSaveData {
     #[serde(default = "default_save_version")]
@@ -68,9 +143,15 @@ pub struct SandboxSaveData {
     pub encounters: Vec<PersistedEncounter>,
     #[serde(default)]
     pub switches: Vec<PersistedSwitch>,
+    #[serde(default)]
+    pub bosses: Vec<PersistedBossDefeat>,
+    #[serde(default)]
+    pub quests: Vec<PersistedQuest>,
+    #[serde(default)]
+    pub flags: Vec<PersistedFlag>,
 }
 
-pub const CURRENT_SAVE_VERSION: u32 = 1;
+pub const CURRENT_SAVE_VERSION: u32 = 2;
 
 fn default_save_version() -> u32 {
     CURRENT_SAVE_VERSION
@@ -82,6 +163,9 @@ impl SandboxSaveData {
             version: CURRENT_SAVE_VERSION,
             encounters: Vec::new(),
             switches: Vec::new(),
+            bosses: Vec::new(),
+            quests: Vec::new(),
+            flags: Vec::new(),
         }
     }
 
@@ -126,6 +210,90 @@ impl SandboxSaveData {
         } else {
             self.switches.push(PersistedSwitch { id, on });
         }
+    }
+
+    pub fn boss(&self, id: &str) -> PersistedEncounterState {
+        self.bosses
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| b.state)
+            .unwrap_or_default()
+    }
+
+    /// Set a boss's terminal state. `Untouched` removes the entry to
+    /// keep the save file compact, mirroring `set_encounter`.
+    pub fn set_boss(&mut self, id: impl Into<String>, state: PersistedEncounterState) {
+        let id = id.into();
+        if matches!(state, PersistedEncounterState::Untouched) {
+            self.bosses.retain(|b| b.id != id);
+            return;
+        }
+        if let Some(existing) = self.bosses.iter_mut().find(|b| b.id == id) {
+            existing.state = state;
+        } else {
+            self.bosses.push(PersistedBossDefeat { id, state });
+        }
+    }
+
+    pub fn quest(&self, id: &str) -> (PersistedQuestState, u8) {
+        self.quests
+            .iter()
+            .find(|q| q.id == id)
+            .map(|q| (q.state, q.step))
+            .unwrap_or((PersistedQuestState::NotStarted, 0))
+    }
+
+    pub fn set_quest(
+        &mut self,
+        id: impl Into<String>,
+        state: PersistedQuestState,
+        step: u8,
+    ) {
+        let id = id.into();
+        if matches!(state, PersistedQuestState::NotStarted) {
+            self.quests.retain(|q| q.id != id);
+            return;
+        }
+        if let Some(existing) = self.quests.iter_mut().find(|q| q.id == id) {
+            existing.state = state;
+            existing.step = step;
+        } else {
+            self.quests.push(PersistedQuest { id, state, step });
+        }
+    }
+
+    pub fn flag(&self, id: &str) -> bool {
+        self.flags
+            .iter()
+            .find(|f| f.id == id)
+            .map(|f| f.on)
+            .unwrap_or(false)
+    }
+
+    pub fn set_flag(&mut self, id: impl Into<String>, on: bool) {
+        let id = id.into();
+        if !on {
+            // Off is the default — drop the entry to keep the save
+            // compact. Mirrors `set_encounter` with `Untouched`.
+            self.flags.retain(|f| f.id != id);
+            return;
+        }
+        if let Some(existing) = self.flags.iter_mut().find(|f| f.id == id) {
+            existing.on = on;
+        } else {
+            self.flags.push(PersistedFlag { id, on });
+        }
+    }
+
+    /// Wholesale clear all gameplay state. Keeps `version` so the
+    /// schema remains current. Used by debug "reset save" hooks and
+    /// tests.
+    pub fn reset_all(&mut self) {
+        self.encounters.clear();
+        self.switches.clear();
+        self.bosses.clear();
+        self.quests.clear();
+        self.flags.clear();
     }
 }
 
@@ -180,6 +348,76 @@ mod tests {
     fn deserialize_missing_version_uses_current() {
         let json = r#"{"encounters":[],"switches":[]}"#;
         let s: SandboxSaveData = serde_json::from_str(json).expect("parse");
+        assert_eq!(s.version, CURRENT_SAVE_VERSION);
+    }
+
+    #[test]
+    fn boss_round_trip_and_untouched_removes_entry() {
+        let mut s = SandboxSaveData::new();
+        s.set_boss("gradient_sentinel", PersistedEncounterState::Cleared);
+        assert_eq!(
+            s.boss("gradient_sentinel"),
+            PersistedEncounterState::Cleared
+        );
+        s.set_boss("gradient_sentinel", PersistedEncounterState::Untouched);
+        assert!(s.bosses.is_empty());
+    }
+
+    #[test]
+    fn quest_round_trip_and_not_started_removes_entry() {
+        let mut s = SandboxSaveData::new();
+        s.set_quest("first_steps", PersistedQuestState::InProgress, 1);
+        assert_eq!(
+            s.quest("first_steps"),
+            (PersistedQuestState::InProgress, 1)
+        );
+        s.set_quest("first_steps", PersistedQuestState::Completed, 3);
+        assert_eq!(
+            s.quest("first_steps"),
+            (PersistedQuestState::Completed, 3)
+        );
+        s.set_quest("first_steps", PersistedQuestState::NotStarted, 0);
+        assert!(s.quests.is_empty());
+    }
+
+    #[test]
+    fn flag_round_trip_and_off_removes_entry() {
+        let mut s = SandboxSaveData::new();
+        assert!(!s.flag("seen_intro_cutscene"));
+        s.set_flag("seen_intro_cutscene", true);
+        assert!(s.flag("seen_intro_cutscene"));
+        s.set_flag("seen_intro_cutscene", false);
+        assert!(s.flags.is_empty());
+    }
+
+    #[test]
+    fn deserialize_v1_save_loads_with_empty_new_collections() {
+        // A v1-style save (no bosses/quests/flags fields) must still
+        // load — that's the contract of `#[serde(default)]` on each
+        // collection. Verifies the v1 → v2 schema migration is
+        // backwards-compatible at the wire level.
+        let json = r#"{"version":1,"encounters":[{"id":"mob_lab","state":"Cleared"}],"switches":[]}"#;
+        let s: SandboxSaveData = serde_json::from_str(json).expect("parse");
+        assert_eq!(s.encounter("mob_lab"), PersistedEncounterState::Cleared);
+        assert!(s.bosses.is_empty());
+        assert!(s.quests.is_empty());
+        assert!(s.flags.is_empty());
+    }
+
+    #[test]
+    fn reset_all_clears_every_collection() {
+        let mut s = SandboxSaveData::new();
+        s.set_encounter("a", PersistedEncounterState::Cleared);
+        s.set_switch("b", true);
+        s.set_boss("c", PersistedEncounterState::Cleared);
+        s.set_quest("d", PersistedQuestState::InProgress, 2);
+        s.set_flag("e", true);
+        s.reset_all();
+        assert!(s.encounters.is_empty());
+        assert!(s.switches.is_empty());
+        assert!(s.bosses.is_empty());
+        assert!(s.quests.is_empty());
+        assert!(s.flags.is_empty());
         assert_eq!(s.version, CURRENT_SAVE_VERSION);
     }
 }

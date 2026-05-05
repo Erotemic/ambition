@@ -12,15 +12,18 @@
 //! headless.
 
 pub mod audio;
+pub mod boss_encounter;
 pub mod boss_sprites;
 pub mod character_sprites;
 pub mod config;
+pub mod cutscene;
 pub mod data;
 pub mod debug_overlay;
 pub mod dev_tools;
 pub mod dialog;
 pub mod encounter;
 pub mod features;
+pub mod quest;
 pub mod feel;
 pub mod fx;
 pub mod game_assets;

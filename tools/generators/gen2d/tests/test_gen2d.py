@@ -134,18 +134,23 @@ def test_tight_crop_eliminates_transparent_edges_on_entity_sprites(tmp_path):
         )
 
 
-def test_tile_sprites_are_32x32_and_not_cropped(tmp_path):
-    """Tile sprites must keep their full 32×32 canvas — Bevy's
+def test_tile_sprites_match_authored_dimensions_and_skip_crop(tmp_path):
+    """Tile sprites must keep their full authored canvas — Bevy's
     `Sprite::image_mode = Tiled` repeats the texture at native
-    pixel scale, so cropping a tile would change the repeat
-    period and break the seamless wrap. Pin both the dimensions
-    and the (mostly) full coverage."""
+    pixel scale, so cropping (or wrong-axis sizing) would change
+    the repeat period and break the seamless wrap.
+
+    Sizes are authored to match the typical IntGrid block height:
+    - solid + blink walls: 32×32 (multi-cell vertical surfaces).
+    - one-way + hazard: 32×16 (typical one-cell-tall rows; a
+      32-tall texture would get vertically stretched on a 16-tall
+      block, compressing the plate/spike pattern)."""
     out_dir = tmp_path / "entities"
     write_entity_sprites(out_dir)
     tiles = {
         "solid_tile.png": (32, 32),
-        "one_way_tile.png": (32, 32),
-        "hazard_tile.png": (32, 32),
+        "one_way_tile.png": (32, 16),
+        "hazard_tile.png": (32, 16),
         "soft_blink_tile.png": (32, 32),
         "hard_blink_tile.png": (32, 32),
     }

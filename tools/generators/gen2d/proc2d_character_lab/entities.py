@@ -334,40 +334,61 @@ def solid_tile(d: ImageDraw.ImageDraw, s: float) -> None:
 
 
 def one_way_tile(d: ImageDraw.ImageDraw, s: float) -> None:
-    """One-way platform tile. Short — only the top quarter of a
-    32×32 cell is the platform plate; the rest is transparent so a
-    one-way platform painted as a single IntGrid row renders as a
-    thin lip rather than a tall slab. Tiles seamlessly horizontally;
-    vertical tiling is meaningless (one-way is one cell tall by
-    convention)."""
+    """One-way platform tile, 32×16 — sized to match a single
+    16-px-tall IntGrid row at NATIVE scale.
+
+    Why 32×16 and not 32×32: Bevy's `SpriteImageMode::Tiled` only
+    tiles when `drawing_size >= original_size * stretch_value`.
+    With a 32×32 texture stretched to a 16-tall block (the typical
+    one-way row height), `ratio_y = 0.5 < 1.0` triggers a vertical
+    STRETCH — the plate (8px tall in the source) compresses to 4px
+    plus 12px of transparent gap. Looks broken.
+    Matching the texture height to the typical block height
+    (32×16) keeps `ratio_y = 1.0`, no stretch, plate fills the
+    block. Wide platforms still tile horizontally (`ratio_x = N`).
+    """
     plate = rgba("#677699")
     plate_top = rgba("#B4C6F4")
     edge = rgba("#1A2235")
-    d.rectangle((0, 0, 32*s, 8*s), fill=plate)
-    d.rectangle((0, 0, 32*s, 2*s), fill=plate_top)
-    d.line([(0, 8*s), (32*s, 8*s)], fill=edge, width=max(1, int(1*s)))
-    # Up-arrow markers spaced so adjacent tiles look continuous.
+    # The whole 16-tall canvas is the plate body, with a brighter
+    # 3-tall top ridge for depth and a 1-px dark edge at the bottom
+    # so the plate reads as a discrete surface.
+    d.rectangle((0, 0, 32*s, 16*s), fill=plate)
+    d.rectangle((0, 0, 32*s, 4*s), fill=plate_top)
+    d.line([(0, 15*s), (32*s, 15*s)], fill=edge, width=max(1, int(1*s)))
+    # Up-arrow markers placed where adjacent horizontal tiles align
+    # cleanly: arrow centers at x=8 and x=24, half-width 3, so the
+    # tile boundary at x=32/x=0 cuts through the gap between
+    # arrows, not through an arrow.
     for x in (8, 24):
-        d.polygon(poly_scaled([(x-3, 6), (x, 2), (x+3, 6)], s), fill=plate_top)
+        d.polygon(poly_scaled([(x-3, 11), (x, 5), (x+3, 11)], s), fill=plate_top)
 
 
 def hazard_tile(d: ImageDraw.ImageDraw, s: float) -> None:
-    """Hazard / spike tile. Bright red so the player can read
-    danger at a glance regardless of palette. Spikes are bottom-
-    rooted and identical at left/right edges so a horizontal repeat
-    reads as a continuous spike strip."""
+    """Hazard / spike tile, 32×16 — same 32×16 sizing rationale as
+    `one_way_tile` (most authored hazard rows are 16 px tall, so
+    matching the texture height keeps spikes at native scale).
+
+    Bright red base + lighter spike-tip highlight so the player
+    reads "danger" at a glance regardless of palette. Three spikes
+    per repeat unit, anchored so the rightmost spike's right edge
+    meets the leftmost spike's left edge across the horizontal
+    tile boundary."""
     base = rgba("#5A1418")
     spike = rgba("#F04450")
     spike_hi = rgba("#FFB1B5")
     edge = rgba("#220404")
-    d.rectangle((0, 18*s, 32*s, 32*s), fill=base)
-    d.line([(0, 18*s), (32*s, 18*s)], fill=edge, width=max(1, int(1*s)))
-    # Three spikes per tile, anchored so a horizontal repeat aligns
-    # the rightmost half-spike to the leftmost half-spike of the
-    # next tile.
+    # Solid base in the lower 6 rows — what the player visually
+    # "stands on" when they get hit.
+    d.rectangle((0, 9*s, 32*s, 16*s), fill=base)
+    d.line([(0, 9*s), (32*s, 9*s)], fill=edge, width=max(1, int(1*s)))
+    # Three spikes rooted at y=9, tips at y=1. Half-width 4 each.
+    # x-positions chosen so x=5 and x=27 are 5px from each edge —
+    # adjacent tiles' spikes interleave at x=±5 from the tile
+    # seam, reading as one continuous strip.
     for x in (5, 16, 27):
-        d.polygon(poly_scaled([(x-4, 17), (x, 1), (x+4, 17)], s), fill=spike, outline=edge)
-        d.polygon(poly_scaled([(x-1, 9), (x, 1), (x+1, 9)], s), fill=spike_hi)
+        d.polygon(poly_scaled([(x-4, 9), (x, 1), (x+4, 9)], s), fill=spike, outline=edge)
+        d.polygon(poly_scaled([(x-1, 5), (x, 1), (x+1, 5)], s), fill=spike_hi)
 
 
 def soft_blink_tile(d: ImageDraw.ImageDraw, s: float) -> None:
@@ -440,8 +461,13 @@ ENTITY_SPECS: List[EntitySpriteSpec] = [
     # without smearing. `tight_crop=False` keeps the full canvas so
     # the tiling math is straightforward.
     EntitySpriteSpec("solid_tile", "solid_tile.png", "BlockKind::Solid (IntGrid)", "ldtk solid tile", "tilable stone-brick floor/wall", size=(32, 32), tight_crop=False),
-    EntitySpriteSpec("one_way_tile", "one_way_tile.png", "BlockKind::OneWay (IntGrid)", "ldtk one-way tile", "tilable one-way platform plate", size=(32, 32), tight_crop=False),
-    EntitySpriteSpec("hazard_tile", "hazard_tile.png", "BlockKind::Hazard (IntGrid)", "ldtk hazard tile", "tilable spike strip", size=(32, 32), tight_crop=False),
+    # one-way / hazard tiles are 32×16 instead of 32×32 because most
+    # IntGrid rows for these are exactly one cell (16 px) tall — a
+    # 32×32 texture stretched to a 16-tall block would compress its
+    # plate / spike pattern. See `one_way_tile`'s docstring for the
+    # full Bevy `SpriteImageMode::Tiled` ratio explanation.
+    EntitySpriteSpec("one_way_tile", "one_way_tile.png", "BlockKind::OneWay (IntGrid)", "ldtk one-way tile", "tilable one-way platform plate", size=(32, 16), tight_crop=False),
+    EntitySpriteSpec("hazard_tile", "hazard_tile.png", "BlockKind::Hazard (IntGrid)", "ldtk hazard tile", "tilable spike strip", size=(32, 16), tight_crop=False),
     EntitySpriteSpec("soft_blink_tile", "soft_blink_tile.png", "BlockKind::BlinkWall::Soft (IntGrid)", "ldtk blink-soft tile", "tilable soft blink wall", size=(32, 32), tight_crop=False),
     EntitySpriteSpec("hard_blink_tile", "hard_blink_tile.png", "BlockKind::BlinkWall::Hard (IntGrid)", "ldtk blink-hard tile", "tilable hard blink wall", size=(32, 32), tight_crop=False),
 ]

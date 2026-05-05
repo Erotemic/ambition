@@ -339,7 +339,18 @@ impl EncounterState {
         // Advance wave clock.
         self.run.wave_elapsed += dt;
 
-        // Spawn pending mobs whose delay has elapsed.
+        // 1. Drop alive_ids whose runtime enemy is dead. MUST run
+        //    BEFORE the spawn loop so newly-spawned mobs aren't
+        //    immediately reaped: the caller's `enemy_alive` lookup
+        //    was built from the runtime BEFORE this tick fires, so
+        //    it doesn't know about mobs spawned later in this same
+        //    tick. Spawning first then retaining would unconditionally
+        //    drop every just-spawned id and the wave would clear in
+        //    a single tick. (This was the "encounter ends after 2
+        //    seconds" bug.)
+        self.run.alive_ids.retain(|id| enemy_alive(id));
+
+        // 2. Spawn pending mobs whose delay has elapsed.
         let mut still_pending = Vec::with_capacity(self.run.pending.len());
         for mob in std::mem::take(&mut self.run.pending) {
             if mob.delay <= self.run.wave_elapsed {
@@ -363,9 +374,6 @@ impl EncounterState {
             }
         }
         self.run.pending = still_pending;
-
-        // Drop alive_ids whose runtime enemy is dead.
-        self.run.alive_ids.retain(|id| enemy_alive(id));
 
         // Update remaining_mobs on the phase for HUD parity.
         let remaining_mobs = self.run.pending.len() + self.run.alive_ids.len();
@@ -926,28 +934,52 @@ pub fn update_encounters_from_world(
         }
     }
 
-    // 2. Trigger entry: only the active area's encounter can fire,
-    //    and only when its persisted state isn't Cleared.
+    // 2. Trigger entry. The SWITCH is the source of truth for "armed":
+    //    switch off = armed (red), switch on = disabled (green).
+    //    Phase Cleared/Failed snap back to Inactive here so a stale
+    //    persisted state doesn't lock out re-triggering after a
+    //    switch toggle. The trigger only fires when the encounter
+    //    isn't currently in flight AND the linked switch is off.
+    let armed_active = encounter_armed_by_switch(&active_area, &runtime.features.switches);
     if let Some(state) = registry.encounters.get_mut(&active_area) {
-        if matches!(state.phase, EncounterPhase::Inactive) {
-            let started = state.maybe_start(player_pos, player_size);
-            if !started.is_empty() {
-                events.push((active_area.clone(), started));
+        let in_flight = matches!(
+            state.phase,
+            EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
+        );
+        if !in_flight {
+            // Snap any stale Cleared/Failed back to Inactive so the
+            // trigger can fire on the next pass when the switch is
+            // armed.
+            if !matches!(state.phase, EncounterPhase::Inactive) {
+                state.phase = EncounterPhase::Inactive;
+                state.lock_active = false;
+                state.run = EncounterRun::default();
+            }
+            if armed_active {
+                let started = state.maybe_start(player_pos, player_size);
+                if !started.is_empty() {
+                    events.push((active_area.clone(), started));
+                }
             }
         }
     }
 
     // 3. Tick the active-area encounter (intro countdown / wave
-    //    progression / mob death tracking). Other encounters stay
-    //    paused until the player walks into them.
+    //    progression / mob death tracking). Capture whether this
+    //    tick produced a Cleared event so we can auto-flip the
+    //    linked switch to green afterwards.
     let mut spawn_commands: Vec<(String, String, [f32; 2], [f32; 2])> = Vec::new();
+    let mut just_cleared_id: Option<String> = None;
     if let Some(state) = registry.encounters.get_mut(&active_area) {
         if matches!(
             state.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
         ) {
-            // Capture alive_ids snapshot before the tick (the tick
-            // itself prunes the dead ones using our closure).
+            // Snapshot alive ids from the runtime BEFORE ticking. The
+            // tick's `retain` runs before its spawn loop now, so the
+            // freshly-spawned mobs in this tick aren't immediately
+            // reaped (they'll be tested against the next frame's
+            // snapshot).
             let alive_lookup: std::collections::HashSet<String> = runtime
                 .features
                 .enemies
@@ -957,14 +989,17 @@ pub fn update_encounters_from_world(
                 .collect();
             let evs = state.tick_intro_or_wave(dt, |id| alive_lookup.contains(id));
             for ev in &evs {
-                if let EncounterEvent::SpawnCommand {
-                    id,
-                    kind,
-                    pos,
-                    size,
-                } = ev
-                {
-                    spawn_commands.push((id.clone(), kind.clone(), *pos, *size));
+                match ev {
+                    EncounterEvent::SpawnCommand {
+                        id,
+                        kind,
+                        pos,
+                        size,
+                    } => spawn_commands.push((id.clone(), kind.clone(), *pos, *size)),
+                    EncounterEvent::Cleared { id } => {
+                        just_cleared_id = Some(id.clone());
+                    }
+                    _ => {}
                 }
             }
             if !evs.is_empty() {
@@ -983,34 +1018,55 @@ pub fn update_encounters_from_world(
         );
     }
 
-    // 5. Switch toggles. Pressing the switch flips between Cleared
-    //    (green / disabled) and Inactive (red / armed). Free toggle
-    //    in the sandbox; never requires beating the encounter first.
+    // 5. Auto-flip the linked switch to on (green) when the encounter
+    //    just cleared. The script's last beat is "switch goes green"
+    //    so the player can see they finished it. The encounter-mobs
+    //    cleanup happens too so the world is clean for the next time
+    //    they re-arm.
+    if let Some(encounter_id) = just_cleared_id {
+        if let Some(switch_id) =
+            switch_id_for_encounter(&encounter_id, &runtime.features.switches)
+        {
+            save.data_mut().set_switch(&switch_id, true);
+            runtime.features.set_switch_on(&switch_id, true);
+        }
+        runtime.features.despawn_encounter_enemies(&encounter_id);
+    }
+
+    // 6. Switch toggles. Just toggle the persisted switch state; the
+    //    trigger gate consults `switch.on` directly. When the player
+    //    re-arms (toggles to off), also drop any encounter-spawned
+    //    mobs from a prior attempt and snap any stale Cleared/Failed
+    //    phase back to Inactive so the next trigger fires cleanly.
     let activations = std::mem::take(&mut switch_activations.0);
     for activation in activations {
+        if !matches!(activation.action.as_str(), "ResetEncounter") {
+            continue;
+        }
+        let new_on = !save.data().switch(&activation.id);
+        save.data_mut().set_switch(&activation.id, new_on);
+        runtime.features.set_switch_on(&activation.id, new_on);
+
         let target_id = if activation.target_encounter.is_empty() {
             active_area.clone()
         } else {
             activation.target_encounter.clone()
         };
-        let Some(state) = registry.encounters.get_mut(&target_id) else {
-            continue;
-        };
-        if matches!(activation.action.as_str(), "ResetEncounter") {
-            let now_cleared = matches!(state.phase, EncounterPhase::Cleared);
-            state.phase = if now_cleared {
-                EncounterPhase::Inactive
-            } else {
-                EncounterPhase::Cleared
-            };
-            state.lock_active = false;
-            state.run = EncounterRun::default();
-            // Reset spawned encounter mobs when toggling — the next
-            // attempt should start with a clean field.
+        if !new_on {
+            // Re-arming: snap the encounter back to Inactive and
+            // drop carryover mobs.
+            if let Some(state) = registry.encounters.get_mut(&target_id) {
+                let in_flight = matches!(
+                    state.phase,
+                    EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
+                );
+                if !in_flight {
+                    state.phase = EncounterPhase::Inactive;
+                    state.lock_active = false;
+                    state.run = EncounterRun::default();
+                }
+            }
             runtime.features.despawn_encounter_enemies(&target_id);
-            let target_on = matches!(state.phase, EncounterPhase::Cleared);
-            save.data_mut().set_switch(&activation.id, target_on);
-            runtime.features.set_switch_on(&activation.id, target_on);
         }
     }
 
@@ -1070,6 +1126,51 @@ pub fn update_encounters_from_world(
             });
         }
     }
+}
+
+/// Whether `encounter_id` is currently armed (will fire when the
+/// player crosses the trigger). Looks up linked switches in the
+/// runtime: a switch with `target_encounter == encounter_id` arms
+/// the encounter when its `on` flag is false (red). Multiple linked
+/// switches OR together (any one off → armed). No linked switches
+/// means the encounter is always armed.
+pub fn encounter_armed_by_switch(
+    encounter_id: &str,
+    switches: &[crate::features::SwitchRuntime],
+) -> bool {
+    let mut found = false;
+    for sw in switches {
+        let Some(act) = SwitchActivation::parse_custom(&sw.custom_payload) else {
+            continue;
+        };
+        if act.target_encounter != encounter_id {
+            continue;
+        }
+        found = true;
+        if !sw.on {
+            // Off (red) = armed.
+            return true;
+        }
+    }
+    !found
+}
+
+/// Find the switch id (LDtk `id` field, matching the persisted save's
+/// `switches` key) that targets `encounter_id`, if any. Returns the
+/// first match — multi-switch encounters can extend this later.
+pub fn switch_id_for_encounter(
+    encounter_id: &str,
+    switches: &[crate::features::SwitchRuntime],
+) -> Option<String> {
+    for sw in switches {
+        let Some(act) = SwitchActivation::parse_custom(&sw.custom_payload) else {
+            continue;
+        };
+        if act.target_encounter == encounter_id {
+            return Some(act.id);
+        }
+    }
+    None
 }
 
 /// Insert / remove the encounter lock wall solid blocks based on
@@ -1541,25 +1642,135 @@ mod tests {
         ];
         state.spec = Some(spec);
         state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
-        // Intro tick + immediate spawn.
+        // Intro tick: Starting → Active{wave 0}; immediate mob spawned.
+        // Closure says "alive" so the just-spawned id sticks.
         let _ = state.tick_intro_or_wave(0.001, |_| true);
-        // Tick again: still pending mob → wave doesn't clear even
-        // when the alive mob is "dead".
+        // 0.5s elapsed: alive mob marked dead, but the delayed mob
+        // hasn't fired yet → wave still pending.
         let _ = state.tick_intro_or_wave(0.5, |_| false);
         assert!(matches!(
             state.phase,
             EncounterPhase::Active { wave_index: 0, .. }
         ));
-        // Tick past 1s: pending fires; alive list now has it; once
-        // it's also "dead" the wave can clear and wave 2 begins.
-        let _ = state.tick_intro_or_wave(1.0, |_| false);
-        // Wave 2 has now started (its mob spec is in pending, not yet
-        // spawned in this same tick).
+        // 1.001s wave-elapsed: delayed mob spawns. Retain runs first
+        // (no alive ids to drop; closure won't see new id this tick).
+        let _ = state.tick_intro_or_wave(0.5, |_| false);
+        // Still wave 1: the just-spawned mob is alive in the encounter
+        // bookkeeping (not yet been retained against a stale lookup).
+        assert!(
+            matches!(state.phase, EncounterPhase::Active { wave_index: 0, .. }),
+            "wave 1 should hold while the just-spawned mob is alive"
+        );
+        // Next tick: retain drops the just-spawned mob (closure
+        // returns false), wave clears, wave 2 starts.
+        let _ = state.tick_intro_or_wave(0.001, |_| false);
         assert!(
             matches!(state.phase, EncounterPhase::Active { wave_index: 1, .. }),
             "expected wave 2 active, got {:?}",
             state.phase
         );
+    }
+
+    #[test]
+    fn just_spawned_mob_survives_one_tick_before_retain() {
+        // Regression for the "encounter ends after 2 seconds" bug:
+        // newly-spawned mobs were immediately reaped because retain
+        // ran AFTER spawn with a stale alive_lookup. The fix is to
+        // run retain BEFORE spawn so the new id has a frame to live.
+        let mut state = EncounterState::default();
+        let mut spec = lab_spec();
+        spec.intro_seconds = 0.0;
+        spec.waves = vec![EncounterWaveSpec {
+            label: "wave 1".into(),
+            mobs: vec![EncounterMobSpec::new("medium_striker", [100.0, 100.0])],
+        }];
+        state.spec = Some(spec);
+        state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+        // Intro elapses + spawn happens. Closure returns false (the
+        // runtime hasn't seen the new id yet — the bug condition).
+        let _ = state.tick_intro_or_wave(0.001, |_| false);
+        // The mob must still be tracked: the wave shouldn't be cleared.
+        assert!(
+            matches!(state.phase, EncounterPhase::Active { wave_index: 0, remaining_mobs: 1 }),
+            "just-spawned mob must survive the first tick; got {:?}",
+            state.phase
+        );
+    }
+
+    // ── Switch arming gate (helpers) ───────────────────────────────
+
+    fn switch_runtime(payload: &str, on: bool) -> crate::features::SwitchRuntime {
+        let id = SwitchActivation::parse_custom(payload)
+            .map(|a| a.id)
+            .unwrap_or_else(|| "x".into());
+        crate::features::SwitchRuntime {
+            id,
+            name: "test".into(),
+            pos: ae::Vec2::ZERO,
+            size: ae::Vec2::splat(16.0),
+            interactable: ae::Interactable::new(
+                "x",
+                "x",
+                ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
+                ae::InteractionKind::Custom(payload.into()),
+            ),
+            custom_payload: payload.into(),
+            on,
+        }
+    }
+
+    #[test]
+    fn encounter_armed_when_no_linked_switch() {
+        // No switch in the runtime → armed by default.
+        assert!(encounter_armed_by_switch("mob_lab", &[]));
+    }
+
+    #[test]
+    fn encounter_armed_when_linked_switch_off() {
+        // Switch off (red) = armed.
+        let switches = vec![switch_runtime(
+            "switch:mob_lab_reset_switch:ResetEncounter:mob_lab",
+            false,
+        )];
+        assert!(encounter_armed_by_switch("mob_lab", &switches));
+    }
+
+    #[test]
+    fn encounter_disarmed_when_linked_switch_on() {
+        // Switch on (green) = disabled.
+        let switches = vec![switch_runtime(
+            "switch:mob_lab_reset_switch:ResetEncounter:mob_lab",
+            true,
+        )];
+        assert!(!encounter_armed_by_switch("mob_lab", &switches));
+    }
+
+    #[test]
+    fn unrelated_switches_dont_arm_other_encounters() {
+        // Switch targets boss_room; mob_lab has no linked switch
+        // → mob_lab is armed by default.
+        let switches = vec![switch_runtime(
+            "switch:boss_reset_switch:ResetEncounter:boss_room",
+            true,
+        )];
+        assert!(encounter_armed_by_switch("mob_lab", &switches));
+        assert!(!encounter_armed_by_switch("boss_room", &switches));
+    }
+
+    #[test]
+    fn switch_id_for_encounter_finds_linked_switch() {
+        let switches = vec![
+            switch_runtime("switch:other_switch:ResetEncounter:other_room", false),
+            switch_runtime(
+                "switch:mob_lab_reset_switch:ResetEncounter:mob_lab",
+                false,
+            ),
+        ];
+        assert_eq!(
+            switch_id_for_encounter("mob_lab", &switches),
+            Some("mob_lab_reset_switch".into())
+        );
+        assert_eq!(switch_id_for_encounter("nonexistent", &switches), None);
     }
 
     // ── Lock wall sync ─────────────────────────────────────────────

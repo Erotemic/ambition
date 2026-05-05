@@ -112,7 +112,8 @@ pub enum EntitySprite {
     // Loading zones
     DoorZone,
     EdgeExit,
-    // Future: ProjectileEnergy
+    // Player projectiles (Fireball + Hadouken share the same sprite)
+    ProjectileEnergy,
 }
 
 impl EntitySprite {
@@ -140,6 +141,7 @@ impl EntitySprite {
             Self::MovingPlatform => "entities/moving_platform.png",
             Self::DoorZone => "entities/door_zone.png",
             Self::EdgeExit => "entities/edge_exit.png",
+            Self::ProjectileEnergy => "entities/projectile_energy.png",
         }
     }
 
@@ -165,6 +167,7 @@ impl EntitySprite {
         Self::MovingPlatform,
         Self::DoorZone,
         Self::EdgeExit,
+        Self::ProjectileEnergy,
     ];
 }
 

@@ -112,9 +112,9 @@ pub struct ProjectileSpec {
     pub max_lifetime: f32,
     /// Half-extent of the hitbox.
     pub half_extent: Vec2,
-    /// Vertical acceleration applied each frame (px/s^2). Mario
-    /// fireball-style arc: positive value pulls down (recall +Y is
-    /// down in the sandbox simulation).
+    /// Vertical acceleration applied each frame (px/s^2). Mario-like /
+    /// arcade-style arc: positive value pulls down (recall +Y is down
+    /// in the sandbox simulation).
     pub gravity: f32,
 }
 
@@ -174,7 +174,8 @@ impl ProjectileBody {
             gravity: spec.gravity,
             half_extent: spec.half_extent,
             damage: spec.damage,
-            // Mario fireballs bounce off the floor a couple of times.
+            // Fireballs bounce off the floor a couple of times — a
+            // Mario-like / arcade-style behavior, not a literal copy.
             bounces_remaining: matches!(spec.kind, ProjectileKind::Fireball) as u8 * 2,
         }
     }

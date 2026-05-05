@@ -561,6 +561,18 @@ pub fn add_presentation_plugins(app: &mut App) {
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
         )
+        // Player projectile visuals: rebuild the sprite ring each tick
+        // from `PlayerProjectileState::bodies`. Lives in its own
+        // `add_systems` because the main visible-only chain is at the
+        // tuple-arity ceiling. Must run after `update_projectiles` so
+        // the body list reflects this frame's spawn / tick / collision
+        // before the visuals are rebuilt — otherwise newly-fired
+        // projectiles would only become visible one frame late.
+        .add_systems(
+            Update,
+            crate::projectile::sync_projectile_visuals
+                .after(crate::projectile::update_projectiles),
+        )
         // VFX + debris subscribe on the visible binary only. Audio's
         // subscriber lives in `add_audio_plugins` so the entire kira
         // chain stays behind the `audio` feature. Headless builds omit

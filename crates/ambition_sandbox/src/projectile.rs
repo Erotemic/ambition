@@ -228,6 +228,78 @@ pub fn projectile_status_summary(state: &PlayerProjectileState) -> String {
     )
 }
 
+/// Marker on the per-frame projectile sprite entities produced by
+/// `sync_projectile_visuals`. Despawned and rebuilt each tick so the
+/// entity set always matches `PlayerProjectileState::bodies`.
+#[derive(Component)]
+pub struct PlayerProjectileVisual;
+
+/// Mirror `PlayerProjectileState::bodies` onto Bevy sprite entities so
+/// the player can actually see what they fired. Runs after
+/// `update_projectiles` (which produces the body Vec) and on the
+/// presentation half only — headless drains `state.bodies` without
+/// needing visuals.
+///
+/// Despawn-and-respawn is the simplest match for a small ring of
+/// short-lived projectiles (typical in-flight count is 1–3, capped by
+/// the spawner's cooldown + resource meter). Anything fancier
+/// (per-projectile entity reuse) would need a stable id on
+/// `PlayerProjectile`, which today doesn't exist.
+pub fn sync_projectile_visuals(
+    mut commands: Commands,
+    world: Res<crate::GameWorld>,
+    state: Res<PlayerProjectileState>,
+    assets: Option<Res<crate::game_assets::GameAssets>>,
+    existing: Query<Entity, With<PlayerProjectileVisual>>,
+) {
+    for entity in &existing {
+        commands.entity(entity).despawn();
+    }
+    let handle = assets
+        .as_deref()
+        .and_then(|a| a.entities.get(crate::game_assets::EntitySprite::ProjectileEnergy))
+        .cloned();
+    for projectile in &state.bodies {
+        let body = &projectile.body;
+        let render_size = bevy::math::Vec2::new(
+            (body.half_extent.x * 2.0).max(8.0),
+            (body.half_extent.y * 2.0).max(8.0),
+        );
+        // Hadouken tint (cooler / blue-shifted) vs Fireball (warmer
+        // orange). The tint applies whether or not the textured sprite
+        // loads; a missing texture falls through to a colored quad.
+        let tint = match body.kind {
+            ae::ProjectileKind::Fireball => Color::srgba(1.0, 0.74, 0.30, 0.95),
+            ae::ProjectileKind::Hadouken => Color::srgba(0.45, 0.78, 1.0, 0.96),
+        };
+        let mut sprite = match handle.clone() {
+            Some(image) => Sprite {
+                image,
+                color: tint,
+                custom_size: Some(render_size),
+                ..Default::default()
+            },
+            None => Sprite::from_color(tint, render_size),
+        };
+        // Flip the sprite to face travel direction so a leftward
+        // fireball doesn't look upside-down.
+        sprite.flip_x = body.vel.x < 0.0;
+        commands.spawn((
+            sprite,
+            Transform::from_translation(crate::config::world_to_bevy(
+                &world.0,
+                body.pos,
+                crate::config::WORLD_Z_PLAYER + 2.0,
+            )),
+            PlayerProjectileVisual,
+            Name::new(match body.kind {
+                ae::ProjectileKind::Fireball => "Player projectile: fireball",
+                ae::ProjectileKind::Hadouken => "Player projectile: hadouken",
+            }),
+        ));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -109,6 +109,7 @@ pub struct ProgressionResources<'w> {
     pub cutscene: Res<'w, crate::cutscene::ActiveCutscene>,
     pub bosses: Res<'w, crate::boss_encounter::BossEncounterRegistry>,
     pub encounters: Res<'w, crate::encounter::EncounterRegistry>,
+    pub map: Res<'w, crate::map_menu::MapMenuState>,
 }
 
 /// Per-frame Vec collectors for the sim → presentation event channels.
@@ -328,6 +329,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::cutscene::RoomCutsceneBindings::defaults())
         .insert_resource(crate::boss_encounter::BossEncounterRegistry::default())
         .insert_resource(crate::features::FeatureEventBus::default())
+        .insert_resource(crate::map_menu::MapMenuState::default())
         .add_systems(
             Update,
             (
@@ -362,6 +364,8 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::quest::apply_quest_advance_events,
                 crate::ledge_grab::update_ledge_grab,
                 crate::swim::update_swim,
+                crate::map_menu::track_room_visits,
+                crate::map_menu::sync_map_from_save,
                 dev_tools::sync_player_stats_with_inspector,
             )
                 .chain()
@@ -520,6 +524,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
                 crate::trace::handle_trace_hotkey,
+                crate::map_menu::handle_map_menu_hotkeys,
                 // Spawn visual entities for encounter-spawned enemies
                 // BEFORE sync_visuals reads positions for them.
                 crate::rendering::spawn_dynamic_feature_visuals,
@@ -2238,6 +2243,7 @@ fn update_hud(
     let cutscene = &progression.cutscene;
     let boss_registry = &progression.bosses;
     let encounter_registry = &progression.encounters;
+    let map_state = &progression.map;
     let Ok(mut text) = query.get_mut(entities.hud) else {
         return;
     };
@@ -2356,6 +2362,12 @@ fn update_hud(
             format!("\nENCOUNTER {}", bits.join("  ::  "))
         }
     };
+    let map_lines = map_state.summary_lines(&room_set.active_spec().id);
+    let map_line = if map_lines.is_empty() {
+        String::new()
+    } else {
+        format!("\nMAP\n{}", map_lines.join("\n"))
+    };
     let locomotion = ae::LocomotionState::from_player(&runtime.player).label();
     let body_mode = ae::BodyMode::from_player(&runtime.player).label();
     let trace_status = match (&trace.last_dump_status, &trace.last_dump_path) {
@@ -2377,7 +2389,7 @@ fn update_hud(
     );
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -2410,6 +2422,7 @@ fn update_hud(
             cutscene_line,
             boss_line,
             encounter_line,
+            map_line,
             mechanics_line,
         );
         return;
@@ -2484,10 +2497,12 @@ fn update_hud(
         || !cutscene_line.is_empty()
         || !boss_line.is_empty()
         || !encounter_line.is_empty()
+        || !map_line.is_empty()
     {
         text.push_str(&quest_line);
         text.push_str(&cutscene_line);
         text.push_str(&boss_line);
         text.push_str(&encounter_line);
+        text.push_str(&map_line);
     }
 }

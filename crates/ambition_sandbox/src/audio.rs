@@ -97,6 +97,40 @@ pub fn audio_play_sfx_messages(
     }
 }
 
+/// Convert a linear amplitude in `[0, 1]` to decibels suitable for
+/// Kira's `set_volume`. Below `~0.001` we collapse to silence so the
+/// channel goes fully quiet rather than approaching `-inf` dB.
+#[cfg(feature = "audio")]
+pub fn amplitude_to_decibels(linear: f32) -> f32 {
+    let clamped = linear.clamp(0.0, 1.0);
+    if clamped < 0.001 {
+        // Match `Decibels::SILENCE = -60.0` from kira.
+        return -60.0;
+    }
+    20.0 * clamped.log10()
+}
+
+/// Presentation-side system: detect changes in
+/// `UserSettings.audio` and push the new volumes to the music / SFX
+/// channels. Runs every frame; the underlying channel call is cheap.
+#[cfg(feature = "audio")]
+pub fn apply_audio_settings(
+    settings: Res<crate::settings::UserSettings>,
+    music_channel: Res<AudioChannel<MusicChannel>>,
+    sfx_channel: Res<AudioChannel<SfxChannel>>,
+    mut last: Local<Option<crate::settings::AudioSettings>>,
+) {
+    let current = settings.audio;
+    if last.as_ref() == Some(&current) {
+        return;
+    }
+    let music_db = amplitude_to_decibels(current.effective_music());
+    let sfx_db = amplitude_to_decibels(current.effective_sfx());
+    music_channel.set_volume(music_db);
+    sfx_channel.set_volume(sfx_db);
+    *last = Some(current);
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SoundCue {
     Jump,

@@ -38,7 +38,9 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 
 use crate::audio::SfxMessage;
 #[cfg(feature = "audio")]
-use crate::audio::{audio_play_sfx_messages, start_default_music, MusicChannel, SfxChannel};
+use crate::audio::{
+    apply_audio_settings, audio_play_sfx_messages, start_default_music, MusicChannel, SfxChannel,
+};
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
 use crate::debug_overlay;
@@ -540,7 +542,11 @@ fn add_audio_plugins(app: &mut App) {
             Startup,
             start_default_music.after(setup_presentation_system),
         )
-        .add_systems(Update, audio_play_sfx_messages.after(sandbox_update));
+        .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
+        // Push UserSettings.audio (master/music/sfx/mute) into the
+        // Kira channels whenever the user changes the menu sliders.
+        // Cheap; the system early-returns when settings are unchanged.
+        .add_systems(Update, apply_audio_settings.after(sandbox_update));
 }
 
 #[cfg(not(feature = "audio"))]
@@ -753,6 +759,7 @@ fn sandbox_update(
     mut runtime: ResMut<SandboxRuntime>,
     mut event_writers: SandboxEventWriters,
     control_frame: Res<ControlFrame>,
+    user_settings: Res<crate::settings::UserSettings>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
@@ -760,6 +767,20 @@ fn sandbox_update(
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
     let physics_settings = runtime.physics_settings;
+    // Compose difficulty + assist + the fine-grained menu multiplier
+    // into one scalar that `handle_player_damage_events` consults.
+    // Assist mode halves incoming damage on top of difficulty so a
+    // user who needs the extra help can stack the two.
+    let assist_factor = match user_settings.gameplay.assist {
+        crate::settings::AssistMode::Off => 1.0,
+        crate::settings::AssistMode::On => 0.5,
+    };
+    let difficulty_multiplier = user_settings
+        .gameplay
+        .difficulty
+        .damage_taken_multiplier()
+        * user_settings.gameplay.player_damage_multiplier
+        * assist_factor;
     dev_tools::sync_live_ability_edits(&mut runtime, editable_abilities.as_engine(), tuning);
 
     // sandbox_update no longer queries leafwing directly. Input arrives
@@ -862,6 +883,7 @@ fn sandbox_update(
             &mut next_mode,
             tuning,
             feel,
+            difficulty_multiplier,
         ),
         PhaseOutcome::Return
     ) {
@@ -1201,6 +1223,7 @@ fn damage_heal_dialogue_phase(
     next_mode: &mut NextState<GameMode>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
+    difficulty_multiplier: f32,
 ) -> PhaseOutcome {
     let feature_damaged_player = !feature_events.player_damage.is_empty();
     let feature_interaction_consumed = feature_events.consumed_interaction;
@@ -1213,6 +1236,7 @@ fn damage_heal_dialogue_phase(
         feature_events,
         tuning,
         feel,
+        difficulty_multiplier,
     );
     {
         let safe_world =
@@ -1864,11 +1888,18 @@ fn handle_player_damage_events(
     events: &features::FeatureEvents,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
+    difficulty_multiplier: f32,
 ) {
-    let Some(damage) = events.player_damage.first().copied() else {
+    let Some(mut damage) = events.player_damage.first().copied() else {
         return;
     };
-    if runtime.player_health.damage(damage.amount.max(1)) {
+    // Difficulty / assist scaling. Easy halves incoming damage, hard
+    // doubles it; the menu setting also exposes a fine-grained
+    // gameplay damage multiplier. The minimum is one HP so a damage
+    // event always lands somewhere.
+    let scaled = ((damage.amount as f32) * difficulty_multiplier).round() as i32;
+    damage.amount = scaled.max(1);
+    if runtime.player_health.damage(damage.amount) {
         death_respawn_player(world, sfx, vfx, runtime, tuning, feel, damage.impact_pos);
         return;
     }

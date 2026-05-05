@@ -279,6 +279,11 @@ pub fn add_simulation_plugins(app: &mut App) {
             (data::load_data_asset_handle, setup_simulation_system).chain(),
         )
         .insert_resource(crate::projectile::PlayerProjectileState::default())
+        // Encounter system foundation. Today the resource starts
+        // empty — the LDtk loader will populate `spec` when the
+        // mob-lab markers land in `sandbox.ldtk`. The state machine
+        // and tests still cover the lock / wave / fail behavior.
+        .insert_resource(crate::encounter::EncounterState::default())
         .add_systems(
             Update,
             (

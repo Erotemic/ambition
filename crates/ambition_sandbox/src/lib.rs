@@ -19,6 +19,7 @@ pub mod data;
 pub mod debug_overlay;
 pub mod dev_tools;
 pub mod dialog;
+pub mod encounter;
 pub mod features;
 pub mod feel;
 pub mod fx;

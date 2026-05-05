@@ -25,14 +25,14 @@ These are the highest-level engine systems. Many named mechanics below become ea
 - [x] Air-jump resource
 - [x] Blink aiming / teleport targeting
 - [x] Basic melee / pogo / rebound impulse verbs
-- [~] Projectile / damage backend
+- [x] Projectile / damage backend (`ambition_engine::projectile`; sandbox player Fireball + Hadouken)
 - [~] Bullet-time-compatible timing
 
 - [x] Explicit `PlayerMode` / `LocomotionState` enum (`ambition_engine::LocomotionState`)
 - [x] Alternate player body shapes (`ambition_engine::BodyMode` / `BodyShape`)
 - [x] Collision-safe body resize (`BodyShape::fits_at`; the *backend*; gameplay verbs still pending)
 - [x] General resource meter backend (`ambition_engine::ResourceMeter`)
-- [ ] Player projectile action backend
+- [x] Player projectile action backend (`ProjectileSpawner` + `MotionInputBuffer`)
 - [ ] Aim-mode abstraction
 - [ ] Moving-platform carry velocity
 - [ ] Surface tangent / normal query
@@ -174,8 +174,8 @@ enum GrappleState {
 * [x] Basic melee attack / slash
 * [x] Pogo attack
 * [x] Rebound impulse from surfaces
-* [~] Projectile damage backend
-* [ ] Player projectile weapon
+* [x] Projectile damage backend
+* [x] Player projectile weapon (Fireball + Hadouken via half-circle motion input)
 * [ ] Beam / gun / ranged primary
 * [ ] Charge shot
 * [ ] Missile / ammo weapon

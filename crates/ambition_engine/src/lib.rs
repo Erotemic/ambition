@@ -22,6 +22,7 @@ pub mod movement;
 pub mod music;
 pub mod physics;
 pub mod player_state;
+pub mod projectile;
 pub mod scalar;
 pub mod state_machines;
 pub mod world;
@@ -63,6 +64,10 @@ pub use physics::{
 pub use player_state::{
     classify_player_safety, BodyMode, BodyShape, LocomotionState, PlayerSafetyVerdict,
     ResourceMeter,
+};
+pub use projectile::{
+    MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody, ProjectileKind,
+    ProjectileSpawner, ProjectileSpec, SpawnFailure,
 };
 pub use scalar::approach;
 pub use state_machines::{

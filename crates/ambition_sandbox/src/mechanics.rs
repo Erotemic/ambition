@@ -249,13 +249,13 @@ fn default_entries() -> Vec<MechanicEntry> {
         },
         MechanicEntry {
             id: "projectile",
-            name: "Projectile / spell (planned)",
+            name: "Projectile / fireball / Hadouken",
             category: Combat,
-            maturity: Planned,
-            input_hint: "RT",
-            requires: "ResourceMeter, projectile backend",
+            maturity: Prototype,
+            input_hint: "F (kbd) / West face button (gamepad)",
+            requires: "ResourceMeter, projectile backend, motion-input buffer",
             station: Some("basement_mechanics/projectile"),
-            doc: "Resource-cost projectile with hit/break interaction.",
+            doc: "Resource-cost player projectile. Half-circle + fire upgrades to Hadouken.",
         },
         MechanicEntry {
             id: "parry",

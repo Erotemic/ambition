@@ -274,6 +274,15 @@ pub enum GameplayTraceEvent {
     Death {
         tick: u64,
     },
+    /// Projectile lifecycle event (player fireball / Hadouken). The
+    /// `event` string is one of `fired`, `blocked_by_resource`, `hit`,
+    /// `expired` so trace consumers can grep by phase.
+    Projectile {
+        tick: u64,
+        kind: String,
+        event: String,
+        damage: i32,
+    },
 }
 
 impl GameplayTraceEvent {
@@ -293,7 +302,8 @@ impl GameplayTraceEvent {
             | GameplayTraceEvent::Sfx { tick, .. }
             | GameplayTraceEvent::Vfx { tick, .. }
             | GameplayTraceEvent::Reset { tick }
-            | GameplayTraceEvent::Death { tick } => *tick,
+            | GameplayTraceEvent::Death { tick }
+            | GameplayTraceEvent::Projectile { tick, .. } => *tick,
         }
     }
 
@@ -314,6 +324,7 @@ impl GameplayTraceEvent {
             GameplayTraceEvent::Vfx { .. } => "Vfx",
             GameplayTraceEvent::Reset { .. } => "Reset",
             GameplayTraceEvent::Death { .. } => "Death",
+            GameplayTraceEvent::Projectile { .. } => "Projectile",
         }
     }
 }
@@ -1114,6 +1125,14 @@ fn render_markdown(payload: &DumpPayload<'_>) -> String {
             }
             GameplayTraceEvent::Reset { .. } => out.push_str("reset"),
             GameplayTraceEvent::Death { .. } => out.push_str("death"),
+            GameplayTraceEvent::Projectile {
+                kind,
+                event,
+                damage,
+                ..
+            } => {
+                out.push_str(&format!("{kind} {event} dmg={damage}"));
+            }
         }
         out.push('\n');
     }

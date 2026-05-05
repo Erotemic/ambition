@@ -32,6 +32,7 @@ pub mod mechanics;
 pub mod pause_menu;
 pub mod physics;
 pub mod platforms;
+pub mod projectile;
 pub mod rendering;
 pub mod rooms;
 pub mod settings;

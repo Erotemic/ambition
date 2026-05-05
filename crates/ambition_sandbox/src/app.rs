@@ -275,6 +275,7 @@ pub fn add_simulation_plugins(app: &mut App) {
             Startup,
             (data::load_data_asset_handle, setup_simulation_system).chain(),
         )
+        .insert_resource(crate::projectile::PlayerProjectileState::default())
         .add_systems(
             Update,
             (
@@ -284,6 +285,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 ldtk_world::rebuild_ldtk_runtime_spine_index,
                 ldtk_world::rebuild_ldtk_runtime_solid_index,
                 platforms::sync_moving_platform,
+                crate::projectile::update_projectiles,
             )
                 .chain(),
         )

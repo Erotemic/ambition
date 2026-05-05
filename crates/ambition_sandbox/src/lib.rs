@@ -162,6 +162,12 @@ pub struct SandboxRuntime {
     /// ledge — gravity is suspended and Up + Jump kicks off the
     /// climb. `None` otherwise. Only mutated by `update_ledge_grab`.
     pub ledge_grab: Option<LedgeGrabState>,
+    /// One-shot signal: set true the frame the player died and was
+    /// respawned. The encounter system reads this on its next tick
+    /// to fail any active encounter (despawn mobs, drop the lock,
+    /// re-arm the trigger). Cleared by the encounter system after
+    /// it acts.
+    pub player_died_pending: bool,
 }
 
 /// Sandbox-side ledge grab snapshot. Engine-pure data wrapped with
@@ -215,6 +221,7 @@ impl SandboxRuntime {
             slash_damage: 1,
             invincible: false,
             ledge_grab: None,
+            player_died_pending: false,
         }
     }
 
@@ -241,6 +248,10 @@ impl SandboxRuntime {
         // settings on every player respawn.
         self.mana_current = self.mana_max;
         self.ledge_grab = None;
+        // `player_died_pending` is intentionally NOT cleared here —
+        // it's set by `death_respawn_player` (which calls `reset`)
+        // so the encounter system can read it on the next tick.
+        // Clearing it would defeat the signal.
     }
 
     pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {
@@ -355,6 +366,31 @@ pub fn move_toward(value: f32, target: f32, delta: f32) -> f32 {
         (value - delta).max(target)
     }
 }
+
+/// Live camera scale + ease state. The camera reads target scale from
+/// the encounter registry (or developer overview override) every
+/// frame; this resource holds the smoothed value so transitions feel
+/// like a breath instead of a snap.
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct CameraEaseState {
+    pub live_scale: f32,
+}
+
+impl Default for CameraEaseState {
+    fn default() -> Self {
+        Self { live_scale: 1.0 }
+    }
+}
+
+/// Scale-units per second when easing camera *into* an encounter
+/// (zoom-out). Faster than the recovery rate so the player feels the
+/// arena widen quickly when the lock-wall slams.
+pub const CAMERA_ZOOM_OUT_RATE: f32 = 1.6;
+
+/// Scale-units per second when easing camera *out of* an encounter
+/// (zoom-in). Slower than zoom-out; the post-fight breathing room is
+/// the moment to savor.
+pub const CAMERA_ZOOM_IN_RATE: f32 = 0.9;
 
 #[cfg(test)]
 mod safe_pos_tests {

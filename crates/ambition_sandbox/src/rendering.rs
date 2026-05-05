@@ -614,11 +614,18 @@ pub fn block_color(kind: ae::BlockKind) -> Color {
 /// centered camera. We convert the player to Bevy coordinates, then clamp the
 /// camera center so the player can scroll through large rooms without showing
 /// outside the generated level bounds. Small rooms remain centered.
+///
+/// Smoothly eases between camera scales when an encounter starts /
+/// ends. A snap was distracting; the eased path preserves "I crossed
+/// a threshold and the world breathed out" pacing without making
+/// the player wait for the camera.
 pub fn camera_follow(
     world: Res<crate::GameWorld>,
+    time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     encounter_registry: Res<crate::encounter::EncounterRegistry>,
+    mut camera_state: ResMut<crate::CameraEaseState>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {
@@ -627,10 +634,40 @@ pub fn camera_follow(
     // by the spec's `camera_zoom` factor. Overview camera trumps
     // encounter zoom for dev convenience.
     let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
-    let camera_scale = if developer_tools.overview_camera {
+    let target_scale = if developer_tools.overview_camera {
         overview_scale
     } else {
         encounter_scale
+    };
+
+    // Ease the live scale toward the target. Different rates for
+    // zoom-in (encounter starts; tighter, faster — players want
+    // immediate "you're in it") vs. zoom-out (encounter ends;
+    // slower, breathy "you survived"). Overview camera snaps because
+    // it's a debug tool.
+    let dt = time.delta_secs().max(0.0);
+    let camera_scale = if developer_tools.overview_camera {
+        camera_state.live_scale = target_scale;
+        target_scale
+    } else {
+        let rate = if target_scale > camera_state.live_scale {
+            crate::CAMERA_ZOOM_OUT_RATE
+        } else {
+            crate::CAMERA_ZOOM_IN_RATE
+        };
+        let delta = (target_scale - camera_state.live_scale).abs();
+        let step = (rate * dt).min(delta);
+        camera_state.live_scale = if target_scale > camera_state.live_scale {
+            camera_state.live_scale + step
+        } else {
+            camera_state.live_scale - step
+        };
+        // Snap the last sliver to avoid floating-point drift
+        // accumulating into never-converges territory.
+        if (camera_state.live_scale - target_scale).abs() < 0.0025 {
+            camera_state.live_scale = target_scale;
+        }
+        camera_state.live_scale.max(1.0)
     };
 
     let target = if developer_tools.overview_camera {

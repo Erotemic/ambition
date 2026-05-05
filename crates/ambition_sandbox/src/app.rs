@@ -330,6 +330,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::boss_encounter::BossEncounterRegistry::default())
         .insert_resource(crate::features::FeatureEventBus::default())
         .insert_resource(crate::map_menu::MapMenuState::default())
+        .insert_resource(crate::CameraEaseState::default())
         .add_systems(
             Update,
             (
@@ -2047,6 +2048,10 @@ fn death_respawn_player(
     runtime.flash_timer = feel.reset_flash_time.max(0.35);
     runtime.features.banner = "PLAYER DOWN: respawned at room start with full HP".to_string();
     runtime.features.banner_timer = 2.4;
+    // One-shot signal for the encounter system: any in-flight
+    // encounter should fail this frame so the next frame can re-arm
+    // a fresh attempt.
+    runtime.player_died_pending = true;
     sfx.push(SfxMessage::Death { pos: from });
     vfx.push(VfxMessage::ResetEffects { from, to });
 }

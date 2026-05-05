@@ -79,6 +79,29 @@ to the bottom under "Closed" with the commit that fixed them.
     `Player` (ideally as a `ResourceMeter`) when the first mana-cost
     ability lands.
 
+### Encounter
+
+- **MED — Encounter chest reward is hard-coded to a small heal**
+  - File: `crates/ambition_sandbox/src/encounter.rs:update_encounters_from_world`
+  - When an encounter clears we drop a chest with
+    `PickupKind::Health { amount: 2 }`. Real encounters want
+    per-encounter reward authoring (an `EncounterSpec::reward` field
+    pointing at a `PickupKind` or a chest spec id).
+
+- **MED — `runtime.player_died_pending` is a side-channel boolean**
+  - File: `crates/ambition_sandbox/src/lib.rs`
+  - The cleanest shape would be a Bevy event (`PlayerDiedEvent`) the
+    encounter system reads. It's a boolean on `SandboxRuntime` for
+    the same reason ledge-grab is — adding a Message channel is one
+    more piece of plumbing to set up. Promote when we move
+    `SandboxRuntime` per-player.
+
+- **LOW — Camera ease snaps in overview mode**
+  - File: `crates/ambition_sandbox/src/rendering.rs:camera_follow`
+  - Overview camera (F5) sets the live scale directly so the
+    debug toggle is instant. If we ever want a smooth dev-only
+    transition, parameterize the rate.
+
 ### Architecture
 
 - **MED — `feature_runtime_phase` runs every system in `sandbox_update`

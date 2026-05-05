@@ -18,6 +18,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use ambition_engine as ae;
+use ambition_engine::AabbExt;
 use ambition_engine::PersistedEncounterState;
 
 use crate::ldtk_world::LdtkProject;
@@ -945,6 +946,35 @@ pub fn update_encounters_from_world(
     let dt = time.delta_secs();
     let mut events: Vec<(String, Vec<EncounterEvent>)> = Vec::new();
 
+    // 0. Player death this frame? Fail any in-flight encounter,
+    //    drop the lock wall, and despawn carryover encounter mobs
+    //    (`runtime.reset` already rebuilt FeatureRuntime, but the
+    //    encounter alive_ids still reference the old ids — clearing
+    //    them here makes the next tick a clean fresh attempt). The
+    //    death-respawn path already moved the player back to the
+    //    room spawn, so the trigger AABB will re-fire on next entry.
+    let died_this_frame = std::mem::take(&mut runtime.player_died_pending);
+    if died_this_frame {
+        for (id, state) in registry.encounters.iter_mut() {
+            let in_flight = matches!(
+                state.phase,
+                EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
+            );
+            if in_flight {
+                let evs = state.on_player_death();
+                if !evs.is_empty() {
+                    events.push((id.clone(), evs));
+                }
+                // After failing, snap to Inactive so the trigger can
+                // fire fresh once the player walks back in.
+                state.phase = EncounterPhase::Inactive;
+                state.lock_active = false;
+                state.run = EncounterRun::default();
+                runtime.features.despawn_encounter_enemies(id);
+            }
+        }
+    }
+
     // 1. Cancel encounters whose area the player has left. Snaps back
     //    to Inactive so the camera zoom + lock release on exit. A
     //    fresh attempt will fire next time the player re-enters.
@@ -1061,6 +1091,35 @@ pub fn update_encounters_from_world(
             runtime.features.set_switch_on(&switch_id, true);
         }
         runtime.features.despawn_encounter_enemies(&encounter_id);
+        // Victory chest: spawn a reward chest at the encounter's
+        // trigger center so the player has something to walk toward
+        // after the lock wall drops. The chest is keyed off
+        // encounter_id so re-clearing the same encounter is a no-op
+        // (already-spawned chest stays put). The save flag persists
+        // "this encounter has paid out" so a saved-and-reloaded
+        // session doesn't drop a duplicate chest.
+        let reward_flag = format!("encounter_{encounter_id}_reward_dropped");
+        if !save.data().flag(&reward_flag) {
+            if let Some(spec) = registry
+                .encounters
+                .get(&encounter_id)
+                .and_then(|e| e.spec.as_ref())
+            {
+                let trigger = spec.trigger_aabb();
+                let reward = ae::PickupKind::Health { amount: 2 };
+                let chest_id = format!("encounter_chest_{encounter_id}");
+                runtime.features.spawn_chest(
+                    chest_id,
+                    Some(reward),
+                    ae::Vec2::new(
+                        trigger.center().x,
+                        trigger.center().y - 8.0,
+                    ),
+                    ae::Vec2::new(28.0, 28.0),
+                );
+                save.data_mut().set_flag(reward_flag, true);
+            }
+        }
         // Polish: surface a celebration banner so the player gets
         // explicit "you cleared it" feedback (not just an ambient
         // green switch).

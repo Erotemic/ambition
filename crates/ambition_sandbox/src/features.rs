@@ -351,6 +351,35 @@ impl FeatureRuntime {
         let prefix = format!("encounter:{encounter_id}:");
         self.enemies.retain(|e| !e.id.starts_with(&prefix));
     }
+
+    /// Spawn a chest at runtime. Used by the encounter system to drop
+    /// a victory reward when an arena clears, and available as a
+    /// general utility for code-built rooms / cutscenes.
+    pub fn spawn_chest(
+        &mut self,
+        id: String,
+        reward: Option<ae::PickupKind>,
+        pos: ae::Vec2,
+        size: ae::Vec2,
+    ) {
+        let aabb = ae::Aabb::new(pos, size * 0.5);
+        let object = ae::RoomObject::new(
+            id.clone(),
+            id.clone(),
+            aabb,
+            ae::RoomObjectKind::Chest(ae::Chest::new(id.clone(), reward)),
+        );
+        let chest = match object.kind.clone() {
+            ae::RoomObjectKind::Chest(c) => c,
+            _ => unreachable!(),
+        };
+        // Don't double-spawn — if a chest with the same id already
+        // exists (e.g. authored chest in the room), leave it alone.
+        if self.chests.iter().any(|c| c.id == id) {
+            return;
+        }
+        self.chests.push(ChestRuntime::new(&object, chest));
+    }
 }
 
 impl FeatureRuntime {
@@ -1689,6 +1718,39 @@ mod conversion_tests {
             features.enemies.is_empty(),
             "Dead flag should suppress the conversion respawn"
         );
+    }
+
+    #[test]
+    fn spawn_chest_appends_a_chest_runtime() {
+        let mut features = FeatureRuntime {
+            hazards: Vec::new(),
+            enemies: Vec::new(),
+            bosses: Vec::new(),
+            breakables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            npcs: Vec::new(),
+            switches: Vec::new(),
+            water_volumes: Vec::new(),
+            banner: String::new(),
+            banner_timer: 0.0,
+        };
+        features.spawn_chest(
+            "encounter_chest_mob_lab".into(),
+            Some(ae::PickupKind::Health { amount: 2 }),
+            ae::Vec2::new(400.0, 300.0),
+            ae::Vec2::new(28.0, 28.0),
+        );
+        assert_eq!(features.chests.len(), 1);
+        assert_eq!(features.chests[0].id, "encounter_chest_mob_lab");
+        // Same id again → no double-spawn.
+        features.spawn_chest(
+            "encounter_chest_mob_lab".into(),
+            None,
+            ae::Vec2::new(0.0, 0.0),
+            ae::Vec2::new(28.0, 28.0),
+        );
+        assert_eq!(features.chests.len(), 1, "should not double-spawn");
     }
 
     #[test]

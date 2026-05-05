@@ -240,10 +240,24 @@ impl RoomSet {
     }
 
     /// Return non-fatal authoring warnings for room specs.
+    ///
+    /// Catches authoring jank that compiles but plays badly:
+    /// - active fixtures (hazards / pogo orbs / rebound pads)
+    ///   overlapping loading zones (player teleports into damage),
+    /// - door zones that aren't door-sized (height < player + jump
+    ///   buffer),
+    /// - door zones too close to a wall to fit the player,
+    /// - paired door zones with mismatched sizes,
+    /// - rooms whose only entrance is also their only exit (player
+    ///   gets stuck once it triggers),
+    /// - dangling room graph edges,
+    /// - arrival points that need repair to land safely.
     pub fn layout_warnings(&self) -> Vec<String> {
         let mut warnings = Vec::new();
         for (room_index, room) in self.rooms.iter().enumerate() {
             for zone in &room.loading_zones {
+                // Active fixtures inside a zone teleport the player
+                // straight into damage / a bounce.
                 for block in &room.world.blocks {
                     let active_fixture = matches!(
                         block.kind,
@@ -260,6 +274,94 @@ impl RoomSet {
                             zone.name,
                         ));
                     }
+                }
+                // Door zones must clear the player's body.
+                if matches!(zone.activation, LoadingZoneActivation::Door) {
+                    let min_door_h = PLAYER_HALF_H * 2.0 + 6.0;
+                    let min_door_w = PLAYER_HALF_W * 2.0 + 6.0;
+                    let zone_h = zone.aabb.height();
+                    let zone_w = zone.aabb.width();
+                    if zone_h < min_door_h {
+                        warnings.push(format!(
+                            "room {room_index} '{}' door '{}' is too short ({:.0}px; need {:.0}+ for player)",
+                            room.world.name, zone.name, zone_h, min_door_h
+                        ));
+                    }
+                    if zone_w < min_door_w {
+                        warnings.push(format!(
+                            "room {room_index} '{}' door '{}' is too narrow ({:.0}px; need {:.0}+ for player)",
+                            room.world.name, zone.name, zone_w, min_door_w
+                        ));
+                    }
+                }
+                // Door zones that overlap a Solid block of the same
+                // room shouldn't exist — the door-arrival ends inside
+                // a wall.
+                if matches!(zone.activation, LoadingZoneActivation::Door) {
+                    for block in &room.world.blocks {
+                        if matches!(block.kind, ae::BlockKind::Solid)
+                            && block.aabb.strict_intersects(zone.aabb)
+                        {
+                            warnings.push(format!(
+                                "room {room_index} '{}' door '{}' overlaps solid '{}'",
+                                room.world.name, zone.name, block.name,
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Per-room: verify there's at least one outgoing edge if the
+        // room has any incoming edges (otherwise the room is a trap).
+        for (room_index, _room) in self.rooms.iter().enumerate() {
+            if room_index >= self.room_nodes.len() {
+                continue;
+            }
+            let node = self.room_nodes[room_index];
+            let outgoing = self.graph.edges_directed(node, Direction::Outgoing).count();
+            let incoming = self.graph.edges_directed(node, Direction::Incoming).count();
+            if incoming > 0 && outgoing == 0 {
+                warnings.push(format!(
+                    "room {room_index} '{}' has no outgoing edges — it's a one-way trap",
+                    self.rooms[room_index].world.name,
+                ));
+            }
+        }
+
+        // Paired-door size consistency: if A→B is via doors, the door
+        // sizes should roughly match so the player's mental model
+        // ("the door I came through is the door I leave through")
+        // holds.
+        for edge in self.graph.edge_references() {
+            let source_room = edge.source().index();
+            let target_room = edge.target().index();
+            let weight = edge.weight();
+            let Some(from_zone) = self.zone_by_id(source_room, &weight.from_zone) else {
+                continue;
+            };
+            let Some(to_zone) = self.zone_by_id(target_room, &weight.to_zone) else {
+                continue;
+            };
+            if matches!(from_zone.activation, LoadingZoneActivation::Door)
+                && matches!(to_zone.activation, LoadingZoneActivation::Door)
+            {
+                let from_w = from_zone.aabb.width();
+                let from_h = from_zone.aabb.height();
+                let to_w = to_zone.aabb.width();
+                let to_h = to_zone.aabb.height();
+                let dw = (from_w - to_w).abs();
+                let dh = (from_h - to_h).abs();
+                if dw > 12.0 || dh > 12.0 {
+                    warnings.push(format!(
+                        "room graph edge room {source_room}:{} -> room {target_room}:{} doors mismatch ({}x{} vs {}x{})",
+                        weight.from_zone,
+                        weight.to_zone,
+                        from_w as i32,
+                        from_h as i32,
+                        to_w as i32,
+                        to_h as i32,
+                    ));
                 }
             }
         }

@@ -34,6 +34,7 @@ pub mod ldtk_world;
 pub mod ledge_grab;
 pub mod loading;
 pub mod map_menu;
+pub mod room_builder;
 pub mod swim;
 pub mod mechanics;
 pub mod pause_menu;

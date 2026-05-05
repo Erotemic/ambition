@@ -14,6 +14,20 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Runtime / state
 
+- **MED — `EnemyRuntime` movement still pre-computes `desired_x` from
+  brain enums, then overrides via `ai_mode`**
+  - File: `crates/ambition_sandbox/src/features.rs:EnemyRuntime::update`
+  - The post-refactor pattern is: evaluate ai_mode → branch movement
+    on it. The match-on-brain still has its own arms because the
+    chase-speed and aggro-radius logic varies per `EnemyBrain`
+    variant. The right shape is to push that into the brain trait
+    (or into `EnemyArchetype`) so the AI evaluator's output can drive
+    everything; today the brain match is duplicated under the
+    `ai_mode` branch.
+  - Leaving for the same reason as the broader state-machine refactor
+    — it's a meaningful surgery on a tested system, schedule a
+    dedicated pass.
+
 - **HIGH — `SandboxRuntime` is one global god-resource**
   - File: `crates/ambition_sandbox/src/lib.rs`
   - Holds player state, feature runtimes, dialogue, physics tuning,
@@ -26,18 +40,17 @@ to the bottom under "Closed" with the commit that fixed them.
     the global shape; the per-player split is a separate later
     refactor.
 
-- **HIGH — Hostile NPC conversion is one-way and slightly fragile**
+- **MED — Hostile NPC conversion is one-way; conversion path now
+  tested but the race-with-other-mutators invariant isn't enforced**
   - File: `crates/ambition_sandbox/src/features.rs:apply_save`
   - When an NPC's hostile flag is set, `apply_save` removes the
-    `NpcRuntime` and `spawn_enemy`s a striker with the same id. If
-    the conversion races with anything else mutating `npcs` /
-    `enemies` in the same tick, we'd double-spawn. Today the
-    conversion is the only mutator inside `apply_save` so it's safe,
-    but the invariant isn't enforced — a single test would lock it
-    in.
-  - Hostile NPCs that *die* don't yet write a "killed" save flag, so
-    they respawn on every room re-enter. Fine for the sandbox,
-    wrong for a real game.
+    `NpcRuntime` and `spawn_enemy`s a striker with the same id. The
+    `enemy_<id>_dead` save flag now suppresses the respawn loop
+    (closed by commit `75ebfcb`). Four tests in
+    `features::conversion_tests` lock the conversion behaviors in.
+    Remaining smell: the invariant "only `apply_save` mutates
+    `npcs`/`enemies` during the convert window" isn't enforced by
+    types — a future system could violate it.
 
 - **HIGH — `EnemyRuntime` and `BossRuntime` carry their own ad-hoc
   state machines**
@@ -104,14 +117,13 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Content / authoring
 
-- **MED — Boss spec registration uses the LDtk runtime id, not a
-  semantic id**
-  - File: `crates/ambition_sandbox/src/boss_encounter.rs:update_boss_encounters`
-  - Lazy-registers a `BossEncounterSpec` whose id matches the
-    `BossRuntime.id` (which is the LDtk iid like `BossSpawn-0158`).
-    Works because we currently only have one boss; with two bosses
-    in different rooms we need a real "encounter id" LDtk field on
-    `BossSpawn` so authoring can label each one.
+- **LOW — Boss spec id derives from name; explicit LDtk field still
+  open**
+  - File: `crates/ambition_sandbox/src/boss_encounter.rs:encounter_id_from_name`
+  - The encounter id now normalizes the LDtk `BossSpawn::name` field
+    (closed by commit `75ebfcb`). A purpose-built `encounter_id`
+    LDtk field would still be cleaner — the name doubles as both the
+    HUD display string and the save key.
 
 - **MED — Music tracks for boss phases are placeholders**
   - File: `crates/ambition_engine/src/boss_encounter.rs:gradient_sentinel`
@@ -131,21 +143,28 @@ to the bottom under "Closed" with the commit that fixed them.
   - Real game wants a dedicated quest panel. Right now the lines
     just get appended to the debug HUD text.
 
-- **LOW — Map menu is text-only**
-  - File: `crates/ambition_sandbox/src/map_menu.rs`
-  - We track visited rooms but render them as a text list in the
-    HUD. A real minimap needs sprite or gizmo rendering of room
-    bounding boxes + corridors. Use the LDtk world-grid data to draw
-    boxes once we have a sprite atlas.
+- ~~**LOW — Map menu is text-only**~~
+  *(Closed by commit `75ebfcb` — `MapMenuState::rooms` is populated
+  from `LdtkProject::levels`, and `sync_map_menu` paints each room
+  as a Bevy UI rectangle on a full-screen panel + corner minimap,
+  with the active room highlighted. Despawn-and-respawn each tick is
+  fine for <20 rooms; switch to per-room entities + change detection
+  if room count grows.)*
+
+- **LOW — Map UI repaints rectangles every frame**
+  - File: `crates/ambition_sandbox/src/map_menu.rs:sync_map_menu`
+  - Despawn + respawn pattern is cheap for the current room count
+    but isn't ideal. Switch to per-room entities with change
+    detection if the map ever holds many rooms.
 
 ### Tests / observability
 
-- **MED — Hostile-NPC conversion has no integration test**
-  - We test the engine's `evaluate_character_ai` and the save
-    schema's flag round-trip, but the actual "strike NPC 3 times →
-    spawned enemy attacks player" loop is only exercised in the
-    visible binary. Add a Bevy minimal-plugin test (per the bevy
-    testing pattern memory) that drives the conversion.
+- ~~**MED — Hostile-NPC conversion has no integration test**~~
+  *(Closed by commit on 2026-05-05 — `features::conversion_tests`
+  now exercises strike-flips-hostile, apply_save replaces NPC with
+  enemy, dead flag suppresses the respawn, and authored EnemySpawn
+  enemies are marked dead from the save flag. Doesn't yet drive a
+  full Bevy app; pure-data tests covered the four scenarios.)*
 
 - **MED — Boss music swap requests aren't asserted in tests**
   - The integration test
@@ -179,4 +198,17 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ## Closed
 
-(none yet — populate as items are paid down)
+- **HIGH — Hostile NPC death wasn't persisted (respawn loop)** —
+  closed by commit `75ebfcb` (2026-05-05). `apply_player_attack`
+  writes `enemy_<id>_dead` flag for non-encounter, non-sandbag
+  enemies on death; `apply_save` honors the flag for both NPC
+  conversions and authored EnemySpawn entries.
+- **MED — Boss spec registration used LDtk iid, not a semantic id** —
+  closed by commit `75ebfcb`. `encounter_id_from_name` normalizes
+  the BossSpawn `name` field; runtime_id link table still maps to
+  the iid for combat damage routing.
+- **MED — Hostile-NPC conversion had no test** — closed by
+  `features::conversion_tests` (4 tests).
+- **LOW — Map menu was text-only** — closed by commit `75ebfcb`. Real
+  Bevy UI panel + minimap with room rectangles drawn from LDtk
+  worldX/worldY.

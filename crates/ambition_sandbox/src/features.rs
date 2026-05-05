@@ -1155,6 +1155,7 @@ impl EnemyRuntime {
                 self.vel = ae::Vec2::ZERO;
                 self.hit_flash = 0.24;
             }
+            self.ai_mode = ae::CharacterAiMode::Dead;
             return;
         }
         let was_winding_up = self.attack_windup_timer > 0.0;
@@ -1165,6 +1166,37 @@ impl EnemyRuntime {
             self.attack_timer = tuning.enemy_attack_active.max(0.01);
         }
 
+        // Evaluate the AI mode FIRST so motion / trigger logic can
+        // branch on a single vocabulary. The recover_remaining
+        // surrogate (using post-attack cooldown) signals that the
+        // actor just finished an attack and shouldn't be moving
+        // until the cooldown elapses — this is what makes Recover
+        // legible to consumers.
+        let recover_remaining = if self.attack_cooldown > 0.0
+            && self.attack_windup_timer <= 0.0
+            && self.attack_timer <= 0.0
+        {
+            self.attack_cooldown.min(0.30)
+        } else {
+            0.0
+        };
+        self.ai_mode = ae::evaluate_character_ai(ae::CharacterAiSnapshot {
+            actor_pos: self.pos,
+            player_pos: player.pos,
+            aggro_radius: self.archetype.aggro_radius(),
+            attack_range: self.archetype.attack_range(),
+            attack_windup_remaining: self.attack_windup_timer,
+            attack_active_remaining: self.attack_timer,
+            attack_recover_remaining: recover_remaining,
+            stun_remaining: 0.0,
+            alive: self.alive,
+            patrol_enabled: !self.archetype.is_sandbag()
+                && !matches!(self.brain, ae::EnemyBrain::Passive),
+        });
+        // Whether the actor is committed to an attack frame this
+        // tick — Telegraph / Attack / Recover all hold position.
+        let committed = self.ai_mode.is_committed();
+
         if let Some(motion) = &mut self.motion {
             let old = self.pos;
             self.pos = motion.advance(self.pos, dt);
@@ -1172,18 +1204,43 @@ impl EnemyRuntime {
         } else {
             let delta_to_player = player.pos - self.pos;
             let distance_to_player = delta_to_player.length();
-            let desired_x = match self.brain {
-                _ if self.archetype.is_sandbag() => 0.0,
-                ae::EnemyBrain::Guard { leash_radius } if distance_to_player <= leash_radius => {
-                    delta_to_player.x.signum() * self.archetype.chase_speed()
+            // Movement now reads `ai_mode`: Stunned/committed → hold,
+            // Chase → pursue at chase_speed, Patrol → pace at
+            // patrol_speed, Idle → stand. Sandbags + Passive bypass
+            // the chase line entirely.
+            let desired_x = if matches!(
+                self.ai_mode,
+                ae::CharacterAiMode::Stunned | ae::CharacterAiMode::Telegraph | ae::CharacterAiMode::Attack
+            ) {
+                0.0
+            } else if committed {
+                // Recover: drift to a stop.
+                self.vel.x * 0.4
+            } else if self.archetype.is_sandbag() {
+                0.0
+            } else {
+                match self.brain {
+                    ae::EnemyBrain::Guard { leash_radius }
+                        if distance_to_player <= leash_radius =>
+                    {
+                        delta_to_player.x.signum() * self.archetype.chase_speed()
+                    }
+                    ae::EnemyBrain::Custom(_)
+                        if distance_to_player <= self.archetype.aggro_radius() =>
+                    {
+                        delta_to_player.x.signum() * self.archetype.chase_speed()
+                    }
+                    ae::EnemyBrain::Passive => 0.0,
+                    _ => match self.ai_mode {
+                        ae::CharacterAiMode::Patrol => {
+                            self.facing * self.archetype.patrol_speed()
+                        }
+                        ae::CharacterAiMode::Chase => {
+                            delta_to_player.x.signum() * self.archetype.chase_speed()
+                        }
+                        _ => 0.0,
+                    },
                 }
-                ae::EnemyBrain::Custom(_)
-                    if distance_to_player <= self.archetype.aggro_radius() =>
-                {
-                    delta_to_player.x.signum() * self.archetype.chase_speed()
-                }
-                ae::EnemyBrain::Passive => 0.0,
-                _ => self.facing * self.archetype.patrol_speed(),
             };
             self.vel.x = approach(self.vel.x, desired_x, 650.0 * dt);
             self.vel.y = (self.vel.y + ENEMY_GRAVITY * dt).min(ENEMY_MAX_FALL);
@@ -1206,11 +1263,13 @@ impl EnemyRuntime {
         if to_player.x.abs() > 4.0 {
             self.facing = to_player.x.signum();
         }
-        if !self.archetype.is_sandbag()
+        // Attack trigger: only fire from Chase. Telegraph/Attack/
+        // Recover/Stunned/Idle/Patrol/Dead all skip — they each
+        // mean "not the right tick to start a swing."
+        if matches!(self.ai_mode, ae::CharacterAiMode::Chase)
+            && !self.archetype.is_sandbag()
             && to_player.length() <= self.archetype.attack_range()
             && self.attack_cooldown <= 0.0
-            && self.attack_windup_timer <= 0.0
-            && self.attack_timer <= 0.0
         {
             self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
             self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
@@ -1221,32 +1280,10 @@ impl EnemyRuntime {
                 } else {
                     1.0
                 };
+            // Re-evaluate so the snapshot reflects "I just started
+            // a windup" rather than holding stale Chase.
+            self.ai_mode = ae::CharacterAiMode::Telegraph;
         }
-
-        // Snapshot the AI mode for HUD / rendering. The actual
-        // movement / attack logic above stays as-is for now; the
-        // mode just exposes a single vocabulary on top.
-        let recover_remaining = if self.attack_cooldown > 0.0
-            && self.attack_windup_timer <= 0.0
-            && self.attack_timer <= 0.0
-        {
-            self.attack_cooldown
-        } else {
-            0.0
-        };
-        self.ai_mode = ae::evaluate_character_ai(ae::CharacterAiSnapshot {
-            actor_pos: self.pos,
-            player_pos: player.pos,
-            aggro_radius: self.archetype.aggro_radius(),
-            attack_range: self.archetype.attack_range(),
-            attack_windup_remaining: self.attack_windup_timer,
-            attack_active_remaining: self.attack_timer,
-            attack_recover_remaining: recover_remaining,
-            stun_remaining: 0.0,
-            alive: self.alive,
-            patrol_enabled: !self.archetype.is_sandbag()
-                && !matches!(self.brain, ae::EnemyBrain::Passive),
-        });
     }
 
     pub fn aabb(&self) -> ae::Aabb {
@@ -1542,6 +1579,145 @@ impl BreakableRuntime {
 
     fn breaks_on_hit(&self) -> bool {
         self.breakable.trigger.allows_hit()
+    }
+}
+
+#[cfg(test)]
+mod conversion_tests {
+    use super::*;
+
+    fn world_with_npc(id: &str) -> (ae::World, NpcRuntime) {
+        let world = ae::World::new(
+            String::from("npc_test"),
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![ae::Block::solid(
+                String::from("floor"),
+                ae::Vec2::new(0.0, 560.0),
+                ae::Vec2::new(800.0, 40.0),
+            )],
+        );
+        let aabb = ae::Aabb::new(ae::Vec2::new(200.0, 540.0), ae::Vec2::new(11.0, 19.0));
+        let object = ae::RoomObject::new(
+            id.to_string(),
+            id.to_string(),
+            aabb,
+            ae::RoomObjectKind::Interactable(ae::Interactable::new(
+                id.to_string(),
+                String::from("Talk"),
+                aabb,
+                ae::InteractionKind::Npc {
+                    dialogue_id: Some(id.to_string()),
+                },
+            )),
+        );
+        let interactable = match object.kind.clone() {
+            ae::RoomObjectKind::Interactable(it) => it,
+            _ => unreachable!(),
+        };
+        let npc = NpcRuntime::new(&object, interactable);
+        (world, npc)
+    }
+
+    #[test]
+    fn striking_npc_three_times_flips_them_hostile() {
+        let mut features = FeatureRuntime {
+            hazards: Vec::new(),
+            enemies: Vec::new(),
+            bosses: Vec::new(),
+            breakables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            npcs: vec![world_with_npc("guide").1],
+            switches: Vec::new(),
+            water_volumes: Vec::new(),
+            banner: String::new(),
+            banner_timer: 0.0,
+        };
+        let attack = ae::Aabb::new(ae::Vec2::new(200.0, 540.0), ae::Vec2::new(20.0, 20.0));
+        for _ in 0..3 {
+            let _ = features.apply_player_attack(attack, 1, 0.0);
+        }
+        assert_eq!(features.npcs.len(), 1);
+        assert!(features.npcs[0].hostile);
+    }
+
+    #[test]
+    fn apply_save_with_hostile_flag_replaces_npc_with_enemy() {
+        let mut features = FeatureRuntime {
+            hazards: Vec::new(),
+            enemies: Vec::new(),
+            bosses: Vec::new(),
+            breakables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            npcs: vec![world_with_npc("guide").1],
+            switches: Vec::new(),
+            water_volumes: Vec::new(),
+            banner: String::new(),
+            banner_timer: 0.0,
+        };
+        let mut save = ae::SandboxSaveData::new();
+        save.set_flag("npc_guide_hostile", true);
+        features.apply_save(&save);
+        assert!(features.npcs.is_empty(), "NPC should be removed");
+        assert_eq!(features.enemies.len(), 1, "An enemy should replace the NPC");
+        assert_eq!(features.enemies[0].id, "guide");
+    }
+
+    #[test]
+    fn apply_save_with_dead_flag_keeps_npc_dead_no_respawn() {
+        let mut features = FeatureRuntime {
+            hazards: Vec::new(),
+            enemies: Vec::new(),
+            bosses: Vec::new(),
+            breakables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            npcs: vec![world_with_npc("guide").1],
+            switches: Vec::new(),
+            water_volumes: Vec::new(),
+            banner: String::new(),
+            banner_timer: 0.0,
+        };
+        let mut save = ae::SandboxSaveData::new();
+        save.set_flag("npc_guide_hostile", true);
+        save.set_flag("enemy_guide_dead", true);
+        features.apply_save(&save);
+        assert!(features.npcs.is_empty(), "NPC was hostile, removed");
+        assert!(
+            features.enemies.is_empty(),
+            "Dead flag should suppress the conversion respawn"
+        );
+    }
+
+    #[test]
+    fn apply_save_marks_authored_enemy_dead_when_save_says_so() {
+        // Authored enemy from a regular EnemySpawn (no encounter
+        // prefix). The save flag should mark it dead on load.
+        let world = ae::World::new(
+            String::from("enemy_test"),
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![ae::Block::solid(
+                String::from("floor"),
+                ae::Vec2::new(0.0, 560.0),
+                ae::Vec2::new(800.0, 40.0),
+            )],
+        )
+        .with_objects(vec![ae::RoomObject::new(
+            String::from("spider"),
+            String::from("spider"),
+            ae::Aabb::new(ae::Vec2::new(400.0, 540.0), ae::Vec2::new(11.0, 19.0)),
+            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom(String::from("medium_striker"))),
+        )]);
+        let mut features = FeatureRuntime::from_world(&world);
+        assert_eq!(features.enemies.len(), 1);
+        assert!(features.enemies[0].alive);
+        let mut save = ae::SandboxSaveData::new();
+        save.set_flag("enemy_spider_dead", true);
+        features.apply_save(&save);
+        assert!(!features.enemies[0].alive);
     }
 }
 

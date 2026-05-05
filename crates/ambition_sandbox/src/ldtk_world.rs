@@ -1165,6 +1165,28 @@ fn entity_to_runtime(
                 ae::RoomObjectKind::DebugLabel(label),
             )))
         }
+        "WaterVolume" => {
+            let mut spec = ae::WaterVolumeSpec::default();
+            if let Some(value) = field_f32(entity, "gravity_scale") {
+                spec.gravity_scale = value;
+            }
+            if let Some(value) = field_f32(entity, "drag") {
+                spec.drag = value;
+            }
+            if let Some(value) = field_f32(entity, "max_fall_speed") {
+                spec.max_fall_speed = value;
+            }
+            if let Some(value) = field_f32(entity, "swim_up_impulse") {
+                spec.swim_up_impulse = value;
+            }
+            Ok(RuntimeEntityEmission::object(runtime_room_object(
+                entity,
+                name,
+                min,
+                size,
+                ae::RoomObjectKind::WaterVolume(spec),
+            )))
+        }
         "CameraZone" | "StitchedBoundary" => Ok(RuntimeEntityEmission::ignored()),
         // EncounterTrigger entities are read by `crate::encounter::load_encounter_specs_from_ldtk`
         // directly off the `LdtkProject` because the encounter spec

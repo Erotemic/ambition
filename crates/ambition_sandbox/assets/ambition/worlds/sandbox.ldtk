@@ -11,7 +11,7 @@
   "iid": "ambition-sandbox-world",
   "jsonVersion": "1.5.3",
   "appBuildId": 473703,
-  "nextUid": 4124,
+  "nextUid": 4140,
   "identifierStyle": "Free",
   "toc": [],
   "worldLayout": "Free",
@@ -3730,6 +3730,287 @@
             "searchable": true
           }
         ]
+      },
+      {
+        "identifier": "WaterVolume",
+        "uid": 4130,
+        "tags": [],
+        "exportToToc": false,
+        "allowOutOfBounds": true,
+        "doc": "Water region. Player AABB intersection applies buoyancy + drag; the swim ability gates the upward stroke.",
+        "tileOpacity": 1.0,
+        "lineOpacity": 1.0,
+        "fillOpacity": 0.08,
+        "hollow": false,
+        "color": "#3DB8E0",
+        "renderMode": "Rectangle",
+        "showName": true,
+        "tilesetId": null,
+        "tileRenderMode": "FitInside",
+        "tileRect": null,
+        "uiTileRect": null,
+        "nineSliceBorders": [],
+        "maxCount": 0,
+        "limitScope": "PerLevel",
+        "limitBehavior": "MoveLastOne",
+        "pivotX": 0,
+        "pivotY": 0,
+        "tileId": null,
+        "width": 256,
+        "height": 192,
+        "resizableX": true,
+        "resizableY": true,
+        "minWidth": null,
+        "maxWidth": null,
+        "minHeight": null,
+        "maxHeight": null,
+        "keepAspectRatio": false,
+        "fieldDefs": [
+          {
+            "identifier": "id",
+            "doc": null,
+            "__type": "String",
+            "uid": 4124,
+            "type": "F_String",
+            "isArray": false,
+            "canBeNull": true,
+            "arrayMinLength": null,
+            "arrayMaxLength": null,
+            "editorDisplayMode": "RefLinkBetweenCenters",
+            "editorDisplayPos": "Above",
+            "editorDisplayScale": 1.0,
+            "editorDisplayColor": null,
+            "editorAlwaysShow": false,
+            "editorCutLongValues": true,
+            "editorShowInWorld": true,
+            "editorTextSuffix": null,
+            "editorTextPrefix": null,
+            "editorLinkStyle": "CurvedArrow",
+            "useForSmartColor": false,
+            "min": null,
+            "max": null,
+            "regex": null,
+            "acceptFileTypes": null,
+            "tilesetUid": null,
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                ""
+              ]
+            },
+            "textLanguageMode": null,
+            "symmetricalRef": false,
+            "autoChainRef": true,
+            "allowOutOfLevelRef": true,
+            "allowedRefs": "Any",
+            "allowedRefsEntityUid": null,
+            "allowedRefTags": [],
+            "exportToToc": false,
+            "searchable": true
+          },
+          {
+            "identifier": "name",
+            "doc": null,
+            "__type": "String",
+            "uid": 4125,
+            "type": "F_String",
+            "isArray": false,
+            "canBeNull": true,
+            "arrayMinLength": null,
+            "arrayMaxLength": null,
+            "editorDisplayMode": "RefLinkBetweenCenters",
+            "editorDisplayPos": "Above",
+            "editorDisplayScale": 1.0,
+            "editorDisplayColor": null,
+            "editorAlwaysShow": false,
+            "editorCutLongValues": true,
+            "editorShowInWorld": true,
+            "editorTextSuffix": null,
+            "editorTextPrefix": null,
+            "editorLinkStyle": "CurvedArrow",
+            "useForSmartColor": false,
+            "min": null,
+            "max": null,
+            "regex": null,
+            "acceptFileTypes": null,
+            "tilesetUid": null,
+            "defaultOverride": {
+              "id": "V_String",
+              "params": [
+                "water"
+              ]
+            },
+            "textLanguageMode": null,
+            "symmetricalRef": false,
+            "autoChainRef": true,
+            "allowOutOfLevelRef": true,
+            "allowedRefs": "Any",
+            "allowedRefsEntityUid": null,
+            "allowedRefTags": [],
+            "exportToToc": false,
+            "searchable": true
+          },
+          {
+            "identifier": "gravity_scale",
+            "doc": null,
+            "__type": "Float",
+            "uid": 4126,
+            "type": "F_Float",
+            "isArray": false,
+            "canBeNull": true,
+            "arrayMinLength": null,
+            "arrayMaxLength": null,
+            "editorDisplayMode": "RefLinkBetweenCenters",
+            "editorDisplayPos": "Above",
+            "editorDisplayScale": 1.0,
+            "editorDisplayColor": null,
+            "editorAlwaysShow": false,
+            "editorCutLongValues": true,
+            "editorShowInWorld": true,
+            "editorTextSuffix": null,
+            "editorTextPrefix": null,
+            "editorLinkStyle": "CurvedArrow",
+            "useForSmartColor": false,
+            "min": null,
+            "max": null,
+            "regex": null,
+            "acceptFileTypes": null,
+            "tilesetUid": null,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [0.3]
+            },
+            "textLanguageMode": null,
+            "symmetricalRef": false,
+            "autoChainRef": true,
+            "allowOutOfLevelRef": true,
+            "allowedRefs": "Any",
+            "allowedRefsEntityUid": null,
+            "allowedRefTags": [],
+            "exportToToc": false,
+            "searchable": true
+          },
+          {
+            "identifier": "drag",
+            "doc": null,
+            "__type": "Float",
+            "uid": 4127,
+            "type": "F_Float",
+            "isArray": false,
+            "canBeNull": true,
+            "arrayMinLength": null,
+            "arrayMaxLength": null,
+            "editorDisplayMode": "RefLinkBetweenCenters",
+            "editorDisplayPos": "Above",
+            "editorDisplayScale": 1.0,
+            "editorDisplayColor": null,
+            "editorAlwaysShow": false,
+            "editorCutLongValues": true,
+            "editorShowInWorld": true,
+            "editorTextSuffix": null,
+            "editorTextPrefix": null,
+            "editorLinkStyle": "CurvedArrow",
+            "useForSmartColor": false,
+            "min": null,
+            "max": null,
+            "regex": null,
+            "acceptFileTypes": null,
+            "tilesetUid": null,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [0.08]
+            },
+            "textLanguageMode": null,
+            "symmetricalRef": false,
+            "autoChainRef": true,
+            "allowOutOfLevelRef": true,
+            "allowedRefs": "Any",
+            "allowedRefsEntityUid": null,
+            "allowedRefTags": [],
+            "exportToToc": false,
+            "searchable": true
+          },
+          {
+            "identifier": "max_fall_speed",
+            "doc": null,
+            "__type": "Float",
+            "uid": 4128,
+            "type": "F_Float",
+            "isArray": false,
+            "canBeNull": true,
+            "arrayMinLength": null,
+            "arrayMaxLength": null,
+            "editorDisplayMode": "RefLinkBetweenCenters",
+            "editorDisplayPos": "Above",
+            "editorDisplayScale": 1.0,
+            "editorDisplayColor": null,
+            "editorAlwaysShow": false,
+            "editorCutLongValues": true,
+            "editorShowInWorld": true,
+            "editorTextSuffix": null,
+            "editorTextPrefix": null,
+            "editorLinkStyle": "CurvedArrow",
+            "useForSmartColor": false,
+            "min": null,
+            "max": null,
+            "regex": null,
+            "acceptFileTypes": null,
+            "tilesetUid": null,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [220.0]
+            },
+            "textLanguageMode": null,
+            "symmetricalRef": false,
+            "autoChainRef": true,
+            "allowOutOfLevelRef": true,
+            "allowedRefs": "Any",
+            "allowedRefsEntityUid": null,
+            "allowedRefTags": [],
+            "exportToToc": false,
+            "searchable": true
+          },
+          {
+            "identifier": "swim_up_impulse",
+            "doc": null,
+            "__type": "Float",
+            "uid": 4129,
+            "type": "F_Float",
+            "isArray": false,
+            "canBeNull": true,
+            "arrayMinLength": null,
+            "arrayMaxLength": null,
+            "editorDisplayMode": "RefLinkBetweenCenters",
+            "editorDisplayPos": "Above",
+            "editorDisplayScale": 1.0,
+            "editorDisplayColor": null,
+            "editorAlwaysShow": false,
+            "editorCutLongValues": true,
+            "editorShowInWorld": true,
+            "editorTextSuffix": null,
+            "editorTextPrefix": null,
+            "editorLinkStyle": "CurvedArrow",
+            "useForSmartColor": false,
+            "min": null,
+            "max": null,
+            "regex": null,
+            "acceptFileTypes": null,
+            "tilesetUid": null,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [760.0]
+            },
+            "textLanguageMode": null,
+            "symmetricalRef": false,
+            "autoChainRef": true,
+            "allowOutOfLevelRef": true,
+            "allowedRefs": "Any",
+            "allowedRefsEntityUid": null,
+            "allowedRefTags": [],
+            "exportToToc": false,
+            "searchable": true
+          }
+        ]
       }
     ],
     "tilesets": [],
@@ -4710,7 +4991,7 @@
               "width": 48,
               "height": 96,
               "defUid": 2002,
-              "px": [252, 836],
+              "px": [252, 832],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -4802,7 +5083,7 @@
                 }
               ],
               "__worldX": 252,
-              "__worldY": 1860
+              "__worldY": 1856
             },
             {
               "__identifier": "LoadingZone",
@@ -4815,7 +5096,7 @@
               "width": 48,
               "height": 96,
               "defUid": 2002,
-              "px": [512, 836],
+              "px": [512, 832],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -4907,7 +5188,7 @@
                 }
               ],
               "__worldX": 512,
-              "__worldY": 1860
+              "__worldY": 1856
             },
             {
               "__identifier": "LoadingZone",
@@ -4920,7 +5201,7 @@
               "width": 48,
               "height": 96,
               "defUid": 2002,
-              "px": [772, 836],
+              "px": [772, 832],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -5012,20 +5293,20 @@
                 }
               ],
               "__worldX": 772,
-              "__worldY": 1860
+              "__worldY": 1856
             },
             {
               "__identifier": "LoadingZone",
-              "__grid": [67, 50],
+              "__grid": [70, 52],
               "__pivot": [0, 0],
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFD166",
               "iid": "LoadingZone-0031",
-              "width": 130,
-              "height": 132,
+              "width": 48,
+              "height": 96,
               "defUid": 2002,
-              "px": [1080, 800],
+              "px": [1121, 832],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -5116,21 +5397,21 @@
                   ]
                 }
               ],
-              "__worldX": 1080,
-              "__worldY": 1824
+              "__worldX": 1121,
+              "__worldY": 1856
             },
             {
               "__identifier": "LoadingZone",
-              "__grid": [83, 50],
+              "__grid": [86, 52],
               "__pivot": [0, 0],
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFD166",
               "iid": "LoadingZone-0032",
-              "width": 130,
-              "height": 132,
+              "width": 48,
+              "height": 96,
               "defUid": 2002,
-              "px": [1340, 800],
+              "px": [1381, 832],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -5221,21 +5502,21 @@
                   ]
                 }
               ],
-              "__worldX": 1340,
-              "__worldY": 1824
+              "__worldX": 1381,
+              "__worldY": 1856
             },
             {
               "__identifier": "LoadingZone",
-              "__grid": [100, 50],
+              "__grid": [102, 52],
               "__pivot": [0, 0],
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFD166",
               "iid": "LoadingZone-0033",
-              "width": 130,
-              "height": 132,
+              "width": 48,
+              "height": 96,
               "defUid": 2002,
-              "px": [1600, 800],
+              "px": [1641, 832],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -5326,8 +5607,8 @@
                   ]
                 }
               ],
-              "__worldX": 1600,
-              "__worldY": 1824
+              "__worldX": 1641,
+              "__worldY": 1856
             },
             {
               "__identifier": "DebugLabel",
@@ -5455,16 +5736,16 @@
             },
             {
               "__identifier": "LoadingZone",
-              "__grid": [113, 50],
+              "__grid": [113, 52],
               "__pivot": [0, 0],
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFD166",
               "iid": "LoadingZone-4122",
-              "width": 60,
-              "height": 132,
+              "width": 48,
+              "height": 96,
               "defUid": 2002,
-              "px": [1820, 800],
+              "px": [1808, 832],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -5551,6 +5832,111 @@
                     {
                       "id": "V_Bool",
                       "params": [true]
+                    }
+                  ]
+                }
+              ],
+              "__worldX": 1808,
+              "__worldY": 1856
+            },
+            {
+              "__identifier": "LoadingZone",
+              "__grid": [5, 52],
+              "__pivot": [0, 0],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#FFD166",
+              "iid": "LoadingZone-4139",
+              "width": 48,
+              "height": 96,
+              "defUid": 2002,
+              "px": [80, 832],
+              "fieldInstances": [
+                {
+                  "__identifier": "id",
+                  "__type": "String",
+                  "__value": "water_door",
+                  "__tile": null,
+                  "defUid": 3002,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "water_door"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "water_world",
+                  "__tile": null,
+                  "defUid": 3003,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "water_world"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "activation",
+                  "__type": "String",
+                  "__value": "Door",
+                  "__tile": null,
+                  "defUid": 3004,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "Door"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "target_room",
+                  "__type": "String",
+                  "__value": "water_world",
+                  "__tile": null,
+                  "defUid": 3005,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "water_world"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "target_zone",
+                  "__type": "String",
+                  "__value": "return_door",
+                  "__tile": null,
+                  "defUid": 3006,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "return_door"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "bidirectional",
+                  "__type": "Bool",
+                  "__value": false,
+                  "__tile": null,
+                  "defUid": 3007,
+                  "realEditorValues": [
+                    {
+                      "id": "V_Bool",
+                      "params": [false]
                     }
                   ]
                 }
@@ -7698,7 +8084,7 @@
               "iid": "LoadingZone-0123",
               "defUid": 2002,
               "__identifier": "LoadingZone",
-              "__grid": [5, 44],
+              "__grid": [5, 47],
               "__pivot": [0, 0],
               "__smartColor": "#ffffff",
               "__tags": [],
@@ -7786,9 +8172,11 @@
                   ]
                 }
               ],
-              "height": 142,
-              "width": 140,
-              "px": [95, 710]
+              "height": 96,
+              "width": 48,
+              "px": [95, 752],
+              "__worldX": 2303,
+              "__worldY": 1776
             },
             {
               "iid": "DebugLabel-0124",
@@ -8277,16 +8665,16 @@
             },
             {
               "__identifier": "LoadingZone",
-              "__grid": [7, 48],
+              "__grid": [7, 47],
               "__pivot": [0, 0],
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFD166",
               "iid": "LoadingZone-0138",
               "width": 48,
-              "height": 80,
+              "height": 96,
               "defUid": 2002,
-              "px": [127, 772],
+              "px": [127, 752],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -8378,7 +8766,7 @@
                 }
               ],
               "__worldX": 4335,
-              "__worldY": 1796
+              "__worldY": 1776
             },
             {
               "__identifier": "KinematicPath",
@@ -9003,16 +9391,16 @@
             },
             {
               "__identifier": "LoadingZone",
-              "__grid": [5, 49],
+              "__grid": [5, 52],
               "__pivot": [0, 0],
               "__tags": [],
               "__tile": null,
               "__smartColor": "#FFD166",
               "iid": "LoadingZone-0157",
-              "width": 140,
-              "height": 142,
+              "width": 48,
+              "height": 96,
               "defUid": 2002,
-              "px": [95, 790],
+              "px": [95, 832],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -9104,7 +9492,7 @@
                 }
               ],
               "__worldX": 6303,
-              "__worldY": 1814
+              "__worldY": 1856
             },
             {
               "__identifier": "BossSpawn",
@@ -9349,7 +9737,7 @@
               "width": 48,
               "height": 96,
               "defUid": 2002,
-              "px": [95, 756],
+              "px": [95, 752],
               "fieldInstances": [
                 {
                   "__identifier": "id",
@@ -9441,7 +9829,7 @@
                 }
               ],
               "__worldX": 8303,
-              "__worldY": 1780
+              "__worldY": 1776
             },
             {
               "__identifier": "BreakablePlatform",
@@ -10378,7 +10766,7 @@
               "iid": "LoadingZone-0183",
               "defUid": 2002,
               "__identifier": "LoadingZone",
-              "__grid": [5, 35],
+              "__grid": [5, 38],
               "__pivot": [0, 0],
               "__smartColor": "#ffffff",
               "__tags": [],
@@ -10466,9 +10854,11 @@
                   ]
                 }
               ],
-              "height": 142,
-              "width": 140,
-              "px": [95, 570]
+              "height": 96,
+              "width": 48,
+              "px": [95, 608],
+              "__worldX": 10303,
+              "__worldY": 1632
             },
             {
               "iid": "PickupSpawn-0184",
@@ -10815,7 +11205,7 @@
               "iid": "LoadingZone-0195",
               "defUid": 2002,
               "__identifier": "LoadingZone",
-              "__grid": [5, 35],
+              "__grid": [5, 38],
               "__pivot": [0, 0],
               "__smartColor": "#ffffff",
               "__tags": [],
@@ -10903,9 +11293,11 @@
                   ]
                 }
               ],
-              "height": 142,
-              "width": 140,
-              "px": [95, 570]
+              "height": 96,
+              "width": 48,
+              "px": [95, 608],
+              "__worldX": 12095,
+              "__worldY": 1632
             },
             {
               "iid": "NpcSpawn-0196",
@@ -11721,6 +12113,447 @@
                       "id": "V_String",
                       "params": [
                         "Walk past the marker to start the encounter"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "category",
+                  "__type": "String",
+                  "__value": "Custom",
+                  "__tile": null,
+                  "defUid": 3017,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "Custom"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "__neighbours": []
+    },
+    {
+      "identifier": "water_world",
+      "iid": "water_world-4131",
+      "uid": 4131,
+      "worldX": 16000,
+      "worldY": 1024,
+      "worldDepth": 0,
+      "pxWid": 1600,
+      "pxHei": 768,
+      "__bgColor": "#0F2A38",
+      "bgColor": "#0F2A38",
+      "useAutoIdentifier": false,
+      "bgRelPath": null,
+      "bgPos": null,
+      "bgPivotX": 0.5,
+      "bgPivotY": 0.5,
+      "__smartColor": "#FFFFFF",
+      "__bgPos": null,
+      "externalRelPath": null,
+      "fieldInstances": [
+        {
+          "__identifier": "activeArea",
+          "__type": "String",
+          "__value": "water_world",
+          "__tile": null,
+          "defUid": 4000,
+          "realEditorValues": [
+            {
+              "id": "V_String",
+              "params": [
+                "water_world"
+              ]
+            }
+          ]
+        }
+      ],
+      "layerInstances": [
+        {
+          "__identifier": "Collision",
+          "__type": "IntGrid",
+          "iid": "Collision-4132",
+          "layerDefUid": 5024,
+          "intGridCsv": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          "__cWid": 100,
+          "__cHei": 48,
+          "__gridSize": 16,
+          "__opacity": 1,
+          "__pxTotalOffsetX": 0,
+          "__pxTotalOffsetY": 0,
+          "__tilesetDefUid": null,
+          "__tilesetRelPath": null,
+          "levelId": 4131,
+          "pxOffsetX": 0,
+          "pxOffsetY": 0,
+          "visible": true,
+          "optionalRules": [],
+          "autoLayerTiles": [],
+          "seed": 4131,
+          "overrideTilesetUid": null,
+          "gridTiles": [],
+          "entityInstances": []
+        },
+        {
+          "__identifier": "Ambition",
+          "__type": "Entities",
+          "iid": "Ambition-4133",
+          "layerDefUid": 1070,
+          "intGridCsv": [],
+          "__cWid": 100,
+          "__cHei": 48,
+          "__gridSize": 16,
+          "__opacity": 1,
+          "__pxTotalOffsetX": 0,
+          "__pxTotalOffsetY": 0,
+          "__tilesetDefUid": null,
+          "__tilesetRelPath": null,
+          "levelId": 4131,
+          "pxOffsetX": 0,
+          "pxOffsetY": 0,
+          "visible": true,
+          "optionalRules": [],
+          "autoLayerTiles": [],
+          "seed": 4131,
+          "overrideTilesetUid": null,
+          "gridTiles": [],
+          "entityInstances": [
+            {
+              "__identifier": "PlayerStart",
+              "__grid": [5, 14],
+              "__pivot": [0, 0],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#41D1FF",
+              "iid": "PlayerStart-4134",
+              "width": 28,
+              "height": 46,
+              "defUid": 2000,
+              "px": [80, 226],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "water_world_spawn",
+                  "__tile": null,
+                  "defUid": 3000,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "water_world_spawn"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "__identifier": "LoadingZone",
+              "__grid": [2, 11],
+              "__pivot": [0, 0],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#FFD166",
+              "iid": "LoadingZone-4135",
+              "width": 48,
+              "height": 96,
+              "defUid": 2002,
+              "px": [40, 176],
+              "fieldInstances": [
+                {
+                  "__identifier": "id",
+                  "__type": "String",
+                  "__value": "return_door",
+                  "__tile": null,
+                  "defUid": 3002,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "return_door"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "to basement hub",
+                  "__tile": null,
+                  "defUid": 3003,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "to basement hub"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "activation",
+                  "__type": "String",
+                  "__value": "Door",
+                  "__tile": null,
+                  "defUid": 3004,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "Door"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "target_room",
+                  "__type": "String",
+                  "__value": "central_hub_complex",
+                  "__tile": null,
+                  "defUid": 3005,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "central_hub_complex"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "target_zone",
+                  "__type": "String",
+                  "__value": "water_door",
+                  "__tile": null,
+                  "defUid": 3006,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "water_door"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "bidirectional",
+                  "__type": "Bool",
+                  "__value": false,
+                  "__tile": null,
+                  "defUid": 3007,
+                  "realEditorValues": [
+                    {
+                      "id": "V_Bool",
+                      "params": [false]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "__identifier": "WaterVolume",
+              "__grid": [1, 28],
+              "__pivot": [0, 0],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#3DB8E0",
+              "iid": "WaterVolume-4136",
+              "width": 1568,
+              "height": 272,
+              "defUid": 4130,
+              "px": [16, 448],
+              "fieldInstances": [
+                {
+                  "__identifier": "id",
+                  "__type": "String",
+                  "__value": "main_pool",
+                  "__tile": null,
+                  "defUid": 4124,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "main_pool"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "main_pool",
+                  "__tile": null,
+                  "defUid": 4125,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "main_pool"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "gravity_scale",
+                  "__type": "Float",
+                  "__value": 0.3,
+                  "__tile": null,
+                  "defUid": 4126,
+                  "realEditorValues": [
+                    {
+                      "id": "V_Float",
+                      "params": [0.3]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "drag",
+                  "__type": "Float",
+                  "__value": 0.08,
+                  "__tile": null,
+                  "defUid": 4127,
+                  "realEditorValues": [
+                    {
+                      "id": "V_Float",
+                      "params": [0.08]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "max_fall_speed",
+                  "__type": "Float",
+                  "__value": 220.0,
+                  "__tile": null,
+                  "defUid": 4128,
+                  "realEditorValues": [
+                    {
+                      "id": "V_Float",
+                      "params": [220.0]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "swim_up_impulse",
+                  "__type": "Float",
+                  "__value": 760.0,
+                  "__tile": null,
+                  "defUid": 4129,
+                  "realEditorValues": [
+                    {
+                      "id": "V_Float",
+                      "params": [760.0]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "__identifier": "DebugLabel",
+              "__grid": [3, 4],
+              "__pivot": [0, 0],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#FFFFFF",
+              "iid": "DebugLabel-4137",
+              "width": 620,
+              "height": 24,
+              "defUid": 2007,
+              "px": [60, 64],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "water_label_intro",
+                  "__tile": null,
+                  "defUid": 3015,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "water_label_intro"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "text",
+                  "__type": "String",
+                  "__value": "Water lab \u2014 drop east into the pool. Hold Up to swim up.",
+                  "__tile": null,
+                  "defUid": 3016,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "Water lab \u2014 drop east into the pool. Hold Up to swim up."
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "category",
+                  "__type": "String",
+                  "__value": "Room",
+                  "__tile": null,
+                  "defUid": 3017,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "Room"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "__identifier": "DebugLabel",
+              "__grid": [37, 27],
+              "__pivot": [0, 0],
+              "__tags": [],
+              "__tile": null,
+              "__smartColor": "#FFFFFF",
+              "iid": "DebugLabel-4138",
+              "width": 400,
+              "height": 24,
+              "defUid": 2007,
+              "px": [600, 432],
+              "fieldInstances": [
+                {
+                  "__identifier": "name",
+                  "__type": "String",
+                  "__value": "water_label_surface",
+                  "__tile": null,
+                  "defUid": 3015,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "water_label_surface"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "text",
+                  "__type": "String",
+                  "__value": "~ water surface ~",
+                  "__tile": null,
+                  "defUid": 3016,
+                  "realEditorValues": [
+                    {
+                      "id": "V_String",
+                      "params": [
+                        "~ water surface ~"
                       ]
                     }
                   ]

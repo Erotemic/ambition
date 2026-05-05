@@ -717,6 +717,7 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "EncounterTrigger",
     "Switch",
     "LockWall",
+    "WaterVolume",
 ];
 
 #[derive(Resource, Clone, Debug)]

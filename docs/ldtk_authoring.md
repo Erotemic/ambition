@@ -79,6 +79,7 @@ BossSpawn
 DebugLabel
 CameraZone
 StitchedBoundary
+WaterVolume
 ```
 
 `CameraZone` and `StitchedBoundary` are currently accepted as editor-native

@@ -1,0 +1,123 @@
+# Water world — basement-side water lab.
+#
+# Layout (1600x768, 100x48 cells):
+#
+#   +----------------------------------------------------+ y=0
+#   |# outer wall (16px) ##############################  |
+#   |#                                                #  |
+#   |# [DebugLabel: "Drop in to swim. Hold Up to surface."]  |
+#   |#                                                #  |
+#   |#                                                #  |
+#   |# [door]                                         #  | y=224
+#   |#======================+                         #  | y=272 platform top
+#   |# solid platform body  +                         #  | y=304 platform bottom (hangs)
+#   |#                                                #  |
+#   |#                                                #  |
+#   |#                                                #  |
+#   |#         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~          #  | y=448 water surface
+#   |#         ::::::::::::::::::::::::::::          #  |
+#   |#         ::::: WATER VOLUME :::::::::          #  |
+#   |#         ::::::::::::::::::::::::::::          #  |
+#   |#         ::::::::::::::::::::::::::::          #  |
+#   |#                                                #  |
+#   |# floor (solid) ################################  |  | y=720
+#   |# bottom wall (16px) ############################  | y=752
+#   +----------------------------------------------------+ y=768
+#
+# - Player arrives on the entry platform (door at left side).
+# - Walks east along the platform; platform ends at x=560.
+# - Drops into the water pool below, which spans the rest of the room.
+# - Water volume is 1024px wide x 256px deep — generous swim space.
+# - The buoyancy + drag come from `WaterVolumeSpec` defaults; the
+#   `swim` ability is needed to actively rise (Up impulse). Without
+#   the swim ability, the player still gets buoyancy and slowed fall.
+id: water_world
+level_id: water_world
+world_x: 16000
+world_y: 1024
+px_wid: 1600
+px_hei: 768
+fill_collision: empty
+bg_color: "#0F2A38"
+entities:
+  # --- Outer walls (16px borders).
+  - type: Solid
+    px: [0, 0]
+    size: [1600, 16]
+    fields: { name: ceiling }
+  - type: Solid
+    px: [0, 752]
+    size: [1600, 16]
+    fields: { name: bottom_wall }
+  - type: Solid
+    px: [0, 16]
+    size: [16, 736]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [1584, 16]
+    size: [16, 736]
+    fields: { name: right_wall }
+
+  # --- Pool floor (where the player lands at the bottom of the water).
+  - type: Solid
+    px: [16, 720]
+    size: [1568, 32]
+    fields: { name: pool_floor }
+
+  # --- Entry platform: solid block the door sits on top of.
+  - type: Solid
+    px: [16, 272]
+    size: [544, 32]
+    fields: { name: entry_platform }
+
+  # --- PlayerStart on the entry platform (used only when the player
+  # spawns directly into this room, e.g. via `--start-room` flag).
+  - type: PlayerStart
+    px: [80, 226]
+    size: [28, 46]
+    fields: { name: water_world_spawn }
+
+  # --- Return door back to the basement hub. Bottom of door = top of
+  # entry platform (272), so door y = 272 - 96 = 176.
+  - type: LoadingZone
+    px: [40, 176]
+    size: [48, 96]
+    fields:
+      id: return_door
+      name: to basement hub
+      activation: Door
+      target_room: central_hub_complex
+      target_zone: water_door
+      bidirectional: false
+
+  # --- Water volume: spans the right-and-lower portion of the room.
+  # Surface at y=448; bottom at y=720 (top of pool_floor). Width
+  # 1024 (576..1600 minus right wall 1584 = 1008, but we also include
+  # below the platform overhang on the left so the player can swim
+  # under it).
+  - type: WaterVolume
+    px: [16, 448]
+    size: [1568, 272]
+    fields:
+      id: main_pool
+      name: main_pool
+      gravity_scale: 0.30
+      drag: 0.08
+      max_fall_speed: 220.0
+      swim_up_impulse: 760.0
+
+  # --- Debug labels for in-game orientation.
+  - type: DebugLabel
+    px: [60, 64]
+    size: [620, 24]
+    fields:
+      name: water_label_intro
+      text: "Water lab — drop east into the pool. Hold Up to swim up."
+      category: Room
+  - type: DebugLabel
+    px: [600, 432]
+    size: [400, 24]
+    fields:
+      name: water_label_surface
+      text: "~ water surface ~"
+      category: Custom

@@ -45,6 +45,7 @@ KNOWN_ENTITIES = {
     "Solid",
     "StitchedBoundary",
     "Switch",
+    "WaterVolume",
 }
 GRID = 16
 AMBITION_LAYER = "Ambition"

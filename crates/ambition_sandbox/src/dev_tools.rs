@@ -100,6 +100,8 @@ pub struct EditableAbilitySet {
     pub directional_special: bool,
     pub rebound: bool,
     pub reset: bool,
+    pub ledge_grab: bool,
+    pub swim: bool,
 }
 
 impl EditableAbilitySet {
@@ -126,6 +128,8 @@ impl EditableAbilitySet {
             directional_special: self.directional_special,
             rebound: self.rebound,
             reset: self.reset,
+            ledge_grab: self.ledge_grab,
+            swim: self.swim,
         }
     }
 }
@@ -154,6 +158,8 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             directional_special: value.directional_special,
             rebound: value.rebound,
             reset: value.reset,
+            ledge_grab: value.ledge_grab,
+            swim: value.swim,
         }
     }
 }
@@ -317,4 +323,100 @@ pub fn sync_live_ability_edits(
         runtime.player.blink_aiming = false;
     }
     runtime.player.refresh_movement_resources(tuning);
+}
+
+/// Reflected, debug-editable player gameplay stats. Surfaced through the
+/// `F3` resource inspector so testers can:
+///
+/// - read live HP / max HP / mana / max mana (fields synced FROM runtime
+///   each frame),
+/// - rewrite them in-place (clicking the field commits a "set" each
+///   frame the value differs from the runtime),
+/// - toggle `invincible` to stop incoming damage entirely while testing
+///   downstream systems (boss phase, encounter pacing, music swaps).
+///
+/// The damage multiplier scales the player's outgoing slash damage so
+/// testers can one-shot enemies / chip a boss without recompiling.
+#[derive(Resource, Reflect, Clone, Copy, Debug)]
+#[reflect(Resource)]
+pub struct EditablePlayerStats {
+    pub health: i32,
+    pub max_health: i32,
+    pub mana: i32,
+    pub max_mana: i32,
+    pub slash_damage: i32,
+    /// True → all `PlayerDamageEvent`s are ignored before they reach
+    /// `handle_player_damage_events`.
+    pub invincible: bool,
+    /// True → fully refill HP & mana on the next frame's sync.
+    pub refill_now: bool,
+}
+
+impl EditablePlayerStats {
+    pub const DEFAULT_MAX_HEALTH: i32 = 5;
+    pub const DEFAULT_MAX_MANA: i32 = 100;
+    pub const DEFAULT_SLASH_DAMAGE: i32 = 1;
+}
+
+impl Default for EditablePlayerStats {
+    fn default() -> Self {
+        Self {
+            health: Self::DEFAULT_MAX_HEALTH,
+            max_health: Self::DEFAULT_MAX_HEALTH,
+            mana: Self::DEFAULT_MAX_MANA,
+            max_mana: Self::DEFAULT_MAX_MANA,
+            slash_damage: Self::DEFAULT_SLASH_DAMAGE,
+            invincible: false,
+            refill_now: false,
+        }
+    }
+}
+
+/// Bevy system: keep `EditablePlayerStats` and `SandboxRuntime`
+/// player health in sync, in both directions.
+///
+/// - When the inspector mutates a stat field, the new value is written
+///   onto the runtime.
+/// - When gameplay mutates the runtime (combat damage, pickup heal),
+///   the new value is mirrored back to the inspector resource so the
+///   field reads the live HP without manual refresh.
+/// - `refill_now` is a one-shot button: setting it to true topples HP
+///   and mana to max on the next sync, then clears the flag.
+///
+/// Mana isn't yet a real engine resource (the player sim doesn't
+/// consume it). It is intentionally on the inspector now so future
+/// abilities (precision blink cost, special attack) can read from
+/// `SandboxRuntime` without adding a new editor.
+pub fn sync_player_stats_with_inspector(
+    mut stats: ResMut<EditablePlayerStats>,
+    mut runtime: ResMut<crate::SandboxRuntime>,
+) {
+    if stats.refill_now {
+        stats.health = stats.max_health.max(1);
+        stats.mana = stats.max_mana.max(0);
+        stats.refill_now = false;
+    }
+    let live_hp = runtime.player_health.current;
+    let live_max = runtime.player_health.max;
+    if stats.max_health != live_max {
+        runtime.player_health = ae::Health::new(stats.max_health.max(1));
+        runtime.player_health.current = stats.health.clamp(0, stats.max_health.max(1));
+    } else if stats.health != live_hp {
+        runtime.player_health.current = stats.health.clamp(0, live_max.max(1));
+    } else {
+        // Mirror runtime back into the inspector field so HP edits
+        // happening from gameplay show up live.
+        stats.health = live_hp;
+        stats.max_health = live_max;
+    }
+    // Mirror player mana into the sandbox runtime. The engine's
+    // `Player` doesn't carry mana yet (no consuming ability needs
+    // it); `SandboxRuntime::mana_current/_max` is the canonical
+    // sandbox-side store so the inspector field round-trips.
+    runtime.mana_current = stats.mana.clamp(0, stats.max_mana.max(0));
+    runtime.mana_max = stats.max_mana.max(0);
+    // Combat tuning + invincibility flow through the runtime to the
+    // attack / damage paths.
+    runtime.slash_damage = stats.slash_damage.max(1);
+    runtime.invincible = stats.invincible;
 }

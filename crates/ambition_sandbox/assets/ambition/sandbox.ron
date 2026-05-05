@@ -25,6 +25,8 @@
         directional_special: true,
         rebound: true,
         reset: true,
+        ledge_grab: true,
+        swim: true,
     ),
     tuning: (
         gravity: 2250.0,

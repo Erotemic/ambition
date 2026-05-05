@@ -14,12 +14,14 @@ pub mod abilities;
 pub mod actor;
 pub mod boss_encounter;
 pub mod boss_patterns;
+pub mod character_ai;
 pub mod combat;
 pub mod cutscene;
 pub mod debug;
 pub mod enemy;
 pub mod geometry;
 pub mod interaction;
+pub mod ledge_grab;
 pub mod movement;
 pub mod music;
 pub mod physics;
@@ -43,6 +45,8 @@ pub use boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
 };
 pub use boss_patterns::{BossAttackKind, BossPatternSchedule, BossPatternStep};
+pub use character_ai::{evaluate_character_ai, CharacterAiMode, CharacterAiSnapshot};
+pub use ledge_grab::{probe_ledge_grab, LedgeContact};
 pub use combat::{
     player_slash_hitbox, slash_hitbox, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
@@ -93,4 +97,6 @@ pub use state_machines::{
     EncounterDormant, EncounterFailed, EncounterStarting, EnemyAttack, EnemyDead, EnemyIdle,
     EnemyPatrol, EnemyRecover, EnemyStunned, EnemyTelegraph, SwitchOff, SwitchOn,
 };
-pub use world::{BlinkWallTier, Block, BlockKind, RoomObject, RoomObjectKind, World};
+pub use world::{
+    BlinkWallTier, Block, BlockKind, RoomObject, RoomObjectKind, WaterVolumeSpec, World,
+};

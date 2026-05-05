@@ -139,6 +139,38 @@ pub enum RoomObjectKind {
     KinematicPath(KinematicPath),
     DebugLabel(DebugLabel),
     DestinationLabel(DestinationLabel),
+    /// A water volume the player swims inside. Doesn't affect
+    /// collision; movement reads it via `World::objects` and applies
+    /// buoyancy + drag while the player AABB intersects.
+    WaterVolume(WaterVolumeSpec),
+}
+
+/// Authored water volume tuning. The simulation reads this when the
+/// player is inside the AABB.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WaterVolumeSpec {
+    /// Multiplier on gravity while submerged (1.0 = normal, 0.25 ≈
+    /// "floaty"). Default 0.30.
+    pub gravity_scale: f32,
+    /// Linear drag coefficient applied to vel each tick while
+    /// submerged. 0.0 = no drag, 1.0 = instant stop. Default 0.08.
+    pub drag: f32,
+    /// Cap on vertical fall speed inside the water. Default 220.
+    pub max_fall_speed: f32,
+    /// Upward impulse applied each tick while the player holds Up
+    /// AND has the `swim` ability. Default 760.
+    pub swim_up_impulse: f32,
+}
+
+impl Default for WaterVolumeSpec {
+    fn default() -> Self {
+        Self {
+            gravity_scale: 0.30,
+            drag: 0.08,
+            max_fall_speed: 220.0,
+            swim_up_impulse: 760.0,
+        }
+    }
 }
 
 /// Complete generated room spec.

@@ -70,6 +70,21 @@ pub struct AbilitySet {
     /// Debug/sandbox reset. In the final game this may become a menu/system
     /// action rather than a player ability.
     pub reset: bool,
+    /// Snap onto ledges while wall-sliding and pull-up to the platform
+    /// above. Gated as a separate ability so the early game can ship
+    /// without it and a mid-game upgrade or piece of gear can light it
+    /// up. Movement integration reads `Player::abilities.ledge_grab`
+    /// before running the snap probe, so disabling this turns the
+    /// mechanic off entirely.
+    #[serde(default)]
+    pub ledge_grab: bool,
+    /// Player can swim inside `RoomObjectKind::WaterVolume` regions:
+    /// gravity is reduced, terminal speed is lower, and dash / blink
+    /// behave differently. Without this flag the player still enters
+    /// water but is slowed (the buoyancy modifier always applies); the
+    /// flag specifically gates the active swim controls.
+    #[serde(default)]
+    pub swim: bool,
 }
 
 impl AbilitySet {
@@ -97,6 +112,8 @@ impl AbilitySet {
             directional_special: false,
             rebound: false,
             reset: true,
+            ledge_grab: false,
+            swim: false,
         }
     }
 
@@ -124,6 +141,8 @@ impl AbilitySet {
             directional_special: true,
             rebound: true,
             reset: true,
+            ledge_grab: true,
+            swim: true,
         }
     }
 
@@ -156,6 +175,10 @@ impl AbilitySet {
             directional_special: true,
             rebound: true,
             reset: true,
+            // ledge grab + swim are mid-game upgrades; not part of
+            // the "sane subset" early-game baseline.
+            ledge_grab: false,
+            swim: false,
         }
     }
 

@@ -45,7 +45,9 @@ use crate::audio::{
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
 use crate::debug_overlay;
-use crate::dev_tools::{self, DeveloperTools, EditableAbilitySet, EditableMovementTuning};
+use crate::dev_tools::{
+    self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
+};
 use crate::dialog;
 use crate::features;
 use crate::feel::SandboxFeelTuning;
@@ -250,6 +252,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         })
         .insert_resource(sandbox_data)
         .insert_resource(DeveloperTools::default())
+        .insert_resource(EditablePlayerStats::default())
         .insert_resource(SandboxFeelTuning::default())
         .insert_resource(editable_abilities)
         .insert_resource(editable_tuning)
@@ -340,6 +343,15 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::projectile::update_projectiles,
                 crate::encounter::update_encounters_from_world,
                 crate::encounter::sync_encounter_controller_states,
+            )
+                .chain(),
+        )
+        // Progression chain: cutscenes, boss encounters, quest events,
+        // and the F3 stats editor sync. Split out from the main update
+        // tuple so each chain stays under the macro tuple-arity limit.
+        .add_systems(
+            Update,
+            (
                 crate::cutscene::auto_trigger_room_cutscenes,
                 crate::cutscene::drain_cutscene_triggers,
                 crate::cutscene::tick_active_cutscene,
@@ -348,8 +360,12 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::sync_features_with_save,
                 crate::quest::push_room_entered_quest_events,
                 crate::quest::apply_quest_advance_events,
+                crate::ledge_grab::update_ledge_grab,
+                crate::swim::update_swim,
+                dev_tools::sync_player_stats_with_inspector,
             )
-                .chain(),
+                .chain()
+                .after(crate::encounter::sync_encounter_controller_states),
         )
         .add_systems(
             Startup,
@@ -450,6 +466,7 @@ pub fn add_presentation_plugins(app: &mut App) {
         .register_type::<DeveloperTools>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
+        .register_type::<EditablePlayerStats>()
         .register_type::<SandboxFeelTuning>();
 
     add_dev_tools_plugins(app);
@@ -558,6 +575,10 @@ fn add_dev_tools_plugins(app: &mut App) {
         )
         .add_plugins(
             ResourceInspectorPlugin::<EditableMovementTuning>::default()
+                .run_if(dev_tools::inspector_visible),
+        )
+        .add_plugins(
+            ResourceInspectorPlugin::<EditablePlayerStats>::default()
                 .run_if(dev_tools::inspector_visible),
         )
         .add_plugins(
@@ -2028,6 +2049,12 @@ fn handle_player_damage_events(
     let Some(mut damage) = events.player_damage.first().copied() else {
         return;
     };
+    // Invincibility (debug toggle): drop the damage event entirely
+    // before any state mutates so testing systems that consume HP
+    // (boss phases, encounter pacing, music) can run uninterrupted.
+    if runtime.invincible {
+        return;
+    }
     // Difficulty / assist scaling. Easy halves incoming damage, hard
     // doubles it; the menu setting also exposes a fine-grained
     // gameplay damage multiplier. The minimum is one HP so a damage
@@ -2163,9 +2190,10 @@ fn process_attack(
     let mut landed = false;
     let mut killed = false;
     let player_facing = runtime.player.facing;
+    let slash_damage = runtime.slash_damage.max(1);
     let feature_events = runtime
         .features
-        .apply_player_attack(attack, 1, player_facing * 300.0);
+        .apply_player_attack(attack, slash_damage, player_facing * 300.0);
     landed |= !feature_events.impacts.is_empty();
     killed |= feature_events
         .messages

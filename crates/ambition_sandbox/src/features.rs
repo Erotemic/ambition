@@ -184,8 +184,20 @@ pub struct FeatureRuntime {
     pub chests: Vec<ChestRuntime>,
     pub npcs: Vec<NpcRuntime>,
     pub switches: Vec<SwitchRuntime>,
+    pub water_volumes: Vec<WaterVolumeRuntime>,
     pub banner: String,
     pub banner_timer: f32,
+}
+
+/// Live state for one water volume in the active room. Position +
+/// AABB are stable; the runtime exists as a layer over the engine
+/// spec so the swim system can query "is the player submerged"
+/// without iterating `World::objects` every frame.
+#[derive(Clone, Debug)]
+pub struct WaterVolumeRuntime {
+    pub id: String,
+    pub aabb: ae::Aabb,
+    pub spec: ae::WaterVolumeSpec,
 }
 
 /// Runtime state of a `Switch` interactable. The custom payload comes
@@ -232,12 +244,36 @@ impl FeatureRuntime {
     /// Called every frame so a freshly-loaded room reflects boss
     /// defeats, NPC hostility, etc. Cheap (linear in feature counts).
     pub fn apply_save(&mut self, save: &ae::SandboxSaveData) {
-        for npc in &mut self.npcs {
+        // Convert any NPC the save remembers as hostile into a real
+        // enemy. Hostility is a one-way trip — once flipped, the NPC
+        // is replaced by an `EnemyRuntime` that uses the same chase
+        // / attack AI as authored enemies. Reusing the enemy
+        // pipeline keeps the AI in one place and means hostile NPCs
+        // automatically get patrol/aggro/attack telegraph behavior
+        // for free.
+        let mut to_convert: Vec<usize> = Vec::new();
+        for (idx, npc) in self.npcs.iter_mut().enumerate() {
             let flag_id = npc.flag_id();
-            if save.flag(&flag_id) && !npc.hostile {
+            let flagged = save.flag(&flag_id);
+            if flagged || npc.hostile {
                 npc.hostile = true;
-                npc.strikes = NPC_HOSTILE_STRIKE_THRESHOLD;
+                to_convert.push(idx);
             }
+        }
+        for idx in to_convert.into_iter().rev() {
+            let npc = self.npcs.remove(idx);
+            // Spawn a striker-style enemy with the same id so any
+            // quest hooks / save flags keyed on the NPC id still
+            // resolve. The enemy id mirrors the NPC id so the
+            // replacement is idempotent.
+            self.spawn_enemy(
+                npc.id.clone(),
+                ae::EnemyBrain::Custom("medium_striker".into()),
+                npc.pos,
+                ae::Vec2::new(npc.size.x.max(22.0), npc.size.y.max(38.0)),
+            );
+            self.banner = format!("{} attacks!", npc.name);
+            self.banner_timer = 1.5;
         }
         // Boss defeats: hide already-cleared bosses by marking the
         // runtime dead. New `BossSpawn` instances from the LDtk
@@ -314,6 +350,7 @@ impl FeatureRuntime {
             chests: Vec::new(),
             npcs: Vec::new(),
             switches: Vec::new(),
+            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -362,6 +399,13 @@ impl FeatureRuntime {
                 }
                 ae::RoomObjectKind::BossSpawn(brain) => {
                     runtime.bosses.push(BossRuntime::new(object, brain.clone()));
+                }
+                ae::RoomObjectKind::WaterVolume(spec) => {
+                    runtime.water_volumes.push(WaterVolumeRuntime {
+                        id: object.id.clone(),
+                        aabb: object.aabb,
+                        spec: *spec,
+                    });
                 }
                 ae::RoomObjectKind::Actor(_)
                 | ae::RoomObjectKind::KinematicPath(_)
@@ -526,22 +570,13 @@ impl FeatureRuntime {
             }
         }
 
-        // Hostile NPCs deal contact damage like a slow striker. They
-        // don't track player position the way `EnemyRuntime` does
-        // yet — they just punch out if the player is in their AABB.
+        // Hostile NPCs are converted to `EnemyRuntime` instances by
+        // `apply_save`, so peaceful NPCs only need a hit-flash decay
+        // here — combat damage flows through the enemy path.
         for npc in &mut self.npcs {
             npc.hit_flash = (npc.hit_flash - dt).max(0.0);
-            if !player_vulnerable {
-                continue;
-            }
-            if let Some(damage) = npc.hostile_damage(player_body) {
-                events
-                    .messages
-                    .push(format!("{} struck the player", npc.name));
-                events.impacts.push(damage.impact_pos);
-                events.player_damage.push(damage);
-            }
         }
+        let _ = player_vulnerable;
 
         self.accept_events(&events);
         events
@@ -937,6 +972,10 @@ pub struct EnemyRuntime {
     pub attack_cooldown: f32,
     pub respawn_timer: f32,
     pub hit_flash: f32,
+    /// Last-evaluated `CharacterAiMode`. Updated by `update`. Read by
+    /// HUD / rendering / debug overlay so they can branch on a single
+    /// vocabulary instead of inferring it from the timer fields.
+    pub ai_mode: ae::CharacterAiMode,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1066,6 +1105,7 @@ impl EnemyRuntime {
             attack_cooldown: 0.2,
             respawn_timer: 0.0,
             hit_flash: 0.0,
+            ai_mode: ae::CharacterAiMode::Idle,
         }
     }
 
@@ -1153,6 +1193,31 @@ impl EnemyRuntime {
                     1.0
                 };
         }
+
+        // Snapshot the AI mode for HUD / rendering. The actual
+        // movement / attack logic above stays as-is for now; the
+        // mode just exposes a single vocabulary on top.
+        let recover_remaining = if self.attack_cooldown > 0.0
+            && self.attack_windup_timer <= 0.0
+            && self.attack_timer <= 0.0
+        {
+            self.attack_cooldown
+        } else {
+            0.0
+        };
+        self.ai_mode = ae::evaluate_character_ai(ae::CharacterAiSnapshot {
+            actor_pos: self.pos,
+            player_pos: player.pos,
+            aggro_radius: self.archetype.aggro_radius(),
+            attack_range: self.archetype.attack_range(),
+            attack_windup_remaining: self.attack_windup_timer,
+            attack_active_remaining: self.attack_timer,
+            attack_recover_remaining: recover_remaining,
+            stun_remaining: 0.0,
+            alive: self.alive,
+            patrol_enabled: !self.archetype.is_sandbag()
+                && !matches!(self.brain, ae::EnemyBrain::Passive),
+        });
     }
 
     pub fn aabb(&self) -> ae::Aabb {
@@ -1520,10 +1585,12 @@ pub struct NpcRuntime {
     pub size: ae::Vec2,
     pub interactable: ae::Interactable,
     /// Hostility flag. Becomes true after the player strikes the NPC
-    /// enough times to provoke them. While hostile, talking is
-    /// disabled and the NPC begins acting like a striker enemy. The
-    /// flag is mirrored into `SandboxSave` (`flag_writes`) so it
-    /// persists across rooms / saves.
+    /// enough times to provoke them. The save flag mirrors this so
+    /// hostility persists across rooms / saves. Once flipped, the
+    /// NPC is removed from `FeatureRuntime::npcs` and replaced by an
+    /// `EnemyRuntime` carrying the same id; this flag exists only for
+    /// the brief window between the strike that flipped hostility
+    /// and the next call to `apply_save`.
     pub hostile: bool,
     /// Hits the NPC has taken since the last reset. Crosses
     /// `HOSTILE_THRESHOLD` to flip hostile.
@@ -1672,26 +1739,10 @@ impl NpcRuntime {
         }
     }
 
-    /// Body damage volume returned while hostile (for "NPC walks into
-    /// player" damage). Returns None for a peaceful NPC.
-    pub fn hostile_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
-        if !self.hostile {
-            return None;
-        }
-        let aabb = self.aabb();
-        if !aabb.strict_intersects(player_body) {
-            return None;
-        }
-        Some(PlayerDamageEvent {
-            mode: PlayerDamageMode::Knockback,
-            source: PlayerDamageSource::EnemyBody,
-            source_pos: self.pos,
-            impact_pos: midpoint(player_body.center(), aabb.center()),
-            knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
-            strength: 0.85,
-            amount: 1,
-        })
-    }
+    // Hostile NPCs are converted to `EnemyRuntime` instances in
+    // `apply_save`. The legacy `hostile_damage` body-volume method
+    // was removed because the spawned enemy now handles contact
+    // damage through the standard `EnemyRuntime::player_damage`.
 }
 
 #[derive(Clone, Debug)]

@@ -31,7 +31,9 @@ pub mod game_mode;
 pub mod input;
 pub mod inventory;
 pub mod ldtk_world;
+pub mod ledge_grab;
 pub mod loading;
+pub mod swim;
 pub mod mechanics;
 pub mod pause_menu;
 pub mod physics;
@@ -142,6 +144,36 @@ pub struct SandboxRuntime {
     /// triggered so the sprite plays the Slash row even after the brief
     /// hitstop window ends. Decays toward 0 in the gameplay loop.
     pub slash_anim_timer: f32,
+    /// Sandbox-side player mana. Not yet a real engine resource (no
+    /// consuming ability); the F3 stats editor reads/writes it so
+    /// future abilities can tap a single canonical store. Defaults
+    /// to `mana_max` on construction.
+    pub mana_current: i32,
+    pub mana_max: i32,
+    /// Multiplier on outgoing player slash damage. The F3 editor
+    /// writes this; `process_attack` reads it. Default 1.
+    pub slash_damage: i32,
+    /// True → all incoming damage is dropped. Set by the F3 stats
+    /// editor's "invincible" toggle.
+    pub invincible: bool,
+    /// Ledge grab state. `Some` while the player is hanging on a
+    /// ledge — gravity is suspended and Up + Jump kicks off the
+    /// climb. `None` otherwise. Only mutated by `update_ledge_grab`.
+    pub ledge_grab: Option<LedgeGrabState>,
+}
+
+/// Sandbox-side ledge grab snapshot. Engine-pure data wrapped with
+/// the timer the climb animation drains.
+#[derive(Clone, Copy, Debug)]
+pub struct LedgeGrabState {
+    pub contact: ae::LedgeContact,
+    /// Seconds since the cling-snap fired. Used by the climb
+    /// animation; doesn't gate anything yet.
+    pub elapsed: f32,
+    /// True once the climb has been requested (Up + Jump). The next
+    /// frame moves the player to `contact.climb_target` and clears
+    /// the state.
+    pub climbing: bool,
 }
 
 impl SandboxRuntime {
@@ -176,6 +208,11 @@ impl SandboxRuntime {
             physics_settings,
             room_transition_cooldown: 0.0,
             slash_anim_timer: 0.0,
+            mana_current: 100,
+            mana_max: 100,
+            slash_damage: 1,
+            invincible: false,
+            ledge_grab: None,
         }
     }
 
@@ -197,6 +234,11 @@ impl SandboxRuntime {
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
         self.slash_anim_timer = 0.0;
+        // Refill mana on reset; preserve the editor-tuned slash damage
+        // / invincible flag so testers don't lose their inspector
+        // settings on every player respawn.
+        self.mana_current = self.mana_max;
+        self.ledge_grab = None;
     }
 
     pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {

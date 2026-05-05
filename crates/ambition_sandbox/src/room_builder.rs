@@ -169,6 +169,7 @@ impl RoomBuilder {
             aabb,
             ae::InteractionKind::Npc {
                 dialogue_id: Some(npc_id.clone()),
+                patrol_radius: 0.0,
             },
         );
         self.objects.push(ae::RoomObject::new(

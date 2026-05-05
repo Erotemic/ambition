@@ -698,10 +698,11 @@ impl FeatureRuntime {
         }
 
         // Hostile NPCs are converted to `EnemyRuntime` instances by
-        // `apply_save`, so peaceful NPCs only need a hit-flash decay
-        // here — combat damage flows through the enemy path.
+        // `apply_save`, so the NPC tick here is purely peaceful
+        // physics + patrol AI. Hit-flash decay happens inside
+        // `npc.update`.
         for npc in &mut self.npcs {
-            npc.hit_flash = (npc.hit_flash - dt).max(0.0);
+            npc.update(world, player, dt);
         }
         let _ = player_vulnerable;
 
@@ -1786,6 +1787,7 @@ mod conversion_tests {
                 aabb,
                 ae::InteractionKind::Npc {
                     dialogue_id: Some(id.to_string()),
+                    patrol_radius: 0.0,
                 },
             )),
         );
@@ -1941,6 +1943,169 @@ mod conversion_tests {
         });
         assert_eq!(report.enemies_hit, 3);
         assert!(!report.any_actor_hit() == false);
+    }
+
+    /// Build an NPC with a patrol radius and a player parked far
+    /// outside the talk radius — used by the patrol-motion tests so
+    /// the AI lands on `Patrol` mode each tick.
+    fn world_with_patrolling_npc(patrol_radius: f32) -> (ae::World, NpcRuntime, ae::Player) {
+        let world = ae::World::new(
+            String::from("patrol_test"),
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![ae::Block::solid(
+                String::from("floor"),
+                ae::Vec2::new(0.0, 600.0),
+                ae::Vec2::new(2000.0, 40.0),
+            )],
+        );
+        let aabb = ae::Aabb::new(ae::Vec2::new(800.0, 540.0), ae::Vec2::new(11.0, 19.0));
+        let id = String::from("patrol_kira");
+        let object = ae::RoomObject::new(
+            id.clone(),
+            id.clone(),
+            aabb,
+            ae::RoomObjectKind::Interactable(ae::Interactable::new(
+                id.clone(),
+                String::from("Talk"),
+                aabb,
+                ae::InteractionKind::Npc {
+                    dialogue_id: Some(id.clone()),
+                    patrol_radius,
+                },
+            )),
+        );
+        let interactable = match object.kind.clone() {
+            ae::RoomObjectKind::Interactable(it) => it,
+            _ => unreachable!(),
+        };
+        let npc = NpcRuntime::new(&object, interactable);
+        let player = ae::Player::new_with_abilities(
+            ae::Vec2::new(1500.0, 540.0),
+            ae::AbilitySet::sandbox_all(),
+        );
+        (world, npc, player)
+    }
+
+    /// Bug the user reported: NPCs floated wherever LDtk placed them
+    /// because the runtime didn't tick gravity / collision on them.
+    /// Pin: after a few ticks an NPC spawned in mid-air lands on the
+    /// floor and `on_ground` flips true.
+    #[test]
+    fn npc_falls_to_floor_under_gravity() {
+        let (world, mut npc, player) = world_with_patrolling_npc(0.0);
+        // Lift the NPC into mid-air so gravity has work to do.
+        npc.pos.y = 200.0;
+        npc.spawn.y = 200.0;
+        for _ in 0..120 {
+            npc.update(&world, &player, 0.016);
+        }
+        assert!(npc.on_ground, "NPC must land on the floor under gravity");
+        // Body bottom should rest on the floor's top edge (y=600).
+        let body_bottom = npc.pos.y + npc.size.y * 0.5;
+        assert!(
+            (body_bottom - 600.0).abs() < 1.0,
+            "expected body bottom near floor top (600); got {body_bottom}"
+        );
+    }
+
+    /// A patrolling NPC paces left/right around its spawn within
+    /// `patrol_radius`. Pin both the motion (NPC moves) and the
+    /// bound (NPC reverses before exceeding the radius).
+    #[test]
+    fn patrolling_npc_paces_within_radius() {
+        let (world, mut npc, player) = world_with_patrolling_npc(96.0);
+        // Settle gravity first so we're testing horizontal motion,
+        // not the freefall.
+        for _ in 0..30 {
+            npc.update(&world, &player, 0.016);
+        }
+        let spawn_x = npc.spawn.x;
+        let mut min_x = npc.pos.x;
+        let mut max_x = npc.pos.x;
+        for _ in 0..600 {
+            npc.update(&world, &player, 0.016);
+            min_x = min_x.min(npc.pos.x);
+            max_x = max_x.max(npc.pos.x);
+        }
+        // The NPC actually moved some distance — not stuck.
+        assert!(
+            max_x - min_x > 50.0,
+            "patrolling NPC must move; range was {}-{}",
+            min_x,
+            max_x
+        );
+        // And stayed inside its patrol bounds (with a small slack
+        // for one tick of overshoot before the bound flip kicks in).
+        assert!(
+            min_x >= spawn_x - 96.0 - 4.0,
+            "NPC went too far left: {min_x} < {} - 4",
+            spawn_x - 96.0
+        );
+        assert!(
+            max_x <= spawn_x + 96.0 + 4.0,
+            "NPC went too far right: {max_x} > {} + 4",
+            spawn_x + 96.0
+        );
+    }
+
+    /// When the player walks within `talk_radius`, a patrolling NPC
+    /// must STOP (so the player can interact). This is the inverse
+    /// of an enemy "chase" — the shared character_ai vocabulary
+    /// flagging "player in range" maps to "hold position" for
+    /// peaceful NPCs.
+    #[test]
+    fn patrolling_npc_stops_when_player_is_within_talk_radius() {
+        let (world, mut npc, mut player) = world_with_patrolling_npc(120.0);
+        // Settle physics.
+        for _ in 0..30 {
+            npc.update(&world, &player, 0.016);
+        }
+        // Park the player right next to the NPC — within talk_radius.
+        player.pos = ae::Vec2::new(npc.pos.x + 30.0, npc.pos.y);
+        // Run for a half-second of real time. Whatever momentum was
+        // left from the patrol step must drain to ~0 inside the
+        // talk radius.
+        for _ in 0..30 {
+            npc.update(&world, &player, 0.016);
+        }
+        assert!(
+            matches!(npc.ai_mode, ae::CharacterAiMode::Chase),
+            "expected Chase mode (NPC interprets as hold-and-face), got {:?}",
+            npc.ai_mode
+        );
+        assert!(
+            npc.vel.x.abs() < 5.0,
+            "NPC must come to rest inside talk_radius; got vel.x={}",
+            npc.vel.x
+        );
+        // And the NPC faces the player so the dialog prompt sits on
+        // the right side.
+        let dx = player.pos.x - npc.pos.x;
+        assert_eq!(npc.facing.signum(), dx.signum(), "NPC must face the player");
+    }
+
+    /// patrol_radius=0 is the explicit "static NPC" knob — no
+    /// motion regardless of how long the simulation runs. Pin so a
+    /// future tuning pass that defaults patrol_radius nonzero
+    /// doesn't silently move every NPC.
+    #[test]
+    fn npc_with_zero_patrol_radius_stays_at_spawn_x() {
+        let (world, mut npc, player) = world_with_patrolling_npc(0.0);
+        let original_x = npc.pos.x;
+        for _ in 0..300 {
+            npc.update(&world, &player, 0.016);
+        }
+        assert!(
+            (npc.pos.x - original_x).abs() < 1.0,
+            "static NPC must not drift; was {}, now {}",
+            original_x,
+            npc.pos.x
+        );
+        assert!(matches!(
+            npc.ai_mode,
+            ae::CharacterAiMode::Idle | ae::CharacterAiMode::Chase
+        ));
     }
 
     #[test]
@@ -2121,8 +2286,38 @@ pub struct NpcRuntime {
     pub id: String,
     pub name: String,
     pub pos: ae::Vec2,
+    /// Authored spawn position. Patrol bounds are derived from this
+    /// (`spawn.x ± patrol_radius`) so the NPC always paces around
+    /// where the LDtk author placed them, not wherever they last
+    /// stopped.
+    pub spawn: ae::Vec2,
     pub size: ae::Vec2,
+    /// Per-frame velocity. NPCs are physics-simulated like enemies
+    /// (gravity + horizontal patrol step); previously they were
+    /// static and floated wherever LDtk placed them.
+    pub vel: ae::Vec2,
+    /// +1 facing right, -1 facing left. Drives the patrol step
+    /// direction and the sprite flip.
+    pub facing: f32,
+    pub on_ground: bool,
     pub interactable: ae::Interactable,
+    /// Half-range of the patrol pace, in world pixels. 0.0 → static;
+    /// > 0 → pace `[spawn.x - patrol_radius, spawn.x + patrol_radius]`.
+    /// Mirror of the engine `InteractionKind::Npc::patrol_radius` —
+    /// cached here so the per-frame movement code doesn't have to
+    /// re-pattern-match every tick.
+    pub patrol_radius: f32,
+    /// Distance below which a patrolling NPC stops to face the
+    /// player so dialog interaction is reachable. 0 disables the
+    /// stop behavior. Sandbox-side default; not authored.
+    pub talk_radius: f32,
+    /// Last-evaluated `CharacterAiMode`. NPCs flex the engine's
+    /// shared character_ai vocabulary: `Patrol` paces, `Chase`
+    /// (player in talk range) HOLDS POSITION (semantically the
+    /// inverse of an enemy "chase" — a peaceful NPC interrupts its
+    /// own behavior to face the visitor), `Idle` is the
+    /// no-patrol-radius fallback.
+    pub ai_mode: ae::CharacterAiMode,
     /// Hostility flag. Becomes true after the player strikes the NPC
     /// enough times to provoke them. The save flag mirrors this so
     /// hostility persists across rooms / saves. Once flipped, the
@@ -2228,14 +2423,38 @@ pub fn drain_feature_event_bus(
 /// flipping by accident on a stray slash.
 pub const NPC_HOSTILE_STRIKE_THRESHOLD: i32 = 3;
 
+/// Fixed talk radius for patrolling NPCs. When the player gets
+/// within this many world pixels, a patrolling NPC stops and faces
+/// the player so the dialog interact is reachable. ~80 px ≈ 2.5
+/// player widths — close enough to commit to dialog, far enough
+/// that an NPC doesn't freeze the moment you walk past their
+/// patrol range.
+pub const NPC_TALK_RADIUS: f32 = 80.0;
+
+/// Patrol speed for NPCs. Slightly slower than the standard enemy
+/// patrol speed so peaceful NPCs read as casual rather than alert.
+pub const NPC_PATROL_SPEED: f32 = 60.0;
+
 impl NpcRuntime {
     fn new(object: &ae::RoomObject, interactable: ae::Interactable) -> Self {
+        let pos = object.aabb.center();
+        let patrol_radius = match &interactable.kind {
+            ae::InteractionKind::Npc { patrol_radius, .. } => patrol_radius.max(0.0),
+            _ => 0.0,
+        };
         Self {
             id: object.id.clone(),
             name: object.name.clone(),
-            pos: object.aabb.center(),
+            pos,
+            spawn: pos,
             size: object.aabb.half_size() * 2.0,
+            vel: ae::Vec2::ZERO,
+            facing: 1.0,
+            on_ground: false,
             interactable,
+            patrol_radius,
+            talk_radius: NPC_TALK_RADIUS,
+            ai_mode: ae::CharacterAiMode::Idle,
             hostile: false,
             strikes: 0,
             hit_flash: 0.0,
@@ -2244,6 +2463,120 @@ impl NpcRuntime {
 
     pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
+    }
+
+    /// Per-frame physics + AI tick for an NPC.
+    ///
+    /// - Always: gravity + floor/wall collision (the bug the user
+    ///   reported was that NPCs didn't fall onto the floor — they
+    ///   just floated at their authored spawn).
+    /// - If `patrol_radius > 0`: paces between `spawn.x ± radius`,
+    ///   reversing facing on bounds + on horizontal collision.
+    /// - If the player is within `talk_radius`: AI flips to `Chase`
+    ///   (which for an NPC means STOP and face the player) so the
+    ///   player can interact without chasing a moving target. The
+    ///   `Chase` semantics here are inverse of the enemy path:
+    ///   enemies pursue, NPCs hold. The shared
+    ///   `evaluate_character_ai` evaluator just tells us "the
+    ///   player is in range" — the per-actor caller decides what
+    ///   that means in motion terms.
+    pub fn update(&mut self, world: &ae::World, player: &ae::Player, dt: f32) {
+        self.hit_flash = (self.hit_flash - dt).max(0.0);
+
+        // Re-evaluate AI mode each tick. We feed `talk_radius` as
+        // the `aggro_radius` so "player in range" → `Chase` mode
+        // (which the NPC interprets as "hold position"). Attack
+        // ranges / windups all stay at zero — peaceful NPCs don't
+        // attack. `patrol_enabled` toggles whether the
+        // out-of-range fallback is `Patrol` or `Idle`.
+        self.ai_mode = ae::evaluate_character_ai(ae::CharacterAiSnapshot {
+            actor_pos: self.pos,
+            player_pos: player.pos,
+            aggro_radius: self.talk_radius,
+            attack_range: 0.0,
+            attack_windup_remaining: 0.0,
+            attack_active_remaining: 0.0,
+            attack_recover_remaining: 0.0,
+            stun_remaining: 0.0,
+            alive: true,
+            patrol_enabled: self.patrol_radius > 0.0,
+        });
+
+        // Pick a horizontal target velocity from the AI mode. The
+        // patrol step also flips `facing` on bound contact so the
+        // NPC doesn't freeze when it reaches the patrol edge.
+        let target_x = match self.ai_mode {
+            // Player is close → stop and face the player so the
+            // interact prompt lands. The actual facing flip
+            // happens after movement so the NPC reads a fresh
+            // delta this frame.
+            ae::CharacterAiMode::Chase => 0.0,
+            ae::CharacterAiMode::Patrol => {
+                // Reverse at patrol bounds.
+                let from_spawn = self.pos.x - self.spawn.x;
+                if from_spawn > self.patrol_radius {
+                    self.facing = -1.0;
+                } else if from_spawn < -self.patrol_radius {
+                    self.facing = 1.0;
+                }
+                self.facing * NPC_PATROL_SPEED
+            }
+            // Idle / Dead / Stunned / Telegraph / Attack / Recover
+            // → no horizontal motion. (NPCs never enter Stunned /
+            // attack states today; left here for completeness so
+            // future patches can extend without re-shaping the
+            // match.)
+            _ => 0.0,
+        };
+
+        // Velocity smoothing — same shape as EnemyRuntime so the
+        // NPC accelerates / decelerates at a similar pace and the
+        // patrol pacing reads as a deliberate gait.
+        self.vel.x = approach(self.vel.x, target_x, 650.0 * dt);
+        self.vel.y = (self.vel.y + ENEMY_GRAVITY * dt).min(ENEMY_MAX_FALL);
+
+        // Horizontal sweep with wall reverse. Mirrors the enemy
+        // path — if the patrol step puts the NPC into a wall (or
+        // off the edge of a one-cell-wide ledge), back out and
+        // flip facing so the NPC bounces off the obstacle instead
+        // of grinding into it.
+        let old_x = self.pos.x;
+        self.pos.x += self.vel.x * dt;
+        if blocked(world, self.aabb()) {
+            self.pos.x = old_x;
+            self.vel.x = 0.0;
+            if matches!(self.ai_mode, ae::CharacterAiMode::Patrol) {
+                self.facing *= -1.0;
+            }
+        }
+
+        // Vertical sweep. NPCs collide with one-way platforms from
+        // above just like the player / enemies do (`blocked_y`
+        // includes OneWay), so an NPC patrolling on a platform
+        // stays on the platform instead of falling through.
+        let old_y = self.pos.y;
+        self.pos.y += self.vel.y * dt;
+        let mut grounded = false;
+        if blocked_y(world, self.aabb()) {
+            self.pos.y = old_y;
+            // Landed (vy was downward) vs. bonked head (vy upward).
+            // NPCs don't jump today so vy is almost always
+            // downward here, but the branch is correct either way.
+            if self.vel.y > 0.0 {
+                grounded = true;
+            }
+            self.vel.y = 0.0;
+        }
+        self.on_ground = grounded;
+
+        // After moving, re-face the player while in talk range so
+        // the dialog prompt sits on the correct side of the NPC.
+        if matches!(self.ai_mode, ae::CharacterAiMode::Chase) {
+            let dx = player.pos.x - self.pos.x;
+            if dx.abs() > 4.0 {
+                self.facing = dx.signum();
+            }
+        }
     }
 
     pub fn flag_id(&self) -> String {
@@ -2257,6 +2590,7 @@ impl NpcRuntime {
         match &self.interactable.kind {
             ae::InteractionKind::Npc {
                 dialogue_id: Some(dialogue_id),
+                ..
             } => {
                 format!("{} opens dialogue {}", self.name, dialogue_id)
             }
@@ -2268,6 +2602,7 @@ impl NpcRuntime {
         let dialogue_id = match &self.interactable.kind {
             ae::InteractionKind::Npc {
                 dialogue_id: Some(dialogue_id),
+                ..
             } => dialogue_id.clone(),
             _ => "generic_npc".to_string(),
         };

@@ -39,8 +39,23 @@ impl Interactable {
 /// What an interactable does when activated.
 #[derive(Clone, Debug, PartialEq)]
 pub enum InteractionKind {
-    Door { target: Option<String> },
-    Npc { dialogue_id: Option<String> },
+    Door {
+        target: Option<String>,
+    },
+    Npc {
+        dialogue_id: Option<String>,
+        /// Half-range of the NPC's patrol pace, in world pixels.
+        /// `0.0` (the default) means the NPC stands still; values
+        /// > 0 make the NPC pace between
+        /// `[spawn_x - patrol_radius, spawn_x + patrol_radius]`
+        /// at the sandbox's authored patrol speed. The NPC stops
+        /// inside the player's `talk_radius` so the player can
+        /// open dialog without chasing a moving target.
+        ///
+        /// Engine model only — the actual movement / gravity /
+        /// collision lives in `ambition_sandbox::features::NpcRuntime`.
+        patrol_radius: f32,
+    },
     Chest,
     Pickup,
     Breakable,

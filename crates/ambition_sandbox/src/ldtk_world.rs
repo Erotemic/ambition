@@ -1088,6 +1088,10 @@ fn entity_to_runtime(
                 object_aabb(min, size),
                 ae::InteractionKind::Npc {
                     dialogue_id: field_string(entity, "dialogue_id"),
+                    // Optional `patrol_radius` field on NpcSpawn. 0
+                    // (or unset) → static NPC; >0 → paces around
+                    // spawn within that half-range.
+                    patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
                 },
             );
             Ok(RuntimeEntityEmission::object(runtime_room_object(

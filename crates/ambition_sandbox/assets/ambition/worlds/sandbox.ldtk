@@ -11,7 +11,7 @@
   "iid": "ambition-sandbox-world",
   "jsonVersion": "1.5.3",
   "appBuildId": 473703,
-  "nextUid": 4123,
+  "nextUid": 4124,
   "identifierStyle": "Free",
   "toc": [],
   "worldLayout": "Free",
@@ -1020,6 +1020,46 @@
               "params": [
                 ""
               ]
+            },
+            "textLanguageMode": null,
+            "symmetricalRef": false,
+            "autoChainRef": true,
+            "allowOutOfLevelRef": false,
+            "allowedRefs": "Any",
+            "allowedRefsEntityUid": null,
+            "allowedRefTags": [],
+            "tilesetUid": null
+          },
+          {
+            "identifier": "patrol_radius",
+            "doc": "Half-range of the NPC's patrol pace, in world pixels. 0.0 = static. > 0 paces around spawn within that half-range.",
+            "__type": "Float",
+            "uid": 4123,
+            "type": "F_Float",
+            "isArray": false,
+            "canBeNull": false,
+            "arrayMinLength": null,
+            "arrayMaxLength": null,
+            "editorDisplayMode": "NameAndValue",
+            "editorDisplayScale": 1,
+            "editorDisplayPos": "Above",
+            "editorLinkStyle": "StraightArrow",
+            "editorDisplayColor": null,
+            "editorAlwaysShow": true,
+            "editorShowInWorld": false,
+            "editorCutLongValues": true,
+            "editorTextSuffix": null,
+            "editorTextPrefix": null,
+            "useForSmartColor": false,
+            "exportToToc": false,
+            "searchable": false,
+            "min": 0.0,
+            "max": null,
+            "regex": null,
+            "acceptFileTypes": null,
+            "defaultOverride": {
+              "id": "V_Float",
+              "params": [0.0]
             },
             "textLanguageMode": null,
             "symmetricalRef": false,
@@ -4387,6 +4427,19 @@
                       "params": [
                         "hub_guide"
                       ]
+                    }
+                  ]
+                },
+                {
+                  "__identifier": "patrol_radius",
+                  "__type": "Float",
+                  "__value": 96.0,
+                  "__tile": null,
+                  "defUid": 4123,
+                  "realEditorValues": [
+                    {
+                      "id": "V_Float",
+                      "params": [96.0]
                     }
                   ]
                 }

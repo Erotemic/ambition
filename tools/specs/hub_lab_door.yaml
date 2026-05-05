@@ -1,0 +1,21 @@
+# Adds a `lab_door` LoadingZone to central_hub_basement that targets
+# the new mob_lab area. Companion to tools/specs/mob_lab_area.yaml —
+# run that one first so the target level exists, then this one.
+#
+#   python tools/add_ldtk_entity_to_level.py \
+#       tools/specs/hub_lab_door.yaml --in-place
+#
+# Placement: right edge of the basement at (1820, 800), 60x132 to
+# match the visual style of the existing right-side basement doors.
+level_id: central_hub_basement
+entities:
+  - type: LoadingZone
+    px: [1820, 800]
+    size: [60, 132]
+    fields:
+      id: lab_door
+      name: lab_door
+      activation: Door
+      target_room: mob_lab
+      target_zone: lab_entry
+      bidirectional: true

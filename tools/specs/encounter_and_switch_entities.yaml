@@ -1,0 +1,36 @@
+# Adds the EncounterTrigger + Switch entity types to sandbox.ldtk so
+# the mob-lab area can be authored. Re-runnable thanks to the tool's
+# "already exists" guard. Run via:
+#   python tools/register_ldtk_entity_def.py \
+#       tools/specs/encounter_and_switch_entities.yaml --in-place
+entities:
+  - identifier: EncounterTrigger
+    color: "#FF7AB6"
+    width: 64
+    height: 64
+    docs: |
+      Activates the parent active area's encounter when the player
+      enters the rectangle. The encounter id matches the level's
+      `activeArea` field; the camera_zoom field controls the zoom-out
+      applied while the encounter is Active.
+    fields:
+      - { name: id,           type: String, default: "" }
+      - { name: name,         type: String, default: "" }
+      - { name: camera_zoom,  type: Float,  default: 1.5 }
+
+  - identifier: Switch
+    color: "#FFC857"
+    width: 24
+    height: 32
+    docs: |
+      Latched player-facing switch. Persists in the sandbox save by
+      `id`. The `target_encounter` + `action` fields tell the runtime
+      what to do on activation; the only `action` recognized today is
+      `ResetEncounter`, which clears the matching encounter's defeat
+      state and returns it to a fresh-attempt state.
+    fields:
+      - { name: id,                type: String, default: "" }
+      - { name: name,              type: String, default: "" }
+      - { name: prompt,            type: String, default: "Activate" }
+      - { name: target_encounter,  type: String, default: "" }
+      - { name: action,            type: String, default: "ResetEncounter" }

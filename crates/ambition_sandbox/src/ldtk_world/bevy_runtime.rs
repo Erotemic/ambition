@@ -714,6 +714,8 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "DebugLabel",
     "CameraZone",
     "StitchedBoundary",
+    "EncounterTrigger",
+    "Switch",
 ];
 
 #[derive(Resource, Clone, Debug)]

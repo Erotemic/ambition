@@ -1150,6 +1150,40 @@ fn entity_to_runtime(
             )))
         }
         "CameraZone" | "StitchedBoundary" => Ok(RuntimeEntityEmission::ignored()),
+        // EncounterTrigger entities are read by `crate::encounter::load_encounter_specs_from_ldtk`
+        // directly off the `LdtkProject` because the encounter spec
+        // wants level-relative coordinates and field combinations
+        // (camera_zoom, target_encounter id) that don't fit the
+        // generic `RoomObject` shape. Skipping here keeps composition
+        // free of encounter-specific routing.
+        "EncounterTrigger" => Ok(RuntimeEntityEmission::ignored()),
+        // Switches are interactables routed through `FeatureRuntime`.
+        // The id / target_encounter / action fields are encoded into
+        // an `InteractionKind::Custom` payload so the switch handler
+        // can decide what to do without growing a new `RoomObjectKind`
+        // variant in the engine for every action type.
+        "Switch" => {
+            let id = field_string(entity, "id").unwrap_or_else(|| entity.iid.clone());
+            let action = field_string(entity, "action").unwrap_or_else(|| "ResetEncounter".into());
+            let target = field_string(entity, "target_encounter").unwrap_or_default();
+            // Custom payload format: "switch:<id>:<action>:<target>"
+            // FeatureRuntime parses it back into typed fields. Future
+            // switch actions just add another `:` segment.
+            let custom = format!("switch:{id}:{action}:{target}");
+            let interactable = ae::Interactable::new(
+                id,
+                field_string(entity, "prompt").unwrap_or_else(|| "Activate".into()),
+                object_aabb(min, size),
+                ae::InteractionKind::Custom(custom),
+            );
+            Ok(RuntimeEntityEmission::object(runtime_room_object(
+                entity,
+                name,
+                min,
+                size,
+                ae::RoomObjectKind::Interactable(interactable),
+            )))
+        }
         _ => Err(format!(
             "unsupported entity identifier '{}'",
             entity.identifier

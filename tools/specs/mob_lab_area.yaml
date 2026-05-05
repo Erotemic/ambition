@@ -25,6 +25,16 @@
 #   itself and the doorway is open again.
 # - EncounterTrigger is deeper in the arena, well past the doorway,
 #   so the lock wall closes BEHIND the player as the encounter starts.
+#
+# Static-collision authoring (Solid / OneWayPlatform / BlinkWall):
+# `tools/author_ldtk_area.py` automatically lowers these into the
+# `Collision` IntGrid layer when this spec is applied; they don't
+# appear as Ambition entity instances in the resulting LDtk file.
+# Authoring rectangles by entity type stays ergonomic, but the
+# canonical representation in the project is IntGrid cells (which
+# the LDtk GUI can paint per cell). Live mob_lab in
+# `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`
+# already lives on IntGrid; re-running this spec preserves that.
 id: mob_lab
 level_id: mob_lab
 world_x: 14000

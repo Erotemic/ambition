@@ -122,7 +122,19 @@ def main() -> int:
             l for l in new_level["layerInstances"] if l["__identifier"] == "Ambition"
         )
         ents = {e["__identifier"]: e for e in ambition_layer["entityInstances"]}
-        for kind in ("PlayerStart", "Solid", "LoadingZone"):
+        # Static-collision entities (Solid / OneWayPlatform / BlinkWall)
+        # are lowered to IntGrid cells, NOT emitted on the Ambition
+        # layer. Verify the lowering happened: Solid must be absent from
+        # the Ambition entities AND the Collision IntGrid must show the
+        # painted cells where the rect was authored.
+        if "Solid" in ents:
+            print(
+                "FAIL: Solid was emitted as an entity instead of being "
+                "lowered to IntGrid cells",
+                file=sys.stderr,
+            )
+            return 1
+        for kind in ("PlayerStart", "LoadingZone"):
             if kind not in ents:
                 print(f"FAIL: missing entity {kind} in new level", file=sys.stderr)
                 return 1
@@ -135,6 +147,28 @@ def main() -> int:
                         file=sys.stderr,
                     )
                     return 1
+        # IntGrid lowering check: the spec painted a Solid at px (0, 240)
+        # size (512, 16) on a 16-px grid. That's row cy=240/16=15 across
+        # the full 32-cell-wide level → cells [cy=15, cx=0..31] should be
+        # value 1 (Solid). The bottom row from `solid_floor` (cy=15
+        # again, value 1) overlaps; the painted Solid replaces those
+        # cells with the same value. The smoketest checks the row was
+        # painted, not the exact cell-set, since both the floor fill
+        # and the lowered Solid converge on the same cells.
+        coll = next(
+            l for l in new_level["layerInstances"] if l["__identifier"] == "Collision"
+        )
+        c_wid = coll["__cWid"]
+        target_row = 240 // 16
+        row_start = target_row * c_wid
+        row_cells = coll["intGridCsv"][row_start : row_start + c_wid]
+        if not all(v == 1 for v in row_cells):
+            print(
+                f"FAIL: Collision row {target_row} should be all-1 (Solid lowering), "
+                f"got {row_cells}",
+                file=sys.stderr,
+            )
+            return 1
 
         # Confirm field types coerced correctly.
         lz = ents["LoadingZone"]

@@ -33,7 +33,7 @@ Spec format (YAML or JSON; YAML preferred for readability):
         size: [28, 46]             # optional, defaults from defs
         fields:
           name: lab_start
-      - type: Solid
+      - type: Solid                # ← *static-collision* type: lowered to IntGrid
         px: [0, 800]
         size: [1800, 100]
         fields: { name: floor }
@@ -50,6 +50,28 @@ Spec format (YAML or JSON; YAML preferred for readability):
 
 Field values are coerced to the type declared in `defs.entities[*].fieldDefs`
 so the spec can stay loose (`true` / `1.5` / `"hello"`).
+
+Static-collision lowering
+-------------------------
+
+`Solid`, `OneWayPlatform`, and `BlinkWall` entities in the `entities:`
+list are *automatically lowered* into IntGrid cells on the Collision
+layer rather than emitted as entity instances on the Ambition layer.
+This produces the same per-project canonical representation as
+`tools/ldtk_intgrid_migration.py`:
+
+  - The runtime collision world is identical (the rect-merge pass in
+    `int_grid_value_to_block` reconstructs the same merged blocks).
+  - The LDtk editor renders these as paintable IntGrid cells, so a
+    human can edit the geometry per cell instead of moving big
+    rectangles.
+  - There is one collision representation, not two — every gameplay
+    level in the project goes through IntGrid.
+
+Use rect spec for those types: `px: [x, y], size: [w, h]`. The size
+is required (the IntGrid lowering needs an explicit footprint to
+paint). Other entities (PlayerStart, LoadingZone, Switch, NPC,
+EncounterTrigger, LockWall, …) stay on the Ambition layer.
 """
 from __future__ import annotations
 
@@ -177,6 +199,69 @@ def make_intgrid_csv(c_wid: int, c_hei: int, fill: str) -> list[int]:
     raise SystemExit(f"unknown fill_collision mode '{fill}'")
 
 
+# IntGrid value mapping. Mirrored from `tools/ldtk_intgrid_migration.py`
+# so the authoring path and the migration path agree on what each value
+# means. Keep both in sync if values change.
+INTGRID_VALUE_SOLID = 1
+INTGRID_VALUE_ONE_WAY = 2
+INTGRID_VALUE_BLINK_SOFT = 3
+INTGRID_VALUE_BLINK_HARD = 4
+
+
+def entity_to_intgrid_value(ent_spec: dict) -> int | None:
+    """Return the IntGrid value a static-collision entity should be
+    *lowered* to, or `None` for entities that stay as entity instances.
+
+    The runtime treats IntGrid-derived blocks and entity-derived
+    Solid/OneWay/Blink blocks as collision-equivalent (after the
+    rectangle-merge pass in `int_grid_value_to_block`), but
+    IntGrid is the canonical representation across the project:
+    every level except mob_lab was already on IntGrid, and the
+    LDtk editor handles per-cell painting for free. Authoring
+    Solid/OneWayPlatform/BlinkWall in YAML just to have the tool
+    re-emit them as entities is a needless detour, so this hook
+    auto-lowers them at build time.
+    """
+    ident = ent_spec.get("type")
+    if ident == "Solid":
+        return INTGRID_VALUE_SOLID
+    if ident == "OneWayPlatform":
+        return INTGRID_VALUE_ONE_WAY
+    if ident == "BlinkWall":
+        tier = (ent_spec.get("fields") or {}).get("tier", "Soft")
+        return INTGRID_VALUE_BLINK_HARD if str(tier) == "Hard" else INTGRID_VALUE_BLINK_SOFT
+    return None
+
+
+def paint_intgrid_rect(
+    csv: list[int],
+    c_wid: int,
+    c_hei: int,
+    grid_size: int,
+    px: int,
+    py: int,
+    width: int,
+    height: int,
+    value: int,
+) -> int:
+    """Paint `value` into every IntGrid cell that overlaps the px-space
+    rect `[px, py, px+width, py+height)`. Mirror of
+    `tools/ldtk_intgrid_migration.fill_cells` so authoring and
+    migration produce byte-identical CSVs for the same input rect.
+    Returns the count of cells painted."""
+    cx0 = px // grid_size
+    cy0 = py // grid_size
+    cx1 = (px + width + grid_size - 1) // grid_size
+    cy1 = (py + height + grid_size - 1) // grid_size
+    painted = 0
+    for cy in range(cy0, cy1):
+        for cx in range(cx0, cx1):
+            if 0 <= cx < c_wid and 0 <= cy < c_hei:
+                csv[cy * c_wid + cx] = value
+                painted += 1
+    return painted
+
+
 def allocate_iid(project: dict, identifier: str) -> tuple[str, int]:
     """Return a fresh `<Identifier>-NNNN` iid and bump the project's nextUid.
 
@@ -281,9 +366,47 @@ def build_level(project: dict, spec: dict) -> dict:
     collision_iid, _ = allocate_iid(project, "Collision")
     ambition_iid, _ = allocate_iid(project, "Ambition")
 
-    entity_instances = [
-        build_entity_instance(project, e, grid_size) for e in spec.get("entities", [])
-    ]
+    # Split entities into "stays as an entity" vs "lower into IntGrid".
+    # Solid / OneWayPlatform / BlinkWall belong on the Collision layer;
+    # everything else stays on the Ambition entity layer. This keeps
+    # the spec ergonomic (author by rect) while producing the same
+    # canonical IntGrid representation as `ldtk_intgrid_migration.py`.
+    entity_instances: list[dict] = []
+    lowered_count = 0
+    lowered_cells = 0
+    for ent_spec in spec.get("entities", []):
+        value = entity_to_intgrid_value(ent_spec)
+        if value is None:
+            entity_instances.append(build_entity_instance(project, ent_spec, grid_size))
+            continue
+        px = ent_spec.get("px")
+        if px is None or len(px) != 2:
+            raise SystemExit(
+                f"static-collision entity '{ent_spec.get('type')}' missing required 'px: [x, y]'"
+            )
+        size = ent_spec.get("size")
+        if size is None or len(size) != 2:
+            raise SystemExit(
+                f"static-collision entity '{ent_spec.get('type')}' missing required 'size: [w, h]' "
+                "(IntGrid lowering needs an explicit footprint)"
+            )
+        lowered_cells += paint_intgrid_rect(
+            csv,
+            c_wid,
+            c_hei,
+            grid_size,
+            int(px[0]),
+            int(px[1]),
+            int(size[0]),
+            int(size[1]),
+            value,
+        )
+        lowered_count += 1
+    if lowered_count:
+        print(
+            f"  lowered {lowered_count} static-collision entit{'y' if lowered_count == 1 else 'ies'} "
+            f"into {lowered_cells} IntGrid cells"
+        )
 
     base_layer = {
         "__cWid": c_wid,

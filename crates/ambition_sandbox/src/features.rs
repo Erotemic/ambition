@@ -564,6 +564,17 @@ impl FeatureRuntime {
                     events.consumed_interaction = true;
                     events.messages.push(format!("opened {}", chest.name));
                     events.bursts.push(chest.pos);
+                    // Persist the looted state so save+reload re-spawns
+                    // the chest in its opened state. Encounter chests
+                    // are keyed `encounter_chest_<id>`; the matching
+                    // looted flag is `encounter_<id>_reward_dropped`
+                    // (`crate::encounter::encounter_reward_looted_flag`).
+                    if let Some(encounter_id) = chest.id.strip_prefix("encounter_chest_") {
+                        events.flag_writes.push((
+                            format!("encounter_{encounter_id}_reward_dropped"),
+                            true,
+                        ));
+                    }
                 }
             }
             for npc in &mut self.npcs {

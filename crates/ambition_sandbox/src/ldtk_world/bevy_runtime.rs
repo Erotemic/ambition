@@ -14,8 +14,8 @@ use std::collections::BTreeMap;
 
 use bevy::asset::{AssetServer, Handle};
 use bevy::prelude::{
-    Added, App, Bundle, Commands, Component, Entity, Name, Plugin, Query, Res, ResMut, Resource,
-    With,
+    warn, Added, App, Bundle, Commands, Component, Entity, Name, Plugin, Query, Res, ResMut,
+    Resource, With,
 };
 use bevy_ecs_ldtk::prelude::{
     EntityInstance as PluginEntityInstance, LdtkEntity, LdtkEntityAppExt, LevelSet,
@@ -84,6 +84,8 @@ pub enum LdtkRuntimeRole {
     DebugLabel,
     CameraZone,
     Solid,
+    OneWayPlatform,
+    DamageVolume,
     Other,
 }
 
@@ -95,6 +97,8 @@ impl LdtkRuntimeRole {
             "DebugLabel" => Self::DebugLabel,
             "CameraZone" => Self::CameraZone,
             "Solid" => Self::Solid,
+            "OneWayPlatform" => Self::OneWayPlatform,
+            "DamageVolume" | "HazardBlock" => Self::DamageVolume,
             _ => Self::Other,
         }
     }
@@ -106,6 +110,8 @@ impl LdtkRuntimeRole {
             Self::DebugLabel => "debug labels",
             Self::CameraZone => "camera zones",
             Self::Solid => "solids",
+            Self::OneWayPlatform => "one-way platforms",
+            Self::DamageVolume => "damage volumes",
             Self::Other => "other",
         }
     }
@@ -131,6 +137,35 @@ pub struct LdtkSolid {
     pub level_px: [i32; 2],
     /// Width and height in pixels.
     pub size: [i32; 2],
+}
+
+/// Typed Ambition component attached to plugin-spawned `OneWayPlatform` entities.
+///
+/// Same shape as `LdtkSolid` — the JSON adapter still produces the
+/// matching `ae::Block::one_way_up()` for the runtime collision world,
+/// but the typed component lets gameplay/debug systems query ECS-side
+/// instead of reparsing identifiers. Step in the LDtk runtime-spine
+/// roadmap that mirrors `LdtkSolid`.
+#[derive(Component, Clone, Debug, Default)]
+pub struct LdtkOneWayPlatform {
+    pub level_px: [i32; 2],
+    pub size: [i32; 2],
+}
+
+/// Typed Ambition component attached to plugin-spawned `DamageVolume`
+/// (and the legacy `HazardBlock`) entities.
+///
+/// The JSON adapter still produces the matching `ae::Block::hazard(...)`
+/// for the runtime collision world; this component is the typed
+/// sibling for ECS-side query and the parity overlay.
+#[derive(Component, Clone, Debug, Default)]
+pub struct LdtkDamageVolume {
+    pub level_px: [i32; 2],
+    pub size: [i32; 2],
+    /// Damage amount (1 by default) — sandbox doesn't yet expose
+    /// per-volume damage in the LDtk schema, so this defaults to 1
+    /// and future LDtk field reads can populate it.
+    pub damage: i32,
 }
 
 /// Runtime-spine view of a plugin-spawned LDtk entity in active-area-local
@@ -173,6 +208,8 @@ impl LdtkRuntimeSpineIndex {
             LdtkRuntimeRole::DebugLabel,
             LdtkRuntimeRole::CameraZone,
             LdtkRuntimeRole::Solid,
+            LdtkRuntimeRole::OneWayPlatform,
+            LdtkRuntimeRole::DamageVolume,
         ] {
             let count = self.promoted_counts.get(&role).copied().unwrap_or(0);
             parts.push(format!("{} {}", count, role.label()));
@@ -232,6 +269,133 @@ impl LdtkRuntimeSolidIndex {
         }
     }
 }
+
+/// Active-area-local view of one promoted LDtk `OneWayPlatform`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LdtkRuntimeOneWayPlatform {
+    pub iid: String,
+    pub min: ae::Vec2,
+    pub size: ae::Vec2,
+}
+
+impl LdtkRuntimeOneWayPlatform {
+    pub fn aabb(&self) -> ae::Aabb {
+        ae::aabb_from_min_size(self.min, self.size)
+    }
+}
+
+/// Rebuilt every frame from plugin-spawned `OneWayPlatform` entities.
+/// Parallel ECS view of one-way platform collision authored in LDtk;
+/// the JSON-derived `ae::World::blocks` is still the collision
+/// authority pending the parity overlay.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct LdtkRuntimeOneWayIndex {
+    pub active_area: String,
+    pub platforms: Vec<LdtkRuntimeOneWayPlatform>,
+    pub revision: u64,
+}
+
+impl LdtkRuntimeOneWayIndex {
+    pub fn count(&self) -> usize {
+        self.platforms.len()
+    }
+
+    pub(crate) fn replace_if_changed(&mut self, mut next: Self) {
+        next.platforms.sort_by(|a, b| a.iid.cmp(&b.iid));
+        if self.active_area != next.active_area || self.platforms != next.platforms {
+            next.revision = self.revision.saturating_add(1);
+            *self = next;
+        }
+    }
+}
+
+/// Active-area-local view of one promoted LDtk `DamageVolume`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LdtkRuntimeDamageVolume {
+    pub iid: String,
+    pub min: ae::Vec2,
+    pub size: ae::Vec2,
+    pub damage: i32,
+}
+
+impl LdtkRuntimeDamageVolume {
+    pub fn aabb(&self) -> ae::Aabb {
+        ae::aabb_from_min_size(self.min, self.size)
+    }
+}
+
+/// Rebuilt every frame from plugin-spawned `DamageVolume` /
+/// `HazardBlock` entities. Parallel ECS view of damage authored in
+/// LDtk; the JSON-derived blocks are still the gameplay authority.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct LdtkRuntimeDamageIndex {
+    pub active_area: String,
+    pub volumes: Vec<LdtkRuntimeDamageVolume>,
+    pub revision: u64,
+}
+
+impl LdtkRuntimeDamageIndex {
+    pub fn count(&self) -> usize {
+        self.volumes.len()
+    }
+
+    pub(crate) fn replace_if_changed(&mut self, mut next: Self) {
+        next.volumes.sort_by(|a, b| a.iid.cmp(&b.iid));
+        if self.active_area != next.active_area || self.volumes != next.volumes {
+            next.revision = self.revision.saturating_add(1);
+            *self = next;
+        }
+    }
+}
+
+/// Parity diagnostic for the runtime-spine migration.
+///
+/// `expected_*` is the count of matching `ae::Block::kind` entries in the
+/// JSON-derived `ae::World::blocks` (collision authority); `runtime_*` is
+/// the count seen on the ECS side via the runtime indices. A mismatch is
+/// the signal that the typed component path has drifted from the
+/// authoritative one — either the LDtk file is missing entities the JSON
+/// adapter is synthesizing, or the typed-component spawn is missing a
+/// case. The sandbox HUD/debug overlay logs the mismatch warning rather
+/// than crashing so the migration can proceed in steps.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct LdtkRuntimeSpineParity {
+    pub expected_solids: usize,
+    pub runtime_solids: usize,
+    pub expected_one_way: usize,
+    pub runtime_one_way: usize,
+    pub expected_damage: usize,
+    pub runtime_damage: usize,
+    pub last_warn: Option<String>,
+}
+
+impl LdtkRuntimeSpineParity {
+    pub fn solid_match(&self) -> bool {
+        self.expected_solids == self.runtime_solids
+    }
+    pub fn one_way_match(&self) -> bool {
+        self.expected_one_way == self.runtime_one_way
+    }
+    pub fn damage_match(&self) -> bool {
+        self.expected_damage == self.runtime_damage
+    }
+    pub fn all_match(&self) -> bool {
+        self.solid_match() && self.one_way_match() && self.damage_match()
+    }
+
+    pub fn summary(&self) -> String {
+        format!(
+            "solids {}/{}  one-way {}/{}  damage {}/{}  match={}",
+            self.runtime_solids,
+            self.expected_solids,
+            self.runtime_one_way,
+            self.expected_one_way,
+            self.runtime_damage,
+            self.expected_damage,
+            self.all_match()
+        )
+    }
+}
 pub struct AmbitionLdtkRegistrationPlugin;
 
 impl Plugin for AmbitionLdtkRegistrationPlugin {
@@ -275,11 +439,29 @@ pub fn sync_plugin_spawned_ambition_entities(
         // Plugin-spawned `Solid` LDtk entities get the typed `LdtkSolid`
         // component so the `LdtkRuntimeSolidIndex` collision authority can
         // pick them up without reparsing identifiers.
-        if ambition_entity.identifier == "Solid" {
-            entity_commands.insert(LdtkSolid {
-                level_px: ambition_entity.px,
-                size: ambition_entity.size,
-            });
+        match ambition_entity.identifier.as_str() {
+            "Solid" => {
+                entity_commands.insert(LdtkSolid {
+                    level_px: ambition_entity.px,
+                    size: ambition_entity.size,
+                });
+            }
+            "OneWayPlatform" => {
+                entity_commands.insert(LdtkOneWayPlatform {
+                    level_px: ambition_entity.px,
+                    size: ambition_entity.size,
+                });
+            }
+            "DamageVolume" | "HazardBlock" => {
+                entity_commands.insert(LdtkDamageVolume {
+                    level_px: ambition_entity.px,
+                    size: ambition_entity.size,
+                    // `damage` is not yet part of the LDtk schema; default
+                    // to the JSON adapter's hazard amount (1).
+                    damage: 1,
+                });
+            }
+            _ => {}
         }
     }
 }
@@ -327,6 +509,142 @@ pub fn rebuild_ldtk_runtime_solid_index(
     }
 
     solid_index.replace_if_changed(next);
+}
+
+/// Rebuild the active-area-local index of promoted LDtk `OneWayPlatform`
+/// entities. Mirror of `rebuild_ldtk_runtime_solid_index` for the
+/// promoted one-way category. The JSON adapter still owns runtime
+/// collision authority pending the parity overlay.
+pub fn rebuild_ldtk_runtime_one_way_index(
+    room_set: Res<crate::rooms::RoomSet>,
+    runtime_index: Res<LdtkRuntimeIndex>,
+    mut one_way_index: ResMut<LdtkRuntimeOneWayIndex>,
+    query: Query<&AmbitionLdtkEntity, With<LdtkOneWayPlatform>>,
+) {
+    let active_area = room_set.active_spec().id.clone();
+    let origin = runtime_index
+        .area_bounds(&active_area)
+        .map(|bounds| [bounds.min_x, bounds.min_y])
+        .unwrap_or_else(|| runtime_index.active_area_origin());
+
+    let mut next = LdtkRuntimeOneWayIndex {
+        active_area,
+        platforms: Vec::new(),
+        revision: one_way_index.revision,
+    };
+
+    for entity in &query {
+        let raw_min = entity.world.unwrap_or(entity.px);
+        // AMBITION_REVIEW(spatial): one-way `min` is projected from LDtk
+        // world pixels into active-area-local Ambition coords. Must stay
+        // consistent with `LdtkRuntimeSolidIndex` projection — they share
+        // the same coordinate frame.
+        let min = ae::Vec2::new(
+            (raw_min[0] - origin[0]) as f32,
+            (raw_min[1] - origin[1]) as f32,
+        );
+        let size = ae::Vec2::new(entity.size[0] as f32, entity.size[1] as f32);
+        next.platforms.push(LdtkRuntimeOneWayPlatform {
+            iid: entity.iid.clone(),
+            min,
+            size,
+        });
+    }
+
+    one_way_index.replace_if_changed(next);
+}
+
+/// Rebuild the active-area-local index of promoted LDtk `DamageVolume`
+/// (and legacy `HazardBlock`) entities.
+pub fn rebuild_ldtk_runtime_damage_index(
+    room_set: Res<crate::rooms::RoomSet>,
+    runtime_index: Res<LdtkRuntimeIndex>,
+    mut damage_index: ResMut<LdtkRuntimeDamageIndex>,
+    query: Query<(&AmbitionLdtkEntity, &LdtkDamageVolume)>,
+) {
+    let active_area = room_set.active_spec().id.clone();
+    let origin = runtime_index
+        .area_bounds(&active_area)
+        .map(|bounds| [bounds.min_x, bounds.min_y])
+        .unwrap_or_else(|| runtime_index.active_area_origin());
+
+    let mut next = LdtkRuntimeDamageIndex {
+        active_area,
+        volumes: Vec::new(),
+        revision: damage_index.revision,
+    };
+
+    for (entity, damage) in &query {
+        let raw_min = entity.world.unwrap_or(entity.px);
+        let min = ae::Vec2::new(
+            (raw_min[0] - origin[0]) as f32,
+            (raw_min[1] - origin[1]) as f32,
+        );
+        let size = ae::Vec2::new(entity.size[0] as f32, entity.size[1] as f32);
+        next.volumes.push(LdtkRuntimeDamageVolume {
+            iid: entity.iid.clone(),
+            min,
+            size,
+            damage: damage.damage,
+        });
+    }
+
+    damage_index.replace_if_changed(next);
+}
+
+/// Compare runtime-spine index counts to the JSON-derived collision
+/// world. Logs a tracing warning the first time a mismatch appears so
+/// the parity bug is visible without spamming every frame; clears the
+/// warning when counts converge.
+///
+/// This is the verification gate for the LDtk runtime-spine roadmap.
+/// Once parity holds for a meaningful number of sandbox sessions and
+/// hot-reload edits, the JSON adapter's collision arms can retire.
+pub fn check_ldtk_runtime_spine_parity(
+    world: Res<crate::GameWorld>,
+    solid_index: Res<LdtkRuntimeSolidIndex>,
+    one_way_index: Res<LdtkRuntimeOneWayIndex>,
+    damage_index: Res<LdtkRuntimeDamageIndex>,
+    mut parity: ResMut<LdtkRuntimeSpineParity>,
+) {
+    let mut expected_solids = 0;
+    let mut expected_one_way = 0;
+    let mut expected_damage = 0;
+    for block in &world.0.blocks {
+        match block.kind {
+            ae::BlockKind::Solid => expected_solids += 1,
+            ae::BlockKind::OneWay => expected_one_way += 1,
+            ae::BlockKind::Hazard => expected_damage += 1,
+            _ => {}
+        }
+    }
+    let next = LdtkRuntimeSpineParity {
+        expected_solids,
+        runtime_solids: solid_index.count(),
+        expected_one_way,
+        runtime_one_way: one_way_index.count(),
+        expected_damage,
+        runtime_damage: damage_index.count(),
+        last_warn: parity.last_warn.clone(),
+    };
+    if next.all_match() {
+        if parity.last_warn.is_some() {
+            // Counts have converged; clear the warning.
+            parity.last_warn = None;
+        }
+    } else {
+        let summary = next.summary();
+        if parity.last_warn.as_deref() != Some(summary.as_str()) {
+            warn!(target: "ambition::ldtk_runtime_spine", "{}", summary);
+            parity.last_warn = Some(summary);
+        }
+    }
+    parity.expected_solids = next.expected_solids;
+    parity.runtime_solids = next.runtime_solids;
+    parity.expected_one_way = next.expected_one_way;
+    parity.runtime_one_way = next.runtime_one_way;
+    parity.expected_damage = next.expected_damage;
+    parity.runtime_damage = next.runtime_damage;
 }
 
 /// Rebuild an Ambition runtime-spine index from currently spawned LDtk entities.

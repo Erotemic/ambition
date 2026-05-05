@@ -198,6 +198,9 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
         .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())
+        .insert_resource(ldtk_world::LdtkRuntimeOneWayIndex::default())
+        .insert_resource(ldtk_world::LdtkRuntimeDamageIndex::default())
+        .insert_resource(ldtk_world::LdtkRuntimeSpineParity::default())
         // PhysicsSandboxSettings is read by setup_simulation_system; on the
         // visible binary AmbitionPhysicsPlugin re-inserts the default value
         // (harmless — same default), but headless does not load that plugin
@@ -284,6 +287,9 @@ pub fn add_simulation_plugins(app: &mut App) {
                 ldtk_world::sync_plugin_spawned_ambition_entities,
                 ldtk_world::rebuild_ldtk_runtime_spine_index,
                 ldtk_world::rebuild_ldtk_runtime_solid_index,
+                ldtk_world::rebuild_ldtk_runtime_one_way_index,
+                ldtk_world::rebuild_ldtk_runtime_damage_index,
+                ldtk_world::check_ldtk_runtime_spine_parity,
                 platforms::sync_moving_platform,
                 crate::projectile::update_projectiles,
             )

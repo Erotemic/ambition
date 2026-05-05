@@ -167,6 +167,11 @@ fn draw_ldtk_runtime_spine(
             // so they can be color-keyed against the JSON-derived collision
             // blocks during the Step 2 raw-vs-runtime overlay work.
             crate::ldtk_world::LdtkRuntimeRole::Solid => continue,
+            // OneWayPlatform / DamageVolume have their own dedicated runtime
+            // indices and overlay passes; skip them in the generic spine
+            // overlay so colors don't double-stamp.
+            crate::ldtk_world::LdtkRuntimeRole::OneWayPlatform => continue,
+            crate::ldtk_world::LdtkRuntimeRole::DamageVolume => continue,
             crate::ldtk_world::LdtkRuntimeRole::Other => continue,
         };
         draw_aabb(gizmos, world, entity.aabb(), color);

@@ -1,36 +1,22 @@
-# Water world — basement-side water lab.
+# Water world — two-pool swim lab.
 #
-# Layout (1600x768, 100x48 cells):
+# Layout (1600x768, 100x48 cells, grid 16):
 #
-#   +----------------------------------------------------+ y=0
-#   |# outer wall (16px) ##############################  |
-#   |#                                                #  |
-#   |# [DebugLabel: "Drop in to swim. Hold Up to surface."]  |
-#   |#                                                #  |
-#   |#                                                #  |
-#   |# [door]                                         #  | y=224
-#   |#======================+                         #  | y=272 platform top
-#   |# solid platform body  +                         #  | y=304 platform bottom (hangs)
-#   |#                                                #  |
-#   |#                                                #  |
-#   |#                                                #  |
-#   |#         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~          #  | y=448 water surface
-#   |#         ::::::::::::::::::::::::::::          #  |
-#   |#         ::::: WATER VOLUME :::::::::          #  |
-#   |#         ::::::::::::::::::::::::::::          #  |
-#   |#         ::::::::::::::::::::::::::::          #  |
-#   |#                                                #  |
-#   |# floor (solid) ################################  |  | y=720
-#   |# bottom wall (16px) ############################  | y=752
-#   +----------------------------------------------------+ y=768
+#   y=0    [ceiling ███ outer wall ███]
+#   y=16   open air                    ║              ║
+#   y=272  [door]══entry═platform═════ ║              ║
+#   y=304                               ║              ║   ← divider
+#   y=448  ~~~ Clear pool surface ~~~  ║~~~ Murky ~~~║
+#   y=720  ███ pool floor ███████████████████████████
+#   y=752  ███ bottom wall ████████████████████████████
 #
-# - Player arrives on the entry platform (door at left side).
-# - Walks east along the platform; platform ends at x=560.
-# - Drops into the water pool below, which spans the rest of the room.
-# - Water volume is 1024px wide x 256px deep — generous swim space.
-# - The buoyancy + drag come from `WaterVolumeSpec` defaults; the
-#   `swim` ability is needed to actively rise (Up impulse). Without
-#   the swim ability, the player still gets buoyancy and slowed fall.
+# - Entry platform on the left; player walks east and falls into
+#   either pool. The pools are physically isolated by a solid
+#   divider column (so the swim-up-and-exit gesture is what carries
+#   the player from clear to murky).
+# - The Water IntGrid layer is painted in a follow-up pass by
+#   `tools/paint_water_world_pools.py` because `author_ldtk_area.py`
+#   only knows about the Collision IntGrid layer today.
 id: water_world
 level_id: water_world
 world_x: 16000
@@ -58,7 +44,7 @@ entities:
     size: [16, 736]
     fields: { name: right_wall }
 
-  # --- Pool floor (where the player lands at the bottom of the water).
+  # --- Pool floor under both pools.
   - type: Solid
     px: [16, 720]
     size: [1568, 32]
@@ -67,18 +53,24 @@ entities:
   # --- Entry platform: solid block the door sits on top of.
   - type: Solid
     px: [16, 272]
-    size: [544, 32]
+    size: [464, 32]
     fields: { name: entry_platform }
 
-  # --- PlayerStart on the entry platform (used only when the player
-  # spawns directly into this room, e.g. via `--start-room` flag).
+  # --- Divider column between Clear and Murky pools. Tall enough
+  # that the player must surface and jump across to traverse from
+  # one pool to the other.
+  - type: Solid
+    px: [960, 304]
+    size: [80, 416]
+    fields: { name: pool_divider }
+
+  # --- PlayerStart on the entry platform.
   - type: PlayerStart
     px: [80, 226]
     size: [28, 46]
     fields: { name: water_world_spawn }
 
-  # --- Return door back to the basement hub. Bottom of door = top of
-  # entry platform (272), so door y = 272 - 96 = 176.
+  # --- Return door back to the basement hub.
   - type: LoadingZone
     px: [40, 176]
     size: [48, 96]
@@ -90,34 +82,25 @@ entities:
       target_zone: water_door
       bidirectional: false
 
-  # --- Water volume: spans the right-and-lower portion of the room.
-  # Surface at y=448; bottom at y=720 (top of pool_floor). Width
-  # 1024 (576..1600 minus right wall 1584 = 1008, but we also include
-  # below the platform overhang on the left so the player can swim
-  # under it).
-  - type: WaterVolume
-    px: [16, 448]
-    size: [1568, 272]
-    fields:
-      id: main_pool
-      name: main_pool
-      gravity_scale: 0.30
-      drag: 0.08
-      max_fall_speed: 220.0
-      swim_up_impulse: 760.0
-
-  # --- Debug labels for in-game orientation.
+  # --- Debug labels.
   - type: DebugLabel
     px: [60, 64]
     size: [620, 24]
     fields:
       name: water_label_intro
-      text: "Water lab — drop east into the pool. Hold Up to swim up."
+      text: "Two pools: clear (left) is shallow buoyancy; murky (right) hides what's under."
       category: Room
   - type: DebugLabel
-    px: [600, 432]
-    size: [400, 24]
+    px: [560, 408]
+    size: [380, 24]
     fields:
-      name: water_label_surface
-      text: "~ water surface ~"
+      name: water_label_clear
+      text: "~ clear pool ~"
+      category: Custom
+  - type: DebugLabel
+    px: [1100, 408]
+    size: [380, 24]
+    fields:
+      name: water_label_murky
+      text: "~ murky pool ~"
       category: Custom

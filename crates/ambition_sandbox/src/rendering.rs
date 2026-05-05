@@ -428,12 +428,75 @@ pub fn spawn_room_visuals(
     for block in &world.blocks {
         spawn_block(commands, world, block, physics_settings, assets);
     }
+    for region in &world.water_regions {
+        spawn_water_region(commands, world, region);
+    }
     for zone in loading_zones {
         spawn_loading_zone(commands, world, zone, assets);
     }
     for object in &world.objects {
         spawn_room_object(commands, world, object, assets);
     }
+}
+
+/// Render a single `WaterRegion` as a tinted overlay quad. Source-
+/// agnostic: any region — IntGrid `Water` or entity `WaterVolume` —
+/// uses the same path. Two layers per kind:
+///
+/// - **Body**: a tinted rect spanning the whole region. Clear sits
+///   *behind* the player so the player is visible while submerged;
+///   Murky sits *in front of* the player so it actually hides what
+///   is underneath.
+/// - **Surface strip**: a brighter band along the top edge so the
+///   water surface reads at a glance even with a flat tint.
+fn spawn_water_region(
+    commands: &mut Commands,
+    world: &ae::World,
+    region: &ae::WaterRegion,
+) {
+    use crate::config::WORLD_Z_PLAYER;
+    let size = region.aabb.half_size() * 2.0;
+    let render = BVec2::new(size.x, size.y);
+    let (body_color, body_z) = match region.kind {
+        // Cool blue, mostly transparent. Z just above blocks so the
+        // floor tint shows through; player draws on top normally.
+        ae::WaterKind::Clear => (
+            Color::srgba(0.24, 0.72, 0.88, 0.32),
+            WORLD_Z_BLOCK + 5.0,
+        ),
+        // Dark teal, near-opaque. Z above the player so anything
+        // beneath the surface is genuinely hidden.
+        ae::WaterKind::Murky => (
+            Color::srgba(0.10, 0.20, 0.18, 0.88),
+            WORLD_Z_PLAYER + 5.0,
+        ),
+    };
+    commands.spawn((
+        Sprite::from_color(body_color, render),
+        Transform::from_translation(world_to_bevy(world, region.aabb.center(), body_z)),
+        Name::new(format!("Water body ({:?})", region.kind)),
+        RoomVisual,
+    ));
+
+    // Surface strip: a brighter band 4px tall at the very top of the
+    // region. The strip always renders above the body and the
+    // player so the surface reads cleanly even through Murky.
+    let strip_color = match region.kind {
+        ae::WaterKind::Clear => Color::srgba(0.82, 0.95, 1.0, 0.85),
+        ae::WaterKind::Murky => Color::srgba(0.55, 0.78, 0.62, 0.95),
+    };
+    let strip_h = 4.0;
+    let strip_size = BVec2::new(size.x, strip_h);
+    let strip_center = ae::Vec2::new(
+        region.aabb.center().x,
+        region.aabb.top() + strip_h * 0.5,
+    );
+    commands.spawn((
+        Sprite::from_color(strip_color, strip_size),
+        Transform::from_translation(world_to_bevy(world, strip_center, WORLD_Z_PLAYER + 6.0)),
+        Name::new(format!("Water surface ({:?})", region.kind)),
+        RoomVisual,
+    ));
 }
 
 /// Spawn `FeatureVisual` entities for `FeatureRuntime` features that

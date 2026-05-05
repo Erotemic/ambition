@@ -139,10 +139,6 @@ pub enum RoomObjectKind {
     KinematicPath(KinematicPath),
     DebugLabel(DebugLabel),
     DestinationLabel(DestinationLabel),
-    /// A water volume the player swims inside. Doesn't affect
-    /// collision; movement reads it via `World::objects` and applies
-    /// buoyancy + drag while the player AABB intersects.
-    WaterVolume(WaterVolumeSpec),
 }
 
 /// Authored water volume tuning. The simulation reads this when the
@@ -157,8 +153,9 @@ pub struct WaterVolumeSpec {
     pub drag: f32,
     /// Cap on vertical fall speed inside the water. Default 220.
     pub max_fall_speed: f32,
-    /// Upward impulse applied each tick while the player holds Up
-    /// AND has the `swim` ability. Default 760.
+    /// Per-press upward impulse applied when jump is pressed while
+    /// submerged AND the player has the `swim` ability. Mario-style:
+    /// each press is one stroke; repeated presses rise. Default 240.
     pub swim_up_impulse: f32,
 }
 
@@ -168,9 +165,54 @@ impl Default for WaterVolumeSpec {
             gravity_scale: 0.30,
             drag: 0.08,
             max_fall_speed: 220.0,
-            swim_up_impulse: 760.0,
+            swim_up_impulse: 240.0,
         }
     }
+}
+
+/// Visual / gameplay flavor of a water region. Backend stays
+/// source-agnostic: the runtime only cares about the kind for things
+/// like obscuring vision (Murky) or unique tuning. Authoring layer
+/// chooses entities or IntGrid per-room based on shape needs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WaterKind {
+    /// Mostly transparent. Player and submerged geometry stay visible.
+    Clear,
+    /// Opaque-ish; hides what's under the surface.
+    Murky,
+}
+
+/// One axis-aligned water region on the world grid. Multiple regions
+/// may exist in the same room; queries return the first that contains
+/// the player AABB.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WaterRegion {
+    pub aabb: Aabb,
+    pub kind: WaterKind,
+    pub spec: WaterVolumeSpec,
+}
+
+impl WaterRegion {
+    pub fn new(aabb: Aabb, kind: WaterKind, spec: WaterVolumeSpec) -> Self {
+        Self { aabb, kind, spec }
+    }
+}
+
+/// Snapshot of "the player's relationship to water" for one frame.
+/// Movement queries this rather than touching the underlying region
+/// list, so future water sources (entity, IntGrid, generated) all
+/// look identical to the simulator.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WaterContact {
+    pub kind: WaterKind,
+    pub region_aabb: Aabb,
+    /// Top edge of the water region in world coordinates. Lower
+    /// y-values mean higher in screen space.
+    pub surface_y: f32,
+    /// 0.0 ≈ player AABB just dipping into the surface;
+    /// 1.0 = player fully submerged (top of body below surface).
+    pub submersion: f32,
+    pub spec: WaterVolumeSpec,
 }
 
 /// Complete generated room spec.
@@ -181,6 +223,11 @@ pub struct World {
     pub spawn: Vec2,
     pub blocks: Vec<Block>,
     pub objects: Vec<RoomObject>,
+    /// Source-agnostic water regions. Authoring may come from LDtk
+    /// entities, an LDtk IntGrid water layer, or generated content.
+    /// Movement only reads this list (via `water_at`), never the
+    /// upstream sources.
+    pub water_regions: Vec<WaterRegion>,
 }
 
 /// First collision along a swept body path.
@@ -199,12 +246,44 @@ impl World {
             spawn,
             blocks,
             objects: Vec::new(),
+            water_regions: Vec::new(),
         }
     }
 
     pub fn with_objects(mut self, objects: Vec<RoomObject>) -> Self {
         self.objects = objects;
         self
+    }
+
+    pub fn with_water_regions(mut self, regions: Vec<WaterRegion>) -> Self {
+        self.water_regions = regions;
+        self
+    }
+
+    /// Return the first water region intersecting `body`, with
+    /// derived submersion + surface metrics. `None` when out of
+    /// water. Source-agnostic: callers must not iterate
+    /// `water_regions` directly.
+    pub fn water_at(&self, body: Aabb) -> Option<WaterContact> {
+        let region = self
+            .water_regions
+            .iter()
+            .find(|r| r.aabb.strict_intersects(body))?;
+        let surface_y = region.aabb.top();
+        let body_h = body.height().max(1.0);
+        // y grows downward in this engine: a body whose top equals
+        // the surface is barely dipping in (submersion ≈ 0); a body
+        // whose top is below the surface by its full height is fully
+        // submerged (submersion = 1).
+        let depth_into_water = (body.top() - surface_y).max(0.0);
+        let submersion = (depth_into_water / body_h).clamp(0.0, 1.0);
+        Some(WaterContact {
+            kind: region.kind,
+            region_aabb: region.aabb,
+            surface_y,
+            submersion,
+            spec: region.spec,
+        })
     }
 
     /// True if `body` overlaps any block accepted by `predicate`.

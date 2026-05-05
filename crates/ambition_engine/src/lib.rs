@@ -98,5 +98,6 @@ pub use state_machines::{
     EnemyPatrol, EnemyRecover, EnemyStunned, EnemyTelegraph, SwitchOff, SwitchOn,
 };
 pub use world::{
-    BlinkWallTier, Block, BlockKind, RoomObject, RoomObjectKind, WaterVolumeSpec, World,
+    BlinkWallTier, Block, BlockKind, RoomObject, RoomObjectKind, WaterContact, WaterKind,
+    WaterRegion, WaterVolumeSpec, World,
 };

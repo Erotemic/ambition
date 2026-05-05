@@ -37,6 +37,7 @@ pub struct RoomBuilder {
     spawn: ae::Vec2,
     blocks: Vec<ae::Block>,
     objects: Vec<ae::RoomObject>,
+    water_regions: Vec<ae::WaterRegion>,
     loading_zones: Vec<LoadingZone>,
     next_block_id: u32,
 }
@@ -50,6 +51,7 @@ impl RoomBuilder {
             spawn: ae::Vec2::new(width * 0.5, height - FLOOR_THICK - 30.0),
             blocks: Vec::new(),
             objects: Vec::new(),
+            water_regions: Vec::new(),
             loading_zones: Vec::new(),
             next_block_id: 0,
         }
@@ -130,24 +132,31 @@ impl RoomBuilder {
         self
     }
 
-    /// Add a water volume that triggers swim mechanics.
+    /// Add a water region that triggers swim mechanics. Defaults to
+    /// `WaterKind::Clear` — programmatic builders that need murky
+    /// water can call `water_region` directly instead.
     pub fn water_volume(
-        mut self,
+        self,
         min: [f32; 2],
         size: [f32; 2],
         spec: ae::WaterVolumeSpec,
     ) -> Self {
-        let id = self.next_object_id("water");
+        self.water_region(min, size, ae::WaterKind::Clear, spec)
+    }
+
+    pub fn water_region(
+        mut self,
+        min: [f32; 2],
+        size: [f32; 2],
+        kind: ae::WaterKind,
+        spec: ae::WaterVolumeSpec,
+    ) -> Self {
         let aabb = ae::aabb_from_min_size(
             ae::Vec2::new(min[0], min[1]),
             ae::Vec2::new(size[0], size[1]),
         );
-        self.objects.push(ae::RoomObject::new(
-            id.clone(),
-            id,
-            aabb,
-            ae::RoomObjectKind::WaterVolume(spec),
-        ));
+        self.water_regions
+            .push(ae::WaterRegion::new(aabb, kind, spec));
         self
     }
 
@@ -241,9 +250,9 @@ impl RoomBuilder {
     }
 
     pub fn build(self) -> RoomSpec {
-        let world =
-            ae::World::new(self.id.clone(), self.size, self.spawn, self.blocks)
-                .with_objects(self.objects);
+        let world = ae::World::new(self.id.clone(), self.size, self.spawn, self.blocks)
+            .with_objects(self.objects)
+            .with_water_regions(self.water_regions);
         RoomSpec {
             id: self.id,
             world,
@@ -278,17 +287,14 @@ mod tests {
     }
 
     #[test]
-    fn water_volume_lands_as_room_object() {
+    fn water_volume_lands_as_water_region() {
         let room = RoomBuilder::new("water", 800.0, 600.0)
             .floor()
             .walls()
             .water_volume([200.0, 300.0], [400.0, 200.0], Default::default())
             .build();
-        assert!(room
-            .world
-            .objects
-            .iter()
-            .any(|o| matches!(o.kind, ae::RoomObjectKind::WaterVolume(_))));
+        assert_eq!(room.world.water_regions.len(), 1);
+        assert_eq!(room.world.water_regions[0].kind, ae::WaterKind::Clear);
     }
 
     #[test]

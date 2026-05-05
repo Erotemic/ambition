@@ -276,7 +276,13 @@ pub fn poll_ldtk_file_changes(time: Res<Time>, mut state: ResMut<LdtkHotReloadSt
 
 const AMBITION_LAYER: &str = "Ambition";
 const COLLISION_LAYER: &str = "Collision";
+const WATER_LAYER: &str = "Water";
 const GRID: i32 = 16;
+
+/// IntGrid Water layer values. Distinct from Collision values because
+/// they live on a separate layer (see `WATER_LAYER`).
+const WATER_INT_GRID_CLEAR: i32 = 1;
+const WATER_INT_GRID_MURKY: i32 = 2;
 
 // IntGrid value → engine block kind. Mirrors `tools/ldtk_intgrid_migration.py`;
 // the migration script is the source of truth for which value means what, but
@@ -332,11 +338,11 @@ fn int_grid_value_to_block(value: i32, min: ae::Vec2, size: ae::Vec2) -> Result<
 ///     visually (matches the editor's rendering). Regression fix from
 ///     the earlier greedy-row-major bug.
 ///
-/// Invariant: every cell ends up covered by exactly one block.
-fn emit_collision_blocks_from_intgrid(
+/// Invariant: every cell ends up covered by exactly one rectangle.
+fn merge_intgrid_rects(
     layer: &LdtkLayerInstance,
     offset: ae::Vec2,
-) -> Result<Vec<ae::Block>, String> {
+) -> Result<Vec<(i32, ae::Vec2, ae::Vec2)>, String> {
     let cw = layer.c_wid;
     let ch = layer.c_hei;
     let grid = layer.grid_size as f32;
@@ -376,20 +382,15 @@ fn emit_collision_blocks_from_intgrid(
     }
 
     // Pass 2: stack runs vertically when the next-row run has the same
-    // [cx, x_end) span and value. `consumed[i] = true` means run i was
-    // already stacked into an earlier rectangle. Sweep in run-order
-    // (row-major); for each unconsumed run, walk forward looking for
-    // the matching run on the next row.
+    // [cx, x_end) span and value.
     let mut consumed = vec![false; runs.len()];
-    // Index runs by (cy, cx) for O(1) lookup of "what's the run on the
-    // next row that starts at this cx?".
     let mut by_row_cx: std::collections::HashMap<(usize, usize), usize> =
         std::collections::HashMap::with_capacity(runs.len());
     for (i, &(cx, _, cy, _)) in runs.iter().enumerate() {
         by_row_cx.insert((cy, cx), i);
     }
 
-    let mut blocks = Vec::new();
+    let mut rects = Vec::new();
     for i in 0..runs.len() {
         if consumed[i] {
             continue;
@@ -407,19 +408,51 @@ fn emit_collision_blocks_from_intgrid(
             consumed[next_idx] = true;
             y_end += 1;
         }
-
         let min = ae::Vec2::new(cx as f32 * grid, cy as f32 * grid) + offset;
         let size = ae::Vec2::new((x_end - cx) as f32 * grid, (y_end - cy) as f32 * grid);
-        let block = int_grid_value_to_block(value, min, size).map_err(|message| {
-            format!(
-                "rect at ({cx},{cy}) {}x{}: {message}",
-                x_end - cx,
-                y_end - cy
-            )
-        })?;
+        rects.push((value, min, size));
+    }
+    Ok(rects)
+}
+
+fn emit_collision_blocks_from_intgrid(
+    layer: &LdtkLayerInstance,
+    offset: ae::Vec2,
+) -> Result<Vec<ae::Block>, String> {
+    let rects = merge_intgrid_rects(layer, offset)?;
+    let mut blocks = Vec::with_capacity(rects.len());
+    for (value, min, size) in rects {
+        let block = int_grid_value_to_block(value, min, size)
+            .map_err(|message| format!("rect value={value} {size:?}: {message}"))?;
         blocks.push(block);
     }
     Ok(blocks)
+}
+
+/// Lower a Water IntGrid layer to source-agnostic `WaterRegion`
+/// rectangles. Cells with value 1 emit `WaterKind::Clear`; value 2
+/// emits `WaterKind::Murky`. Per-region tuning falls back to
+/// `WaterVolumeSpec::default()`; per-volume tuning is the entity
+/// path's job (rare, irregular pools).
+fn emit_water_regions_from_intgrid(
+    layer: &LdtkLayerInstance,
+    offset: ae::Vec2,
+) -> Result<Vec<ae::WaterRegion>, String> {
+    let rects = merge_intgrid_rects(layer, offset)?;
+    let mut regions = Vec::with_capacity(rects.len());
+    for (value, min, size) in rects {
+        let kind = match value {
+            WATER_INT_GRID_CLEAR => ae::WaterKind::Clear,
+            WATER_INT_GRID_MURKY => ae::WaterKind::Murky,
+            other => return Err(format!("unknown Water IntGrid value {other}")),
+        };
+        regions.push(ae::WaterRegion::new(
+            ae::aabb_from_min_size(min, size),
+            kind,
+            ae::WaterVolumeSpec::default(),
+        ));
+    }
+    Ok(regions)
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -826,6 +859,7 @@ impl LdtkProject {
         let mut blocks = Vec::new();
         let mut loading_zones = Vec::new();
         let mut objects = Vec::new();
+        let mut water_regions = Vec::new();
         for level in levels {
             // AMBITION_REVIEW(spatial): LDtk world coordinates are flattened into
             // active-area-local Ambition coordinates here. Wall openings, edge
@@ -851,6 +885,7 @@ impl LdtkProject {
                         blocks.extend(emission.blocks);
                         loading_zones.extend(emission.zones);
                         objects.extend(emission.objects);
+                        water_regions.extend(emission.water_regions);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -874,6 +909,18 @@ impl LdtkProject {
                     }
                 }
             }
+
+            // IntGrid `Water` layer: each cell becomes a swimmable
+            // region. Source-agnostic with entity `WaterVolume`; both
+            // populate `World::water_regions`.
+            if let Some(layer) = level.water_layer() {
+                match emit_water_regions_from_intgrid(layer, offset) {
+                    Ok(layer_regions) => water_regions.extend(layer_regions),
+                    Err(message) => {
+                        errors.push(format!("level '{}' Water: {message}", level.identifier))
+                    }
+                }
+            }
         }
 
         if !errors.is_empty() {
@@ -888,6 +935,7 @@ impl LdtkProject {
                 spawn: spawn.unwrap_or_else(|| ae::Vec2::new(96.0, 96.0)),
                 blocks,
                 objects,
+                water_regions,
             },
             loading_zones,
         })
@@ -933,6 +981,12 @@ impl LdtkLevel {
             .find(|layer| layer.identifier == COLLISION_LAYER)
     }
 
+    fn water_layer(&self) -> Option<&LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == WATER_LAYER)
+    }
+
     fn field_string(&self, name: &str) -> Option<String> {
         field_value(&self.field_instances, name).and_then(value_to_string)
     }
@@ -950,6 +1004,7 @@ struct RuntimeEntityEmission {
     blocks: Vec<ae::Block>,
     zones: Vec<LoadingZone>,
     objects: Vec<ae::RoomObject>,
+    water_regions: Vec<ae::WaterRegion>,
     ignored: bool,
 }
 
@@ -978,6 +1033,13 @@ impl RuntimeEntityEmission {
     fn object(object: ae::RoomObject) -> Self {
         Self {
             objects: vec![object],
+            ..Self::default()
+        }
+    }
+
+    fn water_region(region: ae::WaterRegion) -> Self {
+        Self {
+            water_regions: vec![region],
             ..Self::default()
         }
     }
@@ -1166,6 +1228,10 @@ fn entity_to_runtime(
             )))
         }
         "WaterVolume" => {
+            // Entity-authored water: source-agnostic, lands in the
+            // same `World::water_regions` list IntGrid Water cells
+            // populate. Reserved for irregular pools the per-cell
+            // IntGrid layer can't shape.
             let mut spec = ae::WaterVolumeSpec::default();
             if let Some(value) = field_f32(entity, "gravity_scale") {
                 spec.gravity_scale = value;
@@ -1179,12 +1245,15 @@ fn entity_to_runtime(
             if let Some(value) = field_f32(entity, "swim_up_impulse") {
                 spec.swim_up_impulse = value;
             }
-            Ok(RuntimeEntityEmission::object(runtime_room_object(
-                entity,
-                name,
-                min,
-                size,
-                ae::RoomObjectKind::WaterVolume(spec),
+            // Entity water defaults to Clear. The IntGrid Water
+            // layer is the canonical authoring path for distinct
+            // kinds; if a future entity field needs Murky, add a
+            // `kind` field via `register_ldtk_entity_def.py` and
+            // route it here.
+            Ok(RuntimeEntityEmission::water_region(ae::WaterRegion::new(
+                object_aabb(min, size),
+                ae::WaterKind::Clear,
+                spec,
             )))
         }
         "CameraZone" | "StitchedBoundary" => Ok(RuntimeEntityEmission::ignored()),

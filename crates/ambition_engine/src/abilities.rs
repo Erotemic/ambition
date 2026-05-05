@@ -78,11 +78,12 @@ pub struct AbilitySet {
     /// mechanic off entirely.
     #[serde(default)]
     pub ledge_grab: bool,
-    /// Player can swim inside `RoomObjectKind::WaterVolume` regions:
-    /// gravity is reduced, terminal speed is lower, and dash / blink
-    /// behave differently. Without this flag the player still enters
-    /// water but is slowed (the buoyancy modifier always applies); the
-    /// flag specifically gates the active swim controls.
+    /// Active swim controls inside any `WaterRegion`: jump becomes a
+    /// swim impulse, the player can rise with repeated presses, and
+    /// surface exit is allowed. Without this flag the player drowns
+    /// on water contact (movement triggers a respawn). Source of the
+    /// region — IntGrid `Water` cells or entity `WaterVolume` — is
+    /// abstracted by `World::water_at`.
     #[serde(default)]
     pub swim: bool,
 }

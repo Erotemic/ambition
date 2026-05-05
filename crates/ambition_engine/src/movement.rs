@@ -163,6 +163,13 @@ pub struct Player {
     /// gated on `BodyShape::fits_at` for collision-safe resize.
     /// Trace/HUD readers consult this field instead of inferring.
     pub body_mode: crate::player_state::BodyMode,
+    /// Cached water contact for this frame. Set at the top of
+    /// `update_player_simulation_with_tuning` from
+    /// `World::water_at(player.aabb)`. Movement uses this to:
+    /// - drown when `!abilities.swim`,
+    /// - convert buffered jump presses into swim impulses,
+    /// - apply buoyancy / drag / fall-cap during integration.
+    pub water_contact: Option<crate::world::WaterContact>,
 }
 
 impl Player {
@@ -213,6 +220,7 @@ impl Player {
             time_alive: 0.0,
             resets: 0,
             body_mode: crate::player_state::BodyMode::Standing,
+            water_contact: None,
         }
     }
 
@@ -643,6 +651,23 @@ pub fn update_player_simulation_with_tuning(
     }
     let dt = raw_dt.min(1.0 / 30.0);
 
+    // Water contact is queried once per tick and cached on the
+    // player so jump-buffer handling, gravity integration, and the
+    // post-step reset gate all see the same answer. Source-agnostic:
+    // `water_at` covers both IntGrid `Water` cells and entity
+    // `WaterVolume` regions.
+    player.water_contact = world.water_at(player.aabb());
+
+    // Drowning gate: water without the swim ability is a death zone,
+    // not a slow-down. Trigger the same reset path the hazard tile
+    // uses so the existing flash/sfx/respawn pipeline applies.
+    if player.water_contact.is_some() && !player.abilities.swim {
+        player.reset_to(world.spawn);
+        events.hazard = true;
+        events.reset = true;
+        return events;
+    }
+
     age_player(player, dt);
     update_simulation_timers(player, dt, tuning);
     handle_jump_buffer(world, player, input, tuning, &mut events);
@@ -899,6 +924,23 @@ fn handle_jump_buffer(
     events: &mut FrameEvents,
 ) {
     if player.jump_buffer_timer > 0.0 {
+        // Underwater swimming wins over every other jump path: while
+        // submerged with the swim ability, a buffered jump becomes
+        // exactly one upward swim stroke and nothing else. This keeps
+        // "underwater jump != normal jump" true on a single press,
+        // and the `min(-impulse)` floor makes repeated taps reliably
+        // rise even if the previous stroke is still climbing.
+        if let Some(contact) = player.water_contact {
+            if player.abilities.swim {
+                let impulse = contact.spec.swim_up_impulse;
+                player.vel.y = (player.vel.y - impulse).min(-impulse);
+                player.jump_buffer_timer = 0.0;
+                player.coyote_timer = 0.0;
+                events.op(player, MovementOp::Jump);
+                return;
+            }
+        }
+
         // Down + jump while standing on a one-way platform means "drop through",
         // not "jump". Cancel the buffered jump so the vertical sweep can take
         // the player past the platform on the next integration step.
@@ -986,13 +1028,24 @@ fn integrate_velocity(
         integrate_flight(player, input, dt, tuning);
     } else {
         let blink_hang_active = player.blink_grace_timer > 0.0 && player.vel.y >= 0.0;
+        // Water makes gravity gentler and adds linear drag. We
+        // multiply gravity by the region's `gravity_scale` (Mario-
+        // style: still sinks, just slower) and apply per-frame drag
+        // to both axes so directional inputs feel more like swimming
+        // strokes than running. The fall cap below also gets lowered
+        // to the per-region cap so the player doesn't accelerate to
+        // dash speeds in deep water.
+        let water_gravity_scale = player
+            .water_contact
+            .map(|c| c.spec.gravity_scale)
+            .unwrap_or(1.0);
         if !blink_hang_active {
-            player.vel.y += tuning.gravity * dt;
+            player.vel.y += tuning.gravity * water_gravity_scale * dt;
         }
         if input.fast_fall_pressed && player.abilities.fast_fall && !player.on_ground {
             player.fast_falling = true;
         }
-        if player.fast_falling && !blink_hang_active {
+        if player.fast_falling && !blink_hang_active && player.water_contact.is_none() {
             player.vel.y += tuning.fast_fall_accel * dt;
         }
 
@@ -1015,12 +1068,22 @@ fn integrate_velocity(
             }
         }
 
-        let fall_cap = if player.fast_falling {
-            tuning.fast_fall_speed
+        if let Some(contact) = player.water_contact {
+            // Water drag is a linear-per-tick decay applied AFTER the
+            // gravity / horizontal accel pass so the gravity-applied
+            // velocity also gets damped.
+            let drag = contact.spec.drag.clamp(0.0, 1.0);
+            player.vel.x *= 1.0 - drag;
+            player.vel.y *= 1.0 - drag;
+            player.vel.y = player.vel.y.min(contact.spec.max_fall_speed);
         } else {
-            tuning.max_fall_speed
-        };
-        player.vel.y = player.vel.y.min(fall_cap);
+            let fall_cap = if player.fast_falling {
+                tuning.fast_fall_speed
+            } else {
+                tuning.max_fall_speed
+            };
+            player.vel.y = player.vel.y.min(fall_cap);
+        }
     }
 
     // Resolve horizontal motion with a Parry-backed swept AABB. This
@@ -1591,6 +1654,7 @@ mod tests {
                 Block::solid("ceiling", Vec2::new(0.0, 0.0), Vec2::new(w, 24.0)),
             ],
             objects: Vec::new(),
+            water_regions: Vec::new(),
         }
     }
 
@@ -2352,6 +2416,7 @@ mod tests {
                 Vec2::new(40.0, 400.0),
             )],
             objects: Vec::new(),
+            water_regions: Vec::new(),
         };
         // Pillar AABB: (380, 200) → (420, 600). Top = 200, bottom = 600.
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());

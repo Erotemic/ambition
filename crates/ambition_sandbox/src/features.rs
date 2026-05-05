@@ -247,20 +247,8 @@ pub struct FeatureRuntime {
     pub chests: Vec<ChestRuntime>,
     pub npcs: Vec<NpcRuntime>,
     pub switches: Vec<SwitchRuntime>,
-    pub water_volumes: Vec<WaterVolumeRuntime>,
     pub banner: String,
     pub banner_timer: f32,
-}
-
-/// Live state for one water volume in the active room. Position +
-/// AABB are stable; the runtime exists as a layer over the engine
-/// spec so the swim system can query "is the player submerged"
-/// without iterating `World::objects` every frame.
-#[derive(Clone, Debug)]
-pub struct WaterVolumeRuntime {
-    pub id: String,
-    pub aabb: ae::Aabb,
-    pub spec: ae::WaterVolumeSpec,
 }
 
 /// Runtime state of a `Switch` interactable. The custom payload comes
@@ -466,7 +454,6 @@ impl FeatureRuntime {
             chests: Vec::new(),
             npcs: Vec::new(),
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -515,13 +502,6 @@ impl FeatureRuntime {
                 }
                 ae::RoomObjectKind::BossSpawn(brain) => {
                     runtime.bosses.push(BossRuntime::new(object, brain.clone()));
-                }
-                ae::RoomObjectKind::WaterVolume(spec) => {
-                    runtime.water_volumes.push(WaterVolumeRuntime {
-                        id: object.id.clone(),
-                        aabb: object.aabb,
-                        spec: *spec,
-                    });
                 }
                 ae::RoomObjectKind::Actor(_)
                 | ae::RoomObjectKind::KinematicPath(_)
@@ -1810,7 +1790,6 @@ mod conversion_tests {
             chests: Vec::new(),
             npcs: vec![world_with_npc("guide").1],
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -1837,7 +1816,6 @@ mod conversion_tests {
             chests: Vec::new(),
             npcs: Vec::new(),
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -1876,7 +1854,6 @@ mod conversion_tests {
             chests: Vec::new(),
             npcs: Vec::new(),
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -1921,7 +1898,6 @@ mod conversion_tests {
             chests: Vec::new(),
             npcs: Vec::new(),
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -2119,7 +2095,6 @@ mod conversion_tests {
             chests: Vec::new(),
             npcs: vec![world_with_npc("guide").1],
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -2142,7 +2117,6 @@ mod conversion_tests {
             chests: Vec::new(),
             npcs: vec![world_with_npc("guide").1],
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };
@@ -2168,7 +2142,6 @@ mod conversion_tests {
             chests: Vec::new(),
             npcs: Vec::new(),
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         };

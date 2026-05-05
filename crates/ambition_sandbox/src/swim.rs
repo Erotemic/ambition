@@ -1,190 +1,124 @@
-//! Swim mechanic: post-`sandbox_update` buoyancy + swim-controls layer.
+//! Sandbox-side swim adapter.
 //!
-//! Reads `FeatureRuntime::water_volumes` (built from
-//! `RoomObjectKind::WaterVolume`) and adjusts the player's velocity
-//! and gravity contribution while they're submerged. Always slows
-//! the player down (so an un-upgraded player splashes through water
-//! sluggishly); the active swim impulse only fires when the
-//! `swim` ability flag is on.
+//! All gameplay-meaningful water response (drowning without ability,
+//! Mario-style jump→swim conversion, passive buoyancy / drag / fall
+//! cap) now lives in `ambition_engine::movement` so a single tick
+//! sees consistent water state. This module is intentionally a thin
+//! shim: it just owns the test fixtures we use to pin water behavior
+//! end-to-end.
 //!
-//! Like ledge grab, this is intentionally a separate sandbox system
-//! layered on top of `movement.rs` rather than weaving the new
-//! mechanic into the dense simulator.
-
-use ambition_engine::AabbExt;
-use bevy::prelude::*;
-
-pub fn update_swim(
-    mut runtime: ResMut<crate::SandboxRuntime>,
-    controls: Res<crate::input::ControlFrame>,
-    time: Res<Time>,
-) {
-    let dt = time.delta_secs();
-    let player_aabb = runtime.player.aabb();
-
-    let Some(volume) = runtime
-        .features
-        .water_volumes
-        .iter()
-        .find(|v| v.aabb.strict_intersects(player_aabb))
-        .cloned()
-    else {
-        return;
-    };
-
-    // Buoyancy drag: linear damping per tick. Always applies.
-    let drag = volume.spec.drag.clamp(0.0, 1.0);
-    runtime.player.vel.x *= 1.0 - drag;
-    runtime.player.vel.y *= 1.0 - drag;
-    // Cap fall speed.
-    if runtime.player.vel.y > volume.spec.max_fall_speed {
-        runtime.player.vel.y = volume.spec.max_fall_speed;
-    }
-    // Active swim impulse — gated on the ability flag.
-    if runtime.player.abilities.swim && controls.axis_y < -0.4 {
-        runtime.player.vel.y =
-            runtime.player.vel.y.min(0.0) - volume.spec.swim_up_impulse * dt;
-    }
-}
+//! Source-agnostic: the engine queries `World::water_at(player_aabb)`
+//! once per simulation tick. Authoring layer (LDtk IntGrid `Water` or
+//! entity `WaterVolume`) chooses which regions exist; the runtime
+//! never branches on which authoring source produced a region.
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::features::WaterVolumeRuntime;
-    use crate::input::ControlFrame;
-    use crate::{GameWorld, SandboxRuntime};
     use ambition_engine as ae;
 
-    fn empty_world() -> ae::World {
-        ae::World::new(
+    fn pool_world(kind: ae::WaterKind, spawn: ae::Vec2) -> ae::World {
+        let mut world = ae::World::new(
             "swim_test",
             ae::Vec2::new(2000.0, 2000.0),
-            ae::Vec2::new(200.0, 1000.0),
+            spawn,
             Vec::new(),
-        )
+        );
+        world.water_regions.push(ae::WaterRegion::new(
+            ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(400.0, 400.0)),
+            kind,
+            ae::WaterVolumeSpec::default(),
+        ));
+        world
     }
 
-    /// Build a minimal Bevy app with the swim system installed and a
-    /// player parked inside a single water volume. `swim_ability`
-    /// toggles the ability flag; `axis_y` controls the up/down stick.
-    fn swim_app(swim_ability: bool, axis_y: f32) -> App {
-        let mut app = App::new();
-        app.insert_resource(Time::<()>::default());
-        app.insert_resource(GameWorld(empty_world()));
-        let world = empty_world();
+    /// Without the `swim` ability, contacting water triggers the same
+    /// reset/respawn the existing hazard path uses.
+    #[test]
+    fn no_swim_ability_water_contact_triggers_reset() {
+        let mut world = pool_world(ae::WaterKind::Clear, ae::Vec2::new(50.0, 50.0));
+        // Force the hazard reset path to win over OOB (player parked
+        // safely inside world bounds).
+        world.size = ae::Vec2::new(2000.0, 2000.0);
         let mut abilities = ae::AbilitySet::sandbox_all();
-        abilities.swim = swim_ability;
-        let mut runtime = SandboxRuntime::new(
-            &world,
-            abilities,
-            ae::DEFAULT_TUNING,
-            crate::physics::PhysicsSandboxSettings::default(),
-        );
-        // Park the player at a known position with a known falling
-        // velocity so drag/cap behavior is observable.
-        runtime.player.pos = ae::Vec2::new(500.0, 500.0);
-        runtime.player.vel = ae::Vec2::new(40.0, 600.0);
-        // Inject a water volume that fully contains the player AABB.
-        let player_aabb = runtime.player.aabb();
-        let center = player_aabb.center();
-        let big = ae::Vec2::new(400.0, 400.0);
-        runtime.features.water_volumes.push(WaterVolumeRuntime {
-            id: "water".into(),
-            aabb: ae::Aabb::new(center, big),
-            spec: ae::WaterVolumeSpec::default(),
-        });
-        app.insert_resource(runtime);
-        app.insert_resource(ControlFrame {
-            axis_y,
-            ..ControlFrame::default()
-        });
-        app.add_systems(Update, update_swim);
-        app
+        abilities.swim = false;
+        let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
+        player.pos = ae::Vec2::new(500.0, 500.0);
+        let events = ae::update_player_simulation(&world, &mut player, ae::InputState::default(), 0.016);
+        assert!(events.reset, "expected reset on water without swim");
+        assert!(events.hazard, "expected hazard flag (drowned)");
+        assert_eq!(player.pos, world.spawn);
     }
 
-    fn advance_time(app: &mut App, dt: f32) {
-        let mut time = app.world_mut().resource_mut::<Time<()>>();
-        time.advance_by(std::time::Duration::from_secs_f32(dt));
-    }
-
-    /// Ability off + neutral stick: passive drag must still slow the
-    /// player and the fall-speed cap must clamp vertical velocity. The
-    /// active swim impulse must NOT fire.
+    /// With swim, jump_pressed becomes a single upward stroke. The
+    /// engine never delivers a normal jump from the same press.
     #[test]
-    fn swim_off_applies_passive_drag_and_fall_cap_only() {
-        let mut app = swim_app(false, 0.0);
-        advance_time(&mut app, 0.016);
-        app.update();
-        let runtime = app.world().resource::<SandboxRuntime>();
-        let spec = ae::WaterVolumeSpec::default();
-        // Drag reduces |vx| toward zero (was 40.0).
-        assert!(runtime.player.vel.x.abs() < 40.0);
-        // Vertical speed is clamped to max_fall_speed because the
-        // pre-clamp value (600 * (1-drag)) is well above the cap.
+    fn swim_ability_jump_press_becomes_upward_impulse() {
+        let world = pool_world(ae::WaterKind::Clear, ae::Vec2::new(500.0, 100.0));
+        let mut abilities = ae::AbilitySet::sandbox_all();
+        abilities.swim = true;
+        let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
+        player.pos = ae::Vec2::new(500.0, 500.0);
+        player.vel = ae::Vec2::new(0.0, 600.0);
+        let input = ae::InputState {
+            jump_pressed: true,
+            jump_held: true,
+            control_dt: 0.016,
+            ..ae::InputState::default()
+        };
+        // Control phase: would normally fill the jump buffer.
+        ae::update_player_control(&world, &mut player, input, 0.016);
+        // Simulation phase: the buffered jump must be consumed as a
+        // swim stroke, not a normal jump.
+        ae::update_player_simulation(&world, &mut player, input, 0.016);
         assert!(
-            (runtime.player.vel.y - spec.max_fall_speed).abs() < 1e-3,
-            "expected vel.y == max_fall_speed ({}); got {}",
-            spec.max_fall_speed,
-            runtime.player.vel.y
+            player.vel.y < 0.0,
+            "expected upward (negative) vel.y after swim stroke; got {}",
+            player.vel.y
         );
+        // Buffer must be cleared so the same press can't fire again.
+        assert_eq!(player.jump_buffer_timer, 0.0);
     }
 
-    /// Ability off + holding Up: the active swim impulse is gated on
-    /// the ability, so vertical velocity must equal the fall-speed cap
-    /// (passive path) — never the post-impulse value.
+    /// Without a fresh press, water still applies passive buoyancy
+    /// (drag) and clamps fall speed.
     #[test]
-    fn swim_off_does_not_apply_upward_impulse_even_with_up_held() {
-        let mut app = swim_app(false, -1.0);
-        advance_time(&mut app, 0.016);
-        app.update();
-        let runtime = app.world().resource::<SandboxRuntime>();
+    fn swim_ability_passive_buoyancy_clamps_fall() {
+        let world = pool_world(ae::WaterKind::Clear, ae::Vec2::new(500.0, 100.0));
+        let mut abilities = ae::AbilitySet::sandbox_all();
+        abilities.swim = true;
+        let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
+        player.pos = ae::Vec2::new(500.0, 500.0);
+        player.vel = ae::Vec2::new(40.0, 1500.0);
+        let input = ae::InputState {
+            control_dt: 0.016,
+            ..ae::InputState::default()
+        };
+        ae::update_player_simulation(&world, &mut player, input, 0.016);
         let spec = ae::WaterVolumeSpec::default();
         assert!(
-            (runtime.player.vel.y - spec.max_fall_speed).abs() < 1e-3,
-            "ability-off must not apply swim impulse; got vel.y={}",
-            runtime.player.vel.y
+            player.vel.x.abs() < 40.0,
+            "expected horizontal drag in water"
         );
-    }
-
-    /// Ability on + holding Up: the active impulse must drive vertical
-    /// velocity strictly upward (negative in screen coords).
-    #[test]
-    fn swim_on_applies_upward_impulse_when_up_held() {
-        let mut app = swim_app(true, -1.0);
-        advance_time(&mut app, 0.016);
-        app.update();
-        let runtime = app.world().resource::<SandboxRuntime>();
-        // Active impulse path: vel.y = vel.y.min(0.0) - swim_up_impulse * dt
-        // The 600.0 falling vel is dropped to 0 by .min(0.0), then the
-        // impulse subtracts. Result must be strongly negative (upward).
         assert!(
-            runtime.player.vel.y < 0.0,
-            "expected upward vel.y after impulse; got {}",
-            runtime.player.vel.y
+            player.vel.y <= spec.max_fall_speed + 1.0,
+            "fall speed must clamp; got {}",
+            player.vel.y
         );
     }
 
-    /// Outside any water volume, the swim system is a complete no-op:
-    /// vel and pos are unchanged.
+    /// Out-of-water frames must not register a water contact.
     #[test]
-    fn swim_no_op_when_player_outside_water_volume() {
-        let mut app = swim_app(true, -1.0);
-        // Drop the water volume so the system can't find any overlap.
-        {
-            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-            runtime.features.water_volumes.clear();
-        }
-        let before_vel;
-        let before_pos;
-        {
-            let runtime = app.world().resource::<SandboxRuntime>();
-            before_vel = runtime.player.vel;
-            before_pos = runtime.player.pos;
-        }
-        advance_time(&mut app, 0.016);
-        app.update();
-        let runtime = app.world().resource::<SandboxRuntime>();
-        assert_eq!(runtime.player.vel, before_vel);
-        assert_eq!(runtime.player.pos, before_pos);
+    fn out_of_water_leaves_water_contact_none() {
+        let world = pool_world(ae::WaterKind::Clear, ae::Vec2::new(50.0, 100.0));
+        let mut abilities = ae::AbilitySet::sandbox_all();
+        abilities.swim = true;
+        let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
+        player.pos = ae::Vec2::new(50.0, 50.0); // outside the pool
+        let input = ae::InputState {
+            control_dt: 0.016,
+            ..ae::InputState::default()
+        };
+        ae::update_player_simulation(&world, &mut player, input, 0.016);
+        assert!(player.water_contact.is_none());
     }
 }

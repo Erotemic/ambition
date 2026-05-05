@@ -1965,7 +1965,6 @@ mod tests {
             chests: Vec::new(),
             npcs: Vec::new(),
             switches: Vec::new(),
-            water_volumes: Vec::new(),
             banner: String::new(),
             banner_timer: 0.0,
         }

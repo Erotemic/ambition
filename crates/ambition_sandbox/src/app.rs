@@ -284,6 +284,12 @@ pub fn add_simulation_plugins(app: &mut App) {
         // mob-lab markers land in `sandbox.ldtk`. The state machine
         // and tests still cover the lock / wave / fail behavior.
         .insert_resource(crate::encounter::EncounterState::default())
+        // Sandbox save game (encounter defeat + switch state).
+        // Loaded from disk by `load_save_at_startup` in the
+        // presentation half so headless / RL drivers don't touch
+        // disk; mutated by encounter + switch systems; written by
+        // `autosave_sandbox_save` when change-detection fires.
+        .insert_resource(crate::save::SandboxSave::default())
         .add_systems(
             Update,
             (
@@ -391,6 +397,25 @@ pub fn add_presentation_plugins(app: &mut App) {
     add_ui_plugins(app);
     add_input_plugins(app);
     add_audio_plugins(app);
+
+    // Settings + sandbox-save persistence. Both load on startup and
+    // autosave when the relevant resource changes (`Res::is_changed`
+    // throttle). Headless drivers do not register these systems, so
+    // a `cargo run --bin headless` never reads or writes user files.
+    app.add_systems(
+        Startup,
+        (
+            crate::settings::persistence::load_settings_at_startup,
+            crate::save::load_save_at_startup,
+        ),
+    )
+    .add_systems(
+        Update,
+        (
+            crate::settings::persistence::save_settings_on_change,
+            crate::save::autosave_sandbox_save,
+        ),
+    );
 
     app.insert_resource(pause_menu::PauseMenuState::default())
         .insert_resource(inventory::InventoryUiState::default())

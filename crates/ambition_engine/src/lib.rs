@@ -23,6 +23,7 @@ pub mod music;
 pub mod physics;
 pub mod player_state;
 pub mod projectile;
+pub mod save;
 pub mod scalar;
 pub mod state_machines;
 pub mod world;
@@ -69,11 +70,16 @@ pub use projectile::{
     MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody, ProjectileKind,
     ProjectileSpawner, ProjectileSpec, SpawnFailure,
 };
+pub use save::{
+    PersistedEncounter, PersistedEncounterState, PersistedSwitch, SandboxSaveData,
+    CURRENT_SAVE_VERSION,
+};
 pub use scalar::approach;
 pub use state_machines::{
     state_machine_vocabulary, AmbitionStateMachineActor, AmbitionStateMachinePlugin, BossDefeated,
     BossDormant, BossIntro, BossPhase, BreakableBroken, BreakableCracking, BreakableIntact,
-    BreakableRespawning, ChestClosed, ChestOpened, ChestOpening, EnemyAttack, EnemyDead, EnemyIdle,
-    EnemyPatrol, EnemyRecover, EnemyStunned, EnemyTelegraph,
+    BreakableRespawning, ChestClosed, ChestOpened, ChestOpening, EncounterActive, EncounterCleared,
+    EncounterDormant, EncounterFailed, EncounterStarting, EnemyAttack, EnemyDead, EnemyIdle,
+    EnemyPatrol, EnemyRecover, EnemyStunned, EnemyTelegraph, SwitchOff, SwitchOn,
 };
 pub use world::{BlinkWallTier, Block, BlockKind, RoomObject, RoomObjectKind, World};

@@ -34,6 +34,7 @@ use crate::windowing::{DisplayModeKind, DisplayModeState};
 pub mod audio;
 pub mod controls;
 pub mod gameplay;
+pub mod persistence;
 pub mod video;
 
 pub use audio::AudioSettings;

@@ -16,6 +16,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use ambition_engine as ae;
+use ambition_engine::PersistedEncounterState;
 
 /// One mob to spawn during a wave. Position is local to the
 /// encounter room (LDtk authoring will translate marker → spec).
@@ -106,9 +107,8 @@ impl EncounterPhase {
 }
 
 /// Bevy resource holding the live encounter state plus the authored
-/// spec it's tracking. Today the resource initializes with no
-/// active spec; the sandbox LDtk loader will populate it when the
-/// mob-lab markers land.
+/// spec it's tracking. Populated by the LDtk encounter loader when
+/// `EncounterTrigger` markers land in an active area.
 #[derive(Resource, Default)]
 pub struct EncounterState {
     pub spec: Option<EncounterSpec>,
@@ -116,6 +116,33 @@ pub struct EncounterState {
     /// True when the encounter's lock should seal exits this frame.
     /// Cached so multiple consumers don't have to call `phase.locks_exits`.
     pub lock_active: bool,
+}
+
+impl EncounterState {
+    /// Reconstruct the live phase from a `PersistedEncounterState`.
+    /// Called after a save load so the encounter starts in its
+    /// persisted terminal state instead of `Inactive`.
+    pub fn apply_persisted(&mut self, persisted: PersistedEncounterState) {
+        self.phase = match persisted {
+            PersistedEncounterState::Untouched => EncounterPhase::Inactive,
+            PersistedEncounterState::Cleared => EncounterPhase::Cleared,
+            PersistedEncounterState::Failed => EncounterPhase::Failed,
+        };
+        self.lock_active = self.phase.locks_exits();
+    }
+
+    /// Project the live phase onto the persisted shape. `Active`
+    /// collapses to `Untouched` because the save represents a
+    /// resumable terminal state, not a mid-fight snapshot.
+    pub fn to_persisted(&self) -> PersistedEncounterState {
+        match self.phase {
+            EncounterPhase::Inactive | EncounterPhase::Active { .. } => {
+                PersistedEncounterState::Untouched
+            }
+            EncounterPhase::Cleared => PersistedEncounterState::Cleared,
+            EncounterPhase::Failed => PersistedEncounterState::Failed,
+        }
+    }
 }
 
 impl EncounterState {

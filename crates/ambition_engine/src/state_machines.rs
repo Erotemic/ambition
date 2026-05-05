@@ -157,6 +157,64 @@ pub struct BreakableRespawning {
     pub remaining: f32,
 }
 
+/// Encounter (e.g. mob lab) is loaded but the player has not entered the
+/// trigger yet.
+///
+/// The encounter family of states is designed so a single encounter
+/// controller entity can carry the state machine while a global
+/// `EncounterRegistry` tracks save-game persistence per encounter id.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+#[component(storage = "SparseSet")]
+pub struct EncounterDormant;
+
+/// Encounter trigger is firing: brief intro window before the first wave
+/// spawns. Used for camera zoom ramp-out and any pre-encounter telegraph.
+#[derive(Component, Clone, Debug, PartialEq)]
+#[component(storage = "SparseSet")]
+pub struct EncounterStarting {
+    pub remaining: f32,
+}
+
+/// Encounter is in progress. Wave index and per-wave remaining mob count
+/// are stored on the component so a save / debug overlay can read the
+/// canonical state directly from the controller entity.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[component(storage = "SparseSet")]
+pub struct EncounterActive {
+    pub wave_index: u8,
+    pub remaining_mobs: u8,
+    pub total_waves: u8,
+}
+
+/// Encounter has been cleared. The controller stays in this state until
+/// the player triggers a reset (e.g. a switch outside the room).
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+#[component(storage = "SparseSet")]
+pub struct EncounterCleared;
+
+/// Player died inside the encounter. Same lifetime as `EncounterCleared`:
+/// stays Failed until reset, at which point a fresh attempt becomes
+/// available.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+#[component(storage = "SparseSet")]
+pub struct EncounterFailed;
+
+/// A latched, player-facing on/off switch that persists across save loads.
+/// The runtime sandbox uses this to drive encounter resets, but the
+/// vocabulary is intentionally generic so future puzzles / doors / doors
+/// can layer on top.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[component(storage = "SparseSet")]
+pub struct SwitchOff {
+    pub id: String,
+}
+
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[component(storage = "SparseSet")]
+pub struct SwitchOn {
+    pub id: String,
+}
+
 /// Stable list used by docs and snapshot tests to catch accidental renames of
 /// the public state-machine vocabulary.
 pub fn state_machine_vocabulary() -> &'static [&'static str] {
@@ -180,6 +238,13 @@ pub fn state_machine_vocabulary() -> &'static [&'static str] {
         "BreakableCracking",
         "BreakableBroken",
         "BreakableRespawning",
+        "EncounterDormant",
+        "EncounterStarting",
+        "EncounterActive",
+        "EncounterCleared",
+        "EncounterFailed",
+        "SwitchOff",
+        "SwitchOn",
     ]
 }
 

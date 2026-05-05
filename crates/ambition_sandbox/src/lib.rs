@@ -36,6 +36,7 @@ pub mod platforms;
 pub mod projectile;
 pub mod rendering;
 pub mod rooms;
+pub mod save;
 pub mod settings;
 pub mod trace;
 pub mod windowing;

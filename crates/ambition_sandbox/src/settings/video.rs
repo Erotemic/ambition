@@ -90,18 +90,12 @@ impl ColorblindMode {
     }
 
     pub fn next(self) -> Self {
-        let idx = Self::ALL
-            .iter()
-            .position(|m| m == &self)
-            .unwrap_or(0);
+        let idx = Self::ALL.iter().position(|m| m == &self).unwrap_or(0);
         Self::ALL[(idx + 1) % Self::ALL.len()]
     }
 
     pub fn prev(self) -> Self {
-        let idx = Self::ALL
-            .iter()
-            .position(|m| m == &self)
-            .unwrap_or(0);
+        let idx = Self::ALL.iter().position(|m| m == &self).unwrap_or(0);
         Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
     }
 }

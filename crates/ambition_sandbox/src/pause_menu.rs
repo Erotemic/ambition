@@ -25,11 +25,9 @@ use leafwing_input_manager::prelude::ActionState;
 #[cfg(feature = "audio")]
 use crate::audio::{switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState};
 use crate::game_mode::GameMode;
-#[cfg(feature = "input")]
-use crate::input::{
-    analog_to_dir, MenuInputFrame, MenuInputState, SandboxAction,
-};
 use crate::input::KeyboardPreset;
+#[cfg(feature = "input")]
+use crate::input::{analog_to_dir, MenuInputFrame, MenuInputState, SandboxAction};
 use crate::inventory::InventoryUiState;
 use crate::settings::{
     apply_action as handle_settings_action, SettingsAction, SettingsItem, SettingsOutcome,
@@ -624,7 +622,11 @@ pub fn sync_pause_menu(
             &mut TextColor,
             &mut BackgroundColor,
         ),
-        (Without<PauseMenuRoot>, Without<PauseMenuItem>, Without<SettingsTitle>),
+        (
+            Without<PauseMenuRoot>,
+            Without<PauseMenuItem>,
+            Without<SettingsTitle>,
+        ),
     >,
 ) {
     let visible = matches!(mode.get(), GameMode::Paused) && !inventory.visible;
@@ -700,7 +702,11 @@ pub fn sync_pause_menu(
             &mut TextColor,
             &mut BackgroundColor,
         ),
-        (Without<PauseMenuRoot>, Without<PauseMenuItem>, Without<SettingsTitle>),
+        (
+            Without<PauseMenuRoot>,
+            Without<PauseMenuItem>,
+            Without<SettingsTitle>,
+        ),
     >,
 ) {
     let visible = matches!(mode.get(), GameMode::Paused) && !inventory.visible;
@@ -791,10 +797,7 @@ mod tests {
             stack: Vec::new(),
         };
         s.enter_page(PauseMenuPage::Settings(SettingsPage::Top));
-        assert!(matches!(
-            s.page,
-            PauseMenuPage::Settings(SettingsPage::Top)
-        ));
+        assert!(matches!(s.page, PauseMenuPage::Settings(SettingsPage::Top)));
         assert_eq!(s.selected, 0);
         assert_eq!(s.stack.len(), 1);
         s.pop_page();

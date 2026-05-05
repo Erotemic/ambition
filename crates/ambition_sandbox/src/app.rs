@@ -788,10 +788,7 @@ fn sandbox_update(
         crate::settings::AssistMode::Off => 1.0,
         crate::settings::AssistMode::On => 0.5,
     };
-    let difficulty_multiplier = user_settings
-        .gameplay
-        .difficulty
-        .damage_taken_multiplier()
+    let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
         * user_settings.gameplay.player_damage_multiplier
         * assist_factor;
     dev_tools::sync_live_ability_edits(&mut runtime, editable_abilities.as_engine(), tuning);

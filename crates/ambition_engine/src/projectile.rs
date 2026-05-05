@@ -129,7 +129,9 @@ impl ProjectileSpec {
             kind,
             origin,
             direction: direction.normalize_or(Vec2::new(1.0, 0.0)),
-            damage: ((kind.damage() as f32) * damage_multiplier).round().max(1.0) as i32,
+            damage: ((kind.damage() as f32) * damage_multiplier)
+                .round()
+                .max(1.0) as i32,
             speed: kind.speed(),
             max_lifetime: kind.max_lifetime(),
             half_extent: kind.half_extent(),
@@ -179,7 +181,10 @@ impl ProjectileBody {
 
     pub fn aabb(&self) -> Aabb {
         aabb_from_min_size(
-            Vec2::new(self.pos.x - self.half_extent.x, self.pos.y - self.half_extent.y),
+            Vec2::new(
+                self.pos.x - self.half_extent.x,
+                self.pos.y - self.half_extent.y,
+            ),
             Vec2::new(self.half_extent.x * 2.0, self.half_extent.y * 2.0),
         )
     }
@@ -596,7 +601,11 @@ mod tests {
         for _ in 0..30 {
             body.tick(0.016);
         }
-        assert!(body.pos.y > 0.0, "fireball should arc downward, got {}", body.pos.y);
+        assert!(
+            body.pos.y > 0.0,
+            "fireball should arc downward, got {}",
+            body.pos.y
+        );
         assert!(body.pos.x > 0.0);
     }
 

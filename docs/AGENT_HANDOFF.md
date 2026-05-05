@@ -251,9 +251,56 @@ projectile, parry, functional zip) are listed in
 `crate::mechanics::MechanicsRegistry` with maturity. See
 `docs/mechanics/body_modes.md`.
 
-## LDtk roadmap step 1 (Solid promotion, partial)
+## LDtk roadmap step 1 (Solid + OneWayPlatform + DamageVolume promoted)
 
-Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities. Targets in order: `Solid`, `OneWayPlatform`, `DamageVolume`, `KinematicPath`, `CameraZone`.
+Step 1 of the LDtk runtime-spine roadmap promotes collision-heavy
+entities from JSON-only adapter output to typed Ambition components
+on plugin-spawned entities. Targets in order: `Solid`,
+`OneWayPlatform`, `DamageVolume`, `KinematicPath`, `CameraZone`.
 
-`Solid` is now partially promoted. Plugin-spawned `Solid` entities carry a typed `LdtkSolid` component (level-local px rect), and `LdtkRuntimeSolidIndex` holds the active-area-local view rebuilt each frame. The JSON adapter (`compose_runtime_area`) still produces `ae::Block::solid()` entries for `ae::World::blocks` so runtime collision authority is unchanged for now; the JSON `Solid` arm is marked transitional. Step 2 (raw-LDtk-vs-runtime overlay) is the verification gate before retiring the JSON path and letting `LdtkRuntimeSolidIndex` become collision authority. Follow-up step-1 patches do `OneWayPlatform`, then `DamageVolume`/`KinematicPath`/`CameraZone` using the same shape: typed component → sibling index resource → mark JSON path transitional → wait for overlay parity check before authority swap.
+`Solid`, `OneWayPlatform`, and `DamageVolume` (with the legacy
+`HazardBlock` alias) now carry typed components (`LdtkSolid` /
+`LdtkOneWayPlatform` / `LdtkDamageVolume`) plus sibling
+per-frame index resources (`LdtkRuntimeSolidIndex` /
+`LdtkRuntimeOneWayIndex` / `LdtkRuntimeDamageIndex`) rebuilt in
+active-area-local coords each frame. `LdtkRuntimeSpineParity`
+compares the index counts to the JSON-derived `ae::World::blocks`
+(`Solid` / `OneWay` / `Hazard`) and logs a single deduped warning
+whenever they diverge. The JSON adapter (`compose_runtime_area`)
+still owns runtime collision authority. Authority swap requires
+parity holding across boot + hot reload + every active area; do
+not delete JSON arms before then. Next on the list:
+`KinematicPath` and the remaining `CameraZone` work. See
+`docs/ldtk_runtime_spine.md`.
+
+## Settings / input architecture
+
+`crate::settings` is a real module with `audio` / `controls` /
+`gameplay` / `video` submodules and a `UserSettings` resource
+(serializable, defaults today; persistence is a focused follow-up).
+The pause overlay is a renderer/controller that walks a page
+stack and dispatches per-row `apply_action` calls; mutation logic
+stays close to the field. See `docs/settings_system.md` for the
+add-a-setting recipe. `SandboxAction` has a dedicated
+`Menu*` action seam; the sandbox menu reads only those + analog
+left-stick repeat, never gameplay actions. Controller deadzone
+applies before the engine sees the move axis (fixes Xbox 360 +Y
+drift on blink aim); dash uses hysteretic trigger edges with
+configurable thresholds (fixes held-trigger re-fire).
+
+## Player projectile + motion input
+
+`ambition_engine::projectile` is the reusable backend
+(`ProjectileSpawner`, `ProjectileBody`, `MotionInputBuffer`); the
+sandbox `crate::projectile::update_projectiles` wires them into
+gameplay. F (kbd) / West face button fire a Fireball; performing a
+half-circle motion before pressing fires a Hadouken. See
+`docs/mechanics/projectiles_and_motion_inputs.md`.
+
+## Encounter / mob lab foundation
+
+`crate::encounter` is a tested state-machine resource for wave-
+based encounters with lock / fail / retry semantics. The mob-lab
+LDtk room and the spawn / camera-zoom / lock wiring are deferred
+with a punch list in `docs/mob_lab.md`.
 

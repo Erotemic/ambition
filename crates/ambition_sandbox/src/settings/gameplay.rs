@@ -114,8 +114,7 @@ impl GameplaySettings {
     pub const DAMAGE_STEP: f32 = 0.10;
 
     pub fn nudge_player_damage(&mut self, delta: f32) {
-        self.player_damage_multiplier =
-            (self.player_damage_multiplier + delta).clamp(0.25, 4.0);
+        self.player_damage_multiplier = (self.player_damage_multiplier + delta).clamp(0.25, 4.0);
     }
 
     pub fn clamp_all(&mut self) {

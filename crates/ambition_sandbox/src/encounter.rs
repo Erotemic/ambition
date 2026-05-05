@@ -123,7 +123,11 @@ impl EncounterState {
     /// trigger AABB. Returns the trace events the caller should
     /// push to the gameplay trace. No-op if the encounter is
     /// already active or no spec is loaded.
-    pub fn maybe_start(&mut self, player_pos: ae::Vec2, player_size: ae::Vec2) -> Vec<EncounterEvent> {
+    pub fn maybe_start(
+        &mut self,
+        player_pos: ae::Vec2,
+        player_size: ae::Vec2,
+    ) -> Vec<EncounterEvent> {
         let mut events = Vec::new();
         let Some(spec) = self.spec.clone() else {
             return events;
@@ -132,7 +136,10 @@ impl EncounterState {
             return events;
         }
         let player_aabb = ae::aabb_from_min_size(
-            ae::Vec2::new(player_pos.x - player_size.x * 0.5, player_pos.y - player_size.y * 0.5),
+            ae::Vec2::new(
+                player_pos.x - player_size.x * 0.5,
+                player_pos.y - player_size.y * 0.5,
+            ),
             player_size,
         );
         let trigger = spec.trigger_aabb();
@@ -146,7 +153,9 @@ impl EncounterState {
                 remaining_mobs: wave.mobs.len(),
             };
             self.lock_active = true;
-            events.push(EncounterEvent::Started { id: spec.id.clone() });
+            events.push(EncounterEvent::Started {
+                id: spec.id.clone(),
+            });
             events.push(EncounterEvent::WaveStarted {
                 wave_index: 0,
                 label: wave.label.clone(),
@@ -161,7 +170,9 @@ impl EncounterState {
             // No waves authored → cleared immediately.
             self.phase = EncounterPhase::Cleared;
             self.lock_active = false;
-            events.push(EncounterEvent::Started { id: spec.id.clone() });
+            events.push(EncounterEvent::Started {
+                id: spec.id.clone(),
+            });
             events.push(EncounterEvent::Cleared { id: spec.id });
             events.push(EncounterEvent::LockChanged { locked: false });
         }
@@ -234,10 +245,7 @@ impl EncounterState {
     /// Return to a fresh attempt — called by the sandbox after
     /// the player respawns.
     pub fn reset_for_retry(&mut self) {
-        if matches!(
-            self.phase,
-            EncounterPhase::Failed | EncounterPhase::Cleared
-        ) {
+        if matches!(self.phase, EncounterPhase::Failed | EncounterPhase::Cleared) {
             self.phase = EncounterPhase::Inactive;
             self.lock_active = false;
         }
@@ -250,11 +258,7 @@ impl EncounterState {
                 wave_index,
                 remaining_mobs,
             } => {
-                let total = self
-                    .spec
-                    .as_ref()
-                    .map(|s| s.waves.len())
-                    .unwrap_or(0);
+                let total = self.spec.as_ref().map(|s| s.waves.len()).unwrap_or(0);
                 format!(
                     "encounter wave {}/{}  remaining {}",
                     wave_index + 1,

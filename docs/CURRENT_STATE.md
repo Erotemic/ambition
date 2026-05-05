@@ -214,6 +214,64 @@ ADR 0012's Phase 2 events refactor (commits c49c1e5–81900dd) routed every sim-
 
 Library structure: `lib.rs` declares `pub mod app;` (`crates/ambition_sandbox/src/app.rs` ~1500 lines) with four App-builder helpers — `init_sandbox_resources`, `add_simulation_plugins`, `add_ldtk_runtime_plugin`, `add_presentation_plugins` — that both binaries compose. `bevy_ecs_ldtk::LdtkPlugin` and Avian2D `AmbitionPhysicsPlugin` live in the visible-only halves because they need `RenderApp` / `SceneSpawner` respectively; headless still has the JSON-derived `RoomSet` for collision and runs the runtime-spine systems as no-ops without LDtk-spawned entities. `handle_debug_hotkeys` moved to a presentation-side Bevy system so `sandbox_update` no longer reads `Res<ButtonInput<KeyCode>>`. See `docs/headless_simulation.md` and `docs/events_refactor_plan.md`.
 
+## Menu input + controller deadzone / trigger fixes
+
+`SandboxAction` now has a dedicated menu seam:
+`MenuNavigate{Up,Down,Left,Right}`, `MenuSelect`, `MenuBack`,
+`MenuStick` (analog), and the new `Projectile`, `DashAnalog`,
+`AimStick` actions. The pause menu reads only the `Menu*` actions
+through a new `MenuInputState` resource that handles analog repeat
+(initial delay + interval, both configurable); cardinal D-pad /
+arrow-key edges always fire immediately. `Enter` is now a real
+binding on `MenuSelect` rather than a hardcoded check inside the
+settings page.
+
+`ControlFrame::read_gameplay_with_settings` applies the configured
+left-stick deadzone before any walk-modifier / blink-aim consumer
+sees the movement axis, fixing Xbox 360 +Y drift gradually pushing
+precision blink aim upward. The new `PlayerDashTriggerState`
+resource together with `update_trigger_edge` collapses analog
+right-trigger jitter into a single press edge using configurable
+press / release thresholds, fixing held-Dash from re-firing.
+
+## Player projectile + Hadouken
+
+`ambition_engine::projectile` adds the reusable primitives:
+`ProjectileKind { Fireball, Hadouken }`, `ProjectileSpec`,
+`ProjectileBody`, `ProjectileSpawner` (cooldown + `ResourceMeter`),
+and `MotionInputBuffer` for half-circle / quarter-circle motion-input
+recognition. The sandbox `crate::projectile::update_projectiles`
+system samples the deadzoned axis into the motion buffer, ticks
+in-flight projectiles against the active world, and fires Fireball
+on press or Hadouken when a half-circle precedes the press. Trace
+events go through new `GameplayTraceEvent::Projectile`. F (kbd) and
+West face button are the default fire bindings. See
+`docs/mechanics/projectiles_and_motion_inputs.md`.
+
+## LDtk runtime-spine: OneWayPlatform + DamageVolume promoted
+
+`LdtkOneWayPlatform` and `LdtkDamageVolume` typed components are now
+attached on plugin-spawned LDtk entities, with sibling
+`LdtkRuntimeOneWayIndex` / `LdtkRuntimeDamageIndex` resources
+rebuilt every frame in active-area-local coordinates. New
+`LdtkRuntimeSpineParity` resource compares the index counts to the
+JSON-derived `ae::World::blocks` (`Solid` / `OneWay` / `Hazard`) and
+logs a single deduped warning whenever they diverge. JSON adapter
+authority is unchanged pending parity verification across hot reload
+and the full active-area set; once parity holds the JSON arms can
+retire. See `docs/ldtk_runtime_spine.md`.
+
+## Encounter / wave system foundation
+
+`crate::encounter` lands a self-contained
+`EncounterState` Bevy resource with the lock / wave / fail state
+machine (`Inactive | Active{wave_index, remaining_mobs} | Cleared |
+Failed`) plus `EncounterEvent`s for trace plumbing. The mob-lab
+LDtk room and the spawn / lock / camera-zoom wiring are deferred
+with a punch list in `docs/mob_lab.md`. Today the resource lives
+empty in the visible binary; the LDtk loader populates `spec` once
+the markers land.
+
 ## LDtk roadmap step 1 (Solid promotion, partial)
 
 Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities.
@@ -252,19 +310,21 @@ can append to without restructuring.
 See `docs/mechanics/body_modes.md` for how to build mechanics on top of
 these primitives.
 
-## Pause-menu Settings page
+## Settings architecture (real)
 
-The pause overlay now has a Settings sub-page reachable from the top
-page. The first row is **Display Mode** (Windowed / Borderless /
-Fullscreen, cycled with Left/Right or Confirm). The page is the
-designated home for future user-facing toggles (volume, gamma,
-controls, accessibility); see `docs/pause_menu_settings.md` for the
-extension recipe (add a `SettingsItem` variant, append to `ALL`,
-implement `label`, handle in `handle_settings_input`).
-
-The display-mode F6/F7 dev hotkeys still work and now delegate to
-`settings::apply_display_mode`, so the menu and the keystrokes stay in
-lock-step.
+`crate::settings` is now a real module with submodules `audio`,
+`controls`, `gameplay`, `video` and a top-level `UserSettings`
+resource. The pause overlay renders a page stack
+(`Top → Video / Audio / Controls / Gameplay → row pages`) backed by
+serializable per-category structs. Audio volumes (master / music /
+sfx / mute) are pushed to the Kira channels by
+`apply_audio_settings`; difficulty + assist + the gameplay damage
+multiplier compose into a single scalar that scales incoming player
+damage. Flashes / colorblind / camera-zoom / trace-auto-dump
+settings exist as data and will be consumed where wiring lands.
+See `docs/settings_system.md` for the architecture and the
+add-a-setting recipe; `docs/pause_menu_settings.md` for the page
+layout and bindings.
 
 ## Trace recorder hardening (post-baseline)
 

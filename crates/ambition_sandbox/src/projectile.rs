@@ -67,10 +67,19 @@ pub struct PlayerProjectile {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ProjectileTraceEvent {
-    Fired { kind: ae::ProjectileKind },
-    BlockedByResource { kind: ae::ProjectileKind },
-    Hit { kind: ae::ProjectileKind, damage: i32 },
-    Expired { kind: ae::ProjectileKind },
+    Fired {
+        kind: ae::ProjectileKind,
+    },
+    BlockedByResource {
+        kind: ae::ProjectileKind,
+    },
+    Hit {
+        kind: ae::ProjectileKind,
+        damage: i32,
+    },
+    Expired {
+        kind: ae::ProjectileKind,
+    },
 }
 
 impl ProjectileTraceEvent {
@@ -119,8 +128,7 @@ pub fn update_projectiles(
 
     // Sample motion for Hadouken recognition. axis_y is +Y-down in
     // sandbox conventions; engine MotionDirection treats +Y as up.
-    let dir =
-        ae::MotionDirection::from_axis(control_frame.axis_x, -control_frame.axis_y, 0.55);
+    let dir = ae::MotionDirection::from_axis(control_frame.axis_x, -control_frame.axis_y, 0.55);
     let now = state.clock;
     state.motion_buffer.push(dir, now);
 

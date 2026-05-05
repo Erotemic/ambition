@@ -470,9 +470,7 @@ impl ControlFrame {
         // binary RT2 button as the "press level". The settings-defined
         // press / release thresholds collapse trigger jitter into a
         // single edge.
-        let raw_trigger = actions
-            .value(&SandboxAction::DashAnalog)
-            .clamp(0.0, 1.0);
+        let raw_trigger = actions.value(&SandboxAction::DashAnalog).clamp(0.0, 1.0);
         let dash_button_value = if actions.pressed(&SandboxAction::Dash) {
             1.0
         } else {
@@ -504,7 +502,11 @@ impl ControlFrame {
             raw_aim.y,
             controls.right_stick_deadzone,
         );
-        let aim_y = if controls.invert_aim_y { -aim_y_raw } else { aim_y_raw };
+        let aim_y = if controls.invert_aim_y {
+            -aim_y_raw
+        } else {
+            aim_y_raw
+        };
 
         let frame = Self {
             axis_x: axis.x,
@@ -833,13 +835,37 @@ mod tests {
     fn menu_state_emits_first_press_then_waits_for_initial_delay() {
         let mut state = MenuInputState::default();
         // First frame holding Down: emit immediately.
-        let f = state.step(false, false, false, false, Some(MenuDir::Down), false, false, false, 0.016, 0.30, 0.10);
+        let f = state.step(
+            false,
+            false,
+            false,
+            false,
+            Some(MenuDir::Down),
+            false,
+            false,
+            false,
+            0.016,
+            0.30,
+            0.10,
+        );
         assert!(f.down);
         // Continuing to hold for less than the initial delay must not
         // re-emit.
         let mut emits = 0;
         for _ in 0..5 {
-            let f = state.step(false, false, false, false, Some(MenuDir::Down), false, false, false, 0.016, 0.30, 0.10);
+            let f = state.step(
+                false,
+                false,
+                false,
+                false,
+                Some(MenuDir::Down),
+                false,
+                false,
+                false,
+                0.016,
+                0.30,
+                0.10,
+            );
             if f.down {
                 emits += 1;
             }
@@ -851,10 +877,34 @@ mod tests {
     fn menu_state_repeats_after_initial_delay() {
         let mut state = MenuInputState::default();
         // First push to start the hold.
-        let _ = state.step(false, false, false, false, Some(MenuDir::Right), false, false, false, 0.016, 0.10, 0.05);
+        let _ = state.step(
+            false,
+            false,
+            false,
+            false,
+            Some(MenuDir::Right),
+            false,
+            false,
+            false,
+            0.016,
+            0.10,
+            0.05,
+        );
         let mut emits = 0;
         for _ in 0..40 {
-            let f = state.step(false, false, false, false, Some(MenuDir::Right), false, false, false, 0.016, 0.10, 0.05);
+            let f = state.step(
+                false,
+                false,
+                false,
+                false,
+                Some(MenuDir::Right),
+                false,
+                false,
+                false,
+                0.016,
+                0.10,
+                0.05,
+            );
             if f.right {
                 emits += 1;
             }
@@ -867,16 +917,22 @@ mod tests {
         let mut state = MenuInputState::default();
         // D-pad / arrow keys edge fires on one frame but does not start
         // an analog hold.
-        let f = state.step(true, false, false, false, None, false, false, false, 0.016, 0.30, 0.10);
+        let f = state.step(
+            true, false, false, false, None, false, false, false, 0.016, 0.30, 0.10,
+        );
         assert!(f.up);
-        let f = state.step(false, false, false, false, None, false, false, false, 0.016, 0.30, 0.10);
+        let f = state.step(
+            false, false, false, false, None, false, false, false, 0.016, 0.30, 0.10,
+        );
         assert!(!f.any_directional());
     }
 
     #[test]
     fn menu_state_select_passes_through() {
         let mut state = MenuInputState::default();
-        let f = state.step(false, false, false, false, None, true, false, false, 0.016, 0.30, 0.10);
+        let f = state.step(
+            false, false, false, false, None, true, false, false, 0.016, 0.30, 0.10,
+        );
         assert!(f.select);
         assert!(!f.any_directional());
     }
@@ -884,7 +940,9 @@ mod tests {
     #[test]
     fn menu_state_back_passes_through() {
         let mut state = MenuInputState::default();
-        let f = state.step(false, false, false, false, None, false, true, false, 0.016, 0.30, 0.10);
+        let f = state.step(
+            false, false, false, false, None, false, true, false, 0.016, 0.30, 0.10,
+        );
         assert!(f.back);
     }
 }

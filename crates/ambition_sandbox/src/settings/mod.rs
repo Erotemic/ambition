@@ -211,15 +211,11 @@ impl SettingsItem {
                 "Display Mode: {}  < / >",
                 DisplayModeKind::from(settings.video.display_mode).label()
             ),
-            Self::CameraZoom => format!(
-                "Camera Zoom: {}  < / >",
-                settings.video.camera_zoom.label()
-            ),
+            Self::CameraZoom => {
+                format!("Camera Zoom: {}  < / >", settings.video.camera_zoom.label())
+            }
             Self::Flashes => format!("Flashes: {}  < / >", settings.video.flashes.label()),
-            Self::Colorblind => format!(
-                "Colorblind: {}  < / >",
-                settings.video.colorblind.label()
-            ),
+            Self::Colorblind => format!("Colorblind: {}  < / >", settings.video.colorblind.label()),
 
             Self::MasterVolume => format!(
                 "Master Volume: {}%  < / >",
@@ -415,7 +411,10 @@ pub fn apply_action(
             SettingsAction::Confirm => settings.audio.nudge_sfx(AudioSettings::VOLUME_STEP),
         },
         SettingsItem::Mute => {
-            if matches!(action, SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev) {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
                 settings.audio.toggle_mute();
             }
         }
@@ -426,9 +425,7 @@ pub fn apply_action(
             }
             let len = keyboard_preset_count;
             settings.controls.keyboard_preset_index = match action {
-                SettingsAction::Prev => {
-                    (settings.controls.keyboard_preset_index + len - 1) % len
-                }
+                SettingsAction::Prev => (settings.controls.keyboard_preset_index + len - 1) % len,
                 SettingsAction::Next | SettingsAction::Confirm => {
                     (settings.controls.keyboard_preset_index + 1) % len
                 }
@@ -436,12 +433,10 @@ pub fn apply_action(
         }
         SettingsItem::ControllerProfile => match action {
             SettingsAction::Prev => {
-                settings.controls.controller_profile =
-                    settings.controls.controller_profile.prev();
+                settings.controls.controller_profile = settings.controls.controller_profile.prev();
             }
             SettingsAction::Next | SettingsAction::Confirm => {
-                settings.controls.controller_profile =
-                    settings.controls.controller_profile.next();
+                settings.controls.controller_profile = settings.controls.controller_profile.next();
             }
         },
         SettingsItem::LeftStickDeadzone => {
@@ -479,12 +474,18 @@ pub fn apply_action(
             settings.controls.clamp_all();
         }
         SettingsItem::DpadMenuNav => {
-            if matches!(action, SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev) {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
                 settings.controls.dpad_menu_navigation = !settings.controls.dpad_menu_navigation;
             }
         }
         SettingsItem::InvertAimY => {
-            if matches!(action, SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev) {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
                 settings.controls.invert_aim_y = !settings.controls.invert_aim_y;
             }
         }
@@ -503,24 +504,34 @@ pub fn apply_action(
         }
 
         SettingsItem::Difficulty => match action {
-            SettingsAction::Prev => settings.gameplay.difficulty = settings.gameplay.difficulty.prev(),
+            SettingsAction::Prev => {
+                settings.gameplay.difficulty = settings.gameplay.difficulty.prev()
+            }
             SettingsAction::Next | SettingsAction::Confirm => {
                 settings.gameplay.difficulty = settings.gameplay.difficulty.next()
             }
         },
         SettingsItem::Assist => {
-            if matches!(action, SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev) {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
                 settings.gameplay.assist = settings.gameplay.assist.toggle();
             }
         }
         SettingsItem::PlayerDamageMultiplier => match action {
-            SettingsAction::Prev => settings.gameplay.nudge_player_damage(-GameplaySettings::DAMAGE_STEP),
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.gameplay.nudge_player_damage(GameplaySettings::DAMAGE_STEP)
-            }
+            SettingsAction::Prev => settings
+                .gameplay
+                .nudge_player_damage(-GameplaySettings::DAMAGE_STEP),
+            SettingsAction::Next | SettingsAction::Confirm => settings
+                .gameplay
+                .nudge_player_damage(GameplaySettings::DAMAGE_STEP),
         },
         SettingsItem::TraceAutoDump => {
-            if matches!(action, SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev) {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
                 settings.gameplay.trace_auto_dump = !settings.gameplay.trace_auto_dump;
             }
         }

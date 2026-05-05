@@ -206,6 +206,7 @@ INTGRID_VALUE_SOLID = 1
 INTGRID_VALUE_ONE_WAY = 2
 INTGRID_VALUE_BLINK_SOFT = 3
 INTGRID_VALUE_BLINK_HARD = 4
+INTGRID_VALUE_HAZARD = 5
 
 
 def entity_to_intgrid_value(ent_spec: dict) -> int | None:
@@ -213,14 +214,19 @@ def entity_to_intgrid_value(ent_spec: dict) -> int | None:
     *lowered* to, or `None` for entities that stay as entity instances.
 
     The runtime treats IntGrid-derived blocks and entity-derived
-    Solid/OneWay/Blink blocks as collision-equivalent (after the
-    rectangle-merge pass in `int_grid_value_to_block`), but
+    Solid/OneWay/Blink/Hazard blocks as collision-equivalent (after
+    the rectangle-merge pass in `int_grid_value_to_block`), but
     IntGrid is the canonical representation across the project:
-    every level except mob_lab was already on IntGrid, and the
-    LDtk editor handles per-cell painting for free. Authoring
-    Solid/OneWayPlatform/BlinkWall in YAML just to have the tool
-    re-emit them as entities is a needless detour, so this hook
-    auto-lowers them at build time.
+    every level is on IntGrid, and the LDtk editor handles per-cell
+    painting for free. Authoring static surfaces as entities just
+    to have the tool re-emit them as entities is a needless detour,
+    so this hook auto-lowers them at build time.
+
+    Note: `DamageVolume` is intentionally NOT lowered — those
+    entities can carry motion paths (`path_points`/`path_speed`)
+    and per-volume damage that IntGrid cells can't represent.
+    Use HazardBlock for static damage surfaces and DamageVolume
+    only for moving / variable-damage hazards.
     """
     ident = ent_spec.get("type")
     if ident == "Solid":
@@ -230,6 +236,8 @@ def entity_to_intgrid_value(ent_spec: dict) -> int | None:
     if ident == "BlinkWall":
         tier = (ent_spec.get("fields") or {}).get("tier", "Soft")
         return INTGRID_VALUE_BLINK_HARD if str(tier) == "Hard" else INTGRID_VALUE_BLINK_SOFT
+    if ident == "HazardBlock":
+        return INTGRID_VALUE_HAZARD
     return None
 
 

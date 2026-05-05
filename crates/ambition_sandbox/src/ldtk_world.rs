@@ -286,6 +286,7 @@ const INT_GRID_SOLID: i32 = 1;
 const INT_GRID_ONE_WAY: i32 = 2;
 const INT_GRID_BLINK_SOFT: i32 = 3;
 const INT_GRID_BLINK_HARD: i32 = 4;
+const INT_GRID_HAZARD: i32 = 5;
 
 fn int_grid_value_to_block(value: i32, min: ae::Vec2, size: ae::Vec2) -> Result<ae::Block, String> {
     match value {
@@ -303,6 +304,11 @@ fn int_grid_value_to_block(value: i32, min: ae::Vec2, size: ae::Vec2) -> Result<
             size,
             ae::BlinkWallTier::Hard,
         )),
+        // Hazard tile: damages the player on contact. Static-only —
+        // moving / per-volume-tuned hazards stay on the
+        // `RoomObjectKind::DamageVolume` entity path because IntGrid
+        // can't carry per-cell motion paths or damage amounts.
+        INT_GRID_HAZARD => Ok(ae::Block::hazard("ldtk hazard", min, size)),
         other => Err(format!("unknown IntGrid value {other}")),
     }
 }
@@ -1712,6 +1718,65 @@ mod tests {
         let project = LdtkProject::load_embedded();
         let report = project.validate();
         assert!(report.errors.is_empty(), "{:#?}", report.errors);
+    }
+
+    /// Audit: no static-collision entity types should appear in the
+    /// embedded LDtk file. Solid / OneWayPlatform / BlinkWall /
+    /// HazardBlock all belong on the IntGrid Collision layer (per
+    /// `tools/ldtk_intgrid_migration.py`); leaving them as entities
+    /// is the bug the user noticed — entities don't tile, so a
+    /// "Solid floor" entity stretches its single texture over a
+    /// long footprint and smears.
+    ///
+    /// `DamageVolume` deliberately stays as an entity because it
+    /// can carry motion paths and per-volume damage; the audit
+    /// excludes it.
+    ///
+    /// If a future authoring patch reintroduces any of these
+    /// entity types, this test fails and the author has to either
+    /// re-run the migration or convert the spec to use IntGrid
+    /// rectangles directly.
+    #[test]
+    fn no_static_collision_entities_in_embedded_ldtk() {
+        let project = LdtkProject::load_embedded();
+        const BANNED: &[&str] = &["Solid", "OneWayPlatform", "BlinkWall", "HazardBlock"];
+        let mut violations: Vec<String> = Vec::new();
+        for level in &project.levels {
+            for layer in &level.layer_instances {
+                for entity in &layer.entity_instances {
+                    if BANNED.contains(&entity.identifier.as_str()) {
+                        violations.push(format!(
+                            "{}::{} (iid={})",
+                            level.identifier, entity.identifier, entity.iid
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(
+            violations.is_empty(),
+            "found {} static-collision entit{} that should be IntGrid tiles \
+             (run `python tools/ldtk_intgrid_migration.py` to migrate): {:#?}",
+            violations.len(),
+            if violations.len() == 1 { "y" } else { "ies" },
+            violations,
+        );
+    }
+
+    /// IntGrid value 5 (Hazard) must round-trip through the
+    /// `int_grid_value_to_block` mapping into a `BlockKind::Hazard`
+    /// block. Pinning the conversion so a future renumbering can't
+    /// silently drop hazard cells from the runtime collision world.
+    #[test]
+    fn int_grid_hazard_value_maps_to_hazard_block() {
+        let block = int_grid_value_to_block(
+            5,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(16.0, 16.0),
+        )
+        .expect("value 5 must map to a block");
+        assert!(matches!(block.kind, ae::BlockKind::Hazard));
+        assert_eq!(block.name, "ldtk hazard");
     }
 
     #[test]

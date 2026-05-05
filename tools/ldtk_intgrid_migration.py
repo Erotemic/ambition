@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """Migration: introduce an IntGrid `Collision` layer to sandbox.ldtk and
-rewrite static collision entities (Solid / OneWayPlatform / BlinkWall) in
-every gameplay level into IntGrid cells.
+rewrite static collision entities (Solid / OneWayPlatform / BlinkWall /
+HazardBlock) in every gameplay level into IntGrid cells.
 
-Per `docs/path_forward.md` step E. Idempotent at the level granularity:
-- If the Collision layer def is missing, it is created and an empty
-  Collision instance is added to every level.
-- Each level in `LEVELS_TO_MIGRATE` whose Collision instance is still
-  empty has its surface entities painted into cells; any subsequent run
-  is a no-op for already-migrated levels.
-
-LDtk 1.5.3 round-trip must still work after this script runs (verified by
-the repair script).
+Per `docs/path_forward.md` step E. Idempotent: re-running on a
+fully-migrated file is a no-op (no matching entities left to lower).
 
 Layer values:
     1 = Solid (matches existing Solid entity collision)
     2 = OneWayUp (matches OneWayPlatform)
     3 = BlinkSoft (matches BlinkWall { tier: Soft })
     4 = BlinkHard (matches BlinkWall { tier: Hard })
+    5 = Hazard (matches HazardBlock — static-damage surface)
+
+`DamageVolume` deliberately stays as an entity: it carries motion
+paths and per-volume damage amounts that IntGrid cells can't
+represent. Anything moving or with custom damage is authored by
+entity; anything static and grid-aligned belongs on the IntGrid
+layer.
 
 Cells are 16x16 pixels (matches the existing AMBITION_LAYER grid).
 """
@@ -35,12 +35,14 @@ VALUE_SOLID = 1
 VALUE_ONE_WAY = 2
 VALUE_BLINK_SOFT = 3
 VALUE_BLINK_HARD = 4
+VALUE_HAZARD = 5
 
 INT_GRID_VALUES = [
     {"value": VALUE_SOLID, "identifier": "Solid", "color": "#6B7280", "tile": None, "groupUid": 0},
     {"value": VALUE_ONE_WAY, "identifier": "OneWayUp", "color": "#92C9F5", "tile": None, "groupUid": 0},
     {"value": VALUE_BLINK_SOFT, "identifier": "BlinkSoft", "color": "#A78BFA", "tile": None, "groupUid": 0},
     {"value": VALUE_BLINK_HARD, "identifier": "BlinkHard", "color": "#7C3AED", "tile": None, "groupUid": 0},
+    {"value": VALUE_HAZARD, "identifier": "Hazard", "color": "#F04450", "tile": None, "groupUid": 0},
 ]
 
 # Levels to migrate. The static-collision pipeline now applies to every
@@ -59,6 +61,8 @@ def entity_to_value(entity: dict) -> int | None:
     if ident == "BlinkWall":
         tier = _field(entity, "tier") or "Soft"
         return VALUE_BLINK_HARD if tier == "Hard" else VALUE_BLINK_SOFT
+    if ident == "HazardBlock":
+        return VALUE_HAZARD
     return None
 
 
@@ -249,6 +253,22 @@ def main() -> int:
         print(f"Added Collision IntGrid layer def (uid={layer_def_uid}).")
     else:
         layer_def_uid = existing["uid"]
+        # Idempotently sync the layer def's `intGridValues` with the
+        # canonical INT_GRID_VALUES list. This handles the case where
+        # the layer def was created on an older script version with
+        # fewer values (e.g. before Hazard / value 5 was added) — the
+        # migration adds the missing entries instead of bailing out.
+        existing_values = {v["value"] for v in existing.get("intGridValues", [])}
+        added = 0
+        for value_def in INT_GRID_VALUES:
+            if value_def["value"] not in existing_values:
+                existing.setdefault("intGridValues", []).append(value_def)
+                added += 1
+        if added:
+            print(
+                f"Extended Collision IntGrid layer def with {added} new "
+                f"value(s): {[v['identifier'] for v in INT_GRID_VALUES if v['value'] not in existing_values]}"
+            )
 
     # Walk levels and lower static-collision entities into the existing
     # Collision instances. Already-migrated levels (no surface entities

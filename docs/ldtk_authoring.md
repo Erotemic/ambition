@@ -86,30 +86,46 @@ markers but are not yet active gameplay systems.
 
 ### Static-collision entities are lowered to IntGrid
 
-`Solid`, `OneWayPlatform`, and `BlinkWall` are still listed above
-because the LDtk editor accepts them and existing tooling consumes
-them, but the canonical project representation is the **`Collision`
-IntGrid layer**. Every gameplay level in `sandbox.ldtk` already lives
-on IntGrid; `tools/ldtk_intgrid_migration.py` is the one-shot script
-that lowered the entity instances into IntGrid cells, and
-`tools/author_ldtk_area.py` *automatically lowers* `Solid` /
-`OneWayPlatform` / `BlinkWall` rectangles in any new spec into the
-same IntGrid cells (so authoring by rectangle stays ergonomic without
-re-introducing entity-shaped collision in the editor).
+`Solid`, `OneWayPlatform`, `BlinkWall`, and `HazardBlock` are still
+listed above because the LDtk editor accepts them and existing
+tooling consumes them, but the canonical project representation is
+the **`Collision` IntGrid layer**. Every gameplay level in
+`sandbox.ldtk` lives on IntGrid; `tools/ldtk_intgrid_migration.py` is
+the one-shot script that lowered entity instances into IntGrid cells,
+and `tools/author_ldtk_area.py` *automatically lowers* `Solid` /
+`OneWayPlatform` / `BlinkWall` / `HazardBlock` rectangles in any new
+spec into the same IntGrid cells.
 
 The runtime treats IntGrid-derived blocks and entity-derived
-Solid/OneWay/Blink blocks as collision-equivalent
+Solid/OneWay/Blink/Hazard blocks as collision-equivalent
 (`int_grid_value_to_block` reconstructs the same merged rectangles),
-so the lowering is transparent. The benefit is per-cell editing in
-the LDtk GUI and exactly one canonical representation across the
-project.
+so the lowering is transparent. The benefits:
+
+- per-cell editing in the LDtk GUI;
+- one canonical representation across the project;
+- the runtime renders IntGrid blocks via `Sprite::image_mode = Tiled`
+  with seamless 32×32 tile textures (`solid_tile`, `one_way_tile`,
+  `hazard_tile`, `soft_blink_tile`, `hard_blink_tile`), so a long
+  floor / tall wall / wide spike strip repeats cleanly instead of
+  smearing one stretched image across hundreds of pixels.
+
+The audit test `no_static_collision_entities_in_embedded_ldtk` in
+`crates/ambition_sandbox/src/ldtk_world.rs` fails the build if any
+of these entity types reappear, so a future authoring patch can't
+silently regress.
+
+**`DamageVolume` deliberately stays as an entity** because it can
+carry motion paths (`path_points` / `path_speed` / `path_mode`) and
+per-volume damage that IntGrid cells can't represent. Use
+`HazardBlock` for static damage surfaces and `DamageVolume` only for
+moving / variable-damage hazards.
 
 If a future patch needs to add static collision to a level, do it on
 the IntGrid layer (paint cells in LDtk, or rect in YAML), not by
-adding `Solid` entity instances. See
+adding `Solid` / `HazardBlock` entity instances. See
 `tools/specs/mob_lab_area.yaml` for the rect-spec form and
 `tools/ldtk_intgrid_migration.py` for the entity → IntGrid value
-mapping (1=Solid, 2=OneWayUp, 3=BlinkSoft, 4=BlinkHard).
+mapping (1=Solid, 2=OneWayUp, 3=BlinkSoft, 4=BlinkHard, 5=Hazard).
 
 ## Important fields
 

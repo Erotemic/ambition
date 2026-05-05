@@ -487,27 +487,56 @@ impl EncounterState {
     }
 
     pub fn hud_summary(&self) -> String {
+        let id = self.spec.as_ref().map(|s| s.id.as_str()).unwrap_or("--");
         match self.phase {
-            EncounterPhase::Inactive => "encounter inactive".into(),
+            EncounterPhase::Inactive => format!("[{id}] inactive"),
             EncounterPhase::Starting { remaining } => {
-                format!("encounter starting in {:.1}s", remaining)
+                let bar = countdown_bar(remaining, 3.0);
+                format!("[{id}] LOCKED IN — wave 1 in {remaining:.1}s {bar}")
             }
             EncounterPhase::Active {
                 wave_index,
                 remaining_mobs,
             } => {
                 let total = self.spec.as_ref().map(|s| s.waves.len()).unwrap_or(0);
+                let label = self
+                    .spec
+                    .as_ref()
+                    .and_then(|s| s.waves.get(wave_index).map(|w| w.label.as_str()))
+                    .unwrap_or("wave");
                 format!(
-                    "encounter wave {}/{}  remaining {}",
+                    "[{id}] WAVE {}/{} :: {label} :: {} left",
                     wave_index + 1,
                     total,
                     remaining_mobs
                 )
             }
-            EncounterPhase::Cleared => "encounter cleared".into(),
-            EncounterPhase::Failed => "encounter failed".into(),
+            EncounterPhase::Cleared => format!("[{id}] CLEARED"),
+            EncounterPhase::Failed => format!("[{id}] FAILED — reset to retry"),
         }
     }
+
+    /// Human-readable status for the encounter's first cleared event,
+    /// surfaced as a HUD banner on the frame the encounter ends.
+    pub fn celebratory_banner(&self) -> Option<String> {
+        match self.phase {
+            EncounterPhase::Cleared => self
+                .spec
+                .as_ref()
+                .map(|s| format!("ARENA CLEAR — {}", s.id)),
+            _ => None,
+        }
+    }
+}
+
+fn countdown_bar(remaining: f32, total: f32) -> String {
+    if total <= 0.0 {
+        return String::new();
+    }
+    let ratio = (1.0 - (remaining / total).clamp(0.0, 1.0)).clamp(0.0, 1.0);
+    let filled = (ratio * 8.0).round() as usize;
+    let empty = 8usize.saturating_sub(filled);
+    format!("[{}{}]", "#".repeat(filled), ".".repeat(empty))
 }
 
 /// Trace + side-effect events emitted by the encounter state machine.
@@ -1032,6 +1061,11 @@ pub fn update_encounters_from_world(
             runtime.features.set_switch_on(&switch_id, true);
         }
         runtime.features.despawn_encounter_enemies(&encounter_id);
+        // Polish: surface a celebration banner so the player gets
+        // explicit "you cleared it" feedback (not just an ambient
+        // green switch).
+        runtime.features.banner = format!("ARENA CLEAR — {encounter_id}");
+        runtime.features.banner_timer = 3.0;
         // Quest hook: a "clear encounter" step can advance now.
         quests.push_event(ae::QuestAdvanceEvent::EncounterCleared(
             encounter_id.clone(),
@@ -1395,8 +1429,8 @@ mod tests {
         state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
         advance_past_intro(&mut state);
         let summary = state.hud_summary();
-        assert!(summary.contains("wave 1/2"), "got: {summary}");
-        assert!(summary.contains("remaining 1"), "got: {summary}");
+        assert!(summary.contains("WAVE 1/2"), "got: {summary}");
+        assert!(summary.contains("1 left"), "got: {summary}");
     }
 
     // ── SwitchActivation parsing ──────────────────────────────────

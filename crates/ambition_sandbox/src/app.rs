@@ -106,6 +106,7 @@ pub struct ProgressionResources<'w> {
     pub quests: Res<'w, crate::quest::QuestRegistry>,
     pub cutscene: Res<'w, crate::cutscene::ActiveCutscene>,
     pub bosses: Res<'w, crate::boss_encounter::BossEncounterRegistry>,
+    pub encounters: Res<'w, crate::encounter::EncounterRegistry>,
 }
 
 /// Per-frame Vec collectors for the sim → presentation event channels.
@@ -2208,6 +2209,7 @@ fn update_hud(
     let quest_registry = &progression.quests;
     let cutscene = &progression.cutscene;
     let boss_registry = &progression.bosses;
+    let encounter_registry = &progression.encounters;
     let Ok(mut text) = query.get_mut(entities.hud) else {
         return;
     };
@@ -2283,19 +2285,48 @@ fn update_hud(
     };
     let boss_line = if let Some((id, phase)) = boss_registry.active_phase() {
         if let Some(state) = boss_registry.get(id) {
+            // Health bar: 16-tick string that shrinks as boss HP drops
+            // so the player gets a glanceable progress signal even
+            // before a real HUD lands.
+            let frac = state.hp_fraction();
+            let filled = (frac * 16.0).round().clamp(0.0, 16.0) as usize;
+            let empty = 16usize.saturating_sub(filled);
+            let bar = format!(
+                "[{}{}]",
+                "=".repeat(filled),
+                "-".repeat(empty)
+            );
             format!(
-                "\nBOSS [{}] {} hp {}/{} ({:.0}%)",
+                "\nBOSS [{}] {} hp {}/{} {} {:.0}%",
                 id,
                 phase.label(),
                 state.hp,
                 state.spec.max_hp,
-                state.hp_fraction() * 100.0,
+                bar,
+                frac * 100.0,
             )
         } else {
             String::new()
         }
     } else {
         String::new()
+    };
+    let encounter_line = {
+        let mut bits = Vec::new();
+        for (_id, state) in encounter_registry.encounters.iter() {
+            if matches!(
+                state.phase,
+                crate::encounter::EncounterPhase::Starting { .. }
+                    | crate::encounter::EncounterPhase::Active { .. }
+            ) {
+                bits.push(state.hud_summary());
+            }
+        }
+        if bits.is_empty() {
+            String::new()
+        } else {
+            format!("\nENCOUNTER {}", bits.join("  ::  "))
+        }
     };
     let locomotion = ae::LocomotionState::from_player(&runtime.player).label();
     let body_mode = ae::BodyMode::from_player(&runtime.player).label();
@@ -2318,7 +2349,7 @@ fn update_hud(
     );
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -2350,6 +2381,7 @@ fn update_hud(
             quest_line,
             cutscene_line,
             boss_line,
+            encounter_line,
             mechanics_line,
         );
         return;
@@ -2420,9 +2452,14 @@ fn update_hud(
         feature_banner,
         mechanics_line,
     );
-    if !quest_line.is_empty() || !cutscene_line.is_empty() || !boss_line.is_empty() {
+    if !quest_line.is_empty()
+        || !cutscene_line.is_empty()
+        || !boss_line.is_empty()
+        || !encounter_line.is_empty()
+    {
         text.push_str(&quest_line);
         text.push_str(&cutscene_line);
         text.push_str(&boss_line);
+        text.push_str(&encounter_line);
     }
 }

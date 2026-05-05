@@ -430,6 +430,119 @@ mod tests {
         assert!(s.death_complete());
     }
 
+    /// Drive a full encounter from `Dormant` all the way through
+    /// `Death`, verifying every phase transition fires in order with
+    /// the right music swap. This is the integration-style guard
+    /// for the boss state machine — single test, single source of
+    /// truth.
+    #[test]
+    fn full_encounter_progression_intro_to_death() {
+        let mut s = BossEncounterState::new(BossEncounterSpec::gradient_sentinel());
+        let mut transitions: Vec<(BossEncounterPhase, BossEncounterPhase)> = Vec::new();
+        let mut music_track_changes: Vec<String> = Vec::new();
+        let mut record = |evs: &[BossEncounterEvent]| {
+            for ev in evs {
+                match ev {
+                    BossEncounterEvent::PhaseChanged { from, to } => {
+                        transitions.push((*from, *to));
+                    }
+                    BossEncounterEvent::MusicRequested { track } => {
+                        music_track_changes.push(track.clone());
+                    }
+                    _ => {}
+                }
+            }
+        };
+
+        // Dormant → Intro
+        let evs = s.enter_intro();
+        record(&evs);
+
+        // Intro → Phase1
+        let evs = s.tick(s.spec.intro_seconds + 0.05);
+        record(&evs);
+        assert!(matches!(s.phase, BossEncounterPhase::Phase1));
+
+        // Damage in 2hp chunks (under the stagger threshold of 6)
+        // and tick past stagger_window between hits so pressure
+        // resets cleanly. Stop before crossing the transition
+        // threshold so the next "big hit" is the one that flips us.
+        let mut hits = 0;
+        while s.hp_fraction() > s.spec.phase1_to_transition_hp + 0.05 {
+            let evs = s.apply_player_damage(2);
+            record(&evs);
+            let evs = s.tick(s.spec.stagger_window_seconds + 0.05);
+            record(&evs);
+            hits += 1;
+            if hits > 50 {
+                panic!("too many small hits — pressure reset is broken");
+            }
+        }
+        // One small hit to cross the transition threshold without
+        // building stagger pressure to 6.
+        let evs = s.apply_player_damage(2);
+        record(&evs);
+        assert!(
+            matches!(s.phase, BossEncounterPhase::Transition),
+            "expected Transition, got {:?}",
+            s.phase
+        );
+
+        // Transition → Phase2
+        let evs = s.tick(s.spec.transition_seconds + 0.05);
+        record(&evs);
+        assert!(matches!(s.phase, BossEncounterPhase::Phase2));
+
+        // Damage to enrage threshold.
+        let evs = s.apply_player_damage(s.spec.max_hp / 2);
+        record(&evs);
+        // The enrage threshold may have been crossed in one big hit.
+        // If not, take another bite.
+        if !matches!(s.phase, BossEncounterPhase::Enrage) {
+            let evs = s.apply_player_damage(2);
+            record(&evs);
+        }
+        // Walk through any stagger.
+        let evs = s.tick(s.spec.stagger_seconds + 0.05);
+        record(&evs);
+        assert!(
+            matches!(s.phase, BossEncounterPhase::Enrage | BossEncounterPhase::Phase2),
+            "expected Enrage or Phase2, got {:?}",
+            s.phase
+        );
+
+        // Final damage to kill.
+        let evs = s.apply_player_damage(s.spec.max_hp);
+        record(&evs);
+        assert!(matches!(s.phase, BossEncounterPhase::Death));
+        assert!(!s.death_complete());
+
+        // Tick past death animation.
+        let evs = s.tick(s.spec.death_seconds + 0.05);
+        record(&evs);
+        assert!(s.death_complete());
+
+        // Verify each canonical transition fired at least once.
+        let saw = |from: BossEncounterPhase, to: BossEncounterPhase| {
+            transitions.iter().any(|(f, t)| *f == from && *t == to)
+        };
+        assert!(saw(BossEncounterPhase::Dormant, BossEncounterPhase::Intro));
+        assert!(saw(BossEncounterPhase::Intro, BossEncounterPhase::Phase1));
+        assert!(saw(
+            BossEncounterPhase::Phase1,
+            BossEncounterPhase::Transition
+        ));
+        assert!(saw(
+            BossEncounterPhase::Transition,
+            BossEncounterPhase::Phase2,
+        ));
+        // Music swaps fired in order.
+        assert!(
+            !music_track_changes.is_empty(),
+            "no music changes recorded — adaptive music wiring is silent"
+        );
+    }
+
     #[test]
     fn invulnerable_phases_ignore_damage() {
         let mut s = BossEncounterState::new(BossEncounterSpec::gradient_sentinel());

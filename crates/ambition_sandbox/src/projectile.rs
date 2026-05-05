@@ -156,9 +156,14 @@ pub fn update_projectiles(
     state.clock += dt;
     state.spawner.tick(dt);
 
-    // Sample motion for Hadouken recognition. axis_y is +Y-down in
-    // sandbox conventions; engine MotionDirection treats +Y as up.
-    let dir = ae::MotionDirection::from_axis(control_frame.axis_x, -control_frame.axis_y, 0.55);
+    // Sample motion for Hadouken recognition. Both `ControlFrame::axis_y`
+    // and `MotionDirection::from_axis` use the +Y-DOWN convention
+    // (the engine matcher returns `Down` for y > 0; pinned by the
+    // `motion_direction_quantization` engine test). Pass axis_y
+    // straight through — an earlier negation here was inverting the
+    // sign and silently mapping every "press Down" sample to `Up`,
+    // which made every QCF detection fail forever.
+    let dir = ae::MotionDirection::from_axis(control_frame.axis_x, control_frame.axis_y, 0.55);
     let now = state.clock;
     state.motion_buffer.push(dir, now);
 
@@ -260,6 +265,19 @@ pub fn update_projectiles(
             None
         };
 
+        // Debug log on every fire-press so the player can see
+        // exactly what the motion recognizer saw and why a given
+        // press did or didn't upgrade to a Hadouken. Run with
+        // `RUST_LOG=ambition_sandbox::projectile=info` (or
+        // `RUST_LOG=info` more broadly) to surface these.
+        log_press_diagnostics(
+            &state.motion_buffer,
+            super_qcf,
+            half_circle,
+            grace_qcf,
+            motion_kind,
+        );
+
         if let Some(kind) = motion_kind {
             // Motion gesture committed — fire immediately, do not
             // start a charge for this press.
@@ -301,6 +319,68 @@ pub fn update_projectiles(
     let tick = trace.current_tick();
     for event in events {
         trace.push_event(event.into_trace_event(tick));
+    }
+}
+
+/// One-line summary of the motion buffer plus what the recognizer
+/// matched, emitted at INFO every time the player presses fire. The
+/// goal is concrete feedback when "the Hadouken won't come out": the
+/// player sees the actual sample sequence the recognizer saw, plus
+/// the verdict from each gate (full QCF / half-circle / grace QCF /
+/// none). If the printed sequence doesn't end in
+/// `Down → Right` (or mirror), the player's input wasn't reaching
+/// the recognizer and tuning the gate won't help — it's an input-
+/// pipeline issue.
+fn log_press_diagnostics(
+    buffer: &ae::MotionInputBuffer,
+    super_qcf: Option<f32>,
+    half_circle: Option<f32>,
+    grace_qcf: Option<f32>,
+    motion_kind: Option<ae::ProjectileKind>,
+) {
+    // Compact recent-direction trail: at most the last 8 distinct
+    // samples (collapse runs of the same direction so a long press
+    // doesn't dominate the trail).
+    let mut trail: Vec<&'static str> = Vec::with_capacity(8);
+    let mut last_label: Option<&'static str> = None;
+    for sample in buffer.samples.iter() {
+        let label = motion_label(sample.dir);
+        if Some(label) == last_label {
+            continue;
+        }
+        trail.push(label);
+        last_label = Some(label);
+    }
+    let trail_text = if trail.is_empty() {
+        "(empty)".to_string()
+    } else {
+        // Keep only the last 8 entries so the line stays readable.
+        let start = trail.len().saturating_sub(8);
+        trail[start..].join(" → ")
+    };
+    let verdict = match motion_kind {
+        Some(ae::ProjectileKind::HadoukenSuper) => "HadoukenSuper",
+        Some(ae::ProjectileKind::Hadouken) => "Hadouken (grace)",
+        Some(ae::ProjectileKind::Fireball) => "Fireball (motion)",
+        None => "no motion → fireball charge",
+    };
+    info!(
+        target: "ambition::projectile",
+        "fire press · trail=[{trail_text}] · super_qcf={super_qcf:?} half_circle={half_circle:?} grace_qcf={grace_qcf:?} → {verdict}",
+    );
+}
+
+fn motion_label(dir: ae::MotionDirection) -> &'static str {
+    match dir {
+        ae::MotionDirection::Neutral => "·",
+        ae::MotionDirection::Up => "Up",
+        ae::MotionDirection::Down => "Down",
+        ae::MotionDirection::Left => "Left",
+        ae::MotionDirection::Right => "Right",
+        ae::MotionDirection::UpLeft => "UpLeft",
+        ae::MotionDirection::UpRight => "UpRight",
+        ae::MotionDirection::DownLeft => "DownLeft",
+        ae::MotionDirection::DownRight => "DownRight",
     }
 }
 

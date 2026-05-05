@@ -997,6 +997,58 @@ mod tests {
         }
     }
 
+    /// Pin the +Y-DOWN convention of `MotionDirection::from_axis`.
+    /// The sandbox's `ControlFrame::axis_y` is also +Y-DOWN
+    /// (player presses Down → axis_y > 0), so the correct sandbox
+    /// → engine call is `from_axis(axis_x, axis_y, threshold)` with
+    /// NO sign flip. A previous version of the sandbox negated y
+    /// here under the (incorrect) assumption that the engine used
+    /// +Y up; the result was that every "press Down" sample
+    /// arrived at the buffer as `Up` and QCF detection silently
+    /// failed forever. This test exists so any future refactor
+    /// that "corrects" the convention has to break it explicitly.
+    #[test]
+    fn motion_direction_uses_y_down_like_sandbox() {
+        // Down (sandbox: axis_y > 0) → MotionDirection::Down.
+        assert_eq!(
+            MotionDirection::from_axis(0.0, 1.0, 0.5),
+            MotionDirection::Down
+        );
+        // Up (sandbox: axis_y < 0) → MotionDirection::Up.
+        assert_eq!(
+            MotionDirection::from_axis(0.0, -1.0, 0.5),
+            MotionDirection::Up
+        );
+        // Down + Right → DownRight (matches the diagonal a player
+        // hits on the way through a 3-step QCF).
+        assert_eq!(
+            MotionDirection::from_axis(0.7, 0.7, 0.5),
+            MotionDirection::DownRight
+        );
+    }
+
+    /// End-to-end: a Down → Right sequence pushed using the same
+    /// convention sandbox/`update_projectiles` uses must be
+    /// recognized as the grace QCF. This is the test that would
+    /// have failed (and caught the sign-flip bug) before the fix.
+    #[test]
+    fn down_then_right_via_from_axis_recognizes_grace_qcf() {
+        let mut buf = MotionInputBuffer::new(0.5);
+        let mut t = 0.0;
+        // Sandbox-convention input: axis_y = 1.0 means Down.
+        for (ax, ay) in [(0.0_f32, 1.0_f32), (1.0, 0.0)] {
+            // PASS THROUGH (no sign flip) — must match the sandbox.
+            let dir = MotionDirection::from_axis(ax, ay, 0.55);
+            buf.push(dir, t);
+            t += 0.04;
+        }
+        assert_eq!(
+            buf.detect_quarter_circle_grace(),
+            Some(1.0),
+            "Down-then-Right via from_axis must register as grace QCF"
+        );
+    }
+
     /// HadoukenSuper has strictly stronger stats than the grace
     /// Hadouken. Pinning the relative ordering so a future tuning
     /// pass doesn't accidentally make the harder gesture weaker.

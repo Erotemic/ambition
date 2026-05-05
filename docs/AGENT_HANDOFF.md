@@ -301,6 +301,64 @@ half-circle motion before pressing fires a Hadouken. See
 
 `crate::encounter` is a tested state-machine resource for wave-
 based encounters with lock / fail / retry semantics. The mob-lab
-LDtk room and the spawn / camera-zoom / lock wiring are deferred
-with a punch list in `docs/mob_lab.md`.
+LDtk room is wired end-to-end: `EncounterTrigger` enters
+`Starting`, the camera zoom + lock wall + music swap apply,
+`mob_lab_wave_specs` drives the hard-coded wave script, and a
+hallway `Switch` free-toggles `Cleared / Inactive` for sandbox
+iteration. Persistence (Cleared / Failed) survives reload. See
+`docs/mob_lab.md` for layout, save shape, and remaining deferred
+items (smooth camera ease, switch sprite swap, multi-encounter
+authoring, on-screen wave indicator).
+
+## Post-`sandbox_update` mechanics (ledge grab + swim)
+
+`crate::ledge_grab::update_ledge_grab` and
+`crate::swim::update_swim` are sandbox-side systems that run
+*after* `sandbox_update` and mutate `runtime.player` directly.
+They were landed as narrow add-ons so the dense `movement.rs`
+simulator did not have to be reshaped to ship the mechanic. Treat
+them as transitional integration layers, not the final shape:
+
+- ledge_grab off → system clears `SandboxRuntime::ledge_grab` and
+  is a no-op on the player.
+- swim off → passive drag + fall-speed cap still apply when the
+  player is in a water volume; the active upward impulse is gated
+  on `runtime.player.abilities.swim`.
+
+Because these run outside the main movement / trace step, any new
+mechanic that *also* mutates the player after `sandbox_update`
+must explicitly think about ordering against ledge_grab / swim. If
+you need to add another such system, register it on the
+`progression` chain in `app.rs` after the existing pair, and
+prefer reading `runtime.player` rather than re-deriving collision
+state.
+
+The eventual fix is folding these into a unified player-owned
+state machine. See `docs/tech_debt_log.md` ("Simulation-order
+debt") for the migration plan.
+
+## Character AI shared evaluator
+
+`ambition_engine::character_ai` provides
+`CharacterAiSnapshot` + `CharacterAiMode` and a pure evaluator
+that picks the mode from the snapshot. It is used today as an
+*observed* signal — `EnemyRuntime` / `BossRuntime` populate
+`ai_mode` for HUD/debug — but the movement / attack branches still
+read the old timer fields. The path to making it authoritative is
+in `docs/character_ai_refactor.md`. Hostile NPC conversion already
+routes through `EnemyRuntime` so a single AI loop covers authored
+enemies and runtime-converted hostiles, but bosses and per-brain
+knobs are still parallel implementations.
+
+## SandboxRuntime is SP-only
+
+`SandboxRuntime` is a global Bevy resource that holds player
+position / velocity / abilities, feature runtimes, dialogue,
+physics tuning, and per-player gameplay timers (mana, slash
+damage, invincible, ledge grab, player_died_pending). The
+architecture-targets memory is explicit: this shape does not
+extend to multi-player or per-player input feel. Don't add new
+"per-player" data to `SandboxRuntime` without writing it down in
+`docs/tech_debt_log.md` — the longer the list grows, the more
+work the eventual per-player split has to do.
 

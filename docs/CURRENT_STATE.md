@@ -263,14 +263,69 @@ retire. See `docs/ldtk_runtime_spine.md`.
 
 ## Encounter / wave system foundation
 
-`crate::encounter` lands a self-contained
-`EncounterState` Bevy resource with the lock / wave / fail state
-machine (`Inactive | Active{wave_index, remaining_mobs} | Cleared |
-Failed`) plus `EncounterEvent`s for trace plumbing. The mob-lab
-LDtk room and the spawn / lock / camera-zoom wiring are deferred
-with a punch list in `docs/mob_lab.md`. Today the resource lives
-empty in the visible binary; the LDtk loader populates `spec` once
-the markers land.
+`crate::encounter` is the wave / lock / fail state machine
+(`Inactive | Starting | Active{wave_index, remaining_mobs} |
+Cleared | Failed`) plus `EncounterEvent`s for trace plumbing. The
+mob-lab LDtk room is wired end-to-end: `EncounterTrigger` enters
+`Starting`, the camera zooms, the music swap fires, the lock wall
+materializes through `sync_lock_walls`, and the hard-coded wave
+script in `mob_lab_wave_specs` drives spawning. Death-during-active
+fails the encounter; the `Switch` in the hallway free-toggles
+between `Cleared` and `Inactive`. Persistence (Cleared / Failed)
+survives reload via `sandbox_save.ron`. See `docs/mob_lab.md` for
+the full layout, persistence, and what is still deferred (smooth
+camera ease, switch sprite swap, multi-encounter authoring, HUD
+wave indicator).
+
+## Player-owned mechanics layered after `sandbox_update`
+
+The recent rapid additions — F3 stats editor (mana / slash damage
+/ invincible), ledge grab, swim — were intentionally landed as
+narrow systems running *after* `sandbox_update` so they did not
+require splitting the dense `movement.rs` simulator. The cost is a
+small split-brain in the simulation order:
+
+- `crate::ledge_grab::update_ledge_grab` mutates
+  `runtime.player.pos / vel / on_ground / on_wall / wall_clinging`
+  outside the main movement step, gated on
+  `runtime.player.abilities.ledge_grab`. When the ability is off
+  the system clears `SandboxRuntime::ledge_grab` to `None` and
+  returns immediately — no movement effect.
+- `crate::swim::update_swim` reads `FeatureRuntime::water_volumes`
+  and writes `runtime.player.vel` while the player AABB is
+  submerged. Passive drag and the fall-speed cap always apply
+  (so an un-upgraded player splashes through water sluggishly);
+  the active upward swim impulse is gated on
+  `runtime.player.abilities.swim`.
+- `SandboxRuntime` now holds `mana_current` / `mana_max` /
+  `slash_damage` / `invincible` / `ledge_grab` /
+  `player_died_pending` — all conceptually per-player state, all
+  on the global SP-only resource. The architecture-targets memory
+  is explicit that this shape does not extend to multi-player or
+  per-player input feel. See the corresponding entries in
+  `docs/tech_debt_log.md` (under "Simulation-order debt").
+
+Treat these post-update systems as *transitional integration
+layers*. The migration target is to fold their state into a unified
+player component / state machine so they participate in the main
+movement / trace / state-machine pipeline, not bolt onto it.
+
+## Character AI: pure evaluator, not yet authoritative
+
+`ambition_engine::character_ai` is now the canonical
+`CharacterAiSnapshot → CharacterAiMode` evaluator (Idle / Patrol /
+Chase / Telegraph / Attack / Recover / Stunned / Dead). It is pure,
+Bevy-free, and unit-tested. Hostile NPC conversion already routes
+through `EnemyRuntime`, so a single AI implementation drives both
+authored enemies and runtime-converted hostiles.
+
+The evaluator is *observed*, not yet *authoritative*: `EnemyRuntime`
+and `BossRuntime` build a snapshot and stash the resulting mode
+for HUD/debug, but movement / attack branches still read the old
+timer fields directly. Migrating those branches over is a
+deliberate follow-up — see `docs/character_ai_refactor.md` for the
+target shape and the two-step plan (parity-test refactor first,
+then data-table per-brain knobs).
 
 ## LDtk roadmap step 1 (Solid promotion, partial)
 

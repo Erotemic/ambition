@@ -87,3 +87,103 @@ pub fn update_ledge_grab(
         climbing: false,
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::input::ControlFrame;
+    use crate::{GameWorld, LedgeGrabState, SandboxRuntime};
+    use ambition_engine::{self as ae};
+
+    fn empty_world() -> ae::World {
+        ae::World::new(
+            "ledge_test",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 1000.0),
+            Vec::new(),
+        )
+    }
+
+    fn ledge_app(ledge_grab_ability: bool) -> App {
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        app.insert_resource(GameWorld(empty_world()));
+        let world = empty_world();
+        let mut abilities = ae::AbilitySet::sandbox_all();
+        abilities.ledge_grab = ledge_grab_ability;
+        let runtime = SandboxRuntime::new(
+            &world,
+            abilities,
+            ae::DEFAULT_TUNING,
+            crate::physics::PhysicsSandboxSettings::default(),
+        );
+        app.insert_resource(runtime);
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(Update, update_ledge_grab);
+        app
+    }
+
+    /// Disabling the ledge_grab ability must clear any latched
+    /// `SandboxRuntime::ledge_grab` state and must not move the
+    /// player. This is the contract the tech-debt note relies on:
+    /// turning the ability off cleanly disengages the post-update
+    /// mechanic.
+    #[test]
+    fn ability_off_clears_state_and_does_not_move_player() {
+        let mut app = ledge_app(false);
+        // Pre-populate a latched ledge state and remember the player
+        // position so we can assert it didn't move.
+        let pos_before;
+        let vel_before;
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            pos_before = runtime.player.pos;
+            vel_before = runtime.player.vel;
+            runtime.ledge_grab = Some(LedgeGrabState {
+                contact: ae::LedgeContact {
+                    wall_normal_x: 1.0,
+                    anchor: ae::Vec2::new(123.0, 456.0),
+                    climb_target: ae::Vec2::new(150.0, 432.0),
+                },
+                elapsed: 0.5,
+                climbing: false,
+            });
+        }
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert!(
+            runtime.ledge_grab.is_none(),
+            "ability off must drop the latched ledge state"
+        );
+        assert_eq!(
+            runtime.player.pos, pos_before,
+            "ability off must not move the player"
+        );
+        assert_eq!(
+            runtime.player.vel, vel_before,
+            "ability off must not modify player velocity"
+        );
+    }
+
+    /// Sanity check: with the ability off and no latched state, the
+    /// system is a no-op even if the player happens to be wall-
+    /// clinging (the early return must short-circuit before the
+    /// probe runs).
+    #[test]
+    fn ability_off_short_circuits_even_when_wall_clinging() {
+        let mut app = ledge_app(false);
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.player.wall_clinging = true;
+            runtime.player.on_wall = true;
+            runtime.player.wall_normal_x = 1.0;
+        }
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert!(runtime.ledge_grab.is_none());
+        // Wall-cling flags are not cleared by the ledge_grab system —
+        // it's a no-op on the player when the ability is off.
+        assert!(runtime.player.wall_clinging);
+        assert!(runtime.player.on_wall);
+    }
+}

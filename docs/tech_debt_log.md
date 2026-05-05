@@ -12,6 +12,57 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ## Open
 
+### Simulation-order debt
+
+- **HIGH — Player-owned mechanics run *after* `sandbox_update` and
+  bypass main movement/trace assumptions**
+  - Files: `crates/ambition_sandbox/src/ledge_grab.rs`,
+    `crates/ambition_sandbox/src/swim.rs`,
+    `crates/ambition_sandbox/src/app.rs` (progression chain after
+    `sandbox_update`).
+  - `update_ledge_grab` and `update_swim` mutate
+    `runtime.player.pos / vel / on_ground / on_wall / wall_clinging`
+    *outside* the main `movement.rs` step. Trace recording fires
+    after them so the snapshot is consistent, but any invariant
+    enforced inside `movement.rs` (collision repair, ground/wall
+    flag derivation, locomotion-state transitions) does not run a
+    second time after these systems write. Today this is benign —
+    swim only damps velocity inside water, ledge grab snaps the
+    player to a ledge anchor that the engine probe vetted — but
+    the next post-update mechanic that, say, repositions the
+    player horizontally would need to re-validate against
+    `World::blocks` itself or accept that the next frame's
+    collision step has to fix it up.
+  - Same shape covers the F3 stats editor's writes
+    (`mana_current`, `slash_damage`, `invincible`): they're a
+    sandbox-side veneer that the engine doesn't know about.
+  - **Future target**: move player-owned mechanics toward explicit
+    Player component / state-machine ownership inside the engine
+    (one unified "player mechanics" phase, not N post-update
+    bolt-ons). Until then: don't add a new post-update player
+    mutator without writing the ordering decision down here, and
+    prefer extending the engine state machine over adding another
+    system to the chain.
+  - **Multiplayer caveat**: this isn't a "make it MP-ready" item.
+    `SandboxRuntime` is a global SP-only resource by construction;
+    the per-player split is its own follow-up. This entry is
+    purely about simulation-order coherence within SP.
+
+- **MED — `SandboxRuntime` collected new per-player fields without
+  per-player ownership**
+  - File: `crates/ambition_sandbox/src/lib.rs`
+  - Recent additions: `mana_current`, `mana_max`, `slash_damage`,
+    `invincible`, `ledge_grab`, `player_died_pending`. Each one
+    shipped on `SandboxRuntime` rather than on `Player` because
+    the surrounding F3 / encounter / ledge-grab features needed a
+    place to put state and `SandboxRuntime` was the lowest-friction
+    answer. The cost is that the long-planned `Player`-as-entity
+    refactor now has more fields to relocate.
+  - **Rule of thumb**: if a new field is conceptually per-player,
+    open a tech-debt entry instead of treating "stick it on
+    `SandboxRuntime`" as zero-cost. The list is the budget the
+    eventual per-player split has to spend.
+
 ### Runtime / state
 
 - **MED — `EnemyRuntime` movement still pre-computes `desired_x` from

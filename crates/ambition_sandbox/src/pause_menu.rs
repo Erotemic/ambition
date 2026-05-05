@@ -1,16 +1,14 @@
 //! Pause menu overlay (UI shell + navigation).
 //!
 //! `GameMode::Paused` already gates gameplay. This module is the
-//! visible side: a translucent overlay with a small action menu and
-//! a focused selection that responds to keyboard / gamepad through
-//! `SandboxAction`.
+//! visible side: a translucent overlay with a small action menu and a
+//! focused selection that responds to keyboard / gamepad through the
+//! `Menu*` actions on `crate::input::SandboxAction`.
 //!
-//! The menu has two pages:
-//!
-//! * `Top` — Resume / Settings / Music / Inventory / Quit.
-//! * `Settings` — Display Mode / Back. The vocabulary for this page
-//!   lives in [`crate::settings`]; this module is only the renderer
-//!   and controller.
+//! The menu is structured as a stack of pages (`SettingsPage`). The
+//! top page lists Resume / Settings / Music / Inventory / Quit; the
+//! Settings entry pushes onto a category page (Video / Audio /
+//! Controls / Gameplay), which then push to the actual setting rows.
 //!
 //! When `audio` is disabled the Music row is replaced with a
 //! placeholder and the navigation system uses the audio-free path so
@@ -28,11 +26,14 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::audio::{switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState};
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
-use crate::input::SandboxAction;
+use crate::input::{
+    analog_to_dir, MenuInputFrame, MenuInputState, SandboxAction,
+};
+use crate::input::KeyboardPreset;
 use crate::inventory::InventoryUiState;
 use crate::settings::{
-    handle_action as handle_settings_action, SettingsAction, SettingsItem, SettingsOutcome,
-    SettingsView,
+    apply_action as handle_settings_action, SettingsAction, SettingsItem, SettingsOutcome,
+    SettingsPage, UserSettings,
 };
 use crate::windowing::DisplayModeState;
 
@@ -49,11 +50,11 @@ pub struct PauseMenuTopPanel;
 #[derive(Component)]
 pub struct PauseMenuSettingsPanel;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum PauseMenuPage {
-    #[default]
-    Top,
-    Settings,
+/// Marker placed on every row entity inside the settings panel so the
+/// renderer can rebuild row text from `SettingsItem::label`.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SettingsRowSlot {
+    pub index: usize,
 }
 
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -113,22 +114,47 @@ impl PauseMenuItem {
     ];
 }
 
+/// Active page on the pause overlay. The pause overlay starts on
+/// `Top`; entering Settings transitions through the settings page
+/// stack (Top → Video / Audio / Controls / Gameplay).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PauseMenuPage {
+    #[default]
+    Top,
+    Settings(SettingsPage),
+}
+
 #[derive(Resource, Default)]
 pub struct PauseMenuState {
-    /// Selected index inside the active page. Reset on page enter so the
-    /// cursor lands on the first row consistently.
     pub selected: usize,
     pub page: PauseMenuPage,
+    /// Stack of pages we can pop back to. The current page is NOT in
+    /// this stack; it is the live `page` field.
+    pub stack: Vec<PauseMenuPage>,
 }
 
 impl PauseMenuState {
     fn enter_page(&mut self, page: PauseMenuPage) {
-        self.page = page;
-        self.selected = 0;
+        if self.page != page {
+            self.stack.push(self.page);
+            self.page = page;
+            self.selected = 0;
+        }
+    }
+
+    fn pop_page(&mut self) {
+        if let Some(prev) = self.stack.pop() {
+            self.page = prev;
+            self.selected = 0;
+        } else {
+            // Already at root — close the menu (caller decides).
+            self.page = PauseMenuPage::Top;
+            self.selected = 0;
+        }
     }
 }
 
-/// `MenuToggle` input opens/closes the pause menu by toggling `GameMode`.
+/// `Start` input opens/closes the pause menu by toggling `GameMode`.
 #[cfg(feature = "input")]
 pub fn pause_menu_toggle(
     action_state: Query<&ActionState<SandboxAction>>,
@@ -145,7 +171,9 @@ pub fn pause_menu_toggle(
     }
     match mode.get() {
         GameMode::Playing => {
-            state.enter_page(PauseMenuPage::Top);
+            state.page = PauseMenuPage::Top;
+            state.selected = 0;
+            state.stack.clear();
             next_mode.set(GameMode::Paused);
         }
         GameMode::Paused => {
@@ -156,39 +184,81 @@ pub fn pause_menu_toggle(
     }
 }
 
-/// Compact navigation actions decoded from the leafwing `ActionState`.
-/// Sharing this type between the audio-on and audio-off navigators
-/// keeps the menu logic in one place.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct NavInput {
-    up: bool,
-    down: bool,
-    left: bool,
-    right: bool,
-    confirm: bool,
-}
-
 #[cfg(feature = "input")]
-fn read_nav_input(actions: &ActionState<SandboxAction>) -> NavInput {
-    NavInput {
-        up: actions.just_pressed(&SandboxAction::MoveUp),
-        down: actions.just_pressed(&SandboxAction::MoveDown),
-        left: actions.just_pressed(&SandboxAction::MoveLeft),
-        right: actions.just_pressed(&SandboxAction::MoveRight),
-        confirm: actions.just_pressed(&SandboxAction::Jump),
+fn read_menu_frame(
+    actions: &ActionState<SandboxAction>,
+    state: &mut MenuInputState,
+    settings: &UserSettings,
+    dt: f32,
+) -> MenuInputFrame {
+    // D-pad / arrow keys / WASD edges. The D-pad navigation can be
+    // disabled in settings; keyboard cardinal edges always work.
+    let edge_up = actions.just_pressed(&SandboxAction::MenuNavigateUp);
+    let edge_down = actions.just_pressed(&SandboxAction::MenuNavigateDown);
+    let edge_left = actions.just_pressed(&SandboxAction::MenuNavigateLeft);
+    let edge_right = actions.just_pressed(&SandboxAction::MenuNavigateRight);
+
+    // Analog stick (left stick) navigation — apply the configured
+    // deadzone so a drifting controller can't autoscroll the menu.
+    let raw = actions.clamped_axis_pair(&SandboxAction::MenuStick);
+    let (sx, sy) = crate::settings::ControlSettings::apply_deadzone(
+        raw.x,
+        raw.y,
+        settings.controls.left_stick_deadzone,
+    );
+    let analog_dir = analog_to_dir(sx, sy, 0.5);
+
+    let select_pressed = actions.just_pressed(&SandboxAction::MenuSelect);
+    let back_pressed = actions.just_pressed(&SandboxAction::MenuBack);
+    let start_pressed = actions.just_pressed(&SandboxAction::Start);
+
+    let mut frame = state.step(
+        edge_up,
+        edge_down,
+        edge_left,
+        edge_right,
+        analog_dir,
+        select_pressed,
+        back_pressed,
+        start_pressed,
+        dt,
+        settings.controls.menu_repeat_initial_delay,
+        settings.controls.menu_repeat_interval,
+    );
+
+    if !settings.controls.dpad_menu_navigation {
+        // The D-pad bindings are still attached to the same
+        // `MenuNavigate*` actions; if the user has disabled D-pad
+        // navigation we suppress the frame entirely. Keyboard / stick
+        // navigation continues to work because their press edges have
+        // already been folded in.
+        // This is a coarse stub: D-pad and keyboard share the same
+        // edge today, so disabling D-pad nav also disables WASD/arrow
+        // edges. Future patches can split these by inspecting the
+        // input source.
+        frame = MenuInputFrame {
+            select: frame.select,
+            back: frame.back,
+            start: frame.start,
+            ..Default::default()
+        };
     }
+    frame
 }
 
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub fn pause_menu_navigate(
+    time: Res<Time>,
     action_state: Query<&ActionState<SandboxAction>>,
     mode: Res<State<GameMode>>,
     mut state: ResMut<PauseMenuState>,
+    mut menu_input_state: ResMut<MenuInputState>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut inventory: ResMut<InventoryUiState>,
     mut exit: MessageWriter<AppExit>,
     mut display_state: ResMut<DisplayModeState>,
+    mut user_settings: ResMut<UserSettings>,
     windows: Query<&mut Window, With<PrimaryWindow>>,
     #[cfg(feature = "audio")] library: Res<AudioLibrary>,
     #[cfg(feature = "audio")] mut music_state: ResMut<MusicPlaybackState>,
@@ -203,12 +273,34 @@ pub fn pause_menu_navigate(
     let Ok(actions) = action_state.single() else {
         return;
     };
-    let nav = read_nav_input(actions);
+    let dt = time.delta_secs();
+    let frame = read_menu_frame(actions, &mut menu_input_state, &user_settings, dt);
+
+    let preset_count = KeyboardPreset::presets().len();
+
+    // MenuBack always pops; if we're already at Top it closes the menu.
+    if frame.back {
+        match state.page {
+            PauseMenuPage::Top => {
+                inventory.visible = false;
+                next_mode.set(GameMode::Playing);
+            }
+            PauseMenuPage::Settings(SettingsPage::Top) => {
+                state.page = PauseMenuPage::Top;
+                state.selected = 0;
+                state.stack.clear();
+            }
+            _ => {
+                state.pop_page();
+            }
+        }
+        return;
+    }
 
     match state.page {
         PauseMenuPage::Top => {
             handle_top_input(
-                nav,
+                frame,
                 &mut state,
                 &mut next_mode,
                 &mut inventory,
@@ -221,8 +313,16 @@ pub fn pause_menu_navigate(
                 &music_channel,
             );
         }
-        PauseMenuPage::Settings => {
-            handle_settings_input(nav, &mut state, &mut display_state, windows);
+        PauseMenuPage::Settings(page) => {
+            handle_settings_page_input(
+                frame,
+                page,
+                &mut state,
+                &mut user_settings,
+                &mut display_state,
+                windows,
+                preset_count,
+            );
         }
     }
 }
@@ -230,7 +330,7 @@ pub fn pause_menu_navigate(
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 fn handle_top_input(
-    nav: NavInput,
+    nav: MenuInputFrame,
     state: &mut PauseMenuState,
     next_mode: &mut NextState<GameMode>,
     inventory: &mut InventoryUiState,
@@ -263,14 +363,14 @@ fn handle_top_input(
         }
     }
 
-    if nav.confirm {
+    if nav.select {
         match item {
             PauseMenuItem::Resume => {
                 inventory.visible = false;
                 next_mode.set(GameMode::Playing);
             }
             PauseMenuItem::Settings => {
-                state.enter_page(PauseMenuPage::Settings);
+                state.enter_page(PauseMenuPage::Settings(SettingsPage::Top));
             }
             PauseMenuItem::MusicTrack => {
                 #[cfg(feature = "audio")]
@@ -296,34 +396,56 @@ fn handle_top_input(
 }
 
 #[cfg(feature = "input")]
-fn handle_settings_input(
-    nav: NavInput,
+fn handle_settings_page_input(
+    nav: MenuInputFrame,
+    page: SettingsPage,
     state: &mut PauseMenuState,
+    user_settings: &mut UserSettings,
     display_state: &mut DisplayModeState,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    preset_count: usize,
 ) {
-    let items = SettingsItem::ALL;
+    let rows = SettingsItem::rows_for(page);
+    if rows.is_empty() {
+        return;
+    }
     if nav.up {
-        state.selected = (state.selected + items.len() - 1) % items.len();
+        state.selected = (state.selected + rows.len() - 1) % rows.len();
     }
     if nav.down {
-        state.selected = (state.selected + 1) % items.len();
+        state.selected = (state.selected + 1) % rows.len();
     }
+    if state.selected >= rows.len() {
+        state.selected = 0;
+    }
+    let item = rows[state.selected];
 
-    let item = items[state.selected];
     let action = if nav.left {
         Some(SettingsAction::Prev)
     } else if nav.right {
         Some(SettingsAction::Next)
-    } else if nav.confirm {
+    } else if nav.select {
         Some(SettingsAction::Confirm)
     } else {
         None
     };
     if let Some(action) = action {
-        let outcome = handle_settings_action(item, action, display_state, &mut windows);
-        if matches!(outcome, SettingsOutcome::Back) {
-            state.enter_page(PauseMenuPage::Top);
+        let outcome = handle_settings_action(
+            item,
+            action,
+            user_settings,
+            display_state,
+            &mut windows,
+            preset_count,
+        );
+        match outcome {
+            SettingsOutcome::Stay => {}
+            SettingsOutcome::OpenPage(next_page) => {
+                state.enter_page(PauseMenuPage::Settings(next_page));
+            }
+            SettingsOutcome::PopPage => {
+                state.pop_page();
+            }
         }
     }
 }
@@ -405,10 +527,10 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     let settings_panel = commands
         .spawn((
             Node {
-                width: Val::Px(380.0),
+                width: Val::Px(440.0),
                 padding: UiRect::all(Val::Px(28.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(14.0),
+                row_gap: Val::Px(10.0),
                 align_items: AlignItems::Center,
                 display: Display::None,
                 ..default()
@@ -429,35 +551,44 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 ..default()
             },
             TextColor(Color::srgba(0.92, 0.96, 1.0, 0.98)),
+            SettingsTitle,
             Name::new("Settings title"),
         ))
         .id();
     commands.entity(settings_panel).add_child(settings_title);
 
-    for item in SettingsItem::ALL {
-        let label = item.static_label();
+    // Pre-spawn enough slot rows to hold the largest page. Each frame
+    // the renderer fills `slot.index < rows.len()` slots with text and
+    // hides the rest. This avoids respawning UI nodes per page swap,
+    // which can cost a frame of layout instability.
+    const MAX_ROWS: usize = 12;
+    for index in 0..MAX_ROWS {
         let entity = commands
             .spawn((
                 Node {
                     width: Val::Percent(100.0),
-                    padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
+                    padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
-                Text::new(label),
+                Text::new(""),
                 TextFont {
-                    font_size: 18.0,
+                    font_size: 17.0,
                     ..default()
                 },
                 TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96)),
-                item,
-                Name::new(format!("Settings item: {label}")),
+                Visibility::Hidden,
+                SettingsRowSlot { index },
+                Name::new(format!("Settings row slot {index}")),
             ))
             .id();
         commands.entity(settings_panel).add_child(entity);
     }
 }
+
+#[derive(Component)]
+pub struct SettingsTitle;
 
 /// Show/hide the pause overlay based on `GameMode` and update item highlights.
 #[cfg(feature = "audio")]
@@ -468,13 +599,14 @@ pub fn sync_pause_menu(
     inventory: Res<InventoryUiState>,
     library: Res<AudioLibrary>,
     music_state: Res<MusicPlaybackState>,
-    display_state: Res<DisplayModeState>,
+    user_settings: Res<UserSettings>,
     mut roots: Query<&mut Visibility, With<PauseMenuRoot>>,
     mut top_panels: Query<&mut Node, (With<PauseMenuTopPanel>, Without<PauseMenuSettingsPanel>)>,
     mut settings_panels: Query<
         &mut Node,
         (With<PauseMenuSettingsPanel>, Without<PauseMenuTopPanel>),
     >,
+    mut titles: Query<(&mut Text, &SettingsTitle), Without<SettingsRowSlot>>,
     mut top_items: Query<
         (
             &PauseMenuItem,
@@ -482,16 +614,17 @@ pub fn sync_pause_menu(
             &mut TextColor,
             &mut BackgroundColor,
         ),
-        Without<SettingsItem>,
+        (Without<SettingsRowSlot>, Without<SettingsTitle>),
     >,
-    mut settings_items: Query<
+    mut row_slots: Query<
         (
-            &SettingsItem,
+            &SettingsRowSlot,
+            &mut Visibility,
             &mut Text,
             &mut TextColor,
             &mut BackgroundColor,
         ),
-        Without<PauseMenuItem>,
+        (Without<PauseMenuRoot>, Without<PauseMenuItem>, Without<SettingsTitle>),
     >,
 ) {
     let visible = matches!(mode.get(), GameMode::Paused) && !inventory.visible;
@@ -506,19 +639,32 @@ pub fn sync_pause_menu(
         return;
     }
 
-    apply_page_visibility(state.page, &mut top_panels, &mut settings_panels);
-    let view = SettingsView::from_state(&display_state);
+    let on_top = matches!(state.page, PauseMenuPage::Top);
+    apply_page_visibility(on_top, &mut top_panels, &mut settings_panels);
     if matches!(state.page, PauseMenuPage::Top) {
         let selected_item = PauseMenuItem::ALL.get(state.selected).copied();
         for (item, mut text, mut color, mut bg) in &mut top_items {
             **text = item.label(Some(&music_state), Some(&library));
             apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
         }
-    } else {
-        let selected_item = SettingsItem::ALL.get(state.selected).copied();
-        for (item, mut text, mut color, mut bg) in &mut settings_items {
-            **text = item.label(&view);
-            apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
+        // Hide all settings rows.
+        for (_, mut vis, _, _, _) in &mut row_slots {
+            *vis = Visibility::Hidden;
+        }
+    } else if let PauseMenuPage::Settings(page) = state.page {
+        let rows = SettingsItem::rows_for(page);
+        for (mut text, _) in &mut titles {
+            **text = page.title().to_string();
+        }
+        for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
+            if let Some(item) = rows.get(slot.index) {
+                **text = item.label(&user_settings);
+                let selected = state.selected == slot.index;
+                apply_item_highlight(&mut color, &mut bg, selected);
+                *vis = Visibility::Visible;
+            } else {
+                *vis = Visibility::Hidden;
+            }
         }
     }
 }
@@ -529,13 +675,14 @@ pub fn sync_pause_menu(
     mode: Res<State<GameMode>>,
     state: Res<PauseMenuState>,
     inventory: Res<InventoryUiState>,
-    display_state: Res<DisplayModeState>,
+    user_settings: Res<UserSettings>,
     mut roots: Query<&mut Visibility, With<PauseMenuRoot>>,
     mut top_panels: Query<&mut Node, (With<PauseMenuTopPanel>, Without<PauseMenuSettingsPanel>)>,
     mut settings_panels: Query<
         &mut Node,
         (With<PauseMenuSettingsPanel>, Without<PauseMenuTopPanel>),
     >,
+    mut titles: Query<(&mut Text, &SettingsTitle), Without<SettingsRowSlot>>,
     mut top_items: Query<
         (
             &PauseMenuItem,
@@ -543,16 +690,17 @@ pub fn sync_pause_menu(
             &mut TextColor,
             &mut BackgroundColor,
         ),
-        Without<SettingsItem>,
+        (Without<SettingsRowSlot>, Without<SettingsTitle>),
     >,
-    mut settings_items: Query<
+    mut row_slots: Query<
         (
-            &SettingsItem,
+            &SettingsRowSlot,
+            &mut Visibility,
             &mut Text,
             &mut TextColor,
             &mut BackgroundColor,
         ),
-        Without<PauseMenuItem>,
+        (Without<PauseMenuRoot>, Without<PauseMenuItem>, Without<SettingsTitle>),
     >,
 ) {
     let visible = matches!(mode.get(), GameMode::Paused) && !inventory.visible;
@@ -566,32 +714,43 @@ pub fn sync_pause_menu(
     if !visible {
         return;
     }
-    apply_page_visibility(state.page, &mut top_panels, &mut settings_panels);
-    let view = SettingsView::from_state(&display_state);
+    let on_top = matches!(state.page, PauseMenuPage::Top);
+    apply_page_visibility(on_top, &mut top_panels, &mut settings_panels);
     if matches!(state.page, PauseMenuPage::Top) {
         let selected_item = PauseMenuItem::ALL.get(state.selected).copied();
         for (item, mut text, mut color, mut bg) in &mut top_items {
             **text = item.label();
             apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
         }
-    } else {
-        let selected_item = SettingsItem::ALL.get(state.selected).copied();
-        for (item, mut text, mut color, mut bg) in &mut settings_items {
-            **text = item.label(&view);
-            apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
+        for (_, mut vis, _, _, _) in &mut row_slots {
+            *vis = Visibility::Hidden;
+        }
+    } else if let PauseMenuPage::Settings(page) = state.page {
+        let rows = SettingsItem::rows_for(page);
+        for (mut text, _) in &mut titles {
+            **text = page.title().to_string();
+        }
+        for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
+            if let Some(item) = rows.get(slot.index) {
+                **text = item.label(&user_settings);
+                let selected = state.selected == slot.index;
+                apply_item_highlight(&mut color, &mut bg, selected);
+                *vis = Visibility::Visible;
+            } else {
+                *vis = Visibility::Hidden;
+            }
         }
     }
 }
 
 fn apply_page_visibility(
-    page: PauseMenuPage,
+    on_top: bool,
     top_panels: &mut Query<&mut Node, (With<PauseMenuTopPanel>, Without<PauseMenuSettingsPanel>)>,
     settings_panels: &mut Query<
         &mut Node,
         (With<PauseMenuSettingsPanel>, Without<PauseMenuTopPanel>),
     >,
 ) {
-    let on_top = matches!(page, PauseMenuPage::Top);
     for mut node in &mut *top_panels {
         node.display = if on_top { Display::Flex } else { Display::None };
     }
@@ -625,14 +784,22 @@ mod tests {
     }
 
     #[test]
-    fn enter_page_resets_selected_to_zero() {
+    fn enter_page_pushes_onto_stack() {
         let mut s = PauseMenuState {
             selected: 3,
             page: PauseMenuPage::Top,
+            stack: Vec::new(),
         };
-        s.enter_page(PauseMenuPage::Settings);
-        assert!(matches!(s.page, PauseMenuPage::Settings));
+        s.enter_page(PauseMenuPage::Settings(SettingsPage::Top));
+        assert!(matches!(
+            s.page,
+            PauseMenuPage::Settings(SettingsPage::Top)
+        ));
         assert_eq!(s.selected, 0);
+        assert_eq!(s.stack.len(), 1);
+        s.pop_page();
+        assert!(matches!(s.page, PauseMenuPage::Top));
+        assert!(s.stack.is_empty());
     }
 
     #[test]

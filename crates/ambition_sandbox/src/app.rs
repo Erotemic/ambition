@@ -52,6 +52,8 @@ use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
 use crate::input::{ControlFrame, GAMEPAD_MAP};
+#[cfg(feature = "input")]
+use crate::input::{MenuInputState, PlayerDashTriggerState};
 use crate::inventory;
 use crate::ldtk_world;
 use crate::loading;
@@ -229,7 +231,11 @@ pub fn init_sandbox_resources(app: &mut App) {
         // `Res<ControlFrame>`. Visible builds populate it from leafwing in
         // `populate_control_frame_from_actions`; headless tests can write
         // directly. Default = no buttons pressed = idle player.
-        .init_resource::<ControlFrame>();
+        .init_resource::<ControlFrame>()
+        // Aggregate user settings (video/audio/controls/gameplay).
+        // Mutated by the pause menu; read by audio/video/gameplay
+        // systems and the input deadzone/hysteresis filter.
+        .insert_resource(crate::settings::UserSettings::default());
 }
 
 /// Register core simulation plugins, message types, and the gameplay
@@ -496,7 +502,9 @@ fn add_ui_plugins(_app: &mut App) {}
 /// agnostic to where the frame came from.
 #[cfg(feature = "input")]
 fn add_input_plugins(app: &mut App) {
-    app.add_plugins(InputManagerPlugin::<SandboxAction>::default())
+    app.init_resource::<MenuInputState>()
+        .init_resource::<PlayerDashTriggerState>()
+        .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_systems(
             Startup,
             attach_player_input_components.after(setup_simulation_system),
@@ -569,6 +577,8 @@ fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
     mut player_input: Query<&mut ActionState<SandboxAction>, With<PlayerVisual>>,
     mut frame: ResMut<ControlFrame>,
+    user_settings: Res<crate::settings::UserSettings>,
+    mut dash_state: ResMut<PlayerDashTriggerState>,
 ) {
     if matches!(mode.get(), GameMode::Dialogue) {
         if let Ok(mut action_state) = player_input.single_mut() {
@@ -580,8 +590,18 @@ fn populate_control_frame_from_actions(
     *frame = match player_input.single() {
         Ok(action_state) => {
             if mode.get().allows_gameplay() {
-                ControlFrame::read_gameplay(action_state)
+                let (next_frame, next_state) = ControlFrame::read_gameplay_with_settings(
+                    action_state,
+                    &user_settings.controls,
+                    dash_state.edge,
+                );
+                dash_state.edge = next_state;
+                next_frame
             } else {
+                // While paused, suppress gameplay input AND reset the
+                // dash trigger state so the post-pause re-press starts
+                // from a clean Released edge.
+                dash_state.edge = crate::settings::TriggerEdgeState::default();
                 ControlFrame::read_menu(action_state)
             }
         }

@@ -16,6 +16,12 @@ use leafwing_input_manager::prelude::*;
 /// the directional bindings so systems can still detect edge-triggered gestures
 /// such as double-tap-down fast fall and double-tap-up door activation.
 ///
+/// Menu navigation lives on its own `MenuNavigate*` / `MenuSelect` /
+/// `MenuBack` axis so confirming in a menu does not require pressing
+/// "Jump", and so D-pad / arrow keys / Enter all flow through one
+/// semantic seam. The renderer reads `MenuAxisFrame` (drained from
+/// these actions) instead of touching `SandboxAction` directly.
+///
 /// Gated behind `input`: this type pulls in leafwing's `Actionlike` trait.
 /// Sim-only builds use `ControlFrame` (always-available) on the seam instead.
 #[cfg(feature = "input")]
@@ -40,6 +46,36 @@ pub enum SandboxAction {
     Pogo,
     Reset,
     Start,
+    /// Player projectile / spell action. Default binding: `F` (keyboard)
+    /// and the gamepad West face button (with Attack on the same button
+    /// when no projectile is unlocked yet — sandbox always-on for now).
+    Projectile,
+    /// Menu navigation seam. These are the only actions the pause /
+    /// settings menu reads; gameplay never consumes them. Bindings:
+    /// arrow keys, WASD, D-pad, left stick (with deadzone applied
+    /// later), Enter / Space / South for select, Escape / Backspace /
+    /// East for back.
+    MenuNavigateUp,
+    MenuNavigateDown,
+    MenuNavigateLeft,
+    MenuNavigateRight,
+    MenuSelect,
+    MenuBack,
+    /// Analog left-stick read used to drive menu navigation with
+    /// configurable deadzone + repeat. Renders into `MenuAxisFrame`.
+    #[actionlike(DualAxis)]
+    MenuStick,
+    /// Analog right-trigger value (0..=1). Used together with
+    /// configurable hysteresis thresholds to derive the dash-pressed
+    /// edge so a worn trigger held above the threshold cannot retrigger
+    /// dash repeatedly.
+    #[actionlike(Axis)]
+    DashAnalog,
+    /// Analog right-stick / aim read. The aim deadzone is applied here
+    /// before the value reaches blink aim, so a drifting Xbox 360
+    /// controller does not gradually push the blink target upward.
+    #[actionlike(DualAxis)]
+    AimStick,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -266,6 +302,49 @@ impl KeyboardPreset {
         map.insert(SandboxAction::Utility, GamepadButton::North);
         map.insert(SandboxAction::Map, GamepadButton::LeftTrigger);
         map.insert(SandboxAction::Inventory, GamepadButton::Select);
+
+        // Projectile (Hadouken / fireball) — keyboard `F`, gamepad West.
+        // The keyboard binding only matters when the preset already
+        // assigns something else to F (interact); leafwing tolerates
+        // multi-action sharing.
+        map.insert(SandboxAction::Projectile, KeyCode::KeyF);
+        map.insert(SandboxAction::Projectile, GamepadButton::West);
+
+        // Menu navigation seam. Cardinal/D-pad/arrow keys all hit the
+        // same MenuNavigate* actions; analog stick provides MenuStick
+        // for repeat handling, and Enter/Space/South map to MenuSelect.
+        map.insert(SandboxAction::MenuNavigateUp, KeyCode::ArrowUp);
+        map.insert(SandboxAction::MenuNavigateUp, KeyCode::KeyW);
+        map.insert(SandboxAction::MenuNavigateUp, GamepadButton::DPadUp);
+        map.insert(SandboxAction::MenuNavigateDown, KeyCode::ArrowDown);
+        map.insert(SandboxAction::MenuNavigateDown, KeyCode::KeyS);
+        map.insert(SandboxAction::MenuNavigateDown, GamepadButton::DPadDown);
+        map.insert(SandboxAction::MenuNavigateLeft, KeyCode::ArrowLeft);
+        map.insert(SandboxAction::MenuNavigateLeft, KeyCode::KeyA);
+        map.insert(SandboxAction::MenuNavigateLeft, GamepadButton::DPadLeft);
+        map.insert(SandboxAction::MenuNavigateRight, KeyCode::ArrowRight);
+        map.insert(SandboxAction::MenuNavigateRight, KeyCode::KeyD);
+        map.insert(SandboxAction::MenuNavigateRight, GamepadButton::DPadRight);
+
+        map.insert(SandboxAction::MenuSelect, KeyCode::Enter);
+        map.insert(SandboxAction::MenuSelect, KeyCode::NumpadEnter);
+        map.insert(SandboxAction::MenuSelect, KeyCode::Space);
+        map.insert(SandboxAction::MenuSelect, GamepadButton::South);
+        // Also accept the player's configured Jump key as confirm so
+        // existing muscle memory still works, but Enter is the
+        // canonical menu confirmation.
+        map.insert(SandboxAction::MenuSelect, self.actions.jump);
+
+        map.insert(SandboxAction::MenuBack, KeyCode::Escape);
+        map.insert(SandboxAction::MenuBack, KeyCode::Backspace);
+        map.insert(SandboxAction::MenuBack, GamepadButton::East);
+
+        map.insert_dual_axis(SandboxAction::MenuStick, GamepadStick::LEFT);
+        map.insert_dual_axis(SandboxAction::AimStick, GamepadStick::RIGHT);
+        // RIGHT_Z is the analog right-trigger axis on most pads.
+        // Reading it as an axis lets us apply hysteresis ourselves
+        // instead of relying on the binary just_pressed edge.
+        map.insert_axis(SandboxAction::DashAnalog, GamepadControlAxis::RIGHT_Z);
         map
     }
 
@@ -335,12 +414,41 @@ pub struct ControlFrame {
     pub interact_pressed: bool,
     pub reset_pressed: bool,
     pub start_pressed: bool,
+    /// Player projectile / spell action edge.
+    pub projectile_pressed: bool,
+    /// Right stick / aim vector after deadzone is applied. Blink aim and
+    /// any future twin-stick aiming should consume this instead of
+    /// reading raw axes — the deadzone here is what fixes Xbox 360
+    /// drift from gradually pushing the blink target upward.
+    pub aim_x: f32,
+    pub aim_y: f32,
 }
 
 impl ControlFrame {
+    /// Build a gameplay control frame, applying configurable deadzones,
+    /// trigger hysteresis, and the dash-input mode from
+    /// `crate::settings::ControlSettings`.
+    ///
+    /// `dash_state` is the persistent trigger edge tracker for the
+    /// player; it must outlive a single frame so the hysteretic press/
+    /// release semantics work. The function returns the next state so
+    /// the caller can store it back into a Bevy resource.
     #[cfg(feature = "input")]
-    pub fn read_gameplay(actions: &ActionState<SandboxAction>) -> Self {
-        let mut axis = actions.clamped_axis_pair(&SandboxAction::Move);
+    pub fn read_gameplay_with_settings(
+        actions: &ActionState<SandboxAction>,
+        controls: &crate::settings::ControlSettings,
+        dash_state: crate::settings::TriggerEdgeState,
+    ) -> (Self, crate::settings::TriggerEdgeState) {
+        let raw_move = actions.clamped_axis_pair(&SandboxAction::Move);
+        // Apply the left-stick deadzone before any walk-modifier logic
+        // so analog drift doesn't pollute the magnitude check.
+        let (deadzoned_x, deadzoned_y) = crate::settings::ControlSettings::apply_deadzone(
+            raw_move.x,
+            raw_move.y,
+            controls.left_stick_deadzone,
+        );
+        let mut axis = bevy::math::Vec2::new(deadzoned_x, deadzoned_y);
+
         // Walk modifier: Shift on keyboard, LT2 on gamepad. Cardinal /
         // D-pad input arrives at unit magnitude (run); the modifier caps
         // the move vector so digital input becomes walk speed. Analog
@@ -357,7 +465,48 @@ impl ControlFrame {
         }
         let up_pressed = actions.just_pressed(&SandboxAction::MoveUp);
         let down_pressed = actions.just_pressed(&SandboxAction::MoveDown);
-        Self {
+
+        // Dash hysteresis: read the analog right trigger value plus the
+        // binary RT2 button as the "press level". The settings-defined
+        // press / release thresholds collapse trigger jitter into a
+        // single edge.
+        let raw_trigger = actions
+            .value(&SandboxAction::DashAnalog)
+            .clamp(0.0, 1.0);
+        let dash_button_value = if actions.pressed(&SandboxAction::Dash) {
+            1.0
+        } else {
+            0.0
+        };
+        let trigger_value = raw_trigger.max(dash_button_value);
+        let (next_dash_state, trigger_edge_pressed) = crate::settings::update_trigger_edge(
+            dash_state,
+            trigger_value,
+            controls.trigger_release_threshold,
+            controls.trigger_press_threshold,
+        );
+        let dash_pressed = match controls.dash_input_mode {
+            crate::settings::DashInputMode::Trigger => trigger_edge_pressed,
+            // Button mode: ignore trigger hysteresis, only the
+            // configured Dash button counts (e.g. RB on a 360 pad).
+            crate::settings::DashInputMode::Button => actions.just_pressed(&SandboxAction::Dash),
+            crate::settings::DashInputMode::Both => {
+                trigger_edge_pressed || actions.just_pressed(&SandboxAction::Dash)
+            }
+        };
+
+        // Aim deadzone — applied to the right stick before blink aim
+        // consumes it. This is the fix for old-controller drift
+        // pushing the blink target upward.
+        let raw_aim = actions.clamped_axis_pair(&SandboxAction::AimStick);
+        let (aim_x_raw, aim_y_raw) = crate::settings::ControlSettings::apply_deadzone(
+            raw_aim.x,
+            raw_aim.y,
+            controls.right_stick_deadzone,
+        );
+        let aim_y = if controls.invert_aim_y { -aim_y_raw } else { aim_y_raw };
+
+        let frame = Self {
             axis_x: axis.x,
             // Ambition's simulation uses screen-space world coordinates: +Y is
             // downward. Leafwing's virtual D-pads use the usual +Y-up convention.
@@ -365,7 +514,7 @@ impl ControlFrame {
             jump_pressed: actions.just_pressed(&SandboxAction::Jump),
             jump_held: actions.pressed(&SandboxAction::Jump),
             jump_released: actions.just_released(&SandboxAction::Jump),
-            dash_pressed: actions.just_pressed(&SandboxAction::Dash),
+            dash_pressed,
             up_pressed,
             down_pressed,
             fast_fall_pressed: false,
@@ -378,9 +527,29 @@ impl ControlFrame {
             interact_pressed: actions.just_pressed(&SandboxAction::Interact),
             reset_pressed: actions.just_pressed(&SandboxAction::Reset),
             start_pressed: actions.just_pressed(&SandboxAction::Start),
-        }
+            projectile_pressed: actions.just_pressed(&SandboxAction::Projectile),
+            aim_x: aim_x_raw,
+            // Match the sim's +Y-down convention.
+            aim_y: -aim_y,
+        };
+        (frame, next_dash_state)
     }
 
+    /// Convenience for tests/headless: gameplay frame with default
+    /// control settings and a fresh trigger state.
+    #[cfg(feature = "input")]
+    pub fn read_gameplay(actions: &ActionState<SandboxAction>) -> Self {
+        let (frame, _) = Self::read_gameplay_with_settings(
+            actions,
+            &crate::settings::ControlSettings::default(),
+            crate::settings::TriggerEdgeState::default(),
+        );
+        frame
+    }
+
+    /// Read only the gameplay-side state that should still flow during
+    /// pause/menu mode. Today that's just `start_pressed` (which the
+    /// pause toggle reads) — every other gameplay action is suppressed.
     #[cfg(feature = "input")]
     pub fn read_menu(actions: &ActionState<SandboxAction>) -> Self {
         Self {
@@ -411,6 +580,166 @@ impl ControlFrame {
             reset_pressed: false,
             control_dt,
         }
+    }
+}
+
+/// Per-frame menu navigation snapshot. Decoded from `SandboxAction`'s
+/// `Menu*` actions plus the analog left-stick (with deadzone + repeat)
+/// so the pause-menu controller doesn't have to know about leafwing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MenuInputFrame {
+    pub up: bool,
+    pub down: bool,
+    pub left: bool,
+    pub right: bool,
+    pub select: bool,
+    pub back: bool,
+    pub start: bool,
+}
+
+impl MenuInputFrame {
+    pub fn any_directional(self) -> bool {
+        self.up || self.down || self.left || self.right
+    }
+}
+
+/// State the menu input system carries across frames so analog repeat
+/// behaves predictably.
+///
+/// `held_dir` records the currently-held direction (or `None`).
+/// `time_since_repeat` is the accumulated dt since the last emitted
+/// repeat tick. When `held_dir` changes, both timers reset.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MenuInputState {
+    pub held_dir: Option<MenuDir>,
+    /// Time the current direction has been continuously held. Reset on
+    /// new direction.
+    held_for_centiseconds: u16,
+    /// Time since the last repeat tick was emitted on this direction.
+    repeat_accum_centiseconds: u16,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MenuDir {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl MenuInputState {
+    /// Resolve a per-frame menu input given the analog stick + button
+    /// edge state plus the user's repeat tuning.
+    ///
+    /// `analog_dir` is the discrete direction the analog stick is
+    /// currently pushed toward (after deadzone), or None. `edge_*` are
+    /// the discrete edge events from D-pad / arrow keys / WASD.
+    pub fn step(
+        &mut self,
+        edge_up: bool,
+        edge_down: bool,
+        edge_left: bool,
+        edge_right: bool,
+        analog_dir: Option<MenuDir>,
+        select_pressed: bool,
+        back_pressed: bool,
+        start_pressed: bool,
+        dt_seconds: f32,
+        initial_delay: f32,
+        repeat_interval: f32,
+    ) -> MenuInputFrame {
+        // Cardinal edges (D-pad / keyboard) always emit on the press
+        // edge regardless of the held analog state. Repeat is reserved
+        // for the analog axis so users who hold a stick get predictable
+        // pacing rather than cardinal-edge mashing.
+        let mut frame = MenuInputFrame {
+            up: edge_up,
+            down: edge_down,
+            left: edge_left,
+            right: edge_right,
+            select: select_pressed,
+            back: back_pressed,
+            start: start_pressed,
+        };
+
+        match analog_dir {
+            Some(dir) if Some(dir) == self.held_dir => {
+                // Continuing to hold the same direction: count time
+                // toward the next repeat tick.
+                self.held_for_centiseconds = self
+                    .held_for_centiseconds
+                    .saturating_add(centiseconds(dt_seconds));
+                let initial_cs = centiseconds(initial_delay);
+                if self.held_for_centiseconds >= initial_cs {
+                    self.repeat_accum_centiseconds = self
+                        .repeat_accum_centiseconds
+                        .saturating_add(centiseconds(dt_seconds));
+                    let interval_cs = centiseconds(repeat_interval).max(1);
+                    if self.repeat_accum_centiseconds >= interval_cs {
+                        self.repeat_accum_centiseconds = 0;
+                        match dir {
+                            MenuDir::Up => frame.up = true,
+                            MenuDir::Down => frame.down = true,
+                            MenuDir::Left => frame.left = true,
+                            MenuDir::Right => frame.right = true,
+                        }
+                    }
+                }
+            }
+            Some(dir) => {
+                // New direction: emit immediately, then wait for the
+                // initial delay before repeating.
+                self.held_dir = Some(dir);
+                self.held_for_centiseconds = 0;
+                self.repeat_accum_centiseconds = 0;
+                match dir {
+                    MenuDir::Up => frame.up = true,
+                    MenuDir::Down => frame.down = true,
+                    MenuDir::Left => frame.left = true,
+                    MenuDir::Right => frame.right = true,
+                }
+            }
+            None => {
+                // Analog stick released — reset so the next push fires
+                // immediately again.
+                self.held_dir = None;
+                self.held_for_centiseconds = 0;
+                self.repeat_accum_centiseconds = 0;
+            }
+        }
+        frame
+    }
+}
+
+fn centiseconds(seconds: f32) -> u16 {
+    (seconds * 100.0).clamp(0.0, u16::MAX as f32) as u16
+}
+
+/// Persistent dash-trigger edge state. Lives outside `ControlFrame`
+/// because the hysteresis logic must remember the previous state across
+/// frames; `ControlFrame` is stateless and rebuilt every frame.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PlayerDashTriggerState {
+    pub edge: crate::settings::TriggerEdgeState,
+}
+
+/// Convert an analog stick vector (post-deadzone) into a single
+/// discrete direction. Returns `None` when below `threshold`.
+pub fn analog_to_dir(x: f32, y: f32, threshold: f32) -> Option<MenuDir> {
+    let mag = (x * x + y * y).sqrt();
+    if mag < threshold {
+        return None;
+    }
+    if x.abs() > y.abs() {
+        if x > 0.0 {
+            Some(MenuDir::Right)
+        } else {
+            Some(MenuDir::Left)
+        }
+    } else if y > 0.0 {
+        Some(MenuDir::Up)
+    } else {
+        Some(MenuDir::Down)
     }
 }
 
@@ -474,5 +803,88 @@ fn key_name(key: KeyCode) -> &'static str {
         KeyCode::Delete => "Delete",
         KeyCode::Backspace => "Backspace",
         _ => "?",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::ControlSettings;
+
+    #[test]
+    fn analog_drift_below_deadzone_zeros_movement() {
+        // Simulated worn Xbox 360 controller with a small +Y bias.
+        let (x, y) = ControlSettings::apply_deadzone(0.04, 0.06, 0.18);
+        assert_eq!((x, y), (0.0, 0.0));
+        // The same drift fed to analog_to_dir must not pick a direction.
+        assert!(analog_to_dir(x, y, 0.5).is_none());
+    }
+
+    #[test]
+    fn analog_to_dir_picks_dominant_axis() {
+        assert_eq!(analog_to_dir(0.8, 0.1, 0.5), Some(MenuDir::Right));
+        assert_eq!(analog_to_dir(-0.8, -0.1, 0.5), Some(MenuDir::Left));
+        // +y is up in the leafwing convention used here.
+        assert_eq!(analog_to_dir(0.1, 0.8, 0.5), Some(MenuDir::Up));
+        assert_eq!(analog_to_dir(0.1, -0.8, 0.5), Some(MenuDir::Down));
+    }
+
+    #[test]
+    fn menu_state_emits_first_press_then_waits_for_initial_delay() {
+        let mut state = MenuInputState::default();
+        // First frame holding Down: emit immediately.
+        let f = state.step(false, false, false, false, Some(MenuDir::Down), false, false, false, 0.016, 0.30, 0.10);
+        assert!(f.down);
+        // Continuing to hold for less than the initial delay must not
+        // re-emit.
+        let mut emits = 0;
+        for _ in 0..5 {
+            let f = state.step(false, false, false, false, Some(MenuDir::Down), false, false, false, 0.016, 0.30, 0.10);
+            if f.down {
+                emits += 1;
+            }
+        }
+        assert_eq!(emits, 0, "should not repeat before initial delay elapses");
+    }
+
+    #[test]
+    fn menu_state_repeats_after_initial_delay() {
+        let mut state = MenuInputState::default();
+        // First push to start the hold.
+        let _ = state.step(false, false, false, false, Some(MenuDir::Right), false, false, false, 0.016, 0.10, 0.05);
+        let mut emits = 0;
+        for _ in 0..40 {
+            let f = state.step(false, false, false, false, Some(MenuDir::Right), false, false, false, 0.016, 0.10, 0.05);
+            if f.right {
+                emits += 1;
+            }
+        }
+        assert!(emits >= 4, "expected several repeat ticks; got {emits}");
+    }
+
+    #[test]
+    fn cardinal_edges_pass_through_without_repeat_state() {
+        let mut state = MenuInputState::default();
+        // D-pad / arrow keys edge fires on one frame but does not start
+        // an analog hold.
+        let f = state.step(true, false, false, false, None, false, false, false, 0.016, 0.30, 0.10);
+        assert!(f.up);
+        let f = state.step(false, false, false, false, None, false, false, false, 0.016, 0.30, 0.10);
+        assert!(!f.any_directional());
+    }
+
+    #[test]
+    fn menu_state_select_passes_through() {
+        let mut state = MenuInputState::default();
+        let f = state.step(false, false, false, false, None, true, false, false, 0.016, 0.30, 0.10);
+        assert!(f.select);
+        assert!(!f.any_directional());
+    }
+
+    #[test]
+    fn menu_state_back_passes_through() {
+        let mut state = MenuInputState::default();
+        let f = state.step(false, false, false, false, None, false, true, false, 0.016, 0.30, 0.10);
+        assert!(f.back);
     }
 }

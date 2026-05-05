@@ -1,108 +1,110 @@
 # Pause-menu settings
 
-The sandbox's pause overlay (`crate::pause_menu`) has two pages.
+The sandbox's pause overlay (`crate::pause_menu`) renders a stack of
+pages backed by `crate::settings::UserSettings`. The pause menu is a
+renderer/controller; per-setting business logic lives in the matching
+submodule (`settings::audio`, `settings::controls`,
+`settings::gameplay`, `settings::video`).
 
-## Top page
+See `docs/settings_system.md` for the architecture diagram and
+extension recipe.
 
-Resume / Settings / Music / Inventory / Quit. Up/Down navigate, Confirm
-(Jump action) activates, Left/Right cycles values on rows that support
-it (Music, Display Mode).
+## Pages
 
-## Settings page
+```text
+Pause overlay
+├── Top: Resume / Settings / Music / Inventory / Quit
+└── Settings (top page)
+    ├── Video > (display mode, camera zoom, flashes, colorblind)
+    ├── Audio > (master / music / SFX volume, mute)
+    ├── Controls > (presets, deadzones, trigger threshold/hysteresis,
+    │              D-pad nav, invert aim Y, dash mode, reset filter)
+    └── Gameplay > (difficulty, assist, player damage multiplier,
+                    flashes, trace auto-dump)
+```
 
-Currently exposes:
+The page stack is small (`PauseMenuState::stack`) — each `Settings`
+sub-page pushes onto the stack so `MenuBack` pops cleanly. From the
+top page, `MenuBack` resumes the game.
 
-| Row          | Behavior                                            |
-| ------------ | --------------------------------------------------- |
-| Display Mode | Cycles Windowed → Borderless → Fullscreen with Left/Right. Confirm advances to the next mode. |
-| Back         | Returns to the top page.                            |
+## Inputs
 
-The page is reached via the **Settings** entry on the top page.
+The menu reads only the `Menu*` actions on
+`crate::input::SandboxAction`, never gameplay actions. Bindings:
 
-## Architecture
+| Action               | Keyboard          | Gamepad          |
+| -------------------- | ----------------- | ---------------- |
+| `MenuNavigateUp`     | `Up` / `W`        | D-pad Up         |
+| `MenuNavigateDown`   | `Down` / `S`      | D-pad Down       |
+| `MenuNavigateLeft`   | `Left` / `A`      | D-pad Left       |
+| `MenuNavigateRight`  | `Right` / `D`     | D-pad Right      |
+| `MenuStick`          | —                 | Left stick       |
+| `MenuSelect`         | `Enter` / `Space` / preset Jump key | South face button |
+| `MenuBack`           | `Esc` / `Backspace` | East face button |
+| `Start`              | `Esc`             | `Start`          |
 
-The settings page splits into two modules:
+`Enter` is a real binding on `MenuSelect` rather than a hardcoded
+check inside the settings page — the same code path handles
+controller confirm.
 
-- [`crate::settings`](../crates/ambition_sandbox/src/settings.rs) owns
-  the vocabulary (`SettingsItem`, `SettingsAction`, `SettingsView`,
-  `SettingsOutcome`) and the per-row mutation logic
-  (`handle_action`, `apply_display_mode`).
-- [`crate::pause_menu`](../crates/ambition_sandbox/src/pause_menu.rs) is
-  the renderer/controller: it spawns the UI nodes, decodes
-  `ActionState` into a compact `NavInput`, dispatches to
-  `settings::handle_action`, and reads the page page back into UI text.
+D-pad navigation can be disabled in `Settings → Controls → D-Pad
+Menu Nav`. Analog stick navigation honors the configured deadzone
+plus the configurable initial-delay / repeat-interval timers
+(`menu_repeat_initial_delay` / `menu_repeat_interval`), so holding
+left-stick Down does not blast through rows.
 
-The pause menu does not own any setting's business logic. Adding a new
-setting touches `settings.rs` only; the renderer picks it up
-automatically through `SettingsItem::ALL`.
+## Adding a setting
 
-## Adding a new settings row
+1. Pick the right submodule (`audio` / `controls` / `gameplay` /
+   `video`) and add a field to its struct.
+2. Add a `SettingsItem` variant in `settings/mod.rs`.
+3. Add the variant to the matching `SettingsItem::rows_for(page)`
+   list.
+4. Add a `label(&UserSettings)` arm and an `apply_action` arm in
+   `settings/mod.rs`. Mutation logic stays close to the field
+   (`AudioSettings::nudge_master` etc.) so the dispatcher is mostly
+   a router.
 
-The intent is to make this page the home for any user-facing toggle —
-volume, gamma, controls, accessibility, etc. — so they have one
-discoverable location and the harness gets used as more options
-appear.
-
-Steps (all in `crates/ambition_sandbox/src/settings.rs`):
-
-1. Add a variant to `SettingsItem`.
-2. Append it to `SettingsItem::ALL` in the desired display order.
-3. Implement `SettingsItem::label` so the row text shows the current
-   value (e.g. `format!("Master Volume: {value}%  < / >")`). Add a
-   matching field to `SettingsView` if the value lives in a resource
-   the renderer doesn't already inspect.
-4. Add a match arm in `handle_action` to mutate the relevant resource on
-   `Prev`/`Next`/`Confirm`. Setting-specific mutation logic should live
-   close to the resource it owns (audio volume → `audio.rs`, controls →
-   `input.rs`); `handle_action` only routes.
-5. The pause menu's `spawn_pause_menu` already loops over
-   `SettingsItem::ALL` and spawns one Text entity per item — no
-   renderer change needed unless the row needs a non-standard widget.
-
-Settings that mutate window state should call
-`settings::apply_display_mode` (or the equivalent helper for the new
-resource) so the same logic runs whether the user reached it via the
-menu or via a developer hotkey. Display-mode mutation lives in the
-settings module; the F6/F7 hotkeys delegate there.
+The pause-menu renderer (`sync_pause_menu`) loops the active page's
+`rows_for`, fills pre-spawned UI text slots, and highlights the
+selected row. No renderer changes are needed for new rows.
 
 ## Developer hotkeys
 
-The display-mode hotkeys in `crate::windowing::window_mode_hotkeys`
-remain as a developer convenience:
+Display-mode hotkeys delegate to `settings::apply_display_mode` so the
+menu and the keystrokes never drift out of sync:
 
 - `F6` — windowed
 - `F7` — borderless fullscreen
 
 `F8` is reserved for the gameplay trace recorder
-(`docs/gameplay_trace_recorder.md`); exclusive fullscreen is reachable
-only through the menu now.
-
-The hotkeys delegate to `settings::apply_display_mode` so the menu
-and the keystrokes never drift out of sync.
+(`docs/gameplay_trace_recorder.md`).
 
 ## Audio-off compatibility
 
-The navigation system compiles and runs with `--no-default-features
---features input` (no audio). The Music row still appears on the top
-page so menu indices stay stable, but its label collapses to
-`"Music: <audio disabled>"` and selecting it is a no-op.
+The pause overlay still compiles and runs with `--no-default-features
+--features input` (no audio). The Music row stays visible (so menu
+indices stay stable) but its label collapses to
+`"Music: <audio disabled>"` and selecting it is a no-op. Audio
+settings rows still render but applying them is a no-op when the
+audio backend is not present.
 
 ## Tests
 
-`crates/ambition_sandbox/src/settings.rs` covers:
+- `crates/ambition_sandbox/src/settings/mod.rs` — page row lists,
+  display-mode cycling, label formatting, `UserSettings` serde
+  round-trip.
+- `crates/ambition_sandbox/src/settings/audio.rs` — clamp / mute
+  round-trip / percent format / effective volume composition.
+- `crates/ambition_sandbox/src/settings/controls.rs` — deadzone /
+  trigger jitter hysteresis / dash mode cycling.
+- `crates/ambition_sandbox/src/settings/gameplay.rs` — difficulty
+  multipliers / clamp / assist toggle.
+- `crates/ambition_sandbox/src/pause_menu.rs` — page-stack push/pop
+  + default state.
+- `crates/ambition_sandbox/src/input.rs` — analog deadzone, menu
+  repeat, cardinal edge passthrough, MenuSelect/MenuBack edges.
 
-- `SettingsItem::ALL` lists known rows,
-- `next_display_mode` / `prev_display_mode` cycle correctly (forward
-  three times returns to the start),
-- `SettingsItem::DisplayMode.label` includes the current mode label,
-- `SettingsItem::Back.label` is the static "Back" string.
-
-`crates/ambition_sandbox/src/pause_menu.rs` covers:
-
-- `PauseMenuState::default` lands on the top page,
-- `enter_page` resets `selected` to zero,
-- `PauseMenuItem::ALL` includes `Settings`,
-- `MenuSettingsItem` re-export resolves.
-
-Run with `cargo test -p ambition_sandbox settings::` and
-`cargo test -p ambition_sandbox pause_menu::`.
+Run with `cargo test -p ambition_sandbox --lib settings::` or
+`cargo test -p ambition_sandbox --lib pause_menu::` or
+`cargo test -p ambition_sandbox --lib input::`.

@@ -114,6 +114,15 @@ pub enum EntitySprite {
     EdgeExit,
     // Player projectiles (Fireball + Hadouken share the same sprite)
     ProjectileEnergy,
+    // 32×32 tile sprites for IntGrid-derived block surfaces. Rendered
+    // via `Sprite::image_mode = Tiled` so they REPEAT across the
+    // arbitrary aspect ratios that long floors / tall walls produce,
+    // instead of stretching one sprite across the whole footprint.
+    SolidTile,
+    OneWayTile,
+    HazardTile,
+    SoftBlinkTile,
+    HardBlinkTile,
 }
 
 impl EntitySprite {
@@ -142,6 +151,11 @@ impl EntitySprite {
             Self::DoorZone => "entities/door_zone.png",
             Self::EdgeExit => "entities/edge_exit.png",
             Self::ProjectileEnergy => "entities/projectile_energy.png",
+            Self::SolidTile => "entities/solid_tile.png",
+            Self::OneWayTile => "entities/one_way_tile.png",
+            Self::HazardTile => "entities/hazard_tile.png",
+            Self::SoftBlinkTile => "entities/soft_blink_tile.png",
+            Self::HardBlinkTile => "entities/hard_blink_tile.png",
         }
     }
 
@@ -168,6 +182,11 @@ impl EntitySprite {
         Self::DoorZone,
         Self::EdgeExit,
         Self::ProjectileEnergy,
+        Self::SolidTile,
+        Self::OneWayTile,
+        Self::HazardTile,
+        Self::SoftBlinkTile,
+        Self::HardBlinkTile,
     ];
 }
 
@@ -377,6 +396,30 @@ pub fn block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
         ae::BlockKind::BlinkWall {
             tier: ae::BlinkWallTier::Hard,
         } => Some(EntitySprite::HardBlinkWall),
+    }
+}
+
+/// Tile-sprite variant of `block_sprite` for IntGrid-derived blocks.
+/// Returns the seamless 32×32 tile texture that the renderer should
+/// REPEAT (via `Sprite::image_mode = Tiled`) across the block's
+/// arbitrary aspect ratio. Returns `None` for kinds that don't have
+/// a tile generator yet (PogoOrb / Rebound — those are point-shaped
+/// authored entities, not tiled surfaces).
+pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
+    match kind {
+        ae::BlockKind::Solid => Some(EntitySprite::SolidTile),
+        ae::BlockKind::OneWay => Some(EntitySprite::OneWayTile),
+        ae::BlockKind::Hazard => Some(EntitySprite::HazardTile),
+        ae::BlockKind::BlinkWall {
+            tier: ae::BlinkWallTier::Soft,
+        } => Some(EntitySprite::SoftBlinkTile),
+        ae::BlockKind::BlinkWall {
+            tier: ae::BlinkWallTier::Hard,
+        } => Some(EntitySprite::HardBlinkTile),
+        // PogoOrb / Rebound stay on the entity-art path because they
+        // are point objects, not tiled surfaces. Authored as single
+        // entities with fixed-aspect art.
+        _ => None,
     }
 }
 

@@ -103,6 +103,57 @@ def test_entity_manifest_contains_current_feature_families(tmp_path):
         assert token in manifest
 
 
+def test_tight_crop_eliminates_transparent_edges_on_entity_sprites(tmp_path):
+    """Pin the post-crop content density. The whole reason we
+    auto-crop is so a 30%-canvas-fill drawer doesn't render as a
+    visibly-undersized sprite once stretched to a collision box.
+    Demand >=70% fill on the published sprites; they were ~30%
+    before the crop pass landed."""
+    out_dir = tmp_path / "entities"
+    write_entity_sprites(out_dir)
+    samples = [
+        "chest_closed.png",
+        "pickup_health.png",
+        "breakable_intact.png",
+        "pogo_orb.png",
+        "hazard_spikes.png",
+        "solid_block.png",
+    ]
+    for name in samples:
+        img = Image.open(out_dir / name).convert("RGBA")
+        bbox = img.getchannel("A").getbbox()
+        assert bbox is not None, name
+        l, t, r, b = bbox
+        cw, ch = r - l, b - t
+        w, h = img.size
+        fill = (cw * ch) / (w * h)
+        assert fill >= 0.70, (
+            f"{name} content fill {fill:.0%} below 70% — sprite has "
+            "too much transparent margin and will look smaller than "
+            "its collision box when stretched"
+        )
+
+
+def test_tile_sprites_are_32x32_and_not_cropped(tmp_path):
+    """Tile sprites must keep their full 32×32 canvas — Bevy's
+    `Sprite::image_mode = Tiled` repeats the texture at native
+    pixel scale, so cropping a tile would change the repeat
+    period and break the seamless wrap. Pin both the dimensions
+    and the (mostly) full coverage."""
+    out_dir = tmp_path / "entities"
+    write_entity_sprites(out_dir)
+    tiles = {
+        "solid_tile.png": (32, 32),
+        "one_way_tile.png": (32, 32),
+        "hazard_tile.png": (32, 32),
+        "soft_blink_tile.png": (32, 32),
+        "hard_blink_tile.png": (32, 32),
+    }
+    for name, expected_size in tiles.items():
+        img = Image.open(out_dir / name).convert("RGBA")
+        assert img.size == expected_size, (name, img.size)
+
+
 def test_boss_animation_set_matches_rust_boss_attack_kind():
     adapter = get_adapter("boss")
     keys = set(adapter.animations())

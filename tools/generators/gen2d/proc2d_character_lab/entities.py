@@ -24,6 +24,12 @@ class EntitySpriteSpec:
     state: str
     gameplay_hint: str
     size: Tuple[int, int] = (128, 128)
+    # Set False for sprites that should be saved at full canvas size,
+    # not auto-cropped to their alpha bbox. Tile sprites (designed
+    # to repeat seamlessly across a surface) need their full canvas
+    # preserved so `Sprite::image_mode = Tiled` repeats them at the
+    # authored scale instead of stretching the cropped extent.
+    tight_crop: bool = True
 
 
 def rgba(hex_color: str, alpha: int = 255) -> Color:
@@ -52,11 +58,46 @@ def downsample(img: Image.Image, size: Tuple[int, int]) -> Image.Image:
     return img.resize(size, RESAMPLING.LANCZOS)
 
 
-def render(draw_fn: Callable[[ImageDraw.ImageDraw, float], None], size: Tuple[int, int] = (128, 128), supersample: int = 4) -> Image.Image:
+def render(
+    draw_fn: Callable[[ImageDraw.ImageDraw, float], None],
+    size: Tuple[int, int] = (128, 128),
+    supersample: int = 4,
+    tight_crop: bool = True,
+    crop_padding: int = 4,
+) -> Image.Image:
+    """Rasterize a draw fn at `size * supersample`, downsample, then
+    optionally crop to the alpha bounding box plus a small padding so
+    the resulting PNG has minimal transparent margin.
+
+    Why crop: the sandbox stretches the texture to fill the entity's
+    collision box (`Sprite::custom_size`). If the actual artwork
+    occupies only ~30% of the 128×128 canvas (which most authored
+    drawers do — they leave breathing room around the subject), the
+    in-game sprite ends up visibly smaller than the collision box,
+    surrounded by an apparent halo of transparency. Cropping to the
+    artwork's bounding box normalizes content density so a stretched
+    sprite fills the collision box at the artist's intended scale.
+
+    Tile drawers (designed to repeat seamlessly across a surface)
+    pass `tight_crop=False` to preserve their full canvas — those
+    sprites tile via `Sprite::image_mode` instead of stretching.
+    """
     s = max(1, int(supersample))
     img = Image.new("RGBA", (size[0] * s, size[1] * s), (0, 0, 0, 0))
     draw_fn(ImageDraw.Draw(img), float(s))
-    return downsample(img, size)
+    img = downsample(img, size)
+    if not tight_crop:
+        return img
+    bbox = img.getchannel("A").getbbox()
+    if bbox is None:
+        return img
+    pad = max(0, int(crop_padding))
+    l, t, r, b = bbox
+    l = max(0, l - pad)
+    t = max(0, t - pad)
+    r = min(size[0], r + pad)
+    b = min(size[1], b + pad)
+    return img.crop((l, t, r, b))
 
 
 def poly_scaled(points: Iterable[Point], s: float) -> List[Point]:
@@ -242,6 +283,134 @@ def projectile_energy(d: ImageDraw.ImageDraw, s: float) -> None:
     d.ellipse(bbox(72*s,60*s,10*s,8*s), fill=rgba("#FFFFFF",200))
 
 
+# ─── Tile drawers ───────────────────────────────────────────────────
+#
+# These are 32×32 textures designed to TILE seamlessly across a
+# surface via `Sprite::image_mode = Tiled`. They fill the full canvas
+# (no transparent margin), and the patterns are crafted so adjacent
+# copies meet without visible seams: edge pixels match the opposite
+# edge so a 32-pixel-wide horizontal repeat looks continuous.
+#
+# Bevy's tiled image mode renders the texture at its NATIVE pixel
+# scale and repeats it to fill the sprite's `custom_size`. So a
+# 32×32 tile rendered onto a 128×64 surface tiles 4 times across
+# and 2 times down — no stretching.
+
+
+def _seamless_brick_pattern(d: ImageDraw.ImageDraw, s: float, base: Color, mortar: Color, highlight: Color) -> None:
+    """Two staggered rows of bricks. The horizontal seam at row mid-
+    height tiles cleanly because the bricks on row 0 align with the
+    same offsets on row 2 (which is the wrapped continuation of row
+    0 in a vertically-tiled rendering)."""
+    # Background mortar fill.
+    d.rectangle((0, 0, 32*s, 32*s), fill=mortar)
+    # Row 0 (y=0..16): two full bricks across, plus the right half of
+    # a brick wrapping from the previous tile on the left and the
+    # left half wrapping forward to the next tile on the right.
+    bricks_row0 = [(0, 0, 14, 14), (16, 0, 30, 14)]
+    # Row 1 (y=16..32): offset by half a brick width so the staggered
+    # pattern reads as masonry. Wraps at x boundaries.
+    bricks_row1 = [(-7, 18, 7, 30), (9, 18, 23, 30), (25, 18, 39, 30)]
+    for row in (bricks_row0, bricks_row1):
+        for (x0, y0, x1, y1) in row:
+            d.rectangle((x0*s, y0*s, x1*s, y1*s), fill=base)
+            # Top-left highlight on each brick to add depth.
+            d.line([(x0*s+1, y0*s+1), (x1*s-1, y0*s+1)], fill=highlight, width=max(1, int(1*s)))
+            d.line([(x0*s+1, y0*s+1), (x0*s+1, y1*s-1)], fill=highlight, width=max(1, int(1*s)))
+
+
+def solid_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Stone brick tile for IntGrid Solid surfaces. Cool gray
+    palette so it reads as "structural wall / floor" against the
+    warmer-tinted sandbox entities."""
+    base = rgba("#4A536B")
+    mortar = rgba("#22293A")
+    highlight = rgba("#7682A0", 200)
+    _seamless_brick_pattern(d, s, base, mortar, highlight)
+    # Subtle noise dots so flat surfaces don't look perfectly
+    # uniform when many tiles repeat.
+    for (x, y) in [(5, 7), (21, 4), (12, 22), (28, 19)]:
+        d.point((x*s, y*s), fill=highlight)
+
+
+def one_way_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """One-way platform tile. Short — only the top quarter of a
+    32×32 cell is the platform plate; the rest is transparent so a
+    one-way platform painted as a single IntGrid row renders as a
+    thin lip rather than a tall slab. Tiles seamlessly horizontally;
+    vertical tiling is meaningless (one-way is one cell tall by
+    convention)."""
+    plate = rgba("#677699")
+    plate_top = rgba("#B4C6F4")
+    edge = rgba("#1A2235")
+    d.rectangle((0, 0, 32*s, 8*s), fill=plate)
+    d.rectangle((0, 0, 32*s, 2*s), fill=plate_top)
+    d.line([(0, 8*s), (32*s, 8*s)], fill=edge, width=max(1, int(1*s)))
+    # Up-arrow markers spaced so adjacent tiles look continuous.
+    for x in (8, 24):
+        d.polygon(poly_scaled([(x-3, 6), (x, 2), (x+3, 6)], s), fill=plate_top)
+
+
+def hazard_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Hazard / spike tile. Bright red so the player can read
+    danger at a glance regardless of palette. Spikes are bottom-
+    rooted and identical at left/right edges so a horizontal repeat
+    reads as a continuous spike strip."""
+    base = rgba("#5A1418")
+    spike = rgba("#F04450")
+    spike_hi = rgba("#FFB1B5")
+    edge = rgba("#220404")
+    d.rectangle((0, 18*s, 32*s, 32*s), fill=base)
+    d.line([(0, 18*s), (32*s, 18*s)], fill=edge, width=max(1, int(1*s)))
+    # Three spikes per tile, anchored so a horizontal repeat aligns
+    # the rightmost half-spike to the leftmost half-spike of the
+    # next tile.
+    for x in (5, 16, 27):
+        d.polygon(poly_scaled([(x-4, 17), (x, 1), (x+4, 17)], s), fill=spike, outline=edge)
+        d.polygon(poly_scaled([(x-1, 9), (x, 1), (x+1, 9)], s), fill=spike_hi)
+
+
+def soft_blink_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Soft blink-passable wall tile. Translucent purple with a
+    diagonal hatch the player learns to associate with "blinks
+    through this." Diagonals start and end on tile edges so the
+    repeat reads continuous."""
+    fill = rgba("#5632B5", 180)
+    hatch = rgba("#B897FF", 140)
+    d.rectangle((0, 0, 32*s, 32*s), fill=fill)
+    # Diagonal hatch every 8px. Lines run from (0, n) to (n, 0)
+    # equivalents at the wrap boundary, but PIL doesn't wrap, so
+    # we draw enough segments to visually repeat across the join.
+    for offset in range(-32, 64, 8):
+        d.line(
+            [(offset*s, 0), ((offset + 32)*s, 32*s)],
+            fill=hatch,
+            width=max(1, int(1*s)),
+        )
+
+
+def hard_blink_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Hard blink wall tile. Saturated solid purple — same palette
+    family as soft, but no transparency and a denser cross-hatch so
+    the player reads "I cannot blink through this" at a glance."""
+    fill = rgba("#841ABF")
+    edge = rgba("#260038")
+    hatch = rgba("#FF74FF", 170)
+    d.rectangle((0, 0, 32*s, 32*s), fill=fill)
+    d.rectangle((0, 0, 32*s, 32*s), outline=edge, width=max(1, int(1*s)))
+    for offset in range(-32, 64, 6):
+        d.line(
+            [(offset*s, 0), ((offset + 32)*s, 32*s)],
+            fill=hatch,
+            width=max(1, int(1*s)),
+        )
+        d.line(
+            [(offset*s, 32*s), ((offset + 32)*s, 0)],
+            fill=hatch,
+            width=max(1, int(1*s)),
+        )
+
+
 ENTITY_SPECS: List[EntitySpriteSpec] = [
     EntitySpriteSpec("chest_closed", "chest_closed.png", "FeatureVisualKind::Chest", "ChestClosed", "closed treasure chest"),
     EntitySpriteSpec("chest_open", "chest_open.png", "FeatureVisualKind::Chest", "ChestOpened", "opened reward chest"),
@@ -265,6 +434,16 @@ ENTITY_SPECS: List[EntitySpriteSpec] = [
     EntitySpriteSpec("door_zone", "door_zone.png", "LoadingZoneActivation::Door", "Door", "interior door loading zone"),
     EntitySpriteSpec("edge_exit", "edge_exit.png", "LoadingZoneActivation::EdgeExit", "EdgeExit", "edge-exit loading zone"),
     EntitySpriteSpec("projectile_energy", "projectile_energy.png", "ActorKind::Projectile", "future projectile", "small energy projectile placeholder"),
+    # Tile sprites: 32×32 seamless textures rendered via Bevy's
+    # `Sprite::image_mode = Tiled` so they REPEAT across IntGrid-
+    # derived block surfaces (which can be arbitrary aspect ratios)
+    # without smearing. `tight_crop=False` keeps the full canvas so
+    # the tiling math is straightforward.
+    EntitySpriteSpec("solid_tile", "solid_tile.png", "BlockKind::Solid (IntGrid)", "ldtk solid tile", "tilable stone-brick floor/wall", size=(32, 32), tight_crop=False),
+    EntitySpriteSpec("one_way_tile", "one_way_tile.png", "BlockKind::OneWay (IntGrid)", "ldtk one-way tile", "tilable one-way platform plate", size=(32, 32), tight_crop=False),
+    EntitySpriteSpec("hazard_tile", "hazard_tile.png", "BlockKind::Hazard (IntGrid)", "ldtk hazard tile", "tilable spike strip", size=(32, 32), tight_crop=False),
+    EntitySpriteSpec("soft_blink_tile", "soft_blink_tile.png", "BlockKind::BlinkWall::Soft (IntGrid)", "ldtk blink-soft tile", "tilable soft blink wall", size=(32, 32), tight_crop=False),
+    EntitySpriteSpec("hard_blink_tile", "hard_blink_tile.png", "BlockKind::BlinkWall::Hard (IntGrid)", "ldtk blink-hard tile", "tilable hard blink wall", size=(32, 32), tight_crop=False),
 ]
 
 DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float], None]] = {
@@ -290,6 +469,11 @@ DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float], None]] = {
     "door_zone": door_zone,
     "edge_exit": edge_exit,
     "projectile_energy": projectile_energy,
+    "solid_tile": solid_tile,
+    "one_way_tile": one_way_tile,
+    "hazard_tile": hazard_tile,
+    "soft_blink_tile": soft_blink_tile,
+    "hard_blink_tile": hard_blink_tile,
 }
 
 
@@ -298,7 +482,7 @@ def render_entity_sprite(spec: EntitySpriteSpec, supersample: int = 4) -> Image.
         draw_fn = DRAWERS[spec.key]
     except KeyError as ex:
         raise KeyError(f"no drawer registered for {spec.key!r}") from ex
-    return render(draw_fn, spec.size, supersample)
+    return render(draw_fn, spec.size, supersample, tight_crop=spec.tight_crop)
 
 
 def build_entity_contact_sheet(tiles: List[Tuple[EntitySpriteSpec, Image.Image]]) -> Image.Image:

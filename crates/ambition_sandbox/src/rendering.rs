@@ -560,16 +560,38 @@ pub fn spawn_block(
     let render = BVec2::new(size.x, size.y);
     // IntGrid-derived blocks (named "ldtk *" by `int_grid_value_to_block`)
     // can be arbitrary aspect ratios (1904×32 floors, 48×240 pillars, …).
-    // Stretching the entity-art textures across those produces the
-    // false-pattern artefacts the user reported (the texture's internal
-    // structure smears into apparent repetition). Render them as flat
-    // colored quads until per-cell tile rendering with a real tileset
-    // lands; entity-derived blocks (e.g. the basement's authored Solid
-    // rectangles) keep the textured path because their footprints match
-    // the texture aspect ratio.
+    // Stretching the single 128-px entity-art textures across those
+    // smears the texture's internal structure into a false repeat.
+    // Solution: tiled 32×32 textures (one per BlockKind) repeated via
+    // `Sprite::image_mode = Tiled` so the texture renders at native
+    // pixel scale and TILES to fill `custom_size` — exactly what a
+    // long stone floor or tall pillar wants.
+    //
+    // Falls back to a colored quad when the tile asset is missing
+    // (no-asset mode, missing file). Authored entity-derived blocks
+    // (e.g. authored Solid rectangles outside the IntGrid layer) keep
+    // the entity-art path because their footprints match the texture
+    // aspect ratio.
     let is_intgrid_block = block.name.starts_with("ldtk ");
     let sprite = if is_intgrid_block {
-        Sprite::from_color(block_color(block.kind), render)
+        let tile_handle = assets
+            .and_then(|a| {
+                game_assets::block_tile_sprite(block.kind).and_then(|key| a.entities.get(key))
+            })
+            .cloned();
+        match tile_handle {
+            Some(image) => Sprite {
+                image,
+                custom_size: Some(render),
+                image_mode: bevy::sprite::SpriteImageMode::Tiled {
+                    tile_x: true,
+                    tile_y: true,
+                    stretch_value: 1.0,
+                },
+                ..Default::default()
+            },
+            None => Sprite::from_color(block_color(block.kind), render),
+        }
     } else {
         match assets {
             Some(a) => entity_sprite_or_color(

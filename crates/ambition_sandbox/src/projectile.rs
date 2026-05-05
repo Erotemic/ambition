@@ -8,13 +8,20 @@
 //!
 //! This module wires those primitives into the Bevy sandbox: input
 //! sampling, collision against the active world, and trace events.
+//! Damage is routed through the unified `FeatureRuntime::apply_damage_event`
+//! path — the same entry point slashes, pogo-bounces, and any future
+//! tool / hazard / spell that produces a damage volume go through.
 
 use bevy::prelude::*;
 
 use ambition_engine as ae;
-use bevy::math::bounding::IntersectsVolume;
+use ambition_engine::AabbExt;
 
+use crate::audio::SfxMessage;
+use crate::features::{DamageEvent, DamageSource, FeatureEventBus};
+use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
+use crate::physics::DebrisBurstMessage;
 use crate::trace::{GameplayTraceBuffer, GameplayTraceEvent};
 use crate::{GameWorld, SandboxRuntime};
 
@@ -116,11 +123,15 @@ impl ProjectileTraceEvent {
 pub fn update_projectiles(
     time: Res<Time>,
     world: Res<GameWorld>,
-    runtime: Res<SandboxRuntime>,
+    mut runtime: ResMut<SandboxRuntime>,
     control_frame: Res<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
+    mut feature_bus: ResMut<FeatureEventBus>,
+    mut sfx: MessageWriter<SfxMessage>,
+    mut vfx: MessageWriter<VfxMessage>,
+    mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
     let dt = time.delta_secs();
     state.clock += dt;
@@ -141,25 +152,60 @@ pub fn update_projectiles(
             events.push(ProjectileTraceEvent::Expired { kind: p.body.kind });
             continue;
         }
-        let aabb = p.body.aabb();
-        let mut hit = false;
-        for block in &world.0.blocks {
-            if matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            ) && block.aabb.intersects(&aabb)
-            {
-                hit = true;
-                break;
-            }
-        }
-        if hit {
+
+        // Step 1: damage check against actors (enemies / bosses /
+        // breakables / NPCs) via the unified pathway. If anything was
+        // hit, the projectile expires this frame (no piercing today).
+        let damage_event = DamageEvent {
+            volume: p.body.aabb(),
+            damage: p.body.damage,
+            source: DamageSource::PlayerProjectile { kind: p.body.kind },
+        };
+        let report = runtime.features.apply_damage_event(&damage_event);
+        if report.any_actor_hit() {
+            forward_damage_feedback(&mut vfx, &mut debris, &report.events);
+            // Forward boss-damage / quest / flag writes / NPC-struck
+            // events so the rest of the systems (boss encounter, save
+            // flags, quest registry) react to projectile hits the same
+            // way they react to slash hits.
+            feature_bus.ingest(&report.events);
+            sfx.write(SfxMessage::Hit { pos: p.body.pos });
             events.push(ProjectileTraceEvent::Hit {
                 kind: p.body.kind,
                 damage: p.body.damage,
             });
             continue;
         }
+
+        // Step 2: solid-wall test. Fireball bounces off floors (per
+        // its `bounces_remaining` budget); side / ceiling / out-of-
+        // budget hits expire. Hadouken spawns with 0 bounces, so the
+        // first solid hit always expires it.
+        let aabb = p.body.aabb();
+        let solid_hit = world.0.blocks.iter().find(|block| {
+            matches!(
+                block.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            ) && block.aabb.strict_intersects(aabb)
+        });
+        if let Some(block) = solid_hit {
+            match p.body.resolve_solid_hit(block.aabb) {
+                ae::ProjectileSolidHit::Bounced => {
+                    sfx.write(SfxMessage::Hit { pos: p.body.pos });
+                    still_alive.push(p);
+                    continue;
+                }
+                ae::ProjectileSolidHit::Expired => {
+                    events.push(ProjectileTraceEvent::Hit {
+                        kind: p.body.kind,
+                        damage: p.body.damage,
+                    });
+                    vfx.write(VfxMessage::Impact { pos: p.body.pos });
+                    continue;
+                }
+            }
+        }
+
         still_alive.push(p);
     }
     state.bodies = still_alive;
@@ -226,6 +272,54 @@ pub fn projectile_status_summary(state: &PlayerProjectileState) -> String {
         state.spawner.cooldown_remaining,
         state.bodies.len()
     )
+}
+
+/// Push the audio / VFX / debris cues from a `FeatureEvents` bundle
+/// onto the message writers visible to the projectile system. This
+/// is the projectile-side counterpart to `app::handle_feature_events`
+/// (which uses the `Vec` collectors that `sandbox_update` builds);
+/// keeping a small writer-shaped variant local avoids exposing those
+/// collectors outside `sandbox_update`'s scope.
+fn forward_damage_feedback(
+    vfx: &mut MessageWriter<VfxMessage>,
+    debris: &mut MessageWriter<DebrisBurstMessage>,
+    events: &crate::features::FeatureEvents,
+) {
+    use crate::physics::PhysicsDebrisCue;
+    for burst in &events.physics_bursts {
+        let cue = match burst.cue {
+            crate::features::FeaturePhysicsCue::Breakable => PhysicsDebrisCue::Breakable,
+            crate::features::FeaturePhysicsCue::EnemyRagdoll => PhysicsDebrisCue::EnemyRagdoll,
+            crate::features::FeaturePhysicsCue::BossRagdoll => PhysicsDebrisCue::BossRagdoll,
+        };
+        debris.write(DebrisBurstMessage {
+            pos: burst.pos,
+            cue,
+        });
+    }
+    for &pos in &events.impacts {
+        vfx.write(VfxMessage::Impact { pos });
+        vfx.write(VfxMessage::Burst {
+            pos,
+            count: 14,
+            speed: 300.0,
+            color: [1.0, 0.34, 0.28, 0.88],
+            kind: crate::fx::ParticleKind::Shard,
+        });
+        debris.write(DebrisBurstMessage {
+            pos,
+            cue: PhysicsDebrisCue::Impact,
+        });
+    }
+    for &pos in &events.bursts {
+        vfx.write(VfxMessage::Burst {
+            pos,
+            count: 16,
+            speed: 230.0,
+            color: [0.84, 0.95, 1.0, 0.82],
+            kind: crate::fx::ParticleKind::Spark,
+        });
+    }
 }
 
 /// Marker on the per-frame projectile sprite entities produced by
@@ -335,6 +429,11 @@ mod tests {
         app.insert_resource(crate::settings::UserSettings::default());
         app.insert_resource(GameplayTraceBuffer::default());
         app.insert_resource(PlayerProjectileState::default());
+        app.insert_resource(FeatureEventBus::default());
+        // Buffered-message channels the system writes into.
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
         app.add_systems(Update, update_projectiles);
         app
     }
@@ -421,5 +520,181 @@ mod tests {
         app.update();
         let state = app.world().resource::<PlayerProjectileState>();
         assert!(state.bodies.is_empty());
+    }
+
+    /// Pre-spawn a fireball directly into the body list and place it
+    /// just above an enemy. After one tick the fireball moves into
+    /// the enemy's AABB → `apply_damage_event` does its thing → enemy
+    /// loses HP and the projectile is despawned.
+    #[test]
+    fn fireball_damages_enemy_on_intersect() {
+        let mut app = min_app();
+        // Spawn an enemy in the runtime.
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.features.spawn_enemy(
+                "test_enemy".into(),
+                ae::EnemyBrain::Custom("medium_striker".into()),
+                ae::Vec2::new(400.0, 300.0),
+                ae::Vec2::new(28.0, 46.0),
+            );
+        }
+        // Inject a fireball moving toward the enemy.
+        {
+            let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+            let spec = ae::ProjectileSpec::new(
+                ae::ProjectileKind::Fireball,
+                ae::Vec2::new(395.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ae::ProjectileBody::from_spec(spec);
+            // Override velocity / pos so the next tick definitely
+            // overlaps the enemy AABB regardless of arc tuning.
+            body.pos = ae::Vec2::new(395.0, 300.0);
+            body.vel = ae::Vec2::new(50.0, 0.0);
+            state.bodies.push(PlayerProjectile { body });
+        }
+        let starting_health = {
+            let runtime = app.world().resource::<SandboxRuntime>();
+            runtime.features.enemies[0].health.current
+        };
+        advance_time(&mut app, 0.016);
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        let state = app.world().resource::<PlayerProjectileState>();
+        assert!(
+            runtime.features.enemies[0].health.current < starting_health,
+            "enemy must lose HP from a projectile hit (was {}, now {})",
+            starting_health,
+            runtime.features.enemies[0].health.current
+        );
+        assert!(
+            state.bodies.is_empty(),
+            "fireball must despawn after hitting an actor"
+        );
+    }
+
+    /// Drop a fireball onto a floor block. The first tick should
+    /// produce a bounce (vy reflects upward, bounce budget drops by
+    /// one) and the projectile must remain in the body list.
+    #[test]
+    fn fireball_bounces_off_floor_in_system() {
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        // World with a single floor block well below the spawn point.
+        let world = ae::World::new(
+            "bounce_test",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            vec![ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 400.0),
+                ae::Vec2::new(2000.0, 32.0),
+            )],
+        );
+        app.insert_resource(GameWorld(world.clone()));
+        let mut runtime = SandboxRuntime::new(
+            &world,
+            ae::AbilitySet::sandbox_all(),
+            ae::DEFAULT_TUNING,
+            crate::physics::PhysicsSandboxSettings::default(),
+        );
+        runtime.player.pos = ae::Vec2::new(200.0, 200.0);
+        app.insert_resource(runtime);
+        app.insert_resource(ControlFrame::default());
+        app.insert_resource(crate::settings::UserSettings::default());
+        app.insert_resource(GameplayTraceBuffer::default());
+        app.insert_resource(PlayerProjectileState::default());
+        app.insert_resource(FeatureEventBus::default());
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_systems(Update, update_projectiles);
+
+        // Spawn a fireball just above the floor moving downward.
+        let starting_bounces;
+        {
+            let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+            let spec = ae::ProjectileSpec::new(
+                ae::ProjectileKind::Fireball,
+                ae::Vec2::new(500.0, 380.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ae::ProjectileBody::from_spec(spec);
+            body.pos = ae::Vec2::new(500.0, 395.0);
+            body.vel = ae::Vec2::new(60.0, 240.0);
+            starting_bounces = body.bounces_remaining;
+            assert!(starting_bounces > 0);
+            state.bodies.push(PlayerProjectile { body });
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        let state = app.world().resource::<PlayerProjectileState>();
+        assert_eq!(state.bodies.len(), 1, "fireball must survive a floor bounce");
+        let body = &state.bodies[0].body;
+        assert!(body.vel.y < 0.0, "post-bounce vy must be upward; got {}", body.vel.y);
+        assert_eq!(body.bounces_remaining, starting_bounces - 1);
+    }
+
+    /// Hadouken spawns with `bounces_remaining = 0`. Hitting any solid
+    /// expires it on the first contact — pinning the "horizontal
+    /// projectile that disappears on first wall" behavior at the
+    /// system level (engine test pinned it at the unit level).
+    #[test]
+    fn hadouken_expires_on_solid_in_system() {
+        let mut app = App::new();
+        app.insert_resource(Time::<()>::default());
+        let world = ae::World::new(
+            "wall_test",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 200.0),
+            vec![ae::Block::solid(
+                "wall",
+                ae::Vec2::new(600.0, 0.0),
+                ae::Vec2::new(40.0, 800.0),
+            )],
+        );
+        app.insert_resource(GameWorld(world.clone()));
+        let mut runtime = SandboxRuntime::new(
+            &world,
+            ae::AbilitySet::sandbox_all(),
+            ae::DEFAULT_TUNING,
+            crate::physics::PhysicsSandboxSettings::default(),
+        );
+        runtime.player.pos = ae::Vec2::new(500.0, 300.0);
+        app.insert_resource(runtime);
+        app.insert_resource(ControlFrame::default());
+        app.insert_resource(crate::settings::UserSettings::default());
+        app.insert_resource(GameplayTraceBuffer::default());
+        app.insert_resource(PlayerProjectileState::default());
+        app.insert_resource(FeatureEventBus::default());
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<DebrisBurstMessage>();
+        app.add_systems(Update, update_projectiles);
+
+        {
+            let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+            let spec = ae::ProjectileSpec::new(
+                ae::ProjectileKind::Hadouken,
+                ae::Vec2::new(580.0, 300.0),
+                ae::Vec2::new(1.0, 0.0),
+                1.0,
+            );
+            let mut body = ae::ProjectileBody::from_spec(spec);
+            body.pos = ae::Vec2::new(595.0, 300.0);
+            body.vel = ae::Vec2::new(520.0, 0.0);
+            state.bodies.push(PlayerProjectile { body });
+        }
+        advance_time(&mut app, 0.016);
+        app.update();
+        let state = app.world().resource::<PlayerProjectileState>();
+        assert!(
+            state.bodies.is_empty(),
+            "Hadouken must expire on first solid hit (no bounces); still alive: {}",
+            state.bodies.len()
+        );
     }
 }

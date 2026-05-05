@@ -21,7 +21,7 @@ use std::collections::VecDeque;
 use bevy_math::Vec2;
 use serde::{Deserialize, Serialize};
 
-use crate::geometry::{aabb_from_min_size, Aabb};
+use crate::geometry::{aabb_from_min_size, Aabb, AabbExt};
 use crate::player_state::ResourceMeter;
 
 /// What kind of projectile to spawn.
@@ -207,6 +207,66 @@ impl ProjectileBody {
     pub fn is_expired(&self) -> bool {
         self.age >= self.max_lifetime
     }
+
+    /// Resolution outcome when this projectile overlaps a solid block.
+    /// The caller decides what to do: bounce paths re-position the
+    /// body and continue the next tick; expire paths despawn the
+    /// projectile (and optionally trigger a hit VFX).
+    ///
+    /// `Bounced` is reserved for *floor* contacts (top edge of the
+    /// block, fireball coming down): the only configuration where a
+    /// classic platformer fireball reverses direction. Side and
+    /// ceiling contacts always expire so the gameplay is predictable
+    /// — a flying horizontal projectile doesn't suddenly retrace its
+    /// path back through the player.
+    pub fn resolve_solid_hit(&mut self, block_aabb: Aabb) -> ProjectileSolidHit {
+        let body = self.aabb();
+        // Side / ceiling-contact filter: if the projectile's y-range
+        // fits inside the block's y-range, the contact is on the
+        // block's *side*, not its top. (Mirrors the
+        // `body_is_side_contact` predicate that movement.rs uses to
+        // skip side walls during the y-sweep — same idea, applied
+        // here so a horizontal projectile flying past a tall wall
+        // doesn't get classified as a floor landing.) A 1e-3 epsilon
+        // allows for an exact-edge-touching projectile that just
+        // grazes the floor / ceiling face.
+        const SIDE_EPS: f32 = 1e-3;
+        let side_contact = body.top() >= block_aabb.top() - SIDE_EPS
+            && body.bottom() <= block_aabb.bottom() + SIDE_EPS;
+        if side_contact {
+            return ProjectileSolidHit::Expired;
+        }
+        // Floor vs ceiling contact: projectile center above the block
+        // center AND moving downward → top-of-block hit. Anything else
+        // (ceiling, sub-pixel hover-up, bounced-up grazing the floor
+        // again) expires.
+        let from_above = body.center().y < block_aabb.center().y;
+        let going_down = self.vel.y > 0.0;
+        if !from_above || !going_down || self.bounces_remaining == 0 {
+            return ProjectileSolidHit::Expired;
+        }
+        // Reposition so the body's bottom rests on the block's top
+        // edge plus a 1px lift, then reflect vy with restitution. The
+        // 1px lift prevents an immediate re-hit on the next tick when
+        // gravity hasn't yet reaccelerated downward.
+        const RESTITUTION: f32 = 0.65;
+        const SETTLE_LIFT: f32 = 1.0;
+        self.pos.y = block_aabb.top() - self.half_extent.y - SETTLE_LIFT;
+        self.vel.y = -self.vel.y.abs() * RESTITUTION;
+        self.bounces_remaining -= 1;
+        ProjectileSolidHit::Bounced
+    }
+}
+
+/// Outcome of `ProjectileBody::resolve_solid_hit`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProjectileSolidHit {
+    /// Projectile bounced off the block top; `bounces_remaining`
+    /// decremented and `vel.y` reflected. Caller keeps the body alive.
+    Bounced,
+    /// Projectile should be removed (no bounces left, or contact wasn't
+    /// a top-of-block landing).
+    Expired,
 }
 
 /// Snapshot of a single recorded directional sample, captured by
@@ -455,6 +515,7 @@ pub enum SpawnFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geometry::AabbExt;
 
     #[test]
     fn motion_buffer_recognizes_quarter_circle_right() {
@@ -624,6 +685,101 @@ mod tests {
         }
         assert!(body.pos.y.abs() < 1e-3);
         assert!(body.pos.x > 0.0);
+    }
+
+    fn block_aabb(min: Vec2, size: Vec2) -> Aabb {
+        aabb_from_min_size(min, size)
+    }
+
+    /// A fireball travelling down + right that hits the *top* of a
+    /// floor block must bounce: vy reflects (now upward), the body
+    /// re-positions just above the block, and `bounces_remaining`
+    /// decrements.
+    #[test]
+    fn fireball_bounces_off_floor_top() {
+        let spec = ProjectileSpec::new(
+            ProjectileKind::Fireball,
+            Vec2::new(100.0, 100.0),
+            Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ProjectileBody::from_spec(spec);
+        // Force the body downward so the contact is unambiguously
+        // "from above" (test the geometric branch independent of
+        // whatever the spec's gravity has done so far).
+        body.vel = Vec2::new(200.0, 240.0);
+        body.pos = Vec2::new(150.0, 195.0);
+        let starting_bounces = body.bounces_remaining;
+        let floor = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 32.0));
+        assert!(starting_bounces > 0, "fireball must spawn with bounces");
+        let outcome = body.resolve_solid_hit(floor);
+        assert_eq!(outcome, ProjectileSolidHit::Bounced);
+        assert_eq!(body.bounces_remaining, starting_bounces - 1);
+        assert!(
+            body.vel.y < 0.0,
+            "vy must reflect upward after a floor bounce; got {}",
+            body.vel.y
+        );
+        // Body bottom edge must now be at or above the block top.
+        assert!(body.aabb().bottom() <= floor.top() + 1.0);
+    }
+
+    /// Side / ceiling contacts (anything that isn't "fireball above
+    /// the block") must expire — including a fireball going up that
+    /// re-overlaps a ceiling.
+    #[test]
+    fn fireball_expires_on_non_floor_contact() {
+        let spec = ProjectileSpec::new(
+            ProjectileKind::Fireball,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ProjectileBody::from_spec(spec);
+        // Side wall: body center is to the LEFT of the block center.
+        // Side contact never bounces in this model.
+        body.pos = Vec2::new(180.0, 100.0);
+        body.vel = Vec2::new(360.0, 60.0);
+        let wall = block_aabb(Vec2::new(190.0, 0.0), Vec2::new(32.0, 400.0));
+        let outcome = body.resolve_solid_hit(wall);
+        assert_eq!(outcome, ProjectileSolidHit::Expired);
+    }
+
+    /// Once `bounces_remaining` reaches zero, even a top-of-block
+    /// contact returns Expired — the fireball has used its budget.
+    #[test]
+    fn fireball_expires_when_bounce_budget_exhausted() {
+        let spec = ProjectileSpec::new(
+            ProjectileKind::Fireball,
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ProjectileBody::from_spec(spec);
+        body.bounces_remaining = 0;
+        body.vel = Vec2::new(200.0, 240.0);
+        body.pos = Vec2::new(150.0, 195.0);
+        let floor = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 32.0));
+        let outcome = body.resolve_solid_hit(floor);
+        assert_eq!(outcome, ProjectileSolidHit::Expired);
+    }
+
+    /// Hadouken spawns with 0 bounces, so the very first solid hit
+    /// expires it regardless of contact face. This pins the
+    /// "horizontal projectile that disappears on first wall" UX.
+    #[test]
+    fn hadouken_expires_on_first_solid_hit() {
+        let spec = ProjectileSpec::new(
+            ProjectileKind::Hadouken,
+            Vec2::new(50.0, 100.0),
+            Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ProjectileBody::from_spec(spec);
+        assert_eq!(body.bounces_remaining, 0);
+        let wall = block_aabb(Vec2::new(60.0, 0.0), Vec2::new(32.0, 400.0));
+        let outcome = body.resolve_solid_hit(wall);
+        assert_eq!(outcome, ProjectileSolidHit::Expired);
     }
 
     #[test]

@@ -174,6 +174,69 @@ pub struct NpcDialogueRequest {
     pub dialogue_id: String,
 }
 
+/// Source of a damage event. Lets per-target damage logic branch on
+/// the originator (slash applies upward + horizontal knockback;
+/// projectile doesn't push the target around) and lets the trace /
+/// HUD label hits.
+///
+/// New damage sources should add a variant here rather than building
+/// a parallel `apply_*_attack` method on `FeatureRuntime`. The unified
+/// path is `apply_damage_event`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DamageSource {
+    /// Player melee slash. `knock_x` is the horizontal impulse to
+    /// add to a hit enemy's velocity (sign tied to player facing).
+    /// Slashes also nudge enemies upward.
+    PlayerSlash { knock_x: f32 },
+    /// Player projectile (Fireball / Hadouken). No knockback today;
+    /// the projectile's own velocity carries the visual feedback.
+    PlayerProjectile { kind: ae::ProjectileKind },
+    /// Pogo bounce on a breakable orb. Routed via the legacy
+    /// `on_pogo_bounce` path because it's pogo-orb-specific (only
+    /// `pogo_refresh` breakables react). Listed here so future
+    /// damage-source consumers see the full set in one place.
+    PogoBounce,
+}
+
+/// One damage event in world space: an AABB volume to test against
+/// every damageable feature, the amount to apply, and the source. The
+/// caller produces these once per frame; `FeatureRuntime::apply_damage_event`
+/// resolves them across all target collections in a single pass and
+/// returns a `DamageReport` so the caller can decide what to do with
+/// the source (despawn projectile, reduce durability, …).
+#[derive(Clone, Debug)]
+pub struct DamageEvent {
+    pub volume: ae::Aabb,
+    pub damage: i32,
+    pub source: DamageSource,
+}
+
+/// What `apply_damage_event` did. Carries the side-effect bundle
+/// (sounds, VFX, save-flag writes — already accepted into the runtime
+/// by the time the report returns) plus a structured tally of who
+/// was hit so callers can branch.
+///
+/// Counts are usize because a wide damage volume can clip multiple
+/// enemies at once (think: a spell AOE). For projectile expiry the
+/// caller usually only checks `any_actor_hit()`.
+#[derive(Clone, Debug, Default)]
+pub struct DamageReport {
+    pub events: FeatureEvents,
+    pub enemies_hit: usize,
+    pub bosses_hit: usize,
+    pub breakables_hit: usize,
+    pub npcs_hit: usize,
+    pub kills: usize,
+}
+
+impl DamageReport {
+    /// True iff any damageable feature was hit. Used by projectile
+    /// resolution to decide whether to despawn the body.
+    pub fn any_actor_hit(&self) -> bool {
+        self.enemies_hit + self.bosses_hit + self.breakables_hit + self.npcs_hit > 0
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct FeatureRuntime {
     pub hazards: Vec<HazardRuntime>,
@@ -652,29 +715,81 @@ impl FeatureRuntime {
         damage: i32,
         knock_x: f32,
     ) -> FeatureEvents {
-        let mut events = FeatureEvents::default();
+        // Slash is one specialization of the unified damage path —
+        // see `apply_damage_event` for the canonical entry point.
+        // Keeping this signature stable so existing call sites
+        // (sandbox_update's slash phase, attack tests) don't change.
+        let report = self.apply_damage_event(&DamageEvent {
+            volume: attack,
+            damage,
+            source: DamageSource::PlayerSlash { knock_x },
+        });
+        report.events
+    }
+
+    /// Apply a damage event against every damageable feature whose
+    /// AABB strictly overlaps `event.volume`. Single source of truth
+    /// for "AABB + damage hits the world": slashes, projectiles, and
+    /// any future tool / hazard / spell that produces a damage volume
+    /// route through here.
+    ///
+    /// Returns a `DamageReport` with:
+    /// - `events`: the side-effect bundle (already merged into the
+    ///   runtime's internal state — caller only needs to forward
+    ///   audio/VFX/quest/flag writes to its own bus).
+    /// - hit counts per target type so projectile resolution can
+    ///   decide whether to expire the source.
+    ///
+    /// Per-target behavior:
+    /// - Enemies: damage + optional slash-style knockback. Encounter
+    ///   mobs (`enemy.id` starting with `"encounter:"`) skip the
+    ///   "enemy_<id>_dead" save flag because the encounter state
+    ///   machine owns their lifecycle.
+    /// - Bosses: damage routes to the boss-encounter machine via
+    ///   `events.boss_damage`.
+    /// - NPCs: any hit increments `strikes`; crossing the threshold
+    ///   flips hostility (regardless of source — projectiles provoke
+    ///   too).
+    /// - Breakables: take damage UNLESS they're pogo-refresh orbs
+    ///   (those only react to the dedicated `on_pogo_bounce` path).
+    pub fn apply_damage_event(&mut self, event: &DamageEvent) -> DamageReport {
+        let mut report = DamageReport::default();
+        let attack = event.volume;
+        let damage = event.damage;
+        let knock = match event.source {
+            DamageSource::PlayerSlash { knock_x } => Some(knock_x),
+            _ => None,
+        };
 
         for enemy in &mut self.enemies {
             if enemy.alive && attack.strict_intersects(enemy.aabb()) {
                 enemy.hit_flash = 0.16;
-                enemy.vel.x += knock_x;
-                enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
+                if let Some(knock_x) = knock {
+                    enemy.vel.x += knock_x;
+                    enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
+                }
                 let killed = if enemy.archetype == EnemyArchetype::InfiniteSandbag {
                     false
                 } else {
                     enemy.health.damage(damage)
                 };
                 let hit_pos = midpoint(attack.center(), enemy.pos);
-                events.impacts.push(hit_pos);
+                report.events.impacts.push(hit_pos);
+                report.enemies_hit += 1;
                 if killed {
                     enemy.alive = false;
+                    report.kills += 1;
                     if enemy.archetype == EnemyArchetype::FiniteSandbag {
                         enemy.respawn_timer = 0.85;
-                        events
+                        report
+                            .events
                             .messages
                             .push(format!("{} dropped; respawning", enemy.name));
                     } else {
-                        events.messages.push(format!("defeated {}", enemy.name));
+                        report
+                            .events
+                            .messages
+                            .push(format!("defeated {}", enemy.name));
                         // Persist non-respawning enemy deaths so the
                         // room load doesn't bring them back. Encounter
                         // mobs (id prefix "encounter:") skip this —
@@ -685,13 +800,14 @@ impl FeatureRuntime {
                             && enemy.archetype != EnemyArchetype::InfiniteSandbag
                             && enemy.archetype != EnemyArchetype::FiniteSandbag
                         {
-                            events
+                            report
+                                .events
                                 .flag_writes
                                 .push((format!("enemy_{}_dead", enemy.id), true));
                         }
                     }
-                    events.bursts.push(enemy.pos);
-                    events.physics_bursts.push(FeaturePhysicsBurst {
+                    report.events.bursts.push(enemy.pos);
+                    report.events.physics_bursts.push(FeaturePhysicsBurst {
                         pos: enemy.pos,
                         cue: FeaturePhysicsCue::EnemyRagdoll,
                     });
@@ -704,13 +820,18 @@ impl FeatureRuntime {
                 boss.hit_flash = 0.18;
                 let amount = damage.max(1);
                 let killed = boss.health.damage(amount);
-                events.impacts.push(midpoint(attack.center(), boss.pos));
-                events.boss_damage.push((boss.id.clone(), amount));
+                report.events.impacts.push(midpoint(attack.center(), boss.pos));
+                report.events.boss_damage.push((boss.id.clone(), amount));
+                report.bosses_hit += 1;
                 if killed {
                     boss.alive = false;
-                    events.messages.push(format!("defeated boss {}", boss.name));
-                    events.bursts.push(boss.pos);
-                    events.physics_bursts.push(FeaturePhysicsBurst {
+                    report.kills += 1;
+                    report
+                        .events
+                        .messages
+                        .push(format!("defeated boss {}", boss.name));
+                    report.events.bursts.push(boss.pos);
+                    report.events.physics_bursts.push(FeaturePhysicsBurst {
                         pos: boss.pos,
                         cue: FeaturePhysicsCue::BossRagdoll,
                     });
@@ -723,21 +844,21 @@ impl FeatureRuntime {
         // begin acting like a striker enemy. Already-hostile NPCs
         // take real damage like any other enemy. The save flag write
         // (`npc_<id>_hostile`) is queued via `flag_writes` so the
-        // sandbox runtime persists it.
+        // sandbox runtime persists it. Any damage source provokes —
+        // projectiles count as strikes too.
         for npc in &mut self.npcs {
             if !attack.strict_intersects(npc.aabb()) {
                 continue;
             }
             npc.hit_flash = 0.18;
-            events.impacts.push(midpoint(attack.center(), npc.pos));
-            events.npc_struck.push((npc.id.clone(), npc.pos));
+            report.events.impacts.push(midpoint(attack.center(), npc.pos));
+            report.events.npc_struck.push((npc.id.clone(), npc.pos));
+            report.npcs_hit += 1;
             if npc.hostile {
-                // Hostile NPC takes a damage tick; if it dies, fall
-                // through and let the death cleanup happen on the
-                // next room enter.
                 npc.strikes = npc.strikes.saturating_add(1);
                 if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD * 2 {
-                    events
+                    report
+                        .events
                         .messages
                         .push(format!("{} flees the room", npc.name));
                 }
@@ -745,9 +866,12 @@ impl FeatureRuntime {
                 npc.strikes = npc.strikes.saturating_add(1);
                 if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
                     npc.hostile = true;
-                    events.messages.push(format!("{} turns hostile", npc.name));
-                    events.flag_writes.push((npc.flag_id(), true));
-                    events.bursts.push(npc.pos);
+                    report
+                        .events
+                        .messages
+                        .push(format!("{} turns hostile", npc.name));
+                    report.events.flag_writes.push((npc.flag_id(), true));
+                    report.events.bursts.push(npc.pos);
                 }
             }
         }
@@ -766,14 +890,19 @@ impl FeatureRuntime {
                 && attack.strict_intersects(breakable.aabb())
             {
                 let broke = breakable.breakable.apply_damage(damage.max(1));
-                events
+                report
+                    .events
                     .impacts
                     .push(midpoint(attack.center(), breakable.pos));
+                report.breakables_hit += 1;
                 if broke {
                     breakable.start_respawn_timer();
-                    events.messages.push(format!("broke {}", breakable.name));
-                    events.bursts.push(breakable.pos);
-                    events.physics_bursts.push(FeaturePhysicsBurst {
+                    report
+                        .events
+                        .messages
+                        .push(format!("broke {}", breakable.name));
+                    report.events.bursts.push(breakable.pos);
+                    report.events.physics_bursts.push(FeaturePhysicsBurst {
                         pos: breakable.pos,
                         cue: FeaturePhysicsCue::Breakable,
                     });
@@ -781,8 +910,8 @@ impl FeatureRuntime {
             }
         }
 
-        self.accept_events(&events);
-        events
+        self.accept_events(&report.events);
+        report
     }
 
     /// Apply pogo-bounce damage to any breakable pogo orb whose runtime
@@ -1689,6 +1818,129 @@ mod conversion_tests {
         }
         assert_eq!(features.npcs.len(), 1);
         assert!(features.npcs[0].hostile);
+    }
+
+    /// Slash damage applies a horizontal AND upward velocity nudge on
+    /// enemies (the existing slash-feel signature). Pinning this so a
+    /// future change to `apply_damage_event` doesn't silently drop
+    /// the slash-only knockback.
+    #[test]
+    fn slash_source_applies_knockback_to_hit_enemy() {
+        let mut features = FeatureRuntime {
+            hazards: Vec::new(),
+            enemies: Vec::new(),
+            bosses: Vec::new(),
+            breakables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            npcs: Vec::new(),
+            switches: Vec::new(),
+            water_volumes: Vec::new(),
+            banner: String::new(),
+            banner_timer: 0.0,
+        };
+        features.spawn_enemy(
+            "victim".into(),
+            ae::EnemyBrain::Custom("medium_striker".into()),
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(28.0, 46.0),
+        );
+        features.enemies[0].vel = ae::Vec2::ZERO;
+        let attack = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(40.0, 40.0));
+        let report = features.apply_damage_event(&DamageEvent {
+            volume: attack,
+            damage: 1,
+            source: DamageSource::PlayerSlash { knock_x: 300.0 },
+        });
+        assert_eq!(report.enemies_hit, 1);
+        assert!(report.events.impacts.len() >= 1);
+        let enemy = &features.enemies[0];
+        assert!(enemy.vel.x > 0.0, "slash knock_x must push enemy right");
+        assert!(enemy.vel.y < 0.0, "slash must nudge enemy upward");
+    }
+
+    /// Projectile damage source hits the same enemies the slash does
+    /// but does NOT apply knockback — the projectile's own visual
+    /// motion communicates the impact, and we don't want fireballs
+    /// pushing enemies around like a melee swing.
+    #[test]
+    fn projectile_source_damages_without_knockback() {
+        let mut features = FeatureRuntime {
+            hazards: Vec::new(),
+            enemies: Vec::new(),
+            bosses: Vec::new(),
+            breakables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            npcs: Vec::new(),
+            switches: Vec::new(),
+            water_volumes: Vec::new(),
+            banner: String::new(),
+            banner_timer: 0.0,
+        };
+        features.spawn_enemy(
+            "target".into(),
+            ae::EnemyBrain::Custom("medium_striker".into()),
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(28.0, 46.0),
+        );
+        let starting_health = features.enemies[0].health.current;
+        features.enemies[0].vel = ae::Vec2::ZERO;
+        let volume = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 20.0));
+        let report = features.apply_damage_event(&DamageEvent {
+            volume,
+            damage: 1,
+            source: DamageSource::PlayerProjectile {
+                kind: ae::ProjectileKind::Fireball,
+            },
+        });
+        assert_eq!(report.enemies_hit, 1);
+        assert!(features.enemies[0].health.current < starting_health);
+        let enemy = &features.enemies[0];
+        assert_eq!(
+            enemy.vel,
+            ae::Vec2::ZERO,
+            "projectile damage must not apply knockback (got {:?})",
+            enemy.vel
+        );
+    }
+
+    /// A wide damage volume that overlaps multiple enemies hits each
+    /// of them and the report tallies the count. This is the
+    /// future-proof behavior for AOE-style sources.
+    #[test]
+    fn damage_event_reports_multi_hit_count() {
+        let mut features = FeatureRuntime {
+            hazards: Vec::new(),
+            enemies: Vec::new(),
+            bosses: Vec::new(),
+            breakables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            npcs: Vec::new(),
+            switches: Vec::new(),
+            water_volumes: Vec::new(),
+            banner: String::new(),
+            banner_timer: 0.0,
+        };
+        for (i, x) in [80.0_f32, 120.0, 160.0].iter().enumerate() {
+            features.spawn_enemy(
+                format!("aoe_target_{i}"),
+                ae::EnemyBrain::Custom("medium_striker".into()),
+                ae::Vec2::new(*x, 100.0),
+                ae::Vec2::new(28.0, 46.0),
+            );
+        }
+        let volume = ae::Aabb::new(ae::Vec2::new(120.0, 100.0), ae::Vec2::new(80.0, 40.0));
+        let report = features.apply_damage_event(&DamageEvent {
+            volume,
+            damage: 1,
+            source: DamageSource::PlayerProjectile {
+                kind: ae::ProjectileKind::Hadouken,
+            },
+        });
+        assert_eq!(report.enemies_hit, 3);
+        assert!(!report.any_actor_hit() == false);
     }
 
     #[test]

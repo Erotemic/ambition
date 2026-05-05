@@ -79,7 +79,7 @@ pub use player_state::{
 };
 pub use projectile::{
     MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody, ProjectileKind,
-    ProjectileSpawner, ProjectileSpec, SpawnFailure,
+    ProjectileSolidHit, ProjectileSpawner, ProjectileSpec, SpawnFailure,
 };
 pub use quest::{
     QuestAdvanceEvent, QuestSpec, QuestState, QuestStepCondition, QuestStepSpec,

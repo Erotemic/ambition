@@ -211,6 +211,47 @@ impl BodyShape {
     }
 }
 
+/// Attempt to change `player.body_mode` to `new_mode`.
+///
+/// Computes the new shape via `BodyMode::shape(player.base_size)`,
+/// adjusts `pos.y` so the player's feet stay planted, then checks
+/// `BodyShape::fits_at` with the caller's predicate. On success the
+/// player's `pos`, `size`, and `body_mode` are updated and the function
+/// returns `true`. On failure all three are left untouched.
+///
+/// Sandbox crouch / morph wiring should call this every frame: each
+/// transition is naturally idempotent because requesting the current
+/// mode is a no-op success. Standing-back-up against a low ceiling
+/// returns `false`, which the caller can surface as a "blocked stand-up"
+/// trace event without re-deriving the geometry.
+///
+/// AABB convention: `pos` is the AABB center and Ambition uses +Y down,
+/// so `feet_y == pos.y + size.y * 0.5`. Shrinking the body keeps feet
+/// planted by *increasing* `pos.y` by half the height delta.
+pub fn try_change_body_mode<F>(
+    player: &mut crate::movement::Player,
+    new_mode: BodyMode,
+    world: &crate::world::World,
+    predicate: F,
+) -> bool
+where
+    F: FnMut(&crate::world::Block) -> bool,
+{
+    if player.body_mode == new_mode {
+        return true;
+    }
+    let new_shape = new_mode.shape(player.base_size);
+    let dy = (player.size.y - new_shape.size.y) * 0.5;
+    let new_center = Vec2::new(player.pos.x, player.pos.y + dy);
+    if !new_shape.fits_at(new_center, world, predicate) {
+        return false;
+    }
+    player.pos = new_center;
+    player.size = new_shape.size;
+    player.body_mode = new_mode;
+    true
+}
+
 /// Result of [`classify_player_safety`]. The recorder, OOB detector,
 /// and "remember safe spawn point" logic all consult this so a single
 /// place defines what counts as a legal player position.
@@ -468,6 +509,102 @@ mod tests {
         m.current = 1.0;
         m.tick_decay(1.0);
         assert_eq!(m.current, 0.0);
+    }
+
+    #[test]
+    fn try_change_body_mode_to_crouching_keeps_feet_planted_and_shrinks() {
+        let world = World::new(
+            "test",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(50.0, 50.0),
+            Vec::new(),
+        );
+        let mut player = Player::new(Vec2::new(100.0, 100.0));
+        let original_size = player.size;
+        let original_feet = player.pos.y + player.size.y * 0.5;
+
+        let ok = try_change_body_mode(&mut player, BodyMode::Crouching, &world, |_| true);
+        assert!(ok);
+        assert_eq!(player.body_mode, BodyMode::Crouching);
+        assert!(player.size.y < original_size.y);
+        assert_eq!(player.size.x, original_size.x);
+        let new_feet = player.pos.y + player.size.y * 0.5;
+        assert!((new_feet - original_feet).abs() < 1e-3);
+    }
+
+    #[test]
+    fn try_change_body_mode_back_to_standing_uses_base_size() {
+        let world = World::new(
+            "test",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(50.0, 50.0),
+            Vec::new(),
+        );
+        let mut player = Player::new(Vec2::new(100.0, 100.0));
+        let base = player.base_size;
+        try_change_body_mode(&mut player, BodyMode::Crouching, &world, |_| true);
+        try_change_body_mode(&mut player, BodyMode::Crouching, &world, |_| true);
+        let ok = try_change_body_mode(&mut player, BodyMode::Standing, &world, |_| true);
+        assert!(ok);
+        assert_eq!(player.body_mode, BodyMode::Standing);
+        assert_eq!(player.size, base);
+    }
+
+    #[test]
+    fn try_change_body_mode_blocked_stand_up_under_low_ceiling() {
+        // Authoring: ceiling block whose bottom is one crouch-height
+        // above the player's feet so a crouching body fits but a
+        // standing body would clip the ceiling on the way up.
+        let player_spawn = Vec2::new(100.0, 100.0);
+        let mut player = Player::new(player_spawn);
+        let standing_top = player.pos.y - player.size.y * 0.5; // = 100 - 23 = 77
+
+        // Place a ceiling whose bottom is at y == standing_top + 5,
+        // i.e. just below where the standing body's top would be.
+        let ceiling_bottom = standing_top + 5.0; // 82
+        let ceiling_top = ceiling_bottom - 30.0; // 52
+        let world = World::new(
+            "test",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(50.0, 50.0),
+            vec![Block::solid(
+                "ceiling",
+                Vec2::new(player.pos.x - 50.0, ceiling_top),
+                Vec2::new(100.0, 30.0),
+            )],
+        );
+
+        // Crouching first must fit (ceiling is above the crouched body).
+        let ok = try_change_body_mode(&mut player, BodyMode::Crouching, &world, |b| {
+            matches!(b.kind, crate::world::BlockKind::Solid)
+        });
+        assert!(ok);
+
+        // Stand-up must be rejected because the standing body would
+        // overlap the ceiling.
+        let stand_attempt = try_change_body_mode(&mut player, BodyMode::Standing, &world, |b| {
+            matches!(b.kind, crate::world::BlockKind::Solid)
+        });
+        assert!(!stand_attempt);
+        // State unchanged.
+        assert_eq!(player.body_mode, BodyMode::Crouching);
+    }
+
+    #[test]
+    fn try_change_body_mode_to_same_mode_is_no_op_success() {
+        let world = World::new(
+            "test",
+            Vec2::new(400.0, 400.0),
+            Vec2::new(50.0, 50.0),
+            Vec::new(),
+        );
+        let mut player = Player::new(Vec2::new(100.0, 100.0));
+        let pos_before = player.pos;
+        let size_before = player.size;
+        let ok = try_change_body_mode(&mut player, BodyMode::Standing, &world, |_| true);
+        assert!(ok);
+        assert_eq!(player.pos, pos_before);
+        assert_eq!(player.size, size_before);
     }
 
     #[test]

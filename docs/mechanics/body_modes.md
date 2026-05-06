@@ -42,10 +42,14 @@ swap; typically `|b| matches!(b.kind, BlockKind::Solid)`.
 
 This is enough to build, in this order:
 
-1. **Crouch** — listen for "Down held while grounded", swap to
-   `Crouching`. To stand back up, query `Standing.shape(...).fits_at(...)`
-   first; if it returns false, stay crouched and emit a "blocked
-   stand-up" trace event.
+1. **Crouch** *(Prototype — landed)* — see `crate::body_mode`. Down held
+   while grounded swaps to `Crouching`; releasing Down attempts a
+   stand-up via the engine helper `try_change_body_mode`, which adjusts
+   `pos.y` to keep feet planted, runs `BodyShape::fits_at` on the
+   target shape, and rejects the transition under a low ceiling. The
+   trace recorder auto-detects the `body_mode` field change and emits
+   a `PlayerModeChanged` event each frame the stance flips, so the
+   driver does not push events itself.
 2. **Crawl through low tunnel** — author a sandbox station with a
    `Solid` ceiling that has a one-tile-tall gap below it. `Crawling`
    shape fits; `Standing` does not. The collision-safe resize check is
@@ -56,6 +60,27 @@ This is enough to build, in this order:
 
 Each of those becomes a sandbox proof for the underlying primitive
 without each verb needing its own bespoke collision code.
+
+### Crouch driver contract
+
+`crate::body_mode::update_body_mode` runs in the progression chain
+after `sandbox_update` (the same shelf as `ledge_grab` and `swim`).
+It is a deliberate post-update mutator on `runtime.player`; the shrink
+case is a strict subset of the previous AABB so collision repair on
+the next sim tick has nothing new to fix, and the stand-up case calls
+`fits_at` itself before mutating, so the simulator never sees a body
+penetrating a ceiling. The driver explicitly skips the resize while
+`dash_timer > 0`, `blink_aiming`, `wall_clinging`, `wall_climbing`,
+or any `water_contact` is set so those mechanics keep ownership of
+the player posture.
+
+Tests live in `crate::body_mode::tests` and cover: down-held-grounded
+enters crouch, down-released stand-up succeeds in open space, low
+ceiling blocks stand-up, airborne does not crouch, mid-dash blocks
+crouch, wall-clinging blocks crouch. Engine-side tests in
+`ambition_engine::player_state::tests` cover `try_change_body_mode`
+directly: feet stay planted, base size restored on Standing, blocked
+stand-up under a low ceiling, idempotent same-mode call.
 
 ## `ResourceMeter`
 

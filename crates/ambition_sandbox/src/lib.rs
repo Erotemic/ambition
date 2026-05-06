@@ -12,6 +12,7 @@
 //! headless.
 
 pub mod audio;
+pub mod body_mode;
 pub mod boss_encounter;
 pub mod boss_sprites;
 pub mod character_sprites;
@@ -23,7 +24,6 @@ pub mod dev_tools;
 pub mod dialog;
 pub mod encounter;
 pub mod features;
-pub mod quest;
 pub mod feel;
 pub mod fx;
 pub mod game_assets;
@@ -35,18 +35,19 @@ pub mod ldtk_world;
 pub mod ledge_grab;
 pub mod loading;
 pub mod map_menu;
-pub mod room_builder;
-pub mod swim;
 pub mod mechanics;
 pub mod pause_menu;
 pub mod physics;
 pub mod platforms;
 pub mod projectile;
+pub mod quest;
 pub mod rendering;
 pub mod reset;
+pub mod room_builder;
 pub mod rooms;
 pub mod save;
 pub mod settings;
+pub mod swim;
 pub mod trace;
 pub mod ui_fonts;
 pub mod windowing;

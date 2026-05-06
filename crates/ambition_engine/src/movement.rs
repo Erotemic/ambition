@@ -106,6 +106,12 @@ pub struct Player {
     pub pos: Vec2,
     pub vel: Vec2,
     pub size: Vec2,
+    /// Standing-stance AABB size. `size` mirrors `base_size` while
+    /// `body_mode == BodyMode::Standing`; alternate stances (Crouching /
+    /// Crawling / MorphBall) shrink `size` while leaving `base_size`
+    /// untouched so transitions back to Standing always use the
+    /// canonical shape from this field.
+    pub base_size: Vec2,
     pub facing: f32,
     pub on_ground: bool,
     pub on_wall: bool,
@@ -190,6 +196,7 @@ impl Player {
             pos: spawn,
             vel: Vec2::ZERO,
             size: Vec2::new(28.0, 46.0),
+            base_size: Vec2::new(28.0, 46.0),
             facing: 1.0,
             on_ground: false,
             on_wall: false,

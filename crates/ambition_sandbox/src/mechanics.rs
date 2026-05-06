@@ -219,13 +219,13 @@ fn default_entries() -> Vec<MechanicEntry> {
         },
         MechanicEntry {
             id: "crouch",
-            name: "Crouch (planned)",
+            name: "Crouch",
             category: BodyState,
-            maturity: Planned,
-            input_hint: "Down (held)",
+            maturity: Prototype,
+            input_hint: "Down (held while grounded)",
             requires: "BodyMode backend",
             station: Some("basement_mechanics/body"),
-            doc: "Half-height stance for low-clearance traversal.",
+            doc: "Half-height stance with collision-safe stand-up gating; blocked stand-up keeps the player crouched under low ceilings.",
         },
         MechanicEntry {
             id: "morph_ball",

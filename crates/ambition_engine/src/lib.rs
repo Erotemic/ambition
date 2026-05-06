@@ -46,7 +46,6 @@ pub use boss_encounter::{
 };
 pub use boss_patterns::{BossAttackKind, BossPatternSchedule, BossPatternStep};
 pub use character_ai::{evaluate_character_ai, CharacterAiMode, CharacterAiSnapshot};
-pub use ledge_grab::{probe_ledge_grab, LedgeContact};
 pub use combat::{
     player_slash_hitbox, slash_hitbox, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
@@ -58,6 +57,7 @@ pub use interaction::{
     Breakable, BreakableCollision, BreakableState, BreakableTrigger, Chest, ChestState,
     Interactable, InteractionKind, Pickup, PickupKind,
 };
+pub use ledge_grab::{probe_ledge_grab, LedgeContact};
 pub use movement::{
     blink_destination, blink_destination_to_point, update_player, update_player_control,
     update_player_control_with_tuning, update_player_simulation,
@@ -74,20 +74,17 @@ pub use physics::{
     PhysicsBodyKind, PhysicsBodyRole, PhysicsBodySpec, PhysicsMaterial, PhysicsShape, RagdollSpec,
 };
 pub use player_state::{
-    classify_player_safety, BodyMode, BodyShape, LocomotionState, PlayerSafetyVerdict,
-    ResourceMeter,
+    classify_player_safety, try_change_body_mode, BodyMode, BodyShape, LocomotionState,
+    PlayerSafetyVerdict, ResourceMeter,
 };
 pub use projectile::{
     FireballChargeTuning, MotionDirection, MotionInputBuffer, MotionSample, ProjectileBody,
     ProjectileKind, ProjectileSolidHit, ProjectileSpawner, ProjectileSpec, SpawnFailure,
 };
-pub use quest::{
-    QuestAdvanceEvent, QuestSpec, QuestState, QuestStepCondition, QuestStepSpec,
-};
+pub use quest::{QuestAdvanceEvent, QuestSpec, QuestState, QuestStepCondition, QuestStepSpec};
 pub use save::{
     PersistedBossDefeat, PersistedEncounter, PersistedEncounterState, PersistedFlag,
-    PersistedQuest, PersistedQuestState, PersistedSwitch, SandboxSaveData,
-    CURRENT_SAVE_VERSION,
+    PersistedQuest, PersistedQuestState, PersistedSwitch, SandboxSaveData, CURRENT_SAVE_VERSION,
 };
 pub use scalar::approach;
 pub use state_machines::{

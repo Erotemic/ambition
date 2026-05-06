@@ -394,6 +394,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::quest::push_room_entered_quest_events,
                 crate::quest::apply_quest_advance_events,
                 crate::ledge_grab::update_ledge_grab,
+                crate::body_mode::update_body_mode,
                 crate::map_menu::track_room_visits,
                 crate::map_menu::sync_map_from_save,
                 dev_tools::sync_player_stats_with_inspector,

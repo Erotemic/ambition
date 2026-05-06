@@ -1437,7 +1437,12 @@ fn feature_runtime_phase(
     let feature_world =
         features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
     let feature_player = runtime.player.clone();
-    let player_vulnerable = runtime.damage_invuln_timer <= 0.0;
+    // Invincibility short-circuits at the emit site too: otherwise
+    // standing in a hazard while the F3 toggle is on would re-emit a
+    // damage event (and its impact / message side effects) every frame
+    // — the handler drops the event, but the impacts still spawn
+    // particles and SFX.
+    let player_vulnerable = !runtime.invincible && runtime.damage_invuln_timer <= 0.0;
     let feature_events = runtime.features.update(
         &feature_world,
         &feature_player,

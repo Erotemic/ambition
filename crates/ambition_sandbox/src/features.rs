@@ -533,16 +533,24 @@ impl FeatureRuntime {
             hazard.update(dt);
             if player_vulnerable && hazard.active() && hazard.aabb().strict_intersects(player_body)
             {
-                events
-                    .messages
-                    .push(format!("{} forced a safe respawn", hazard.name));
+                let verb = match hazard.mode {
+                    PlayerDamageMode::SafeRespawn => "forced a safe respawn",
+                    PlayerDamageMode::Knockback => "knocked the player back",
+                };
+                events.messages.push(format!("{} {}", hazard.name, verb));
                 events.impacts.push(player.pos);
+                // AMBITION_REVIEW(spatial): horizontal-only knockback —
+                // collapses the 2D player↔hazard offset to its X sign.
+                // OK while `apply_player_knockback` itself only consumes
+                // a horizontal direction; revisit if knockback ever
+                // gains a vertical component.
+                let knockback_dir = (player.pos.x - hazard.pos.x).signum();
                 events.player_damage.push(PlayerDamageEvent {
-                    mode: PlayerDamageMode::SafeRespawn,
+                    mode: hazard.mode,
                     source: PlayerDamageSource::Hazard,
                     source_pos: hazard.pos,
                     impact_pos: player.pos,
-                    knockback_dir: 0.0,
+                    knockback_dir,
                     strength: 1.0,
                     amount: hazard.volume.damage.amount.max(1),
                 });
@@ -1112,6 +1120,13 @@ pub struct HazardRuntime {
     pub size: ae::Vec2,
     pub volume: ae::DamageVolume,
     pub motion: Option<PathMotion>,
+    /// How a hit should resolve. Tile-grid hazards (`BlockKind::Hazard`)
+    /// run through the engine's reset-to-spawn path and never reach
+    /// `HazardRuntime`, so the LDtk-entity hazards we *do* handle here
+    /// default to `Knockback`. Authors can still pick `SafeRespawn`
+    /// per-volume when an entity hazard is meant to bounce the player
+    /// back to safety (e.g. lava pits).
+    pub mode: PlayerDamageMode,
 }
 
 impl HazardRuntime {
@@ -1123,6 +1138,7 @@ impl HazardRuntime {
             size: object.aabb.half_size() * 2.0,
             motion: volume.motion.clone().map(PathMotion::new),
             volume,
+            mode: PlayerDamageMode::Knockback,
         }
     }
 

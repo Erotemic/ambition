@@ -372,6 +372,18 @@ impl Default for EditablePlayerStats {
     }
 }
 
+/// Last-synced stats snapshot used by `sync_player_stats_with_inspector`
+/// to tell user edits apart from runtime drift. Without it, any frame
+/// where gameplay damaged HP would see `stats.health != live_hp` and
+/// push the stale inspector value back into the runtime, undoing the
+/// damage.
+#[derive(Default)]
+pub struct PlayerStatsSyncSnapshot {
+    initialized: bool,
+    health: i32,
+    max_health: i32,
+}
+
 /// Bevy system: keep `EditablePlayerStats` and `SandboxRuntime`
 /// player health in sync, in both directions.
 ///
@@ -390,7 +402,13 @@ impl Default for EditablePlayerStats {
 pub fn sync_player_stats_with_inspector(
     mut stats: ResMut<EditablePlayerStats>,
     mut runtime: ResMut<crate::SandboxRuntime>,
+    mut snapshot: Local<PlayerStatsSyncSnapshot>,
 ) {
+    if !snapshot.initialized {
+        snapshot.health = stats.health;
+        snapshot.max_health = stats.max_health;
+        snapshot.initialized = true;
+    }
     if stats.refill_now {
         stats.health = stats.max_health.max(1);
         stats.mana = stats.max_mana.max(0);
@@ -398,10 +416,12 @@ pub fn sync_player_stats_with_inspector(
     }
     let live_hp = runtime.player_health.current;
     let live_max = runtime.player_health.max;
-    if stats.max_health != live_max {
+    let user_changed_max = stats.max_health != snapshot.max_health;
+    let user_changed_hp = stats.health != snapshot.health;
+    if user_changed_max {
         runtime.player_health = ae::Health::new(stats.max_health.max(1));
         runtime.player_health.current = stats.health.clamp(0, stats.max_health.max(1));
-    } else if stats.health != live_hp {
+    } else if user_changed_hp {
         runtime.player_health.current = stats.health.clamp(0, live_max.max(1));
     } else {
         // Mirror runtime back into the inspector field so HP edits
@@ -409,6 +429,8 @@ pub fn sync_player_stats_with_inspector(
         stats.health = live_hp;
         stats.max_health = live_max;
     }
+    snapshot.health = stats.health;
+    snapshot.max_health = stats.max_health;
     // Mirror player mana into the sandbox runtime. The engine's
     // `Player` doesn't carry mana yet (no consuming ability needs
     // it); `SandboxRuntime::mana_current/_max` is the canonical

@@ -860,7 +860,12 @@ impl LdtkProject {
         let mut loading_zones = Vec::new();
         let mut objects = Vec::new();
         let mut water_regions = Vec::new();
+        let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
+            // First-non-empty wins so author intent is predictable when
+            // an active area spans multiple levels (e.g. central hub +
+            // basement). The level order here is the LDtk-file order.
+            metadata.merge(level.level_metadata());
             // AMBITION_REVIEW(spatial): LDtk world coordinates are flattened into
             // active-area-local Ambition coordinates here. Wall openings, edge
             // exits, transition arrivals, and camera bounds all depend on this
@@ -938,6 +943,7 @@ impl LdtkProject {
                 water_regions,
             },
             loading_zones,
+            metadata,
         })
     }
 
@@ -967,6 +973,23 @@ impl LdtkLevel {
             .map(|area| area.trim().to_string())
             .filter(|area| !area.is_empty())
             .unwrap_or_else(|| self.identifier.clone())
+    }
+
+    /// Read the optional biome metadata level fields. Empty/None values
+    /// stay None so the active-area-merge in `compose_runtime_area`
+    /// only takes the first non-empty value per active area.
+    pub fn level_metadata(&self) -> crate::rooms::RoomMetadata {
+        let take = |name: &str| {
+            self.field_string(name)
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        };
+        crate::rooms::RoomMetadata {
+            biome: take("biome"),
+            music_track: take("music_track"),
+            ambient_profile: take("ambient_profile"),
+            visual_theme: take("visual_theme"),
+        }
     }
 
     pub fn ambition_layer(&self) -> Option<&LdtkLayerInstance> {
@@ -1872,6 +1895,97 @@ mod tests {
         .expect("value 5 must map to a block");
         assert!(matches!(block.kind, ae::BlockKind::Hazard));
         assert_eq!(block.name, "ldtk hazard");
+    }
+
+    #[test]
+    fn level_metadata_reads_optional_biome_fields() {
+        // Build a synthetic level whose fieldInstances declare every
+        // optional metadata field. The reader should pick all four up
+        // and produce a RoomMetadata with each Some(...).
+        use serde_json::Value;
+        fn field(name: &str, value: &str) -> LdtkFieldInstance {
+            LdtkFieldInstance {
+                identifier: name.into(),
+                value: Value::String(value.into()),
+                real_editor_values: vec![],
+            }
+        }
+        let level = LdtkLevel {
+            iid: "level-iid".into(),
+            identifier: "metadata_level".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 256,
+            px_hei: 256,
+            field_instances: vec![
+                field("activeArea", "metadata_area"),
+                field("biome", "cave"),
+                field("music_track", "loop_a"),
+                field("ambient_profile", "damp"),
+                field("visual_theme", "blue"),
+            ],
+            layer_instances: Vec::new(),
+        };
+        let meta = level.level_metadata();
+        assert_eq!(meta.biome.as_deref(), Some("cave"));
+        assert_eq!(meta.music_track.as_deref(), Some("loop_a"));
+        assert_eq!(meta.ambient_profile.as_deref(), Some("damp"));
+        assert_eq!(meta.visual_theme.as_deref(), Some("blue"));
+    }
+
+    #[test]
+    fn level_metadata_skips_blank_strings() {
+        use serde_json::Value;
+        fn field(name: &str, value: &str) -> LdtkFieldInstance {
+            LdtkFieldInstance {
+                identifier: name.into(),
+                value: Value::String(value.into()),
+                real_editor_values: vec![],
+            }
+        }
+        let level = LdtkLevel {
+            iid: "level-iid".into(),
+            identifier: "blank_level".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 256,
+            px_hei: 256,
+            field_instances: vec![
+                field("activeArea", "blank_area"),
+                field("biome", "   "),
+                field("music_track", ""),
+            ],
+            layer_instances: Vec::new(),
+        };
+        let meta = level.level_metadata();
+        assert!(meta.biome.is_none(), "whitespace-only must be treated as None");
+        assert!(meta.music_track.is_none());
+    }
+
+    #[test]
+    fn room_metadata_merge_first_non_empty_wins() {
+        use crate::rooms::RoomMetadata;
+        let mut a = RoomMetadata {
+            biome: Some("hub".into()),
+            music_track: None,
+            ambient_profile: None,
+            visual_theme: None,
+        };
+        let b = RoomMetadata {
+            biome: Some("basement".into()),
+            music_track: Some("dark_loop".into()),
+            ambient_profile: Some("bass".into()),
+            visual_theme: None,
+        };
+        a.merge(b);
+        assert_eq!(a.biome.as_deref(), Some("hub"), "first non-empty wins");
+        assert_eq!(
+            a.music_track.as_deref(),
+            Some("dark_loop"),
+            "later levels fill in missing fields"
+        );
+        assert_eq!(a.ambient_profile.as_deref(), Some("bass"));
+        assert_eq!(a.visual_theme, None);
     }
 
     #[test]

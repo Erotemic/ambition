@@ -226,6 +226,7 @@ mod tests {
             id: "test".into(),
             world: world.clone(),
             loading_zones: Vec::new(),
+            metadata: crate::rooms::RoomMetadata::default(),
         };
         app.insert_resource(crate::rooms::RoomSet::from_parts(
             "test",

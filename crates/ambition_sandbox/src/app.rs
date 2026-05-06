@@ -245,6 +245,7 @@ pub fn init_sandbox_resources(app: &mut App) {
 
     app.insert_resource(ldtk_world::SandboxLdtkProject(ldtk_project.clone()))
         .insert_resource(GameWorld(active_world))
+        .insert_resource(rooms::ActiveRoomMetadata::default())
         .insert_resource(room_set)
         .insert_resource(ldtk_index)
         .insert_resource(ldtk_world::LdtkHotReloadState::from_current_file())
@@ -395,6 +396,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::quest::apply_quest_advance_events,
                 crate::ledge_grab::update_ledge_grab,
                 crate::body_mode::update_body_mode,
+                crate::rooms::sync_active_room_metadata,
                 crate::map_menu::track_room_visits,
                 crate::map_menu::sync_map_from_save,
                 dev_tools::sync_player_stats_with_inspector,
@@ -2486,8 +2488,27 @@ fn update_hud(
         mechanics.count_by_maturity(crate::mechanics::MechanicMaturity::Backend),
         mechanics.count_by_maturity(crate::mechanics::MechanicMaturity::Planned),
     );
+    let metadata = room_set.active_metadata();
+    let metadata_summary = if metadata.is_empty() {
+        "—".to_string()
+    } else {
+        let mut bits: Vec<String> = Vec::new();
+        if let Some(b) = &metadata.biome {
+            bits.push(format!("biome={b}"));
+        }
+        if let Some(t) = &metadata.music_track {
+            bits.push(format!("music={t}"));
+        }
+        if let Some(a) = &metadata.ambient_profile {
+            bits.push(format!("ambient={a}"));
+        }
+        if let Some(v) = &metadata.visual_theme {
+            bits.push(format!("theme={v}"));
+        }
+        bits.join(" ")
+    };
     let mechanics_line = format!(
-        "\nLOCO: {locomotion}  BODY: {body_mode}  MECH: {mechanics_summary}  TRACE: {trace_status}"
+        "\nLOCO: {locomotion}  BODY: {body_mode}  MECH: {mechanics_summary}  ROOM: {metadata_summary}  TRACE: {trace_status}"
     );
     if developer_tools.compact_hud {
         **text = format!(

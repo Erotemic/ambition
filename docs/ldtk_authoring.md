@@ -165,6 +165,14 @@ The spec format supports four high-level conveniences agents commonly need:
    on a project to add the matching `defs.levelFields` entries; the
    migration is idempotent. See
    `tools/examples/ldtk_specs/music_biome_lab.yaml` for the full set.
+   The runtime reads these fields into `RoomSpec::metadata` per active
+   area (first non-empty value wins when an area spans multiple
+   levels) and mirrors the active room's metadata into the
+   `ActiveRoomMetadata` Bevy resource via
+   `crate::rooms::sync_active_room_metadata`. Consumers (room music
+   selection, ambient layers, palette swaps) can read the resource
+   with change detection without depending on `RoomSet`. The HUD
+   shows the active room's metadata under `ROOM:`.
 4. **Actionable error messages.** Unknown entity types ("PlayerStrt"
    → "Did you mean 'PlayerStart'?"), unknown field identifiers, and
    bad field-value coercions (a string where a Float is expected) all

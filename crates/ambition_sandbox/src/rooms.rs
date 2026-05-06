@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use ambition_engine as ae;
 use ambition_engine::AabbExt;
-use bevy::prelude::Resource;
+use bevy::prelude::{Res, ResMut, Resource};
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
@@ -64,12 +64,70 @@ impl LoadingZone {
     }
 }
 
+/// Mirrors `RoomSet::active_metadata()` as a standalone Bevy resource.
+///
+/// Synced by `sync_active_room_metadata` each frame the active room
+/// changes. Consumers (room music selection, ambient layer selection,
+/// renderer palette swaps) can subscribe via `Res<ActiveRoomMetadata>`
+/// + change detection without importing the larger `RoomSet` type.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct ActiveRoomMetadata(pub RoomMetadata);
+
+/// Optional declarative room metadata authored on LDtk levels.
+///
+/// LDtk level fields `biome` / `music_track` / `ambient_profile` /
+/// `visual_theme` (added by `tools/add_biome_level_fields.py`) land
+/// here. Every field is optional so existing levels keep working
+/// without a value. The first non-empty value among an active area's
+/// member levels wins; future systems can refine this if needed
+/// (e.g. dominant-vote, level-position weighted).
+///
+/// Consumers: room music selection, ambient layer selection,
+/// renderer palette/theme variants. This struct is intentionally
+/// non-exhaustive — adding a metadata seam is cheaper than adding a
+/// new resource per consumer.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RoomMetadata {
+    pub biome: Option<String>,
+    pub music_track: Option<String>,
+    pub ambient_profile: Option<String>,
+    pub visual_theme: Option<String>,
+}
+
+impl RoomMetadata {
+    pub fn is_empty(&self) -> bool {
+        self.biome.is_none()
+            && self.music_track.is_none()
+            && self.ambient_profile.is_none()
+            && self.visual_theme.is_none()
+    }
+
+    /// Fold `other` into `self`, preferring values already set.
+    /// LDtk active areas can span multiple levels; the first level
+    /// with a non-empty value wins so author intent is predictable.
+    pub fn merge(&mut self, other: RoomMetadata) {
+        if self.biome.is_none() {
+            self.biome = other.biome;
+        }
+        if self.music_track.is_none() {
+            self.music_track = other.music_track;
+        }
+        if self.ambient_profile.is_none() {
+            self.ambient_profile = other.ambient_profile;
+        }
+        if self.visual_theme.is_none() {
+            self.visual_theme = other.visual_theme;
+        }
+    }
+}
+
 /// Complete room data used by the Bevy sandbox.
 #[derive(Clone, Debug)]
 pub struct RoomSpec {
     pub id: String,
     pub world: ae::World,
     pub loading_zones: Vec<LoadingZone>,
+    pub metadata: RoomMetadata,
 }
 
 #[derive(Clone, Debug)]
@@ -200,6 +258,10 @@ impl RoomSet {
 
     pub fn active_loading_zones(&self) -> &[LoadingZone] {
         &self.active_spec().loading_zones
+    }
+
+    pub fn active_metadata(&self) -> &RoomMetadata {
+        &self.active_spec().metadata
     }
 
     pub fn set_active(&mut self, index: usize) -> &RoomSpec {
@@ -522,4 +584,98 @@ fn player_body_clear(world: &ae::World, center: ae::Vec2, half: ae::Vec2) -> boo
                 | ae::BlockKind::Rebound { .. }
         )
     })
+}
+
+/// Mirror `RoomSet::active_metadata()` into the `ActiveRoomMetadata`
+/// resource, but only when the metadata actually changes. The
+/// PartialEq guard means change-detection consumers (e.g. a future
+/// room-music selector) only fire when the active room's biome /
+/// music_track / ambient / theme really differ — not on every frame.
+pub fn sync_active_room_metadata(
+    room_set: Res<RoomSet>,
+    mut active: ResMut<ActiveRoomMetadata>,
+) {
+    let current = room_set.active_metadata().clone();
+    if current != active.0 {
+        active.0 = current;
+    }
+}
+
+#[cfg(test)]
+mod metadata_tests {
+    use super::*;
+
+    fn empty_world(name: &str) -> ae::World {
+        ae::World::new(
+            name,
+            ae::Vec2::new(640.0, 480.0),
+            ae::Vec2::new(96.0, 96.0),
+            Vec::new(),
+        )
+    }
+
+    fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
+        RoomSpec {
+            id: id.into(),
+            world: empty_world(id),
+            loading_zones: Vec::new(),
+            metadata: meta,
+        }
+    }
+
+    #[test]
+    fn active_metadata_returns_active_room_metadata() {
+        let m1 = RoomMetadata {
+            biome: Some("hub".into()),
+            music_track: Some("hub_loop".into()),
+            ambient_profile: None,
+            visual_theme: None,
+        };
+        let m2 = RoomMetadata {
+            biome: Some("cave".into()),
+            music_track: Some("cave_loop".into()),
+            ambient_profile: Some("damp".into()),
+            visual_theme: None,
+        };
+        let mut set = RoomSet::from_parts(
+            "first",
+            vec![spec_with(m1.clone(), "first"), spec_with(m2.clone(), "second")],
+            Vec::new(),
+        );
+        assert_eq!(set.active_metadata(), &m1);
+        set.set_active(1);
+        assert_eq!(set.active_metadata(), &m2);
+    }
+
+    #[test]
+    fn sync_active_room_metadata_publishes_active_value() {
+        use bevy::prelude::*;
+        let mut app = App::new();
+        let m_hub = RoomMetadata {
+            biome: Some("hub".into()),
+            music_track: Some("hub_loop".into()),
+            ambient_profile: None,
+            visual_theme: None,
+        };
+        let m_lab = RoomMetadata {
+            biome: Some("lab".into()),
+            music_track: Some("lab_loop".into()),
+            ambient_profile: None,
+            visual_theme: None,
+        };
+        let set = RoomSet::from_parts(
+            "hub",
+            vec![spec_with(m_hub.clone(), "hub"), spec_with(m_lab.clone(), "lab")],
+            Vec::new(),
+        );
+        app.insert_resource(set);
+        app.insert_resource(ActiveRoomMetadata::default());
+        app.add_systems(Update, sync_active_room_metadata);
+        app.update();
+        assert_eq!(&app.world().resource::<ActiveRoomMetadata>().0, &m_hub);
+
+        app.world_mut().resource_mut::<RoomSet>().set_active(1);
+        app.update();
+        assert_eq!(&app.world().resource::<ActiveRoomMetadata>().0, &m_lab);
+    }
 }

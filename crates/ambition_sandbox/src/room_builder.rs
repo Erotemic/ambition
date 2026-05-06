@@ -257,6 +257,7 @@ impl RoomBuilder {
             id: self.id,
             world,
             loading_zones: self.loading_zones,
+            metadata: crate::rooms::RoomMetadata::default(),
         }
     }
 

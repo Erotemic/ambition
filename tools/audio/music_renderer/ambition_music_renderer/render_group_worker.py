@@ -17,7 +17,7 @@ def main(argv=None) -> int:
     ap.add_argument("spec")
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--group", required=True)
-    ap.add_argument("--backend", default="fast")
+    ap.add_argument("--backend", default="fallback")
     ns = ap.parse_args(argv)
     spec_path = Path(ns.spec)
     spec = yaml.safe_load(spec_path.read_text())

@@ -6,7 +6,7 @@
 #   ./generate_audio_assets.sh --skip-render # only re-install from existing render
 #
 # Useful environment overrides:
-#   AMBITION_MUSIC_BACKEND=fast|fluidsynth-cli
+#   AMBITION_MUSIC_BACKEND=pretty-midi|fluidsynth-cli|fallback|auto
 #
 # Output staging / preview:
 #   tools/audio/music_renderer/output/first_goblin_tune_v2/

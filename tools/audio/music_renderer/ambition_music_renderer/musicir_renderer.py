@@ -695,7 +695,7 @@ def render_pretty_midi(pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: 
         if not inst.notes:
             continue
         # gain=1.6: at MIDI vel 100, vol/expr 100, the SoundFont samples come
-        # out around -13 dB peak — comparable to per-stem fast-backend levels
+        # out around -13 dB peak — comparable to per-stem fallback-backend levels
         # and well within headroom for stem summing. fluidsynth's stock default
         # is 0.2, which makes everything 18 dB quieter than authored.
         fl = fluidsynth.Synth(samplerate=fs_float, gain=1.6)
@@ -800,9 +800,9 @@ def render_with_fluidsynth_cli(midi_path: Path, soundfont: str, sample_rate: int
 
 
 def render_synth_audio(pm: pretty_midi.PrettyMIDI, backend: str, soundfont: str, sample_rate: int, midi_path: Path, dry_wav_path: Path, minimum_duration: float) -> np.ndarray:
-    if backend == "fast":
-        from . import fast_backend  # imported lazily so its synth code stays out of YAML-only paths
-        return fast_backend.render_fast(pm, sample_rate, minimum_duration=minimum_duration)
+    if backend == "fallback":
+        from . import fallback_backend  # imported lazily so its synth code stays out of YAML-only paths
+        return fallback_backend.render_fallback(pm, sample_rate, minimum_duration=minimum_duration)
     if backend == "fluidsynth-cli":
         if not soundfont:
             raise FileNotFoundError("fluidsynth-cli backend requires --soundfont or installed default SoundFont")
@@ -818,9 +818,9 @@ def render_synth_audio(pm: pretty_midi.PrettyMIDI, backend: str, soundfont: str,
             try:
                 return render_with_fluidsynth_cli(midi_path, soundfont, sample_rate, dry_wav_path)
             except Exception as ex:
-                print(f"[WARN] fluidsynth-cli failed ({ex}); falling back to fast renderer")
-        from . import fast_backend
-        return fast_backend.render_fast(pm, sample_rate, minimum_duration=minimum_duration)
+                print(f"[WARN] fluidsynth-cli failed ({ex}); falling back to fallback renderer")
+        from . import fallback_backend
+        return fallback_backend.render_fallback(pm, sample_rate, minimum_duration=minimum_duration)
     raise ValueError(f"unknown backend {backend}")
 
 
@@ -1067,11 +1067,11 @@ def render_group_audio(pm: pretty_midi.PrettyMIDI, groups: dict[str, str], group
     sub_pm = copy_with_instruments(pm, insts, bpm)
     midi_path = tempdir / f"group_{group}.mid"
     dry_wav = tempdir / f"group_{group}.dry.wav"
-    # The built-in fast renderer consumes PrettyMIDI objects directly. Avoid
+    # The built-in fallback renderer consumes PrettyMIDI objects directly. Avoid
     # serializing stem MIDI unless an external backend actually needs it; this
     # keeps adaptive section x stem export snappy and avoids rare pretty_midi
     # writer stalls on sparse/empty instrument groups.
-    if backend != "fast":
+    if backend != "fallback":
         sub_pm.write(str(midi_path))
     return render_synth_audio(sub_pm, backend, soundfont, sample_rate, midi_path, dry_wav, minimum_duration)
 
@@ -1186,7 +1186,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Render Ambition MusicIR YAML to adaptive OGG assets")
     parser.add_argument("spec", help="Path to .music.yaml source")
     parser.add_argument("--outdir", default="output", help="Output directory")
-    parser.add_argument("--backend", choices=["auto", "fast", "fluidsynth-cli", "pretty-midi"], default=None)
+    parser.add_argument("--backend", choices=["auto", "fallback", "fluidsynth-cli", "pretty-midi"], default=None)
     parser.add_argument("--soundfont", default=None)
     parser.add_argument("--keep-wav", action="store_true")
     parser.add_argument("--keep-midi", action="store_true")

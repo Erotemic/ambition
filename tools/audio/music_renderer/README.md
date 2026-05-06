@@ -26,23 +26,23 @@ cd ~/code/ambition/tools/audio/music_renderer
 python -m ambition_music_renderer.render_isolated \
   examples/first_goblin_tune_v2.music.yaml \
   --outdir output/first_goblin_tune_v2 \
-  --backend fast
+  --backend pretty-midi
 
 # Song 0
 python -m ambition_music_renderer.render_isolated \
   examples/first_goblin_encounter.music.yaml \
   --outdir output/first_goblin_encounter \
-  --backend fast
+  --backend pretty-midi
 
 
 # Song 2
 python -m ambition_music_renderer.render_isolated \
-  examples/fast_paced_violin_boss.music.yaml \
-  --outdir output/fast_paced_violin_boss \
-  --backend fast
+  examples/debug.yaml \
+  --outdir output/debug \
+  --backend pretty-midi
 ```
 
-For higher fidelity, swap `--backend fast` for `--backend fluidsynth-cli`
+For higher fidelity, swap `--backend fallback` for `--backend fluidsynth-cli`
 (or `--backend pretty-midi`). Both require a General MIDI SoundFont; the
 default-installed `TimGM6mb.sf2` is fine, but `FluidR3_GM.sf2` is fuller.
 

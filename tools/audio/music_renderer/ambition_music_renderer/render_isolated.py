@@ -59,7 +59,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Render Ambition MusicIR via isolated stem workers")
     ap.add_argument("spec")
     ap.add_argument("--outdir", default="output")
-    ap.add_argument("--backend", default="fast", choices=["fast", "auto", "fluidsynth-cli", "pretty-midi"])
+    ap.add_argument("--backend", default="fallback", choices=["fallback", "auto", "fluidsynth-cli", "pretty-midi"])
     ns = ap.parse_args(argv)
     spec_path = Path(ns.spec)
     spec = yaml.safe_load(spec_path.read_text())

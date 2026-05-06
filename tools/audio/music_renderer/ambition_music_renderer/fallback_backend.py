@@ -1,17 +1,17 @@
 """Fast in-Python additive synth backend.
 
-This module is the iteration-time renderer used by `--backend fast`. It is
+This module is the iteration-time renderer used by `--backend fallback`. It is
 **not** a faithful instrument simulator — it composes bandlimited harmonic
 stacks plus filtered noise bands to give the YAML something audible without
 needing FluidSynth or a SoundFont.
 
-Everything in here is fast-backend-specific. The rest of the package
+Everything in here is fallback-backend-specific. The rest of the package
 (`musicir_renderer.py`) is a YAML interpreter and post-process pipeline that
 can dispatch to any synth backend; this module is one such backend. Keeping
 its hacks isolated from the main module makes it clear what is YAML-faithful
 versus what is a synthesis approximation.
 
-Public entry point: `render_fast(pm, sample_rate, *, minimum_duration=None)`.
+Public entry point: `render_fallback(pm, sample_rate, *, minimum_duration=None)`.
 """
 from __future__ import annotations
 
@@ -25,13 +25,13 @@ from .musicir_renderer import _lowpass_mono, clamp
 
 
 # ---------------------------------------------------------------------------
-# Instrument-family classification (fast renderer only).
+# Instrument-family classification (fallback renderer only).
 # ---------------------------------------------------------------------------
 
 def _program_family(program: int) -> str | None:
-    """Classify a GM program into a fast-renderer family.
+    """Classify a GM program into a fallback-renderer family.
 
-    Names returned here must match the branches in `_synth_note_fast`.
+    Names returned here must match the branches in `_synth_note_fallback`.
     Specific programs (harp, timpani) need to be checked before the
     string range that nominally contains them.
     """
@@ -62,9 +62,9 @@ def _program_family(program: int) -> str | None:
 
 
 def _instrument_family(inst: pretty_midi.Instrument) -> str:
-    """Classify instruments for the fast renderer.
+    """Classify instruments for the fallback renderer.
 
-    Family names returned here must match the branches in `_synth_note_fast`.
+    Family names returned here must match the branches in `_synth_note_fallback`.
     GM program is preferred over name; name fallback covers exotic /
     synthesised cues that don't carry a meaningful program.
     """
@@ -130,7 +130,7 @@ def _adsr_curve(n: int, sr: int, attack: float, decay: float, sustain: float, re
 def _declick(sig: np.ndarray, sr: int, attack: float = 0.006, release: float = 0.018) -> np.ndarray:
     """Apply a tiny edge fade to synthetic notes/drums.
 
-    The fast renderer is additive and section/stem based.  Hard synthetic
+    The fallback renderer is additive and section/stem based.  Hard synthetic
     starts/stops that are barely audible in isolation can become obvious when
     multiple stems line up.  This helper keeps the renderer deterministic
     while avoiding those edge discontinuities.
@@ -159,7 +159,7 @@ def _pan_stereo(mono: np.ndarray, pan: float) -> np.ndarray:
 # Per-note voices.
 # ---------------------------------------------------------------------------
 
-def _synth_note_fast(frequency: float, duration: float, velocity: int, family: str, sr: int, rng: np.random.Generator) -> np.ndarray:
+def _synth_note_fallback(frequency: float, duration: float, velocity: int, family: str, sr: int, rng: np.random.Generator) -> np.ndarray:
     """Built-in fallback instrument model.
 
     Composes bandlimited harmonic stacks (`_harm_saw` / `_harm_stack`) plus
@@ -286,7 +286,7 @@ def _synth_note_fast(frequency: float, duration: float, velocity: int, family: s
     return _declick(sig * env * vel, sr, 0.004, 0.012).astype(np.float32)
 
 
-def _synth_drum_fast(pitch: int, duration: float, velocity: int, sr: int, rng: np.random.Generator) -> np.ndarray:
+def _synth_drum_fallback(pitch: int, duration: float, velocity: int, sr: int, rng: np.random.Generator) -> np.ndarray:
     n = max(1, int(duration * sr))
     t = np.arange(n, dtype=np.float32) / sr
     vel = (velocity / 127.0) ** 1.18
@@ -357,8 +357,8 @@ def _cc_value(times: np.ndarray, values: np.ndarray, t: float, default: float) -
     return float(values[idx])
 
 
-def render_fast(pm: pretty_midi.PrettyMIDI, sample_rate: int, *, minimum_duration: float | None = None) -> np.ndarray:
-    """Synthesize the score with the fast in-Python additive engine."""
+def render_fallback(pm: pretty_midi.PrettyMIDI, sample_rate: int, *, minimum_duration: float | None = None) -> np.ndarray:
+    """Synthesize the score with the fallback in-Python additive engine."""
     end_time = pm.get_end_time()
     if minimum_duration is not None:
         end_time = max(end_time, minimum_duration)
@@ -382,16 +382,16 @@ def render_fast(pm: pretty_midi.PrettyMIDI, sample_rate: int, *, minimum_duratio
             vol = (vol_cc / 127.0) * (expr_cc / 127.0)
             pan = (pan_cc - 64.0) / 63.0
             if inst.is_drum:
-                mono = _synth_drum_fast(note.pitch, dur, note.velocity, sample_rate, rng)
+                mono = _synth_drum_fallback(note.pitch, dur, note.velocity, sample_rate, rng)
             else:
-                mono = _synth_note_fast(pretty_midi.note_number_to_hz(note.pitch), dur, note.velocity, family, sample_rate, rng)
+                mono = _synth_note_fallback(pretty_midi.note_number_to_hz(note.pitch), dur, note.velocity, family, sample_rate, rng)
             n = min(len(mono), total_samples - start)
             if n <= 0:
                 continue
             mix[start:start + n] += _pan_stereo(mono[:n] * vol, pan)
-    # Leave authored/stem relative loudness alone. Only protect the fast
-    # renderer from obvious clipping; normalization-up happens later only if
-    # the YAML master postprocess asks for it.
+    # Leave authored/stem relative loudness alone. Only protect the
+    # fallback renderer from obvious clipping; normalization-up happens
+    # later only if the YAML master postprocess asks for it.
     peak = float(np.max(np.abs(mix)))
     if peak > 0.92:
         mix *= 0.92 / peak

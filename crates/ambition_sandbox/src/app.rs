@@ -741,6 +741,12 @@ fn add_audio_plugins(app: &mut App) {
         .add_audio_channel::<crate::generated_music::GeneratedMusicChoirPadChannel>()
         .add_audio_channel::<crate::generated_music::GeneratedMusicMalletsChannel>()
         .add_audio_channel::<crate::generated_music::GeneratedMusicPercussionChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicStringsAltChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicBrassAltChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicWindsAltChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicChoirPadAltChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicMalletsAltChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicPercussionAltChannel>()
         .add_systems(
             Startup,
             start_default_music.after(setup_presentation_system),

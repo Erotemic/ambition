@@ -178,6 +178,24 @@ impl EncounterPhase {
     }
 }
 
+
+/// Extra breathing room between waves after the previous wave is fully defeated.
+///
+/// This is intentionally short: long enough for the player and the adaptive
+/// music to register that the fight escalated, but not long enough to make the
+/// encounter feel idle.
+pub const ENCOUNTER_INTER_WAVE_DELAY_SECONDS: f32 = 0.70;
+
+fn add_inter_wave_delay(mobs: &[EncounterMobSpec]) -> Vec<EncounterMobSpec> {
+    mobs.iter()
+        .cloned()
+        .map(|mut mob| {
+            mob.delay += ENCOUNTER_INTER_WAVE_DELAY_SECONDS;
+            mob
+        })
+        .collect()
+}
+
 /// Per-encounter run state: the live wave's pending and alive mobs
 /// plus the elapsed-since-wave-start timer driving delayed sub-spawns.
 /// Lives outside `EncounterPhase` so the phase enum stays cheap to
@@ -392,7 +410,7 @@ impl EncounterState {
                     remaining_mobs: next.mobs.len(),
                 };
                 self.run = EncounterRun {
-                    pending: next.mobs.clone(),
+                    pending: add_inter_wave_delay(&next.mobs),
                     alive_ids: Vec::new(),
                     wave_elapsed: 0.0,
                 };
@@ -443,7 +461,7 @@ impl EncounterState {
                     remaining_mobs: next.mobs.len(),
                 };
                 self.run = EncounterRun {
-                    pending: next.mobs.clone(),
+                    pending: add_inter_wave_delay(&next.mobs),
                     alive_ids: Vec::new(),
                     wave_elapsed: 0.0,
                 };
@@ -788,12 +806,14 @@ pub fn mob_lab_wave_specs() -> Vec<EncounterWaveSpec> {
             label: "wave 2 — goblins + heavy".into(),
             mobs: vec![
                 EncounterMobSpec::new("medium_striker", [left_x, floor_y]).with_size(goblin_size),
-                EncounterMobSpec::new("medium_striker", [right_x, floor_y]).with_size(goblin_size),
+                EncounterMobSpec::new("medium_striker", [right_x, floor_y])
+                    .with_size(goblin_size)
+                    .with_delay(0.70),
                 // Big goblin reinforcement on a timer, fires whether
                 // or not the goblins are still up.
                 EncounterMobSpec::new("large_brute", [(left_x + right_x) * 0.5, floor_y - 18.0])
                     .with_size(big_size)
-                    .with_delay(3.5),
+                    .with_delay(2.60),
             ],
         },
         EncounterWaveSpec {

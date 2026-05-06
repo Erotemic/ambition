@@ -4068,7 +4068,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "central_hub_complex", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["central_hub_complex"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "hub", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["hub"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -4899,7 +4899,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "central_hub_complex", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["central_hub_complex"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "hub", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["hub"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -5831,7 +5831,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "scroll_lab", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["scroll_lab"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["lab"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -6885,7 +6885,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "vertical_shaft", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["vertical_shaft"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["lab"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -7852,7 +7852,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "square_arena", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["square_arena"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["lab"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -8858,7 +8858,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "tiny_chamber", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["tiny_chamber"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["lab"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -9150,7 +9150,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_hazards", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["basement_hazards"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "basement", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["basement"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -9925,7 +9925,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_enemies", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["basement_enemies"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "basement", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["basement"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -10732,7 +10732,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_boss", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["basement_boss"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "boss", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["boss"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -11373,7 +11373,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_breakables", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["basement_breakables"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "basement", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["basement"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -12269,7 +12269,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_treasure", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["basement_treasure"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "basement", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["basement"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -12821,7 +12821,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "basement_npcs", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["basement_npcs"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "basement", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["basement"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -13365,7 +13365,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "mob_lab", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["mob_lab"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "mob_arena", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["mob_arena"] }] }, { "__identifier": "music_track", "__type": "String", "__value": "pulse_drift_voyage", "__tile": null, "defUid": 4173, "realEditorValues": [{ "id": "V_String", "params": ["pulse_drift_voyage"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -13981,7 +13981,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "water_world", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["water_world"]
-			}] }],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "water", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["water"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",

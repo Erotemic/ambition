@@ -1988,6 +1988,51 @@ mod tests {
         assert_eq!(a.visual_theme, None);
     }
 
+    /// Pin the biome-metadata seam end-to-end: every gameplay active
+    /// area in the embedded LDtk should compose with a non-empty
+    /// `biome` so the runtime resource (`ActiveRoomMetadata`) and
+    /// the room-music plumbing have something to read. Regression
+    /// guard for the "RoomSpec::metadata is always default" failure
+    /// mode where the seam compiles but the LDtk side never set a
+    /// value.
+    #[test]
+    fn embedded_ldtk_active_areas_have_biome_metadata() {
+        let project = LdtkProject::load_embedded();
+        let room_set = project.to_room_set().expect("embedded LDtk should compose");
+        let mut missing: Vec<&str> = Vec::new();
+        for room in &room_set.rooms {
+            if room.metadata.biome.is_none() {
+                missing.push(room.id.as_str());
+            }
+        }
+        assert!(
+            missing.is_empty(),
+            "every embedded LDtk active area should declare a biome; missing: {missing:?}"
+        );
+    }
+
+    /// `mob_lab` is the canonical "non-default music_track" example
+    /// in the embedded LDtk. The room metadata flowing through to
+    /// `RoomSpec::metadata.music_track` is what lets the runtime
+    /// `RoomMusicRequest` swap the track when the player enters the
+    /// area.
+    #[test]
+    fn embedded_ldtk_mob_lab_carries_music_track() {
+        let project = LdtkProject::load_embedded();
+        let room_set = project.to_room_set().expect("embedded LDtk should compose");
+        let mob = room_set
+            .rooms
+            .iter()
+            .find(|r| r.id == "mob_lab")
+            .expect("mob_lab active area exists");
+        assert_eq!(mob.metadata.biome.as_deref(), Some("mob_arena"));
+        assert_eq!(
+            mob.metadata.music_track.as_deref(),
+            Some("pulse_drift_voyage"),
+            "mob_lab should declare its non-default music track via the LDtk level field"
+        );
+    }
+
     #[test]
     fn embedded_ldtk_composes_central_hub_complex() {
         let project = LdtkProject::load_embedded();

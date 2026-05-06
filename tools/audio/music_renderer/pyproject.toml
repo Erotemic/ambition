@@ -18,4 +18,3 @@ dependencies = [
 
 [project.scripts]
 render-ambition-music = "ambition_music_renderer.musicir_renderer:main"
-render-goblin-battle = "ambition_music_renderer.render_goblin_battle:main"

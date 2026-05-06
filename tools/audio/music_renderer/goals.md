@@ -2,6 +2,10 @@ High-level goals for the Ambition music generator:
 
 We are building a **build-time / authoring-time music generation system**, not a runtime AI system. The shipped game should not run deep models or expensive inference. It should ship compact declarative music specs and/or generated OGG assets, then use those through a unified runtime music abstraction.
 
+I want Ambition to support AI-authored music in a compact, game-native way, where the music could be generated from text/specs instead of shipping large hand-authored binary audio assets for everything.
+
+I like the idea that an LLM could generate or edit a small textual music representation. The spec itself should be small relative to MP3/OGG/WAV assets, easy to version, easy to regenerate, and editable by language models.
+
 The main goal is: **small text specs should be able to generate expressive, adaptive game music assets**.
 
 More specifically:
@@ -28,7 +32,7 @@ More specifically:
    We do not want blind post-hoc loudness normalization as a band-aid. If audio is too quiet, buried, underwater, or imbalanced, fix the synth path, mix settings, postprocess chain, or stem rendering so the assets are generated properly the first time.
 
 8. **Fast backend should be useful, but honest.**
-   The built-in fast renderer is important for iteration and CI-ish workflows, but it must either support the same meaningful musical features as the spec or warn/document when it does not. If CC automation, expression ramps, pan automation, or instrument classification are ignored, that is a correctness bug or needs to be explicit.
+   The built-in fallback renderer is important for iteration and CI-ish workflows, but it must either support the same meaningful musical features as the spec or warn/document when it does not. If CC automation, expression ramps, pan automation, or instrument classification are ignored, that is a correctness bug or needs to be explicit.
 
 9. **Audio quality matters.**
    We want something suitable for a professional-ish game prototype: expressive, varied, adaptive, not shrill, not underwater, not clicky, not full of pops, not wildly different in-game versus preview. The goblin tune is a proof of concept, but the renderer should generalize to other moods.
@@ -39,7 +43,7 @@ More specifically:
     * make all render paths share the same postprocess semantics,
     * remove config-ignoring shortcuts,
     * add audits/tests for stem loudness and config usage,
-    * fix fast renderer instrument-family detection,
+    * fix fallback renderer instrument-family detection,
     * fix drum tails/clicks,
     * make runtime eventually consume cue manifests instead of hardcoded Rust cue gains.
 

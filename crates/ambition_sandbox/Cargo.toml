@@ -73,6 +73,14 @@ serde_json = "1"
 name = "tune_preview"
 required-features = ["audio"]
 
+# music_track_report walks the embedded sandbox.ron audio manifest and
+# prints id/name/bpm/duration/validation per track. The optional WAV
+# render reuses the audio subsystem so this binary requires `audio`
+# the same way `tune_preview` does.
+[[bin]]
+name = "music_track_report"
+required-features = ["audio"]
+
 # headless binary doesn't need any subsystem features (the sim's seam
 # is feature-gated; messages drain harmlessly without subscribers).
 [[bin]]

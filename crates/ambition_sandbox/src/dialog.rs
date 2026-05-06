@@ -11,6 +11,7 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::*;
 
 use crate::game_mode::GameMode;
+use crate::ui_fonts::{UiFontWeight, UiFonts};
 
 const DIALOG_CONTINUE_HINT: &str = "Enter/Space/F/E: continue   Up/Down: choose   Esc: close";
 
@@ -473,6 +474,7 @@ pub fn sync_dialog_ui(
     mut commands: Commands,
     runtime: Res<crate::SandboxRuntime>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
+    ui_fonts: Option<Res<UiFonts>>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
@@ -485,6 +487,21 @@ pub fn sync_dialog_ui(
     let body = runtime.dialogue.body();
     let options = runtime.dialogue.options();
     let selected = runtime.dialogue.selected_option();
+
+    let selected_marker = ui_fonts
+        .as_deref()
+        .map(UiFonts::selected_marker)
+        .unwrap_or(">");
+
+    let dialog_font = |font_size: f32, weight: UiFontWeight| {
+        ui_fonts
+            .as_deref()
+            .map(|fonts| fonts.text_font(font_size, weight))
+            .unwrap_or(TextFont {
+                font_size,
+                ..default()
+            })
+    };
 
     commands
         .spawn((
@@ -507,23 +524,17 @@ pub fn sync_dialog_ui(
         .with_children(|parent| {
             parent.spawn((
                 Text::new(title),
-                TextFont {
-                    font_size: 22.0,
-                    ..default()
-                },
+                dialog_font(22.0, UiFontWeight::Semibold),
                 TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
             ));
             parent.spawn((
                 Text::new(body),
-                TextFont {
-                    font_size: 17.0,
-                    ..default()
-                },
+                dialog_font(17.0, UiFontWeight::Regular),
                 TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
             ));
             if !options.is_empty() {
                 for (idx, option) in options.iter().enumerate() {
-                    let marker = if idx == selected { "▶" } else { " " };
+                    let marker = if idx == selected { selected_marker } else { " " };
                     let color = if idx == selected {
                         Color::srgba(1.00, 0.86, 0.34, 1.0)
                     } else {
@@ -531,29 +542,20 @@ pub fn sync_dialog_ui(
                     };
                     parent.spawn((
                         Text::new(format!("{} {}", marker, option.label)),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
+                        dialog_font(16.0, UiFontWeight::Regular),
                         TextColor(color),
                     ));
                 }
             } else {
                 parent.spawn((
-                    Text::new("▶ Continue"),
-                    TextFont {
-                        font_size: 16.0,
-                        ..default()
-                    },
+                    Text::new(format!("{selected_marker} Continue")),
+                    dialog_font(16.0, UiFontWeight::Regular),
                     TextColor(Color::srgba(1.00, 0.86, 0.34, 1.0)),
                 ));
             }
             parent.spawn((
                 Text::new(DIALOG_CONTINUE_HINT),
-                TextFont {
-                    font_size: 12.0,
-                    ..default()
-                },
+                dialog_font(12.0, UiFontWeight::Regular),
                 TextColor(Color::srgba(0.62, 0.72, 0.84, 0.96)),
             ));
         });

@@ -47,6 +47,7 @@ pub mod rooms;
 pub mod save;
 pub mod settings;
 pub mod trace;
+pub mod ui_fonts;
 pub mod windowing;
 
 pub mod app;

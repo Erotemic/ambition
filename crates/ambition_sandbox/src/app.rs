@@ -74,6 +74,7 @@ use crate::rendering::{
 };
 use crate::rooms;
 use crate::setup;
+use crate::ui_fonts;
 use crate::windowing;
 use crate::{GameWorld, SandboxRuntime};
 
@@ -494,6 +495,8 @@ pub fn add_presentation_plugins(app: &mut App) {
     add_ui_plugins(app);
     add_input_plugins(app);
     add_audio_plugins(app);
+
+    app.add_systems(Startup, ui_fonts::load_ui_fonts);
 
     // Settings + sandbox-save persistence. Both load on startup and
     // autosave when the relevant resource changes (`Res::is_changed`

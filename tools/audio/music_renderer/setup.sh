@@ -7,4 +7,8 @@ sudo apt install -y \
   fluid-soundfont-gs \
   libsndfile1
 
-uv pip install numpy scipy pretty_midi PyYAML soundfile
+sudo apt install musescore-general-soundfont
+
+uv pip install numpy scipy pretty_midi PyYAML soundfile pyfluidsynth
+
+

@@ -22,7 +22,7 @@ renderer_dir="$repo_root/tools/audio/music_renderer"
 spec="$renderer_dir/examples/first_goblin_tune_v2.music.yaml"
 staging="$renderer_dir/output/first_goblin_tune_v2"
 installer="$repo_root/tools/audio/install_first_goblin_tune_v2_assets.py"
-backend="${AMBITION_MUSIC_BACKEND:-fast}"
+backend="${AMBITION_MUSIC_BACKEND:-pretty-midi}"
 
 skip_render=0
 for arg in "$@"; do

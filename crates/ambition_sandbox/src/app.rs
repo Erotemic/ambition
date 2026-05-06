@@ -235,7 +235,9 @@ pub fn init_sandbox_resources(app: &mut App) {
         if room_set.set_start_by_id(&start_room) {
             eprintln!("[ambition] CLI start room: {start_room}");
         } else {
-            eprintln!("[ambition] warning: --start-room '{start_room}' did not match any room id/name");
+            eprintln!(
+                "[ambition] warning: --start-room '{start_room}' did not match any room id/name"
+            );
         }
     }
     let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(
@@ -623,8 +625,7 @@ pub fn add_presentation_plugins(app: &mut App) {
         // projectiles would only become visible one frame late.
         .add_systems(
             Update,
-            crate::projectile::sync_projectile_visuals
-                .after(crate::projectile::update_projectiles),
+            crate::projectile::sync_projectile_visuals.after(crate::projectile::update_projectiles),
         )
         // VFX + debris subscribe on the visible binary only. Audio's
         // subscriber lives in `add_audio_plugins` so the entire kira
@@ -833,17 +834,14 @@ fn populate_control_frame_from_actions(
     // press-to-advance-dialogue mapping on Interact / Jump.
     if cutscene.is_playing() {
         if let Ok(action_state) = player_input.single() {
-            let interact = action_state
-                .pressed(&SandboxAction::Interact)
+            let interact = action_state.pressed(&SandboxAction::Interact)
                 || action_state.pressed(&SandboxAction::Jump);
             if interact {
                 cutscene_request.dismiss_dialogue = true;
             }
             if action_state.pressed(&SandboxAction::Reset) {
                 cutscene_request.skip_hold_seconds += time.delta_secs();
-                if cutscene_request.skip_hold_seconds
-                    >= crate::cutscene::SKIP_HOLD_THRESHOLD_SECS
-                {
+                if cutscene_request.skip_hold_seconds >= crate::cutscene::SKIP_HOLD_THRESHOLD_SECS {
                     cutscene_request.skip_cutscene = true;
                     cutscene_request.skip_hold_seconds = 0.0;
                 }
@@ -2323,9 +2321,10 @@ fn process_attack(
     let mut killed = false;
     let player_facing = runtime.player.facing;
     let slash_damage = runtime.slash_damage.max(1);
-    let feature_events = runtime
-        .features
-        .apply_player_attack(attack, slash_damage, player_facing * 300.0);
+    let feature_events =
+        runtime
+            .features
+            .apply_player_attack(attack, slash_damage, player_facing * 300.0);
     landed |= !feature_events.impacts.is_empty();
     killed |= feature_events
         .messages
@@ -2467,11 +2466,7 @@ fn update_hud(
             let frac = state.hp_fraction();
             let filled = (frac * 16.0).round().clamp(0.0, 16.0) as usize;
             let empty = 16usize.saturating_sub(filled);
-            let bar = format!(
-                "[{}{}]",
-                "=".repeat(filled),
-                "-".repeat(empty)
-            );
+            let bar = format!("[{}{}]", "=".repeat(filled), "-".repeat(empty));
             format!(
                 "\nBOSS [{}] {} hp {}/{} {} {:.0}%",
                 id,

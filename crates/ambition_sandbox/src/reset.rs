@@ -266,7 +266,8 @@ mod tests {
         {
             let mut save = app.world_mut().resource_mut::<SandboxSave>();
             save.data_mut().set_flag("npc_kira_hostile", true);
-            save.data_mut().set_flag("encounter_mob_lab_reward_dropped", true);
+            save.data_mut()
+                .set_flag("encounter_mob_lab_reward_dropped", true);
             save.data_mut()
                 .set_encounter("mob_lab", ae::PersistedEncounterState::Cleared);
         }

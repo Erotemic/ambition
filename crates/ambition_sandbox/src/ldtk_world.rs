@@ -1887,12 +1887,8 @@ mod tests {
     /// silently drop hazard cells from the runtime collision world.
     #[test]
     fn int_grid_hazard_value_maps_to_hazard_block() {
-        let block = int_grid_value_to_block(
-            5,
-            ae::Vec2::ZERO,
-            ae::Vec2::new(16.0, 16.0),
-        )
-        .expect("value 5 must map to a block");
+        let block = int_grid_value_to_block(5, ae::Vec2::ZERO, ae::Vec2::new(16.0, 16.0))
+            .expect("value 5 must map to a block");
         assert!(matches!(block.kind, ae::BlockKind::Hazard));
         assert_eq!(block.name, "ldtk hazard");
     }
@@ -1958,7 +1954,10 @@ mod tests {
             layer_instances: Vec::new(),
         };
         let meta = level.level_metadata();
-        assert!(meta.biome.is_none(), "whitespace-only must be treated as None");
+        assert!(
+            meta.biome.is_none(),
+            "whitespace-only must be treated as None"
+        );
         assert!(meta.music_track.is_none());
     }
 

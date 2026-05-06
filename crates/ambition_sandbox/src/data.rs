@@ -279,9 +279,7 @@ mod tests {
     #[test]
     fn validate_rejects_empty_music_tracks() {
         let audio = synthetic_audio(Vec::new(), "alpha");
-        let err = audio
-            .validate()
-            .expect_err("empty music_tracks must fail");
+        let err = audio.validate().expect_err("empty music_tracks must fail");
         assert!(err.contains("music_tracks"), "got: {err}");
     }
 
@@ -291,9 +289,7 @@ mod tests {
     #[test]
     fn validate_rejects_missing_default_track() {
         let audio = synthetic_audio(vec![synthetic_track("alpha")], "ghost");
-        let err = audio
-            .validate()
-            .expect_err("missing default must fail");
+        let err = audio.validate().expect_err("missing default must fail");
         assert!(err.contains("default_music_track"), "got: {err}");
     }
 
@@ -305,9 +301,7 @@ mod tests {
         let mut track = synthetic_track("alpha");
         track.display_name = String::new();
         let audio = synthetic_audio(vec![track], "alpha");
-        let err = audio
-            .validate()
-            .expect_err("empty display_name must fail");
+        let err = audio.validate().expect_err("empty display_name must fail");
         assert!(err.contains("display_name"), "got: {err}");
     }
 

@@ -250,7 +250,9 @@ impl RoomSet {
     }
 
     pub fn room_index_by_id(&self, id: &str) -> Option<usize> {
-        self.rooms.iter().position(|room| room.id == id || room.world.name == id)
+        self.rooms
+            .iter()
+            .position(|room| room.id == id || room.world.name == id)
     }
 
     pub fn set_start_by_id(&mut self, id: &str) -> bool {
@@ -605,10 +607,7 @@ fn player_body_clear(world: &ae::World, center: ae::Vec2, half: ae::Vec2) -> boo
 /// PartialEq guard means change-detection consumers (e.g. a future
 /// room-music selector) only fire when the active room's biome /
 /// music_track / ambient / theme really differ — not on every frame.
-pub fn sync_active_room_metadata(
-    room_set: Res<RoomSet>,
-    mut active: ResMut<ActiveRoomMetadata>,
-) {
+pub fn sync_active_room_metadata(room_set: Res<RoomSet>, mut active: ResMut<ActiveRoomMetadata>) {
     let current = room_set.active_metadata().clone();
     if current != active.0 {
         active.0 = current;
@@ -667,7 +666,10 @@ mod metadata_tests {
         };
         let mut set = RoomSet::from_parts(
             "first",
-            vec![spec_with(m1.clone(), "first"), spec_with(m2.clone(), "second")],
+            vec![
+                spec_with(m1.clone(), "first"),
+                spec_with(m2.clone(), "second"),
+            ],
             Vec::new(),
         );
         assert_eq!(set.active_metadata(), &m1);
@@ -723,7 +725,10 @@ mod metadata_tests {
         };
         let set = RoomSet::from_parts(
             "hub",
-            vec![spec_with(m_hub.clone(), "hub"), spec_with(m_lab.clone(), "lab")],
+            vec![
+                spec_with(m_hub.clone(), "hub"),
+                spec_with(m_lab.clone(), "lab"),
+            ],
             Vec::new(),
         );
         app.insert_resource(set);

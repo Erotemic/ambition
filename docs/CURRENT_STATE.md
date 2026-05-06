@@ -411,3 +411,73 @@ that decodes `ActionState` into a compact `NavInput` and dispatches
 to `settings::handle_action`. Audio-off (`--no-default-features
 --features input`) compiles and runs with the Music row replaced by
 a placeholder.
+
+## Body-mode mechanics: crouch + morph ball wired
+
+`crate::body_mode::update_body_mode` runs in the progression chain
+after `sandbox_update` and turns the engine's existing `BodyMode` /
+`BodyShape::fits_at` primitives into two playable mechanics:
+
+- Down held + grounded → `Crouching`. Releasing Down attempts a
+  collision-safe stand-up via `try_change_body_mode`; a low ceiling
+  rejects the transition and the player stays crouched.
+- Double-tap-down (the existing `fast_fall_pressed` gesture) +
+  grounded → `MorphBall`. Jump-pressed inside MorphBall tries
+  Standing; a low ceiling keeps the ball curled. The engine's
+  airborne fast-fall path still uses the same gesture; it gates on
+  `!on_ground` so there is no input crosstalk.
+
+`Player::base_size` is the new canonical Standing-stance size; the
+engine helper `try_change_body_mode` adjusts `pos.y` to keep the
+player's feet planted, runs `BodyShape::fits_at` against the target
+shape, and rejects the transition if the new AABB would overlap any
+caller-matched block. Mid-action mechanics (dash, blink-aim,
+wall-cling/climb, in-water swim) own their own posture; the driver
+no-ops while any of them are active. `Player::reset_to` rebuilds
+the struct so death/respawn always restores Standing.
+
+## Biome / room-music metadata seam
+
+LDtk levels can declare optional `biome` / `music_track` /
+`ambient_profile` / `visual_theme` strings in their level fields
+(added by `tools/add_biome_level_fields.py`). The runtime reads
+these into `RoomSpec::metadata` per active area (first non-empty
+value wins when an area spans multiple levels), mirrors the active
+room's metadata into `crate::rooms::ActiveRoomMetadata`, and pushes
+the `music_track` value through `RoomMusicRequest` for the audio
+system. `audio::apply_encounter_music` resolves the desired track
+as: encounter override > room music_track > sandbox-wide
+`default_music_track`. Unknown track ids are silently ignored at
+the audio layer so a typo can't stall playback. Every gameplay
+level in the embedded LDtk now declares a biome; only `mob_lab`
+sets a non-default `music_track`. The HUD shows the active
+metadata under `ROOM:`; the diagnostic
+`python tools/list_ldtk_metadata.py` prints the per-area merged
+metadata for offline auditing.
+
+## Cutscene skip UX
+
+Holding `Reset` (Backspace / Delete / pad-Select) for
+`SKIP_HOLD_THRESHOLD_SECS = 1.2` seconds during a cutscene flips
+`CutsceneAdvanceRequest::skip_cutscene = true`; the cutscene
+runtime takes its existing `skip()` branch and the seen flag is
+recorded. The HUD shows a 12-segment progress bar while the hold
+is in flight. Reset was chosen rather than Start so the pause
+toggle still works during cutscenes and Interact / Jump still
+advance dialogue normally. Closes the corresponding tech-debt
+entry.
+
+## Programmatic LDtk authoring (agent-friendly)
+
+`tools/author_ldtk_area.py` now supports `--dry-run` (build the
+level entirely in memory, print a structured summary, do not
+mutate the file), top-level `connect_to:` (insert reciprocal
+LoadingZone entities into existing target levels), top-level
+biome metadata fields, and difflib-backed "Did you mean ...?"
+suggestions on unknown entity types and field identifiers. Four
+starter specs ship under `tools/examples/ldtk_specs/` (crawl_lab,
+water_lab, mob_arena, music_biome_lab). The smoketest still
+covers the live path; a new
+`tools/author_ldtk_area_features_test.py` exercises every new
+feature against a copy of the live `sandbox.ldtk`. See
+`docs/ldtk_authoring.md`.

@@ -135,12 +135,7 @@ impl RoomBuilder {
     /// Add a water region that triggers swim mechanics. Defaults to
     /// `WaterKind::Clear` — programmatic builders that need murky
     /// water can call `water_region` directly instead.
-    pub fn water_volume(
-        self,
-        min: [f32; 2],
-        size: [f32; 2],
-        spec: ae::WaterVolumeSpec,
-    ) -> Self {
+    pub fn water_volume(self, min: [f32; 2], size: [f32; 2], spec: ae::WaterVolumeSpec) -> Self {
         self.water_region(min, size, ae::WaterKind::Clear, spec)
     }
 
@@ -168,10 +163,7 @@ impl RoomBuilder {
         pos: [f32; 2],
     ) -> Self {
         let npc_id = npc_id.into();
-        let aabb = ae::Aabb::new(
-            ae::Vec2::new(pos[0], pos[1]),
-            ae::Vec2::new(14.0, 22.0),
-        );
+        let aabb = ae::Aabb::new(ae::Vec2::new(pos[0], pos[1]), ae::Vec2::new(14.0, 22.0));
         let interactable = ae::Interactable::new(
             npc_id.clone(),
             prompt.into(),
@@ -194,10 +186,7 @@ impl RoomBuilder {
     /// archetype id (e.g. "medium_striker", "small_skitter").
     pub fn enemy(mut self, brain: impl Into<String>, pos: [f32; 2]) -> Self {
         let id = self.next_object_id("enemy");
-        let aabb = ae::Aabb::new(
-            ae::Vec2::new(pos[0], pos[1]),
-            ae::Vec2::new(11.0, 19.0),
-        );
+        let aabb = ae::Aabb::new(ae::Vec2::new(pos[0], pos[1]), ae::Vec2::new(11.0, 19.0));
         self.objects.push(ae::RoomObject::new(
             id.clone(),
             id,

@@ -17,8 +17,9 @@ meter:
 render:
   sample_rate: 48000
   ogg_quality: 6
-  backend: fast
-  soundfont: /usr/share/sounds/sf2/TimGM6mb.sf2
+  backend: pretty-midi
+  # No `soundfont:` pin — the renderer picks the highest-quality installed
+  # SoundFont via DEFAULT_SOUNDFONTS (MuseScore General > FluidR3 > others).
 postprocess:
   gain_db: 0.0
   highpass_hz: 35

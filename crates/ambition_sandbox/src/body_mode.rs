@@ -413,6 +413,57 @@ mod tests {
         assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
     }
 
+    /// `SandboxRuntime::reset` (called by death/respawn) must restore
+    /// the player to Standing with the canonical base size, even if
+    /// the player was mid-Crouch or mid-MorphBall when they died.
+    /// Otherwise a respawn could land in a smaller body and the engine
+    /// would compute collision against the shrunk AABB until the next
+    /// crouch input.
+    #[test]
+    fn reset_restores_standing_from_crouch() {
+        let mut app = body_app(empty_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
+        set_axis_y(&mut app, 1.0);
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::Crouching
+        );
+
+        let world = empty_world();
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.reset(&world, ae::DEFAULT_TUNING);
+        }
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+        assert_eq!(runtime.player.size, runtime.player.base_size);
+    }
+
+    #[test]
+    fn reset_restores_standing_from_morph_ball() {
+        let mut app = body_app(empty_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.fast_fall_pressed = true;
+        }
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::MorphBall
+        );
+
+        let world = empty_world();
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.reset(&world, ae::DEFAULT_TUNING);
+        }
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+        assert_eq!(runtime.player.size, runtime.player.base_size);
+    }
+
     /// Wall-cling state owns the player posture; do not crouch from it.
     #[test]
     fn wall_clinging_blocks_crouch() {

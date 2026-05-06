@@ -175,7 +175,9 @@ The spec format supports four high-level conveniences agents commonly need:
    `audio::apply_encounter_music` consults as the room-default track
    (encounter overrides still take priority); a typo or unknown track
    id is silently ignored so playback can't stall. The HUD shows the
-   active room's metadata under `ROOM:`.
+   active room's metadata under `ROOM:`. To audit the current
+   metadata across the project from the command line, run
+   `python tools/list_ldtk_metadata.py`.
 4. **Actionable error messages.** Unknown entity types ("PlayerStrt"
    → "Did you mean 'PlayerStart'?"), unknown field identifiers, and
    bad field-value coercions (a string where a Float is expected) all

@@ -3,6 +3,26 @@
 ## Shipped in this package
 - Static/state PNGs for the current sandbox feature families: hazards, boss placeholder, sandbag dummy, breakables, chests, pickups, and NPC terminal.
 - Static/fixture PNGs for prominent room mechanics: moving platform, rebound pad, pogo orb, soft/hard blink walls, solid block, one-way platform, door zone, edge exit, and a small energy projectile placeholder.
+- Gameplay-surface PNGs (rendered in `entities.py`, **not yet wired to runtime consumers** — drop-in for a future patch):
+  - `switch_armed.png` / `switch_disabled.png` — encounter switch
+    button states (red armed / green disabled). Replaces the flat
+    colored-rectangle fallback in `feature_color`.
+  - `morph_ball.png` — player curl-up sprite. Drops into
+    `MorphBallSprite::handle` and replaces the Rust-side procedural
+    texture in `crate::body_mode::build_morph_ball_image`.
+  - `save_point.png` — checkpoint pillar placeholder, ready when
+    save-point gameplay lands.
+  - `spike_ball.png` — radial-spike iron ball for swinging /
+    rolling hazard variants beyond the spike strip.
+  - Tilable surfaces (full canvas, `Sprite::image_mode = Tiled`):
+    `lock_wall_tile.png` (runtime lock-wall barrier),
+    `water_surface_tile.png` (ripple overlay layered above the flat
+    water tint),
+    `ladder_tile.png` (16×32 climbable column for vertical_shaft and
+    similar),
+    `acid_tile.png` (32×16 neon-green acid hazard),
+    `lava_tile.png` (32×16 red-orange lava hazard),
+    `bg_circuit_tile.png` (32×32 hub-style circuit-board parallax).
 - `assets/entities/entity_manifest.yaml` maps each PNG to the Rust-ish gameplay vocabulary it is intended to support.
 - `assets/entities/entity_contact_sheet.png` gives a quick visual review grid.
 

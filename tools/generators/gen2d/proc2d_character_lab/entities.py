@@ -432,6 +432,337 @@ def hard_blink_tile(d: ImageDraw.ImageDraw, s: float) -> None:
         )
 
 
+# ─── New entity drawers (sprites without dedicated art yet) ──────────
+#
+# Each of the following drawers fills a gameplay surface that the
+# sandbox currently renders as a flat colored rectangle (or, in the
+# morph-ball case, a Rust-side procedural texture). Adding them here
+# routes through the standard `ENTITY_SPECS` / `DRAWERS` pipeline so
+# they get the same crop / supersample / contact-sheet treatment as
+# the existing entities, and the runtime loader picks them up
+# automatically the next time `write_entity_sprites` runs.
+
+
+def _round_button(d: ImageDraw.ImageDraw, s: float, palette: Dict[str, str]) -> None:
+    """Shared draw for a circular button with bezel + face + glow.
+
+    `palette` provides hex strings for `bezel_outer`, `bezel_inner`,
+    `button_outer`, `button_inner`, `glow`. The button reads as a
+    distinct gameplay actuator at a glance (round-button silhouette
+    is universal) regardless of the palette, so the same drawer
+    handles both armed and disabled switch states.
+    """
+    cx, cy = 64 * s, 64 * s
+    outer_r = 50 * s
+    bezel_r = 44 * s
+    inner_r = 32 * s
+    # Drop shadow.
+    d.ellipse(bbox(64*s, 96*s, 84*s, 14*s), fill=(0, 0, 0, 60))
+    # Bezel: filled outer ring with radial-feeling outline.
+    d.ellipse((cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r),
+              fill=rgba(palette["bezel_outer"]),
+              outline=rgba("#04060A"),
+              width=max(1, int(2 * s)))
+    d.ellipse((cx - bezel_r, cy - bezel_r, cx + bezel_r, cy + bezel_r),
+              fill=rgba(palette["bezel_inner"]),
+              outline=rgba(palette["bezel_outer"]),
+              width=max(1, int(2 * s)))
+    # Button face.
+    d.ellipse((cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r),
+              fill=rgba(palette["button_outer"]),
+              outline=rgba("#04060A"),
+              width=max(1, int(1 * s)))
+    # Inner glow / highlight crescent.
+    d.ellipse((cx - inner_r + 2*s, cy - inner_r + 2*s,
+               cx + inner_r - 8*s, cy + inner_r - 14*s),
+              fill=rgba(palette["button_inner"], 220))
+    # Top-left highlight: small bright crescent for sphericality.
+    d.ellipse((cx - inner_r + 6*s, cy - inner_r + 6*s,
+               cx - inner_r + 18*s, cy - inner_r + 14*s),
+              fill=rgba(palette["glow"], 200))
+
+
+def switch_armed(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Encounter switch in the armed state — touching the trigger
+    will start the encounter. Red palette so the player reads the
+    color as "active danger / committed action"."""
+    _round_button(d, s, {
+        "bezel_outer": "#3A0A0E",
+        "bezel_inner": "#5C141A",
+        "button_outer": "#A8202C",
+        "button_inner": "#F04450",
+        "glow": "#FFB8B8",
+    })
+
+
+def switch_disabled(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Encounter switch in the disabled state — encounter cleared
+    or de-armed. Green palette so the color reads as "safe to walk
+    past / encounter is off"."""
+    _round_button(d, s, {
+        "bezel_outer": "#0E2A14",
+        "bezel_inner": "#175024",
+        "button_outer": "#1F8A30",
+        "button_inner": "#38E983",
+        "glow": "#D9FFE2",
+    })
+
+
+def lock_wall_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """32×32 tilable lock-wall texture: vertical bars over a dark
+    steel backdrop with a horizontal rivet line at mid-height. Used
+    for runtime-inserted lock walls in encounter rooms; tiles
+    horizontally and vertically because the bar phase is
+    period-aligned to 32 px and the rivet line is internal (not at
+    a tile edge)."""
+    backdrop_top = rgba("#1A1F2A")
+    backdrop_bottom = rgba("#252B3C")
+    bar = rgba("#494F60")
+    bar_hi = rgba("#6F778C", 200)
+    rivet = rgba("#7F8699")
+    rivet_dark = rgba("#0E1118")
+    # Backdrop gradient (top darker than bottom).
+    for y in range(32):
+        t = y / 31.0
+        r = int(backdrop_top[0] + (backdrop_bottom[0] - backdrop_top[0]) * t)
+        g = int(backdrop_top[1] + (backdrop_bottom[1] - backdrop_top[1]) * t)
+        b = int(backdrop_top[2] + (backdrop_bottom[2] - backdrop_top[2]) * t)
+        d.rectangle((0, y*s, 32*s, (y+1)*s), fill=(r, g, b, 255))
+    # 4 vertical bars centered at x = 4, 12, 20, 28; bar half-width 2.
+    for cx in (4, 12, 20, 28):
+        d.rectangle(((cx-2)*s, 0, (cx+2)*s, 32*s), fill=bar)
+        # Highlight on the left side of each bar for cylindrical depth.
+        d.line([((cx-1)*s, 0), ((cx-1)*s, 32*s)], fill=bar_hi, width=max(1, int(1*s)))
+    # Rivet line at y=16 (internal, so horizontal tiling stays clean).
+    d.line([(0, 16*s), (32*s, 16*s)], fill=rivet_dark, width=max(1, int(1*s)))
+    # Rivet dots on each bar at the line.
+    for cx in (4, 12, 20, 28):
+        d.ellipse(bbox(cx*s, 16*s, 3*s, 3*s), fill=rivet, outline=rivet_dark)
+
+
+def water_surface_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """32×32 tilable water-surface ripple. Designed to overlay the
+    flat water-body tint that `spawn_water_region` already draws —
+    alpha is intentionally low (~0.18 max) so the underlying tint
+    still shows through. Two sine waves at slightly different
+    frequencies break up the obvious-grid look that a single sine
+    would produce, and both have integer periods on 32 px so the
+    tile is seamless on both axes."""
+    import math
+    # Base color: cool blue, mostly transparent.
+    base = (140, 215, 240, 28)
+    d.rectangle((0, 0, 32*s, 32*s), fill=base)
+    # Crest highlights at the wave peaks. Sample the wave at each
+    # vertical position and draw a faint horizontal band where
+    # |amplitude| is high.
+    for y in range(32):
+        v = y / 32.0
+        amp1 = math.sin(v * math.tau * 2.0)
+        amp2 = math.sin(v * math.tau * 4.0 + 1.0)
+        crest = (amp1 * 0.6 + amp2 * 0.4)
+        if crest > 0.7:
+            alpha = int(min(70, (crest - 0.7) * 280))
+            d.rectangle((0, y*s, 32*s, (y+1)*s),
+                        fill=rgba("#E0F0FF", alpha))
+    # Diagonal sparkle dots — small bright pixels at half-integer
+    # offsets so they spread across the tile and meet cleanly at
+    # the seam.
+    sparkle = rgba("#FFFFFF", 200)
+    for (x, y) in [(6, 8), (15, 20), (24, 12), (4, 26), (29, 4)]:
+        d.ellipse(bbox(x*s, y*s, 2*s, 2*s), fill=sparkle)
+
+
+def morph_ball(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Player morph-ball stance. Replaces the Rust-side procedural
+    texture in `crate::body_mode` once this PNG ships. Rendered as
+    a sphere in the same steel-blue palette as the player robot so
+    the morph reads as "the same character, curled up"."""
+    cx, cy = 64 * s, 68 * s  # bias slightly down so feet anchor to bottom
+    outer_r = 44 * s
+    # Ground shadow.
+    d.ellipse(bbox(64*s, 96*s, 80*s, 12*s), fill=(0, 0, 0, 70))
+    # Sphere body: dark outer rim with bright inner.
+    d.ellipse((cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r),
+              fill=rgba("#3D5C7C"),
+              outline=rgba("#0E1828"),
+              width=max(1, int(3 * s)))
+    inner_r = outer_r - 6 * s
+    d.ellipse((cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r),
+              fill=rgba("#5C8AB8"))
+    # Equator stripe — visual cue that the body has rolled.
+    d.ellipse((cx - inner_r, cy - inner_r * 0.30,
+               cx + inner_r, cy + inner_r * 0.30),
+              fill=rgba("#7BA8D6"),
+              outline=rgba("#1B2D44"),
+              width=max(1, int(1 * s)))
+    # Top-left highlight crescent for sphericality.
+    hx0 = cx - outer_r + 8 * s
+    hy0 = cy - outer_r + 8 * s
+    d.ellipse((hx0, hy0, hx0 + 24 * s, hy0 + 16 * s), fill=rgba("#CDE3F5", 200))
+    # Central glowing core (the player's "eye" peeking out).
+    d.ellipse(bbox(cx, cy, 12 * s, 12 * s), fill=rgba("#0E1828"))
+    d.ellipse(bbox(cx, cy, 8 * s, 8 * s), fill=rgba("#82E0FF"))
+    d.ellipse(bbox(cx - 1 * s, cy - 1 * s, 4 * s, 4 * s), fill=rgba("#FFFFFF"))
+
+
+def save_point(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Vertical save / checkpoint pillar — a glowing core inside a
+    metal frame. Not yet wired into gameplay; reserved for when the
+    save system grows beyond auto-save. Cyan glow ties to the
+    `pickup_ability` and `edge_exit` palette for "system / data"
+    feel."""
+    outline = rgba("#0A1A24")
+    # Base plate.
+    d.rectangle((36*s, 96*s, 92*s, 110*s), fill=rgba("#2A3B4C"), outline=outline, width=max(1, int(2*s)))
+    d.line([(40*s, 102*s), (88*s, 102*s)], fill=rgba("#5A7990"), width=max(1, int(1*s)))
+    # Side rails.
+    for x in (40, 88):
+        d.rectangle(((x-3)*s, 28*s, (x+3)*s, 96*s), fill=rgba("#3D556B"), outline=outline, width=max(1, int(1*s)))
+    # Top crossbar.
+    d.rectangle((36*s, 22*s, 92*s, 30*s), fill=rgba("#2A3B4C"), outline=outline, width=max(1, int(2*s)))
+    # Glowing core.
+    d.rectangle((50*s, 36*s, 78*s, 92*s), fill=rgba("#0B2030"), outline=rgba("#43E9FF"), width=max(1, int(2*s)))
+    # Inner glow.
+    for inset in (4, 7, 10):
+        d.rectangle(((50+inset)*s, (36+inset)*s, (78-inset)*s, (92-inset)*s),
+                    outline=rgba("#43E9FF", max(40, 200 - inset * 28)),
+                    width=max(1, int(1*s)))
+    # Cycling chevron marks for "active save point".
+    for y in (50, 64, 78):
+        d.polygon(poly_scaled([(58, y), (64, y - 4), (70, y), (64, y + 4)], s),
+                  fill=rgba("#82F0FF"))
+
+
+def ladder_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """16×32 tilable ladder texture: two vertical rails, three rungs.
+    Sized to match a single 16-px-wide IntGrid column so the ladder
+    appears at native pixel scale when authored as a 1-cell-wide
+    column. Tiles vertically because the rung phase is period-32 on
+    y and the rails span the full canvas."""
+    rail = rgba("#7B5A33")
+    rail_dark = rgba("#3A2914")
+    rung = rgba("#9A7344")
+    rung_hi = rgba("#C49968", 220)
+    # Two vertical rails with slight depth shading.
+    for cx in (3, 13):
+        d.rectangle(((cx-1)*s, 0, (cx+1)*s, 32*s), fill=rail)
+        d.line([(cx*s, 0), (cx*s, 32*s)], fill=rail_hi(), width=max(1, int(1*s)))
+        d.line([((cx-1)*s, 0), ((cx-1)*s, 32*s)], fill=rail_dark, width=max(1, int(1*s)))
+    # Rungs at y = 6, 16, 26 — keeps the rung phase cleanly tilable
+    # (16 + 32k for any k is the same y after wrap).
+    for y in (6, 16, 26):
+        d.rectangle((3*s, (y-1)*s, 13*s, (y+1)*s), fill=rung)
+        d.line([(3*s, y*s), (13*s, y*s)], fill=rung_hi, width=max(1, int(1*s)))
+
+
+def rail_hi() -> Color:
+    return rgba("#A38655", 220)
+
+
+def acid_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """32×16 tilable acid pool surface. Bright neon-green hazard
+    surface with bubble highlights so it reads as "liquid that hurts"
+    distinct from spike hazards. Same 32×16 sizing rationale as
+    `hazard_tile` (most authored hazard rows are 16 px tall)."""
+    base = rgba("#1A4A0E")
+    surface = rgba("#5BC72E")
+    surface_hi = rgba("#B7FF6E")
+    bubble = rgba("#E8FFB0", 230)
+    # Liquid base.
+    d.rectangle((0, 6*s, 32*s, 16*s), fill=base)
+    # Surface band.
+    d.rectangle((0, 4*s, 32*s, 8*s), fill=surface)
+    d.line([(0, 4*s), (32*s, 4*s)], fill=surface_hi, width=max(1, int(1*s)))
+    # Bubbles sitting on the surface — anchored so x=4 and x=28 are
+    # safely inside the tile, with the seam between them empty.
+    for (x, y, r) in [(4, 9, 2), (12, 11, 2), (20, 8, 2), (28, 11, 2)]:
+        d.ellipse(bbox(x*s, y*s, r*2*s, r*2*s), fill=bubble)
+
+
+def lava_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """32×16 tilable lava surface. Red-orange flowing surface with
+    ember spots. Hotter palette than `hazard_tile`'s spikes so the
+    two read as different hazard categories."""
+    base = rgba("#3A0808")
+    flow = rgba("#E04416")
+    flow_hi = rgba("#FFC04A")
+    ember = rgba("#FFE9A8")
+    d.rectangle((0, 6*s, 32*s, 16*s), fill=base)
+    d.rectangle((0, 4*s, 32*s, 8*s), fill=flow)
+    # Surface ridges — a noisy line across the top.
+    for x in range(0, 32, 4):
+        d.line([(x*s, 4*s), ((x+2)*s, 6*s)], fill=flow_hi, width=max(1, int(1*s)))
+        d.line([((x+2)*s, 6*s), ((x+4)*s, 4*s)], fill=flow_hi, width=max(1, int(1*s)))
+    # Embers floating just above the surface.
+    for (x, y) in [(7, 2), (16, 1), (24, 3), (3, 3), (29, 1)]:
+        d.ellipse(bbox(x*s, y*s, 2*s, 2*s), fill=ember)
+
+
+def spike_ball(d: ImageDraw.ImageDraw, s: float) -> None:
+    """Iron sphere with radial spikes. Hazard variant for swinging /
+    rolling traps — distinct from `hazard_spikes` (a spike strip)
+    and `hazard_tile` (a tilable hazard floor). Not yet wired; ships
+    so future hazard mechanics have art to consume."""
+    import math
+    cx, cy = 64 * s, 64 * s
+    outer_r = 32 * s
+    # Drop shadow.
+    d.ellipse(bbox(64*s, 100*s, 70*s, 10*s), fill=(0, 0, 0, 60))
+    # Spike points around the sphere — 12 spikes, each a thin triangle.
+    for i in range(12):
+        angle = i * (360.0 / 12.0)
+        a = math.radians(angle)
+        tip_x = cx + math.cos(a) * (outer_r + 12 * s)
+        tip_y = cy + math.sin(a) * (outer_r + 12 * s)
+        b1_x = cx + math.cos(a + math.pi / 2) * 4 * s + math.cos(a) * outer_r
+        b1_y = cy + math.sin(a + math.pi / 2) * 4 * s + math.sin(a) * outer_r
+        b2_x = cx + math.cos(a - math.pi / 2) * 4 * s + math.cos(a) * outer_r
+        b2_y = cy + math.sin(a - math.pi / 2) * 4 * s + math.sin(a) * outer_r
+        d.polygon([(b1_x, b1_y), (tip_x, tip_y), (b2_x, b2_y)],
+                  fill=rgba("#3A3F4A"), outline=rgba("#0A0C12"))
+    # Sphere body.
+    d.ellipse((cx - outer_r, cy - outer_r, cx + outer_r, cy + outer_r),
+              fill=rgba("#4A4F5C"),
+              outline=rgba("#0A0C12"),
+              width=max(1, int(2 * s)))
+    # Dark inner cracks.
+    for ang in (30, 110, 200, 290):
+        a = math.radians(ang)
+        x1 = cx + math.cos(a) * 6 * s
+        y1 = cy + math.sin(a) * 6 * s
+        x2 = cx + math.cos(a) * 22 * s
+        y2 = cy + math.sin(a) * 22 * s
+        d.line([(x1, y1), (x2, y2)], fill=rgba("#1A1D26"), width=max(1, int(1 * s)))
+    # Top-left highlight.
+    d.ellipse(bbox(cx - 12 * s, cy - 12 * s, 18 * s, 14 * s), fill=rgba("#7F8493", 180))
+
+
+def bg_circuit_tile(d: ImageDraw.ImageDraw, s: float) -> None:
+    """32×32 tilable circuit-board background pattern. Designed for
+    biome-themed parallax / wall décor in hub-style areas; alpha is
+    moderate so it sits beneath the gameplay layer without competing
+    with foreground entities. Lines start and end on tile edges so
+    horizontal and vertical repeats are seamless."""
+    bg = rgba("#0E1A28")
+    trace = rgba("#1F4060", 220)
+    trace_hi = rgba("#43E9FF", 180)
+    pad = rgba("#2A6A92")
+    pad_hi = rgba("#82E0FF", 220)
+    d.rectangle((0, 0, 32*s, 32*s), fill=bg)
+    # Horizontal trace mid-height (seamless across vertical tiling).
+    d.line([(0, 16*s), (32*s, 16*s)], fill=trace, width=max(1, int(2*s)))
+    d.line([(0, 16*s), (32*s, 16*s)], fill=trace_hi, width=max(1, int(1*s)))
+    # Vertical traces at x=8 and x=24.
+    d.line([(8*s, 0), (8*s, 16*s)], fill=trace, width=max(1, int(2*s)))
+    d.line([(24*s, 16*s), (24*s, 32*s)], fill=trace, width=max(1, int(2*s)))
+    # Solder pads at the trace junctions.
+    for (px, py) in ((8, 16), (24, 16)):
+        d.ellipse(bbox(px*s, py*s, 5*s, 5*s), fill=pad, outline=trace_hi)
+        d.ellipse(bbox(px*s, py*s, 2*s, 2*s), fill=pad_hi)
+    # Component squares scattered on the trace.
+    d.rectangle((14*s, 14*s, 20*s, 18*s), fill=pad, outline=trace_hi, width=max(1, int(1*s)))
+
+
 ENTITY_SPECS: List[EntitySpriteSpec] = [
     EntitySpriteSpec("chest_closed", "chest_closed.png", "FeatureVisualKind::Chest", "ChestClosed", "closed treasure chest"),
     EntitySpriteSpec("chest_open", "chest_open.png", "FeatureVisualKind::Chest", "ChestOpened", "opened reward chest"),
@@ -470,6 +801,24 @@ ENTITY_SPECS: List[EntitySpriteSpec] = [
     EntitySpriteSpec("hazard_tile", "hazard_tile.png", "BlockKind::Hazard (IntGrid)", "ldtk hazard tile", "tilable spike strip", size=(32, 16), tight_crop=False),
     EntitySpriteSpec("soft_blink_tile", "soft_blink_tile.png", "BlockKind::BlinkWall::Soft (IntGrid)", "ldtk blink-soft tile", "tilable soft blink wall", size=(32, 32), tight_crop=False),
     EntitySpriteSpec("hard_blink_tile", "hard_blink_tile.png", "BlockKind::BlinkWall::Hard (IntGrid)", "ldtk blink-hard tile", "tilable hard blink wall", size=(32, 32), tight_crop=False),
+    # New sprites: gameplay surfaces that previously rendered as flat
+    # colored rectangles (or, in the morph-ball case, a Rust-side
+    # procedural texture). All use the standard `tight_crop=True`
+    # except the explicitly tilable variants (lock_wall_tile,
+    # water_surface_tile, ladder_tile, acid_tile, lava_tile,
+    # bg_circuit_tile) which preserve their full canvas for
+    # `Sprite::image_mode = Tiled` use.
+    EntitySpriteSpec("switch_armed", "switch_armed.png", "FeatureVisualKind::Switch", "Switch armed (red)", "encounter switch — armed / will trigger on touch"),
+    EntitySpriteSpec("switch_disabled", "switch_disabled.png", "FeatureVisualKind::Switch", "Switch disabled (green)", "encounter switch — disabled / encounter cleared"),
+    EntitySpriteSpec("morph_ball", "morph_ball.png", "BodyMode::MorphBall", "player morph stance", "player curled into a rolling sphere"),
+    EntitySpriteSpec("save_point", "save_point.png", "future SavePoint", "checkpoint pillar (planned)", "vertical save pillar with glowing core"),
+    EntitySpriteSpec("spike_ball", "spike_ball.png", "future hazard", "swinging / rolling iron spike ball", "iron sphere with radial spikes"),
+    EntitySpriteSpec("lock_wall_tile", "lock_wall_tile.png", "runtime LockWall", "encounter lock-wall barrier", "tilable bars-and-rivets lock wall", size=(32, 32), tight_crop=False),
+    EntitySpriteSpec("water_surface_tile", "water_surface_tile.png", "WaterRegion overlay", "water-surface ripple overlay", "tilable wavy ripple overlay for water bodies", size=(32, 32), tight_crop=False),
+    EntitySpriteSpec("ladder_tile", "ladder_tile.png", "future ClimbZone", "climbable ladder column", "tilable ladder column (1 cell wide, 2 cells tall)", size=(16, 32), tight_crop=False),
+    EntitySpriteSpec("acid_tile", "acid_tile.png", "BlockKind::Hazard variant", "neon-green acid pool", "tilable acid surface — hazard variant", size=(32, 16), tight_crop=False),
+    EntitySpriteSpec("lava_tile", "lava_tile.png", "BlockKind::Hazard variant", "red-orange lava flow", "tilable lava surface — hazard variant", size=(32, 16), tight_crop=False),
+    EntitySpriteSpec("bg_circuit_tile", "bg_circuit_tile.png", "biome decoration", "hub circuit-board parallax", "tilable circuit-board pattern for hub backdrops", size=(32, 32), tight_crop=False),
 ]
 
 DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float], None]] = {
@@ -500,6 +849,17 @@ DRAWERS: Dict[str, Callable[[ImageDraw.ImageDraw, float], None]] = {
     "hazard_tile": hazard_tile,
     "soft_blink_tile": soft_blink_tile,
     "hard_blink_tile": hard_blink_tile,
+    "switch_armed": switch_armed,
+    "switch_disabled": switch_disabled,
+    "morph_ball": morph_ball,
+    "save_point": save_point,
+    "spike_ball": spike_ball,
+    "lock_wall_tile": lock_wall_tile,
+    "water_surface_tile": water_surface_tile,
+    "ladder_tile": ladder_tile,
+    "acid_tile": acid_tile,
+    "lava_tile": lava_tile,
+    "bg_circuit_tile": bg_circuit_tile,
 }
 
 

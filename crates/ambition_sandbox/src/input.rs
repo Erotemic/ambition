@@ -299,16 +299,15 @@ impl KeyboardPreset {
         map.insert(SandboxAction::QuickAction, GamepadButton::RightTrigger);
         map.insert(SandboxAction::Interact, GamepadButton::RightTrigger);
         map.insert(SandboxAction::Modifier, GamepadButton::LeftTrigger2);
-        map.insert(SandboxAction::Utility, GamepadButton::North);
         map.insert(SandboxAction::Map, GamepadButton::LeftTrigger);
         map.insert(SandboxAction::Inventory, GamepadButton::Select);
 
-        // Projectile (Hadouken / fireball) — keyboard `F`, gamepad West.
-        // The keyboard binding only matters when the preset already
-        // assigns something else to F (interact); leafwing tolerates
-        // multi-action sharing.
+        // Projectile (Hadouken / fireball) — keyboard `F`, gamepad North
+        // (Y/Triangle). Attack already owns West, so fireball needs its
+        // own face button. Utility/Fly used to share North; keep it on
+        // its keyboard preset binding only.
         map.insert(SandboxAction::Projectile, KeyCode::KeyF);
-        map.insert(SandboxAction::Projectile, GamepadButton::West);
+        map.insert(SandboxAction::Projectile, GamepadButton::North);
 
         // Menu navigation seam. Cardinal/D-pad/arrow keys all hit the
         // same MenuNavigate* actions; analog stick provides MenuStick

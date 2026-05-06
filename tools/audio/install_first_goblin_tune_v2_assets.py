@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""Install ``first_goblin_tune_v2`` adaptive OGG assets into the sandbox crate.
+
+Reads a renderer output directory (default: ``target/generated-audio/first_goblin_tune_v2``),
+finds the adaptive manifest, and copies each section/stem OGG to a stable,
+hash-free filename under
+``crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2/``.
+
+The Rust loader (``crates/ambition_sandbox/src/generated_music.rs``) targets
+those stable filenames, so re-rendering the cue does not require Rust changes.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import sys
+from pathlib import Path
+
+CUE_ID = "first_goblin_tune_v2"
+SECTIONS = ("intro", "wave1", "wave2", "wave3", "recap_loop", "outro")
+STEMS = ("strings", "brass", "winds", "choir_pad", "mallets", "percussion")
+FULL_SECTIONS = ("intro", "outro")
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def find_manifest(src: Path) -> Path:
+    matches = sorted(
+        src.glob(f"{CUE_ID}_*.adaptive_manifest.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not matches:
+        raise SystemExit(f"no adaptive manifest matching {CUE_ID}_*.adaptive_manifest.json in {src}")
+    return matches[0]
+
+
+def install_stable(src: Path, dest: Path, file_base: str) -> list[Path]:
+    written: list[Path] = []
+    missing: list[str] = []
+    for section in SECTIONS:
+        section_src = src / "adaptive" / section
+        section_dest = dest / "adaptive" / section
+        section_dest.mkdir(parents=True, exist_ok=True)
+        for stem in STEMS:
+            src_file = section_src / f"{file_base}.{section}.{stem}.ogg"
+            dst_file = section_dest / f"{section}.{stem}.ogg"
+            if not src_file.exists():
+                missing.append(str(src_file.relative_to(src)))
+                continue
+            shutil.copy2(src_file, dst_file)
+            written.append(dst_file)
+        if section in FULL_SECTIONS:
+            src_full = section_src / f"{file_base}.{section}.full.ogg"
+            dst_full = section_dest / f"{section}.full.ogg"
+            if not src_full.exists():
+                missing.append(str(src_full.relative_to(src)))
+            else:
+                shutil.copy2(src_full, dst_full)
+                written.append(dst_full)
+    if missing:
+        raise SystemExit("missing expected renderer outputs:\n  " + "\n  ".join(missing))
+    return written
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    default_src = repo_root() / "target/generated-audio" / CUE_ID
+    parser.add_argument(
+        "--src",
+        default=str(default_src),
+        help="Renderer output directory (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Wipe destination directory (and any legacy first_goblin_encounter assets) first",
+    )
+    args = parser.parse_args()
+
+    src = Path(args.src).resolve()
+    if not (src / "adaptive").exists():
+        print(f"error: no adaptive directory at {src}", file=sys.stderr)
+        print("       run ./generate_audio_assets.sh first.", file=sys.stderr)
+        return 2
+
+    manifest_path = find_manifest(src)
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get("id") != CUE_ID:
+        raise SystemExit(f"manifest id must be {CUE_ID}, got {manifest.get('id')!r}")
+    file_base = f"{CUE_ID}_{manifest['hash']}"
+
+    asset_root = repo_root() / "crates/ambition_sandbox/assets/audio/music/generated"
+    dest = asset_root / CUE_ID
+
+    if args.clean:
+        shutil.rmtree(dest, ignore_errors=True)
+        shutil.rmtree(asset_root / "first_goblin_encounter", ignore_errors=True)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    written = install_stable(src, dest, file_base)
+    shutil.copy2(manifest_path, dest / "adaptive_manifest.json")
+
+    print(f"installed {len(written)} OGG assets")
+    print(f"  src:  {src}")
+    print(f"  dest: {dest}")
+    print(f"  cue:  {CUE_ID}  hash={manifest['hash']}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,44 +1,19 @@
 //! Runtime integration for generated/adaptive music assets.
 //!
-//! This module is intentionally a thin runtime player for OGG files produced by
-//! `tools/audio/goblin_orchestra_renderer-*`. The Python renderer remains the
-//! authoring/build-time compiler; Bevy/Kira only loads already-rendered pieces
-//! and schedules intro -> loop sections -> outro while fading stems by battle
-//! state.
+//! Bevy/Kira only loads already-rendered OGG stems produced by
+//! `tools/audio/music_renderer` and schedules intro -> loop sections -> outro
+//! while fading stems by battle state. The renderer's hash-suffixed output
+//! files are renamed to stable section-prefixed paths by the installer
+//! (`tools/audio/install_first_goblin_tune_v2_assets.py`), so re-rendering the
+//! cue does not require Rust changes.
 //!
-//! v6 soft-stem-blend notes:
-//! - stem target changes use a multiplicative/exponential ramp, so low-level
-//!   stems do not pop to their target almost instantly;
-//! - new layer additions should now feel like a roughly one-second musical
-//!   fade instead of a hard entrance;
-//! - stem starts remain fade_ms=0 so all audio files begin in the same update
-//!   tick, and only channel volume ramps afterward.
+//! Stems use two channel banks so a new section can fade in while the old one
+//! fades out. Section switches are deferred to musical boundaries. Clearing
+//! the encounter fades combat stems into a quiet bridge, plays the outro, then
+//! resumes the default room music channel.
 //!
-//! v5 volume/post-clear notes:
-//! - generated cue loudness is scaled by GENERATED_MUSIC_RELATIVE_VOLUME so
-//!   stacked stems sit closer to the legacy room music level;
-//! - post-clear playback now continues through the queued bridge/outro even if
-//!   the encounter state has already reset to Inactive;
-//! - the default room music resumes near the tail of the outro instead of
-//!   immediately after clear.
-//!
-//! v4 logging/sync notes:
-//! - logs state transitions, queued section switches, stem starts, and periodic
-//!   bar/beat timing under the `ambition_generated_music` log target;
-//! - loop-section stems now start with channel volume already at 0 and no
-//!   per-stem fade-in. Crossfades are driven only by the shared bank gain
-//!   smoothing so all stems in a section start as closely together as Kira can
-//!   schedule them in one frame;
-//! - use `RUST_LOG=ambition_generated_music=debug,info` when debugging stem
-//!   phase/sync issues.
-//!
-//! v2 smooth-transition notes:
-//! - stem playback now uses two banks of channels so a new section can fade in
-//!   while the old section fades out;
-//! - section switches are delayed to musical boundaries instead of firing the
-//!   instant the encounter wave changes;
-//! - clearing the encounter fades combat stems into a bridge, plays the outro,
-//!   then resumes the normal room/default music channel.
+//! Use `RUST_LOG=ambition_generated_music=debug,info` to trace section
+//! transitions, stem starts, and bar/beat timing.
 
 #![cfg(feature = "audio")]
 
@@ -64,11 +39,11 @@ pub const GENERATED_GOBLIN_CUE_ID: &str = "first_goblin_tune_v2";
 pub const GENERATED_GOBLIN_ASSET_ROOT: &str =
     "audio/music/generated/first_goblin_tune_v2";
 
-const BPM: f32 = 1.32e+02;
+const BPM: f32 = 132.0;
 const BEATS_PER_BAR: f32 = 4.0;
-const INTRO_SECONDS: f32 = 7.27273;
-const LOOP_SECONDS: f32 = 14.5455;
-const OUTRO_SECONDS: f32 = 7.27273;
+const INTRO_SECONDS: f32 = 7.272727;
+const LOOP_SECONDS: f32 = 14.545455;
+const OUTRO_SECONDS: f32 = 7.272727;
 const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 /// Time constant for target stem gain changes.
 ///
@@ -434,9 +409,8 @@ pub fn load_generated_goblin_music(mut commands: Commands, asset_server: Res<Ass
     ] {
         for stem in GeneratedStem::ALL {
             let rel = format!(
-                "{root}/adaptive/{section}/{file_base}.{section}.{stem}.ogg",
+                "{root}/adaptive/{section}/{section}.{stem}.ogg",
                 root = GENERATED_GOBLIN_ASSET_ROOT,
-                file_base = GENERATED_GOBLIN_FILE_BASE,
                 section = section.id(),
                 stem = stem.id(),
             );
@@ -445,22 +419,19 @@ pub fn load_generated_goblin_music(mut commands: Commands, asset_server: Res<Ass
     }
 
     let intro_full = asset_server.load(format!(
-        "{root}/adaptive/intro/{file_base}.intro.full.ogg",
+        "{root}/adaptive/intro/intro.full.ogg",
         root = GENERATED_GOBLIN_ASSET_ROOT,
-        file_base = GENERATED_GOBLIN_FILE_BASE,
     ));
     let outro_full = asset_server.load(format!(
-        "{root}/adaptive/outro/{file_base}.outro.full.ogg",
+        "{root}/adaptive/outro/outro.full.ogg",
         root = GENERATED_GOBLIN_ASSET_ROOT,
-        file_base = GENERATED_GOBLIN_FILE_BASE,
     ));
 
     info!(
         target: "ambition_generated_music",
-        "loaded generated goblin cue cue={} root={} file_base={} stem_assets={}",
+        "loaded generated goblin cue cue={} root={} stem_assets={}",
         GENERATED_GOBLIN_CUE_ID,
         GENERATED_GOBLIN_ASSET_ROOT,
-        GENERATED_GOBLIN_FILE_BASE,
         stems.len(),
     );
 
@@ -471,8 +442,6 @@ pub fn load_generated_goblin_music(mut commands: Commands, asset_server: Res<Ass
     });
     commands.insert_resource(GeneratedGoblinMusicState::default());
 }
-
-const GENERATED_GOBLIN_FILE_BASE: &str = "first_goblin_tune_v2_3a4d7b7a79c52292";
 
 pub fn drive_goblin_generated_music(
     time: Res<Time>,
@@ -1037,8 +1006,6 @@ fn seconds_until_next_phrase_marker(seconds_in_loop: f32, bars_per_phrase: f32) 
 fn effective_generated_master(settings: &UserSettings) -> f32 {
     (settings.audio.effective_music() * GENERATED_MUSIC_RELATIVE_VOLUME).clamp(0.0, 1.0)
 }
-
-
 
 
 fn gains_for_wave(wave_index: usize, brute_reinforced: bool, master: f32) -> StemGains {

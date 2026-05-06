@@ -1,0 +1,21 @@
+[project]
+name = "ambition-musicir-renderer"
+version = "0.3.0"
+description = "Data-driven non-ML adaptive music renderer for Ambition MusicIR YAML specs"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "scipy",
+  "pretty_midi",
+  "pyfluidsynth",
+  "soundfile",
+  "PyYAML",
+  "music21",
+  "midiutil",
+  "mido",
+  "pydub",
+]
+
+[project.scripts]
+render-ambition-music = "ambition_music_renderer.musicir_renderer:main"
+render-goblin-battle = "ambition_music_renderer.render_goblin_battle:main"

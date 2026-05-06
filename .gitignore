@@ -54,3 +54,15 @@ tools/generators/robot_sprite_component_tool/assets
 assets/fonts
 crates/ambition_sandbox/assets/fonts/
 crates/ambition_sandbox/assets/audio/
+
+# Generated audio tooling - renderer outputs and installed binaries.
+# Source code (tools/audio/music_renderer/, install scripts) is tracked.
+tools/audio/**/output/
+tools/audio/**/__pycache__/
+tools/audio/**/*.pyc
+target/generated-audio/
+*.ogg
+*.wav
+*.mid
+*.flac
+*.mp3

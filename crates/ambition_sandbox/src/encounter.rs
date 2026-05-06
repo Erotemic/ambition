@@ -744,7 +744,8 @@ pub fn load_encounter_specs_from_ldtk(
             camera_zoom,
             lock_wall,
             intro_seconds: 2.5,
-            music_track: "pulse_drift_voyage".into(),
+            // mob_lab is now driven by generated_music.rs: intro -> adaptive stem loops -> outro.
+            music_track: if trigger_id == "mob_lab" { String::new() } else { "pulse_drift_voyage".into() },
         };
         let persisted = save.encounter(&trigger_id);
         out.push((trigger_id, spec, persisted));

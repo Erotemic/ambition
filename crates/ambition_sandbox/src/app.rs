@@ -192,6 +192,27 @@ pub fn run_visible() {
 /// Exits with status 2 on LDtk validation errors — invalid sandbox content
 /// is a hard error per the LDtk authoring rules (see ADR 0009 + LDtk
 /// authoring memory).
+fn cli_start_room_arg() -> Option<String> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--start-room" | "--room" => {
+                return args.get(i + 1).cloned();
+            }
+            arg if arg.starts_with("--start-room=") => {
+                return Some(arg.trim_start_matches("--start-room=").to_string());
+            }
+            arg if arg.starts_with("--room=") => {
+                return Some(arg.trim_start_matches("--room=").to_string());
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
 pub fn init_sandbox_resources(app: &mut App) {
     let sandbox_data = data::SandboxDataSpec::load_embedded();
     let ldtk_project = ldtk_world::LdtkProject::load_embedded();
@@ -199,7 +220,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     ldtk_report.print_to_stderr();
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
-    let room_set = match ldtk_project.to_room_set() {
+    let mut room_set = match ldtk_project.to_room_set() {
         Ok(room_set) => room_set,
         Err(errors) => {
             eprintln!("embedded LDtk world failed validation; fix crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk before running:");
@@ -209,6 +230,13 @@ pub fn init_sandbox_resources(app: &mut App) {
             std::process::exit(2);
         }
     };
+    if let Some(start_room) = cli_start_room_arg() {
+        if room_set.set_start_by_id(&start_room) {
+            eprintln!("[ambition] CLI start room: {start_room}");
+        } else {
+            eprintln!("[ambition] warning: --start-room '{start_room}' did not match any room id/name");
+        }
+    }
     let ldtk_index = ldtk_world::LdtkRuntimeIndex::from_project(
         &ldtk_project,
         room_set.active_spec().id.clone(),
@@ -707,9 +735,19 @@ fn add_audio_plugins(app: &mut App) {
     app.add_plugins(KiraAudioPlugin)
         .add_audio_channel::<MusicChannel>()
         .add_audio_channel::<SfxChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicStringsChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicBrassChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicWindsChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicChoirPadChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicMalletsChannel>()
+        .add_audio_channel::<crate::generated_music::GeneratedMusicPercussionChannel>()
         .add_systems(
             Startup,
             start_default_music.after(setup_presentation_system),
+        )
+        .add_systems(
+            Startup,
+            crate::generated_music::load_generated_goblin_music.after(setup_presentation_system),
         )
         .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
         // Push UserSettings.audio (master/music/sfx/mute) into the
@@ -718,7 +756,11 @@ fn add_audio_plugins(app: &mut App) {
         .add_systems(Update, apply_audio_settings.after(sandbox_update))
         // React to encounter music requests: swap to the encounter
         // track on Active, restore default on Cleared / leave.
-        .add_systems(Update, apply_encounter_music.after(sandbox_update));
+        .add_systems(Update, apply_encounter_music.after(sandbox_update))
+        .add_systems(
+            Update,
+            crate::generated_music::drive_goblin_generated_music.after(sandbox_update),
+        );
 }
 
 #[cfg(not(feature = "audio"))]

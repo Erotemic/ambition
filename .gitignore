@@ -52,3 +52,5 @@ tools/generators/robot_sprite_component_tool/output
 tools/generators/robot_sprite_component_tool/assets
 
 assets/fonts
+crates/ambition_sandbox/assets/fonts/
+crates/ambition_sandbox/assets/audio/

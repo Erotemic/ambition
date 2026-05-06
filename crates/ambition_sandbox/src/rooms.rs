@@ -177,6 +177,19 @@ impl RoomSet {
         }
     }
 
+    pub fn room_index_by_id(&self, id: &str) -> Option<usize> {
+        self.rooms.iter().position(|room| room.id == id || room.world.name == id)
+    }
+
+    pub fn set_start_by_id(&mut self, id: &str) -> bool {
+        let Some(index) = self.room_index_by_id(id) else {
+            return false;
+        };
+        self.active = index;
+        self.start = index;
+        true
+    }
+
     pub fn active_spec(&self) -> &RoomSpec {
         &self.rooms[self.active]
     }

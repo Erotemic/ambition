@@ -341,3 +341,11 @@ python tools/skelform_export.py examples/robot_rig_job.yaml output/skelform/robo
 ```
 
 The exporter clips textures from the green-screen atlas using a threshold alpha ramp and writes a `.skf` package containing `armature.json`, `editor.json`, `atlas0.png`, `thumbnail.png`, and `readme.md`.
+
+### v51 SkelForm endpoint topology fix
+
+The SkelForm exporter now separates IK endpoints from visible attachments. Arms
+and legs solve to empty `Wrist` / `Ankle` bones, while hands and feet are regular
+children of those endpoint bones. Move `*HandTarget` / `*FootTarget` to pose the
+limbs; move `*Hand` / `*Foot` relative to `*Wrist` / `*Ankle` to adjust where the
+visible hand or foot sits on the endpoint.

@@ -1,6 +1,9 @@
 Good talk / article about metroidvania design: https://aran.ink/metroidvania-generation-3/room-design-talk
 
 
+Royalty Free Music: https://bit-by-bit-sound.itch.io/
+
+
 
 https://www.pcgamer.com/how-to-design-a-great-metroidvania-map/
 

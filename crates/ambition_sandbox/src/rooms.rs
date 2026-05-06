@@ -64,6 +64,20 @@ impl LoadingZone {
     }
 }
 
+/// Track the music identifier the active room would like to play.
+///
+/// Written by `sync_room_music_request` from `ActiveRoomMetadata`,
+/// consumed by `audio::apply_encounter_music` as the "default track"
+/// when no encounter override is active. The encounter system retains
+/// priority — `EncounterMusicRequest::desired_track = Some(...)`
+/// overrides this resource the same way it overrides the sandbox-wide
+/// default music track. Empty/absent room music falls back to
+/// `sandbox_data.audio.default_music_track`.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct RoomMusicRequest {
+    pub desired_track: Option<String>,
+}
+
 /// Mirrors `RoomSet::active_metadata()` as a standalone Bevy resource.
 ///
 /// Synced by `sync_active_room_metadata` each frame the active room
@@ -601,6 +615,20 @@ pub fn sync_active_room_metadata(
     }
 }
 
+/// Push the active room's `music_track` into `RoomMusicRequest` so the
+/// audio system knows the room-default track when no encounter
+/// override is active. Empty values clear the request, falling back to
+/// `sandbox_data.audio.default_music_track`.
+pub fn sync_room_music_request(
+    active: Res<ActiveRoomMetadata>,
+    mut request: ResMut<RoomMusicRequest>,
+) {
+    let next = active.0.music_track.clone();
+    if next != request.desired_track {
+        request.desired_track = next;
+    }
+}
+
 #[cfg(test)]
 mod metadata_tests {
     use super::*;
@@ -645,6 +673,36 @@ mod metadata_tests {
         assert_eq!(set.active_metadata(), &m1);
         set.set_active(1);
         assert_eq!(set.active_metadata(), &m2);
+    }
+
+    #[test]
+    fn sync_room_music_request_mirrors_metadata_music_track() {
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.insert_resource(ActiveRoomMetadata(RoomMetadata {
+            biome: Some("cave".into()),
+            music_track: Some("cave_loop".into()),
+            ambient_profile: None,
+            visual_theme: None,
+        }));
+        app.insert_resource(RoomMusicRequest::default());
+        app.add_systems(Update, sync_room_music_request);
+        app.update();
+        assert_eq!(
+            app.world().resource::<RoomMusicRequest>().desired_track,
+            Some("cave_loop".into())
+        );
+
+        // Empty active metadata clears the request.
+        app.world_mut()
+            .resource_mut::<ActiveRoomMetadata>()
+            .0
+            .music_track = None;
+        app.update();
+        assert_eq!(
+            app.world().resource::<RoomMusicRequest>().desired_track,
+            None
+        );
     }
 
     #[test]

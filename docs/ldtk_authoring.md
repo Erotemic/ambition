@@ -169,10 +169,13 @@ The spec format supports four high-level conveniences agents commonly need:
    area (first non-empty value wins when an area spans multiple
    levels) and mirrors the active room's metadata into the
    `ActiveRoomMetadata` Bevy resource via
-   `crate::rooms::sync_active_room_metadata`. Consumers (room music
-   selection, ambient layers, palette swaps) can read the resource
-   with change detection without depending on `RoomSet`. The HUD
-   shows the active room's metadata under `ROOM:`.
+   `crate::rooms::sync_active_room_metadata`. Consumers can read the
+   resource with change detection without depending on `RoomSet`.
+   `music_track` additionally flows through `RoomMusicRequest`, which
+   `audio::apply_encounter_music` consults as the room-default track
+   (encounter overrides still take priority); a typo or unknown track
+   id is silently ignored so playback can't stall. The HUD shows the
+   active room's metadata under `ROOM:`.
 4. **Actionable error messages.** Unknown entity types ("PlayerStrt"
    → "Did you mean 'PlayerStart'?"), unknown field identifiers, and
    bad field-value coercions (a string where a Float is expected) all

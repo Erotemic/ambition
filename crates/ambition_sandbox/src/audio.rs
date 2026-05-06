@@ -110,29 +110,38 @@ pub fn amplitude_to_decibels(linear: f32) -> f32 {
     20.0 * clamped.log10()
 }
 
-/// Presentation-side system: react to `EncounterMusicRequest`. When
-/// the desired track changes (intro→default or default→intro), swap
-/// the music channel via the existing `switch_to_music_track` helper.
-/// Default reverts to the user's original startup track.
+/// Presentation-side system: react to `EncounterMusicRequest` and
+/// `RoomMusicRequest`. Encounter override takes priority; absent that,
+/// the active room's `music_track` (set on the LDtk level field) is
+/// the default track; absent both, the sandbox-wide default track
+/// applies. Track-id values that aren't registered in the
+/// `AudioLibrary` are silently ignored so a typo in an LDtk level
+/// field cannot stop playback or panic.
 #[cfg(feature = "audio")]
 pub fn apply_encounter_music(
     library: Res<AudioLibrary>,
     mut music_state: ResMut<MusicPlaybackState>,
     music_channel: Res<AudioChannel<MusicChannel>>,
     mut request: ResMut<crate::encounter::EncounterMusicRequest>,
+    room_music: Res<crate::rooms::RoomMusicRequest>,
     sandbox_data: Res<crate::data::SandboxDataSpec>,
 ) {
-    if request.desired_track == request.last_applied {
-        return;
-    }
+    let resolved_default = room_music
+        .desired_track
+        .as_ref()
+        .filter(|id| library.track(id).is_some())
+        .cloned()
+        .unwrap_or_else(|| sandbox_data.audio.default_music_track.clone());
     let target = match &request.desired_track {
         Some(track) => track.clone(),
-        None => sandbox_data.audio.default_music_track.clone(),
+        None => resolved_default,
     };
-    if music_state.active_track != target && library.track(&target).is_some() {
+    let already_applied =
+        request.last_applied.as_ref() == Some(&target) || music_state.active_track == target;
+    if !already_applied && library.track(&target).is_some() {
         switch_to_music_track(&library, &mut music_state, &music_channel, &target);
     }
-    request.last_applied = request.desired_track.clone();
+    request.last_applied = Some(target);
 }
 
 /// Presentation-side system: detect changes in

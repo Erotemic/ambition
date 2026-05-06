@@ -342,6 +342,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::encounter::EncounterRegistry::default())
         .insert_resource(crate::encounter::SwitchActivationQueue::default())
         .insert_resource(crate::encounter::EncounterMusicRequest::default())
+        .insert_resource(crate::rooms::RoomMusicRequest::default())
         // Sandbox save game (encounter defeat + switch state).
         // Loaded from disk by `load_save_at_startup` in the
         // presentation half so headless / RL drivers don't touch
@@ -397,6 +398,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::ledge_grab::update_ledge_grab,
                 crate::body_mode::update_body_mode,
                 crate::rooms::sync_active_room_metadata,
+                crate::rooms::sync_room_music_request,
                 crate::map_menu::track_room_visits,
                 crate::map_menu::sync_map_from_save,
                 dev_tools::sync_player_stats_with_inspector,

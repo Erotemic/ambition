@@ -99,15 +99,18 @@ pub struct ActionKeys {
     pub jump: KeyCode,
     pub attack: KeyCode,
     pub dash: KeyCode,
-    pub secondary: Option<KeyCode>,
-    pub quick_action: Option<KeyCode>,
-    pub interact: Option<KeyCode>,
-    pub modifier: Option<KeyCode>,
-    pub utility: Option<KeyCode>,
-    pub map: Option<KeyCode>,
-    pub inventory: Option<KeyCode>,
+    pub secondary: KeyCode,
+    pub quick_action: KeyCode,
+    pub interact: KeyCode,
+    pub modifier: KeyCode,
+    pub utility: KeyCode,
+    pub map: KeyCode,
+    pub inventory: KeyCode,
+    pub projectile: KeyCode,
     pub pause: KeyCode,
     pub select_reset: KeyCode,
+    /// Optional dedicated pogo key. When `None`, pogo falls back to
+    /// the down+attack combo and `action_label` shows "Pogo Down+Attack".
     pub dedicated_pogo: Option<KeyCode>,
 }
 
@@ -143,13 +146,14 @@ impl KeyboardPreset {
                 jump: KeyCode::KeyZ,
                 attack: KeyCode::KeyX,
                 dash: KeyCode::KeyC,
-                secondary: Some(KeyCode::KeyA),
-                quick_action: Some(KeyCode::KeyE),
-                interact: Some(KeyCode::KeyF),
-                modifier: Some(KeyCode::KeyS),
-                utility: Some(KeyCode::KeyD),
-                map: Some(KeyCode::Tab),
-                inventory: Some(KeyCode::KeyI),
+                secondary: KeyCode::KeyA,
+                quick_action: KeyCode::KeyE,
+                interact: KeyCode::KeyF,
+                modifier: KeyCode::KeyS,
+                utility: KeyCode::KeyD,
+                map: KeyCode::Tab,
+                inventory: KeyCode::KeyI,
+                projectile: KeyCode::KeyV,
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
@@ -171,13 +175,14 @@ impl KeyboardPreset {
                 jump: KeyCode::Space,
                 attack: KeyCode::KeyJ,
                 dash: KeyCode::KeyK,
-                secondary: Some(KeyCode::KeyL),
-                quick_action: Some(KeyCode::KeyI),
-                interact: Some(KeyCode::KeyE),
-                modifier: Some(KeyCode::ShiftLeft),
-                utility: Some(KeyCode::KeyU),
-                map: Some(KeyCode::Tab),
-                inventory: Some(KeyCode::KeyV),
+                secondary: KeyCode::KeyL,
+                quick_action: KeyCode::KeyI,
+                interact: KeyCode::KeyE,
+                modifier: KeyCode::ShiftLeft,
+                utility: KeyCode::KeyU,
+                map: KeyCode::Tab,
+                inventory: KeyCode::KeyV,
+                projectile: KeyCode::KeyH,
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
@@ -199,13 +204,14 @@ impl KeyboardPreset {
                 jump: KeyCode::KeyQ,
                 dash: KeyCode::KeyW,
                 attack: KeyCode::KeyE,
-                secondary: Some(KeyCode::KeyR),
-                quick_action: None,
-                interact: Some(KeyCode::KeyF),
-                modifier: Some(KeyCode::ShiftLeft),
-                utility: None,
-                map: Some(KeyCode::Tab),
-                inventory: Some(KeyCode::KeyI),
+                secondary: KeyCode::KeyR,
+                quick_action: KeyCode::KeyT,
+                interact: KeyCode::KeyF,
+                modifier: KeyCode::ShiftLeft,
+                utility: KeyCode::KeyG,
+                map: KeyCode::Tab,
+                inventory: KeyCode::KeyI,
+                projectile: KeyCode::KeyV,
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
@@ -227,13 +233,14 @@ impl KeyboardPreset {
                 jump: KeyCode::KeyU,
                 dash: KeyCode::KeyI,
                 attack: KeyCode::KeyP,
-                secondary: Some(KeyCode::KeyO),
-                quick_action: None,
-                interact: Some(KeyCode::KeyE),
-                modifier: Some(KeyCode::ShiftLeft),
-                utility: None,
-                map: Some(KeyCode::Tab),
-                inventory: Some(KeyCode::KeyV),
+                secondary: KeyCode::KeyO,
+                quick_action: KeyCode::KeyJ,
+                interact: KeyCode::KeyE,
+                modifier: KeyCode::ShiftLeft,
+                utility: KeyCode::KeyK,
+                map: KeyCode::Tab,
+                inventory: KeyCode::KeyV,
+                projectile: KeyCode::KeyL,
                 pause: KeyCode::Escape,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
@@ -282,31 +289,38 @@ impl KeyboardPreset {
             .with(SandboxAction::Start, self.actions.pause)
             .with(SandboxAction::Start, GamepadButton::Start);
 
-        insert_optional(&mut map, SandboxAction::Blink, self.actions.secondary);
-        insert_optional(
-            &mut map,
-            SandboxAction::QuickAction,
-            self.actions.quick_action,
-        );
-        insert_optional(&mut map, SandboxAction::Interact, self.actions.interact);
-        insert_optional(&mut map, SandboxAction::Modifier, self.actions.modifier);
-        insert_optional(&mut map, SandboxAction::Utility, self.actions.utility);
-        insert_optional(&mut map, SandboxAction::Map, self.actions.map);
-        insert_optional(&mut map, SandboxAction::Inventory, self.actions.inventory);
+        map.insert(SandboxAction::Blink, self.actions.secondary);
+        map.insert(SandboxAction::QuickAction, self.actions.quick_action);
+        map.insert(SandboxAction::Interact, self.actions.interact);
+        map.insert(SandboxAction::Modifier, self.actions.modifier);
+        map.insert(SandboxAction::Utility, self.actions.utility);
+        map.insert(SandboxAction::Map, self.actions.map);
+        map.insert(SandboxAction::Inventory, self.actions.inventory);
+        map.insert(SandboxAction::Projectile, self.actions.projectile);
         insert_optional(&mut map, SandboxAction::Pogo, self.actions.dedicated_pogo);
 
+        // Gamepad bindings. Every action has a button so both input modes
+        // are fully playable.
+        //   South        Jump
+        //   East         Blink, MenuBack
+        //   West         Attack
+        //   North        Projectile (fireball)
+        //   LeftTrigger  Utility (fly toggle)
+        //   LeftTrigger2 Modifier
+        //   RightTrigger QuickAction, Interact
+        //   RightTrigger2 Dash
+        //   LeftThumb    Map (click left stick)
+        //   RightThumb   Inventory (click right stick)
+        //   Select       Reset
+        //   Start        Start (pause)
+        //   DPad / sticks  Move + MenuNavigate, MenuStick, AimStick
         map.insert(SandboxAction::Blink, GamepadButton::East);
         map.insert(SandboxAction::QuickAction, GamepadButton::RightTrigger);
         map.insert(SandboxAction::Interact, GamepadButton::RightTrigger);
         map.insert(SandboxAction::Modifier, GamepadButton::LeftTrigger2);
-        map.insert(SandboxAction::Map, GamepadButton::LeftTrigger);
-        map.insert(SandboxAction::Inventory, GamepadButton::Select);
-
-        // Projectile (Hadouken / fireball) — keyboard `F`, gamepad North
-        // (Y/Triangle). Attack already owns West, so fireball needs its
-        // own face button. Utility/Fly used to share North; keep it on
-        // its keyboard preset binding only.
-        map.insert(SandboxAction::Projectile, KeyCode::KeyF);
+        map.insert(SandboxAction::Utility, GamepadButton::LeftTrigger);
+        map.insert(SandboxAction::Map, GamepadButton::LeftThumb);
+        map.insert(SandboxAction::Inventory, GamepadButton::RightThumb);
         map.insert(SandboxAction::Projectile, GamepadButton::North);
 
         // Menu navigation seam. Cardinal/D-pad/arrow keys all hit the
@@ -358,20 +372,18 @@ impl KeyboardPreset {
         } else {
             parts.push("Pogo Down+Attack".to_string());
         }
-        let optional = [
+        for (label, key) in [
             ("Blink", self.actions.secondary),
             ("Quick", self.actions.quick_action),
             ("Interact", self.actions.interact),
             ("Modifier", self.actions.modifier),
             ("Fly", self.actions.utility),
+            ("Fireball", self.actions.projectile),
             ("Map", self.actions.map),
             ("Inventory", self.actions.inventory),
-            ("Select", Some(self.actions.select_reset)),
-        ];
-        for (label, key) in optional {
-            if let Some(k) = key {
-                parts.push(format!("{} {}", label, key_name(k)));
-            }
+            ("Select", self.actions.select_reset),
+        ] {
+            parts.push(format!("{} {}", label, key_name(key)));
         }
         parts.join("  |  ")
     }

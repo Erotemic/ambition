@@ -34,7 +34,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.6.0-production-path-fixes"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.6.2-brighter-voices"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf2/TimGM6mb.sf2",
     "/usr/share/sounds/sf2/default-GM.sf2",
@@ -245,38 +245,32 @@ def add_cc(inst: pretty_midi.Instrument, number: int, value: int, time: float) -
 
 
 
-def cc_value_at_time(inst: pretty_midi.Instrument, number: int, time: float, default: float) -> float:
-    """Return latest MIDI CC value at or before time for the fast renderer."""
-    value = float(default)
-    for cc in sorted(inst.control_changes, key=lambda c: c.time):
-        if cc.number != number:
-            continue
-        if cc.time <= time + 1e-6:
-            value = float(cc.value)
-        else:
-            break
-    return value
-
-
 def _program_family(program: int) -> str | None:
-    """Classify a GM program into broad fast-renderer families."""
+    """Classify a GM program into a fast-renderer family.
+
+    Names returned here must match the branches in `_synth_note_fast`.
+    Specific programs (harp, timpani) need to be checked before the
+    string range that nominally contains them.
+    """
     program = int(program)
-    if 40 <= program <= 51:
-        return "strings"
     if program == 46:
         return "harp"
     if program == 47:
         return "timpani"
+    if 9 <= program <= 15 or 112 <= program <= 119:
+        return "mallet"
+    if 0 <= program <= 7:
+        return "piano"
+    if 32 <= program <= 39:
+        return "bass"
+    if 40 <= program <= 45 or 48 <= program <= 51:
+        return "string"
     if 52 <= program <= 54:
         return "choir"
     if 56 <= program <= 63:
         return "brass"
     if 64 <= program <= 79:
-        return "winds"
-    if 9 <= program <= 15 or 112 <= program <= 119:
-        return "mallet"
-    if 32 <= program <= 39:
-        return "bass"
+        return "wind"
     if 80 <= program <= 87:
         return "lead"
     if 88 <= program <= 103:
@@ -709,18 +703,6 @@ def render_pretty_midi(pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: 
     return _coerce_stereo(audio)
 
 
-def _inst_pan(inst: pretty_midi.Instrument) -> float:
-    pans = [cc.value for cc in inst.control_changes if cc.number == 10 and cc.time <= 0.001]
-    val = pans[-1] if pans else 64
-    return (val - 64) / 63.0
-
-
-def _inst_volume(inst: pretty_midi.Instrument) -> float:
-    vols = [cc.value for cc in inst.control_changes if cc.number == 7 and cc.time <= 0.001]
-    expr = [cc.value for cc in inst.control_changes if cc.number == 11 and cc.time <= 0.001]
-    return ((vols[-1] if vols else 100) / 127.0) * ((expr[-1] if expr else 100) / 127.0)
-
-
 def _pan_stereo(mono: np.ndarray, pan: float) -> np.ndarray:
     pan = float(clamp(pan, -1.0, 1.0))
     left = math.sqrt((1.0 - pan) / 2.0)
@@ -789,27 +771,36 @@ def _declick(sig: np.ndarray, sr: int, attack: float = 0.006, release: float = 0
 def _instrument_family(inst: pretty_midi.Instrument) -> str:
     """Classify instruments for the fast renderer.
 
-    Prefer GM program first. Name-only matching misclassified e.g. `celli`
-    because "cello" is not a substring of "celli".
+    Family names returned here must match the branches in `_synth_note_fast`.
+    GM program is preferred over name; name fallback covers exotic / synthesised
+    cues that don't carry a meaningful program.
     """
     if inst.is_drum:
-        return "drums"
+        return "drum"
 
     family = _program_family(int(getattr(inst, "program", 0)))
     if family is not None:
         return family
 
     name = (inst.name or "").lower()
-    if any(k in name for k in ("violin", "viola", "cello", "celli", "cell", "contrabass", "string")):
-        return "strings"
+    if "harp" in name and "harpsichord" not in name:
+        return "harp"
+    if "timpani" in name:
+        return "timpani"
+    if any(k in name for k in ("marimba", "mallet", "xylo", "vibe", "glock", "celesta", "bell")):
+        return "mallet"
+    if any(k in name for k in ("violin", "viola", "celli", "cello", "cell", "contrabass", "string")):
+        return "string"
     if any(k in name for k in ("trumpet", "trombone", "tuba", "brass")) or ("horn" in name and "english" not in name):
         return "brass"
-    if any(k in name for k in ("flute", "oboe", "clarinet", "bassoon", "piccolo", "recorder", "english_horn", "english horn", "winds", "wind")):
-        return "winds"
-    if any(k in name for k in ("choir", "voice", "pad")):
+    if any(k in name for k in ("flute", "oboe", "clarinet", "bassoon", "piccolo", "recorder", "english_horn", "english horn", "wind")):
+        return "wind"
+    if any(k in name for k in ("choir", "voice")):
         return "choir"
-    if any(k in name for k in ("harp", "marimba", "mallet", "bell", "timpani")):
-        return "mallet"
+    if "pad" in name:
+        return "pad"
+    if any(k in name for k in ("piano", "keys")):
+        return "piano"
     return "generic"
 
 def _synth_note_fast(frequency: float, duration: float, velocity: int, family: str, sr: int, rng: np.random.Generator) -> np.ndarray:
@@ -826,48 +817,137 @@ def _synth_note_fast(frequency: float, duration: float, velocity: int, family: s
     drift = 1.0 + float(rng.normal(0.0, 0.00035))
     f = frequency * drift
     phase = f * t
+    # Voices use bandlimited additive synthesis (explicit harmonic series)
+    # so we get rich, alias-free timbres without needing oversampling.
+    # Harmonics above Nyquist/2 are dropped to keep the sound clean for
+    # very high notes.
+    nyquist = sr * 0.5
+    twopi_f_t = 2 * np.pi * f * t
+
+    def _harm_stack(weights: list[float]) -> np.ndarray:
+        """Sum sin(2π * n * f * t) * weight for n=1..len(weights), skipping
+        any harmonic that would alias above ~85% of Nyquist."""
+        out = np.zeros(n, dtype=np.float32)
+        cap = nyquist * 0.85
+        for n_idx, w in enumerate(weights, start=1):
+            if w == 0.0:
+                continue
+            if f * n_idx >= cap:
+                break
+            out += w * np.sin(twopi_f_t * n_idx).astype(np.float32)
+        return out
+
+    def _harm_saw(amp: float, n_max: int = 32, exponent: float = 1.0) -> np.ndarray:
+        """Bandlimited sawtooth-flavored stack: amplitude = amp / n^exponent,
+        truncated at Nyquist*0.85 so we never alias.
+
+        exponent=1 is a true sawtooth (1/n falloff, broad-spectrum, buzzy).
+        exponent>1 attenuates upper harmonics for warmer timbres.
+        """
+        out = np.zeros(n, dtype=np.float32)
+        cap = nyquist * 0.85
+        for n_idx in range(1, n_max + 1):
+            if f * n_idx >= cap:
+                break
+            out += (amp / (n_idx ** exponent)) * np.sin(twopi_f_t * n_idx).astype(np.float32)
+        return out
+
     if family == "string":
-        raw = 0.68 * np.sin(2 * np.pi * f * t) + 0.25 * _tri(phase) + 0.055 * np.sin(2 * np.pi * f * 2.0 * t)
-        sig = _lowpass_mono(raw, 0.015)
+        # Warm bowed strings: bandlimited near-sawtooth body for natural
+        # harmonic richness across pitch, mild waveshape for intermod, and a
+        # bow-noise band in the bridge-resonance region so the voice carries
+        # presence energy independent of pitch.
+        raw = _harm_saw(0.45, n_max=28, exponent=1.05)
+        body = np.tanh(raw * 1.50).astype(np.float32)
+        bow = rng.normal(0.0, 0.55, n).astype(np.float32)
+        bow_band = bow - _lowpass_mono(bow, 0.05)
+        bow_band = _lowpass_mono(bow_band, 0.55)
+        sig = _lowpass_mono(body, 0.70) + bow_band * 0.32
         env = _adsr_curve(n, sr, 0.085, 0.16, 0.66, 0.34)
     elif family == "brass":
-        raw = 0.58 * np.sin(2 * np.pi * f * t) + 0.22 * _tri(phase) + 0.14 * np.sin(2 * np.pi * f * 2.0 * t)
-        sig = np.tanh(raw * 0.92)
-        sig = _lowpass_mono(sig, 0.032)
+        # Brass: bandlimited buzzy stack + drive + lip buzz noise.
+        raw = _harm_saw(0.45, n_max=24, exponent=0.95)
+        body = np.tanh(raw * 1.55).astype(np.float32)
+        buzz = rng.normal(0.0, 0.40, n).astype(np.float32)
+        buzz_band = buzz - _lowpass_mono(buzz, 0.03)
+        buzz_band = _lowpass_mono(buzz_band, 0.45)
+        sig = _lowpass_mono(body, 0.70) + buzz_band * 0.20
         env = _adsr_curve(n, sr, 0.045, 0.10, 0.72, 0.22)
     elif family == "wind":
-        breath = rng.normal(0.0, 0.0045, n).astype(np.float32)
-        raw = 0.91 * np.sin(2 * np.pi * f * t) + 0.055 * np.sin(2 * np.pi * f * 2.01 * t) + 0.018 * np.sin(2 * np.pi * f * 3.01 * t) + breath
-        sig = _lowpass_mono(raw, 0.026)
+        # Woodwinds: harmonic stack with steeper falloff (less buzz than
+        # brass), audible breath layer for presence.
+        raw = _harm_saw(0.55, n_max=22, exponent=1.20)
+        body = np.tanh(raw * 1.30).astype(np.float32)
+        breath = rng.normal(0.0, 0.50, n).astype(np.float32)
+        breath_band = breath - _lowpass_mono(breath, 0.04)
+        breath_band = _lowpass_mono(breath_band, 0.65)
+        sig = _lowpass_mono(body, 0.70) + breath_band * 0.22
         env = _adsr_curve(n, sr, 0.060, 0.070, 0.78, 0.24)
     elif family == "pad":
-        raw = 0.48 * np.sin(2 * np.pi * f * 0.997 * t) + 0.44 * np.sin(2 * np.pi * f * 1.003 * t) + 0.04 * _tri(phase * 0.5)
-        sig = _lowpass_mono(raw, 0.014)
+        # Pad: detuned dual-osc with low harmonic emphasis. Stays warm.
+        raw = (
+            0.42 * np.sin(2 * np.pi * f * 0.997 * t)
+            + 0.40 * np.sin(2 * np.pi * f * 1.003 * t)
+            + 0.18 * np.sin(twopi_f_t * 2.0)
+            + 0.08 * np.sin(twopi_f_t * 3.0)
+            + 0.03 * np.sin(twopi_f_t * 4.0)
+        )
+        sig = _lowpass_mono(raw, 0.22)
         env = _adsr_curve(n, sr, 0.30, 0.35, 0.68, 0.90)
+    elif family == "choir":
+        # Choir/voice: vibrato fundamental + formant-shaped harmonics.
+        vib = 0.0028 * np.sin(2 * np.pi * 5.2 * t)
+        raw = (
+            0.45 * np.sin(2 * np.pi * f * (1.0 + vib) * t)
+            + 0.28 * np.sin(twopi_f_t * 2.0)
+            + 0.20 * np.sin(twopi_f_t * 3.0)
+            + 0.10 * np.sin(twopi_f_t * 4.0)
+            + 0.04 * np.sin(twopi_f_t * 5.0)
+        )
+        sig = _lowpass_mono(raw, 0.28)
+        env = _adsr_curve(n, sr, 0.20, 0.30, 0.78, 0.55)
     elif family == "mallet":
-        raw = np.sin(2 * np.pi * f * t) + 0.13 * np.sin(2 * np.pi * f * 2.01 * t) + 0.035 * np.sin(2 * np.pi * f * 3.02 * t)
-        sig = _lowpass_mono(raw, 0.045)
+        raw = _harm_stack([1.00, 0.30, 0.14, 0.06, 0.03])
+        sig = _lowpass_mono(raw, 0.55)
         env = np.exp(-t / max(0.18, duration * 0.50)).astype(np.float32)
         ramp = np.linspace(0.0, 1.0, min(n, max(8, int(0.014 * sr))), endpoint=True, dtype=np.float32)
         env[:len(ramp)] *= ramp
+    elif family == "harp":
+        raw = _harm_stack([0.70, 0.30, 0.16, 0.08, 0.04, 0.02])
+        sig = _lowpass_mono(raw, 0.55)
+        decay_tau = max(0.40, duration * 0.85)
+        env = np.exp(-t / decay_tau).astype(np.float32)
+        ramp = np.linspace(0.0, 1.0, min(n, max(6, int(0.005 * sr))), endpoint=True, dtype=np.float32)
+        env[:len(ramp)] *= ramp
+    elif family == "timpani":
+        body_freq = max(40.0, frequency * 0.5)
+        sweep_t = np.exp(-t / 0.045)
+        f_sweep = body_freq + (frequency - body_freq) * sweep_t
+        phase_int = 2 * np.pi * np.cumsum(f_sweep) / sr
+        raw = 0.80 * np.sin(phase_int) + 0.18 * np.sin(2 * np.pi * frequency * 1.5 * t) + 0.08 * np.sin(2 * np.pi * frequency * 2.0 * t)
+        rumble = rng.normal(0.0, 0.05, n).astype(np.float32) * np.exp(-t / 0.060)
+        sig = _lowpass_mono(raw + rumble, 0.20)
+        env = np.exp(-t / max(0.55, duration * 0.85)).astype(np.float32)
+        ramp = np.linspace(0.0, 1.0, min(n, max(6, int(0.004 * sr))), endpoint=True, dtype=np.float32)
+        env[:len(ramp)] *= ramp
     elif family == "piano":
-        raw = 0.78 * np.sin(2 * np.pi * f * t) + 0.13 * np.sin(2 * np.pi * f * 2.0 * t) + 0.07 * _tri(phase * 2.0)
-        sig = _lowpass_mono(raw, 0.043)
+        raw = _harm_stack([0.62, 0.28, 0.16, 0.10, 0.06, 0.03])
+        sig = _lowpass_mono(raw, 0.40)
         env = np.exp(-t / max(0.34, duration * 0.70)).astype(np.float32)
         ramp = np.linspace(0.0, 1.0, min(n, max(8, int(0.010 * sr))), endpoint=True, dtype=np.float32)
         env[:len(ramp)] *= ramp
     elif family == "bass":
-        raw = 0.74 * np.sin(2 * np.pi * f * t) + 0.20 * _tri(phase) + 0.04 * np.sin(2 * np.pi * f * 2.0 * t)
-        sig = _lowpass_mono(raw, 0.046)
+        raw = _harm_stack([0.65, 0.32, 0.18, 0.08, 0.04])
+        sig = _lowpass_mono(raw, 0.28)
         env = _adsr_curve(n, sr, 0.018, 0.08, 0.72, 0.18)
-    elif family == "synth_lead":
-        raw = 0.58 * np.sin(2 * np.pi * f * t) + 0.26 * _tri(phase) + 0.10 * _pulse(phase, 0.45)
-        sig = np.tanh(raw * 0.88)
-        sig = _lowpass_mono(sig, 0.045)
+    elif family == "lead":
+        raw = 0.50 * np.sin(twopi_f_t) + 0.26 * _tri(phase) + 0.10 * _pulse(phase, 0.45) + 0.10 * np.sin(twopi_f_t * 2.0)
+        sig = np.tanh(raw * 0.88).astype(np.float32)
+        sig = _lowpass_mono(sig, 0.40)
         env = _adsr_curve(n, sr, 0.018, 0.06, 0.60, 0.16)
     else:
-        raw = 0.90 * np.sin(2 * np.pi * f * t) + 0.10 * _tri(phase)
-        sig = _lowpass_mono(raw, 0.052)
+        raw = _harm_stack([0.70, 0.22, 0.10, 0.04])
+        sig = _lowpass_mono(raw, 0.40)
         env = _adsr_curve(n, sr, 0.024, 0.06, 0.68, 0.18)
     return _declick(sig * env * vel, sr, 0.004, 0.012).astype(np.float32)
 
@@ -916,6 +996,27 @@ def midi_content_seed(pm: pretty_midi.PrettyMIDI) -> int:
             h.update(f"{note.pitch}:{note.start:.4f}:{note.end:.4f}:{note.velocity}".encode())
     return int.from_bytes(h.digest()[:8], "big") & 0xFFFFFFFF
 
+def _cc_track(inst: pretty_midi.Instrument, number: int) -> tuple[np.ndarray, np.ndarray]:
+    """Return sorted (times, values) arrays for one CC number on `inst`."""
+    events = [(c.time, c.value) for c in inst.control_changes if c.number == number]
+    if not events:
+        return np.empty(0, dtype=np.float64), np.empty(0, dtype=np.float32)
+    events.sort(key=lambda tv: tv[0])
+    times = np.fromiter((float(t) for t, _ in events), dtype=np.float64, count=len(events))
+    values = np.fromiter((float(v) for _, v in events), dtype=np.float32, count=len(events))
+    return times, values
+
+
+def _cc_value(times: np.ndarray, values: np.ndarray, t: float, default: float) -> float:
+    """Latest CC value at-or-before time `t`, with stairstep semantics."""
+    if times.size == 0:
+        return float(default)
+    idx = int(np.searchsorted(times, t + 1e-6, side="right")) - 1
+    if idx < 0:
+        return float(default)
+    return float(values[idx])
+
+
 def render_fast(pm: pretty_midi.PrettyMIDI, sample_rate: int, *, minimum_duration: float | None = None) -> np.ndarray:
     end_time = pm.get_end_time()
     if minimum_duration is not None:
@@ -924,13 +1025,21 @@ def render_fast(pm: pretty_midi.PrettyMIDI, sample_rate: int, *, minimum_duratio
     mix = np.zeros((total_samples, 2), dtype=np.float32)
     rng = np.random.default_rng(midi_content_seed(pm))
     for inst in pm.instruments:
-        pan = _inst_pan(inst)
-        vol = _inst_volume(inst)
         family = _instrument_family(inst)
+        # MIDI CC envelopes are stairstep. Sampling at note attack lets the
+        # YAML expression / volume / pan ramps actually shape the rendered
+        # audio instead of being silently dropped.
+        vol_t, vol_v = _cc_track(inst, 7)
+        pan_t, pan_v = _cc_track(inst, 10)
+        expr_t, expr_v = _cc_track(inst, 11)
         for note in inst.notes:
             start = max(0, int(note.start * sample_rate))
-            end = max(start + 1, int(note.end * sample_rate))
             dur = max(0.025, note.end - note.start)
+            vol_cc = _cc_value(vol_t, vol_v, note.start, 100.0)
+            expr_cc = _cc_value(expr_t, expr_v, note.start, 100.0)
+            pan_cc = _cc_value(pan_t, pan_v, note.start, 64.0)
+            vol = (vol_cc / 127.0) * (expr_cc / 127.0)
+            pan = (pan_cc - 64.0) / 63.0
             if inst.is_drum:
                 mono = _synth_drum_fast(note.pitch, dur, note.velocity, sample_rate, rng)
             else:

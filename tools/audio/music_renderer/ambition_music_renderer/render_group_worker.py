@@ -18,8 +18,13 @@ def main(argv=None) -> int:
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--group", required=True)
     ap.add_argument("--backend", default="fast")
-    ap.add_argument("--simple-post", action="store_true", help="Use cheap gain/limit only for this stem")
+    ap.add_argument(
+        "--simple-post",
+        action="store_true",
+        help="Accepted for CLI back-compat; both paths now run the full post-process chain.",
+    )
     ns = ap.parse_args(argv)
+    _ = ns.simple_post  # accepted but no longer alters behavior
     spec_path = Path(ns.spec)
     spec = yaml.safe_load(spec_path.read_text())
     render_cfg = spec.get("render", {})
@@ -39,10 +44,6 @@ def main(argv=None) -> int:
         settings.update((spec.get("group_postprocess", {}) or {}).get(ns.group, {}))
         settings.setdefault("normalize", False)
         settings.setdefault("target_peak_db", -2.5)
-        if ns.simple_post:
-            # Deprecated compatibility flag. The old path only honored gain_db,
-            # which made YAML EQ/reverb/transient settings silently dead.
-            settings.setdefault("simple_post_compat", True)
         audio = r.post_process(raw, sr, settings)
     npy = outdir / "debug_stems" / f"{spec['id']}_{cue_hash}.{ns.group}.npy"
     npy.parent.mkdir(parents=True, exist_ok=True)

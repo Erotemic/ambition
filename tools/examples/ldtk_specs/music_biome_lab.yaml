@@ -1,0 +1,70 @@
+# Music biome lab — exercises the biome metadata seam.
+#
+# The room itself is intentionally bare: a floor, a spawn, a return
+# loading zone. The point is the four optional level-field values
+# the spec sets — `biome`, `music_track`, `ambient_profile`,
+# `visual_theme` — which the author tool emits as level field
+# instances when the project's `defs.levelFields` contains the
+# matching defs (run `tools/add_biome_level_fields.py` once before
+# applying this spec).
+#
+# Future systems can read these field values from
+# `LdtkProject::levels[*].fieldInstances` to drive room music,
+# ambient layers, and palette swaps without rebuilding RON manifests.
+id: music_biome_lab
+level_id: music_biome_lab
+world_x: 30000
+world_y: 1024
+px_wid: 768
+px_hei: 384
+fill_collision: empty
+biome: cave
+music_track: original_lofi_loop
+ambient_profile: damp
+visual_theme: blue
+entities:
+  - type: Solid
+    px: [0, 352]
+    size: [768, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [16, 352]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [752, 0]
+    size: [16, 352]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [736, 16]
+    fields: { name: ceiling }
+
+  - type: PlayerStart
+    px: [80, 306]
+    size: [28, 46]
+    fields: { name: music_biome_spawn }
+
+  - type: LoadingZone
+    px: [16, 256]
+    size: [48, 96]
+    fields:
+      id: music_biome_entry
+      name: music_biome_entry
+      activation: Door
+      target_room: central_hub_main
+      target_zone: east_exit
+      bidirectional: true
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [768, 384]
+    fields: { id: music_biome_camera, name: music_biome_camera, mode: Default }
+
+  - type: DebugLabel
+    px: [80, 60]
+    size: [560, 24]
+    fields:
+      name: music_biome_intro
+      text: "biome=cave music_track=original_lofi_loop ambient=damp theme=blue"
+      category: Custom

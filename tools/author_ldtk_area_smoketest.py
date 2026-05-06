@@ -29,7 +29,7 @@ TOOL = REPO_ROOT / "tools" / "author_ldtk_area.py"
 SPEC = {
     "id": "smoketest_area",
     "level_id": "smoketest_level",
-    "world_x": 16000,
+    "world_x": 22000,
     "world_y": 1024,
     "px_wid": 512,
     "px_hei": 256,

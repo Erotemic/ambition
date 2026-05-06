@@ -51,6 +51,45 @@ Spec format (YAML or JSON; YAML preferred for readability):
 Field values are coerced to the type declared in `defs.entities[*].fieldDefs`
 so the spec can stay loose (`true` / `1.5` / `"hello"`).
 
+Optional biome / audio metadata (added to the project's
+`defs.levelFields` by `tools/add_biome_level_fields.py`):
+
+    biome: cave            # → biome label, drives ambient selection
+    music_track: cave_loop # → MusicTrack.id from sandbox.ron
+    ambient_profile: damp  # → ambient sfx / particle profile id
+    visual_theme: blue     # → palette / shader-variant id
+
+These are top-level spec keys (not under `entities:`) and are
+written as level field instances. The validator/runtime treat them
+as optional, so omitting any of them is safe.
+
+Optional `connect_to:` list creates reciprocal `LoadingZone` entities
+in existing target levels:
+
+    connect_to:
+      - target_room: central_hub_complex   # required
+        px: [240, 600]                     # required: target-side pos
+        size: [16, 96]                     # required: target-side size
+        id: lab_door                       # optional: source `LoadingZone.id`
+        target_zone: lab_entry             # optional: source-side LoadingZone
+        activation: Door                   # optional, defaults to Door
+        bidirectional: true                # optional, defaults to true
+
+The helper rejects connecting to a missing target_room or placing the
+new LoadingZone on top of an existing entity rectangle in the target
+level. Bring-your-own loading zone in the spec's `entities:` list,
+then declare a `connect_to` for the reciprocal back-link to skip
+hand-editing the target level.
+
+Dry-run preview
+---------------
+
+`--dry-run` builds the level entirely in memory, prints a
+human-readable summary (entity counts by type, exit links, IntGrid
+cell totals, reciprocal LoadingZones), and exits without writing the
+file or running repair/validate. Use it before committing a spec to
+the live `sandbox.ldtk` to verify the result matches intent.
+
 Static-collision lowering
 -------------------------
 
@@ -112,10 +151,61 @@ def find_entity_def(project: dict, identifier: str) -> dict:
     for ed in project["defs"]["entities"]:
         if ed.get("identifier") == identifier:
             return ed
-    raise SystemExit(
-        f"unknown entity identifier '{identifier}'. Known: "
-        + ", ".join(e["identifier"] for e in project["defs"]["entities"])
+    known = sorted(e["identifier"] for e in project["defs"]["entities"])
+    suggestion = _closest_match(identifier, known)
+    msg = f"unknown entity identifier '{identifier}'."
+    if suggestion:
+        msg += f" Did you mean '{suggestion}'?"
+    msg += " Known identifiers: " + ", ".join(known)
+    raise SystemExit(msg)
+
+
+def _closest_match(name: str, candidates: list[str]) -> str | None:
+    """Return the closest case-insensitive match using a similarity ratio.
+
+    The author tool is hand-driven by agents, so misspellings are common.
+    A best-effort suggestion saves a re-prompt cycle. Uses difflib for
+    typo-style matches (one or two char edits) and falls back to
+    prefix/substring for rare cases.
+    """
+    if not candidates:
+        return None
+    import difflib
+
+    lname = name.lower()
+    for c in candidates:
+        if c.lower() == lname:
+            return c
+    matches = difflib.get_close_matches(
+        lname, [c.lower() for c in candidates], n=1, cutoff=0.6
     )
+    if matches:
+        for c in candidates:
+            if c.lower() == matches[0]:
+                return c
+    for c in candidates:
+        lc = c.lower()
+        if lc.startswith(lname) or lname.startswith(lc):
+            return c
+    for c in candidates:
+        if lname in c.lower() or c.lower() in lname:
+            return c
+    return None
+
+
+def find_level(project: dict, level_id: str) -> dict | None:
+    """Locate a level by `identifier`. Returns `None` if missing."""
+    for lev in project.get("levels", []):
+        if lev.get("identifier") == level_id:
+            return lev
+    return None
+
+
+def find_layer_in_level(level: dict, layer_identifier: str) -> dict | None:
+    for layer in level.get("layerInstances", []):
+        if layer.get("__identifier") == layer_identifier:
+            return layer
+    return None
 
 
 def find_layer_def(project: dict, identifier: str) -> dict:
@@ -171,6 +261,43 @@ def build_active_area_field(project: dict, area_id: str) -> dict:
             "this tool only supports the standard Ambition project shape"
         )
     return make_field_instance(level_field, area_id)
+
+
+# Optional level-field identifiers handled by `build_level_field_instances`.
+# These map directly to `defs.levelFields` entries created by
+# `tools/add_biome_level_fields.py`. Specs may set any subset; missing
+# fields are simply not emitted as level field instances.
+OPTIONAL_LEVEL_FIELDS = ("biome", "music_track", "ambient_profile", "visual_theme")
+
+
+def build_level_field_instances(project: dict, spec: dict) -> list[dict]:
+    """Build level field instances for `activeArea` plus the optional
+    biome / music / ambient / visual seam.
+
+    The biome seam fields are looked up dynamically from
+    `defs.levelFields`. If a spec sets one of them but the project is
+    missing the corresponding level field def (i.e. the migration
+    wasn't run), the helper raises a clear error pointing at the
+    migration script instead of silently dropping the value.
+    """
+    instances = [build_active_area_field(project, spec["id"])]
+    level_fields = {f.get("identifier"): f for f in project["defs"].get("levelFields") or []}
+    for ident in OPTIONAL_LEVEL_FIELDS:
+        if ident not in spec:
+            continue
+        value = spec[ident]
+        if value is None:
+            continue
+        field_def = level_fields.get(ident)
+        if field_def is None:
+            raise SystemExit(
+                f"spec sets level field '{ident}' but the project has no "
+                f"matching levelField def. Run "
+                f"`python tools/add_biome_level_fields.py <ldtk>` first."
+            )
+        coerced = coerce_field_value(field_def.get("__type", "String"), value)
+        instances.append(make_field_instance(field_def, coerced))
+    return instances
 
 
 def make_intgrid_csv(c_wid: int, c_hei: int, fill: str) -> list[int]:
@@ -319,15 +446,40 @@ def build_entity_instance(project: dict, ent_spec: dict, grid_size: int) -> dict
     # Build field instances. The spec can omit fields — `repair_ambition_ldtk.py`
     # plus the Ambition validator both tolerate missing fields on most entity
     # types; we simply emit instances for the fields the spec provided.
-    spec_fields = ent_spec.get("fields") or {}
+    spec_fields = dict(ent_spec.get("fields") or {})
     if "name" in ent_spec and "name" not in spec_fields:
         # Convenience: top-level `name:` is treated as a fields.name.
         spec_fields = {"name": ent_spec["name"], **spec_fields}
+
+    # Strict-but-helpful field validation: an unknown field is almost
+    # always a typo (see `lab_door` vs `lock_door` historically). Catch
+    # it at build time with a suggestion instead of producing an LDtk
+    # file that round-trips but silently drops the value.
+    known_fields = [f["identifier"] for f in ent_def.get("fieldDefs", [])]
+    for fname in spec_fields:
+        if fname in known_fields:
+            continue
+        suggestion = _closest_match(fname, known_fields)
+        msg = (
+            f"entity '{identifier}' has no field '{fname}'."
+        )
+        if suggestion:
+            msg += f" Did you mean '{suggestion}'?"
+        if known_fields:
+            msg += " Known: " + ", ".join(known_fields)
+        raise SystemExit(msg)
+
     for field_def in ent_def.get("fieldDefs", []):
         fname = field_def["identifier"]
         if fname not in spec_fields:
             continue
-        value = coerce_field_value(field_def.get("__type", "String"), spec_fields[fname])
+        try:
+            value = coerce_field_value(field_def.get("__type", "String"), spec_fields[fname])
+        except (ValueError, TypeError) as ex:
+            raise SystemExit(
+                f"entity '{identifier}' field '{fname}' expects {field_def.get('__type')!r}; "
+                f"could not coerce {spec_fields[fname]!r}: {ex}"
+            )
         instance["fieldInstances"].append(make_field_instance(field_def, value))
     return instance
 
@@ -483,11 +635,169 @@ def build_level(project: dict, spec: dict) -> dict:
         "__smartColor": "#FFFFFF",
         "__bgPos": None,
         "externalRelPath": None,
-        "fieldInstances": [build_active_area_field(project, area_id)],
+        "fieldInstances": build_level_field_instances(project, spec),
         "layerInstances": [collision_layer, ambition_layer],
         "__neighbours": [],
     }
     return level
+
+
+def summarize_level(level: dict, lowered_count: int = 0, lowered_cells: int = 0) -> str:
+    """Build a one-screen human-readable summary of a level for previews.
+
+    The summary is the same shape `--dry-run` prints and what the live
+    path prints to stderr after writing the file, so an agent reading
+    either output can extract the same facts: identifier, footprint,
+    entity counts by type, IntGrid lowering, and exit links.
+    """
+    lines: list[str] = []
+    lines.append(
+        f"level '{level['identifier']}' "
+        f"(activeArea '{_level_field(level, 'activeArea') or '?'}'): "
+        f"{level['pxWid']}x{level['pxHei']} at ({level['worldX']},{level['worldY']})"
+    )
+    biome_bits = []
+    for ident in OPTIONAL_LEVEL_FIELDS:
+        v = _level_field(level, ident)
+        if v:
+            biome_bits.append(f"{ident}={v}")
+    if biome_bits:
+        lines.append("  metadata: " + ", ".join(biome_bits))
+    ambition = find_layer_in_level(level, "Ambition")
+    if ambition is None:
+        lines.append("  (no Ambition entity layer found)")
+    else:
+        per_kind: dict[str, list[dict]] = {}
+        for inst in ambition.get("entityInstances", []):
+            per_kind.setdefault(inst["__identifier"], []).append(inst)
+        for kind in sorted(per_kind):
+            lines.append(f"  {kind}: {len(per_kind[kind])}")
+            for inst in per_kind[kind]:
+                fields = {
+                    f["__identifier"]: f.get("__value")
+                    for f in inst.get("fieldInstances", [])
+                }
+                tag = fields.get("name") or fields.get("id") or inst["iid"]
+                exit_info = ""
+                if kind == "LoadingZone":
+                    target = fields.get("target_room")
+                    target_zone = fields.get("target_zone")
+                    activation = fields.get("activation")
+                    bidir = fields.get("bidirectional")
+                    exit_info = (
+                        f"  → {target}/{target_zone} "
+                        f"({activation}{'/bi' if bidir else ''})"
+                    )
+                lines.append(
+                    f"    - {tag} px={inst['px']} size=({inst['width']}x{inst['height']})"
+                    + exit_info
+                )
+    if lowered_count:
+        lines.append(
+            f"  IntGrid: lowered {lowered_count} static-collision rects "
+            f"into {lowered_cells} cells"
+        )
+    return "\n".join(lines)
+
+
+def _level_field(level: dict, identifier: str):
+    """Read a top-level field instance value by identifier, or `None`."""
+    for f in level.get("fieldInstances", []):
+        if f.get("__identifier") == identifier:
+            return f.get("__value")
+    return None
+
+
+def add_reciprocal_loading_zone(
+    project: dict, connection: dict, source_level_id: str
+) -> dict:
+    """Insert a reciprocal `LoadingZone` into an existing target level.
+
+    The connection spec describes the *source-side* loading zone the
+    new level already declares (by id) and the geometry of the
+    target-side companion. The helper finds the target level by
+    identifier, builds a fresh `LoadingZone` entity instance pointing
+    back at the source level, and appends it to the target level's
+    Ambition layer. Returns the new entity instance for preview.
+
+    Required spec keys:
+      target_room: identifier of the existing level to extend.
+      px:          [x, y] of the new loading zone in target-level coords.
+      size:        [w, h] of the new loading zone (16x96 is a common door).
+
+    Optional spec keys:
+      id:               loading zone id (defaults to `<source>_return`).
+      name:             entity name (defaults to id).
+      target_zone:      the source-side `LoadingZone.id` to point at
+                        (defaults to `<source_level_id>_entry`).
+      activation:       'walk' | 'Door' (defaults to 'Door').
+      bidirectional:    bool (defaults to true).
+
+    Validation: the helper rejects connections to a missing target
+    level, a missing Ambition layer in the target, or a placement
+    that overlaps any existing entity in the target's Ambition layer.
+    """
+    target_room = connection.get("target_room")
+    if not target_room:
+        raise SystemExit("connect_to entry missing required 'target_room'")
+    target_level = find_level(project, target_room)
+    if target_level is None:
+        known = ", ".join(sorted(l["identifier"] for l in project.get("levels", [])))
+        raise SystemExit(
+            f"connect_to target_room '{target_room}' not found. Known levels: {known}"
+        )
+    ambition = find_layer_in_level(target_level, "Ambition")
+    if ambition is None:
+        raise SystemExit(
+            f"connect_to target '{target_room}' has no Ambition entity layer; "
+            "cannot append a reciprocal LoadingZone"
+        )
+    px = connection.get("px")
+    size = connection.get("size")
+    if px is None or len(px) != 2:
+        raise SystemExit("connect_to entry missing required 'px: [x, y]'")
+    if size is None or len(size) != 2:
+        raise SystemExit("connect_to entry missing required 'size: [w, h]'")
+
+    # Reject overlap with any existing entity rect in the target level.
+    new_x, new_y = int(px[0]), int(px[1])
+    new_w, new_h = int(size[0]), int(size[1])
+    for inst in ambition.get("entityInstances", []):
+        ix, iy = inst["px"]
+        iw, ih = inst["width"], inst["height"]
+        if (
+            new_x < ix + iw
+            and new_x + new_w > ix
+            and new_y < iy + ih
+            and new_y + new_h > iy
+        ):
+            raise SystemExit(
+                f"connect_to placement overlaps existing entity '{inst['__identifier']}' "
+                f"in '{target_room}' at ({ix},{iy}) {iw}x{ih}"
+            )
+
+    source_id = connection.get("id") or f"{source_level_id}_return"
+    target_zone = connection.get("target_zone") or f"{source_level_id}_entry"
+    activation = str(connection.get("activation", "Door"))
+    bidirectional = bool(connection.get("bidirectional", True))
+
+    grid_size = int(project.get("defaultGridSize", 16))
+    ent_spec = {
+        "type": "LoadingZone",
+        "px": [new_x, new_y],
+        "size": [new_w, new_h],
+        "fields": {
+            "id": source_id,
+            "name": connection.get("name", source_id),
+            "activation": activation,
+            "target_room": source_level_id,
+            "target_zone": target_zone,
+            "bidirectional": bidirectional,
+        },
+    }
+    instance = build_entity_instance(project, ent_spec, grid_size)
+    ambition.setdefault("entityInstances", []).append(instance)
+    return instance
 
 
 def run_repair_and_validate(project_path: Path, schema: Path | None) -> int:
@@ -541,6 +851,14 @@ def main(argv=None) -> int:
         default=Path("tools/schemas/ldtk/JSON_SCHEMA.json"),
         help="Optional official LDtk JSON schema for the post-validate pass",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Build the level entirely in memory and print a structured "
+            "preview summary; do NOT write the file or run repair/validate"
+        ),
+    )
     args = parser.parse_args(argv)
 
     spec = load_spec(args.spec)
@@ -563,6 +881,30 @@ def main(argv=None) -> int:
     # is the safe choice. (Adding an empty entry for the new level is also
     # acceptable; LDtk rebuilds either way.)
     project.setdefault("toc", [])
+
+    # Optional: append reciprocal LoadingZones into existing target levels.
+    reciprocal_summaries: list[str] = []
+    for connection in spec.get("connect_to") or []:
+        instance = add_reciprocal_loading_zone(project, connection, spec["level_id"])
+        fields = {
+            f["__identifier"]: f.get("__value")
+            for f in instance.get("fieldInstances", [])
+        }
+        reciprocal_summaries.append(
+            f"reciprocal LoadingZone in '{connection['target_room']}' at "
+            f"px={instance['px']} size=({instance['width']}x{instance['height']}) "
+            f"→ {fields.get('target_room')}/{fields.get('target_zone')}"
+        )
+
+    print("--- preview ---")
+    print(summarize_level(level))
+    for line in reciprocal_summaries:
+        print(line)
+    print("--- end preview ---")
+
+    if args.dry_run:
+        print("dry-run: no file written; repair/validate skipped")
+        return 0
 
     target = args.output or args.ldtk
     if args.output is None and args.backup:

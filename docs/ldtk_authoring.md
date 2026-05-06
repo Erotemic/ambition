@@ -128,6 +128,66 @@ adding `Solid` / `HazardBlock` entity instances. See
 `tools/ldtk_intgrid_migration.py` for the entity → IntGrid value
 mapping (1=Solid, 2=OneWayUp, 3=BlinkSoft, 4=BlinkHard, 5=Hazard).
 
+## Programmatic authoring with `author_ldtk_area.py`
+
+Hand-editing LDtk JSON is fragile (`defUid`s, `realEditorValues`, IntGrid
+sizing). For new levels, prefer:
+
+```bash
+python tools/author_ldtk_area.py tools/examples/ldtk_specs/crawl_lab.yaml --dry-run
+```
+
+The `--dry-run` mode parses and builds the level entirely in memory and
+prints a structured summary (entity counts per type, exit links, IntGrid
+cell totals, biome metadata, reciprocal LoadingZones) without writing
+the file or running repair/validate. Use it to verify the result matches
+intent before committing to `sandbox.ldtk`.
+
+Drop `--dry-run` to apply the spec for real; the tool runs the standard
+repair + validate pipeline before exiting.
+
+### Spec features
+
+The spec format supports four high-level conveniences agents commonly need:
+
+1. **Static-collision lowering.** `Solid` / `OneWayPlatform` /
+   `BlinkWall` / `HazardBlock` rectangles in `entities:` are painted
+   into the level's `Collision` IntGrid layer instead of being emitted
+   as entity instances. The runtime treats them identically.
+2. **Reciprocal LoadingZones.** A top-level `connect_to:` list inserts
+   companion `LoadingZone` entities into existing target levels so an
+   agent doesn't have to hand-edit two files. The helper rejects
+   placements that overlap existing entities and reports the missing
+   target_room with a list of known levels.
+3. **Biome metadata seam.** Top-level `biome` / `music_track` /
+   `ambient_profile` / `visual_theme` keys are written as level field
+   instances. Run `python tools/add_biome_level_fields.py <ldtk>` once
+   on a project to add the matching `defs.levelFields` entries; the
+   migration is idempotent. See
+   `tools/examples/ldtk_specs/music_biome_lab.yaml` for the full set.
+4. **Actionable error messages.** Unknown entity types ("PlayerStrt"
+   → "Did you mean 'PlayerStart'?"), unknown field identifiers, and
+   bad field-value coercions (a string where a Float is expected) all
+   fail fast with suggestions instead of producing an LDtk file that
+   silently drops the value.
+
+### Example specs
+
+`tools/examples/ldtk_specs/` ships starter specs covering the common
+sandbox-room shapes:
+
+- `crawl_lab.yaml` — body-mode proof: low-ceiling corridor that
+  requires `BodyMode::Crouching` to traverse.
+- `water_lab.yaml` — buoyancy / swim mechanic proof with a
+  `WaterVolume`.
+- `mob_arena.yaml` — single-encounter wave demo with reciprocal hub
+  link.
+- `music_biome_lab.yaml` — exercises the biome metadata seam.
+
+A round-trip smoketest (`tools/author_ldtk_area_smoketest.py`) copies
+the live `sandbox.ldtk` to a tempdir, drops in a tiny test area, and
+verifies the result passes both the repair pass and full validation.
+
 ## Important fields
 
 `activeArea` is a level field. LDtk levels sharing the same `activeArea` are

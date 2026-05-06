@@ -1,0 +1,108 @@
+# Mob arena — single-encounter wave demo with reciprocal hub link.
+#
+# Smaller and more linear than the existing `mob_lab` (which lives in
+# the basement and has hallway/jambs/lock-wall art). This example is
+# intentionally minimal: one trigger, one lock wall, two enemy spawns,
+# and a reciprocal LoadingZone in the central hub. Use it as a starting
+# template when an agent needs another encounter room.
+#
+# Layout (1280x512):
+#   +------------------------------------------------+
+#   | [PlayerStart]   |LW| [trigger]   [enemies]     |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +------------------------------------------------+
+id: mob_arena
+level_id: mob_arena
+world_x: 28000
+world_y: 1024
+px_wid: 1280
+px_hei: 512
+fill_collision: empty
+entities:
+  # Floor, ceiling, side walls.
+  - type: Solid
+    px: [0, 480]
+    size: [1280, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [1280, 16]
+    fields: { name: ceiling }
+  - type: Solid
+    px: [0, 16]
+    size: [16, 464]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [1264, 16]
+    size: [16, 464]
+    fields: { name: right_wall }
+
+  - type: PlayerStart
+    px: [80, 434]
+    size: [28, 46]
+    fields: { name: mob_arena_spawn }
+
+  - type: LoadingZone
+    px: [16, 384]
+    size: [48, 96]
+    fields:
+      id: mob_arena_entry
+      name: mob_arena_entry
+      activation: Door
+      target_room: central_hub_main
+      target_zone: east_exit
+      bidirectional: true
+
+  - type: LockWall
+    px: [400, 256]
+    size: [32, 224]
+    fields:
+      id: mob_arena_lock
+      name: mob_arena_lock
+
+  - type: EncounterTrigger
+    px: [600, 256]
+    size: [200, 224]
+    fields:
+      id: mob_arena
+      name: mob_arena_trigger
+      camera_zoom: 1.4
+
+  - type: EnemySpawn
+    px: [900, 432]
+    size: [32, 48]
+    fields:
+      name: mob_arena_striker_a
+      brain: Striker
+  - type: EnemySpawn
+    px: [1100, 432]
+    size: [32, 48]
+    fields:
+      name: mob_arena_striker_b
+      brain: Striker
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [1280, 512]
+    fields: { id: mob_arena_camera, name: mob_arena_camera, mode: Encounter }
+
+  - type: DebugLabel
+    px: [80, 60]
+    size: [600, 24]
+    fields:
+      name: mob_arena_intro
+      text: "Walk past the marker. The lock wall closes; clear the wave to exit."
+      category: Custom
+
+# Reciprocal LoadingZone: the central hub gets a return-side door
+# without the agent having to hand-edit central_hub_main. The existing
+# spec validator + repair pass catches missing target_zone references
+# at validate time.
+connect_to:
+  - target_room: central_hub_main
+    px: [240, 600]
+    size: [16, 96]
+    id: mob_arena_door
+    target_zone: mob_arena_entry
+    activation: Door
+    bidirectional: true

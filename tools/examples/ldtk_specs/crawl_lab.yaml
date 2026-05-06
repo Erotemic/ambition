@@ -1,0 +1,99 @@
+# Crawl lab — body-mode proof room.
+#
+# Demonstrates the crouch / crawl mechanic from
+# `crate::body_mode`. Layout (1024x384):
+#
+#   +------------------------------------------------+
+#   | [PlayerStart]                                  |
+#   |                ▒▒▒▒▒▒ low ceiling ▒▒▒▒▒▒       |  ← gap forces crouch
+#   |    ─────────  open corridor below  ─────────   |
+#   |                                                |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +------------------------------------------------+
+#                              ↑
+#                       LoadingZone back to hub
+#
+# Geometry math (player base size 28x46, BodyMode::Crouching height 25.3):
+#
+# - Floor at y=352, height 32 → floor.top = 352, floor.bottom = 384.
+# - Standing player on floor: feet at y=352, top at y=352-46=306.
+# - Crouching player on floor: feet at y=352, top at y=352-25.3=326.7.
+# - Place "low ceiling" at y in [200, 332]:
+#     * Standing top 306 < ceiling.bottom 332 → blocks standing.
+#     * Crouching top 326.7 < ceiling.bottom 332 → ALSO blocks crouching.
+#     Adjust: ceiling at [200, 320]: crouching top 326.7 > 320 → fits.
+#     Standing top 306 < 320 → blocks standing. ✓
+#
+# Use this spec with:
+#   python tools/author_ldtk_area.py tools/examples/ldtk_specs/crawl_lab.yaml --dry-run
+# to see the IntGrid lowering, or apply it for real to extend sandbox.ldtk.
+id: crawl_lab
+level_id: crawl_lab
+world_x: 26000
+world_y: 1024
+px_wid: 1024
+px_hei: 384
+fill_collision: empty
+entities:
+  # Floor across the whole room.
+  - type: Solid
+    px: [0, 352]
+    size: [1024, 32]
+    fields: { name: floor }
+
+  # Outer side walls.
+  - type: Solid
+    px: [0, 0]
+    size: [16, 352]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [1008, 0]
+    size: [16, 352]
+    fields: { name: right_wall }
+
+  # Roof of the room.
+  - type: Solid
+    px: [16, 0]
+    size: [992, 32]
+    fields: { name: ceiling }
+
+  # Low-ceiling corridor: spans middle 60% of the room, ceiling top at
+  # y=200, ceiling bottom at y=320. Standing body top at y=306 must
+  # tunnel under this; crouching body top at y=326.7 fits with a small
+  # margin above (326.7 > 320).
+  - type: Solid
+    px: [256, 200]
+    size: [512, 120]
+    fields: { name: low_ceiling }
+
+  # Player spawns on the left, before the low-ceiling section.
+  - type: PlayerStart
+    px: [80, 306]
+    size: [28, 46]
+    fields: { name: crawl_lab_spawn }
+
+  # Loading zone back to the central hub.
+  - type: LoadingZone
+    px: [16, 256]
+    size: [48, 96]
+    fields:
+      id: crawl_lab_entry
+      name: crawl_lab_entry
+      activation: Door
+      target_room: central_hub_main
+      target_zone: east_exit
+      bidirectional: true
+
+  # Camera zone covering the room.
+  - type: CameraZone
+    px: [0, 0]
+    size: [1024, 384]
+    fields: { id: crawl_lab_camera, name: crawl_lab_camera, mode: Default }
+
+  - type: DebugLabel
+    px: [80, 80]
+    size: [400, 24]
+    fields:
+      name: crawl_lab_intro
+      text: "Hold Down on the floor to crouch under the corridor."
+      category: Custom

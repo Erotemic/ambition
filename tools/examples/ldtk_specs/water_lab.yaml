@@ -1,0 +1,89 @@
+# Water lab — buoyancy / swim mechanic proof.
+#
+# A flooded chamber that the player drops into. Without the swim
+# ability the engine still applies passive water drag and the
+# fall-cap; with the swim ability, the up-impulse is enabled.
+#
+# Layout (1024x768):
+#   +------------------------------------------------+
+#   | [PlayerStart]                                  |
+#   |       ▒entrance ledge▒                         |
+#   |                       ↓ drop                   |
+#   |═════════════════════════════════════════════   |  ← water surface
+#   |░░░░░░░░░░░░░░░ water volume ░░░░░░░░░░░░░░░    |
+#   |░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    |
+#   |░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +------------------------------------------------+
+id: water_lab
+level_id: water_lab
+world_x: 26000
+world_y: 2048
+px_wid: 1024
+px_hei: 768
+fill_collision: empty
+entities:
+  # Outer walls + floor + ceiling.
+  - type: Solid
+    px: [0, 0]
+    size: [16, 768]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [1008, 0]
+    size: [16, 768]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [0, 0]
+    size: [1024, 16]
+    fields: { name: ceiling }
+  - type: Solid
+    px: [0, 736]
+    size: [1024, 32]
+    fields: { name: floor }
+
+  # Entrance ledge so the player can land before dropping into the pool.
+  - type: Solid
+    px: [16, 256]
+    size: [256, 32]
+    fields: { name: entry_ledge }
+
+  # Water volume covers the lower portion of the room.
+  - type: WaterVolume
+    px: [16, 384]
+    size: [992, 352]
+    fields:
+      id: water_lab_pool
+      name: water_lab_pool
+      gravity_scale: 0.4
+      drag: 4.0
+      max_fall_speed: 220.0
+      swim_up_impulse: 380.0
+
+  - type: PlayerStart
+    px: [80, 200]
+    size: [28, 46]
+    fields: { name: water_lab_spawn }
+
+  - type: LoadingZone
+    px: [16, 192]
+    size: [48, 64]
+    fields:
+      id: water_lab_entry
+      name: water_lab_entry
+      activation: Door
+      target_room: central_hub_main
+      target_zone: east_exit
+      bidirectional: true
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [1024, 768]
+    fields: { id: water_lab_camera, name: water_lab_camera, mode: Default }
+
+  - type: DebugLabel
+    px: [80, 60]
+    size: [400, 24]
+    fields:
+      name: water_lab_intro
+      text: "Drop into the pool to test water drag and swim impulse."
+      category: Custom

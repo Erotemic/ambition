@@ -18,13 +18,7 @@ def main(argv=None) -> int:
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--group", required=True)
     ap.add_argument("--backend", default="fast")
-    ap.add_argument(
-        "--simple-post",
-        action="store_true",
-        help="Accepted for CLI back-compat; both paths now run the full post-process chain.",
-    )
     ns = ap.parse_args(argv)
-    _ = ns.simple_post  # accepted but no longer alters behavior
     spec_path = Path(ns.spec)
     spec = yaml.safe_load(spec_path.read_text())
     render_cfg = spec.get("render", {})

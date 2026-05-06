@@ -34,7 +34,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.6.2-brighter-voices"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.6.3-noise-and-previews"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf2/TimGM6mb.sf2",
     "/usr/share/sounds/sf2/default-GM.sf2",
@@ -854,34 +854,35 @@ def _synth_note_fast(frequency: float, duration: float, velocity: int, family: s
 
     if family == "string":
         # Warm bowed strings: bandlimited near-sawtooth body for natural
-        # harmonic richness across pitch, mild waveshape for intermod, and a
-        # bow-noise band in the bridge-resonance region so the voice carries
-        # presence energy independent of pitch.
+        # harmonic richness, mild waveshape for intermod, and a bow-noise
+        # band in the bridge-resonance region so the voice carries presence
+        # energy. Noise weight is conservative — multiple string stems sum
+        # in the master preview and the noise floor stacks otherwise.
         raw = _harm_saw(0.45, n_max=28, exponent=1.05)
         body = np.tanh(raw * 1.50).astype(np.float32)
-        bow = rng.normal(0.0, 0.55, n).astype(np.float32)
+        bow = rng.normal(0.0, 0.40, n).astype(np.float32)
         bow_band = bow - _lowpass_mono(bow, 0.05)
-        bow_band = _lowpass_mono(bow_band, 0.55)
-        sig = _lowpass_mono(body, 0.70) + bow_band * 0.32
+        bow_band = _lowpass_mono(bow_band, 0.50)
+        sig = _lowpass_mono(body, 0.70) + bow_band * 0.16
         env = _adsr_curve(n, sr, 0.085, 0.16, 0.66, 0.34)
     elif family == "brass":
-        # Brass: bandlimited buzzy stack + drive + lip buzz noise.
+        # Brass: bandlimited buzzy stack + drive + light lip-buzz noise.
         raw = _harm_saw(0.45, n_max=24, exponent=0.95)
         body = np.tanh(raw * 1.55).astype(np.float32)
-        buzz = rng.normal(0.0, 0.40, n).astype(np.float32)
+        buzz = rng.normal(0.0, 0.30, n).astype(np.float32)
         buzz_band = buzz - _lowpass_mono(buzz, 0.03)
         buzz_band = _lowpass_mono(buzz_band, 0.45)
-        sig = _lowpass_mono(body, 0.70) + buzz_band * 0.20
+        sig = _lowpass_mono(body, 0.70) + buzz_band * 0.10
         env = _adsr_curve(n, sr, 0.045, 0.10, 0.72, 0.22)
     elif family == "wind":
-        # Woodwinds: harmonic stack with steeper falloff (less buzz than
-        # brass), audible breath layer for presence.
+        # Woodwinds: harmonic stack with steeper falloff than brass, light
+        # breath layer for presence.
         raw = _harm_saw(0.55, n_max=22, exponent=1.20)
         body = np.tanh(raw * 1.30).astype(np.float32)
-        breath = rng.normal(0.0, 0.50, n).astype(np.float32)
+        breath = rng.normal(0.0, 0.36, n).astype(np.float32)
         breath_band = breath - _lowpass_mono(breath, 0.04)
-        breath_band = _lowpass_mono(breath_band, 0.65)
-        sig = _lowpass_mono(body, 0.70) + breath_band * 0.22
+        breath_band = _lowpass_mono(breath_band, 0.60)
+        sig = _lowpass_mono(body, 0.70) + breath_band * 0.12
         env = _adsr_curve(n, sr, 0.060, 0.070, 0.78, 0.24)
     elif family == "pad":
         # Pad: detuned dual-osc with low harmonic emphasis. Stays warm.

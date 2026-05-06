@@ -616,6 +616,21 @@ pub fn add_presentation_plugins(app: &mut App) {
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
         )
+        // Procedural morph-ball visual: build the texture once at
+        // startup, spawn the sibling sprite as soon as the player
+        // entity exists, and toggle visibility / position each frame
+        // based on `Player::body_mode`. After `sync_visuals` so the
+        // player's transform is already mirrored when we read it.
+        .add_systems(Startup, crate::body_mode::build_morph_ball_sprite)
+        .add_systems(
+            Update,
+            (
+                crate::body_mode::spawn_morph_ball_visual,
+                crate::body_mode::sync_morph_ball_visual,
+            )
+                .chain()
+                .after(sync_visuals),
+        )
         // Player projectile visuals: rebuild the sprite ring each tick
         // from `PlayerProjectileState::bodies`. Lives in its own
         // `add_systems` because the main visible-only chain is at the

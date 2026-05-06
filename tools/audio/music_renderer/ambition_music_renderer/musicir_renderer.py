@@ -34,7 +34,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.7.0-fast-backend-split"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.7.1-fluidsynth-gain"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf3/MuseScore_General_Full.sf3",
     "/usr/share/sounds/sf3/MuseScore_General.sf3",
@@ -694,7 +694,11 @@ def render_pretty_midi(pm: pretty_midi.PrettyMIDI, soundfont: str, sample_rate: 
     for inst in pm.instruments:
         if not inst.notes:
             continue
-        fl = fluidsynth.Synth(samplerate=fs_float, gain=0.5)
+        # gain=1.6: at MIDI vel 100, vol/expr 100, the SoundFont samples come
+        # out around -13 dB peak — comparable to per-stem fast-backend levels
+        # and well within headroom for stem summing. fluidsynth's stock default
+        # is 0.2, which makes everything 18 dB quieter than authored.
+        fl = fluidsynth.Synth(samplerate=fs_float, gain=1.6)
         # Kill fluidsynth's internal effects buses; the YAML controls reverb
         # and we don't want a chorus pseudo-noise floor on every stem.
         try:
@@ -780,10 +784,11 @@ def _lowpass_mono(signal_in: np.ndarray, amount: float) -> np.ndarray:
 
 def render_with_fluidsynth_cli(midi_path: Path, soundfont: str, sample_rate: int, dry_wav_path: Path) -> np.ndarray:
     # `-R 0 -C 0` disables fluidsynth's internal reverb and chorus so they
-    # don't stack on top of the YAML postprocess chain. Without these flags
-    # the CLI adds a hissy diffuse wash to every stem.
+    # don't stack on top of the YAML postprocess chain. `-g 1.6` lifts the
+    # synth gain off its quiet 0.2 default so authored MIDI velocities map
+    # to sensible per-stem levels (matches the pyfluidsynth gain).
     cmd = [
-        "fluidsynth", "-ni", "-R", "0", "-C", "0",
+        "fluidsynth", "-ni", "-R", "0", "-C", "0", "-g", "1.6",
         "-r", str(sample_rate), "-F", str(dry_wav_path),
         soundfont, str(midi_path),
     ]

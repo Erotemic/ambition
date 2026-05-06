@@ -421,11 +421,15 @@ after `sandbox_update` and turns the engine's existing `BodyMode` /
 - Down held + grounded → `Crouching`. Releasing Down attempts a
   collision-safe stand-up via `try_change_body_mode`; a low ceiling
   rejects the transition and the player stays crouched.
-- Double-tap-down (the existing `fast_fall_pressed` gesture) +
-  grounded → `MorphBall`. Jump-pressed inside MorphBall tries
-  Standing; a low ceiling keeps the ball curled. The engine's
-  airborne fast-fall path still uses the same gesture; it gates on
-  `!on_ground` so there is no input crosstalk.
+- Double-tap-down + grounded → `MorphBall`. Jump-pressed (or
+  Up-pressed) inside MorphBall tries Standing; a low ceiling keeps
+  the ball curled. The signal is `runtime.double_tap_down_pending`,
+  set by `input_timer_phase` and consumed by the body-mode driver
+  via `mem::take`. The edge is routed through `SandboxRuntime`
+  (not `ControlFrame`) because `sandbox_update` consumes its
+  ControlFrame as a local copy that doesn't reach the progression
+  chain. The engine's airborne fast-fall path still uses the same
+  gesture and gates on `!on_ground` so there is no input crosstalk.
 
 `Player::base_size` is the new canonical Standing-stance size; the
 engine helper `try_change_body_mode` adjusts `pos.y` to keep the

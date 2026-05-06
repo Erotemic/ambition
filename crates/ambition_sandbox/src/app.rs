@@ -1243,8 +1243,19 @@ fn input_timer_phase(
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
     runtime.damage_invuln_timer = (runtime.damage_invuln_timer - frame_dt).max(0.0);
     runtime.hitstun_timer = (runtime.hitstun_timer - frame_dt).max(0.0);
-    controls.fast_fall_pressed =
+    let double_tap_down =
         runtime.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
+    controls.fast_fall_pressed = double_tap_down;
+    // Re-route the double-tap-down edge through SandboxRuntime so the
+    // body-mode driver in the progression chain (after sandbox_update)
+    // can read it. The local `controls` mutation here doesn't reach
+    // post-update systems because sandbox_update consumes a copy of the
+    // resource; engine-side fast-fall is consumed inline so the local
+    // copy is fine for that, but morph-ball entry needs the edge to
+    // survive past `sandbox_update`'s scope.
+    if double_tap_down {
+        runtime.double_tap_down_pending = true;
+    }
     let door_double_tap_up =
         runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
     runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);

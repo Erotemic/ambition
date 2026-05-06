@@ -65,12 +65,20 @@ pub fn update_body_mode(
     let mode = player.body_mode;
     let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
 
+    // Consume the double-tap-down edge regardless of branch so we
+    // don't latch a stale signal across frames or gameplay states.
+    let double_tap_down = std::mem::take(&mut runtime.double_tap_down_pending);
+
     // MorphBall has the smallest AABB. Exiting it means re-checking
     // overhead clearance; sourcing the exit input from `jump_pressed`
     // mirrors how a player would naturally try to "stand up" out of
-    // the ball.
+    // the ball. Up-pressed (a tap, not held) is also accepted as the
+    // unmorph gesture so keyboards that bind Up to a different
+    // physical key can still escape the ball without committing to a
+    // jump arc — useful for testing on layouts where Jump and Up
+    // map to the same key.
     if mode == ae::BodyMode::MorphBall {
-        if controls.jump_pressed {
+        if controls.jump_pressed || controls.up_pressed {
             let _ = ae::try_change_body_mode(
                 &mut runtime.player,
                 ae::BodyMode::Standing,
@@ -82,9 +90,13 @@ pub fn update_body_mode(
     }
 
     // Double-tap-down on the ground from Standing or Crouching curls
-    // into MorphBall. The engine gates fast_fall on `!on_ground` so
-    // this gesture does not race with airborne fast-fall.
-    if on_ground && controls.fast_fall_pressed {
+    // into MorphBall. The signal is `runtime.double_tap_down_pending`,
+    // routed through SandboxRuntime by `input_timer_phase` because
+    // `sandbox_update` consumes its ControlFrame as a local copy that
+    // doesn't reach the progression chain. The engine gates
+    // fast_fall on `!on_ground` already, so the same gesture firing
+    // morph-ball when grounded has no input crosstalk.
+    if on_ground && double_tap_down {
         let _ = ae::try_change_body_mode(
             &mut runtime.player,
             ae::BodyMode::MorphBall,
@@ -172,6 +184,15 @@ mod tests {
     fn set_axis_y(app: &mut App, axis_y: f32) {
         let mut controls = app.world_mut().resource_mut::<ControlFrame>();
         controls.axis_y = axis_y;
+    }
+
+    /// Mark the double-tap-down edge on `SandboxRuntime` exactly as
+    /// `input_timer_phase` does in the live build. The driver
+    /// consumes via `mem::take`, so the test only needs to arm it
+    /// before the tick under test.
+    fn arm_double_tap_down(app: &mut App) {
+        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+        runtime.double_tap_down_pending = true;
     }
 
     /// Holding Down on the ground transitions Standing → Crouching and
@@ -282,16 +303,14 @@ mod tests {
     }
 
     /// Double-tap-down on the ground from Standing curls into MorphBall.
-    /// `fast_fall_pressed` is the existing input-layer gesture for
-    /// double-tap-down, so the test sets it directly.
+    /// The signal is `runtime.double_tap_down_pending` (routed
+    /// through SandboxRuntime by `input_timer_phase` because
+    /// sandbox_update consumes a local copy of ControlFrame).
     #[test]
     fn double_tap_down_grounded_enters_morph_ball() {
         let mut app = body_app(empty_world());
         set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
-        {
-            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
-            controls.fast_fall_pressed = true;
-        }
+        arm_double_tap_down(&mut app);
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
         assert_eq!(runtime.player.body_mode, ae::BodyMode::MorphBall);
@@ -316,10 +335,7 @@ mod tests {
             ae::BodyMode::Crouching
         );
         // Then double-tap-down.
-        {
-            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
-            controls.fast_fall_pressed = true;
-        }
+        arm_double_tap_down(&mut app);
         app.update();
         assert_eq!(
             app.world().resource::<SandboxRuntime>().player.body_mode,
@@ -337,10 +353,7 @@ mod tests {
         // Drive into MorphBall via the gesture (covers the input path
         // and avoids juggling a second world reference inside a
         // resource borrow).
-        {
-            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
-            controls.fast_fall_pressed = true;
-        }
+        arm_double_tap_down(&mut app);
         app.update();
         assert_eq!(
             app.world().resource::<SandboxRuntime>().player.body_mode,
@@ -349,7 +362,6 @@ mod tests {
 
         {
             let mut controls = app.world_mut().resource_mut::<ControlFrame>();
-            controls.fast_fall_pressed = false;
             controls.jump_pressed = true;
         }
         app.update();
@@ -374,10 +386,7 @@ mod tests {
         set_grounded_at(&mut app, ae::Vec2::new(200.0, 600.0));
 
         // Morph via gesture.
-        {
-            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
-            controls.fast_fall_pressed = true;
-        }
+        arm_double_tap_down(&mut app);
         app.update();
         assert_eq!(
             app.world().resource::<SandboxRuntime>().player.body_mode,
@@ -387,7 +396,6 @@ mod tests {
         // Try to unmorph.
         {
             let mut controls = app.world_mut().resource_mut::<ControlFrame>();
-            controls.fast_fall_pressed = false;
             controls.jump_pressed = true;
         }
         app.update();
@@ -404,13 +412,38 @@ mod tests {
             runtime.player.pos = ae::Vec2::new(200.0, 200.0);
             runtime.player.on_ground = false;
         }
+        arm_double_tap_down(&mut app);
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+    }
+
+    /// Repro for the ControlFrame-not-flowing-through-sandbox_update
+    /// bug: setting `controls.fast_fall_pressed = true` directly on
+    /// the resource (mimicking what `input_timer_phase` writes to its
+    /// LOCAL controls copy) is NOT sufficient to enter MorphBall.
+    /// The driver only reads `runtime.double_tap_down_pending`. This
+    /// test pins the routing so a future refactor can't accidentally
+    /// switch the body-mode driver back to reading ControlFrame and
+    /// silently break the in-game gesture.
+    #[test]
+    fn morph_ball_does_not_fire_from_control_frame_alone() {
+        let mut app = body_app(empty_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
         {
             let mut controls = app.world_mut().resource_mut::<ControlFrame>();
             controls.fast_fall_pressed = true;
         }
+        // double_tap_down_pending is NOT armed.
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
-        assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+        assert_eq!(
+            runtime.player.body_mode,
+            ae::BodyMode::Standing,
+            "the body-mode driver must read runtime.double_tap_down_pending, \
+             not controls.fast_fall_pressed (which sandbox_update consumes \
+             on a local copy that doesn't reach later systems)"
+        );
     }
 
     /// `SandboxRuntime::reset` (called by death/respawn) must restore
@@ -444,10 +477,7 @@ mod tests {
     fn reset_restores_standing_from_morph_ball() {
         let mut app = body_app(empty_world());
         set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
-        {
-            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
-            controls.fast_fall_pressed = true;
-        }
+        arm_double_tap_down(&mut app);
         app.update();
         assert_eq!(
             app.world().resource::<SandboxRuntime>().player.body_mode,

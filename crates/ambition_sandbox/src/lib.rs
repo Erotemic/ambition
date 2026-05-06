@@ -172,6 +172,17 @@ pub struct SandboxRuntime {
     /// re-arm the trigger). Cleared by the encounter system after
     /// it acts.
     pub player_died_pending: bool,
+    /// One-shot signal: set true the frame `register_down_tap` detects
+    /// the second tap of a double-tap-down within
+    /// `feel.down_double_tap_window`. The body-mode driver in the
+    /// progression chain (after `sandbox_update`) reads this and
+    /// clears it; engine-side fast-fall consumed `controls.fast_fall_pressed`
+    /// inside `sandbox_update` already, but that mutation lives on a
+    /// local copy of `ControlFrame` that doesn't reach later systems.
+    /// Routing the edge through `SandboxRuntime` is the cheapest way
+    /// to give post-update mutators the signal without changing
+    /// `sandbox_update`'s already-saturated parameter list.
+    pub double_tap_down_pending: bool,
 }
 
 /// Sandbox-side ledge grab snapshot. Engine-pure data wrapped with
@@ -226,6 +237,7 @@ impl SandboxRuntime {
             invincible: false,
             ledge_grab: None,
             player_died_pending: false,
+            double_tap_down_pending: false,
         }
     }
 
@@ -241,6 +253,7 @@ impl SandboxRuntime {
         self.time_scale = 1.0;
         self.down_tap_timer = 0.0;
         self.up_tap_timer = 0.0;
+        self.double_tap_down_pending = false;
         self.interact_buffer_timer = 0.0;
         self.moving_platform = platforms::MovingPlatformState::time_reference(world);
         self.features = features::FeatureRuntime::from_world(world);

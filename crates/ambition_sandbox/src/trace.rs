@@ -1521,6 +1521,7 @@ mod tests {
                 invincible: false,
                 ledge_grab: None,
                 player_died_pending: false,
+                double_tap_down_pending: false,
             },
             &world,
             ControlFrame::default(),
@@ -1575,6 +1576,7 @@ mod tests {
                 invincible: false,
                 ledge_grab: None,
                 player_died_pending: false,
+                double_tap_down_pending: false,
             },
             &world,
             ControlFrame::default(),
@@ -1660,6 +1662,7 @@ mod tests {
             invincible: false,
             ledge_grab: None,
             player_died_pending: false,
+            double_tap_down_pending: false,
         }
     }
 

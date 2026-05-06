@@ -54,9 +54,15 @@ This is enough to build, in this order:
    `Solid` ceiling that has a one-tile-tall gap below it. `Crawling`
    shape fits; `Standing` does not. The collision-safe resize check is
    what gates re-entry.
-3. **Morph ball** — same shape, smaller AABB on both axes. Add an
-   "input gesture: down + down" path; reuse the same `fits_at` gate to
-   reject unmorphing into a low ceiling.
+3. **Morph ball** *(Prototype — landed)* — same `crate::body_mode`
+   driver. Double-tap-down on the ground (the existing
+   `fast_fall_pressed` gesture, gated on `on_ground` so airborne
+   fast-fall is unaffected) curls the player into `BodyMode::MorphBall`.
+   Jump-pressed inside the morph ball calls `try_change_body_mode` to
+   try Standing; a low ceiling rejects the transition and the ball
+   stays curled. The MorphBall AABB is smaller than Crouching on
+   both axes (~55% of base on x and y) so it fits through tighter
+   gaps.
 
 Each of those becomes a sandbox proof for the underlying primitive
 without each verb needing its own bespoke collision code.

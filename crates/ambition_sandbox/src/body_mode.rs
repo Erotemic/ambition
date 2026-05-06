@@ -1,20 +1,35 @@
-//! Sandbox-side body-mode driver (crouch + collision-safe stand-up).
+//! Sandbox-side body-mode driver (crouch + morph ball + collision-safe
+//! stand-up).
 //!
-//! Listens to the deadzoned `axis_y` from `ControlFrame` and asks the
-//! engine to flip `Player::body_mode` between `Standing` and `Crouching`.
-//! `try_change_body_mode` does the per-frame collision-safe resize: if a
-//! low ceiling would clip the standing body the helper rejects the
-//! transition and the player stays crouched. Auto-detected
-//! `PlayerModeChanged` trace events fire from the trace recorder
-//! diffing `player.body_mode` between snapshots, so this driver does
-//! not push events itself.
+//! Listens to the deadzoned `axis_y` from `ControlFrame` and the
+//! double-tap-down gesture (`fast_fall_pressed`) and asks the engine
+//! to flip `Player::body_mode` between `Standing`, `Crouching`, and
+//! `MorphBall`. `try_change_body_mode` does the per-frame
+//! collision-safe resize: if a low ceiling would clip the larger body
+//! the helper rejects the transition and the player stays in the
+//! smaller stance. Auto-detected `PlayerModeChanged` trace events
+//! fire from the trace recorder diffing `player.body_mode` between
+//! snapshots, so this driver does not push events itself.
+//!
+//! Input model:
+//! - Standing + Down held + grounded → Crouching.
+//! - Standing/Crouching + double-tap Down + grounded → MorphBall.
+//! - MorphBall + Jump pressed → try Standing (gated). If a low
+//!   ceiling blocks the standing body, the morph ball stays curled.
+//! - Crouching + Down released → Standing (gated).
+//! - Mid-action mechanics (dash, blink-aim, wall-cling/climb, swim)
+//!   own the player shape; the driver no-ops while any of them are
+//!   active.
 //!
 //! Runs in the progression chain after `sandbox_update` for the same
 //! reason `ledge_grab` and `swim` do: it mutates `runtime.player`
 //! outside the dense `movement.rs` simulator. The size/pos delta is
 //! constrained to the body-mode swap (no horizontal repositioning),
 //! so the next simulator tick treats it as a clean smaller AABB and
-//! collision repair runs as usual against any new geometry.
+//! collision repair runs as usual against any new geometry. The
+//! engine still gates `fast_fall_pressed` on `!on_ground`, so using
+//! the same gesture for grounded morph and airborne fast-fall has
+//! no input crosstalk.
 
 use ambition_engine as ae;
 use bevy::prelude::*;
@@ -48,6 +63,36 @@ pub fn update_body_mode(
     let down_held = controls.axis_y > CROUCH_AXIS_Y_THRESHOLD;
     let on_ground = player.on_ground;
     let mode = player.body_mode;
+    let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
+
+    // MorphBall has the smallest AABB. Exiting it means re-checking
+    // overhead clearance; sourcing the exit input from `jump_pressed`
+    // mirrors how a player would naturally try to "stand up" out of
+    // the ball.
+    if mode == ae::BodyMode::MorphBall {
+        if controls.jump_pressed {
+            let _ = ae::try_change_body_mode(
+                &mut runtime.player,
+                ae::BodyMode::Standing,
+                &world.0,
+                solid,
+            );
+        }
+        return;
+    }
+
+    // Double-tap-down on the ground from Standing or Crouching curls
+    // into MorphBall. The engine gates fast_fall on `!on_ground` so
+    // this gesture does not race with airborne fast-fall.
+    if on_ground && controls.fast_fall_pressed {
+        let _ = ae::try_change_body_mode(
+            &mut runtime.player,
+            ae::BodyMode::MorphBall,
+            &world.0,
+            solid,
+        );
+        return;
+    }
 
     let target = if down_held && on_ground {
         ae::BodyMode::Crouching
@@ -63,9 +108,7 @@ pub fn update_body_mode(
     // boolean result — a blocked stand-up is the desired UX (player
     // stays crouched under the ceiling) and the auto-trace diff will
     // surface a successful transition.
-    let _ = ae::try_change_body_mode(&mut runtime.player, target, &world.0, |b| {
-        matches!(b.kind, ae::BlockKind::Solid)
-    });
+    let _ = ae::try_change_body_mode(&mut runtime.player, target, &world.0, solid);
 }
 
 #[cfg(test)]
@@ -233,6 +276,138 @@ mod tests {
             runtime.player.dash_timer = 0.05;
         }
         set_axis_y(&mut app, 1.0);
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+    }
+
+    /// Double-tap-down on the ground from Standing curls into MorphBall.
+    /// `fast_fall_pressed` is the existing input-layer gesture for
+    /// double-tap-down, so the test sets it directly.
+    #[test]
+    fn double_tap_down_grounded_enters_morph_ball() {
+        let mut app = body_app(empty_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.fast_fall_pressed = true;
+        }
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(runtime.player.body_mode, ae::BodyMode::MorphBall);
+        // MorphBall is smaller than Standing on both axes.
+        assert!(runtime.player.size.x < runtime.player.base_size.x);
+        assert!(runtime.player.size.y < runtime.player.base_size.y);
+    }
+
+    /// Crouching + double-tap-down also curls into MorphBall (reachable
+    /// from either entry point). Mirrors the input model in the
+    /// docstring.
+    #[test]
+    fn double_tap_down_from_crouch_enters_morph_ball() {
+        let mut app = body_app(empty_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
+
+        // Crouch first.
+        set_axis_y(&mut app, 1.0);
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::Crouching
+        );
+        // Then double-tap-down.
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.fast_fall_pressed = true;
+        }
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::MorphBall
+        );
+    }
+
+    /// Jump-pressed inside MorphBall unmorphs to Standing when there's
+    /// overhead clearance.
+    #[test]
+    fn jump_press_in_morph_ball_unmorphs_to_standing() {
+        let mut app = body_app(empty_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
+
+        // Drive into MorphBall via the gesture (covers the input path
+        // and avoids juggling a second world reference inside a
+        // resource borrow).
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.fast_fall_pressed = true;
+        }
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::MorphBall
+        );
+
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.fast_fall_pressed = false;
+            controls.jump_pressed = true;
+        }
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+        assert_eq!(runtime.player.size, runtime.player.base_size);
+    }
+
+    /// Jump-pressed inside MorphBall under a low ceiling stays curled —
+    /// the standing AABB doesn't fit.
+    #[test]
+    fn jump_press_in_morph_ball_under_low_ceiling_stays_curled() {
+        // Ceiling at y in [560, 590]: standing top 577 < 590 → blocks.
+        // MorphBall body: base_size 28x46 → MorphBall is (28*0.55,
+        // 28*0.55) = (15.4, 15.4). On the floor at pos.y = 600, the
+        // morph ball center is at 600 + (46 - 15.4)/2 = 615.3, half
+        // 7.7 → top 607.6, bottom 623.0. Crouched would be 597.7→623,
+        // so the morph ball clears the ceiling at 590 by an even wider
+        // margin. Standing has top 577 → blocked.
+        let world = ceiling_world(560.0, 30.0);
+        let mut app = body_app(world);
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 600.0));
+
+        // Morph via gesture.
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.fast_fall_pressed = true;
+        }
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::MorphBall
+        );
+
+        // Try to unmorph.
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.fast_fall_pressed = false;
+            controls.jump_pressed = true;
+        }
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(runtime.player.body_mode, ae::BodyMode::MorphBall);
+    }
+
+    /// Airborne double-tap-down does NOT curl (morph is grounded only).
+    #[test]
+    fn airborne_double_tap_down_does_not_morph() {
+        let mut app = body_app(empty_world());
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.player.pos = ae::Vec2::new(200.0, 200.0);
+            runtime.player.on_ground = false;
+        }
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.fast_fall_pressed = true;
+        }
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
         assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);

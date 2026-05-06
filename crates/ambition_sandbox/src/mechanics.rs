@@ -229,13 +229,13 @@ fn default_entries() -> Vec<MechanicEntry> {
         },
         MechanicEntry {
             id: "morph_ball",
-            name: "Morph ball (planned)",
+            name: "Morph ball",
             category: BodyState,
-            maturity: Planned,
-            input_hint: "Down + Down",
+            maturity: Prototype,
+            input_hint: "Down + Down (grounded); Jump to unmorph",
             requires: "BodyMode backend",
             station: Some("basement_mechanics/body"),
-            doc: "Compact stance for narrow tunnels.",
+            doc: "Compact stance for narrow tunnels; unmorph gated by collision-safe stand-up.",
         },
         MechanicEntry {
             id: "grapple_clawline",

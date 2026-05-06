@@ -108,6 +108,7 @@ pub struct SandboxQueues<'w> {
 pub struct ProgressionResources<'w> {
     pub quests: Res<'w, crate::quest::QuestRegistry>,
     pub cutscene: Res<'w, crate::cutscene::ActiveCutscene>,
+    pub cutscene_request: Res<'w, crate::cutscene::CutsceneAdvanceRequest>,
     pub bosses: Res<'w, crate::boss_encounter::BossEncounterRegistry>,
     pub encounters: Res<'w, crate::encounter::EncounterRegistry>,
     pub map: Res<'w, crate::map_menu::MapMenuState>,
@@ -812,6 +813,7 @@ fn populate_control_frame_from_actions(
     mut dash_state: ResMut<PlayerDashTriggerState>,
     cutscene: Res<crate::cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<crate::cutscene::CutsceneAdvanceRequest>,
+    time: Res<Time>,
 ) {
     if matches!(mode.get(), GameMode::Dialogue) {
         if let Ok(mut action_state) = player_input.single_mut() {
@@ -823,7 +825,12 @@ fn populate_control_frame_from_actions(
     // Cutscene takes precedence over gameplay input. We snapshot
     // interact_pressed into the dismiss request and zero out the
     // gameplay frame so movement / attack can't fire while a beat
-    // plays.
+    // plays. Holding `Reset` (Backspace/Delete/pad-Select) for
+    // `SKIP_HOLD_THRESHOLD_SECS` requests a full cutscene skip so a
+    // mistap can't burn through scripted content. Reset is chosen
+    // (not Start) so the pause toggle still works during cutscenes
+    // and a held button doesn't fight the existing
+    // press-to-advance-dialogue mapping on Interact / Jump.
     if cutscene.is_playing() {
         if let Ok(action_state) = player_input.single() {
             let interact = action_state
@@ -832,10 +839,24 @@ fn populate_control_frame_from_actions(
             if interact {
                 cutscene_request.dismiss_dialogue = true;
             }
+            if action_state.pressed(&SandboxAction::Reset) {
+                cutscene_request.skip_hold_seconds += time.delta_secs();
+                if cutscene_request.skip_hold_seconds
+                    >= crate::cutscene::SKIP_HOLD_THRESHOLD_SECS
+                {
+                    cutscene_request.skip_cutscene = true;
+                    cutscene_request.skip_hold_seconds = 0.0;
+                }
+            } else {
+                cutscene_request.skip_hold_seconds = 0.0;
+            }
         }
         *frame = ControlFrame::default();
         return;
     }
+    // Outside cutscenes, decay the skip-hold counter so a stale
+    // mid-cutscene press can't carry over.
+    cutscene_request.skip_hold_seconds = 0.0;
     *frame = match player_input.single() {
         Ok(action_state) => {
             if mode.get().allows_gameplay() {
@@ -2419,7 +2440,22 @@ fn update_hud(
                 None => format!("cutscene: beat {}", rt.beat_index),
             },
         };
-        format!("\nCUTSCENE: {beat}")
+        // Skip-hold progress: only render the bar while a hold is in
+        // progress, so an idle cutscene doesn't show a clutter prompt.
+        let skip_progress = progression.cutscene_request.skip_progress();
+        let skip_hint = if skip_progress > 0.01 {
+            let filled = (skip_progress * 12.0).round().clamp(0.0, 12.0) as usize;
+            let empty = 12usize.saturating_sub(filled);
+            format!(
+                "  hold Backspace/Select to skip [{}{}] {:.0}%",
+                "=".repeat(filled),
+                "-".repeat(empty),
+                skip_progress * 100.0,
+            )
+        } else {
+            "  (Backspace/Select held = skip)".to_string()
+        };
+        format!("\nCUTSCENE: {beat}{skip_hint}")
     } else {
         String::new()
     };

@@ -254,11 +254,13 @@ to the bottom under "Closed" with the commit that fixed them.
     audio identity doesn't change yet. Authoring 3–4 tracks in the
     existing RON arrangement format is the gap.
 
-- **MED — Cutscene system has no skip-with-warning UX**
-  - File: `crates/ambition_sandbox/src/cutscene.rs`
-  - `CutsceneAdvanceRequest::skip_cutscene` is wired but there's no
-    UI for it. We also haven't decided whether holding ESC vs.
-    tapping it is the right "skip" gesture.
+- ~~**MED — Cutscene system has no skip-with-warning UX**~~
+  *(Closed — `CutsceneAdvanceRequest::skip_hold_seconds` accumulates
+  while the player holds `Reset` (Backspace/Delete/pad-Select); the
+  HUD shows a progress bar above `SKIP_HOLD_THRESHOLD_SECS = 1.2`,
+  and the input layer flips `skip_cutscene = true` once the hold
+  passes the threshold. Reset was chosen over Start so the pause
+  toggle is unaffected during cutscenes.)*
 
 - **LOW — Quest log lines are inlined in the HUD format string**
   - File: `crates/ambition_sandbox/src/app.rs:update_hud`

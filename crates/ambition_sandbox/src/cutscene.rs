@@ -191,14 +191,38 @@ pub fn drain_cutscene_triggers(
     }
 }
 
+/// Hold duration in seconds the player must keep the skip button held
+/// before the cutscene actually skips. Long enough that an accidental
+/// tap can't burn through scripted content.
+pub const SKIP_HOLD_THRESHOLD_SECS: f32 = 1.2;
+
 /// Tick the active cutscene. The advance signal comes from the input
 /// layer (it sets `runtime.advance_dialogue` via the
 /// `CutsceneAdvanceRequest` resource so the simulation half doesn't
 /// import keyboard state).
+///
+/// `skip_hold_seconds` is presentation-readable so the HUD can render
+/// a "hold to skip" progress bar. The input layer accumulates it
+/// while the player is holding the skip button and zeroes it on
+/// release. The simulation half flips `skip_cutscene = true` when
+/// `skip_hold_seconds >= SKIP_HOLD_THRESHOLD_SECS`; the actual
+/// cutscene-skip path consumes `skip_cutscene` and is unchanged.
 #[derive(Resource, Default)]
 pub struct CutsceneAdvanceRequest {
     pub dismiss_dialogue: bool,
     pub skip_cutscene: bool,
+    pub skip_hold_seconds: f32,
+}
+
+impl CutsceneAdvanceRequest {
+    /// Fraction of the way through the skip-hold window. Useful for
+    /// HUD progress bars; clamped to `[0, 1]`.
+    pub fn skip_progress(&self) -> f32 {
+        if SKIP_HOLD_THRESHOLD_SECS <= 0.0 {
+            return 1.0;
+        }
+        (self.skip_hold_seconds / SKIP_HOLD_THRESHOLD_SECS).clamp(0.0, 1.0)
+    }
 }
 
 pub fn tick_active_cutscene(
@@ -273,5 +297,34 @@ pub fn tick_active_cutscene(
         active.current_banner = None;
         active.camera_target = None;
         active.fade_alpha = 0.0;
+    }
+}
+
+#[cfg(test)]
+mod skip_request_tests {
+    use super::*;
+
+    #[test]
+    fn skip_progress_is_zero_when_no_hold_active() {
+        let req = CutsceneAdvanceRequest::default();
+        assert_eq!(req.skip_progress(), 0.0);
+    }
+
+    #[test]
+    fn skip_progress_clamps_to_one() {
+        let req = CutsceneAdvanceRequest {
+            skip_hold_seconds: SKIP_HOLD_THRESHOLD_SECS * 2.0,
+            ..Default::default()
+        };
+        assert_eq!(req.skip_progress(), 1.0);
+    }
+
+    #[test]
+    fn skip_progress_is_linear_within_window() {
+        let req = CutsceneAdvanceRequest {
+            skip_hold_seconds: SKIP_HOLD_THRESHOLD_SECS * 0.5,
+            ..Default::default()
+        };
+        assert!((req.skip_progress() - 0.5).abs() < 1e-4);
     }
 }

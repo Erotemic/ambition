@@ -7,12 +7,13 @@ use bevy::prelude::*;
 
 pub const DIALOG_FONT_REGULAR: &str = "fonts/local/InterDisplay-Regular.otf";
 pub const DIALOG_FONT_SEMIBOLD: &str = "fonts/local/InterDisplay-SemiBold.otf";
-
+pub const DEBUG_FONT_MONO: &str = "fonts/local/DejaVuSansMono.ttf";
 
 #[derive(Resource, Clone, Debug, Default)]
 pub struct UiFonts {
     pub regular: Option<Handle<Font>>,
     pub semibold: Option<Handle<Font>>,
+    pub mono: Option<Handle<Font>>,
 }
 
 impl UiFonts {
@@ -32,6 +33,7 @@ impl UiFonts {
         let handle = match weight {
             UiFontWeight::Regular => self.regular.clone(),
             UiFontWeight::Semibold => self.semibold.clone().or_else(|| self.regular.clone()),
+            UiFontWeight::Monospace => self.mono.clone().or_else(|| self.regular.clone()),
         };
 
         let mut font = TextFont {
@@ -51,16 +53,28 @@ impl UiFonts {
 pub enum UiFontWeight {
     Regular,
     Semibold,
+    Monospace,
 }
 
 pub fn load_ui_fonts(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let regular = load_optional_font(&asset_server, DIALOG_FONT_REGULAR, "regular dialogue UI font");
+    let regular = load_optional_font(
+        &asset_server,
+        DIALOG_FONT_REGULAR,
+        "regular dialogue UI font",
+    );
+
     let semibold = load_optional_font(
         &asset_server,
         DIALOG_FONT_SEMIBOLD,
         "semibold dialogue UI font",
     )
     .or_else(|| regular.clone());
+
+    let mono = load_optional_font(
+        &asset_server,
+        DEBUG_FONT_MONO,
+        "monospace debug UI font",
+    );
 
     if regular.is_none() {
         warn!(
@@ -69,7 +83,18 @@ pub fn load_ui_fonts(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
     }
 
-    commands.insert_resource(UiFonts { regular, semibold });
+    if mono.is_none() {
+        warn!(
+            "No monospace debug UI font found; debug HUD will fall back to the regular UI font or Bevy default. \
+             Expected asset path: assets/{DEBUG_FONT_MONO}"
+        );
+    }
+
+    commands.insert_resource(UiFonts {
+        regular,
+        semibold,
+        mono,
+    });
 }
 
 fn load_optional_font(

@@ -226,7 +226,7 @@ fn presentation_world_inner(
         .spawn((
             Text::new("Ambition"),
             ui_fonts
-            .map(|fonts| fonts.text_font(14.0, UiFontWeight::Regular))
+            .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
             .unwrap_or(TextFont {
                 font_size: 14.0,
                 ..default()

@@ -137,7 +137,7 @@ pub fn apply_encounter_music(
         None => resolved_default,
     };
     let already_applied =
-        request.last_applied.as_ref() == Some(&target) || music_state.active_track == target;
+        request.last_applied.as_ref() == Some(&target) && music_state.active_track == target;
     if !already_applied && library.track(&target).is_some() {
         switch_to_music_track(&library, &mut music_state, &music_channel, &target);
     }

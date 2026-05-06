@@ -39,8 +39,7 @@ use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap}
 use crate::audio::SfxMessage;
 #[cfg(feature = "audio")]
 use crate::audio::{
-    apply_audio_settings, apply_encounter_music, audio_play_sfx_messages, start_default_music,
-    MusicChannel, SfxChannel,
+    apply_audio_settings, audio_play_sfx_messages, start_default_music, MusicChannel, SfxChannel,
 };
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::data;
@@ -757,38 +756,34 @@ fn add_audio_plugins(app: &mut App) {
     app.add_plugins(KiraAudioPlugin)
         .add_audio_channel::<MusicChannel>()
         .add_audio_channel::<SfxChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicStringsChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicBrassChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicWindsChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicChoirPadChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicMalletsChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicPercussionChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicStringsAltChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicBrassAltChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicWindsAltChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicChoirPadAltChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicMalletsAltChannel>()
-        .add_audio_channel::<crate::generated_music::GeneratedMusicPercussionAltChannel>()
+        .add_audio_channel::<crate::music::MusicLayer0AChannel>()
+        .add_audio_channel::<crate::music::MusicLayer1AChannel>()
+        .add_audio_channel::<crate::music::MusicLayer2AChannel>()
+        .add_audio_channel::<crate::music::MusicLayer3AChannel>()
+        .add_audio_channel::<crate::music::MusicLayer4AChannel>()
+        .add_audio_channel::<crate::music::MusicLayer5AChannel>()
+        .add_audio_channel::<crate::music::MusicLayer0BChannel>()
+        .add_audio_channel::<crate::music::MusicLayer1BChannel>()
+        .add_audio_channel::<crate::music::MusicLayer2BChannel>()
+        .add_audio_channel::<crate::music::MusicLayer3BChannel>()
+        .add_audio_channel::<crate::music::MusicLayer4BChannel>()
+        .add_audio_channel::<crate::music::MusicLayer5BChannel>()
         .add_systems(
             Startup,
             start_default_music.after(setup_presentation_system),
         )
         .add_systems(
             Startup,
-            crate::generated_music::load_generated_goblin_music.after(setup_presentation_system),
+            crate::music::load_music_cues.after(setup_presentation_system),
         )
         .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
         // Push UserSettings.audio (master/music/sfx/mute) into the
         // Kira channels whenever the user changes the menu sliders.
         // Cheap; the system early-returns when settings are unchanged.
         .add_systems(Update, apply_audio_settings.after(sandbox_update))
-        // React to encounter music requests: swap to the encounter
-        // track on Active, restore default on Cleared / leave.
-        .add_systems(Update, apply_encounter_music.after(sandbox_update))
-        .add_systems(
-            Update,
-            crate::generated_music::drive_goblin_generated_music.after(sandbox_update),
-        );
+        // Unified director: resolves room/encounter simple tracks and
+        // adaptive cue states behind one music intent layer.
+        .add_systems(Update, crate::music::drive_music_director.after(sandbox_update));
 }
 
 #[cfg(not(feature = "audio"))]

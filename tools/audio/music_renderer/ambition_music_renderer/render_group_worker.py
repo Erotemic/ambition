@@ -35,16 +35,15 @@ def main(argv=None) -> int:
     with tempfile.TemporaryDirectory() as td:
         raw = r.render_group_audio(pm, groups, ns.group, ns.backend, soundfont, sr, Path(td), total, bpm)
         raw = r.ensure_audio_length(raw, target)
+        settings = dict(spec.get("stem_postprocess", {}) or {})
+        settings.update((spec.get("group_postprocess", {}) or {}).get(ns.group, {}))
+        settings.setdefault("normalize", False)
+        settings.setdefault("target_peak_db", -2.5)
         if ns.simple_post:
-            gp = (spec.get("group_postprocess", {}) or {}).get(ns.group, {})
-            gain = 10 ** (float(gp.get("gain_db", -1.0)) / 20.0)
-            audio = r.soft_limit(raw * gain, -2.5, drive=1.0, normalize=False)
-        else:
-            settings = dict(spec.get("stem_postprocess", {}) or {})
-            settings.update((spec.get("group_postprocess", {}) or {}).get(ns.group, {}))
-            settings.setdefault("normalize", False)
-            settings.setdefault("target_peak_db", -2.5)
-            audio = r.post_process(raw, sr, settings)
+            # Deprecated compatibility flag. The old path only honored gain_db,
+            # which made YAML EQ/reverb/transient settings silently dead.
+            settings.setdefault("simple_post_compat", True)
+        audio = r.post_process(raw, sr, settings)
     npy = outdir / "debug_stems" / f"{spec['id']}_{cue_hash}.{ns.group}.npy"
     npy.parent.mkdir(parents=True, exist_ok=True)
     np.save(npy, audio.astype("float32"))
@@ -58,5 +57,4 @@ def main(argv=None) -> int:
     return 0
 
 if __name__ == "__main__":
-    code = main()
-    sys.stdout.flush(); sys.stderr.flush(); os._exit(code)
+    raise SystemExit(main())

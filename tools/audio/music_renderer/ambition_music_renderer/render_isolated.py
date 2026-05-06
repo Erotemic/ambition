@@ -49,7 +49,10 @@ def main(argv=None) -> int:
         for sec in meta:
             path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.{group}.ogg"
             output_files["adaptive"].setdefault(sec["id"], {})[group] = str(path.relative_to(outdir))
-    master = r.soft_limit(full, float(spec.get("postprocess", {}).get("target_peak_db", -1.2)), drive=1.02, normalize=True)
+    master_settings = dict(spec.get("postprocess", {}) or {})
+    master_settings.setdefault("normalize", True)
+    master_settings.setdefault("target_peak_db", -1.2)
+    master = r.post_process(full, sr, master_settings)
     preview = outdir / "preview" / f"{spec['id']}_{cue_hash}.full_soundtrack_preview.ogg"
     r.write_ogg_from_audio(master, sr, preview, quality=quality, keep_wav=False)
     output_files["preview"]["full_soundtrack"] = str(preview.relative_to(outdir))
@@ -72,5 +75,4 @@ def main(argv=None) -> int:
     return 0
 
 if __name__ == "__main__":
-    code = main()
-    sys.stdout.flush(); sys.stderr.flush(); os._exit(code)
+    raise SystemExit(main())

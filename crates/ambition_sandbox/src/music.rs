@@ -43,7 +43,7 @@ const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 /// Stacked layers sum hotter than the legacy single-channel procedural room
 /// tracks, so keep the per-cue default conservative and let cue states shape
 /// individual layer gains.
-const ADAPTIVE_MUSIC_RELATIVE_VOLUME: f32 = 0.85;
+const ADAPTIVE_MUSIC_RELATIVE_VOLUME: f32 = 1.0;
 const STEM_GAIN_BLEND_SECONDS: f32 = 1.05;
 const LOOP_SECTION_CROSSFADE_SECONDS: f32 = 1.70;
 const INTRO_TO_LOOP_CROSSFADE_SECONDS: f32 = 1.25;
@@ -1082,6 +1082,69 @@ fn is_outro_target(cue: &MusicCueSpec, state: &MusicStateSpec) -> bool {
     cue.outro_state.as_deref() == Some(state.id.as_str())
 }
 
+
+fn apply_first_goblin_runtime_balance_overrides(
+    cue: &MusicCueSpec,
+    state: &MusicStateSpec,
+    gains: &mut LayerGains,
+    master: f32,
+) {
+    if cue.id != FIRST_GOBLIN_CUE_ID {
+        return;
+    }
+
+    let overrides: &[(&str, f32)] = match state.id.as_str() {
+        "wave1" => &[
+            ("strings", 0.95),
+            ("winds", 1.00),
+            ("mallets", 0.18),
+            ("percussion", 0.08),
+            ("brass", 0.00),
+            ("choir_pad", 0.00),
+        ],
+        "wave2" => &[
+            ("strings", 0.95),
+            ("winds", 1.00),
+            ("mallets", 0.14),
+            ("percussion", 0.38),
+            ("brass", 0.44),
+            ("choir_pad", 0.04),
+        ],
+        "wave2_brute" => &[
+            ("strings", 0.95),
+            ("winds", 1.00),
+            ("mallets", 0.12),
+            ("percussion", 0.46),
+            ("brass", 0.58),
+            ("choir_pad", 0.06),
+        ],
+        "wave3" => &[
+            ("strings", 0.90),
+            ("winds", 1.00),
+            ("mallets", 0.08),
+            ("percussion", 0.42),
+            ("brass", 0.54),
+            ("choir_pad", 0.06),
+        ],
+        "recap_loop" => &[
+            ("strings", 0.90),
+            ("winds", 0.90),
+            ("mallets", 0.10),
+            ("percussion", 0.12),
+            ("brass", 0.16),
+            ("choir_pad", 0.02),
+        ],
+        _ => return,
+    };
+
+    for (layer_id, gain) in overrides {
+        if let Some(layer) = cue.layer(layer_id) {
+            let slot = layer.slot.min(MAX_LAYERS - 1);
+            gains[slot] = gain.max(0.0) * master;
+        }
+    }
+}
+
 fn gains_for_state(cue: &MusicCueSpec, state: &MusicStateSpec, settings: &UserSettings) -> LayerGains {
     let mut gains = [0.0; MAX_LAYERS];
     let master = settings.audio.effective_music() * cue.relative_volume;
@@ -1091,6 +1154,7 @@ fn gains_for_state(cue: &MusicCueSpec, state: &MusicStateSpec, settings: &UserSe
             gains[slot] = layer_gain.gain.max(0.0) * master;
         }
     }
+    apply_first_goblin_runtime_balance_overrides(cue, state, &mut gains, master);
     gains
 }
 

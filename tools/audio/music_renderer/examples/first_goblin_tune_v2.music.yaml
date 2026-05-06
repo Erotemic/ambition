@@ -16,11 +16,11 @@ meter:
   beat_unit: 4
 render:
   sample_rate: 48000
-  ogg_quality: 5
+  ogg_quality: 6
   backend: fast
   soundfont: /usr/share/sounds/sf2/TimGM6mb.sf2
 postprocess:
-  gain_db: -2.5
+  gain_db: 0.0
   highpass_hz: 35
   reverb_wet: 0.055
   reverb_decay_seconds: 0.90
@@ -28,30 +28,31 @@ postprocess:
   stereo_width: 0.035
   limiter_drive: 0.90
   normalize: true
-  target_peak_db: -7.0
+  target_peak_db: -2.5
 stem_postprocess:
-  gain_db: -4.5
+  gain_db: 0.0
   highpass_hz: 35
-  reverb_wet: 0.012
-  reverb_decay_seconds: 0.55
+  reverb_wet: 0.002
+  reverb_decay_seconds: 0.28
   reverb_damping_hz: 6200
-  stereo_width: 0.015
+  stereo_width: 0.020
   limiter_drive: 0.88
   normalize: false
-  target_peak_db: -11.0
+  target_peak_db: -3.0
 instruments:
-  - {name: violins_i,    group: strings,    program: string_ensemble_1, volume: 58, pan: 78, expression: 68, modulation: 4}
-  - {name: violas,       group: strings,    program: viola,             volume: 58, pan: 50, expression: 68, modulation: 3}
-  - {name: celli,        group: strings,    program: cello,             volume: 62, pan: 38, expression: 70, modulation: 3}
-  - {name: contrabass,   group: strings,    program: contrabass,        volume: 60, pan: 34, expression: 70}
+  - {name: violins_i,    group: strings,    program: string_ensemble_1, volume: 78, pan: 78, expression: 82, modulation: 10}
+  - {name: violas,       group: strings,    program: viola,             volume: 74, pan: 50, expression: 80, modulation: 8}
+  - {name: celli,        group: strings,    program: cello,             volume: 76, pan: 38, expression: 80, modulation: 7}
+  - {name: contrabass,   group: strings,    program: contrabass,        volume: 72, pan: 34, expression: 78}
 
   - {name: horns,        group: brass,      program: french_horn,       volume: 62, pan: 72, expression: 68, modulation: 3}
   - {name: trombones,    group: brass,      program: trombone,          volume: 60, pan: 44, expression: 66}
   - {name: tuba,         group: brass,      program: tuba,              volume: 58, pan: 34, expression: 64}
 
-  - {name: oboe,         group: winds,      program: oboe,              volume: 58, pan: 72, expression: 72, modulation: 2}
-  - {name: clarinet,     group: winds,      program: clarinet,          volume: 60, pan: 54, expression: 72, modulation: 2}
-  - {name: bassoon,      group: winds,      program: bassoon,           volume: 58, pan: 38, expression: 70}
+  - {name: flute,        group: winds,      program: flute,             volume: 80, pan: 84, expression: 84, modulation: 7}
+  - {name: oboe,         group: winds,      program: oboe,              volume: 82, pan: 72, expression: 86, modulation: 6}
+  - {name: clarinet,     group: winds,      program: clarinet,          volume: 82, pan: 54, expression: 86, modulation: 6}
+  - {name: bassoon,      group: winds,      program: bassoon,           volume: 78, pan: 38, expression: 82, modulation: 3}
 
   - {name: pad_subtle,   group: choir_pad,  program: pad_bowed,         volume: 26, pan: 64, expression: 44, modulation: 4}
   - {name: choir,        group: choir_pad,  program: choir_aahs,        volume: 26, pan: 64, expression: 42, modulation: 3}
@@ -86,6 +87,7 @@ layer_templates:
     automation:
       - {group: strings, cc: expression, from: 62, to: 78, curve: smooth, points: 8}
       - {group: brass, cc: expression, from: 52, to: 72, curve: smooth, points: 8}
+      - {group: winds, cc: expression, from: 72, to: 96, curve: smooth, points: 8}
       - {group: choir_pad, cc: expression, from: 34, to: 54, curve: smooth, points: 8}
 
   string_pad:
@@ -122,13 +124,13 @@ layer_templates:
     humanize_ms: 0
   wind_goblin:
     kind: motif
-    instruments: [oboe, clarinet]
+    instruments: [flute, oboe, clarinet]
     motif: goblin_short
     root: D4
-    velocity: 46
+    velocity: 66
     articulation: staccato
-    instrument_velocity_offsets: {oboe: -2, clarinet: -6}
-    instrument_pitch_scoop_cents: {oboe: 0.5, clarinet: 0.5}
+    instrument_velocity_offsets: {flute: 4, oboe: 0, clarinet: -3}
+    instrument_pitch_scoop_cents: {flute: 0.0, oboe: 0.0, clarinet: 0.0}
   low_goblin:
     kind: motif
     instruments: [bassoon, celli]
@@ -240,7 +242,7 @@ state_map:
     fade_beats: 4
   wave_3:
     preferred_section: wave3
-    stems: {strings: 1.0, winds: 0.52, mallets: 0.12, percussion: 0.44, brass: 0.58, choir_pad: 0.14}
+    stems: {strings: 0.90, winds: 0.92, mallets: 0.10, percussion: 0.38, brass: 0.52, choir_pad: 0.08}
   long_active_fallback: {preferred_section: recap_loop}
   cleared:
     transition: outro_at_next_valid_exit_bar
@@ -319,8 +321,9 @@ sections:
       - expression_gentle
       - {template: string_pad, velocity: 34}
       - {template: low_string_pulse, velocity: 42}
-      - {template: low_goblin, starts: [[0, 1.0], [4, 1.0]], velocity: 42}
-      - {template: hero_horns, starts: [[0, 0.0], [4, 0.0]], velocity: 46}
+      - {template: low_goblin, starts: [[0, 1.0], [4, 1.0]], velocity: 40}
+      - {template: wind_goblin, starts: [[0, 0.0], [2, 0.0], [4, 0.0], [6, 0.0]], velocity: 68}
+      - {template: hero_horns, starts: [[0, 0.0], [4, 0.0]], velocity: 44}
       - {template: brass_soft_hits, hits: [[0, 0.0], [4, 0.0]], velocity: 50}
       - {template: tuba_roots_light, velocity: 48}
       - {template: timpani_roots, velocity: 44}
@@ -369,9 +372,9 @@ sections:
           - {drum: concert_bass_drum, bars: [0], beat: 0.0, velocity: 32}
 
 group_postprocess:
-  strings: {gain_db: -4.5, lowpass_hz: 6200, high_shelf_db: -2.5, transient_tame: 0.18, reverb_wet: 0.010}
-  winds: {gain_db: -3.0, lowpass_hz: 5600, high_shelf_db: -2.0, transient_tame: 0.12, reverb_wet: 0.010}
-  mallets: {gain_db: -7.0, lowpass_hz: 5200, high_shelf_db: -3.5, transient_tame: 0.22, reverb_wet: 0.006}
-  percussion: {gain_db: -7.5, lowpass_hz: 4800, high_shelf_db: -4.0, transient_tame: 0.30, reverb_wet: 0.004}
-  brass: {gain_db: -3.0, lowpass_hz: 6200, high_shelf_db: -1.5, transient_tame: 0.08, reverb_wet: 0.010}
-  choir_pad: {gain_db: -9.0, lowpass_hz: 5000, high_shelf_db: -3.0, transient_tame: 0.10, reverb_wet: 0.012}
+  strings: {gain_db: 0.8, lowpass_hz: 13500, high_shelf_hz: 5200, high_shelf_db: 0.6, transient_tame: 0.01, reverb_wet: 0.002}
+  winds: {gain_db: 4.0, lowpass_hz: 12500, high_shelf_hz: 4600, high_shelf_db: 1.3, presence_low_hz: 1500, presence_high_hz: 5200, presence_db: 2.0, transient_tame: 0.01, reverb_wet: 0.002}
+  mallets: {gain_db: -6.5, lowpass_hz: 9000, high_shelf_hz: 5200, high_shelf_db: -0.6, transient_tame: 0.12, reverb_wet: 0.002}
+  percussion: {gain_db: -4.0, lowpass_hz: 9500, high_shelf_hz: 5200, high_shelf_db: -0.4, transient_tame: 0.12, reverb_wet: 0.001}
+  brass: {gain_db: -0.4, lowpass_hz: 10500, high_shelf_hz: 5200, high_shelf_db: 0.2, transient_tame: 0.02, reverb_wet: 0.002}
+  choir_pad: {gain_db: -9.0, lowpass_hz: 8000, high_shelf_hz: 4800, high_shelf_db: -0.8, transient_tame: 0.04, reverb_wet: 0.004}

@@ -34,7 +34,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.5.4-clean-demo-stems"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.6.0-production-path-fixes"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf2/TimGM6mb.sf2",
     "/usr/share/sounds/sf2/default-GM.sf2",
@@ -244,6 +244,45 @@ def add_cc(inst: pretty_midi.Instrument, number: int, value: int, time: float) -
     inst.control_changes.append(pretty_midi.ControlChange(number=int(number), value=int(clamp(value, 0, 127)), time=float(time)))
 
 
+
+def cc_value_at_time(inst: pretty_midi.Instrument, number: int, time: float, default: float) -> float:
+    """Return latest MIDI CC value at or before time for the fast renderer."""
+    value = float(default)
+    for cc in sorted(inst.control_changes, key=lambda c: c.time):
+        if cc.number != number:
+            continue
+        if cc.time <= time + 1e-6:
+            value = float(cc.value)
+        else:
+            break
+    return value
+
+
+def _program_family(program: int) -> str | None:
+    """Classify a GM program into broad fast-renderer families."""
+    program = int(program)
+    if 40 <= program <= 51:
+        return "strings"
+    if program == 46:
+        return "harp"
+    if program == 47:
+        return "timpani"
+    if 52 <= program <= 54:
+        return "choir"
+    if 56 <= program <= 63:
+        return "brass"
+    if 64 <= program <= 79:
+        return "winds"
+    if 9 <= program <= 15 or 112 <= program <= 119:
+        return "mallet"
+    if 32 <= program <= 39:
+        return "bass"
+    if 80 <= program <= 87:
+        return "lead"
+    if 88 <= program <= 103:
+        return "pad"
+    return None
+
 def add_instrument(ctx: RenderContext, spec: dict[str, Any]) -> None:
     name = spec["name"]
     if spec.get("is_drum", False):
@@ -301,9 +340,9 @@ def add_chord(ctx: RenderContext, inst_name: str, chord: str, bar: float, beat: 
         add_note(ctx, inst_name, p, bar, beat, dur_beats, vel - idx * 2, articulation=articulation, humanize_ms=humanize_ms, gate=gate)
 
 
-def add_drum(ctx: RenderContext, kit: str, drum_name: str, bar: float, beat: float, vel: float, *, dur_beats: float = 0.1, humanize_ms: float = 0.0) -> None:
+def add_drum(ctx: RenderContext, kit: str, drum_name: str, bar: float, beat: float, vel: float, *, dur_beats: float = 0.30, humanize_ms: float = 0.0) -> None:
     pitch = DRUMS[drum_name]
-    add_note(ctx, kit, pitch, bar, beat, dur_beats, vel, articulation="staccato", humanize_ms=humanize_ms)
+    add_note(ctx, kit, pitch, bar, beat, dur_beats, vel, articulation="normal", humanize_ms=humanize_ms, gate=1.0)
 
 
 def chord_for_bar(section: dict[str, Any], local_bar: int) -> str:
@@ -746,31 +785,32 @@ def _declick(sig: np.ndarray, sr: int, attack: float = 0.006, release: float = 0
     return out.astype(np.float32, copy=False)
 
 
-def _instrument_family(inst: pretty_midi.Instrument) -> str:
-    name = inst.name.lower()
-    program = inst.program
-    if inst.is_drum:
-        return "drum"
-    if any(s in name for s in ["violin", "viola", "cello", "contrabass", "string"]):
-        return "string"
-    if any(s in name for s in ["horn", "trumpet", "trombone", "tuba", "brass"]):
-        return "brass"
-    if any(s in name for s in ["flute", "oboe", "clarinet", "bassoon", "wind", "horn"]):
-        return "wind"
-    if any(s in name for s in ["choir", "voice", "pad", "atmos", "halo"]):
-        return "pad"
-    if any(s in name for s in ["marimba", "xylo", "vibe", "bell", "harp", "celesta", "glock"]):
-        return "mallet"
-    if any(s in name for s in ["piano", "keys"]):
-        return "piano"
-    if any(s in name for s in ["bass"]):
-        return "bass"
-    if 80 <= program <= 87:
-        return "synth_lead"
-    if 88 <= program <= 103:
-        return "pad"
-    return "generic"
 
+def _instrument_family(inst: pretty_midi.Instrument) -> str:
+    """Classify instruments for the fast renderer.
+
+    Prefer GM program first. Name-only matching misclassified e.g. `celli`
+    because "cello" is not a substring of "celli".
+    """
+    if inst.is_drum:
+        return "drums"
+
+    family = _program_family(int(getattr(inst, "program", 0)))
+    if family is not None:
+        return family
+
+    name = (inst.name or "").lower()
+    if any(k in name for k in ("violin", "viola", "cello", "celli", "cell", "contrabass", "string")):
+        return "strings"
+    if any(k in name for k in ("trumpet", "trombone", "tuba", "brass")) or ("horn" in name and "english" not in name):
+        return "brass"
+    if any(k in name for k in ("flute", "oboe", "clarinet", "bassoon", "piccolo", "recorder", "english_horn", "english horn", "winds", "wind")):
+        return "winds"
+    if any(k in name for k in ("choir", "voice", "pad")):
+        return "choir"
+    if any(k in name for k in ("harp", "marimba", "mallet", "bell", "timpani")):
+        return "mallet"
+    return "generic"
 
 def _synth_note_fast(frequency: float, duration: float, velocity: int, family: str, sr: int, rng: np.random.Generator) -> np.ndarray:
     """Built-in fallback instrument model.
@@ -864,13 +904,25 @@ def _synth_drum_fast(pitch: int, duration: float, velocity: int, sr: int, rng: n
         sig = _declick(sig, sr, 0.006, 0.020)
     return (sig * vel).astype(np.float32)
 
+
+def midi_content_seed(pm: pretty_midi.PrettyMIDI) -> int:
+    """Stable pseudo-random seed derived from score content."""
+    h = hashlib.sha256()
+    for inst in pm.instruments:
+        h.update(str(inst.program).encode())
+        h.update(str(inst.is_drum).encode())
+        h.update((inst.name or "").encode())
+        for note in inst.notes[:2048]:
+            h.update(f"{note.pitch}:{note.start:.4f}:{note.end:.4f}:{note.velocity}".encode())
+    return int.from_bytes(h.digest()[:8], "big") & 0xFFFFFFFF
+
 def render_fast(pm: pretty_midi.PrettyMIDI, sample_rate: int, *, minimum_duration: float | None = None) -> np.ndarray:
     end_time = pm.get_end_time()
     if minimum_duration is not None:
         end_time = max(end_time, minimum_duration)
     total_samples = int(math.ceil((end_time + 0.75) * sample_rate))
     mix = np.zeros((total_samples, 2), dtype=np.float32)
-    rng = np.random.default_rng(424242)
+    rng = np.random.default_rng(midi_content_seed(pm))
     for inst in pm.instruments:
         pan = _inst_pan(inst)
         vol = _inst_volume(inst)
@@ -975,28 +1027,41 @@ def band_gain(audio: np.ndarray, sample_rate: int, *, low_hz: float, high_hz: fl
     return (audio + band * (gain - 1.0)).astype(np.float32)
 
 
-def simple_reverb(audio: np.ndarray, sample_rate: int, *, wet: float = 0.18, decay: float = 1.4, damping_hz: float = 6_000.0) -> np.ndarray:
-    """Very fast deterministic ambience for long section/stem renders.
 
-    This is intentionally a multi-tap dark room rather than a CPU-heavy true
-    convolution reverb. It gives space without turning bright synthetic sources
-    into a smeared high-frequency cloud.
+def simple_reverb(audio: np.ndarray, sr: int, wet: float = 0.08, decay: float = 0.9, damping_hz: float = 6500.0) -> np.ndarray:
+    """Small deterministic reverb used by MusicIR post-processing.
+
+    The previous implementation accepted decay but used fixed taps, making
+    reverb_decay_seconds dead YAML.
     """
-    if wet <= 0:
-        return audio.astype(np.float32, copy=False)
-    audio = _coerce_stereo(audio)
-    taps = [
-        (0.029, 0.42), (0.037, 0.34), (0.053, 0.28), (0.079, 0.22),
-        (0.113, 0.16), (0.173, 0.11), (0.251, 0.075), (0.337, 0.050),
-    ]
-    wet_acc = np.zeros_like(audio, dtype=np.float32)
-    for delay, gain in taps:
-        d = max(1, int(delay * sample_rate))
-        if d < len(audio):
-            wet_acc[d:] += audio[:-d] * gain
-    if damping_hz and damping_hz < sample_rate * 0.49:
-        wet_acc = lowpass(wet_acc, sample_rate, damping_hz, order=1)
-    return (audio * (1 - wet) + wet_acc * wet).astype(np.float32)
+    wet = float(wet)
+    decay = max(float(decay), 1e-3)
+    if wet <= 0.0 or audio.size == 0:
+        return audio.astype("float32", copy=False)
+
+    y = np.asarray(audio, dtype="float32")
+    if y.ndim == 1:
+        y = y[:, None]
+    acc = np.zeros_like(y)
+
+    for idx, delay_seconds in enumerate((0.029, 0.043, 0.071, 0.113, 0.173)):
+        delay = max(1, int(round(delay_seconds * sr)))
+        if delay >= len(y):
+            continue
+        gain = math.exp(-delay_seconds / decay) * (0.55 ** idx)
+        acc[delay:] += y[:-delay] * gain
+        if acc.shape[1] >= 2:
+            acc[delay:, 1] += y[:-delay, 0] * gain * 0.08
+            acc[delay:, 0] += y[:-delay, 1] * gain * 0.05
+
+    if damping_hz and damping_hz > 0 and len(acc) > 16:
+        cutoff = min(float(damping_hz), sr * 0.45)
+        if cutoff > 20.0:
+            b, a = signal.butter(1, cutoff / (sr * 0.5), btype="low")
+            acc = signal.lfilter(b, a, acc, axis=0).astype("float32")
+
+    out = y * (1.0 - wet) + acc * wet
+    return out.astype("float32", copy=False)
 
 def stereo_widen(audio: np.ndarray, amount: float = 0.12) -> np.ndarray:
     if amount <= 0:

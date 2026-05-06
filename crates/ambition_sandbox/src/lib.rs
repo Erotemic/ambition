@@ -198,7 +198,7 @@ impl SandboxRuntime {
         player.refresh_movement_resources(tuning);
         Self {
             player,
-            player_health: ae::Health::new(5),
+            player_health: ae::Health::new(20),
             debug: true,
             slowmo: false,
             presets: KeyboardPreset::presets().to_vec(),

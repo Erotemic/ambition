@@ -63,8 +63,8 @@ const MIN_TRANSITION_DELAY_SECONDS: f32 = 0.08;
 /// The generated cue is assembled from several simultaneous OGG stems, so a
 /// per-stem gain that looks reasonable can sum much louder than the legacy
 /// single-channel procedural room music. Keep this conservative; raise it in
-/// small steps once the mix is balanced. 0.36 is roughly -9 dB.
-const GENERATED_MUSIC_RELATIVE_VOLUME: f32 = 0.64;
+/// small steps once the mix is balanced.
+const GENERATED_MUSIC_RELATIVE_VOLUME: f32 = 0.85;
 const STEM_START_FADE_MS: u64 = 0;
 const INTRO_FULL_START_FADE_MS: u64 = 0;
 const OUTRO_FULL_START_FADE_MS: u64 = 0;

@@ -5,8 +5,9 @@ use std::path::Path;
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 
-pub const DIALOG_FONT_REGULAR: &str = "fonts/local/InterDisplay-Regular.otf";
-pub const DIALOG_FONT_SEMIBOLD: &str = "fonts/local/InterDisplay-SemiBold.otf";
+pub const DIALOG_FONT_REGULAR: &str = "/usr/share/fonts/opentype/inter/InterDisplay-Regular.otf";
+pub const DIALOG_FONT_SEMIBOLD: &str = "/usr/share/fonts/opentype/inter/InterDisplay-SemiBold.otf"; 
+
 
 #[derive(Resource, Clone, Debug, Default)]
 pub struct UiFonts {

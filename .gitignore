@@ -50,3 +50,5 @@ __pycache__
 *.png
 tools/generators/robot_sprite_component_tool/output
 tools/generators/robot_sprite_component_tool/assets
+
+assets/fonts

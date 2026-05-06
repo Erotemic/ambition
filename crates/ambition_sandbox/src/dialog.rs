@@ -12,6 +12,7 @@ use bevy_yarnspinner::prelude::*;
 
 use crate::game_mode::GameMode;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
+use bevy::log::info;
 
 const DIALOG_CONTINUE_HINT: &str = "Enter/Space/F/E: continue   Up/Down: choose   Esc: close";
 
@@ -475,6 +476,7 @@ pub fn sync_dialog_ui(
     runtime: Res<crate::SandboxRuntime>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
     ui_fonts: Option<Res<UiFonts>>,
+    mut logged_font_state: Local<bool>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
@@ -492,6 +494,32 @@ pub fn sync_dialog_ui(
         .as_deref()
         .map(UiFonts::selected_marker)
         .unwrap_or(">");
+
+
+    if !*logged_font_state {
+        let marker_codepoints = selected_marker
+            .chars()
+            .map(|ch| format!("U+{:04X}", ch as u32))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let font_state = ui_fonts
+            .as_deref()
+            .map(|fonts| {
+                format!(
+                    "regular={}, semibold={}",
+                    fonts.regular.is_some(),
+                    fonts.semibold.is_some()
+                )
+            })
+        .unwrap_or_else(|| "UiFonts resource missing".to_string());
+
+        info!(
+            "dialog UI font state: {font_state}; selected_marker='{selected_marker}' ({marker_codepoints})"
+        );
+
+        *logged_font_state = true;
+    }
 
     let dialog_font = |font_size: f32, weight: UiFontWeight| {
         ui_fonts

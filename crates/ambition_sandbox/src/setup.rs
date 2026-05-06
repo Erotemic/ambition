@@ -34,6 +34,7 @@ use crate::platforms;
 use crate::rendering::{spawn_room_visuals, HudText, PlayerVisual, SceneEntities};
 use crate::rooms::RoomSet;
 use crate::{GameWorld, SandboxRuntime};
+use crate::ui_fonts::{UiFontWeight, UiFonts};
 
 /// Borrowed inputs for `simulation_world`.
 ///
@@ -62,6 +63,7 @@ pub struct PresentationSetup<'a> {
     pub sandbox_data: &'a SandboxDataSpec,
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,
+    pub ui_fonts: Option<&'a UiFonts>,
 }
 
 /// Spawn simulation-only entities and resources.
@@ -186,6 +188,7 @@ fn presentation_world_inner(
         sandbox_data: _,
         physics_settings,
         game_assets,
+        ui_fonts,
     } = params;
     let character_sprites = &game_assets.characters;
 
@@ -222,10 +225,12 @@ fn presentation_world_inner(
     let hud = commands
         .spawn((
             Text::new("Ambition"),
-            TextFont {
+            ui_fonts
+            .map(|fonts| fonts.text_font(14.0, UiFontWeight::Regular))
+            .unwrap_or(TextFont {
                 font_size: 14.0,
                 ..default()
-            },
+            }),
             TextColor(Color::srgba(0.82, 0.90, 1.0, 0.96)),
             Node {
                 position_type: PositionType::Absolute,

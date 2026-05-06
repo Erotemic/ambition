@@ -544,7 +544,8 @@ pub fn add_presentation_plugins(app: &mut App) {
                 crate::map_menu::populate_map_rooms,
                 crate::map_menu::spawn_map_menu,
             )
-                .after(setup_simulation_system),
+                .after(setup_simulation_system)
+                .after(ui_fonts::load_ui_fonts),
         )
         .add_systems(
             Update,
@@ -862,6 +863,7 @@ fn setup_presentation_system(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
+    ui_fonts: Option<Res<ui_fonts::UiFonts>>,
 ) {
     let game_assets =
         game_assets::load_game_assets(&asset_config, &asset_server, &mut atlas_layouts);
@@ -874,6 +876,7 @@ fn setup_presentation_system(
             sandbox_data: &sandbox_data,
             physics_settings: *physics_settings,
             game_assets: &game_assets,
+            ui_fonts: ui_fonts.as_deref(),
         },
         scene_entities.player,
     );

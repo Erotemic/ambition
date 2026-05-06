@@ -17,29 +17,41 @@ import yaml
 from . import musicir_renderer as r
 
 
-def in_game_state_previews(spec: dict) -> dict[str, dict[str, float]]:
-    """Pick a minimal/maximal pair of state_map entries (by total stem gain)
-    to render as in-game-style previews. Returns a {label: {stem: gain}} dict.
+def in_game_preview_mixes(spec: dict, group_names: list[str]) -> dict[str, dict[str, float]]:
+    """Define preview mixes that approximate runtime playback at different
+    dynamic intensities.
+
+    - `minimal`: just the cue's bridge stems (the layers the runtime keeps
+      audible during low-action gameplay) at full gain. Gives a sense of
+      the cue's sustained foundation.
+    - `maximal`: every stem at gain 1.0, simulating the loudest moment
+      where every layer is fully active.
+    - `state_<name>`: one preview per state_map entry that has explicit
+      `stems` weights, using the runtime weights as authored. Useful for
+      A/B-ing how the cue actually sounds during specific gameplay states.
+
+    All previews use the same per-stem post-processed audio that the runtime
+    loads, so the mixes are honest about runtime balance.
     """
+    out: dict[str, dict[str, float]] = {}
+
+    bridge = (spec.get("playback", {}) or {}).get("exit_policy", {}).get("bridge_stems") or []
+    bridge = [s for s in bridge if s in group_names]
+    if bridge:
+        out["minimal"] = {s: 1.0 for s in bridge}
+    out["maximal"] = {g: 1.0 for g in group_names}
+
     sm = spec.get("state_map", {}) or {}
-    states: list[tuple[str, float, dict[str, float]]] = []
     for name, cfg in sm.items():
         if not isinstance(cfg, dict):
             continue
         stems = cfg.get("stems")
         if not isinstance(stems, dict):
             continue
-        total = sum(float(v) for v in stems.values() if isinstance(v, (int, float)))
-        if total <= 0.0:
-            continue
-        states.append((name, total, {k: float(v) for k, v in stems.items()}))
-    if not states:
-        return {}
-    states.sort(key=lambda s: s[1])
-    out: dict[str, dict[str, float]] = {}
-    out[f"state_{states[0][0]}_minimal"] = states[0][2]
-    if len(states) > 1 and states[-1][0] != states[0][0]:
-        out[f"state_{states[-1][0]}_maximal"] = states[-1][2]
+        weights = {k: float(v) for k, v in stems.items() if isinstance(v, (int, float)) and float(v) > 0.0}
+        if weights:
+            out[f"state_{name}"] = weights
+
     return out
 
 
@@ -104,19 +116,18 @@ def main(argv=None) -> int:
     # The runtime layers stems on the fly and never runs the master postprocess.
     # These previews approximate that mixing path so it's possible to listen
     # to what each gameplay state actually sounds like in-engine.
-    in_game_mixes: dict[str, dict[str, float]] = {
-        "full_active": {g: 1.0 for g in group_names},
-    }
-    in_game_mixes.update(in_game_state_previews(spec))
+    in_game_mixes = in_game_preview_mixes(spec, group_names)
 
     for label, weights in in_game_mixes.items():
         mix = np.zeros((target, 2), dtype="float32")
         for group, weight in weights.items():
             if group in stem_audio and weight > 0.0:
                 mix += stem_audio[group] * float(weight)
-        # No master EQ/reverb/limiter chain — just a soft ceiling so summed
-        # stems don't clip the OGG encoder.
-        mix = r.soft_limit(mix, target_peak_db=-1.5, drive=1.0, normalize=False)
+        # Normalize each preview to a similar peak as the mastered preview
+        # so listening A/B between them is about timbre and balance rather
+        # than absolute level. The runtime would still play stems at their
+        # native level — these previews are an authoring aid.
+        mix = r.soft_limit(mix, target_peak_db=-2.5, drive=1.0, normalize=True)
         path = outdir / "preview" / f"{spec['id']}_{cue_hash}.in_game_{label}.ogg"
         r.write_ogg_from_audio(mix, sr, path, quality=quality, keep_wav=False)
         output_files["preview"][f"in_game_{label}"] = str(path.relative_to(outdir))

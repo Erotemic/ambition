@@ -34,7 +34,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.6.3-noise-and-previews"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.6.4-reverb-drums-previews"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf2/TimGM6mb.sf2",
     "/usr/share/sounds/sf2/default-GM.sf2",
@@ -1141,8 +1141,9 @@ def band_gain(audio: np.ndarray, sample_rate: int, *, low_hz: float, high_hz: fl
 def simple_reverb(audio: np.ndarray, sr: int, wet: float = 0.08, decay: float = 0.9, damping_hz: float = 6500.0) -> np.ndarray:
     """Small deterministic reverb used by MusicIR post-processing.
 
-    The previous implementation accepted decay but used fixed taps, making
-    reverb_decay_seconds dead YAML.
+    Uses a denser, lower-gain set of early-reflection taps so percussive
+    transients don't read as slap-back echoes (the previous design's first
+    tap was at +29 ms, gain ~0.97, which sounded like a duplicate hit).
     """
     wet = float(wet)
     decay = max(float(decay), 1e-3)
@@ -1154,15 +1155,27 @@ def simple_reverb(audio: np.ndarray, sr: int, wet: float = 0.08, decay: float = 
         y = y[:, None]
     acc = np.zeros_like(y)
 
-    for idx, delay_seconds in enumerate((0.029, 0.043, 0.071, 0.113, 0.173)):
+    # Twelve taps spaced from ~7 ms to ~340 ms with smoothly falling gain.
+    # The first tap is intentionally quiet so transients don't echo, and
+    # the broader spread reads as diffuse ambience rather than discrete
+    # delay lines.
+    taps = (
+        (0.007, 0.28), (0.013, 0.24), (0.019, 0.20), (0.029, 0.17),
+        (0.041, 0.14), (0.057, 0.11), (0.079, 0.085), (0.103, 0.066),
+        (0.137, 0.050), (0.181, 0.038), (0.241, 0.028), (0.331, 0.020),
+    )
+
+    for idx, (delay_seconds, base_gain) in enumerate(taps):
         delay = max(1, int(round(delay_seconds * sr)))
         if delay >= len(y):
             continue
-        gain = math.exp(-delay_seconds / decay) * (0.55 ** idx)
+        gain = base_gain * math.exp(-delay_seconds / decay)
         acc[delay:] += y[:-delay] * gain
+        # Subtle stereo cross-feed for spread (kept very small so a panned
+        # source doesn't bleed across channels in the reverb tail).
         if acc.shape[1] >= 2:
-            acc[delay:, 1] += y[:-delay, 0] * gain * 0.08
-            acc[delay:, 0] += y[:-delay, 1] * gain * 0.05
+            acc[delay:, 1] += y[:-delay, 0] * gain * 0.06
+            acc[delay:, 0] += y[:-delay, 1] * gain * 0.04
 
     if damping_hz and damping_hz > 0 and len(acc) > 16:
         cutoff = min(float(damping_hz), sr * 0.45)

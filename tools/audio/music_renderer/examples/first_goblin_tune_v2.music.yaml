@@ -54,14 +54,14 @@ instruments:
   - {name: clarinet,     group: winds,      program: clarinet,          volume: 82, pan: 54, expression: 86, modulation: 6}
   - {name: bassoon,      group: winds,      program: bassoon,           volume: 78, pan: 38, expression: 82, modulation: 3}
 
-  - {name: pad_subtle,   group: choir_pad,  program: pad_bowed,         volume: 26, pan: 64, expression: 44, modulation: 4}
-  - {name: choir,        group: choir_pad,  program: choir_aahs,        volume: 26, pan: 64, expression: 42, modulation: 3}
+  - {name: pad_subtle,   group: choir_pad,  program: pad_bowed,         volume: 60, pan: 64, expression: 78, modulation: 4}
+  - {name: choir,        group: choir_pad,  program: choir_aahs,        volume: 64, pan: 64, expression: 80, modulation: 3}
 
   - {name: harp,         group: mallets,    program: orchestral_harp,   volume: 44, pan: 70, expression: 60}
   - {name: marimba,      group: mallets,    program: marimba,           volume: 34, pan: 78, expression: 54}
 
   - {name: timpani,      group: percussion, program: timpani,           volume: 60, pan: 52, expression: 78}
-  - {name: war_drums,    group: percussion, is_drum: true,              volume: 80, pan: 64, expression: 92}
+  - {name: war_drums,    group: percussion, is_drum: true,              volume: 104, pan: 64, expression: 108}
 
 motifs:
   - id: goblin_short
@@ -118,9 +118,19 @@ layer_templates:
     octave: 3
     every_bars: 4
     duration_beats: 16.0
-    velocity: 14
+    velocity: 22
     articulation: pad
     voicing: wide
+    humanize_ms: 0
+  choir_wash:
+    kind: pad_chords
+    instrument: choir
+    octave: 4
+    every_bars: 2
+    duration_beats: 8.0
+    velocity: 30
+    articulation: pad
+    voicing: open
     humanize_ms: 0
   wind_goblin:
     kind: motif
@@ -203,33 +213,33 @@ layer_templates:
     humanize_ms: 1.0
     events:
       - {drum: concert_bass_drum, beat: 0.0, velocity: 32}
-  # wave 2: groove kicks in. Steady bass-drum + ride/closed_hat motion +
-  # tom punctuation gives forward momentum without overwhelming the strings.
+  # wave 2: half-time groove. Kick on 1 and 3, hat 8ths fill the upbeats,
+  # phrase-boundary accents on bars 0 and 4. Predictable so it integrates
+  # cleanly with the strings without sounding busy.
   pulse_drums_medium:
     kind: drums
     instrument: war_drums
-    humanize_ms: 1.5
+    humanize_ms: 1.0
     events:
-      - {drum: concert_bass_drum, beats: [0.0, 2.0], velocity: 52}
-      - {drum: low_tom, beats: [2.5], velocity: 36, probability: 0.55}
-      - {drum: mid_tom, beats: [3.5], velocity: 30, probability: 0.40}
-      - {drum: closed_hat, beats: [0.5, 1.5, 2.5, 3.5], velocity: 26}
-      - {drum: ride, beats: [1.0, 3.0], velocity: 28, probability: 0.6}
-      - {drum: floor_tom, beat: 0.0, velocity: 40, bars: [0, 4]}
-  # wave 3: climactic. 4-on-the-floor kick, dense tom rolls, hat 8ths,
-  # crash on bar 0 of every 4-bar phrase, accented floor-tom hits.
+      - {drum: concert_bass_drum, beats: [0.0, 2.0], velocity: 56}
+      - {drum: closed_hat, beats: [0.5, 1.5, 2.5, 3.5], velocity: 28}
+      - {drum: low_tom, beats: [3.5], velocity: 38, probability: 0.7}
+      - {drum: floor_tom, beat: 0.0, velocity: 44, bars: [0, 4]}
+  # wave 3: 4-on-the-floor backbone, hat 8ths, deterministic tom turnaround
+  # at the end of each bar, crash + floor_tom hit on each 4-bar phrase
+  # boundary. Every event is on-grid so the climax reads as locked-in
+  # rather than busy.
   pulse_drums_heavy:
     kind: drums
     instrument: war_drums
-    humanize_ms: 1.5
+    humanize_ms: 1.0
     events:
-      - {drum: concert_bass_drum, beats: [0.0, 1.0, 2.0, 3.0], velocity: 58}
-      - {drum: low_tom, beats: [0.5, 2.5], velocity: 38, probability: 0.85}
-      - {drum: mid_tom, beats: [1.5, 3.5], velocity: 32, probability: 0.75}
-      - {drum: high_tom, beats: [3.75], velocity: 30, probability: 0.55}
-      - {drum: floor_tom, beat: 0.0, velocity: 50, bars: [0, 4]}
-      - {drum: crash, beat: 0.0, velocity: 70, bars: [0, 4]}
-      - {drum: closed_hat, beats: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5], velocity: 24}
+      - {drum: concert_bass_drum, beats: [0.0, 1.0, 2.0, 3.0], velocity: 62}
+      - {drum: closed_hat, beats: [0.5, 1.5, 2.5, 3.5], velocity: 28}
+      - {drum: low_tom, beat: 3.5, velocity: 42}
+      - {drum: mid_tom, beat: 3.75, velocity: 40}
+      - {drum: floor_tom, beat: 0.0, velocity: 54, bars: [0, 4]}
+      - {drum: crash, beat: 0.0, velocity: 74, bars: [0, 4]}
 
 playback:
   mode: section_stem_matrix
@@ -318,7 +328,8 @@ sections:
       - {template: timpani_roots, velocity: 38}
       - {template: harp_murmur, density: 0.14, velocity: 20}
       - pulse_drums_medium
-      - {template: quiet_pad, velocity: 12}
+      - {template: quiet_pad, velocity: 18}
+      - {template: choir_wash, velocity: 24}
 
   - id: wave3
     kind: loop_component
@@ -339,9 +350,11 @@ sections:
       - {template: brass_soft_hits, hits: [[0, 0.0], [4, 0.0]], velocity: 52}
       - {template: tuba_roots_light, velocity: 50}
       - {template: timpani_roots, velocity: 48}
-      - {template: harp_murmur, density: 0.10, velocity: 18}
+      - {template: harp_murmur, density: 0.22, velocity: 28}
+      - {template: marimba_echo, density: 0.18, velocity: 26}
       - pulse_drums_heavy
-      - {template: quiet_pad, velocity: 14}
+      - {template: quiet_pad, velocity: 22}
+      - {template: choir_wash, velocity: 32}
 
   - id: recap_loop
     kind: loop_component
@@ -386,7 +399,7 @@ sections:
 group_postprocess:
   strings: {gain_db: 0.8, lowpass_hz: 13500, high_shelf_hz: 5200, high_shelf_db: 0.6, transient_tame: 0.01, reverb_wet: 0.002}
   winds: {gain_db: 4.0, lowpass_hz: 12500, high_shelf_hz: 4600, high_shelf_db: 1.3, presence_low_hz: 1500, presence_high_hz: 5200, presence_db: 2.0, transient_tame: 0.01, reverb_wet: 0.002}
-  mallets: {gain_db: -6.5, lowpass_hz: 9000, high_shelf_hz: 5200, high_shelf_db: -0.6, transient_tame: 0.12, reverb_wet: 0.002}
-  percussion: {gain_db: 0.0, lowpass_hz: 9500, high_shelf_hz: 5200, high_shelf_db: -0.4, transient_tame: 0.10, reverb_wet: 0.002}
+  mallets: {gain_db: -2.0, lowpass_hz: 9000, high_shelf_hz: 5200, high_shelf_db: -0.6, transient_tame: 0.10, reverb_wet: 0.004}
+  percussion: {gain_db: 0.0, lowpass_hz: 9500, high_shelf_hz: 5200, high_shelf_db: -0.4, transient_tame: 0.06, reverb_wet: 0.012, reverb_decay_seconds: 0.50}
   brass: {gain_db: -0.4, lowpass_hz: 10500, high_shelf_hz: 5200, high_shelf_db: 0.2, transient_tame: 0.02, reverb_wet: 0.002}
-  choir_pad: {gain_db: -9.0, lowpass_hz: 8000, high_shelf_hz: 4800, high_shelf_db: -0.8, transient_tame: 0.04, reverb_wet: 0.004}
+  choir_pad: {gain_db: -3.0, lowpass_hz: 8000, high_shelf_hz: 4800, high_shelf_db: -0.8, transient_tame: 0.04, reverb_wet: 0.006}

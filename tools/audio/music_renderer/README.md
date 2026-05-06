@@ -17,30 +17,40 @@ hash-free filenames the Rust runtime expects under
 
 ## Manual rendering
 
+Fast path, for quick preview
+
 ```bash
-cd tools/audio/music_renderer
+cd ~/code/ambition/tools/audio/music_renderer
+
+# Song 1
 python -m ambition_music_renderer.render_isolated \
-    examples/first_goblin_tune_v2.music.yaml \
-    --outdir output/first_goblin_tune_v2 \
-    --backend fast \
-    --simple-groups strings,choir_pad
+  examples/first_goblin_tune_v2.music.yaml \
+  --outdir output/first_goblin_tune_v2 \
+  --backend fast
+
+# Song 0
+python -m ambition_music_renderer.render_isolated \
+  examples/first_goblin_encounter.music.yaml \
+  --outdir output/first_goblin_encounter \
+  --backend fast
+
+
+# Song 2
+python -m ambition_music_renderer.render_isolated \
+  examples/fast_paced_violin_boss.music.yaml \
+  --outdir output/fast_paced_violin_boss \
+  --backend fast
 ```
 
-For the direct-MIDI diagnostic cue (high-fidelity, slower):
-
-```bash
-python -m ambition_music_renderer.render_direct_midi_yaml \
-    examples/diagnostics/goblin-short-v1.direct-midi.music.yaml \
-    --outdir output/goblin-short-v1 \
-    --backend fluidsynth-cli
-```
+For higher fidelity, swap `--backend fast` for `--backend fluidsynth-cli`
+(or `--backend pretty-midi`). Both require a General MIDI SoundFont; the
+default-installed `TimGM6mb.sf2` is fine, but `FluidR3_GM.sf2` is fuller.
 
 ## Score files
 
 - `examples/first_goblin_tune_v2.music.yaml` - active goblin encounter cue.
 - `examples/first_goblin_encounter.music.yaml` - earlier goblin score (kept for reference).
 - `examples/moonlit_canal.music.yaml` - sample non-combat cue.
-- `examples/diagnostics/goblin-short-v1.direct-midi.music.yaml` - mix-tuning fixture.
 
 ## Stable filenames
 

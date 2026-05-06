@@ -13365,7 +13365,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "mob_lab", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["mob_lab"]
-			}] }, { "__identifier": "biome", "__type": "String", "__value": "mob_arena", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["mob_arena"] }] }, { "__identifier": "music_track", "__type": "String", "__value": "pulse_drift_voyage", "__tile": null, "defUid": 4173, "realEditorValues": [{ "id": "V_String", "params": ["pulse_drift_voyage"] }] } ],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "mob_arena", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["mob_arena"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",
@@ -13981,7 +13981,7 @@
 			"fieldInstances": [{ "__identifier": "activeArea", "__type": "String", "__value": "water_world", "__tile": null, "defUid": 4000, "realEditorValues": [{
 				"id": "V_String",
 				"params": ["water_world"]
-			}] }, { "__identifier": "biome", "__type": "String", "__value": "water", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["water"] }] } ],
+			}] }, { "__identifier": "biome", "__type": "String", "__value": "water", "__tile": null, "defUid": 4172, "realEditorValues": [{ "id": "V_String", "params": ["water"] }] }, { "__identifier": "music_track", "__type": "String", "__value": "pulse_drift_voyage", "__tile": null, "defUid": 4173, "realEditorValues": [{ "id": "V_String", "params": ["pulse_drift_voyage"] }] } ],
 			"layerInstances": [
 				{
 					"__identifier": "Collision",

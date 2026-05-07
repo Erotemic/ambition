@@ -227,7 +227,18 @@ pub mod bevy_plugin {
 
     impl Default for TouchControlsVisible {
         fn default() -> Self {
-            Self(true)
+            // Default to HIDDEN on desktop (target_os != android / ios)
+            // so keyboard-only players don't see HUD overlap. The
+            // plugin still installs when `mobile_touch` is enabled,
+            // and the touch fold is activity-gated, so flipping this
+            // resource to true at runtime (via settings menu, or
+            // per-config) immediately shows the HUD without any
+            // restart. On Android / iOS targets, default true so the
+            // game launches into the touch HUD without the user
+            // having to find the toggle.
+            let mobile_target =
+                cfg!(target_os = "android") || cfg!(target_os = "ios");
+            Self(mobile_target)
         }
     }
 

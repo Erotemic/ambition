@@ -34,7 +34,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.7.1-fluidsynth-gain"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.7.2-lfo-automation"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf3/MuseScore_General_Full.sf3",
     "/usr/share/sounds/sf3/MuseScore_General.sf3",
@@ -376,19 +376,34 @@ def apply_automation(ctx: RenderContext, section: dict[str, Any], layer: dict[st
         dur_bars = float(auto.get("bars", section["bars"]))
         start_val = float(auto.get("from", 80))
         end_val = float(auto.get("to", 110))
-        points = int(auto.get("points", 12))
         curve = auto.get("curve", "linear")
+        # `lfo` is a periodic sine sweep useful for vibrato (modulation CC) or
+        # tremolo (volume CC). `from`/`to` are the troughs/peaks; `cycles` is
+        # the number of full sine periods across the automation window. We
+        # auto-pick a generous default sample count for sine so the curve is
+        # smooth — 32 samples per cycle is plenty for typical vibrato rates.
+        if curve == "lfo":
+            cycles = float(auto.get("cycles", 4.0))
+            points = int(auto.get("points", max(32, int(cycles * 32))))
+        else:
+            points = int(auto.get("points", 12))
         for inst_name in inst_names:
             inst = ctx.instruments[inst_name]
             for i in range(points):
                 a = i / max(1, points - 1)
                 if curve == "smooth":
                     a2 = a * a * (3 - 2 * a)
+                    val = round(start_val * (1 - a2) + end_val * a2)
                 elif curve == "exp":
                     a2 = a * a
-                else:
-                    a2 = a
-                val = round(start_val * (1 - a2) + end_val * a2)
+                    val = round(start_val * (1 - a2) + end_val * a2)
+                elif curve == "lfo":
+                    cycles = float(auto.get("cycles", 4.0))
+                    center = (start_val + end_val) / 2.0
+                    amp = (end_val - start_val) / 2.0
+                    val = round(center + amp * math.sin(2.0 * math.pi * cycles * a))
+                else:  # linear
+                    val = round(start_val * (1 - a) + end_val * a)
                 add_cc(inst, cc_num, val, ctx.bar_to_time(start_bar + dur_bars * a))
 
 

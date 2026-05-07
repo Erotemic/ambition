@@ -288,7 +288,16 @@ pub mod bevy_plugin {
                             // happened to work only because `held` and
                             // `released` persist across frames in the
                             // touch state, masking the ordering bug.
-                            .before(crate::app::sandbox_update),
+                            .before(crate::app::sandbox_update)
+                            // ALSO run before pause_menu_toggle so the
+                            // touch Start press is in ControlFrame before
+                            // pause_menu_toggle reads it. The pause /
+                            // inventory / navigate chain in app.rs is
+                            // ordered after populate_control_frame_from_actions,
+                            // and our fold runs after populate; this
+                            // .before(pause_menu_toggle) wins the tie
+                            // so fold also runs before pause.
+                            .before(crate::pause_menu::pause_menu_toggle),
                     )
                         .chain(),
                 );

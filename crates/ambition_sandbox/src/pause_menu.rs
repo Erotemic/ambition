@@ -159,18 +159,29 @@ impl PauseMenuState {
 }
 
 /// `Start` input opens/closes the pause menu by toggling `GameMode`.
+///
+/// Reads from BOTH `ActionState<SandboxAction>` (keyboard / gamepad
+/// path) and `ControlFrame.start_pressed` (touch path). The touch
+/// fold runs `.before(pause_menu_toggle)`, so by the time we read
+/// here ControlFrame already includes any touch Start press for the
+/// frame. Without this dual read, on-screen touch buttons were
+/// invisible to the pause menu -- the elegant fix would be to make
+/// ControlFrame the only seam, but that's a multi-system migration.
 #[cfg(feature = "input")]
 pub fn pause_menu_toggle(
     action_state: Query<&ActionState<SandboxAction>>,
+    controls: Res<crate::input::ControlFrame>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut state: ResMut<PauseMenuState>,
     mut inventory: ResMut<InventoryUiState>,
 ) {
-    let Ok(actions) = action_state.single() else {
-        return;
-    };
-    if !actions.just_pressed(&SandboxAction::Start) {
+    let kbd_start = action_state
+        .single()
+        .map(|a| a.just_pressed(&SandboxAction::Start))
+        .unwrap_or(false);
+    let any_start = kbd_start || controls.start_pressed;
+    if !any_start {
         return;
     }
     match mode.get() {

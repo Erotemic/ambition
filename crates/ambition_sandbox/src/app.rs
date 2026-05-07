@@ -957,13 +957,25 @@ fn add_input_plugins(app: &mut App) {
             Startup,
             attach_player_input_components.after(setup_simulation_system),
         )
+        // Collect input into ControlFrame FIRST, then run menu / pause /
+        // inventory toggles that consume it. Touch fold (mobile_input
+        // plugin) runs `.after(populate_control_frame_from_actions)`
+        // and `.before(pause_menu_toggle)`, so by the time pause /
+        // inventory / navigate read ControlFrame, both keyboard and
+        // touch have been merged.
+        //
+        // Per Jon 2026-05-07: "We need an elegant structure and
+        // abstraction layer so different control methods are not
+        // finicky." This reorder makes ControlFrame the canonical
+        // input seam for menus/pause too -- previously they read
+        // ActionState directly and missed touch input entirely.
         .add_systems(
             Update,
             (
+                populate_control_frame_from_actions,
                 pause_menu::pause_menu_toggle,
                 inventory::inventory_input,
                 pause_menu::pause_menu_navigate,
-                populate_control_frame_from_actions,
             )
                 .chain()
                 .before(sandbox_update),

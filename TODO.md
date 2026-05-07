@@ -146,6 +146,27 @@
 
 ## Known issues / unanswered questions (logged but not yet investigated)
 
+- **Unified input abstraction (ControlFrame as single seam)** — Jon
+  noted 2026-05-07: "We need an elegant structure and abstraction
+  layer so different control methods are not finicky." Touch input
+  bugs (joystick misread, missing pause button, race conditions)
+  trace back to having TWO input seams: `ActionState<SandboxAction>`
+  (Leafwing-driven, read directly by pause_menu_toggle / inventory /
+  pause_menu_navigate / cutscene-related systems) and `ControlFrame`
+  (derived from ActionState by `populate_control_frame_from_actions`,
+  with touch OR-merged in via `mobile_input::fold_to_control_frame`).
+  Touch reaches only the second; anything reading ActionState directly
+  is invisible to touch input until that consumer is migrated.
+  Quick patch in 2026-05-07: pause_menu_toggle reads BOTH ActionState
+  and ControlFrame.start_pressed, with the touch fold ordered
+  `.before(pause_menu_toggle)`. Real fix: make ControlFrame the only
+  consumer-side seam; consumers that need menu-specific actions read
+  ControlFrame fields like `controls.menu_select`. Migrate
+  pause_menu_navigate (MenuNavigateUp/Down/Left/Right + MenuSelect +
+  MenuBack) and inventory_input (Inventory press) and cutscene
+  dialogue dismiss to read ControlFrame so touch works for them too.
+  Then deprecate the direct ActionState reads.
+
 - **Move all dev hotkeys into the settings menu** — Jon noted
   2026-05-07: "Also F2 is also bound to slowing the time and
   toggling the display. We should move all of these options into

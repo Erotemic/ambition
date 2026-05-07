@@ -34,6 +34,7 @@ use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
+use bevy::time::TimeUpdateStrategy;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
@@ -202,6 +203,44 @@ impl AgentObservation {
     }
 }
 
+/// Per-tick simulation timestep policy.
+///
+/// `WallClock` is the default — `app.update()` reads whatever wall dt
+/// elapsed since the previous update, matching the visible binary's
+/// real-time behavior. This is fine for "drive the sim at human pace"
+/// use cases (random walker, scripted demo).
+///
+/// `Fixed { dt }` advances `Time` by exactly `dt` seconds per step
+/// before running `Update`. This is what RL training and replay
+/// debugging want: identical (action_seq, initial_state) tuples produce
+/// identical trajectories regardless of how fast the host machine
+/// runs the loop. The default fixed dt of `1.0 / 60.0` matches the
+/// visible binary's nominal 60 Hz target.
+#[derive(Clone, Copy, Debug)]
+pub enum TimestepMode {
+    WallClock,
+    Fixed { dt: f32 },
+}
+
+impl Default for TimestepMode {
+    fn default() -> Self {
+        TimestepMode::WallClock
+    }
+}
+
+impl TimestepMode {
+    /// 60 Hz fixed timestep — matches the sandbox's nominal frame rate.
+    pub fn fixed_60hz() -> Self {
+        TimestepMode::Fixed { dt: 1.0 / 60.0 }
+    }
+
+    /// 144 Hz fixed timestep — matches the high-refresh path the
+    /// engine repro tests use (`control_dt: 1.0 / 144.0`).
+    pub fn fixed_144hz() -> Self {
+        TimestepMode::Fixed { dt: 1.0 / 144.0 }
+    }
+}
+
 /// A self-contained sandbox simulation, ready to be stepped programmatically.
 ///
 /// Internally this owns a Bevy `App` configured with the same simulation
@@ -215,18 +254,31 @@ impl AgentObservation {
 pub struct SandboxSim {
     app: App,
     tick: u64,
+    timestep: TimestepMode,
 }
 
 impl SandboxSim {
+    /// Build a new simulation with the embedded LDtk world and the
+    /// default wall-clock timestep. See `new_with_timestep` for fixed-
+    /// timestep determinism.
+    pub fn new() -> Result<Self, String> {
+        Self::new_with_timestep(TimestepMode::default())
+    }
+
     /// Build a new simulation with the embedded LDtk world. Returns an
     /// error string if the LDtk world fails validation — this matches
     /// the policy that an invalid sandbox file is a hard error rather
     /// than a silent default.
     ///
+    /// `timestep` controls how `Time` advances between `step` calls.
+    /// `WallClock` (default) lets Bevy pick up wall dt; `Fixed { dt }`
+    /// pins each step to exactly `dt` seconds for deterministic
+    /// trajectories.
+    ///
     /// The first `app.update()` is run inside `new()` so the player and
     /// `SandboxRuntime` are spawned before the caller sees an
     /// observation. This makes `sim.observation()` immediately valid.
-    pub fn new() -> Result<Self, String> {
+    pub fn new_with_timestep(timestep: TimestepMode) -> Result<Self, String> {
         let project = ldtk_world::LdtkProject::load_embedded();
         let report = project.validate();
         if !report.is_ok() {
@@ -251,15 +303,63 @@ impl SandboxSim {
         init_sandbox_resources(&mut app);
         add_simulation_plugins(&mut app);
 
+        // In Fixed mode, install Bevy's `TimeUpdateStrategy::ManualDuration`
+        // BEFORE the first Startup tick. This is what tells Bevy's
+        // `time_system` to ignore wall-clock time and advance Time by
+        // exactly `dt` per `App::update`. Without this, the Startup tick
+        // pulls in the variable wall dt accumulated while
+        // `init_sandbox_resources` ran, breaking the determinism
+        // contract on tick 0. `Time::advance_by` does not survive
+        // Bevy's First-schedule time_system run; the strategy resource
+        // is the documented seam for headless / deterministic stepping.
+        if let TimestepMode::Fixed { dt } = timestep {
+            app.insert_resource(TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_secs_f32(dt),
+            ));
+        }
         // First tick runs Startup and primes SandboxRuntime so the
         // caller's first `observation()` returns a populated snapshot.
         app.update();
 
-        Ok(Self { app, tick: 0 })
+        Ok(Self {
+            app,
+            tick: 0,
+            timestep,
+        })
+    }
+
+    /// Configure the timestep policy after construction. Useful for
+    /// tests that build a sim, capture an observation, then switch to
+    /// fixed-timestep before exercising determinism-sensitive code.
+    /// Installs / removes the `TimeUpdateStrategy::ManualDuration`
+    /// resource accordingly.
+    pub fn set_timestep(&mut self, timestep: TimestepMode) {
+        self.timestep = timestep;
+        match timestep {
+            TimestepMode::Fixed { dt } => {
+                self.app.insert_resource(TimeUpdateStrategy::ManualDuration(
+                    std::time::Duration::from_secs_f32(dt),
+                ));
+            }
+            TimestepMode::WallClock => {
+                self.app.insert_resource(TimeUpdateStrategy::Automatic);
+            }
+        }
+    }
+
+    /// Returns the current timestep policy.
+    pub fn timestep(&self) -> TimestepMode {
+        self.timestep
     }
 
     /// Step the simulation forward one frame with the given action.
     /// Returns the post-step observation.
+    ///
+    /// In `Fixed { dt }` mode, the `TimeUpdateStrategy::ManualDuration`
+    /// resource installed in `new_with_timestep` makes Bevy advance
+    /// Time by exactly `dt` per `app.update()`. In `WallClock` mode the
+    /// strategy resource was never installed, so Bevy's default
+    /// `Automatic` reads wall-clock dt.
     pub fn step(&mut self, action: AgentAction) -> AgentObservation {
         *self.app.world_mut().resource_mut::<ControlFrame>() = action.into();
         self.app.update();
@@ -413,6 +513,62 @@ mod tests {
         assert!((frame.axis_y + 0.3).abs() < f32::EPSILON);
         assert!(frame.jump_pressed);
         assert!(!frame.jump_held);
+    }
+
+    #[test]
+    fn fixed_timestep_produces_deterministic_trajectory() {
+        // Two sims, same fixed timestep, same action sequence: their
+        // player positions must match exactly at every step. This is
+        // the foundation for replay debugging and RL training.
+        let actions = [
+            AgentAction::move_x(1.0),
+            AgentAction::jump(),
+            AgentAction::move_x(1.0),
+            AgentAction::move_x(1.0),
+            AgentAction::default(),
+            AgentAction::move_x(-1.0),
+            AgentAction::move_x(-1.0),
+            AgentAction {
+                dash: true,
+                move_x: -1.0,
+                ..AgentAction::default()
+            },
+            AgentAction::default(),
+            AgentAction::default(),
+        ];
+
+        let mut sim_a = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).unwrap();
+        let mut sim_b = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).unwrap();
+        for (i, action) in actions.iter().enumerate() {
+            let a = sim_a.step(*action);
+            let b = sim_b.step(*action);
+            assert_eq!(
+                a.player_pos, b.player_pos,
+                "tick {i}: positions diverged ({:?} vs {:?})",
+                a.player_pos, b.player_pos
+            );
+            assert_eq!(
+                a.player_vel, b.player_vel,
+                "tick {i}: velocities diverged ({:?} vs {:?})",
+                a.player_vel, b.player_vel
+            );
+            assert_eq!(
+                a.hp, b.hp,
+                "tick {i}: HP diverged ({} vs {})",
+                a.hp, b.hp
+            );
+        }
+    }
+
+    #[test]
+    fn timestep_setter_round_trips() {
+        let mut sim = SandboxSim::new().unwrap();
+        assert!(matches!(sim.timestep(), TimestepMode::WallClock));
+        sim.set_timestep(TimestepMode::fixed_144hz());
+        assert!(matches!(
+            sim.timestep(),
+            TimestepMode::Fixed { dt } if (dt - 1.0 / 144.0).abs() < 1e-6
+        ));
     }
 
     #[test]

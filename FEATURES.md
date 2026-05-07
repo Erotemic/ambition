@@ -156,7 +156,8 @@ Status badges:
 - **`Motif` invariant tests** `[stable]` — `TANGENT_MOTIF`'s scale_degrees / rhythm_units have matching length and rhythm units are positive. Cheap insurance for the future arrangement engine. [music.rs](crates/ambition_engine/src/music.rs).
 - **`--start-room` CLI parser tests** `[stable]` — extracted `parse_start_room_arg` so the parser is unit-testable without `env::args`; five tests pin space-form, equals-form, first-match-wins, no-flag, and trailing-flag-without-value. [app.rs:224](crates/ambition_sandbox/src/app.rs#L224).
 - **Ledge-grab climb-up + drop-off tests** `[stable]` — pin the two intentional player-driven exits from a held ledge: Up + Jump snaps to climb_target and sets on_ground; Down clears the latched state and wall-cling flags. [ledge_grab.rs](crates/ambition_sandbox/src/ledge_grab.rs).
-- **555+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
+- **Character spritesheet flat_index clamp + frame_duration tests** `[stable]` — overshoot-clamping and per-row positive-duration invariants for ROBOT_SHEET. Mirror of the boss-spritesheet invariants. [character_sprites.rs](crates/ambition_sandbox/src/character_sprites.rs).
+- **559+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
 
 ---
 

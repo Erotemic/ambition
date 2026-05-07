@@ -13,7 +13,7 @@
 > Jon moves Proposed items into `## Accepted` (with a tier letter) or `## Rejected`.
 >
 > Last full re-audit: 2026-05-07 (against `git log --all`).
-> Test count: 557 across `cargo test --workspace`.
+> Test count: 559 across `cargo test --workspace`.
 
 ## Status legend
 - `[ ]` not started · `[~]` scaffolded but not feature-complete · `[x]` recently completed (kept here briefly so it doesn't get re-added)

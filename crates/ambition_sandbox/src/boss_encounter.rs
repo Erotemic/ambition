@@ -98,6 +98,44 @@ mod tests {
         assert_eq!(encounter_id_from_name("BOSS-of-the-Year!"), "boss_of_the_year");
         assert_eq!(encounter_id_from_name("   "), "boss");
     }
+
+    #[test]
+    fn encounter_id_from_name_handles_empty_input() {
+        assert_eq!(encounter_id_from_name(""), "boss");
+    }
+
+    #[test]
+    fn encounter_id_from_name_collapses_consecutive_separators() {
+        // Multiple spaces, multiple punctuation runs collapse to single
+        // underscore, matching the per-char sanitizer's invariant.
+        assert_eq!(encounter_id_from_name("a   b"), "a_b");
+        assert_eq!(encounter_id_from_name("a---b"), "a_b");
+        assert_eq!(encounter_id_from_name("a -+= b"), "a_b");
+    }
+
+    #[test]
+    fn encounter_id_from_name_strips_trailing_underscores() {
+        assert_eq!(encounter_id_from_name("Boss!"), "boss");
+        assert_eq!(encounter_id_from_name("Boss   "), "boss");
+        assert_eq!(encounter_id_from_name("Boss--"), "boss");
+        assert_eq!(encounter_id_from_name("Boss_"), "boss");
+    }
+
+    #[test]
+    fn encounter_id_from_name_preserves_alphanumeric_runs() {
+        // Numbers stay as-is; lowercase preserved; mid-word digits OK.
+        assert_eq!(encounter_id_from_name("R2D2"), "r2d2");
+        assert_eq!(encounter_id_from_name("phase4-monster"), "phase4_monster");
+    }
+
+    #[test]
+    fn encounter_id_from_name_drops_non_ascii() {
+        // Non-alphanumeric Unicode is treated as a separator (matches
+        // the `is_ascii_alphanumeric` predicate). Future i18n work can
+        // relax this if needed.
+        assert_eq!(encounter_id_from_name("日本語 Boss"), "boss");
+        assert_eq!(encounter_id_from_name("Ω-omega"), "omega");
+    }
 }
 
 pub fn populate_boss_encounter_registry(

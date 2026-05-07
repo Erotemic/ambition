@@ -420,4 +420,33 @@ mod tests {
         assert!(bag.count(ItemKind::DataChip) > 0);
         assert!(bag.total_items() >= 3);
     }
+
+    /// Pin the implicit invariant that `ItemKind::ALL` covers every
+    /// variant in order matching `PlayerInventory::slot`. Adding a
+    /// new variant without updating both arrays silently breaks
+    /// `entries()` / `total_items()` / the inventory UI.
+    #[test]
+    fn item_kind_all_matches_slot_count() {
+        let mut bag = PlayerInventory::default();
+        for (i, kind) in ItemKind::ALL.iter().copied().enumerate() {
+            // Add a unique amount per kind so we can verify each
+            // slot is independently addressable.
+            bag.add(kind, (i + 1) as u32);
+        }
+        for (i, kind) in ItemKind::ALL.iter().copied().enumerate() {
+            assert_eq!(
+                bag.count(kind),
+                (i + 1) as u32,
+                "kind {kind:?} (index {i}) didn't round-trip independently",
+            );
+        }
+    }
+
+    #[test]
+    fn item_kind_label_and_description_are_non_empty() {
+        for kind in ItemKind::ALL {
+            assert!(!kind.label().is_empty());
+            assert!(!kind.description().is_empty());
+        }
+    }
 }

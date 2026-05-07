@@ -744,6 +744,7 @@ pub fn camera_follow(
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     encounter_registry: Res<crate::encounter::EncounterRegistry>,
     mut camera_state: ResMut<crate::CameraEaseState>,
+    ease_tuning: Res<crate::CameraEaseTuning>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {
@@ -769,9 +770,9 @@ pub fn camera_follow(
         target_scale
     } else {
         let rate = if target_scale > camera_state.live_scale {
-            crate::CAMERA_ZOOM_OUT_RATE
+            ease_tuning.zoom_out_rate
         } else {
-            crate::CAMERA_ZOOM_IN_RATE
+            ease_tuning.zoom_in_rate
         };
         let delta = (target_scale - camera_state.live_scale).abs();
         let step = (rate * dt).min(delta);
@@ -782,7 +783,7 @@ pub fn camera_follow(
         };
         // Snap the last sliver to avoid floating-point drift
         // accumulating into never-converges territory.
-        if (camera_state.live_scale - target_scale).abs() < 0.0025 {
+        if (camera_state.live_scale - target_scale).abs() < ease_tuning.snap_epsilon {
             camera_state.live_scale = target_scale;
         }
         camera_state.live_scale.max(1.0)

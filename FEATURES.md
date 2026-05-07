@@ -60,6 +60,7 @@ Status badges:
 - **Crouch / morph-ball as `BodyMode`-driven mechanics** `[stable]` — double-tap-down edge routes through `SandboxRuntime` to fire morph ball. Commits `dafa5a4`, `5899c2c`, `da1151a`.
 - **One-way platforms + hazard tiles (32×16)** `[stable]` — fixes vertical squish; HazardBlock entities migrated to IntGrid. Commits `b59529a`, `8c8cf30`.
 - **Smooth camera ease + victory chest** `[stable]`. Commit `1a49239`.
+- **`CameraEaseTuning` resource** `[stable]` — replaces the hardcoded `CAMERA_ZOOM_{IN,OUT}_RATE` consts with an editable Bevy resource (`zoom_out_rate`, `zoom_in_rate`, `snap_epsilon`). Defaults match prior values; sandbox / tests can override without recompiling. [lib.rs](crates/ambition_sandbox/src/lib.rs).
 
 ## LDtk authoring (runtime spine)
 
@@ -76,6 +77,7 @@ Status badges:
 
 - **Engine + sandbox cutscene spine** `[playable]` — room-triggered cutscenes, lazy boss specs. Commits `06ea438`, `55dc1a5`.
 - **Hold-Reset cutscene skip with HUD progress bar** `[stable]`. Commit `322d9f2`.
+- **Per-cutscene "always skip if seen" flag** `[stable]` — `CutsceneScript::seen_flag: Option<String>` is set in save data when a cutscene completes (or is skipped via hold-Reset); future triggers consult `SandboxSaveData::flag` and skip silently. Cutscenes without a `seen_flag` always replay (intentional for test rooms / dev cycles). [cutscene.rs:62](crates/ambition_engine/src/cutscene.rs#L62), [cutscene.rs:180](crates/ambition_sandbox/src/cutscene.rs#L180).
 - **Quest system + quest hooks** `[playable]` — engine + sandbox modules. Commits `06ea438`, `55dc1a5`.
 
 ## UI / menus

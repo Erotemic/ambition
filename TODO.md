@@ -94,7 +94,6 @@
 - [ ] `BodyShape::fits_at` property test (proptest) `[V3/D2]`
 - [ ] Wall-jump start-position fuzz in `square_arena` `[V3/D2]`
 - [ ] `cargo test` smoke for `headless` binary in CI `[V4/D2]`
-- [ ] Per-cutscene "always skip if seen" flag `[V2/D2]`
 
 ## C — Engine cleanups (compounding)
 
@@ -122,7 +121,6 @@
   - Per-face contents wired to existing systems (map_menu, quest, settings)
 - [ ] Quest panel: separate quest lines from debug HUD `[V2/D2]`
 - [ ] Map menu: room-name labels + zoom controls (extends current minimap) `[V3/D2]`
-- [ ] Camera ease parameterization (close LOW tech-debt) `[V2/D2]`
 
 ## F — Documentation / hygiene
 

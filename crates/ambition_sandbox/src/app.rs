@@ -402,6 +402,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::features::FeatureEventBus::default())
         .insert_resource(crate::map_menu::MapMenuState::default())
         .insert_resource(crate::CameraEaseState::default())
+        .insert_resource(crate::CameraEaseTuning::default())
         .insert_resource(crate::reset::SandboxResetRequested::default())
         .add_systems(
             Update,

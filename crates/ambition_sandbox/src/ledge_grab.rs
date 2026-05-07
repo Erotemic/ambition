@@ -183,4 +183,72 @@ mod tests {
         assert!(runtime.player.wall_clinging);
         assert!(runtime.player.on_wall);
     }
+
+    /// With ability on, a latched ledge state, and Down held with no
+    /// jump, the player drops back into wall-slide: state cleared,
+    /// `wall_clinging` and `on_wall` cleared.
+    #[test]
+    fn down_input_drops_off_a_latched_ledge() {
+        let mut app = ledge_app(true);
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.ledge_grab = Some(LedgeGrabState {
+                contact: ae::LedgeContact {
+                    wall_normal_x: 1.0,
+                    anchor: ae::Vec2::new(120.0, 400.0),
+                    climb_target: ae::Vec2::new(140.0, 380.0),
+                },
+                elapsed: 0.0,
+                climbing: false,
+            });
+            runtime.player.wall_clinging = true;
+            runtime.player.on_wall = true;
+        }
+        // axis_y > 0.4 is "Down", jump_pressed false.
+        *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
+            axis_y: 1.0,
+            jump_pressed: false,
+            ..ControlFrame::default()
+        };
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert!(runtime.ledge_grab.is_none(), "down should drop the ledge");
+        assert!(!runtime.player.wall_clinging);
+        assert!(!runtime.player.on_wall);
+    }
+
+    /// With ability on and a latched ledge, Up + Jump pulls up: player
+    /// snaps to climb_target, state cleared, `on_ground` true.
+    #[test]
+    fn up_jump_pulls_up_to_climb_target() {
+        let mut app = ledge_app(true);
+        let target = ae::Vec2::new(150.0, 380.0);
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.ledge_grab = Some(LedgeGrabState {
+                contact: ae::LedgeContact {
+                    wall_normal_x: 1.0,
+                    anchor: ae::Vec2::new(120.0, 400.0),
+                    climb_target: target,
+                },
+                elapsed: 0.0,
+                climbing: false,
+            });
+        }
+        // axis_y < -0.4 is "Up", jump_pressed true.
+        *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
+            axis_y: -1.0,
+            jump_pressed: true,
+            ..ControlFrame::default()
+        };
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert!(
+            runtime.ledge_grab.is_none(),
+            "climb-up should clear ledge state"
+        );
+        assert_eq!(runtime.player.pos, target, "snap to climb_target");
+        assert!(runtime.player.on_ground, "climb-up sets on_ground");
+        assert!(!runtime.player.wall_clinging);
+    }
 }

@@ -49,15 +49,18 @@ to the bottom under "Closed" with the commit that fixed them.
     purely about simulation-order coherence within SP.
 
 - **MED — `SandboxRuntime` collected new per-player fields without
-  per-player ownership**
+  per-player ownership** (partially resolved 2026-05-07)
   - File: `crates/ambition_sandbox/src/lib.rs`
-  - Recent additions: `mana_current`, `mana_max`, `slash_damage`,
-    `invincible`, `ledge_grab`, `player_died_pending`. Each one
-    shipped on `SandboxRuntime` rather than on `Player` because
-    the surrounding F3 / encounter / ledge-grab features needed a
-    place to put state and `SandboxRuntime` was the lowest-friction
-    answer. The cost is that the long-planned `Player`-as-entity
-    refactor now has more fields to relocate.
+  - Five of the six fields originally listed have now been promoted
+    to `Player` on the engine side:
+    - `mana_current` / `mana_max` → `Player::mana: ResourceMeter`
+    - `slash_damage` → `Player::damage_multiplier`
+    - `invincible` → `Player::invincible`
+    - `player_died_pending` → `PlayerDiedMessage` (Bevy buffered
+      message, not a per-player field at all)
+  - Still on `SandboxRuntime`: `ledge_grab` (sandbox-side state
+    machine; engine promotion tracked separately under "Ledge grab
+    + climb-up promotion to engine" in TODO.md).
   - **Rule of thumb**: if a new field is conceptually per-player,
     open a tech-debt entry instead of treating "stick it on
     `SandboxRuntime`" as zero-cost. The list is the budget the
@@ -179,13 +182,13 @@ to the bottom under "Closed" with the commit that fixed them.
     character state machine refactor lands, fold the ledge-grab state
     into the unified player state.
 
-- **MED — `mana_current` / `mana_max` live on `SandboxRuntime`, not
-  `Player`**
-  - File: `crates/ambition_sandbox/src/lib.rs`
-  - Same root cause as above. No engine ability consumes mana yet,
-    so it's a debug field for the F3 inspector. Promote to engine
-    `Player` (ideally as a `ResourceMeter`) when the first mana-cost
-    ability lands.
+- **RESOLVED 2026-05-07 — `mana_current` / `mana_max` live on
+  `SandboxRuntime`, not `Player`**
+  - Resolved by promoting to `Player::mana: ResourceMeter` at the
+    engine layer. The F3 inspector keeps the `i32` editable surface
+    and converts at the boundary; reset path uses `mana.refill_full()`.
+    See `crates/ambition_engine/src/movement.rs` and
+    `crates/ambition_sandbox/src/dev_tools.rs::sync_player_stats_with_inspector`.
 
 ### Encounter
 
@@ -196,13 +199,14 @@ to the bottom under "Closed" with the commit that fixed them.
     per-encounter reward authoring (an `EncounterSpec::reward` field
     pointing at a `PickupKind` or a chest spec id).
 
-- **MED — `runtime.player_died_pending` is a side-channel boolean**
-  - File: `crates/ambition_sandbox/src/lib.rs`
-  - The cleanest shape would be a Bevy event (`PlayerDiedEvent`) the
-    encounter system reads. It's a boolean on `SandboxRuntime` for
-    the same reason ledge-grab is — adding a Message channel is one
-    more piece of plumbing to set up. Promote when we move
-    `SandboxRuntime` per-player.
+- **RESOLVED 2026-05-07 — `runtime.player_died_pending` is a
+  side-channel boolean**
+  - Resolved by promoting to a Bevy 0.18 buffered `PlayerDiedMessage`.
+    `death_respawn_player` pushes into `FrameFeedback.died`;
+    `flush_feedback` drains into `MessageWriter`; encounter system
+    reads `MessageReader<PlayerDiedMessage>`. See
+    `crates/ambition_sandbox/src/lib.rs::PlayerDiedMessage` and
+    `crates/ambition_sandbox/src/app.rs::death_respawn_player`.
 
 - **LOW — Camera ease snaps in overview mode**
   - File: `crates/ambition_sandbox/src/rendering.rs:camera_follow`

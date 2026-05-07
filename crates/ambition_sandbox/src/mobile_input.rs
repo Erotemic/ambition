@@ -262,10 +262,13 @@ pub mod bevy_plugin {
     /// gray squares.
     fn spawn_touch_buttons(mut cmd: Commands) {
         // -- Gameplay action buttons (bottom-right corner cluster) --
+        // 6 buttons at 56x56 with 4px margin each = 64x64 per cell.
+        // 3 columns x 2 rows fits in 192x128. Bottom-right anchored,
+        // translucent so the gameplay view behind stays visible.
         cmd.spawn((
             Node {
-                width: Val::Px(168.0),
-                height: Val::Px(168.0),
+                width: Val::Px(192.0),
+                height: Val::Px(128.0),
                 position_type: PositionType::Absolute,
                 right: Val::Px(12.0),
                 bottom: Val::Px(12.0),
@@ -333,8 +336,8 @@ pub mod bevy_plugin {
             .spawn((
                 Button,
                 Node {
-                    width: Val::Px(72.0),
-                    height: Val::Px(72.0),
+                    width: Val::Px(56.0),
+                    height: Val::Px(56.0),
                     margin: UiRect::all(Val::Px(4.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
@@ -348,7 +351,7 @@ pub mod bevy_plugin {
                 button.spawn((
                     Text::new(label),
                     TextFont {
-                        font_size: 18.0,
+                        font_size: 14.0,
                         ..default()
                     },
                     TextColor(Color::srgb(0.95, 0.95, 0.95)),

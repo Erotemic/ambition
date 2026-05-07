@@ -1273,7 +1273,7 @@ fn setup_presentation_system(
 /// 11. `cleanup_timers_phase` — flash/preset/slash animation timer decay.
 /// 12. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
 ///     `DebrisBurstMessage` queues into the bundled writers.
-fn sandbox_update(
+pub fn sandbox_update(
     mut commands: Commands,
     time: Res<Time>,
     mut world: ResMut<GameWorld>,

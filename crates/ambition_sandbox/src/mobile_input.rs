@@ -273,7 +273,22 @@ pub mod bevy_plugin {
                             // run AFTER fold_to_control_frame, which
                             // resets ControlFrame to defaults / leafwing's
                             // values and stomps the touch button merge.
-                            .after(crate::app::populate_control_frame_from_actions),
+                            .after(crate::app::populate_control_frame_from_actions)
+                            // ALSO run before `sandbox_update` so the
+                            // merged ControlFrame is visible to the sim
+                            // on the same frame. Without this, Bevy is
+                            // free to schedule fold after sandbox_update,
+                            // and one-frame `pressed` edges (Jump /
+                            // Attack / Dash / Blink / Interact / Reset /
+                            // Start) never reach the engine -- they vanish
+                            // when populate resets ControlFrame the next
+                            // frame. Held axes have the same issue:
+                            // sandbox_update sees axis_x = 0 because the
+                            // touch fold hasn't written yet. Projectile
+                            // happened to work only because `held` and
+                            // `released` persist across frames in the
+                            // touch state, masking the ordering bug.
+                            .before(crate::app::sandbox_update),
                     )
                         .chain(),
                 );

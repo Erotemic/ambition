@@ -102,6 +102,7 @@ pub struct EditableAbilitySet {
     pub reset: bool,
     pub ledge_grab: bool,
     pub swim: bool,
+    pub glide: bool,
 }
 
 impl EditableAbilitySet {
@@ -130,6 +131,7 @@ impl EditableAbilitySet {
             reset: self.reset,
             ledge_grab: self.ledge_grab,
             swim: self.swim,
+            glide: self.glide,
         }
     }
 }
@@ -160,6 +162,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             reset: value.reset,
             ledge_grab: value.ledge_grab,
             swim: value.swim,
+            glide: value.glide,
         }
     }
 }
@@ -200,6 +203,8 @@ pub struct EditableMovementTuning {
     pub precision_blink_max_downward_speed: f32,
     pub fast_fall_accel: f32,
     pub fast_fall_speed: f32,
+    pub glide_fall_speed: f32,
+    pub glide_air_accel: f32,
     pub flight_accel: f32,
     pub flight_drag: f32,
     pub flight_terminal_speed: f32,
@@ -241,6 +246,8 @@ impl EditableMovementTuning {
             precision_blink_max_downward_speed: self.precision_blink_max_downward_speed,
             fast_fall_accel: self.fast_fall_accel,
             fast_fall_speed: self.fast_fall_speed,
+            glide_fall_speed: self.glide_fall_speed,
+            glide_air_accel: self.glide_air_accel,
             flight_accel: self.flight_accel,
             flight_drag: self.flight_drag,
             flight_terminal_speed: self.flight_terminal_speed,
@@ -284,6 +291,8 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             precision_blink_max_downward_speed: value.precision_blink_max_downward_speed,
             fast_fall_accel: value.fast_fall_accel,
             fast_fall_speed: value.fast_fall_speed,
+            glide_fall_speed: value.glide_fall_speed,
+            glide_air_accel: value.glide_air_accel,
             flight_accel: value.flight_accel,
             flight_drag: value.flight_drag,
             flight_terminal_speed: value.flight_terminal_speed,

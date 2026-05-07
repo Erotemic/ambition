@@ -28,6 +28,7 @@ Status badges:
 - **`BodyMode` state machine** `[stable]` — Standing / Crouching / Crawling / Sliding / MorphBall drivers with per-mode `BodyShape`. [player_state.rs:145](crates/ambition_engine/src/player_state.rs#L145). Commits `dafa5a4`, `5899c2c`.
 - **`ResourceMeter`** `[stable]` — generic stamina/mana/ammo/charge meter; used by projectile fireball mana. [player_state.rs:330](crates/ambition_engine/src/player_state.rs#L330).
 - **Ledge grab + swim as opt-in abilities** `[playable]` — `Ability` flags gate behavior; sandbox-side state still being promoted. Commit `70fc567`.
+- **Glide / slow-fall ability** `[stable]` — held-jump while airborne caps fall speed at `glide_fall_speed` (220, vs `max_fall_speed` 1040) and boosts air accel to `glide_air_accel` (6200, vs `air_accel` 4700). Cancels on land / fast-fall / blink-hang / water. `Player::gliding` flag drives sandbox sprite/sfx hooks. [movement.rs](crates/ambition_engine/src/movement.rs).
 - **`evaluate_character_ai` vocabulary** `[stable]` — engine fn returning `CharacterAiMode`; per-brain knobs (`chase_speed`, `aggro_radius`) on archetypes. [character_ai.rs:98](crates/ambition_engine/src/character_ai.rs#L98), [features.rs:1233](crates/ambition_sandbox/src/features.rs#L1233). Commit `93b4e05`.
 
 ## Combat & projectiles

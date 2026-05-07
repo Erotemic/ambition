@@ -75,7 +75,7 @@ These are the highest-level engine systems. Many named mechanics below become ea
 - [x] Dash
 - [x] Double dash / dash charges
 - [x] Free flight / noclip-like fly mode
-- [ ] Glide / cape / slow-fall
+- [x] Glide / cape / slow-fall — held-jump airborne; `glide_fall_speed` cap + `glide_air_accel`; `AbilitySet::glide`
 - [ ] Hover with resource drain
 - [~] Ledge grab — `Ability::ledge_grab` + `LedgeGrabState`; sandbox-side, awaiting engine promotion
 - [~] Ledge mantle / climb-up — Up+Jump triggers climb to `LedgeContact::climb_target`; animation slot still pending

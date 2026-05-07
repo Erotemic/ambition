@@ -145,6 +145,12 @@ pub struct Player {
     /// True after a double-tap-down has committed to fast-fall. Holding down
     /// alone does not set this, preserving down+attack as a natural pogo input.
     pub fast_falling: bool,
+    /// True the frames the player is held-jump gliding with
+    /// `abilities.glide` enabled. Set inside `integrate_velocity` from
+    /// the live input + airborne + falling test; cleared on landing,
+    /// dash start, blink, fly toggle, water contact, fast-fall.
+    /// Sandbox / sprite / sfx hooks read this for glide cape vfx.
+    pub gliding: bool,
     pub wall_clinging: bool,
     pub wall_climbing: bool,
     pub dash_timer: f32,
@@ -213,6 +219,7 @@ impl Player {
             blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
             blink_grace_timer: 0.0,
             fast_falling: false,
+            gliding: false,
             wall_clinging: false,
             wall_climbing: false,
             dash_timer: 0.0,
@@ -456,6 +463,15 @@ pub const BLINK_MAX_DOWNWARD_SPEED: f32 = 55.0;
 pub const PRECISION_BLINK_MAX_DOWNWARD_SPEED: f32 = 18.0;
 pub const FAST_FALL_ACCEL: f32 = 1850.0;
 pub const FAST_FALL_SPEED: f32 = 1380.0;
+/// Glide / slow-fall vertical cap. Roughly 1/5 of `MAX_FALL_SPEED` so
+/// the held-jump glide feels distinctly hover-y without becoming
+/// effectively-flying. Pair with `MovementTuning::glide_air_accel` for
+/// the increased horizontal authority while gliding.
+pub const GLIDE_FALL_SPEED: f32 = 220.0;
+/// Horizontal acceleration while gliding. Higher than ordinary
+/// `air_accel` (4700) so the player can steer mid-glide; lower than
+/// `run_accel` (7600) so ground feel still beats air feel.
+pub const GLIDE_AIR_ACCEL: f32 = 6200.0;
 pub const FLIGHT_ACCEL: f32 = 900.0;
 pub const FLIGHT_DRAG: f32 = 520.0;
 pub const FLIGHT_TERMINAL_SPEED: f32 = 430.0;
@@ -501,6 +517,12 @@ pub struct MovementTuning {
     pub precision_blink_max_downward_speed: f32,
     pub fast_fall_accel: f32,
     pub fast_fall_speed: f32,
+    /// Vertical fall speed cap while `Player::gliding` is true. See
+    /// [`GLIDE_FALL_SPEED`].
+    pub glide_fall_speed: f32,
+    /// Horizontal acceleration applied while `Player::gliding` is
+    /// true, replacing `air_accel`. See [`GLIDE_AIR_ACCEL`].
+    pub glide_air_accel: f32,
     pub flight_accel: f32,
     pub flight_drag: f32,
     pub flight_terminal_speed: f32,
@@ -546,6 +568,8 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     precision_blink_max_downward_speed: PRECISION_BLINK_MAX_DOWNWARD_SPEED,
     fast_fall_accel: FAST_FALL_ACCEL,
     fast_fall_speed: FAST_FALL_SPEED,
+    glide_fall_speed: GLIDE_FALL_SPEED,
+    glide_air_accel: GLIDE_AIR_ACCEL,
     flight_accel: FLIGHT_ACCEL,
     flight_drag: FLIGHT_DRAG,
     flight_terminal_speed: FLIGHT_TERMINAL_SPEED,
@@ -1056,9 +1080,24 @@ fn integrate_velocity(
             player.vel.y += tuning.fast_fall_accel * dt;
         }
 
+        // Glide: hold-jump while airborne and falling. Fast-fall and
+        // water/blink-hang preempt it (the player explicitly chose
+        // those alternatives), so glide only takes hold when none of
+        // those modes are active. The actual fall cap lookup below
+        // reads `player.gliding`.
+        player.gliding = player.abilities.glide
+            && !player.on_ground
+            && !player.fast_falling
+            && !blink_hang_active
+            && player.water_contact.is_none()
+            && input.jump_held
+            && player.vel.y > 0.0;
+
         if player.abilities.move_horizontal {
             let accel = if player.on_ground {
                 tuning.run_accel
+            } else if player.gliding {
+                tuning.glide_air_accel
             } else {
                 tuning.air_accel
             };
@@ -1086,6 +1125,8 @@ fn integrate_velocity(
         } else {
             let fall_cap = if player.fast_falling {
                 tuning.fast_fall_speed
+            } else if player.gliding {
+                tuning.glide_fall_speed
             } else {
                 tuning.max_fall_speed
             };
@@ -1115,6 +1156,7 @@ fn integrate_velocity(
         player.refresh_movement_resources(tuning);
         player.blink_grace_timer = 0.0;
         player.fast_falling = false;
+        player.gliding = false;
         player.wall_clinging = false;
         player.wall_climbing = false;
         player.drop_through_timer = 0.0;
@@ -2019,6 +2061,93 @@ mod tests {
             player.pos.y > resting_y + 12.0,
             "down+jump should drop the player below the one-way (delta {})",
             player.pos.y - resting_y
+        );
+    }
+
+    #[test]
+    fn glide_caps_fall_speed_while_jump_held() {
+        let world = test_world();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        player.on_ground = false;
+        // Drop the player into free fall well above any contact, with
+        // velocity already above the glide cap so the cap clamp is the
+        // only thing that can pull it back down.
+        player.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
+        player.vel = Vec2::new(0.0, 800.0);
+
+        let events = step(
+            &world,
+            &mut player,
+            InputState {
+                jump_held: true,
+                ..Default::default()
+            },
+        );
+        let _ = events; // unused
+
+        assert!(player.gliding, "hold-jump while falling should engage glide");
+        assert!(
+            player.vel.y <= DEFAULT_TUNING.glide_fall_speed + 1.0,
+            "glide cap should clamp fall speed; got {}",
+            player.vel.y
+        );
+        assert!(
+            player.vel.y < DEFAULT_TUNING.max_fall_speed * 0.5,
+            "glide cap must be markedly below max_fall_speed; got {}",
+            player.vel.y
+        );
+    }
+
+    #[test]
+    fn glide_disengages_when_jump_released() {
+        let world = test_world();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        player.on_ground = false;
+        player.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
+        player.vel = Vec2::new(0.0, 800.0);
+
+        // Frame 1: held → glide engages
+        step(
+            &world,
+            &mut player,
+            InputState {
+                jump_held: true,
+                ..Default::default()
+            },
+        );
+        assert!(player.gliding);
+
+        // Frame 2: released → glide disengages, fall speed climbs back
+        // toward max_fall_speed (gravity reapplied without the glide cap)
+        step(
+            &world,
+            &mut player,
+            InputState::default(),
+        );
+        assert!(!player.gliding);
+    }
+
+    #[test]
+    fn glide_requires_ability_flag() {
+        let world = test_world();
+        let mut abilities = AbilitySet::sandbox_all();
+        abilities.glide = false;
+        let mut player = Player::new_with_abilities(world.spawn, abilities);
+        player.on_ground = false;
+        player.pos = Vec2::new(world.spawn.x, world.spawn.y - 600.0);
+        player.vel = Vec2::new(0.0, 800.0);
+
+        step(
+            &world,
+            &mut player,
+            InputState {
+                jump_held: true,
+                ..Default::default()
+            },
+        );
+        assert!(
+            !player.gliding,
+            "glide should not engage when the ability flag is off"
         );
     }
 

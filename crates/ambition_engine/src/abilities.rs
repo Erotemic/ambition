@@ -86,6 +86,15 @@ pub struct AbilitySet {
     /// abstracted by `World::water_at`.
     #[serde(default)]
     pub swim: bool,
+    /// Glide / cape / slow-fall: holding the jump button while
+    /// airborne and falling caps the fall speed at
+    /// `MovementTuning::glide_fall_speed` instead of `max_fall_speed`.
+    /// Cancels on ground / dash / blink / jump release. Cheap held
+    /// ability that pairs well with `wall_jump` and `double_jump` for
+    /// long-distance platforming. No resource cost in the v1 — that
+    /// can land later as a `hover_fuel` `ResourceMeter` tap.
+    #[serde(default)]
+    pub glide: bool,
 }
 
 impl AbilitySet {
@@ -115,6 +124,7 @@ impl AbilitySet {
             reset: true,
             ledge_grab: false,
             swim: false,
+            glide: false,
         }
     }
 
@@ -144,6 +154,7 @@ impl AbilitySet {
             reset: true,
             ledge_grab: true,
             swim: true,
+            glide: true,
         }
     }
 
@@ -176,10 +187,11 @@ impl AbilitySet {
             directional_special: true,
             rebound: true,
             reset: true,
-            // ledge grab + swim are mid-game upgrades; not part of
-            // the "sane subset" early-game baseline.
+            // ledge grab + swim + glide are mid-game upgrades; not
+            // part of the "sane subset" early-game baseline.
             ledge_grab: false,
             swim: false,
+            glide: false,
         }
     }
 
@@ -239,6 +251,9 @@ impl AbilitySet {
         }
         if self.pogo && !self.attack {
             warnings.push("pogo is enabled but attack is disabled");
+        }
+        if self.glide && !self.jump {
+            warnings.push("glide is enabled but jump is disabled (the trigger is hold-jump)");
         }
         warnings
     }

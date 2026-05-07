@@ -57,7 +57,6 @@
 ## A — Sandbox expressiveness
 
 ### Mechanics & combat
-- [ ] **Glide / slow-fall** `[V3/D2]` — held ability; reduced fall speed + air control. Source: `mechanics_checklist.md`.
 - [ ] **Ladder + climbable-zone primitive** `[V4/D3]` — needed before ladder sprite wiring.
   - `ClimbableZone` component
   - Engine state: climb up/down, dismount

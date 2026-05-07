@@ -27,6 +27,7 @@
         reset: true,
         ledge_grab: true,
         swim: true,
+        glide: true,
     ),
     tuning: (
         gravity: 2250.0,
@@ -55,6 +56,8 @@
         precision_blink_max_downward_speed: 18.0,
         fast_fall_accel: 1850.0,
         fast_fall_speed: 1380.0,
+        glide_fall_speed: 220.0,
+        glide_air_accel: 6200.0,
         flight_accel: 900.0,
         flight_drag: 520.0,
         flight_terminal_speed: 430.0,

@@ -61,8 +61,14 @@ impl GameAssetConfig {
     /// Parse the supported flags out of process args. Unknown args are left
     /// alone (Bevy may consume some itself).
     pub fn from_args() -> Self {
-        let mut config = Self::default();
         let args: Vec<String> = std::env::args().skip(1).collect();
+        Self::from_arg_slice(&args)
+    }
+
+    /// Parse the supported flags out of an explicit arg slice. Unit-testable
+    /// counterpart of `from_args` that doesn't read `env::args`.
+    pub fn from_arg_slice(args: &[String]) -> Self {
+        let mut config = Self::default();
         let mut i = 0;
         while i < args.len() {
             match args[i].as_str() {
@@ -451,5 +457,73 @@ pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
         // than a static entity sprite — see `feature_color` and
         // `switch_on_color` in `rendering.rs`.
         FeatureVisualKind::Switch => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(slice: &[&str]) -> Vec<String> {
+        slice.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn default_config_loads_assets_from_sprites_folder() {
+        let c = GameAssetConfig::default();
+        assert!(!c.no_assets);
+        assert_eq!(c.sprite_folder, "sprites");
+    }
+
+    #[test]
+    fn no_assets_flag_forces_placeholder_mode() {
+        let c = GameAssetConfig::from_arg_slice(&args(&["--no-assets"]));
+        assert!(c.no_assets);
+        assert_eq!(c.sprite_folder, "sprites", "folder unaffected");
+    }
+
+    #[test]
+    fn sprite_folder_flag_overrides_default() {
+        let c = GameAssetConfig::from_arg_slice(&args(&["--sprite-folder", "experimental"]));
+        assert!(!c.no_assets);
+        assert_eq!(c.sprite_folder, "experimental");
+    }
+
+    #[test]
+    fn unknown_flags_are_left_alone() {
+        // Bevy may consume args itself; the parser ignores anything unknown.
+        let c = GameAssetConfig::from_arg_slice(&args(&["--bevy-flag", "--no-assets"]));
+        assert!(c.no_assets);
+    }
+
+    #[test]
+    fn sprite_folder_flag_without_value_is_a_noop() {
+        // Trailing flag with no folder argument: keep the default.
+        let c = GameAssetConfig::from_arg_slice(&args(&["--sprite-folder"]));
+        assert_eq!(c.sprite_folder, "sprites");
+    }
+
+    #[test]
+    fn entity_sprite_for_kind_handles_all_visual_kinds() {
+        // Sanity: every FeatureVisualKind variant returns something
+        // (either Some(sprite) or an explicit None for animated/dynamic
+        // visuals). Ensures a new variant doesn't silently reach the
+        // pattern-match catch-all and break the visual layer.
+        for kind in [
+            FeatureVisualKind::Hazard,
+            FeatureVisualKind::Sandbag,
+            FeatureVisualKind::Boss,
+            FeatureVisualKind::Breakable,
+            FeatureVisualKind::Chest,
+            FeatureVisualKind::Pickup,
+            FeatureVisualKind::Npc,
+        ] {
+            assert!(
+                entity_sprite_for_kind(kind).is_some(),
+                "static sprite expected for {kind:?}"
+            );
+        }
+        assert!(entity_sprite_for_kind(FeatureVisualKind::Enemy).is_none());
+        assert!(entity_sprite_for_kind(FeatureVisualKind::Switch).is_none());
     }
 }

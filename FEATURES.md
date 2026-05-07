@@ -154,7 +154,9 @@ Status badges:
 - **`GameAssetConfig` CLI parsing tests** `[stable]` — extracted `from_arg_slice` so the CLI parser is unit-testable without `env::args`; six tests cover defaults, `--no-assets`, `--sprite-folder` (with/without value), unknown-flag tolerance, and `entity_sprite_for_kind` exhaustiveness. [game_assets.rs](crates/ambition_sandbox/src/game_assets.rs).
 - **`BOSS_SHEET` / `BossSheetSpec` / `is_boss_kind` tests** `[stable]` — seven tests pin the boss spritesheet's pure-function surface (row-count vs enum variants, `frame_count`, `flat_index` row-end-to-end + clamp-on-overshoot, `render_size` aspect-ratio + minimum extent). [boss_sprites.rs](crates/ambition_sandbox/src/boss_sprites.rs).
 - **`Motif` invariant tests** `[stable]` — `TANGENT_MOTIF`'s scale_degrees / rhythm_units have matching length and rhythm units are positive. Cheap insurance for the future arrangement engine. [music.rs](crates/ambition_engine/src/music.rs).
-- **550+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
+- **`--start-room` CLI parser tests** `[stable]` — extracted `parse_start_room_arg` so the parser is unit-testable without `env::args`; five tests pin space-form, equals-form, first-match-wins, no-flag, and trailing-flag-without-value. [app.rs:224](crates/ambition_sandbox/src/app.rs#L224).
+- **Ledge-grab climb-up + drop-off tests** `[stable]` — pin the two intentional player-driven exits from a held ledge: Up + Jump snaps to climb_target and sets on_ground; Down clears the latched state and wall-cling flags. [ledge_grab.rs](crates/ambition_sandbox/src/ledge_grab.rs).
+- **555+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
 
 ---
 

@@ -121,7 +121,6 @@
 ## F — Documentation / hygiene
 
 - [ ] Archive applied music-renderer overlay docs in `docs/` once their patches land `[V1/D1]`
-- [ ] Wire FEATURES.md update into a checklist when closing TODO items `[V2/D1]`
 
 ## ♾ — Evergreen / perpetual
 

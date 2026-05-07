@@ -398,6 +398,17 @@ def _apply_voicing_constraints(
             out = _voice_lead_minimize(prev, out)
     if constraints.get("no_clusters"):
         out = _spread_clusters(out)
+    # Final guard: clamp every voice into the valid MIDI range and drop
+    # exact duplicates so the constraint stages can't produce out-of-range
+    # pitches that would crash the MIDI writer.
+    out = [int(clamp(p, 0, 127)) for p in out]
+    seen: set[int] = set()
+    deduped: list[int] = []
+    for p in out:
+        if p not in seen:
+            seen.add(p)
+            deduped.append(p)
+    out = deduped
     ctx.last_voicing[inst_name] = list(out)
     return out
 
@@ -442,7 +453,8 @@ def _voice_lead_minimize(prev: list[int], new: list[int]) -> list[int]:
 
 def _spread_clusters(notes: list[int]) -> list[int]:
     """Move any note that's a minor 2nd from another voice up by an octave
-    until no two voices are adjacent semitones."""
+    until no two voices are adjacent semitones — but if shifting up would
+    exceed MIDI 120, shift the lower voice DOWN by an octave instead."""
     if len(notes) < 2:
         return notes
     out = sorted(notes)
@@ -453,7 +465,13 @@ def _spread_clusters(notes: list[int]) -> list[int]:
         iterations += 1
         for i in range(len(out) - 1):
             if out[i + 1] - out[i] == 1:
-                out[i + 1] += 12
+                if out[i + 1] + 12 <= 120:
+                    out[i + 1] += 12
+                elif out[i] - 12 >= 12:
+                    out[i] -= 12
+                else:
+                    # Both directions out of range — accept the cluster.
+                    continue
                 out.sort()
                 changed = True
                 break

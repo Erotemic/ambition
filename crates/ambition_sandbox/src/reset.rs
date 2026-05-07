@@ -147,12 +147,6 @@ pub fn process_sandbox_reset_request(
     //    a same-room reset; we're calling it after flipping the
     //    active room so it uses the start room's spawn point.
     runtime.reset(&world.0, tuning.as_engine());
-    // `runtime.reset` deliberately doesn't clear `player_died_pending`
-    // (the encounter system reads it on the next tick to fail an
-    // active encounter on death). After a sandbox reset, no
-    // encounter is in flight, so the flag is stale information —
-    // clear it explicitly.
-    runtime.player_died_pending = false;
 
     // 7. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used

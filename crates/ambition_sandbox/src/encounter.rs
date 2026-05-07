@@ -1031,6 +1031,7 @@ pub fn sync_encounter_reward_chests(
 /// player is actually inside the room.
 pub fn update_encounters_from_world(
     time: Res<Time>,
+    mut died_messages: MessageReader<crate::PlayerDiedMessage>,
     mut registry: ResMut<EncounterRegistry>,
     mut save: ResMut<crate::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
@@ -1054,7 +1055,7 @@ pub fn update_encounters_from_world(
     //    them here makes the next tick a clean fresh attempt). The
     //    death-respawn path already moved the player back to the
     //    room spawn, so the trigger AABB will re-fire on next entry.
-    let died_this_frame = std::mem::take(&mut runtime.player_died_pending);
+    let died_this_frame = died_messages.read().next().is_some();
     if died_this_frame {
         for (id, state) in registry.encounters.iter_mut() {
             let in_flight = matches!(

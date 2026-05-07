@@ -75,7 +75,7 @@ use crate::rooms;
 use crate::setup;
 use crate::ui_fonts;
 use crate::windowing;
-use crate::{GameWorld, SandboxRuntime};
+use crate::{GameWorld, PlayerDiedMessage, SandboxRuntime};
 
 /// Bundled `MessageWriter`s for the sim → presentation event channel.
 ///
@@ -90,6 +90,7 @@ pub struct SandboxEventWriters<'w> {
     sfx: MessageWriter<'w, SfxMessage>,
     vfx: MessageWriter<'w, VfxMessage>,
     debris: MessageWriter<'w, DebrisBurstMessage>,
+    died: MessageWriter<'w, PlayerDiedMessage>,
 }
 
 /// Queues the simulation half writes to during `sandbox_update`.
@@ -123,6 +124,7 @@ struct FrameFeedback {
     sfx: Vec<SfxMessage>,
     vfx: Vec<VfxMessage>,
     debris: Vec<DebrisBurstMessage>,
+    died: Vec<PlayerDiedMessage>,
 }
 
 impl FrameFeedback {
@@ -131,6 +133,7 @@ impl FrameFeedback {
             sfx: Vec::new(),
             vfx: Vec::new(),
             debris: Vec::new(),
+            died: Vec::new(),
         }
     }
 }
@@ -151,6 +154,7 @@ fn flush_feedback(feedback: &mut FrameFeedback, writers: &mut SandboxEventWriter
     writers.sfx.write_batch(feedback.sfx.drain(..));
     writers.vfx.write_batch(feedback.vfx.drain(..));
     writers.debris.write_batch(feedback.debris.drain(..));
+    writers.died.write_batch(feedback.died.drain(..));
 }
 
 /// Build + run the visible Bevy app. The thin `fn main()` shim in
@@ -326,6 +330,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_message::<SfxMessage>()
         .add_message::<VfxMessage>()
         .add_message::<DebrisBurstMessage>()
+        .add_message::<PlayerDiedMessage>()
         .register_type::<GameMode>()
         .insert_resource(crate::trace::GameplayTraceBuffer::default())
         .insert_resource(crate::mechanics::MechanicsRegistry::default())
@@ -1535,6 +1540,7 @@ fn damage_heal_dialogue_phase(
         world,
         &mut feedback.sfx,
         &mut feedback.vfx,
+        &mut feedback.died,
         runtime,
         feature_events,
         tuning,
@@ -2167,6 +2173,7 @@ fn death_respawn_player(
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    died: &mut Vec<PlayerDiedMessage>,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -2179,18 +2186,16 @@ fn death_respawn_player(
     runtime.flash_timer = feel.reset_flash_time.max(0.35);
     runtime.features.banner = "PLAYER DOWN: respawned at room start with full HP".to_string();
     runtime.features.banner_timer = 2.4;
-    // One-shot signal for the encounter system: any in-flight
-    // encounter should fail this frame so the next frame can re-arm
-    // a fresh attempt.
-    runtime.player_died_pending = true;
     sfx.push(SfxMessage::Death { pos: from });
     vfx.push(VfxMessage::ResetEffects { from, to });
+    died.push(PlayerDiedMessage { pos: from });
 }
 
 fn handle_player_damage_events(
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    died: &mut Vec<PlayerDiedMessage>,
     runtime: &mut SandboxRuntime,
     events: &features::FeatureEvents,
     tuning: ae::MovementTuning,
@@ -2213,7 +2218,7 @@ fn handle_player_damage_events(
     let scaled = ((damage.amount as f32) * difficulty_multiplier).round() as i32;
     damage.amount = scaled.max(1);
     if runtime.player_health.damage(damage.amount) {
-        death_respawn_player(world, sfx, vfx, runtime, tuning, feel, damage.impact_pos);
+        death_respawn_player(world, sfx, vfx, died, runtime, tuning, feel, damage.impact_pos);
         return;
     }
     match damage.mode {

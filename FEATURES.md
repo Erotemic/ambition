@@ -17,6 +17,11 @@ Status badges:
 
 ---
 
+## Sim → presentation message channels
+
+- **`PlayerDiedMessage` (Bevy 0.18 Message API)** `[stable]` — replaces the previous `SandboxRuntime::player_died_pending` bool. `death_respawn_player` pushes into `FrameFeedback.died`; `flush_feedback` drains into `MessageWriter`; `update_encounters_from_world` reads `MessageReader<PlayerDiedMessage>`. Keeps the runtime resource a pure state store. [lib.rs:67](crates/ambition_sandbox/src/lib.rs#L67), [app.rs:2172](crates/ambition_sandbox/src/app.rs#L2172).
+- **`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`** `[stable]` — Vec-collector → MessageWriter pattern documented in `docs/events_refactor_plan.md`. [audio.rs:53](crates/ambition_sandbox/src/audio.rs#L53), [fx.rs](crates/ambition_sandbox/src/fx.rs).
+
 ## Engine — physics & player state
 
 - **Wall-jump OOB fix via `body_is_side_contact`** `[stable]` — guards `sweep_player_y` from snap-direction tunneling on edge-touching walls. [movement.rs:1321](crates/ambition_engine/src/movement.rs#L1321). Commit `4002b4d` (Catch edge-touching wall side-contact in y-sweep).

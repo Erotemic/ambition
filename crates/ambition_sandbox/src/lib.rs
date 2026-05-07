@@ -60,10 +60,29 @@ pub use game_mode::GameMode;
 pub use headless::{run_headless, HeadlessReport};
 
 use ambition_engine as ae;
-use bevy::prelude::Resource;
+use bevy::prelude::{Message, Resource};
 
 use feel::SandboxFeelTuning;
 use input::KeyboardPreset;
+
+/// Sandbox-side death notification. Emitted from `death_respawn_player`
+/// the frame the player's HP drops to zero and they respawn at the room
+/// spawn. The encounter system reads this through `MessageReader` to
+/// fail any in-flight encounter (despawn mobs, drop the lock wall,
+/// re-arm the trigger) without sandbox-runtime polling.
+///
+/// `pos` carries the impact location for downstream consumers (vfx,
+/// future death-replay tooling). Today the encounter system ignores it.
+///
+/// Replaces the previous `SandboxRuntime::player_died_pending` bool —
+/// the Vec-collector → `MessageWriter` pattern matches the rest of the
+/// sim → presentation seam (`SfxMessage` / `VfxMessage` /
+/// `DebrisBurstMessage`) and keeps the runtime resource a pure state
+/// store rather than a half-event-channel.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct PlayerDiedMessage {
+    pub pos: ae::Vec2,
+}
 
 /// Per-frame conditions that gate writes to `SandboxRuntime::last_safe_player_pos`.
 /// We refuse to record a position as "safe" while any of these flags are
@@ -166,12 +185,6 @@ pub struct SandboxRuntime {
     /// ledge — gravity is suspended and Up + Jump kicks off the
     /// climb. `None` otherwise. Only mutated by `update_ledge_grab`.
     pub ledge_grab: Option<LedgeGrabState>,
-    /// One-shot signal: set true the frame the player died and was
-    /// respawned. The encounter system reads this on its next tick
-    /// to fail any active encounter (despawn mobs, drop the lock,
-    /// re-arm the trigger). Cleared by the encounter system after
-    /// it acts.
-    pub player_died_pending: bool,
     /// One-shot signal: set true the frame `register_down_tap` detects
     /// the second tap of a double-tap-down within
     /// `feel.down_double_tap_window`. The body-mode driver in the
@@ -236,7 +249,6 @@ impl SandboxRuntime {
             slash_damage: 1,
             invincible: false,
             ledge_grab: None,
-            player_died_pending: false,
             double_tap_down_pending: false,
         }
     }
@@ -265,10 +277,6 @@ impl SandboxRuntime {
         // settings on every player respawn.
         self.mana_current = self.mana_max;
         self.ledge_grab = None;
-        // `player_died_pending` is intentionally NOT cleared here —
-        // it's set by `death_respawn_player` (which calls `reset`)
-        // so the encounter system can read it on the next tick.
-        // Clearing it would defeat the signal.
     }
 
     pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {

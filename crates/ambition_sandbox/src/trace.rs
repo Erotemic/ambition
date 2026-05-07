@@ -1520,7 +1520,6 @@ mod tests {
                 slash_damage: 1,
                 invincible: false,
                 ledge_grab: None,
-                player_died_pending: false,
                 double_tap_down_pending: false,
             },
             &world,
@@ -1575,7 +1574,6 @@ mod tests {
                 slash_damage: 1,
                 invincible: false,
                 ledge_grab: None,
-                player_died_pending: false,
                 double_tap_down_pending: false,
             },
             &world,
@@ -1661,7 +1659,6 @@ mod tests {
             slash_damage: 1,
             invincible: false,
             ledge_grab: None,
-            player_died_pending: false,
             double_tap_down_pending: false,
         }
     }

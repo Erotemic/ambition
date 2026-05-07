@@ -38,6 +38,7 @@
 - [x] **Enter as menu-select in settings menu** — `MenuSelect` bound to Enter / NumpadEnter / Space / South / user's jump in [input.rs:342](crates/ambition_sandbox/src/input.rs#L342). Pause menu reads `actions.just_pressed(&SandboxAction::MenuSelect)`.
 - [x] **D-pad navigation in settings menu** — `MenuNavigate{Up,Down,Left,Right}` bound to `GamepadButton::DPad{Up,Down,Left,Right}` in [input.rs:331](crates/ambition_sandbox/src/input.rs#L331). Toggleable via `controls.dpad_menu_navigation`.
 - [x] **Controller dash hysteresis** — analog trigger goes through `update_trigger_edge` with release/press thresholds; trigger / button / both modes; per-input edge guards prevent jitter spam. [input.rs:488](crates/ambition_sandbox/src/input.rs#L488), [controls.rs:202](crates/ambition_sandbox/src/settings/controls.rs#L202).
+- [x] **`PlayerDiedMessage`** — replaces `runtime.player_died_pending` bool with a Bevy 0.18 buffered `Message`. Producer pushes into `FrameFeedback.died` from `death_respawn_player`; encounter system reads `MessageReader<PlayerDiedMessage>`. [lib.rs:67](crates/ambition_sandbox/src/lib.rs#L67), [app.rs:2172](crates/ambition_sandbox/src/app.rs#L2172), [encounter.rs:1057](crates/ambition_sandbox/src/encounter.rs#L1057).
 
 ---
 
@@ -100,7 +101,6 @@
 
 ## C — Engine cleanups (compounding)
 
-- [ ] `runtime.player_died_pending` boolean → `PlayerDiedMessage` (Bevy 0.18 Message API) `[V2/D1]`
 - [ ] Promote sandbox-side `mana_current` / `mana_max` to engine `ResourceMeter` (engine has the type; sandbox still has separate fields) `[V2/D2]`
 - [ ] `slash_damage` / `invincible` → per-player engine state `[V2/D2]`
 - [ ] **Finish ADR 0012 events refactor** `[V3/D3]` — remaining call sites; confirm headless ticks `sandbox_update` cleanly. Source: `events_refactor_plan.md`.

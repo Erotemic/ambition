@@ -99,7 +99,6 @@
 ## C — Engine cleanups (compounding)
 
 - [ ] Promote sandbox-side `mana_current` / `mana_max` to engine `ResourceMeter` (engine has the type; sandbox still has separate fields) `[V2/D2]`
-- [ ] `slash_damage` / `invincible` → per-player engine state `[V2/D2]`
 - [ ] **Finish ADR 0012 events refactor** `[V3/D3]` — remaining call sites; confirm headless ticks `sandbox_update` cleanly. Source: `events_refactor_plan.md`.
 - [ ] **CharacterAi authoritative migration** `[V3/D4]` — convert one enemy archetype's movement to read evaluator output (currently observed-only); then one boss pattern; parity test. Source: `character_ai_refactor.md`.
 - [ ] **Bug record/replay ring buffer** `[V4/D4]` — last 600 frames of `ControlFrame + SimMessages + player snapshot`, F12 / auto-OOB dump, replay binary. Would have caught the glitchy-platform bug. Source: `path_forward.md` step F.

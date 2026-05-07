@@ -1525,7 +1525,7 @@ fn feature_runtime_phase(
     // damage event (and its impact / message side effects) every frame
     // — the handler drops the event, but the impacts still spawn
     // particles and SFX.
-    let player_vulnerable = !runtime.invincible && runtime.damage_invuln_timer <= 0.0;
+    let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
     let feature_events = runtime.features.update(
         &feature_world,
         &feature_player,
@@ -2241,7 +2241,7 @@ fn handle_player_damage_events(
     // Invincibility (debug toggle): drop the damage event entirely
     // before any state mutates so testing systems that consume HP
     // (boss phases, encounter pacing, music) can run uninterrupted.
-    if runtime.invincible {
+    if runtime.player.invincible {
         return;
     }
     // Difficulty / assist scaling. Easy halves incoming damage, hard
@@ -2379,7 +2379,7 @@ fn process_attack(
     let mut landed = false;
     let mut killed = false;
     let player_facing = runtime.player.facing;
-    let slash_damage = runtime.slash_damage.max(1);
+    let slash_damage = runtime.player.damage_multiplier.max(1);
     let feature_events =
         runtime
             .features

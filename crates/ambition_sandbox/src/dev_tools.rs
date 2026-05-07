@@ -446,8 +446,8 @@ pub fn sync_player_stats_with_inspector(
     // sandbox-side store so the inspector field round-trips.
     runtime.mana_current = stats.mana.clamp(0, stats.max_mana.max(0));
     runtime.mana_max = stats.max_mana.max(0);
-    // Combat tuning + invincibility flow through the runtime to the
-    // attack / damage paths.
-    runtime.slash_damage = stats.slash_damage.max(1);
-    runtime.invincible = stats.invincible;
+    // Combat tuning + invincibility now live on `Player` (engine-side)
+    // so per-player state is engine state, not sandbox state.
+    runtime.player.damage_multiplier = stats.slash_damage.max(1);
+    runtime.player.invincible = stats.invincible;
 }

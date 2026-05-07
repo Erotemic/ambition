@@ -175,12 +175,6 @@ pub struct SandboxRuntime {
     /// to `mana_max` on construction.
     pub mana_current: i32,
     pub mana_max: i32,
-    /// Multiplier on outgoing player slash damage. The F3 editor
-    /// writes this; `process_attack` reads it. Default 1.
-    pub slash_damage: i32,
-    /// True → all incoming damage is dropped. Set by the F3 stats
-    /// editor's "invincible" toggle.
-    pub invincible: bool,
     /// Ledge grab state. `Some` while the player is hanging on a
     /// ledge — gravity is suspended and Up + Jump kicks off the
     /// climb. `None` otherwise. Only mutated by `update_ledge_grab`.
@@ -246,8 +240,6 @@ impl SandboxRuntime {
             slash_anim_timer: 0.0,
             mana_current: 100,
             mana_max: 100,
-            slash_damage: 1,
-            invincible: false,
             ledge_grab: None,
             double_tap_down_pending: false,
         }
@@ -272,9 +264,11 @@ impl SandboxRuntime {
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
         self.slash_anim_timer = 0.0;
-        // Refill mana on reset; preserve the editor-tuned slash damage
-        // / invincible flag so testers don't lose their inspector
-        // settings on every player respawn.
+        // Refill mana on reset; the editor-tuned damage_multiplier /
+        // invincible flag now lives on `Player` and survives reset
+        // because `reset_to` only touches movement state, not these
+        // gameplay tunables — so testers don't lose their F3
+        // settings on every respawn.
         self.mana_current = self.mana_max;
         self.ledge_grab = None;
     }

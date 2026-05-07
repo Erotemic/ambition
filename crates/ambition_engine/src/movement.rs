@@ -170,6 +170,25 @@ pub struct Player {
     pub max_speed: f32,
     pub time_alive: f32,
     pub resets: u32,
+    /// Multiplier on outgoing player melee/projectile damage. The
+    /// sandbox F3 stats editor and any future power-up writes this;
+    /// damage-emitting code reads it. Default 1; clamped to >=1 by
+    /// callers that want a "no zero-damage hits" floor.
+    ///
+    /// Lives on `Player` (not `Health`) because it scales the player's
+    /// outgoing damage, not their incoming damage. Promoted from
+    /// `SandboxRuntime::slash_damage` so per-player tuning is engine
+    /// state, not sandbox-only state.
+    pub damage_multiplier: i32,
+    /// True → all incoming damage to this player is dropped before HP
+    /// math runs. Used by the F3 stats editor's "invincible" toggle and
+    /// any future invuln-frame mechanics.
+    ///
+    /// Lives on `Player` (not `Health`) so the Player aggregate carries
+    /// both gameplay flags AND health together for save/load and
+    /// per-player multiplayer state. Promoted from
+    /// `SandboxRuntime::invincible`.
+    pub invincible: bool,
     /// Authoritative body-shape stance. Default is `Standing`. Sandbox
     /// systems writing crouch / morph / slide should set this directly,
     /// gated on `BodyShape::fits_at` for collision-safe resize.
@@ -233,6 +252,8 @@ impl Player {
             max_speed: 0.0,
             time_alive: 0.0,
             resets: 0,
+            damage_multiplier: 1,
+            invincible: false,
             body_mode: crate::player_state::BodyMode::Standing,
             water_contact: None,
         }

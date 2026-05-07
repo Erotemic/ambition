@@ -125,6 +125,8 @@ impl RandomPolicy {
         AgentAction {
             move_x: self.axis_x,
             move_y: 0.0,
+            up_pressed: false,
+            down_pressed: false,
             jump,
             jump_held: jump || self.rng.chance(self.jump_hold_chance),
             jump_released: false,

@@ -59,6 +59,17 @@ use crate::SandboxRuntime;
 pub struct AgentAction {
     pub move_x: f32,
     pub move_y: f32,
+    /// Edge-triggered "just pressed up this frame". The desktop
+    /// input pipeline sets this from `actions.just_pressed(MoveUp)`;
+    /// agents that want to fire an Up gesture (door tap, ladder
+    /// entry) set this to true on a single frame and back to false
+    /// on subsequent frames. The continuous `move_y` axis still
+    /// drives gameplay reads that need held-state.
+    pub up_pressed: bool,
+    /// Edge-triggered "just pressed down this frame". Same shape as
+    /// `up_pressed`; setting it true every frame would re-trigger
+    /// the double-tap-down → MorphBall gesture incorrectly.
+    pub down_pressed: bool,
     pub jump: bool,
     pub jump_held: bool,
     pub jump_released: bool,
@@ -116,8 +127,26 @@ impl From<AgentAction> for ControlFrame {
             jump_held: a.jump_held,
             jump_released: a.jump_released,
             dash_pressed: a.dash,
-            up_pressed: a.move_y < -0.5,
-            down_pressed: a.move_y > 0.5,
+            // up_pressed / down_pressed are edge-triggered (just-
+            // pressed) on the desktop input pipeline. Auto-deriving
+            // them from move_y > 0.5 every frame breaks gestures
+            // that depend on the edge: register_down_tap reads
+            // down_pressed each tick and treats every consecutive
+            // true as a fresh tap, which fires double-tap-down →
+            // MorphBall on the second held frame. Crouch is the
+            // visible symptom: holding Down should crouch
+            // continuously, not curl into MorphBall after one frame.
+            //
+            // Fix: leave these fields neutral (false) by default in
+            // the AgentAction → ControlFrame conversion. Agents that
+            // genuinely want to fire an Up / Down edge can set the
+            // explicit `up_pressed` / `down_pressed` fields on
+            // AgentAction (added below) once-per-edge and the
+            // converter forwards them. The continuous axis still
+            // drives `axis_y` so gameplay reads (crouch, fast-fall,
+            // ladder-climb) keep working.
+            up_pressed: a.up_pressed,
+            down_pressed: a.down_pressed,
             fast_fall_pressed: false,
             blink_pressed: a.blink,
             blink_held: a.blink_held,

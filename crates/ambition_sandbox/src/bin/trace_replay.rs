@@ -81,6 +81,8 @@ impl From<RecordedControls> for AgentAction {
             move_x: c.axis_x,
             // Trace stores axis_y in sim convention (+Y = down) already.
             move_y: c.axis_y,
+            up_pressed: false,
+            down_pressed: false,
             jump: c.jump_pressed,
             jump_held: c.jump_held,
             jump_released: c.jump_released,

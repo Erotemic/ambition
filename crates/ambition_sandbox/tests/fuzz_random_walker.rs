@@ -51,6 +51,8 @@ fn random_action(rng: &mut Lcg, sticky_axis_x: &mut f32) -> AgentAction {
     AgentAction {
         move_x: *sticky_axis_x,
         move_y: 0.0,
+        up_pressed: false,
+        down_pressed: false,
         jump,
         jump_held: jump || rng.chance(0.5),
         jump_released: false,

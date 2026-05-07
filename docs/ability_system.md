@@ -12,24 +12,33 @@ at a time.
 
 Abilities live in `ambition_engine::AbilitySet`.
 
-Current flags:
+Current flags (as of 2026-05-07):
 
-- `move_horizontal`
-- `jump`
-- `variable_jump`
-- `double_jump`
-- `wall_jump`
-- `wall_cling`
-- `wall_climb`
-- `dash`
-- `double_dash`
-- `attack`
-- `pogo`
-- `rebound`
+Locomotion:
+- `move_horizontal`, `jump`, `variable_jump`, `double_jump`, `fast_fall`
+- `wall_jump`, `wall_cling`, `wall_climb`
+- `dash`, `double_dash`
+- `fly` (sandbox-only free flight)
+- `glide` (slow-fall with held jump)
+- `swim` (underwater control)
+- `ledge_grab`
+
+Teleport / blink:
+- `blink`, `precision_blink`
+- `blink_through_soft_walls`, `blink_through_hard_walls`
+
+Combat:
+- `attack`, `pogo`, `rebound`
+- `directional_primary` (fireball), `directional_special` (charged Hadouken)
+
+Meta:
 - `reset`
 
-The sandbox constructs players with `AbilitySet::sandbox_all()`. Future story
-states should use smaller sets or build a set from an upgrade graph.
+The sandbox constructs players with `AbilitySet::sandbox_all()`, which
+enables every flag. `AbilitySet::basic()` and `sane_subset()` are
+predefined narrower sets used for engine tests. Story states should
+build a set from an upgrade graph or use `sane_subset()` as a starting
+point.
 
 ## Dependency warnings
 

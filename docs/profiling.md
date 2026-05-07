@@ -41,7 +41,62 @@ chaining `phase_mark(...)` between Startup systems in
 Code lives in
 [crates/ambition_sandbox/src/profiling.rs](../crates/ambition_sandbox/src/profiling.rs).
 
-## 2. Bevy + Tracy per-system profiling
+## 2a. cargo flamegraph (no-GUI flame graph SVG)
+
+For a "give me a flame graph as a file" workflow that doesn't need
+the Tracy GUI installed, use [cargo-flamegraph](https://github.com/flamegraph-rs/flamegraph).
+It wraps Linux `perf` and writes an interactive SVG you open in a
+browser.
+
+### One-time setup
+
+```bash
+cargo install flamegraph
+# Linux: perf needs kernel.perf_event_paranoid <= 2 (or sudo)
+sudo sysctl kernel.perf_event_paranoid=1
+# Optional, restart-persistent: echo "kernel.perf_event_paranoid=1" | sudo tee /etc/sysctl.d/local-perf.conf
+```
+
+Add this to `crates/ambition_sandbox/Cargo.toml` for symbol-rich
+release builds (already there if you've enabled it elsewhere; safe
+to keep on for normal `cargo run --release`):
+
+```toml
+[profile.release]
+debug = true  # keep DWARF for unmangled flamegraph frames
+```
+
+### Capture a startup flame graph
+
+```bash
+# Build first so capture only times the run, not compilation.
+cargo build --release -p ambition_sandbox
+
+cargo flamegraph -p ambition_sandbox --bin ambition_sandbox \
+    --release \
+    --output flamegraph_startup.svg \
+    -- --start-room=central_hub_complex
+# Close the game window after a few seconds to stop sampling.
+```
+
+Open `flamegraph_startup.svg` in a browser. Width = CPU time spent
+in that frame; click to zoom. Search box (top right) jumps to a
+function name.
+
+### Capture a single problem area
+
+If you already know roughly where the time goes (per phase logger),
+add a sleep at the end of the suspect block, capture, then remove:
+
+```bash
+# Useful for "I want a flamegraph that's only the post-Startup
+# room-load tick" — make Startup short, hit a known idle frame.
+```
+
+For per-frame regressions during play, just run the game normally
+under `cargo flamegraph` and keep playing for ~30 seconds.
+
+## 2b. Bevy + Tracy per-system profiling
 
 Bevy ships with built-in tracing instrumentation. Enabling
 `--features profile` flips on `bevy/trace` and `bevy/trace_tracy`,

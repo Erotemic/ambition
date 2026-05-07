@@ -1244,9 +1244,16 @@ fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
+    mut profiler: ResMut<crate::profiling::StartupProfiler>,
 ) {
+    let t0 = std::time::Instant::now();
     let game_assets =
         game_assets::load_game_assets(&asset_config, &asset_server, &mut atlas_layouts);
+    let t_assets = t0.elapsed().as_secs_f32() * 1000.0;
+    profiler
+        .marks
+        .push(("setup_presentation::load_game_assets", std::time::Instant::now()));
+    let t1 = std::time::Instant::now();
     setup::presentation_world(
         &mut commands,
         &mut audio_sources,
@@ -1260,6 +1267,14 @@ fn setup_presentation_system(
         },
         scene_entities.player,
     );
+    let t_present = t1.elapsed().as_secs_f32() * 1000.0;
+    eprintln!(
+        "[startup]   setup_presentation breakdown: load_game_assets={t_assets:.1}ms presentation_world={t_present:.1}ms"
+    );
+    profiler.marks.push((
+        "setup_presentation::presentation_world",
+        std::time::Instant::now(),
+    ));
     commands.insert_resource(game_assets);
 }
 

@@ -22,3 +22,31 @@ pub const TANGENT_MOTIF: Motif = Motif {
     scale_degrees: &[0, 2, 3, 7, 5, 3, 2, 0],
     rhythm_units: &[1, 1, 2, 1, 1, 2, 3, 5],
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tangent_motif_has_aligned_scale_and_rhythm() {
+        // Each scale degree wants a matching rhythm unit; an arrangement
+        // engine would zip these and fail if the lengths drifted.
+        assert_eq!(
+            TANGENT_MOTIF.scale_degrees.len(),
+            TANGENT_MOTIF.rhythm_units.len(),
+            "scale_degrees and rhythm_units must have matching length"
+        );
+        assert!(!TANGENT_MOTIF.name.is_empty());
+        assert!(!TANGENT_MOTIF.scale_degrees.is_empty());
+    }
+
+    #[test]
+    fn tangent_motif_rhythm_units_are_positive() {
+        // A zero-length rhythm unit would represent a "silent step" the
+        // arrangement engine isn't designed to produce; flag the case so
+        // future authoring catches it at test time.
+        for &unit in TANGENT_MOTIF.rhythm_units {
+            assert!(unit > 0, "rhythm units must be positive (got {unit})");
+        }
+    }
+}

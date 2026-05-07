@@ -157,7 +157,9 @@ Status badges:
 - **`--start-room` CLI parser tests** `[stable]` — extracted `parse_start_room_arg` so the parser is unit-testable without `env::args`; five tests pin space-form, equals-form, first-match-wins, no-flag, and trailing-flag-without-value. [app.rs:224](crates/ambition_sandbox/src/app.rs#L224).
 - **Ledge-grab climb-up + drop-off tests** `[stable]` — pin the two intentional player-driven exits from a held ledge: Up + Jump snaps to climb_target and sets on_ground; Down clears the latched state and wall-cling flags. [ledge_grab.rs](crates/ambition_sandbox/src/ledge_grab.rs).
 - **Character spritesheet flat_index clamp + frame_duration tests** `[stable]` — overshoot-clamping and per-row positive-duration invariants for ROBOT_SHEET. Mirror of the boss-spritesheet invariants. [character_sprites.rs](crates/ambition_sandbox/src/character_sprites.rs).
-- **559+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
+- **`Chest::new` defaults test** `[stable]` — pins state=Closed, persistent=true, reward propagates as-given. [interaction.rs](crates/ambition_engine/src/interaction.rs).
+- **`World::water_at` submersion-math tests** `[stable]` — body inside region clamps to submersion=1; body straddling surface reports submersion=0. [world.rs](crates/ambition_engine/src/world.rs).
+- **562+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
 
 ---
 

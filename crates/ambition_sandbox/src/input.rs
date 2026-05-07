@@ -844,6 +844,28 @@ mod tests {
     }
 
     #[test]
+    fn keyboard_preset_presets_returns_four_unique_ids() {
+        let presets = KeyboardPreset::presets();
+        assert_eq!(presets.len(), 4);
+        // Every preset id is unique.
+        for (i, a) in presets.iter().enumerate() {
+            for b in &presets[i + 1..] {
+                assert_ne!(a.id, b.id);
+            }
+        }
+    }
+
+    #[test]
+    fn keyboard_preset_movement_label_matches_id_family() {
+        // Both Arrows variants produce "Arrow keys"; both WASD variants
+        // produce "WASD".
+        assert_eq!(KeyboardPreset::arrows_zxc().movement_label(), "Arrow keys");
+        assert_eq!(KeyboardPreset::arrows_qwer().movement_label(), "Arrow keys");
+        assert_eq!(KeyboardPreset::wasd_jkl().movement_label(), "WASD");
+        assert_eq!(KeyboardPreset::wasd_uipo().movement_label(), "WASD");
+    }
+
+    #[test]
     fn analog_to_dir_picks_dominant_axis() {
         assert_eq!(analog_to_dir(0.8, 0.1, 0.5), Some(MenuDir::Right));
         assert_eq!(analog_to_dir(-0.8, -0.1, 0.5), Some(MenuDir::Left));

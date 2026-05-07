@@ -163,4 +163,48 @@ mod tests {
         assert_eq!(on, AssistMode::On);
         assert_eq!(on.toggle(), AssistMode::Off);
     }
+
+    #[test]
+    fn difficulty_next_prev_round_trip() {
+        for d in Difficulty::ALL {
+            assert_eq!(d.next().prev(), d);
+        }
+    }
+
+    #[test]
+    fn difficulty_labels_are_unique_and_non_empty() {
+        let labels: Vec<&str> = Difficulty::ALL.iter().map(|d| d.label()).collect();
+        for label in &labels {
+            assert!(!label.is_empty());
+        }
+        // ALL is small enough to do an O(n²) uniqueness check.
+        for (i, a) in labels.iter().enumerate() {
+            for b in &labels[i + 1..] {
+                assert_ne!(a, b);
+            }
+        }
+    }
+
+    #[test]
+    fn gameplay_settings_default_values_are_sensible() {
+        let s = GameplaySettings::default();
+        assert_eq!(s.difficulty, Difficulty::Medium);
+        assert_eq!(s.assist, AssistMode::Off);
+        assert!(
+            (s.player_damage_multiplier - 1.0).abs() < 1e-6,
+            "default damage multiplier should be 1.0 (no scaling)"
+        );
+        assert!(s.trace_auto_dump);
+    }
+
+    #[test]
+    fn clamp_all_pushes_out_of_range_values_into_window() {
+        let mut s = GameplaySettings::default();
+        s.player_damage_multiplier = 100.0;
+        s.clamp_all();
+        assert!(s.player_damage_multiplier <= 4.0 + 1e-6);
+        s.player_damage_multiplier = -10.0;
+        s.clamp_all();
+        assert!(s.player_damage_multiplier >= 0.25 - 1e-6);
+    }
 }

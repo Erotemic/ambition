@@ -36796,7 +36796,7 @@
 						{
 							"__identifier": "LoadingZone",
 							"__grid": [
-								18,
+								29,
 								52
 							],
 							"__pivot": [
@@ -36811,7 +36811,7 @@
 							"height": 96,
 							"defUid": 2002,
 							"px": [
-								296,
+								470,
 								832
 							],
 							"fieldInstances": [
@@ -36910,7 +36910,7 @@
 						{
 							"__identifier": "LoadingZone",
 							"__grid": [
-								26,
+								43,
 								52
 							],
 							"__pivot": [
@@ -36925,7 +36925,7 @@
 							"height": 96,
 							"defUid": 2002,
 							"px": [
-								420,
+								700,
 								832
 							],
 							"fieldInstances": [
@@ -37024,7 +37024,7 @@
 						{
 							"__identifier": "LoadingZone",
 							"__grid": [
-								31,
+								57,
 								52
 							],
 							"__pivot": [
@@ -37039,7 +37039,7 @@
 							"height": 96,
 							"defUid": 2002,
 							"px": [
-								496,
+								920,
 								832
 							],
 							"fieldInstances": [
@@ -37138,7 +37138,7 @@
 						{
 							"__identifier": "LoadingZone",
 							"__grid": [
-								42,
+								101,
 								52
 							],
 							"__pivot": [
@@ -37153,7 +37153,7 @@
 							"height": 96,
 							"defUid": 2002,
 							"px": [
-								672,
+								1620,
 								832
 							],
 							"fieldInstances": [

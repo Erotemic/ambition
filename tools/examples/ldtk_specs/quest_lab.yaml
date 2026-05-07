@@ -24,11 +24,10 @@ fill_collision: empty
 biome: lab
 connect_to:
   - target_room: central_hub_basement
-    # Free spot after cutscene_lab door at x=496 (ends 544); the next
-    # existing door is basement_breakables at x=576. Pick x=672 in
-    # the gap between basement_breakables (576+48=624) and
-    # basement_treasure (788).
-    px: [672, 832]
+    # Lab door slot in the basement corridor (gap between the last
+    # basement leaf door at x=1497 and the rightmost door at x=1712).
+    # Doors were re-spaced 2026-05-07.
+    px: [1620, 832]
     size: [48, 96]
     id: quest_lab_door
     target_zone: quest_lab_entry

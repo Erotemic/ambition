@@ -54,11 +54,10 @@ fill_collision: empty
 biome: lab
 connect_to:
   - target_room: central_hub_basement
-    # Free spot in the basement corridor — gap between morph_lab door
-    # (x=296+48=344) and the existing basement_hazards door (x=348).
-    # The next free gap is between x=396 (348+48) and x=576: pick
-    # x=420.
-    px: [420, 832]
+    # Lab door slot in the basement corridor (gap between
+    # basement_enemies at x=576 and basement_boss at x=788). Doors
+    # were re-spaced 2026-05-07.
+    px: [700, 832]
     size: [48, 96]
     id: ladder_door
     target_zone: ladder_lab_entry

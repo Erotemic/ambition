@@ -27,11 +27,10 @@ fill_collision: empty
 biome: lab
 connect_to:
   - target_room: central_hub_basement
-    # Free spot in the basement door row, after ladder_lab door at
-    # x=420 (ends at 468). Pick x=496 so we sit cleanly in the gap
-    # between ladder_lab and the existing basement_breakables door
-    # at x=576.
-    px: [496, 832]
+    # Lab door slot in the basement corridor (gap between
+    # basement_boss at x=788 and basement_breakables at x=1025).
+    # Doors were re-spaced 2026-05-07.
+    px: [920, 832]
     size: [48, 96]
     id: cutscene_lab_door
     target_zone: cutscene_lab_entry

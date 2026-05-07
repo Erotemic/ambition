@@ -144,6 +144,22 @@
 
 ---
 
+## Known issues / unanswered questions (logged but not yet investigated)
+
+- **Moving platforms invisible in LDtk editor** — Jon noted 2026-05-07
+  that he can't see moving platforms in the LDtk editor at all, but
+  they appear at runtime. Likely because `KinematicPath` (entity-side)
+  is rendered procedurally by sandbox code rather than authored as a
+  visible LDtk entity. Needs an audit: either add a visible
+  placeholder to the LDtk entity def, or document the existing
+  authoring path so authors don't get confused.
+- **Visual artifact on upper level of central_hub_main after recent door additions** —
+  Jon noted 2026-05-07 that the basement-door additions (or the LDtk
+  editor changes that came with them) cause a visual artifact on the
+  upper level of the central hub. Suspected cause: an issue in the
+  LDtk editor / authoring tool changes from this session. Noted for
+  later investigation; not blocking ongoing work.
+
 ## Proposed (agent drop-zone — Jon triages into Accepted / Rejected)
 
 > Agents may append new TODO directions here freely. Do not insert into the
@@ -159,6 +175,8 @@
 - **`headless --dump-trace` off-by-one fix** `[V2/D1]` — the recorded trace's frame[0] is the post-step state, but trace_replay starts from a pre-step sim. Fix by recording a pre-step initial frame OR by having trace_replay step before the first comparison. Source: trace_replay landed 2026-05-07.
 - **Polish room-author tool: free-corridor-spot finder** `[V3/D2]` — current workflow requires the user to pick a free `connect_to.px` in the basement corridor by hand. Add a `--auto-place-door TARGET_ROOM` mode that scans for a free 48x96 gap and emits the px coords. Source: 3 rooms manually placed in this session at x=240/296/420; future rooms shouldn't need a calculation.
 - **Compact LDtk JSON formatter** `[V2/D3]` — the repair script's `json.dumps(indent='\t')` can't reproduce LDtk's editor's inline-arrays-when-short style, producing huge diffs on first apply (200k+ lines). Write a smarter writer that matches LDtk's wrapping rules (or fork an existing JSON5 / LDtk-aware printer). Source: crawl_lab/morph_lab/ladder_lab applies in 2026-05-07 each produced large diffs that subsequent edits don't.
+- **Ladders pass through solid blocks (engine flag)** `[V3/D3]` — alternative to authoring a gap in the upper platform whenever a ladder ends at a floor. Add an engine-side rule: while `Player::body_mode == Climbing`, the player's `aabb` ignores collision with `BlockKind::Solid` blocks that overlap the active `climbable_contact.region_aabb`. Generalizes the ladder_lab gap-carve fix and removes a foot-gun for future ladder authors. Source: ladder_lab fix 2026-05-07; Jon suggested either approach.
+- **Generated tile sprites for IntGrid layers** `[V3/D3]` — Climbable currently renders as colored placeholder rectangles + rung stripes (`spawn_climbable_region`). Eventually replace with proper tileset textures: ladder_tile.png, vine_tile.png, climbable_wall_tile.png. Same path Water + Hazard + Solid block rendering will eventually take. Source: per Jon's "every tile needs some graphic, even just a placeholder" rule -- placeholder is in place, real art is the polish layer.
 
 *(more ideas below)*
 

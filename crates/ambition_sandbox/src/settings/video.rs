@@ -229,4 +229,44 @@ mod tests {
         assert!(FlashIntensity::Reduced.multiplier() > 0.0);
         assert!(FlashIntensity::Reduced.multiplier() < 1.0);
     }
+
+    #[test]
+    fn flash_intensity_cycles_through_all() {
+        let mut visited: Vec<FlashIntensity> = Vec::new();
+        let mut cur = FlashIntensity::On;
+        for _ in 0..FlashIntensity::ALL.len() {
+            if !visited.contains(&cur) {
+                visited.push(cur);
+            }
+            cur = cur.next();
+        }
+        assert_eq!(visited.len(), FlashIntensity::ALL.len());
+    }
+
+    #[test]
+    fn camera_zoom_preset_scales_are_positive_finite() {
+        for preset in CameraZoomPreset::ALL {
+            let scale = preset.scale();
+            assert!(scale > 0.0 && scale.is_finite());
+        }
+    }
+
+    #[test]
+    fn camera_zoom_preset_cycles_through_all() {
+        let mut visited: Vec<CameraZoomPreset> = Vec::new();
+        let mut cur = CameraZoomPreset::Normal;
+        for _ in 0..CameraZoomPreset::ALL.len() {
+            if !visited.contains(&cur) {
+                visited.push(cur);
+            }
+            cur = cur.next();
+        }
+        assert_eq!(visited.len(), CameraZoomPreset::ALL.len());
+    }
+
+    #[test]
+    fn flash_intensity_prev_next_round_trip() {
+        let f = FlashIntensity::Reduced;
+        assert_eq!(f.next().prev(), f);
+    }
 }

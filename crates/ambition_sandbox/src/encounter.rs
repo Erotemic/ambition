@@ -1524,8 +1524,11 @@ mod tests {
         // Wave 1 has 1 mob; spawn it then mark defeated.
         let _ = state.tick_intro_or_wave(0.001, |_| true);
         let _ = state.on_mob_defeated();
-        // Wave 2 has 2 mobs; spawn + defeat both.
-        let _ = state.tick_intro_or_wave(0.001, |_| true);
+        // Wave 2 has 2 mobs; tick past the 0.70s inter-wave delay so
+        // both pending entries spawn (otherwise their delays are still
+        // counting down and `on_mob_defeated`'s legacy alive_ids.pop
+        // path no-ops, leaving the wave stuck).
+        let _ = state.tick_intro_or_wave(ENCOUNTER_INTER_WAVE_DELAY_SECONDS + 0.01, |_| true);
         let _ = state.on_mob_defeated();
         let events = state.on_mob_defeated();
         assert_eq!(state.phase, EncounterPhase::Cleared);
@@ -1756,7 +1759,12 @@ mod tests {
             "mob_lab spec should pick up the LockWall marker"
         );
         assert!(spec.intro_seconds > 0.0);
-        assert_eq!(spec.music_track, "pulse_drift_voyage");
+        // mob_lab is driven by generated_music.rs (intro → adaptive
+        // stem loops → outro), so its EncounterSpec deliberately has
+        // an empty `music_track` — the encounter system must NOT push
+        // a `RoomMusicRequest` swap on entry. See the conditional in
+        // `load_encounter_specs_from_ldtk`.
+        assert_eq!(spec.music_track, "");
     }
 
     // ── Multi-wave spawning behavior ───────────────────────────────

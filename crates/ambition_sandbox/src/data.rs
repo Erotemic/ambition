@@ -100,7 +100,7 @@ pub struct MusicTrackSpec {
     /// Optional pre-rendered OGG asset path (relative to the asset
     /// root). When `Some`, `AudioLibrary::new` loads this asset
     /// instead of running the procedural `render_lofi_theme` synth
-    /// at startup. Authored via `tools/audio/music_renderer` as a
+    /// at startup. Authored via `tools/ambition_music_renderer` as a
     /// YAML cue → OGG; matches the `first_goblin_tune_v2` pattern
     /// already used for adaptive cues. The `arrangement` field stays
     /// for `duration_seconds()` reporting and as a fallback if the

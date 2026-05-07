@@ -1,6 +1,8 @@
 //! Sprite-sheet rendering for the player robot and goblin enemies.
 //!
-//! Sheets are produced by `tools/generators/gen2d` and copied into
+//! Character sheets (player robot, goblins) are produced by
+//! `tools/generators/gen2d` (legacy character lab); the sandbag sheet is
+//! produced by `tools/ambition_sprite2d_renderer`. Sheets are copied into
 //! `assets/sprites/`. If a PNG is missing at startup the corresponding
 //! `Option` stays `None` and callers fall back to the colored-rectangle
 //! visuals that predate this module — the game must always run.

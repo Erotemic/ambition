@@ -1,4 +1,4 @@
-# `tools/author_ldtk_area.py`
+# `ambition_ldtk_tools area create`
 
 Author a new Ambition LDtk active area / level from a small YAML or
 JSON spec. Hides the LDtk JSON minutiae (`defUid` sync,
@@ -8,24 +8,28 @@ list so an agent (or human) can ship a new level in seconds without
 re-learning the editor-roundtrip discipline that
 `docs/lessons_learned.md` enumerates.
 
+This used to live at `tools/author_ldtk_area.py` (a deprecation shim
+still works); it now ships as `python -m ambition_ldtk_tools area
+create`.
+
 ## Usage
 
 ```bash
 # Default target is sandbox.ldtk; --backup is recommended on first runs.
-python tools/author_ldtk_area.py path/to/spec.yaml --backup
+python -m ambition_ldtk_tools area create path/to/spec.yaml --backup
 
 # Validate against the official LDtk JSON schema as well (default).
-python tools/author_ldtk_area.py spec.yaml \
+python -m ambition_ldtk_tools area create spec.yaml \
     --ldtk crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
-    --schema tools/schemas/ldtk/JSON_SCHEMA.json
+    --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json
 
 # Write to a separate file (good for one-shot review before committing).
-python tools/author_ldtk_area.py spec.yaml --output /tmp/sandbox.preview.ldtk
+python -m ambition_ldtk_tools area create spec.yaml --output /tmp/sandbox.preview.ldtk
 ```
 
-The tool runs `repair_ambition_ldtk.py --in-place` and then
-`validate_ambition_ldtk.py` automatically; it exits non-zero if either
-fails.
+The tool runs the package's repair pass (`ambition_ldtk_tools repair`)
+followed by validation (`ambition_ldtk_tools validate`) automatically;
+it exits non-zero if either fails.
 
 ## Spec format
 

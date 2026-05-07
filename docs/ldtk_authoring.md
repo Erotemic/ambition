@@ -4,20 +4,30 @@ Ambition now treats `crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 as the sandbox world source. LDtk owns authored spatial data; Ambition owns
 runtime gameplay semantics, validation, persistence, and hot-reload policy.
 
+All LDtk authoring goes through the `ambition_ldtk_tools` modal CLI.
+Agents should not hand-edit `sandbox.ldtk` JSON; use the semantic edits
+in this CLI so mutations are repaired and validated before write.
+
+```bash
+python -m ambition_ldtk_tools doctor crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+python -m ambition_ldtk_tools area create <spec.yaml> --apply
+python -m ambition_ldtk_tools entity add <spec.yaml> --in-place
+```
+
 ## Standard edit loop
 
 Before opening a generated or agent-patched LDtk file in the editor, run:
 
 ```bash
-python tools/repair_ambition_ldtk.py --in-place crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
-python tools/check_ldtk_editor_roundtrip.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+python -m ambition_ldtk_tools repair crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk --in-place
+python -m ambition_ldtk_tools roundtrip crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
 Then open the file in LDtk, move or add supported entities, save, and run:
 
 ```bash
-python tools/check_ldtk_editor_roundtrip.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
-python tools/validate_ambition_ldtk.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+python -m ambition_ldtk_tools roundtrip crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
 Run the sandbox with hot reload enabled:
@@ -38,10 +48,10 @@ Ambition avoids npm for LDtk validation. Fetch LDtk's official JSON Schema with
 Python and validate it through Python's `jsonschema` package:
 
 ```bash
-python tools/fetch_ldtk_schema.py
+python -m ambition_ldtk_tools schema fetch
 uv pip install jsonschema
-python tools/validate_ambition_ldtk.py \
-  --schema tools/schemas/ldtk/JSON_SCHEMA.json \
+python -m ambition_ldtk_tools validate \
+  --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
   --require-schema \
   crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
@@ -93,7 +103,7 @@ tooling consumes them, but the canonical project representation is
 the **`Collision` IntGrid layer**. Every gameplay level in
 `sandbox.ldtk` lives on IntGrid; `tools/ldtk_intgrid_migration.py` is
 the one-shot script that lowered entity instances into IntGrid cells,
-and `tools/author_ldtk_area.py` *automatically lowers* `Solid` /
+and `python -m ambition_ldtk_tools area create` *automatically lowers* `Solid` /
 `OneWayPlatform` / `BlinkWall` / `HazardBlock` rectangles in any new
 spec into the same IntGrid cells.
 
@@ -124,7 +134,7 @@ moving / variable-damage hazards.
 If a future patch needs to add static collision to a level, do it on
 the IntGrid layer (paint cells in LDtk, or rect in YAML), not by
 adding `Solid` / `HazardBlock` entity instances. See
-`tools/specs/mob_lab_area.yaml` for the rect-spec form and
+`tools/ambition_ldtk_tools/specs/mob_lab_area.yaml` for the rect-spec form and
 `tools/ldtk_intgrid_migration.py` for the entity → IntGrid value
 mapping (1=Solid, 2=OneWayUp, 3=BlinkSoft, 4=BlinkHard, 5=Hazard).
 
@@ -134,7 +144,7 @@ Hand-editing LDtk JSON is fragile (`defUid`s, `realEditorValues`, IntGrid
 sizing). For new levels, prefer:
 
 ```bash
-python tools/author_ldtk_area.py tools/examples/ldtk_specs/crawl_lab.yaml --dry-run
+python -m ambition_ldtk_tools area create tools/ambition_ldtk_tools/specs/examples/crawl_lab.yaml --dry-run
 ```
 
 The `--dry-run` mode parses and builds the level entirely in memory and
@@ -164,7 +174,7 @@ The spec format supports four high-level conveniences agents commonly need:
    instances. Run `python tools/add_biome_level_fields.py <ldtk>` once
    on a project to add the matching `defs.levelFields` entries; the
    migration is idempotent. See
-   `tools/examples/ldtk_specs/music_biome_lab.yaml` for the full set.
+   `tools/ambition_ldtk_tools/specs/examples/music_biome_lab.yaml` for the full set.
    The runtime reads these fields into `RoomSpec::metadata` per active
    area (first non-empty value wins when an area spans multiple
    levels) and mirrors the active room's metadata into the
@@ -186,7 +196,7 @@ The spec format supports four high-level conveniences agents commonly need:
 
 ### Example specs
 
-`tools/examples/ldtk_specs/` ships starter specs covering the common
+`tools/ambition_ldtk_tools/specs/examples/` ships starter specs covering the common
 sandbox-room shapes:
 
 - `crawl_lab.yaml` — body-mode proof: low-ceiling corridor that
@@ -233,7 +243,7 @@ points such as `0,0;64,0`.
 - Level field `defUid`.
 - `fieldInstances[*].realEditorValues`.
 
-Use `tools/repair_ambition_ldtk.py` after generated/agent patches. It can repair
+Use `python -m ambition_ldtk_tools repair` after generated/agent patches. It can repair
 editor metadata and UID links derived from definitions, but it cannot infer
 lost gameplay values after LDtk has already saved fields as `null`.
 

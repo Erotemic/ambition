@@ -1438,7 +1438,27 @@ fn player_simulation_phase(
     let sim_dt = sandbox_dt(runtime, frame_dt);
 
     let platform_delta = runtime.moving_platform.update(sim_dt);
-    if runtime.moving_platform.is_riding(&runtime.player) {
+    let riding_now = runtime.moving_platform.is_riding(&runtime.player);
+    let was_riding_platform = runtime.player.was_riding_platform;
+    if riding_now != was_riding_platform {
+        // Diagnostic: log riding-state transitions. Useful for
+        // chasing the "intermittent glitchy platform behavior" repro
+        // (TODO S) — once a player reports a glitch, the platform
+        // contact transitions in the log immediately before are the
+        // first place to look.
+        debug!(
+            target: "ambition::platform",
+            riding = riding_now,
+            player_pos = ?runtime.player.pos,
+            player_vel = ?runtime.player.vel,
+            on_ground = runtime.player.on_ground,
+            platform_pos = ?runtime.moving_platform.pos,
+            platform_dir = runtime.moving_platform.direction(),
+            "moving-platform riding transition"
+        );
+    }
+    runtime.player.was_riding_platform = riding_now;
+    if riding_now {
         runtime.player.pos += platform_delta;
     }
     let collision_world =

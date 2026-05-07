@@ -52,7 +52,7 @@
   - Replace snap branches in [movement.rs:1287](crates/ambition_engine/src/movement.rs#L1287)
   - Re-run `repro_walls.rs` + add fuzz (see B)
 - [ ] **Double-tap-up Interact trigger** `[V4/D2]` — `Interact` action exists; the double-tap-up *gesture* binding may not. Audit door / NPC / save-point sites and ensure single-press Up never fires interact. Source: `tmp-todo-notes.txt`, feedback memory.
-- [ ] **Glitchy platform behavior (intermittent)** `[V4/D3]` — vague repro. Add diagnostic logging on platform contact transitions. Bug record/replay (see C) would catch this. Source: `tmp-todo-notes.txt`.
+- [ ] **Glitchy platform behavior (intermittent)** `[V4/D3]` — vague repro. Bug record/replay (see C) would catch this. Source: `tmp-todo-notes.txt`. _Diagnostic logging on riding-state transitions landed via `Player::was_riding_platform` + `tracing::debug!` (target=`ambition::platform`); enable with `RUST_LOG=ambition::platform=debug` to capture the contact transition trail._
 
 ## A — Sandbox expressiveness
 

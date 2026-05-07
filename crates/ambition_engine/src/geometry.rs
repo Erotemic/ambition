@@ -222,4 +222,42 @@ mod tests {
             Some(0.0)
         );
     }
+
+    #[test]
+    fn aabb_translated_shifts_min_and_max() {
+        let aabb = Aabb::new(Vec2::new(10.0, 10.0), Vec2::new(5.0, 5.0));
+        let shifted = aabb.translated(Vec2::new(20.0, -10.0));
+        assert_eq!(shifted.center(), Vec2::new(30.0, 0.0));
+        assert_eq!(shifted.half_size(), aabb.half_size());
+    }
+
+    #[test]
+    fn strict_intersects_rejects_edge_touching() {
+        // Ambition's contract: edge-touching AABBs do NOT count as
+        // intersecting. The `body_overlaps_any` predicate relies on
+        // this — a player resting on a floor must not register as
+        // overlapping the floor.
+        let a = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
+        let b = Aabb::new(Vec2::new(20.0, 0.0), Vec2::new(10.0, 10.0));
+        assert_eq!(a.right(), b.left());
+        assert!(!a.strict_intersects(b));
+    }
+
+    #[test]
+    fn strict_intersects_accepts_overlap() {
+        let a = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
+        let b = Aabb::new(Vec2::new(15.0, 0.0), Vec2::new(10.0, 10.0));
+        assert!(a.strict_intersects(b));
+    }
+
+    #[test]
+    fn sweep_zero_delta_returns_intersection_state() {
+        // Zero delta short-circuits to strict_intersects.
+        let a = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
+        let b = Aabb::new(Vec2::new(15.0, 0.0), Vec2::new(10.0, 10.0));
+        assert_eq!(a.sweep_time_of_impact(Vec2::ZERO, b), Some(0.0));
+        // Disjoint with zero delta returns None.
+        let c = Aabb::new(Vec2::new(100.0, 100.0), Vec2::new(5.0, 5.0));
+        assert_eq!(a.sweep_time_of_impact(Vec2::ZERO, c), None);
+    }
 }

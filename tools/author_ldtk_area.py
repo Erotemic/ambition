@@ -1009,6 +1009,98 @@ def run_repair_and_validate(project_path: Path, schema: Path | None) -> int:
     return subprocess.run(cmd_val).returncode
 
 
+def list_free_spots(project: dict, target_room: str) -> int:
+    """Print free 48x96 door slots in `target_room`'s LoadingZone row.
+
+    Heuristic: collect every existing LoadingZone in the target's
+    Ambition layer, group by y (the door-row coordinate), and report
+    the largest gaps along x where a new 48x96 door could fit without
+    overlapping. Authors copy the suggested px into their spec's
+    `connect_to.px` block.
+
+    The y-row is auto-detected as the y where most existing doors sit
+    (typical basement layout). If the target has only entry/exit
+    doors at varying y, the function reports each unique y row's
+    gaps separately.
+    """
+    target_level = find_level(project, target_room)
+    if target_level is None:
+        known = ", ".join(sorted(l["identifier"] for l in project.get("levels", [])))
+        print(f"error: target_room '{target_room}' not found. Known levels: {known}")
+        return 2
+    ambition = find_layer_in_level(target_level, "Ambition")
+    if ambition is None:
+        print(f"error: '{target_room}' has no Ambition entity layer")
+        return 2
+
+    door_w_default = 48
+    door_h_default = 96
+
+    # Collect LoadingZone entities and their AABBs.
+    doors: list[tuple[int, int, int, int, str]] = []  # (x, y, w, h, id)
+    for ent in ambition.get("entityInstances", []):
+        if ent.get("__identifier") != "LoadingZone":
+            continue
+        x, y = ent["px"]
+        w, h = ent["width"], ent["height"]
+        ident = "?"
+        for fi in ent.get("fieldInstances", []):
+            if fi["__identifier"] == "id":
+                ident = str(fi.get("__value") or "?")
+                break
+        doors.append((int(x), int(y), int(w), int(h), ident))
+
+    if not doors:
+        print(f"'{target_room}' has no existing LoadingZones; pick any spot.")
+        print(f"level size: {target_level['pxWid']}x{target_level['pxHei']}")
+        return 0
+
+    # Group doors by y row. A "row" is a cluster of doors with the
+    # same y (within a small fudge factor for off-by-pixel authors).
+    rows: dict[int, list[tuple[int, int, int, int, str]]] = {}
+    for door in doors:
+        x, y, w, h, ident = door
+        # Snap y to the nearest row in `rows` if within 32 px,
+        # otherwise start a new row.
+        snap = None
+        for ry in rows:
+            if abs(ry - y) <= 32:
+                snap = ry
+                break
+        if snap is None:
+            rows[y] = [door]
+        else:
+            rows[snap].append(door)
+
+    level_w = int(target_level["pxWid"])
+    print(f"# Free door spots in '{target_room}' ({level_w}px wide):")
+    for ry in sorted(rows):
+        row_doors = sorted(rows[ry], key=lambda d: d[0])
+        print(f"## row at y={ry} ({len(row_doors)} existing doors)")
+        # Walk the row finding gaps wider than door_w_default.
+        cursor = 0
+        free_gaps: list[tuple[int, int]] = []
+        for (x, _y, w, _h, ident) in row_doors:
+            if x - cursor >= door_w_default:
+                free_gaps.append((cursor, x))
+            cursor = x + w
+        # Trailing gap to right edge.
+        if level_w - cursor >= door_w_default:
+            free_gaps.append((cursor, level_w))
+        if not free_gaps:
+            print(f"  (no free 48x96 gap in this row)")
+            continue
+        for (gap_start, gap_end) in free_gaps:
+            mid = (gap_start + gap_end - door_w_default) // 2
+            mid = max(gap_start, min(mid, gap_end - door_w_default))
+            print(
+                f"  gap x={gap_start:>5}..{gap_end:>5} ({gap_end - gap_start:>4}px wide) "
+                f"-> suggested px=[{mid}, {ry}] size=[{door_w_default}, {door_h_default}]"
+            )
+
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -1054,7 +1146,29 @@ def main(argv=None) -> int:
             "preview summary; do NOT write the file or run repair/validate"
         ),
     )
+    parser.add_argument(
+        "--list-free-spots",
+        type=str,
+        default=None,
+        metavar="TARGET_ROOM",
+        help=(
+            "Don't build a new level. Instead scan the named target room's "
+            "Ambition entity layer for free 48x96 gaps along its existing "
+            "LoadingZone door row and print suggestions for `connect_to.px`. "
+            "Use this when authoring a new room that needs a basement-style "
+            "door so you don't have to find an empty corridor slot by hand."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    # `--list-free-spots` short-circuits before we touch the spec; the
+    # `spec` positional is still required by argparse but its content
+    # is not used in this path. Authors typically run:
+    #   python tools/author_ldtk_area.py <any-spec> --list-free-spots central_hub_basement
+    # to see free door slots, then edit their actual spec.
+    if args.list_free_spots:
+        project = load_project(args.ldtk)
+        return list_free_spots(project, args.list_free_spots)
 
     spec = load_spec(args.spec)
     if not isinstance(spec, dict):

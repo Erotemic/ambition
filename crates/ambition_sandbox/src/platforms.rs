@@ -145,3 +145,75 @@ pub fn sync_moving_platform(
         ));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_world() -> ae::World {
+        ae::World::new(
+            "test",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(100.0, 100.0),
+            Vec::new(),
+        )
+    }
+
+    #[test]
+    fn moving_platform_update_swings_between_min_and_max() {
+        let world = test_world();
+        let mut platform = MovingPlatformState::time_reference(&world);
+        let initial_x = platform.pos.x;
+        // Many ticks at +x direction: platform reaches max_x and flips.
+        for _ in 0..600 {
+            let _ = platform.update(0.05);
+            // Position must always stay within [min_x, max_x].
+            assert!(platform.pos.x >= initial_x - 1.0);
+        }
+        // After enough time it must have flipped at least once.
+        assert!(platform.direction() == 1.0 || platform.direction() == -1.0);
+    }
+
+    #[test]
+    fn moving_platform_update_returns_displacement() {
+        let world = test_world();
+        let mut platform = MovingPlatformState::time_reference(&world);
+        let dt = 1.0 / 60.0;
+        let delta = platform.update(dt);
+        // Initial direction is +1, speed = 130 px/s, dt = 1/60.
+        // So displacement.x ≈ 130 / 60 ≈ 2.17 px.
+        assert!((delta.x - 130.0 * dt).abs() < 1e-3);
+        assert_eq!(delta.y, 0.0);
+    }
+
+    #[test]
+    fn moving_platform_aabb_centered_on_pos() {
+        let world = test_world();
+        let platform = MovingPlatformState::time_reference(&world);
+        let aabb = platform.aabb();
+        assert_eq!(aabb.center(), platform.pos);
+    }
+
+    #[test]
+    fn moving_platform_as_collision_block_is_blink_wall_soft() {
+        let world = test_world();
+        let platform = MovingPlatformState::time_reference(&world);
+        let block = platform.as_collision_block();
+        // Soft blink wall — solid for collision but blink-passable
+        // when soft-blink-through is unlocked.
+        assert!(matches!(
+            block.kind,
+            ae::BlockKind::BlinkWall {
+                tier: ae::BlinkWallTier::Soft,
+            }
+        ));
+    }
+
+    #[test]
+    fn world_with_moving_platform_appends_one_block() {
+        let world = test_world();
+        let platform = MovingPlatformState::time_reference(&world);
+        let extended = world_with_moving_platform(&world, &platform);
+        assert_eq!(extended.blocks.len(), world.blocks.len() + 1);
+    }
+}

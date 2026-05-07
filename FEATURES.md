@@ -148,7 +148,9 @@ Status badges:
 - **mob_lab lock-wall teleport regression** `[stable]` — pins the geometry from `docs/tech_debt_log.md` HIGH. Currently passes thanks to the `body_is_side_contact` predicate. [repro_walls.rs](crates/ambition_sandbox/tests/repro_walls.rs).
 - **`scripted_gameplay` multi-frame integration test** `[stable]` — three scenarios under MinimalPlugins: 30 idle frames emit no lifecycle events; Reset press emits Reset message; heterogeneous Reset/Jump/move sequence runs to completion. Pins the sim → presentation message seam end-to-end. [scripted_gameplay.rs](crates/ambition_sandbox/tests/scripted_gameplay.rs).
 - **Audio validation tests** `[stable]`.
-- **510+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
+- **`SandboxFeelTuning` invariant tests** `[stable]` — three default-value invariants: `time_ramp_up_rate > time_ramp_down_rate` (recovery snappier than entry); transition flash >= cooldown (no double-trigger); attack-active windows >= one 60fps frame (hittable). [feel.rs:104](crates/ambition_sandbox/src/feel.rs#L104).
+- **`MechanicsRegistry` invariants** `[stable]` — duplicate id detection, blank text-field check, category/maturity label collision detection. [mechanics.rs:283](crates/ambition_sandbox/src/mechanics.rs#L283).
+- **535+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
 
 ---
 

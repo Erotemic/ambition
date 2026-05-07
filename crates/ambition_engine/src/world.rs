@@ -215,6 +215,84 @@ pub struct WaterContact {
     pub spec: WaterVolumeSpec,
 }
 
+/// Visual / gameplay flavor of a climbable surface. Backend stays
+/// source-agnostic: movement only reads `kind` for behavior tweaks
+/// (vine sway, ladder-rung snap). Authoring layer chooses entities or
+/// IntGrid per-room based on shape needs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClimbableKind {
+    /// Rigid ladder; vertical + minor horizontal movement allowed.
+    Ladder,
+    /// Climbable wall surface (rock face, ivy). Same mechanics, the
+    /// kind exists so sprites / sfx can branch.
+    Wall,
+    /// Hanging vine. Allows pendulum-style sway in a future patch;
+    /// for now mechanically identical to Ladder.
+    Vine,
+}
+
+/// Authored tuning for a climbable region. Mirrors `WaterVolumeSpec`
+/// so authoring layers can opt into per-region tuning when the
+/// default needs an override.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ClimbableSpec {
+    /// Vertical climb speed (px/sec). Default 180 — slower than walk
+    /// (≈ 360) so climbing reads as a deliberate movement choice.
+    pub climb_speed: f32,
+    /// Horizontal-movement scale while climbing. 1.0 = full air speed,
+    /// 0.0 = totally locked. Default 0.25 — ladders allow tiny strafe
+    /// to align with rungs but don't let the player fly horizontally.
+    pub strafe_factor: f32,
+}
+
+impl Default for ClimbableSpec {
+    fn default() -> Self {
+        Self {
+            climb_speed: 180.0,
+            strafe_factor: 0.25,
+        }
+    }
+}
+
+/// One axis-aligned climbable region. Multiple regions may exist in
+/// the same room; queries return the first that contains the player
+/// AABB.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClimbableRegion {
+    pub aabb: Aabb,
+    pub kind: ClimbableKind,
+    pub spec: ClimbableSpec,
+}
+
+impl ClimbableRegion {
+    pub fn new(aabb: Aabb, kind: ClimbableKind, spec: ClimbableSpec) -> Self {
+        Self { aabb, kind, spec }
+    }
+
+    /// Convenience: ladder with default spec.
+    pub fn ladder(aabb: Aabb) -> Self {
+        Self::new(aabb, ClimbableKind::Ladder, ClimbableSpec::default())
+    }
+}
+
+/// Snapshot of "the player's relationship to a climbable surface" for
+/// one frame. Mirrors `WaterContact`'s shape so the simulator's
+/// climbable handling can stay symmetric.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ClimbableContact {
+    pub kind: ClimbableKind,
+    pub region_aabb: Aabb,
+    /// Top edge of the climbable region. Used by movement to detect
+    /// "stepping off the top of a ladder onto solid ground".
+    pub top_y: f32,
+    /// Bottom edge — used to detect "dropping off the bottom".
+    pub bottom_y: f32,
+    /// X-center of the region. Movement may snap the player to this
+    /// for ladder-rung-style alignment.
+    pub center_x: f32,
+    pub spec: ClimbableSpec,
+}
+
 /// Complete generated room spec.
 #[derive(Clone, Debug)]
 pub struct World {
@@ -228,6 +306,11 @@ pub struct World {
     /// Movement only reads this list (via `water_at`), never the
     /// upstream sources.
     pub water_regions: Vec<WaterRegion>,
+    /// Source-agnostic climbable regions (ladders, vines, climbable
+    /// walls). Same authoring contract as `water_regions`: the
+    /// simulator only queries `climbable_at`, never iterates this list
+    /// directly.
+    pub climbable_regions: Vec<ClimbableRegion>,
 }
 
 /// First collision along a swept body path.
@@ -247,6 +330,7 @@ impl World {
             blocks,
             objects: Vec::new(),
             water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
         }
     }
 
@@ -257,6 +341,16 @@ impl World {
 
     pub fn with_water_regions(mut self, regions: Vec<WaterRegion>) -> Self {
         self.water_regions = regions;
+        self
+    }
+
+    /// Builder-style setter for climbable regions. Mirrors
+    /// `with_water_regions`; preferred over reaching into
+    /// `world.climbable_regions` directly so future authoring sources
+    /// (LDtk IntGrid, LDtk entity, generated) flow through one entry
+    /// point.
+    pub fn with_climbable_regions(mut self, regions: Vec<ClimbableRegion>) -> Self {
+        self.climbable_regions = regions;
         self
     }
 
@@ -282,6 +376,27 @@ impl World {
             region_aabb: region.aabb,
             surface_y,
             submersion,
+            spec: region.spec,
+        })
+    }
+
+    /// Return the first climbable region intersecting `body`, with
+    /// derived top/bottom/center metrics. `None` when the player is
+    /// not touching any climbable. Source-agnostic: callers must not
+    /// iterate `climbable_regions` directly so future authoring
+    /// sources (LDtk IntGrid, LDtk entity, generated) all look
+    /// identical to the simulator. Mirrors `water_at`.
+    pub fn climbable_at(&self, body: Aabb) -> Option<ClimbableContact> {
+        let region = self
+            .climbable_regions
+            .iter()
+            .find(|r| r.aabb.strict_intersects(body))?;
+        Some(ClimbableContact {
+            kind: region.kind,
+            region_aabb: region.aabb,
+            top_y: region.aabb.top(),
+            bottom_y: region.aabb.bottom(),
+            center_x: 0.5 * (region.aabb.min.x + region.aabb.max.x),
             spec: region.spec,
         })
     }
@@ -461,6 +576,93 @@ mod tests {
             (contact.submersion - 0.0).abs() < 1e-3,
             "expected zero submersion at surface; got {}",
             contact.submersion
+        );
+    }
+
+    #[test]
+    fn climbable_at_returns_none_outside_any_region() {
+        let world = World::new(
+            "test",
+            Vec2::new(500.0, 500.0),
+            Vec2::new(10.0, 10.0),
+            Vec::new(),
+        );
+        let body = Aabb::new(Vec2::new(50.0, 50.0), Vec2::new(5.0, 5.0));
+        assert!(world.climbable_at(body).is_none());
+    }
+
+    #[test]
+    fn climbable_at_reports_first_intersecting_region() {
+        // Two ladders side-by-side. Body sits inside the second
+        // (`right`); query should return that region's metrics, not
+        // the first.
+        let left = ClimbableRegion::ladder(Aabb::new(
+            Vec2::new(100.0, 200.0),
+            Vec2::new(20.0, 100.0),
+        ));
+        let right = ClimbableRegion::ladder(Aabb::new(
+            Vec2::new(300.0, 200.0),
+            Vec2::new(20.0, 100.0),
+        ));
+        let world = World::new(
+            "test",
+            Vec2::new(500.0, 500.0),
+            Vec2::new(10.0, 10.0),
+            Vec::new(),
+        )
+        .with_climbable_regions(vec![left, right]);
+        let body = Aabb::new(Vec2::new(305.0, 220.0), Vec2::new(10.0, 16.0));
+        let contact = world.climbable_at(body).expect("body inside right ladder");
+        assert!(
+            (contact.center_x - 300.0).abs() < f32::EPSILON,
+            "expected right-ladder center_x=300, got {}",
+            contact.center_x
+        );
+        assert!(
+            (contact.top_y - 100.0).abs() < f32::EPSILON,
+            "expected top_y=100 (center 200 - half 100), got {}",
+            contact.top_y
+        );
+        assert!(
+            (contact.bottom_y - 300.0).abs() < f32::EPSILON,
+            "expected bottom_y=300 (center 200 + half 100), got {}",
+            contact.bottom_y
+        );
+        assert_eq!(contact.kind, ClimbableKind::Ladder);
+    }
+
+    #[test]
+    fn climbable_kind_supports_ladder_wall_vine_variants() {
+        // Compile-time check that all three kinds can be constructed
+        // and round-trip through ClimbableRegion::new. The variants
+        // exist so future authoring layers can drop in without a
+        // breaking enum change.
+        let aabb = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
+        let ladder = ClimbableRegion::new(aabb, ClimbableKind::Ladder, ClimbableSpec::default());
+        let wall = ClimbableRegion::new(aabb, ClimbableKind::Wall, ClimbableSpec::default());
+        let vine = ClimbableRegion::new(aabb, ClimbableKind::Vine, ClimbableSpec::default());
+        assert_eq!(ladder.kind, ClimbableKind::Ladder);
+        assert_eq!(wall.kind, ClimbableKind::Wall);
+        assert_eq!(vine.kind, ClimbableKind::Vine);
+    }
+
+    #[test]
+    fn climbable_spec_defaults_match_design_intent() {
+        // Default spec: 180 px/sec climb, 0.25 strafe factor.
+        // Ladder is faster than fall (32 px/16ms ≈ 2 frames) but
+        // slower than walk (~360 px/sec) so the player can plausibly
+        // beat a falling enemy to the next rung but can't speed-run
+        // ladders.
+        let spec = ClimbableSpec::default();
+        assert!(
+            (spec.climb_speed - 180.0).abs() < f32::EPSILON,
+            "default climb_speed should be 180 (got {})",
+            spec.climb_speed
+        );
+        assert!(
+            (spec.strafe_factor - 0.25).abs() < f32::EPSILON,
+            "default strafe_factor should be 0.25 (got {})",
+            spec.strafe_factor
         );
     }
 }

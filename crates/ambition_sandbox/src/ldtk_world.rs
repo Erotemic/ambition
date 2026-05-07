@@ -972,6 +972,7 @@ impl LdtkProject {
                 blocks,
                 objects,
                 water_regions,
+                climbable_regions: Vec::new(),
             },
             loading_zones,
             metadata,

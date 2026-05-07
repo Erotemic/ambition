@@ -1743,6 +1743,7 @@ mod tests {
             ],
             objects: Vec::new(),
             water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
         }
     }
 
@@ -2638,6 +2639,7 @@ mod tests {
             )],
             objects: Vec::new(),
             water_regions: Vec::new(),
+            climbable_regions: Vec::new(),
         };
         // Pillar AABB: (380, 200) → (420, 600). Top = 200, bottom = 600.
         let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());

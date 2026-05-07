@@ -277,12 +277,22 @@ pub fn poll_ldtk_file_changes(time: Res<Time>, mut state: ResMut<LdtkHotReloadSt
 const AMBITION_LAYER: &str = "Ambition";
 const COLLISION_LAYER: &str = "Collision";
 const WATER_LAYER: &str = "Water";
+const CLIMBABLE_LAYER: &str = "Climbable";
 const GRID: i32 = 16;
 
 /// IntGrid Water layer values. Distinct from Collision values because
 /// they live on a separate layer (see `WATER_LAYER`).
 const WATER_INT_GRID_CLEAR: i32 = 1;
 const WATER_INT_GRID_MURKY: i32 = 2;
+
+/// IntGrid Climbable layer values. Same separation rationale as
+/// Water: a dedicated layer keeps ladders / vines / climbable walls
+/// from sharing IntGrid value space with collision-affecting cells.
+/// Authors paint these on the `Climbable` layer; the runtime lowers
+/// each cell run into a `ClimbableRegion` of the matching `kind`.
+const CLIMBABLE_INT_GRID_LADDER: i32 = 1;
+const CLIMBABLE_INT_GRID_VINE: i32 = 2;
+const CLIMBABLE_INT_GRID_WALL: i32 = 3;
 
 // IntGrid value → engine block kind. Mirrors `tools/ldtk_intgrid_migration.py`;
 // the migration script is the source of truth for which value means what, but
@@ -450,6 +460,34 @@ fn emit_water_regions_from_intgrid(
             ae::aabb_from_min_size(min, size),
             kind,
             ae::WaterVolumeSpec::default(),
+        ));
+    }
+    Ok(regions)
+}
+
+/// Lower a Climbable IntGrid layer to source-agnostic
+/// `ClimbableRegion` rectangles. Mirrors `emit_water_regions_from_intgrid`.
+/// Cells with value 1 → Ladder, 2 → Vine, 3 → Wall. Per-region tuning
+/// falls back to `ClimbableSpec::default()` (180 px/sec climb_speed,
+/// 0.25 strafe_factor); future LDtk fields could surface per-region
+/// overrides if a particular ladder needs to feel faster/slower.
+fn emit_climbable_regions_from_intgrid(
+    layer: &LdtkLayerInstance,
+    offset: ae::Vec2,
+) -> Result<Vec<ae::ClimbableRegion>, String> {
+    let rects = merge_intgrid_rects(layer, offset)?;
+    let mut regions = Vec::with_capacity(rects.len());
+    for (value, min, size) in rects {
+        let kind = match value {
+            CLIMBABLE_INT_GRID_LADDER => ae::ClimbableKind::Ladder,
+            CLIMBABLE_INT_GRID_VINE => ae::ClimbableKind::Vine,
+            CLIMBABLE_INT_GRID_WALL => ae::ClimbableKind::Wall,
+            other => return Err(format!("unknown Climbable IntGrid value {other}")),
+        };
+        regions.push(ae::ClimbableRegion::new(
+            ae::aabb_from_min_size(min, size),
+            kind,
+            ae::ClimbableSpec::default(),
         ));
     }
     Ok(regions)
@@ -891,6 +929,7 @@ impl LdtkProject {
         let mut loading_zones = Vec::new();
         let mut objects = Vec::new();
         let mut water_regions = Vec::new();
+        let mut climbable_regions = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -957,6 +996,19 @@ impl LdtkProject {
                     }
                 }
             }
+
+            // IntGrid `Climbable` layer: each cell becomes a ladder /
+            // vine / climbable wall region. Same source-agnostic
+            // contract as Water — engine queries via
+            // `World::climbable_at` regardless of authoring source.
+            if let Some(layer) = level.climbable_layer() {
+                match emit_climbable_regions_from_intgrid(layer, offset) {
+                    Ok(layer_regions) => climbable_regions.extend(layer_regions),
+                    Err(message) => {
+                        errors.push(format!("level '{}' Climbable: {message}", level.identifier))
+                    }
+                }
+            }
         }
 
         if !errors.is_empty() {
@@ -972,7 +1024,7 @@ impl LdtkProject {
                 blocks,
                 objects,
                 water_regions,
-                climbable_regions: Vec::new(),
+                climbable_regions,
             },
             loading_zones,
             metadata,
@@ -1040,6 +1092,12 @@ impl LdtkLevel {
         self.layer_instances
             .iter()
             .find(|layer| layer.identifier == WATER_LAYER)
+    }
+
+    fn climbable_layer(&self) -> Option<&LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == CLIMBABLE_LAYER)
     }
 
     fn field_string(&self, name: &str) -> Option<String> {
@@ -2641,5 +2699,76 @@ mod tests {
         for id in ["PlayerStart", "LoadingZone", "DebugLabel", "NpcSpawn"] {
             assert!(!is_surface_like_identifier(id), "{id}");
         }
+    }
+
+    fn intgrid_layer(identifier: &str, c_wid: i32, c_hei: i32, csv: Vec<i32>) -> LdtkLayerInstance {
+        LdtkLayerInstance {
+            identifier: identifier.to_string(),
+            layer_type: "IntGrid".to_string(),
+            c_wid,
+            c_hei,
+            grid_size: GRID,
+            entity_instances: Vec::new(),
+            int_grid_csv: csv,
+        }
+    }
+
+    #[test]
+    fn climbable_intgrid_emits_ladder_region_for_value_one() {
+        // 4x3 layer, single column of ladder cells in the middle.
+        // CSV is row-major: row0 row1 row2.
+        let csv = vec![
+            0, 0, 1, 0, // row 0
+            0, 0, 1, 0, // row 1
+            0, 0, 1, 0, // row 2
+        ];
+        let layer = intgrid_layer(CLIMBABLE_LAYER, 4, 3, csv);
+        let regions = emit_climbable_regions_from_intgrid(&layer, ae::Vec2::ZERO).unwrap();
+        assert_eq!(regions.len(), 1, "ladder column should merge to one region");
+        assert_eq!(regions[0].kind, ae::ClimbableKind::Ladder);
+        // Cell (cx=2, cy=0..2). With GRID=16, x in [32, 48], y in [0, 48].
+        assert_eq!(regions[0].aabb.min.x, 32.0);
+        assert_eq!(regions[0].aabb.min.y, 0.0);
+        assert_eq!(regions[0].aabb.max.x, 48.0);
+        assert_eq!(regions[0].aabb.max.y, 48.0);
+    }
+
+    #[test]
+    fn climbable_intgrid_distinguishes_ladder_vine_wall() {
+        let layer = intgrid_layer(
+            CLIMBABLE_LAYER,
+            3,
+            1,
+            vec![
+                CLIMBABLE_INT_GRID_LADDER,
+                CLIMBABLE_INT_GRID_VINE,
+                CLIMBABLE_INT_GRID_WALL,
+            ],
+        );
+        let regions = emit_climbable_regions_from_intgrid(&layer, ae::Vec2::ZERO).unwrap();
+        assert_eq!(regions.len(), 3);
+        // Sort by min.x for deterministic comparison; merge_intgrid_rects
+        // emits in row-major order, so regions[0] is leftmost.
+        assert_eq!(regions[0].kind, ae::ClimbableKind::Ladder);
+        assert_eq!(regions[1].kind, ae::ClimbableKind::Vine);
+        assert_eq!(regions[2].kind, ae::ClimbableKind::Wall);
+    }
+
+    #[test]
+    fn climbable_intgrid_rejects_unknown_value() {
+        let layer = intgrid_layer(CLIMBABLE_LAYER, 1, 1, vec![99]);
+        let err = emit_climbable_regions_from_intgrid(&layer, ae::Vec2::ZERO)
+            .expect_err("unknown value should error");
+        assert!(
+            err.contains("unknown Climbable IntGrid value 99"),
+            "expected error to mention the bad value, got: {err}"
+        );
+    }
+
+    #[test]
+    fn climbable_intgrid_returns_empty_for_all_zero_layer() {
+        let layer = intgrid_layer(CLIMBABLE_LAYER, 4, 4, vec![0; 16]);
+        let regions = emit_climbable_regions_from_intgrid(&layer, ae::Vec2::ZERO).unwrap();
+        assert!(regions.is_empty());
     }
 }

@@ -129,6 +129,7 @@ Status badges:
 - **Boss encounter integration test** `[stable]`.
 - **Body-mode reset tests** `[stable]`.
 - **`BodyShape::fits_at` proptest** `[stable]` — three proptest properties pin the geometric contract: empty world fits any finite shape at any finite center; one-block world fits iff the shape AABB and block AABB don't strictly intersect; MorphBall fits wherever Standing fits (strict shape shrink). [body_shape_fits_at.rs](crates/ambition_engine/tests/body_shape_fits_at.rs).
+- **Wall-jump start-position fuzz** `[stable]` — proptest randomizes (x_offset, y_in_wall, vel_y) along the square_arena left wall and asserts no >100 px y-snap and no out-of-world / through-wall teleport on a single wall-jump frame. Regression guard around the `body_is_side_contact` predicate that closes the historical OOB-teleport bug class. [wall_jump_fuzz.rs](crates/ambition_engine/tests/wall_jump_fuzz.rs).
 - **Audio validation tests** `[stable]`.
 
 ---

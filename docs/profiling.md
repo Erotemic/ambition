@@ -72,6 +72,13 @@ debug = true  # keep DWARF for unmangled flamegraph frames
 # Build first so capture only times the run, not compilation.
 cargo build --release -p ambition_sandbox
 
+# BEVY_ASSET_ROOT is required: cargo-flamegraph runs the binary
+# directly (not via `cargo run`), so Bevy looks for assets relative
+# to the binary path (`target/release/assets/`) instead of the
+# package's `crates/ambition_sandbox/assets/`. Without this var, you
+# get `Path not found: target/release/assets/...` for every asset
+# and bevy_yarnspinner panics on the missing dialogue/ folder.
+BEVY_ASSET_ROOT=$PWD/crates/ambition_sandbox \
 cargo flamegraph -p ambition_sandbox --bin ambition_sandbox \
     --release \
     --output flamegraph_startup.svg \

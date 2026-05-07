@@ -66,13 +66,52 @@ def install_stable(src: Path, dest: Path, file_base: str) -> list[Path]:
     return written
 
 
+def _autodetect_src() -> Path:
+    """Pick the renderer output dir with the newest manifest.
+
+    The renderer writes to two known locations historically:
+    1. ``target/generated-audio/<cue>`` (CI / build-time output)
+    2. ``tools/audio/music_renderer/output/<cue>`` (interactive
+       author runs)
+
+    When both exist, picking whichever has the newer
+    ``adaptive_manifest.json`` gets re-runs of this script the
+    *latest* stems without the user having to remember which
+    ``--src`` to point at. The 2026-05-07 install bug where the
+    target/ copy was older than the music_renderer/output/ copy
+    surfaced this footgun; auto-detection is the fix.
+    """
+    candidates = [
+        repo_root() / "target/generated-audio" / CUE_ID,
+        repo_root() / "tools/audio/music_renderer/output" / CUE_ID,
+    ]
+    scored: list[tuple[float, Path]] = []
+    for c in candidates:
+        if not c.exists():
+            continue
+        manifests = list(c.glob(f"{CUE_ID}_*.adaptive_manifest.json"))
+        if not manifests:
+            continue
+        newest = max(manifests, key=lambda p: p.stat().st_mtime)
+        scored.append((newest.stat().st_mtime, c))
+    if scored:
+        scored.sort(reverse=True)
+        return scored[0][1]
+    return candidates[0]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    default_src = repo_root() / "target/generated-audio" / CUE_ID
+    default_src = _autodetect_src()
     parser.add_argument(
         "--src",
         default=str(default_src),
-        help="Renderer output directory (default: %(default)s)",
+        help=(
+            "Renderer output directory. Default auto-detects the "
+            "newest of target/generated-audio/<cue> and "
+            "tools/audio/music_renderer/output/<cue> by manifest mtime "
+            "(default for THIS run: %(default)s)."
+        ),
     )
     parser.add_argument(
         "--clean",

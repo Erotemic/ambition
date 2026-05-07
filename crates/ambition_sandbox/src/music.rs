@@ -1149,6 +1149,27 @@ fn apply_first_goblin_runtime_balance_overrides(
     }
 
     let overrides: &[(&str, f32)] = match state.id.as_str() {
+        // Intro: the cue authors `full = 1.0` against the pre-rendered
+        // intro mix. The newest goblin v2 stems are mastered hotter
+        // than the wave1 stems-mix (the intro is a single rendered
+        // file vs wave1 being a stems blend), which made the encounter
+        // open very loud and then drop volume on transition into
+        // wave1. Drop the intro's full layer to 0.55 so the perceived
+        // loudness matches wave1's combined stems (strings 0.95 +
+        // winds 1.0 + small percussion + small mallets).
+        "intro" => &[("full", 0.55)],
+        // Outro: same logic as intro -- the rendered full track is
+        // hotter than the stems mix would be. Match the bridge level.
+        "outro" => &[("full", 0.55)],
+        // Cleared bridge: keep dialed-back, the encounter is over.
+        "cleared_bridge" => &[
+            ("strings", 0.40),
+            ("winds", 0.36),
+            ("mallets", 0.10),
+            ("percussion", 0.06),
+            ("brass", 0.10),
+            ("choir_pad", 0.04),
+        ],
         "wave1" => &[
             ("strings", 0.95),
             ("winds", 1.00),

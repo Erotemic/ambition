@@ -246,48 +246,45 @@ pub mod bevy_plugin {
         reset: bool,
     }
 
-    /// Spawn a small column of action buttons on the right side of the
-    /// screen. Layout intentionally minimal; the goal is "buttons exist
-    /// and are tappable", not pretty mobile UX. `Z-index` is set high
-    /// so the buttons sit on top of the gameplay viewport.
+    /// Spawn the touch button UI. Layout follows Jon's 2026-05-07
+    /// guidance:
+    ///
+    /// - Gameplay-action buttons (Jump / Attack / Dash / Blink / E /
+    ///   Proj) live on a right-anchored 2-column grid in the bottom
+    ///   right CORNER, NOT spanning the main screen. This keeps the
+    ///   gameplay viewport unobstructed.
+    /// - Menu-style buttons (Start / Reset) live on a top-anchored
+    ///   row that's allowed to sit "on the main screen" since menus
+    ///   are intermittent.
+    ///
+    /// Each button has a visible Text label (Jump / Atk / Dash / etc.)
+    /// so the tap targets are differentiated rather than identical
+    /// gray squares.
     fn spawn_touch_buttons(mut cmd: Commands) {
-        let make_button = |_label: &str| -> (Node, BackgroundColor) {
-            (
-                Node {
-                    width: Val::Px(72.0),
-                    height: Val::Px(72.0),
-                    margin: UiRect::all(Val::Px(6.0)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                BackgroundColor(Color::srgba(0.18, 0.22, 0.30, 0.65)),
-            )
-        };
-        // Right-anchored column.
+        // -- Gameplay action buttons (bottom-right corner cluster) --
         cmd.spawn((
             Node {
-                width: Val::Px(96.0),
-                height: Val::Auto,
+                width: Val::Px(168.0),
+                height: Val::Px(168.0),
                 position_type: PositionType::Absolute,
                 right: Val::Px(12.0),
                 bottom: Val::Px(12.0),
-                flex_direction: FlexDirection::ColumnReverse,
+                flex_direction: FlexDirection::Row,
+                flex_wrap: FlexWrap::Wrap,
                 align_items: AlignItems::FlexEnd,
+                justify_content: JustifyContent::FlexEnd,
                 ..default()
             },
-            Name::new("MobileTouchButtonsColumn"),
+            Name::new("MobileTouchActionCluster"),
         ))
         .with_children(|parent| {
             for action in [
-                TouchActionButton::Jump,
-                TouchActionButton::Attack,
-                TouchActionButton::Dash,
                 TouchActionButton::Blink,
-                TouchActionButton::Interact,
                 TouchActionButton::Projectile,
-                TouchActionButton::Start,
-                TouchActionButton::Reset,
+                TouchActionButton::Dash,
+                TouchActionButton::Attack,
+                TouchActionButton::Interact,
+                TouchActionButton::Jump,
             ] {
                 let label = match action {
                     TouchActionButton::Jump => "Jump",
@@ -296,13 +293,98 @@ pub mod bevy_plugin {
                     TouchActionButton::Blink => "Blink",
                     TouchActionButton::Interact => "E",
                     TouchActionButton::Projectile => "Proj",
-                    TouchActionButton::Start => "Start",
-                    TouchActionButton::Reset => "Reset",
+                    _ => "?",
                 };
-                let (node, bg) = make_button(label);
-                parent.spawn((Button, node, bg, action, Name::new(format!("Touch{label}"))));
+                spawn_action_button(parent, action, label);
             }
         });
+
+        // -- Menu-style buttons (top-right, smaller) --
+        cmd.spawn((
+            Node {
+                width: Val::Px(168.0),
+                height: Val::Px(48.0),
+                position_type: PositionType::Absolute,
+                right: Val::Px(12.0),
+                top: Val::Px(12.0),
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Name::new("MobileTouchMenuRow"),
+        ))
+        .with_children(|parent| {
+            for action in [TouchActionButton::Start, TouchActionButton::Reset] {
+                let label = match action {
+                    TouchActionButton::Start => "Pause",
+                    TouchActionButton::Reset => "Reset",
+                    _ => "?",
+                };
+                spawn_menu_button(parent, action, label);
+            }
+        });
+    }
+
+    /// Build one gameplay-action button: 72x72 with a visible text
+    /// label. Margin is small so the cluster fits in the corner.
+    fn spawn_action_button(parent: &mut ChildSpawnerCommands, action: TouchActionButton, label: &str) {
+        parent
+            .spawn((
+                Button,
+                Node {
+                    width: Val::Px(72.0),
+                    height: Val::Px(72.0),
+                    margin: UiRect::all(Val::Px(4.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.18, 0.22, 0.30, 0.55)),
+                action,
+                Name::new(format!("Touch{label}")),
+            ))
+            .with_children(|button| {
+                button.spawn((
+                    Text::new(label),
+                    TextFont {
+                        font_size: 18.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.95, 0.95, 0.95)),
+                ));
+            });
+    }
+
+    /// Build one menu-row button: 64x40, smaller text. Used for
+    /// Start / Reset which are intermittent and OK to sit at the top
+    /// of the gameplay viewport.
+    fn spawn_menu_button(parent: &mut ChildSpawnerCommands, action: TouchActionButton, label: &str) {
+        parent
+            .spawn((
+                Button,
+                Node {
+                    width: Val::Px(72.0),
+                    height: Val::Px(40.0),
+                    margin: UiRect::all(Val::Px(4.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.20, 0.16, 0.22, 0.65)),
+                action,
+                Name::new(format!("Touch{label}")),
+            ))
+            .with_children(|button| {
+                button.spawn((
+                    Text::new(label),
+                    TextFont {
+                        font_size: 14.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.92, 0.88, 0.92)),
+                ));
+            });
     }
 
     /// Walk every `TouchActionButton` entity, read its `Interaction`,

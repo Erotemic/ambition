@@ -1,3 +1,8 @@
+# Ambition Sprite3D Renderer (experimental / reference)
+
+> **Status: experimental.** See [`STATUS.md`](STATUS.md) before using.
+> The production sprite path is
+> [`tools/ambition_sprite2d_renderer`](../../ambition_sprite2d_renderer/README.md).
 
 ## v0.4.8
 

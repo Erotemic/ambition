@@ -95,11 +95,20 @@ entities:
     size: [736, 32]
     fields: { name: ceiling }
 
-  # Upper platform (the climb destination).
+  # Upper platform (the climb destination). Split into two halves
+  # with a 32-px gap (x=560..592) where the ladder column meets the
+  # platform -- otherwise the platform's collision blocks the player
+  # from completing the climb at the top of the ladder. Future
+  # alternative: route ladders through `BlockKind::OneWay` so they
+  # can pass through solids without authoring gaps.
   - type: Solid
     px: [480, 160]
-    size: [192, 32]
-    fields: { name: upper_platform }
+    size: [80, 32]
+    fields: { name: upper_platform_left }
+  - type: Solid
+    px: [592, 160]
+    size: [80, 32]
+    fields: { name: upper_platform_right }
 
   # Player spawns on the left, far from the ladder.
   - type: PlayerStart

@@ -1,0 +1,8235 @@
+{
+  "schema_version": 1,
+  "timestamp_unix": 1778171257,
+  "timestamp_label": "1778171257-340032817-000000_20580d16h27m37s",
+  "dump_reason": "Programmatic: headless",
+  "capacity_frames": 76,
+  "capacity_events": 256,
+  "frame_count": 60,
+  "event_count": 0,
+  "sequence": 60,
+  "current_tick": 60,
+  "frames": [
+    {
+      "seq": 0,
+      "tick": 0,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 851.625
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 37.500004
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 828.625
+          },
+          "max": {
+            "x": 964.0,
+            "y": 874.625
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.016666668,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 92.396645
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 115.78057
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 534.1667,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 456.6667,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 611.6667,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 544.02246
+        }
+      ]
+    },
+    {
+      "seq": 1,
+      "tick": 1,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 852.875
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 75.00001
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 829.875
+          },
+          "max": {
+            "x": 964.0,
+            "y": 875.875
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.033333335,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 91.14694
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 117.02891
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 536.3334,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 458.83337,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 613.8334,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 541.56055
+        }
+      ]
+    },
+    {
+      "seq": 2,
+      "tick": 2,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 854.75
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 112.500015
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 831.75
+          },
+          "max": {
+            "x": 964.0,
+            "y": 877.75
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.050000004,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 89.27241
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 118.90148
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 538.50006,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 461.00006,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 616.00006,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 538.69543
+        }
+      ]
+    },
+    {
+      "seq": 3,
+      "tick": 3,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 857.25
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 150.00002
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 834.25
+          },
+          "max": {
+            "x": 964.0,
+            "y": 880.25
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.06666667,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 86.77305
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 121.39836
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 540.66675,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 463.16675,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 618.16675,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 535.4272
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "tick": 4,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 860.375
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 187.50002
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 837.375
+          },
+          "max": {
+            "x": 964.0,
+            "y": 883.375
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.083333336,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 83.64891
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 124.51964
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 542.83344,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 465.33344,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 620.33344,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 531.7572
+        }
+      ]
+    },
+    {
+      "seq": 5,
+      "tick": 5,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 864.125
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 225.00002
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 841.125
+          },
+          "max": {
+            "x": 964.0,
+            "y": 887.125
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.1,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 79.90003
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 128.26541
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 545.0001,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 467.50012,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 622.5001,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 527.6883
+        }
+      ]
+    },
+    {
+      "seq": 6,
+      "tick": 6,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 868.5
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 262.50003
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 845.5
+          },
+          "max": {
+            "x": 964.0,
+            "y": 891.5
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.11666667,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 75.52648
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 132.63577
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 547.1668,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 469.6668,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 624.6668,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 523.2244
+        }
+      ]
+    },
+    {
+      "seq": 7,
+      "tick": 7,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 873.5
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 300.00003
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 850.5
+          },
+          "max": {
+            "x": 964.0,
+            "y": 896.5
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.13333334,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 70.528366
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 137.63084
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 549.3335,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 471.8335,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 626.8335,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 518.37134
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "tick": 8,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 879.125
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 337.50003
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 856.125
+          },
+          "max": {
+            "x": 964.0,
+            "y": 902.125
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.15,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 64.90582
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 143.2507
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 551.5002,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 474.00018,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 629.0002,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 513.1363
+        }
+      ]
+    },
+    {
+      "seq": 9,
+      "tick": 9,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 885.375
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 375.00003
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 862.375
+          },
+          "max": {
+            "x": 964.0,
+            "y": 908.375
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.16666667,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 58.659103
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 149.49545
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 553.6669,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 476.16687,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 631.1669,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 507.52814
+        }
+      ]
+    },
+    {
+      "seq": 10,
+      "tick": 10,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 892.25
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 412.50003
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 869.25
+          },
+          "max": {
+            "x": 964.0,
+            "y": 915.25
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.18333334,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 51.78863
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 156.36516
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 555.83356,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 478.33356,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 633.33356,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 501.5578
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "tick": 11,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 899.75
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 450.00003
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 876.75
+          },
+          "max": {
+            "x": 964.0,
+            "y": 922.75
+          }
+        },
+        "facing": 1.0,
+        "on_ground": false,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Airborne",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 851.0
+        },
+        "time_alive": 0.2,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 44.295174
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 163.8599
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 558.00024,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 480.50024,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 635.50024,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 495.23816
+        }
+      ]
+    },
+    {
+      "seq": 12,
+      "tick": 12,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.21666667,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 560.16693,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 482.66693,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 637.66693,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 490.32294
+        }
+      ]
+    },
+    {
+      "seq": 13,
+      "tick": 13,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.23333333,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 562.3336,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 484.83362,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 639.8336,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 488.60208
+        }
+      ]
+    },
+    {
+      "seq": 14,
+      "tick": 14,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.25,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 564.5003,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 487.0003,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 642.0003,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 486.88477
+        }
+      ]
+    },
+    {
+      "seq": 15,
+      "tick": 15,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.26666668,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 566.667,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 489.167,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 644.167,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 485.17108
+        }
+      ]
+    },
+    {
+      "seq": 16,
+      "tick": 16,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.28333336,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 568.8337,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 491.33368,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 646.3337,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 483.461
+        }
+      ]
+    },
+    {
+      "seq": 17,
+      "tick": 17,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.30000004,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 571.00037,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 493.50037,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 648.50037,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 481.7546
+        }
+      ]
+    },
+    {
+      "seq": 18,
+      "tick": 18,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.31666672,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 573.16705,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 495.66705,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 650.66705,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 480.0519
+        }
+      ]
+    },
+    {
+      "seq": 19,
+      "tick": 19,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.3333334,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 575.33374,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 497.83374,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 652.83374,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 478.353
+        }
+      ]
+    },
+    {
+      "seq": 20,
+      "tick": 20,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.35000008,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 577.5004,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 500.00043,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 655.0004,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 476.65787
+        }
+      ]
+    },
+    {
+      "seq": 21,
+      "tick": 21,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.36666676,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 579.6671,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 502.1671,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 657.1671,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 474.96655
+        }
+      ]
+    },
+    {
+      "seq": 22,
+      "tick": 22,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.38333344,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 581.8338,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 504.3338,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 659.3338,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 473.2791
+        }
+      ]
+    },
+    {
+      "seq": 23,
+      "tick": 23,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.40000013,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 584.0005,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 506.5005,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 661.5005,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 471.59558
+        }
+      ]
+    },
+    {
+      "seq": 24,
+      "tick": 24,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.4166668,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 586.1672,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 508.66718,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 663.6672,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 469.91605
+        }
+      ]
+    },
+    {
+      "seq": 25,
+      "tick": 25,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.4333335,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 588.33386,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 510.83386,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 665.83386,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 468.2405
+        }
+      ]
+    },
+    {
+      "seq": 26,
+      "tick": 26,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.45000017,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 590.50055,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 513.00055,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 668.00055,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 466.569
+        }
+      ]
+    },
+    {
+      "seq": 27,
+      "tick": 27,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.46666685,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 592.66724,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 515.16724,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 670.16724,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 464.90158
+        }
+      ]
+    },
+    {
+      "seq": 28,
+      "tick": 28,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.48333353,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 594.8339,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 517.3339,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 672.3339,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 463.23828
+        }
+      ]
+    },
+    {
+      "seq": 29,
+      "tick": 29,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.5000002,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 597.0006,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 519.5006,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 674.5006,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 461.5792
+        }
+      ]
+    },
+    {
+      "seq": 30,
+      "tick": 30,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.5166668,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 599.1673,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 521.6673,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 676.6673,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 459.9243
+        }
+      ]
+    },
+    {
+      "seq": 31,
+      "tick": 31,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.5333335,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 601.334,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 523.834,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 678.834,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 458.27368
+        }
+      ]
+    },
+    {
+      "seq": 32,
+      "tick": 32,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.55000013,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 603.5007,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 526.0007,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 681.0007,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 456.62738
+        }
+      ]
+    },
+    {
+      "seq": 33,
+      "tick": 33,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.5666668,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 605.66736,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 528.16736,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 683.16736,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 454.98544
+        }
+      ]
+    },
+    {
+      "seq": 34,
+      "tick": 34,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.58333343,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 607.83405,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 530.33405,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 685.33405,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 453.3479
+        }
+      ]
+    },
+    {
+      "seq": 35,
+      "tick": 35,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.6000001,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 610.00073,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 532.50073,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 687.50073,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 451.7148
+        }
+      ]
+    },
+    {
+      "seq": 36,
+      "tick": 36,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.61666673,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 612.1674,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 534.6674,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 689.6674,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 450.08624
+        }
+      ]
+    },
+    {
+      "seq": 37,
+      "tick": 37,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.6333334,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 614.3341,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 536.8341,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 691.8341,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 448.46222
+        }
+      ]
+    },
+    {
+      "seq": 38,
+      "tick": 38,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.65000004,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 616.5008,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 539.0008,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 694.0008,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 446.8428
+        }
+      ]
+    },
+    {
+      "seq": 39,
+      "tick": 39,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.6666667,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 618.6675,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 541.1675,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 696.1675,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 445.22806
+        }
+      ]
+    },
+    {
+      "seq": 40,
+      "tick": 40,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.68333334,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 620.83417,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 543.33417,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 698.33417,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 443.61798
+        }
+      ]
+    },
+    {
+      "seq": 41,
+      "tick": 41,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.7,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 623.00085,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 545.50085,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 700.50085,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 442.0127
+        }
+      ]
+    },
+    {
+      "seq": 42,
+      "tick": 42,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.71666664,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 625.16754,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 547.66754,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 702.66754,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 440.4122
+        }
+      ]
+    },
+    {
+      "seq": 43,
+      "tick": 43,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.7333333,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 627.3342,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 549.8342,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 704.8342,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 438.81656
+        }
+      ]
+    },
+    {
+      "seq": 44,
+      "tick": 44,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.74999994,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 629.5009,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 552.0009,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 707.0009,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 437.22583
+        }
+      ]
+    },
+    {
+      "seq": 45,
+      "tick": 45,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.7666666,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 631.6676,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 554.1676,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 709.1676,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 435.64008
+        }
+      ]
+    },
+    {
+      "seq": 46,
+      "tick": 46,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.78333324,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 633.8343,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 556.3343,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 711.3343,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 434.05936
+        }
+      ]
+    },
+    {
+      "seq": 47,
+      "tick": 47,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.7999999,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 636.001,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 558.501,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 713.501,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 432.4837
+        }
+      ]
+    },
+    {
+      "seq": 48,
+      "tick": 48,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.81666654,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 638.16766,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 560.66766,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 715.66766,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 430.9132
+        }
+      ]
+    },
+    {
+      "seq": 49,
+      "tick": 49,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.8333332,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 640.33435,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 562.83435,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 717.83435,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 429.34787
+        }
+      ]
+    },
+    {
+      "seq": 50,
+      "tick": 50,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.84999985,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 642.50104,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 565.00104,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 720.00104,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 427.78778
+        }
+      ]
+    },
+    {
+      "seq": 51,
+      "tick": 51,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.8666665,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 644.6677,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 567.1677,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 722.1677,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 426.233
+        }
+      ]
+    },
+    {
+      "seq": 52,
+      "tick": 52,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.88333315,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 646.8344,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 569.3344,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 724.3344,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 424.6836
+        }
+      ]
+    },
+    {
+      "seq": 53,
+      "tick": 53,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.8999998,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 649.0011,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 571.5011,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 726.5011,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 423.1396
+        }
+      ]
+    },
+    {
+      "seq": 54,
+      "tick": 54,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.91666645,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 651.1678,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 573.6678,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 728.6678,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 421.60107
+        }
+      ]
+    },
+    {
+      "seq": 55,
+      "tick": 55,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.9333331,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 653.3345,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 575.8345,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 730.8345,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 420.0681
+        }
+      ]
+    },
+    {
+      "seq": 56,
+      "tick": 56,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.94999975,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 655.50116,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 578.00116,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 733.00116,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 418.54074
+        }
+      ]
+    },
+    {
+      "seq": 57,
+      "tick": 57,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.9666664,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 657.66785,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 580.16785,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 735.16785,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 417.019
+        }
+      ]
+    },
+    {
+      "seq": 58,
+      "tick": 58,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.98333305,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 659.83453,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 582.33453,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 737.33453,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 415.50305
+        }
+      ]
+    },
+    {
+      "seq": 59,
+      "tick": 59,
+      "real_dt": 0.016666668,
+      "sim_dt": 0.016666668,
+      "time_scale": 1.0,
+      "game_mode": "Playing",
+      "active_area": "central_hub_complex",
+      "world_size": {
+        "x": 1900.0,
+        "y": 2004.0
+      },
+      "world_spawn": {
+        "x": 950.0,
+        "y": 851.0
+      },
+      "player": {
+        "pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "vel": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "size": {
+          "x": 28.0,
+          "y": 46.0
+        },
+        "aabb": {
+          "min": {
+            "x": 936.0,
+            "y": 882.0
+          },
+          "max": {
+            "x": 964.0,
+            "y": 928.0
+          }
+        },
+        "facing": 1.0,
+        "on_ground": true,
+        "on_wall": false,
+        "wall_clinging": false,
+        "wall_climbing": false,
+        "fast_falling": false,
+        "fly_enabled": false,
+        "dash_charges_available": 2,
+        "air_jumps_available": 1,
+        "blink_aiming": false,
+        "blink_grace_timer": 0.0,
+        "locomotion": "Grounded",
+        "body_mode": "Standing",
+        "last_safe_pos": {
+          "x": 950.0,
+          "y": 905.0
+        },
+        "time_alive": 0.9999997,
+        "resets": 0
+      },
+      "controls": {
+        "axis_x": 0.0,
+        "axis_y": 0.0,
+        "jump_pressed": false,
+        "jump_held": false,
+        "jump_released": false,
+        "dash_pressed": false,
+        "up_pressed": false,
+        "down_pressed": false,
+        "fast_fall_pressed": false,
+        "blink_pressed": false,
+        "blink_held": false,
+        "blink_released": false,
+        "attack_pressed": false,
+        "pogo_pressed": false,
+        "fly_toggle_pressed": false,
+        "interact_pressed": false,
+        "reset_pressed": false,
+        "start_pressed": false
+      },
+      "nearby_collision": [
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 768.0,
+              "y": 928.0
+            },
+            "max": {
+              "x": 1136.0,
+              "y": 960.0
+            }
+          },
+          "distance": 39.051247
+        },
+        {
+          "kind": "OneWay",
+          "name": "ldtk one-way",
+          "aabb": {
+            "min": {
+              "x": 688.0,
+              "y": 720.0
+            },
+            "max": {
+              "x": 1200.0,
+              "y": 752.0
+            }
+          },
+          "distance": 169.10648
+        }
+      ],
+      "moving_platforms": [
+        {
+          "pos": {
+            "x": 662.0012,
+            "y": 1202.4
+          },
+          "size": {
+            "x": 155.0,
+            "y": 18.0
+          },
+          "aabb": {
+            "min": {
+              "x": 584.5012,
+              "y": 1193.4
+            },
+            "max": {
+              "x": 739.5012,
+              "y": 1211.4
+            }
+          },
+          "direction": 1.0,
+          "player_riding": false,
+          "player_distance": 413.99283
+        }
+      ]
+    }
+  ],
+  "events": []
+}

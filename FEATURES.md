@@ -166,6 +166,11 @@ door corridor and demonstrate one mechanic each.
   end-to-end ladder primitive (Climbable IntGrid cells → engine
   ClimbableRegion → BodyMode::Climbing → integrate_climb). Door from
   basement at x=420. [tools/examples/ldtk_specs/ladder_lab.yaml](tools/examples/ldtk_specs/ladder_lab.yaml).
+- **`cutscene_lab`** `[stable]` — Auto-trigger cutscene proof room.
+  768x384 with a `cutscene_lab_intro` script bound via `RoomCutsceneBindings`.
+  First entry fires the cutscene; the seen-flag prevents re-runs;
+  the hold-Reset skip flow still works. Door from basement at x=496.
+  [tools/examples/ldtk_specs/cutscene_lab.yaml](tools/examples/ldtk_specs/cutscene_lab.yaml).
 
 ## Tooling / generators
 

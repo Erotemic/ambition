@@ -66,8 +66,7 @@
 - [x] **Crawl/morph proof room** — `crawl_lab` (Crouching) and `morph_lab` (MorphBall) both authored 2026-05-07 and reachable from the basement door corridor. See FEATURES.md → "Sandbox showcase rooms".
 - [ ] **Save-point lab + persisted-switch test room** `[V4/D3]` — switch state survives reload; reset-switches sub-room; extensible test-state schema (boss defeated, mob room cleared). Source: `tmp-todo-notes.txt`.
 - [ ] **Quest test room** `[V3/D3]` — small fetch/talk quest end-to-end ([quest.rs](crates/ambition_sandbox/src/quest.rs) is scaffolded).
-- [ ] **Cutscene test room** `[V3/D2]` — entry trigger fires "you're finally awake"; demonstrates cutscene + skip flow.
-  - Cutscene infrastructure works today via `central_hub_main` ↔ `test_intro` binding ([cutscene.rs:123](crates/ambition_sandbox/src/cutscene.rs#L123)). What's missing: a dedicated test room (separate from the spawn hub) demonstrating the skip flow on a non-default cutscene. Authoring via `tools/author_ldtk_area.py` once a target connection point is decided.
+- [x] **Cutscene test room** `[V3/D2]` — `cutscene_lab` authored 2026-05-07 with `cutscene_lab_intro` script + binding. Reachable from basement at x=496. See FEATURES.md → "Sandbox showcase rooms".
 
 ### Sprite wiring batch
 - [x] **MorphBall sprite** — procedurally generated 64×64 RGBA sphere at startup, no `morph_ball.png` asset needed. [body_mode.rs:162](crates/ambition_sandbox/src/body_mode.rs#L162). Wired through `MorphBallSprite::handle` resource.

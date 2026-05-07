@@ -153,12 +153,6 @@
   visible LDtk entity. Needs an audit: either add a visible
   placeholder to the LDtk entity def, or document the existing
   authoring path so authors don't get confused.
-- **Visual artifact on upper level of central_hub_main after recent door additions** —
-  Jon noted 2026-05-07 that the basement-door additions (or the LDtk
-  editor changes that came with them) cause a visual artifact on the
-  upper level of the central hub. Suspected cause: an issue in the
-  LDtk editor / authoring tool changes from this session. Noted for
-  later investigation; not blocking ongoing work.
 
 ## Proposed (agent drop-zone — Jon triages into Accepted / Rejected)
 

@@ -306,3 +306,65 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
 pub fn is_boss_kind(kind: FeatureVisualKind) -> bool {
     matches!(kind, FeatureVisualKind::Boss)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn boss_sheet_has_seven_animation_rows() {
+        // The enum has 7 variants and the spec has 7 rows; if these
+        // ever drift, indexing by `anim as usize` would panic at
+        // runtime.
+        assert_eq!(BOSS_SHEET.rows.len(), 7);
+    }
+
+    #[test]
+    fn frame_count_matches_spec_rows() {
+        assert_eq!(BOSS_SHEET.frame_count(BossAnim::Rest), 8);
+        assert_eq!(BOSS_SHEET.frame_count(BossAnim::FloorSlam), 7);
+        assert_eq!(BOSS_SHEET.frame_count(BossAnim::Death), 8);
+    }
+
+    #[test]
+    fn flat_index_lays_rows_end_to_end() {
+        // First frame of each row sits at the cumulative sum of prior
+        // frame counts. The first row starts at 0.
+        assert_eq!(BOSS_SHEET.flat_index(BossAnim::Rest, 0), 0);
+        assert_eq!(BOSS_SHEET.flat_index(BossAnim::FloorSlam, 0), 8);
+        assert_eq!(BOSS_SHEET.flat_index(BossAnim::SideSweep, 0), 8 + 7);
+        assert_eq!(BOSS_SHEET.flat_index(BossAnim::SpikeHalo, 0), 8 + 7 + 7);
+    }
+
+    #[test]
+    fn flat_index_clamps_to_last_frame_of_row() {
+        // Asking for frame index past the end of a row clamps to the
+        // last valid frame; this avoids out-of-bounds atlas reads when
+        // an animation cursor overshoots due to a long delta-t.
+        let last_rest = BOSS_SHEET.flat_index(BossAnim::Rest, 999);
+        assert_eq!(last_rest, BOSS_SHEET.frame_count(BossAnim::Rest) - 1);
+    }
+
+    #[test]
+    fn render_size_preserves_frame_aspect_ratio() {
+        // BOSS_SHEET is 128x128 (square) → width / height = 1.
+        let size = BOSS_SHEET.render_size(Vec2::new(50.0, 50.0));
+        assert!((size.x - size.y).abs() < 1e-3);
+    }
+
+    #[test]
+    fn render_size_floors_at_minimum_extent() {
+        // collision_scale * max(min_extent, 8.0): collision smaller
+        // than 8 should still produce a visible quad.
+        let size = BOSS_SHEET.render_size(Vec2::new(2.0, 2.0));
+        assert!(size.y >= 8.0 * BOSS_SHEET.collision_scale - 1e-3);
+    }
+
+    #[test]
+    fn is_boss_kind_only_true_for_boss_variant() {
+        assert!(is_boss_kind(FeatureVisualKind::Boss));
+        assert!(!is_boss_kind(FeatureVisualKind::Enemy));
+        assert!(!is_boss_kind(FeatureVisualKind::Hazard));
+        assert!(!is_boss_kind(FeatureVisualKind::Chest));
+    }
+}

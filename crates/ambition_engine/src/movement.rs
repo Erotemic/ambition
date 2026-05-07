@@ -2190,6 +2190,53 @@ mod tests {
         );
     }
 
+    /// Multi-frame glide: hold-jump for 60 frames (1 second at
+    /// 60fps) — the player must keep gliding the whole time, with
+    /// vel.y staying near `glide_fall_speed` and the body not falling
+    /// out of the world. Catches a regression where `gliding` flips
+    /// off mid-flight (e.g. an off-by-one in the predicate or a
+    /// state mutation that clears the flag).
+    #[test]
+    fn glide_sustains_across_many_frames() {
+        let world = test_world();
+        let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+        player.on_ground = false;
+        player.pos = Vec2::new(world.spawn.x, world.spawn.y - 800.0);
+        player.vel = Vec2::new(0.0, 0.0);
+
+        let dt = 1.0 / 60.0;
+        for frame in 0..60 {
+            step(
+                &world,
+                &mut player,
+                InputState {
+                    jump_held: true,
+                    control_dt: dt,
+                    ..Default::default()
+                },
+            );
+            if player.on_ground {
+                break;
+            }
+            // After the first ~5 frames gravity has bumped vel.y past
+            // the glide cap so the cap is actively clamping. Don't
+            // assert on the very first frames where vel.y < cap.
+            if frame >= 6 {
+                assert!(
+                    player.gliding,
+                    "frame {frame}: gliding flipped off (vel=({},{}) on_ground={})",
+                    player.vel.x, player.vel.y, player.on_ground,
+                );
+                assert!(
+                    player.vel.y <= DEFAULT_TUNING.glide_fall_speed + 5.0,
+                    "frame {frame}: vel.y exceeded glide cap ({} > {})",
+                    player.vel.y,
+                    DEFAULT_TUNING.glide_fall_speed,
+                );
+            }
+        }
+    }
+
     #[test]
     fn fast_fall_requires_double_tap_signal() {
         let world = test_world();

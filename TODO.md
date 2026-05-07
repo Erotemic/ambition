@@ -73,13 +73,13 @@
 - [ ] **Time-decay breakable platforms** `[V2/D2]` — keep attack-break variant; add stand-too-long variant. Source: `tmp-todo-notes.txt`.
 
 ### Sprite wiring batch
-- [~] `morph_ball.png` → `MorphBallSprite::handle` `[V2/D1]` — sprite type wired; verify asset path
-- [ ] `switch_armed.png` / `switch_disabled.png` → Switch rendering `[V2/D1]`
-- [ ] `lock_wall_tile.png` → runtime-inserted lock walls `[V2/D1]`
-- [ ] `water_surface_tile.png` → overlay layer above water `[V2/D2]`
-- [ ] `ladder_tile.png` → climbable zones `[V2/D1]` (gated on Ladder primitive)
-- [ ] `acid_tile.png` / `lava_tile.png` → IntGrid value mappings `[V2/D1]`
-- [ ] `bg_circuit_tile.png` → parallax in `central_hub_complex` `[V2/D2]`
+- [x] **MorphBall sprite** — procedurally generated 64×64 RGBA sphere at startup, no `morph_ball.png` asset needed. [body_mode.rs:162](crates/ambition_sandbox/src/body_mode.rs#L162). Wired through `MorphBallSprite::handle` resource.
+- [ ] `switch_armed.png` / `switch_disabled.png` → Switch rendering `[V2/D1]` — blocked on art generation
+- [ ] `lock_wall_tile.png` → runtime-inserted lock walls `[V2/D1]` — blocked on art generation
+- [ ] `water_surface_tile.png` → overlay layer above water `[V2/D2]` — blocked on art generation
+- [ ] `ladder_tile.png` → climbable zones `[V2/D1]` (gated on Ladder primitive) — blocked on art generation
+- [ ] `acid_tile.png` / `lava_tile.png` → IntGrid value mappings `[V2/D1]` — blocked on art generation
+- [ ] `bg_circuit_tile.png` → parallax in `central_hub_complex` `[V2/D2]` — blocked on art generation
 
 ### Architecture
 - [ ] **Stitched (loading-zone-free) room transitions** `[V4/D4]` — user wanted basement reachable by "drop down" from hub, not via load. Source: `tmp-todo-notes.txt`.

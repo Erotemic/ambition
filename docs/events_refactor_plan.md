@@ -1,5 +1,14 @@
 # Events refactor plan (ADR 0012 Phase 2)
 
+> **Status (2026-05-07): COMPLETE.** All five slices landed in commits
+> `c49c1e5` (audio), `cce3aaf` (VFX), `51978b4` (debris), `986d78b`
+> (setup split), `81900dd` (app-builder split + headless gameplay
+> loop). Slice 6 cleanup is tracked in commit `ea70e83`. See ADR
+> 0012's "Implementation progress (as of 2026-05-07)" section for the
+> audited end state. This document remains as the historical roadmap;
+> the **target shape** sections describe the architecture as it now
+> exists, not future work.
+
 This document is the implementation roadmap for the events refactor. ADR
 0012 is the durable decision; this plan can evolve as we learn. It is the
 companion to `docs/headless_simulation.md` (which describes Phase 1 and the

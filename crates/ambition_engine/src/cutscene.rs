@@ -279,4 +279,42 @@ mod tests {
         let evs = runtime.tick(1.0, true);
         assert!(evs.is_empty());
     }
+
+    #[test]
+    fn auto_advances_predicate_distinguishes_dialogue_from_others() {
+        // Dialogue waits for player input.
+        let dialogue = CutsceneBeat::Dialogue {
+            speaker: "X".into(),
+            text: "Y".into(),
+        };
+        assert!(!dialogue.auto_advances());
+        // All other beat kinds auto-advance.
+        assert!(CutsceneBeat::Wait { seconds: 1.0 }.auto_advances());
+        assert!(CutsceneBeat::Banner {
+            text: "T".into(),
+            seconds: 0.5,
+        }
+        .auto_advances());
+        assert!(CutsceneBeat::Fade {
+            to_alpha: 0.0,
+            seconds: 1.0,
+        }
+        .auto_advances());
+        assert!(CutsceneBeat::CameraPan {
+            target: [0.0, 0.0],
+            seconds: 1.0,
+        }
+        .auto_advances());
+        assert!(CutsceneBeat::SetFlag {
+            id: "flag".into(),
+            on: true,
+        }
+        .auto_advances());
+    }
+
+    #[test]
+    fn cutscene_script_with_seen_flag_round_trips() {
+        let script = CutsceneScript::new("test", vec![]).with_seen_flag("test_seen");
+        assert_eq!(script.seen_flag.as_deref(), Some("test_seen"));
+    }
 }

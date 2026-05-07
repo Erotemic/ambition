@@ -55,3 +55,32 @@ This log is a compact map of major architecture and feature waves. It is not a f
 
 - README was rewritten as a stable project portal.
 - `CURRENT_STATE.md`, `GOAL_STATE.md`, `AGENT_HANDOFF.md`, ADRs, and story/mode notes were added so future agents can distinguish current truth from historical notes.
+
+## Sandbox-first audit + mechanic completion (2026-05)
+
+- Reaffirmed the sandbox-first priority: every gameplay component lands in
+  test-arranged form before being assembled into a story-arranged slice.
+- Engine mechanics rounded out: Glide / slow-fall ability with `glide_fall_speed`
+  + `glide_air_accel`; per-player promotions of `damage_multiplier` /
+  `invincible` / `mana: ResourceMeter` from the sandbox runtime to the engine
+  `Player`; `Player::was_riding_platform` scratch flag for diagnostic logging.
+- Sim → presentation seam hardened: `PlayerDiedMessage` replaced
+  `runtime.player_died_pending` bool; multi-frame
+  `tests/scripted_gameplay.rs` integration test pins the seam under
+  MinimalPlugins. ADR 0012 events refactor slices 1-5 audit confirmed
+  zero direct presentation calls in `app.rs`.
+- Authoring ergonomics: LDtk × audio cross-validation warns on unknown
+  `music_track` ids; map menu gained zoom controls (`+` / `−` / `0`)
+  and full room-name labels; quest log moved into its own
+  `QuestPanelText` UI surface; verbose debug HUD trimmed of
+  inspector-redundant fields.
+- Coverage: BodyShape::fits_at + ResourceMeter + wall-jump start-position
+  proptests added; mob_lab lock-wall teleport repro test pins the
+  geometry that the `body_is_side_contact` predicate covers.
+- CI: GitHub Actions workflow with engine + sandbox + headless-binary
+  smoke; PR template wires the FEATURES.md update into a checklist.
+- Music director: adaptive resolver iterates all encounter bindings
+  (instead of hardcoding mob_lab) so future encounter cues drop in
+  via a new `EncounterMusicBinding` entry.
+- Settings: per-controller-profile filter defaults (Xbox 360 widens
+  deadzones + trigger band; PlayStation tightens deadzones).

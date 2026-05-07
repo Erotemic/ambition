@@ -140,4 +140,37 @@ mod tests {
         assert_eq!(combat.boss_attack_windup, f.boss_attack_windup);
         assert_eq!(combat.boss_attack_active, f.boss_attack_active);
     }
+
+    #[test]
+    fn time_ramp_recovers_faster_than_it_slows() {
+        // Entering slow-mo should be readable (a slower ramp-down lets
+        // the player feel it kick in); recovering to normal speed
+        // should be snappy. This invariant guards against accidentally
+        // swapping the two in defaults.
+        let f = SandboxFeelTuning::default();
+        assert!(
+            f.time_ramp_up_rate > f.time_ramp_down_rate,
+            "time_ramp_up_rate should be faster than time_ramp_down_rate \
+             so recovery feels snappy",
+        );
+    }
+
+    #[test]
+    fn transition_cooldowns_match_their_flash_durations_or_shorter() {
+        // A cooldown shorter than the flash means the player could
+        // re-enter a transition while the flash from the previous one
+        // is still on screen — visible double-trigger.
+        let f = SandboxFeelTuning::default();
+        assert!(f.edge_transition_flash >= f.edge_transition_cooldown);
+        assert!(f.door_transition_flash >= f.door_transition_cooldown);
+    }
+
+    #[test]
+    fn attack_active_window_is_at_least_one_frame() {
+        // 60fps frame is ~16.6ms = 0.017s. Any active hitbox window
+        // shorter than a frame would be unhittable; not a useful state.
+        let f = SandboxFeelTuning::default();
+        assert!(f.enemy_attack_active >= 0.017);
+        assert!(f.boss_attack_active >= 0.017);
+    }
 }

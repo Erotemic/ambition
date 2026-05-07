@@ -548,4 +548,58 @@ mod safe_pos_tests {
         runtime.remember_safe_player_position(&world, SafePositionContext::ideal());
         assert_eq!(runtime.last_safe_player_pos, initial);
     }
+
+    #[test]
+    fn register_down_tap_returns_true_on_double_tap_within_window() {
+        let world = dummy_world();
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
+        // First tap: returns false, opens the window.
+        assert!(!runtime.register_down_tap(true, 0.0, 0.25));
+        // Tap again before window expires: returns true.
+        assert!(runtime.register_down_tap(true, 0.05, 0.25));
+    }
+
+    #[test]
+    fn register_down_tap_window_closes_on_idle_frames() {
+        let world = dummy_world();
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
+        assert!(!runtime.register_down_tap(true, 0.0, 0.25));
+        // Many idle frames — tap timer drains.
+        for _ in 0..20 {
+            let _ = runtime.register_down_tap(false, 0.05, 0.25);
+        }
+        // Next tap is treated as the FIRST tap (window had closed).
+        assert!(!runtime.register_down_tap(true, 0.0, 0.25));
+    }
+
+    #[test]
+    fn register_up_tap_mirrors_down_tap_semantics() {
+        let world = dummy_world();
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
+        assert!(!runtime.register_up_tap(true, 0.0, 0.30));
+        assert!(runtime.register_up_tap(true, 0.05, 0.30));
+    }
+
+    #[test]
+    fn buffered_interact_holds_for_window_seconds() {
+        let world = dummy_world();
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
+        // Press once → buffer holds for `window` seconds.
+        assert!(runtime.buffered_interact(true, 0.0, 0.12));
+        // Subsequent frames within the window also report true.
+        assert!(runtime.buffered_interact(false, 0.05, 0.12));
+        assert!(runtime.buffered_interact(false, 0.05, 0.12));
+        // After the window passes, the buffer drains.
+        assert!(!runtime.buffered_interact(false, 0.20, 0.12));
+    }
+
+    #[test]
+    fn clear_interact_buffer_drops_buffer_immediately() {
+        let world = dummy_world();
+        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
+        let _ = runtime.buffered_interact(true, 0.0, 1.0);
+        // Without the clear, next frame would still report true.
+        runtime.clear_interact_buffer();
+        assert!(!runtime.buffered_interact(false, 0.001, 1.0));
+    }
 }

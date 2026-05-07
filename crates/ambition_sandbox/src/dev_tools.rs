@@ -452,3 +452,46 @@ pub fn sync_player_stats_with_inspector(
     runtime.player.damage_multiplier = stats.slash_damage.max(1);
     runtime.player.invincible = stats.invincible;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn editable_ability_set_round_trips_through_engine() {
+        // Default → engine → editable should equal the original.
+        let original = EditableAbilitySet::default();
+        let engine = original.as_engine();
+        let restored = EditableAbilitySet::from(engine);
+        assert_eq!(original.move_horizontal, restored.move_horizontal);
+        assert_eq!(original.glide, restored.glide);
+        assert_eq!(original.swim, restored.swim);
+        assert_eq!(original.ledge_grab, restored.ledge_grab);
+    }
+
+    #[test]
+    fn editable_movement_tuning_round_trips_through_engine() {
+        let original = EditableMovementTuning::default();
+        let engine = original.as_engine();
+        let restored = EditableMovementTuning::from(engine);
+        // Spot-check a handful of fields including the recently-added
+        // glide tuning.
+        assert!((original.gravity - restored.gravity).abs() < 1e-3);
+        assert!((original.jump_speed - restored.jump_speed).abs() < 1e-3);
+        assert!((original.glide_fall_speed - restored.glide_fall_speed).abs() < 1e-3);
+        assert!((original.glide_air_accel - restored.glide_air_accel).abs() < 1e-3);
+        assert_eq!(original.air_jumps, restored.air_jumps);
+    }
+
+    #[test]
+    fn editable_player_stats_default_matches_constants() {
+        let s = EditablePlayerStats::default();
+        assert_eq!(s.health, EditablePlayerStats::DEFAULT_MAX_HEALTH);
+        assert_eq!(s.max_health, EditablePlayerStats::DEFAULT_MAX_HEALTH);
+        assert_eq!(s.mana, EditablePlayerStats::DEFAULT_MAX_MANA);
+        assert_eq!(s.max_mana, EditablePlayerStats::DEFAULT_MAX_MANA);
+        assert_eq!(s.slash_damage, EditablePlayerStats::DEFAULT_SLASH_DAMAGE);
+        assert!(!s.invincible);
+        assert!(!s.refill_now);
+    }
+}

@@ -50,6 +50,7 @@ pub use video::{
 /// pause menu mutates it through `apply_action`. Future persistence
 /// can serialize this to disk via `serde`.
 #[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct UserSettings {
     #[serde(default)]
     pub video: VideoSettings,
@@ -61,16 +62,6 @@ pub struct UserSettings {
     pub gameplay: GameplaySettings,
 }
 
-impl Default for UserSettings {
-    fn default() -> Self {
-        Self {
-            video: VideoSettings::default(),
-            audio: AudioSettings::default(),
-            controls: ControlSettings::default(),
-            gameplay: GameplaySettings::default(),
-        }
-    }
-}
 
 impl UserSettings {
     /// Re-clamp every value into its valid range. Useful right after

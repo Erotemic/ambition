@@ -2292,9 +2292,9 @@ pub struct NpcRuntime {
     pub interactable: ae::Interactable,
     /// Half-range of the patrol pace, in world pixels. 0.0 → static;
     /// > 0 → pace `[spawn.x - patrol_radius, spawn.x + patrol_radius]`.
-    /// Mirror of the engine `InteractionKind::Npc::patrol_radius` —
-    /// cached here so the per-frame movement code doesn't have to
-    /// re-pattern-match every tick.
+    /// > Mirror of the engine `InteractionKind::Npc::patrol_radius` —
+    /// > cached here so the per-frame movement code doesn't have to
+    /// > re-pattern-match every tick.
     pub patrol_radius: f32,
     /// Distance below which a patrolling NPC stops to face the
     /// player so dialog interaction is reachable. 0 disables the

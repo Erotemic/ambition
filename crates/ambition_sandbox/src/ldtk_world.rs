@@ -707,13 +707,12 @@ impl LdtkProject {
                             }
                         }
                     }
-                    "DebugLabel" => {
-                        if field_string(entity, "text").is_none() {
+                    "DebugLabel"
+                        if field_string(entity, "text").is_none() => {
                             report
                                 .errors
                                 .push(format!("DebugLabel {} requires text field", entity.iid));
                         }
-                    }
                     _ => {}
                 }
                 // Surface-shaped entities are validated by parsing into the

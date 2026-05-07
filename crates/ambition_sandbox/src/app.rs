@@ -368,7 +368,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::trace::GameplayTraceBuffer::default())
         .insert_resource(crate::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
-        .add_plugins(ae::AmbitionStateMachinePlugin::default())
+        .add_plugins(ae::AmbitionStateMachinePlugin)
         .add_systems(
             Startup,
             (data::load_data_asset_handle, setup_simulation_system).chain(),
@@ -1833,10 +1833,10 @@ fn handle_ldtk_hot_reload(
 
     match reload_ldtk_world_from_disk(
         &mut commands,
-        &mut *world,
-        &mut *room_set,
-        &mut *runtime,
-        &mut *ldtk_index,
+        &mut world,
+        &mut room_set,
+        &mut runtime,
+        &mut ldtk_index,
         editable_tuning.as_engine(),
         &room_visuals,
         game_assets.as_deref(),
@@ -2323,7 +2323,7 @@ fn apply_player_knockback(
         features::PlayerDamageSource::BossBody | features::PlayerDamageSource::BossAttack
     );
     let dir = if damage.knockback_dir.abs() <= 0.001 {
-        runtime.player.facing * -1.0
+        -runtime.player.facing
     } else {
         damage.knockback_dir.signum()
     };

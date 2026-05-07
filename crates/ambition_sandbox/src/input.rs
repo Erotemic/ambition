@@ -479,7 +479,7 @@ impl ControlFrame {
             const WALK_FACTOR: f32 = 0.45;
             let magnitude = axis.length();
             if magnitude > WALK_FACTOR {
-                axis = axis * (WALK_FACTOR / magnitude);
+                axis *= (WALK_FACTOR / magnitude);
             }
         }
         let up_pressed = actions.just_pressed(&SandboxAction::MoveUp);

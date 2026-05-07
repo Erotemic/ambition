@@ -67,6 +67,7 @@
 
 ### Test rooms (sandbox = component showcase)
 - [ ] **Crawl/morph proof room** `[V3/D2]` — low-ceiling corridor demo (drivers exist; needs the room).
+  - Spec ready at `tools/examples/ldtk_specs/crawl_lab.yaml` and validates clean via `python tools/author_ldtk_area.py … --dry-run`. To apply: add a `connect_to:` block reciprocating into `central_hub_main` at a free LoadingZone position (the spec currently sets `target_zone: east_exit` which already routes to scroll lab — pick a different anchor or extend central_hub_main first).
 - [ ] **Save-point lab + persisted-switch test room** `[V4/D3]` — switch state survives reload; reset-switches sub-room; extensible test-state schema (boss defeated, mob room cleared). Source: `tmp-todo-notes.txt`.
 - [ ] **Quest test room** `[V3/D3]` — small fetch/talk quest end-to-end ([quest.rs](crates/ambition_sandbox/src/quest.rs) is scaffolded).
 - [ ] **Cutscene test room** `[V3/D2]` — entry trigger fires "you're finally awake"; demonstrates cutscene + skip flow.

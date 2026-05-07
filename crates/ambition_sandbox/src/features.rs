@@ -1191,14 +1191,26 @@ pub enum EnemyArchetype {
     AggressiveSeeker,
     InfiniteSandbag,
     FiniteSandbag,
+    /// Small + low aggression: slow patrol, tiny aggro radius, low
+    /// damage. Fits scenery-flavored encounters (rats, fungi) where
+    /// the player can ignore them but a careless approach still
+    /// punishes.
+    SmallLurker,
+    /// Large + low aggression: bigger HP / damage than `LargeBrute`
+    /// but with a much narrower aggro radius. Boss-room
+    /// "stationary heavy" archetype — the player has to step
+    /// inside its threat envelope deliberately.
+    LargeColossus,
 }
 
 impl EnemyArchetype {
     fn from_brain(brain: &ae::EnemyBrain) -> Self {
         match brain {
             ae::EnemyBrain::Custom(name) if name == "small_skitter" => Self::SmallSkitter,
+            ae::EnemyBrain::Custom(name) if name == "small_lurker" => Self::SmallLurker,
             ae::EnemyBrain::Custom(name) if name == "medium_striker" => Self::MediumStriker,
             ae::EnemyBrain::Custom(name) if name == "large_brute" => Self::LargeBrute,
+            ae::EnemyBrain::Custom(name) if name == "large_colossus" => Self::LargeColossus,
             ae::EnemyBrain::Custom(name) if name == "gradient_seeker" => Self::AggressiveSeeker,
             ae::EnemyBrain::Custom(name) if name == "sandbag_infinite" => Self::InfiniteSandbag,
             ae::EnemyBrain::Custom(name) if name == "sandbag_finite" => Self::FiniteSandbag,
@@ -1213,9 +1225,11 @@ impl EnemyArchetype {
     fn max_health(self) -> i32 {
         match self {
             Self::SmallSkitter => 2,
+            Self::SmallLurker => 2,
             Self::Combatant | Self::AggressiveSeeker => 4,
             Self::MediumStriker => 5,
             Self::LargeBrute => 9,
+            Self::LargeColossus => 14,
             Self::InfiniteSandbag => 9999,
             Self::FiniteSandbag => 6,
         }
@@ -1224,7 +1238,9 @@ impl EnemyArchetype {
     fn patrol_speed(self) -> f32 {
         match self {
             Self::SmallSkitter => 150.0,
+            Self::SmallLurker => 60.0, // sluggish — that's the point
             Self::LargeBrute => 72.0,
+            Self::LargeColossus => 40.0, // barely moves; almost stationary
             Self::AggressiveSeeker => 130.0,
             _ => ENEMY_PATROL_SPEED,
         }
@@ -1233,7 +1249,9 @@ impl EnemyArchetype {
     fn chase_speed(self) -> f32 {
         match self {
             Self::SmallSkitter => 210.0,
+            Self::SmallLurker => 90.0,
             Self::LargeBrute => 118.0,
+            Self::LargeColossus => 80.0, // never sprints
             Self::AggressiveSeeker => 225.0,
             Self::MediumStriker => 170.0,
             _ => ENEMY_CHASE_SPEED,
@@ -1243,8 +1261,10 @@ impl EnemyArchetype {
     fn aggro_radius(self) -> f32 {
         match self {
             Self::SmallSkitter => 320.0,
+            Self::SmallLurker => 96.0, // tight — player can walk past
             Self::MediumStriker | Self::Combatant => 460.0,
             Self::LargeBrute => 380.0,
+            Self::LargeColossus => 200.0, // narrow threat envelope
             Self::AggressiveSeeker => 900.0,
             Self::InfiniteSandbag | Self::FiniteSandbag => 0.0,
         }
@@ -1253,7 +1273,9 @@ impl EnemyArchetype {
     fn attack_range(self) -> f32 {
         match self {
             Self::SmallSkitter => 105.0,
+            Self::SmallLurker => 90.0,
             Self::LargeBrute => 205.0,
+            Self::LargeColossus => 240.0, // big arms reach further
             _ => ENEMY_ATTACK_RANGE,
         }
     }
@@ -1261,7 +1283,9 @@ impl EnemyArchetype {
     fn contact_strength(self) -> f32 {
         match self {
             Self::SmallSkitter => 0.55,
+            Self::SmallLurker => 0.45,
             Self::LargeBrute => 1.25,
+            Self::LargeColossus => 1.50, // hits the hardest of any non-boss
             Self::AggressiveSeeker => 0.80,
             _ => 0.70,
         }
@@ -1270,6 +1294,7 @@ impl EnemyArchetype {
     fn damage_amount(self) -> i32 {
         match self {
             Self::LargeBrute => 2,
+            Self::LargeColossus => 3,
             _ => 1,
         }
     }
@@ -2206,6 +2231,52 @@ mod conversion_tests {
         save.set_flag("enemy_spider_dead", true);
         features.apply_save(&save);
         assert!(!features.enemies[0].alive);
+    }
+
+    #[test]
+    fn enemy_archetype_brain_round_trip() {
+        for (name, expected) in [
+            ("small_skitter", EnemyArchetype::SmallSkitter),
+            ("small_lurker", EnemyArchetype::SmallLurker),
+            ("medium_striker", EnemyArchetype::MediumStriker),
+            ("large_brute", EnemyArchetype::LargeBrute),
+            ("large_colossus", EnemyArchetype::LargeColossus),
+            ("gradient_seeker", EnemyArchetype::AggressiveSeeker),
+            ("sandbag_infinite", EnemyArchetype::InfiniteSandbag),
+            ("sandbag_finite", EnemyArchetype::FiniteSandbag),
+            ("unknown_brain", EnemyArchetype::Combatant),
+        ] {
+            let brain = ae::EnemyBrain::Custom(name.to_string());
+            assert_eq!(EnemyArchetype::from_brain(&brain), expected);
+        }
+    }
+
+    /// Cross-archetype invariants for the S/M/L × low/med/high
+    /// aggression matrix. Locks in the design contract that:
+    /// - "Large" archetypes have more HP than "Small" ones.
+    /// - High-aggression archetypes have wider aggro radii than
+    ///   their low-aggression siblings of the same size.
+    /// - Damage scales with size class.
+    #[test]
+    fn enemy_archetype_size_and_aggression_invariants() {
+        // HP: small < medium < large.
+        assert!(EnemyArchetype::SmallSkitter.max_health() < EnemyArchetype::MediumStriker.max_health());
+        assert!(EnemyArchetype::SmallLurker.max_health() < EnemyArchetype::MediumStriker.max_health());
+        assert!(EnemyArchetype::MediumStriker.max_health() < EnemyArchetype::LargeBrute.max_health());
+        assert!(EnemyArchetype::LargeBrute.max_health() < EnemyArchetype::LargeColossus.max_health());
+
+        // Aggro radius: low-aggression < high-aggression at same size.
+        assert!(EnemyArchetype::SmallLurker.aggro_radius() < EnemyArchetype::SmallSkitter.aggro_radius());
+        assert!(EnemyArchetype::LargeColossus.aggro_radius() < EnemyArchetype::LargeBrute.aggro_radius());
+
+        // Damage: large > medium / small (LargeColossus is the heaviest hitter).
+        assert!(EnemyArchetype::LargeColossus.damage_amount() >= EnemyArchetype::LargeBrute.damage_amount());
+        assert!(EnemyArchetype::LargeBrute.damage_amount() > EnemyArchetype::SmallSkitter.damage_amount());
+
+        // Patrol speed: lurker / colossus visibly slower than their
+        // higher-aggression siblings.
+        assert!(EnemyArchetype::SmallLurker.patrol_speed() < EnemyArchetype::SmallSkitter.patrol_speed());
+        assert!(EnemyArchetype::LargeColossus.patrol_speed() < EnemyArchetype::LargeBrute.patrol_speed());
     }
 }
 

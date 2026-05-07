@@ -60,6 +60,30 @@ def main(argv=None) -> int:
     ap.add_argument("spec")
     ap.add_argument("--outdir", default="output")
     ap.add_argument("--backend", default="fallback", choices=["fallback", "auto", "fluidsynth-cli", "pretty-midi"])
+    ap.add_argument(
+        "--simple-mix",
+        action="store_true",
+        help=(
+            "Only emit the mastered preview/full_soundtrack_preview.ogg. "
+            "Skips per-section per-group adaptive stem OGGs, per-section "
+            "full slices, and the in-game preview mixes. Cuts ~10 OGG "
+            "encodes per cue down to 1; appropriate for non-adaptive "
+            "single-track music (e.g. sandbox lofi cues) where the runtime "
+            "loads only the master mix anyway."
+        ),
+    )
+    ap.add_argument(
+        "--jobs",
+        "-j",
+        type=int,
+        default=max(1, (os.cpu_count() or 2) // 2),
+        help=(
+            "Parallel worker subprocess count for per-group synth. Default "
+            "is half the CPU count (each worker is single-threaded "
+            "fluidsynth + reverb DSP, so going past physical cores hurts). "
+            "Pass 1 for sequential rendering."
+        ),
+    )
     ns = ap.parse_args(argv)
     spec_path = Path(ns.spec)
     spec = yaml.safe_load(spec_path.read_text())
@@ -75,12 +99,52 @@ def main(argv=None) -> int:
     outdir = Path(ns.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    for group in group_names:
+    # Run per-group workers in parallel up to --jobs at a time. Each
+    # worker is a separate Python subprocess with its own FluidSynth
+    # state, so concurrency here is safe (the original sequential loop
+    # picked subprocess isolation for stability, not for serialization).
+    def worker_cmd(group: str) -> list[str]:
         cmd = [
             sys.executable, "-m", "ambition_music_renderer.render_group_worker",
             str(spec_path), "--outdir", str(outdir), "--group", group, "--backend", ns.backend,
         ]
-        subprocess.run(cmd, check=True)
+        if ns.simple_mix:
+            cmd.append("--skip-section-ogg")
+        return cmd
+
+    jobs = max(1, min(ns.jobs, len(group_names)))
+    if jobs == 1:
+        for group in group_names:
+            subprocess.run(worker_cmd(group), check=True)
+    else:
+        # Schedule with a sliding window: launch up to `jobs` at once,
+        # await any completion, then launch the next. Polls in a small
+        # sleep loop because `Popen.wait(timeout=...)` raises on timeout
+        # which makes the "wait for any" idiom awkward.
+        import time as _time
+        pending: list[tuple[str, subprocess.Popen]] = []
+        remaining = list(group_names)
+        while remaining or pending:
+            while remaining and len(pending) < jobs:
+                grp = remaining.pop(0)
+                pending.append((grp, subprocess.Popen(worker_cmd(grp))))
+            done_idx = None
+            while done_idx is None:
+                for i, (_, proc) in enumerate(pending):
+                    if proc.poll() is not None:
+                        done_idx = i
+                        break
+                if done_idx is None:
+                    _time.sleep(0.1)
+            grp, proc = pending.pop(done_idx)
+            if proc.returncode != 0:
+                # Tear down the rest before propagating so we don't leak
+                # fluidsynth subprocesses if one worker crashes.
+                for _, other in pending:
+                    other.terminate()
+                for _, other in pending:
+                    other.wait()
+                raise subprocess.CalledProcessError(proc.returncode, worker_cmd(grp))
 
     output_files: dict = {"preview": {}, "adaptive": {}}
 
@@ -112,41 +176,45 @@ def main(argv=None) -> int:
     # (e.g. an intimate intro while the climax sounds cathedral) without
     # remixing every stem.
     sections_in_spec = {s["id"]: s for s in spec.get("sections", [])}
-    for sec in meta:
-        sec_spec = sections_in_spec.get(sec["id"], {})
-        section_pp = sec_spec.get("postprocess")
-        if section_pp:
-            # Slice the raw stem sum (pre-master), apply the section's
-            # postprocess chain to that slice.
-            raw_piece = r.slice_audio(full, sr, sec["start_seconds"], sec["end_seconds"])
-            section_settings = dict(master_settings)
-            section_settings.update(section_pp)
-            piece = r.post_process(raw_piece, sr, section_settings)
-        else:
-            piece = r.slice_audio(master, sr, sec["start_seconds"], sec["end_seconds"])
-        path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.full.ogg"
-        r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
-        output_files["adaptive"].setdefault(sec["id"], {})["full"] = str(path.relative_to(outdir))
+    if not ns.simple_mix:
+        for sec in meta:
+            sec_spec = sections_in_spec.get(sec["id"], {})
+            section_pp = sec_spec.get("postprocess")
+            if section_pp:
+                # Slice the raw stem sum (pre-master), apply the section's
+                # postprocess chain to that slice.
+                raw_piece = r.slice_audio(full, sr, sec["start_seconds"], sec["end_seconds"])
+                section_settings = dict(master_settings)
+                section_settings.update(section_pp)
+                piece = r.post_process(raw_piece, sr, section_settings)
+            else:
+                piece = r.slice_audio(master, sr, sec["start_seconds"], sec["end_seconds"])
+            path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.full.ogg"
+            r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
+            output_files["adaptive"].setdefault(sec["id"], {})["full"] = str(path.relative_to(outdir))
 
     # ---- In-game-style previews (no master chain, soft limit only) ----
     # The runtime layers stems on the fly and never runs the master postprocess.
     # These previews approximate that mixing path so it's possible to listen
-    # to what each gameplay state actually sounds like in-engine.
-    in_game_mixes = in_game_preview_mixes(spec, group_names)
+    # to what each gameplay state actually sounds like in-engine. Skipped in
+    # --simple-mix mode because non-adaptive single-track cues never load
+    # them and the OGG encoding cost dominates render time.
+    if not ns.simple_mix:
+        in_game_mixes = in_game_preview_mixes(spec, group_names)
 
-    for label, weights in in_game_mixes.items():
-        mix = np.zeros((target, 2), dtype="float32")
-        for group, weight in weights.items():
-            if group in stem_audio and weight > 0.0:
-                mix += stem_audio[group] * float(weight)
-        # Normalize each preview to a similar peak as the mastered preview
-        # so listening A/B between them is about timbre and balance rather
-        # than absolute level. The runtime would still play stems at their
-        # native level — these previews are an authoring aid.
-        mix = r.soft_limit(mix, target_peak_db=-2.5, drive=1.0, normalize=True)
-        path = outdir / "preview" / f"{spec['id']}_{cue_hash}.in_game_{label}.ogg"
-        r.write_ogg_from_audio(mix, sr, path, quality=quality, keep_wav=False)
-        output_files["preview"][f"in_game_{label}"] = str(path.relative_to(outdir))
+        for label, weights in in_game_mixes.items():
+            mix = np.zeros((target, 2), dtype="float32")
+            for group, weight in weights.items():
+                if group in stem_audio and weight > 0.0:
+                    mix += stem_audio[group] * float(weight)
+            # Normalize each preview to a similar peak as the mastered preview
+            # so listening A/B between them is about timbre and balance rather
+            # than absolute level. The runtime would still play stems at their
+            # native level — these previews are an authoring aid.
+            mix = r.soft_limit(mix, target_peak_db=-2.5, drive=1.0, normalize=True)
+            path = outdir / "preview" / f"{spec['id']}_{cue_hash}.in_game_{label}.ogg"
+            r.write_ogg_from_audio(mix, sr, path, quality=quality, keep_wav=False)
+            output_files["preview"][f"in_game_{label}"] = str(path.relative_to(outdir))
 
     manifest = r.build_manifest(spec, cue_hash, meta, group_names, output_files, sr)
     manifest["render_mode"] = "isolated_process_stem_warmmix"

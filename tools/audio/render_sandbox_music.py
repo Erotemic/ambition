@@ -94,6 +94,10 @@ def render_cue(cue: str, backend: str) -> bool:
         print(f"skip {cue}: missing YAML at {yaml}", file=sys.stderr)
         return False
     outdir = render_outdir(cue)
+    # --simple-mix: the runtime only loads the master preview for these
+    # single-track cues, so skip the ~10 unused OGG encodes (per-section
+    # per-group stems, per-section full slices, in_game preview mixes)
+    # the renderer would otherwise produce.
     cmd = [
         str(renderer_python()),
         "-m",
@@ -103,6 +107,7 @@ def render_cue(cue: str, backend: str) -> bool:
         str(outdir),
         "--backend",
         backend,
+        "--simple-mix",
     ]
     print(f"render {cue}: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=renderer_dir())

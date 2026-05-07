@@ -31,47 +31,57 @@ render:
   soundfont: /usr/share/sounds/sf2/TimGM6mb.sf2
 
 postprocess:
-  gain_db: -0.7
-  highpass_hz: 28
-  lowpass_hz: 8000
-  high_shelf_hz: 4000
-  high_shelf_db: -3.8
+  # Toned down to kill the audible background hiss Jon flagged. Less
+  # reverb decay + tighter compressor + less makeup gain keeps the
+  # noise floor from washing into the long sustained-pad sections.
+  gain_db: -0.8
+  highpass_hz: 32
+  lowpass_hz: 7800
+  high_shelf_hz: 3800
+  high_shelf_db: -4.2
   presence_low_hz: 1700
   presence_high_hz: 3700
   presence_db: -1.6
-  reverb_wet: 0.20
-  reverb_decay_seconds: 1.8
-  reverb_damping_hz: 4200
-  post_reverb_high_shelf_hz: 5000
-  post_reverb_high_shelf_db: -1.8
-  stereo_width: 0.12
-  compressor_threshold_db: -16.5
-  compressor_ratio: 3.5
+  reverb_wet: 0.13
+  reverb_decay_seconds: 1.2
+  reverb_damping_hz: 4000
+  post_reverb_high_shelf_hz: 4800
+  post_reverb_high_shelf_db: -2.4
+  stereo_width: 0.10
+  compressor_threshold_db: -18.0
+  compressor_ratio: 2.8
   compressor_attack_ms: 14.0
   compressor_release_ms: 130.0
-  compressor_makeup_db: 1.7
+  compressor_makeup_db: 0.9
   compressor_knee_db: 6.0
-  limiter_drive: 1.04
+  limiter_drive: 1.02
   normalize: true
-  target_peak_db: -1.7
+  target_peak_db: -2.0
 
 stem_postprocess:
-  highpass_hz: 26
-  reverb_wet: 0.07
-  reverb_decay_seconds: 1.1
-  reverb_damping_hz: 4200
-  stereo_width: 0.06
+  highpass_hz: 30
+  reverb_wet: 0.05
+  reverb_decay_seconds: 0.9
+  reverb_damping_hz: 4000
+  stereo_width: 0.05
   limiter_drive: 1.0
   normalize: false
   target_peak_db: -2.7
 
 instruments:
+  # warm_pad volume is intentionally low + program is `pad_new_age`
+  # rather than `pad_warm` -- the latter sample in TimGM6mb has an
+  # audible noise floor that the long sustained chords amplified into
+  # the master reverb tail. New-age pad is cleaner.
+  # `soft_clarinet` (program: pan_flute) was replaced with `soft_clarinet`
+  # for the same reason -- the GM pan flute sample has prominent breath
+  # noise that surfaces during quiet bridge phrases.
   - {name: felt_piano,    group: piano,      program: acoustic_grand_piano, volume: 70, pan: 56, expression: 78}
   - {name: rhodes,        group: piano,      program: electric_piano_1,     volume: 62, pan: 70, expression: 72}
-  - {name: warm_pad,      group: pad,        program: pad_warm,             volume: 38, pan: 64, expression: 60, modulation: 14}
+  - {name: warm_pad,      group: pad,        program: pad_new_age,          volume: 28, pan: 64, expression: 56, modulation: 10}
   - {name: upright_bass,  group: bass,       program: acoustic_bass,        volume: 76, pan: 50, expression: 84}
   - {name: vibraphone,    group: glimmer,    program: vibraphone,           volume: 42, pan: 38, expression: 64}
-  - {name: breathy_flute, group: winds,      program: pan_flute,            volume: 48, pan: 76, expression: 70, modulation: 12}
+  - {name: soft_clarinet, group: winds,      program: clarinet,             volume: 38, pan: 76, expression: 64, modulation: 6}
   - {name: jazz_drums,    group: percussion, is_drum: true,                 volume: 56, pan: 64, expression: 76}
 
 motifs:
@@ -281,7 +291,7 @@ sections:
         humanize_ms: 20
         humanize_velocity_pct: 6
       - kind: motif
-        instrument: breathy_flute
+        instrument: soft_clarinet
         motif: bridge_breath
         roots: [E5, F5]
         starts:

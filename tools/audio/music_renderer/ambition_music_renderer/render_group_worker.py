@@ -18,6 +18,16 @@ def main(argv=None) -> int:
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--group", required=True)
     ap.add_argument("--backend", default="fallback")
+    ap.add_argument(
+        "--skip-section-ogg",
+        action="store_true",
+        help=(
+            "Skip writing per-section per-group OGGs. The npy stem dump "
+            "is still written (the main process needs it to mix the "
+            "master preview). Used by render_isolated --simple-mix to "
+            "remove unused encoded outputs from the render budget."
+        ),
+    )
     ns = ap.parse_args(argv)
     spec_path = Path(ns.spec)
     spec = yaml.safe_load(spec_path.read_text())
@@ -43,11 +53,12 @@ def main(argv=None) -> int:
     npy.parent.mkdir(parents=True, exist_ok=True)
     np.save(npy, audio.astype("float32"))
     files = {}
-    for sec in meta:
-        piece = r.slice_audio(audio, sr, sec["start_seconds"], sec["end_seconds"])
-        path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.{ns.group}.ogg"
-        r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
-        files[sec["id"]] = str(path.relative_to(outdir))
+    if not ns.skip_section_ogg:
+        for sec in meta:
+            piece = r.slice_audio(audio, sr, sec["start_seconds"], sec["end_seconds"])
+            path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.{ns.group}.ogg"
+            r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
+            files[sec["id"]] = str(path.relative_to(outdir))
     print(json.dumps({"group": ns.group, "npy": str(npy), "files": files, "hash": cue_hash}))
     return 0
 

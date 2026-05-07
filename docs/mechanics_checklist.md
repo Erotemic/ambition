@@ -2,6 +2,11 @@
 
 This document tracks which metroidvania-style mechanics are currently expressible in the Ambition engine, and which ones require additional backend work.
 
+> Last sync: 2026-05-07. The checklist is read-only documentation;
+> `TODO.md` and `FEATURES.md` are the operational sources of truth.
+> When marking an entry `[x]` here, also add the matching `FEATURES.md`
+> entry (and remove from `TODO.md` if it was tracked there).
+
 The focus is on **player-control-level mechanics** and **engine expressibility**, not story design, campaign structure, or authored progression. A mechanic counts as expressible when the engine has reusable runtime primitives for it: input handling, player state, collision behavior, physics integration, targeting/query support, resource state, or authored data hooks.
 
 A mechanic does **not** need to be a bespoke one-off implementation. Prefer generic backend systems that make whole families of mechanics expressible. For example, a `FunctionalZip` ability with a curve argument can support exponential zip, sine dash, parabolic cast, Bezier rails, and spiral zip without each being a separate controller mode.
@@ -72,11 +77,11 @@ These are the highest-level engine systems. Many named mechanics below become ea
 - [x] Free flight / noclip-like fly mode
 - [ ] Glide / cape / slow-fall
 - [ ] Hover with resource drain
-- [ ] Ledge grab
-- [ ] Ledge mantle / climb-up
-- [ ] Crouch
-- [ ] Crawl
-- [ ] Slide
+- [~] Ledge grab — `Ability::ledge_grab` + `LedgeGrabState`; sandbox-side, awaiting engine promotion
+- [~] Ledge mantle / climb-up — Up+Jump triggers climb to `LedgeContact::climb_target`; animation slot still pending
+- [x] Crouch — `BodyMode::Crouching`
+- [x] Crawl — `BodyMode::Crawling`
+- [x] Slide — `BodyMode::Sliding`
 - [ ] Roll / dodge roll
 - [ ] Sprint acceleration state
 - [ ] Momentum-preserving long jump
@@ -89,16 +94,16 @@ These are the highest-level engine systems. Many named mechanics below become ea
 
 This is a major missing backend category. These mechanics require alternate body shapes, collision-safe resizing, and stance/form-specific control rules.
 
-- [ ] Morph ball
-- [ ] Morph-ball tunnels
+- [x] Morph ball — `BodyMode::MorphBall` driver + double-tap-down trigger
+- [ ] Morph-ball tunnels — needs IntGrid pinch-test rooms; backend ready
 - [ ] Spring ball
 - [ ] Bombs while morphed
 - [ ] Spider ball / magnetic ball
-- [ ] Compact hitbox mode
-- [ ] Collision-safe resize / unmorph validation
-- [ ] Alternate hurtbox by stance
-- [ ] Form switching
-- [ ] Size-changing traversal
+- [x] Compact hitbox mode — per-`BodyMode` `BodyShape` resizes the kinematic body
+- [x] Collision-safe resize / unmorph validation — `BodyShape::fits_at`
+- [~] Alternate hurtbox by stance — `BodyShape` resizes; damage volume still uses player AABB
+- [x] Form switching — `BodyMode` transitions wired through `SandboxRuntime`
+- [x] Size-changing traversal — `BodyMode::{Crouching, Crawling, MorphBall}` already enable narrow passages
 - [ ] Blob / liquid / squeeze-through form
 
 Recommended primitive:
@@ -176,8 +181,8 @@ enum GrappleState {
 * [x] Rebound impulse from surfaces
 * [x] Projectile damage backend
 * [x] Player projectile weapon (Fireball + Hadouken via half-circle motion input)
+* [x] Charge shot — multi-tier hold-to-charge fireballs; `ResourceMeter` mana drain
 * [ ] Beam / gun / ranged primary
-* [ ] Charge shot
 * [ ] Missile / ammo weapon
 * [ ] Spell cast
 * [ ] Directional melee aim
@@ -204,7 +209,7 @@ enum GrappleState {
 * [x] Movement resource refresh on ground
 * [x] Resource refresh from pogo / rebound-style interactions
 * [ ] Stamina meter
-* [ ] Mana / soul / magic meter
+* [~] Mana / soul / magic meter — sandbox-side `mana_current` / `mana_max` drives charge fireballs; awaits engine `ResourceMeter` promotion
 * [ ] Ammo meter
 * [ ] Heat / overheat meter
 * [ ] Hover fuel
@@ -230,9 +235,9 @@ struct ResourceMeter {
 
 Many of these can be implemented as special cases of vector fields, media volumes, surface materials, or gravity transforms.
 
-* [ ] Swimming
-* [ ] Underwater gravity / drag
-* [ ] Water surface transition
+* [x] Swimming — `Ability::swim` + `IntGrid` `BlockKind::Water`; two-pool `water_world` lab
+* [x] Underwater gravity / drag — swim mode swaps gravity / max-speed
+* [x] Water surface transition — overlapping-zone fix lets the player surface cleanly
 * [ ] Diving
 * [ ] Buoyancy
 * [ ] Currents
@@ -771,11 +776,11 @@ struct UncertaintyState {
 
 # Interaction / targeting mechanics
 
-* [x] Basic interact input
+* [x] Basic interact input — `SandboxAction::Interact` (E / F / RB) + double-tap-up; gates door / NPC / save-point
 * [x] Door transitions
 * [x] Ability pickups
 * [x] Chests / pickups / interactables
-* [~] Breakables
+* [~] Breakables — attack-break variant landed via `Surface` LDtk component; stand-too-long variant pending
 * [ ] Aim mode for ranged weapons
 * [ ] Twin-stick aiming
 * [ ] Lock-on targeting
@@ -884,17 +889,17 @@ The most valuable next backend systems are the ones that unlock whole mechanic f
 * [x] Explicit `PlayerMode` / `LocomotionState`
 * [x] Alternate body shapes
 * [x] Collision-safe body resize
-* [ ] Generic ray / shape-cast targeting API
-* [ ] Surface tangent / normal query
+* [ ] Generic ray / shape-cast targeting API — partial via `parry2d` shape-cast in `sweep_player_x` / `sweep_player_y`; not yet a public targeting API
+* [ ] Surface tangent / normal query — `parry2d` returns normals on hit; not yet plumbed through the snap path (see TODO S "Parry contact-normal")
 * [ ] Parametric curve movement backend
 * [ ] Collision-safe curve traversal
 * [ ] Curve preview renderer
 
 These unlock:
 
-* Morph ball
-* Crouch / crawl / slide
-* Ledge grab
+* ✅ Morph ball (landed)
+* ✅ Crouch / crawl / slide (landed)
+* ~ Ledge grab (sandbox-side; engine promotion pending)
 * Grapple targeting
 * Tangent dash
 * Normal launch

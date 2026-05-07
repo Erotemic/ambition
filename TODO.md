@@ -129,7 +129,6 @@
 
 ## F — Documentation / hygiene
 
-- [ ] Sync `mechanics_checklist.md` against landed BodyMode + Hadouken work `[V1/D1]`
 - [ ] Archive applied music-renderer overlay docs in `docs/` once their patches land `[V1/D1]`
 - [ ] Wire FEATURES.md update into a checklist when closing TODO items `[V2/D1]`
 

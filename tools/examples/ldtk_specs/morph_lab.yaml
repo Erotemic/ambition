@@ -1,0 +1,122 @@
+# Morph lab — body-mode proof room (MorphBall-only tunnel).
+#
+# Demonstrates the MorphBall mechanic from `crate::body_mode`: a
+# tunnel narrow + short enough that ONLY the MorphBall body shape
+# fits. Standing / Crouching / Crawling / Sliding all bounce off.
+#
+# Layout (1024x384):
+#
+#   +------------------------------------------------+
+#   | [PlayerStart]                                  |  ← standing area
+#   |                                                |
+#   |         ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒                 |  ← thick ceiling above tunnel
+#   |         ░░ 16x16 tunnel ░░                      |  ← MorphBall-only gap
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│  ← floor
+#   +------------------------------------------------+
+#                                ↑
+#                         LoadingZone back to basement
+#
+# Geometry math (BodyMode shapes from player_state.rs):
+#
+# Body sizes (with player base 28x46):
+# - Standing:   28 x 46    (cannot fit 16-tall tunnel)
+# - Crouching:  28 x 25.3  (cannot fit 16-tall tunnel)
+# - Crawling:   23.8 x 16.1 (16.1 > 16 tunnel height, cannot fit)
+# - Sliding:    29.4 x 18.4 (cannot fit)
+# - MorphBall:  15.4 x 15.4 (FITS tunnel of height 16)
+#
+# Tunnel sizing: floor top y=352, tunnel ceiling bottom y=336 →
+# 16-px gap is the sweet spot — MorphBall passes, everything else
+# blocks. Player must double-tap-down on the floor before the
+# tunnel to morph, then jump or up to unmorph back to standing.
+id: morph_lab
+level_id: morph_lab
+world_x: 27200
+world_y: 1024
+px_wid: 1024
+px_hei: 384
+fill_collision: empty
+biome: lab
+connect_to:
+  - target_room: central_hub_basement
+    # Free spot in the basement corridor, in the gap between the
+    # crawl_lab door (x=240) and the existing basement_hazards door
+    # (x=348). Both are 48 wide so x=296 ends at 344 -- still in the
+    # open corridor.
+    px: [296, 832]
+    size: [48, 96]
+    id: morph_lab_door
+    target_zone: morph_lab_entry
+    activation: Door
+    bidirectional: true
+
+entities:
+  # Floor across the whole room.
+  - type: Solid
+    px: [0, 352]
+    size: [1024, 32]
+    fields: { name: floor }
+
+  # Outer side walls.
+  - type: Solid
+    px: [0, 0]
+    size: [16, 352]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [1008, 0]
+    size: [16, 352]
+    fields: { name: right_wall }
+
+  # Roof of the room.
+  - type: Solid
+    px: [16, 0]
+    size: [992, 32]
+    fields: { name: ceiling }
+
+  # MorphBall-only tunnel: x=320..704 at the middle of the room.
+  # Tunnel ceiling is 304 tall (y=32..336), floor is below at y=352.
+  # The 16-px gap from y=336 to y=352 is exactly MorphBall-sized.
+  - type: Solid
+    px: [320, 32]
+    size: [384, 304]
+    fields: { name: low_ceiling }
+
+  # Player spawns on the left, before the tunnel.
+  - type: PlayerStart
+    px: [80, 306]
+    size: [28, 46]
+    fields: { name: morph_lab_spawn }
+
+  # Reward chest on the far side of the tunnel.
+  - type: ChestSpawn
+    px: [880, 294]
+    size: [76, 58]
+    fields:
+      name: Chest
+      reward: health:2
+
+  # Loading zone back to the basement.
+  - type: LoadingZone
+    px: [16, 256]
+    size: [48, 96]
+    fields:
+      id: morph_lab_entry
+      name: morph_lab_entry
+      activation: Door
+      target_room: central_hub_complex
+      target_zone: morph_lab_door
+      bidirectional: true
+
+  # Camera zone covering the room.
+  - type: CameraZone
+    px: [0, 0]
+    size: [1024, 384]
+    fields: { id: morph_lab_camera, name: morph_lab_camera, mode: Default }
+
+  - type: DebugLabel
+    px: [80, 80]
+    size: [400, 24]
+    fields:
+      name: morph_lab_intro
+      text: "Double-tap Down on the floor to MorphBall, then roll through the tunnel."
+      category: Custom

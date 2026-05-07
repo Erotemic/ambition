@@ -1157,28 +1157,40 @@ fn apply_first_goblin_runtime_balance_overrides(
             ("brass", 0.00),
             ("choir_pad", 0.00),
         ],
+        // wave2: drums COME IN (intentional entrance). Percussion at
+        // 0.42 gives a clear "rhythm has joined the mix" feel without
+        // overpowering the strings/brass. wave1 (0.08) is the
+        // pre-percussion baseline; wave2 is the first beat-driven
+        // beat-of-the-encounter.
         "wave2" => &[
             ("strings", 0.95),
             ("winds", 1.00),
             ("mallets", 0.14),
-            ("percussion", 0.38),
+            ("percussion", 0.42),
             ("brass", 0.44),
             ("choir_pad", 0.04),
         ],
+        // wave2_brute: heavier mob variant. Drums + brass push beyond
+        // standard wave2 to match the "brute encounter" intensity.
         "wave2_brute" => &[
             ("strings", 0.95),
             ("winds", 1.00),
             ("mallets", 0.12),
-            ("percussion", 0.46),
+            ("percussion", 0.50),
             ("brass", 0.58),
             ("choir_pad", 0.06),
         ],
+        // wave3: drums KICK UP FURTHER. Bumped from the prior 0.42 to
+        // 0.58 so the wave3 transition is unambiguously a step up from
+        // wave2's 0.42 -- enough headroom that the audio file change
+        // at the section crossfade reads as "drums got louder + the
+        // rhythm shifted" rather than "the track switched".
         "wave3" => &[
             ("strings", 0.90),
             ("winds", 1.00),
             ("mallets", 0.08),
-            ("percussion", 0.42),
-            ("brass", 0.54),
+            ("percussion", 0.58),
+            ("brass", 0.62),
             ("choir_pad", 0.06),
         ],
         "recap_loop" => &[

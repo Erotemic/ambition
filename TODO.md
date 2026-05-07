@@ -51,7 +51,7 @@
   - Plumb `normal1` through hit struct
   - Replace snap branches in [movement.rs:1287](crates/ambition_engine/src/movement.rs#L1287)
   - Re-run `repro_walls.rs` + add fuzz (see B)
-- [ ] **Double-tap-up Interact trigger** `[V4/D2]` — `Interact` action exists; the double-tap-up *gesture* binding may not. Audit door / NPC / save-point sites and ensure single-press Up never fires interact. Source: `tmp-todo-notes.txt`, feedback memory.
+- [x] **Double-tap-up Interact trigger audit** — `register_up_tap` in [SandboxRuntime](crates/ambition_sandbox/src/lib.rs#L282) emits the `door_double_tap_up` gesture; [app.rs:1519](crates/ambition_sandbox/src/app.rs#L1519) ORs it into `controls.interact_pressed` before doors / NPCs / chests see it. Single-press Up never fires interact via any current site (chest_open / npc_talk / LoadingZone Door all read `interact_pressed` only). Save-point sites don't exist yet; when they land, route through `interact_pressed` to inherit the same gating.
 - [ ] **Glitchy platform behavior (intermittent)** `[V4/D3]` — vague repro. Bug record/replay (see C) would catch this. Source: `tmp-todo-notes.txt`. _Diagnostic logging on riding-state transitions landed via `Player::was_riding_platform` + `tracing::debug!` (target=`ambition::platform`); enable with `RUST_LOG=ambition::platform=debug` to capture the contact transition trail._
 
 ## A — Sandbox expressiveness

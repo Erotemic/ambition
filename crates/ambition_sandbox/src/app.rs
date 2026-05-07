@@ -1257,6 +1257,7 @@ fn setup_presentation_system(
     setup::presentation_world(
         &mut commands,
         &mut audio_sources,
+        &asset_server,
         setup::PresentationSetup {
             world: &world,
             room_set: &room_set,

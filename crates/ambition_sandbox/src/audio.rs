@@ -233,7 +233,19 @@ pub struct AudioLibrary {
 
 #[cfg(feature = "audio")]
 impl AudioLibrary {
-    pub fn new(audio_sources: &mut Assets<KiraAudioSource>, spec: &AudioSpec) -> Self {
+    /// Build the audio library from the data spec. When a music track
+    /// declares `asset_path`, the OGG is loaded via `asset_server`
+    /// (cheap; decode happens lazily on first play) instead of the
+    /// procedural `render_lofi_theme` path that historically blocked
+    /// startup for ~2.4 seconds doing `sinf()` math. Pass `None` for
+    /// `asset_server` from headless / RL contexts that don't have one;
+    /// any track with `asset_path` set will fall back to procedural
+    /// synth in that case.
+    pub fn new(
+        audio_sources: &mut Assets<KiraAudioSource>,
+        spec: &AudioSpec,
+        asset_server: Option<&AssetServer>,
+    ) -> Self {
         if let Err(error) = spec.validate() {
             warn!("invalid audio spec: {error}");
         }
@@ -256,14 +268,20 @@ impl AudioLibrary {
         let music_tracks = spec
             .music_tracks
             .iter()
-            .map(|track| MusicTrackRuntime {
-                id: track.id.clone(),
-                display_name: track.display_name.clone(),
-                handle: add_rendered_audio(
-                    audio_sources,
-                    render_lofi_theme(&track.arrangement, sample_rate),
-                ),
-                duration_seconds: track.arrangement.duration_seconds(),
+            .map(|track| {
+                let handle = match (&track.asset_path, asset_server) {
+                    (Some(path), Some(server)) => server.load(path),
+                    _ => add_rendered_audio(
+                        audio_sources,
+                        render_lofi_theme(&track.arrangement, sample_rate),
+                    ),
+                };
+                MusicTrackRuntime {
+                    id: track.id.clone(),
+                    display_name: track.display_name.clone(),
+                    handle,
+                    duration_seconds: track.arrangement.duration_seconds(),
+                }
             })
             .collect();
 
@@ -993,7 +1011,7 @@ mod tests {
     fn music_track_order_cycles() {
         let spec = SandboxDataSpec::load_embedded();
         let mut assets = Assets::<KiraAudioSource>::default();
-        let library = AudioLibrary::new(&mut assets, &spec.audio);
+        let library = AudioLibrary::new(&mut assets, &spec.audio, None);
         // 3 tracks since the encounter music addition: original lofi
         // loop, long lofi drift, pulse drift voyage (encounter intro).
         assert_eq!(library.track_count(), 3);

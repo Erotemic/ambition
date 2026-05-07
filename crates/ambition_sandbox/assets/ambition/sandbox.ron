@@ -89,6 +89,10 @@
             (
                 id: "original_lofi_loop",
                 display_name: "Original Lofi Loop",
+                // Pre-rendered via tools/audio/music_renderer (cue:
+                // lofi_study_loop). Skips the 2.4s startup synth path.
+                // To re-render: see docs/profiling.md "regen" recipe.
+                asset_path: Some("audio/music/generated/lofi_study_loop/full.ogg"),
                 arrangement: (
                     bpm: 72.0,
                     total_beats: 32.0,

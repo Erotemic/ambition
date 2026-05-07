@@ -68,6 +68,7 @@ fn run() -> Result<(), String> {
                 id: "preview".to_string(),
                 display_name: "Preview".to_string(),
                 arrangement: spec.clone(),
+                asset_path: None,
             };
             render_music_preview(&track, args.sample_rate)
         }

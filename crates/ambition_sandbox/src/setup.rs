@@ -162,12 +162,13 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
 pub fn presentation_world(
     commands: &mut Commands,
     audio_sources: &mut Assets<KiraAudioSource>,
+    asset_server: &AssetServer,
     params: PresentationSetup<'_>,
     player: Entity,
 ) {
     let sandbox_data = params.sandbox_data;
     presentation_world_inner(commands, params, player);
-    let audio_library = AudioLibrary::new(audio_sources, &sandbox_data.audio);
+    let audio_library = AudioLibrary::new(audio_sources, &sandbox_data.audio, Some(asset_server));
     let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
     commands.insert_resource(audio_library);
     commands.insert_resource(music_state);

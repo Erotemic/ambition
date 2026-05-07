@@ -146,6 +146,28 @@
 
 ## Known issues / unanswered questions (logged but not yet investigated)
 
+- **Crouch flicker on flat ground** — Jon noted 2026-05-07: "When the
+  character crouches they start blinking as the user holds down and
+  shifting between standing and crouch sprites. When they go under
+  the crouch wall it is ok, just not when normally standing." The
+  body_mode driver tests still pass (376 sandbox lib tests, 21
+  body_mode-specific tests). Investigation candidates: per-frame
+  sprite-row selection, on_ground oscillation under no ceiling,
+  per-frame body_mode write outside the driver. Not visibly
+  reproducible in headless. Logged for next session.
+- **Move all dev hotkeys into the settings menu** — Jon noted
+  2026-05-07: "Also F2 is also bound to slowing the time and
+  toggling the display. We should move all of these options into
+  settings, so there is a canonical non-hotkey place for
+  everything." F-keys currently bound: F1 (?), F2 (slowmo), F3
+  (inspector), F4 (?), F5 (?), F6 (windowed), F7 (borderless), F8
+  (trace dump), F9 (?), F10 (input preset), F11 (display mode), F12
+  (?). The Touch HUD toggle in `mobile_input::TouchControlsVisible`
+  is intentionally NOT bound to a hotkey -- it's accessed via the
+  resource so the future settings menu can flip it canonically. All
+  other dev hotkeys should follow the same pattern: keep the resource
+  for code access, add a settings row, deprecate the hotkey.
+
 - **Goblin music transition fades audibly cross-section** — Jon noted
   2026-05-07: "when [music] transitions it doesn't just blend in new
   layers, you hear the previous music fade out, and we don't want

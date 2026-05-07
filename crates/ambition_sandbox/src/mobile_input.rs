@@ -202,14 +202,15 @@ pub mod bevy_plugin {
     ///
     /// Per Jon's "we also need a toggle for touch controls, so we
     /// can disable them in the desktop version of the game, but
-    /// also still test them there." Bound to F2 by default; the
-    /// toggle is also exposed as a public resource so a settings
-    /// menu / pause overlay can flip it.
+    /// also still test them there." This is a Bevy resource —
+    /// flip it from the pause menu / settings menu (preferred,
+    /// see TODO row) or programmatically from code. No hotkey
+    /// binding by design: Jon also asked us to "move all of these
+    /// options into settings" so the canonical non-hotkey place
+    /// for the toggle is the settings menu, not an F-key.
     ///
-    /// Default is `true` on the visible/desktop build so the touch
-    /// HUD shows immediately when the game launches with
-    /// `--features mobile_touch`. Disable with F2 if testing
-    /// keyboard/gamepad input flow without HUD overlap.
+    /// Default is `true` so the touch HUD shows immediately when
+    /// the game launches with `--features mobile_touch`.
     #[derive(Resource, Clone, Copy, Debug)]
     pub struct TouchControlsVisible(pub bool);
 
@@ -237,7 +238,6 @@ pub mod bevy_plugin {
                 .add_systems(
                     Update,
                     (
-                        toggle_touch_controls_hotkey,
                         sync_touch_ui_visibility,
                         read_joystick_messages,
                         update_buttons_from_interactions,
@@ -245,22 +245,6 @@ pub mod bevy_plugin {
                     )
                         .chain(),
                 );
-        }
-    }
-
-    /// F2 toggles the touch HUD on/off. Useful on desktop when
-    /// developing keyboard/gamepad flow but the touch UI is
-    /// overlapping the gameplay area.
-    fn toggle_touch_controls_hotkey(
-        keys: Res<ButtonInput<KeyCode>>,
-        mut visible: ResMut<TouchControlsVisible>,
-    ) {
-        if keys.just_pressed(KeyCode::F2) {
-            visible.0 = !visible.0;
-            info!(
-                "MobileTouchPlugin: touch controls {}",
-                if visible.0 { "shown" } else { "hidden" }
-            );
         }
     }
 

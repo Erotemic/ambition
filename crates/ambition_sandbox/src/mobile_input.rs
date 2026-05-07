@@ -234,7 +234,7 @@ pub mod bevy_plugin {
                 .insert_resource(MobileTouchState::default())
                 .insert_resource(TouchButtonEdges::default())
                 .insert_resource(TouchControlsVisible::default())
-                .add_systems(Startup, spawn_touch_buttons)
+                .add_systems(Startup, (spawn_touch_buttons, spawn_touch_joysticks))
                 .add_systems(
                     Update,
                     (
@@ -246,6 +246,149 @@ pub mod bevy_plugin {
                         .chain(),
                 );
         }
+    }
+
+    /// Spawn the two on-screen joysticks (Move + Aim) using a
+    /// procedural circle texture so the mobile_touch path doesn't
+    /// require a Knob.png art asset to render. Mouse-drag works on
+    /// desktop because virtual_joystick routes mouse + touch through
+    /// the same Interaction-driven path.
+    ///
+    /// Per Jon's "make mobile_touch overlay intentionally testable
+    /// with a mouse on desktop builds. ... mouse is a single-pointer
+    /// debug path, not a replacement for real multitouch testing."
+    fn spawn_touch_joysticks(
+        mut cmd: Commands,
+        mut images: ResMut<Assets<Image>>,
+    ) {
+        let knob = images.add(build_joystick_knob_image());
+        let outline = images.add(build_joystick_outline_image());
+
+        // Move stick (left bottom).
+        create_joystick(
+            &mut cmd,
+            MobileStick::Move,
+            knob.clone(),
+            outline.clone(),
+            Some(Color::srgba(0.95, 0.95, 0.95, 0.9)),
+            Some(Color::srgba(0.20, 0.30, 0.45, 0.8)),
+            Some(Color::srgba(0.10, 0.16, 0.24, 0.30)),
+            Vec2::new(56.0, 56.0),
+            Vec2::new(120.0, 120.0),
+            Node {
+                width: Val::Px(120.0),
+                height: Val::Px(120.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(24.0),
+                bottom: Val::Px(24.0),
+                ..default()
+            },
+            JoystickFloating,
+            NoAction,
+        );
+
+        // Aim stick (right bottom, above the action button cluster).
+        create_joystick(
+            &mut cmd,
+            MobileStick::Aim,
+            knob,
+            outline,
+            Some(Color::srgba(0.95, 0.95, 0.95, 0.9)),
+            Some(Color::srgba(0.45, 0.20, 0.30, 0.8)),
+            Some(Color::srgba(0.20, 0.10, 0.16, 0.30)),
+            Vec2::new(48.0, 48.0),
+            Vec2::new(96.0, 96.0),
+            Node {
+                width: Val::Px(96.0),
+                height: Val::Px(96.0),
+                position_type: PositionType::Absolute,
+                right: Val::Px(232.0), // beyond the action cluster (192 + bezel margin)
+                bottom: Val::Px(36.0),
+                ..default()
+            },
+            JoystickFloating,
+            NoAction,
+        );
+    }
+
+    /// Procedural 64x64 RGBA knob: solid white circle with a soft
+    /// anti-aliased rim. Uses the same shape as
+    /// `body_mode::build_morph_ball_image` but with a flat white
+    /// fill so the knob_color tint controls the appearance.
+    fn build_joystick_knob_image() -> Image {
+        use bevy::asset::RenderAssetUsages;
+        use bevy::image::Image as BevyImage;
+        use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+        let size = 64u32;
+        let mut data = vec![0u8; (size * size * 4) as usize];
+        let cx = (size as f32 - 1.0) * 0.5;
+        let radius = size as f32 * 0.5;
+        let edge = 1.5_f32;
+        for y in 0..size {
+            for x in 0..size {
+                let dx = x as f32 - cx;
+                let dy = y as f32 - cx;
+                let dist = (dx * dx + dy * dy).sqrt();
+                let alpha = ((radius - dist) / edge).clamp(0.0, 1.0);
+                let i = ((y * size + x) * 4) as usize;
+                data[i] = 255;
+                data[i + 1] = 255;
+                data[i + 2] = 255;
+                data[i + 3] = (alpha * 255.0) as u8;
+            }
+        }
+        BevyImage::new(
+            Extent3d {
+                width: size,
+                height: size,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            data,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        )
+    }
+
+    /// Procedural 96x96 RGBA outline: ring with anti-aliased inner
+    /// + outer edges. Used as the joystick's stationary background
+    /// circle; tinted via background_color in `create_joystick`.
+    fn build_joystick_outline_image() -> Image {
+        use bevy::asset::RenderAssetUsages;
+        use bevy::image::Image as BevyImage;
+        use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+        let size = 96u32;
+        let mut data = vec![0u8; (size * size * 4) as usize];
+        let cx = (size as f32 - 1.0) * 0.5;
+        let outer = size as f32 * 0.5;
+        let inner = outer - 8.0;
+        let edge = 1.5_f32;
+        for y in 0..size {
+            for x in 0..size {
+                let dx = x as f32 - cx;
+                let dy = y as f32 - cx;
+                let dist = (dx * dx + dy * dy).sqrt();
+                let outer_a = ((outer - dist) / edge).clamp(0.0, 1.0);
+                let inner_a = ((dist - inner) / edge).clamp(0.0, 1.0);
+                let alpha = (outer_a * inner_a).clamp(0.0, 1.0);
+                let i = ((y * size + x) * 4) as usize;
+                data[i] = 255;
+                data[i + 1] = 255;
+                data[i + 2] = 255;
+                data[i + 3] = (alpha * 255.0) as u8;
+            }
+        }
+        BevyImage::new(
+            Extent3d {
+                width: size,
+                height: size,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            data,
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::default(),
+        )
     }
 
     /// Mirror `TouchControlsVisible` onto every `MobileTouchUiRoot`

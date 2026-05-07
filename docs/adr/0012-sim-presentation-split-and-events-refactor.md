@@ -180,6 +180,45 @@ and the Phase 2 commitment is met.
   by Avian2D. The boundary lets that be a future decision; this ADR
   doesn't make it.
 
+## Implementation progress (as of 2026-05-07)
+
+All five Phase 2 slices have landed:
+
+1. **Audio events** — `SfxMessage` enum + `audio_play_sfx_messages`
+   subscriber (visible binary only). All `sandbox_update` call
+   sites use `feedback.sfx.push(SfxMessage::…)` followed by
+   `flush_feedback` draining into the `MessageWriter`. ✓
+2. **VFX events** — `VfxMessage` + `vfx_spawn_messages` subscriber. ✓
+3. **Physics-debris events** — `DebrisBurstMessage` +
+   `physics_spawn_debris_messages` (Avian2D, visible only). ✓
+4. **Setup split** — `simulation_world` and `presentation_world`
+   in `setup.rs`; `SceneEntities` carries placeholder entities that
+   `presentation_world` overwrites. ✓
+5. **App-builder split** — `add_simulation_plugins` /
+   `add_presentation_plugins`. `run_headless` invokes only the sim
+   side and ticks `sandbox_update` cleanly. ✓
+
+Naming note: the v0.18 Bevy port renamed `Event` to `Message`
+(buffered messages — the old `Event` is now reserved for the
+observer-style one-shot API). All Phase 2 `*Event` types in this
+ADR are spelled `*Message` in the code. Functional contract
+unchanged.
+
+Followups:
+
+- A multi-frame `tests/scripted_gameplay.rs` integration test
+  exercises the sim/presentation seam under MinimalPlugins
+  (3 scenarios: 30 idle frames, Reset press, heterogeneous
+  Reset/Jump/move sequence). ✓ (2026-05-07)
+- `PlayerDiedMessage` followed the same pattern to retire the
+  last `SandboxRuntime` one-shot bool (`player_died_pending`). ✓
+- Tightening `SandboxRuntime` field visibility from `pub` to
+  `pub(crate)` is deferred — bevy-inspector-egui field reflection
+  may regress. Revisit when the inspector path uses Reflect-only
+  access.
+- Phase 3 (bevy_rl) and bevy_dev_tools adoption remain
+  non-goals for this ADR.
+
 ## Review notes
 
 - Each Phase 2 slice should land with at least one new `cargo test` that

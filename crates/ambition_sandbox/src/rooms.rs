@@ -741,4 +741,75 @@ mod metadata_tests {
         app.update();
         assert_eq!(&app.world().resource::<ActiveRoomMetadata>().0, &m_lab);
     }
+
+    #[test]
+    fn room_metadata_is_empty_default_is_true() {
+        let m = RoomMetadata::default();
+        assert!(m.is_empty());
+    }
+
+    #[test]
+    fn room_metadata_is_empty_false_when_any_field_set() {
+        let mut m = RoomMetadata::default();
+        m.biome = Some("hub".into());
+        assert!(!m.is_empty());
+
+        let m = RoomMetadata {
+            biome: None,
+            music_track: Some("loop".into()),
+            ambient_profile: None,
+            visual_theme: None,
+        };
+        assert!(!m.is_empty());
+    }
+
+    #[test]
+    fn room_metadata_merge_preserves_existing_values() {
+        let mut a = RoomMetadata {
+            biome: Some("hub".into()),
+            music_track: None,
+            ambient_profile: None,
+            visual_theme: Some("blue".into()),
+        };
+        let b = RoomMetadata {
+            biome: Some("CONFLICT".into()),       // ignored — a.biome wins
+            music_track: Some("hub_loop".into()), // takes effect — a.music_track was None
+            ambient_profile: Some("damp".into()), // takes effect
+            visual_theme: Some("CONFLICT".into()),// ignored
+        };
+        a.merge(b);
+        assert_eq!(a.biome.as_deref(), Some("hub"));
+        assert_eq!(a.music_track.as_deref(), Some("hub_loop"));
+        assert_eq!(a.ambient_profile.as_deref(), Some("damp"));
+        assert_eq!(a.visual_theme.as_deref(), Some("blue"));
+    }
+
+    #[test]
+    fn loading_zone_activation_label_is_non_empty() {
+        assert!(!LoadingZoneActivation::EdgeExit.label().is_empty());
+        assert!(!LoadingZoneActivation::Door.label().is_empty());
+    }
+
+    #[test]
+    fn loading_zone_is_ready_respects_activation() {
+        let edge = LoadingZone {
+            id: "x".into(),
+            name: "x".into(),
+            aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+            activation: LoadingZoneActivation::EdgeExit,
+        };
+        // EdgeExit is always ready (auto-fires on overlap).
+        assert!(edge.is_ready(false));
+        assert!(edge.is_ready(true));
+
+        let door = LoadingZone {
+            id: "y".into(),
+            name: "y".into(),
+            aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+            activation: LoadingZoneActivation::Door,
+        };
+        // Door requires interact press.
+        assert!(!door.is_ready(false));
+        assert!(door.is_ready(true));
+    }
 }

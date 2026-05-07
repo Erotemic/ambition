@@ -173,32 +173,29 @@ fn replay(path: &PathBuf, tolerance: f32) -> Result<(), String> {
 
     let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
         .map_err(|e| format!("SandboxSim::new failed: {e}"))?;
-    let initial = sim.observation();
-    let recorded_initial = frames[0].player_pos;
-    let initial_dx = (initial.player_pos.0 - recorded_initial.x).abs();
-    let initial_dy = (initial.player_pos.1 - recorded_initial.y).abs();
+    let pre_step_pos = sim.observation().player_pos;
     println!(
-        "initial: live=({:.1},{:.1}) recorded=({:.1},{:.1}) delta=({:.2},{:.2})",
-        initial.player_pos.0,
-        initial.player_pos.1,
-        recorded_initial.x,
-        recorded_initial.y,
-        initial_dx,
-        initial_dy
+        "replay start: live pre-step pos=({:.1},{:.1})",
+        pre_step_pos.0, pre_step_pos.1
     );
-    if initial_dx + initial_dy > tolerance {
-        eprintln!(
-            "  warning: initial position differs by more than tolerance ({}); replays of\n           traces taken in different rooms / save states are expected to start divergent",
-            tolerance
-        );
-    }
+    println!(
+        "first recorded frame: pos=({:.1},{:.1}) (this is state AFTER step 1 in the recorded run)",
+        frames[0].player_pos.x, frames[0].player_pos.y
+    );
 
     let mut max_dx: f32 = 0.0;
     let mut max_dy: f32 = 0.0;
     let mut first_divergence: Option<(usize, f32, f32)> = None;
     let mut diverged_frames = 0usize;
 
-    for (i, frame) in frames.iter().enumerate().skip(1) {
+    // Trace dump convention: frames[i] is the state AFTER step i+1
+    // (the dump records each frame after stepping, not before). So
+    // the replay applies frames[i].controls and expects the
+    // post-step `live.player_pos` to match `frames[i].player_pos`.
+    // The off-by-one in the original implementation (skip(1)) was
+    // applying the wrong controls to each step. Fix: loop from i=0
+    // and align controls + position with the recorded shape.
+    for (i, frame) in frames.iter().enumerate() {
         let action = AgentAction::from(frame.controls);
         let live = sim.step(action);
         let recorded = frame.player_pos;

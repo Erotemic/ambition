@@ -2100,6 +2100,63 @@ mod tests {
         );
     }
 
+    /// `crawl_lab` and `morph_lab` are the basement-reachable
+    /// body-mode showcase rooms. This test pins that they exist, are
+    /// reachable from `central_hub_complex` (the basement is part of
+    /// that activeArea), and that the basement carries a reciprocal
+    /// LoadingZone with the expected `target_room` per the spec
+    /// applies in 2026-05-07.
+    #[test]
+    fn embedded_ldtk_includes_basement_reachable_body_mode_rooms() {
+        let project = LdtkProject::load_embedded();
+        let room_set = project.to_room_set().expect("embedded LDtk should compose");
+        let room_ids: Vec<&str> = room_set.rooms.iter().map(|r| r.id.as_str()).collect();
+        for required in ["crawl_lab", "morph_lab", "ladder_lab"] {
+            assert!(
+                room_ids.contains(&required),
+                "basement-reachable showcase room '{required}' should exist; have: {room_ids:?}"
+            );
+        }
+        // Basement (part of central_hub_complex active area) must
+        // carry a LoadingZone for each showcase room. Walk the levels
+        // for the central_hub_complex active area and look for door ids.
+        let mut found_doors: Vec<String> = Vec::new();
+        for level in &project.levels {
+            for fi in &level.field_instances {
+                if fi.identifier == "activeArea"
+                    && fi.value
+                        .as_str()
+                        .map(|s| s == "central_hub_complex")
+                        .unwrap_or(false)
+                {
+                    for layer in &level.layer_instances {
+                        if layer.identifier != "Ambition" {
+                            continue;
+                        }
+                        for ent in &layer.entity_instances {
+                            if ent.identifier != "LoadingZone" {
+                                continue;
+                            }
+                            for ifield in &ent.field_instances {
+                                if ifield.identifier == "target_room" {
+                                    if let Some(s) = ifield.value.as_str() {
+                                        found_doors.push(s.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for required_target in ["crawl_lab", "morph_lab", "ladder_lab"] {
+            assert!(
+                found_doors.iter().any(|d| d == required_target),
+                "central_hub_complex should have a LoadingZone with target_room='{required_target}'; have: {found_doors:?}"
+            );
+        }
+    }
+
     /// `ladder_lab` ships a Climbable IntGrid layer with at least
     /// one Ladder cell run. This test pins that the room
     /// authoring → `World::climbable_regions` pipeline actually

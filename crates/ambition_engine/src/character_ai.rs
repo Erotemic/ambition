@@ -208,4 +208,54 @@ mod tests {
         s.patrol_enabled = false;
         assert_eq!(evaluate_character_ai(s), CharacterAiMode::Idle);
     }
+
+    #[test]
+    fn character_ai_mode_is_dangerous_only_in_attack() {
+        assert!(CharacterAiMode::Attack.is_dangerous());
+        assert!(!CharacterAiMode::Idle.is_dangerous());
+        assert!(!CharacterAiMode::Patrol.is_dangerous());
+        assert!(!CharacterAiMode::Chase.is_dangerous());
+        assert!(!CharacterAiMode::Telegraph.is_dangerous());
+        assert!(!CharacterAiMode::Recover.is_dangerous());
+        assert!(!CharacterAiMode::Stunned.is_dangerous());
+        assert!(!CharacterAiMode::Dead.is_dangerous());
+    }
+
+    #[test]
+    fn character_ai_mode_is_committed_during_attack_window() {
+        // Telegraph / Attack / Recover are the "committed" modes — the
+        // actor is locked into the attack cycle and can't pivot mid-swing.
+        assert!(CharacterAiMode::Telegraph.is_committed());
+        assert!(CharacterAiMode::Attack.is_committed());
+        assert!(CharacterAiMode::Recover.is_committed());
+        // Other modes are interruptible.
+        assert!(!CharacterAiMode::Idle.is_committed());
+        assert!(!CharacterAiMode::Patrol.is_committed());
+        assert!(!CharacterAiMode::Chase.is_committed());
+        assert!(!CharacterAiMode::Stunned.is_committed());
+        assert!(!CharacterAiMode::Dead.is_committed());
+    }
+
+    #[test]
+    fn character_ai_mode_labels_are_unique_and_non_empty() {
+        let modes = [
+            CharacterAiMode::Idle,
+            CharacterAiMode::Patrol,
+            CharacterAiMode::Chase,
+            CharacterAiMode::Telegraph,
+            CharacterAiMode::Attack,
+            CharacterAiMode::Recover,
+            CharacterAiMode::Stunned,
+            CharacterAiMode::Dead,
+        ];
+        let labels: Vec<&str> = modes.iter().map(|m| m.label()).collect();
+        for label in &labels {
+            assert!(!label.is_empty());
+        }
+        for (i, a) in labels.iter().enumerate() {
+            for b in &labels[i + 1..] {
+                assert_ne!(a, b);
+            }
+        }
+    }
 }

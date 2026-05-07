@@ -2100,6 +2100,40 @@ mod tests {
         );
     }
 
+    /// `ladder_lab` ships a Climbable IntGrid layer with at least
+    /// one Ladder cell run. This test pins that the room
+    /// authoring → `World::climbable_regions` pipeline actually
+    /// produces a region the runtime can query, end-to-end. A
+    /// regression that drops the Climbable layer parser or the
+    /// Climbable layer instance from sandbox.ldtk would fail this
+    /// test immediately.
+    #[test]
+    fn embedded_ldtk_ladder_lab_has_a_ladder_climbable_region() {
+        let project = LdtkProject::load_embedded();
+        let room_set = project.to_room_set().expect("embedded LDtk should compose");
+        let ladder_lab = room_set
+            .rooms
+            .iter()
+            .find(|r| r.id == "ladder_lab")
+            .expect("ladder_lab active area should exist after spec apply");
+        let regions = &ladder_lab.world.climbable_regions;
+        assert!(
+            !regions.is_empty(),
+            "ladder_lab should ship at least one ClimbableRegion (the floor-to-ceiling ladder column)"
+        );
+        let ladder = regions
+            .iter()
+            .find(|r| matches!(r.kind, ae::ClimbableKind::Ladder))
+            .expect("ladder_lab's region should be of kind Ladder");
+        // The ladder column spans floor (y=992) up to upper platform
+        // bottom (y=160). Pin the height as a sanity check.
+        let height = ladder.aabb.max.y - ladder.aabb.min.y;
+        assert!(
+            height > 600.0,
+            "ladder column should be tall (>600 px); got {height}"
+        );
+    }
+
     /// `water_world` is the canonical "non-default music_track"
     /// example in the embedded LDtk. The room metadata flowing
     /// through to `RoomSpec::metadata.music_track` is what lets the

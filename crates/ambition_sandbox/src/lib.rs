@@ -35,6 +35,7 @@ pub mod ledge_grab;
 pub mod loading;
 pub mod map_menu;
 pub mod mechanics;
+pub mod mobile_input;
 pub mod music;
 pub mod pause_menu;
 pub mod physics;

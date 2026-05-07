@@ -39,6 +39,13 @@ audio = ["dep:bevy_kira_audio", "dep:fundsp"]
 ui = ["dep:bevy_material_ui", "dep:bevy_yarnspinner"]
 physics_debris = ["dep:avian2d"]
 input = ["dep:leafwing-input-manager"]
+# Mobile / Android touch input. Pulls `virtual_joystick` for the
+# on-screen sticks; the supporting Bevy systems live behind this feature
+# flag so desktop / gamepad / headless builds skip the touch path.
+# Pure helper (`mobile_input::fold_touch_into_control_frame`) is
+# always-available so its tests run in a default `cargo test` without
+# requiring the feature.
+mobile_touch = ["dep:virtual_joystick"]
 
 [dependencies]
 ambition_engine = { path = "../ambition_engine" }
@@ -61,6 +68,7 @@ bevy-inspector-egui = { version = "0.36", optional = true }
 bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
 fundsp = { version = "0.23", optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
+virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
 petgraph = "0.8"
 ron = "0.11"
 serde = { version = "1", features = ["derive"] }

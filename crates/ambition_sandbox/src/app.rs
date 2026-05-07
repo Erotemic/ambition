@@ -570,8 +570,19 @@ pub fn add_simulation_plugins(app: &mut App) {
             )
                 .chain(),
         )
-        // Final report. Runs once on the first PostStartup tick.
-        .add_systems(PostStartup, crate::profiling::report_startup_phases)
+        // Final report. Runs once on the first PostStartup tick. The
+        // pre-report mark captures the time between the last Startup
+        // mark and PostStartup, so any heavy Startup systems we
+        // didn't explicitly mark show up as a delta on the
+        // "post_startup_begin" line.
+        .add_systems(
+            PostStartup,
+            (
+                crate::profiling::phase_mark("post_startup_begin"),
+                crate::profiling::report_startup_phases,
+            )
+                .chain(),
+        )
         .insert_resource(crate::projectile::PlayerProjectileState::default())
         // Encounter system. The legacy single-encounter `EncounterState`
         // resource stays for backwards-compat tests; the live
@@ -814,10 +825,14 @@ pub fn add_presentation_plugins(app: &mut App) {
         .add_systems(
             Startup,
             (
+                crate::profiling::phase_mark("before_setup_presentation"),
                 setup_presentation_system,
+                crate::profiling::phase_mark("after_setup_presentation"),
                 crate::map_menu::populate_map_rooms,
                 crate::map_menu::spawn_map_menu,
+                crate::profiling::phase_mark("after_map_menu_spawn"),
             )
+                .chain()
                 .after(setup_simulation_system)
                 .after(ui_fonts::load_ui_fonts),
         )
@@ -1047,11 +1062,14 @@ fn add_audio_plugins(app: &mut App) {
         .add_audio_channel::<crate::music::MusicLayer5BChannel>()
         .add_systems(
             Startup,
-            start_default_music.after(setup_presentation_system),
-        )
-        .add_systems(
-            Startup,
-            crate::music::load_music_cues.after(setup_presentation_system),
+            (
+                crate::profiling::phase_mark("before_audio_init"),
+                start_default_music,
+                crate::music::load_music_cues,
+                crate::profiling::phase_mark("after_audio_init"),
+            )
+                .chain()
+                .after(setup_presentation_system),
         )
         .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
         // Push UserSettings.audio (master/music/sfx/mute) into the

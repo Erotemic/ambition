@@ -217,6 +217,16 @@ pub struct Player {
     /// - convert buffered jump presses into swim impulses,
     /// - apply buoyancy / drag / fall-cap during integration.
     pub water_contact: Option<crate::world::WaterContact>,
+    /// Cached climbable-surface contact for this frame. Set by sandbox
+    /// systems from `World::climbable_at(player.aabb)` immediately
+    /// before / inside the gameplay loop (mirroring how
+    /// `water_contact` is populated). Movement does not yet consume
+    /// this -- the contact is exposed for sandbox-side gameplay
+    /// systems (input gestures that toggle climbing, sprite swaps,
+    /// HUD readouts) and for the RL/headless adapter's
+    /// `AgentObservation`. Full `BodyMode::Climbing` integration is a
+    /// follow-up.
+    pub climbable_contact: Option<crate::world::ClimbableContact>,
 }
 
 impl Player {
@@ -274,6 +284,7 @@ impl Player {
             mana: crate::ResourceMeter::new(100.0, 0.0, 0.0),
             body_mode: crate::player_state::BodyMode::Standing,
             water_contact: None,
+            climbable_contact: None,
         }
     }
 
@@ -727,6 +738,14 @@ pub fn update_player_simulation_with_tuning(
     // `water_at` covers both IntGrid `Water` cells and entity
     // `WaterVolume` regions.
     player.water_contact = world.water_at(player.aabb());
+
+    // Climbable contact: same one-query-per-tick discipline as
+    // `water_contact`. Movement does not yet consume this -- the field
+    // is populated for sandbox-side gameplay systems and the
+    // RL/headless adapter so they can read a stable answer for the
+    // current frame. Full BodyMode::Climbing integration in movement
+    // is a follow-up; the data flow is already in place.
+    player.climbable_contact = world.climbable_at(player.aabb());
 
     // Drowning gate: water without the swim ability is a death zone,
     // not a slow-down. Trigger the same reset path the hazard tile
@@ -2744,6 +2763,50 @@ mod tests {
         assert!(
             !body_is_side_contact(body_under_ceiling, ceiling),
             "rising into a thick ceiling (body.bottom poking past block.bottom) must NOT be classified as a side contact"
+        );
+    }
+
+    #[test]
+    fn climbable_contact_is_populated_when_player_intersects_ladder() {
+        // Mirror of the water_contact integration test: when the
+        // player AABB overlaps a ClimbableRegion in the world, the
+        // engine should cache the contact on the player struct so
+        // sandbox-side gameplay systems and the RL adapter read a
+        // consistent answer for the frame.
+        use crate::world::{ClimbableKind, ClimbableRegion, ClimbableSpec};
+        let mut world = test_world();
+        // Place a ladder in a known empty patch of the test world.
+        world.climbable_regions.push(ClimbableRegion::new(
+            Aabb::new(Vec2::new(400.0, 600.0), Vec2::new(20.0, 200.0)),
+            ClimbableKind::Ladder,
+            ClimbableSpec::default(),
+        ));
+        let mut player = Player::new(Vec2::new(400.0, 600.0));
+        // No input, no time: just run one update so `update_player`'s
+        // contact-population block runs.
+        let _ = step(&world, &mut player, InputState::default());
+        let contact = player
+            .climbable_contact
+            .expect("player AABB intersecting ladder should populate climbable_contact");
+        assert_eq!(contact.kind, ClimbableKind::Ladder);
+        assert!(
+            (contact.center_x - 400.0).abs() < f32::EPSILON,
+            "contact.center_x should match ladder center (400), got {}",
+            contact.center_x
+        );
+    }
+
+    #[test]
+    fn climbable_contact_is_none_when_player_far_from_any_ladder() {
+        // No climbable regions in the world → contact stays None
+        // across an update. This pins the "default to None" semantics
+        // that sandbox systems will rely on.
+        let world = test_world();
+        let mut player = Player::new(world.spawn);
+        let _ = step(&world, &mut player, InputState::default());
+        assert!(
+            player.climbable_contact.is_none(),
+            "no ladders in world → climbable_contact must stay None"
         );
     }
 }

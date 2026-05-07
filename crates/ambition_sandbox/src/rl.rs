@@ -183,6 +183,18 @@ pub struct AgentObservation {
     pub in_hitstun: bool,
     /// True if invincibility is on (debug toggle / future invuln frames).
     pub invincible: bool,
+    /// True if the player AABB overlaps a water region this frame.
+    /// `water_kind` carries `Some("Clear")` / `Some("Murky")` only when
+    /// `in_water` is true; cheap one-bit-plus-label encoding lets RL
+    /// policies condition on water without a full struct copy.
+    pub in_water: bool,
+    pub water_kind: Option<String>,
+    /// `[0, 1]` how submerged the player is. 0 when not in water.
+    pub water_submersion: f32,
+    /// True if the player AABB overlaps a climbable region (ladder /
+    /// wall / vine) this frame.
+    pub on_climbable: bool,
+    pub climbable_kind: Option<String>,
 }
 
 impl AgentObservation {
@@ -420,6 +432,11 @@ impl SandboxSim {
             recently_damaged: runtime.damage_invuln_timer > 0.0,
             in_hitstun: runtime.hitstun_timer > 0.0,
             invincible: player.invincible,
+            in_water: player.water_contact.is_some(),
+            water_kind: player.water_contact.map(|c| format!("{:?}", c.kind)),
+            water_submersion: player.water_contact.map(|c| c.submersion).unwrap_or(0.0),
+            on_climbable: player.climbable_contact.is_some(),
+            climbable_kind: player.climbable_contact.map(|c| format!("{:?}", c.kind)),
         }
     }
 
@@ -603,8 +620,25 @@ mod tests {
             recently_damaged: false,
             in_hitstun: false,
             invincible: false,
+            in_water: false,
+            water_kind: None,
+            water_submersion: 0.0,
+            on_climbable: false,
+            climbable_kind: None,
         };
         assert!((obs.hp_fraction() - 0.5).abs() < f32::EPSILON);
         assert!(obs.alive());
+    }
+
+    #[test]
+    fn observation_reports_no_water_no_climbable_in_default_spawn() {
+        let sim = SandboxSim::new().expect("sim builds");
+        let obs = sim.observation();
+        // central_hub_complex spawn has neither water nor climbables.
+        assert!(!obs.in_water, "default spawn should not be in water");
+        assert_eq!(obs.water_submersion, 0.0);
+        assert!(obs.water_kind.is_none());
+        assert!(!obs.on_climbable);
+        assert!(obs.climbable_kind.is_none());
     }
 }

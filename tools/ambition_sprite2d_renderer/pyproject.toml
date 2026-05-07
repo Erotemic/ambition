@@ -1,0 +1,11 @@
+[project]
+name = "ambition-sprite2d-renderer"
+version = "0.1.0"
+description = "Procedural 2D sprite/spritesheet renderer for Ambition assets"
+requires-python = ">=3.10"
+dependencies = [
+  "Pillow>=9.0",
+]
+
+[project.scripts]
+ambition-sprite2d-renderer = "ambition_sprite2d_renderer.cli:main"

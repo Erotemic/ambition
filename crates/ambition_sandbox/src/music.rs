@@ -225,6 +225,12 @@ impl MusicCueCatalog {
         self.cues.get(id)
     }
 
+    /// Find the binding that maps an encounter id to its adaptive
+    /// cue. Used by tests + tooling that want to inspect which cue
+    /// will fire for a given encounter; the live `resolve_adaptive_directive`
+    /// iterates `encounter_bindings` directly so future bindings drop
+    /// in without touching the resolver.
+    #[allow(dead_code)]
     fn binding_for_encounter(&self, id: &str) -> Option<&EncounterMusicBinding> {
         self.encounter_bindings
             .iter()
@@ -601,9 +607,34 @@ fn resolve_adaptive_directive(
     encounters: &EncounterRegistry,
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
-    let binding = catalog.binding_for_encounter(MOB_LAB_ENCOUNTER_ID)?;
+    // First binding with a live directive wins. Iterating the catalog
+    // (rather than hardcoding mob_lab) lets future encounter cues
+    // (boss / mini-boss) drop in by adding a binding without touching
+    // this resolver.
+    for binding in &catalog.encounter_bindings {
+        if let Some(directive) = resolve_directive_for_binding(binding, encounters, director) {
+            return Some(directive);
+        }
+    }
+    None
+}
+
+/// Resolve a single encounter binding's adaptive cue directive.
+/// Returns:
+/// - `Some(StopNow)` when the encounter no longer exists but the
+///   binding's cue is still active.
+/// - `Some(Play { cue_id, state_id })` when the encounter is in a
+///   phase mapped to a cue state.
+/// - `None` when the encounter is unknown / inactive AND its cue is
+///   not playing — the binding doesn't claim audio this frame.
+fn resolve_directive_for_binding(
+    binding: &EncounterMusicBinding,
+    encounters: &EncounterRegistry,
+    director: &MusicDirectorState,
+) -> Option<AdaptiveCueDirective> {
+    let cue_active = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str());
     let Some(encounter) = encounters.get(&binding.encounter_id) else {
-        if director.active_cue_id.as_deref() == Some(binding.cue_id.as_str()) {
+        if cue_active {
             return Some(AdaptiveCueDirective::StopNow);
         }
         return None;
@@ -639,7 +670,7 @@ fn resolve_adaptive_directive(
             // The encounter often resets to Inactive immediately after clear;
             // if this adaptive cue is already active, continue into its outro
             // instead of hard-cutting to room music.
-            if director.active_cue_id.as_deref() == Some(binding.cue_id.as_str())
+            if cue_active
                 && director.mode != MusicDirectorMode::AdaptiveFinished
                 && director.mode != MusicDirectorMode::Idle
             {

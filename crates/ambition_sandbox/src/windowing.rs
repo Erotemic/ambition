@@ -82,3 +82,30 @@ pub fn window_mode_hotkeys(
         crate::settings::apply_display_mode(mode, &mut state, &mut windows);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_mode_kind_labels_are_distinct() {
+        assert_ne!(DisplayModeKind::Windowed.label(), DisplayModeKind::Borderless.label());
+        assert_ne!(DisplayModeKind::Windowed.label(), DisplayModeKind::Fullscreen.label());
+        assert_ne!(DisplayModeKind::Borderless.label(), DisplayModeKind::Fullscreen.label());
+    }
+
+    #[test]
+    fn display_mode_state_default_is_windowed() {
+        let s = DisplayModeState::default();
+        assert_eq!(s.mode, DisplayModeKind::Windowed);
+        assert_eq!(s.label(), "windowed");
+    }
+
+    #[test]
+    fn display_mode_state_label_tracks_mode() {
+        let s = DisplayModeState {
+            mode: DisplayModeKind::Borderless,
+        };
+        assert_eq!(s.label(), "borderless");
+    }
+}

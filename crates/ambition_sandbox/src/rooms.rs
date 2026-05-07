@@ -812,4 +812,32 @@ mod metadata_tests {
         assert!(!door.is_ready(false));
         assert!(door.is_ready(true));
     }
+
+    #[test]
+    fn loading_zone_hint_includes_door_prompt() {
+        let door = LoadingZone {
+            id: "lab_door".into(),
+            name: "lab door".into(),
+            aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+            activation: LoadingZoneActivation::Door,
+        };
+        let hint = door.hint(false);
+        assert!(hint.contains("door"));
+        assert!(hint.contains("Interact") || hint.contains("interact"));
+        assert!(hint.contains("lab door"));
+    }
+
+    #[test]
+    fn loading_zone_hint_for_edge_exit_skips_prompt() {
+        let edge = LoadingZone {
+            id: "east_exit".into(),
+            name: "east exit".into(),
+            aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(1.0, 1.0)),
+            activation: LoadingZoneActivation::EdgeExit,
+        };
+        let hint = edge.hint(false);
+        assert!(hint.contains("east exit"));
+        // Auto-firing edge exits don't need an Interact prompt.
+        assert!(!hint.contains("Interact"));
+    }
 }

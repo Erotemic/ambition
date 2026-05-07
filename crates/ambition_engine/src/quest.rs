@@ -308,4 +308,38 @@ mod tests {
         quest.apply_persisted(PersistedQuestState::InProgress, 99);
         assert_eq!(quest.step, 2);
     }
+
+    #[test]
+    fn quest_advance_event_label_uses_kind_prefix() {
+        assert_eq!(
+            QuestAdvanceEvent::NpcTalked("guide".into()).label(),
+            "npc_talked:guide"
+        );
+        assert_eq!(
+            QuestAdvanceEvent::BossDefeated("sentinel".into()).label(),
+            "boss_defeated:sentinel"
+        );
+        assert_eq!(
+            QuestAdvanceEvent::FlagSet("met_any_hub_npc".into()).label(),
+            "flag_set:met_any_hub_npc"
+        );
+    }
+
+    #[test]
+    fn step_condition_matches_only_compatible_event_kinds() {
+        let cond = QuestStepCondition::NpcTalked("guide".into());
+        assert!(cond.matches(&QuestAdvanceEvent::NpcTalked("guide".into())));
+        // Different kind: no match.
+        assert!(!cond.matches(&QuestAdvanceEvent::FlagSet("guide".into())));
+        // Same kind, different id: no match.
+        assert!(!cond.matches(&QuestAdvanceEvent::NpcTalked("librarian".into())));
+    }
+
+    #[test]
+    fn cannot_start_already_started_quest() {
+        let mut quest = QuestState::new(first_steps_quest());
+        assert!(quest.start());
+        // Second start is a no-op.
+        assert!(!quest.start());
+    }
 }

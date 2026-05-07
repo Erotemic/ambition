@@ -13,7 +13,7 @@
 > Jon moves Proposed items into `## Accepted` (with a tier letter) or `## Rejected`.
 >
 > Last full re-audit: 2026-05-07 (against `git log --all`).
-> Test count: 575 across `cargo test --workspace` (rl + climbable engine/sandbox additions).
+> Test count: 596+ across `cargo test --workspace` (210 engine + 386 sandbox lib + integration suites).
 
 ## Status legend
 - `[ ]` not started · `[~]` scaffolded but not feature-complete · `[x]` recently completed (kept here briefly so it doesn't get re-added)
@@ -177,7 +177,6 @@
 
 - **Sandbox-side boss controller hook for `BossMovementKind`** `[V4/D3]` — engine schedule data + `evaluate_pattern()` already produce traversal beats; the sandbox `boss_encounter.rs` / `features.rs` boss runtime currently only consumes attack verbs. Wire `step.movement` (Dash / Reposition / Orbit) into actual world transforms so the boss feels mobile. Source: TODO G boss traversal landed 2026-05-07; this is the Bevy half.
 - **`BossEncounterSpec.schedules: HashMap<BossEncounterPhase, BossPatternSchedule>`** `[V3/D3]` — replace the `match (spec.id, phase) -> schedule` lookup in `BossEncounterState::current_pattern_schedule` with a per-spec schedules map so future bosses can author their own without code changes. Source: TODO G traversal patterns landed 2026-05-07.
-- **`headless --dump-trace` off-by-one fix** `[V2/D1]` — the recorded trace's frame[0] is the post-step state, but trace_replay starts from a pre-step sim. Fix by recording a pre-step initial frame OR by having trace_replay step before the first comparison. Source: trace_replay landed 2026-05-07.
 - **Compact LDtk JSON formatter** `[V2/D3]` — the repair script's `json.dumps(indent='\t')` can't reproduce LDtk's editor's inline-arrays-when-short style, producing huge diffs on first apply (200k+ lines). Write a smarter writer that matches LDtk's wrapping rules (or fork an existing JSON5 / LDtk-aware printer). Source: crawl_lab/morph_lab/ladder_lab applies in 2026-05-07 each produced large diffs that subsequent edits don't.
 - **Ladders pass through solid blocks (engine flag)** `[V3/D3]` — alternative to authoring a gap in the upper platform whenever a ladder ends at a floor. Add an engine-side rule: while `Player::body_mode == Climbing`, the player's `aabb` ignores collision with `BlockKind::Solid` blocks that overlap the active `climbable_contact.region_aabb`. Generalizes the ladder_lab gap-carve fix and removes a foot-gun for future ladder authors. Source: ladder_lab fix 2026-05-07; Jon suggested either approach.
 - **Generated tile sprites for IntGrid layers** `[V3/D3]` — Climbable currently renders as colored placeholder rectangles + rung stripes (`spawn_climbable_region`). Eventually replace with proper tileset textures: ladder_tile.png, vine_tile.png, climbable_wall_tile.png. Same path Water + Hazard + Solid block rendering will eventually take. Source: per Jon's "every tile needs some graphic, even just a placeholder" rule -- placeholder is in place, real art is the polish layer.

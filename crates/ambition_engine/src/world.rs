@@ -343,4 +343,71 @@ mod tests {
         );
         assert!(world.objects.is_empty());
     }
+
+    #[test]
+    fn body_overlaps_any_uses_predicate() {
+        let world = World::new(
+            "test",
+            Vec2::new(200.0, 200.0),
+            Vec2::new(50.0, 50.0),
+            vec![
+                Block::solid("wall", Vec2::new(50.0, 50.0), Vec2::new(20.0, 20.0)),
+                Block::hazard("spike", Vec2::new(100.0, 50.0), Vec2::new(20.0, 20.0)),
+            ],
+        );
+        let body = Aabb::new(Vec2::new(60.0, 60.0), Vec2::new(5.0, 5.0));
+        // Predicate matches the wall — overlap detected.
+        assert!(world.body_overlaps_any(body, |b| matches!(b.kind, BlockKind::Solid)));
+        // Predicate matches only hazards — no overlap because the body
+        // is over the wall, not the hazard.
+        assert!(!world.body_overlaps_any(body, |b| matches!(b.kind, BlockKind::Hazard)));
+    }
+
+    #[test]
+    fn first_body_sweep_picks_earliest_hit() {
+        let world = World::new(
+            "test",
+            Vec2::new(500.0, 500.0),
+            Vec2::new(10.0, 10.0),
+            vec![
+                Block::solid("near", Vec2::new(50.0, 0.0), Vec2::new(10.0, 100.0)),
+                Block::solid("far", Vec2::new(200.0, 0.0), Vec2::new(10.0, 100.0)),
+            ],
+        );
+        let body = Aabb::new(Vec2::new(20.0, 50.0), Vec2::new(5.0, 5.0));
+        let hit = world.first_body_sweep(body, Vec2::new(300.0, 0.0), |_| true);
+        let hit = hit.expect("sweep should hit something with two walls in path");
+        assert_eq!(hit.block.name, "near");
+        assert!(hit.time_of_impact >= 0.0 && hit.time_of_impact <= 1.0);
+    }
+
+    #[test]
+    fn first_body_sweep_returns_none_when_predicate_filters_all() {
+        let world = World::new(
+            "test",
+            Vec2::new(500.0, 500.0),
+            Vec2::new(10.0, 10.0),
+            vec![Block::solid(
+                "wall",
+                Vec2::new(50.0, 0.0),
+                Vec2::new(10.0, 100.0),
+            )],
+        );
+        let body = Aabb::new(Vec2::new(20.0, 50.0), Vec2::new(5.0, 5.0));
+        // Predicate rejects every block — sweep finds nothing.
+        let hit = world.first_body_sweep(body, Vec2::new(300.0, 0.0), |_| false);
+        assert!(hit.is_none());
+    }
+
+    #[test]
+    fn water_at_returns_none_outside_any_region() {
+        let world = World::new(
+            "test",
+            Vec2::new(500.0, 500.0),
+            Vec2::new(10.0, 10.0),
+            Vec::new(),
+        );
+        let body = Aabb::new(Vec2::new(50.0, 50.0), Vec2::new(5.0, 5.0));
+        assert!(world.water_at(body).is_none());
+    }
 }

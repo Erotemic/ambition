@@ -9,6 +9,12 @@ tempo:
 meter:
   beats_per_bar: 3
   beat_unit: 4
+# Spec-level voicing constraints — keep chord-pad voicings smooth across
+# section transitions and prevent semitone clusters.
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
 render:
   sample_rate: 48000
   ogg_quality: 5
@@ -28,6 +34,13 @@ postprocess:
   post_reverb_high_shelf_hz: 4800
   post_reverb_high_shelf_db: -1.8
   stereo_width: 0.12
+  # Master bus compressor — gentle glue (3:1 over -18 dB).
+  compressor_threshold_db: -18.0
+  compressor_ratio: 3.0
+  compressor_attack_ms: 10.0
+  compressor_release_ms: 100.0
+  compressor_makeup_db: 1.5
+  compressor_knee_db: 6.0
   limiter_drive: 1.03
   normalize: true
   target_peak_db: -1.4
@@ -178,6 +191,7 @@ layer_templates:
     articulation: pad
     voicing: wide
     humanize_ms: 14
+    humanize_velocity_pct: 3
     automation:
     - cc: expression
       from: 55
@@ -201,6 +215,7 @@ layer_templates:
     density: 0.72
     articulation: normal
     humanize_ms: 18
+    humanize_velocity_pct: 3
     events_per_bar: null
   water_glimmer:
     kind: texture
@@ -280,6 +295,10 @@ sections:
   - Bbm9
   - Dbmaj7
   - Csus4
+  # Intimate ambience for the section.
+  postprocess:
+    reverb_wet: 0.075
+    reverb_decay_seconds: 1.30
   layers:
   - nocturne_pad
   - kind: pedal
@@ -298,6 +317,7 @@ sections:
     velocity: 52
     articulation: legato
     humanize_ms: 20
+    humanize_velocity_pct: 3
   - template: water_glimmer
     events_per_bar: 0.8
     velocity: 28
@@ -345,6 +365,7 @@ sections:
     velocity: 58
     articulation: legato
     humanize_ms: 20
+    humanize_velocity_pct: 3
   - kind: motif
     instrument: cello_solo
     motif: distant_answer
@@ -359,6 +380,7 @@ sections:
     velocity: 48
     articulation: tenuto
     humanize_ms: 14
+    humanize_velocity_pct: 3
   - water_glimmer
   - kind: drums
     instrument: rainstick_kit
@@ -401,6 +423,10 @@ sections:
   - Dbmaj7
   - Eb
   - C7b9
+  # Cathedral ambience for the section.
+  postprocess:
+    reverb_wet: 0.075
+    reverb_decay_seconds: 1.40
   layers:
   - nocturne_pad
   - template: piano_broken_chords
@@ -419,6 +445,7 @@ sections:
     articulation: legato
     transform: up_octave
     humanize_ms: 18
+    humanize_velocity_pct: 3
   - kind: motif
     instrument: clarinet
     motif: distant_answer
@@ -431,6 +458,7 @@ sections:
     velocity: 56
     articulation: tenuto
     humanize_ms: 15
+    humanize_velocity_pct: 3
   - template: water_glimmer
     events_per_bar: 2.2
     velocity: 42
@@ -483,6 +511,7 @@ sections:
     velocity: 50
     articulation: legato
     humanize_ms: 22
+    humanize_velocity_pct: 3
   - kind: motif
     instrument: felt_piano
     motif: water_drops
@@ -493,6 +522,7 @@ sections:
     velocity: 42
     articulation: bell
     humanize_ms: 15
+    humanize_velocity_pct: 3
   - template: water_glimmer
     events_per_bar: 0.7
     velocity: 24

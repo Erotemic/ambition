@@ -11,6 +11,12 @@ tempo:
 meter:
   beats_per_bar: 4
   beat_unit: 4
+# Spec-level voicing constraints — keep chord-pad voicings smooth across
+# section transitions and prevent semitone clusters.
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
 render:
   sample_rate: 48000
   ogg_quality: 5
@@ -22,6 +28,13 @@ postprocess:
   reverb_decay_seconds: 1.65
   reverb_damping_hz: 7600
   stereo_width: 0.15
+  # Master bus compressor — gentle glue (3:1 over -18 dB).
+  compressor_threshold_db: -18.0
+  compressor_ratio: 3.0
+  compressor_attack_ms: 10.0
+  compressor_release_ms: 100.0
+  compressor_makeup_db: 1.5
+  compressor_knee_db: 6.0
   limiter_drive: 1.12
   normalize: true
   target_peak_db: -1.0
@@ -108,6 +121,7 @@ layer_templates:
     articulation: legato
     voicing: open
     humanize_ms: 7
+    humanize_velocity_pct: 3
   violas_long:
     kind: pad_chords
     instrument: violas
@@ -117,6 +131,7 @@ layer_templates:
     articulation: legato
     voicing: open
     humanize_ms: 7
+    humanize_velocity_pct: 3
   celli_long:
     kind: pad_chords
     instrument: celli
@@ -126,6 +141,7 @@ layer_templates:
     articulation: legato
     voicing: open
     humanize_ms: 6
+    humanize_velocity_pct: 3
   choir_long:
     kind: pad_chords
     instrument: choir
@@ -135,6 +151,7 @@ layer_templates:
     articulation: pad
     voicing: open
     humanize_ms: 11
+    humanize_velocity_pct: 3
   horns_long:
     kind: pad_chords
     instrument: horns
@@ -144,6 +161,7 @@ layer_templates:
     articulation: tenuto
     voicing: closed
     humanize_ms: 8
+    humanize_velocity_pct: 3
 
   classic_string_ostinato:
     kind: arpeggio
@@ -158,6 +176,7 @@ layer_templates:
     density: 1.0
     articulation: spiccato
     humanize_ms: 4
+    humanize_velocity_pct: 3
   panic_string_ostinato:
     kind: arpeggio
     instruments: [violins_ii, violas]
@@ -171,6 +190,7 @@ layer_templates:
     density: 0.82
     articulation: spiccato
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   classic_bass_pulse:
     kind: bassline
@@ -179,6 +199,7 @@ layer_templates:
     velocity: 76
     articulation: marcato
     humanize_ms: 5
+    humanize_velocity_pct: 3
     pattern:
       - [0, 0.0, 0.75]
       - [7, 1.5, 0.5]
@@ -191,6 +212,7 @@ layer_templates:
     velocity: 78
     articulation: marcato
     humanize_ms: 2
+    humanize_velocity_pct: 3
     hits:
       - [0, 0.0, 0, 0.75]
       - [0, 2.5, 7, 0.55]
@@ -199,6 +221,7 @@ layer_templates:
     kind: drums
     instrument: war_drums
     humanize_ms: 0.0
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beat: 0.0, velocity: 78}
       - {drum: snare, beat: 2.0, velocity: 68, every: 2, offset: 1}
@@ -208,6 +231,7 @@ layer_templates:
     kind: drums
     instrument: war_drums
     humanize_ms: 0.0
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beat: 0.0, velocity: 88}
       - {drum: snare, beat: 2.0, velocity: 78}
@@ -226,6 +250,7 @@ layer_templates:
     density: 0.72
     articulation: staccato
     humanize_ms: 4
+    humanize_velocity_pct: 3
   harp_marks:
     kind: arpeggio
     instrument: harp
@@ -237,6 +262,7 @@ layer_templates:
     density: 0.35
     articulation: normal
     humanize_ms: 8
+    humanize_velocity_pct: 3
 
   brass_hits_classic:
     kind: chord_hits
@@ -247,6 +273,7 @@ layer_templates:
     articulation: marcato
     voicing: closed
     humanize_ms: 6
+    humanize_velocity_pct: 3
     hits: [[0, 0.0], [4, 0.0], [8, 0.0]]
   tuba_roots:
     kind: root_hits
@@ -255,6 +282,7 @@ layer_templates:
     velocity: 84
     articulation: marcato
     humanize_ms: 6
+    humanize_velocity_pct: 3
     hits: [[0, 0.0, -12, 1.0], [4, 0.0, -12, 1.0], [8, 0.0, -12, 1.0]]
 
   atmosphere_pad:
@@ -267,6 +295,7 @@ layer_templates:
     articulation: pad
     voicing: wide
     humanize_ms: 20
+    humanize_velocity_pct: 3
 
 playback:
   mode: section_stem_matrix
@@ -306,6 +335,10 @@ sections:
     density: 0.28
     loopable: false
     harmony: ["Dm(add9)", "Bbmaj7(#11)", "Gm9", "A7"]
+    # Intimate ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.30
     layers:
       - expression_swell
       - {template: strings_long_high, velocity: 50}
@@ -472,6 +505,10 @@ sections:
     loopable: true
     valid_exit_local_bars: [4, 8, 12]
     harmony: ["Dm", "C#dim7", "Dm", "F", "Bb", "Gm", "A7", "A7", "Dm", "Ebmaj7", "Gm9", "A7"]
+    # Cathedral ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.40
     layers:
       - expression_swell
       - strings_long_high
@@ -516,6 +553,10 @@ sections:
     loopable: true
     valid_exit_local_bars: [4, 8]
     harmony: ["Dm", "Bbmaj7", "C", "A7", "Dm", "Gm9", "Bb", "A7"]
+    # Drier, more intimate ambience.
+    postprocess:
+      reverb_wet: 0.025
+      reverb_decay_seconds: 0.70
     layers:
       - expression_swell
       - strings_long_high

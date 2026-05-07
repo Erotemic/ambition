@@ -17,6 +17,13 @@ meter:
   beats_per_bar: 4
   beat_unit: 4
 
+
+# Spec-level voicing constraints — keep chord-pad voicings smooth across
+# section transitions and prevent semitone clusters.
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
 render:
   sample_rate: 48000
   ogg_quality: 6
@@ -29,6 +36,13 @@ postprocess:
   reverb_decay_seconds: 1.10
   reverb_damping_hz: 6500
   stereo_width: 0.045
+  # Master bus compressor — gentle glue (3:1 over -18 dB).
+  compressor_threshold_db: -18.0
+  compressor_ratio: 3.0
+  compressor_attack_ms: 10.0
+  compressor_release_ms: 100.0
+  compressor_makeup_db: 1.5
+  compressor_knee_db: 6.0
   limiter_drive: 0.92
   normalize: true
   target_peak_db: -2.0
@@ -140,6 +154,7 @@ layer_templates:
     articulation: legato
     voicing: open
     humanize_ms: 6
+    humanize_velocity_pct: 3
 
   # Cello ostinato — 8-note chromatic-neighbor figure, every bar of the section.
   cello_ostinato:
@@ -149,6 +164,7 @@ layer_templates:
     velocity: 78
     articulation: spiccato
     humanize_ms: 3
+    humanize_velocity_pct: 3
     starts: [[0, 0.0]]
     repeats: 16
     every_bars: 1
@@ -162,6 +178,7 @@ layer_templates:
     velocity: 64
     articulation: spiccato
     humanize_ms: 3
+    humanize_velocity_pct: 3
     starts: [[0, 0.0]]
     repeats: 16
     every_bars: 1
@@ -174,6 +191,7 @@ layer_templates:
     velocity: 80
     articulation: marcato
     humanize_ms: 4
+    humanize_velocity_pct: 3
     pattern:
       - [0, 0.0, 0.45]
       - [0, 0.5, 0.40]
@@ -195,6 +213,7 @@ layer_templates:
     instrument_velocity_offsets: {violins_i: 0, violins_ii: -10}
     instrument_pitch_scoop_cents: {violins_i: 6.0, violins_ii: 4.0}
     humanize_ms: 5
+    humanize_velocity_pct: 3
 
   # Virtuosic upward run on 1st violins.
   violin_virtuoso_run:
@@ -205,6 +224,7 @@ layer_templates:
     velocity: 82
     articulation: spiccato
     humanize_ms: 2
+    humanize_velocity_pct: 3
 
   # Bridge countermelody — oboe + clarinet sigh.
   wind_lament:
@@ -215,6 +235,7 @@ layer_templates:
     articulation: legato
     instrument_velocity_offsets: {oboe: 0, clarinet: -8}
     humanize_ms: 5
+    humanize_velocity_pct: 3
 
   # Brass fanfare for climax — horns + trumpets.
   brass_fanfare:
@@ -226,6 +247,7 @@ layer_templates:
     instrument_octave_offsets: {horns: 0, trumpets: 1}
     instrument_velocity_offsets: {horns: 0, trumpets: -6}
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Brass chord stab block (horns + trombones + tuba on phrase tops).
   brass_stab:
@@ -237,6 +259,7 @@ layer_templates:
     articulation: tenuto
     voicing: closed
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Tuba sustained pedal underneath climax.
   tuba_pedal:
@@ -254,12 +277,14 @@ layer_templates:
     velocity: 84
     articulation: marcato
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Drums — light groove for verse and bridge.
   drums_groove_light:
     kind: drums
     instrument: kit
     humanize_ms: 1.5
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beats: [0.0, 2.0], velocity: 64}
       - {drum: closed_hat, beats: [0.5, 1.5, 2.5, 3.5], velocity: 28}
@@ -270,6 +295,7 @@ layer_templates:
     kind: drums
     instrument: kit
     humanize_ms: 1.5
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beats: [0.0, 1.0, 2.0, 3.0], velocity: 70}
       - {drum: snare, beats: [1.0, 3.0], velocity: 64}
@@ -289,6 +315,7 @@ layer_templates:
     articulation: bell
     voicing: closed
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
   # Fast harp arpeggio (every 16th note over chord tones).
   harp_arpeggio:
@@ -303,6 +330,7 @@ layer_templates:
     voicing: open
     articulation: pluck
     humanize_ms: 1
+    humanize_velocity_pct: 3
 
   # Choir wash: long sustained chord, restruck every 4 bars.
   choir_wash:
@@ -315,6 +343,7 @@ layer_templates:
     articulation: pad
     voicing: open
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
   # Warm pad — octave below choir, very smooth.
   warm_pad_layer:
@@ -327,6 +356,7 @@ layer_templates:
     articulation: pad
     voicing: wide
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
 playback:
   mode: section_stem_matrix
@@ -371,6 +401,10 @@ sections:
     density: 0.30
     loopable: false
     harmony: ["Dm", "Bb", "Gm", "A7"]
+    # Intimate ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.30
     layers:
       - expression_build
       # 1st violin tremolo-ish sustained D5 — single anxious held note.
@@ -464,6 +498,10 @@ sections:
     loopable: true
     valid_exit_local_bars: [4, 8]
     harmony: ["Gm", "Bb", "F", "Dm", "Gm", "C", "F", "A7"]
+    # Drier, more intimate ambience for the bridge.
+    postprocess:
+      reverb_wet: 0.025
+      reverb_decay_seconds: 0.70
     layers:
       - {template: wind_lament, starts: [[0, 0.0], [4, 0.0]], velocity: 76}
       # Sustained string pad — pulled back, no ostinato.
@@ -483,6 +521,10 @@ sections:
     loopable: true
     valid_exit_local_bars: [4, 8]
     harmony: ["Dm", "Bb", "Gm", "A7", "Dm", "F", "C#dim7", "A7"]
+    # Cathedral ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.40
     layers:
       - {template: violin_lead_theme, starts: [[0, 0.0], [4, 0.0]], velocity: 96}
       - {template: violin_virtuoso_run, starts: [[2, 0.0], [6, 0.0]], velocity: 84}

@@ -18,6 +18,13 @@ meter:
   beats_per_bar: 5
   beat_unit: 4
 
+
+# Spec-level voicing constraints — keep chord-pad voicings smooth across
+# section transitions and prevent semitone clusters.
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
 render:
   sample_rate: 48000
   ogg_quality: 6
@@ -30,6 +37,13 @@ postprocess:
   reverb_decay_seconds: 1.30
   reverb_damping_hz: 6200
   stereo_width: 0.05
+  # Master bus compressor — gentle glue (3:1 over -18 dB).
+  compressor_threshold_db: -18.0
+  compressor_ratio: 3.0
+  compressor_attack_ms: 10.0
+  compressor_release_ms: 100.0
+  compressor_makeup_db: 1.5
+  compressor_knee_db: 6.0
   limiter_drive: 0.92
   normalize: true
   target_peak_db: -2.0
@@ -158,6 +172,7 @@ layer_templates:
     articulation: legato
     voicing: open
     humanize_ms: 6
+    humanize_velocity_pct: 3
 
   # Chord stabs in the strings on phrase boundaries (every 4 bars).
   string_stab:
@@ -170,6 +185,7 @@ layer_templates:
     articulation: marcato
     voicing: closed
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Bass lurch — the 3+2 5/4 ostinato played by contrabass + bassoon.
   bass_lurch_voice:
@@ -181,6 +197,7 @@ layer_templates:
     instrument_octave_offsets: {contrabass: 0, bassoon: 1}
     instrument_velocity_offsets: {contrabass: 0, bassoon: -10}
     humanize_ms: 4
+    humanize_velocity_pct: 3
     starts: [[0, 0.0]]
     repeats: 16
     every_bars: 1
@@ -194,6 +211,7 @@ layer_templates:
     articulation: legato
     instrument_pitch_scoop_cents: {clarinet: 8.0}
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Oboe answer (foreground).
   oboe_voice:
@@ -204,6 +222,7 @@ layer_templates:
     articulation: legato
     instrument_pitch_scoop_cents: {oboe: 6.0}
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # English horn + bassoon lament (bridge).
   reed_lament:
@@ -215,6 +234,7 @@ layer_templates:
     instrument_octave_offsets: {english_horn: 0, bassoon: -1}
     instrument_velocity_offsets: {english_horn: 0, bassoon: -8}
     humanize_ms: 5
+    humanize_velocity_pct: 3
 
   # Soaring climax wail (oboe + piccolo two octaves apart).
   climax_wail:
@@ -226,6 +246,7 @@ layer_templates:
     instrument_octave_offsets: {oboe: 0, piccolo: 1}
     instrument_velocity_offsets: {oboe: 0, piccolo: -8}
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Brass war-stab.
   brass_war_stab:
@@ -237,6 +258,7 @@ layer_templates:
     instrument_octave_offsets: {horns: 0, trombones: -1}
     instrument_velocity_offsets: {horns: 0, trombones: -4}
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Tuba pedal for climax (chord root, sustained).
   tuba_pedal:
@@ -253,6 +275,7 @@ layer_templates:
     velocity: 84
     articulation: marcato
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Tribal kit — hand-drum feel using low/mid toms instead of kick + snare.
   # 3+2 grouping: hits land on beats 1, 3, 4 of the 5/4 bar.
@@ -260,6 +283,7 @@ layer_templates:
     kind: drums
     instrument: kit
     humanize_ms: 1.5
+    humanize_velocity_pct: 3
     events:
       - {drum: low_tom,  beats: [0.0],      velocity: 64}
       - {drum: mid_tom,  beats: [2.0],      velocity: 50}
@@ -270,6 +294,7 @@ layer_templates:
     kind: drums
     instrument: kit
     humanize_ms: 1.5
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beats: [0.0],      velocity: 72}
       - {drum: low_tom,           beats: [0.5, 2.0, 3.0, 4.5], velocity: 56}
@@ -292,6 +317,7 @@ layer_templates:
     voicing: open
     articulation: pluck
     humanize_ms: 1
+    humanize_velocity_pct: 3
 
   # Celesta high tone — single ringing pitch on phrase tops.
   celesta_chime:
@@ -303,6 +329,7 @@ layer_templates:
     articulation: bell
     voicing: closed
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
   # Voice "oohs" wash — sparse and dread-y.
   voice_wash:
@@ -315,6 +342,7 @@ layer_templates:
     articulation: pad
     voicing: open
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
   # Metallic pad layer — adds dread / sci-fi atmospherics.
   metallic_pad:
@@ -327,6 +355,7 @@ layer_templates:
     articulation: pad
     voicing: wide
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
 playback:
   mode: section_stem_matrix
@@ -371,6 +400,10 @@ sections:
     density: 0.30
     loopable: false
     harmony: ["A", "Bb", "F", "A"]
+    # Intimate ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.30
     layers:
       - expression_swell
       # Sustained tonic drone (tremolo violins on E5 — the dominant, hovering).
@@ -453,6 +486,10 @@ sections:
     loopable: true
     valid_exit_local_bars: [4, 8]
     harmony: ["Dm", "F", "Bb", "A", "Dm", "Gm", "F", "A"]
+    # Drier, more intimate ambience for the bridge.
+    postprocess:
+      reverb_wet: 0.025
+      reverb_decay_seconds: 0.70
     layers:
       - {template: reed_lament, starts: [[0, 0.0], [4, 0.0]], velocity: 84}
       - {template: low_string_pad, velocity: 60}
@@ -477,6 +514,10 @@ sections:
     loopable: true
     valid_exit_local_bars: [4, 8]
     harmony: ["A", "Bb", "F", "A", "Dm", "Bb", "Edim", "A"]
+    # Cathedral ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.40
     layers:
       - {template: clarinet_voice, starts: [[0, 0.0], [4, 0.0]], velocity: 96}
       - {template: oboe_voice,     starts: [[2, 0.0], [6, 0.0]], velocity: 92}

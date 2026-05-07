@@ -29,6 +29,13 @@ meter:
   beats_per_bar: 4
   beat_unit: 4
 
+
+# Spec-level voicing constraints — keep chord-pad voicings smooth across
+# section transitions and prevent semitone clusters.
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
 render:
   sample_rate: 48000
   ogg_quality: 6
@@ -41,6 +48,13 @@ postprocess:
   reverb_decay_seconds: 1.20
   reverb_damping_hz: 6800
   stereo_width: 0.06
+  # Master bus compressor — gentle glue (3:1 over -18 dB).
+  compressor_threshold_db: -18.0
+  compressor_ratio: 3.0
+  compressor_attack_ms: 10.0
+  compressor_release_ms: 100.0
+  compressor_makeup_db: 1.5
+  compressor_knee_db: 6.0
   limiter_drive: 0.94
   normalize: true
   target_peak_db: -2.0
@@ -170,6 +184,7 @@ layer_templates:
     voicing: closed
     articulation: pluck
     humanize_ms: 2
+    humanize_velocity_pct: 3
 
   # Bass drives the descending line via the harmony's slash bass: when the
   # bar is "Bm/F#" the bassline plays F#, "C/E" plays E, etc.
@@ -180,6 +195,7 @@ layer_templates:
     velocity: 84
     articulation: tenuto
     humanize_ms: 2
+    humanize_velocity_pct: 3
     pattern:
       - [0, 0.0, 1.8]
       - [0, 2.0, 1.8]
@@ -192,6 +208,7 @@ layer_templates:
     velocity: 88
     articulation: marcato
     humanize_ms: 2
+    humanize_velocity_pct: 3
     pattern:
       - [0, 0.0, 0.45]
       - [0, 0.5, 0.45]
@@ -211,6 +228,7 @@ layer_templates:
     articulation: tenuto
     instrument_pitch_scoop_cents: {lead_gtr: 8.0}
     humanize_ms: 6
+    humanize_velocity_pct: 3
 
   # Lead-guitar vocal-style phrase B.
   vocal_b_voice:
@@ -221,6 +239,7 @@ layer_templates:
     articulation: tenuto
     instrument_pitch_scoop_cents: {lead_gtr: 8.0}
     humanize_ms: 6
+    humanize_velocity_pct: 3
 
   # Slide-guitar fill between vocal phrases.
   slide_fill:
@@ -231,6 +250,7 @@ layer_templates:
     articulation: legato
     instrument_pitch_scoop_cents: {slide_gtr: 24.0}
     humanize_ms: 5
+    humanize_velocity_pct: 3
 
   # Solo lick A (distorted lead guitar).
   solo_a_voice:
@@ -241,6 +261,7 @@ layer_templates:
     articulation: tenuto
     instrument_pitch_scoop_cents: {solo_gtr: 12.0}
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Solo lick B.
   solo_b_voice:
@@ -251,6 +272,7 @@ layer_templates:
     articulation: tenuto
     instrument_pitch_scoop_cents: {solo_gtr: 12.0}
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Solo climax lick (high register).
   solo_climax_voice:
@@ -261,6 +283,7 @@ layer_templates:
     articulation: tenuto
     instrument_pitch_scoop_cents: {solo_gtr: 18.0}
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Hammond-organ chord pad (held chords over the section).
   organ_pad:
@@ -272,6 +295,7 @@ layer_templates:
     articulation: pad
     voicing: open
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Hammond stab on phrase tops (shorter chord hit for emphasis).
   organ_stab:
@@ -283,6 +307,7 @@ layer_templates:
     articulation: marcato
     voicing: open
     humanize_ms: 2
+    humanize_velocity_pct: 3
 
   # Piano chord on phrase boundaries.
   piano_voicing:
@@ -294,6 +319,7 @@ layer_templates:
     articulation: tenuto
     voicing: open
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Sustained string-pad backing (very subtle).
   string_pad_backing:
@@ -305,6 +331,7 @@ layer_templates:
     articulation: pad
     voicing: open
     humanize_ms: 8
+    humanize_velocity_pct: 3
 
   # Warm-pad bed.
   warm_pad_layer:
@@ -317,6 +344,7 @@ layer_templates:
     articulation: pad
     voicing: wide
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
   # French horn pad on chorus/climax — adds heroic weight.
   horn_pad:
@@ -328,12 +356,14 @@ layer_templates:
     articulation: legato
     voicing: closed
     humanize_ms: 6
+    humanize_velocity_pct: 3
 
   # Drum patterns.
   drums_intro:
     kind: drums
     instrument: kit
     humanize_ms: 1
+    humanize_velocity_pct: 3
     events:
       - {drum: kick,       beat: 0.0, velocity: 50, bars: [4, 5, 6, 7]}
       - {drum: snare,      beat: 2.0, velocity: 50, bars: [6, 7]}
@@ -343,6 +373,7 @@ layer_templates:
     kind: drums
     instrument: kit
     humanize_ms: 1
+    humanize_velocity_pct: 3
     events:
       - {drum: kick,       beats: [0.0, 2.0],            velocity: 80}
       - {drum: snare,      beats: [1.0, 3.0],            velocity: 78}
@@ -353,6 +384,7 @@ layer_templates:
     kind: drums
     instrument: kit
     humanize_ms: 1
+    humanize_velocity_pct: 3
     events:
       - {drum: kick,       beats: [0.0, 0.75, 2.0],       velocity: 86}
       - {drum: snare,      beats: [1.0, 3.0],             velocity: 82}
@@ -365,6 +397,7 @@ layer_templates:
     kind: drums
     instrument: kit
     humanize_ms: 1
+    humanize_velocity_pct: 3
     events:
       - {drum: kick,       beats: [0.0, 0.75, 2.0, 2.75], velocity: 88}
       - {drum: snare,      beats: [1.0, 3.0],             velocity: 86}
@@ -416,6 +449,10 @@ sections:
     density: 0.40
     loopable: false
     harmony: ["G", "Bm/F#", "F", "C/E", "G", "Bm/F#", "F", "C/E"]
+    # Intimate ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.30
     layers:
       - expression_swell
       - {template: freebird_arpeggio, density: 1.0, velocity: 70}
@@ -519,6 +556,10 @@ sections:
     valid_exit_local_bars: [4, 8, 12, 16]
     harmony: ["Em", "G", "D", "C", "Em", "D", "C", "D",
               "Em", "G", "D", "C", "Em", "C", "D", "G"]
+    # Cathedral ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.40
     layers:
       - guitar_vibrato_lfo
       - {template: solo_climax_voice, starts: [[0, 0.0], [8, 0.0]], velocity: 96}

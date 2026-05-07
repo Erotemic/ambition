@@ -18,6 +18,13 @@ meter:
   beats_per_bar: 4
   beat_unit: 4
 
+
+# Spec-level voicing constraints — keep chord-pad voicings smooth across
+# section transitions and prevent semitone clusters.
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
 render:
   sample_rate: 48000
   ogg_quality: 6
@@ -30,6 +37,13 @@ postprocess:
   reverb_decay_seconds: 1.20
   reverb_damping_hz: 6500
   stereo_width: 0.04
+  # Master bus compressor — gentle glue (3:1 over -18 dB).
+  compressor_threshold_db: -18.0
+  compressor_ratio: 3.0
+  compressor_attack_ms: 10.0
+  compressor_release_ms: 100.0
+  compressor_makeup_db: 1.5
+  compressor_knee_db: 6.0
   limiter_drive: 0.92
   normalize: true
   target_peak_db: -2.0
@@ -152,6 +166,7 @@ layer_templates:
     articulation: legato
     voicing: closed
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # Brass stab — short marcato hits on phrase tops.
   brass_stab:
@@ -163,6 +178,7 @@ layer_templates:
     articulation: marcato
     voicing: closed
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Bass walk on tuba + contrabass + celli (octave-displaced).
   bass_walk_voice:
@@ -174,6 +190,7 @@ layer_templates:
     instrument_octave_offsets: {tuba: 0, contrabass: 1, celli: 2}
     instrument_velocity_offsets: {tuba: 0, contrabass: -4, celli: -10}
     humanize_ms: 4
+    humanize_velocity_pct: 3
     starts: [[0, 0.0]]
     repeats: 24
     every_bars: 1
@@ -188,6 +205,7 @@ layer_templates:
     instrument_octave_offsets: {horns_a: 0, trumpets: 1}
     instrument_velocity_offsets: {horns_a: 0, trumpets: -4}
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # March theme A (horns).
   march_theme_a_voice:
@@ -199,6 +217,7 @@ layer_templates:
     instrument_octave_offsets: {horns_a: 0, horns_b: -1}
     instrument_velocity_offsets: {horns_a: 0, horns_b: -6}
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # March theme B (trombones + horns).
   march_theme_b_voice:
@@ -210,6 +229,7 @@ layer_templates:
     instrument_octave_offsets: {horns_a: 0, trombones: -1}
     instrument_velocity_offsets: {horns_a: 0, trombones: -4}
     humanize_ms: 4
+    humanize_velocity_pct: 3
 
   # String counter line.
   string_counter_voice:
@@ -221,6 +241,7 @@ layer_templates:
     instrument_octave_offsets: {violins: 0, violas: -1}
     instrument_velocity_offsets: {violins: 0, violas: -6}
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Trumpet climax fanfare.
   trumpet_climax:
@@ -231,6 +252,7 @@ layer_templates:
     velocity: 96
     articulation: marcato
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Piccolo descant for main_c.
   piccolo_descant_voice:
@@ -240,6 +262,7 @@ layer_templates:
     velocity: 78
     articulation: tenuto
     humanize_ms: 2
+    humanize_velocity_pct: 3
 
   # String tutti chord stab on every quarter beat (full down-bow feel).
   string_pulse:
@@ -252,6 +275,7 @@ layer_templates:
     articulation: spiccato
     voicing: closed
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Bassoon doubling the bass walk (woodwind reinforcement).
   bassoon_walk:
@@ -262,6 +286,7 @@ layer_templates:
     velocity: 64
     articulation: marcato
     humanize_ms: 3
+    humanize_velocity_pct: 3
     starts: [[0, 0.0]]
     repeats: 24
     every_bars: 1
@@ -281,6 +306,7 @@ layer_templates:
     velocity: 86
     articulation: marcato
     humanize_ms: 3
+    humanize_velocity_pct: 3
 
   # Snare-drum military pattern. Kick on 1+3, snare on 2+4, plus a roll fill
   # at the end of each 4-bar phrase.
@@ -288,6 +314,7 @@ layer_templates:
     kind: drums
     instrument: kit
     humanize_ms: 1.0
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beats: [0.0, 2.0], velocity: 78}
       - {drum: snare,             beats: [1.0, 3.0], velocity: 70}
@@ -298,6 +325,7 @@ layer_templates:
     kind: drums
     instrument: kit
     humanize_ms: 1.0
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beats: [0.0, 1.0, 2.0, 3.0], velocity: 80}
       - {drum: snare,             beats: [1.0, 3.0], velocity: 80}
@@ -315,6 +343,7 @@ layer_templates:
     articulation: bell
     voicing: closed
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
   # Orchestra hit for major impact moments — fires on bar 0 of climax sections.
   orchestra_hit:
@@ -326,6 +355,7 @@ layer_templates:
     articulation: hit
     voicing: closed
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
   # Voice-oohs choir wash for the highest section only.
   voice_choir:
@@ -338,6 +368,7 @@ layer_templates:
     articulation: pad
     voicing: open
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
   warm_pad_layer:
     kind: pad_chords
@@ -349,6 +380,7 @@ layer_templates:
     articulation: pad
     voicing: wide
     humanize_ms: 0
+    humanize_velocity_pct: 3
 
 playback:
   mode: section_stem_matrix
@@ -393,6 +425,10 @@ sections:
     density: 0.30
     loopable: false
     harmony: ["Gm", "Eb", "D7", "Gm", "Cm", "Eb", "D7", "Gm"]
+    # Intimate ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.30
     layers:
       - expression_swell
       # Snare drum approach: starts as a quiet roll, builds to a tutti hit on bar 7.
@@ -493,6 +529,10 @@ sections:
     valid_exit_local_bars: [4, 8, 12]
     harmony: ["Cm", "Bb", "Eb", "D7", "Cm", "Gm", "Bb", "D7",
               "Cm", "F", "Eb", "D7"]
+    # Drier, more intimate ambience for the bridge.
+    postprocess:
+      reverb_wet: 0.025
+      reverb_decay_seconds: 0.70
     layers:
       # Clarinet solo carries the bridge.
       - kind: motif
@@ -540,6 +580,10 @@ sections:
     valid_exit_local_bars: [4, 8, 12, 16]
     harmony: ["Gm", "Eb", "F", "D7", "Gm", "Cm", "Bb", "D7",
               "Gm", "Bb", "Eb", "D7", "Gm", "F", "Eb", "D7"]
+    # Cathedral ambience for the section.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.40
     layers:
       - {template: march_theme_a_voice, starts: [[0, 0.0], [8, 0.0]], velocity: 96}
       - {template: trumpet_climax, starts: [[4, 0.0], [12, 0.0]], velocity: 92}

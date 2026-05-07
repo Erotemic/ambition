@@ -20,6 +20,14 @@ render:
   backend: pretty-midi
   # No `soundfont:` pin — the renderer picks the highest-quality installed
   # SoundFont via DEFAULT_SOUNDFONTS (MuseScore General > FluidR3 > others).
+
+# Spec-level voicing constraints — keep chord-pad voicings smooth across
+# section transitions and prevent semitone clusters. Off by default in the
+# renderer; opted in here for the orchestral pad layers.
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
 postprocess:
   gain_db: 0.0
   highpass_hz: 35
@@ -27,6 +35,13 @@ postprocess:
   reverb_decay_seconds: 0.90
   reverb_damping_hz: 6200
   stereo_width: 0.035
+  # Master bus compressor — gentle glue (3:1 over -18 dB).
+  compressor_threshold_db: -18.0
+  compressor_ratio: 3.0
+  compressor_attack_ms: 10.0
+  compressor_release_ms: 100.0
+  compressor_makeup_db: 1.5
+  compressor_knee_db: 6.0
   limiter_drive: 0.90
   normalize: true
   target_peak_db: -2.5
@@ -102,6 +117,7 @@ layer_templates:
     articulation: legato
     voicing: open
     humanize_ms: 0
+    humanize_velocity_pct: 3
   low_string_pulse:
     kind: bassline
     instrument: contrabass
@@ -109,6 +125,7 @@ layer_templates:
     velocity: 38
     articulation: tenuto
     humanize_ms: 0
+    humanize_velocity_pct: 3
     pattern:
       - [0, 0.0, 0.85]
       - [7, 2.0, 0.5]
@@ -123,6 +140,7 @@ layer_templates:
     articulation: pad
     voicing: wide
     humanize_ms: 0
+    humanize_velocity_pct: 3
   choir_wash:
     kind: pad_chords
     instrument: choir
@@ -133,6 +151,7 @@ layer_templates:
     articulation: pad
     voicing: open
     humanize_ms: 0
+    humanize_velocity_pct: 3
   wind_goblin:
     kind: motif
     instruments: [flute, oboe, clarinet]
@@ -171,6 +190,7 @@ layer_templates:
     density: 0.20
     articulation: normal
     humanize_ms: 0
+    humanize_velocity_pct: 3
   marimba_echo:
     kind: arpeggio
     instrument: marimba
@@ -182,6 +202,7 @@ layer_templates:
     density: 0.14
     articulation: staccato
     humanize_ms: 0
+    humanize_velocity_pct: 3
   brass_soft_hits:
     kind: chord_hits
     instruments: [horns, trombones]
@@ -191,6 +212,7 @@ layer_templates:
     articulation: tenuto
     voicing: closed
     humanize_ms: 0
+    humanize_velocity_pct: 3
     hits: [[0, 0.0], [4, 0.0]]
   tuba_roots_light:
     kind: root_hits
@@ -199,6 +221,7 @@ layer_templates:
     velocity: 42
     articulation: tenuto
     humanize_ms: 0
+    humanize_velocity_pct: 3
     hits: [[0, 0.0, -12, 0.85], [4, 0.0, -12, 0.85]]
   timpani_roots:
     kind: root_hits
@@ -207,11 +230,13 @@ layer_templates:
     velocity: 42
     articulation: tenuto
     humanize_ms: 0
+    humanize_velocity_pct: 3
     hits: [[0, 0.0, -12, 0.85], [4, 0.0, -12, 0.85]]
   pulse_drums_light:
     kind: drums
     instrument: war_drums
     humanize_ms: 1.0
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beat: 0.0, velocity: 32}
   # wave 2: half-time groove. Kick on 1 and 3, hat 8ths fill the upbeats,
@@ -221,6 +246,7 @@ layer_templates:
     kind: drums
     instrument: war_drums
     humanize_ms: 1.0
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beats: [0.0, 2.0], velocity: 56}
       - {drum: closed_hat, beats: [0.5, 1.5, 2.5, 3.5], velocity: 28}
@@ -234,6 +260,7 @@ layer_templates:
     kind: drums
     instrument: war_drums
     humanize_ms: 1.0
+    humanize_velocity_pct: 3
     events:
       - {drum: concert_bass_drum, beats: [0.0, 1.0, 2.0, 3.0], velocity: 62}
       - {drum: closed_hat, beats: [0.5, 1.5, 2.5, 3.5], velocity: 28}
@@ -280,6 +307,11 @@ sections:
     density: 0.16
     loopable: false
     harmony: ["Dm", "Bbmaj7", "Gm", "A7"]
+    # Intimate ambience for the warning — slightly more reverb decay,
+    # makes the intro feel "ahead of you" before the encounter starts.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.20
     layers:
       - expression_gentle
       - {template: string_pad, velocity: 38}
@@ -341,6 +373,10 @@ sections:
     loopable: true
     valid_exit_local_bars: [2, 4, 8]
     harmony: ["Dm", "C#dim7", "Dm", "F", "Bb", "Gm", "A7", "A7"]
+    # Climactic ambience — bigger room than the rest of the cue.
+    postprocess:
+      reverb_wet: 0.075
+      reverb_decay_seconds: 1.20
     layers:
       - expression_gentle
       - {template: string_pad, velocity: 34}

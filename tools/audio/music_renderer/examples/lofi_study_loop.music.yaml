@@ -50,9 +50,13 @@ postprocess:
   compressor_release_ms: 110.0
   compressor_makeup_db: 1.6
   compressor_knee_db: 6.0
-  limiter_drive: 1.04
+  limiter_drive: 1.0
   normalize: true
-  target_peak_db: -1.6
+  # Master peak intentionally low so music sits under the SFX bus
+  # (see settings/audio.rs music_volume default = 0.65). Standard
+  # lofi mastering aims for -8 to -12 LUFS; -8 dB peak gets us in
+  # range without making the music inaudible.
+  target_peak_db: -8.0
 
 stem_postprocess:
   highpass_hz: 26

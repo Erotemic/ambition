@@ -174,7 +174,7 @@ pub fn fold_touch_into_control_frame(
 /// and call `fold_touch_into_control_frame` from any code path.
 #[cfg(feature = "mobile_touch")]
 pub mod bevy_plugin {
-    use super::{fold_touch_into_control_frame, TouchInputState};
+    use super::{fold_touch_into_control_frame, TouchButton, TouchInputState};
     use crate::input::ControlFrame;
     use bevy::prelude::*;
     use virtual_joystick::*;
@@ -201,8 +201,147 @@ pub mod bevy_plugin {
         fn build(&self, app: &mut App) {
             app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
                 .insert_resource(MobileTouchState::default())
-                .add_systems(Update, (read_joystick_messages, fold_to_control_frame).chain());
+                .insert_resource(TouchButtonEdges::default())
+                .add_systems(Startup, spawn_touch_buttons)
+                .add_systems(
+                    Update,
+                    (
+                        read_joystick_messages,
+                        update_buttons_from_interactions,
+                        fold_to_control_frame,
+                    )
+                        .chain(),
+                );
         }
+    }
+
+    /// Marker + identity for touch action buttons. Each `TouchActionButton`
+    /// entity is a Bevy `Button` whose `Interaction` state is folded into
+    /// the matching `TouchInputState` field each frame.
+    #[derive(Component, Clone, Copy, Debug)]
+    pub enum TouchActionButton {
+        Jump,
+        Attack,
+        Dash,
+        Blink,
+        Interact,
+        Projectile,
+        Start,
+        Reset,
+    }
+
+    /// Per-button held-last-frame mask. Used by
+    /// `update_buttons_from_interactions` to derive
+    /// `pressed_this_frame` / `released_this_frame` edges from the
+    /// raw `Interaction::Pressed` reading.
+    #[derive(Resource, Default, Clone, Copy, Debug)]
+    struct TouchButtonEdges {
+        jump: bool,
+        attack: bool,
+        dash: bool,
+        blink: bool,
+        interact: bool,
+        projectile: bool,
+        start: bool,
+        reset: bool,
+    }
+
+    /// Spawn a small column of action buttons on the right side of the
+    /// screen. Layout intentionally minimal; the goal is "buttons exist
+    /// and are tappable", not pretty mobile UX. `Z-index` is set high
+    /// so the buttons sit on top of the gameplay viewport.
+    fn spawn_touch_buttons(mut cmd: Commands) {
+        let make_button = |_label: &str| -> (Node, BackgroundColor) {
+            (
+                Node {
+                    width: Val::Px(72.0),
+                    height: Val::Px(72.0),
+                    margin: UiRect::all(Val::Px(6.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.18, 0.22, 0.30, 0.65)),
+            )
+        };
+        // Right-anchored column.
+        cmd.spawn((
+            Node {
+                width: Val::Px(96.0),
+                height: Val::Auto,
+                position_type: PositionType::Absolute,
+                right: Val::Px(12.0),
+                bottom: Val::Px(12.0),
+                flex_direction: FlexDirection::ColumnReverse,
+                align_items: AlignItems::FlexEnd,
+                ..default()
+            },
+            Name::new("MobileTouchButtonsColumn"),
+        ))
+        .with_children(|parent| {
+            for action in [
+                TouchActionButton::Jump,
+                TouchActionButton::Attack,
+                TouchActionButton::Dash,
+                TouchActionButton::Blink,
+                TouchActionButton::Interact,
+                TouchActionButton::Projectile,
+                TouchActionButton::Start,
+                TouchActionButton::Reset,
+            ] {
+                let label = match action {
+                    TouchActionButton::Jump => "Jump",
+                    TouchActionButton::Attack => "Atk",
+                    TouchActionButton::Dash => "Dash",
+                    TouchActionButton::Blink => "Blink",
+                    TouchActionButton::Interact => "E",
+                    TouchActionButton::Projectile => "Proj",
+                    TouchActionButton::Start => "Start",
+                    TouchActionButton::Reset => "Reset",
+                };
+                let (node, bg) = make_button(label);
+                parent.spawn((Button, node, bg, action, Name::new(format!("Touch{label}"))));
+            }
+        });
+    }
+
+    /// Walk every `TouchActionButton` entity, read its `Interaction`,
+    /// and fold (held vs pressed/released edges) into
+    /// `MobileTouchState.<button>`. Edges are derived against the
+    /// previous frame's held mask in `TouchButtonEdges`.
+    fn update_buttons_from_interactions(
+        query: Query<(&Interaction, &TouchActionButton), With<Button>>,
+        mut state: ResMut<MobileTouchState>,
+        mut edges: ResMut<TouchButtonEdges>,
+    ) {
+        let mut now = TouchButtonEdges::default();
+        for (interaction, action) in &query {
+            let held = matches!(interaction, Interaction::Pressed);
+            match action {
+                TouchActionButton::Jump => now.jump |= held,
+                TouchActionButton::Attack => now.attack |= held,
+                TouchActionButton::Dash => now.dash |= held,
+                TouchActionButton::Blink => now.blink |= held,
+                TouchActionButton::Interact => now.interact |= held,
+                TouchActionButton::Projectile => now.projectile |= held,
+                TouchActionButton::Start => now.start |= held,
+                TouchActionButton::Reset => now.reset |= held,
+            }
+        }
+        let make_btn = |held_now: bool, held_prev: bool| TouchButton {
+            held: held_now,
+            pressed_this_frame: held_now && !held_prev,
+            released_this_frame: !held_now && held_prev,
+        };
+        state.0.jump = make_btn(now.jump, edges.jump);
+        state.0.attack = make_btn(now.attack, edges.attack);
+        state.0.dash = make_btn(now.dash, edges.dash);
+        state.0.blink = make_btn(now.blink, edges.blink);
+        state.0.interact = make_btn(now.interact, edges.interact);
+        state.0.projectile = make_btn(now.projectile, edges.projectile);
+        state.0.start = make_btn(now.start, edges.start);
+        state.0.reset = make_btn(now.reset, edges.reset);
+        *edges = now;
     }
 
     /// Read every `VirtualJoystickMessage<MobileStick>` published this

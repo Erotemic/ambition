@@ -753,6 +753,7 @@ pub fn add_presentation_plugins(app: &mut App) {
     add_ui_plugins(app);
     add_input_plugins(app);
     add_audio_plugins(app);
+    add_mobile_touch_plugin(app);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
 
@@ -972,6 +973,28 @@ fn add_input_plugins(app: &mut App) {
 
 #[cfg(not(feature = "input"))]
 fn add_input_plugins(_app: &mut App) {}
+
+/// Register the mobile-touch input plugin (`virtual_joystick` sticks
+/// + on-screen action buttons that fold into ControlFrame). Gated
+/// behind the `mobile_touch` feature; on desktop builds without the
+/// feature this is a no-op.
+///
+/// The mobile plugin runs ALONGSIDE the desktop input pipeline --
+/// both write into the same `ControlFrame` resource, with the
+/// mobile-side write happening after the desktop one in this
+/// session's chain. On a phone, the desktop pipeline produces
+/// neutral output (no keyboard / gamepad); on desktop, the mobile
+/// stick UI is invisible without touch input, so neither path
+/// stomps the other in practice. A future polish pass can detect
+/// the active input source (touch vs keyboard) and skip the
+/// inactive folder.
+#[cfg(feature = "mobile_touch")]
+fn add_mobile_touch_plugin(app: &mut App) {
+    app.add_plugins(crate::mobile_input::bevy_plugin::MobileTouchPlugin);
+}
+
+#[cfg(not(feature = "mobile_touch"))]
+fn add_mobile_touch_plugin(_app: &mut App) {}
 
 /// Install the kira audio backend, channel resources, default music
 /// startup, and the SFX subscriber. Gated by `audio` so headless / RL

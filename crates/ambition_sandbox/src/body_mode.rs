@@ -17,6 +17,9 @@
 //! - MorphBall + Jump pressed → try Standing (gated). If a low
 //!   ceiling blocks the standing body, the morph ball stays curled.
 //! - Crouching + Down released → Standing (gated).
+//! - Standing/Crouching + Up/Down inside `climbable_contact` → Climbing.
+//! - Climbing + Jump → push off, exit to Standing. Climbing + losing
+//!   contact → exit to Standing automatically.
 //! - Mid-action mechanics (dash, blink-aim, wall-cling/climb, swim)
 //!   own the player shape; the driver no-ops while any of them are
 //!   active.
@@ -61,13 +64,63 @@ pub fn update_body_mode(
     }
 
     let down_held = controls.axis_y > CROUCH_AXIS_Y_THRESHOLD;
+    let up_held = controls.axis_y < -CROUCH_AXIS_Y_THRESHOLD;
     let on_ground = player.on_ground;
     let mode = player.body_mode;
     let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
+    let climbable_contact_present = player.climbable_contact.is_some();
 
     // Consume the double-tap-down edge regardless of branch so we
     // don't latch a stale signal across frames or gameplay states.
     let double_tap_down = std::mem::take(&mut runtime.double_tap_down_pending);
+
+    // Climbing exits: jump pushes off, losing contact drops the mode.
+    // Engine's `integrate_climb` defensive-zeros velocity if contact
+    // is None mid-climb, so the visible result of a contact loss is a
+    // one-frame velocity stall before this driver flips back to
+    // Standing — acceptable for the first slice. Future polish can
+    // grant the player a small "let-go" velocity here so falling off
+    // the bottom feels natural.
+    if mode == ae::BodyMode::Climbing {
+        let exit_via_jump = controls.jump_pressed;
+        let exit_via_lost_contact = !climbable_contact_present;
+        if exit_via_jump || exit_via_lost_contact {
+            let _ = ae::try_change_body_mode(
+                &mut runtime.player,
+                ae::BodyMode::Standing,
+                &world.0,
+                solid,
+            );
+            // Falling-through bottom of ladder gets the player a
+            // small downward nudge so they don't hover at the bottom
+            // edge waiting for gravity to take over. Pushing off via
+            // jump leaves vel.y as the engine wrote it (Climbing
+            // sets vel = (0, 0) on each tick when input is zero, so
+            // the integrate path on the next frame will compute a
+            // proper jump impulse from `jump_pressed`).
+            return;
+        }
+        // Otherwise stay Climbing — engine drives motion through
+        // integrate_climb. No body-mode change this frame.
+        return;
+    }
+
+    // Climbing entry: holding Up or Down inside a climbable contact
+    // engages the ladder. Down is gated to NOT trigger climbing while
+    // grounded (so a Down-press on a floor stays a crouch). Up, by
+    // contrast, can engage from grounded as a "step onto the ladder
+    // from below" gesture. This mirrors the LDtk authoring intent
+    // where ladders typically begin at floor level.
+    let climb_initiator = (up_held) || (down_held && !on_ground);
+    if climbable_contact_present && climb_initiator && mode != ae::BodyMode::MorphBall {
+        let _ = ae::try_change_body_mode(
+            &mut runtime.player,
+            ae::BodyMode::Climbing,
+            &world.0,
+            solid,
+        );
+        return;
+    }
 
     // MorphBall has the smallest AABB. Exiting it means re-checking
     // overhead clearance; sourcing the exit input from `jump_pressed`
@@ -684,6 +737,130 @@ mod tests {
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
         assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+    }
+
+    /// Build a test world with a single ladder region centered at the
+    /// player's spawn so `World::climbable_at` returns `Some(...)` from
+    /// the first tick.
+    fn ladder_world() -> ae::World {
+        ae::World::new(
+            "body_mode_ladder",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(200.0, 1000.0),
+            Vec::new(),
+        )
+        .with_climbable_regions(vec![ae::ClimbableRegion::ladder(ae::Aabb::new(
+            ae::Vec2::new(200.0, 1000.0),
+            ae::Vec2::new(20.0, 200.0),
+        ))])
+    }
+
+    /// Set the climbable_contact directly so the body_mode driver
+    /// sees a populated contact even though `update_body_mode` runs
+    /// without the engine sweep that normally populates it. In
+    /// production the engine populates this each tick before the
+    /// progression chain runs.
+    fn set_on_ladder(app: &mut App) {
+        let world = app.world().resource::<GameWorld>().0.clone();
+        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+        runtime.player.climbable_contact = world.climbable_at(runtime.player.aabb());
+    }
+
+    #[test]
+    fn up_input_inside_ladder_enters_climbing() {
+        let mut app = body_app(ladder_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 1000.0));
+        set_on_ladder(&mut app);
+        // Up press: axis_y < -CROUCH_AXIS_Y_THRESHOLD.
+        set_axis_y(&mut app, -1.0);
+
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(
+            runtime.player.body_mode,
+            ae::BodyMode::Climbing,
+            "up-input inside a climbable contact should enter Climbing"
+        );
+    }
+
+    #[test]
+    fn down_input_grounded_inside_ladder_stays_crouching_not_climbing() {
+        // Important UX: standing on a floor that happens to overlap a
+        // ladder bottom and pressing Down should still crouch, not
+        // grab the ladder. The driver gates Down→Climbing on
+        // `!on_ground` precisely for this.
+        let mut app = body_app(ladder_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 1000.0));
+        set_on_ladder(&mut app);
+        set_axis_y(&mut app, 1.0); // down
+
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(
+            runtime.player.body_mode,
+            ae::BodyMode::Crouching,
+            "Down + grounded should crouch, not climb"
+        );
+    }
+
+    #[test]
+    fn jump_press_while_climbing_exits_to_standing() {
+        let mut app = body_app(ladder_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 1000.0));
+        set_on_ladder(&mut app);
+        set_axis_y(&mut app, -1.0);
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::Climbing
+        );
+
+        // Now press jump on the next tick.
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.axis_y = 0.0;
+            controls.jump_pressed = true;
+        }
+        // Keep contact populated so the exit happens via the
+        // jump-pressed branch, not the lost-contact branch.
+        set_on_ladder(&mut app);
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::Standing,
+            "jump press during climb should release back to standing"
+        );
+    }
+
+    #[test]
+    fn losing_climbable_contact_exits_climbing() {
+        let mut app = body_app(ladder_world());
+        set_grounded_at(&mut app, ae::Vec2::new(200.0, 1000.0));
+        set_on_ladder(&mut app);
+        set_axis_y(&mut app, -1.0);
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::Climbing
+        );
+
+        // Drop the contact (simulating "moved off the ladder
+        // horizontally"). No jump press.
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.player.climbable_contact = None;
+        }
+        {
+            let mut controls = app.world_mut().resource_mut::<ControlFrame>();
+            controls.axis_y = 0.0;
+            controls.jump_pressed = false;
+        }
+        app.update();
+        assert_eq!(
+            app.world().resource::<SandboxRuntime>().player.body_mode,
+            ae::BodyMode::Standing,
+            "losing climbable contact should drop the climb mode"
+        );
     }
 
     #[test]

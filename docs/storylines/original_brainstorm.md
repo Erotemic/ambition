@@ -208,7 +208,7 @@ sprite emerge, there should be an option to go right into it, but if we want to
 have a longer intro, maybe that is optional and we could do a tutorial or
 something. But I think that's a strong reference to start with.
 
-We definately need a better inventory / menu system. It would be really neat to
+We definitely need a better inventory / menu system. It would be really neat to
 visually reference the N64 OOT / MM inventory / map system here, in terms of
 the 3d spinning cube. The contents of the cube we modernize, but having 1 for
 map, one for loadout, one for game completion / quests, and or however we want
@@ -238,3 +238,25 @@ abilities you can give yourself. I guess that is dead cells-esque. But maybe it
 is more limited depending on how the game ends up scoping out. But a blink
 variant, a fly variant, a attack variant, a projectile variant, movement
 variants, these things can make sense. Grappling hook variant.
+
+---
+
+The game needs to rick roll you at some point.
+
+
+We should also use public domain stuff aggressively. Steamboat Willie might be a
+boss. I'm also thinking Pooh's house of horror. Maybe with a reference to my
+shitspotter/scatspotter work.
+
+Other factions:
+
+* art guild - explore ethical issues here.
+* probably mages / fighter guild as classics.
+* mathamaticians - obviously
+* physicists - we can make a geoff hinton / other nobel lauriates as the head depending on questlines as a reference to the controverial nobel prize award
+* pirates - yarrrg (and mockingbirds as a boss battle on the moon)
+
+
+It would be neat if we could leverage the RL agents to add legitimate AI
+enemies instead of just scripts. That would be an advanced feature though as it
+requires a lot more compute, not something enabled by default.

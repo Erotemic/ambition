@@ -15,3 +15,40 @@ pub fn approach(value: f32, target: f32, delta: f32) -> f32 {
         (value - delta).max(target)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn approach_below_target_steps_up_clamped() {
+        // Halfway short of target: full delta is applied.
+        assert!((approach(0.0, 10.0, 3.0) - 3.0).abs() < 1e-6);
+        // Larger delta than gap: lands exactly on target.
+        assert_eq!(approach(0.0, 10.0, 50.0), 10.0);
+    }
+
+    #[test]
+    fn approach_above_target_steps_down_clamped() {
+        assert!((approach(10.0, 0.0, 3.0) - 7.0).abs() < 1e-6);
+        // Overshoot from above also clamps to target.
+        assert_eq!(approach(10.0, 0.0, 50.0), 0.0);
+    }
+
+    #[test]
+    fn approach_at_target_is_no_op() {
+        assert_eq!(approach(5.0, 5.0, 100.0), 5.0);
+    }
+
+    #[test]
+    fn approach_zero_delta_is_no_op() {
+        assert_eq!(approach(2.0, 7.0, 0.0), 2.0);
+        assert_eq!(approach(9.0, 1.0, 0.0), 9.0);
+    }
+
+    #[test]
+    fn approach_handles_negatives() {
+        assert!((approach(-3.0, 0.0, 1.0) - (-2.0)).abs() < 1e-6);
+        assert!((approach(0.0, -3.0, 1.0) - (-1.0)).abs() < 1e-6);
+    }
+}

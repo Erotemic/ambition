@@ -40,6 +40,7 @@ pub mod music;
 pub mod pause_menu;
 pub mod physics;
 pub mod platforms;
+pub mod profiling;
 pub mod projectile;
 pub mod quest;
 pub mod rendering;

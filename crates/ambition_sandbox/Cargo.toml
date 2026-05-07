@@ -57,6 +57,13 @@ input = ["dep:leafwing-input-manager"]
 # requiring the feature.
 mobile_touch = ["dep:virtual_joystick"]
 
+# Bevy/Tracy per-system profiling. Off by default because it pulls
+# `tracing-tracy` and instruments every Bevy system, increasing binary
+# size and runtime overhead. Build with `cargo run --features profile`
+# and connect the Tracy GUI to record a flamegraph. See
+# `docs/profiling.md` for the workflow.
+profile = ["bevy/trace", "bevy/trace_tracy"]
+
 [dependencies]
 ambition_engine = { path = "../ambition_engine" }
 avian2d = { version = "0.5", optional = true }

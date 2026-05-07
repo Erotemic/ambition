@@ -549,14 +549,29 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_message::<DebrisBurstMessage>()
         .add_message::<PlayerDiedMessage>()
         .register_type::<GameMode>()
+        // StartupProfiler captures wall-clock at each marked phase so a
+        // PostStartup report prints "where did the first frame's
+        // worth of init time go" without needing an external profiler
+        // attached. See `crate::profiling` for the helper API and
+        // `docs/profiling.md` for Tracy / per-system profiling.
+        .insert_resource(crate::profiling::StartupProfiler::default())
         .insert_resource(crate::trace::GameplayTraceBuffer::default())
         .insert_resource(crate::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
         .add_plugins(ae::AmbitionStateMachinePlugin)
         .add_systems(
             Startup,
-            (data::load_data_asset_handle, setup_simulation_system).chain(),
+            (
+                crate::profiling::phase_mark("startup_begin"),
+                data::load_data_asset_handle,
+                crate::profiling::phase_mark("after_load_data_handle"),
+                setup_simulation_system,
+                crate::profiling::phase_mark("after_setup_simulation"),
+            )
+                .chain(),
         )
+        // Final report. Runs once on the first PostStartup tick.
+        .add_systems(PostStartup, crate::profiling::report_startup_phases)
         .insert_resource(crate::projectile::PlayerProjectileState::default())
         // Encounter system. The legacy single-encounter `EncounterState`
         // resource stays for backwards-compat tests; the live

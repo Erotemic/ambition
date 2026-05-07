@@ -121,12 +121,31 @@ naturally drop out of a no-rl build.
   (drag-Move + tap-Jump at the same time). For real touch
   multitouch testing, build for Android and run on a phone /
   emulator.
-- Touch fold runs in `Update` after the desktop input fold.
-  When both keyboard and touch are active simultaneously,
-  whichever input wrote ControlFrame last wins. The activity
-  gate (`touch_state_is_active`) keeps neutral touch state from
-  stomping keyboard, but a held touch button + keyboard press
-  on the same frame will let the touch contribution dominate.
+- Mouse-click on the joystick: `virtual_joystick` produces messages
+  on `mouse_buttons.just_pressed(MouseButton::Left)` AND on drag.
+  A bare click without drag will start a "press" but the resulting
+  axis is zero (knob at center). To actually fire ControlFrame
+  values you have to drag the knob away from center.
+
+## Keyboard + touch interaction (per Jon's intent)
+
+Implemented via the merge-fold in `fold_to_control_frame`:
+
+- **Movement axis**: mutually exclusive. If the touch stick is past
+  its deadzone, touch wins; otherwise the keyboard axis passes
+  through unchanged. This is "disable the touch dpad when I'm
+  using the keyboard arrows, and disable the keyboard arrows when
+  I'm using the touch dpad."
+- **Action buttons** (Jump / Attack / Dash / Blink / Interact /
+  Projectile / Reset / Start): OR-merge. A held touch button OR
+  a held keyboard button counts as held. Edge flags merge similarly.
+  This is "the held/release buttons for actions I think should be
+  independent."
+- **Aim**: same mutually-exclusive shape as movement (touch wins
+  past deadzone, otherwise keyboard).
+
+The activity gate (`touch_state_is_active`) keeps a neutral touch
+state from stomping keyboard input.
 
 ## TODO row
 

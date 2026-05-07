@@ -794,6 +794,14 @@ pub mod bevy_plugin {
     /// True if any touch input field has a non-default value. Used
     /// to gate the fold so an empty touch state doesn't stomp the
     /// keyboard-derived ControlFrame every frame.
+    ///
+    /// Includes `released_this_frame` flags: without them, the
+    /// frame after a button release would skip the fold and the
+    /// release edge would never reach the simulator. Concrete
+    /// repro: tapping Projectile with a mouse charged the fireball
+    /// (frame N: pressed) but never released it (frame N+1: held=
+    /// false, pressed=false, released=true → activity gate skipped
+    /// the fold without this clause).
     fn touch_state_is_active(state: &TouchInputState) -> bool {
         let stick_active = state.move_x.abs() > 1e-3
             || state.move_y.abs() > 1e-3
@@ -819,7 +827,16 @@ pub mod bevy_plugin {
             || state.reset.pressed_this_frame
             || state.move_y_just_crossed_up
             || state.move_y_just_crossed_down;
-        stick_active || any_button || any_edge
+        let any_release = state.jump.released_this_frame
+            || state.attack.released_this_frame
+            || state.dash.released_this_frame
+            || state.blink.released_this_frame
+            || state.interact.released_this_frame
+            || state.projectile.released_this_frame
+            || state.fly_toggle.released_this_frame
+            || state.start.released_this_frame
+            || state.reset.released_this_frame;
+        stick_active || any_button || any_edge || any_release
     }
 
     // Re-export the helper so `MobileTouchPlugin` is a one-import seam.

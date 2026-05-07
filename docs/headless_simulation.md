@@ -103,18 +103,46 @@ should keep one `SandboxSim` per worker.
 
 Remaining Phase 3 work:
 
-- **Determinism**: switch to a fixed timestep schedule for sim steps,
-  seed any RNG gameplay uses, audit wall-clock reads. Currently
-  `app.update()` is fine for sequential step-and-observe loops, but
-  reproducing a trajectory after a checkpoint reload needs the timestep
-  + seed pinning.
 - **PyO3 binding**: a thin Python module exposing `SandboxSim` /
   `AgentAction` / `AgentObservation` so research code in Python can
   step the simulation without writing Rust glue. Not required for
   fuzz / scripted-replay use cases (which are happy in pure Rust).
-- **`bevy_rl` evaluation**: see the parallel candidate in TODO C — we
-  may converge `SandboxSim` toward the `bevy_rl` adapter shape if it
-  buys us tooling we'd otherwise build from scratch.
+- **`bevy_rl` evaluation**: we may converge `SandboxSim` toward the
+  `bevy_rl` adapter shape if it buys us tooling we'd otherwise build
+  from scratch.
+
+### Determinism (landed)
+
+`TimestepMode::Fixed { dt }` makes step-level trajectories bit-exact
+reproducible. Internally this installs Bevy's
+`TimeUpdateStrategy::ManualDuration(dt)` resource before the Startup
+tick runs so tick 0 lands at the same state regardless of how long
+LDtk validation took on the host. Two sims with the same fixed timestep
++ same action sequence end up with identical (player_pos, player_vel,
+hp) at every step — the property the determinism unit test pins.
+
+Gameplay code does not currently consume any RNG (no procedural
+generation in the gameplay loop), so RNG seeding is not required for
+determinism today. If a future system adds RNG, route it through a
+seeded resource that `SandboxSim::new_with_timestep` initializes from a
+configurable seed parameter.
+
+### Bug record / replay
+
+`crates/ambition_sandbox/src/bin/trace_replay.rs` reads a
+`GameplayTraceBuffer` JSON dump and drives a fresh `SandboxSim` with
+the recorded `ControlFrame` sequence at fixed-60Hz timestep. It prints
+max-divergence + first-divergence frame between the live sim and the
+recorded `player.pos`. Use cases:
+
+- **Bug repro from production**: drop an `ambition_trace_*.json` from
+  a player's machine into the repo, run the binary, watch where the
+  live sim diverges from the recorded state.
+- **Determinism validation**: replay an old trace after a refactor; if
+  every frame matches within tolerance, the change preserved
+  semantics.
+- **CI guardrail (future)**: an in-tree fixture trace can become a
+  regression test that pins many gameplay invariants in one shot.
 
 ## Visible-binary headless fallback
 

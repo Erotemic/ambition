@@ -223,6 +223,10 @@ pub fn run_visible() {
 /// authoring memory).
 fn cli_start_room_arg() -> Option<String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    parse_start_room_arg(&args)
+}
+
+fn parse_start_room_arg(args: &[String]) -> Option<String> {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -240,6 +244,61 @@ fn cli_start_room_arg() -> Option<String> {
         i += 1;
     }
     None
+}
+
+#[cfg(test)]
+mod cli_arg_tests {
+    use super::parse_start_room_arg;
+
+    fn args(slice: &[&str]) -> Vec<String> {
+        slice.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn no_start_room_flag_returns_none() {
+        assert_eq!(parse_start_room_arg(&args(&[])), None);
+        assert_eq!(parse_start_room_arg(&args(&["--no-assets"])), None);
+    }
+
+    #[test]
+    fn start_room_space_form() {
+        assert_eq!(
+            parse_start_room_arg(&args(&["--start-room", "mob_lab"])),
+            Some("mob_lab".to_string())
+        );
+        assert_eq!(
+            parse_start_room_arg(&args(&["--room", "central_hub_main"])),
+            Some("central_hub_main".to_string())
+        );
+    }
+
+    #[test]
+    fn start_room_equals_form() {
+        assert_eq!(
+            parse_start_room_arg(&args(&["--start-room=water_world"])),
+            Some("water_world".to_string())
+        );
+        assert_eq!(
+            parse_start_room_arg(&args(&["--room=basement_boss"])),
+            Some("basement_boss".to_string())
+        );
+    }
+
+    #[test]
+    fn start_room_first_match_wins() {
+        // If both --start-room and --room are provided, the first one
+        // in arg order wins. Bevy's own arg parsing leaves both alone.
+        assert_eq!(
+            parse_start_room_arg(&args(&["--room", "a", "--start-room", "b"])),
+            Some("a".to_string())
+        );
+    }
+
+    #[test]
+    fn start_room_without_value_returns_none() {
+        // Trailing flag with no value: don't crash, just return None.
+        assert_eq!(parse_start_room_arg(&args(&["--start-room"])), None);
+    }
 }
 
 pub fn init_sandbox_resources(app: &mut App) {

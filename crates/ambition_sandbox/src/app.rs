@@ -93,17 +93,42 @@ pub struct SandboxEventWriters<'w> {
     died: MessageWriter<'w, PlayerDiedMessage>,
 }
 
-/// Queues the simulation half writes to during `sandbox_update`.
-/// Bundled in a single `SystemParam` so sandbox_update stays within
-/// Bevy's 16-system-param budget (otherwise each ResMut counts).
+/// Mutable producer queues `sandbox_update` writes into during the
+/// gameplay tick.
+///
+/// The encounter / feature pipeline is wide — switch presses, feature
+/// events (door open, NPC death, breakable destroyed, …), and the
+/// reset-feature messages all need `ResMut` access alongside everything
+/// else `sandbox_update` already takes. Bundling them in a single
+/// `SystemParam` keeps the system signature within Bevy's
+/// 16-`SystemParam` budget (each `Res`/`ResMut` counts as one).
+///
+/// Producers (here):
+/// - `switch_queue`: one switch activation enqueued per frame the
+///   player toggles a Switch entity. Drained by
+///   `crate::encounter::sync_encounter_controller_states`.
+/// - `feature_bus`: aggregate of damage / heal / interaction events
+///   produced by `crate::features::run_feature_logic`.
+///
+/// Add new sim → sim queues (NOT sim → presentation, which is
+/// `SandboxEventWriters`) here when they grow naturally; resist the
+/// urge to thread them through the system signature directly.
 #[derive(SystemParam)]
 pub struct SandboxQueues<'w> {
     pub switch_queue: ResMut<'w, crate::encounter::SwitchActivationQueue>,
     pub feature_bus: ResMut<'w, crate::features::FeatureEventBus>,
 }
 
-/// Bundle of progression resources read by the HUD. Same packing
-/// trick as `SandboxQueues` — keeps the HUD's parameter count low.
+/// Read-only progression-state bundle for the HUD and pause menu.
+///
+/// Same `SystemParam`-packing trick as `SandboxQueues` — the HUD reads
+/// from many independent registries (quests, cutscene state, bosses,
+/// encounters, world map) and would otherwise blow the 16-param budget
+/// when combined with windowing / camera / font handles. Grouping them
+/// behind a single param both keeps the budget headroom and documents
+/// the intentional read-only contract: HUD systems must not mutate
+/// progression state. Mutators live in the producer side
+/// (`sandbox_update`, `crate::quest`, `crate::boss_encounter`, etc.).
 #[derive(SystemParam)]
 pub struct ProgressionResources<'w> {
     pub quests: Res<'w, crate::quest::QuestRegistry>,

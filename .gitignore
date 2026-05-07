@@ -1,6 +1,10 @@
 # Rust build output
 /target/
 
+# proptest writes regression seeds when a property fails. Useful
+# locally to reproduce a flake but shouldn't go to git.
+**/*.proptest-regressions
+
 # Keep Cargo.lock for this game/application workspace.
 # Cargo.lock
 

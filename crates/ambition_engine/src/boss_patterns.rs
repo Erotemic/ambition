@@ -141,4 +141,43 @@ mod tests {
         assert!(BossPatternSchedule::gradient_sentinel_phase1().is_valid());
         assert!(BossPatternSchedule::gradient_sentinel_phase2().is_valid());
     }
+
+    #[test]
+    fn empty_boss_id_is_invalid() {
+        let mut sched = BossPatternSchedule::gradient_sentinel_phase1();
+        sched.boss_id.clear();
+        assert!(!sched.is_valid());
+    }
+
+    #[test]
+    fn zero_phase_is_invalid() {
+        let mut sched = BossPatternSchedule::gradient_sentinel_phase1();
+        sched.phase = 0;
+        assert!(!sched.is_valid());
+    }
+
+    #[test]
+    fn empty_steps_is_invalid() {
+        let mut sched = BossPatternSchedule::gradient_sentinel_phase1();
+        sched.steps.clear();
+        assert!(!sched.is_valid());
+    }
+
+    #[test]
+    fn total_time_sums_step_times() {
+        let sched = BossPatternSchedule::gradient_sentinel_phase1();
+        let expected: f32 = sched.steps.iter().copied().map(|s| s.total_time()).sum();
+        assert!((sched.total_time() - expected).abs() < 1e-3);
+    }
+
+    #[test]
+    fn summary_contains_boss_id_and_step_count() {
+        let sched = BossPatternSchedule::gradient_sentinel_phase1();
+        let summary = sched.summary();
+        assert!(summary.contains(&sched.boss_id));
+        assert!(summary.contains("phase=1"));
+        // One header line plus one line per step.
+        let line_count = summary.lines().count();
+        assert_eq!(line_count, 1 + sched.steps.len());
+    }
 }

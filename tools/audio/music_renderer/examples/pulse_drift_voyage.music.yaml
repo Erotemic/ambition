@@ -69,7 +69,7 @@ stem_postprocess:
 instruments:
   - {name: bright_rhodes,  group: piano,      program: electric_piano_2,       volume: 70, pan: 60, expression: 78}
   - {name: felt_piano,     group: piano,      program: acoustic_grand_piano,   volume: 56, pan: 46, expression: 72}
-  - {name: synth_pad,      group: pad,        program: pad_polysynth,          volume: 46, pan: 64, expression: 64, modulation: 18}
+  - {name: synth_pad,      group: pad,        program: pad_poly,               volume: 46, pan: 64, expression: 64, modulation: 18}
   - {name: warm_pad,       group: pad,        program: pad_warm,               volume: 30, pan: 64, expression: 56, modulation: 12}
   - {name: picked_bass,    group: bass,       program: picked_bass,            volume: 76, pan: 50, expression: 84}
   - {name: vibraphone,     group: glimmer,    program: vibraphone,             volume: 52, pan: 38, expression: 72}
@@ -210,7 +210,7 @@ sections:
       - E13
       - Amaj9
       - F#m11
-      - D6/9
+      - Dmaj9
       - E9sus4
       - Amaj9
       - Dmaj9

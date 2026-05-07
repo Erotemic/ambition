@@ -146,6 +146,25 @@
 
 ## Known issues / unanswered questions (logged but not yet investigated)
 
+- **Goblin music transition fades audibly cross-section** — Jon noted
+  2026-05-07: "when [music] transitions it doesn't just blend in new
+  layers, you hear the previous music fade out, and we don't want
+  that. We just want new layers to fade in." Current music director
+  in [music.rs](crates/ambition_sandbox/src/music.rs) uses bank-A /
+  bank-B crossfade (LOOP_SECTION_CROSSFADE_SECONDS=1.7), so each
+  section transition fades out the previous bank as it fades in the
+  new bank. The user-friendly behavior would keep the previous
+  section playing at unchanged gain and ONLY fade in the new
+  section's stems on top -- functionally an "additive layer add"
+  rather than a section swap. Requires music director refactor:
+  treat sections that share an underlying composition (e.g. all
+  goblin v2 sections) as the same continuous track, with stems
+  fading in independently per section transition. Quick partial
+  workaround in place: drop intro/outro full to 0.40 to reduce the
+  loudness drop. Real fix is the architecture change.
+
+
+
 - **Moving platforms invisible in LDtk editor** — Jon noted 2026-05-07
   that he can't see moving platforms in the LDtk editor at all, but
   they appear at runtime. Likely because `KinematicPath` (entity-side)

@@ -1,0 +1,92 @@
+# Switch lab — persistence proof room.
+#
+# Demonstrates the `Switch` entity + save persistence: toggling the
+# switch fires the `test_switch_toggled` flag (already wired in
+# `encounter.rs`) which advances the `test_switch_quest` quest. The
+# switch state persists across game reloads via the existing
+# `PersistedSwitch` save shape.
+#
+# Layout (768x384):
+#
+#   +------------------------------------+
+#   | [PlayerStart]      [Switch]         |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +------------------------------------+
+#                  ↑
+#       LoadingZone back to basement
+id: switch_lab
+level_id: switch_lab
+world_x: 30800
+world_y: 1024
+px_wid: 768
+px_hei: 384
+fill_collision: empty
+biome: lab
+connect_to:
+  - target_room: central_hub_basement
+    # Wide gap between basement_breakables (x=1025+48=1073) and
+    # basement_treasure (x=1253). Suggested centerpoint x=1139.
+    px: [1139, 832]
+    size: [48, 96]
+    id: switch_lab_door
+    target_zone: switch_lab_entry
+    activation: Door
+    bidirectional: true
+
+entities:
+  - type: Solid
+    px: [0, 352]
+    size: [768, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [16, 352]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [752, 0]
+    size: [16, 352]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [736, 32]
+    fields: { name: ceiling }
+
+  - type: PlayerStart
+    px: [80, 306]
+    size: [28, 46]
+    fields: { name: switch_lab_spawn }
+
+  # The persistence Switch.
+  - type: Switch
+    px: [400, 306]
+    size: [40, 46]
+    fields:
+      id: switch_lab_persist_switch
+      name: switch_lab_persist_switch
+      prompt: Toggle persistence
+      target_encounter: ""
+      action: ToggleFlag
+
+  - type: LoadingZone
+    px: [16, 256]
+    size: [48, 96]
+    fields:
+      id: switch_lab_entry
+      name: switch_lab_entry
+      activation: Door
+      target_room: central_hub_complex
+      target_zone: switch_lab_door
+      bidirectional: true
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [768, 384]
+    fields: { id: switch_lab_camera, name: switch_lab_camera, mode: Default }
+
+  - type: DebugLabel
+    px: [80, 80]
+    size: [600, 24]
+    fields:
+      name: switch_lab_intro_label
+      text: "Toggle the switch (Interact). State persists across runs."
+      category: Custom

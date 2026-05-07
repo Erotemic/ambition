@@ -195,6 +195,36 @@ pub mod bevy_plugin {
     #[derive(Resource, Default, Clone, Copy, Debug)]
     pub struct MobileTouchState(pub TouchInputState);
 
+    /// Runtime visibility toggle for the touch UI. `true` shows the
+    /// stick + button HUD; `false` hides the elements and zeroes
+    /// the touch input contribution to ControlFrame so neither
+    /// path stomps the desktop input.
+    ///
+    /// Per Jon's "we also need a toggle for touch controls, so we
+    /// can disable them in the desktop version of the game, but
+    /// also still test them there." Bound to F2 by default; the
+    /// toggle is also exposed as a public resource so a settings
+    /// menu / pause overlay can flip it.
+    ///
+    /// Default is `true` on the visible/desktop build so the touch
+    /// HUD shows immediately when the game launches with
+    /// `--features mobile_touch`. Disable with F2 if testing
+    /// keyboard/gamepad input flow without HUD overlap.
+    #[derive(Resource, Clone, Copy, Debug)]
+    pub struct TouchControlsVisible(pub bool);
+
+    impl Default for TouchControlsVisible {
+        fn default() -> Self {
+            Self(true)
+        }
+    }
+
+    /// Marker on every touch UI root (action cluster, menu row,
+    /// bezel) so the visibility-sync system can set `Visibility`
+    /// on all of them in one query.
+    #[derive(Component)]
+    pub struct MobileTouchUiRoot;
+
     pub struct MobileTouchPlugin;
 
     impl Plugin for MobileTouchPlugin {
@@ -202,16 +232,56 @@ pub mod bevy_plugin {
             app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
                 .insert_resource(MobileTouchState::default())
                 .insert_resource(TouchButtonEdges::default())
+                .insert_resource(TouchControlsVisible::default())
                 .add_systems(Startup, spawn_touch_buttons)
                 .add_systems(
                     Update,
                     (
+                        toggle_touch_controls_hotkey,
+                        sync_touch_ui_visibility,
                         read_joystick_messages,
                         update_buttons_from_interactions,
                         fold_to_control_frame,
                     )
                         .chain(),
                 );
+        }
+    }
+
+    /// F2 toggles the touch HUD on/off. Useful on desktop when
+    /// developing keyboard/gamepad flow but the touch UI is
+    /// overlapping the gameplay area.
+    fn toggle_touch_controls_hotkey(
+        keys: Res<ButtonInput<KeyCode>>,
+        mut visible: ResMut<TouchControlsVisible>,
+    ) {
+        if keys.just_pressed(KeyCode::F2) {
+            visible.0 = !visible.0;
+            info!(
+                "MobileTouchPlugin: touch controls {}",
+                if visible.0 { "shown" } else { "hidden" }
+            );
+        }
+    }
+
+    /// Mirror `TouchControlsVisible` onto every `MobileTouchUiRoot`
+    /// node. Bevy `Visibility` propagates to children, so flipping
+    /// the root nodes hides every button + bezel + stick UI in one
+    /// pass.
+    fn sync_touch_ui_visibility(
+        visible: Res<TouchControlsVisible>,
+        mut query: Query<&mut Visibility, With<MobileTouchUiRoot>>,
+    ) {
+        if !visible.is_changed() {
+            return;
+        }
+        let target = if visible.0 {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        for mut vis in &mut query {
+            *vis = target;
         }
     }
 
@@ -261,10 +331,26 @@ pub mod bevy_plugin {
     /// so the tap targets are differentiated rather than identical
     /// gray squares.
     fn spawn_touch_buttons(mut cmd: Commands) {
-        // -- Gameplay action buttons (bottom-right corner cluster) --
-        // 6 buttons at 56x56 with 4px margin each = 64x64 per cell.
-        // 3 columns x 2 rows fits in 192x128. Bottom-right anchored,
-        // translucent so the gameplay view behind stays visible.
+        // -- Mobile HUD bezel + gameplay action buttons --
+        // Per Jon's "pad the left and right parts of the screen ...
+        // could be the start of a mobile hud" note, frame the touch
+        // cluster with a slightly darker translucent backdrop so the
+        // buttons read as a HUD strip rather than floating sprites
+        // over gameplay. Some overlap with gameplay view is OK; the
+        // bezel just signals "this region is HUD".
+        cmd.spawn((
+            Node {
+                width: Val::Px(216.0),
+                height: Val::Px(152.0),
+                position_type: PositionType::Absolute,
+                right: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.04, 0.05, 0.08, 0.45)),
+            Name::new("MobileTouchActionBezel"),
+            MobileTouchUiRoot,
+        ));
         cmd.spawn((
             Node {
                 width: Val::Px(192.0),
@@ -279,6 +365,7 @@ pub mod bevy_plugin {
                 ..default()
             },
             Name::new("MobileTouchActionCluster"),
+            MobileTouchUiRoot,
         ))
         .with_children(|parent| {
             for action in [
@@ -316,6 +403,7 @@ pub mod bevy_plugin {
                 ..default()
             },
             Name::new("MobileTouchMenuRow"),
+            MobileTouchUiRoot,
         ))
         .with_children(|parent| {
             for action in [TouchActionButton::Start, TouchActionButton::Reset] {
@@ -457,12 +545,18 @@ pub mod bevy_plugin {
 
     /// Write the latest `MobileTouchState` into `ControlFrame`. The
     /// desktop input pipeline does the same via Leafwing; both run
-    /// from a presentation-side system. The presentation harness
-    /// chooses which one to register based on the feature flag.
+    /// from a presentation-side system. When the touch UI is hidden
+    /// (`TouchControlsVisible(false)`), this fold is skipped entirely
+    /// so the desktop input flow isn't stomped by the (now-invisible)
+    /// touch UI.
     fn fold_to_control_frame(
         state: Res<MobileTouchState>,
+        visible: Res<TouchControlsVisible>,
         mut frame: ResMut<ControlFrame>,
     ) {
+        if !visible.0 {
+            return;
+        }
         // Use slightly-tighter deadzones than the desktop defaults --
         // touch sticks rarely have drift, so a smaller deadzone gives
         // a more responsive feel.

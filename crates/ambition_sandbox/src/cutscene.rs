@@ -84,6 +84,33 @@ pub fn default_cutscene_library() -> CutsceneLibrary {
     );
     lib.insert(
         ae::CutsceneScript::new(
+            "cutscene_lab_intro",
+            vec![
+                ae::CutsceneBeat::Banner {
+                    text: "// cutscene proof".into(),
+                    seconds: 1.0,
+                },
+                ae::CutsceneBeat::Dialogue {
+                    speaker: "WARDEN".into(),
+                    text: "This is the cutscene-proof room. The seen-flag stops me from talking twice."
+                        .into(),
+                },
+                ae::CutsceneBeat::Wait { seconds: 0.4 },
+                ae::CutsceneBeat::Dialogue {
+                    speaker: "WARDEN".into(),
+                    text: "Hold Reset to skip cutscenes -- useful when you've heard a beat already."
+                        .into(),
+                },
+                ae::CutsceneBeat::SetFlag {
+                    id: "cutscene_lab_intro_seen".into(),
+                    on: true,
+                },
+            ],
+        )
+        .with_seen_flag("cutscene_lab_intro_seen"),
+    );
+    lib.insert(
+        ae::CutsceneScript::new(
             "boss_intro_gradient_sentinel",
             vec![
                 ae::CutsceneBeat::Banner {
@@ -128,6 +155,10 @@ impl RoomCutsceneBindings {
                     "basement_boss".into(),
                     "boss_intro_gradient_sentinel".into(),
                 ),
+                // Cutscene proof room reachable from the basement.
+                // Demonstrates the entry-trigger + seen-flag + skip
+                // flow on a non-default cutscene.
+                ("cutscene_lab".into(), "cutscene_lab_intro".into()),
             ],
         }
     }

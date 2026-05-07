@@ -1,0 +1,88 @@
+# Cutscene lab — entry-trigger cutscene proof room.
+#
+# Demonstrates the `auto_trigger_room_cutscenes` mechanism in
+# `crate::cutscene`. The first time the player walks into this
+# room, the `cutscene_lab_intro` cutscene fires; the seen-flag
+# guards against re-runs. A held-Reset (Backspace/Select) skips
+# the cutscene per the cutscene/skip-hold flow.
+#
+# Layout (768x384):
+#
+#   +------------------------------------+
+#   | [PlayerStart]                       |
+#   |                                    |
+#   | (room is empty -- the cutscene is   |
+#   |  the experience)                    |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +------------------------------------+
+#                  ↑
+#       LoadingZone back to basement
+id: cutscene_lab
+level_id: cutscene_lab
+world_x: 28400
+world_y: 1024
+px_wid: 768
+px_hei: 384
+fill_collision: empty
+biome: lab
+connect_to:
+  - target_room: central_hub_basement
+    # Free spot in the basement door row, after ladder_lab door at
+    # x=420 (ends at 468). Pick x=496 so we sit cleanly in the gap
+    # between ladder_lab and the existing basement_breakables door
+    # at x=576.
+    px: [496, 832]
+    size: [48, 96]
+    id: cutscene_lab_door
+    target_zone: cutscene_lab_entry
+    activation: Door
+    bidirectional: true
+
+entities:
+  # Floor.
+  - type: Solid
+    px: [0, 352]
+    size: [768, 32]
+    fields: { name: floor }
+  # Outer walls + ceiling.
+  - type: Solid
+    px: [0, 0]
+    size: [16, 352]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [752, 0]
+    size: [16, 352]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [736, 32]
+    fields: { name: ceiling }
+
+  - type: PlayerStart
+    px: [80, 306]
+    size: [28, 46]
+    fields: { name: cutscene_lab_spawn }
+
+  - type: LoadingZone
+    px: [16, 256]
+    size: [48, 96]
+    fields:
+      id: cutscene_lab_entry
+      name: cutscene_lab_entry
+      activation: Door
+      target_room: central_hub_complex
+      target_zone: cutscene_lab_door
+      bidirectional: true
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [768, 384]
+    fields: { id: cutscene_lab_camera, name: cutscene_lab_camera, mode: Default }
+
+  - type: DebugLabel
+    px: [80, 80]
+    size: [400, 24]
+    fields:
+      name: cutscene_lab_intro_label
+      text: "Cutscene fires on first entry. Hold Reset to skip."
+      category: Custom

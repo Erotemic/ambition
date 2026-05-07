@@ -65,4 +65,13 @@ source is still `crates/ambition_sandbox/assets/ambition/sandbox.ron`. Once a
 tuned value feels good, copy it back to the RON manifest or promote it to a more
 formal editor/save workflow later.
 
-Implementation note: `ResourceInspectorPlugin` and `WorldInspectorPlugin` require `EguiPlugin::default()` to be added first. Keep `EguiPlugin` immediately after `DefaultPlugins` in `main.rs` so the inspector quick plugins can initialize safely.
+Implementation note: `ResourceInspectorPlugin` and `WorldInspectorPlugin` require `EguiPlugin::default()` to be added first. The visible-app builder in `crates/ambition_sandbox/src/app.rs` (`add_presentation_plugins`) registers `EguiPlugin` immediately after `DefaultPlugins` so the inspector quick plugins can initialize safely.
+
+## Other dev hotkeys (cross-references)
+
+These hotkeys live in their own modules but are listed here for discoverability. Their full documentation is in the linked module:
+
+- `F8` — gameplay trace recorder dump (`crate::trace::handle_trace_hotkey`).
+- `F11` — manual LDtk hot-reload.
+- `F12` — toggle LDtk auto-reload polling.
+- `F6` / `F7` — display mode hotkeys (windowed / borderless); see `docs/display_modes.md`.

@@ -269,4 +269,19 @@ mod tests {
         assert_eq!(block.trigger, BreakableTrigger::OnHit);
         assert!(!block.pogo_refresh);
     }
+
+    #[test]
+    fn chest_default_state_is_closed_and_persistent() {
+        // Chests default to Closed and persistent=true so the save
+        // system records them automatically; reward is propagated as
+        // given (None for empty chests / triggers).
+        let chest = Chest::new("hub_chest", Some(PickupKind::Health { amount: 2 }));
+        assert_eq!(chest.state, ChestState::Closed);
+        assert!(chest.persistent);
+        assert_eq!(chest.reward, Some(PickupKind::Health { amount: 2 }));
+
+        let empty = Chest::new("decoration", None);
+        assert_eq!(empty.state, ChestState::Closed);
+        assert!(empty.reward.is_none());
+    }
 }

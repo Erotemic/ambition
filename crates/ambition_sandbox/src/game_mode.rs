@@ -40,3 +40,38 @@ impl GameMode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn allows_gameplay_only_in_playing() {
+        assert!(GameMode::Playing.allows_gameplay());
+        assert!(!GameMode::Paused.allows_gameplay());
+        assert!(!GameMode::Dialogue.allows_gameplay());
+        assert!(!GameMode::RoomTransition.allows_gameplay());
+        assert!(!GameMode::Cutscene.allows_gameplay());
+    }
+
+    #[test]
+    fn default_is_playing() {
+        assert_eq!(GameMode::default(), GameMode::Playing);
+    }
+
+    #[test]
+    fn labels_are_unique_and_non_empty() {
+        let labels = [
+            GameMode::Playing.label(),
+            GameMode::Paused.label(),
+            GameMode::Dialogue.label(),
+            GameMode::RoomTransition.label(),
+            GameMode::Cutscene.label(),
+        ];
+        for label in labels {
+            assert!(!label.is_empty());
+        }
+        let unique: std::collections::HashSet<_> = labels.iter().collect();
+        assert_eq!(unique.len(), labels.len(), "labels must be unique");
+    }
+}

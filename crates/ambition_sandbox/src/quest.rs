@@ -177,3 +177,61 @@ pub fn apply_quest_advance_events(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn first_steps_spec() -> ae::QuestSpec {
+        default_quest_specs()
+            .into_iter()
+            .find(|s| s.id == "first_steps")
+            .expect("first_steps spec")
+    }
+
+    #[test]
+    fn ensure_inserts_idempotently() {
+        let mut registry = QuestRegistry::default();
+        let spec = first_steps_spec();
+        registry.ensure(spec.clone());
+        registry.ensure(spec);
+        assert_eq!(registry.quests.len(), 1);
+    }
+
+    #[test]
+    fn start_requires_existing_quest() {
+        let mut registry = QuestRegistry::default();
+        assert!(!registry.start("nonexistent"));
+        registry.ensure(first_steps_spec());
+        assert!(registry.start("first_steps"));
+    }
+
+    #[test]
+    fn quest_log_lines_skips_inactive_unstarted_quests() {
+        let mut registry = QuestRegistry::default();
+        registry.ensure(first_steps_spec());
+        // Default state is "unstarted", neither is_active nor is_complete.
+        assert!(registry.quest_log_lines().is_empty());
+        registry.start("first_steps");
+        assert!(!registry.quest_log_lines().is_empty());
+    }
+
+    #[test]
+    fn active_quest_summary_finds_one_active() {
+        let mut registry = QuestRegistry::default();
+        registry.ensure(first_steps_spec());
+        assert!(registry.active_quest_summary().is_none());
+        registry.start("first_steps");
+        let summary = registry.active_quest_summary();
+        assert!(summary.is_some());
+        assert!(summary.unwrap().contains("First Steps"));
+    }
+
+    #[test]
+    fn push_event_buffers_pending() {
+        let mut registry = QuestRegistry::default();
+        registry.push_event(ae::QuestAdvanceEvent::FlagSet("foo".into()));
+        registry.push_event(ae::QuestAdvanceEvent::FlagSet("bar".into()));
+        assert_eq!(registry.pending_events.len(), 2);
+    }
+}

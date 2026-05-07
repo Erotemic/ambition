@@ -180,6 +180,14 @@ pub struct Player {
     /// `SandboxRuntime::slash_damage` so per-player tuning is engine
     /// state, not sandbox-only state.
     pub damage_multiplier: i32,
+    /// Generic resource meter the player spends on charge attacks /
+    /// special abilities. Defaults to a full 100/100 meter with no
+    /// regen / decay. Surfaced through `crate::ResourceMeter` so any
+    /// future ability can wire `try_spend` / `tick_regen`. Promoted
+    /// from `SandboxRuntime::mana_current` / `mana_max` (kept as i32
+    /// in the sandbox for the F3 inspector — this struct's f32
+    /// internals are converted at the editor boundary).
+    pub mana: crate::ResourceMeter,
     /// True → all incoming damage to this player is dropped before HP
     /// math runs. Used by the F3 stats editor's "invincible" toggle and
     /// any future invuln-frame mechanics.
@@ -254,6 +262,7 @@ impl Player {
             resets: 0,
             damage_multiplier: 1,
             invincible: false,
+            mana: crate::ResourceMeter::new(100.0, 0.0, 0.0),
             body_mode: crate::player_state::BodyMode::Standing,
             water_contact: None,
         }

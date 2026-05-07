@@ -440,12 +440,13 @@ pub fn sync_player_stats_with_inspector(
     }
     snapshot.health = stats.health;
     snapshot.max_health = stats.max_health;
-    // Mirror player mana into the sandbox runtime. The engine's
-    // `Player` doesn't carry mana yet (no consuming ability needs
-    // it); `SandboxRuntime::mana_current/_max` is the canonical
-    // sandbox-side store so the inspector field round-trips.
-    runtime.mana_current = stats.mana.clamp(0, stats.max_mana.max(0));
-    runtime.mana_max = stats.max_mana.max(0);
+    // Mana now lives on `Player::mana` (engine `ResourceMeter`); the
+    // inspector still surfaces i32 fields for player-friendly editing
+    // and the conversion happens at this boundary. Future
+    // mana-consuming abilities call `try_spend` directly on the meter.
+    let max_mana = stats.max_mana.max(0);
+    runtime.player.mana.max = max_mana as f32;
+    runtime.player.mana.current = stats.mana.clamp(0, max_mana) as f32;
     // Combat tuning + invincibility now live on `Player` (engine-side)
     // so per-player state is engine state, not sandbox state.
     runtime.player.damage_multiplier = stats.slash_damage.max(1);

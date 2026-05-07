@@ -169,12 +169,6 @@ pub struct SandboxRuntime {
     /// triggered so the sprite plays the Slash row even after the brief
     /// hitstop window ends. Decays toward 0 in the gameplay loop.
     pub slash_anim_timer: f32,
-    /// Sandbox-side player mana. Not yet a real engine resource (no
-    /// consuming ability); the F3 stats editor reads/writes it so
-    /// future abilities can tap a single canonical store. Defaults
-    /// to `mana_max` on construction.
-    pub mana_current: i32,
-    pub mana_max: i32,
     /// Ledge grab state. `Some` while the player is hanging on a
     /// ledge — gravity is suspended and Up + Jump kicks off the
     /// climb. `None` otherwise. Only mutated by `update_ledge_grab`.
@@ -238,8 +232,6 @@ impl SandboxRuntime {
             physics_settings,
             room_transition_cooldown: 0.0,
             slash_anim_timer: 0.0,
-            mana_current: 100,
-            mana_max: 100,
             ledge_grab: None,
             double_tap_down_pending: false,
         }
@@ -269,7 +261,7 @@ impl SandboxRuntime {
         // because `reset_to` only touches movement state, not these
         // gameplay tunables — so testers don't lose their F3
         // settings on every respawn.
-        self.mana_current = self.mana_max;
+        self.player.mana.refill_full();
         self.ledge_grab = None;
     }
 

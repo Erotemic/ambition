@@ -31,6 +31,7 @@ Status badges:
 - **Glide / slow-fall ability** `[stable]` — held-jump while airborne caps fall speed at `glide_fall_speed` (220, vs `max_fall_speed` 1040) and boosts air accel to `glide_air_accel` (6200, vs `air_accel` 4700). Cancels on land / fast-fall / blink-hang / water. `Player::gliding` flag drives sandbox sprite/sfx hooks. [movement.rs](crates/ambition_engine/src/movement.rs).
 - **`evaluate_character_ai` vocabulary** `[stable]` — engine fn returning `CharacterAiMode`; per-brain knobs (`chase_speed`, `aggro_radius`) on archetypes. [character_ai.rs:98](crates/ambition_engine/src/character_ai.rs#L98), [features.rs:1233](crates/ambition_sandbox/src/features.rs#L1233). Commit `93b4e05`.
 - **`Player::damage_multiplier` + `Player::invincible`** `[stable]` — promoted from `SandboxRuntime` to engine-side per-player state. Outgoing slash damage scales by `damage_multiplier`; incoming damage drops if `invincible`. F3 stats editor writes these directly on the player. Survives reset (settings preserved per tester intent). [movement.rs](crates/ambition_engine/src/movement.rs).
+- **`Player::mana: ResourceMeter`** `[stable]` — promoted from sandbox `SandboxRuntime::mana_current/max` (i32) to the existing engine `ResourceMeter` type (f32 with regen/decay/try_spend). F3 inspector still surfaces i32; conversion happens at the editor boundary. Reset refills via `refill_full`. [movement.rs](crates/ambition_engine/src/movement.rs), [player_state.rs:330](crates/ambition_engine/src/player_state.rs#L330).
 
 ## Combat & projectiles
 

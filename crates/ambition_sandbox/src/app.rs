@@ -2676,7 +2676,7 @@ fn update_hud(
         runtime.player_health.max,
         runtime.player.dash_charges_available,
         runtime.player.air_jumps_available,
-        runtime.mana_current,
+        runtime.player.mana.current as i32,
         runtime.player.combo_symbols(),
         runtime.player.current_combo_hint(),
         preset.name,

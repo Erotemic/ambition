@@ -122,6 +122,10 @@ Status badges:
 - **Sprite generator + component sheet tooling** `[stable]`. Commits `4016e2e`, `95f7fd9`, `553186a`, `e3ca24e`.
 - **AI-driven enemy update tool** `[stable]`. Commit `f8a75b6`.
 
+## Continuous integration
+
+- **GitHub Actions test workflow** `[stable]` — `.github/workflows/test.yml` runs three jobs on push / PR: (1) `cargo test -p ambition_engine` (engine library + proptest fuzzers), (2) `cargo test -p ambition_sandbox --lib` + `repro_walls` integration test + a `cargo run --bin headless -- 60` smoke pass, (3) `cargo fmt --check` + `cargo clippy` (informational, non-blocking).
+
 ## Tests / observability
 
 - **Wall-jump repro test** `[stable]` — [tests/repro_walls.rs](crates/ambition_sandbox/tests/repro_walls.rs).

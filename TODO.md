@@ -91,7 +91,6 @@
 ## B — Authoring ergonomics, validators, audio polish
 
 - [ ] **Adaptive music phase transitions in boss room** `[V4/D3]` — stem-blend/layered tracks via existing [music.rs](crates/ambition_sandbox/src/music.rs) hooked to `BossPhase`. Cues already authored. Source: `tmp-todo-notes.txt`.
-- [ ] `cargo test` smoke for `headless` binary in CI `[V4/D2]`
 
 ## C — Engine cleanups (compounding)
 

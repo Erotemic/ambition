@@ -318,7 +318,7 @@ impl World {
             let Some(time_of_impact) = body.sweep_time_of_impact(delta, block.aabb) else {
                 continue;
             };
-            if best.map_or(true, |hit| time_of_impact < hit.time_of_impact) {
+            if best.is_none_or(|hit| time_of_impact < hit.time_of_impact) {
                 best = Some(SweepHit {
                     block,
                     time_of_impact,

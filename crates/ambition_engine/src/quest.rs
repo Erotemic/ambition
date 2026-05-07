@@ -154,9 +154,9 @@ impl QuestState {
     pub fn apply_persisted(&mut self, state: PersistedQuestState, step: u8) {
         let max = self.spec.steps.len() as u8;
         self.progression = state;
-        self.step = step.min(max.saturating_sub(1).max(0));
+        self.step = step.min(max.saturating_sub(1));
         if matches!(state, PersistedQuestState::Completed | PersistedQuestState::Failed) {
-            self.step = max.saturating_sub(1).max(0);
+            self.step = max.saturating_sub(1);
         }
     }
 

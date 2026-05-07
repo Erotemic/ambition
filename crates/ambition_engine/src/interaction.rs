@@ -47,10 +47,10 @@ pub enum InteractionKind {
         /// Half-range of the NPC's patrol pace, in world pixels.
         /// `0.0` (the default) means the NPC stands still; values
         /// > 0 make the NPC pace between
-        /// `[spawn_x - patrol_radius, spawn_x + patrol_radius]`
-        /// at the sandbox's authored patrol speed. The NPC stops
-        /// inside the player's `talk_radius` so the player can
-        /// open dialog without chasing a moving target.
+        /// > `[spawn_x - patrol_radius, spawn_x + patrol_radius]`
+        /// > at the sandbox's authored patrol speed. The NPC stops
+        /// > inside the player's `talk_radius` so the player can
+        /// > open dialog without chasing a moving target.
         ///
         /// Engine model only — the actual movement / gravity /
         /// collision lives in `ambition_sandbox::features::NpcRuntime`.

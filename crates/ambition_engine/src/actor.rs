@@ -121,8 +121,10 @@ impl Health {
 
 /// How temporary/destructible entities return after being consumed or killed.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Default)]
 pub enum RespawnPolicy {
     /// Never respawn inside the current run/session.
+    #[default]
     Never,
     /// Respawn after a timer in simulation seconds.
     AfterSeconds(f32),
@@ -132,11 +134,6 @@ pub enum RespawnPolicy {
     Persistent,
 }
 
-impl Default for RespawnPolicy {
-    fn default() -> Self {
-        Self::Never
-    }
-}
 
 /// Declarative movement path for moving platforms, spike balls, patrol dummies,
 /// and later scripted boss hazards.

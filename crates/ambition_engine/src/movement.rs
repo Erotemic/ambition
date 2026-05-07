@@ -336,7 +336,7 @@ impl Player {
         let Some(a) = self.combo.iter().rev().nth(1).map(|m| m.op) else {
             return "build a chain: jump, dash, pogo, rebound";
         };
-        let Some(b) = self.combo.iter().rev().next().map(|m| m.op) else {
+        let Some(b) = self.combo.iter().next_back().map(|m| m.op) else {
             return "build a chain: jump, dash, pogo, rebound";
         };
         match (a, b) {

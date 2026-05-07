@@ -1,7 +1,7 @@
 [project]
-name = "ambition-musicir-renderer"
-version = "0.3.0"
-description = "Data-driven non-ML adaptive music renderer for Ambition MusicIR YAML specs"
+name = "ambition-music-renderer"
+version = "0.4.0"
+description = "Data-driven adaptive music renderer for Ambition MusicIR YAML scores"
 requires-python = ">=3.10"
 dependencies = [
   "numpy",
@@ -17,4 +17,5 @@ dependencies = [
 ]
 
 [project.scripts]
+ambition-music-renderer = "ambition_music_renderer.cli:main"
 render-ambition-music = "ambition_music_renderer.musicir_renderer:main"

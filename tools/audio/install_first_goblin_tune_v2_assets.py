@@ -83,7 +83,9 @@ def _autodetect_src() -> Path:
     """
     candidates = [
         repo_root() / "target/generated-audio" / CUE_ID,
-        repo_root() / "tools/audio/music_renderer/output" / CUE_ID,
+        repo_root() / "tools/ambition_music_renderer/generated" / CUE_ID,
+        repo_root() / "tools/ambition_music_renderer/output" / CUE_ID,
+        repo_root() / "tools/audio/music_renderer/output" / CUE_ID,  # legacy
     ]
     scored: list[tuple[float, Path]] = []
     for c in candidates:

@@ -60,11 +60,21 @@ crates/ambition_sandbox/assets/fonts/
 crates/ambition_sandbox/assets/audio/
 
 # Generated audio tooling - renderer outputs and installed binaries.
-# Source code (tools/audio/music_renderer/, install scripts) is tracked.
+# Source code (tools/ambition_music_renderer/, install scripts) is tracked.
 tools/audio/**/output/
 tools/audio/**/__pycache__/
 tools/audio/**/*.pyc
 target/generated-audio/
+
+# Standalone tool projects: generated outputs and per-tool venvs/caches.
+tools/ambition_music_renderer/output/
+tools/ambition_music_renderer/generated/
+tools/ambition_sprite2d_renderer/generated/
+tools/experimental/**/generated/
+tools/experimental/**/assets/
+tools/**/.venv/
+tools/**/__pycache__/
+tools/**/*.egg-info/
 *.ogg
 *.wav
 *.mid

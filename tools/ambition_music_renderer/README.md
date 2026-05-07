@@ -1,17 +1,40 @@
-# Ambition MusicIR Renderer
+# Ambition Music Renderer
 
 Code-only Python tool that renders Ambition MusicIR YAML scores into adaptive
 OGG stems and a set of preview mixes.
 
 This package is the canonical audio generator for the project. **No rendered
-`.ogg`, `.wav`, or `.mid` is committed.** Generate assets locally.
+`.ogg`, `.wav`, or `.mid` is committed.** Generate assets locally under
+`generated/<cue>/`, then publish explicitly into the bevy asset tree.
+
+## Modal CLI
+
+```
+python -m ambition_music_renderer render <cue>
+python -m ambition_music_renderer publish <cue>
+python -m ambition_music_renderer render-publish <cue>
+
+# sandbox cues (lofi_study_loop, long_lofi_drift, pulse_drift_voyage):
+python -m ambition_music_renderer sandbox render-publish
+python -m ambition_music_renderer sandbox render-publish --cue lofi_study_loop
+python -m ambition_music_renderer sandbox publish --skip-render
+```
+
+`<cue>` resolves against `scores/active/`, `scores/examples/`, then
+`scores/archive/`. You can also pass an explicit YAML path.
+
+`render-publish` skips the render step when the YAML mtime is older than the
+latest preview. Pass `--force-render` to re-render.
+
+`publish` copies the newest hashed `<cue>_<hash>.full_soundtrack_preview.ogg`
+to `crates/ambition_sandbox/assets/audio/music/generated/<cue>/full.ogg`.
 
 ## Installing dependencies
 
 One-shot setup:
 
 ```bash
-cd tools/audio/music_renderer
+cd tools/ambition_music_renderer
 ./setup.sh                # apt + pip dependencies (FluidSynth, SoundFonts, etc.)
 uv venv .venv             # if not already created
 source .venv/bin/activate
@@ -85,10 +108,10 @@ renders still load the game.
 For any cue manually:
 
 ```bash
-cd tools/audio/music_renderer
+cd tools/ambition_music_renderer
 source .venv/bin/activate
 python -m ambition_music_renderer.render_isolated \
-    examples/<cue>.music.yaml \
+    scores/active/<cue>.music.yaml \
     --outdir output/<cue> \
     --backend pretty-midi
 ```
@@ -129,7 +152,13 @@ approximation of what playback in-engine sounds like.
 
 ## Score file format (high level)
 
-Each cue is a YAML file under `examples/`. The structure is:
+Each cue is a YAML file under `scores/`. Layout:
+
+- `scores/active/` — cues actively used by the sandbox runtime.
+- `scores/examples/` — reference / example cues kept for development.
+- `scores/archive/` — historical cues kept for reference.
+
+The structure is:
 
 - **`tempo` / `meter`** — BPM and beats-per-bar.
 - **`render`** — sample rate, OGG quality, default backend, SoundFont pin.
@@ -190,7 +219,7 @@ Each cue is a YAML file under `examples/`. The structure is:
   to override the master ambience for that section's `.full.ogg` slice
   (intimate intro vs cathedral climax without remixing every stem).
 
-See `examples/violin_boss_relentless.music.yaml` for a thoroughly-commented
+See `scores/examples/violin_boss_relentless.music.yaml` for a thoroughly-commented
 production example.
 
 ## Existing example cues

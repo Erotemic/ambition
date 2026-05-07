@@ -9,7 +9,7 @@
 #   AMBITION_MUSIC_BACKEND=pretty-midi|fluidsynth-cli|fallback|auto
 #
 # Output staging / preview:
-#   tools/audio/music_renderer/output/first_goblin_tune_v2/
+#   tools/ambition_music_renderer/generated/first_goblin_tune_v2/
 #
 # Installed assets:
 #   crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2/
@@ -18,9 +18,9 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
-renderer_dir="$repo_root/tools/audio/music_renderer"
-spec="$renderer_dir/examples/first_goblin_tune_v2.music.yaml"
-staging="$renderer_dir/output/first_goblin_tune_v2"
+renderer_dir="$repo_root/tools/ambition_music_renderer"
+spec="$renderer_dir/scores/active/first_goblin_tune_v2.music.yaml"
+staging="$renderer_dir/generated/first_goblin_tune_v2"
 installer="$repo_root/tools/audio/install_first_goblin_tune_v2_assets.py"
 backend="${AMBITION_MUSIC_BACKEND:-pretty-midi}"
 

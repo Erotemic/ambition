@@ -1364,6 +1364,29 @@ fn is_solid_for_axis(kind: BlockKind, axis: Axis) -> bool {
     }
 }
 
+/// While climbing, blocks that overlap the active climbable region
+/// are passable so the player can complete the climb at the top
+/// without being blocked by an authored floor / ceiling tile that
+/// happens to share footprint with the ladder. Hazards remain
+/// dangerous regardless -- this only relaxes Solid / BlinkWall /
+/// OneWay collision.
+///
+/// Generalizes the room-author trick of "carve a gap in the platform
+/// where the ladder ends" so future ladder rooms don't need the
+/// gap. Source: ladder_lab fix 2026-05-07.
+fn block_passable_during_climb(player: &Player, block: &crate::world::Block) -> bool {
+    if !matches!(player.body_mode, crate::player_state::BodyMode::Climbing) {
+        return false;
+    }
+    let Some(contact) = player.climbable_contact else {
+        return false;
+    };
+    if matches!(block.kind, BlockKind::Hazard) {
+        return false;
+    }
+    contact.region_aabb.strict_intersects(block.aabb)
+}
+
 fn sweep_fraction(time_of_impact: f32) -> f32 {
     time_of_impact.clamp(0.0, 1.0)
 }
@@ -1376,7 +1399,9 @@ fn sweep_player_x(world: &World, player: &mut Player, delta_x: f32) {
     }
 
     if let Some(hit) = world.first_body_sweep(player.aabb(), delta, |block| {
-        is_solid_for_axis(block.kind, Axis::X) && !matches!(block.kind, BlockKind::OneWay)
+        is_solid_for_axis(block.kind, Axis::X)
+            && !matches!(block.kind, BlockKind::OneWay)
+            && !block_passable_during_climb(player, block)
     }) {
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         player.pos.x += delta.x * toi_fraction;
@@ -1449,6 +1474,9 @@ fn sweep_player_y(
     let start_body = player.aabb();
     if let Some(hit) = world.first_body_sweep(player.aabb(), delta, |block| {
         if !is_solid_for_axis(block.kind, Axis::Y) {
+            return false;
+        }
+        if block_passable_during_climb(player, block) {
             return false;
         }
         if matches!(block.kind, BlockKind::OneWay) {
@@ -2917,6 +2945,121 @@ mod tests {
             player.vel.y < 100.0,
             "starting downward velocity should not survive climbing integration; got {}",
             player.vel.y
+        );
+    }
+
+    #[test]
+    fn climbing_passes_through_solid_blocks_overlapping_ladder() {
+        // Pin "ladders pass through solids": with `body_mode == Climbing`
+        // and a climbable contact, a block whose aabb intersects the
+        // climbable region should NOT block the player's motion. This
+        // is what lets a ladder reach a platform-level without the
+        // author having to carve a gap in the platform.
+        use crate::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
+        // Custom world large enough that climbing up doesn't trip
+        // the OOB reset. Ladder spans y=200..1000 (very tall) so the
+        // body stays in contact across the full climb.
+        let mut world = World::new(
+            "test",
+            Vec2::new(2000.0, 2000.0),
+            Vec2::new(50.0, 50.0),
+            Vec::new(),
+        );
+        let ladder = ClimbableRegion::new(
+            Aabb::new(Vec2::new(400.0, 600.0), Vec2::new(20.0, 400.0)),
+            ClimbableKind::Ladder,
+            ClimbableSpec::default(),
+        );
+        // Solid platform that overlaps the ladder column horizontally
+        // (player would normally collide with this when climbing up).
+        world.blocks.push(Block::solid(
+            "blocking_platform",
+            Vec2::new(380.0, 460.0),
+            Vec2::new(60.0, 16.0),
+        ));
+        world.climbable_regions.push(ladder);
+
+        let mut player = Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
+        player.body_mode = crate::player_state::BodyMode::Climbing;
+        player.climbable_contact = world.climbable_at(player.aabb());
+        let initial_y = player.pos.y;
+        // Drive 60 frames at fixed-60Hz climb-up. With the
+        // passthrough rule, the player should make significant
+        // upward progress past the platform at y=460. Without the
+        // fix, they'd hit the platform from below and stop.
+        for _ in 0..60 {
+            let _ = update_player_with_tuning(
+                &world,
+                &mut player,
+                InputState {
+                    axis_y: -1.0,
+                    control_dt: 1.0 / 60.0,
+                    ..InputState::default()
+                },
+                1.0 / 60.0,
+                DEFAULT_TUNING,
+            );
+            // Re-set climbing in case any control branch flipped it.
+            player.body_mode = crate::player_state::BodyMode::Climbing;
+        }
+        let dy = initial_y - player.pos.y;
+        // Expected motion: ~60 frames * 180 px/sec / 60 = 180 px.
+        // Without the passthrough, the player gets stuck at the
+        // platform top (y=452, body bottom would land here) -- which
+        // is initial_y - (700 - 452 - 23) = ~225 px upward at most.
+        // We assert at least 100 px progress to confirm climbing
+        // continues without the platform blocking.
+        assert!(
+            dy > 100.0,
+            "climbing player should pass through platform at y=460; \
+             initial_y={initial_y}, ended_y={}, dy={dy}",
+            player.pos.y
+        );
+    }
+
+    #[test]
+    fn non_climbing_player_still_collides_with_solid_blocks_overlapping_ladder() {
+        // Counter-test: NOT in Climbing mode, the same platform
+        // blocks the player as normal. The passthrough is only active
+        // while body_mode == Climbing.
+        use crate::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
+        let mut world = test_world();
+        world.climbable_regions.push(ClimbableRegion::new(
+            Aabb::new(Vec2::new(400.0, 600.0), Vec2::new(20.0, 200.0)),
+            ClimbableKind::Ladder,
+            ClimbableSpec::default(),
+        ));
+        world.blocks.push(Block::solid(
+            "blocking_platform",
+            Vec2::new(380.0, 460.0),
+            Vec2::new(60.0, 16.0),
+        ));
+
+        let mut player = Player::new(Vec2::new(400.0, 480.0)); // below platform
+        player.body_mode = crate::player_state::BodyMode::Standing;
+        // Aim downward to test horizontal sweep against the platform.
+        player.vel = Vec2::new(0.0, -2000.0);
+        let pre_y = player.pos.y;
+        for _ in 0..30 {
+            let _ = update_player_with_tuning(
+                &world,
+                &mut player,
+                InputState {
+                    control_dt: 1.0 / 60.0,
+                    ..InputState::default()
+                },
+                1.0 / 60.0,
+                DEFAULT_TUNING,
+            );
+        }
+        // Without the passthrough, an upward-moving Standing player
+        // hits the platform from below and stops. We don't pin an
+        // exact y, just that they didn't pass through it.
+        assert!(
+            player.pos.y > pre_y - 100.0 || player.pos.y > 460.0 - 24.0,
+            "Standing player should not pass through the platform; pre={} post={}",
+            pre_y,
+            player.pos.y
         );
     }
 

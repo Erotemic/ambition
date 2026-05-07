@@ -100,3 +100,44 @@ impl SandboxFeelTuning {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_are_finite_and_positive_where_expected() {
+        let f = SandboxFeelTuning::default();
+        // Time-domain scales between (0, 1] (slow-mo etc.).
+        assert!(f.bullet_time_scale > 0.0 && f.bullet_time_scale <= 1.0);
+        assert!(f.blink_hold_slow_scale > 0.0 && f.blink_hold_slow_scale <= 1.0);
+        assert!(f.debug_slowmo_scale > 0.0 && f.debug_slowmo_scale <= 1.0);
+        // Hitstun control scale is also < 1 (player loses authority briefly).
+        assert!(f.hitstun_control_scale >= 0.0 && f.hitstun_control_scale < 1.0);
+        // Time windows / cooldowns are positive.
+        assert!(f.down_double_tap_window > 0.0);
+        assert!(f.up_double_tap_window > 0.0);
+        assert!(f.interaction_buffer_time > 0.0);
+        // Boss attack windups should be longer than enemy windups
+        // (otherwise the boss telegraph is less readable than a
+        // basic enemy's, which would surprise playtesters).
+        assert!(f.boss_attack_windup > f.enemy_attack_windup);
+        // Boss knockback / hitstun should be punchier than enemy.
+        assert!(f.boss_knockback_x > f.enemy_knockback_x);
+        assert!(f.boss_hitstun_time >= f.enemy_hitstun_time);
+        // Hazard respawn invuln should be at least as long as
+        // knockback invuln (ordinary contact is less punishing than
+        // a hazard wipe).
+        assert!(f.hazard_respawn_invulnerability_time >= f.knockback_invulnerability_time);
+    }
+
+    #[test]
+    fn feature_combat_tuning_extracts_attack_windows() {
+        let f = SandboxFeelTuning::default();
+        let combat = f.feature_combat_tuning();
+        assert_eq!(combat.enemy_attack_windup, f.enemy_attack_windup);
+        assert_eq!(combat.enemy_attack_active, f.enemy_attack_active);
+        assert_eq!(combat.boss_attack_windup, f.boss_attack_windup);
+        assert_eq!(combat.boss_attack_active, f.boss_attack_active);
+    }
+}

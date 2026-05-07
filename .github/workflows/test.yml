@@ -1,10 +1,20 @@
 name: Tests
 
+# Disabled 2026-05-07 per Jon: "I'd also like to disable building this on
+# github actions for now while we are iterating very fast. There is no
+# need to churn the servers with rust CIs until we have something we
+# really need github action testing for. Keep the structure just skip
+# it for now with a note."
+#
+# To re-enable: switch the trigger back to the original push/pull_request
+# block (kept commented below). The structure of the jobs stays intact
+# so re-enabling is a one-line change.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  # pull_request:
+  #   branches: [main]
 
 env:
   CARGO_TERM_COLOR: always

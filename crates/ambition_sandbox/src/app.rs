@@ -2647,60 +2647,46 @@ fn update_hud(
     } else {
         String::new()
     };
+    // Verbose HUD: high-level gameplay readout. Low-level player physics
+    // (velocities, timers, blink/fly flags, hitstop/hitstun/invuln,
+    // time_scale, inspector visibility) live in `bevy-inspector-egui`
+    // (F3) — surfacing them again here just clutters the screen during
+    // play. The compact HUD branch (above) keeps a single-screen
+    // diagnostic dump for when you want everything at once.
     **text = format!(
-        "{}\nmode: {}  room: {}  active {}/{}  size {:.0}x{:.0}\n{}\nvel: ({:+.1}, {:+.1}) speed {:.1} max {:.1}\ngrounded: {} wall: {} dash_charges: {} air_jumps: {} blink_cd {:.2} blink_aim {} fly {} fastfall {} wall_cling: {} wall_climb: {} coyote {:.2} jump_buf {:.2} dash_buf {:.2} interact_buf {:.2}\ncombo: {}\nhint: {}\npreset: {} | movement: {} | {}\nF9/F10 presets  F1 debug  F2 slowmo={}  F3 inspector={}  F4 world-inspector={}  F5 overview={}  F6 windowed  F7 borderless  F8 trace dump  F11 LDtk reload  F12 LDtk auto={} pending={}  Esc mode={}  Delete reset  hitstop {:.2}  hitstun {:.2}  invuln {:.2}  time_scale {:.6}\nLDtk: {}\nLDtk spine: {} entities, raw rev {}, promoted rev {}, promoted {}, last {}, sample {}\n{}\nplayer hp: {}/{}\nenemies: {}\n{}\ngamepad target: {}{}{}{}\n",
+        "{}  mode: {}  room {}/{}  size {:.0}x{:.0}\n\
+         {}\n\
+         hp {}/{}  dash {}  air_jumps {}  charges {}  combo: {}\n\
+         hint: {}\n\
+         preset: {}\n\
+         F1 debug  F2 slowmo  F3 inspector  F4 world-inspector  F5 overview={}  F8 trace dump  F11 LDtk reload  F12 LDtk auto={}  Esc mode={}  Delete reset\n\
+         LDtk: {} (spine {} entities, promoted {})\n\
+         {}\n\
+         enemies: {}\n\
+         {}\n\
+         gamepad: {}{}{}{}\n",
         world.0.name,
         mode.get().label(),
-        "Bevy backend",
         room_set.active + 1,
         room_set.rooms.len(),
         world.0.size.x,
         world.0.size.y,
         zone_hint,
-        runtime.player.vel.x,
-        runtime.player.vel.y,
-        runtime.player.vel.length(),
-        runtime.player.max_speed,
-        runtime.player.on_ground,
-        runtime.player.on_wall,
+        runtime.player_health.current.max(0),
+        runtime.player_health.max,
         runtime.player.dash_charges_available,
         runtime.player.air_jumps_available,
-        runtime.player.blink_cooldown,
-        runtime.player.blink_aiming,
-        runtime.player.fly_enabled,
-        runtime.player.fast_falling,
-        runtime.player.wall_clinging,
-        runtime.player.wall_climbing,
-        runtime.player.coyote_timer,
-        runtime.player.jump_buffer_timer,
-        runtime.player.dash_buffer_timer,
-        runtime.interact_buffer_timer,
+        runtime.mana_current,
         runtime.player.combo_symbols(),
         runtime.player.current_combo_hint(),
         preset.name,
-        preset.movement_label(),
-        preset.action_label(),
-        runtime.slowmo,
-        developer_tools.inspector_visible,
-        developer_tools.world_inspector_visible,
         developer_tools.overview_camera,
         ldtk_reload.auto_apply,
-        ldtk_reload.pending,
         mode.get().label(),
-        runtime.hitstop_timer,
-        runtime.hitstun_timer,
-        runtime.damage_invuln_timer,
-        runtime.time_scale,
         ldtk_reload.last_status,
         ldtk_spine.spawned_entities,
-        ldtk_spine.revision,
-        ldtk_spine_index.revision,
         ldtk_spine_index.promoted_summary(),
-        if ldtk_spine.last_entity.is_empty() { "none" } else { &ldtk_spine.last_entity },
-        if ldtk_spine.sample_entity.is_empty() { "none" } else { &ldtk_spine.sample_entity },
         window_line,
-        runtime.player_health.current.max(0),
-        runtime.player_health.max,
         enemy_health,
         runtime.features.feature_summary(),
         gamepad,

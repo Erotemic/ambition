@@ -95,7 +95,6 @@
 - [ ] `BodyShape::fits_at` property test (proptest) `[V3/D2]`
 - [ ] Wall-jump start-position fuzz in `square_arena` `[V3/D2]`
 - [ ] `cargo test` smoke for `headless` binary in CI `[V4/D2]`
-- [ ] Reduce text in debug HUD now that bevy-inspector is integrated `[V2/D1]`. Source: `tmp-todo-notes.txt`.
 - [ ] Per-cutscene "always skip if seen" flag `[V2/D2]`
 
 ## C — Engine cleanups (compounding)

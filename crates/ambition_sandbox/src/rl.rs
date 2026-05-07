@@ -520,6 +520,20 @@ impl SandboxSim {
     pub fn world_mut(&mut self) -> &mut World {
         self.app.world_mut()
     }
+
+    /// Returns the list of room ids the LDtk project compiled to.
+    /// Useful for smoke tests that want to walk every room
+    /// (`rl_smoke` binary) or RL training loops that pick a fresh
+    /// room per episode.
+    pub fn room_ids(&self) -> Vec<String> {
+        self.app
+            .world()
+            .resource::<RoomSet>()
+            .rooms
+            .iter()
+            .map(|r| r.id.clone())
+            .collect()
+    }
 }
 
 #[cfg(test)]

@@ -117,3 +117,33 @@ fn asset_exists(relative_asset_path: &str) -> bool {
         .join(relative_asset_path)
         .exists()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_has_no_fonts() {
+        let fonts = UiFonts::default();
+        assert!(!fonts.has_dialog_font());
+        assert!(fonts.regular.is_none());
+        assert!(fonts.semibold.is_none());
+        assert!(fonts.mono.is_none());
+    }
+
+    #[test]
+    fn selected_marker_falls_back_to_ascii_when_no_dialog_font() {
+        // Without a dialog font, use a portable ">" marker (the
+        // unicode "►" pointer needs the Inter-Display font to
+        // render legibly).
+        let fonts = UiFonts::default();
+        assert_eq!(fonts.selected_marker(), ">");
+    }
+
+    #[test]
+    fn text_font_uses_size_even_without_handle() {
+        let fonts = UiFonts::default();
+        let font = fonts.text_font(14.0, UiFontWeight::Regular);
+        assert_eq!(font.font_size, 14.0);
+    }
+}

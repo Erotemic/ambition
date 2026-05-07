@@ -71,6 +71,15 @@ pub struct TouchInputState {
     /// Left stick raw value `[-1, 1]` (pre-deadzone).
     pub move_x: f32,
     pub move_y: f32,
+    /// Edge flags: true on the frame the move stick crossed the
+    /// up/down threshold (in either direction). The Bevy plugin
+    /// computes these by diffing against the previous frame's
+    /// `move_y`; tests / RL agents can set them directly. Auto-
+    /// deriving from `move_y > 0.5` per frame is incorrect because
+    /// `register_down_tap` would count every held frame as a
+    /// fresh tap and trigger MorphBall on the second frame.
+    pub move_y_just_crossed_up: bool,
+    pub move_y_just_crossed_down: bool,
     /// Right stick raw value `[-1, 1]` (pre-deadzone).
     pub aim_x: f32,
     pub aim_y: f32,
@@ -127,13 +136,15 @@ pub fn fold_touch_into_control_frame(
     let move_y = move_y_raw;
     let aim_y = aim_y_raw;
 
-    // Edge-derived flags that the sandbox consumes alongside `axis_*`.
-    // Up / Down "pressed this frame" only fires if the move stick
-    // crossed the deadzone threshold this frame. We approximate by
-    // looking at the stick magnitude vs threshold; the Bevy plugin
-    // can replace this with a stricter edge detector if needed.
-    let up_pressed = move_y < -0.5;
-    let down_pressed = move_y > 0.5;
+    // Up / Down edge flags come from the caller explicitly (set on
+    // the frame the move-Y axis crosses the threshold, cleared
+    // next frame). Auto-deriving from "move_y > 0.5" every frame
+    // breaks register_down_tap which counts each consecutive
+    // true as a fresh tap and double-taps into MorphBall after one
+    // held frame -- the same bug class as the AgentAction
+    // converter; same fix.
+    let up_pressed = state.move_y_just_crossed_up;
+    let down_pressed = state.move_y_just_crossed_down;
 
     ControlFrame {
         axis_x: move_x,
@@ -651,6 +662,7 @@ pub mod bevy_plugin {
     fn read_joystick_messages(
         mut reader: MessageReader<VirtualJoystickMessage<MobileStick>>,
         mut state: ResMut<MobileTouchState>,
+        mut prev_move_y: Local<f32>,
     ) {
         for msg in reader.read() {
             let axis = msg.snap_axis(None);
@@ -668,6 +680,16 @@ pub mod bevy_plugin {
                 }
             }
         }
+        // Compute Up/Down edge crossings from move_y diff. The pure
+        // folder reads these; setting them only on the threshold-
+        // crossing frame keeps the double-tap-down detector honest
+        // (held Down doesn't repeatedly fire MorphBall).
+        const THRESHOLD: f32 = 0.5;
+        let crossed_up = *prev_move_y >= -THRESHOLD && state.0.move_y < -THRESHOLD;
+        let crossed_down = *prev_move_y <= THRESHOLD && state.0.move_y > THRESHOLD;
+        state.0.move_y_just_crossed_up = crossed_up;
+        state.0.move_y_just_crossed_down = crossed_down;
+        *prev_move_y = state.0.move_y;
     }
 
     /// Write the latest `MobileTouchState` into `ControlFrame`. The
@@ -763,33 +785,42 @@ mod tests {
     }
 
     #[test]
-    fn fold_y_threshold_fires_up_pressed() {
-        // Player drags stick fully UP (move_y = -1.0 in our +Y-down
-        // convention). `up_pressed` should fire.
+    fn fold_propagates_explicit_up_pressed_edge() {
+        // The Bevy plugin computes edge crossings from previous-
+        // frame `move_y`; the pure folder consumes the explicit
+        // edge flags rather than auto-deriving from `move_y > 0.5`
+        // (which would re-trigger every frame and fire MorphBall
+        // through the double-tap-down detector).
         let mut state = TouchInputState::default();
         state.move_y = -1.0;
+        state.move_y_just_crossed_up = true;
         let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
         assert!(frame.up_pressed);
         assert!(!frame.down_pressed);
     }
 
     #[test]
-    fn fold_y_threshold_fires_down_pressed() {
+    fn fold_propagates_explicit_down_pressed_edge() {
         let mut state = TouchInputState::default();
         state.move_y = 1.0;
+        state.move_y_just_crossed_down = true;
         let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
         assert!(frame.down_pressed);
         assert!(!frame.up_pressed);
     }
 
     #[test]
-    fn fold_partial_y_does_not_fire_up_or_down_pressed() {
-        // Just below the 0.5 threshold.
+    fn fold_held_down_without_edge_flag_does_not_fire_down_pressed() {
+        // Pin the bug fix: holding move_y=1.0 every frame WITHOUT
+        // setting the edge flag should NOT fire down_pressed. This
+        // is the "held Down" case that previously oscillated body_mode
+        // through the double-tap-down detector.
         let mut state = TouchInputState::default();
-        state.move_y = 0.4;
+        state.move_y = 1.0;
+        state.move_y_just_crossed_down = false;
         let frame = fold_touch_into_control_frame(state, 0.05, 0.05);
-        assert!(!frame.up_pressed);
         assert!(!frame.down_pressed);
+        assert!(!frame.up_pressed);
     }
 
     #[test]

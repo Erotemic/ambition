@@ -44,7 +44,9 @@ pub use bevy_math::Vec2;
 pub use boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
 };
-pub use boss_patterns::{BossAttackKind, BossPatternSchedule, BossPatternStep};
+pub use boss_patterns::{
+    ArenaAnchor, BossAttackKind, BossMovementKind, BossPatternSchedule, BossPatternStep,
+};
 pub use character_ai::{evaluate_character_ai, CharacterAiMode, CharacterAiSnapshot};
 pub use combat::{
     player_slash_hitbox, slash_hitbox, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,

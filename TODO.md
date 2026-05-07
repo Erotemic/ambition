@@ -187,13 +187,33 @@
 
 
 
-- **Moving platforms invisible in LDtk editor** — Jon noted 2026-05-07
-  that he can't see moving platforms in the LDtk editor at all, but
-  they appear at runtime. Likely because `KinematicPath` (entity-side)
-  is rendered procedurally by sandbox code rather than authored as a
-  visible LDtk entity. Needs an audit: either add a visible
-  placeholder to the LDtk entity def, or document the existing
-  authoring path so authors don't get confused.
+- **Moving platforms not driven by LDtk authoring** `[V4/D4]` — Jon
+  noted 2026-05-07: "Also fix the fact that the moving platforms
+  don't seem to associated with the ldtk files. I'm not sure where
+  they are coming from, but every entity in games must be associated
+  with some ldtk placement. ldtk is the source of truth for the
+  world layout."
+  Root cause: `MovingPlatformState::time_reference(&world)` in
+  [platforms.rs:31](crates/ambition_sandbox/src/platforms.rs#L31)
+  procedurally constructs ONE platform per room based on world size
+  -- it never reads any authoring data. There's a `KinematicPath`
+  entity def in the LDtk file (see line 2012) but it's not parsed
+  into MovingPlatformState by any system; the LDtk-authored paths
+  are ignored at runtime. Fix:
+  - Parse `KinematicPath` entities in ldtk_world.rs into a
+    `KinematicPathSpec` list per room
+  - Replace `runtime.moving_platform: MovingPlatformState` (single)
+    with a `Vec<MovingPlatformState>` populated from the spec list
+  - Update every read site (world_with_moving_platform,
+    sync_moving_platform, integrate_velocity, encounter logic) to
+    iterate the Vec
+  - Add KinematicPath placements to existing rooms that already
+    have the procedural platform (square_arena, etc.) so they
+    keep working post-migration
+  - Remove the procedural `time_reference` constructor (or mark it
+    debug-only behind a `#[cfg(test)]`)
+  Construct sites today: lib.rs:234, app.rs:2154, app.rs:2260,
+  setup.rs:208 + 5 test sites. Each becomes a Vec construction.
 
 ## Accepted / In-flight (Jon-tagged)
 

@@ -246,8 +246,7 @@ fn presentation_world_inner(
         .id();
 
     // Quest panel: top-right corner, dedicated text widget. Separated
-    // from the debug HUD so the quest log doesn't trail the stats
-    // dump (see TODO E "Quest panel: separate quest lines from debug HUD").
+    // from the debug HUD so the quest log doesn't trail the stats dump.
     let quest_panel = commands
         .spawn((
             Text::new(""),

@@ -410,4 +410,57 @@ mod tests {
         let body = Aabb::new(Vec2::new(50.0, 50.0), Vec2::new(5.0, 5.0));
         assert!(world.water_at(body).is_none());
     }
+
+    #[test]
+    fn water_at_reports_full_submersion_for_a_body_below_the_surface() {
+        // Aabb::new is (center, half_size). Water region: center
+        // (200, 200), half (100, 100) → min=(100,100), max=(300,300).
+        // top()=100. Body: center (200, 200), half (10, 10) →
+        // top=190. depth = 190 - 100 = 90. Body height = 20.
+        // submersion = 90 / 20 = 4.5, clamps to 1.0.
+        let mut world = World::new(
+            "test",
+            Vec2::new(500.0, 500.0),
+            Vec2::new(10.0, 10.0),
+            Vec::new(),
+        );
+        world.water_regions.push(WaterRegion::new(
+            Aabb::new(Vec2::new(200.0, 200.0), Vec2::new(100.0, 100.0)),
+            WaterKind::Clear,
+            WaterVolumeSpec::default(),
+        ));
+        let body = Aabb::new(Vec2::new(200.0, 200.0), Vec2::new(10.0, 10.0));
+        let contact = world.water_at(body).expect("body sits inside water");
+        assert!(
+            (contact.submersion - 1.0).abs() < 1e-3,
+            "expected full submersion clamp; got {}",
+            contact.submersion
+        );
+        assert_eq!(contact.kind, WaterKind::Clear);
+    }
+
+    #[test]
+    fn water_at_reports_zero_submersion_at_the_surface() {
+        // Water region top at y=100 (center 200, half 100). Body
+        // centered (200, 110), half (10, 10) → top=100 (exactly at
+        // the surface), bottom=120. depth = 0, submersion = 0.
+        let mut world = World::new(
+            "test",
+            Vec2::new(500.0, 500.0),
+            Vec2::new(10.0, 10.0),
+            Vec::new(),
+        );
+        world.water_regions.push(WaterRegion::new(
+            Aabb::new(Vec2::new(200.0, 200.0), Vec2::new(100.0, 100.0)),
+            WaterKind::Clear,
+            WaterVolumeSpec::default(),
+        ));
+        let body = Aabb::new(Vec2::new(200.0, 110.0), Vec2::new(10.0, 10.0));
+        let contact = world.water_at(body).expect("body straddles surface");
+        assert!(
+            (contact.submersion - 0.0).abs() < 1e-3,
+            "expected zero submersion at surface; got {}",
+            contact.submersion
+        );
+    }
 }

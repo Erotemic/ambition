@@ -410,6 +410,14 @@ mod cli_arg_tests {
     }
 }
 
+/// Programmatic start-room override. SandboxSim and other library
+/// callers insert this resource before `init_sandbox_resources` runs;
+/// the function consumes it (taking precedence over the
+/// `--start-room` CLI flag) so callers don't need to manipulate
+/// `std::env::args` to pin a starting room.
+#[derive(Resource, Clone, Debug)]
+pub struct StartRoomOverride(pub String);
+
 pub fn init_sandbox_resources(app: &mut App) {
     let sandbox_data = data::SandboxDataSpec::load_embedded();
     let ldtk_project = ldtk_world::LdtkProject::load_embedded();
@@ -435,12 +443,20 @@ pub fn init_sandbox_resources(app: &mut App) {
             std::process::exit(2);
         }
     };
-    if let Some(start_room) = cli_start_room_arg() {
+    // Programmatic override (SandboxSim / library callers) takes
+    // precedence over the CLI flag. Either one resolving by id wins;
+    // the other is silently ignored. If neither matches, the LDtk
+    // project's authored start room stays active.
+    let resource_override = app
+        .world_mut()
+        .remove_resource::<StartRoomOverride>()
+        .map(|r| r.0);
+    if let Some(start_room) = resource_override.or_else(cli_start_room_arg) {
         if room_set.set_start_by_id(&start_room) {
-            eprintln!("[ambition] CLI start room: {start_room}");
+            eprintln!("[ambition] start room: {start_room}");
         } else {
             eprintln!(
-                "[ambition] warning: --start-room '{start_room}' did not match any room id/name"
+                "[ambition] warning: start-room '{start_room}' did not match any room id/name"
             );
         }
     }

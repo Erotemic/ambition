@@ -38,7 +38,7 @@ use bevy::time::TimeUpdateStrategy;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
-use crate::app::{add_simulation_plugins, init_sandbox_resources};
+use crate::app::{add_simulation_plugins, init_sandbox_resources, StartRoomOverride};
 use crate::game_mode::GameMode;
 use crate::input::ControlFrame;
 use crate::ldtk_world;
@@ -215,6 +215,33 @@ impl AgentObservation {
     }
 }
 
+/// Construction options for `SandboxSim`. Builder-style so future
+/// knobs (RNG seed, ability set override, debug overlays) drop in
+/// without breaking callers that take `SandboxSimOptions::default()`.
+#[derive(Clone, Debug, Default)]
+pub struct SandboxSimOptions {
+    pub timestep: TimestepMode,
+    /// Optional starting room id (matches the visible binary's
+    /// `--start-room` flag). When `Some`, looked up against
+    /// `RoomSet::room_index_by_id`; if not found, a warning is printed
+    /// and the LDtk-authored start room stays active.
+    pub start_room: Option<String>,
+}
+
+impl SandboxSimOptions {
+    /// Builder: set the timestep mode.
+    pub fn with_timestep(mut self, timestep: TimestepMode) -> Self {
+        self.timestep = timestep;
+        self
+    }
+
+    /// Builder: set the starting room id.
+    pub fn with_start_room(mut self, room_id: impl Into<String>) -> Self {
+        self.start_room = Some(room_id.into());
+        self
+    }
+}
+
 /// Per-tick simulation timestep policy.
 ///
 /// `WallClock` is the default — `app.update()` reads whatever wall dt
@@ -274,7 +301,7 @@ impl SandboxSim {
     /// default wall-clock timestep. See `new_with_timestep` for fixed-
     /// timestep determinism.
     pub fn new() -> Result<Self, String> {
-        Self::new_with_timestep(TimestepMode::default())
+        Self::new_with_options(SandboxSimOptions::default())
     }
 
     /// Build a new simulation with the embedded LDtk world. Returns an
@@ -291,6 +318,19 @@ impl SandboxSim {
     /// `SandboxRuntime` are spawned before the caller sees an
     /// observation. This makes `sim.observation()` immediately valid.
     pub fn new_with_timestep(timestep: TimestepMode) -> Result<Self, String> {
+        Self::new_with_options(SandboxSimOptions {
+            timestep,
+            start_room: None,
+        })
+    }
+
+    /// Build a new simulation with full options control. RL training
+    /// loops that want to focus on a specific room (e.g. only train on
+    /// `mob_lab`) construct via this entry point with a `start_room`
+    /// override. The override matches the visible binary's
+    /// `--start-room` flag semantics: any room id from the LDtk
+    /// project's `activeArea` field can be used.
+    pub fn new_with_options(options: SandboxSimOptions) -> Result<Self, String> {
         let project = ldtk_world::LdtkProject::load_embedded();
         let report = project.validate();
         if !report.is_ok() {
@@ -312,8 +352,17 @@ impl SandboxSim {
         app.add_plugins(StatesPlugin);
         app.init_state::<GameMode>();
 
+        // Programmatic start-room override: must be inserted before
+        // `init_sandbox_resources` runs (which is where the override
+        // is consumed). See `app.rs::StartRoomOverride`.
+        if let Some(room_id) = options.start_room.clone() {
+            app.insert_resource(StartRoomOverride(room_id));
+        }
         init_sandbox_resources(&mut app);
         add_simulation_plugins(&mut app);
+
+        // Bind the local in same name the rest of the function uses.
+        let timestep = options.timestep;
 
         // In Fixed mode, install Bevy's `TimeUpdateStrategy::ManualDuration`
         // BEFORE the first Startup tick. This is what tells Bevy's
@@ -628,6 +677,40 @@ mod tests {
         };
         assert!((obs.hp_fraction() - 0.5).abs() < f32::EPSILON);
         assert!(obs.alive());
+    }
+
+    #[test]
+    fn sim_can_start_in_a_specific_room_via_options() {
+        // Build a sim explicitly starting in mob_lab. The default
+        // start room is central_hub_complex, so a successful override
+        // should change `active_room`.
+        let default_sim = SandboxSim::new().expect("default builds");
+        let default_room = default_sim.observation().active_room.clone();
+
+        let mob_lab_sim = SandboxSim::new_with_options(
+            SandboxSimOptions::default()
+                .with_timestep(TimestepMode::fixed_60hz())
+                .with_start_room("mob_lab"),
+        )
+        .expect("mob_lab override builds");
+        let active = mob_lab_sim.observation().active_room.clone();
+        assert_ne!(
+            active, default_room,
+            "start_room override should change the active room from the default"
+        );
+        assert_eq!(active, "mob_lab", "expected to start in mob_lab");
+    }
+
+    #[test]
+    fn unknown_start_room_does_not_panic_or_error() {
+        // Per app.rs's resolution: an unknown start room id prints a
+        // warning and falls back to the LDtk-authored start. The sim
+        // still constructs cleanly.
+        let sim = SandboxSim::new_with_options(
+            SandboxSimOptions::default().with_start_room("definitely_not_a_real_room"),
+        )
+        .expect("unknown start room should not error");
+        assert!(!sim.observation().active_room.is_empty());
     }
 
     #[test]

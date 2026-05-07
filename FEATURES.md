@@ -171,6 +171,12 @@ door corridor and demonstrate one mechanic each.
   First entry fires the cutscene; the seen-flag prevents re-runs;
   the hold-Reset skip flow still works. Door from basement at x=496.
   [tools/examples/ldtk_specs/cutscene_lab.yaml](tools/examples/ldtk_specs/cutscene_lab.yaml).
+- **`quest_lab`** `[stable]` — Quest progression proof room. 768x384
+  with a two-step `quest_lab_visit` quest: step 1 fires on
+  `RoomEntered("quest_lab")`, step 2 fires on returning to
+  `central_hub_complex`. Quest auto-starts at boot; completion
+  persists via the existing save system. Door from basement at
+  x=672. [tools/examples/ldtk_specs/quest_lab.yaml](tools/examples/ldtk_specs/quest_lab.yaml).
 
 ## Tooling / generators
 

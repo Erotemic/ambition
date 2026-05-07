@@ -65,7 +65,7 @@
 ### Test rooms (sandbox = component showcase)
 - [x] **Crawl/morph proof room** — `crawl_lab` (Crouching) and `morph_lab` (MorphBall) both authored 2026-05-07 and reachable from the basement door corridor. See FEATURES.md → "Sandbox showcase rooms".
 - [ ] **Save-point lab + persisted-switch test room** `[V4/D3]` — switch state survives reload; reset-switches sub-room; extensible test-state schema (boss defeated, mob room cleared). Source: `tmp-todo-notes.txt`.
-- [ ] **Quest test room** `[V3/D3]` — small fetch/talk quest end-to-end ([quest.rs](crates/ambition_sandbox/src/quest.rs) is scaffolded).
+- [x] **Quest test room** `[V3/D3]` — `quest_lab` authored 2026-05-07 with `quest_lab_visit` two-step quest. Reachable from basement at x=672. See FEATURES.md → "Sandbox showcase rooms". A more elaborate fetch/talk quest is a follow-up but the room-driven progression is end-to-end here.
 - [x] **Cutscene test room** `[V3/D2]` — `cutscene_lab` authored 2026-05-07 with `cutscene_lab_intro` script + binding. Reachable from basement at x=496. See FEATURES.md → "Sandbox showcase rooms".
 
 ### Sprite wiring batch

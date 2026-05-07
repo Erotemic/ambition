@@ -439,6 +439,9 @@ pub fn spawn_room_visuals(
     for region in &world.water_regions {
         spawn_water_region(commands, world, region);
     }
+    for region in &world.climbable_regions {
+        spawn_climbable_region(commands, world, region);
+    }
     for zone in loading_zones {
         spawn_loading_zone(commands, world, zone, assets);
     }
@@ -492,6 +495,65 @@ fn spawn_water_region(commands: &mut Commands, world: &ae::World, region: &ae::W
         Name::new(format!("Water surface ({:?})", region.kind)),
         RoomVisual,
     ));
+}
+
+/// Render a single `ClimbableRegion` as a tinted overlay quad +
+/// "rung" stripes for visual rhythm. Mirror of `spawn_water_region`'s
+/// shape; placeholder until proper ladder/vine/wall sprite art lands.
+/// All three kinds share the same overlay shape but with kind-specific
+/// tint so the player can tell at a glance what they're touching.
+fn spawn_climbable_region(
+    commands: &mut Commands,
+    world: &ae::World,
+    region: &ae::ClimbableRegion,
+) {
+    let size = region.aabb.half_size() * 2.0;
+    let render = BVec2::new(size.x, size.y);
+    // Sit above blocks but below the player so the ladder reads as
+    // background scenery the player climbs in front of.
+    let body_z = WORLD_Z_BLOCK + 4.0;
+    let (body_color, rung_color) = match region.kind {
+        // Brown ladder with darker rung accents.
+        ae::ClimbableKind::Ladder => (
+            Color::srgba(0.76, 0.52, 0.28, 0.90),
+            Color::srgba(0.45, 0.30, 0.15, 1.0),
+        ),
+        // Green vine with yellow-green leaf accents.
+        ae::ClimbableKind::Vine => (
+            Color::srgba(0.37, 0.64, 0.32, 0.85),
+            Color::srgba(0.65, 0.85, 0.40, 1.0),
+        ),
+        // Tan/sand climbable wall, no rung accents.
+        ae::ClimbableKind::Wall => (
+            Color::srgba(0.61, 0.48, 0.29, 0.80),
+            Color::srgba(0.45, 0.35, 0.20, 0.0), // alpha=0 = no rungs
+        ),
+    };
+    commands.spawn((
+        Sprite::from_color(body_color, render),
+        Transform::from_translation(world_to_bevy(world, region.aabb.center(), body_z)),
+        Name::new(format!("Climbable body ({:?})", region.kind)),
+        RoomVisual,
+    ));
+
+    // Add rung stripes spaced every 16 px on the y axis. Skipped for
+    // Wall (rung_color alpha=0). Quick visual rhythm so a tall ladder
+    // doesn't look like a flat colored block.
+    if rung_color.alpha() > 0.0 {
+        let rung_h = 3.0;
+        let rung_size = BVec2::new(size.x, rung_h);
+        let mut y = region.aabb.top() + 8.0;
+        while y < region.aabb.bottom() - 4.0 {
+            let center = ae::Vec2::new(region.aabb.center().x, y);
+            commands.spawn((
+                Sprite::from_color(rung_color, rung_size),
+                Transform::from_translation(world_to_bevy(world, center, body_z + 0.5)),
+                Name::new(format!("Climbable rung ({:?})", region.kind)),
+                RoomVisual,
+            ));
+            y += 16.0;
+        }
+    }
 }
 
 /// Spawn `FeatureVisual` entities for `FeatureRuntime` features that

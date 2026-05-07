@@ -1,0 +1,13 @@
+[project]
+name = "ambition-ldtk-tools"
+version = "0.1.0"
+description = "Modal CLI for editing, validating, and repairing the Ambition sandbox.ldtk"
+requires-python = ">=3.10"
+dependencies = [
+  "PyYAML",
+  "jsonschema",
+  "requests",
+]
+
+[project.scripts]
+ambition-ldtk-tools = "ambition_ldtk_tools.cli:main"

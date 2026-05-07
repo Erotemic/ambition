@@ -17,7 +17,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LDTK_PATH = REPO_ROOT / "crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"
-SPEC_PATH = REPO_ROOT / "tools/specs/water_world_area.yaml"
+SPEC_PATH = REPO_ROOT / "tools/ambition_ldtk_tools/specs/water_world_area.yaml"
 AUTHOR_TOOL = REPO_ROOT / "tools/author_ldtk_area.py"
 COMPACT_TOOL = REPO_ROOT / "tools/compact_ldtk_json.py"
 

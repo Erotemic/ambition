@@ -224,4 +224,25 @@ mod tests {
         );
         assert!(contact.is_none());
     }
+
+    #[test]
+    fn finds_ledge_on_left_facing_wall() {
+        // Block from x=0 to x=100. Player to the right of the block
+        // with `wall_normal_x = +1` (wall on player's left, normal
+        // pushes player right).
+        let world = world_with(vec![Block::solid(
+            "left_wall",
+            Vec2::new(0.0, 100.0),
+            Vec2::new(100.0, 200.0),
+        )]);
+        let player_size = Vec2::new(28.0, 46.0);
+        let player_pos = Vec2::new(114.0, 110.0); // hugging right edge of block
+        let contact = probe_ledge_grab(player_pos, player_size, 1.0, &world);
+        assert!(contact.is_some(), "should find ledge on the right face");
+        let contact = contact.unwrap();
+        assert!(contact.wall_normal_x > 0.0);
+        // Climb target is to the left of the anchor (toward the
+        // block's interior on top).
+        assert!(contact.climb_target.x < contact.anchor.x);
+    }
 }

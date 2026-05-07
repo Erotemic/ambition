@@ -195,3 +195,46 @@ give an idea of the scope and absurdity.  But for the left/right I think we
 need to have an NPC. The right has the "Coal Bear", a literal bear. The left
 will have a "Coal Bert", reminiscent of the sesame street character. They will
 both have a Steve or Stephen nickname.
+
+----
+
+
+We probably need a cutscene test room. Or game boot test room, where when you
+trigger it in the sandbox you go through the game intro.
+
+The real game needs to start with: "Hey you, you're finally awake". A very
+short cutscene, where your maybe your robot visor blips open, or you see your
+sprite emerge, there should be an option to go right into it, but if we want to
+have a longer intro, maybe that is optional and we could do a tutorial or
+something. But I think that's a strong reference to start with.
+
+We definately need a better inventory / menu system. It would be really neat to
+visually reference the N64 OOT / MM inventory / map system here, in terms of
+the 3d spinning cube. The contents of the cube we modernize, but having 1 for
+map, one for loadout, one for game completion / quests, and or however we want
+it, maybe the 4th is system options for now. Recreating something reminiscent
+of the menu change sound would also make me happy.
+
+
+I'm also thinking some mechanic involving homotopy / homology / co-homology,
+maybe the character runs around with a thread that experiences continuous
+deformation, and the complexity of the paths does something in game.
+
+
+For factions NPCs will need to fight each other eventually. We will need
+faction quest lines, faction boss battles.
+
+
+We will need some sort of fast travel system.
+
+
+A neat blink variant could be mark/recall. Maybe you have the ability to set
+some number of mark points and teleport to any of them. That is a good fast
+travel ability, but it could also be interesting for combat, maybe you have the
+ability to remotely move them.
+
+I like the idea of having a vast suite of robot augmentations for different
+abilities you can give yourself. I guess that is dead cells-esque. But maybe it
+is more limited depending on how the game ends up scoping out. But a blink
+variant, a fly variant, a attack variant, a projectile variant, movement
+variants, these things can make sense. Grappling hook variant.

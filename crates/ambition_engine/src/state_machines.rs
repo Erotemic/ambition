@@ -260,4 +260,27 @@ mod tests {
         assert!(names.iter().any(|name| name.starts_with("Chest")));
         assert!(names.iter().any(|name| name.starts_with("Breakable")));
     }
+
+    #[test]
+    fn vocabulary_includes_encounter_and_switch_families() {
+        let names = state_machine_vocabulary();
+        assert!(names.iter().any(|name| name.starts_with("Encounter")));
+        assert!(names.iter().any(|name| name.starts_with("Switch")));
+    }
+
+    #[test]
+    fn vocabulary_entries_are_unique() {
+        let names = state_machine_vocabulary();
+        for (i, a) in names.iter().enumerate() {
+            for b in &names[i + 1..] {
+                assert_ne!(a, b, "duplicate entry {a} in state-machine vocabulary");
+            }
+        }
+    }
+
+    #[test]
+    fn vocabulary_includes_actor_marker() {
+        let names = state_machine_vocabulary();
+        assert!(names.contains(&"AmbitionStateMachineActor"));
+    }
 }

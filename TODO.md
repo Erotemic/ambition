@@ -146,16 +146,6 @@
 
 ## Known issues / unanswered questions (logged but not yet investigated)
 
-- **Camera shake on grounded dash (slide)** — Jon noted 2026-05-07:
-  "a grounded dash (i.e. slide) causes the camera to shake in a
-  weird way." Likely a small per-frame pos.y oscillation
-  (resolve_vertical's strict-intersect push around floor contact)
-  that's normally invisible at standing but becomes visible during
-  the dash because the camera tracks pos directly. Investigation
-  candidates: examine on_ground value during dash_timer > 0 (does
-  it toggle?), per-frame pos.y delta during a multi-frame grounded
-  dash. Body_mode shouldn't change during dash (driver returns
-  early on dash_timer > 0).
 - **Move all dev hotkeys into the settings menu** — Jon noted
   2026-05-07: "Also F2 is also bound to slowing the time and
   toggling the display. We should move all of these options into

@@ -51,13 +51,23 @@ world_y: 1024
 px_wid: 768
 px_hei: 1024
 fill_collision: empty
+biome: lab
+connect_to:
+  - target_room: central_hub_basement
+    # Free spot in the basement corridor — gap between morph_lab door
+    # (x=296+48=344) and the existing basement_hazards door (x=348).
+    # The next free gap is between x=396 (348+48) and x=576: pick
+    # x=420.
+    px: [420, 832]
+    size: [48, 96]
+    id: ladder_door
+    target_zone: ladder_lab_entry
+    activation: Door
+    bidirectional: true
 
-# IntGrid layers this spec paints. Authoring tool currently only
-# handles Collision; the `climbable` block is read by a future
-# extension that lowers cells into the runtime's Climbable layer.
+# Climbable IntGrid cells. Tool support landed via
+# `ensure_climbable_layer_def` + `paint_climbable_layer`.
 intgrid:
-  collision:
-    # default-empty; entities listed below paint Solid cells
   climbable:
     - kind: Ladder
       px: [560, 160]
@@ -100,23 +110,21 @@ entities:
 
   # Reward chest on the upper platform.
   - type: ChestSpawn
-    px: [600, 144]
-    size: [24, 24]
+    px: [600, 102]
+    size: [76, 58]
     fields:
-      id: ladder_lab_chest
-      name: ladder_lab_chest
-      reward: Health
-      reward_amount: 2
+      name: Chest
+      reward: health:2
 
   # Loading zone back to the basement hub.
   - type: LoadingZone
     px: [16, 896]
     size: [48, 96]
     fields:
-      id: ladder_door
-      name: ladder_door
+      id: ladder_lab_entry
+      name: ladder_lab_entry
       activation: Door
-      target_room: central_hub_basement
+      target_room: central_hub_complex
       target_zone: ladder_door
       bidirectional: true
 

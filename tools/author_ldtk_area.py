@@ -215,6 +215,166 @@ def find_layer_def(project: dict, identifier: str) -> dict:
     raise SystemExit(f"missing layer def '{identifier}' in project")
 
 
+def find_layer_def_optional(project: dict, identifier: str) -> dict | None:
+    for ld in project["defs"]["layers"]:
+        if ld.get("identifier") == identifier:
+            return ld
+    return None
+
+
+def ensure_climbable_layer_def(project: dict) -> dict:
+    """Ensure the project has a Climbable IntGrid layer def. If it
+    doesn't, add one (mirroring the Water layer's shape but with
+    Ladder/Vine/Wall intGridValues) and add an empty Climbable layer
+    instance to every existing level so the schema stays consistent.
+
+    Returns the layer def. Idempotent: if the def already exists,
+    returns it without modifying the project.
+
+    Mirrors the runtime's Climbable IntGrid value mapping in
+    `crates/ambition_sandbox/src/ldtk_world.rs`:
+        1 = Ladder, 2 = Vine, 3 = Wall
+    """
+    existing = find_layer_def_optional(project, "Climbable")
+    if existing is not None:
+        return existing
+
+    # Allocate a fresh uid by bumping nextUid.
+    next_uid = int(project.get("nextUid", 1))
+    project["nextUid"] = next_uid + 1
+    grid_size = int(project.get("defaultGridSize", 16))
+
+    layer_def = {
+        "__type": "IntGrid",
+        "identifier": "Climbable",
+        "type": "IntGrid",
+        "uid": next_uid,
+        "doc": "Climbable surfaces: 1=Ladder, 2=Vine, 3=Wall.",
+        "uiColor": None,
+        "gridSize": grid_size,
+        "guideGridWid": 0,
+        "guideGridHei": 0,
+        "displayOpacity": 0.6,
+        "inactiveOpacity": 0.4,
+        "hideInList": False,
+        "hideFieldsWhenInactive": True,
+        "canSelectWhenInactive": True,
+        "renderInWorldView": True,
+        "pxOffsetX": 0,
+        "pxOffsetY": 0,
+        "parallaxFactorX": 0,
+        "parallaxFactorY": 0,
+        "parallaxScaling": True,
+        "requiredTags": [],
+        "excludedTags": [],
+        "autoTilesKilledByOtherLayerUid": None,
+        "uiFilterTags": [],
+        "useAsyncRender": False,
+        "intGridValues": [
+            {"value": 1, "identifier": "Ladder", "color": "#C28447", "tile": None, "groupUid": 0},
+            {"value": 2, "identifier": "Vine", "color": "#5FA452", "tile": None, "groupUid": 0},
+            {"value": 3, "identifier": "Wall", "color": "#9B7A4A", "tile": None, "groupUid": 0},
+        ],
+        "intGridValuesGroups": [],
+        "autoRuleGroups": [],
+        "autoSourceLayerDefUid": None,
+        "tilesetDefUid": None,
+        "tilePivotX": 0,
+        "tilePivotY": 0,
+        "biomeFieldUid": None,
+    }
+    project["defs"]["layers"].append(layer_def)
+
+    # Add an empty Climbable layer instance to every existing level so
+    # the layer schema stays consistent across the project. Levels
+    # without ladders just have a Climbable layer of all-zero IntGrid
+    # cells.
+    for level in project.get("levels", []):
+        if any(
+            lyr.get("__identifier") == "Climbable"
+            for lyr in level.get("layerInstances", [])
+        ):
+            continue
+        c_wid = level["pxWid"] // grid_size
+        c_hei = level["pxHei"] // grid_size
+        # Allocate a fresh iid for this layer instance.
+        layer_iid, _ = allocate_iid(project, "Climbable")
+        empty_layer = {
+            "__identifier": "Climbable",
+            "__type": "IntGrid",
+            "iid": layer_iid,
+            "layerDefUid": layer_def["uid"],
+            "intGridCsv": [0] * (c_wid * c_hei),
+            "__cWid": c_wid,
+            "__cHei": c_hei,
+            "__gridSize": grid_size,
+            "__opacity": 1,
+            "__pxTotalOffsetX": 0,
+            "__pxTotalOffsetY": 0,
+            "__tilesetDefUid": None,
+            "__tilesetRelPath": None,
+            "levelId": level["uid"],
+            "pxOffsetX": 0,
+            "pxOffsetY": 0,
+            "visible": True,
+            "optionalRules": [],
+            "autoLayerTiles": [],
+            "seed": level["uid"],
+            "overrideTilesetUid": None,
+            "gridTiles": [],
+            "entityInstances": [],
+        }
+        level.setdefault("layerInstances", []).append(empty_layer)
+    return layer_def
+
+
+CLIMBABLE_INTGRID_VALUES = {
+    "Ladder": 1,
+    "Vine": 2,
+    "Wall": 3,
+}
+
+
+def paint_climbable_layer(
+    csv: list[int],
+    c_wid: int,
+    c_hei: int,
+    grid_size: int,
+    cells: list[dict],
+) -> int:
+    """Paint Climbable IntGrid cells from a list of {kind, px, size}
+    rectangles. `kind` must be one of "Ladder", "Vine", "Wall".
+    Returns the count of cells painted across all rects.
+    """
+    painted = 0
+    for cell in cells:
+        kind = cell.get("kind")
+        value = CLIMBABLE_INTGRID_VALUES.get(kind)
+        if value is None:
+            raise SystemExit(
+                f"climbable cell missing or invalid 'kind' (got {kind!r}); "
+                f"must be one of {sorted(CLIMBABLE_INTGRID_VALUES)}"
+            )
+        px = cell.get("px")
+        size = cell.get("size")
+        if px is None or len(px) != 2:
+            raise SystemExit(f"climbable cell {kind} missing 'px: [x, y]'")
+        if size is None or len(size) != 2:
+            raise SystemExit(f"climbable cell {kind} missing 'size: [w, h]'")
+        painted += paint_intgrid_rect(
+            csv,
+            c_wid,
+            c_hei,
+            grid_size,
+            int(px[0]),
+            int(px[1]),
+            int(size[0]),
+            int(size[1]),
+            value,
+        )
+    return painted
+
+
 def coerce_field_value(human_type: str, raw):
     """Coerce a YAML-loaded value to the LDtk parser-facing type."""
     if raw is None:
@@ -616,6 +776,41 @@ def build_level(project: dict, spec: dict) -> dict:
     ambition_layer["layerDefUid"] = ambition_def["uid"]
     ambition_layer["entityInstances"] = entity_instances
 
+    # Optional Climbable IntGrid layer. When the spec has an
+    # `intgrid.climbable` block, we ensure the project has the
+    # Climbable layer def (idempotent — already there if a previous
+    # apply ran), then paint the spec's cells onto a new layer
+    # instance for this level. Levels that don't author climbables
+    # still get a Climbable layer instance via
+    # `ensure_climbable_layer_def`'s migration pass.
+    climbable_cells = (spec.get("intgrid") or {}).get("climbable") or []
+    if climbable_cells:
+        climbable_def = ensure_climbable_layer_def(project)
+    else:
+        climbable_def = find_layer_def_optional(project, "Climbable")
+
+    layer_instances = [collision_layer, ambition_layer]
+    if climbable_def is not None:
+        climbable_iid, _ = allocate_iid(project, "Climbable")
+        climb_csv = [0] * (c_wid * c_hei)
+        if climbable_cells:
+            painted = paint_climbable_layer(
+                climb_csv, c_wid, c_hei, grid_size, climbable_cells
+            )
+            print(f"  painted {painted} Climbable IntGrid cells")
+        climbable_layer = {
+            "__identifier": "Climbable",
+            "__type": "IntGrid",
+            "iid": climbable_iid,
+            "layerDefUid": climbable_def["uid"],
+            "intGridCsv": climb_csv,
+            **base_layer,
+        }
+        climbable_layer["iid"] = climbable_iid
+        climbable_layer["layerDefUid"] = climbable_def["uid"]
+        climbable_layer["entityInstances"] = []
+        layer_instances.append(climbable_layer)
+
     level = {
         "identifier": level_id,
         "iid": level_iid,
@@ -636,7 +831,7 @@ def build_level(project: dict, spec: dict) -> dict:
         "__bgPos": None,
         "externalRelPath": None,
         "fieldInstances": build_level_field_instances(project, spec),
-        "layerInstances": [collision_layer, ambition_layer],
+        "layerInstances": layer_instances,
         "__neighbours": [],
     }
     return level

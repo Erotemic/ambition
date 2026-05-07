@@ -43,18 +43,43 @@ The engine may depend on Bevy and Bevy-adjacent crates when useful. It should st
 
 The sandbox currently has:
 
-- an all-abilities movement testbed,
-- input presets through Leafwing,
+- an all-abilities movement testbed (walk / run / wall jump / wall climb /
+  dash / blink / fly / glide / fast-fall / pogo / rebound / fireball /
+  Hadouken / swim / ledge-grab),
+- `BodyMode` driver for stance-aware kinematics (Standing / Crouching /
+  Crawling / Sliding / MorphBall) with `BodyShape::fits_at`-gated transitions,
+- per-player engine state on `Player` for `damage_multiplier`, `invincible`,
+  `mana: ResourceMeter`, and `was_riding_platform` diagnostics,
+- input presets through Leafwing, with per-controller-profile filter
+  defaults (Xbox 360 widens deadzones + trigger band; PlayStation tightens),
 - pause/game-mode gating,
-- generated lo-fi music tracks and sound effects,
-- pause-menu music track switching,
-- LDtk-authored active-area composition for the central hub POC, with a live `bevy_ecs_ldtk` `LevelSet` synced to the active Ambition room,
-- a central hub with a literal drop-down basement stitched into one continuous active area, with the old sandbox doors and feature labs ported into LDtk-authored active areas,
-- central-hub side `EdgeExit` wall collision split around the exits so those zones are physically reachable,
-- test rooms for hazards, enemies, boss patterns, breakables, pickups/chests, and NPC talk hooks,
-- debug labels over loading zones,
+- adaptive generated music tied to encounter phases (mob_lab fires
+  intro → wave1 → wave2 [+brute reinforcement] → wave3 → outro), with
+  LDtk × audio cross-validation for `music_track` field references,
+- pause-menu music track switching + per-controller / video / audio /
+  gameplay settings persistence,
+- LDtk-authored active-area composition for the central hub POC, with a live
+  `bevy_ecs_ldtk` `LevelSet` synced to the active Ambition room,
+- a central hub with a literal drop-down basement stitched into one continuous
+  active area, with the old sandbox doors and feature labs ported into
+  LDtk-authored active areas,
+- central-hub side `EdgeExit` wall collision split around the exits so those
+  zones are physically reachable,
+- test rooms for hazards, enemies, boss patterns (Gradient Sentinel intro /
+  phase1 / phase2 / stagger / enraged), breakables (`OnHit` / `OnStand` /
+  `Either` triggers), pickups/chests, NPC talk hooks, and a scripted
+  encounter (`mob_lab` with lock-wall slam + 3-wave spawning),
+- a sim → presentation message seam (`SfxMessage` / `VfxMessage` /
+  `DebrisBurstMessage` / `PlayerDiedMessage`) covered by
+  `tests/scripted_gameplay.rs`,
+- debug labels over loading zones, dedicated quest panel, full-screen
+  map with zoom controls + room-name labels,
 - feature runtime behavior for current prototype entities,
 - input-feel helpers such as jump/coyote/dash/interaction buffering,
+- proptest coverage for `BodyShape::fits_at`, wall-jump start positions,
+  and `ResourceMeter` envelope invariants,
+- GitHub Actions CI: engine + sandbox lib tests + `cargo run --bin headless`
+  smoke,
 - early state-machine/test/asset-loader scaffolding.
 
 These prototype feature rooms are not the final game. They exist to validate reusable mechanics before content is curated.

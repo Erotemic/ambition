@@ -22,6 +22,7 @@ use crate::rooms::{LoadingZone, LoadingZoneActivation};
 pub struct SceneEntities {
     pub player: Entity,
     pub hud: Entity,
+    pub quest_panel: Entity,
 }
 
 #[derive(Component)]
@@ -29,6 +30,13 @@ pub struct PlayerVisual;
 
 #[derive(Component)]
 pub struct HudText;
+
+/// Marker for the dedicated quest-log panel. Separated from `HudText`
+/// so the quest list lives in its own UI surface (top-right anchored)
+/// instead of trailing the debug-stats dump. Updated by
+/// `update_quest_panel`.
+#[derive(Component)]
+pub struct QuestPanelText;
 
 #[derive(Component)]
 pub struct RoomVisual;

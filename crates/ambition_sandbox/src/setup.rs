@@ -31,7 +31,7 @@ use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::loading::SandboxAssetCollection;
 use crate::physics::PhysicsSandboxSettings;
 use crate::platforms;
-use crate::rendering::{spawn_room_visuals, HudText, PlayerVisual, SceneEntities};
+use crate::rendering::{spawn_room_visuals, HudText, PlayerVisual, QuestPanelText, SceneEntities};
 use crate::rooms::RoomSet;
 use crate::{GameWorld, SandboxRuntime};
 use crate::ui_fonts::{UiFontWeight, UiFonts};
@@ -144,6 +144,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     commands.insert_resource(SceneEntities {
         player,
         hud: Entity::PLACEHOLDER,
+        quest_panel: Entity::PLACEHOLDER,
     });
 
     player
@@ -244,10 +245,39 @@ fn presentation_world_inner(
         ))
         .id();
 
+    // Quest panel: top-right corner, dedicated text widget. Separated
+    // from the debug HUD so the quest log doesn't trail the stats
+    // dump (see TODO E "Quest panel: separate quest lines from debug HUD").
+    let quest_panel = commands
+        .spawn((
+            Text::new(""),
+            ui_fonts
+                .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
+                .unwrap_or(TextFont {
+                    font_size: 14.0,
+                    ..default()
+                }),
+            TextColor(Color::srgba(0.92, 0.86, 0.62, 0.95)),
+            Node {
+                position_type: PositionType::Absolute,
+                right: Val::Px(14.0),
+                top: Val::Px(10.0),
+                max_width: Val::Px(360.0),
+                ..default()
+            },
+            Name::new("Quest Panel"),
+            QuestPanelText,
+        ))
+        .id();
+
     // Overwrite the placeholder SceneEntities from simulation_world now
     // that the HUD entity exists. `commands.insert_resource` replaces the
     // existing resource on apply_deferred.
-    commands.insert_resource(SceneEntities { player, hud });
+    commands.insert_resource(SceneEntities {
+        player,
+        hud,
+        quest_panel,
+    });
 
     // Reserve the physics_settings binding for future presentation systems
     // that might need it; suppress the unused-variable warning until then.

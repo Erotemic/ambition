@@ -118,7 +118,6 @@
 - [ ] **N64 OOT/MM-style spinning-cube inventory** `[V3/D5]` — 4 faces (map / loadout / quests / system options); modernize contents but keep nostalgic cube spin + menu-change SFX
   - 3D cube widget (bevy_ui or world-space camera trick)
   - Per-face contents wired to existing systems (map_menu, quest, settings)
-- [ ] Quest panel: separate quest lines from debug HUD `[V2/D2]`
 - [ ] Map menu: room-name labels + zoom controls (extends current minimap) `[V3/D2]`
 
 ## F — Documentation / hygiene

@@ -85,6 +85,7 @@ Status badges:
 - **Map UI panel + minimap** `[playable]` — full-screen map + toggleable corner minimap; visited tracking. [map_menu.rs](crates/ambition_sandbox/src/map_menu.rs). Commit `75ebfcb`.
 - **Reset Sandbox pause-menu item + reset processor** `[stable]`. Commit `45631d4`.
 - **HUD wiring** `[playable]`. Commit `55dc1a5`.
+- **Dedicated quest panel** `[playable]` — `QuestPanelText` UI surface anchored top-right, written by `update_quest_panel`. Decouples the quest log from the debug HUD's stats dump; collapses (empty string) when no active quests. [app.rs](crates/ambition_sandbox/src/app.rs).
 - **F3 stats editor** `[stable]`. Commit `70fc567`.
 
 ## Settings (full system)

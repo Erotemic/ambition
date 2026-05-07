@@ -654,6 +654,10 @@ pub fn add_presentation_plugins(app: &mut App) {
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
         )
+        // Quest panel runs alongside the verbose HUD; placed in its
+        // own `add_systems` so the main presentation tuple doesn't
+        // overflow Bevy's 16-system tuple budget.
+        .add_systems(Update, update_quest_panel.after(update_hud))
         // Procedural morph-ball visual: build the texture once at
         // startup, spawn the sibling sprite as soon as the player
         // entity exists, and toggle visibility / position each frame
@@ -2485,6 +2489,11 @@ fn update_hud(
     } else {
         String::new()
     };
+    // Quest content now lives in its own UI surface
+    // (`update_quest_panel` writes to `QuestPanelText`); the debug HUD
+    // no longer carries a `\nQUESTS: ...` trailer. The compact HUD
+    // branch keeps emitting the line for the single-screen dump
+    // (testers want everything-at-once); the verbose branch omits it.
     let quest_lines = quest_registry.quest_log_lines();
     let quest_line = if quest_lines.is_empty() {
         String::new()
@@ -2695,16 +2704,43 @@ fn update_hud(
         feature_banner,
         mechanics_line,
     );
-    if !quest_line.is_empty()
-        || !cutscene_line.is_empty()
+    // Cutscene / boss / encounter / map lines stay in the verbose HUD
+    // because they're tightly coupled to the live combat / traversal
+    // status the rest of the HUD shows. Quests live in their own
+    // panel (`update_quest_panel`).
+    if !cutscene_line.is_empty()
         || !boss_line.is_empty()
         || !encounter_line.is_empty()
         || !map_line.is_empty()
     {
-        text.push_str(&quest_line);
         text.push_str(&cutscene_line);
         text.push_str(&boss_line);
         text.push_str(&encounter_line);
         text.push_str(&map_line);
+    }
+}
+
+/// Update the dedicated quest-panel text widget.
+///
+/// Lives separately from `update_hud` so the quest log doesn't trail
+/// the giant debug stats dump and can be styled / positioned
+/// independently. Writes empty string when there are no active
+/// quests, which collapses the panel visually.
+pub fn update_quest_panel(
+    quests: Res<crate::quest::QuestRegistry>,
+    entities: Res<SceneEntities>,
+    mut query: Query<&mut Text, With<crate::rendering::QuestPanelText>>,
+) {
+    if entities.quest_panel == Entity::PLACEHOLDER {
+        return;
+    }
+    let Ok(mut text) = query.get_mut(entities.quest_panel) else {
+        return;
+    };
+    let lines = quests.quest_log_lines();
+    if lines.is_empty() {
+        **text = String::new();
+    } else {
+        **text = format!("QUESTS\n  {}", lines.join("\n  "));
     }
 }

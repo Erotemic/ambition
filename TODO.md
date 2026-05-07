@@ -121,7 +121,6 @@
 
 ## F — Documentation / hygiene
 
-- [ ] Archive applied music-renderer overlay docs in `docs/` once their patches land `[V1/D1]`
 
 ## ♾ — Evergreen / perpetual
 

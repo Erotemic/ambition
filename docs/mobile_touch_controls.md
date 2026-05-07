@@ -87,19 +87,46 @@ naturally drop out of a no-rl build.
 
 ## What's not done yet
 
-- **Touch buttons**: Jump / Attack / Dash / Blink / Interact /
-  Projectile / Start / Reset. Need a small Bevy UI layout that spawns
-  a row of buttons + an Interaction-driven system that updates
-  `TouchInputState.<button>` per frame. The pure helper already
-  consumes them; only the UI authoring is missing.
-- **On-screen stick spawn**: the plugin loads `VirtualJoystickPlugin`
-  but doesn't spawn the actual stick UI nodes. Existing
-  `virtual_joystick` examples use `create_joystick(...)` with custom
-  art (Knob.png / arrows). The Bevy startup system to do this is a
-  follow-up.
+- **Settings-menu wiring for `TouchControlsVisible`**: the toggle
+  is a public resource but no UI exposes it yet. F2-style hotkeys
+  are intentionally avoided per Jon's "move all dev hotkeys into
+  the settings menu" rule.
 - **Android target build verified**: the plugin compiles for desktop
   but the `cargo apk` / `cargo ndk` pipeline isn't wired in this
-  repo yet.
+  repo yet. Real-device touch-multitouch testing also depends on
+  this.
+
+## What's done
+
+- ✅ Pure helper + 10 unit tests (deadzone, edge semantics, all
+  buttons, threshold-pressed)
+- ✅ Bevy plugin behind `mobile_touch` feature
+- ✅ Move + Aim joysticks spawned on Startup with procedural circle
+  textures (Knob + outline)
+- ✅ 6 action buttons (Jump/Atk/Dash/Blink/E/Proj) + 2 menu buttons
+  (Pause/Reset) with text labels
+- ✅ Bottom-right cluster + bezel layout (192x128 + 216x152 backdrop)
+- ✅ TouchControlsVisible runtime toggle
+- ✅ Activity-gated ControlFrame write (empty touch state doesn't
+  stomp keyboard input)
+- ✅ Mouse-drag works on desktop because `virtual_joystick` and
+  Bevy `Interaction` route mouse + touch through the same path
+- ✅ Edge-derivation in `read_joystick_messages` (move_y crossings
+  populate `move_y_just_crossed_up` / `move_y_just_crossed_down`
+  so held Down doesn't keep firing the down_pressed edge)
+
+## Limitations
+
+- Mouse single-pointer can't test simultaneous two-thumb gestures
+  (drag-Move + tap-Jump at the same time). For real touch
+  multitouch testing, build for Android and run on a phone /
+  emulator.
+- Touch fold runs in `Update` after the desktop input fold.
+  When both keyboard and touch are active simultaneously,
+  whichever input wrote ControlFrame last wins. The activity
+  gate (`touch_state_is_active`) keeps neutral touch state from
+  stomping keyboard, but a held touch button + keyboard press
+  on the same frame will let the touch contribution dominate.
 
 ## TODO row
 

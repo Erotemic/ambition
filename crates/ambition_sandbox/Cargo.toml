@@ -7,12 +7,22 @@ authors.workspace = true
 description = "Bevy-powered playable sandbox for Ambition Engine."
 
 [features]
-# Default preserves prior behavior: full visible game + devtools (egui
-# inspector and Bevy's file watcher).
-default = ["visible", "dev_tools"]
+# Default preserves prior behavior plus the feature-gated ergonomic
+# additions (mobile touch + RL adapter). All of these can be disabled
+# from a downstream build with `default-features = false` + a
+# narrower feature pick.
+default = ["visible", "dev_tools", "mobile_touch", "rl"]
 
 # Composite for the playable Bevy app. `cargo run` enables this via default.
 visible = ["ldtk_runtime", "input", "audio", "ui", "physics_debris"]
+
+# RL / programmatic-input adapter. The `rl` module + `SandboxSim`
+# stepping API + `AgentAction` / `AgentObservation` shapes. Enabled
+# by default so research code and the in-tree binaries (`rl_random_walker`,
+# `rl_smoke`, `trace_replay`) build out of the box; can be disabled
+# for tightly-stripped builds (e.g. console ports, distribution
+# binaries that don't need the RL surface).
+rl = []
 
 # Composite for the headless simulation binary. Intentionally enables
 # nothing: this is the lever that strips heavy deps from the dep graph
@@ -91,5 +101,22 @@ required-features = ["audio"]
 
 # headless binary doesn't need any subsystem features (the sim's seam
 # is feature-gated; messages drain harmlessly without subscribers).
+# It does use SandboxSim for the --dump-trace path so the `rl` feature
+# is required.
 [[bin]]
 name = "headless"
+required-features = ["rl"]
+
+# RL / fuzz / replay binaries that drive SandboxSim. All gated behind
+# the `rl` feature so a no-rl build skips the bins entirely.
+[[bin]]
+name = "rl_random_walker"
+required-features = ["rl"]
+
+[[bin]]
+name = "rl_smoke"
+required-features = ["rl"]
+
+[[bin]]
+name = "trace_replay"
+required-features = ["rl"]

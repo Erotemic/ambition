@@ -162,6 +162,102 @@ pub fn fold_touch_into_control_frame(
     }
 }
 
+/// Bevy plugin wiring `virtual_joystick` to the `ControlFrame` seam.
+/// Gated behind the `mobile_touch` feature so desktop / gamepad /
+/// headless / RL builds don't pull in `virtual_joystick` and don't
+/// register the touch systems.
+///
+/// Today the plugin only wires the two analog sticks (Move + Aim);
+/// touch buttons for Jump / Attack / Dash / Blink / Interact /
+/// Projectile / Start / Reset are documented as a follow-up. RL
+/// agents and tests can still produce a `TouchInputState` directly
+/// and call `fold_touch_into_control_frame` from any code path.
+#[cfg(feature = "mobile_touch")]
+pub mod bevy_plugin {
+    use super::{fold_touch_into_control_frame, TouchInputState};
+    use crate::input::ControlFrame;
+    use bevy::prelude::*;
+    use virtual_joystick::*;
+
+    /// Joystick id. The `virtual_joystick` plugin is generic over a
+    /// user-supplied id type; this enum picks Move (left stick) and
+    /// Aim (right stick).
+    #[derive(Default, Debug, Reflect, Hash, Clone, PartialEq, Eq)]
+    pub enum MobileStick {
+        #[default]
+        Move,
+        Aim,
+    }
+
+    /// Live touch-input state. Updated each frame from the stick
+    /// messages + button state. The folder system reads this and
+    /// writes the canonical `ControlFrame`.
+    #[derive(Resource, Default, Clone, Copy, Debug)]
+    pub struct MobileTouchState(pub TouchInputState);
+
+    pub struct MobileTouchPlugin;
+
+    impl Plugin for MobileTouchPlugin {
+        fn build(&self, app: &mut App) {
+            app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
+                .insert_resource(MobileTouchState::default())
+                .add_systems(Update, (read_joystick_messages, fold_to_control_frame).chain());
+        }
+    }
+
+    /// Read every `VirtualJoystickMessage<MobileStick>` published this
+    /// frame and update the `MobileTouchState`. The plugin emits a
+    /// stream of axis updates per touch; we keep the latest reading
+    /// per stick.
+    fn read_joystick_messages(
+        mut reader: MessageReader<VirtualJoystickMessage<MobileStick>>,
+        mut state: ResMut<MobileTouchState>,
+    ) {
+        for msg in reader.read() {
+            let axis = msg.snap_axis(None);
+            match msg.id() {
+                MobileStick::Move => {
+                    state.0.move_x = axis.x;
+                    // Bevy's UI Y increases UPWARD; the simulator's +Y
+                    // is downward. Flip so the touch stick matches the
+                    // desktop convention (drag down -> axis_y > 0).
+                    state.0.move_y = -axis.y;
+                }
+                MobileStick::Aim => {
+                    state.0.aim_x = axis.x;
+                    state.0.aim_y = -axis.y;
+                }
+            }
+        }
+    }
+
+    /// Write the latest `MobileTouchState` into `ControlFrame`. The
+    /// desktop input pipeline does the same via Leafwing; both run
+    /// from a presentation-side system. The presentation harness
+    /// chooses which one to register based on the feature flag.
+    fn fold_to_control_frame(
+        state: Res<MobileTouchState>,
+        mut frame: ResMut<ControlFrame>,
+    ) {
+        // Use slightly-tighter deadzones than the desktop defaults --
+        // touch sticks rarely have drift, so a smaller deadzone gives
+        // a more responsive feel.
+        const MOVE_DEADZONE: f32 = 0.05;
+        const AIM_DEADZONE: f32 = 0.10;
+        *frame = fold_touch_into_control_frame(state.0, MOVE_DEADZONE, AIM_DEADZONE);
+    }
+
+    // Re-export the helper so `MobileTouchPlugin` is a one-import seam.
+    pub use super::{fold_touch_into_control_frame as _fold_for_doc, TouchButton as _btn_for_doc, TouchInputState as _state_for_doc};
+    // Suppress dead-code warnings for the re-export aliases.
+    #[allow(dead_code)]
+    fn _re_exports_used() {
+        let _ = _fold_for_doc;
+        let _ = _state_for_doc::default();
+        let _ = _btn_for_doc::off();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

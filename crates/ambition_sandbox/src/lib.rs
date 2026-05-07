@@ -55,11 +55,13 @@ pub mod windowing;
 
 pub mod app;
 pub mod headless;
+#[cfg(feature = "rl")]
 pub mod rl;
 pub mod setup;
 
 pub use game_mode::GameMode;
 pub use headless::{run_headless, HeadlessReport};
+#[cfg(feature = "rl")]
 pub use rl::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
 
 use ambition_engine as ae;

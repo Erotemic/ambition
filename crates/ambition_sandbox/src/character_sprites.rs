@@ -695,4 +695,27 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn flat_index_clamps_to_last_frame_of_row() {
+        // Asking for frame past the end of a row clamps to the last
+        // valid frame; this avoids out-of-bounds atlas reads when the
+        // animation cursor overshoots due to a long delta-t.
+        let last = ROBOT_SHEET.flat_index(CharacterAnim::Idle, 9_999);
+        let expected = ROBOT_SHEET.frame_count(CharacterAnim::Idle) - 1;
+        assert_eq!(last, expected);
+    }
+
+    #[test]
+    fn frame_duration_positive_for_every_row() {
+        // Zero or negative duration would wedge the animation cursor
+        // (advance_anim divides by it). Pin the contract.
+        for (anim, _) in ROBOT_SHEET.rows {
+            assert!(
+                ROBOT_SHEET.frame_duration(*anim) > 0.0,
+                "anim {:?} has non-positive duration",
+                anim
+            );
+        }
+    }
 }

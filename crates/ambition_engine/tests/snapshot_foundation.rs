@@ -22,7 +22,14 @@ ChestOpened
 BreakableIntact
 BreakableCracking
 BreakableBroken
-BreakableRespawning"###
+BreakableRespawning
+EncounterDormant
+EncounterStarting
+EncounterActive
+EncounterCleared
+EncounterFailed
+SwitchOff
+SwitchOn"###
     );
 }
 

@@ -184,7 +184,12 @@ door corridor and demonstrate one mechanic each.
   `RoomEntered("quest_lab")`, step 2 fires on returning to
   `central_hub_complex`. Quest auto-starts at boot; completion
   persists via the existing save system. Door from basement at
-  x=672. [tools/examples/ldtk_specs/quest_lab.yaml](tools/examples/ldtk_specs/quest_lab.yaml).
+  x=1620. [tools/examples/ldtk_specs/quest_lab.yaml](tools/examples/ldtk_specs/quest_lab.yaml).
+- **`switch_lab`** `[stable]` — Switch / save persistence proof room.
+  768x384 with a single Switch entity that fires the
+  `test_switch_toggled` save flag on toggle + advances the existing
+  `test_switch_quest`. Demonstrates the full Switch + save round-trip.
+  Door from basement at x=1139. [tools/examples/ldtk_specs/switch_lab.yaml](tools/examples/ldtk_specs/switch_lab.yaml).
 
 ## Tooling / generators
 

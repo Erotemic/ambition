@@ -852,7 +852,17 @@ pub fn camera_follow(
         // bounding-box center to a validated camera overview region.
         world_to_bevy(&world.0, world.0.size * 0.5, 0.0)
     } else {
-        world_to_bevy(&world.0, runtime.player.pos, 0.0)
+        // AMBITION_REVIEW(spatial): camera follows a stable "standing-pose center"
+        // that doesn't pop when the body resizes. `try_change_body_mode` keeps
+        // feet planted by adjusting `pos.y` (+Y down) by half the height delta,
+        // so on crouch/morph/slide entry the player's *center* shifts down by
+        // `(base_size.y - size.y) * 0.5`. Cancelling that offset here gives the
+        // camera a fixed virtual point — entering a slide mid-dash no longer
+        // produces a 10px vertical pop.
+        let resize_offset = (runtime.player.base_size.y - runtime.player.size.y) * 0.5;
+        let camera_target_world =
+            ae::Vec2::new(runtime.player.pos.x, runtime.player.pos.y - resize_offset);
+        world_to_bevy(&world.0, camera_target_world, 0.0)
     };
 
     // Use the actual logical window size so resized, borderless, and fullscreen

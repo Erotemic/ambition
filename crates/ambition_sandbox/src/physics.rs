@@ -371,3 +371,43 @@ fn seeded_angle(index: usize, count: usize, pos: ae::Vec2) -> f32 {
     let base = std::f32::consts::TAU * (index as f32 + 0.35) / count.max(1) as f32;
     base + phase
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn physics_sandbox_settings_defaults_are_sensible() {
+        let s = PhysicsSandboxSettings::default();
+        assert!(s.debris_enabled, "debris should default on for the sandbox");
+        assert!(
+            s.static_room_colliders,
+            "room colliders should default on so debris bounces off geometry"
+        );
+        assert!(
+            s.default_lifetime > 0.0,
+            "debris lifetime must be positive: got {}",
+            s.default_lifetime
+        );
+        assert!(
+            s.default_lifetime < 60.0,
+            "debris lifetime should be a few seconds, not minutes"
+        );
+    }
+
+    #[test]
+    fn physics_debris_cue_variants_compare_distinct() {
+        // Equality is consumed by debris_recipe pattern matching;
+        // two variants compared equal would silently fall through to
+        // the wrong recipe arm.
+        assert_ne!(PhysicsDebrisCue::Impact, PhysicsDebrisCue::Breakable);
+        assert_ne!(PhysicsDebrisCue::Impact, PhysicsDebrisCue::EnemyRagdoll);
+        assert_ne!(PhysicsDebrisCue::Impact, PhysicsDebrisCue::BossRagdoll);
+        assert_ne!(PhysicsDebrisCue::Breakable, PhysicsDebrisCue::EnemyRagdoll);
+        assert_ne!(PhysicsDebrisCue::Breakable, PhysicsDebrisCue::BossRagdoll);
+        assert_ne!(
+            PhysicsDebrisCue::EnemyRagdoll,
+            PhysicsDebrisCue::BossRagdoll
+        );
+    }
+}

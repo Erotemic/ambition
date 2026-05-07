@@ -133,10 +133,7 @@
 
 - [ ] Docstrings on `ProgressionResources` and `SandboxQueues` `[V1/D1]`
 - [ ] Sync `mechanics_checklist.md` against landed BodyMode + Hadouken work `[V1/D1]`
-- [ ] Archive pre-Bevy-0.18 port notes (`docs/bevy_port.md`, `docs/leafwing_input_manager_port.md`) `[V1/D1]`
-- [ ] Archive root-level audio overlay variants (`README_audio_*.txt`, `README_music_renderer_*.txt`) `[V1/D1]`
 - [ ] Archive applied music-renderer overlay docs in `docs/` once their patches land `[V1/D1]`
-- [ ] Fold `tmp-todo-notes.txt` items into TODO.md / Proposed, then delete it `[V1/D1]`
 - [ ] Wire FEATURES.md update into a checklist when closing TODO items `[V2/D1]`
 
 ## G — Story-arranged slice (resume after sandbox bar is met)
@@ -169,6 +166,6 @@
 
 ## Notes
 - **Verify before claiming done.** Many "TODO" items in past lists turned out to already be shipped — re-grep + check `git log --all` before assuming.
-- This file supersedes `tmp-todo-notes.txt`. Triage remaining notes there into Proposed (or directly into a tier if obviously valid), then delete the txt.
+- This file supersedes `tmp-todo-notes.txt` (now removed; all items folded into the tiers above).
 - Source docs: `docs/path_forward.md`, `docs/tech_debt_log.md`, `docs/character_ai_refactor.md`, `docs/crate_split_plan.md`, `docs/events_refactor_plan.md`, `docs/mechanics_checklist.md`, `docs/progression_systems_2026-05-05.md`, `docs/mob_lab.md`. When closing an item, update the source doc too if it tracks the same state.
 - Trim "Recently completed" entries here once they have an entry in `FEATURES.md`.

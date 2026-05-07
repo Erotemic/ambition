@@ -53,7 +53,7 @@ The current Bevy implementation lives primarily in
 are collected by `leafwing-input-manager` into `SandboxAction` / `ActionState`,
 then converted into `ControlFrame`. The engine still consumes a compact
 `InputState`, so key remapping can evolve without coupling movement physics to
-physical devices. See `docs/leafwing_input_manager_port.md` for the port notes.
+physical devices. See `docs/archive/port_notes/leafwing_input_manager_port.md` for the historical port notes.
 
 ## Current action semantics
 

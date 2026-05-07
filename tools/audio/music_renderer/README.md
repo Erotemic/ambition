@@ -115,7 +115,19 @@ Each cue is a YAML file under `examples/`. The structure is:
 - **`render`** — sample rate, OGG quality, default backend, SoundFont pin.
 - **`postprocess` / `stem_postprocess` / `group_postprocess`** — three
   layers of EQ + reverb + limiter settings, applied at master, per-stem,
-  and per-instrument-group respectively.
+  and per-instrument-group respectively. The full chain in order is:
+  `gain_db → highpass_hz → transient_tame → presence_db → high_shelf_db →
+  lowpass_hz → compressor → reverb → post_reverb_high_shelf_db →
+  stereo_width → soft_limit`.
+  - **Compressor** is opt-in: set `compressor_threshold_db` to enable.
+    Tunable via `compressor_ratio` (default 3), `compressor_attack_ms`
+    (10), `compressor_release_ms` (100), `compressor_makeup_db` (0),
+    `compressor_knee_db` (6, soft knee). Useful for master bus glue.
+  - **Reverb** is a Schroeder/Freeverb-style algorithm: 4 parallel
+    lowpass-feedback combs into 2 series allpass diffusers. `reverb_decay_seconds`
+    is the approximate RT60; `reverb_damping_hz` controls tail brightness.
+- **`constraints`** (optional, top-level or per-layer) — opt-in voicing
+  rules. See *Constraint flags* below.
 - **`instruments`** — list of instrument specs. Each gets a `name`, `group`
   (one of `strings`, `winds`, `brass`, `mallets`, `percussion`, `choir_pad`),
   GM `program` or `is_drum: true`, plus initial MIDI volume / pan /
@@ -135,6 +147,18 @@ Each cue is a YAML file under `examples/`. The structure is:
   - `drums` — drum patterns with named drum hits
   - `automation` — CC ramps (volume, expression, modulation) with curve
     options: `linear`, `smooth`, `exp`, `lfo` (sine sweep with `cycles`)
+
+  Every layer kind that produces notes accepts:
+  - `humanize_ms` — Gaussian time jitter per note (sigma in ms).
+  - `humanize_velocity_pct` — Gaussian velocity jitter per note (sigma in
+    percent of nominal velocity). 2-4% gives a natural ensemble feel.
+
+  The `motif` kind additionally accepts:
+  - `pitch_bend_curve` (or `instrument_pitch_bend_curves`) — list of
+    `[beat_offset, cents]` waypoints applied across each note. Use for
+    sustained guitar bends or slide effects. Example:
+    `[[0.0, 0], [0.1, 100], [0.5, 100], [0.7, 0]]` rises a semitone, holds,
+    releases.
 - **`playback`** — runtime crossfade rules: `loop_components`, `bridge_stems`,
   fade behavior on exit.
 - **`state_map`** — named gameplay states each pointing at a section and
@@ -142,7 +166,9 @@ Each cue is a YAML file under `examples/`. The structure is:
 - **`sections`** — the actual cues. Each has a `bars` count, an `intensity`
   multiplier, a `harmony` array (one chord symbol per bar), and a `layers`
   array. Layers can reference templates (`{template: foo, ...overrides}`)
-  or be inline.
+  or be inline. A section may also define its own **`postprocess`** block
+  to override the master ambience for that section's `.full.ogg` slice
+  (intimate intro vs cathedral climax without remixing every stem).
 
 See `examples/violin_boss_relentless.music.yaml` for a thoroughly-commented
 production example.
@@ -256,19 +282,34 @@ sound:
   with stepwise motion. Easy to express as a `bassline` template with
   per-bar custom patterns.
 
-### Constraint flags (future)
+### Constraint flags (opt-in)
 
-When the renderer adds rule-check features (cluster prevention, parallel-
-fifth detection, etc.), they will be **opt-in via YAML constraints** rather
-than always-on. There are legitimate musical reasons to break each of
-these rules, and the renderer should not enforce them silently. Expected
-shape, when added:
+The renderer supports opt-in voicing constraints. Each is **off by default** —
+there are legitimate musical reasons to break each rule, so the renderer
+will not enforce them silently. Set at the spec level (applies to every
+chord layer) or on a per-layer basis (overrides spec-level):
 
 ```yaml
 constraints:
-  no_clusters: true               # default off
-  no_parallel_fifths: false       # default off
-  voice_leading: minimize_motion  # default: pass-through
+  voice_leading: minimize_motion   # find permutation/octave shift of
+                                    # each new chord that minimizes total
+                                    # voice motion from the previous chord
+                                    # on the same instrument
+  no_clusters: true                # if any two voices end up a minor 2nd
+                                    # apart, raise the higher one an octave
+                                    # until no clusters remain
+```
+
+Constraints currently apply only inside `add_chord` (so they affect
+`pad_chords` and `chord_hits` layers). Per-layer override:
+
+```yaml
+chorus_block:
+  kind: chord_hits
+  ...
+  constraints:
+    voice_leading: minimize_motion
+    no_clusters: true
 ```
 
 ## Stable filenames

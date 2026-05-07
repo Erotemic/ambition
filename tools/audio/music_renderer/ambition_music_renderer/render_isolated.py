@@ -105,9 +105,25 @@ def main(argv=None) -> int:
     r.write_ogg_from_audio(master, sr, preview, quality=quality, keep_wav=False)
     output_files["preview"]["full_soundtrack"] = str(preview.relative_to(outdir))
 
-    # Per-section full slices come from the same mastered mix.
+    # Per-section full slices. If a section defines its own `postprocess`
+    # block (per-section ambience override), apply *that* chain to the
+    # raw stem-sum slice instead of using the master-mixed version. This
+    # lets a section sound markedly different from the rest of the cue
+    # (e.g. an intimate intro while the climax sounds cathedral) without
+    # remixing every stem.
+    sections_in_spec = {s["id"]: s for s in spec.get("sections", [])}
     for sec in meta:
-        piece = r.slice_audio(master, sr, sec["start_seconds"], sec["end_seconds"])
+        sec_spec = sections_in_spec.get(sec["id"], {})
+        section_pp = sec_spec.get("postprocess")
+        if section_pp:
+            # Slice the raw stem sum (pre-master), apply the section's
+            # postprocess chain to that slice.
+            raw_piece = r.slice_audio(full, sr, sec["start_seconds"], sec["end_seconds"])
+            section_settings = dict(master_settings)
+            section_settings.update(section_pp)
+            piece = r.post_process(raw_piece, sr, section_settings)
+        else:
+            piece = r.slice_audio(master, sr, sec["start_seconds"], sec["end_seconds"])
         path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.full.ogg"
         r.write_ogg_from_audio(piece, sr, path, quality=quality, keep_wav=False)
         output_files["adaptive"].setdefault(sec["id"], {})["full"] = str(path.relative_to(outdir))

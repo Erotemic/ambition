@@ -34,7 +34,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.7.2-lfo-automation"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.8.0-compressor-reverb-constraints"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf3/MuseScore_General_Full.sf3",
     "/usr/share/sounds/sf3/MuseScore_General.sf3",
@@ -122,6 +122,9 @@ class RenderContext:
     groups: dict[str, str]
     section_starts: dict[str, int]
     motifs: dict[str, dict[str, Any]]
+    # Tracks the most recent chord voicing per instrument for the
+    # `voice_leading: minimize_motion` constraint.
+    last_voicing: dict[str, list[int]] = dc.field(default_factory=dict)
 
     def beat_to_time(self, beat: float) -> float:
         return beat * 60.0 / self.bpm
@@ -276,7 +279,32 @@ def resolve_instruments(ctx: RenderContext, layer: dict[str, Any]) -> list[str]:
     raise KeyError(f"layer needs instrument/instruments/group: {layer}")
 
 
-def add_note(ctx: RenderContext, inst_name: str, pitch: int | str, bar: float, beat: float, dur_beats: float, vel: float, *, articulation: str = "normal", humanize_ms: float = 0.0, gate: float | None = None, pitch_scoop_cents: float = 0.0) -> None:
+def add_note(
+    ctx: RenderContext,
+    inst_name: str,
+    pitch: int | str,
+    bar: float,
+    beat: float,
+    dur_beats: float,
+    vel: float,
+    *,
+    articulation: str = "normal",
+    humanize_ms: float = 0.0,
+    humanize_velocity_pct: float = 0.0,
+    gate: float | None = None,
+    pitch_scoop_cents: float = 0.0,
+    pitch_bend_curve: list[tuple[float, float]] | None = None,
+) -> None:
+    """Schedule a single note.
+
+    `humanize_velocity_pct` jitters velocity by N(0, pct) so motoric figures
+    don't sound machine-perfect. ±2-4% is a typical ensemble-feel value.
+
+    `pitch_bend_curve` is an optional list of `(beat_offset_in_note, cents)`
+    waypoints that get interpolated across the note. Use it for sustained
+    guitar bends — `[(0.0, 0), (0.1, 100), (0.5, 100), (0.7, 0)]` rises a
+    semitone, holds, then releases.
+    """
     if inst_name not in ctx.instruments:
         raise KeyError(f"unknown instrument {inst_name!r}")
     inst = ctx.instruments[inst_name]
@@ -290,18 +318,146 @@ def add_note(ctx: RenderContext, inst_name: str, pitch: int | str, bar: float, b
     start = max(0.0, start)
     if end <= start:
         end = start + 0.025
+    if humanize_velocity_pct:
+        vel = vel * (1.0 + float(ctx.rng.normal(0.0, humanize_velocity_pct / 100.0)))
     velocity = int(clamp(round(vel), 1, 127))
     inst.notes.append(pretty_midi.Note(velocity=velocity, pitch=pitch_num, start=start, end=end))
-    if pitch_scoop_cents:
+    if pitch_bend_curve:
+        # Interpolate the curve in time and write as a sequence of pitch bends.
+        # Cents are clamped to MIDI's ±2 semitone default range here (200 cents
+        # max). For deeper bends, expand `synth.pitch_wheel_sensitivity` upstream.
+        note_duration = ctx.beat_to_time(dur_beats)
+        for beat_off, cents in pitch_bend_curve:
+            bend_time = start + max(0.0, float(beat_off) * (note_duration / max(dur_beats, 1e-6)))
+            bend_time = min(bend_time, end)
+            bend_value = int(clamp(float(cents) / 200.0 * 8192.0, -8192, 8191))
+            inst.pitch_bends.append(pretty_midi.PitchBend(pitch=bend_value, time=bend_time))
+        # Reset to 0 just past the note end so we don't drag bend into the next note.
+        inst.pitch_bends.append(pretty_midi.PitchBend(pitch=0, time=end + 0.001))
+    elif pitch_scoop_cents:
         bend_value = int(clamp(pitch_scoop_cents / 200.0 * 8192.0, -8192, 8191))
         inst.pitch_bends.append(pretty_midi.PitchBend(pitch=bend_value, time=start))
         inst.pitch_bends.append(pretty_midi.PitchBend(pitch=0, time=min(end, start + 0.10)))
 
 
-def add_chord(ctx: RenderContext, inst_name: str, chord: str, bar: float, beat: float, dur_beats: float, vel: float, *, octave: int = 4, articulation: str = "pad", voicing: str = "open", humanize_ms: float = 0.0, gate: float | None = None) -> None:
+def add_chord(
+    ctx: RenderContext,
+    inst_name: str,
+    chord: str,
+    bar: float,
+    beat: float,
+    dur_beats: float,
+    vel: float,
+    *,
+    octave: int = 4,
+    articulation: str = "pad",
+    voicing: str = "open",
+    humanize_ms: float = 0.0,
+    humanize_velocity_pct: float = 0.0,
+    gate: float | None = None,
+    constraints: dict[str, Any] | None = None,
+) -> None:
     notes = chord_pitches(chord, octave=octave, voicing=voicing)
+    if constraints:
+        notes = _apply_voicing_constraints(ctx, inst_name, notes, constraints)
     for idx, p in enumerate(notes):
-        add_note(ctx, inst_name, p, bar, beat, dur_beats, vel - idx * 2, articulation=articulation, humanize_ms=humanize_ms, gate=gate)
+        add_note(
+            ctx, inst_name, p, bar, beat, dur_beats, vel - idx * 2,
+            articulation=articulation,
+            humanize_ms=humanize_ms,
+            humanize_velocity_pct=humanize_velocity_pct,
+            gate=gate,
+        )
+
+
+def _apply_voicing_constraints(
+    ctx: RenderContext,
+    inst_name: str,
+    notes: list[int],
+    constraints: dict[str, Any],
+) -> list[int]:
+    """Rewrite a chord's voicing per the YAML constraints block.
+
+    All checks are opt-in: nothing is enforced unless the YAML asks for it.
+    Two rules currently supported:
+
+    - `voice_leading: minimize_motion` — given the previous chord's voicing
+      on this instrument, permute / octave-shift the new notes so the total
+      voice motion is minimized. Bass note (lowest) is preserved.
+    - `no_clusters: true` — any pair of notes a minor 2nd apart is split
+      apart by raising the higher one an octave.
+    """
+    out = list(notes)
+    mode = constraints.get("voice_leading")
+    if mode == "minimize_motion":
+        prev = ctx.last_voicing.get(inst_name)
+        if prev is not None and len(prev) >= len(out):
+            # Permute new notes to align with prev — for each previous voice,
+            # pick the new note (octave-shifted into the closest octave) that
+            # minimizes pitch motion. Keep the lowest as bass.
+            out = _voice_lead_minimize(prev, out)
+    if constraints.get("no_clusters"):
+        out = _spread_clusters(out)
+    ctx.last_voicing[inst_name] = list(out)
+    return out
+
+
+def _voice_lead_minimize(prev: list[int], new: list[int]) -> list[int]:
+    """Greedy nearest-voice mapping. Bass voice (lowest of `new`) stays put;
+    upper voices are octave-shifted to the closest version of one of the
+    remaining new notes."""
+    if not new:
+        return new
+    bass = min(new)
+    rest_new = [n for n in new if n != bass] + [n for n in new if n == bass][1:]
+    rest_prev = sorted(prev)[1:] if len(prev) > 1 else []
+    out = [bass]
+    available = list(rest_new)
+    for prev_note in rest_prev:
+        if not available:
+            break
+        # Shift each candidate to the nearest octave of prev_note, then pick
+        # the candidate with the smallest residual distance.
+        best = None
+        best_dist = 10**9
+        for cand in available:
+            shifted = cand
+            while shifted < prev_note - 6:
+                shifted += 12
+            while shifted > prev_note + 6:
+                shifted -= 12
+            d = abs(shifted - prev_note)
+            if d < best_dist:
+                best = (cand, shifted)
+                best_dist = d
+        if best is None:
+            break
+        chosen_orig, chosen_shifted = best
+        out.append(chosen_shifted)
+        available.remove(chosen_orig)
+    # Append any leftover new notes in their original octave.
+    out.extend(available)
+    return out
+
+
+def _spread_clusters(notes: list[int]) -> list[int]:
+    """Move any note that's a minor 2nd from another voice up by an octave
+    until no two voices are adjacent semitones."""
+    if len(notes) < 2:
+        return notes
+    out = sorted(notes)
+    changed = True
+    iterations = 0
+    while changed and iterations < 8:
+        changed = False
+        iterations += 1
+        for i in range(len(out) - 1):
+            if out[i + 1] - out[i] == 1:
+                out[i + 1] += 12
+                out.sort()
+                changed = True
+                break
+    return out
 
 
 def add_drum(ctx: RenderContext, kit: str, drum_name: str, bar: float, beat: float, vel: float, *, dur_beats: float = 0.30, humanize_ms: float = 0.0) -> None:
@@ -407,6 +563,23 @@ def apply_automation(ctx: RenderContext, section: dict[str, Any], layer: dict[st
                 add_cc(inst, cc_num, val, ctx.bar_to_time(start_bar + dur_bars * a))
 
 
+def _layer_human(layer: dict[str, Any], default_ms: float) -> dict[str, float]:
+    """Pull humanize parameters from a layer with a per-call default."""
+    return {
+        "humanize_ms": float(layer.get("humanize_ms", default_ms)),
+        "humanize_velocity_pct": float(layer.get("humanize_velocity_pct", 0.0)),
+    }
+
+
+def _layer_constraints(spec: dict[str, Any], layer: dict[str, Any]) -> dict[str, Any] | None:
+    """Merge the spec-level and layer-level `constraints` blocks."""
+    spec_c = spec.get("constraints") or {}
+    layer_c = layer.get("constraints") or {}
+    merged = dict(spec_c)
+    merged.update(layer_c)
+    return merged or None
+
+
 def render_layer_pad_chords(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
     insts = resolve_instruments(ctx, layer)
     every = float(layer.get("every_bars", 1.0))
@@ -415,10 +588,12 @@ def render_layer_pad_chords(ctx: RenderContext, section: dict[str, Any], layer: 
     velocity = float(layer.get("velocity", 60)) * float(section.get("intensity", 1.0))
     articulation = layer.get("articulation", "pad")
     voicing = layer.get("voicing", "open")
+    hk = _layer_human(layer, 8.0)
+    constraints = _layer_constraints(ctx.spec, layer)
     for local in range(0, int(section["bars"]), max(1, int(every))):
         chord = chord_for_bar(section, local)
         for inst in insts:
-            add_chord(ctx, inst, chord, section["start_bar"] + local, 0.0, dur, velocity, octave=octave, articulation=articulation, voicing=voicing, humanize_ms=float(layer.get("humanize_ms", 8.0)))
+            add_chord(ctx, inst, chord, section["start_bar"] + local, 0.0, dur, velocity, octave=octave, articulation=articulation, voicing=voicing, constraints=constraints, **hk)
 
 
 def render_layer_arpeggio(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
@@ -432,6 +607,7 @@ def render_layer_arpeggio(ctx: RenderContext, section: dict[str, Any], layer: di
     articulation = layer.get("articulation", "staccato")
     inst_velocity_offsets = layer.get("instrument_velocity_offsets", {}) or {}
     inst_octave_offsets = layer.get("instrument_octave_offsets", {}) or {}
+    hk = _layer_human(layer, 4.0)
     for local in range(int(section["bars"])):
         if "every" in layer and local % int(layer["every"]) != int(layer.get("offset", 0)):
             continue
@@ -444,7 +620,7 @@ def render_layer_arpeggio(ctx: RenderContext, section: dict[str, Any], layer: di
             for inst in insts:
                 p = base_pitch + 12 * int(inst_octave_offsets.get(inst, 0))
                 v = velocity + float(inst_velocity_offsets.get(inst, 0.0))
-                add_note(ctx, inst, p, section["start_bar"] + local, i * step, dur, v * float(section.get("intensity", 1.0)), articulation=articulation, humanize_ms=float(layer.get("humanize_ms", 4.0)))
+                add_note(ctx, inst, p, section["start_bar"] + local, i * step, dur, v * float(section.get("intensity", 1.0)), articulation=articulation, **hk)
 
 
 def render_layer_ostinato(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
@@ -455,6 +631,7 @@ def render_layer_ostinato(ctx: RenderContext, section: dict[str, Any], layer: di
     velocity = float(layer.get("velocity", 60))
     articulation = layer.get("articulation", "spiccato")
     bars = int(section["bars"])
+    hk = _layer_human(layer, 4.0)
     for local in range(bars):
         root = root_for_chord(chord_for_bar(section, local), root_octave)
         beat = 0.0
@@ -463,7 +640,7 @@ def render_layer_ostinato(ctx: RenderContext, section: dict[str, Any], layer: di
             dur = rhythm[idx % len(rhythm)]
             p = root + intervals[idx % len(intervals)]
             for inst in insts:
-                add_note(ctx, inst, p, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, humanize_ms=float(layer.get("humanize_ms", 4.0)))
+                add_note(ctx, inst, p, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, **hk)
             beat += dur
             idx += 1
 
@@ -474,11 +651,12 @@ def render_layer_bassline(ctx: RenderContext, section: dict[str, Any], layer: di
     octave = int(layer.get("octave", 2))
     velocity = float(layer.get("velocity", 74))
     articulation = layer.get("articulation", "marcato")
+    hk = _layer_human(layer, 5.0)
     for local in range(int(section["bars"])):
         root = root_for_chord(chord_for_bar(section, local), octave)
         for item in pattern:
             interval, beat, dur = int(item[0]), float(item[1]), float(item[2])
-            add_note(ctx, inst, root + interval, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, humanize_ms=float(layer.get("humanize_ms", 5.0)))
+            add_note(ctx, inst, root + interval, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, **hk)
 
 
 def render_layer_motif(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
@@ -494,7 +672,9 @@ def render_layer_motif(ctx: RenderContext, section: dict[str, Any], layer: dict[
     inst_velocity_offsets = layer.get("instrument_velocity_offsets", {}) or {}
     inst_octave_offsets = layer.get("instrument_octave_offsets", {}) or {}
     inst_pitch_scoop = layer.get("instrument_pitch_scoop_cents", {}) or {}
+    inst_pitch_bend_curves = layer.get("instrument_pitch_bend_curves", {}) or {}
     note_velocity_pattern = layer.get("note_velocity_pattern", None)
+    hk = _layer_human(layer, 6.0)
     for rep in range(repeats):
         root = roots[rep % len(roots)]
         for start in starts:
@@ -512,7 +692,9 @@ def render_layer_motif(ctx: RenderContext, section: dict[str, Any], layer: dict[
                     p = p0 + 12 * int(inst_octave_offsets.get(inst, 0))
                     v = velocity + float(inst_velocity_offsets.get(inst, -8 * j))
                     scoop = float(inst_pitch_scoop.get(inst, layer.get("pitch_scoop_cents", 0.0)))
-                    add_note(ctx, inst, p, section["start_bar"] + local_bar, beat, dur, v * vel_scale * float(section.get("intensity", 1.0)), articulation=articulation, humanize_ms=float(layer.get("humanize_ms", 6.0)), pitch_scoop_cents=scoop)
+                    bend_curve = inst_pitch_bend_curves.get(inst, layer.get("pitch_bend_curve"))
+                    bend_curve_pairs = [(float(x[0]), float(x[1])) for x in bend_curve] if bend_curve else None
+                    add_note(ctx, inst, p, section["start_bar"] + local_bar, beat, dur, v * vel_scale * float(section.get("intensity", 1.0)), articulation=articulation, pitch_scoop_cents=scoop, pitch_bend_curve=bend_curve_pairs, **hk)
                 beat += dur
 
 
@@ -521,12 +703,14 @@ def render_layer_chord_hits(ctx: RenderContext, section: dict[str, Any], layer: 
     hits = layer.get("hits", [[0, 0.0], [4, 0.0], [8, 0.0], [12, 0.0]])
     velocity = float(layer.get("velocity", 90))
     octave = int(layer.get("octave", 3))
+    hk = _layer_human(layer, 6.0)
+    constraints = _layer_constraints(ctx.spec, layer)
     for local, beat in hits:
         if float(local) >= section["bars"]:
             continue
         chord = chord_for_bar(section, int(local))
         for inst in insts:
-            add_chord(ctx, inst, chord, section["start_bar"] + float(local), float(beat), float(layer.get("duration_beats", 0.75)), velocity * float(section.get("intensity", 1.0)), octave=octave, articulation=layer.get("articulation", "marcato"), voicing=layer.get("voicing", "closed"), humanize_ms=float(layer.get("humanize_ms", 6.0)))
+            add_chord(ctx, inst, chord, section["start_bar"] + float(local), float(beat), float(layer.get("duration_beats", 0.75)), velocity * float(section.get("intensity", 1.0)), octave=octave, articulation=layer.get("articulation", "marcato"), voicing=layer.get("voicing", "closed"), constraints=constraints, **hk)
 
 
 def render_layer_drums(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
@@ -553,13 +737,14 @@ def render_layer_texture(ctx: RenderContext, section: dict[str, Any], layer: dic
     root = note_to_midi(layer.get("root", "D5"))
     count_per_bar = float(layer.get("events_per_bar", 1.0))
     velocity = float(layer.get("velocity", 38))
+    hk = _layer_human(layer, 2.0)
     for local in range(int(section["bars"])):
         count = int(math.floor(count_per_bar)) + (1 if ctx.rng.random() < count_per_bar % 1 else 0)
         for _ in range(count):
             beat = float(ctx.rng.uniform(0.0, ctx.beats_per_bar))
             p = root + int(ctx.rng.choice(scale)) + 12 * int(ctx.rng.integers(-1, 2))
             inst = str(ctx.rng.choice(insts))
-            add_note(ctx, inst, p, section["start_bar"] + local, beat, float(layer.get("duration_beats", 0.25)), velocity * float(section.get("intensity", 1.0)), articulation=layer.get("articulation", "bell"), humanize_ms=float(layer.get("humanize_ms", 2.0)))
+            add_note(ctx, inst, p, section["start_bar"] + local, beat, float(layer.get("duration_beats", 0.25)), velocity * float(section.get("intensity", 1.0)), articulation=layer.get("articulation", "bell"), **hk)
 
 
 def render_layer_pedal(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
@@ -568,8 +753,9 @@ def render_layer_pedal(ctx: RenderContext, section: dict[str, Any], layer: dict[
     if pitch is None:
         pitch = root_for_chord(chord_for_bar(section, 0), int(layer.get("octave", 2)))
     velocity = float(layer.get("velocity", 45)) * float(section.get("intensity", 1.0))
+    hk = _layer_human(layer, 8.0)
     for inst in insts:
-        add_note(ctx, inst, pitch, section["start_bar"], 0.0, section["bars"] * ctx.beats_per_bar, velocity, articulation=layer.get("articulation", "pad"), humanize_ms=float(layer.get("humanize_ms", 8.0)))
+        add_note(ctx, inst, pitch, section["start_bar"], 0.0, section["bars"] * ctx.beats_per_bar, velocity, articulation=layer.get("articulation", "pad"), **hk)
 
 
 
@@ -579,13 +765,14 @@ def render_layer_root_hits(ctx: RenderContext, section: dict[str, Any], layer: d
     velocity = float(layer.get("velocity", 76))
     octave = int(layer.get("octave", 2))
     articulation = layer.get("articulation", "marcato")
+    hk = _layer_human(layer, 2.0)
     for item in hits:
         local = float(item[0]); beat = float(item[1]); interval = int(item[2]) if len(item) > 2 else 0; dur = float(item[3]) if len(item) > 3 else float(layer.get("duration_beats", 0.75))
         if local >= section["bars"]:
             continue
         root = root_for_chord(chord_for_bar(section, int(local)), octave)
         for inst in insts:
-            add_note(ctx, inst, root + interval, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, humanize_ms=float(layer.get("humanize_ms", 2.0)))
+            add_note(ctx, inst, root + interval, section["start_bar"] + local, beat, dur, velocity * float(section.get("intensity", 1.0)), articulation=articulation, **hk)
 
 
 def render_layer_automation(ctx: RenderContext, section: dict[str, Any], layer: dict[str, Any]) -> None:
@@ -887,53 +1074,161 @@ def band_gain(audio: np.ndarray, sample_rate: int, *, low_hz: float, high_hz: fl
 
 
 
-def simple_reverb(audio: np.ndarray, sr: int, wet: float = 0.08, decay: float = 0.9, damping_hz: float = 6500.0) -> np.ndarray:
-    """Small deterministic reverb used by MusicIR post-processing.
+def _comb_filter(signal_in: np.ndarray, delay: int, feedback: float, damping: float) -> np.ndarray:
+    """Lowpass-feedback comb (Freeverb-style). Delay in samples; feedback is
+    the per-loop multiplier (RT60-controlling); damping applies a one-pole
+    lowpass inside the feedback path so the reverb tail darkens over time.
+    """
+    n = len(signal_in)
+    out = np.zeros(n, dtype=np.float32)
+    if delay <= 0 or delay >= n:
+        return out
+    buffer = np.zeros(delay, dtype=np.float32)
+    filter_state = 0.0
+    write = 0
+    damping = float(clamp(damping, 0.0, 0.99))
+    one_minus_damping = 1.0 - damping
+    fb = float(feedback)
+    sig = signal_in.astype(np.float32, copy=False)
+    for i in range(n):
+        delayed = buffer[write]
+        out[i] = delayed
+        # One-pole lowpass on the feedback path.
+        filter_state = delayed * one_minus_damping + filter_state * damping
+        buffer[write] = sig[i] + filter_state * fb
+        write += 1
+        if write >= delay:
+            write = 0
+    return out
 
-    Uses a denser, lower-gain set of early-reflection taps so percussive
-    transients don't read as slap-back echoes (the previous design's first
-    tap was at +29 ms, gain ~0.97, which sounded like a duplicate hit).
+
+def _allpass_filter(signal_in: np.ndarray, delay: int, feedback: float = 0.5) -> np.ndarray:
+    """Schroeder-style allpass for diffusion. No spectral coloration, just
+    smears the impulse response."""
+    n = len(signal_in)
+    out = np.zeros(n, dtype=np.float32)
+    if delay <= 0 or delay >= n:
+        return out
+    buffer = np.zeros(delay, dtype=np.float32)
+    write = 0
+    fb = float(feedback)
+    sig = signal_in.astype(np.float32, copy=False)
+    for i in range(n):
+        bufout = buffer[write]
+        out[i] = -sig[i] + bufout
+        buffer[write] = sig[i] + bufout * fb
+        write += 1
+        if write >= delay:
+            write = 0
+    return out
+
+
+def simple_reverb(audio: np.ndarray, sr: int, wet: float = 0.08, decay: float = 0.9, damping_hz: float = 6500.0) -> np.ndarray:
+    """Schroeder-Freeverb-style reverb.
+
+    Four parallel lowpass-feedback combs in series with two allpass
+    diffusers. RT60 is set from `decay` (in seconds) by mapping it to
+    feedback gain per comb. `damping_hz` controls the brightness of the
+    tail (lower = darker).
     """
     wet = float(wet)
     decay = max(float(decay), 1e-3)
     if wet <= 0.0 or audio.size == 0:
         return audio.astype("float32", copy=False)
 
-    y = np.asarray(audio, dtype="float32")
-    if y.ndim == 1:
-        y = y[:, None]
-    acc = np.zeros_like(y)
+    y = _coerce_stereo(audio)
+    n = len(y)
 
-    # Twelve taps spaced from ~7 ms to ~340 ms with smoothly falling gain.
-    # The first tap is intentionally quiet so transients don't echo, and
-    # the broader spread reads as diffuse ambience rather than discrete
-    # delay lines.
-    taps = (
-        (0.007, 0.28), (0.013, 0.24), (0.019, 0.20), (0.029, 0.17),
-        (0.041, 0.14), (0.057, 0.11), (0.079, 0.085), (0.103, 0.066),
-        (0.137, 0.050), (0.181, 0.038), (0.241, 0.028), (0.331, 0.020),
-    )
+    # Comb-filter delay times in samples (Freeverb's prime-number choices,
+    # adjusted for our 48 kHz target). Each comb gives a different "color"
+    # and their primes minimize ringing.
+    comb_delays_seconds = (0.0297, 0.0371, 0.0411, 0.0437)
+    allpass_delays_seconds = (0.0050, 0.0017)
 
-    for idx, (delay_seconds, base_gain) in enumerate(taps):
-        delay = max(1, int(round(delay_seconds * sr)))
-        if delay >= len(y):
-            continue
-        gain = base_gain * math.exp(-delay_seconds / decay)
-        acc[delay:] += y[:-delay] * gain
-        # Subtle stereo cross-feed for spread (kept very small so a panned
-        # source doesn't bleed across channels in the reverb tail).
-        if acc.shape[1] >= 2:
-            acc[delay:, 1] += y[:-delay, 0] * gain * 0.06
-            acc[delay:, 0] += y[:-delay, 1] * gain * 0.04
+    # Map decay (RT60 in seconds) to per-comb feedback. RT60 = -3 / log10(fb)
+    # for one comb; we average the comb delays for the calculation.
+    avg_delay = sum(comb_delays_seconds) / len(comb_delays_seconds)
+    rt60_iterations = decay / avg_delay
+    feedback = 0.0 if rt60_iterations <= 0 else 10.0 ** (-3.0 / max(rt60_iterations, 1.0))
+    feedback = float(clamp(feedback, 0.0, 0.97))
 
-    if damping_hz and damping_hz > 0 and len(acc) > 16:
-        cutoff = min(float(damping_hz), sr * 0.45)
-        if cutoff > 20.0:
-            b, a = signal.butter(1, cutoff / (sr * 0.5), btype="low")
-            acc = signal.lfilter(b, a, acc, axis=0).astype("float32")
+    # Damping coefficient from cutoff: alpha for one-pole = exp(-2π * fc / sr).
+    damping = float(clamp(math.exp(-2.0 * math.pi * float(damping_hz) / sr), 0.0, 0.97))
+    # Convert "fraction of signal that survives one filter step" to the
+    # internal damping convention used by `_comb_filter` (where damping=0
+    # means no smoothing, damping near 1 is heavy lowpassing).
+    internal_damping = float(clamp(1.0 - damping, 0.0, 0.97))
 
-    out = y * (1.0 - wet) + acc * wet
-    return out.astype("float32", copy=False)
+    wet_chans = []
+    for chan in (0, 1):
+        x = np.ascontiguousarray(y[:, chan])
+        comb_sum = np.zeros(n, dtype=np.float32)
+        for d_sec in comb_delays_seconds:
+            d = max(2, int(round(d_sec * sr)))
+            comb_sum += _comb_filter(x, d, feedback, internal_damping)
+        comb_sum /= float(len(comb_delays_seconds))
+        # Series allpass diffusers smear the comb output's impulse response.
+        for d_sec in allpass_delays_seconds:
+            d = max(2, int(round(d_sec * sr)))
+            comb_sum = _allpass_filter(comb_sum, d, 0.5)
+        wet_chans.append(comb_sum)
+    wet_arr = np.column_stack(wet_chans).astype(np.float32)
+
+    return (y * (1.0 - wet) + wet_arr * wet).astype(np.float32, copy=False)
+
+
+def compressor(audio: np.ndarray, sr: int, *, threshold_db: float = -18.0, ratio: float = 3.0,
+               attack_ms: float = 10.0, release_ms: float = 100.0, makeup_db: float = 0.0,
+               knee_db: float = 6.0) -> np.ndarray:
+    """Feed-forward peak compressor with attack/release smoothing.
+
+    Pulls signal above `threshold_db` toward `1/ratio:1`. `knee_db` softens
+    the threshold transition (0 = hard knee, 6 = typical soft knee). Attack
+    and release are time constants for the gain-reduction envelope.
+    """
+    if ratio <= 1.0:
+        return audio.astype(np.float32, copy=False)
+    audio = _coerce_stereo(audio)
+    # Detector signal: per-sample stereo peak, in dB.
+    det = np.maximum(np.abs(audio[:, 0]), np.abs(audio[:, 1]))
+    det = np.maximum(det, 1e-9)
+    det_db = 20.0 * np.log10(det)
+
+    # Soft-knee gain reduction in dB.
+    threshold_db = float(threshold_db)
+    knee = max(float(knee_db), 0.0)
+    over = det_db - threshold_db
+    if knee > 0.0:
+        # Smooth knee: 0 below threshold-knee/2, soft transition through knee, full ratio above.
+        below = over <= -knee / 2
+        above = over >= knee / 2
+        soft = ~below & ~above
+        gr_db = np.zeros_like(over)
+        # Above knee: linear ratio
+        gr_db[above] = -(over[above] - over[above] / ratio)
+        # Soft-knee region: quadratic interpolation
+        x = (over[soft] + knee / 2) / knee
+        gr_db[soft] = -(x * x * (over[soft] / ratio + knee / 4 - over[soft]))
+    else:
+        gr_db = np.where(over > 0, -(over - over / ratio), 0.0)
+
+    # Attack/release smoothing of the gain reduction envelope (in dB).
+    a = math.exp(-1.0 / max(float(attack_ms) * 1e-3 * sr, 1.0))
+    r = math.exp(-1.0 / max(float(release_ms) * 1e-3 * sr, 1.0))
+    env = np.zeros_like(gr_db)
+    state = 0.0
+    for i in range(len(gr_db)):
+        target = gr_db[i]
+        if target < state:  # attack: gain reduction is increasing (more negative)
+            state = a * state + (1.0 - a) * target
+        else:  # release: gain reduction is decreasing
+            state = r * state + (1.0 - r) * target
+        env[i] = state
+
+    # Apply gain reduction + makeup to both channels.
+    gain = np.power(10.0, (env + float(makeup_db)) / 20.0).astype(np.float32)
+    out = audio * gain[:, None]
+    return out.astype(np.float32, copy=False)
 
 def stereo_widen(audio: np.ndarray, amount: float = 0.12) -> np.ndarray:
     if amount <= 0:
@@ -974,6 +1269,19 @@ def post_process(audio: np.ndarray, sample_rate: int, settings: dict[str, Any]) 
         audio = high_shelf(audio, sample_rate, hz=float(settings.get("high_shelf_hz", 4_500)), db=float(settings["high_shelf_db"]))
     if settings.get("lowpass_hz", 0):
         audio = lowpass(audio, sample_rate, float(settings["lowpass_hz"]))
+    # Real bus compressor — opt-in via `compressor_threshold_db`. Glues the mix
+    # before reverb so the room responds to compressed material rather than
+    # raw transients. Set ratio:1 between 2 and 6 for typical bus glue.
+    if "compressor_threshold_db" in settings:
+        audio = compressor(
+            audio, sample_rate,
+            threshold_db=float(settings["compressor_threshold_db"]),
+            ratio=float(settings.get("compressor_ratio", 3.0)),
+            attack_ms=float(settings.get("compressor_attack_ms", 10.0)),
+            release_ms=float(settings.get("compressor_release_ms", 100.0)),
+            makeup_db=float(settings.get("compressor_makeup_db", 0.0)),
+            knee_db=float(settings.get("compressor_knee_db", 6.0)),
+        )
     audio = simple_reverb(
         audio,
         sample_rate,

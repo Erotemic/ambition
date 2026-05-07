@@ -10,13 +10,27 @@ The current intent is:
 
 Important source modules:
 
-- `abilities.rs` — ability flags and compatibility warnings.
-- `movement.rs` — player movement, blink, dash, fly, wall, rebound, pogo, and symbolic operation traces.
-- `world.rs` — reusable world/block data structures and collision query entry points.
+- `abilities.rs` — ability flags (`AbilitySet`) and compatibility warnings.
+- `actor.rs` — `Actor`, `Health`, `EnemyBrain`, `BossBrain`, `KinematicPath`.
+- `boss_encounter.rs` — `BossEncounterSpec`, `BossEncounterState`, phase events.
+- `boss_patterns.rs` — `BossAttackKind`, `BossPatternSchedule` for telegraph timing.
+- `character_ai.rs` — backend-neutral character AI evaluator; sandbox feeds `CharacterAiSnapshot`.
+- `combat.rs` — `Hitbox`, `Hurtbox`, slash/pogo hitbox computation.
+- `cutscene.rs` — `CutsceneScript`, `CutsceneRuntime` for scripted sequences.
+- `debug.rs` — `DebugLabel`, `DestinationLabel` for sandbox-side debug overlays.
+- `enemy.rs` — test dummy / `Dummy` / `DummyKind` and knockback behavior.
 - `geometry.rs` — Bevy `Aabb2d` helpers plus Ambition-specific strict overlap and Parry-backed shape casts.
-- `combat.rs` — slash/pogo hitbox computation.
-- `enemy.rs` — test dummy and knockback behavior.
+- `interaction.rs` — `Breakable`, `Chest`, `Pickup`, `Interactable` primitives.
+- `ledge_grab.rs` — `probe_ledge_grab`, `LedgeContact` for ledge-grab AABB lookup.
+- `movement.rs` — player movement, blink, dash, fly, wall, rebound, pogo, and symbolic operation traces. Owns `Player`, `MovementTuning`, default constants.
 - `music.rs` — data structures shared by generated audio/music authoring.
+- `physics.rs` — `PhysicsBodyKind`, `PhysicsMaterial`, `PhysicsShape`, `RagdollSpec` (data, not Avian wiring).
+- `player_state.rs` — `BodyMode`, `BodyShape`, `LocomotionState`, `ResourceMeter`, collision-safe `try_change_body_mode`.
+- `projectile.rs` — `ProjectileSpec`, `ProjectileBody`, `MotionInputBuffer` (Hadouken).
+- `quest.rs` — `QuestSpec`, `QuestState`, `QuestStepCondition`.
+- `save.rs` — versioned `SandboxSaveData` with quests/encounters/switches/flags.
 - `scalar.rs` — small Ambition-specific scalar helpers such as `approach()`.
+- `state_machines.rs` — seldom_state markers (`EnemyIdle`, `EncounterActive`, `BossDormant`, etc.).
+- `world.rs` — reusable world/block data structures and collision query entry points.
 
-The old public `build_endgame_sandbox()` hard-coded room builder has been removed. Room layout now comes from RON data in the sandbox crate, and engine tests use small explicit fixture worlds that describe only the geometry needed by each class of test.
+The old public `build_endgame_sandbox()` hard-coded room builder has been removed. Room layout now comes from LDtk + RON data in the sandbox crate, and engine tests use small explicit fixture worlds that describe only the geometry needed by each class of test.

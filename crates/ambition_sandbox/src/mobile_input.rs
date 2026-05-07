@@ -227,18 +227,16 @@ pub mod bevy_plugin {
 
     impl Default for TouchControlsVisible {
         fn default() -> Self {
-            // Default to HIDDEN on desktop (target_os != android / ios)
-            // so keyboard-only players don't see HUD overlap. The
-            // plugin still installs when `mobile_touch` is enabled,
-            // and the touch fold is activity-gated, so flipping this
-            // resource to true at runtime (via settings menu, or
-            // per-config) immediately shows the HUD without any
-            // restart. On Android / iOS targets, default true so the
-            // game launches into the touch HUD without the user
-            // having to find the toggle.
-            let mobile_target =
-                cfg!(target_os = "android") || cfg!(target_os = "ios");
-            Self(mobile_target)
+            // Default to TRUE so the touch HUD is visible on all
+            // platforms when `mobile_touch` is enabled. Per Jon's
+            // 2026-05-07 feedback, the HUD should be visible by
+            // default on desktop too so it can be tested with a
+            // mouse. Flipping to false will be the user's choice
+            // via the settings menu (TODO).
+            //
+            // The fold path is activity-gated; an idle touch HUD
+            // doesn't stomp keyboard input.
+            Self(true)
         }
     }
 
@@ -260,6 +258,7 @@ pub mod bevy_plugin {
                 .add_systems(
                     Update,
                     (
+                        tag_virtual_joystick_root,
                         sync_touch_ui_visibility,
                         read_joystick_messages,
                         update_buttons_from_interactions,
@@ -286,12 +285,17 @@ pub mod bevy_plugin {
         let knob = images.add(build_joystick_knob_image());
         let outline = images.add(build_joystick_outline_image());
 
-        // Move stick (left bottom).
+        // Single Move stick on the left. Per Jon's 2026-05-07
+        // feedback "We only need one for this game. A touch joystick
+        // and a set of touch buttons." The Aim stick was dropped --
+        // for blink-aim, the right-stick gamepad path stays
+        // canonical, and on touch the action buttons cover Blink as
+        // a tap (a future polish could add a directional gesture).
         create_joystick(
             &mut cmd,
             MobileStick::Move,
-            knob.clone(),
-            outline.clone(),
+            knob,
+            outline,
             Some(Color::srgba(0.95, 0.95, 0.95, 0.9)),
             Some(Color::srgba(0.20, 0.30, 0.45, 0.8)),
             Some(Color::srgba(0.10, 0.16, 0.24, 0.30)),
@@ -308,29 +312,33 @@ pub mod bevy_plugin {
             JoystickFloating,
             NoAction,
         );
+        // Tag the joystick UI root with MobileTouchUiRoot so the
+        // visibility-sync system hides it alongside the bezel and
+        // button cluster when `TouchControlsVisible(false)`. The
+        // virtual_joystick crate spawns its own root node above; we
+        // can't easily pass our marker through `create_joystick`,
+        // so we attach the marker via a deferred query in
+        // `tag_virtual_joystick_root` (added to the plugin's
+        // Update systems).
+        let _ = &mut cmd; // suppress unused mut warning when no follow-up insert
+    }
 
-        // Aim stick (right bottom, above the action button cluster).
-        create_joystick(
-            &mut cmd,
-            MobileStick::Aim,
-            knob,
-            outline,
-            Some(Color::srgba(0.95, 0.95, 0.95, 0.9)),
-            Some(Color::srgba(0.45, 0.20, 0.30, 0.8)),
-            Some(Color::srgba(0.20, 0.10, 0.16, 0.30)),
-            Vec2::new(48.0, 48.0),
-            Vec2::new(96.0, 96.0),
-            Node {
-                width: Val::Px(96.0),
-                height: Val::Px(96.0),
-                position_type: PositionType::Absolute,
-                right: Val::Px(232.0), // beyond the action cluster (192 + bezel margin)
-                bottom: Val::Px(36.0),
-                ..default()
-            },
-            JoystickFloating,
-            NoAction,
-        );
+    /// Find any `VirtualJoystickNode` entity that doesn't yet have
+    /// our `MobileTouchUiRoot` marker and add it. Runs each Update;
+    /// idempotent thanks to the `Without<MobileTouchUiRoot>` filter.
+    fn tag_virtual_joystick_root(
+        mut cmd: Commands,
+        query: Query<
+            Entity,
+            (
+                With<VirtualJoystickNode<MobileStick>>,
+                Without<MobileTouchUiRoot>,
+            ),
+        >,
+    ) {
+        for entity in &query {
+            cmd.entity(entity).insert(MobileTouchUiRoot);
+        }
     }
 
     /// Procedural 64x64 RGBA knob: solid white circle with a soft

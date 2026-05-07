@@ -699,7 +699,13 @@ pub mod bevy_plugin {
         mut prev_move_y: Local<f32>,
     ) {
         for msg in reader.read() {
-            let axis = msg.snap_axis(None);
+            // Use the raw analog `value` (-1..=1 per axis) rather
+            // than `snap_axis` (which only emits discrete -1/0/+1
+            // past a 0.5 deadzone). Analog values let the engine's
+            // own deadzone logic in `apply_deadzone` handle the
+            // edge, and they preserve walk-vs-run feel with a
+            // partial stick deflection.
+            let axis = msg.value();
             match msg.id() {
                 MobileStick::Move => {
                     state.0.move_x = axis.x;

@@ -88,6 +88,7 @@ Status badges:
 ## UI / menus
 
 - **Map UI panel + minimap** `[playable]` — full-screen map + toggleable corner minimap; visited tracking. [map_menu.rs](crates/ambition_sandbox/src/map_menu.rs). Commit `75ebfcb`.
+- **Map zoom controls + room-name labels** `[stable]` — full map shows full room ids (e.g. `central_hub_complex`) when boxes are wide enough, falls back to 2-letter initialisms when narrow. `+` / `−` adjust zoom (`MAP_ZOOM_STEP=1.25`, clamped to `[0.5, 4.0]`); `0` resets. Zoomed maps recenter on the active room. Status line shows current zoom + binding hint. 6 unit tests pin the clamp / reset / round-trip / label behavior. [map_menu.rs](crates/ambition_sandbox/src/map_menu.rs).
 - **Reset Sandbox pause-menu item + reset processor** `[stable]`. Commit `45631d4`.
 - **HUD wiring** `[playable]`. Commit `55dc1a5`.
 - **Dedicated quest panel** `[playable]` — `QuestPanelText` UI surface anchored top-right, written by `update_quest_panel`. Decouples the quest log from the debug HUD's stats dump; collapses (empty string) when no active quests. [app.rs](crates/ambition_sandbox/src/app.rs).

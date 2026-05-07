@@ -26,7 +26,7 @@ pub struct MapRoomNode {
     pub world_size: Vec2,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 pub struct MapMenuState {
     pub open: bool,
     pub minimap_enabled: bool,
@@ -34,7 +34,32 @@ pub struct MapMenuState {
     /// World-space bounding boxes for each known room. Built from
     /// `LdtkProject` at startup.
     pub rooms: Vec<MapRoomNode>,
+    /// Zoom multiplier applied on top of the auto-fit scale (full
+    /// map only — the minimap stays fit-to-canvas). 1.0 = fit;
+    /// `MAP_ZOOM_STEP` adjusts up/down. Clamped to
+    /// `[MAP_ZOOM_MIN, MAP_ZOOM_MAX]`.
+    pub zoom: f32,
 }
+
+impl Default for MapMenuState {
+    fn default() -> Self {
+        Self {
+            open: false,
+            minimap_enabled: false,
+            visited: BTreeSet::new(),
+            rooms: Vec::new(),
+            zoom: 1.0,
+        }
+    }
+}
+
+/// Zoom multiplier per `+`/`-` press while the map is open.
+pub const MAP_ZOOM_STEP: f32 = 1.25;
+/// Minimum zoom — fit the whole world or smaller.
+pub const MAP_ZOOM_MIN: f32 = 0.5;
+/// Maximum zoom — useful for reading individual room labels in
+/// dense graphs.
+pub const MAP_ZOOM_MAX: f32 = 4.0;
 
 impl MapMenuState {
     /// Toggle the full map.
@@ -45,6 +70,21 @@ impl MapMenuState {
     /// Toggle the corner minimap.
     pub fn toggle_minimap(&mut self) {
         self.minimap_enabled = !self.minimap_enabled;
+    }
+
+    /// Zoom the full map in; clamps to `MAP_ZOOM_MAX`.
+    pub fn zoom_in(&mut self) {
+        self.zoom = (self.zoom * MAP_ZOOM_STEP).clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
+    }
+
+    /// Zoom the full map out; clamps to `MAP_ZOOM_MIN`.
+    pub fn zoom_out(&mut self) {
+        self.zoom = (self.zoom / MAP_ZOOM_STEP).clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
+    }
+
+    /// Reset the full map zoom to `1.0` (fit-to-canvas).
+    pub fn zoom_reset(&mut self) {
+        self.zoom = 1.0;
     }
 
     pub fn record_visit(&mut self, room_id: &str) {
@@ -136,11 +176,33 @@ pub fn handle_map_menu_hotkeys(
     keys: Res<bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>>,
     mut map: ResMut<MapMenuState>,
 ) {
-    if keys.just_pressed(bevy::input::keyboard::KeyCode::KeyM) {
+    use bevy::input::keyboard::KeyCode;
+    if keys.just_pressed(KeyCode::KeyM) {
         map.toggle_open();
     }
-    if keys.just_pressed(bevy::input::keyboard::KeyCode::KeyN) {
+    if keys.just_pressed(KeyCode::KeyN) {
         map.toggle_minimap();
+    }
+    // Map zoom: only honored while the full map is open. Minus / Equal
+    // (with optional shift) match the conventional "zoom in / out"
+    // bindings; Digit0 resets. NumpadAdd / NumpadSubtract / Numpad0
+    // are alternate bindings.
+    if map.open {
+        let zoom_in = keys.just_pressed(KeyCode::Equal)
+            || keys.just_pressed(KeyCode::NumpadAdd);
+        let zoom_out = keys.just_pressed(KeyCode::Minus)
+            || keys.just_pressed(KeyCode::NumpadSubtract);
+        let zoom_reset =
+            keys.just_pressed(KeyCode::Digit0) || keys.just_pressed(KeyCode::Numpad0);
+        if zoom_in {
+            map.zoom_in();
+        }
+        if zoom_out {
+            map.zoom_out();
+        }
+        if zoom_reset {
+            map.zoom_reset();
+        }
     }
 }
 
@@ -306,10 +368,11 @@ pub fn sync_map_menu(
     }
     if let Ok(mut text) = status.single_mut() {
         **text = format!(
-            "{} of {} rooms visited — {} active",
+            "{} of {} rooms visited — {} active   |   zoom {:.2}x   (+ / − adjust, 0 reset)",
             map.visited.len(),
             map.rooms.len(),
             room_set.active_spec().id,
+            map.zoom,
         );
     }
 
@@ -339,7 +402,8 @@ pub fn sync_map_menu(
                 &active_id,
                 MAP_PANEL_WIDTH - MAP_PADDING * 2.0,
                 MAP_PANEL_HEIGHT - MAP_PADDING * 2.0 - 60.0,
-                true,
+                MapLabelStyle::Full,
+                map.zoom,
             );
         }
     }
@@ -353,10 +417,27 @@ pub fn sync_map_menu(
                 &active_id,
                 MINIMAP_WIDTH - MINIMAP_PADDING * 2.0,
                 MINIMAP_HEIGHT - MINIMAP_PADDING * 2.0,
-                false,
+                MapLabelStyle::None,
+                1.0, // minimap is always fit-to-canvas
             );
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MapLabelStyle {
+    /// Show full room id (e.g. "central_hub_complex") — full map only.
+    /// Falls back to `Short` automatically when a room box is too narrow
+    /// to fit the full name; the legible threshold is encoded in
+    /// `paint_room_boxes`.
+    Full,
+    /// Show 2-letter initialism (e.g. "CHC") — used inside `Full` when
+    /// the room box is too narrow for the full name. Reserved for
+    /// future minimap-with-labels modes.
+    #[allow(dead_code)]
+    Short,
+    /// No label — minimap default.
+    None,
 }
 
 fn paint_room_boxes(
@@ -367,7 +448,8 @@ fn paint_room_boxes(
     active: &str,
     canvas_w: f32,
     canvas_h: f32,
-    show_labels: bool,
+    label_style: MapLabelStyle,
+    zoom: f32,
 ) {
     if rooms.is_empty() {
         return;
@@ -391,7 +473,30 @@ fn paint_room_boxes(
         .fold(f32::NEG_INFINITY, f32::max);
     let span_x = (max_x - min_x).max(1.0);
     let span_y = (max_y - min_y).max(1.0);
-    let scale = (canvas_w / span_x).min(canvas_h / span_y);
+    // Auto-fit, then apply user zoom on top. When zoomed, the active
+    // room's center is anchored to the canvas center so zooming feels
+    // like it focuses on the player's current location instead of
+    // the map's geometric center.
+    let fit_scale = (canvas_w / span_x).min(canvas_h / span_y);
+    let scale = fit_scale * zoom.max(MAP_ZOOM_MIN).min(MAP_ZOOM_MAX);
+    // Anchor offset: when zoom > 1, recenter on the active room.
+    let active_room = rooms.iter().find(|r| r.id == active);
+    let (offset_x, offset_y) = if zoom > 1.0001 {
+        if let Some(active_room) = active_room {
+            let active_cx = active_room.world_min.x + active_room.world_size.x * 0.5;
+            let active_cy = active_room.world_min.y + active_room.world_size.y * 0.5;
+            let world_cx = (min_x + max_x) * 0.5;
+            let world_cy = (min_y + max_y) * 0.5;
+            (
+                (world_cx - active_cx) * scale,
+                (world_cy - active_cy) * scale,
+            )
+        } else {
+            (0.0, 0.0)
+        }
+    } else {
+        (0.0, 0.0)
+    };
 
     for room in rooms {
         let visited_now = visited.contains(&room.id);
@@ -410,8 +515,8 @@ fn paint_room_boxes(
         } else {
             Color::srgba(0.55, 0.58, 0.66, 0.55)
         };
-        let left = (room.world_min.x - min_x) * scale;
-        let top = (room.world_min.y - min_y) * scale;
+        let left = (room.world_min.x - min_x) * scale + offset_x;
+        let top = (room.world_min.y - min_y) * scale + offset_y;
         let width = room.world_size.x * scale;
         let height = room.world_size.y * scale;
         let mut entity = commands.spawn((
@@ -432,17 +537,42 @@ fn paint_room_boxes(
             Name::new(format!("MapRoom {}", room.id)),
         ));
         let entity_id = entity.id();
-        if show_labels {
-            entity.with_children(|parent| {
-                parent.spawn((
-                    Text::new(short_room_label(&room.id)),
-                    TextFont {
-                        font_size: 10.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),
-                ));
-            });
+        match label_style {
+            MapLabelStyle::None => {}
+            MapLabelStyle::Short => {
+                entity.with_children(|parent| {
+                    parent.spawn((
+                        Text::new(short_room_label(&room.id)),
+                        TextFont {
+                            font_size: 10.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),
+                    ));
+                });
+            }
+            MapLabelStyle::Full => {
+                // On the full map, only show full names if the room
+                // box is wide enough to read them. For tiny boxes
+                // (high room density / low zoom) fall back to the
+                // 2-letter initialism.
+                let label = if width >= 80.0 {
+                    room.id.clone()
+                } else {
+                    short_room_label(&room.id)
+                };
+                let font_size = if width >= 120.0 { 12.0 } else { 9.0 };
+                entity.with_children(|parent| {
+                    parent.spawn((
+                        Text::new(label),
+                        TextFont {
+                            font_size,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.04, 0.06, 0.10, 0.95)),
+                    ));
+                });
+            }
         }
         commands.entity(canvas).add_child(entity_id);
     }
@@ -460,5 +590,67 @@ fn short_room_label(id: &str) -> String {
             .filter_map(|p| p.chars().next())
             .map(|c| c.to_ascii_uppercase())
             .collect::<String>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn map_zoom_in_clamps_to_max() {
+        let mut map = MapMenuState::default();
+        for _ in 0..20 {
+            map.zoom_in();
+        }
+        assert!(map.zoom <= MAP_ZOOM_MAX + 1e-4);
+        assert!(map.zoom > 1.0);
+    }
+
+    #[test]
+    fn map_zoom_out_clamps_to_min() {
+        let mut map = MapMenuState::default();
+        for _ in 0..20 {
+            map.zoom_out();
+        }
+        assert!(map.zoom >= MAP_ZOOM_MIN - 1e-4);
+        assert!(map.zoom < 1.0);
+    }
+
+    #[test]
+    fn map_zoom_reset_returns_to_one() {
+        let mut map = MapMenuState::default();
+        map.zoom_in();
+        map.zoom_in();
+        map.zoom_reset();
+        assert_eq!(map.zoom, 1.0);
+    }
+
+    #[test]
+    fn map_zoom_step_is_round_trip_friendly() {
+        let mut map = MapMenuState::default();
+        let initial = map.zoom;
+        map.zoom_in();
+        let zoomed = map.zoom;
+        map.zoom_out();
+        assert!(
+            (map.zoom - initial).abs() < 1e-3,
+            "zoom_in then zoom_out should return near 1.0 (got {} from {})",
+            map.zoom,
+            zoomed
+        );
+    }
+
+    #[test]
+    fn short_room_label_initializes_underscore_id() {
+        assert_eq!(short_room_label("central_hub_complex"), "CHC");
+        assert_eq!(short_room_label("water_world"), "WW");
+        assert_eq!(short_room_label("mob_lab"), "ML");
+    }
+
+    #[test]
+    fn short_room_label_uppercase_truncates_single_word() {
+        assert_eq!(short_room_label("alpha"), "ALPHA");
+        assert_eq!(short_room_label("verylongname"), "VERYLONG");
     }
 }

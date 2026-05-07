@@ -91,7 +91,6 @@
 ## B — Authoring ergonomics, validators, audio polish
 
 - [ ] **Adaptive music phase transitions in boss room** `[V4/D3]` — stem-blend/layered tracks via existing [music.rs](crates/ambition_sandbox/src/music.rs) hooked to `BossPhase`. Cues already authored. Source: `tmp-todo-notes.txt`.
-- [ ] `BodyShape::fits_at` property test (proptest) `[V3/D2]`
 - [ ] Wall-jump start-position fuzz in `square_arena` `[V3/D2]`
 - [ ] `cargo test` smoke for `headless` binary in CI `[V4/D2]`
 

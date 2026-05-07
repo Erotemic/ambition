@@ -127,6 +127,7 @@ Status badges:
 - **`RoomSet::layout_warnings` branch tests** `[stable]`.
 - **Boss encounter integration test** `[stable]`.
 - **Body-mode reset tests** `[stable]`.
+- **`BodyShape::fits_at` proptest** `[stable]` — three proptest properties pin the geometric contract: empty world fits any finite shape at any finite center; one-block world fits iff the shape AABB and block AABB don't strictly intersect; MorphBall fits wherever Standing fits (strict shape shrink). [body_shape_fits_at.rs](crates/ambition_engine/tests/body_shape_fits_at.rs).
 - **Audio validation tests** `[stable]`.
 
 ---

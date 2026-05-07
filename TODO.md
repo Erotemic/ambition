@@ -57,18 +57,13 @@
 ## A — Sandbox expressiveness
 
 ### Mechanics & combat
-- [~] **Ladder + climbable-zone primitive** `[V4/D3]` — engine primitive + traversal + LDtk IntGrid authoring all landed 2026-05-07. End-to-end functional from authoring to gameplay: paint a "Climbable" IntGrid layer (1=Ladder, 2=Vine, 3=Wall), runtime lowers cells into `World::climbable_regions`, engine populates `Player.climbable_contact` each tick, body-mode driver enters/exits Climbing, `integrate_climb` drives motion. Ten tests across engine + sandbox pin the contract. Remaining (room-expression slice):
-  - Extend `tools/author_ldtk_area.py` to paint Climbable IntGrid cells (today it only handles Collision)
-  - Apply `tools/examples/ldtk_specs/ladder_lab.yaml` (already written) to add a real ladder showcase room
-  - Add a `ladder_door` LoadingZone in `central_hub_basement` reciprocal to the spec, so the player can reach the room from the basement (per Jon's "every new room reachable from the basement" rule)
-  - Sprite wiring: ladder_tile.png (already a separate TODO row in Sprite wiring batch)
+- [x] **Ladder + climbable-zone primitive** `[V4/D3]` — fully landed 2026-05-07 (engine primitive + traversal + LDtk IntGrid authoring + ladder_lab showcase room reachable from basement). The `tools/author_ldtk_area.py` extension paints Climbable cells; `ladder_lab` demonstrates Up-into-ladder → climb → reward chest. Sprite wiring (ladder_tile.png) is the only follow-up — separate row in the Sprite wiring batch.
 - [ ] **Ledge grab + climb-up promotion to engine** `[V4/D3]` — move `LedgeProbe`, `Ability::ledge_grab`, state branch into `ambition_engine::player_state` (currently sandbox-side). Add diagonal-corner probe test. Climb-up animation slot separate from grab.
 - [x] **NPCs become enemies on hit (in certain circumstances)** — already wired. `NPC_HOSTILE_STRIKE_THRESHOLD = 3` flips NPCs hostile after three player strikes; `apply_save` then replaces the `NpcRuntime` with an `EnemyRuntime` carrying the same id. Hostility persists via `npc_<id>_hostile` save flag. Tested by `striking_npc_three_times_flips_them_hostile` + `apply_save_with_hostile_flag_replaces_npc_with_enemy`. [features.rs:2413](crates/ambition_sandbox/src/features.rs#L2413).
 - [~] **More enemy varieties (S/M/L × aggression bands)** `[V4/D4]` — `EnemyArchetype` now has 7 combat archetypes (Combatant, SmallSkitter, SmallLurker, MediumStriker, LargeBrute, LargeColossus, AggressiveSeeker) plus 2 sandbag training variants. Cross-axis invariants tested (HP grows with size; aggro radius grows with aggression; damage scales). LDtk authors enable any of them with `EnemySpawn::brain` set to the brain id (e.g. `large_colossus`). Remaining for the full 9-cell matrix: dedicated low-aggression Medium and high-aggression Medium/Small variants. Authoring trivial — add to `EnemyArchetype::from_brain` and the per-archetype tuning matches.
 
 ### Test rooms (sandbox = component showcase)
-- [ ] **Crawl/morph proof room** `[V3/D2]` — low-ceiling corridor demo (drivers exist; needs the room).
-  - Spec ready at `tools/examples/ldtk_specs/crawl_lab.yaml` and validates clean via `python tools/author_ldtk_area.py … --dry-run`. To apply: add a `connect_to:` block reciprocating into `central_hub_main` at a free LoadingZone position (the spec currently sets `target_zone: east_exit` which already routes to scroll lab — pick a different anchor or extend central_hub_main first).
+- [x] **Crawl/morph proof room** — `crawl_lab` (Crouching) and `morph_lab` (MorphBall) both authored 2026-05-07 and reachable from the basement door corridor. See FEATURES.md → "Sandbox showcase rooms".
 - [ ] **Save-point lab + persisted-switch test room** `[V4/D3]` — switch state survives reload; reset-switches sub-room; extensible test-state schema (boss defeated, mob room cleared). Source: `tmp-todo-notes.txt`.
 - [ ] **Quest test room** `[V3/D3]` — small fetch/talk quest end-to-end ([quest.rs](crates/ambition_sandbox/src/quest.rs) is scaffolded).
 - [ ] **Cutscene test room** `[V3/D2]` — entry trigger fires "you're finally awake"; demonstrates cutscene + skip flow.

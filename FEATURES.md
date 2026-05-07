@@ -147,6 +147,26 @@ Status badges:
 - **`rl_smoke` binary** `[stable]` — visits every room in the LDtk project via `SandboxSim::with_start_room`, drives a deterministic random walker for N steps, asserts HP within `[0, hp_max]` and finite player position. Catches regressions where a specific room panics on construction (boss/encounter init, IntGrid parsing, water/climbable lowering) or under any random input combination — bugs a single-room smoke test would miss. Invocation: `cargo run --bin rl_smoke -- [STEPS] [SEED]`. [bin/rl_smoke.rs](crates/ambition_sandbox/src/bin/rl_smoke.rs).
 - **`SandboxSim::room_ids` + `SandboxSimOptions::with_start_room`** `[stable]` — RL training loops that focus on a specific area (e.g. only train on water_world or only on mob_lab waves) construct via `SandboxSimOptions::default().with_start_room("mob_lab")`. Resolves through the new `StartRoomOverride` resource that `init_sandbox_resources` consumes — same semantics as the visible binary's `--start-room` flag, no env::args manipulation needed. `room_ids()` enumerates all rooms in the loaded project for "walk every room" use cases.
 
+## Sandbox showcase rooms (basement-reachable)
+
+Per Jon's "every new room reachable from a door in the basement"
+rule, these rooms live as leaf entries off `central_hub_basement`'s
+door corridor and demonstrate one mechanic each.
+
+- **`crawl_lab`** `[stable]` — Crouching showcase. 1024x384 corridor
+  with a low ceiling that forces `BodyMode::Crouching`. Door from
+  basement at x=240. [tools/examples/ldtk_specs/crawl_lab.yaml](tools/examples/ldtk_specs/crawl_lab.yaml).
+- **`morph_lab`** `[stable]` — MorphBall showcase. 1024x384 with a
+  16-px tunnel that ONLY MorphBall (15.4×15.4) fits — Crouching /
+  Crawling / Sliding all bounce off. Door from basement at x=296.
+  Reward chest on the far side. [tools/examples/ldtk_specs/morph_lab.yaml](tools/examples/ldtk_specs/morph_lab.yaml).
+- **`ladder_lab`** `[stable]` — Ladder primitive showcase. 768x1024
+  vertical room with a floor-to-ceiling ladder column on the right
+  and an upper platform with a reward chest. Demonstrates the
+  end-to-end ladder primitive (Climbable IntGrid cells → engine
+  ClimbableRegion → BodyMode::Climbing → integrate_climb). Door from
+  basement at x=420. [tools/examples/ldtk_specs/ladder_lab.yaml](tools/examples/ldtk_specs/ladder_lab.yaml).
+
 ## Tooling / generators
 
 - **Sprite passes** `[stable]` — tight-crop entity art, tile sprites, IntGrid-blocked tiles, 11 entity sprites via `gen2d`, procedural morph-ball sprite. Commits `e634d39`, `bd95097`, `efdb8fb`.

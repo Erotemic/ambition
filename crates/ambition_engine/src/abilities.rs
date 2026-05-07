@@ -291,4 +291,40 @@ mod tests {
             .iter()
             .any(|w| w.contains("blink_through_soft_walls")));
     }
+
+    #[test]
+    fn glide_without_jump_warns() {
+        let mut abilities = AbilitySet::basic();
+        abilities.glide = true;
+        abilities.jump = false;
+        let warnings = abilities.compatibility_warnings();
+        assert!(warnings.iter().any(|w| w.contains("glide")));
+    }
+
+    #[test]
+    fn dash_charge_count_respects_double_dash() {
+        let mut abilities = AbilitySet::basic();
+        abilities.dash = true;
+        assert_eq!(abilities.dash_charge_count(), 1);
+        abilities.double_dash = true;
+        assert_eq!(abilities.dash_charge_count(), 2);
+        abilities.dash = false;
+        assert_eq!(abilities.dash_charge_count(), 0);
+    }
+
+    #[test]
+    fn air_jump_count_zero_without_double_jump() {
+        let mut abilities = AbilitySet::basic();
+        assert_eq!(abilities.air_jump_count(2), 0);
+        abilities.double_jump = true;
+        assert_eq!(abilities.air_jump_count(2), 2);
+    }
+
+    #[test]
+    fn sane_subset_passes_compatibility() {
+        // Same contract as sandbox_all: no warnings on a curated set.
+        assert!(AbilitySet::sane_subset()
+            .compatibility_warnings()
+            .is_empty());
+    }
 }

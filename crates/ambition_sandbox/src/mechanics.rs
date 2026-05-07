@@ -321,4 +321,66 @@ mod tests {
         .sum();
         assert_eq!(total, registry.entries.len());
     }
+
+    #[test]
+    fn registry_entry_ids_are_unique() {
+        // If two entries share an id, `find` becomes ambiguous and HUD/UI
+        // wiring that keys on id silently picks one. Catch the
+        // collision at boot time.
+        let registry = MechanicsRegistry::default();
+        let mut ids: Vec<&str> = registry.entries.iter().map(|e| e.id).collect();
+        ids.sort();
+        let count = ids.len();
+        ids.dedup();
+        assert_eq!(count, ids.len(), "duplicate mechanic id in registry");
+    }
+
+    #[test]
+    fn registry_entries_have_nonempty_text_fields() {
+        // A registry entry with an empty id, name, or doc means the
+        // HUD will render a blank cell for it. Treat as a contract.
+        let registry = MechanicsRegistry::default();
+        for entry in &registry.entries {
+            assert!(!entry.id.is_empty(), "entry id is empty");
+            assert!(!entry.name.is_empty(), "entry {} has empty name", entry.id);
+            assert!(!entry.doc.is_empty(), "entry {} has empty doc", entry.id);
+        }
+    }
+
+    #[test]
+    fn category_labels_are_distinct() {
+        // `label()` is rendered in HUDs, so collisions would show two
+        // categories under the same heading.
+        let cats = [
+            MechanicCategory::CoreLocomotion,
+            MechanicCategory::BodyState,
+            MechanicCategory::TeleportBlink,
+            MechanicCategory::GrappleTether,
+            MechanicCategory::Combat,
+            MechanicCategory::Resources,
+            MechanicCategory::Environment,
+            MechanicCategory::MathTraversal,
+            MechanicCategory::Time,
+        ];
+        let mut labels: Vec<&str> = cats.iter().map(|c| c.label()).collect();
+        labels.sort();
+        let count = labels.len();
+        labels.dedup();
+        assert_eq!(count, labels.len(), "category label collision");
+    }
+
+    #[test]
+    fn maturity_labels_are_distinct() {
+        let labels = [
+            MechanicMaturity::Backend.label(),
+            MechanicMaturity::Prototype.label(),
+            MechanicMaturity::Stable.label(),
+            MechanicMaturity::Planned.label(),
+        ];
+        let mut sorted: Vec<&str> = labels.iter().copied().collect();
+        sorted.sort();
+        let count = sorted.len();
+        sorted.dedup();
+        assert_eq!(count, sorted.len(), "maturity label collision");
+    }
 }

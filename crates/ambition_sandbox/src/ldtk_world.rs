@@ -769,6 +769,39 @@ impl LdtkProject {
         report
     }
 
+    /// Cross-validate level `music_track` fields against the catalog of
+    /// audio-side track ids loaded from `SandboxDataSpec`. Returns one
+    /// warning per (level, unknown_id) pair so the user can see all
+    /// typos in a single startup pass instead of debugging room-by-room.
+    ///
+    /// Lives here (not on `validate()`) because the LDtk validator must
+    /// stay self-contained — the audio catalog is only known once
+    /// `SandboxDataSpec` is loaded. Callers (visible binary's
+    /// `init_sandbox_resources`, headless tests) wire both halves.
+    pub fn music_track_warnings<'a, I>(&self, valid_track_ids: I) -> Vec<String>
+    where
+        I: IntoIterator<Item = &'a str>,
+    {
+        let valid: BTreeSet<&str> = valid_track_ids.into_iter().collect();
+        let mut warnings = Vec::new();
+        for level in &self.levels {
+            let Some(track) = level.field_string("music_track") else {
+                continue;
+            };
+            let trimmed = track.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if !valid.contains(trimmed) {
+                warnings.push(format!(
+                    "level '{}' references unknown music_track '{}' — add it to the audio music_tracks catalog or fix the typo",
+                    level.identifier, trimmed
+                ));
+            }
+        }
+        warnings
+    }
+
     /// Build the sandbox runtime room set from LDtk.
     ///
     /// This is a direct LDtk-native runtime builder. LDtk does not
@@ -2032,6 +2065,52 @@ mod tests {
             water.metadata.music_track.as_deref(),
             Some("pulse_drift_voyage"),
             "water_world should declare its non-default music track via the LDtk level field"
+        );
+    }
+
+    /// `music_track_warnings` returns a warning per (level, unknown_id)
+    /// pair. The embedded LDtk's only declared music track today is
+    /// `pulse_drift_voyage` on water_world; pinning the matrix here
+    /// catches both directions of typo (LDtk-side and audio-catalog-side).
+    #[test]
+    fn music_track_warnings_flag_unknown_ids() {
+        let project = LdtkProject::load_embedded();
+        // No tracks valid → every level that declares a music_track
+        // produces one warning.
+        let no_tracks = project.music_track_warnings(std::iter::empty::<&str>());
+        assert!(
+            !no_tracks.is_empty(),
+            "embedded LDtk should declare at least one music_track field"
+        );
+        for warning in &no_tracks {
+            assert!(
+                warning.contains("references unknown music_track"),
+                "warning should explain the missing reference: {warning}"
+            );
+        }
+        // Including the real track id silences its warning.
+        let with_water = project.music_track_warnings(["pulse_drift_voyage"]);
+        assert!(
+            !with_water
+                .iter()
+                .any(|w| w.contains("'pulse_drift_voyage'")),
+            "valid tracks should not warn; got: {with_water:?}"
+        );
+    }
+
+    /// Pin the audio-catalog × LDtk cross-validation as green for the
+    /// embedded sandbox. The visible binary's `init_sandbox_resources`
+    /// runs the same check at startup; this test fails the build if a
+    /// future LDtk edit introduces an unknown music_track id.
+    #[test]
+    fn embedded_ldtk_music_tracks_match_audio_catalog() {
+        let project = LdtkProject::load_embedded();
+        let data = crate::data::SandboxDataSpec::load_embedded();
+        let valid = data.audio.music_tracks.iter().map(|t| t.id.as_str());
+        let warnings = project.music_track_warnings(valid);
+        assert!(
+            warnings.is_empty(),
+            "embedded LDtk references music_track ids not present in the audio catalog: {warnings:?}"
         );
     }
 

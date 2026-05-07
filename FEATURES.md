@@ -66,6 +66,7 @@ Status badges:
 - **Programmatic LDtk authoring + room builder + layout lints** `[stable]` — agent-friendlier authoring path. Commits `9db48f7`, `f8a75b6`, `fcda12d`.
 - **`list_ldtk_metadata.py` tool + body_mode reset tests** `[stable]`. Commit `7ae5dd6`.
 - **LDtk validator: blank `activeArea` rejection** `[stable]`. [ldtk_world.rs](crates/ambition_sandbox/src/ldtk_world.rs).
+- **LDtk × audio cross-validation: unknown `music_track` warnings** `[stable]` — `LdtkProject::music_track_warnings` returns one warning per (level, unknown_id); `init_sandbox_resources` runs it at startup against `SandboxDataSpec::audio.music_tracks`. Regression-pinned by `embedded_ldtk_music_tracks_match_audio_catalog`. [ldtk_world.rs](crates/ambition_sandbox/src/ldtk_world.rs).
 - **`RoomSet::layout_warnings` branch tests** `[stable]`. [rooms.rs:351](crates/ambition_sandbox/src/rooms.rs#L351).
 
 ## Cutscenes & quests

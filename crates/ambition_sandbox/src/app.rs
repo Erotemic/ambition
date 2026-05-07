@@ -222,6 +222,14 @@ pub fn init_sandbox_resources(app: &mut App) {
     let ldtk_project = ldtk_world::LdtkProject::load_embedded();
     let ldtk_report = ldtk_project.validate();
     ldtk_report.print_to_stderr();
+    let valid_track_ids = sandbox_data
+        .audio
+        .music_tracks
+        .iter()
+        .map(|t| t.id.as_str());
+    for warning in ldtk_project.music_track_warnings(valid_track_ids) {
+        eprintln!("LDtk validation warning: {warning}");
+    }
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
     let mut room_set = match ldtk_project.to_room_set() {

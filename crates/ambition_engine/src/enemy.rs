@@ -359,4 +359,39 @@ mod tests {
             dummy.vel
         );
     }
+
+    #[test]
+    fn finite_dummy_dies_on_lethal_hit() {
+        let mut dummy = Dummy::finite("test", Vec2::new(0.0, 0.0));
+        let max_hp = dummy.hp;
+        // Sub-lethal hit: stun + knockback but alive.
+        let killed = dummy.apply_hit(1, 50.0);
+        assert!(!killed);
+        assert!(dummy.alive);
+        assert_eq!(dummy.hp, max_hp - 1);
+        // Lethal: drain remaining HP.
+        let killed = dummy.apply_hit(max_hp, 0.0);
+        assert!(killed);
+        assert!(!dummy.alive);
+        assert!(dummy.respawn_timer > 0.0);
+    }
+
+    #[test]
+    fn infinite_dummy_takes_hits_without_dying() {
+        let mut dummy = Dummy::infinite("test", Vec2::new(0.0, 0.0));
+        // Even a huge damage value doesn't kill an infinite sandbag.
+        let killed = dummy.apply_hit(9999, 0.0);
+        assert!(!killed);
+        assert!(dummy.alive);
+    }
+
+    #[test]
+    fn dead_dummy_apply_hit_is_noop() {
+        let mut dummy = Dummy::finite("test", Vec2::new(0.0, 0.0));
+        dummy.alive = false;
+        let killed = dummy.apply_hit(99, 100.0);
+        assert!(!killed);
+        // Velocity unchanged because the dead-guard returns early.
+        assert_eq!(dummy.vel, Vec2::ZERO);
+    }
 }

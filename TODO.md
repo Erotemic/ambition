@@ -70,7 +70,6 @@
 - [ ] **Save-point lab + persisted-switch test room** `[V4/D3]` — switch state survives reload; reset-switches sub-room; extensible test-state schema (boss defeated, mob room cleared). Source: `tmp-todo-notes.txt`.
 - [ ] **Quest test room** `[V3/D3]` — small fetch/talk quest end-to-end ([quest.rs](crates/ambition_sandbox/src/quest.rs) is scaffolded).
 - [ ] **Cutscene test room** `[V3/D2]` — entry trigger fires "you're finally awake"; demonstrates cutscene + skip flow.
-- [ ] **Time-decay breakable platforms** `[V2/D2]` — keep attack-break variant; add stand-too-long variant. Source: `tmp-todo-notes.txt`.
 
 ### Sprite wiring batch
 - [x] **MorphBall sprite** — procedurally generated 64×64 RGBA sphere at startup, no `morph_ball.png` asset needed. [body_mode.rs:162](crates/ambition_sandbox/src/body_mode.rs#L162). Wired through `MorphBallSprite::handle` resource.
@@ -95,7 +94,7 @@
 ## C — Engine cleanups (compounding)
 
 - [x] **ADR 0012 events refactor — main work** — Slices 1-5 (sfx / vfx / debris messages, setup split, headless `sandbox_update`) all landed. `app.rs` has zero direct `play_sound` / `spawn_burst` / `spawn_dust` / `spawn_impact` calls; `fx.rs` only calls them as the consumer of `VfxMessage`. Headless ticks `sandbox_update` cleanly via `run_headless`. Remaining cleanup ([ ] hardening only):
-  - [ ] Tighten `SandboxRuntime` field visibility from `pub` to `pub(crate)` where no external caller depends on the field (mechanical hygiene; no functional change).
+  - [ ] Tighten `SandboxRuntime` field visibility from `pub` to `pub(crate)` (deferred — risks breaking `bevy-inspector-egui` field reflection; revisit when the inspector wiring uses Reflect-only access patterns).
   - [x] Add `tests/scripted_gameplay.rs` integration test (3 scenarios: 30 idle frames, Reset press emits Reset message, heterogeneous Reset/Jump/move sequence runs to completion).
 - [ ] **CharacterAi authoritative migration** `[V3/D4]` — convert one enemy archetype's movement to read evaluator output (currently observed-only); then one boss pattern; parity test. Source: `character_ai_refactor.md`.
 - [ ] **Bug record/replay ring buffer** `[V4/D4]` — last 600 frames of `ControlFrame + SimMessages + player snapshot`, F12 / auto-OOB dump, replay binary. Would have caught the glitchy-platform bug. Source: `path_forward.md` step F.

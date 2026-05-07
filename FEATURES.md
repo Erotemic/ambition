@@ -49,6 +49,10 @@ Status badges:
 - **Boss phase machine** `[stable]` — `BossPhase` enum (intro / phase1 / phase2 / Stagger / Enraged); stagger threshold + window; per-phase tunables. [boss_encounter.rs:35](crates/ambition_engine/src/boss_encounter.rs#L35). Commit `06ea438`.
 - **Boss encounter integration test** `[stable]`. Commit `07df47b`.
 
+## Hazards / breakables
+
+- **`BreakableTrigger::{OnHit, OnStand, Either}`** `[stable]` — typed authored knob replaces an earlier magic-string check. Stand-to-crumble accumulates a `stand_timer` per breakable; threshold is `BREAK_ON_STAND_SECONDS = 0.85`. Decays at 2× rate when the player isn't standing on it. [interaction.rs:128](crates/ambition_engine/src/interaction.rs#L128), [features.rs:577](crates/ambition_sandbox/src/features.rs#L577).
+
 ## Encounter / wave system (mob_lab)
 
 - **mob_lab room** `[playable]` — LDtk area with EncounterTrigger / Switch defs; hallway threshold → lock-wall slam → camera zoom → music swap → 3 waves with delayed sub-spawns → switch toggles green/red on victory. [sandbox.ldtk](crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk). Commits `701e144`, `c6d390c`, `2c5eafd`, `138e575`, `da30fc9`, `3745ed4`, `3699c6e`.

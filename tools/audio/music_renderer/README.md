@@ -30,8 +30,8 @@ python -m ambition_music_renderer.render_isolated \
 
 # Song 0
 python -m ambition_music_renderer.render_isolated \
-  examples/first_goblin_encounter.music.yaml \
-  --outdir output/first_goblin_encounter \
+  examples/fast_paced_violin_boss.music.yaml \
+  --outdir output/fast_paced_violin_boss \
   --backend pretty-midi
 
 
@@ -40,6 +40,20 @@ python -m ambition_music_renderer.render_isolated \
   examples/debug.yaml \
   --outdir output/debug \
   --backend pretty-midi
+
+
+python -m ambition_music_renderer.render_isolated \
+  examples/solo_soar.music.yaml \
+  --outdir output/solo_soar \
+  --backend pretty-midi
+
+solo_soar_9m08_loud.music.yaml
+
+python -m ambition_music_renderer.render_isolated \
+  examples/solo_soar_9m08_loud.music.yaml \
+  --outdir output/solo_soar_9m08_loud \
+  --backend pretty-midi
+
 ```
 
 For higher fidelity, swap `--backend fallback` for `--backend fluidsynth-cli`

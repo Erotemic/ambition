@@ -1,0 +1,2039 @@
+schema: ambition.musicir.v1
+id: solo_soar_9m08_loud
+title: Solo Soar - 9:08 Loud Southern Flight
+seed: 2026050602
+notes: 'Full-length 9:08 legally distinct Southern-rock homage.  The cue makes the reference obvious through the macro-architecture:
+  clean-guitar/organ ballad, lifted refrain, then an extended double-time twin-lead guitar flight.  It deliberately avoids
+  copied lyric, melody, and exact chord-sequence material while preserving the recognizable long-solo payoff.  At 120 BPM
+  in 4/4, 274 authored bars render to exactly 548 seconds.'
+tempo:
+  bpm: 120
+meter:
+  beats_per_bar: 4
+  beat_unit: 4
+render:
+  sample_rate: 48000
+  ogg_quality: 7
+  backend: pretty-midi
+postprocess:
+  gain_db: 3.5
+  highpass_hz: 28
+  lowpass_hz: 15500
+  high_shelf_hz: 5200
+  high_shelf_db: 1.2
+  presence_low_hz: 1600
+  presence_high_hz: 4800
+  presence_db: 1.6
+  reverb_wet: 0.095
+  reverb_decay_seconds: 1.15
+  reverb_damping_hz: 7200
+  stereo_width: 0.1
+  limiter_drive: 1.1
+  normalize: true
+  target_peak_db: -0.8
+stem_postprocess:
+  gain_db: 4.0
+  highpass_hz: 28
+  lowpass_hz: 15000
+  high_shelf_hz: 5200
+  high_shelf_db: 0.8
+  presence_low_hz: 1500
+  presence_high_hz: 5200
+  presence_db: 1.1
+  reverb_wet: 0.012
+  reverb_decay_seconds: 0.42
+  reverb_damping_hz: 6800
+  stereo_width: 0.05
+  limiter_drive: 1.05
+  normalize: true
+  target_peak_db: -1.6
+instruments:
+- name: clean_guitar_l
+  group: strings
+  program: clean_guitar
+  volume: 116
+  pan: 28
+  expression: 116
+  modulation: 4
+- name: steel_guitar_r
+  group: strings
+  program: steel_guitar
+  volume: 112
+  pan: 86
+  expression: 114
+  modulation: 7
+- name: rhythm_guitar
+  group: strings
+  program: muted_guitar
+  volume: 108
+  pan: 34
+  expression: 112
+- name: picked_bass
+  group: strings
+  program: picked_bass
+  volume: 116
+  pan: 48
+  expression: 116
+- name: overdrive_lead_l
+  group: strings
+  program: overdrive_guitar
+  volume: 124
+  pan: 76
+  expression: 122
+  modulation: 7
+- name: distortion_lead_r
+  group: strings
+  program: distortion_guitar
+  volume: 122
+  pan: 48
+  expression: 120
+  modulation: 5
+- name: third_guitar_fill
+  group: strings
+  program: jazz_guitar
+  volume: 96
+  pan: 63
+  expression: 104
+  modulation: 3
+- name: fiddle_high
+  group: winds
+  program: fiddle
+  volume: 86
+  pan: 78
+  expression: 94
+  modulation: 10
+- name: whistle_air
+  group: winds
+  program: whistle
+  volume: 58
+  pan: 70
+  expression: 74
+  modulation: 8
+- name: drawbar_organ
+  group: choir_pad
+  program: drawbar_organ
+  volume: 104
+  pan: 60
+  expression: 110
+  modulation: 12
+- name: church_organ_pad
+  group: choir_pad
+  program: church_organ
+  volume: 82
+  pan: 66
+  expression: 90
+  modulation: 10
+- name: warm_pad
+  group: choir_pad
+  program: pad_warm
+  volume: 76
+  pan: 64
+  expression: 82
+  modulation: 14
+- name: honky_piano
+  group: mallets
+  program: honky_tonk_piano
+  volume: 88
+  pan: 74
+  expression: 98
+- name: marimba_ticks
+  group: mallets
+  program: marimba
+  volume: 46
+  pan: 82
+  expression: 62
+- name: brass_section
+  group: brass
+  program: brass_section
+  volume: 86
+  pan: 66
+  expression: 90
+  modulation: 5
+- name: horns_wide
+  group: brass
+  program: french_horn
+  volume: 78
+  pan: 78
+  expression: 84
+  modulation: 6
+- name: southern_kit
+  group: percussion
+  is_drum: true
+  volume: 124
+  pan: 64
+  expression: 120
+motifs:
+- id: open_road_call
+  root: A4
+  intervals:
+  - 0
+  - 2
+  - 4
+  - 7
+  - 9
+  - 7
+  - 4
+  - 2
+  - 0
+  rhythm:
+  - 0.75
+  - 0.25
+  - 1.0
+  - 0.75
+  - 0.25
+  - 0.5
+  - 0.5
+  - 0.5
+  - 1.5
+  velocities:
+  - 0.86
+  - 0.72
+  - 0.88
+  - 0.92
+  - 0.78
+  - 0.84
+  - 0.76
+  - 0.7
+  - 0.82
+- id: answer_glide
+  root: A4
+  intervals:
+  - 12
+  - 11
+  - 9
+  - 7
+  - 4
+  - 2
+  - 4
+  - 0
+  rhythm:
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.75
+  - 0.25
+  - 0.5
+  - 0.5
+  - 1.5
+  velocities:
+  - 0.88
+  - 0.78
+  - 0.76
+  - 0.84
+  - 0.7
+  - 0.76
+  - 0.82
+  - 0.72
+- id: skyline_hook
+  root: A4
+  intervals:
+  - 0
+  - 4
+  - 7
+  - 9
+  - 12
+  - 9
+  - 7
+  - 4
+  rhythm:
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.75
+  - 0.25
+  - 0.5
+  - 1.5
+  velocities:
+  - 0.86
+  - 0.78
+  - 0.82
+  - 0.86
+  - 0.94
+  - 0.76
+  - 0.82
+  - 0.74
+- id: runway_sixteenths
+  root: A5
+  intervals:
+  - 0
+  - 3
+  - 5
+  - 7
+  - 10
+  - 12
+  - 10
+  - 7
+  - 5
+  - 7
+  - 10
+  - 12
+  - 14
+  - 12
+  - 10
+  - 7
+  rhythm:
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  velocities:
+  - 1.0
+  - 0.74
+  - 0.8
+  - 0.76
+  - 0.92
+  - 0.78
+  - 0.84
+  - 0.76
+  - 0.88
+  - 0.74
+  - 0.82
+  - 0.78
+  - 0.96
+  - 0.78
+  - 0.84
+  - 0.9
+- id: runway_answer
+  root: A5
+  intervals:
+  - 12
+  - 10
+  - 7
+  - 5
+  - 7
+  - 10
+  - 12
+  - 15
+  - 14
+  - 12
+  - 10
+  - 7
+  - 5
+  - 3
+  - 0
+  - -2
+  rhythm:
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  - 0.25
+  velocities:
+  - 0.96
+  - 0.78
+  - 0.84
+  - 0.72
+  - 0.88
+  - 0.78
+  - 0.94
+  - 0.84
+  - 0.98
+  - 0.78
+  - 0.84
+  - 0.76
+  - 0.86
+  - 0.72
+  - 0.82
+  - 0.88
+- id: peak_triplet_feel
+  root: A5
+  intervals:
+  - 0
+  - 3
+  - 5
+  - 7
+  - 10
+  - 12
+  - 15
+  - 12
+  - 10
+  - 7
+  - 5
+  - 3
+  rhythm:
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  - 0.3333
+  velocities:
+  - 1.0
+  - 0.74
+  - 0.82
+  - 0.78
+  - 0.94
+  - 0.8
+  - 1.0
+  - 0.8
+  - 0.92
+  - 0.78
+  - 0.84
+  - 0.9
+- id: final_bird_arc
+  root: A4
+  intervals:
+  - 0
+  - 7
+  - 9
+  - 12
+  - 16
+  - 14
+  - 12
+  - 9
+  - 7
+  - 4
+  - 2
+  - 0
+  rhythm:
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.5
+  - 1.0
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.5
+  - 0.5
+  - 1.0
+  velocities:
+  - 0.86
+  - 0.82
+  - 0.88
+  - 0.92
+  - 1.0
+  - 0.82
+  - 0.88
+  - 0.78
+  - 0.84
+  - 0.74
+  - 0.78
+  - 0.9
+layer_templates:
+  ballad_expression:
+    kind: automation
+    group: strings
+    automation:
+    - group: strings
+      cc: expression
+      from: 82
+      to: 116
+      curve: smooth
+      points: 16
+    - group: choir_pad
+      cc: expression
+      from: 76
+      to: 108
+      curve: smooth
+      points: 14
+    - group: mallets
+      cc: expression
+      from: 72
+      to: 96
+      curve: smooth
+      points: 12
+    - group: winds
+      cc: expression
+      from: 64
+      to: 90
+      curve: smooth
+      points: 10
+  solo_expression:
+    kind: automation
+    group: strings
+    automation:
+    - group: strings
+      cc: expression
+      from: 108
+      to: 127
+      curve: smooth
+      points: 20
+    - group: percussion
+      cc: expression
+      from: 104
+      to: 124
+      curve: smooth
+      points: 14
+    - group: choir_pad
+      cc: expression
+      from: 86
+      to: 110
+      curve: smooth
+      points: 12
+    - group: brass
+      cc: expression
+      from: 72
+      to: 96
+      curve: smooth
+      points: 12
+  clean_arpeggio:
+    kind: arpeggio
+    instrument: clean_guitar_l
+    octave: 3
+    pattern:
+    - 0
+    - 2
+    - 1
+    - 2
+    - 3
+    - 2
+    - 1
+    - 2
+    step: 0.5
+    duration_beats: 0.42
+    velocity: 72
+    density: 0.92
+    articulation: pluck
+    humanize_ms: 5
+  steel_answer:
+    kind: motif
+    instrument: steel_guitar_r
+    motif: answer_glide
+    root: A4
+    velocity: 78
+    articulation: legato
+    humanize_ms: 7
+    pitch_scoop_cents: 2.0
+  lead_call:
+    kind: motif
+    instrument: clean_guitar_l
+    motif: open_road_call
+    root: A4
+    velocity: 82
+    articulation: legato
+    humanize_ms: 6
+    pitch_scoop_cents: 1.2
+  chorus_hook:
+    kind: motif
+    instruments:
+    - clean_guitar_l
+    - steel_guitar_r
+    - fiddle_high
+    motif: skyline_hook
+    root: A4
+    velocity: 82
+    articulation: tenuto
+    humanize_ms: 5
+    instrument_octave_offsets:
+      clean_guitar_l: 0
+      steel_guitar_r: 0
+      fiddle_high: 1
+    instrument_velocity_offsets:
+      clean_guitar_l: 0
+      steel_guitar_r: -4
+      fiddle_high: -18
+    instrument_pitch_scoop_cents:
+      steel_guitar_r: 1.5
+      fiddle_high: 0.8
+  organ_pad:
+    kind: pad_chords
+    instruments:
+    - drawbar_organ
+    - church_organ_pad
+    octave: 3
+    every_bars: 1
+    duration_beats: 4.0
+    velocity: 62
+    articulation: pad
+    voicing: open
+    humanize_ms: 8
+  warm_pad_long:
+    kind: pad_chords
+    instrument: warm_pad
+    octave: 3
+    every_bars: 4
+    duration_beats: 16.0
+    velocity: 42
+    articulation: pad
+    voicing: wide
+    humanize_ms: 10
+  piano_lift:
+    kind: arpeggio
+    instrument: honky_piano
+    octave: 4
+    pattern:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 2
+    - 1
+    step: 0.5
+    duration_beats: 0.35
+    velocity: 48
+    density: 0.52
+    articulation: normal
+    humanize_ms: 4
+  bass_ballad:
+    kind: bassline
+    instrument: picked_bass
+    octave: 2
+    velocity: 76
+    articulation: tenuto
+    humanize_ms: 4
+    pattern:
+    - - 0
+      - 0.0
+      - 1.15
+    - - 7
+      - 2.0
+      - 0.58
+    - - 12
+      - 3.0
+      - 0.48
+  bass_drive:
+    kind: bassline
+    instrument: picked_bass
+    octave: 2
+    velocity: 94
+    articulation: marcato
+    humanize_ms: 3
+    pattern:
+    - - 0
+      - 0.0
+      - 0.45
+    - - 0
+      - 0.75
+      - 0.32
+    - - 7
+      - 1.0
+      - 0.38
+    - - 0
+      - 1.5
+      - 0.3
+    - - 12
+      - 2.0
+      - 0.42
+    - - 7
+      - 3.0
+      - 0.38
+    - - 12
+      - 3.5
+      - 0.26
+  rhythm_chugs:
+    kind: ostinato
+    instruments:
+    - rhythm_guitar
+    - third_guitar_fill
+    octave: 3
+    intervals:
+    - 0
+    - 7
+    - 12
+    - 7
+    - 0
+    - 7
+    - 12
+    - 7
+    rhythm:
+    - 0.5
+    - 0.5
+    - 0.5
+    - 0.5
+    - 0.5
+    - 0.5
+    - 0.5
+    - 0.5
+    velocity: 76
+    articulation: pluck
+    humanize_ms: 4
+  solo_sixteens_left:
+    kind: motif
+    instrument: overdrive_lead_l
+    motif: runway_sixteenths
+    roots:
+    - A5
+    - C5
+    - D5
+    - A5
+    - E5
+    - G5
+    - D5
+    - A5
+    velocity: 106
+    articulation: legato
+    humanize_ms: 4
+    pitch_scoop_cents: 1.2
+    repeats: 16
+    every_bars: 2
+    starts:
+    - - 0
+      - 0.0
+    - - 1
+      - 0.0
+    note_velocity_pattern:
+    - 1.0
+    - 0.72
+    - 0.8
+    - 0.74
+  solo_sixteens_right:
+    kind: motif
+    instrument: distortion_lead_r
+    motif: runway_answer
+    roots:
+    - A5
+    - C5
+    - D5
+    - A5
+    - E5
+    - G5
+    - D5
+    - A5
+    velocity: 100
+    articulation: legato
+    humanize_ms: 5
+    pitch_scoop_cents: 1.4
+    repeats: 16
+    every_bars: 2
+    starts:
+    - - 1
+      - 0.0
+    note_velocity_pattern:
+    - 0.92
+    - 0.7
+    - 0.78
+    - 0.72
+  solo_triplet_peak:
+    kind: motif
+    instruments:
+    - overdrive_lead_l
+    - distortion_lead_r
+    motif: peak_triplet_feel
+    roots:
+    - A5
+    - C5
+    - D5
+    - A5
+    - E5
+    - G5
+    - D5
+    - A5
+    velocity: 112
+    articulation: legato
+    humanize_ms: 3
+    pitch_scoop_cents: 1.8
+    repeats: 12
+    every_bars: 2
+    starts:
+    - - 0
+      - 0.0
+    - - 1
+      - 0.0
+    instrument_velocity_offsets:
+      overdrive_lead_l: 0
+      distortion_lead_r: -5
+    instrument_octave_offsets:
+      overdrive_lead_l: 0
+      distortion_lead_r: 0
+  final_arc:
+    kind: motif
+    instruments:
+    - overdrive_lead_l
+    - distortion_lead_r
+    - steel_guitar_r
+    motif: final_bird_arc
+    root: A4
+    velocity: 106
+    articulation: tenuto
+    humanize_ms: 4
+    instrument_octave_offsets:
+      overdrive_lead_l: 1
+      distortion_lead_r: 1
+      steel_guitar_r: 0
+    instrument_velocity_offsets:
+      overdrive_lead_l: 0
+      distortion_lead_r: -4
+      steel_guitar_r: -16
+    instrument_pitch_scoop_cents:
+      overdrive_lead_l: 1.5
+      distortion_lead_r: 1.2
+      steel_guitar_r: 2.0
+  fiddle_sparkle:
+    kind: texture
+    instruments:
+    - fiddle_high
+    - whistle_air
+    root: A5
+    scale:
+    - 0
+    - 2
+    - 4
+    - 7
+    - 9
+    - 12
+    events_per_bar: 0.55
+    duration_beats: 0.35
+    velocity: 38
+    articulation: bell
+    humanize_ms: 2
+  brass_anthem_hits:
+    kind: chord_hits
+    instruments:
+    - brass_section
+    - horns_wide
+    octave: 3
+    velocity: 72
+    duration_beats: 0.68
+    articulation: marcato
+    voicing: open
+    humanize_ms: 4
+    hits:
+    - - 0
+      - 0.0
+    - - 4
+      - 0.0
+    - - 8
+      - 0.0
+    - - 12
+      - 0.0
+    - - 16
+      - 0.0
+    - - 20
+      - 0.0
+    - - 24
+      - 0.0
+    - - 28
+      - 0.0
+  ballad_drums:
+    kind: drums
+    instrument: southern_kit
+    humanize_ms: 2.0
+    events:
+    - drum: kick
+      beats:
+      - 0.0
+      - 2.5
+      velocity: 60
+    - drum: snare
+      beat: 2.0
+      velocity: 56
+    - drum: closed_hat
+      beats:
+      - 0.5
+      - 1.5
+      - 2.5
+      - 3.5
+      velocity: 28
+    - drum: crash
+      beat: 0.0
+      velocity: 62
+      bars:
+      - 0
+      - 8
+      - 16
+      - 24
+  lift_drums:
+    kind: drums
+    instrument: southern_kit
+    humanize_ms: 2.0
+    events:
+    - drum: kick
+      beats:
+      - 0.0
+      - 1.75
+      - 2.5
+      velocity: 72
+    - drum: snare
+      beats:
+      - 1.0
+      - 3.0
+      velocity: 64
+    - drum: closed_hat
+      beats:
+      - 0.5
+      - 1.5
+      - 2.5
+      - 3.5
+      velocity: 34
+    - drum: low_tom
+      beats:
+      - 3.5
+      velocity: 48
+      probability: 0.65
+    - drum: crash
+      beat: 0.0
+      velocity: 70
+      bars:
+      - 0
+      - 8
+  drive_drums:
+    kind: drums
+    instrument: southern_kit
+    humanize_ms: 1.5
+    events:
+    - drum: kick
+      beats:
+      - 0.0
+      - 1.5
+      - 2.0
+      - 3.0
+      velocity: 82
+    - drum: snare
+      beats:
+      - 1.0
+      - 3.0
+      velocity: 78
+    - drum: closed_hat
+      beats:
+      - 0.5
+      - 1.5
+      - 2.5
+      - 3.5
+      velocity: 40
+    - drum: low_tom
+      beat: 3.5
+      velocity: 56
+    - drum: mid_tom
+      beat: 3.75
+      velocity: 50
+      probability: 0.55
+    - drum: crash
+      beat: 0.0
+      velocity: 86
+      bars:
+      - 0
+      - 8
+      - 16
+      - 24
+  peak_drums:
+    kind: drums
+    instrument: southern_kit
+    humanize_ms: 1.0
+    events:
+    - drum: kick
+      beats:
+      - 0.0
+      - 1.0
+      - 2.0
+      - 2.75
+      - 3.5
+      velocity: 88
+    - drum: snare
+      beats:
+      - 1.0
+      - 3.0
+      velocity: 84
+    - drum: closed_hat
+      beats:
+      - 0.5
+      - 1.5
+      - 2.5
+      - 3.5
+      velocity: 42
+    - drum: open_hat
+      beat: 3.75
+      velocity: 46
+      probability: 0.6
+    - drum: low_tom
+      beats:
+      - 2.5
+      - 3.5
+      velocity: 62
+    - drum: crash
+      beat: 0.0
+      velocity: 92
+      bars:
+      - 0
+      - 4
+      - 8
+      - 12
+      - 16
+      - 20
+playback:
+  mode: section_stem_matrix
+  intro: intro_air
+  loop_components:
+  - verse_one
+  - prechorus_lift
+  - chorus_one
+  - verse_two
+  - chorus_two
+  - bridge_hold
+  - solo_launch
+  - solo_runway_a
+  - solo_runway_b
+  - solo_peak
+  - finale_anthem
+  outro: outro_cadence
+  exit_policy:
+    request_outro: next_valid_exit_bar
+    fade_aggressive_stems_beats: 4
+    bridge_stems:
+    - strings
+    - choir_pad
+    fade_stems:
+    - percussion
+    - brass
+    - winds
+    - mallets
+state_map:
+  starting:
+    section: intro_air
+  wave_1:
+    preferred_section: verse_one
+    stems:
+      strings: 1.0
+      choir_pad: 0.78
+      mallets: 0.34
+      percussion: 0.26
+      winds: 0.12
+      brass: 0.0
+  wave_2:
+    preferred_section: chorus_two
+    stems:
+      strings: 1.0
+      choir_pad: 0.92
+      mallets: 0.42
+      percussion: 0.48
+      winds: 0.18
+      brass: 0.12
+  large_brute_spawned:
+    fade_in:
+      percussion: 0.72
+      brass: 0.28
+      winds: 0.28
+    fade_beats: 4
+  wave_3:
+    preferred_section: solo_runway_a
+    stems:
+      strings: 1.0
+      percussion: 0.86
+      choir_pad: 0.68
+      mallets: 0.3
+      winds: 0.26
+      brass: 0.22
+  long_active_fallback:
+    preferred_section: solo_peak
+  cleared:
+    transition: outro_at_next_valid_exit_bar
+    outro: outro_cadence
+sections:
+- id: intro_air
+  kind: intro
+  label: 0:00-0:32 clean-guitar and organ porch-light intro
+  bars: 16
+  intensity: 0.48
+  density: 0.32
+  loopable: false
+  harmony:
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  layers:
+  - ballad_expression
+  - template: organ_pad
+    velocity: 50
+  - template: clean_arpeggio
+    density: 0.72
+    velocity: 58
+  - template: lead_call
+    starts:
+    - - 4
+      - 0.0
+    - - 12
+      - 0.0
+    velocity: 62
+  - template: warm_pad_long
+    velocity: 30
+  - kind: drums
+    instrument: southern_kit
+    humanize_ms: 2.0
+    events:
+    - drum: kick
+      bars:
+      - 8
+      - 12
+      beat: 0.0
+      velocity: 38
+    - drum: closed_hat
+      bars:
+      - 12
+      - 13
+      - 14
+      - 15
+      beats:
+      - 1.0
+      - 3.0
+      velocity: 20
+- id: verse_one
+  kind: loop_component
+  label: 0:32-1:36 first slow ballad verse, half-time pulse
+  bars: 32
+  intensity: 0.56
+  density: 0.48
+  loopable: true
+  harmony:
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  layers:
+  - ballad_expression
+  - template: organ_pad
+    velocity: 54
+  - template: clean_arpeggio
+    density: 0.86
+    velocity: 62
+  - template: bass_ballad
+    velocity: 68
+  - template: steel_answer
+    starts:
+    - - 4
+      - 2.0
+    - - 12
+      - 2.0
+    - - 20
+      - 2.0
+    - - 28
+      - 2.0
+    velocity: 68
+  - template: lead_call
+    starts:
+    - - 8
+      - 0.0
+    - - 24
+      - 0.0
+    velocity: 64
+  - template: warm_pad_long
+    velocity: 32
+  - ballad_drums
+  valid_exit_local_bars:
+  - 8
+  - 16
+  - 24
+  - 32
+- id: prechorus_lift
+  kind: loop_component
+  label: 1:36-2:08 lifted pre-chorus before the sky opens
+  bars: 16
+  intensity: 0.66
+  density: 0.58
+  loopable: true
+  harmony:
+  - Dadd9
+  - A/C#
+  - Bm7
+  - E7sus4
+  - F#m7
+  - D
+  - A
+  - E7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - E7sus4
+  - F#m7
+  - D
+  - A
+  - E7
+  layers:
+  - ballad_expression
+  - template: organ_pad
+    velocity: 62
+  - template: clean_arpeggio
+    density: 0.94
+    velocity: 66
+  - template: bass_ballad
+    velocity: 76
+  - template: piano_lift
+    density: 0.52
+    velocity: 42
+  - template: chorus_hook
+    starts:
+    - - 4
+      - 0.0
+    - - 12
+      - 0.0
+    velocity: 72
+  - lift_drums
+  - template: brass_anthem_hits
+    hits:
+    - - 8
+      - 0.0
+    - - 12
+      - 0.0
+    velocity: 54
+  valid_exit_local_bars:
+  - 8
+  - 16
+  reinforcement_bar: 8
+- id: chorus_one
+  kind: loop_component
+  label: 2:08-2:40 first refrain, unmistakable lift but new melody
+  bars: 16
+  intensity: 0.72
+  density: 0.64
+  loopable: true
+  harmony:
+  - A
+  - E
+  - F#m7
+  - Dadd9
+  - A
+  - C#m
+  - D
+  - E7sus4
+  - A
+  - E
+  - F#m7
+  - Dadd9
+  - A
+  - C#m
+  - D
+  - E7sus4
+  layers:
+  - ballad_expression
+  - template: organ_pad
+    velocity: 66
+  - template: clean_arpeggio
+    density: 0.94
+    velocity: 68
+  - template: bass_ballad
+    velocity: 82
+  - template: chorus_hook
+    starts:
+    - - 0
+      - 0.0
+    - - 8
+      - 0.0
+    velocity: 78
+  - template: steel_answer
+    starts:
+    - - 4
+      - 2.0
+    - - 12
+      - 2.0
+    velocity: 74
+  - template: piano_lift
+    density: 0.58
+    velocity: 46
+  - lift_drums
+  - template: brass_anthem_hits
+    hits:
+    - - 0
+      - 0.0
+    - - 8
+      - 0.0
+    velocity: 58
+  valid_exit_local_bars:
+  - 8
+  - 16
+- id: verse_two
+  kind: loop_component
+  label: 2:40-3:44 second verse, bigger rhythm bed
+  bars: 32
+  intensity: 0.68
+  density: 0.62
+  loopable: true
+  harmony:
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  - A
+  - E/G#
+  - F#m7
+  - Dadd9
+  - A/C#
+  - Bm7
+  - D
+  - E7sus4
+  layers:
+  - ballad_expression
+  - template: organ_pad
+    velocity: 66
+  - template: clean_arpeggio
+    density: 0.9
+    velocity: 66
+  - template: bass_ballad
+    velocity: 82
+  - template: rhythm_chugs
+    velocity: 54
+  - template: steel_answer
+    starts:
+    - - 4
+      - 2.0
+    - - 12
+      - 2.0
+    - - 20
+      - 2.0
+    - - 28
+      - 2.0
+    velocity: 76
+  - template: lead_call
+    starts:
+    - - 8
+      - 0.0
+    - - 16
+      - 0.0
+    - - 24
+      - 0.0
+    velocity: 70
+  - template: warm_pad_long
+    velocity: 36
+  - ballad_drums
+  - template: brass_anthem_hits
+    hits:
+    - - 16
+      - 0.0
+    - - 24
+      - 0.0
+    velocity: 50
+  valid_exit_local_bars:
+  - 8
+  - 16
+  - 24
+  - 32
+- id: chorus_two
+  kind: loop_component
+  label: 3:44-4:16 second refrain, drums and organ push forward
+  bars: 16
+  intensity: 0.78
+  density: 0.7
+  loopable: true
+  harmony:
+  - A
+  - E
+  - F#m7
+  - Dadd9
+  - A
+  - C#m
+  - D
+  - E7sus4
+  - A
+  - E
+  - F#m7
+  - Dadd9
+  - A
+  - C#m
+  - D
+  - E7sus4
+  layers:
+  - ballad_expression
+  - template: organ_pad
+    velocity: 72
+  - template: clean_arpeggio
+    density: 0.96
+    velocity: 70
+  - template: bass_ballad
+    velocity: 88
+  - template: chorus_hook
+    starts:
+    - - 0
+      - 0.0
+    - - 8
+      - 0.0
+    velocity: 82
+  - template: steel_answer
+    starts:
+    - - 4
+      - 2.0
+    - - 12
+      - 2.0
+    velocity: 78
+  - template: piano_lift
+    density: 0.64
+    velocity: 50
+  - lift_drums
+  - template: brass_anthem_hits
+    hits:
+    - - 0
+      - 0.0
+    - - 8
+      - 0.0
+    - - 12
+      - 0.0
+    velocity: 62
+  valid_exit_local_bars:
+  - 8
+  - 16
+- id: bridge_hold
+  kind: loop_component
+  label: 4:16-4:48 suspended bridge before takeoff
+  bars: 16
+  intensity: 0.7
+  density: 0.52
+  loopable: true
+  harmony:
+  - Bm7
+  - D
+  - A
+  - E/G#
+  - F#m7
+  - D
+  - E7sus4
+  - E7
+  - Bm7
+  - D
+  - A
+  - E/G#
+  - F#m7
+  - D
+  - E7sus4
+  - E7
+  layers:
+  - ballad_expression
+  - template: organ_pad
+    velocity: 70
+  - template: warm_pad_long
+    velocity: 42
+  - template: clean_arpeggio
+    density: 0.78
+    velocity: 62
+  - template: bass_ballad
+    velocity: 78
+  - template: lead_call
+    starts:
+    - - 4
+      - 0.0
+    - - 12
+      - 0.0
+    velocity: 72
+  - kind: pedal
+    instruments:
+    - drawbar_organ
+    - picked_bass
+    note: E2
+    velocity: 42
+    articulation: pad
+    humanize_ms: 4
+  - kind: drums
+    instrument: southern_kit
+    humanize_ms: 2.0
+    events:
+    - drum: kick
+      beats:
+      - 0.0
+      - 2.0
+      velocity: 60
+    - drum: snare
+      beat: 3.0
+      velocity: 56
+    - drum: low_tom
+      beats:
+      - 2.5
+      - 3.5
+      velocity: 48
+      bars:
+      - 12
+      - 13
+      - 14
+      - 15
+    - drum: crash
+      beat: 0.0
+      velocity: 70
+      bars:
+      - 15
+  valid_exit_local_bars:
+  - 8
+  - 16
+- id: solo_launch
+  kind: loop_component
+  label: 4:48-5:52 double-time solo launch, train leaves the station
+  bars: 32
+  intensity: 0.88
+  density: 0.86
+  loopable: true
+  harmony:
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  layers:
+  - solo_expression
+  - template: organ_pad
+    velocity: 64
+  - template: bass_drive
+    velocity: 88
+  - template: rhythm_chugs
+    velocity: 72
+  - template: solo_sixteens_left
+    velocity: 96
+    repeats: 16
+  - template: solo_sixteens_right
+    velocity: 88
+    repeats: 16
+  - template: fiddle_sparkle
+    events_per_bar: 0.3
+    velocity: 34
+  - drive_drums
+  - template: brass_anthem_hits
+    hits:
+    - - 0
+      - 0.0
+    - - 8
+      - 0.0
+    - - 16
+      - 0.0
+    - - 24
+      - 0.0
+    velocity: 54
+  valid_exit_local_bars:
+  - 8
+  - 16
+  - 24
+  - 32
+  reinforcement_bar: 16
+- id: solo_runway_a
+  kind: loop_component
+  label: 5:52-6:56 first long twin-guitar runway
+  bars: 32
+  intensity: 0.94
+  density: 0.94
+  loopable: true
+  harmony:
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  layers:
+  - solo_expression
+  - template: organ_pad
+    velocity: 68
+  - template: warm_pad_long
+    velocity: 34
+  - template: bass_drive
+    velocity: 96
+  - template: rhythm_chugs
+    velocity: 78
+  - template: solo_sixteens_left
+    velocity: 106
+    repeats: 16
+  - template: solo_sixteens_right
+    velocity: 100
+    repeats: 16
+  - template: fiddle_sparkle
+    events_per_bar: 0.45
+    velocity: 36
+  - drive_drums
+  - template: brass_anthem_hits
+    hits:
+    - - 0
+      - 0.0
+    - - 8
+      - 0.0
+    - - 16
+      - 0.0
+    - - 24
+      - 0.0
+    velocity: 58
+  valid_exit_local_bars:
+  - 8
+  - 16
+  - 24
+  - 32
+  reinforcement_bar: 16
+- id: solo_runway_b
+  kind: loop_component
+  label: 6:56-8:00 second runway, higher and more frantic
+  bars: 32
+  intensity: 1.0
+  density: 1.0
+  loopable: true
+  harmony:
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - E/G#
+  - G
+  - D/F#
+  - A
+  layers:
+  - solo_expression
+  - template: organ_pad
+    velocity: 72
+  - template: bass_drive
+    velocity: 104
+  - template: rhythm_chugs
+    velocity: 84
+  - template: solo_sixteens_left
+    velocity: 112
+    repeats: 16
+    transpose: 0
+  - template: solo_sixteens_right
+    velocity: 106
+    repeats: 16
+    transpose: 2
+  - template: fiddle_sparkle
+    events_per_bar: 0.6
+    velocity: 40
+  - drive_drums
+  - template: brass_anthem_hits
+    hits:
+    - - 0
+      - 0.0
+    - - 8
+      - 0.0
+    - - 16
+      - 0.0
+    - - 24
+      - 0.0
+    - - 28
+      - 0.0
+    velocity: 62
+  valid_exit_local_bars:
+  - 8
+  - 16
+  - 24
+  - 32
+  reinforcement_bar: 16
+- id: solo_peak
+  kind: loop_component
+  label: 8:00-8:48 peak shred with triplet-feel bursts
+  bars: 24
+  intensity: 1.0
+  density: 1.0
+  loopable: true
+  harmony:
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - A
+  - G
+  - D
+  - E7sus4
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - A
+  - G
+  - D
+  - E7sus4
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - A
+  - G
+  - D
+  - E7sus4
+  layers:
+  - solo_expression
+  - template: organ_pad
+    velocity: 76
+  - template: warm_pad_long
+    velocity: 38
+  - template: bass_drive
+    velocity: 110
+  - template: rhythm_chugs
+    velocity: 90
+  - template: solo_triplet_peak
+    velocity: 116
+    repeats: 12
+  - template: solo_sixteens_right
+    velocity: 108
+    repeats: 12
+    transpose: 5
+  - template: fiddle_sparkle
+    events_per_bar: 0.72
+    velocity: 42
+  - peak_drums
+  - template: brass_anthem_hits
+    hits:
+    - - 0
+      - 0.0
+    - - 4
+      - 0.0
+    - - 8
+      - 0.0
+    - - 12
+      - 0.0
+    - - 16
+      - 0.0
+    - - 20
+      - 0.0
+    velocity: 70
+  valid_exit_local_bars:
+  - 4
+  - 8
+  - 12
+  - 16
+  - 20
+  - 24
+  reinforcement_bar: 12
+- id: finale_anthem
+  kind: loop_component
+  label: 8:48-9:04 final held anthem arc
+  bars: 8
+  intensity: 0.92
+  density: 0.78
+  loopable: true
+  harmony:
+  - A
+  - Cadd9
+  - Dadd9
+  - A
+  - F#m7
+  - D
+  - E7sus4
+  - A
+  layers:
+  - solo_expression
+  - template: organ_pad
+    velocity: 78
+  - template: bass_drive
+    velocity: 104
+  - template: rhythm_chugs
+    velocity: 82
+  - template: final_arc
+    starts:
+    - - 0
+      - 0.0
+    velocity: 112
+  - template: final_arc
+    starts:
+    - - 4
+      - 0.0
+    velocity: 106
+    transform: retrograde
+  - template: brass_anthem_hits
+    hits:
+    - - 0
+      - 0.0
+    - - 4
+      - 0.0
+    velocity: 74
+  - kind: drums
+    instrument: southern_kit
+    humanize_ms: 1.0
+    events:
+    - drum: kick
+      beats:
+      - 0.0
+      - 2.0
+      velocity: 88
+    - drum: snare
+      beats:
+      - 1.0
+      - 3.0
+      velocity: 82
+    - drum: crash
+      bars:
+      - 0
+      - 4
+      beat: 0.0
+      velocity: 96
+    - drum: low_tom
+      bars:
+      - 7
+      beats:
+      - 2.0
+      - 2.5
+      - 3.0
+      - 3.5
+      velocity: 68
+  valid_exit_local_bars:
+  - 4
+  - 8
+- id: outro_cadence
+  kind: outro
+  label: 9:04-9:08 final ringing A, hard stop
+  bars: 2
+  intensity: 0.82
+  density: 0.44
+  loopable: false
+  harmony:
+  - E7sus4
+  - A
+  layers:
+  - kind: automation
+    group: strings
+    automation:
+    - group: strings
+      cc: expression
+      from: 124
+      to: 64
+      curve: smooth
+      points: 8
+    - group: percussion
+      cc: expression
+      from: 116
+      to: 30
+      curve: smooth
+      points: 6
+    - group: choir_pad
+      cc: expression
+      from: 110
+      to: 62
+      curve: smooth
+      points: 6
+  - template: organ_pad
+    velocity: 68
+  - template: final_arc
+    starts:
+    - - 0
+      - 0.0
+    velocity: 92
+  - kind: chord_hits
+    instruments:
+    - overdrive_lead_l
+    - distortion_lead_r
+    - steel_guitar_r
+    - drawbar_organ
+    octave: 3
+    velocity: 94
+    duration_beats: 4.0
+    articulation: tenuto
+    voicing: open
+    humanize_ms: 4
+    hits:
+    - - 1
+      - 0.0
+  - kind: drums
+    instrument: southern_kit
+    humanize_ms: 1.0
+    events:
+    - drum: kick
+      bars:
+      - 1
+      beat: 0.0
+      velocity: 98
+    - drum: crash
+      bars:
+      - 1
+      beat: 0.0
+      velocity: 104
+group_postprocess:
+  strings:
+    gain_db: 3.0
+    target_peak_db: -1.0
+    lowpass_hz: 15800
+    high_shelf_hz: 5400
+    high_shelf_db: 1.2
+    presence_low_hz: 1600
+    presence_high_hz: 5200
+    presence_db: 2.0
+    transient_tame: 0.02
+    reverb_wet: 0.01
+  percussion:
+    gain_db: 4.5
+    target_peak_db: -1.1
+    lowpass_hz: 12800
+    high_shelf_hz: 5200
+    high_shelf_db: 0.6
+    presence_low_hz: 1700
+    presence_high_hz: 5200
+    presence_db: 1.8
+    transient_tame: 0.06
+    reverb_wet: 0.006
+    reverb_decay_seconds: 0.34
+  choir_pad:
+    gain_db: 1.6
+    target_peak_db: -2.2
+    lowpass_hz: 9200
+    high_shelf_hz: 4800
+    high_shelf_db: -0.6
+    presence_low_hz: 1200
+    presence_high_hz: 4200
+    presence_db: 0.7
+    transient_tame: 0.04
+    reverb_wet: 0.018
+  mallets:
+    gain_db: 0.6
+    target_peak_db: -3.0
+    lowpass_hz: 11800
+    high_shelf_hz: 5200
+    high_shelf_db: 0.2
+    presence_low_hz: 1500
+    presence_high_hz: 5000
+    presence_db: 0.8
+    transient_tame: 0.08
+    reverb_wet: 0.006
+  winds:
+    gain_db: 1.2
+    target_peak_db: -3.0
+    lowpass_hz: 12500
+    high_shelf_hz: 5200
+    high_shelf_db: 0.4
+    presence_low_hz: 1700
+    presence_high_hz: 5200
+    presence_db: 1.0
+    transient_tame: 0.03
+    reverb_wet: 0.01
+  brass:
+    gain_db: 0.8
+    target_peak_db: -3.2
+    lowpass_hz: 11200
+    high_shelf_hz: 5200
+    high_shelf_db: 0.1
+    presence_low_hz: 1500
+    presence_high_hz: 4600
+    presence_db: 0.8
+    transient_tame: 0.04
+    reverb_wet: 0.008

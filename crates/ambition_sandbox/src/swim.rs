@@ -43,7 +43,8 @@ mod tests {
         abilities.swim = false;
         let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
         player.pos = ae::Vec2::new(500.0, 500.0);
-        let events = ae::update_player_simulation(&world, &mut player, ae::InputState::default(), 0.016);
+        let events =
+            ae::update_player_simulation(&world, &mut player, ae::InputState::default(), 0.016);
         assert!(events.reset, "expected reset on water without swim");
         assert!(events.hazard, "expected hazard flag (drowned)");
         assert_eq!(player.pos, world.spawn);

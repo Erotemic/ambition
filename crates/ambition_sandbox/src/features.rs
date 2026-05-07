@@ -334,8 +334,7 @@ impl FeatureRuntime {
         // Authored enemies (LDtk EnemySpawn) that were killed and
         // recorded in the save should also stay dead.
         for enemy in &mut self.enemies {
-            if save.flag(&format!("enemy_{}_dead", enemy.id))
-                && !enemy.id.starts_with("encounter:")
+            if save.flag(&format!("enemy_{}_dead", enemy.id)) && !enemy.id.starts_with("encounter:")
             {
                 enemy.alive = false;
                 enemy.health.current = 0;
@@ -345,10 +344,7 @@ impl FeatureRuntime {
         // runtime dead. New `BossSpawn` instances from the LDtk
         // file all start `alive=true`, so this is the gate.
         for boss in &mut self.bosses {
-            if matches!(
-                save.boss(&boss.id),
-                ae::PersistedEncounterState::Cleared
-            ) {
+            if matches!(save.boss(&boss.id), ae::PersistedEncounterState::Cleared) {
                 boss.alive = false;
                 boss.health.current = 0;
             }
@@ -621,10 +617,9 @@ impl FeatureRuntime {
                     // looted flag is `encounter_<id>_reward_dropped`
                     // (`crate::encounter::encounter_reward_looted_flag`).
                     if let Some(encounter_id) = chest.id.strip_prefix("encounter_chest_") {
-                        events.flag_writes.push((
-                            format!("encounter_{encounter_id}_reward_dropped"),
-                            true,
-                        ));
+                        events
+                            .flag_writes
+                            .push((format!("encounter_{encounter_id}_reward_dropped"), true));
                     }
                 }
             }
@@ -640,9 +635,7 @@ impl FeatureRuntime {
                         events
                             .quest_advance
                             .push(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()));
-                        events
-                            .flag_writes
-                            .push(("met_any_hub_npc".into(), true));
+                        events.flag_writes.push(("met_any_hub_npc".into(), true));
                     }
                     events.bursts.push(npc.pos);
                 }
@@ -809,7 +802,10 @@ impl FeatureRuntime {
                 boss.hit_flash = 0.18;
                 let amount = damage.max(1);
                 let killed = boss.health.damage(amount);
-                report.events.impacts.push(midpoint(attack.center(), boss.pos));
+                report
+                    .events
+                    .impacts
+                    .push(midpoint(attack.center(), boss.pos));
                 report.events.boss_damage.push((boss.id.clone(), amount));
                 report.bosses_hit += 1;
                 if killed {
@@ -840,7 +836,10 @@ impl FeatureRuntime {
                 continue;
             }
             npc.hit_flash = 0.18;
-            report.events.impacts.push(midpoint(attack.center(), npc.pos));
+            report
+                .events
+                .impacts
+                .push(midpoint(attack.center(), npc.pos));
             report.events.npc_struck.push((npc.id.clone(), npc.pos));
             report.npcs_hit += 1;
             if npc.hostile {
@@ -1424,7 +1423,9 @@ impl EnemyRuntime {
             // the chase line entirely.
             let desired_x = if matches!(
                 self.ai_mode,
-                ae::CharacterAiMode::Stunned | ae::CharacterAiMode::Telegraph | ae::CharacterAiMode::Attack
+                ae::CharacterAiMode::Stunned
+                    | ae::CharacterAiMode::Telegraph
+                    | ae::CharacterAiMode::Attack
             ) {
                 0.0
             } else if committed {
@@ -1446,9 +1447,7 @@ impl EnemyRuntime {
                     }
                     ae::EnemyBrain::Passive => 0.0,
                     _ => match self.ai_mode {
-                        ae::CharacterAiMode::Patrol => {
-                            self.facing * self.archetype.patrol_speed()
-                        }
+                        ae::CharacterAiMode::Patrol => self.facing * self.archetype.patrol_speed(),
                         ae::CharacterAiMode::Chase => {
                             delta_to_player.x.signum() * self.archetype.chase_speed()
                         }
@@ -2293,23 +2292,49 @@ mod conversion_tests {
     #[test]
     fn enemy_archetype_size_and_aggression_invariants() {
         // HP: small < medium < large.
-        assert!(EnemyArchetype::SmallSkitter.max_health() < EnemyArchetype::MediumStriker.max_health());
-        assert!(EnemyArchetype::SmallLurker.max_health() < EnemyArchetype::MediumStriker.max_health());
-        assert!(EnemyArchetype::MediumStriker.max_health() < EnemyArchetype::LargeBrute.max_health());
-        assert!(EnemyArchetype::LargeBrute.max_health() < EnemyArchetype::LargeColossus.max_health());
+        assert!(
+            EnemyArchetype::SmallSkitter.max_health() < EnemyArchetype::MediumStriker.max_health()
+        );
+        assert!(
+            EnemyArchetype::SmallLurker.max_health() < EnemyArchetype::MediumStriker.max_health()
+        );
+        assert!(
+            EnemyArchetype::MediumStriker.max_health() < EnemyArchetype::LargeBrute.max_health()
+        );
+        assert!(
+            EnemyArchetype::LargeBrute.max_health() < EnemyArchetype::LargeColossus.max_health()
+        );
 
         // Aggro radius: low-aggression < high-aggression at same size.
-        assert!(EnemyArchetype::SmallLurker.aggro_radius() < EnemyArchetype::SmallSkitter.aggro_radius());
-        assert!(EnemyArchetype::LargeColossus.aggro_radius() < EnemyArchetype::LargeBrute.aggro_radius());
+        assert!(
+            EnemyArchetype::SmallLurker.aggro_radius()
+                < EnemyArchetype::SmallSkitter.aggro_radius()
+        );
+        assert!(
+            EnemyArchetype::LargeColossus.aggro_radius()
+                < EnemyArchetype::LargeBrute.aggro_radius()
+        );
 
         // Damage: large > medium / small (LargeColossus is the heaviest hitter).
-        assert!(EnemyArchetype::LargeColossus.damage_amount() >= EnemyArchetype::LargeBrute.damage_amount());
-        assert!(EnemyArchetype::LargeBrute.damage_amount() > EnemyArchetype::SmallSkitter.damage_amount());
+        assert!(
+            EnemyArchetype::LargeColossus.damage_amount()
+                >= EnemyArchetype::LargeBrute.damage_amount()
+        );
+        assert!(
+            EnemyArchetype::LargeBrute.damage_amount()
+                > EnemyArchetype::SmallSkitter.damage_amount()
+        );
 
         // Patrol speed: lurker / colossus visibly slower than their
         // higher-aggression siblings.
-        assert!(EnemyArchetype::SmallLurker.patrol_speed() < EnemyArchetype::SmallSkitter.patrol_speed());
-        assert!(EnemyArchetype::LargeColossus.patrol_speed() < EnemyArchetype::LargeBrute.patrol_speed());
+        assert!(
+            EnemyArchetype::SmallLurker.patrol_speed()
+                < EnemyArchetype::SmallSkitter.patrol_speed()
+        );
+        assert!(
+            EnemyArchetype::LargeColossus.patrol_speed()
+                < EnemyArchetype::LargeBrute.patrol_speed()
+        );
     }
 }
 

@@ -2124,7 +2124,10 @@ mod tests {
         );
         let _ = events; // unused
 
-        assert!(player.gliding, "hold-jump while falling should engage glide");
+        assert!(
+            player.gliding,
+            "hold-jump while falling should engage glide"
+        );
         assert!(
             player.vel.y <= DEFAULT_TUNING.glide_fall_speed + 1.0,
             "glide cap should clamp fall speed; got {}",
@@ -2158,11 +2161,7 @@ mod tests {
 
         // Frame 2: released → glide disengages, fall speed climbs back
         // toward max_fall_speed (gravity reapplied without the glide cap)
-        step(
-            &world,
-            &mut player,
-            InputState::default(),
-        );
+        step(&world, &mut player, InputState::default());
         assert!(!player.gliding);
     }
 

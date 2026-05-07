@@ -155,7 +155,10 @@ impl QuestState {
         let max = self.spec.steps.len() as u8;
         self.progression = state;
         self.step = step.min(max.saturating_sub(1));
-        if matches!(state, PersistedQuestState::Completed | PersistedQuestState::Failed) {
+        if matches!(
+            state,
+            PersistedQuestState::Completed | PersistedQuestState::Failed
+        ) {
             self.step = max.saturating_sub(1);
         }
     }
@@ -271,8 +274,7 @@ mod tests {
         assert!(quest.try_advance(&QuestAdvanceEvent::EncounterCleared("mob_lab".into())));
         assert_eq!(quest.step, 2);
 
-        assert!(quest
-            .try_advance(&QuestAdvanceEvent::BossDefeated("gradient_sentinel".into())));
+        assert!(quest.try_advance(&QuestAdvanceEvent::BossDefeated("gradient_sentinel".into())));
         assert!(quest.is_complete());
     }
 

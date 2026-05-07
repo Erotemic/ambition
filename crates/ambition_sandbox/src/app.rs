@@ -826,7 +826,10 @@ fn add_audio_plugins(app: &mut App) {
         .add_systems(Update, apply_audio_settings.after(sandbox_update))
         // Unified director: resolves room/encounter simple tracks and
         // adaptive cue states behind one music intent layer.
-        .add_systems(Update, crate::music::drive_music_director.after(sandbox_update));
+        .add_systems(
+            Update,
+            crate::music::drive_music_director.after(sandbox_update),
+        );
 }
 
 #[cfg(not(feature = "audio"))]
@@ -2276,7 +2279,16 @@ fn handle_player_damage_events(
     let scaled = ((damage.amount as f32) * difficulty_multiplier).round() as i32;
     damage.amount = scaled.max(1);
     if runtime.player_health.damage(damage.amount) {
-        death_respawn_player(world, sfx, vfx, died, runtime, tuning, feel, damage.impact_pos);
+        death_respawn_player(
+            world,
+            sfx,
+            vfx,
+            died,
+            runtime,
+            tuning,
+            feel,
+            damage.impact_pos,
+        );
         return;
     }
     match damage.mode {

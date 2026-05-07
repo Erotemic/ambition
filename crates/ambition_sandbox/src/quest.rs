@@ -96,12 +96,10 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
             "test_switch_quest",
             "Test the Memory",
             "Verify that the world remembers what you do.",
-            vec![
-                ae::QuestStepSpec::new(
-                    "Toggle the persistence test switch.",
-                    ae::QuestStepCondition::FlagSet("test_switch_toggled".into()),
-                ),
-            ],
+            vec![ae::QuestStepSpec::new(
+                "Toggle the persistence test switch.",
+                ae::QuestStepCondition::FlagSet("test_switch_toggled".into()),
+            )],
         ),
     ]
 }

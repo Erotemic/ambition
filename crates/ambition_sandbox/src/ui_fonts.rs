@@ -70,11 +70,7 @@ pub fn load_ui_fonts(mut commands: Commands, asset_server: Res<AssetServer>) {
     )
     .or_else(|| regular.clone());
 
-    let mono = load_optional_font(
-        &asset_server,
-        DEBUG_FONT_MONO,
-        "monospace debug UI font",
-    );
+    let mono = load_optional_font(&asset_server, DEBUG_FONT_MONO, "monospace debug UI font");
 
     if regular.is_none() {
         warn!(

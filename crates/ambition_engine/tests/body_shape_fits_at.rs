@@ -15,10 +15,8 @@
 //! 3. Standing → MorphBall always shrinks the AABB; if Standing fits,
 //!    MorphBall fits at the same center.
 
-use ambition_engine::{
-    geometry::Aabb, AabbExt, BlockKind, BodyMode, BodyShape, Vec2,
-};
 use ambition_engine::world::{Block, World};
+use ambition_engine::{geometry::Aabb, AabbExt, BlockKind, BodyMode, BodyShape, Vec2};
 use proptest::prelude::*;
 
 fn solid_predicate() -> impl FnMut(&Block) -> bool {

@@ -122,10 +122,7 @@ pub struct PersistedFlag {
 
 impl PersistedFlag {
     pub fn new(id: impl Into<String>, on: bool) -> Self {
-        Self {
-            id: id.into(),
-            on,
-        }
+        Self { id: id.into(), on }
     }
 }
 
@@ -243,12 +240,7 @@ impl SandboxSaveData {
             .unwrap_or((PersistedQuestState::NotStarted, 0))
     }
 
-    pub fn set_quest(
-        &mut self,
-        id: impl Into<String>,
-        state: PersistedQuestState,
-        step: u8,
-    ) {
+    pub fn set_quest(&mut self, id: impl Into<String>, state: PersistedQuestState, step: u8) {
         let id = id.into();
         if matches!(state, PersistedQuestState::NotStarted) {
             self.quests.retain(|q| q.id != id);
@@ -367,15 +359,9 @@ mod tests {
     fn quest_round_trip_and_not_started_removes_entry() {
         let mut s = SandboxSaveData::new();
         s.set_quest("first_steps", PersistedQuestState::InProgress, 1);
-        assert_eq!(
-            s.quest("first_steps"),
-            (PersistedQuestState::InProgress, 1)
-        );
+        assert_eq!(s.quest("first_steps"), (PersistedQuestState::InProgress, 1));
         s.set_quest("first_steps", PersistedQuestState::Completed, 3);
-        assert_eq!(
-            s.quest("first_steps"),
-            (PersistedQuestState::Completed, 3)
-        );
+        assert_eq!(s.quest("first_steps"), (PersistedQuestState::Completed, 3));
         s.set_quest("first_steps", PersistedQuestState::NotStarted, 0);
         assert!(s.quests.is_empty());
     }
@@ -396,7 +382,8 @@ mod tests {
         // load — that's the contract of `#[serde(default)]` on each
         // collection. Verifies the v1 → v2 schema migration is
         // backwards-compatible at the wire level.
-        let json = r#"{"version":1,"encounters":[{"id":"mob_lab","state":"Cleared"}],"switches":[]}"#;
+        let json =
+            r#"{"version":1,"encounters":[{"id":"mob_lab","state":"Cleared"}],"switches":[]}"#;
         let s: SandboxSaveData = serde_json::from_str(json).expect("parse");
         assert_eq!(s.encounter("mob_lab"), PersistedEncounterState::Cleared);
         assert!(s.bosses.is_empty());

@@ -33,8 +33,8 @@ use crate::physics::PhysicsSandboxSettings;
 use crate::platforms;
 use crate::rendering::{spawn_room_visuals, HudText, PlayerVisual, QuestPanelText, SceneEntities};
 use crate::rooms::RoomSet;
-use crate::{GameWorld, SandboxRuntime};
 use crate::ui_fonts::{UiFontWeight, UiFonts};
+use crate::{GameWorld, SandboxRuntime};
 
 /// Borrowed inputs for `simulation_world`.
 ///
@@ -227,11 +227,11 @@ fn presentation_world_inner(
         .spawn((
             Text::new("Ambition"),
             ui_fonts
-            .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
-            .unwrap_or(TextFont {
-                font_size: 14.0,
-                ..default()
-            }),
+                .map(|fonts| fonts.text_font(14.0, UiFontWeight::Monospace))
+                .unwrap_or(TextFont {
+                    font_size: 14.0,
+                    ..default()
+                }),
             TextColor(Color::srgba(0.82, 0.90, 1.0, 0.96)),
             Node {
                 position_type: PositionType::Absolute,

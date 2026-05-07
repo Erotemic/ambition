@@ -180,16 +180,8 @@ mod tests {
     #[test]
     fn rejects_when_above_is_blocked() {
         let world = world_with(vec![
-            Block::solid(
-                "ledge",
-                Vec2::new(100.0, 100.0),
-                Vec2::new(200.0, 200.0),
-            ),
-            Block::solid(
-                "low_ceiling",
-                Vec2::new(60.0, 50.0),
-                Vec2::new(100.0, 50.0),
-            ),
+            Block::solid("ledge", Vec2::new(100.0, 100.0), Vec2::new(200.0, 200.0)),
+            Block::solid("low_ceiling", Vec2::new(60.0, 50.0), Vec2::new(100.0, 50.0)),
         ]);
         let player_pos = Vec2::new(86.0, 110.0);
         let player_size = Vec2::new(28.0, 46.0);
@@ -216,12 +208,7 @@ mod tests {
             Vec2::new(100.0, 100.0),
             Vec2::new(200.0, 200.0),
         )]);
-        let contact = probe_ledge_grab(
-            Vec2::new(86.0, 110.0),
-            Vec2::new(28.0, 46.0),
-            0.0,
-            &world,
-        );
+        let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), 0.0, &world);
         assert!(contact.is_none());
     }
 

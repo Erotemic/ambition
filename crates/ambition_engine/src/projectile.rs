@@ -494,13 +494,11 @@ impl MotionInputBuffer {
     /// "Down somewhere before Right" and would match the grace form
     /// — caller decides which gate fires first.
     pub fn detect_quarter_circle_grace(&self) -> Option<f32> {
-        if let Some(facing) =
-            self.detect_sequence(&[MotionDirection::Down, MotionDirection::Right])
+        if let Some(facing) = self.detect_sequence(&[MotionDirection::Down, MotionDirection::Right])
         {
             return Some(facing);
         }
-        if let Some(facing) =
-            self.detect_sequence(&[MotionDirection::Down, MotionDirection::Left])
+        if let Some(facing) = self.detect_sequence(&[MotionDirection::Down, MotionDirection::Left])
         {
             return Some(facing);
         }

@@ -495,7 +495,6 @@ pub fn sync_dialog_ui(
         .map(UiFonts::selected_marker)
         .unwrap_or(">");
 
-
     if !*logged_font_state {
         let marker_codepoints = selected_marker
             .chars()
@@ -512,7 +511,7 @@ pub fn sync_dialog_ui(
                     fonts.semibold.is_some()
                 )
             })
-        .unwrap_or_else(|| "UiFonts resource missing".to_string());
+            .unwrap_or_else(|| "UiFonts resource missing".to_string());
 
         info!(
             "dialog UI font state: {font_state}; selected_marker='{selected_marker}' ({marker_codepoints})"
@@ -562,7 +561,11 @@ pub fn sync_dialog_ui(
             ));
             if !options.is_empty() {
                 for (idx, option) in options.iter().enumerate() {
-                    let marker = if idx == selected { selected_marker } else { " " };
+                    let marker = if idx == selected {
+                        selected_marker
+                    } else {
+                        " "
+                    };
                     let color = if idx == selected {
                         Color::srgba(1.00, 0.86, 0.34, 1.0)
                     } else {

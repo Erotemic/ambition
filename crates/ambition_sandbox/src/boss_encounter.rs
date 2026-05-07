@@ -93,9 +93,18 @@ mod tests {
 
     #[test]
     fn encounter_id_from_name_normalizes_capitalization_and_spaces() {
-        assert_eq!(encounter_id_from_name("Clockwork Warden"), "clockwork_warden");
-        assert_eq!(encounter_id_from_name("Gradient Sentinel"), "gradient_sentinel");
-        assert_eq!(encounter_id_from_name("BOSS-of-the-Year!"), "boss_of_the_year");
+        assert_eq!(
+            encounter_id_from_name("Clockwork Warden"),
+            "clockwork_warden"
+        );
+        assert_eq!(
+            encounter_id_from_name("Gradient Sentinel"),
+            "gradient_sentinel"
+        );
+        assert_eq!(
+            encounter_id_from_name("BOSS-of-the-Year!"),
+            "boss_of_the_year"
+        );
         assert_eq!(encounter_id_from_name("   "), "boss");
     }
 
@@ -185,7 +194,15 @@ pub fn update_boss_encounters(
         .features
         .bosses
         .iter()
-        .map(|b| (b.id.clone(), b.name.clone(), b.pos, b.health.current, b.health.max))
+        .map(|b| {
+            (
+                b.id.clone(),
+                b.name.clone(),
+                b.pos,
+                b.health.current,
+                b.health.max,
+            )
+        })
         .collect();
 
     // Lazy registration: derive a *semantic* encounter id from the
@@ -262,7 +279,12 @@ pub fn update_boss_encounters(
             .get(id)
             .cloned()
             .unwrap_or_else(|| id.clone());
-        let Some(boss) = runtime.features.bosses.iter_mut().find(|b| b.id == runtime_id) else {
+        let Some(boss) = runtime
+            .features
+            .bosses
+            .iter_mut()
+            .find(|b| b.id == runtime_id)
+        else {
             continue;
         };
         // Sync max_hp on first link (the BossRuntime defaults to 18,

@@ -49,8 +49,7 @@ pub use video::{
 /// Aggregate user settings resource. Inserted at sandbox startup; the
 /// pause menu mutates it through `apply_action`. Future persistence
 /// can serialize this to disk via `serde`.
-#[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct UserSettings {
     #[serde(default)]
     pub video: VideoSettings,
@@ -61,7 +60,6 @@ pub struct UserSettings {
     #[serde(default)]
     pub gameplay: GameplaySettings,
 }
-
 
 impl UserSettings {
     /// Re-clamp every value into its valid range. Useful right after

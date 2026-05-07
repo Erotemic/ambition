@@ -120,8 +120,7 @@ impl Health {
 }
 
 /// How temporary/destructible entities return after being consumed or killed.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum RespawnPolicy {
     /// Never respawn inside the current run/session.
     #[default]
@@ -133,7 +132,6 @@ pub enum RespawnPolicy {
     /// The object is persistent and controlled by story/save state.
     Persistent,
 }
-
 
 /// Declarative movement path for moving platforms, spike balls, patrol dummies,
 /// and later scripted boss hazards.

@@ -221,8 +221,7 @@ impl BossEncounterState {
             crossed_plot_threshold = true;
             self.stagger_pressure = 0;
         }
-        if matches!(self.phase, BossEncounterPhase::Phase2)
-            && frac <= self.spec.phase2_to_enrage_hp
+        if matches!(self.phase, BossEncounterPhase::Phase2) && frac <= self.spec.phase2_to_enrage_hp
         {
             events.extend(self.set_phase(BossEncounterPhase::Enrage));
             crossed_plot_threshold = true;
@@ -359,7 +358,13 @@ mod tests {
         let mut s = BossEncounterState::new(BossEncounterSpec::gradient_sentinel());
         let evs = s.enter_intro();
         assert!(matches!(s.phase, BossEncounterPhase::Intro));
-        assert!(evs.iter().any(|e| matches!(e, BossEncounterEvent::PhaseChanged { to: BossEncounterPhase::Intro, .. })));
+        assert!(evs.iter().any(|e| matches!(
+            e,
+            BossEncounterEvent::PhaseChanged {
+                to: BossEncounterPhase::Intro,
+                ..
+            }
+        )));
         s.tick(s.spec.intro_seconds + 0.05);
         assert!(matches!(s.phase, BossEncounterPhase::Phase1));
     }
@@ -370,8 +375,8 @@ mod tests {
         s.enter_intro();
         s.tick(s.spec.intro_seconds + 0.01);
         // Damage to push under the phase1_to_transition threshold.
-        let to_transition = (s.spec.max_hp as f32 * (1.0 - s.spec.phase1_to_transition_hp + 0.05))
-            .ceil() as i32;
+        let to_transition =
+            (s.spec.max_hp as f32 * (1.0 - s.spec.phase1_to_transition_hp + 0.05)).ceil() as i32;
         s.apply_player_damage(to_transition);
         assert!(matches!(s.phase, BossEncounterPhase::Transition));
         s.tick(s.spec.transition_seconds + 0.01);
@@ -408,10 +413,10 @@ mod tests {
         s.tick(s.spec.transition_seconds + 0.01);
         assert!(matches!(s.phase, BossEncounterPhase::Phase2));
         // Damage down to enrage threshold.
-        let to_enrage =
-            (s.spec.max_hp as f32 * (s.spec.phase1_to_transition_hp - s.spec.phase2_to_enrage_hp))
-                .ceil() as i32
-                + 1;
+        let to_enrage = (s.spec.max_hp as f32
+            * (s.spec.phase1_to_transition_hp - s.spec.phase2_to_enrage_hp))
+            .ceil() as i32
+            + 1;
         s.apply_player_damage(to_enrage);
         assert!(matches!(s.phase, BossEncounterPhase::Enrage));
     }
@@ -506,7 +511,10 @@ mod tests {
         let evs = s.tick(s.spec.stagger_seconds + 0.05);
         record(&evs);
         assert!(
-            matches!(s.phase, BossEncounterPhase::Enrage | BossEncounterPhase::Phase2),
+            matches!(
+                s.phase,
+                BossEncounterPhase::Enrage | BossEncounterPhase::Phase2
+            ),
             "expected Enrage or Phase2, got {:?}",
             s.phase
         );

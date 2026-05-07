@@ -147,8 +147,7 @@ impl CameraZoomPreset {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct VideoSettings {
     #[serde(default)]
     pub display_mode: SerializableDisplayMode,
@@ -159,7 +158,6 @@ pub struct VideoSettings {
     #[serde(default)]
     pub colorblind: ColorblindMode,
 }
-
 
 /// Serializable mirror of `DisplayModeKind`. We keep `DisplayModeKind`
 /// in the windowing module (it's tied to Bevy's `WindowMode`); this

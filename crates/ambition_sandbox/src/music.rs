@@ -214,7 +214,11 @@ impl MusicCueCatalog {
                 encounter_id: MOB_LAB_ENCOUNTER_ID.to_string(),
                 cue_id: FIRST_GOBLIN_CUE_ID.to_string(),
                 starting_state: "intro".to_string(),
-                wave_states: vec!["wave1".to_string(), "wave2".to_string(), "wave3".to_string()],
+                wave_states: vec![
+                    "wave1".to_string(),
+                    "wave2".to_string(),
+                    "wave3".to_string(),
+                ],
                 wave2_reinforced_state: Some("wave2_brute".to_string()),
                 cleared_state: "outro".to_string(),
             }],
@@ -244,7 +248,12 @@ pub struct LoadedMusicCueAssets {
 }
 
 impl LoadedMusicCueAssets {
-    fn get(&self, cue_id: &str, section_id: &str, layer_id: &str) -> Option<Handle<KiraAudioSource>> {
+    fn get(
+        &self,
+        cue_id: &str,
+        section_id: &str,
+        layer_id: &str,
+    ) -> Option<Handle<KiraAudioSource>> {
         self.sources
             .get(&MusicSourceKey::new(cue_id, section_id, layer_id))
             .cloned()
@@ -394,7 +403,8 @@ impl<'w> MusicLayerChannels<'w> {
         looped: bool,
         fade_ms: u64,
     ) {
-        self.channel(bank, slot).play_handle(handle, looped, fade_ms);
+        self.channel(bank, slot)
+            .play_handle(handle, looped, fade_ms);
     }
 }
 
@@ -502,9 +512,15 @@ pub fn drive_music_director(
     sandbox_data: Res<SandboxDataSpec>,
     settings: Res<UserSettings>,
 ) {
-    let Some(catalog) = catalog else { return; };
-    let Some(assets) = assets else { return; };
-    let Some(mut director) = director else { return; };
+    let Some(catalog) = catalog else {
+        return;
+    };
+    let Some(assets) = assets else {
+        return;
+    };
+    let Some(mut director) = director else {
+        return;
+    };
 
     let dt = time.delta_secs();
     director.seconds_in_mode += dt;
@@ -753,7 +769,8 @@ fn drive_adaptive_cue_state(
         return;
     }
 
-    let current_state_matches = director.current_state_id.as_deref() == Some(target_state.id.as_str());
+    let current_state_matches =
+        director.current_state_id.as_deref() == Some(target_state.id.as_str());
     if current_state_matches {
         let active_bank = director.active_bank;
         set_bank_targets(
@@ -877,7 +894,11 @@ fn queue_or_fire_outro(
     if let Some(bridge_state_id) = cue.post_clear_bridge_state.as_deref() {
         if let Some(bridge) = cue.state(bridge_state_id) {
             let active_bank = director.active_bank;
-            set_bank_targets(director, active_bank, gains_for_state(cue, bridge, settings));
+            set_bank_targets(
+                director,
+                active_bank,
+                gains_for_state(cue, bridge, settings),
+            );
         }
     }
 
@@ -975,7 +996,11 @@ fn start_adaptive_state(
         director.fade_stop_seconds = 0.0;
     }
 
-    set_bank_targets(director, new_bank, gains_for_state(cue, target_state, settings));
+    set_bank_targets(
+        director,
+        new_bank,
+        gains_for_state(cue, target_state, settings),
+    );
     director.active_cue_id = Some(cue.id.clone());
     director.current_state_id = Some(target_state.id.clone());
     director.current_section_id = Some(section.id.clone());
@@ -1113,7 +1138,6 @@ fn is_outro_target(cue: &MusicCueSpec, state: &MusicStateSpec) -> bool {
     cue.outro_state.as_deref() == Some(state.id.as_str())
 }
 
-
 fn apply_first_goblin_runtime_balance_overrides(
     cue: &MusicCueSpec,
     state: &MusicStateSpec,
@@ -1176,7 +1200,11 @@ fn apply_first_goblin_runtime_balance_overrides(
     }
 }
 
-fn gains_for_state(cue: &MusicCueSpec, state: &MusicStateSpec, settings: &UserSettings) -> LayerGains {
+fn gains_for_state(
+    cue: &MusicCueSpec,
+    state: &MusicStateSpec,
+    settings: &UserSettings,
+) -> LayerGains {
     let mut gains = [0.0; MAX_LAYERS];
     let master = settings.audio.effective_music() * cue.relative_volume;
     for layer_gain in &state.gains {
@@ -1217,7 +1245,8 @@ fn update_gain_smoothing(
             let current = director.current_gains[bank.index()][slot];
             let target = director.target_gains[bank.index()][slot];
             let next = current + (target - current) * alpha;
-            director.current_gains[bank.index()][slot] = if next.abs() < 0.0005 { 0.0 } else { next };
+            director.current_gains[bank.index()][slot] =
+                if next.abs() < 0.0005 { 0.0 } else { next };
             channels.set_layer_volume(bank, slot, director.current_gains[bank.index()][slot]);
         }
     }
@@ -1236,7 +1265,11 @@ fn update_gain_smoothing(
 fn seconds_until_next_bar(cue: &MusicCueSpec, seconds_in_loop: f32) -> f32 {
     let bar = cue.seconds_per_bar().max(0.001);
     let rem = seconds_in_loop.rem_euclid(bar);
-    if rem <= 0.001 { 0.0 } else { bar - rem }
+    if rem <= 0.001 {
+        0.0
+    } else {
+        bar - rem
+    }
 }
 
 fn seconds_until_next_phrase_marker(
@@ -1246,7 +1279,11 @@ fn seconds_until_next_phrase_marker(
 ) -> f32 {
     let phrase = (cue.seconds_per_bar() * bars_per_phrase.max(1.0)).max(0.001);
     let rem = seconds_in_loop.rem_euclid(phrase);
-    if rem <= 0.001 { 0.0 } else { phrase - rem }
+    if rem <= 0.001 {
+        0.0
+    } else {
+        phrase - rem
+    }
 }
 
 fn log_periodic_state(director: &mut MusicDirectorState, cue: &MusicCueSpec, dt: f32) {
@@ -1290,25 +1327,53 @@ fn format_gains(gains: LayerGains) -> String {
 fn first_goblin_tune_v2_spec() -> MusicCueSpec {
     let asset_root = "audio/music/generated/first_goblin_tune_v2".to_string();
     let layers = vec![
-        MusicLayerSpec { id: "strings".into(), slot: 0 },
-        MusicLayerSpec { id: "brass".into(), slot: 1 },
-        MusicLayerSpec { id: "winds".into(), slot: 2 },
-        MusicLayerSpec { id: "choir_pad".into(), slot: 3 },
-        MusicLayerSpec { id: "mallets".into(), slot: 4 },
-        MusicLayerSpec { id: "percussion".into(), slot: 5 },
+        MusicLayerSpec {
+            id: "strings".into(),
+            slot: 0,
+        },
+        MusicLayerSpec {
+            id: "brass".into(),
+            slot: 1,
+        },
+        MusicLayerSpec {
+            id: "winds".into(),
+            slot: 2,
+        },
+        MusicLayerSpec {
+            id: "choir_pad".into(),
+            slot: 3,
+        },
+        MusicLayerSpec {
+            id: "mallets".into(),
+            slot: 4,
+        },
+        MusicLayerSpec {
+            id: "percussion".into(),
+            slot: 5,
+        },
         // The full intro/outro renders are intentionally mapped to slot 0;
         // they are exclusive one-shot layers, not simultaneous stems.
-        MusicLayerSpec { id: "full".into(), slot: 0 },
+        MusicLayerSpec {
+            id: "full".into(),
+            slot: 0,
+        },
     ];
 
     fn stem_sources(section: &str) -> Vec<MusicLayerSourceSpec> {
-        ["strings", "brass", "winds", "choir_pad", "mallets", "percussion"]
-            .into_iter()
-            .map(|layer| MusicLayerSourceSpec {
-                layer_id: layer.to_string(),
-                path: format!("adaptive/{section}/{section}.{layer}.ogg"),
-            })
-            .collect()
+        [
+            "strings",
+            "brass",
+            "winds",
+            "choir_pad",
+            "mallets",
+            "percussion",
+        ]
+        .into_iter()
+        .map(|layer| MusicLayerSourceSpec {
+            layer_id: layer.to_string(),
+            path: format!("adaptive/{section}/{section}.{layer}.ogg"),
+        })
+        .collect()
     }
 
     fn full_source(section: &str) -> Vec<MusicLayerSourceSpec> {
@@ -1608,9 +1673,6 @@ mod tests {
         // is Cleared. The resolver iterates and returns the second
         // binding's Play directive.
         let result = resolve_adaptive_directive(&catalog, &registry, &director);
-        assert!(matches!(
-            result,
-            Some(AdaptiveCueDirective::Play { .. })
-        ));
+        assert!(matches!(result, Some(AdaptiveCueDirective::Play { .. })));
     }
 }

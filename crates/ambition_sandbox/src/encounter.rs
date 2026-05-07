@@ -178,7 +178,6 @@ impl EncounterPhase {
     }
 }
 
-
 /// Extra breathing room between waves after the previous wave is fully defeated.
 ///
 /// This is intentionally short: long enough for the player and the adaptive
@@ -763,7 +762,11 @@ pub fn load_encounter_specs_from_ldtk(
             lock_wall,
             intro_seconds: 2.5,
             // mob_lab is now driven by generated_music.rs: intro -> adaptive stem loops -> outro.
-            music_track: if trigger_id == "mob_lab" { String::new() } else { "pulse_drift_voyage".into() },
+            music_track: if trigger_id == "mob_lab" {
+                String::new()
+            } else {
+                "pulse_drift_voyage".into()
+            },
         };
         let persisted = save.encounter(&trigger_id);
         out.push((trigger_id, spec, persisted));
@@ -971,10 +974,7 @@ pub fn encounter_reward_looted_flag(encounter_id: &str) -> String {
 /// formula has one home and tests can pin it.
 pub fn encounter_reward_chest_pos(spec: &EncounterSpec, chest_size: ae::Vec2) -> ae::Vec2 {
     let trigger = spec.trigger_aabb();
-    ae::Vec2::new(
-        trigger.center().x,
-        trigger.max.y - chest_size.y * 0.5,
-    )
+    ae::Vec2::new(trigger.center().x, trigger.max.y - chest_size.y * 0.5)
 }
 
 /// Idempotent reward-chest sync. For every encounter currently in
@@ -1186,8 +1186,7 @@ pub fn update_encounters_from_world(
     //    cleanup happens too so the world is clean for the next time
     //    they re-arm.
     if let Some(encounter_id) = just_cleared_id {
-        if let Some(switch_id) =
-            switch_id_for_encounter(&encounter_id, &runtime.features.switches)
+        if let Some(switch_id) = switch_id_for_encounter(&encounter_id, &runtime.features.switches)
         {
             save.data_mut().set_switch(&switch_id, true);
             runtime.features.set_switch_on(&switch_id, true);
@@ -1230,9 +1229,7 @@ pub fn update_encounters_from_world(
         save.data_mut().set_flag("test_switch_toggled", true);
         save.data_mut()
             .set_flag(format!("switch_{}_used", activation.id), true);
-        quests.push_event(ae::QuestAdvanceEvent::FlagSet(
-            "test_switch_toggled".into(),
-        ));
+        quests.push_event(ae::QuestAdvanceEvent::FlagSet("test_switch_toggled".into()));
         if !matches!(activation.action.as_str(), "ResetEncounter") {
             continue;
         }
@@ -1899,7 +1896,13 @@ mod tests {
         let _ = state.tick_intro_or_wave(0.001, |_| false);
         // The mob must still be tracked: the wave shouldn't be cleared.
         assert!(
-            matches!(state.phase, EncounterPhase::Active { wave_index: 0, remaining_mobs: 1 }),
+            matches!(
+                state.phase,
+                EncounterPhase::Active {
+                    wave_index: 0,
+                    remaining_mobs: 1
+                }
+            ),
             "just-spawned mob must survive the first tick; got {:?}",
             state.phase
         );
@@ -1969,10 +1972,7 @@ mod tests {
     fn switch_id_for_encounter_finds_linked_switch() {
         let switches = vec![
             switch_runtime("switch:other_switch:ResetEncounter:other_room", false),
-            switch_runtime(
-                "switch:mob_lab_reset_switch:ResetEncounter:mob_lab",
-                false,
-            ),
+            switch_runtime("switch:mob_lab_reset_switch:ResetEncounter:mob_lab", false),
         ];
         assert_eq!(
             switch_id_for_encounter("mob_lab", &switches),
@@ -2027,7 +2027,10 @@ mod tests {
         clear_encounter_reward(&mut features, &mut save, "mob_lab");
 
         assert!(
-            features.chests.iter().all(|c| c.id != "encounter_chest_mob_lab"),
+            features
+                .chests
+                .iter()
+                .all(|c| c.id != "encounter_chest_mob_lab"),
             "encounter chest must be despawned"
         );
         assert!(
@@ -2183,10 +2186,7 @@ mod tests {
             .iter()
             .find(|c| c.id == "encounter_chest_mob_lab")
             .expect("chest must spawn on a fresh clear");
-        assert!(
-            !chest.opened,
-            "first-clear chest must start closed"
-        );
+        assert!(!chest.opened, "first-clear chest must start closed");
     }
 
     /// Sync is a no-op for encounters that are NOT yet Cleared

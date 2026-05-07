@@ -833,10 +833,7 @@ mod tests {
     #[test]
     fn pause_menu_item_all_includes_reset_sandbox() {
         assert!(PauseMenuItem::ALL.contains(&PauseMenuItem::ResetSandbox));
-        assert_eq!(
-            PauseMenuItem::ResetSandbox.static_label(),
-            "Reset Sandbox"
-        );
+        assert_eq!(PauseMenuItem::ResetSandbox.static_label(), "Reset Sandbox");
     }
 
     /// `MenuSettingsItem` is the public re-export so other modules can

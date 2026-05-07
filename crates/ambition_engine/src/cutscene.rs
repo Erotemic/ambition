@@ -24,10 +24,7 @@ pub enum CutsceneBeat {
     Dialogue { speaker: String, text: String },
     /// Pan the camera to a world-space point over `seconds`. The
     /// presentation layer applies easing.
-    CameraPan {
-        target: [f32; 2],
-        seconds: f32,
-    },
+    CameraPan { target: [f32; 2], seconds: f32 },
     /// Fade screen to `alpha` (0.0 = clear, 1.0 = solid black) over
     /// `seconds`.
     Fade { to_alpha: f32, seconds: f32 },
@@ -178,14 +175,8 @@ impl CutsceneRuntime {
 /// Side effects emitted while a cutscene plays.
 #[derive(Clone, Debug, PartialEq)]
 pub enum CutsceneEvent {
-    BeatEntered {
-        index: usize,
-        beat: CutsceneBeat,
-    },
-    FlagWritten {
-        id: String,
-        on: bool,
-    },
+    BeatEntered { index: usize, beat: CutsceneBeat },
+    FlagWritten { id: String, on: bool },
     Skipped,
     Completed,
 }

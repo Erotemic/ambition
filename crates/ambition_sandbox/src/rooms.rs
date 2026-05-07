@@ -772,10 +772,10 @@ mod metadata_tests {
             visual_theme: Some("blue".into()),
         };
         let b = RoomMetadata {
-            biome: Some("CONFLICT".into()),       // ignored — a.biome wins
-            music_track: Some("hub_loop".into()), // takes effect — a.music_track was None
-            ambient_profile: Some("damp".into()), // takes effect
-            visual_theme: Some("CONFLICT".into()),// ignored
+            biome: Some("CONFLICT".into()),        // ignored — a.biome wins
+            music_track: Some("hub_loop".into()),  // takes effect — a.music_track was None
+            ambient_profile: Some("damp".into()),  // takes effect
+            visual_theme: Some("CONFLICT".into()), // ignored
         };
         a.merge(b);
         assert_eq!(a.biome.as_deref(), Some("hub"));

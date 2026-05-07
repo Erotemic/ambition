@@ -188,12 +188,10 @@ pub fn handle_map_menu_hotkeys(
     // bindings; Digit0 resets. NumpadAdd / NumpadSubtract / Numpad0
     // are alternate bindings.
     if map.open {
-        let zoom_in = keys.just_pressed(KeyCode::Equal)
-            || keys.just_pressed(KeyCode::NumpadAdd);
-        let zoom_out = keys.just_pressed(KeyCode::Minus)
-            || keys.just_pressed(KeyCode::NumpadSubtract);
-        let zoom_reset =
-            keys.just_pressed(KeyCode::Digit0) || keys.just_pressed(KeyCode::Numpad0);
+        let zoom_in = keys.just_pressed(KeyCode::Equal) || keys.just_pressed(KeyCode::NumpadAdd);
+        let zoom_out =
+            keys.just_pressed(KeyCode::Minus) || keys.just_pressed(KeyCode::NumpadSubtract);
+        let zoom_reset = keys.just_pressed(KeyCode::Digit0) || keys.just_pressed(KeyCode::Numpad0);
         if zoom_in {
             map.zoom_in();
         }
@@ -301,9 +299,7 @@ pub fn spawn_map_menu(mut commands: Commands) {
             Name::new("Map canvas"),
         ))
         .id();
-    commands
-        .entity(root)
-        .add_children(&[title, status, canvas]);
+    commands.entity(root).add_children(&[title, status, canvas]);
 
     // Minimap (N) — corner panel.
     let minimap_root = commands
@@ -337,7 +333,9 @@ pub fn spawn_map_menu(mut commands: Commands) {
             Name::new("Minimap canvas"),
         ))
         .id();
-    commands.entity(minimap_root).add_children(&[minimap_canvas]);
+    commands
+        .entity(minimap_root)
+        .add_children(&[minimap_canvas]);
 }
 
 /// Sync visibility + content of both the full map and the minimap.

@@ -42,10 +42,8 @@ pub fn update_ledge_grab(
             || (controls.axis_y < -0.4 && controls.interact_pressed);
         let want_drop = controls.axis_y > 0.4 && !controls.jump_pressed;
         if want_climb {
-            runtime.player.pos = ae::Vec2::new(
-                state.contact.climb_target.x,
-                state.contact.climb_target.y,
-            );
+            runtime.player.pos =
+                ae::Vec2::new(state.contact.climb_target.x, state.contact.climb_target.y);
             runtime.player.vel = ae::Vec2::ZERO;
             runtime.player.on_ground = true;
             runtime.player.wall_clinging = false;
@@ -75,8 +73,7 @@ pub fn update_ledge_grab(
     let player_pos = runtime.player.pos;
     let player_size = runtime.player.size;
     let wall_normal = runtime.player.wall_normal_x;
-    let Some(contact) = ae::probe_ledge_grab(player_pos, player_size, wall_normal, &world.0)
-    else {
+    let Some(contact) = ae::probe_ledge_grab(player_pos, player_size, wall_normal, &world.0) else {
         return;
     };
     runtime.player.pos = contact.anchor;

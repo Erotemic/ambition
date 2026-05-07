@@ -255,15 +255,14 @@ pub fn update_projectiles(
         let half_circle = state.motion_buffer.detect_half_circle();
         let grace_qcf = state.motion_buffer.detect_quarter_circle_grace();
 
-        let motion_kind = if (super_qcf.is_some() || half_circle.is_some())
-            && state.unlocked.hadouken_super
-        {
-            Some(ae::ProjectileKind::HadoukenSuper)
-        } else if grace_qcf.is_some() && state.unlocked.hadouken {
-            Some(ae::ProjectileKind::Hadouken)
-        } else {
-            None
-        };
+        let motion_kind =
+            if (super_qcf.is_some() || half_circle.is_some()) && state.unlocked.hadouken_super {
+                Some(ae::ProjectileKind::HadoukenSuper)
+            } else if grace_qcf.is_some() && state.unlocked.hadouken {
+                Some(ae::ProjectileKind::Hadouken)
+            } else {
+                None
+            };
 
         // Debug log on every fire-press so the player can see
         // exactly what the motion recognizer saw and why a given
@@ -526,10 +525,7 @@ pub fn sync_projectile_visuals(
             1 => (1.1, 0.78),
             _ => (1.5, 0.95),
         };
-        let render_size = bevy::math::Vec2::new(
-            base.x * 2.0 * size_mult,
-            base.y * 2.0 * size_mult,
-        );
+        let render_size = bevy::math::Vec2::new(base.x * 2.0 * size_mult, base.y * 2.0 * size_mult);
         let facing = if runtime.player.facing.abs() < f32::EPSILON {
             1.0
         } else {
@@ -555,7 +551,10 @@ pub fn sync_projectile_visuals(
     }
     let handle = assets
         .as_deref()
-        .and_then(|a| a.entities.get(crate::game_assets::EntitySprite::ProjectileEnergy))
+        .and_then(|a| {
+            a.entities
+                .get(crate::game_assets::EntitySprite::ProjectileEnergy)
+        })
         .cloned();
     for projectile in &state.bodies {
         let body = &projectile.body;
@@ -993,9 +992,17 @@ mod tests {
         advance_time(&mut app, 0.016);
         app.update();
         let state = app.world().resource::<PlayerProjectileState>();
-        assert_eq!(state.bodies.len(), 1, "fireball must survive a floor bounce");
+        assert_eq!(
+            state.bodies.len(),
+            1,
+            "fireball must survive a floor bounce"
+        );
         let body = &state.bodies[0].body;
-        assert!(body.vel.y < 0.0, "post-bounce vy must be upward; got {}", body.vel.y);
+        assert!(
+            body.vel.y < 0.0,
+            "post-bounce vy must be upward; got {}",
+            body.vel.y
+        );
         assert_eq!(body.bounces_remaining, starting_bounces - 1);
     }
 

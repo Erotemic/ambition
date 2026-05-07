@@ -211,10 +211,7 @@ pub fn build_morph_ball_image() -> Image {
 /// Startup system: build the procedural morph ball image and stash its
 /// handle. The sibling visual is spawned by
 /// `spawn_morph_ball_visual` once `SceneEntities` is populated.
-pub fn build_morph_ball_sprite(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-) {
+pub fn build_morph_ball_sprite(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let handle = images.add(build_morph_ball_image());
     commands.insert_resource(MorphBallSprite { handle });
 }
@@ -266,10 +263,7 @@ pub fn sync_morph_ball_visual(
             Without<MorphBallVisual>,
         ),
     >,
-    mut ball_query: Query<
-        (&mut Transform, &mut Sprite, &mut Visibility),
-        With<MorphBallVisual>,
-    >,
+    mut ball_query: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<MorphBallVisual>>,
 ) {
     let Ok((mut transform, mut sprite, mut ball_visibility)) = ball_query.single_mut() else {
         return;
@@ -283,10 +277,8 @@ pub fn sync_morph_ball_visual(
         );
         // Slightly larger than the AABB so the soft anti-aliased rim
         // reads as the ball's outline rather than as background.
-        let render = bevy::math::Vec2::new(
-            runtime.player.size.x * 1.10,
-            runtime.player.size.y * 1.10,
-        );
+        let render =
+            bevy::math::Vec2::new(runtime.player.size.x * 1.10, runtime.player.size.y * 1.10);
         sprite.custom_size = Some(render);
         *ball_visibility = Visibility::Visible;
         if let Ok(mut player_vis) = player_query.get_mut(entities.player) {

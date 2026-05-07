@@ -890,6 +890,29 @@ mod tests {
     use crate::data::SandboxDataSpec;
 
     #[test]
+    fn amplitude_to_decibels_silent_floor() {
+        // Below 0.001 collapses to -60 dB (kira's silence floor).
+        assert_eq!(amplitude_to_decibels(0.0), -60.0);
+        assert_eq!(amplitude_to_decibels(0.0005), -60.0);
+        // Negative inputs clamp to 0 → silence floor.
+        assert_eq!(amplitude_to_decibels(-1.0), -60.0);
+    }
+
+    #[test]
+    fn amplitude_to_decibels_unit_is_zero() {
+        // 1.0 amplitude → 0 dB (no attenuation).
+        assert!((amplitude_to_decibels(1.0)).abs() < 1e-4);
+    }
+
+    #[test]
+    fn amplitude_to_decibels_half_is_minus_six() {
+        // 0.5 amplitude → ~-6 dB (the canonical "half perceived
+        // loudness" reference).
+        let db = amplitude_to_decibels(0.5);
+        assert!((db - (-6.0205)).abs() < 0.01);
+    }
+
+    #[test]
     fn sfx_message_maps_to_sound_cue() {
         let pos = ae::Vec2::ZERO;
         assert_eq!(SfxMessage::Jump { pos }.cue(), SoundCue::Jump);

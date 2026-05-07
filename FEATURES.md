@@ -97,6 +97,7 @@ Status badges:
 ## Settings (full system)
 
 - **Settings architecture + menu input + persistence** `[playable]` — `settings/` module. Commits `00b2536`, `239b138`.
+- **Per-controller-profile filter defaults** `[stable]` — `ControllerProfileId::filter_defaults()` returns calibrated deadzone + trigger-threshold values per pad. Xbox 360 widens deadzones (0.27/0.30 vs 0.18/0.20) and the trigger hysteresis band (0.20–0.65 vs 0.30–0.55) to compensate for known stick / trigger drift. PlayStation tightens deadzones for its sharper sticks. `ControlSettings::apply_profile_defaults` stomps the active settings with the profile's calibrated values. [settings/controls.rs](crates/ambition_sandbox/src/settings/controls.rs).
   - Controls subsection: deadzone (left + right stick), trigger thresholds, hysteresis, dash repeat. [settings/controls.rs](crates/ambition_sandbox/src/settings/controls.rs).
   - Gameplay subsection: difficulty (Easy/Medium/Hard with damage multipliers). [settings/gameplay.rs](crates/ambition_sandbox/src/settings/gameplay.rs).
   - Audio: volume + difficulty/assist multipliers wired from `UserSettings`. Commit `3be81f3`.

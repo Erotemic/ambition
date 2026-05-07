@@ -61,6 +61,27 @@ pub enum ControllerProfileId {
     Generic,
 }
 
+/// Per-profile defaults (deadzone, trigger thresholds). Returned by
+/// [`ControllerProfileId::filter_defaults`] and applied by
+/// [`ControlSettings::apply_profile_defaults`].
+///
+/// Captures known per-pad characteristics:
+/// - `Xbox360` ships with notoriously drifty thumbsticks; default
+///   deadzones are ~50% wider than the generic baseline.
+/// - `Xbox360` analog triggers also tend to rest at non-zero values
+///   when slightly worn; the press threshold is bumped accordingly.
+/// - `PlayStation` (DualShock 4 / DualSense) sticks are tighter from
+///   the factory, so the default deadzone is slightly *smaller* than
+///   the generic baseline.
+/// - `XboxOne` / `Generic` use the same baseline as `Default`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProfileFilterDefaults {
+    pub left_stick_deadzone: f32,
+    pub right_stick_deadzone: f32,
+    pub trigger_release_threshold: f32,
+    pub trigger_press_threshold: f32,
+}
+
 impl ControllerProfileId {
     pub const ALL: [Self; 5] = [
         Self::Default,
@@ -77,6 +98,37 @@ impl ControllerProfileId {
             Self::XboxOne => "xbox one",
             Self::PlayStation => "playstation",
             Self::Generic => "generic",
+        }
+    }
+
+    /// Per-profile filter defaults. The `Default` baseline matches
+    /// `ControlSettings::default()`; other profiles override with
+    /// values calibrated to that pad's known drift characteristics.
+    pub fn filter_defaults(self) -> ProfileFilterDefaults {
+        match self {
+            Self::Xbox360 => ProfileFilterDefaults {
+                // 360 sticks drift; bump deadzones ~50% over baseline.
+                left_stick_deadzone: 0.27,
+                right_stick_deadzone: 0.30,
+                // Worn triggers can rest at ~0.10; widen the
+                // hysteresis band so a held trigger never re-fires.
+                trigger_release_threshold: 0.20,
+                trigger_press_threshold: 0.65,
+            },
+            Self::PlayStation => ProfileFilterDefaults {
+                // DualShock 4 / DualSense sticks tighter than baseline.
+                left_stick_deadzone: 0.14,
+                right_stick_deadzone: 0.16,
+                trigger_release_threshold: 0.30,
+                trigger_press_threshold: 0.55,
+            },
+            // Default / XboxOne / Generic share the baseline.
+            _ => ProfileFilterDefaults {
+                left_stick_deadzone: 0.18,
+                right_stick_deadzone: 0.20,
+                trigger_release_threshold: 0.30,
+                trigger_press_threshold: 0.55,
+            },
         }
     }
 
@@ -138,6 +190,18 @@ impl Default for ControlSettings {
 }
 
 impl ControlSettings {
+    /// Apply the active controller profile's filter defaults
+    /// (deadzones + trigger thresholds) over whatever is currently
+    /// stored. Useful when the user changes the profile dropdown
+    /// and wants the per-pad calibration to take effect immediately.
+    pub fn apply_profile_defaults(&mut self) {
+        let p = self.controller_profile.filter_defaults();
+        self.left_stick_deadzone = p.left_stick_deadzone;
+        self.right_stick_deadzone = p.right_stick_deadzone;
+        self.trigger_release_threshold = p.trigger_release_threshold;
+        self.trigger_press_threshold = p.trigger_press_threshold;
+    }
+
     /// Restore the deadzone / trigger / repeat values to their defaults
     /// without disturbing controller/keyboard profile selection. The
     /// "Reset bindings" menu row calls this.
@@ -309,5 +373,45 @@ mod tests {
             cur = cur.next();
         }
         assert_eq!(visited.len(), DashInputMode::ALL.len());
+    }
+
+    #[test]
+    fn xbox360_profile_widens_deadzone_and_trigger_band() {
+        let baseline = ControllerProfileId::Default.filter_defaults();
+        let xbox360 = ControllerProfileId::Xbox360.filter_defaults();
+        // Xbox 360 sticks drift more than baseline; deadzones must
+        // be wider, never narrower, than the default.
+        assert!(xbox360.left_stick_deadzone > baseline.left_stick_deadzone);
+        assert!(xbox360.right_stick_deadzone > baseline.right_stick_deadzone);
+        // Worn trigger compensation: hysteresis band wider than
+        // baseline (release lower, press higher).
+        assert!(xbox360.trigger_release_threshold < baseline.trigger_release_threshold);
+        assert!(xbox360.trigger_press_threshold > baseline.trigger_press_threshold);
+    }
+
+    #[test]
+    fn playstation_profile_tightens_deadzone() {
+        let baseline = ControllerProfileId::Default.filter_defaults();
+        let ps = ControllerProfileId::PlayStation.filter_defaults();
+        // DualShock / DualSense sticks calibrate tighter than baseline.
+        assert!(ps.left_stick_deadzone < baseline.left_stick_deadzone);
+        assert!(ps.right_stick_deadzone < baseline.right_stick_deadzone);
+    }
+
+    #[test]
+    fn apply_profile_defaults_writes_filter_values() {
+        let mut s = ControlSettings::default();
+        s.controller_profile = ControllerProfileId::Xbox360;
+        // Stomp existing values with random nonsense so the apply
+        // is observably an overwrite, not a no-op.
+        s.left_stick_deadzone = 0.99;
+        s.trigger_press_threshold = 0.10;
+        s.apply_profile_defaults();
+        let xbox360 = ControllerProfileId::Xbox360.filter_defaults();
+        assert_eq!(s.left_stick_deadzone, xbox360.left_stick_deadzone);
+        assert_eq!(s.trigger_press_threshold, xbox360.trigger_press_threshold);
+        // After clamp_all the values must remain valid.
+        s.clamp_all();
+        assert!(s.trigger_press_threshold > s.trigger_release_threshold);
     }
 }

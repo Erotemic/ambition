@@ -41,6 +41,11 @@ Status badges:
 - **`Player::damage_multiplier` + `Player::invincible`** `[stable]` — promoted from `SandboxRuntime` to engine-side per-player state. Outgoing slash damage scales by `damage_multiplier`; incoming damage drops if `invincible`. F3 stats editor writes these directly on the player. Survives reset (settings preserved per tester intent). [movement.rs](crates/ambition_engine/src/movement.rs).
 - **`Player::mana: ResourceMeter`** `[stable]` — promoted from sandbox `SandboxRuntime::mana_current/max` (i32) to the existing engine `ResourceMeter` type (f32 with regen/decay/try_spend). F3 inspector still surfaces i32; conversion happens at the editor boundary. Reset refills via `refill_full`. [movement.rs](crates/ambition_engine/src/movement.rs), [player_state.rs:330](crates/ambition_engine/src/player_state.rs#L330).
 
+## Boss patterns & traversal
+
+- **`BossPatternSchedule` + `BossAttackKind` + `BossPatternStep`** `[stable]` — reviewable timed-attack data: phase id, seed, list of (telegraph / active / recover) steps. `gradient_sentinel_phase1` and `_phase2` ship as authored examples; `is_valid()` + `total_time()` + `summary()` complete the API. [boss_patterns.rs](crates/ambition_engine/src/boss_patterns.rs).
+- **`BossMovementKind` + `ArenaAnchor` + `gradient_sentinel_phase3_traversal`** `[stable]` — adds traversal choreography to the boss schedule data. `BossMovementKind::{Hold, Dash, Reposition, Orbit}` pairs with each attack step via `BossPatternStep::with_movement(...)`. `ArenaAnchor::{Center, LeftWall, RightWall, TopLeft, TopRight, BottomLeft, BottomRight}` keeps reposition steps arena-agnostic — the controller resolves anchors against the live arena's authored coordinates so the same pattern works in small and large boss rooms. Phase 3 showcase pattern uses all four movement kinds. Bevy-side controller interpretation is a separate follow-up. [boss_patterns.rs](crates/ambition_engine/src/boss_patterns.rs).
+
 ## Combat & projectiles
 
 - **Player damage flow** `[stable]` — HP drain, entity-hazard knockback, max HP 20. Commits `bc85740`, `cc208ee`.

@@ -45,7 +45,8 @@ pub use boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
 };
 pub use boss_patterns::{
-    ArenaAnchor, BossAttackKind, BossMovementKind, BossPatternSchedule, BossPatternStep,
+    ActiveBossBeat, ArenaAnchor, BossAttackKind, BossBeatPhase, BossMovementKind,
+    BossPatternSchedule, BossPatternStep,
 };
 pub use character_ai::{evaluate_character_ai, CharacterAiMode, CharacterAiSnapshot};
 pub use combat::{

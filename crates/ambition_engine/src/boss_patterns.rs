@@ -117,6 +117,32 @@ impl BossPatternStep {
     }
 }
 
+/// Which sub-phase of a boss step is currently running.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum BossBeatPhase {
+    /// Pre-attack windup. Hitbox not active yet; vfx telegraphs the
+    /// strike.
+    Telegraph,
+    /// Hitbox is live. Player should be punished for staying in the
+    /// danger zone.
+    Active,
+    /// Post-attack vulnerability window. Hitbox is gone; boss is
+    /// punishable.
+    Recover,
+}
+
+/// Result of `BossPatternSchedule::evaluate`. Carries the active step,
+/// its phase, and a `[0, 1]` progress within the phase.
+#[derive(Clone, Copy, Debug)]
+pub struct ActiveBossBeat<'a> {
+    pub step_index: usize,
+    pub step: &'a BossPatternStep,
+    pub phase: BossBeatPhase,
+    /// `[0, 1]` progress within the current phase. Useful for
+    /// telegraph-fade interpolation, dash-distance lerp, etc.
+    pub phase_progress: f32,
+}
+
 /// Reviewable schedule for a boss phase.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BossPatternSchedule {
@@ -214,6 +240,74 @@ impl BossPatternSchedule {
             .copied()
             .map(BossPatternStep::total_time)
             .sum()
+    }
+
+    /// Evaluate the schedule at `elapsed` simulation seconds. Returns
+    /// the active beat (which step + which phase of that step we're
+    /// in) so a Bevy controller can drive sprite / collider / vfx
+    /// state without re-implementing the timing math.
+    ///
+    /// `wrap` controls behavior past the schedule's `total_time()`:
+    /// - `true`: loop the schedule (mod `total_time`), useful for
+    ///   "this phase keeps cycling until HP drains".
+    /// - `false`: clamp to the final step's recover phase, useful for
+    ///   one-shot patterns.
+    ///
+    /// Returns `None` only when the schedule is empty / invalid.
+    pub fn evaluate(&self, elapsed: f32, wrap: bool) -> Option<ActiveBossBeat<'_>> {
+        if self.steps.is_empty() {
+            return None;
+        }
+        let total = self.total_time();
+        if total <= 0.0 {
+            return None;
+        }
+        let mut t = if wrap {
+            elapsed.rem_euclid(total)
+        } else {
+            elapsed.max(0.0).min(total - f32::EPSILON)
+        };
+        // Walk steps accumulating their durations. The first step whose
+        // remaining-budget contains `t` is the active step.
+        for (index, step) in self.steps.iter().enumerate() {
+            let step_total = step.total_time();
+            if t < step_total {
+                let phase = if t < step.telegraph {
+                    BossBeatPhase::Telegraph
+                } else if t < step.telegraph + step.active {
+                    BossBeatPhase::Active
+                } else {
+                    BossBeatPhase::Recover
+                };
+                let phase_progress = match phase {
+                    BossBeatPhase::Telegraph if step.telegraph > 0.0 => t / step.telegraph,
+                    BossBeatPhase::Active if step.active > 0.0 => {
+                        (t - step.telegraph) / step.active
+                    }
+                    BossBeatPhase::Recover if step.recover > 0.0 => {
+                        (t - step.telegraph - step.active) / step.recover
+                    }
+                    _ => 0.0,
+                };
+                return Some(ActiveBossBeat {
+                    step_index: index,
+                    step,
+                    phase,
+                    phase_progress: phase_progress.clamp(0.0, 1.0),
+                });
+            }
+            t -= step_total;
+        }
+        // Should be unreachable when total > 0 and elapsed clamped, but
+        // return the final step in Recover at progress=1.0 as a safe
+        // default rather than panicking.
+        let last = self.steps.last().expect("non-empty checked above");
+        Some(ActiveBossBeat {
+            step_index: self.steps.len() - 1,
+            step: last,
+            phase: BossBeatPhase::Recover,
+            phase_progress: 1.0,
+        })
     }
 
     pub fn summary(&self) -> String {
@@ -322,6 +416,79 @@ mod tests {
     fn default_movement_is_hold() {
         let step = BossPatternStep::new(BossAttackKind::Rest, 0.1, 0.1, 0.1);
         assert_eq!(step.movement, BossMovementKind::Hold);
+    }
+
+    #[test]
+    fn evaluate_returns_first_step_telegraph_at_t0() {
+        let sched = BossPatternSchedule::gradient_sentinel_phase1();
+        let beat = sched.evaluate(0.0, false).expect("non-empty schedule");
+        assert_eq!(beat.step_index, 0);
+        assert_eq!(beat.phase, BossBeatPhase::Telegraph);
+        assert!(
+            beat.phase_progress < 0.05,
+            "progress should be ~0 at t=0, got {}",
+            beat.phase_progress
+        );
+    }
+
+    #[test]
+    fn evaluate_walks_through_step_phases() {
+        let sched = BossPatternSchedule::gradient_sentinel_phase1();
+        let s0 = sched.steps[0];
+        // Inside the telegraph half-way.
+        let beat = sched.evaluate(s0.telegraph * 0.5, false).unwrap();
+        assert_eq!(beat.phase, BossBeatPhase::Telegraph);
+        assert!((beat.phase_progress - 0.5).abs() < 0.05);
+        // Inside the active phase.
+        let beat = sched
+            .evaluate(s0.telegraph + s0.active * 0.5, false)
+            .unwrap();
+        assert_eq!(beat.phase, BossBeatPhase::Active);
+        assert!((beat.phase_progress - 0.5).abs() < 0.05);
+        // Inside the recover phase.
+        let beat = sched
+            .evaluate(s0.telegraph + s0.active + s0.recover * 0.5, false)
+            .unwrap();
+        assert_eq!(beat.phase, BossBeatPhase::Recover);
+        assert!((beat.phase_progress - 0.5).abs() < 0.05);
+    }
+
+    #[test]
+    fn evaluate_advances_to_next_step_after_first_completes() {
+        let sched = BossPatternSchedule::gradient_sentinel_phase1();
+        let s0_total = sched.steps[0].total_time();
+        let beat = sched.evaluate(s0_total + 0.01, false).unwrap();
+        assert_eq!(beat.step_index, 1);
+        assert_eq!(beat.phase, BossBeatPhase::Telegraph);
+    }
+
+    #[test]
+    fn evaluate_wraps_when_wrap_is_true() {
+        let sched = BossPatternSchedule::gradient_sentinel_phase1();
+        let total = sched.total_time();
+        // After two full cycles + 0.1s, with wrap=true, we should be
+        // 0.1s into step 0 again.
+        let beat = sched.evaluate(total * 2.0 + 0.1, true).unwrap();
+        assert_eq!(beat.step_index, 0);
+        assert_eq!(beat.phase, BossBeatPhase::Telegraph);
+    }
+
+    #[test]
+    fn evaluate_clamps_when_wrap_is_false() {
+        let sched = BossPatternSchedule::gradient_sentinel_phase1();
+        let total = sched.total_time();
+        // Past the end with wrap=false: should sit on the last step's
+        // recover phase. The exact phase_progress isn't pinned.
+        let beat = sched.evaluate(total * 2.0, false).unwrap();
+        assert_eq!(beat.step_index, sched.steps.len() - 1);
+        assert_eq!(beat.phase, BossBeatPhase::Recover);
+    }
+
+    #[test]
+    fn evaluate_returns_none_for_empty_schedule() {
+        let sched = BossPatternSchedule::new("empty", 1, 0, Vec::new());
+        assert!(sched.evaluate(0.0, false).is_none());
+        assert!(sched.evaluate(0.0, true).is_none());
     }
 
     #[test]

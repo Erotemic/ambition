@@ -145,7 +145,7 @@
 - [ ] Real central hub authoring `[V3/D4]`
 - [ ] Basement / first zone authoring `[V3/D4]`
 - [ ] Gradient Sentinel boss implementation `[V3/D4]`
-- [ ] Improved boss movement patterns — traversal choreography (boss dash, arena reposition) `[V4/D3]`. Source: `tmp-todo-notes.txt`.
+- [~] Improved boss movement patterns — traversal choreography (boss dash, arena reposition) `[V4/D3]`. Engine schedule data shipped 2026-05-07: `BossMovementKind`, `ArenaAnchor`, `gradient_sentinel_phase3_traversal` showcase. Remaining: Bevy-side controller (`crates/ambition_sandbox/src/boss_encounter.rs`) that interprets `step.movement` into actual world transforms; new boss runtime fields (target_pos / movement_progress) to drive the dash + reposition. Source: `tmp-todo-notes.txt`.
 - [ ] Intro cutscene polish — "Hey you, you're finally awake" beat `[V2/D3]`
 
 ---

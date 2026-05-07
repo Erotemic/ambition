@@ -53,3 +53,27 @@ impl DestinationLabel {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_label_new_clones_text() {
+        let label = DebugLabel::new("hello", Vec2::new(10.0, 20.0), DebugLabelKind::Hazard);
+        assert_eq!(label.text, "hello");
+        assert_eq!(label.position, Vec2::new(10.0, 20.0));
+        assert_eq!(label.category, DebugLabelKind::Hazard);
+    }
+
+    #[test]
+    fn destination_label_text_uses_arrow_and_colon() {
+        let dest = DestinationLabel {
+            zone_id: "east_exit".into(),
+            destination_room: "scroll_lab".into(),
+            destination_zone: "lab_entry".into(),
+            position: Vec2::ZERO,
+        };
+        assert_eq!(dest.text(), "east_exit -> scroll_lab:lab_entry");
+    }
+}

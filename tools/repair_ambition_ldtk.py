@@ -32,7 +32,11 @@ def load_project(path: Path) -> dict:
 
 
 def write_project(path: Path, project: dict) -> None:
-    path.write_text(json.dumps(project, indent=2) + "\n")
+    # LDtk's own editor uses tabs + inline-where-short formatting; we
+    # can't perfectly reproduce that with json.dumps, but writing with
+    # indent='\t' at least keeps tab-level whitespace stable so a diff
+    # against an LDtk-edited or previously-repaired file stays small.
+    path.write_text(json.dumps(project, indent="\t") + "\n")
 
 
 def main(argv=None) -> int:

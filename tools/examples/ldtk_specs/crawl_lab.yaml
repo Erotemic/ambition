@@ -34,6 +34,24 @@ world_y: 1024
 px_wid: 1024
 px_hei: 384
 fill_collision: empty
+biome: lab
+connect_to:
+  # Reciprocal LoadingZone added to central_hub_basement so the crawl
+  # lab is reachable from the basement door per Jon's "every new room
+  # reachable from the basement" rule. The px is far-right of the
+  # basement (1900x?), placed in a gap between existing zones.
+  - target_room: central_hub_basement
+    # Door slot in the basement corridor. Existing zones live at
+    # x=144/348/576/788/1025/1253/1497/1712 with y=832 — pick a gap
+    # between two existing zones so we land inside the open corridor
+    # rather than the perimeter walls (the right edge past x=1760 is
+    # solid wall in the authored basement geometry).
+    px: [240, 832]
+    size: [48, 96]
+    id: crawl_lab_door
+    target_zone: crawl_lab_entry
+    activation: Door
+    bidirectional: true
 entities:
   # Floor across the whole room.
   - type: Solid
@@ -72,7 +90,9 @@ entities:
     size: [28, 46]
     fields: { name: crawl_lab_spawn }
 
-  # Loading zone back to the central hub.
+  # Loading zone back to the central hub basement. The matching
+  # LoadingZone in central_hub_basement is created by the `connect_to`
+  # block at the top of this spec.
   - type: LoadingZone
     px: [16, 256]
     size: [48, 96]
@@ -80,8 +100,10 @@ entities:
       id: crawl_lab_entry
       name: crawl_lab_entry
       activation: Door
-      target_room: central_hub_main
-      target_zone: east_exit
+      # target_room is the destination's activeArea, not a level
+      # identifier. The basement is part of `central_hub_complex`.
+      target_room: central_hub_complex
+      target_zone: crawl_lab_door
       bidirectional: true
 
   # Camera zone covering the room.

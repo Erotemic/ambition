@@ -168,16 +168,76 @@ fn hash_room_id(s: &str) -> u64 {
     h
 }
 
+/// Parse `--rooms a,b,c` from argv. Returns the set of room ids the
+/// caller wants to limit the smoke run to, or `None` for "all rooms".
+fn parse_rooms_filter(args: &[String]) -> Option<Vec<String>> {
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--rooms" {
+            return args
+                .get(i + 1)
+                .map(|s| s.split(',').map(|s| s.trim().to_string()).collect());
+        }
+        if let Some(rest) = args[i].strip_prefix("--rooms=") {
+            return Some(rest.split(',').map(|s| s.trim().to_string()).collect());
+        }
+        i += 1;
+    }
+    None
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let steps: u32 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(200);
-    let seed: u64 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(1);
+    // Skip --rooms args when reading positional STEPS / SEED.
+    let positionals: Vec<&String> = args
+        .iter()
+        .skip(1)
+        .filter(|a| !a.starts_with("--rooms") && !a.contains("--rooms="))
+        .filter(|a| !args.iter().any(|prev| prev == "--rooms" && std::ptr::eq(*a, &args[0])))
+        .collect();
+    let steps: u32 = positionals
+        .first()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(200);
+    let seed: u64 = positionals
+        .get(1)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+    let filter = parse_rooms_filter(&args);
 
     // Build a sim once just to enumerate the room ids.
     let scout = SandboxSim::new().expect("SandboxSim::new should succeed");
-    let room_ids = scout.room_ids();
+    let all_room_ids = scout.room_ids();
     drop(scout);
-    println!("rl_smoke: visiting {} rooms × {steps} steps (seed={seed})", room_ids.len());
+
+    let room_ids: Vec<String> = match &filter {
+        Some(picks) => all_room_ids
+            .iter()
+            .filter(|id| picks.iter().any(|p| p == *id))
+            .cloned()
+            .collect(),
+        None => all_room_ids.clone(),
+    };
+    if let Some(ref picks) = filter {
+        // Warn about any picks that didn't resolve, so a typo
+        // doesn't silently produce a 0-room run.
+        for p in picks {
+            if !all_room_ids.iter().any(|id| id == p) {
+                eprintln!(
+                    "rl_smoke: warning: --rooms entry '{p}' did not match any known room"
+                );
+            }
+        }
+    }
+    println!(
+        "rl_smoke: visiting {} rooms × {steps} steps (seed={seed}{})",
+        room_ids.len(),
+        if filter.is_some() {
+            ", filtered"
+        } else {
+            ", all rooms"
+        }
+    );
 
     let mut failures = Vec::<String>::new();
     let mut reports = Vec::with_capacity(room_ids.len());

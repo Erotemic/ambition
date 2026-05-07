@@ -135,6 +135,14 @@ pub enum BodyMode {
     Crawling,
     Sliding,
     MorphBall,
+    /// Player is on a ladder / climbable surface. Body shape is
+    /// identical to `Standing` (the player isn't compressed by
+    /// climbing) but movement integration suspends gravity and
+    /// converts vertical input to climb_speed motion. Set by the
+    /// sandbox-side body-mode driver when `Player::climbable_contact`
+    /// is `Some` and the player initiates a climb (Up/Down press).
+    /// Cleared on Jump (push off), drop-through, or losing contact.
+    Climbing,
 }
 
 impl BodyMode {
@@ -145,6 +153,7 @@ impl BodyMode {
             BodyMode::Crawling => "Crawling",
             BodyMode::Sliding => "Sliding",
             BodyMode::MorphBall => "MorphBall",
+            BodyMode::Climbing => "Climbing",
         }
     }
 
@@ -182,6 +191,15 @@ impl BodyMode {
                 mode: self,
                 // Symmetric, much smaller. Suitable for low tunnels.
                 size: Vec2::new(base_size.x * 0.55, base_size.x * 0.55),
+            },
+            BodyMode::Climbing => BodyShape {
+                mode: self,
+                // Climbing keeps the standing silhouette so the
+                // climbable region's intersection check stays stable
+                // across the transition. Future-proof: if we add a
+                // "hugging the ladder" pose with reduced width, change
+                // it here without touching call sites.
+                size: base_size,
             },
         }
     }

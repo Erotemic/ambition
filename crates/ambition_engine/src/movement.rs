@@ -1113,6 +1113,10 @@ fn integrate_velocity(
 ) {
     if player.dash_timer > 0.0 {
         player.dash_timer = dec(player.dash_timer, dt);
+    } else if player.body_mode == crate::player_state::BodyMode::Climbing
+        && player.climbable_contact.is_some()
+    {
+        integrate_climb(player, input, dt);
     } else if player.fly_enabled && player.abilities.fly {
         integrate_flight(player, input, dt, tuning);
     } else {
@@ -1229,6 +1233,51 @@ fn integrate_velocity(
             events.op(player, MovementOp::Rebound);
         }
     }
+}
+
+/// Integrate one frame of climbing. Suspends gravity, drives vertical
+/// velocity directly from `input.axis_y * climb_speed`, and scales
+/// horizontal motion by `strafe_factor` so the player can align with
+/// rungs without sliding off the ladder.
+///
+/// Caller must guarantee `player.body_mode == BodyMode::Climbing` and
+/// `player.climbable_contact.is_some()`. The contact's `spec` provides
+/// the per-region tuning (climb_speed / strafe_factor) so authoring
+/// can override defaults per ladder.
+fn integrate_climb(player: &mut Player, input: InputState, dt: f32) {
+    let Some(contact) = player.climbable_contact else {
+        // Defensive: if the contact disappears mid-climb, don't crash;
+        // just zero velocity for this tick. The sandbox-side body-mode
+        // driver should clear `Climbing` next frame.
+        player.vel = Vec2::ZERO;
+        return;
+    };
+    let spec = contact.spec;
+
+    // Vertical: full input authority at `climb_speed`. This engine's
+    // +Y is downward, so axis_y > 0 climbs down (matches the input
+    // convention where `down_pressed` sets axis_y > 0).
+    let target_vy = input.axis_y * spec.climb_speed;
+    // Approach the target hard so climbing feels deterministic — no
+    // accel ramp on a ladder; you're either moving or you're not.
+    player.vel.y = target_vy;
+
+    // Horizontal: scaled by strafe_factor. Player can nudge sideways
+    // to align with the next rung but can't fly off horizontally.
+    let target_vx = input.axis_x * spec.climb_speed * spec.strafe_factor;
+    player.vel.x = target_vx;
+
+    // Climbing zeroes a few transient flags so they don't survive the
+    // mode (mirrors `integrate_flight`'s zero-out pattern).
+    player.fast_falling = false;
+    player.gliding = false;
+    player.wall_clinging = false;
+    player.wall_climbing = false;
+
+    // Suppress dt-warnings: the above is purely current-frame velocity
+    // assignment; `dt` only matters for accel-style integration. Keep
+    // the parameter so signatures stay parallel with `integrate_flight`.
+    let _ = dt;
 }
 
 fn integrate_flight(player: &mut Player, input: InputState, dt: f32, tuning: MovementTuning) {
@@ -2807,6 +2856,112 @@ mod tests {
         assert!(
             player.climbable_contact.is_none(),
             "no ladders in world → climbable_contact must stay None"
+        );
+    }
+
+    #[test]
+    fn climbing_mode_suspends_gravity_and_drives_vertical_velocity() {
+        // Pin BodyMode::Climbing's behavior: pressing Up (axis_y =
+        // -1) inside a ladder should drive vel.y to
+        // -climb_speed (engine's +Y is downward, so up-input is
+        // negative). Gravity is suspended.
+        use crate::world::{ClimbableKind, ClimbableRegion, ClimbableSpec};
+        let mut world = test_world();
+        let ladder_aabb = Aabb::new(Vec2::new(400.0, 600.0), Vec2::new(20.0, 200.0));
+        world.climbable_regions.push(ClimbableRegion::new(
+            ladder_aabb,
+            ClimbableKind::Ladder,
+            ClimbableSpec::default(),
+        ));
+        let mut player = Player::new(Vec2::new(400.0, 600.0));
+        // Force the climbing mode + populate contact (sandbox-side
+        // driver does this in production; tests do it directly).
+        player.body_mode = crate::player_state::BodyMode::Climbing;
+        player.climbable_contact = world.climbable_at(player.aabb());
+        // Push some y velocity into the player so the test can prove
+        // that climbing replaces it (rather than just initializing
+        // from zero).
+        player.vel = Vec2::new(0.0, 800.0);
+
+        let _ = update_player_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                axis_y: -1.0, // press up
+                control_dt: 1.0 / 60.0,
+                ..InputState::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+
+        let spec = ClimbableSpec::default();
+        // Climb integrates as `vel.y = axis_y * climb_speed`. After
+        // the integrate, vel.y should equal -climb_speed (up).
+        // Tolerance accounts for any post-integrate damping the
+        // movement code adds.
+        assert!(
+            player.vel.y < 0.0,
+            "climbing up should produce upward (negative) y velocity; got {}",
+            player.vel.y
+        );
+        assert!(
+            (player.vel.y + spec.climb_speed).abs() < 50.0,
+            "vel.y should be near -climb_speed ({}); got {}",
+            -spec.climb_speed,
+            player.vel.y
+        );
+        // The 800.0 starting downward velocity must NOT have survived
+        // (gravity suspended, target velocity replaces it).
+        assert!(
+            player.vel.y < 100.0,
+            "starting downward velocity should not survive climbing integration; got {}",
+            player.vel.y
+        );
+    }
+
+    #[test]
+    fn climbing_mode_strafe_factor_caps_horizontal_input() {
+        // Pin the strafe scaling: axis_x = 1.0 with default
+        // strafe_factor = 0.25 should produce vel.x = climb_speed *
+        // 0.25, much smaller than max_run_speed.
+        use crate::world::{ClimbableKind, ClimbableRegion, ClimbableSpec};
+        let mut world = test_world();
+        world.climbable_regions.push(ClimbableRegion::new(
+            Aabb::new(Vec2::new(400.0, 600.0), Vec2::new(20.0, 200.0)),
+            ClimbableKind::Ladder,
+            ClimbableSpec::default(),
+        ));
+        let mut player = Player::new(Vec2::new(400.0, 600.0));
+        player.body_mode = crate::player_state::BodyMode::Climbing;
+        player.climbable_contact = world.climbable_at(player.aabb());
+
+        let _ = update_player_with_tuning(
+            &world,
+            &mut player,
+            InputState {
+                axis_x: 1.0,
+                control_dt: 1.0 / 60.0,
+                ..InputState::default()
+            },
+            1.0 / 60.0,
+            DEFAULT_TUNING,
+        );
+
+        // `vel.x = axis_x * climb_speed * strafe_factor` = 1.0 * 180 *
+        // 0.25 = 45. After horizontal sweep + collision response the
+        // value may shift slightly but should stay well under
+        // max_run_speed (which is 360+).
+        assert!(
+            player.vel.x > 0.0,
+            "axis_x = 1.0 should produce positive x velocity; got {}",
+            player.vel.x
+        );
+        assert!(
+            player.vel.x < DEFAULT_TUNING.max_run_speed * 0.5,
+            "strafe_factor = 0.25 should keep vel.x well under max_run_speed; got {} (cap={})",
+            player.vel.x,
+            DEFAULT_TUNING.max_run_speed * 0.5
         );
     }
 }

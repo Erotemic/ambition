@@ -206,4 +206,55 @@ mod tests {
         );
         assert!(hazard.overlaps_hurtbox(&hurtbox));
     }
+
+    #[test]
+    fn damage_with_knockback_chains_builder() {
+        let damage = Damage::new(2, DamageKind::Slash, ActorFaction::Player)
+            .with_knockback(Vec2::new(100.0, -50.0));
+        assert_eq!(damage.amount, 2);
+        assert_eq!(damage.knockback, Vec2::new(100.0, -50.0));
+    }
+
+    #[test]
+    fn damage_can_affect_respects_faction() {
+        let player_dmg = Damage::new(1, DamageKind::Slash, ActorFaction::Player);
+        // Player damage affects enemies but not other players.
+        assert!(player_dmg.can_affect(ActorFaction::Enemy));
+        assert!(!player_dmg.can_affect(ActorFaction::Player));
+        // Environment damage affects player + enemy.
+        let env_dmg = Damage::new(1, DamageKind::Hazard, ActorFaction::Environment);
+        assert!(env_dmg.can_affect(ActorFaction::Player));
+        assert!(env_dmg.can_affect(ActorFaction::Enemy));
+    }
+
+    #[test]
+    fn hurtbox_accepts_only_compatible_damage() {
+        let hurtbox = Hurtbox::new(
+            "player",
+            Aabb::new(Vec2::ZERO, Vec2::new(10.0, 10.0)),
+            ActorFaction::Player,
+        );
+        // Player hurtbox accepts enemy / environment damage.
+        let enemy_dmg = Damage::new(1, DamageKind::Slash, ActorFaction::Enemy);
+        assert!(hurtbox.accepts(enemy_dmg));
+        // Player hurtbox rejects player damage (no friendly fire).
+        let self_dmg = Damage::new(1, DamageKind::Slash, ActorFaction::Player);
+        assert!(!hurtbox.accepts(self_dmg));
+    }
+
+    #[test]
+    fn forced_pogo_slash_is_below_player() {
+        let player = Player::new(Vec2::new(100.0, 100.0));
+        let pogo = slash_hitbox(&player, 0.0, true);
+        // Pogo slash sits below the body — its center.y is greater
+        // (Ambition uses +Y down) than the player's y.
+        assert!(pogo.center().y > player.pos.y);
+    }
+
+    #[test]
+    fn upward_slash_is_above_player() {
+        let player = Player::new(Vec2::new(100.0, 100.0));
+        let up = slash_hitbox(&player, -1.0, false);
+        assert!(up.center().y < player.pos.y);
+    }
 }

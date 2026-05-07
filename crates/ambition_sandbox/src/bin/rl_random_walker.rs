@@ -105,6 +105,23 @@ impl RandomPolicy {
             };
         }
         let jump = self.rng.chance(self.jump_chance);
+        // Aim sticks: when a blink fires, set a random aim direction
+        // so blink targets get exercised (precision-blink reads aim
+        // x/y). Idle frames use small drift so the aim deadzone code
+        // sees both 0-magnitude and partial-magnitude stick reads.
+        let blink = self.rng.chance(self.blink_chance);
+        let (aim_x, aim_y) = if blink {
+            // Random unit-ish vector when blinking.
+            let dx = self.rng.signed_unit();
+            let dy = self.rng.signed_unit();
+            (dx, dy)
+        } else {
+            // Drifting partial-magnitude aim, scaled to stay in the
+            // deadzone band most frames. This exercises the aim
+            // deadzone code path (filter out drift) without firing
+            // blink targets randomly.
+            (self.rng.signed_unit() * 0.05, self.rng.signed_unit() * 0.05)
+        };
         AgentAction {
             move_x: self.axis_x,
             move_y: 0.0,
@@ -113,7 +130,7 @@ impl RandomPolicy {
             jump_released: false,
             dash: self.rng.chance(self.dash_chance),
             attack: self.rng.chance(self.attack_chance),
-            blink: self.rng.chance(self.blink_chance),
+            blink,
             blink_held: false,
             blink_released: false,
             pogo: false,
@@ -124,8 +141,8 @@ impl RandomPolicy {
             fly_toggle: false,
             reset: self.rng.chance(self.reset_chance),
             start: false,
-            aim_x: 0.0,
-            aim_y: 0.0,
+            aim_x,
+            aim_y,
         }
     }
 }

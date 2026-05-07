@@ -238,4 +238,35 @@ mod tests {
         assert!(block.apply_damage(3));
         assert_eq!(block.state, BreakableState::Broken);
     }
+
+    #[test]
+    fn breakable_trigger_predicates() {
+        assert!(BreakableTrigger::OnHit.allows_hit());
+        assert!(!BreakableTrigger::OnHit.allows_stand());
+        assert!(!BreakableTrigger::OnStand.allows_hit());
+        assert!(BreakableTrigger::OnStand.allows_stand());
+        assert!(BreakableTrigger::Either.allows_hit());
+        assert!(BreakableTrigger::Either.allows_stand());
+    }
+
+    #[test]
+    fn breakable_collision_predicates() {
+        assert!(!BreakableCollision::None.blocks_movement());
+        assert!(BreakableCollision::Solid.blocks_movement());
+        assert!(BreakableCollision::OneWayUp.blocks_movement());
+        assert!(!BreakableCollision::None.is_solid());
+        assert!(BreakableCollision::Solid.is_solid());
+        // OneWayUp is "blocks movement" but not strictly Solid in the
+        // hard-wall sense — it only stops the falling player from above.
+        assert!(!BreakableCollision::OneWayUp.is_solid());
+    }
+
+    #[test]
+    fn breakable_default_state_is_intact() {
+        let block = Breakable::new("test", 1);
+        assert_eq!(block.state, BreakableState::Intact);
+        assert_eq!(block.collision, BreakableCollision::None);
+        assert_eq!(block.trigger, BreakableTrigger::OnHit);
+        assert!(!block.pogo_refresh);
+    }
 }

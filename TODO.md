@@ -62,7 +62,7 @@
   - Engine state: climb up/down, dismount
   - LDtk IntGrid value + entity option
 - [ ] **Ledge grab + climb-up promotion to engine** `[V4/D3]` — move `LedgeProbe`, `Ability::ledge_grab`, state branch into `ambition_engine::player_state` (currently sandbox-side). Add diagonal-corner probe test. Climb-up animation slot separate from grab.
-- [ ] **NPCs become enemies on hit (in certain circumstances)** `[V3/D3]` — define faction/threshold rules; test NPC archetype that flips after N hits. Source: `tmp-todo-notes.txt`.
+- [x] **NPCs become enemies on hit (in certain circumstances)** — already wired. `NPC_HOSTILE_STRIKE_THRESHOLD = 3` flips NPCs hostile after three player strikes; `apply_save` then replaces the `NpcRuntime` with an `EnemyRuntime` carrying the same id. Hostility persists via `npc_<id>_hostile` save flag. Tested by `striking_npc_three_times_flips_them_hostile` + `apply_save_with_hostile_flag_replaces_npc_with_enemy`. [features.rs:2413](crates/ambition_sandbox/src/features.rs#L2413).
 - [ ] **More enemy varieties (S/M/L × aggression bands)** `[V4/D4]` — 9 archetype rows via existing `EnemyArchetype` data. Source: `tmp-todo-notes.txt`.
 
 ### Test rooms (sandbox = component showcase)

@@ -1204,6 +1204,20 @@ pub enum EnemyArchetype {
 }
 
 impl EnemyArchetype {
+    /// All combat-capable archetypes in a stable order. Useful for
+    /// tests / tooling that want to iterate every variant; the
+    /// sandbag training dummies are *not* in this list because they
+    /// don't run the standard combat AI loop.
+    pub const COMBAT_ALL: [Self; 7] = [
+        Self::Combatant,
+        Self::SmallSkitter,
+        Self::SmallLurker,
+        Self::MediumStriker,
+        Self::LargeBrute,
+        Self::LargeColossus,
+        Self::AggressiveSeeker,
+    ];
+
     fn from_brain(brain: &ae::EnemyBrain) -> Self {
         match brain {
             ae::EnemyBrain::Custom(name) if name == "small_skitter" => Self::SmallSkitter,
@@ -2248,6 +2262,25 @@ mod conversion_tests {
         ] {
             let brain = ae::EnemyBrain::Custom(name.to_string());
             assert_eq!(EnemyArchetype::from_brain(&brain), expected);
+        }
+    }
+
+    /// Every combat archetype reports finite, non-NaN tunings. A
+    /// regression here would mean a numerical typo in the per-archetype
+    /// match arms (most likely an `f32::NAN` literal slipped in).
+    #[test]
+    fn enemy_archetype_tunings_are_finite() {
+        for archetype in EnemyArchetype::COMBAT_ALL {
+            assert!(archetype.max_health() > 0);
+            assert!(archetype.patrol_speed().is_finite());
+            assert!(archetype.chase_speed().is_finite());
+            assert!(archetype.aggro_radius().is_finite());
+            assert!(archetype.aggro_radius() >= 0.0);
+            assert!(archetype.attack_range().is_finite());
+            assert!(archetype.attack_range() > 0.0);
+            assert!(archetype.contact_strength().is_finite());
+            assert!(archetype.contact_strength() > 0.0);
+            assert!(archetype.damage_amount() > 0);
         }
     }
 

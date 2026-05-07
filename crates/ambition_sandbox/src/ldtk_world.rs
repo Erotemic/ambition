@@ -1484,7 +1484,7 @@ fn parse_breakable_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn
         .strip_prefix("AfterSeconds:")
         .and_then(|text| text.parse::<f32>().ok())
     {
-        if !(seconds > 0.0) {
+        if seconds <= 0.0 || seconds.is_nan() {
             return Err(format!(
                 "AfterSeconds respawn requires positive seconds, got {seconds}"
             ));
@@ -1497,7 +1497,7 @@ fn parse_breakable_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn
         "AfterSeconds" => {
             let seconds = field_f32(entity, "respawn_seconds")
                 .ok_or_else(|| "AfterSeconds respawn requires respawn_seconds".to_string())?;
-            if !(seconds > 0.0) {
+            if seconds <= 0.0 || seconds.is_nan() {
                 return Err(format!(
                     "AfterSeconds respawn requires positive respawn_seconds, got {seconds}"
                 ));

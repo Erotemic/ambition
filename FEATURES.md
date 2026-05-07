@@ -144,7 +144,11 @@ Status badges:
 - **Body-mode reset tests** `[stable]`.
 - **`BodyShape::fits_at` proptest** `[stable]` — three proptest properties pin the geometric contract: empty world fits any finite shape at any finite center; one-block world fits iff the shape AABB and block AABB don't strictly intersect; MorphBall fits wherever Standing fits (strict shape shrink). [body_shape_fits_at.rs](crates/ambition_engine/tests/body_shape_fits_at.rs).
 - **Wall-jump start-position fuzz** `[stable]` — proptest randomizes (x_offset, y_in_wall, vel_y) along the square_arena left wall and asserts no >100 px y-snap and no out-of-world / through-wall teleport on a single wall-jump frame. Regression guard around the `body_is_side_contact` predicate that closes the historical OOB-teleport bug class. [wall_jump_fuzz.rs](crates/ambition_engine/tests/wall_jump_fuzz.rs).
+- **`ResourceMeter` envelope proptest** `[stable]` — five property tests pin meter-current ∈ [0, max] under random spend/refill/tick sequences, `try_spend` exact-success-iff-enough behavior, refill_full reaches max, regen monotonic up, decay monotonic down. [resource_meter_props.rs](crates/ambition_engine/tests/resource_meter_props.rs).
+- **mob_lab lock-wall teleport regression** `[stable]` — pins the geometry from `docs/tech_debt_log.md` HIGH. Currently passes thanks to the `body_is_side_contact` predicate. [repro_walls.rs](crates/ambition_sandbox/tests/repro_walls.rs).
+- **`scripted_gameplay` multi-frame integration test** `[stable]` — three scenarios under MinimalPlugins: 30 idle frames emit no lifecycle events; Reset press emits Reset message; heterogeneous Reset/Jump/move sequence runs to completion. Pins the sim → presentation message seam end-to-end. [scripted_gameplay.rs](crates/ambition_sandbox/tests/scripted_gameplay.rs).
 - **Audio validation tests** `[stable]`.
+- **510+ workspace test count baseline** — engine + sandbox library tests, integration tests, doc tests, snapshot tests. Run via `cargo test --workspace`.
 
 ---
 

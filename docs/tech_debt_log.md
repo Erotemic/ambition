@@ -104,6 +104,15 @@ to the bottom under "Closed" with the commit that fixed them.
     arena_ceiling-shaped block above and asserts no >100 px y-snap
     after one update. Mirror of the existing
     `square_arena_wall_cling_full_world_does_not_teleport`.
+    `mob_lab_lock_wall_cling_does_not_teleport` (added 2026-05-07)
+    pins the geometry but currently passes — the simplified fixture
+    isn't enough to reproduce the production teleport. The
+    `body_is_side_contact` predicate from the wall-jump fix appears
+    to handle this minimal case. Production trigger likely needs
+    encounter-active / hot-inserted lock-wall context that the
+    fixture omits. Keep the test as a regression guard; close this
+    debt entry only after the parry contact-normal fix lands AND a
+    full-trace replay reproduces+passes.
   - Bumping `OOB_MARGIN` is NOT the fix — it would just hide the
     teleport. The right fix is rejecting `time_of_impact = 0` hits
     that snap the body MORE than the velocity budget for the

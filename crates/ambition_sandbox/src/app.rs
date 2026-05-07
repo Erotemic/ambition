@@ -1069,7 +1069,7 @@ fn attach_player_input_components(
 /// action edges from the moment dialogue opened don't leak into the
 /// next gameplay frame.
 #[cfg(feature = "input")]
-fn populate_control_frame_from_actions(
+pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
     mut player_input: Query<&mut ActionState<SandboxAction>, With<PlayerVisual>>,
     mut frame: ResMut<ControlFrame>,

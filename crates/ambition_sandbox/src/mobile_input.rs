@@ -262,7 +262,17 @@ pub mod bevy_plugin {
                         sync_touch_ui_visibility,
                         read_joystick_messages,
                         update_buttons_from_interactions,
-                        fold_to_control_frame,
+                        fold_to_control_frame
+                            // Touch fold MUST run AFTER the keyboard
+                            // fold (`populate_control_frame_from_actions`)
+                            // so the OR-merge sees the keyboard's
+                            // contribution to ControlFrame instead of
+                            // racing with it. Without this ordering,
+                            // populate_control_frame_from_actions can
+                            // run AFTER fold_to_control_frame, which
+                            // resets ControlFrame to defaults / leafwing's
+                            // values and stomps the touch button merge.
+                            .after(crate::app::populate_control_frame_from_actions),
                     )
                         .chain(),
                 );

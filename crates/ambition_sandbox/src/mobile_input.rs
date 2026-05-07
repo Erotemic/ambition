@@ -729,13 +729,17 @@ pub mod bevy_plugin {
         mut prev_move_y: Local<f32>,
     ) {
         for msg in reader.read() {
-            // Use the raw analog `value` (-1..=1 per axis) rather
-            // than `snap_axis` (which only emits discrete -1/0/+1
-            // past a 0.5 deadzone). Analog values let the engine's
-            // own deadzone logic in `apply_deadzone` handle the
-            // edge, and they preserve walk-vs-run feel with a
-            // partial stick deflection.
-            let axis = msg.value();
+            // `axis()` returns the joystick delta in -1..=1 per axis
+            // (this is what we want as a stick reading). `value()`
+            // looks superficially right but actually returns the raw
+            // mouse/touch *pixel position*, so reading it produced
+            // huge always-positive numbers that the downstream
+            // deadzone normalized to roughly (+0.13, +0.99) regardless
+            // of drag direction -- "joystick only moves right slowly".
+            // `snap_axis()` is also available but emits discrete
+            // -1/0/+1 past a 0.5 deadzone, killing analog feel; we
+            // prefer raw axis + the engine's own deadzone.
+            let axis = msg.axis();
             match msg.id() {
                 MobileStick::Move => {
                     state.0.move_x = axis.x;

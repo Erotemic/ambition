@@ -169,6 +169,17 @@ pub struct ControlSettings {
     pub menu_repeat_initial_delay: f32,
     /// Repeat interval after the initial delay.
     pub menu_repeat_interval: f32,
+    /// On-screen touch controls (joystick + action buttons) visible.
+    /// Mirrors into the `TouchControlsVisible` resource from the
+    /// `mobile_touch` plugin. Default true so the HUD shows on
+    /// `--features mobile_touch` builds; toggle off via the controls
+    /// settings page when testing keyboard-only on desktop.
+    #[serde(default = "default_touch_controls_visible")]
+    pub touch_controls_visible: bool,
+}
+
+fn default_touch_controls_visible() -> bool {
+    true
 }
 
 impl Default for ControlSettings {
@@ -185,6 +196,7 @@ impl Default for ControlSettings {
             dash_input_mode: DashInputMode::default(),
             menu_repeat_initial_delay: 0.32,
             menu_repeat_interval: 0.12,
+            touch_controls_visible: default_touch_controls_visible(),
         }
     }
 }

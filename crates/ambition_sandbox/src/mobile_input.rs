@@ -259,6 +259,7 @@ pub mod bevy_plugin {
                     Update,
                     (
                         tag_virtual_joystick_root,
+                        sync_touch_visibility_from_settings,
                         sync_touch_ui_visibility,
                         read_joystick_messages,
                         update_buttons_from_interactions,
@@ -454,6 +455,20 @@ pub mod bevy_plugin {
         };
         for mut vis in &mut query {
             *vis = target;
+        }
+    }
+
+    /// Mirror `UserSettings.controls.touch_controls_visible` into the
+    /// `TouchControlsVisible` resource. Runs every Update so the
+    /// settings-menu toggle takes effect on the same frame it changes.
+    /// Both values default to `true` so the HUD is on by default and
+    /// the user can flip it off via the controls page.
+    fn sync_touch_visibility_from_settings(
+        settings: Res<crate::settings::UserSettings>,
+        mut visible: ResMut<TouchControlsVisible>,
+    ) {
+        if visible.0 != settings.controls.touch_controls_visible {
+            visible.0 = settings.controls.touch_controls_visible;
         }
     }
 

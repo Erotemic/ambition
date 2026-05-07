@@ -129,6 +129,7 @@ pub enum SettingsItem {
     DpadMenuNav,
     InvertAimY,
     DashInputMode,
+    TouchControls,
     ResetControlFiltering,
 
     // Gameplay page.
@@ -173,6 +174,7 @@ impl SettingsItem {
                 Self::DpadMenuNav,
                 Self::InvertAimY,
                 Self::DashInputMode,
+                Self::TouchControls,
                 Self::ResetControlFiltering,
                 Self::Back,
             ],
@@ -267,6 +269,14 @@ impl SettingsItem {
             Self::DashInputMode => format!(
                 "Dash Input: {}  < / >",
                 settings.controls.dash_input_mode.label()
+            ),
+            Self::TouchControls => format!(
+                "Touch Controls: {}",
+                if settings.controls.touch_controls_visible {
+                    "on"
+                } else {
+                    "off"
+                }
             ),
             Self::ResetControlFiltering => "Reset Filter Defaults".into(),
 
@@ -487,6 +497,14 @@ pub fn apply_action(
                 settings.controls.dash_input_mode = settings.controls.dash_input_mode.next();
             }
         },
+        SettingsItem::TouchControls => {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
+                settings.controls.touch_controls_visible = !settings.controls.touch_controls_visible;
+            }
+        }
         SettingsItem::ResetControlFiltering => {
             if matches!(action, SettingsAction::Confirm) {
                 settings.controls.reset_filtering_to_defaults();

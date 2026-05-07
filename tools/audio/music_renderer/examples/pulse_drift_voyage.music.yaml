@@ -121,22 +121,39 @@ layer_templates:
     humanize_ms: 12
     humanize_velocity_pct: 5
   pulsing_bass:
-    kind: bass_root_fifth
+    kind: bassline
     instrument: picked_bass
     octave: 2
-    duration_beats: 0.5
+    # Pulsing eighth-note bassline: root on 1, octave + fifth pulses
+    # through the bar. More motion than the lofi tracks -- this is
+    # the "voyage" energy.
+    pattern:
+      - [0,  0.0, 0.45]
+      - [0,  0.5, 0.40]
+      - [12, 1.0, 0.40]
+      - [7,  1.5, 0.40]
+      - [0,  2.0, 0.45]
+      - [0,  2.5, 0.40]
+      - [12, 3.0, 0.40]
+      - [7,  3.5, 0.40]
     velocity: 70
     articulation: staccato
     humanize_ms: 6
     humanize_velocity_pct: 5
   voyage_kit:
-    kind: drum_pattern
+    kind: drums
     instrument: voyage_drums
-    pattern: lofi_swing_brushes
     velocity: 58
-    swing: 0.10
     humanize_ms: 10
     humanize_velocity_pct: 6
+    # Lighter driving kit beat -- still brushes on snare, but with
+    # steadier kick + ride pulse than the lofi tracks.
+    events:
+      - {drum: kick,        beats: [0.0, 2.0],                     velocity: 64}
+      - {drum: snare,       beats: [1.0, 3.0],                     velocity: 48}
+      - {drum: closed_hat,  beats: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5], velocity: 24}
+      - {drum: ride,        beats: [0.0, 2.0],                     velocity: 22, probability: 0.55}
+      - {drum: side_stick,  beats: [3.5],                          velocity: 26, probability: 0.30}
   vibe_arpeggio:
     kind: arpeggio
     instrument: vibraphone

@@ -111,22 +111,35 @@ layer_templates:
     humanize_ms: 14
     humanize_velocity_pct: 6
   bass_walk:
-    kind: bass_root_fifth
+    kind: bassline
     instrument: upright_bass
     octave: 2
-    duration_beats: 1
-    velocity: 70
+    # Root on 1, fifth on 2, octave on 3, fifth on 4-and. Classic
+    # lofi walking-bass shape inside a single bar.
+    pattern:
+      - [0, 0.0, 0.85]
+      - [7, 1.5, 0.55]
+      - [12, 2.5, 0.55]
+      - [7, 3.25, 0.40]
+    velocity: 68
     articulation: normal
     humanize_ms: 8
     humanize_velocity_pct: 5
   brushed_loop:
-    kind: drum_pattern
+    kind: drums
     instrument: jazz_drums
-    pattern: lofi_swing_brushes
     velocity: 56
-    swing: 0.18
     humanize_ms: 12
     humanize_velocity_pct: 6
+    # Lo-fi brushes: side-stick on 1+3, soft snare on 2+4, kick on 1
+    # with occasional pickup, closed hat eighths through the bar.
+    events:
+      - {drum: kick,        beats: [0.0],                          velocity: 58}
+      - {drum: side_stick,  beats: [0.0, 2.0],                     velocity: 36, probability: 0.45}
+      - {drum: snare,       beats: [1.0, 3.0],                     velocity: 44}
+      - {drum: closed_hat,  beats: [0.5, 1.5, 2.5, 3.5],           velocity: 30}
+      - {drum: closed_hat,  beats: [0.0, 1.0, 2.0, 3.0],           velocity: 26, probability: 0.55}
+      - {drum: kick,        beats: [2.5],                          velocity: 46, probability: 0.40}
 
 playback:
   mode: section_stem_matrix

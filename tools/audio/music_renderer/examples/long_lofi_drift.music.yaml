@@ -118,22 +118,34 @@ layer_templates:
     humanize_ms: 16
     humanize_velocity_pct: 6
   bass_walk:
-    kind: bass_root_fifth
+    kind: bassline
     instrument: upright_bass
     octave: 2
-    duration_beats: 1
-    velocity: 66
+    # Slightly looser walk than the study loop -- root, fifth, with
+    # an occasional approach tone.
+    pattern:
+      - [0, 0.0, 0.95]
+      - [7, 1.5, 0.55]
+      - [12, 2.5, 0.55]
+      - [10, 3.5, 0.40]
+    velocity: 64
     articulation: normal
     humanize_ms: 10
     humanize_velocity_pct: 6
   brushed_loop:
-    kind: drum_pattern
+    kind: drums
     instrument: jazz_drums
-    pattern: lofi_swing_brushes
     velocity: 50
-    swing: 0.20
     humanize_ms: 14
     humanize_velocity_pct: 7
+    # Sparser brushes than the study loop. Half-time feel so 64-bar
+    # loop doesn't feel relentless.
+    events:
+      - {drum: kick,        beats: [0.0],                  velocity: 50}
+      - {drum: snare,       beats: [2.0],                  velocity: 38}
+      - {drum: side_stick,  beats: [1.0, 3.0],             velocity: 28, probability: 0.40}
+      - {drum: closed_hat,  beats: [0.5, 1.5, 2.5, 3.5],   velocity: 22}
+      - {drum: ride,        beats: [0.0, 2.0],             velocity: 20, probability: 0.30}
 
 playback:
   mode: section_stem_matrix

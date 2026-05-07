@@ -693,4 +693,32 @@ mod tests {
         let runtime = app.world().resource::<SandboxRuntime>();
         assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
     }
+
+    #[test]
+    fn build_morph_ball_image_is_64x64_rgba() {
+        let img = build_morph_ball_image();
+        assert_eq!(img.texture_descriptor.size.width, 64);
+        assert_eq!(img.texture_descriptor.size.height, 64);
+        // 64 * 64 * 4 (RGBA) = 16384 bytes.
+        assert_eq!(img.data.as_ref().map(|d| d.len()), Some(64 * 64 * 4));
+    }
+
+    #[test]
+    fn build_morph_ball_image_has_visible_center_and_transparent_corners() {
+        let img = build_morph_ball_image();
+        let data = img.data.as_ref().expect("image data");
+        // Center pixel should be highly opaque (the ball body).
+        let cx = 32;
+        let cy = 32;
+        let center_idx = ((cy * 64 + cx) * 4) as usize;
+        let center_alpha = data[center_idx + 3];
+        assert!(
+            center_alpha >= 200,
+            "center alpha should be near opaque, got {center_alpha}"
+        );
+        // Corner pixel should be fully transparent (outside the circle).
+        let corner_idx = (0 * 64 + 0) * 4;
+        let corner_alpha = data[corner_idx + 3];
+        assert_eq!(corner_alpha, 0);
+    }
 }

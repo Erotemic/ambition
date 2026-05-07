@@ -309,7 +309,12 @@ pub mod bevy_plugin {
                 bottom: Val::Px(24.0),
                 ..default()
             },
-            JoystickFloating,
+            // JoystickFixed: knob returns to base center on release
+            // (vs JoystickFloating which leaves the knob where the
+            // touch lifted). Fixed mode is what the example uses and
+            // produces predictable axis values for desktop mouse
+            // testing.
+            JoystickFixed,
             NoAction,
         );
         // Tag the joystick UI root with MobileTouchUiRoot so the

@@ -694,10 +694,20 @@ pub mod bevy_plugin {
 
     /// Write the latest `MobileTouchState` into `ControlFrame`. The
     /// desktop input pipeline does the same via Leafwing; both run
-    /// from a presentation-side system. When the touch UI is hidden
-    /// (`TouchControlsVisible(false)`), this fold is skipped entirely
-    /// so the desktop input flow isn't stomped by the (now-invisible)
-    /// touch UI.
+    /// from a presentation-side system.
+    ///
+    /// Critical: this writer only fires when touch input is ACTIVE
+    /// (any stick or button has a non-default value). Without that
+    /// gate, an empty TouchInputState would zero out the
+    /// keyboard-derived ControlFrame every frame, producing the
+    /// "crouch sprite flickers between standing and crouching"
+    /// regression Jon reported -- the keyboard set axis_y=1.0 +
+    /// down_pressed edge once, but the touch fold immediately
+    /// stomped it back to neutral, so the body_mode driver flipped
+    /// Standing/Crouching every frame.
+    ///
+    /// When the touch UI is hidden (`TouchControlsVisible(false)`),
+    /// this is also skipped.
     fn fold_to_control_frame(
         state: Res<MobileTouchState>,
         visible: Res<TouchControlsVisible>,
@@ -706,12 +716,46 @@ pub mod bevy_plugin {
         if !visible.0 {
             return;
         }
+        if !touch_state_is_active(&state.0) {
+            return;
+        }
         // Use slightly-tighter deadzones than the desktop defaults --
         // touch sticks rarely have drift, so a smaller deadzone gives
         // a more responsive feel.
         const MOVE_DEADZONE: f32 = 0.05;
         const AIM_DEADZONE: f32 = 0.10;
         *frame = fold_touch_into_control_frame(state.0, MOVE_DEADZONE, AIM_DEADZONE);
+    }
+
+    /// True if any touch input field has a non-default value. Used
+    /// to gate the fold so an empty touch state doesn't stomp the
+    /// keyboard-derived ControlFrame every frame.
+    fn touch_state_is_active(state: &TouchInputState) -> bool {
+        let stick_active = state.move_x.abs() > 1e-3
+            || state.move_y.abs() > 1e-3
+            || state.aim_x.abs() > 1e-3
+            || state.aim_y.abs() > 1e-3;
+        let any_button = state.jump.held
+            || state.attack.held
+            || state.dash.held
+            || state.blink.held
+            || state.interact.held
+            || state.projectile.held
+            || state.fly_toggle.held
+            || state.start.held
+            || state.reset.held;
+        let any_edge = state.jump.pressed_this_frame
+            || state.attack.pressed_this_frame
+            || state.dash.pressed_this_frame
+            || state.blink.pressed_this_frame
+            || state.interact.pressed_this_frame
+            || state.projectile.pressed_this_frame
+            || state.fly_toggle.pressed_this_frame
+            || state.start.pressed_this_frame
+            || state.reset.pressed_this_frame
+            || state.move_y_just_crossed_up
+            || state.move_y_just_crossed_down;
+        stick_active || any_button || any_edge
     }
 
     // Re-export the helper so `MobileTouchPlugin` is a one-import seam.

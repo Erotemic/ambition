@@ -36791,7 +36791,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 240,
+							"__worldY": 1856
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -36905,7 +36907,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 470,
+							"__worldY": 1856
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -37019,7 +37023,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 700,
+							"__worldY": 1856
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -37133,7 +37139,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 920,
+							"__worldY": 1856
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -37247,7 +37255,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 1620,
+							"__worldY": 1856
 						}
 					]
 				},
@@ -304225,7 +304235,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 26080,
+							"__worldY": 1330
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -304339,7 +304351,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 26016,
+							"__worldY": 1280
 						},
 						{
 							"__identifier": "CameraZone",
@@ -304408,7 +304422,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 26000,
+							"__worldY": 1024
 						},
 						{
 							"__identifier": "DebugLabel",
@@ -304477,7 +304493,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 26080,
+							"__worldY": 1104
 						}
 					]
 				},
@@ -307721,7 +307739,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 27280,
+							"__worldY": 1330
 						},
 						{
 							"__identifier": "ChestSpawn",
@@ -307775,7 +307795,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 28080,
+							"__worldY": 1318
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -307889,7 +307911,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 27216,
+							"__worldY": 1280
 						},
 						{
 							"__identifier": "CameraZone",
@@ -307958,7 +307982,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 27200,
+							"__worldY": 1024
 						},
 						{
 							"__identifier": "DebugLabel",
@@ -308027,7 +308053,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 27280,
+							"__worldY": 1104
 						}
 					]
 				},
@@ -312807,7 +312835,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 30080,
+							"__worldY": 1970
 						},
 						{
 							"__identifier": "ChestSpawn",
@@ -312861,7 +312891,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 30600,
+							"__worldY": 1126
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -312975,7 +313007,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 30016,
+							"__worldY": 1920
 						},
 						{
 							"__identifier": "CameraZone",
@@ -313044,7 +313078,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 30000,
+							"__worldY": 1024
 						},
 						{
 							"__identifier": "DebugLabel",
@@ -313113,7 +313149,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 30080,
+							"__worldY": 1104
 						}
 					]
 				},
@@ -317509,7 +317547,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 28480,
+							"__worldY": 1330
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -317623,7 +317663,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 28416,
+							"__worldY": 1280
 						},
 						{
 							"__identifier": "CameraZone",
@@ -317692,7 +317734,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 28400,
+							"__worldY": 1024
 						},
 						{
 							"__identifier": "DebugLabel",
@@ -317761,7 +317805,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 28480,
+							"__worldY": 1104
 						}
 					]
 				},
@@ -320237,7 +320283,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 29280,
+							"__worldY": 1330
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -320351,7 +320399,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 29216,
+							"__worldY": 1280
 						},
 						{
 							"__identifier": "CameraZone",
@@ -320420,7 +320470,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 29200,
+							"__worldY": 1024
 						},
 						{
 							"__identifier": "DebugLabel",
@@ -320489,7 +320541,9 @@
 										}
 									]
 								}
-							]
+							],
+							"__worldX": 29280,
+							"__worldY": 1104
 						}
 					]
 				},

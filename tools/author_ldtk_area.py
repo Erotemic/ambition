@@ -569,7 +569,13 @@ def allocate_iid(project: dict, identifier: str) -> tuple[str, int]:
     return f"{identifier}-{next_uid:04d}", next_uid
 
 
-def build_entity_instance(project: dict, ent_spec: dict, grid_size: int) -> dict:
+def build_entity_instance(
+    project: dict,
+    ent_spec: dict,
+    grid_size: int,
+    level_world_x: int = 0,
+    level_world_y: int = 0,
+) -> dict:
     identifier = ent_spec["type"]
     ent_def = find_entity_def(project, identifier)
     px = ent_spec.get("px")
@@ -595,6 +601,16 @@ def build_entity_instance(project: dict, ent_spec: dict, grid_size: int) -> dict
         # for editor-roundtrip-clean files. Pull from the entity def's
         # color (Ambition entity defs always set one); fall back to white.
         "__smartColor": ent_def.get("color", "#FFFFFF"),
+        # `__worldX` / `__worldY` are LDtk-computed cached fields that
+        # downstream consumers (notably `bevy_ecs_ldtk`) use to position
+        # the entity in world space without recomputing
+        # `level.worldX + entity.px`. Missing them caused the new
+        # basement-door LoadingZones to render at the world (0,0)-rooted
+        # frame in 2026-05-07, layering on top of central_hub_main
+        # instead of below it. Always populate so the editor-roundtrip
+        # invariant holds.
+        "__worldX": level_world_x + int(px[0]),
+        "__worldY": level_world_y + int(px[1]),
         "iid": iid,
         "width": width,
         "height": height,
@@ -697,7 +713,9 @@ def build_level(project: dict, spec: dict) -> dict:
     for ent_spec in spec.get("entities", []):
         value = entity_to_intgrid_value(ent_spec)
         if value is None:
-            entity_instances.append(build_entity_instance(project, ent_spec, grid_size))
+            entity_instances.append(build_entity_instance(
+                project, ent_spec, grid_size, world_x, world_y,
+            ))
             continue
         px = ent_spec.get("px")
         if px is None or len(px) != 2:
@@ -990,7 +1008,14 @@ def add_reciprocal_loading_zone(
             "bidirectional": bidirectional,
         },
     }
-    instance = build_entity_instance(project, ent_spec, grid_size)
+    # Reciprocal LoadingZones live INSIDE the target level, so their
+    # `__worldX` / `__worldY` are computed against the target's
+    # worldX / worldY (NOT the source level's).
+    target_world_x = int(target_level.get("worldX", 0))
+    target_world_y = int(target_level.get("worldY", 0))
+    instance = build_entity_instance(
+        project, ent_spec, grid_size, target_world_x, target_world_y,
+    )
     ambition.setdefault("entityInstances", []).append(instance)
     return instance
 

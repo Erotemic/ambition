@@ -101,6 +101,25 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
                 ae::QuestStepCondition::FlagSet("test_switch_toggled".into()),
             )],
         ),
+        // Quest lab proof: minimal RoomEntered-driven quest. Auto-
+        // starts at boot, advances when the player enters the
+        // quest_lab room, completes when they walk back to the
+        // basement.
+        ae::QuestSpec::new(
+            "quest_lab_visit",
+            "Visit the Quest Lab",
+            "Walk into the quest lab and back to verify quest progression.",
+            vec![
+                ae::QuestStepSpec::new(
+                    "Enter the quest lab from the basement door.",
+                    ae::QuestStepCondition::RoomEntered("quest_lab".into()),
+                ),
+                ae::QuestStepSpec::new(
+                    "Return to the basement.",
+                    ae::QuestStepCondition::RoomEntered("central_hub_complex".into()),
+                ),
+            ],
+        ),
     ]
 }
 
@@ -127,6 +146,9 @@ pub fn populate_quest_registry(
         let _ = q.start();
     }
     if let Some(q) = registry.quests.get_mut("test_switch_quest") {
+        let _ = q.start();
+    }
+    if let Some(q) = registry.quests.get_mut("quest_lab_visit") {
         let _ = q.start();
     }
     registry.initialized = true;

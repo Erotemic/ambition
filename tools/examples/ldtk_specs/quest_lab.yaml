@@ -1,0 +1,83 @@
+# Quest lab — quest progression proof room.
+#
+# Demonstrates the `crate::quest` system end-to-end with a small
+# two-step quest: enter the room, then leave back to the basement.
+# The `quest_lab_visit` spec auto-starts at boot; entering the room
+# completes step 1 (RoomEntered("quest_lab")), and entering the
+# basement again completes step 2 (RoomEntered("central_hub_basement")).
+# Quest completion is persisted via the existing save system.
+#
+# Layout (768x384):
+#
+#   +------------------------------------+
+#   | [PlayerStart]                       |
+#   |        (empty proof room)           |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +------------------------------------+
+id: quest_lab
+level_id: quest_lab
+world_x: 29200
+world_y: 1024
+px_wid: 768
+px_hei: 384
+fill_collision: empty
+biome: lab
+connect_to:
+  - target_room: central_hub_basement
+    # Free spot after cutscene_lab door at x=496 (ends 544); the next
+    # existing door is basement_breakables at x=576. Pick x=672 in
+    # the gap between basement_breakables (576+48=624) and
+    # basement_treasure (788).
+    px: [672, 832]
+    size: [48, 96]
+    id: quest_lab_door
+    target_zone: quest_lab_entry
+    activation: Door
+    bidirectional: true
+
+entities:
+  - type: Solid
+    px: [0, 352]
+    size: [768, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [16, 352]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [752, 0]
+    size: [16, 352]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [736, 32]
+    fields: { name: ceiling }
+
+  - type: PlayerStart
+    px: [80, 306]
+    size: [28, 46]
+    fields: { name: quest_lab_spawn }
+
+  - type: LoadingZone
+    px: [16, 256]
+    size: [48, 96]
+    fields:
+      id: quest_lab_entry
+      name: quest_lab_entry
+      activation: Door
+      target_room: central_hub_complex
+      target_zone: quest_lab_door
+      bidirectional: true
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [768, 384]
+    fields: { id: quest_lab_camera, name: quest_lab_camera, mode: Default }
+
+  - type: DebugLabel
+    px: [80, 80]
+    size: [400, 24]
+    fields:
+      name: quest_lab_intro_label
+      text: "Walk in to advance the quest. Walk out to complete it."
+      category: Custom

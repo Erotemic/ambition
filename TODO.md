@@ -46,9 +46,7 @@
 
 ## S — Active sandbox blockers (do first)
 
-- [ ] **Wall-cling teleport on mob_lab lock wall** `[V5/D3]` — y=434 → y=-23 snap then ping-pong; same snap-direction class as the resolved wall-jump. Source: `docs/tech_debt_log.md` (HIGH).
-  - Capture exact repro positions in a new test file
-  - Likely subsumed by the parry contact-normal fix below
+- [~] **Wall-cling teleport on mob_lab lock wall** `[V5/D3]` — currently mitigated by `body_is_side_contact` predicate; pinned by `mob_lab_lock_wall_cling_does_not_teleport` regression test in `repro_walls.rs` AND by the new proptest fuzz in `wall_cling_fuzz.rs` (random positions across two scenarios). The historical y=434 → y=-23 snap is closed; the parry contact-normal fix (path_forward step D1) is the proper cleanup but no longer urgent. Source: `docs/tech_debt_log.md` (HIGH).
 - [ ] **Parry contact-normal in `sweep_player_x` / `sweep_player_y` (path_forward step D1)** `[V5/D3]` — replace bespoke snap direction with parry's `ShapeCastHit::normal1`. Retires the entire snap-direction bug class.
   - Plumb `normal1` through hit struct
   - Replace snap branches in [movement.rs:1287](crates/ambition_engine/src/movement.rs#L1287)

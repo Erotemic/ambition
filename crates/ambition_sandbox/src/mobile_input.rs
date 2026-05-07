@@ -711,22 +711,25 @@ pub mod bevy_plugin {
         *prev_move_y = state.0.move_y;
     }
 
-    /// Write the latest `MobileTouchState` into `ControlFrame`. The
-    /// desktop input pipeline does the same via Leafwing; both run
-    /// from a presentation-side system.
+    /// Merge the latest `MobileTouchState` into `ControlFrame`. The
+    /// desktop input pipeline (Leafwing) writes its own version of
+    /// the frame upstream; this system MERGES rather than replaces:
     ///
-    /// Critical: this writer only fires when touch input is ACTIVE
-    /// (any stick or button has a non-default value). Without that
-    /// gate, an empty TouchInputState would zero out the
-    /// keyboard-derived ControlFrame every frame, producing the
-    /// "crouch sprite flickers between standing and crouching"
-    /// regression Jon reported -- the keyboard set axis_y=1.0 +
-    /// down_pressed edge once, but the touch fold immediately
-    /// stomped it back to neutral, so the body_mode driver flipped
-    /// Standing/Crouching every frame.
+    /// - **Movement axis** is mutually exclusive between keyboard
+    ///   and touch. If the touch stick is past its deadzone, touch
+    ///   wins (keyboard's axis is overwritten). Otherwise the
+    ///   keyboard contribution is preserved. This matches Jon's
+    ///   "disable the touch dpad when I'm using the keyboard arrows,
+    ///   and disable the keyboard arrows when I'm using the touch
+    ///   dpad" intent.
+    /// - **Action buttons** OR-merge. A held touch button OR a held
+    ///   keyboard button counts as held. Edge flags are similarly
+    ///   merged so a touch tap + keyboard tap on the same frame
+    ///   both register. Per Jon's "the held/release buttons for
+    ///   actions I think should be independent."
     ///
-    /// When the touch UI is hidden (`TouchControlsVisible(false)`),
-    /// this is also skipped.
+    /// When the touch UI is hidden or inactive, the merge is a
+    /// no-op so the keyboard-derived frame passes through unchanged.
     fn fold_to_control_frame(
         state: Res<MobileTouchState>,
         visible: Res<TouchControlsVisible>,
@@ -738,12 +741,49 @@ pub mod bevy_plugin {
         if !touch_state_is_active(&state.0) {
             return;
         }
-        // Use slightly-tighter deadzones than the desktop defaults --
-        // touch sticks rarely have drift, so a smaller deadzone gives
-        // a more responsive feel.
         const MOVE_DEADZONE: f32 = 0.05;
         const AIM_DEADZONE: f32 = 0.10;
-        *frame = fold_touch_into_control_frame(state.0, MOVE_DEADZONE, AIM_DEADZONE);
+        let touch_frame = fold_touch_into_control_frame(state.0, MOVE_DEADZONE, AIM_DEADZONE);
+        // Mutually-exclusive axis: touch wins iff its post-deadzone
+        // magnitude beats threshold 0.05. Otherwise leave keyboard
+        // axis alone.
+        let touch_move_mag =
+            (touch_frame.axis_x * touch_frame.axis_x + touch_frame.axis_y * touch_frame.axis_y)
+                .sqrt();
+        if touch_move_mag > 0.05 {
+            frame.axis_x = touch_frame.axis_x;
+            frame.axis_y = touch_frame.axis_y;
+            // Also forward the up/down edge flags from touch, since
+            // an axis source switch can be the gesture that fires
+            // a Door tap or ladder entry.
+            frame.up_pressed = frame.up_pressed || touch_frame.up_pressed;
+            frame.down_pressed = frame.down_pressed || touch_frame.down_pressed;
+        }
+        let touch_aim_mag =
+            (touch_frame.aim_x * touch_frame.aim_x + touch_frame.aim_y * touch_frame.aim_y).sqrt();
+        if touch_aim_mag > 0.10 {
+            frame.aim_x = touch_frame.aim_x;
+            frame.aim_y = touch_frame.aim_y;
+        }
+        // OR-merge action buttons. A keyboard JUMP plus a touch
+        // JUMP on the same frame should still register as a single
+        // press.
+        frame.jump_pressed |= touch_frame.jump_pressed;
+        frame.jump_held |= touch_frame.jump_held;
+        frame.jump_released |= touch_frame.jump_released;
+        frame.dash_pressed |= touch_frame.dash_pressed;
+        frame.attack_pressed |= touch_frame.attack_pressed;
+        frame.blink_pressed |= touch_frame.blink_pressed;
+        frame.blink_held |= touch_frame.blink_held;
+        frame.blink_released |= touch_frame.blink_released;
+        frame.interact_pressed |= touch_frame.interact_pressed;
+        frame.projectile_pressed |= touch_frame.projectile_pressed;
+        frame.projectile_held |= touch_frame.projectile_held;
+        frame.projectile_released |= touch_frame.projectile_released;
+        frame.fly_toggle_pressed |= touch_frame.fly_toggle_pressed;
+        frame.reset_pressed |= touch_frame.reset_pressed;
+        frame.start_pressed |= touch_frame.start_pressed;
+        frame.pogo_pressed |= touch_frame.pogo_pressed;
     }
 
     /// True if any touch input field has a non-default value. Used

@@ -62,6 +62,26 @@ Renders `first_goblin_tune_v2`, runs the loudness audit, and installs the
 hash-stripped filenames into the Bevy asset tree under
 `crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2/`.
 
+For the three sandbox single-track cues (lofi_study_loop / long_lofi_drift
+/ pulse_drift_voyage), one wrapper does render + publish:
+
+```bash
+python tools/audio/render_sandbox_music.py            # all three
+python tools/audio/render_sandbox_music.py --cue lofi_study_loop
+python tools/audio/render_sandbox_music.py --skip-render  # just republish
+python tools/audio/render_sandbox_music.py --force-render # ignore mtime cache
+```
+
+Skips re-rendering when the cue's YAML mtime is older than the latest
+preview. Publish copies the newest hashed
+`<cue>_<hash>.full_soundtrack_preview.ogg` to the stable
+`crates/ambition_sandbox/assets/audio/music/generated/<cue>/full.ogg`
+that `MusicTrackSpec.asset_path` references in `sandbox.ron`.
+
+The Rust side falls back to the legacy procedural `render_lofi_theme`
+synth path on any track whose asset_path file is missing, so partial
+renders still load the game.
+
 For any cue manually:
 
 ```bash
@@ -179,6 +199,9 @@ production example.
 |---|---|
 | `first_goblin_tune_v2.music.yaml` | Active goblin-encounter cue (production) |
 | `first_goblin_encounter.music.yaml` | Earlier goblin score (kept for reference) |
+| `lofi_study_loop.music.yaml` | Default sandbox music — chill study lofi (32-bar Fm9 loop) |
+| `long_lofi_drift.music.yaml` | Extended sandbox lofi (64-bar Am loop, 4 phrase regions) |
+| `pulse_drift_voyage.music.yaml` | Sandbox water_world music (48-bar A major / Lydian, 92 BPM) |
 | `moonlit_canal.music.yaml` | Sample non-combat cue |
 | `violin_boss_relentless.music.yaml` | D-minor boss battle, violin-led, 4/4 |
 | `crooked_ascent_boss.music.yaml` | A-Phrygian-Dominant boss, 5/4, klezmer flavor |

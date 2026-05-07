@@ -357,3 +357,67 @@ pub fn sync_inventory_panel(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_accumulates_per_kind() {
+        let mut bag = PlayerInventory::default();
+        bag.add(ItemKind::HealthPotion, 2);
+        bag.add(ItemKind::HealthPotion, 3);
+        assert_eq!(bag.count(ItemKind::HealthPotion), 5);
+        assert_eq!(bag.count(ItemKind::SpareBattery), 0);
+    }
+
+    #[test]
+    fn remove_returns_actual_amount_removed() {
+        let mut bag = PlayerInventory::default();
+        bag.add(ItemKind::DataChip, 4);
+        // Removing more than present clamps and returns the actual.
+        assert_eq!(bag.remove(ItemKind::DataChip, 10), 4);
+        assert_eq!(bag.count(ItemKind::DataChip), 0);
+        // Removing from empty returns 0.
+        assert_eq!(bag.remove(ItemKind::DataChip, 5), 0);
+    }
+
+    #[test]
+    fn add_saturates_at_u32_max() {
+        let mut bag = PlayerInventory::default();
+        bag.add(ItemKind::HealthPotion, u32::MAX);
+        bag.add(ItemKind::HealthPotion, 100); // should saturate, not overflow
+        assert_eq!(bag.count(ItemKind::HealthPotion), u32::MAX);
+    }
+
+    #[test]
+    fn entries_yields_all_kinds() {
+        let mut bag = PlayerInventory::default();
+        bag.add(ItemKind::HealthPotion, 2);
+        bag.add(ItemKind::DataChip, 1);
+        let entries: Vec<_> = bag.entries().collect();
+        assert_eq!(entries.len(), 3); // every kind, even zero-count ones
+        let map: std::collections::HashMap<_, _> = entries.into_iter().collect();
+        assert_eq!(map[&ItemKind::HealthPotion], 2);
+        assert_eq!(map[&ItemKind::SpareBattery], 0);
+        assert_eq!(map[&ItemKind::DataChip], 1);
+    }
+
+    #[test]
+    fn total_items_sums_across_kinds() {
+        let mut bag = PlayerInventory::default();
+        bag.add(ItemKind::HealthPotion, 2);
+        bag.add(ItemKind::SpareBattery, 3);
+        bag.add(ItemKind::DataChip, 4);
+        assert_eq!(bag.total_items(), 9);
+    }
+
+    #[test]
+    fn starter_seeds_each_kind() {
+        let bag = PlayerInventory::starter();
+        assert!(bag.count(ItemKind::HealthPotion) > 0);
+        assert!(bag.count(ItemKind::SpareBattery) > 0);
+        assert!(bag.count(ItemKind::DataChip) > 0);
+        assert!(bag.total_items() >= 3);
+    }
+}

@@ -19,6 +19,7 @@ Status badges:
 
 ## Sim → presentation message channels
 
+- **ADR 0012 events refactor — Slices 1-5** `[stable]` — `sandbox_update` and helpers contain ZERO direct `play_sound` / `spawn_burst` / `spawn_dust` / `spawn_impact` / `spawn_blink_effects` / `spawn_slash_preview` / `spawn_reset_effects` / `physics::spawn_debris_burst` calls. They emit typed messages (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`) which presentation-side systems (`audio_play_sfx_messages`, `vfx_spawn_messages`, `physics_spawn_debris_messages`) consume. `bin/headless` runs `sandbox_update` end-to-end via `run_headless`. See `docs/events_refactor_plan.md`.
 - **`PlayerDiedMessage` (Bevy 0.18 Message API)** `[stable]` — replaces the previous `SandboxRuntime::player_died_pending` bool. `death_respawn_player` pushes into `FrameFeedback.died`; `flush_feedback` drains into `MessageWriter`; `update_encounters_from_world` reads `MessageReader<PlayerDiedMessage>`. Keeps the runtime resource a pure state store. [lib.rs:67](crates/ambition_sandbox/src/lib.rs#L67), [app.rs:2172](crates/ambition_sandbox/src/app.rs#L2172).
 - **`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`** `[stable]` — Vec-collector → MessageWriter pattern documented in `docs/events_refactor_plan.md`. [audio.rs:53](crates/ambition_sandbox/src/audio.rs#L53), [fx.rs](crates/ambition_sandbox/src/fx.rs).
 

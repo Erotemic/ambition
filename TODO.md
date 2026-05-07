@@ -94,7 +94,9 @@
 
 ## C — Engine cleanups (compounding)
 
-- [ ] **Finish ADR 0012 events refactor** `[V3/D3]` — remaining call sites; confirm headless ticks `sandbox_update` cleanly. Source: `events_refactor_plan.md`.
+- [x] **ADR 0012 events refactor — main work** — Slices 1-5 (sfx / vfx / debris messages, setup split, headless `sandbox_update`) all landed. `app.rs` has zero direct `play_sound` / `spawn_burst` / `spawn_dust` / `spawn_impact` calls; `fx.rs` only calls them as the consumer of `VfxMessage`. Headless ticks `sandbox_update` cleanly via `run_headless`. Remaining cleanup ([ ] hardening only):
+  - [ ] Tighten `SandboxRuntime` field visibility from `pub` to `pub(crate)` where no external caller depends on the field (mechanical hygiene; no functional change).
+  - [ ] Add `tests/scripted_gameplay.rs` integration test driving multiple `ControlFrame`s and asserting on the full event timeline.
 - [ ] **CharacterAi authoritative migration** `[V3/D4]` — convert one enemy archetype's movement to read evaluator output (currently observed-only); then one boss pattern; parity test. Source: `character_ai_refactor.md`.
 - [ ] **Bug record/replay ring buffer** `[V4/D4]` — last 600 frames of `ControlFrame + SimMessages + player snapshot`, F12 / auto-OOB dump, replay binary. Would have caught the glitchy-platform bug. Source: `path_forward.md` step F.
 - [ ] **`bevy_rl` integration for AI playtesting** `[V4/D4]` — RL agents that exercise the sandbox to surface bugs (and eventually for proper RL training).

@@ -5,113 +5,170 @@
 > slice content (hub → first zone → Gradient Sentinel) resumes once the sandbox
 > bar is met.
 >
-> Last updated: 2026-05-07
+> **Source-of-truth pact:** This file (outstanding work) and `FEATURES.md`
+> (landed work) are authoritative. Keep them fresh — when an item lands, move
+> it to `FEATURES.md` in the same commit. Re-grep before claiming "done."
+>
+> **Adding new ideas:** drop them in the `## Proposed` section at the bottom.
+> Jon moves Proposed items into `## Accepted` (with a tier letter) or `## Rejected`.
+>
+> Last full re-audit: 2026-05-07 (against `git log --all`)
 
 ## Status legend
-- `[ ]` not started
-- `[~]` partial / scaffolded but not feature-complete
-- `[x]` recently completed (kept here briefly so it doesn't get re-added)
+- `[ ]` not started · `[~]` scaffolded but not feature-complete · `[x]` recently completed (kept here briefly so it doesn't get re-added)
+- **`[V?/D?]`** value (1–5) / difficulty (1–5). V: 1=marginal, 5=critical. D: 1=≤30min, 2=1–3hr, 3=half day, 4=multi-day, 5=week+ or risky.
+- NOTE: don't always trust difficulty ratings, don't be afraid to tackle something because it is difficult.
 
-## Recently completed (do not re-add)
-- [x] Wall-jump OOB fix: `cast_shapes(toi=0)` rejection in `sweep_player_x/_y` — [movement.rs:1321](crates/ambition_engine/src/movement.rs#L1321)
-- [x] Wall-jump repro test — [tests/repro_walls.rs](crates/ambition_sandbox/tests/repro_walls.rs)
-- [x] `BodyMode::Crawling` and `BodyMode::Sliding` drivers — [player_state.rs](crates/ambition_engine/src/player_state.rs)
-- [x] `evaluate_character_ai` engine fn + per-brain knobs (chase_speed, aggro_radius) on `EnemyArchetype` — [character_ai.rs](crates/ambition_engine/src/character_ai.rs)
-- [x] `RoomSet::layout_warnings` branch tests — [rooms.rs:351](crates/ambition_sandbox/src/rooms.rs#L351)
-- [x] LDtk validator: blank `activeArea` rejection — [ldtk_world.rs](crates/ambition_sandbox/src/ldtk_world.rs)
-- [x] Room data: `ambient_profile` and `visual_theme` fields exist (consumers still pending — see B)
+## Recently completed (will migrate to FEATURES.md as they age)
+- [x] Wall-jump OOB fix via `body_is_side_contact` — see FEATURES.md → physics
+- [x] mob_lab full pass (intro / lock-wall / waves / music swap) — see FEATURES.md → encounter
+- [x] Settings system (controls / gameplay / persistence / deadzone) — see FEATURES.md → settings
+- [x] Map UI + minimap toggle — see FEATURES.md → UI
+- [x] Boss phase machine (Stagger / Enraged / threshold) — see FEATURES.md → enemies
+- [x] Cutscene system + hold-Reset skip — see FEATURES.md → cutscenes
+- [x] Quest system + room-triggered hooks — see FEATURES.md → cutscenes
+- [x] Projectile + charge fireballs + Hadouken motion-input — see FEATURES.md → combat
+- [x] Swim + water_world two-pool lab — see FEATURES.md → movement primitives
+- [x] OneWayPlatform + DamageVolume LDtk promotion + parity overlay — see FEATURES.md → LDtk
+- [x] Encounter reward chest (replaces hardcoded `Health{2}`) — see FEATURES.md → encounter
+- [x] `BodyMode::{Crouch, MorphBall, Crawling, Sliding}` drivers — see FEATURES.md → physics
+- [x] `evaluate_character_ai` engine fn + per-brain knobs — see FEATURES.md → AI
+- [x] LDtk biome metadata → runtime resource → room music seam — see FEATURES.md → LDtk
+- [x] `SandboxAction::Interact` (gamepad RT + keyboard) — see FEATURES.md → input
 
 ---
 
 ## S — Active sandbox blockers (do first)
 
-- [ ] **Wall-cling teleport on mob_lab lock wall** — player y=434 → y=-23 snap then ping-pong; same snap-direction class as the resolved wall-jump bug. Source: `docs/tech_debt_log.md` (HIGH).
-- [ ] **Parry contact-normal in `sweep_player_x` / `sweep_player_y` (path_forward step D1)** — replace bespoke snap direction with parry's `ShapeCastHit::normal1`. Retires the entire snap-direction bug class (wall-jump + mob_lab teleport are instances).
-- [ ] **Double-tap-up Interact binding** — single-press Up still triggers doors/NPCs in places. Add dedicated Interact action (E / F / RB / double-tap-Up). Sources: `todo.txt`, feedback memory.
+- [ ] **Wall-cling teleport on mob_lab lock wall** `[V5/D3]` — y=434 → y=-23 snap then ping-pong; same snap-direction class as the resolved wall-jump. Source: `docs/tech_debt_log.md` (HIGH).
+  - Capture exact repro positions in a new test file
+  - Likely subsumed by the parry contact-normal fix below
+- [ ] **Parry contact-normal in `sweep_player_x` / `sweep_player_y` (path_forward step D1)** `[V5/D3]` — replace bespoke snap direction with parry's `ShapeCastHit::normal1`. Retires the entire snap-direction bug class.
+  - Plumb `normal1` through hit struct
+  - Replace snap branches in [movement.rs:1287](crates/ambition_engine/src/movement.rs#L1287)
+  - Re-run `repro_walls.rs` + add fuzz (see B)
+- [ ] **Double-tap-up Interact trigger** `[V4/D2]` — `Interact` action exists; the double-tap-up *gesture* binding may not. Audit door / NPC / save-point sites and ensure single-press Up never fires interact. Source: `tmp-todo-notes.txt`, feedback memory.
+- [ ] **Controller dash spam** `[V3/D1]` — holding dash on gamepad fires too often. Convert to `JustPressed` or add cooldown. Source: `tmp-todo-notes.txt`.
+- [ ] **D-pad inactive in settings menu** `[V3/D1]`. Source: `tmp-todo-notes.txt`.
+- [ ] **Enter as menu-select in settings menu** `[V3/D1]` — currently requires Jump. Add `MenuSelect` action bound to Enter + the gameplay select key. Source: `tmp-todo-notes.txt`.
+- [ ] **Glitchy platform behavior (intermittent)** `[V4/D3]` — vague repro. Add diagnostic logging on platform contact transitions. Bug record/replay (see C) would catch this. Source: `tmp-todo-notes.txt`.
 
 ## A — Sandbox expressiveness
 
-### Mechanics (new gameplay verbs)
-- [ ] **Swim** + `water_lab` room — add `BlockKind::Water`, integrate through ~10 hazard match sites, author LDtk room. Source: `progression_systems_2026-05-05.md`.
-- [ ] **Glide / slow-fall** — reduced fall speed + air control while held. Source: `mechanics_checklist.md`.
-- [ ] **Ladder + climbable-zone primitive** — needed before ladder sprite wiring lands.
-- [~] **Morph Ball** — engine drivers exist; needs collision-safe morph-tunnel tests + visible scale per room. Source: `mechanics_checklist.md`.
-- [ ] **Ledge grab promotion to engine** — move `LedgeProbe`, `Ability::ledge_grab`, movement-state branch into `ambition_engine::player_state`. Currently sandbox-only.
-- [ ] **Swim post-update mutator → engine state machine** — fold sandbox mutator into engine `Player`.
-
-### Sprite wiring batch
-- [~] `morph_ball.png` → `MorphBallSprite::handle` (sprite type wired; asset path unverified)
-- [ ] `switch_armed.png` / `switch_disabled.png` → Switch rendering
-- [ ] `lock_wall_tile.png` → runtime-inserted lock walls
-- [ ] `water_surface_tile.png` → overlay layer above water bodies
-- [ ] `ladder_tile.png` (paired with climbable-zone primitive above)
-- [ ] `acid_tile.png` / `lava_tile.png` → IntGrid value mappings
-- [ ] `bg_circuit_tile.png` → parallax layer in `central_hub_complex`
+### Mechanics & combat
+- [ ] **Glide / slow-fall** `[V3/D2]` — held ability; reduced fall speed + air control. Source: `mechanics_checklist.md`.
+- [ ] **Ladder + climbable-zone primitive** `[V4/D3]` — needed before ladder sprite wiring.
+  - `ClimbableZone` component
+  - Engine state: climb up/down, dismount
+  - LDtk IntGrid value + entity option
+- [ ] **Ledge grab + climb-up promotion to engine** `[V4/D3]` — move `LedgeProbe`, `Ability::ledge_grab`, state branch into `ambition_engine::player_state` (currently sandbox-side). Add diagonal-corner probe test. Climb-up animation slot separate from grab.
+- [ ] **NPCs become enemies on hit (in certain circumstances)** `[V3/D3]` — define faction/threshold rules; test NPC archetype that flips after N hits. Source: `tmp-todo-notes.txt`.
+- [ ] **More enemy varieties (S/M/L × aggression bands)** `[V4/D4]` — 9 archetype rows via existing `EnemyArchetype` data. Source: `tmp-todo-notes.txt`.
 
 ### Test rooms (sandbox = component showcase)
-- [ ] Crawl/morph proof room — low-ceiling corridor demo
-- [ ] Save-point lab — exercises `save_point` sprite + save system end-to-end
-- [ ] Cutscene test room — triggers "you're finally awake" intro on entry; demonstrates cutscene system + skip flow
-- [ ] Water lab room — pairs with Swim above
+- [ ] **Crawl/morph proof room** `[V3/D2]` — low-ceiling corridor demo (drivers exist; needs the room).
+- [ ] **Save-point lab + persisted-switch test room** `[V4/D3]` — switch state survives reload; reset-switches sub-room; extensible test-state schema (boss defeated, mob room cleared). Source: `tmp-todo-notes.txt`.
+- [ ] **Quest test room** `[V3/D3]` — small fetch/talk quest end-to-end ([quest.rs](crates/ambition_sandbox/src/quest.rs) is scaffolded).
+- [ ] **Cutscene test room** `[V3/D2]` — entry trigger fires "you're finally awake"; demonstrates cutscene + skip flow.
+- [ ] **Time-decay breakable platforms** `[V2/D2]` — keep attack-break variant; add stand-too-long variant. Source: `tmp-todo-notes.txt`.
 
-## B — Authoring ergonomics & validators
+### Sprite wiring batch
+- [~] `morph_ball.png` → `MorphBallSprite::handle` `[V2/D1]` — sprite type wired; verify asset path
+- [ ] `switch_armed.png` / `switch_disabled.png` → Switch rendering `[V2/D1]`
+- [ ] `lock_wall_tile.png` → runtime-inserted lock walls `[V2/D1]`
+- [ ] `water_surface_tile.png` → overlay layer above water `[V2/D2]`
+- [ ] `ladder_tile.png` → climbable zones `[V2/D1]` (gated on Ladder primitive)
+- [ ] `acid_tile.png` / `lava_tile.png` → IntGrid value mappings `[V2/D1]`
+- [ ] `bg_circuit_tile.png` → parallax in `central_hub_complex` `[V2/D2]`
 
-- [ ] **EncounterReward** field on `EncounterSpec` — replace hardcoded `Health{amount:2}`
-- [ ] **encounter_id** LDtk field on `BossSpawn` — replace name-derived id with explicit field
-- [ ] LDtk validator: warn on unknown `music_track` ids
-- [ ] `ambient_profile` consumer — drives ambient SFX layer from Room data
-- [ ] `visual_theme` consumer — drives renderer palette swap from Room data
-- [ ] `BodyShape::fits_at` property test (proptest over random rect placements)
-- [ ] Wall-jump start-position fuzz test in `square_arena`
-- [ ] Diagonal-corner ledge-grab test (fills the gap in existing ledge_grab tests)
-- [ ] `cargo test` smoke for `headless` binary in CI
+### Architecture
+- [ ] **Stitched (loading-zone-free) room transitions** `[V4/D4]` — user wanted basement reachable by "drop down" from hub, not via load. Source: `tmp-todo-notes.txt`.
+  - Adjacency model in `RoomSet`
+  - Camera + collision spans both rooms during traversal
+  - Debug overlay zoom-out to view stitched layout
+  - Decision: stitching vs single big room — prototype both
 
-## C — Engine cleanups (compounding, low urgency individually)
+## B — Authoring ergonomics, validators, audio polish
 
-- [ ] `runtime.player_died_pending` boolean → `PlayerDiedMessage` (Bevy 0.18 Message API)
-- [ ] `mana_current` / `mana_max` on `SandboxRuntime` → `ResourceMeter` on Player
-- [ ] `slash_damage` / `invincible` → per-player engine state
-- [ ] **Finish ADR 0012 events refactor** — remaining call sites; confirm headless ticks `sandbox_update` cleanly. Source: `events_refactor_plan.md`.
-- [ ] **CharacterAi authoritative migration** — convert one enemy archetype's movement to read `evaluate_character_ai` output (currently observed-only); then one boss pattern; add parity test against timer-driven baseline. Source: `character_ai_refactor.md`.
-- [ ] **Bug record/replay ring buffer** — last 600 frames of `ControlFrame + SimMessages + player snapshot`, dump to JSON on F12 / auto-OOB; replay binary for deterministic repro. Source: `path_forward.md` step F.
+- [ ] LDtk validator: warn on unknown `music_track` ids `[V3/D1]`
+- [ ] **Adaptive music phase transitions in boss room** `[V4/D3]` — stem-blend/layered tracks via existing [music.rs](crates/ambition_sandbox/src/music.rs) hooked to `BossPhase`. Cues already authored. Source: `tmp-todo-notes.txt`.
+- [ ] `BodyShape::fits_at` property test (proptest) `[V3/D2]`
+- [ ] Wall-jump start-position fuzz in `square_arena` `[V3/D2]`
+- [ ] `cargo test` smoke for `headless` binary in CI `[V4/D2]`
+- [ ] Reduce text in debug HUD now that bevy-inspector is integrated `[V2/D1]`. Source: `tmp-todo-notes.txt`.
+- [ ] Per-cutscene "always skip if seen" flag `[V2/D2]`
 
-## D — Compile-time investments (heavy commits, real wins)
+## C — Engine cleanups (compounding)
 
-- [ ] Split `features.rs` (single 104KB file) into `features/{hazards,enemies,bosses,breakables,pickups,npcs}.rs`
-- [ ] Split `ldtk_world.rs` into 7 modules per `path_forward.md` step C (only `bevy_runtime.rs` extracted so far — 1 of 7)
-- [ ] Promote `KinematicPath` to typed components + index (matches LDtk migration pattern)
-- [ ] **Extract `ambition_game` crate** — engine / game / sandbox 3-crate layout. Holds encounter, boss_encounter, quest, cutscene, save, ledge_grab, swim, map_menu, NPC AI, audio, rendering primitives. Source: `crate_split_plan.md`.
+- [ ] `runtime.player_died_pending` boolean → `PlayerDiedMessage` (Bevy 0.18 Message API) `[V2/D1]`
+- [ ] Promote sandbox-side `mana_current` / `mana_max` to engine `ResourceMeter` (engine has the type; sandbox still has separate fields) `[V2/D2]`
+- [ ] `slash_damage` / `invincible` → per-player engine state `[V2/D2]`
+- [ ] **Finish ADR 0012 events refactor** `[V3/D3]` — remaining call sites; confirm headless ticks `sandbox_update` cleanly. Source: `events_refactor_plan.md`.
+- [ ] **CharacterAi authoritative migration** `[V3/D4]` — convert one enemy archetype's movement to read evaluator output (currently observed-only); then one boss pattern; parity test. Source: `character_ai_refactor.md`.
+- [ ] **Bug record/replay ring buffer** `[V4/D4]` — last 600 frames of `ControlFrame + SimMessages + player snapshot`, F12 / auto-OOB dump, replay binary. Would have caught the glitchy-platform bug. Source: `path_forward.md` step F.
+- [ ] **`bevy_rl` integration for AI playtesting** `[V4/D4]` — RL agents that exercise the sandbox to surface bugs (and eventually for proper RL training).
+  - Define observation space (player state, nearby blocks/enemies, room id)
+  - Define action space (mirror `SandboxAction`)
+  - Reward shaping for "explore + don't die"
+  - Wire to `headless` binary as a separate run mode
+  - Doubles as a fuzz harness for movement / collision
 
-## E — UI / inventory / polish (non-blocking)
+## D — Compile-time investments
 
-- [ ] **N64 OOT/MM-style spinning-cube inventory** — 4 faces (map / loadout / quests / system options); modernize contents but keep nostalgic cube spin + menu-change SFX
-- [ ] Quest panel: separate quest lines from debug HUD into its own UI node
-- [ ] Settings page reset-to-defaults flow
-- [ ] Per-cutscene "always skip if seen" flag
-- [ ] Map menu: room-name labels + zoom level controls
-- [ ] Camera ease parameterization
+- [ ] Split `features.rs` (2819 lines) into `features/{hazards,enemies,bosses,breakables,pickups,npcs}.rs` `[V4/D4]`
+- [ ] Split `ldtk_world.rs` (2567 lines) into 7 modules per `path_forward.md` step C — only `bevy_runtime.rs` extracted (1 of 7) `[V3/D4]`
+- [ ] Promote `KinematicPath` to typed components + index `[V2/D3]`
+- [ ] **Extract `ambition_game` crate** `[V4/D5]` — engine / game / sandbox 3-crate layout. Holds encounter, boss_encounter, quest, cutscene, save, ledge_grab, swim, map_menu, NPC AI, audio, rendering primitives. Source: `crate_split_plan.md`.
+
+## E — UI / inventory / polish
+
+- [ ] **N64 OOT/MM-style spinning-cube inventory** `[V3/D5]` — 4 faces (map / loadout / quests / system options); modernize contents but keep nostalgic cube spin + menu-change SFX
+  - 3D cube widget (bevy_ui or world-space camera trick)
+  - Per-face contents wired to existing systems (map_menu, quest, settings)
+- [ ] Quest panel: separate quest lines from debug HUD `[V2/D2]`
+- [ ] Map menu: room-name labels + zoom controls (extends current minimap) `[V3/D2]`
+- [ ] Camera ease parameterization (close LOW tech-debt) `[V2/D2]`
 
 ## F — Documentation / hygiene
 
-- [ ] Docstrings on `ProgressionResources` and `SandboxQueues`
-- [ ] Sync `mechanics_checklist.md` — Morph Ball marked `[ ]` despite engine drivers landing
-- [ ] Archive pre-Bevy-0.18 port notes (`docs/bevy_port.md`, `docs/leafwing_input_manager_port.md`)
-- [ ] Archive root-level audio overlay variants (`README_audio_*.txt`, `README_music_renderer_*.txt`) — historical iteration snapshots, not actionable
-- [ ] Archive applied music-renderer overlay docs in `docs/` once their patches land
+- [ ] Docstrings on `ProgressionResources` and `SandboxQueues` `[V1/D1]`
+- [ ] Sync `mechanics_checklist.md` against landed BodyMode + Hadouken work `[V1/D1]`
+- [ ] Archive pre-Bevy-0.18 port notes (`docs/bevy_port.md`, `docs/leafwing_input_manager_port.md`) `[V1/D1]`
+- [ ] Archive root-level audio overlay variants (`README_audio_*.txt`, `README_music_renderer_*.txt`) `[V1/D1]`
+- [ ] Archive applied music-renderer overlay docs in `docs/` once their patches land `[V1/D1]`
+- [ ] Fold `tmp-todo-notes.txt` items into TODO.md / Proposed, then delete it `[V1/D1]`
+- [ ] Wire FEATURES.md update into a checklist when closing TODO items `[V2/D1]`
 
 ## G — Story-arranged slice (resume after sandbox bar is met)
 
-- [ ] Real central hub authoring
-- [ ] Basement / first zone authoring
-- [ ] Gradient Sentinel boss implementation
-- [ ] Improved boss movement patterns — traversal choreography (boss dash, arena reposition), not just attack telegraphs
-- [ ] Boss-phase music tracks in `sandbox.ron` (3-4 entries)
-- [ ] Intro cutscene polish — "Hey you, you're finally awake" beat; visor-blip / sprite-emerge; skip-or-tutorial fork
+- [ ] Real central hub authoring `[V3/D4]`
+- [ ] Basement / first zone authoring `[V3/D4]`
+- [ ] Gradient Sentinel boss implementation `[V3/D4]`
+- [ ] Improved boss movement patterns — traversal choreography (boss dash, arena reposition) `[V4/D3]`. Source: `tmp-todo-notes.txt`.
+- [ ] Intro cutscene polish — "Hey you, you're finally awake" beat `[V2/D3]`
+
+---
+
+## Proposed (agent drop-zone — Jon triages into Accepted / Rejected)
+
+> Agents may append new TODO directions here freely. Do not insert into the
+> tier sections above without explicit acceptance. Format: one bullet, V/D
+> guess, source/context, ~2 lines max.
+
+*(empty — populate as ideas arise)*
+
+## Accepted
+
+*(items moved here have been agreed; assign a tier letter and migrate up when convenient)*
+
+## Rejected
+
+*(keeps a record so the same idea doesn't get re-proposed)*
 
 ---
 
 ## Notes
-- This file supersedes `tmp-todo.txt` at the repo root — fold any new captures here.
-- Items reference docs that exist at `docs/path_forward.md`, `docs/tech_debt_log.md`, `docs/character_ai_refactor.md`, `docs/crate_split_plan.md`, `docs/events_refactor_plan.md`, `docs/mechanics_checklist.md`, `docs/progression_systems_2026-05-05.md`. When closing an item, update the source doc too if it tracks the same state.
-- The "Recently completed" block exists so audits don't re-add finished work. Trim entries older than ~2 weeks.
-- Be on the lookout for things that claim they were done, but were not actually done. 
+- **Verify before claiming done.** Many "TODO" items in past lists turned out to already be shipped — re-grep + check `git log --all` before assuming.
+- This file supersedes `tmp-todo-notes.txt`. Triage remaining notes there into Proposed (or directly into a tier if obviously valid), then delete the txt.
+- Source docs: `docs/path_forward.md`, `docs/tech_debt_log.md`, `docs/character_ai_refactor.md`, `docs/crate_split_plan.md`, `docs/events_refactor_plan.md`, `docs/mechanics_checklist.md`, `docs/progression_systems_2026-05-05.md`, `docs/mob_lab.md`. When closing an item, update the source doc too if it tracks the same state.
+- Trim "Recently completed" entries here once they have an entry in `FEATURES.md`.

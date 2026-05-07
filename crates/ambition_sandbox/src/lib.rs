@@ -54,10 +54,12 @@ pub mod windowing;
 
 pub mod app;
 pub mod headless;
+pub mod rl;
 pub mod setup;
 
 pub use game_mode::GameMode;
 pub use headless::{run_headless, HeadlessReport};
+pub use rl::{AgentAction, AgentObservation, SandboxSim};
 
 use ambition_engine as ae;
 use bevy::prelude::{Message, Resource};

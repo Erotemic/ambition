@@ -125,6 +125,11 @@ Status badges:
 - **`SandboxAction::MenuNavigate{Up,Down,Left,Right}`** `[stable]` — D-pad + arrow keys + analog stick navigate menus. Toggleable via `controls.dpad_menu_navigation`. [input.rs:331](crates/ambition_sandbox/src/input.rs#L331).
 - **Dash trigger hysteresis** `[stable]` — analog right trigger goes through `update_trigger_edge` with configurable release / press thresholds (defaults 0.30 / 0.55). Three input modes: Trigger (analog only) / Button (RB/R1) / Both. Prevents jitter spam on aged controllers. [input.rs:488](crates/ambition_sandbox/src/input.rs#L488), [settings/controls.rs:202](crates/ambition_sandbox/src/settings/controls.rs#L202).
 
+## Headless / RL adapter
+
+- **`run_visible` graceful headless fallback** `[stable]` — when no `DISPLAY` / `WAYLAND_DISPLAY` env var is set on Linux, or when the user passes `--headless` on the CLI, `run_visible` prints a one-line diagnostic and routes to `run_headless` instead of letting `bevy_winit` panic during event-loop creation. Tick count override via `--headless-ticks N` (default 120). [app.rs:185](crates/ambition_sandbox/src/app.rs#L185).
+- **`SandboxSim` programmatic step API** `[stable]` — public Rust API at [rl.rs](crates/ambition_sandbox/src/rl.rs) wrapping the headless `App`. `SandboxSim::new()` builds the simulation; `sim.step(action)` writes a converted `ControlFrame` and ticks `Update` once, returning an `AgentObservation`. `AgentAction` covers movement / jump / dash / blink / attack / interact / projectile / fly-toggle / reset / aim. `AgentObservation` exposes player pos/vel/size/HP/dash/airjumps/body-mode/active-room plus per-tick flags (recently_damaged, in_hitstun). Foundation for RL agents, fuzz harnesses, replay drivers, and a future PyO3 binding. 6 unit tests pin the API surface. Re-exported as `ambition_sandbox::{SandboxSim, AgentAction, AgentObservation}`.
+
 ## Tooling / generators
 
 - **Sprite passes** `[stable]` — tight-crop entity art, tile sprites, IntGrid-blocked tiles, 11 entity sprites via `gen2d`, procedural morph-ball sprite. Commits `e634d39`, `bd95097`, `efdb8fb`.

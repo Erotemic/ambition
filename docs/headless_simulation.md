@@ -11,13 +11,14 @@ graph and the cross-cutting resources (`GameWorld`, `SandboxRuntime`). The
 visible binary's `main.rs` is the existing playable shell; the headless
 binary is a thin shim around `ambition_sandbox::run_headless`.
 
-> **Phase status (2026-05-07):** Phase 1 (no-display tick) and Phase 2
-> (gameplay loop runs headless) are both complete. The events refactor
-> (ADR 0012, slices `c49c1e5`–`81900dd`) shipped end-to-end; `sandbox_update`
-> emits `SfxMessage`/`VfxMessage`/`DebrisBurstMessage` and presentation
+> **Phase status (2026-05-07):** Phase 1 (no-display tick), Phase 2
+> (gameplay loop runs headless), and the **first half of Phase 3** (RL
+> adapter API) are all complete. The events refactor (ADR 0012, slices
+> `c49c1e5`–`81900dd`) shipped end-to-end; `sandbox_update` emits
+> `SfxMessage`/`VfxMessage`/`DebrisBurstMessage` and presentation
 > subscribers consume them, so the simulation has no presentation
-> coupling. Phase 3 (RL adapter, fixed-timestep determinism) remains
-> future work.
+> coupling. Remaining Phase 3 work: fixed-timestep determinism + RNG
+> seeding + a Python binding via PyO3.
 
 This document describes the sim/presentation contract the headless runner
 exposes today.
@@ -64,19 +65,73 @@ output. The headless binary skips this layer and so:
 Scripted gameplay tests in `crates/ambition_sandbox/tests/scripted_gameplay.rs`
 inject `ControlFrame`s and assert on emitted message counts.
 
-## Phase 3 — RL adapter (further out)
+## Phase 3 — RL adapter (in progress)
 
-With the events refactor landed, an RL adapter is a thin layer:
+The first half of the RL adapter has landed in
+`crates/ambition_sandbox/src/rl.rs`. It exposes:
 
-- input: replace the Leafwing `ActionState` reader with a function that
-  produces a `ControlFrame` from an externally-supplied action vector.
-- observation: walk `SandboxRuntime`, `GameWorld`, `LdtkRuntimeSolidIndex`
-  to construct a typed observation per tick.
-- determinism: switch to a fixed timestep, seed any RNG that gameplay
-  uses, freeze wall-clock leaks. Most of this is a Bevy `FixedTime` config
-  plus an audit pass.
+- **`AgentAction`** — sparse per-tick intent struct (move x/y, jump,
+  jump_held, dash, attack, blink, interact, projectile, fly_toggle,
+  reset, aim x/y, …). All fields default to zero / false; agents can
+  set just the knobs they care about. `From<AgentAction> for ControlFrame`
+  does the conversion at the seam.
+- **`AgentObservation`** — owned `String` / primitive-tuple snapshot of
+  player pos/vel/size, on_ground/on_wall/clinging/climbing flags,
+  facing, fast_falling/fly/glide flags, dash_charges/air_jumps/blink
+  state, hp / hp_max, mana / mana_max, time_alive, resets, body_mode
+  label, active_room id, world_size, world_spawn, last_safe_pos, plus
+  per-tick flags (`recently_damaged`, `in_hitstun`, `invincible`).
+- **`SandboxSim::new()`** — builds the same App `run_headless` does
+  (MinimalPlugins + AssetPlugin + ImagePlugin + TransformPlugin +
+  StatesPlugin + `init_sandbox_resources` + `add_simulation_plugins`).
+  Runs the first tick so the player and `SandboxRuntime` are spawned
+  before the caller sees an observation. Returns `Err` on LDtk
+  validation failure.
+- **`sim.step(action)`** — writes the converted `ControlFrame` into the
+  resource and calls `app.update()` once. Returns `AgentObservation`.
+- **`sim.step_n(action, n)`** — convenience for "hold this action for
+  n frames" without writing the loop.
+- **`sim.reset_episode()`** — presses Reset for one frame, idles for
+  one, returns the post-reset observation. Goes through the existing
+  reset machinery rather than rebuilding the App.
+- **`sim.world()` / `sim.world_mut()`** — escape hatches for advanced
+  consumers (custom observation extractors, scripted teleports, etc.)
+  that want to inspect / mutate ECS state directly.
 
-A Python binding via PyO3 is then a separate, optional layer.
+The whole module is `Send` + thread-local; multi-threaded RL training
+should keep one `SandboxSim` per worker.
+
+Remaining Phase 3 work:
+
+- **Determinism**: switch to a fixed timestep schedule for sim steps,
+  seed any RNG gameplay uses, audit wall-clock reads. Currently
+  `app.update()` is fine for sequential step-and-observe loops, but
+  reproducing a trajectory after a checkpoint reload needs the timestep
+  + seed pinning.
+- **PyO3 binding**: a thin Python module exposing `SandboxSim` /
+  `AgentAction` / `AgentObservation` so research code in Python can
+  step the simulation without writing Rust glue. Not required for
+  fuzz / scripted-replay use cases (which are happy in pure Rust).
+- **`bevy_rl` evaluation**: see the parallel candidate in TODO C — we
+  may converge `SandboxSim` toward the `bevy_rl` adapter shape if it
+  buys us tooling we'd otherwise build from scratch.
+
+## Visible-binary headless fallback
+
+`run_visible` (the `cargo run -p ambition_sandbox --bin ambition_sandbox`
+entry point) detects missing display before installing `DefaultPlugins`
+and falls back to `run_headless`:
+
+- Linux: if neither `DISPLAY` nor `WAYLAND_DISPLAY` nor `WAYLAND_SOCKET`
+  is set, fall back.
+- Any platform: if the user passed `--headless` on the CLI, fall back.
+- Override the tick count with `--headless-ticks N` (default 120).
+
+The fallback prints a one-line diagnostic to stderr so users on a
+display-less VM see why their `cargo run` didn't open a window. The
+dedicated `--bin headless` runner is still the recommended entry point
+for CI / RL drivers that want to skip the visible-binary plugin
+foundation entirely.
 
 ## Architecture notes that informed Phase 1
 

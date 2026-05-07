@@ -182,9 +182,118 @@ fn flush_feedback(feedback: &mut FrameFeedback, writers: &mut SandboxEventWriter
     writers.died.write_batch(feedback.died.drain(..));
 }
 
+/// True when no display server is reachable for `bevy_winit` to attach to.
+/// Linux only — other platforms always return `false` and rely on Bevy's
+/// own diagnostics. The check is conservative: any of `DISPLAY`,
+/// `WAYLAND_DISPLAY`, or `WAYLAND_SOCKET` being set means we attempt the
+/// visible path. If `--headless` was passed on the CLI, the caller has
+/// already chosen the headless path and this check doesn't run.
+fn no_display_server_available() -> bool {
+    if cfg!(not(target_os = "linux")) {
+        return false;
+    }
+    std::env::var_os("DISPLAY").is_none()
+        && std::env::var_os("WAYLAND_DISPLAY").is_none()
+        && std::env::var_os("WAYLAND_SOCKET").is_none()
+}
+
+fn cli_force_headless() -> bool {
+    std::env::args().any(|arg| arg == "--headless")
+}
+
+fn cli_headless_ticks() -> u32 {
+    let args: Vec<String> = std::env::args().collect();
+    parse_headless_ticks(&args).unwrap_or(120)
+}
+
+fn parse_headless_ticks(args: &[String]) -> Option<u32> {
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--headless-ticks" => return args.get(i + 1).and_then(|raw| raw.parse().ok()),
+            arg if arg.starts_with("--headless-ticks=") => {
+                return arg
+                    .trim_start_matches("--headless-ticks=")
+                    .parse()
+                    .ok();
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+#[cfg(test)]
+mod headless_arg_tests {
+    use super::parse_headless_ticks;
+
+    fn args(slice: &[&str]) -> Vec<String> {
+        slice.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn no_flag_returns_none() {
+        assert_eq!(parse_headless_ticks(&args(&[])), None);
+        assert_eq!(parse_headless_ticks(&args(&["--headless"])), None);
+    }
+
+    #[test]
+    fn space_form() {
+        assert_eq!(
+            parse_headless_ticks(&args(&["--headless-ticks", "300"])),
+            Some(300)
+        );
+    }
+
+    #[test]
+    fn equals_form() {
+        assert_eq!(
+            parse_headless_ticks(&args(&["--headless-ticks=42"])),
+            Some(42)
+        );
+    }
+
+    #[test]
+    fn invalid_value_returns_none() {
+        assert_eq!(
+            parse_headless_ticks(&args(&["--headless-ticks", "abc"])),
+            None
+        );
+    }
+}
+
 /// Build + run the visible Bevy app. The thin `fn main()` shim in
 /// `src/main.rs` calls this.
+///
+/// Falls back to the headless simulation runner when no display server is
+/// reachable (no `DISPLAY` / `WAYLAND_DISPLAY` on Linux), or when the
+/// caller passes `--headless` on the CLI. The fallback path prints a
+/// short diagnostic so users on a headless VM get a working
+/// `cargo run` instead of a `bevy_winit` event-loop panic. Override the
+/// number of ticks with `--headless-ticks N` (default 120).
 pub fn run_visible() {
+    if cli_force_headless() || no_display_server_available() {
+        let max_ticks = cli_headless_ticks();
+        let reason = if cli_force_headless() {
+            "--headless flag"
+        } else {
+            "no DISPLAY / WAYLAND_DISPLAY env var"
+        };
+        eprintln!(
+            "ambition_sandbox: running headless ({reason}); use `--bin headless` for the dedicated runner"
+        );
+        match crate::headless::run_headless(max_ticks) {
+            Ok(report) => {
+                println!("{report}");
+                return;
+            }
+            Err(error) => {
+                eprintln!("headless fallback failed: {error}");
+                std::process::exit(1);
+            }
+        }
+    }
     let asset_config = GameAssetConfig::from_args();
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {

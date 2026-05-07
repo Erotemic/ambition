@@ -13,7 +13,7 @@
 > Jon moves Proposed items into `## Accepted` (with a tier letter) or `## Rejected`.
 >
 > Last full re-audit: 2026-05-07 (against `git log --all`).
-> Test count: 562 across `cargo test --workspace`.
+> Test count: 568 across `cargo test --workspace` (added 6 in `rl::tests`).
 
 ## Status legend
 - `[ ]` not started · `[~]` scaffolded but not feature-complete · `[x]` recently completed (kept here briefly so it doesn't get re-added)
@@ -21,6 +21,7 @@
 - NOTE: don't always trust difficulty ratings, don't be afraid to tackle something because it is difficult.
 
 ## Recently completed (will migrate to FEATURES.md as they age)
+- [x] **`SandboxSim` programmatic step API + visible-binary headless fallback** — see FEATURES.md → "Headless / RL adapter". Visible binary no longer panics on display-less VMs (auto-falls-back, or via `--headless`). RL drivers can now call `SandboxSim::new()` then `sim.step(action)` to advance the sim with a typed `AgentAction`/`AgentObservation` pair. [rl.rs](crates/ambition_sandbox/src/rl.rs), [app.rs:185](crates/ambition_sandbox/src/app.rs#L185).
 - [x] Wall-jump OOB fix via `body_is_side_contact` — see FEATURES.md → physics
 - [x] mob_lab full pass (intro / lock-wall / waves / music swap) — see FEATURES.md → encounter
 - [x] Settings system (controls / gameplay / persistence / deadzone) — see FEATURES.md → settings
@@ -101,12 +102,12 @@
   - [x] Add `tests/scripted_gameplay.rs` integration test (3 scenarios: 30 idle frames, Reset press emits Reset message, heterogeneous Reset/Jump/move sequence runs to completion).
 - [ ] **CharacterAi authoritative migration** `[V3/D4]` — convert one enemy archetype's movement to read evaluator output (currently observed-only); then one boss pattern; parity test. Source: `character_ai_refactor.md`.
 - [ ] **Bug record/replay ring buffer** `[V4/D4]` — last 600 frames of `ControlFrame + SimMessages + player snapshot`, F12 / auto-OOB dump, replay binary. Would have caught the glitchy-platform bug. Source: `path_forward.md` step F.
-- [ ] **`bevy_rl` integration for AI playtesting** `[V4/D4]` — RL agents that exercise the sandbox to surface bugs (and eventually for proper RL training).
-  - Define observation space (player state, nearby blocks/enemies, room id)
-  - Define action space (mirror `SandboxAction`)
-  - Reward shaping for "explore + don't die"
-  - Wire to `headless` binary as a separate run mode
-  - Doubles as a fuzz harness for movement / collision
+- [~] **`bevy_rl` integration for AI playtesting** `[V4/D4]` — RL agents that exercise the sandbox to surface bugs (and eventually for proper RL training). **First half landed 2026-05-07** as `SandboxSim` (`crates/ambition_sandbox/src/rl.rs`): step API, action/observation structs, 6 unit tests. Remaining:
+  - Determinism (fixed timestep + RNG seeding) for reproducible trajectories
+  - PyO3 binding so research code in Python can drive it
+  - Random-walker / fuzz-harness binary for "explore + don't OOB" coverage
+  - Reward shaping (currently observation only; reward is the agent's job)
+  - Evaluate `bevy_rl` crate vs continuing custom — `SandboxSim`'s shape is intentionally compatible
 
 ## D — Compile-time investments
 

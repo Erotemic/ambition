@@ -204,4 +204,86 @@ mod tests {
         assert!(ActorFaction::Environment.can_damage(ActorFaction::Enemy));
         assert!(!ActorFaction::Player.can_damage(ActorFaction::Player));
     }
+
+    #[test]
+    fn health_invulnerable_drops_damage() {
+        let mut health = Health::new(5);
+        health.invulnerable = true;
+        assert!(!health.damage(3));
+        assert_eq!(health.current, 5);
+        // Disabling invuln re-enables damage.
+        health.invulnerable = false;
+        assert!(!health.damage(3));
+        assert_eq!(health.current, 2);
+    }
+
+    #[test]
+    fn health_damage_zero_or_negative_is_no_op() {
+        let mut health = Health::new(5);
+        assert!(!health.damage(0));
+        assert!(!health.damage(-3));
+        assert_eq!(health.current, 5);
+    }
+
+    #[test]
+    fn health_heal_clamps_to_max() {
+        let mut health = Health::new(10);
+        health.damage(7);
+        assert_eq!(health.current, 3);
+        health.heal(50); // tries to over-heal
+        assert_eq!(health.current, 10);
+    }
+
+    #[test]
+    fn health_heal_zero_or_negative_is_no_op() {
+        let mut health = Health::new(10);
+        health.damage(4);
+        let before = health.current;
+        health.heal(0);
+        assert_eq!(health.current, before);
+        health.heal(-5);
+        assert_eq!(health.current, before);
+    }
+
+    #[test]
+    fn health_ratio_within_envelope() {
+        let mut health = Health::new(10);
+        assert_eq!(health.ratio(), 1.0);
+        health.damage(5);
+        assert!((health.ratio() - 0.5).abs() < 1e-6);
+        health.damage(50); // overkill
+        assert_eq!(health.ratio(), 0.0);
+    }
+
+    #[test]
+    fn health_reset_restores_max_and_clears_invuln() {
+        let mut health = Health::new(8);
+        health.damage(5);
+        health.invulnerable = true;
+        health.reset();
+        assert_eq!(health.current, 8);
+        assert!(!health.invulnerable);
+    }
+
+    #[test]
+    fn health_alive_tracks_current() {
+        let mut health = Health::new(2);
+        assert!(health.alive());
+        health.damage(1);
+        assert!(health.alive());
+        health.damage(1);
+        assert!(!health.alive());
+    }
+
+    #[test]
+    fn health_new_clamps_max_to_minimum_of_one() {
+        // Negative or zero max becomes 1 so health.alive() is always
+        // meaningful (a 0-max entity is degenerate).
+        let h = Health::new(0);
+        assert_eq!(h.max, 1);
+        assert!(h.alive());
+
+        let h = Health::new(-5);
+        assert_eq!(h.max, 1);
+    }
 }

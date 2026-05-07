@@ -1,11 +1,21 @@
 # Ambition code structure notes
 
+> **Status (2026-05-07):** This document recorded the **first**
+> extensibility pass after the Bevy port (sandbox split into focused
+> modules). The structure has continued to evolve since — sandbox
+> `main.rs` is now a ~10-line shim, the App-builder lives in
+> `app.rs`, and several "remaining hard-coded areas" listed below
+> have already been resolved (notably `slash_hitbox` moving to
+> `ambition_engine::combat`). The historical sections are kept for
+> archaeology; current authoritative descriptions of structure live
+> in `docs/engine_architecture.md` and `docs/headless_simulation.md`.
+
 This document records the first extensibility pass after the Bevy port. The goal
 was not to perfect the architecture, but to remove the most obvious hard-coded
 pressure points so the sandbox can keep evolving without turning into one large
 file.
 
-## What changed
+## What changed (first pass — historical)
 
 `ambition_sandbox/src/main.rs` was split into focused modules:
 
@@ -17,8 +27,10 @@ file.
 - `rendering.rs` — render-only Bevy components, grid/block spawning, and visual state sync.
 - `main.rs` — Bevy app wiring, high-level sandbox update flow, HUD text, and attack orchestration.
 
-This keeps the current behavior close to the working Bevy prototype while making
-future changes more local.
+This kept the behavior close to the working Bevy prototype while making
+future changes more local. Subsequent passes have continued in the same
+direction; the App-builder logic later moved to `app.rs`, and `main.rs`
+became a thin shim that invokes `ambition_sandbox::app::run_visible`.
 
 ## Engine refactor pass
 
@@ -44,14 +56,18 @@ when they become painful:
    - `ambition_engine` has `MovementTuning`, but the default constants are still compiled in.
    - Next step: allow a tuning preset resource and hot reload from RON/TOML.
 
-3. **Attack definitions**
-   - `slash_hitbox()` is still in `main.rs` and hard-codes hitbox sizes.
-   - Next step: create `combat.rs` with `AttackSpec`, `AttackEvent`, and collision queries.
+3. **Attack definitions** — RESOLVED.
+   - `slash_hitbox()` and `player_slash_hitbox()` now live in
+     `ambition_engine::combat`, hitbox sizes parameterized through
+     `Player` state. Sandbox calls into the engine helper.
 
-4. **Dummy behavior**
+4. **Dummy behavior** — IN PROGRESS.
    - Dummy state/HP/stun/respawn now lives in `ambition_engine::enemy`.
-   - They are still test fixtures, not real enemies.
-   - Next step: add `EnemySpec` and simple behavior states once combat needs more than sandbags.
+   - The `EnemyArchetype` matrix in `crates/ambition_sandbox/src/features.rs`
+     defines tunable size/aggression bands (S/M/L), and `mob_lab` exercises
+     the matrix end-to-end.
+   - Next step: promote archetype tuning to engine-side `EnemySpec` once
+     the matrix stabilizes through more encounter use.
 
 5. **Audio backend**
    - The audio module renders procedural frames into Kira static sound data and plays them through typed music/SFX channels.

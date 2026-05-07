@@ -35,6 +35,9 @@
 - [x] `evaluate_character_ai` engine fn + per-brain knobs — see FEATURES.md → AI
 - [x] LDtk biome metadata → runtime resource → room music seam — see FEATURES.md → LDtk
 - [x] `SandboxAction::Interact` (gamepad RT + keyboard) — see FEATURES.md → input
+- [x] **Enter as menu-select in settings menu** — `MenuSelect` bound to Enter / NumpadEnter / Space / South / user's jump in [input.rs:342](crates/ambition_sandbox/src/input.rs#L342). Pause menu reads `actions.just_pressed(&SandboxAction::MenuSelect)`.
+- [x] **D-pad navigation in settings menu** — `MenuNavigate{Up,Down,Left,Right}` bound to `GamepadButton::DPad{Up,Down,Left,Right}` in [input.rs:331](crates/ambition_sandbox/src/input.rs#L331). Toggleable via `controls.dpad_menu_navigation`.
+- [x] **Controller dash hysteresis** — analog trigger goes through `update_trigger_edge` with release/press thresholds; trigger / button / both modes; per-input edge guards prevent jitter spam. [input.rs:488](crates/ambition_sandbox/src/input.rs#L488), [controls.rs:202](crates/ambition_sandbox/src/settings/controls.rs#L202).
 
 ---
 
@@ -48,9 +51,6 @@
   - Replace snap branches in [movement.rs:1287](crates/ambition_engine/src/movement.rs#L1287)
   - Re-run `repro_walls.rs` + add fuzz (see B)
 - [ ] **Double-tap-up Interact trigger** `[V4/D2]` — `Interact` action exists; the double-tap-up *gesture* binding may not. Audit door / NPC / save-point sites and ensure single-press Up never fires interact. Source: `tmp-todo-notes.txt`, feedback memory.
-- [ ] **Controller dash spam** `[V3/D1]` — holding dash on gamepad fires too often. Convert to `JustPressed` or add cooldown. Source: `tmp-todo-notes.txt`.
-- [ ] **D-pad inactive in settings menu** `[V3/D1]`. Source: `tmp-todo-notes.txt`.
-- [ ] **Enter as menu-select in settings menu** `[V3/D1]` — currently requires Jump. Add `MenuSelect` action bound to Enter + the gameplay select key. Source: `tmp-todo-notes.txt`.
 - [ ] **Glitchy platform behavior (intermittent)** `[V4/D3]` — vague repro. Add diagnostic logging on platform contact transitions. Bug record/replay (see C) would catch this. Source: `tmp-todo-notes.txt`.
 
 ## A — Sandbox expressiveness
@@ -135,6 +135,24 @@
 - [ ] Sync `mechanics_checklist.md` against landed BodyMode + Hadouken work `[V1/D1]`
 - [ ] Archive applied music-renderer overlay docs in `docs/` once their patches land `[V1/D1]`
 - [ ] Wire FEATURES.md update into a checklist when closing TODO items `[V2/D1]`
+
+## ♾ — Evergreen / perpetual
+
+> These never "complete" — they describe ongoing investments. When you hit a
+> hard task, ask: "is there a tool I could build that would make this and the
+> next ten of these easier?" If yes, log a Proposed item or attack it inline.
+
+- ♾ **Improve the programmatic LDtk map editor / authoring tools as needed.**
+  Whenever a level-authoring task feels painful (manual JSON edits, repeated
+  copy-paste, fragile coord math, validator surprises), pause and improve
+  `tools/validate_ambition_ldtk.py`, `crates/ambition_sandbox/src/room_builder.rs`,
+  programmatic LDtk authoring helpers, debug overlays, or the LDtk validator
+  warnings. Tooling investment compounds.
+- ♾ **Be on the lookout for tool-buildable pain points.** Any time a task
+  takes >30min of mechanical fiddling that a script could automate, write
+  the script. Log under `tools/` or `crates/ambition_sandbox/src/dev_tools.rs`.
+- ♾ **Keep `TODO.md` / `FEATURES.md` / source docs in sync with reality.**
+  Re-grep before claiming a TODO is "the bug". Many items here are stale.
 
 ## G — Story-arranged slice (resume after sandbox bar is met)
 

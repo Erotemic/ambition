@@ -135,6 +135,9 @@
             (
                 id: "long_lofi_drift",
                 display_name: "Long Lofi Drift",
+                // Pre-rendered via tools/audio/music_renderer (cue:
+                // long_lofi_drift). Skips the procedural synth path.
+                asset_path: Some("audio/music/generated/long_lofi_drift/full.ogg"),
                 arrangement: (
                     bpm: 72.0,
                     total_beats: 128.0,
@@ -212,6 +215,9 @@
             (
                 id: "pulse_drift_voyage",
                 display_name: "Pulse Drift Voyage",
+                // Pre-rendered via tools/audio/music_renderer (cue:
+                // pulse_drift_voyage). Skips the procedural synth path.
+                asset_path: Some("audio/music/generated/pulse_drift_voyage/full.ogg"),
                 arrangement: (
                     bpm: 92.0,
                     total_beats: 192.0,

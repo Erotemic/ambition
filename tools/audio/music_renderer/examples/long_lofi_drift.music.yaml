@@ -1,0 +1,293 @@
+schema: ambition.musicir.v1
+id: long_lofi_drift
+title: Long Lofi Drift
+seed: 20260507_2
+notes: >-
+  Extended companion to lofi_study_loop. Same A-minor lofi headspace but
+  ~4x the duration with broader harmonic motion -- voicings drift through
+  Phrygian and Dorian colors instead of staying on the i-iv-V loop. Default
+  sandbox music track. Replaces the procedural render_lofi_theme synth path
+  for long_lofi_drift to remove ~800ms of startup synth time.
+
+  Style targets: 72 BPM, 64-bar loop section, felt piano + Rhodes core,
+  upright bass with occasional walks, brushed jazz drums (slightly looser
+  than the study loop), warm pad, distant vibraphone, soft breath flute
+  for the cooler bridge sections. Lofi postprocess: lowpass + tape EQ.
+
+tempo:
+  bpm: 72
+meter:
+  beats_per_bar: 4
+  beat_unit: 4
+
+constraints:
+  voice_leading: minimize_motion
+  no_clusters: true
+
+render:
+  sample_rate: 48000
+  ogg_quality: 5
+  backend: fast
+  soundfont: /usr/share/sounds/sf2/TimGM6mb.sf2
+
+postprocess:
+  gain_db: -0.7
+  highpass_hz: 28
+  lowpass_hz: 8000
+  high_shelf_hz: 4000
+  high_shelf_db: -3.8
+  presence_low_hz: 1700
+  presence_high_hz: 3700
+  presence_db: -1.6
+  reverb_wet: 0.20
+  reverb_decay_seconds: 1.8
+  reverb_damping_hz: 4200
+  post_reverb_high_shelf_hz: 5000
+  post_reverb_high_shelf_db: -1.8
+  stereo_width: 0.12
+  compressor_threshold_db: -16.5
+  compressor_ratio: 3.5
+  compressor_attack_ms: 14.0
+  compressor_release_ms: 130.0
+  compressor_makeup_db: 1.7
+  compressor_knee_db: 6.0
+  limiter_drive: 1.04
+  normalize: true
+  target_peak_db: -1.7
+
+stem_postprocess:
+  highpass_hz: 26
+  reverb_wet: 0.07
+  reverb_decay_seconds: 1.1
+  reverb_damping_hz: 4200
+  stereo_width: 0.06
+  limiter_drive: 1.0
+  normalize: false
+  target_peak_db: -2.7
+
+instruments:
+  - {name: felt_piano,    group: piano,      program: acoustic_grand_piano, volume: 70, pan: 56, expression: 78}
+  - {name: rhodes,        group: piano,      program: electric_piano_1,     volume: 62, pan: 70, expression: 72}
+  - {name: warm_pad,      group: pad,        program: pad_warm,             volume: 38, pan: 64, expression: 60, modulation: 14}
+  - {name: upright_bass,  group: bass,       program: acoustic_bass,        volume: 76, pan: 50, expression: 84}
+  - {name: vibraphone,    group: glimmer,    program: vibraphone,           volume: 42, pan: 38, expression: 64}
+  - {name: breathy_flute, group: winds,      program: pan_flute,            volume: 48, pan: 76, expression: 70, modulation: 12}
+  - {name: jazz_drums,    group: percussion, is_drum: true,                 volume: 56, pan: 64, expression: 76}
+
+motifs:
+  - id: drift_call
+    root: A4
+    intervals: [0, 3, 5, 7, 5, 3, 0, -2]
+    rhythm:    [1.0, 0.5, 1.0, 0.5, 1.0, 0.5, 0.5, 1.0]
+    velocities: [0.62, 0.56, 0.66, 0.58, 0.64, 0.56, 0.54, 0.50]
+  - id: drift_answer
+    root: G4
+    intervals: [0, 2, 5, 3, -2, 0, 5, 7]
+    rhythm:    [0.5, 0.5, 1.0, 0.5, 1.0, 0.5, 1.0, 1.0]
+    velocities: [0.60, 0.54, 0.68, 0.58, 0.50, 0.60, 0.66, 0.62]
+  - id: bridge_breath
+    root: E5
+    intervals: [0, 2, 5, 7, 5, 0, -2, -5]
+    rhythm:    [0.75, 0.5, 1.0, 0.75, 0.5, 1.0, 0.5, 1.5]
+    velocities: [0.46, 0.50, 0.58, 0.54, 0.46, 0.50, 0.42, 0.48]
+  - id: distant_glint
+    root: A5
+    intervals: [0, 7, 12, 5, 0, -5]
+    rhythm:    [0.5, 1.0, 1.5, 0.5, 1.0, 1.5]
+    velocities: [0.42, 0.38, 0.50, 0.42, 0.36, 0.40]
+
+layer_templates:
+  warm_pad_chords:
+    kind: pad_chords
+    instruments: [warm_pad]
+    octave: 3
+    duration_beats: 4
+    velocity: 36
+    articulation: pad
+    voicing: wide
+    humanize_ms: 12
+    humanize_velocity_pct: 4
+  rhodes_chords:
+    kind: pad_chords
+    instruments: [rhodes]
+    octave: 4
+    duration_beats: 2
+    velocity: 48
+    articulation: normal
+    voicing: shell
+    humanize_ms: 16
+    humanize_velocity_pct: 6
+  bass_walk:
+    kind: bass_root_fifth
+    instrument: upright_bass
+    octave: 2
+    duration_beats: 1
+    velocity: 66
+    articulation: normal
+    humanize_ms: 10
+    humanize_velocity_pct: 6
+  brushed_loop:
+    kind: drum_pattern
+    instrument: jazz_drums
+    pattern: lofi_swing_brushes
+    velocity: 50
+    swing: 0.20
+    humanize_ms: 14
+    humanize_velocity_pct: 7
+
+playback:
+  mode: section_stem_matrix
+  loop_components:
+    - drift_loop
+  exit_policy:
+    request_outro: next_valid_exit_bar
+    fade_aggressive_stems_beats: 4
+    bridge_stems: [piano, pad, bass]
+    fade_stems: [glimmer, winds, percussion]
+
+state_map:
+  default:
+    section: drift_loop
+    stems:
+      piano: 0.85
+      pad: 0.65
+      bass: 0.75
+      glimmer: 0.50
+      winds: 0.45
+      percussion: 0.55
+
+sections:
+  - id: drift_loop
+    kind: loop_component
+    label: long drift
+    bars: 64
+    intensity: 0.42
+    density: 0.50
+    loopable: true
+    valid_exit_local_bars: [16, 32, 48, 64]
+    # 64 bars = 4 sub-phrases of 16 bars each. Each phrase visits a
+    # slightly different harmonic region: home (Am), bIII bright (C),
+    # bVI sub-mediant (F), then return through phrygian (Bbm) before
+    # cadencing back to Am. Voice leading stays close so the loop
+    # blends seamlessly.
+    harmony:
+      # Phrase A: home, classic ii-V-i flavor
+      - Am9
+      - Dm9
+      - G9
+      - Cmaj7
+      - Fmaj7
+      - Bm7b5
+      - E7b9
+      - Am9
+      - Am(add9)
+      - Dm11
+      - G13
+      - Cmaj9
+      - Fmaj7(#11)
+      - Bm7b5
+      - E7sus4
+      - Am9
+      # Phrase B: brighter, lifts toward C major
+      - Cmaj9
+      - Em9
+      - Am9
+      - Dm9
+      - G9
+      - Cmaj9
+      - Fmaj7
+      - Bm7b5
+      - Em7
+      - Am9
+      - Dm9
+      - G7sus4
+      - Cmaj7
+      - Fmaj7
+      - Bm7b5
+      - E7b9
+      # Phrase C: Phrygian color, sub-mediant pull
+      - Am(add9)
+      - Bbmaj7
+      - Fmaj7
+      - Cmaj7
+      - Dm9
+      - G7b9
+      - Am9
+      - Em7
+      - Fmaj9
+      - Bbmaj7
+      - Em7b5
+      - A7b9
+      - Dm9
+      - G7sus4
+      - Cmaj7
+      - E7b9
+      # Phrase D: return home, slowing the harmonic motion
+      - Am9
+      - Dm9
+      - G9
+      - Cmaj7
+      - Am9
+      - Dm9
+      - Bm7b5
+      - E7b9
+      - Am(add9)
+      - Em7
+      - Fmaj7
+      - Cmaj7
+      - Dm9
+      - G7sus4
+      - E7sus4
+      - Am9
+    layers:
+      - warm_pad_chords
+      - rhodes_chords
+      - bass_walk
+      - brushed_loop
+      - kind: motif
+        instrument: felt_piano
+        motif: drift_call
+        roots: [A4, G4, A4, F4]
+        starts:
+          - [4, 0.0]
+          - [20, 0.0]
+          - [40, 0.0]
+          - [56, 0.0]
+        velocity: 54
+        articulation: normal
+        humanize_ms: 20
+        humanize_velocity_pct: 6
+      - kind: motif
+        instrument: felt_piano
+        motif: drift_answer
+        roots: [G4, A4]
+        starts:
+          - [12, 0.0]
+          - [44, 0.0]
+        velocity: 50
+        articulation: normal
+        humanize_ms: 20
+        humanize_velocity_pct: 6
+      - kind: motif
+        instrument: breathy_flute
+        motif: bridge_breath
+        roots: [E5, F5]
+        starts:
+          - [28, 0.5]
+          - [60, 0.0]
+        velocity: 42
+        articulation: legato
+        humanize_ms: 22
+        humanize_velocity_pct: 7
+      - kind: motif
+        instrument: vibraphone
+        motif: distant_glint
+        roots: [A5, C5]
+        starts:
+          - [16, 1.5]
+          - [48, 1.0]
+          - [62, 0.5]
+        velocity: 36
+        articulation: bell
+        humanize_ms: 26
+        humanize_velocity_pct: 8

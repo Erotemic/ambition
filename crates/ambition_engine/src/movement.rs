@@ -3018,6 +3018,63 @@ mod tests {
     }
 
     #[test]
+    fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
+        // Counter-test to the passthrough rule: hazards stay
+        // dangerous even while climbing. A ladder threading through
+        // a hazard tile should still kill the player on contact --
+        // otherwise we've created an invincibility cheese.
+        use crate::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
+        let mut world = World::new(
+            "test",
+            Vec2::new(2000.0, 2000.0),
+            Vec2::new(50.0, 50.0),
+            Vec::new(),
+        );
+        world.climbable_regions.push(ClimbableRegion::new(
+            Aabb::new(Vec2::new(400.0, 600.0), Vec2::new(20.0, 400.0)),
+            ClimbableKind::Ladder,
+            ClimbableSpec::default(),
+        ));
+        // Hazard block in the ladder's path.
+        world.blocks.push(Block::hazard(
+            "hazard_in_ladder",
+            Vec2::new(380.0, 460.0),
+            Vec2::new(60.0, 16.0),
+        ));
+
+        let mut player = Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
+        player.body_mode = crate::player_state::BodyMode::Climbing;
+        player.climbable_contact = world.climbable_at(player.aabb());
+        let initial_pos = player.pos;
+        // Drive the climb upward toward the hazard.
+        let mut hazard_fired = false;
+        for _ in 0..120 {
+            let evs = update_player_with_tuning(
+                &world,
+                &mut player,
+                InputState {
+                    axis_y: -1.0,
+                    control_dt: 1.0 / 60.0,
+                    ..InputState::default()
+                },
+                1.0 / 60.0,
+                DEFAULT_TUNING,
+            );
+            if evs.hazard {
+                hazard_fired = true;
+                break;
+            }
+            player.body_mode = crate::player_state::BodyMode::Climbing;
+        }
+        assert!(
+            hazard_fired,
+            "hazard in the ladder column should still kill the player while climbing; \
+             initial_pos={:?}, final_pos={:?}",
+            initial_pos, player.pos
+        );
+    }
+
+    #[test]
     fn non_climbing_player_still_collides_with_solid_blocks_overlapping_ladder() {
         // Counter-test: NOT in Climbing mode, the same platform
         // blocks the player as normal. The passthrough is only active

@@ -1,0 +1,17 @@
+entities:
+  - identifier: MovingPlatform
+    color: "#5BA1FF"
+    width: 160
+    height: 18
+    docs: |
+      Author-driven horizontal moving platform. The entity's `pos` and
+      `width/height` define the platform's starting AABB; `sweep_dx`
+      controls the horizontal travel range (positive sweeps right then
+      ping-pongs back, negative sweeps left first). `speed` is in
+      world px/s. The runtime overrides the legacy hardcoded sandbox
+      time-reference platform with the first authored MovingPlatform
+      found in the active LDtk area.
+    fields:
+      - { name: name,     type: String, default: "Moving Platform" }
+      - { name: sweep_dx, type: Float,  default: 240.0 }
+      - { name: speed,    type: Float,  default: 130.0 }

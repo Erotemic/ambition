@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 4248,
+	"nextUid": 4253,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -4144,6 +4144,169 @@
 						"allowedRefsEntityUid": null,
 						"allowedRefTags": [],
 						"tilesetUid": null
+					}
+				]
+			},
+			{
+				"identifier": "MovingPlatform",
+				"uid": 4251,
+				"tags": [],
+				"exportToToc": false,
+				"allowOutOfBounds": true,
+				"doc": "Author-driven horizontal moving platform. The entity's `pos` and\n`width/height` define the platform's starting AABB; `sweep_dx`\ncontrols the horizontal travel range (positive sweeps right then\nping-pongs back, negative sweeps left first). `speed` is in\nworld px/s. The runtime overrides the legacy hardcoded sandbox\ntime-reference platform with the first authored MovingPlatform\nfound in the active LDtk area.\n",
+				"tileOpacity": 1.0,
+				"lineOpacity": 1.0,
+				"fillOpacity": 0.08,
+				"hollow": false,
+				"color": "#5BA1FF",
+				"renderMode": "Rectangle",
+				"showName": true,
+				"tilesetId": null,
+				"tileRenderMode": "FitInside",
+				"tileRect": null,
+				"uiTileRect": null,
+				"nineSliceBorders": [],
+				"maxCount": 0,
+				"limitScope": "PerLevel",
+				"limitBehavior": "MoveLastOne",
+				"pivotX": 0,
+				"pivotY": 0,
+				"tileId": null,
+				"width": 160,
+				"height": 18,
+				"resizableX": true,
+				"resizableY": true,
+				"minWidth": null,
+				"maxWidth": null,
+				"minHeight": null,
+				"maxHeight": null,
+				"keepAspectRatio": false,
+				"fieldDefs": [
+					{
+						"identifier": "name",
+						"doc": null,
+						"__type": "String",
+						"uid": 4248,
+						"type": "F_String",
+						"isArray": false,
+						"canBeNull": true,
+						"arrayMinLength": null,
+						"arrayMaxLength": null,
+						"editorDisplayMode": "RefLinkBetweenCenters",
+						"editorDisplayPos": "Above",
+						"editorDisplayScale": 1.0,
+						"editorDisplayColor": null,
+						"editorAlwaysShow": false,
+						"editorCutLongValues": true,
+						"editorShowInWorld": true,
+						"editorTextSuffix": null,
+						"editorTextPrefix": null,
+						"editorLinkStyle": "CurvedArrow",
+						"useForSmartColor": false,
+						"min": null,
+						"max": null,
+						"regex": null,
+						"acceptFileTypes": null,
+						"tilesetUid": null,
+						"defaultOverride": {
+							"id": "V_String",
+							"params": [
+								"Moving Platform"
+							]
+						},
+						"textLanguageMode": null,
+						"symmetricalRef": false,
+						"autoChainRef": true,
+						"allowOutOfLevelRef": true,
+						"allowedRefs": "Any",
+						"allowedRefsEntityUid": null,
+						"allowedRefTags": [],
+						"exportToToc": false,
+						"searchable": true
+					},
+					{
+						"identifier": "sweep_dx",
+						"doc": null,
+						"__type": "Float",
+						"uid": 4249,
+						"type": "F_Float",
+						"isArray": false,
+						"canBeNull": true,
+						"arrayMinLength": null,
+						"arrayMaxLength": null,
+						"editorDisplayMode": "RefLinkBetweenCenters",
+						"editorDisplayPos": "Above",
+						"editorDisplayScale": 1.0,
+						"editorDisplayColor": null,
+						"editorAlwaysShow": false,
+						"editorCutLongValues": true,
+						"editorShowInWorld": true,
+						"editorTextSuffix": null,
+						"editorTextPrefix": null,
+						"editorLinkStyle": "CurvedArrow",
+						"useForSmartColor": false,
+						"min": null,
+						"max": null,
+						"regex": null,
+						"acceptFileTypes": null,
+						"tilesetUid": null,
+						"defaultOverride": {
+							"id": "V_Float",
+							"params": [
+								240.0
+							]
+						},
+						"textLanguageMode": null,
+						"symmetricalRef": false,
+						"autoChainRef": true,
+						"allowOutOfLevelRef": true,
+						"allowedRefs": "Any",
+						"allowedRefsEntityUid": null,
+						"allowedRefTags": [],
+						"exportToToc": false,
+						"searchable": true
+					},
+					{
+						"identifier": "speed",
+						"doc": null,
+						"__type": "Float",
+						"uid": 4250,
+						"type": "F_Float",
+						"isArray": false,
+						"canBeNull": true,
+						"arrayMinLength": null,
+						"arrayMaxLength": null,
+						"editorDisplayMode": "RefLinkBetweenCenters",
+						"editorDisplayPos": "Above",
+						"editorDisplayScale": 1.0,
+						"editorDisplayColor": null,
+						"editorAlwaysShow": false,
+						"editorCutLongValues": true,
+						"editorShowInWorld": true,
+						"editorTextSuffix": null,
+						"editorTextPrefix": null,
+						"editorLinkStyle": "CurvedArrow",
+						"useForSmartColor": false,
+						"min": null,
+						"max": null,
+						"regex": null,
+						"acceptFileTypes": null,
+						"tilesetUid": null,
+						"defaultOverride": {
+							"id": "V_Float",
+							"params": [
+								130.0
+							]
+						},
+						"textLanguageMode": null,
+						"symmetricalRef": false,
+						"autoChainRef": true,
+						"allowOutOfLevelRef": true,
+						"allowedRefs": "Any",
+						"allowedRefsEntityUid": null,
+						"allowedRefTags": [],
+						"exportToToc": false,
+						"searchable": true
 					}
 				]
 			}
@@ -37369,6 +37532,77 @@
 											"id": "V_Bool",
 											"params": [
 												true
+											]
+										}
+									]
+								}
+							]
+						},
+						{
+							"__identifier": "MovingPlatform",
+							"__grid": [
+								28,
+								10
+							],
+							"__pivot": [
+								0,
+								0
+							],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#5BA1FF",
+							"__worldX": 454,
+							"__worldY": 168,
+							"iid": "MovingPlatform-4252",
+							"width": 160,
+							"height": 18,
+							"defUid": 4251,
+							"px": [
+								454,
+								168
+							],
+							"fieldInstances": [
+								{
+									"__identifier": "name",
+									"__type": "String",
+									"__value": "Time-reference platform",
+									"__tile": null,
+									"defUid": 4248,
+									"realEditorValues": [
+										{
+											"id": "V_String",
+											"params": [
+												"Time-reference platform"
+											]
+										}
+									]
+								},
+								{
+									"__identifier": "sweep_dx",
+									"__type": "Float",
+									"__value": 360.0,
+									"__tile": null,
+									"defUid": 4249,
+									"realEditorValues": [
+										{
+											"id": "V_Float",
+											"params": [
+												360.0
+											]
+										}
+									]
+								},
+								{
+									"__identifier": "speed",
+									"__type": "Float",
+									"__value": 130.0,
+									"__tile": null,
+									"defUid": 4250,
+									"realEditorValues": [
+										{
+											"id": "V_Float",
+											"params": [
+												130.0
 											]
 										}
 									]

@@ -930,6 +930,7 @@ impl LdtkProject {
         let mut objects = Vec::new();
         let mut water_regions = Vec::new();
         let mut climbable_regions = Vec::new();
+        let mut moving_platform: Option<crate::platforms::MovingPlatformState> = None;
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -961,6 +962,9 @@ impl LdtkProject {
                         loading_zones.extend(emission.zones);
                         objects.extend(emission.objects);
                         water_regions.extend(emission.water_regions);
+                        if moving_platform.is_none() {
+                            moving_platform = emission.moving_platform;
+                        }
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -1028,6 +1032,7 @@ impl LdtkProject {
             },
             loading_zones,
             metadata,
+            moving_platform,
         })
     }
 
@@ -1118,6 +1123,10 @@ struct RuntimeEntityEmission {
     zones: Vec<LoadingZone>,
     objects: Vec<ae::RoomObject>,
     water_regions: Vec<ae::WaterRegion>,
+    /// LDtk-authored moving platform. Today the sandbox runtime stores
+    /// a single `MovingPlatformState`; if multiple `MovingPlatform`
+    /// entities are placed in the same area, only the first is used.
+    moving_platform: Option<crate::platforms::MovingPlatformState>,
     ignored: bool,
 }
 
@@ -1153,6 +1162,13 @@ impl RuntimeEntityEmission {
     fn water_region(region: ae::WaterRegion) -> Self {
         Self {
             water_regions: vec![region],
+            ..Self::default()
+        }
+    }
+
+    fn moving_platform(state: crate::platforms::MovingPlatformState) -> Self {
+        Self {
+            moving_platform: Some(state),
             ..Self::default()
         }
     }
@@ -1368,6 +1384,21 @@ fn entity_to_runtime(
                 ae::WaterKind::Clear,
                 spec,
             )))
+        }
+        "MovingPlatform" => {
+            // LDtk entity bounds → starting AABB. The platform sweeps
+            // horizontally by `sweep_dx` from the start position, at
+            // `speed` px/s, ping-ponging at the bounds. Defaults match
+            // the legacy `time_reference` platform so an authored
+            // entity with no overrides reproduces the previous feel.
+            let start_pos = min + size * 0.5;
+            let sweep_dx = field_f32(entity, "sweep_dx").unwrap_or(240.0);
+            let speed = field_f32(entity, "speed").unwrap_or(130.0);
+            Ok(RuntimeEntityEmission::moving_platform(
+                crate::platforms::MovingPlatformState::from_authored(
+                    start_pos, size, sweep_dx, speed,
+                ),
+            ))
         }
         "CameraZone" | "StitchedBoundary" => Ok(RuntimeEntityEmission::ignored()),
         // EncounterTrigger entities are read by `crate::encounter::load_encounter_specs_from_ldtk`
@@ -2318,6 +2349,35 @@ mod tests {
         ) && object
             .name
             .contains("clockwork warden")));
+    }
+
+    #[test]
+    fn embedded_ldtk_central_hub_carries_authored_moving_platform() {
+        // The legacy hardcoded `MovingPlatformState::time_reference` was
+        // replaced by an LDtk-authored `MovingPlatform` entity in
+        // `central_hub_basement`. This test ensures the entity reaches
+        // the RoomSpec via the parser + emission path so the runtime can
+        // override its fallback. Keeping the fallback in place means
+        // dropping the entity from the .ldtk would just silently revert
+        // to the time_reference defaults; the test catches that regression.
+        let project = LdtkProject::load_embedded();
+        let room_set = project.to_room_set().expect("embedded LDtk should compose");
+        let hub = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id == "central_hub_complex")
+            .expect("central hub active area exists");
+        let platform = hub
+            .moving_platform
+            .expect("central_hub_basement should author a MovingPlatform entity");
+        assert!(
+            platform.size.x > 100.0 && platform.size.y > 0.0,
+            "platform AABB authored from LDtk size, got {:?}",
+            platform.size
+        );
+        // Authored sweep_dx is positive → platform starts at min_x and
+        // travels right initially.
+        assert_eq!(platform.direction(), 1.0);
     }
 
     #[test]

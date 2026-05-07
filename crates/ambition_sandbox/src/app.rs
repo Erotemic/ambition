@@ -2151,7 +2151,10 @@ fn reload_ldtk_world_from_disk(
     runtime.player.pos = transaction.safe_player_pos;
     runtime.player.refresh_movement_resources(tuning);
     runtime.last_safe_player_pos = transaction.safe_player_pos;
-    runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
+    runtime.moving_platform = transaction
+        .next_spec
+        .moving_platform
+        .unwrap_or_else(|| platforms::MovingPlatformState::time_reference(&world.0));
     runtime.features = features::FeatureRuntime::from_world(&world.0);
     runtime.dialogue.close();
     runtime.hitstop_timer = 0.0;
@@ -2257,7 +2260,9 @@ fn load_room(
     runtime.last_safe_player_pos = runtime.player.pos;
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
-    runtime.moving_platform = platforms::MovingPlatformState::time_reference(&world.0);
+    runtime.moving_platform = spec
+        .moving_platform
+        .unwrap_or_else(|| platforms::MovingPlatformState::time_reference(&world.0));
     runtime.features = features::FeatureRuntime::from_world(&world.0);
     runtime.dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a

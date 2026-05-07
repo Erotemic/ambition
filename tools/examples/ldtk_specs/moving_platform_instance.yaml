@@ -1,0 +1,9 @@
+level_id: central_hub_basement
+entities:
+  - type: MovingPlatform
+    px: [454, 168]
+    size: [160, 18]
+    fields:
+      name: "Time-reference platform"
+      sweep_dx: 360.0
+      speed: 130.0

@@ -42,6 +42,31 @@ impl MovingPlatformState {
         }
     }
 
+    /// Build from LDtk-authored AABB + sweep range. The AABB defines the
+    /// platform's starting position + size; `sweep_dx` is the horizontal
+    /// travel distance (positive sweeps right then ping-pongs back, negative
+    /// sweeps left first). Speed is in world px/s.
+    ///
+    /// Yields a platform whose travel range is `[start_x, start_x +
+    /// sweep_dx]` (or swapped when `sweep_dx < 0`), sweeping at constant
+    /// `speed` and ping-ponging at the bounds.
+    pub fn from_authored(start_pos: ae::Vec2, size: ae::Vec2, sweep_dx: f32, speed: f32) -> Self {
+        let (min_x, max_x) = if sweep_dx >= 0.0 {
+            (start_pos.x, start_pos.x + sweep_dx)
+        } else {
+            (start_pos.x + sweep_dx, start_pos.x)
+        };
+        let dir = if sweep_dx >= 0.0 { 1.0 } else { -1.0 };
+        Self {
+            pos: start_pos,
+            size,
+            min_x,
+            max_x,
+            speed: speed.max(0.0),
+            dir,
+        }
+    }
+
     /// Advance the platform and return its displacement this frame.
     pub fn update(&mut self, dt: f32) -> ae::Vec2 {
         let old = self.pos;

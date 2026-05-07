@@ -142,6 +142,13 @@ pub struct RoomSpec {
     pub world: ae::World,
     pub loading_zones: Vec<LoadingZone>,
     pub metadata: RoomMetadata,
+    /// Optional LDtk-authored moving platform for this area. When
+    /// present, the sandbox runtime overrides its hardcoded
+    /// `MovingPlatformState::time_reference` fallback with this. Only
+    /// the first MovingPlatform entity in an area is used today
+    /// (sandbox runtime stores a single platform); future support for
+    /// multiple platforms per room would lift this to a Vec.
+    pub moving_platform: Option<crate::platforms::MovingPlatformState>,
 }
 
 #[derive(Clone, Debug)]
@@ -647,6 +654,7 @@ mod metadata_tests {
             world: empty_world(id),
             loading_zones: Vec::new(),
             metadata: meta,
+            moving_platform: None,
         }
     }
 

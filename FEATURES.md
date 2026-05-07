@@ -23,6 +23,11 @@ Status badges:
 - **`PlayerDiedMessage` (Bevy 0.18 Message API)** `[stable]` — replaces the previous `SandboxRuntime::player_died_pending` bool. `death_respawn_player` pushes into `FrameFeedback.died`; `flush_feedback` drains into `MessageWriter`; `update_encounters_from_world` reads `MessageReader<PlayerDiedMessage>`. Keeps the runtime resource a pure state store. [lib.rs:67](crates/ambition_sandbox/src/lib.rs#L67), [app.rs:2172](crates/ambition_sandbox/src/app.rs#L2172).
 - **`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`** `[stable]` — Vec-collector → MessageWriter pattern documented in `docs/events_refactor_plan.md`. [audio.rs:53](crates/ambition_sandbox/src/audio.rs#L53), [fx.rs](crates/ambition_sandbox/src/fx.rs).
 
+## Engine primitives (source-agnostic)
+
+- **`World::water_at` + `WaterContact`** `[stable]` — single query API for "is the player in water?"; movement caches `Player.water_contact` once per tick. Source-agnostic: backend is unchanged whether the water came from LDtk IntGrid, an LDtk entity, or generated content. [world.rs](crates/ambition_engine/src/world.rs).
+- **`World::climbable_at` + `ClimbableContact` + `Player.climbable_contact`** `[stable]` — mirror of the water pattern for ladders / walls / vines. `ClimbableKind::{Ladder, Wall, Vine}` for sprite/sfx branching, `ClimbableSpec { climb_speed, strafe_factor }` for per-region tuning, default speed 180 px/sec (slower than walk so climbing reads deliberate). Engine-side primitive plus `Player.climbable_contact` populated once per tick. Movement does not yet consume the contact — that's the BodyMode::Climbing integration slice. Authoring layer (LDtk IntGrid value or entity option) and sprite wiring are also follow-up. [world.rs](crates/ambition_engine/src/world.rs), [movement.rs](crates/ambition_engine/src/movement.rs).
+
 ## Engine — physics & player state
 
 - **Wall-jump OOB fix via `body_is_side_contact`** `[stable]` — guards `sweep_player_y` from snap-direction tunneling on edge-touching walls. [movement.rs:1321](crates/ambition_engine/src/movement.rs#L1321). Commit `4002b4d` (Catch edge-touching wall side-contact in y-sweep).

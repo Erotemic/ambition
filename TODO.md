@@ -13,7 +13,7 @@
 > Jon moves Proposed items into `## Accepted` (with a tier letter) or `## Rejected`.
 >
 > Last full re-audit: 2026-05-07 (against `git log --all`).
-> Test count: 570 across `cargo test --workspace` (added 8 in `rl::tests`).
+> Test count: 575 across `cargo test --workspace` (rl + climbable engine/sandbox additions).
 
 ## Status legend
 - `[ ]` not started · `[~]` scaffolded but not feature-complete · `[x]` recently completed (kept here briefly so it doesn't get re-added)
@@ -59,10 +59,10 @@
 ## A — Sandbox expressiveness
 
 ### Mechanics & combat
-- [ ] **Ladder + climbable-zone primitive** `[V4/D3]` — needed before ladder sprite wiring.
-  - `ClimbableZone` component
-  - Engine state: climb up/down, dismount
-  - LDtk IntGrid value + entity option
+- [~] **Ladder + climbable-zone primitive** `[V4/D3]` — engine primitive landed 2026-05-07: `ClimbableRegion`, `ClimbableKind::{Ladder,Wall,Vine}`, `ClimbableSpec`, `World::climbable_at`, `Player.climbable_contact`, plus surfacing in `AgentObservation`. Six engine tests pin geometry + wiring. Remaining:
+  - Movement: `BodyMode::Climbing` (or movement-level "climbing" flag) that suspends gravity and converts axis_y to `climb_speed * dt` while contact is held
+  - LDtk authoring: IntGrid value + Entity option ("Ladder", "Vine", "ClimbableWall") + repair/round-trip pass
+  - Sprite wiring: ladder_tile.png (already in TODO)
 - [ ] **Ledge grab + climb-up promotion to engine** `[V4/D3]` — move `LedgeProbe`, `Ability::ledge_grab`, state branch into `ambition_engine::player_state` (currently sandbox-side). Add diagonal-corner probe test. Climb-up animation slot separate from grab.
 - [x] **NPCs become enemies on hit (in certain circumstances)** — already wired. `NPC_HOSTILE_STRIKE_THRESHOLD = 3` flips NPCs hostile after three player strikes; `apply_save` then replaces the `NpcRuntime` with an `EnemyRuntime` carrying the same id. Hostility persists via `npc_<id>_hostile` save flag. Tested by `striking_npc_three_times_flips_them_hostile` + `apply_save_with_hostile_flag_replaces_npc_with_enemy`. [features.rs:2413](crates/ambition_sandbox/src/features.rs#L2413).
 - [~] **More enemy varieties (S/M/L × aggression bands)** `[V4/D4]` — `EnemyArchetype` now has 7 combat archetypes (Combatant, SmallSkitter, SmallLurker, MediumStriker, LargeBrute, LargeColossus, AggressiveSeeker) plus 2 sandbag training variants. Cross-axis invariants tested (HP grows with size; aggro radius grows with aggression; damage scales). LDtk authors enable any of them with `EnemySpawn::brain` set to the brain id (e.g. `large_colossus`). Remaining for the full 9-cell matrix: dedicated low-aggression Medium and high-aggression Medium/Small variants. Authoring trivial — add to `EnemyArchetype::from_brain` and the per-archetype tuning matches.
@@ -157,7 +157,14 @@
 > tier sections above without explicit acceptance. Format: one bullet, V/D
 > guess, source/context, ~2 lines max.
 
-*(empty — populate as ideas arise)*
+- **PyO3 binding for `SandboxSim`** `[V3/D3]` — wraps `SandboxSim::{new, step, observation, reset_episode}` + `AgentAction` / `AgentObservation` as a Python module. Lets RL research code in Python drive the sim without writing Rust glue. Source: SandboxSim landed 2026-05-07 with deterministic stepping; the FFI shape is already designed (owned types, no lifetimes).
+- **Fixture trace + replay regression test in CI** `[V3/D2]` — capture a 600-frame deterministic-mode trace through `central_hub_complex` + a known-tight scripted sequence (jump / dash / blink / interact). Commit it as `tests/fixtures/replay_central_hub_v1.json`. Add an integration test that runs `trace_replay` against it + asserts zero divergence. Pins many gameplay invariants in one shot. Source: `trace_replay` landed 2026-05-07.
+- **Random-walker fuzz integration test** `[V3/D2]` — `tests/fuzz_random_walker.rs` runs `SandboxSim::new` + 10 different LCG seeds × 200 steps each + asserts no panic / no OOB / hp stays > 0. Catches "any of these inputs panic" regressions in pure Rust without needing the visible binary. Source: rl_random_walker binary landed 2026-05-07.
+- **Movement-level `climbing` flag + `BodyMode::Climbing`** `[V4/D3]` — completes the ladder primitive: when `climbable_contact.is_some()` and player presses Up/Down, suspend gravity and translate axis_y to vertical motion at `climbable_contact.spec.climb_speed`. Exit on Jump (push off) or Down-from-bottom (drop off). Source: TODO A ladder primitive engine types landed 2026-05-07; movement integration is the remaining slice.
+- **LDtk authoring: ladder IntGrid value + entity options** `[V4/D2]` — extend `tools/validate_ambition_ldtk.py` and the runtime spine to recognize a `Ladder` / `Vine` / `ClimbableWall` IntGrid value (or an Entity with a `kind` enum) and populate `World::climbable_regions` from them. Source: ladder primitive landed 2026-05-07; authoring layer is the next dependency.
+- **Boss music binding extension to `BossEncounterRegistry`** `[V4/D3]` — `MusicCueCatalog::encounter_bindings` currently only watches `EncounterRegistry` (mob waves). Extend to also bind `BossEncounterPhase` (Intro/Phase1/Transition/Phase2/Stagger/Enrage) to cue states. Currently `boss_encounter.rs` already publishes `MusicRequested { track }` per phase — we just need the cue side to resolve those into adaptive states. Authored audio assets are still needed for the actual audio change. Source: TODO B `[V4/D3]` audited 2026-05-07; engine wiring is straightforward, audio authoring is the gating cost.
+
+*(more ideas below)*
 
 ## Accepted
 

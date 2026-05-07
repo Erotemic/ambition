@@ -17,8 +17,12 @@ recommendation column is opinionated and call-out the alternatives.
 - Two-crate workspace: `ambition_engine` + `ambition_sandbox`. Sandbox
   build is ~10 min clean, multi-minute incremental — the dominant cost
   per ADR 0013. The crate mixes simulation, presentation, audio, LDtk
-  authoring, devtools, physics, content. ADR 0012 already identifies the
-  cross-cutting events problem; some of its slices have landed.
+  authoring, devtools, physics, content. ADR 0012 already identified the
+  cross-cutting events problem; **all five of its slices have landed**
+  (audio / VFX / debris / setup-split / app-builder-split — see ADR
+  0012's "Implementation progress (as of 2026-05-07)" section). The
+  follow-on threads (crate refactor, IntGrid LDtk migration, bug
+  record/replay) build on the landed seam.
 - **An audio agent is in flight in parallel** — owns `audio.rs`,
   `pause_menu.rs` music wiring, and related work. Anything new this
   session must avoid touching audio code paths.

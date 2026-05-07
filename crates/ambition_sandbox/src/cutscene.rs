@@ -327,4 +327,34 @@ mod skip_request_tests {
         };
         assert!((req.skip_progress() - 0.5).abs() < 1e-4);
     }
+
+    #[test]
+    fn default_cutscene_library_includes_test_intro() {
+        let lib = default_cutscene_library();
+        assert!(lib.get("test_intro").is_some());
+    }
+
+    #[test]
+    fn default_cutscene_library_includes_boss_intro() {
+        let lib = default_cutscene_library();
+        assert!(lib.get("boss_intro_gradient_sentinel").is_some());
+    }
+
+    #[test]
+    fn default_room_cutscene_bindings_link_hub_to_test_intro() {
+        let bindings = RoomCutsceneBindings::defaults();
+        // Hub plays the test_intro cutscene on first entry.
+        assert!(bindings
+            .bindings
+            .iter()
+            .any(|(room, cs)| room == "central_hub_main" && cs == "test_intro"));
+    }
+
+    #[test]
+    fn cutscene_trigger_queue_request_appends() {
+        let mut queue = CutsceneTriggerQueue::default();
+        queue.request("a");
+        queue.request("b");
+        assert_eq!(queue.0, vec!["a".to_string(), "b".to_string()]);
+    }
 }

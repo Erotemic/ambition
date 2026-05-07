@@ -1,0 +1,135 @@
+# Ladder lab — climbable-zone proof room.
+#
+# Demonstrates the ladder primitive (`World::climbable_at` +
+# `Player.climbable_contact` + `BodyMode::Climbing` + `integrate_climb`).
+# Tall vertical room with a single ladder running floor-to-ceiling on
+# the right side; player must climb to reach a platform with a chest.
+#
+# Layout (768 wide × 1024 tall, two-floor proportions):
+#
+#   +----------------------------------------+
+#   |                          [chest]       |
+#   |                          ▒▒▒▒▒  ←-- upper platform reachable via ladder
+#   |                            ║          |
+#   |                            ║          |
+#   |                            ║          |  ← Climbable IntGrid column
+#   |                            ║          |
+#   |                            ║          |
+#   |  [PlayerStart]             ║          |
+#   |  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
+#   |  [LoadingZone: ladder_door → basement] |
+#   +----------------------------------------+
+#
+# Body geometry math (player base size 28x46):
+# - Floor at y=992, height 32 → floor.top = 992, body feet at y=992.
+# - Standing player on floor: top at y=946.
+# - Ladder column: x=560..592 (32 px wide, GRID-aligned), y=160..992
+#   (floor-to-ceiling). Player center inside the column lets the
+#   AABB intersection populate `climbable_contact`.
+# - Upper platform: y=160..192, x=480..672.  Stepping off the top of
+#   the ladder onto the platform is the success condition.
+#
+# The Climbable IntGrid layer needs to be added to the LDtk project's
+# layer defs (separate from Collision and Water) before this spec can
+# be applied. Tool support: `tools/author_ldtk_area.py` currently
+# only handles the Collision IntGrid; extending it to also paint the
+# Climbable layer is in TODO.md.
+#
+# Once tooling lands:
+#   python tools/author_ldtk_area.py tools/examples/ldtk_specs/ladder_lab.yaml --dry-run
+#   python tools/author_ldtk_area.py tools/examples/ldtk_specs/ladder_lab.yaml
+#
+# And add a corresponding LoadingZone inside central_hub_basement
+# pointing at this room (the user's instruction: "if there are new
+# rooms, there needs to be a way to access those rooms from a door
+# in the basement").
+
+id: ladder_lab
+level_id: ladder_lab
+world_x: 30000
+world_y: 1024
+px_wid: 768
+px_hei: 1024
+fill_collision: empty
+
+# IntGrid layers this spec paints. Authoring tool currently only
+# handles Collision; the `climbable` block is read by a future
+# extension that lowers cells into the runtime's Climbable layer.
+intgrid:
+  collision:
+    # default-empty; entities listed below paint Solid cells
+  climbable:
+    - kind: Ladder
+      px: [560, 160]
+      size: [32, 832]   # floor (y=992) up to upper platform bottom (y=160)
+
+entities:
+  # Floor across the whole room.
+  - type: Solid
+    px: [0, 992]
+    size: [768, 32]
+    fields: { name: floor }
+
+  # Outer side walls.
+  - type: Solid
+    px: [0, 0]
+    size: [16, 992]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [752, 0]
+    size: [16, 992]
+    fields: { name: right_wall }
+
+  # Roof of the room.
+  - type: Solid
+    px: [16, 0]
+    size: [736, 32]
+    fields: { name: ceiling }
+
+  # Upper platform (the climb destination).
+  - type: Solid
+    px: [480, 160]
+    size: [192, 32]
+    fields: { name: upper_platform }
+
+  # Player spawns on the left, far from the ladder.
+  - type: PlayerStart
+    px: [80, 946]
+    size: [28, 46]
+    fields: { name: ladder_lab_spawn }
+
+  # Reward chest on the upper platform.
+  - type: ChestSpawn
+    px: [600, 144]
+    size: [24, 24]
+    fields:
+      id: ladder_lab_chest
+      name: ladder_lab_chest
+      reward: Health
+      reward_amount: 2
+
+  # Loading zone back to the basement hub.
+  - type: LoadingZone
+    px: [16, 896]
+    size: [48, 96]
+    fields:
+      id: ladder_door
+      name: ladder_door
+      activation: Door
+      target_room: central_hub_basement
+      target_zone: ladder_door
+      bidirectional: true
+
+  # Camera zone covering the room.
+  - type: CameraZone
+    px: [0, 0]
+    size: [768, 1024]
+    fields: { id: ladder_lab_camera, name: ladder_lab_camera, mode: Default }
+
+  - type: DebugLabel
+    px: [80, 80]
+    size: [400, 24]
+    fields:
+      name: ladder_lab_intro
+      text: "Press Up against the ladder to climb to the chest."
+      category: Custom

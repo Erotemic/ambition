@@ -154,6 +154,17 @@
   placeholder to the LDtk entity def, or document the existing
   authoring path so authors don't get confused.
 
+## Accepted / In-flight (Jon-tagged)
+
+- **Android demo touch controls via `virtual_joystick` + `ControlFrame` bridge** `[V3/D3]` — add an optional mobile input path that keeps Leafwing for keyboard/gamepad but translates Bevy touch joystick/buttons into the existing `ControlFrame` seam. Goal is a sideloadable Pixel 5 demo, not polished mobile UX. Source: Android demo discussion; `virtual_joystick` 2.7.x matches Bevy 0.18 and avoids hand-rolling virtual sticks.
+  - Add optional `mobile_touch` feature on `ambition_sandbox` pulling `virtual_joystick = { version = "2.7.2", default-features = false }`.
+  - Add `mobile_input.rs` with `MobileStick::{Move,Aim}` and systems that read `VirtualJoystickMessage<MobileStick>` into `ControlFrame::{axis_x,axis_y,aim_x,aim_y}`; preserve Ambition's +Y-down convention.
+  - Add simple Bevy UI touch buttons/zones for `Jump`, `Attack`, `Dash`, `Blink`, `Interact`, `Projectile`, `Start`, and `Reset`, writing the corresponding `ControlFrame` edge/held fields.
+  - Register the mobile systems only behind `mobile_touch` and only in the visible/presentation half, so `SandboxSim`, headless, keyboard, and gamepad paths remain unchanged.
+  - Keep Leafwing as the canonical desktop/gamepad mapper; do not replace `SandboxAction` until the mobile demo proves the shape.
+  - Add a tiny smoke/test seam: a pure helper that folds a synthetic joystick axis + button state into `ControlFrame`, with tests for deadzone/sign/edge semantics.
+  - Document Android demo controls in a focused doc or `CURRENT_STATE.md` note, and move this entry to `FEATURES.md` if the APK boots and the sandbox can move/jump/dash on-device.
+
 ## Proposed (agent drop-zone — Jon triages into Accepted / Rejected)
 
 > Agents may append new TODO directions here freely. Do not insert into the

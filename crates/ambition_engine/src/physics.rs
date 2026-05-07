@@ -211,4 +211,45 @@ mod tests {
         spec.piece_count = 0;
         assert!(!spec.is_valid());
     }
+
+    #[test]
+    fn physics_shape_box_validates_half_size() {
+        assert!(PhysicsShape::Box {
+            half_size: Vec2::new(1.0, 1.0),
+        }
+        .is_valid());
+        // Zero or negative half-size is invalid.
+        assert!(!PhysicsShape::Box {
+            half_size: Vec2::new(0.0, 1.0),
+        }
+        .is_valid());
+        assert!(!PhysicsShape::Box {
+            half_size: Vec2::new(-1.0, 1.0),
+        }
+        .is_valid());
+        // NaN is rejected.
+        assert!(!PhysicsShape::Box {
+            half_size: Vec2::new(f32::NAN, 1.0),
+        }
+        .is_valid());
+    }
+
+    #[test]
+    fn physics_shape_circle_validates_radius() {
+        assert!(PhysicsShape::Circle { radius: 5.0 }.is_valid());
+        assert!(!PhysicsShape::Circle { radius: 0.0 }.is_valid());
+        assert!(!PhysicsShape::Circle { radius: -2.0 }.is_valid());
+        assert!(!PhysicsShape::Circle {
+            radius: f32::INFINITY,
+        }
+        .is_valid());
+    }
+
+    #[test]
+    fn physics_material_default_is_finite_and_in_range() {
+        let m = PhysicsMaterial::default();
+        assert!(m.friction.is_finite() && m.friction >= 0.0);
+        assert!(m.restitution.is_finite() && m.restitution >= 0.0);
+        assert!(m.density.is_finite() && m.density > 0.0);
+    }
 }

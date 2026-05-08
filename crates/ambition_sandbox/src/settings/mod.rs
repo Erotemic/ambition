@@ -39,7 +39,8 @@ pub mod video;
 
 pub use audio::AudioSettings;
 pub use controls::{
-    update_trigger_edge, ControlSettings, ControllerProfileId, DashInputMode, TriggerEdgeState,
+    update_trigger_edge, ControlSettings, ControllerProfileId, DashInputMode, MenuPointerPress,
+    MenuTapMode, TriggerEdgeState,
 };
 pub use gameplay::{AssistMode, Difficulty, GameplaySettings};
 pub use video::{
@@ -130,6 +131,7 @@ pub enum SettingsItem {
     InvertAimY,
     DashInputMode,
     TouchControls,
+    MenuTapMode,
     ResetControlFiltering,
 
     // Gameplay page.
@@ -175,6 +177,7 @@ impl SettingsItem {
                 Self::InvertAimY,
                 Self::DashInputMode,
                 Self::TouchControls,
+                Self::MenuTapMode,
                 Self::ResetControlFiltering,
                 Self::Back,
             ],
@@ -277,6 +280,10 @@ impl SettingsItem {
                 } else {
                     "off"
                 }
+            ),
+            Self::MenuTapMode => format!(
+                "Menu Tap: {}  < / >",
+                settings.controls.menu_tap_mode.label()
             ),
             Self::ResetControlFiltering => "Reset Filter Defaults".into(),
 
@@ -505,6 +512,14 @@ pub fn apply_action(
                 settings.controls.touch_controls_visible = !settings.controls.touch_controls_visible;
             }
         }
+        SettingsItem::MenuTapMode => match action {
+            SettingsAction::Prev => {
+                settings.controls.menu_tap_mode = settings.controls.menu_tap_mode.prev();
+            }
+            SettingsAction::Next | SettingsAction::Confirm => {
+                settings.controls.menu_tap_mode = settings.controls.menu_tap_mode.next();
+            }
+        },
         SettingsItem::ResetControlFiltering => {
             if matches!(action, SettingsAction::Confirm) {
                 settings.controls.reset_filtering_to_defaults();

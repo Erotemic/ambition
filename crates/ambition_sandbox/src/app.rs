@@ -869,6 +869,10 @@ pub fn add_presentation_plugins(app: &mut App) {
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
         )
+        // Mouse / touch dismissal for the map menu — separate from the
+        // big presentation tuple to keep that under Bevy's 16-system
+        // tuple budget.
+        .add_systems(Update, crate::map_menu::map_menu_pointer_dismiss)
         // Quest panel runs alongside the verbose HUD; placed in its
         // own `add_systems` so the main presentation tuple doesn't
         // overflow Bevy's 16-system tuple budget.
@@ -1005,6 +1009,8 @@ fn add_input_plugins(app: &mut App) {
                 populate_control_frame_from_actions,
                 pause_menu::pause_menu_toggle,
                 inventory::inventory_input,
+                pause_menu::pause_menu_pointer_input,
+                inventory::inventory_pointer_input,
                 pause_menu::pause_menu_navigate,
             )
                 .chain()

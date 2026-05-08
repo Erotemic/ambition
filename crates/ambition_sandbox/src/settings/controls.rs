@@ -7,6 +7,107 @@
 
 use serde::{Deserialize, Serialize};
 
+/// How a tap or mouse click on a menu item should behave.
+///
+/// All three modes share the same hover semantic (pointer-over moves
+/// the highlight); they differ only in what a *press* does.
+///
+/// - `SingleTapWithDestructiveGuard` (default): non-destructive items
+///   activate on the first press. Destructive items (Quit, Reset
+///   Sandbox) only highlight on the first press; a second press on the
+///   same item activates. Matches the safety/expectation balance most
+///   players want on touch.
+/// - `SingleTap`: every press activates immediately. Faster, but a
+///   stray touch on Quit will exit the game.
+/// - `TapToSelectThenConfirm`: first press only highlights; a second
+///   press on the same item activates. Console-style; fewer mistaps.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MenuTapMode {
+    #[default]
+    SingleTapWithDestructiveGuard,
+    SingleTap,
+    TapToSelectThenConfirm,
+}
+
+impl MenuTapMode {
+    pub const ALL: [Self; 3] = [
+        Self::SingleTapWithDestructiveGuard,
+        Self::SingleTap,
+        Self::TapToSelectThenConfirm,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::SingleTapWithDestructiveGuard => "single tap (guard quit)",
+            Self::SingleTap => "single tap",
+            Self::TapToSelectThenConfirm => "tap, then tap to confirm",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| p == &self).unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| p == &self).unwrap_or(0);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
+/// Outcome of a pointer press on a menu row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MenuPointerPress {
+    /// Move the highlight to this row only — do not confirm.
+    SelectOnly,
+    /// Move the highlight and confirm this row.
+    Confirm,
+}
+
+impl MenuTapMode {
+    /// Decide what a pointer press on `target_index` should do, given
+    /// the current selection and whether the target is destructive.
+    ///
+    /// `armed` tracks "this destructive row was selected by a prior
+    /// press and is awaiting a confirm tap". The function may clear or
+    /// set it.
+    pub fn resolve_press(
+        self,
+        target_index: usize,
+        currently_selected: usize,
+        is_destructive: bool,
+        armed: &mut Option<usize>,
+    ) -> MenuPointerPress {
+        match self {
+            Self::SingleTap => {
+                *armed = None;
+                MenuPointerPress::Confirm
+            }
+            Self::TapToSelectThenConfirm => {
+                if currently_selected == target_index && *armed == Some(target_index) {
+                    *armed = None;
+                    MenuPointerPress::Confirm
+                } else {
+                    *armed = Some(target_index);
+                    MenuPointerPress::SelectOnly
+                }
+            }
+            Self::SingleTapWithDestructiveGuard => {
+                if !is_destructive {
+                    *armed = None;
+                    MenuPointerPress::Confirm
+                } else if currently_selected == target_index && *armed == Some(target_index) {
+                    *armed = None;
+                    MenuPointerPress::Confirm
+                } else {
+                    *armed = Some(target_index);
+                    MenuPointerPress::SelectOnly
+                }
+            }
+        }
+    }
+}
+
 /// Whether dash should fire from the right trigger only, the right
 /// shoulder button only, or both.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -176,6 +277,10 @@ pub struct ControlSettings {
     /// settings page when testing keyboard-only on desktop.
     #[serde(default = "default_touch_controls_visible")]
     pub touch_controls_visible: bool,
+    /// How a tap or mouse click on a menu item should behave. See
+    /// [`MenuTapMode`] for semantics.
+    #[serde(default)]
+    pub menu_tap_mode: MenuTapMode,
 }
 
 fn default_touch_controls_visible() -> bool {
@@ -197,6 +302,7 @@ impl Default for ControlSettings {
             menu_repeat_initial_delay: 0.32,
             menu_repeat_interval: 0.12,
             touch_controls_visible: default_touch_controls_visible(),
+            menu_tap_mode: MenuTapMode::default(),
         }
     }
 }

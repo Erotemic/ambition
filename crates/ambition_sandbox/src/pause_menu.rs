@@ -30,8 +30,8 @@ use crate::input::KeyboardPreset;
 use crate::input::{analog_to_dir, MenuInputFrame, MenuInputState, SandboxAction};
 use crate::inventory::InventoryUiState;
 use crate::settings::{
-    apply_action as handle_settings_action, SettingsAction, SettingsItem, SettingsOutcome,
-    SettingsPage, UserSettings,
+    apply_action as handle_settings_action, MenuPointerPress, SettingsAction, SettingsItem,
+    SettingsOutcome, SettingsPage, UserSettings,
 };
 use crate::windowing::DisplayModeState;
 
@@ -116,6 +116,13 @@ impl PauseMenuItem {
         Self::ResetSandbox,
         Self::Quit,
     ];
+
+    /// Items that need a confirm tap under
+    /// `MenuTapMode::SingleTapWithDestructiveGuard` so a stray touch
+    /// can't wipe the save or exit the game.
+    pub fn is_destructive(self) -> bool {
+        matches!(self, Self::ResetSandbox | Self::Quit)
+    }
 }
 
 /// Active page on the pause overlay. The pause overlay starts on
@@ -135,6 +142,15 @@ pub struct PauseMenuState {
     /// Stack of pages we can pop back to. The current page is NOT in
     /// this stack; it is the live `page` field.
     pub stack: Vec<PauseMenuPage>,
+    /// Set to `Some(index)` when a pointer press selected a row that
+    /// requires a confirmation tap (destructive item under guard mode,
+    /// or any item under tap-then-confirm mode). Cleared when the user
+    /// taps a different row, navigates with kbd/gamepad, or confirms.
+    pub pointer_armed: Option<usize>,
+    /// Set by the pointer system on a click that should activate the
+    /// currently selected row. Consumed by the navigate system on the
+    /// same frame and folded into `MenuInputFrame.select`.
+    pub pointer_confirm: bool,
 }
 
 impl PauseMenuState {
@@ -290,7 +306,18 @@ pub fn pause_menu_navigate(
         return;
     };
     let dt = time.delta_secs();
-    let frame = read_menu_frame(actions, &mut menu_input_state, &user_settings, dt);
+    let mut frame = read_menu_frame(actions, &mut menu_input_state, &user_settings, dt);
+
+    // Fold pointer-driven confirms into the frame, and clear any
+    // armed pointer state when the user navigates with kbd / gamepad
+    // (touching a different row already cleared/replaced it).
+    if state.pointer_confirm {
+        frame.select = true;
+        state.pointer_confirm = false;
+    }
+    if frame.any_directional() || frame.back {
+        state.pointer_armed = None;
+    }
 
     let preset_count = KeyboardPreset::presets().len();
 
@@ -476,6 +503,97 @@ fn handle_settings_page_input(
     }
 }
 
+/// Mouse / touch input for the pause menu and its settings sub-pages.
+///
+/// Hover (mouse-over) moves the highlight; press routes through
+/// `MenuTapMode::resolve_press` to decide whether to also confirm.
+/// Confirms are deferred to `pause_menu_navigate` via
+/// `state.pointer_confirm` so the rest of the menu pipeline keeps a
+/// single confirm path.
+#[cfg(feature = "input")]
+pub fn pause_menu_pointer_input(
+    mode: Res<State<GameMode>>,
+    inventory: Res<InventoryUiState>,
+    user_settings: Res<UserSettings>,
+    mut state: ResMut<PauseMenuState>,
+    top_items: Query<(&Interaction, &PauseMenuItem), Changed<Interaction>>,
+    settings_rows: Query<(&Interaction, &SettingsRowSlot), Changed<Interaction>>,
+) {
+    if !matches!(mode.get(), GameMode::Paused) {
+        return;
+    }
+    if inventory.visible {
+        return;
+    }
+    let tap_mode = user_settings.controls.menu_tap_mode;
+
+    match state.page {
+        PauseMenuPage::Top => {
+            let items = PauseMenuItem::ALL;
+            for (interaction, item) in &top_items {
+                let Some(index) = items.iter().position(|i| i == item) else {
+                    continue;
+                };
+                match interaction {
+                    Interaction::Hovered => {
+                        // Mouse hover: just move the highlight. Don't
+                        // disturb the armed-confirm state — the user
+                        // may be hovering past a destructive item.
+                        if state.selected != index {
+                            state.selected = index;
+                        }
+                    }
+                    Interaction::Pressed => {
+                        let press = tap_mode.resolve_press(
+                            index,
+                            state.selected,
+                            item.is_destructive(),
+                            &mut state.pointer_armed,
+                        );
+                        state.selected = index;
+                        if matches!(press, MenuPointerPress::Confirm) {
+                            state.pointer_confirm = true;
+                        }
+                    }
+                    Interaction::None => {}
+                }
+            }
+        }
+        PauseMenuPage::Settings(page) => {
+            let rows = SettingsItem::rows_for(page);
+            for (interaction, slot) in &settings_rows {
+                let Some(_item) = rows.get(slot.index) else {
+                    continue;
+                };
+                match interaction {
+                    Interaction::Hovered => {
+                        if state.selected != slot.index {
+                            state.selected = slot.index;
+                        }
+                    }
+                    Interaction::Pressed => {
+                        // Settings rows are never treated as destructive
+                        // for tap-guard purposes — `Reset Filter
+                        // Defaults` is recoverable and the cycle / toggle
+                        // rows are already non-destructive.
+                        let press = tap_mode.resolve_press(
+                            slot.index,
+                            state.selected,
+                            false,
+                            &mut state.pointer_armed,
+                        );
+                        state.selected = slot.index;
+                        if matches!(press, MenuPointerPress::Confirm) {
+                            state.pointer_confirm = true;
+                        }
+                    }
+                    Interaction::None => {}
+                }
+            }
+        }
+    }
+}
+
 pub fn spawn_pause_menu(mut commands: Commands) {
     let root = commands
         .spawn((
@@ -498,10 +616,10 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     let top_panel = commands
         .spawn((
             Node {
-                width: Val::Px(360.0),
-                padding: UiRect::all(Val::Px(28.0)),
+                width: Val::Px(440.0),
+                padding: UiRect::all(Val::Px(32.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(14.0),
+                row_gap: Val::Px(16.0),
                 align_items: AlignItems::Center,
                 ..default()
             },
@@ -517,7 +635,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
         .spawn((
             Text::new("Paused"),
             TextFont {
-                font_size: 24.0,
+                font_size: 30.0,
                 ..default()
             },
             TextColor(Color::srgba(0.92, 0.96, 1.0, 0.98)),
@@ -530,16 +648,19 @@ pub fn spawn_pause_menu(mut commands: Commands) {
         let label = item.static_label();
         let entity = commands
             .spawn((
+                Button,
                 Node {
                     width: Val::Percent(100.0),
-                    padding: UiRect::axes(Val::Px(12.0), Val::Px(8.0)),
+                    min_height: Val::Px(44.0),
+                    padding: UiRect::axes(Val::Px(16.0), Val::Px(12.0)),
                     justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 Text::new(label),
                 TextFont {
-                    font_size: 18.0,
+                    font_size: 24.0,
                     ..default()
                 },
                 TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96)),
@@ -553,10 +674,10 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     let settings_panel = commands
         .spawn((
             Node {
-                width: Val::Px(440.0),
-                padding: UiRect::all(Val::Px(28.0)),
+                width: Val::Px(520.0),
+                padding: UiRect::all(Val::Px(32.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.0),
+                row_gap: Val::Px(12.0),
                 align_items: AlignItems::Center,
                 display: Display::None,
                 ..default()
@@ -573,7 +694,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
         .spawn((
             Text::new("Settings"),
             TextFont {
-                font_size: 24.0,
+                font_size: 28.0,
                 ..default()
             },
             TextColor(Color::srgba(0.92, 0.96, 1.0, 0.98)),
@@ -591,16 +712,19 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     for index in 0..MAX_ROWS {
         let entity = commands
             .spawn((
+                Button,
                 Node {
                     width: Val::Percent(100.0),
-                    padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                    min_height: Val::Px(40.0),
+                    padding: UiRect::axes(Val::Px(14.0), Val::Px(10.0)),
                     justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 Text::new(""),
                 TextFont {
-                    font_size: 17.0,
+                    font_size: 22.0,
                     ..default()
                 },
                 TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96)),
@@ -823,6 +947,8 @@ mod tests {
             selected: 3,
             page: PauseMenuPage::Top,
             stack: Vec::new(),
+            pointer_armed: None,
+            pointer_confirm: false,
         };
         s.enter_page(PauseMenuPage::Settings(SettingsPage::Top));
         assert!(matches!(s.page, PauseMenuPage::Settings(SettingsPage::Top)));

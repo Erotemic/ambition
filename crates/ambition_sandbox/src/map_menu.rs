@@ -168,6 +168,25 @@ pub fn populate_map_rooms(
     }
 }
 
+/// Mouse / touch dismissal: while the full map is open, a click or
+/// tap anywhere on the map panel closes it. The map has no
+/// selectable items today, so collapse-on-press is the natural
+/// pointer affordance to match the keyboard `M` toggle.
+#[cfg(feature = "input")]
+pub fn map_menu_pointer_dismiss(
+    mut map: ResMut<MapMenuState>,
+    interactions: Query<&Interaction, (With<MapMenuRoot>, Changed<Interaction>)>,
+) {
+    if !map.open {
+        return;
+    }
+    for interaction in &interactions {
+        if matches!(interaction, Interaction::Pressed) {
+            map.open = false;
+        }
+    }
+}
+
 /// Toggle systems for keyboard input. `M` opens the map menu, `N`
 /// toggles the minimap. Hidden behind dev_tools so the main game can
 /// override the bindings later.
@@ -239,6 +258,7 @@ pub fn spawn_map_menu(mut commands: Commands) {
     // Full map (M).
     let root = commands
         .spawn((
+            Button,
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Percent(50.0),

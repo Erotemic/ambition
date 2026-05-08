@@ -105,6 +105,13 @@ pub struct InventoryUiState {
     /// True when the inventory was opened from the pause menu (vs. directly
     /// from gameplay). Determines what mode to return to when it closes.
     pub opened_from_pause: bool,
+    /// Set by the pointer system when a tap should activate the
+    /// currently selected row. Consumed by `inventory_input` on the
+    /// same frame and treated like a Jump (use-item) press.
+    pub pointer_confirm: bool,
+    /// Tracks the row "armed" by a prior tap under tap-then-confirm
+    /// modes. Cleared once the user taps it again or moves away.
+    pub pointer_armed: Option<usize>,
 }
 
 #[derive(Component)]
@@ -157,21 +164,78 @@ pub fn inventory_input(
     }
 
     if !state.visible {
+        // Drop any stale pointer signals so reopening doesn't auto-fire.
+        state.pointer_confirm = false;
+        state.pointer_armed = None;
         return;
     }
 
     let total = ItemKind::ALL.len();
-    if actions.just_pressed(&SandboxAction::MoveUp) {
+    let nav_up = actions.just_pressed(&SandboxAction::MoveUp);
+    let nav_down = actions.just_pressed(&SandboxAction::MoveDown);
+    if nav_up {
         state.selected = (state.selected + total - 1) % total;
     }
-    if actions.just_pressed(&SandboxAction::MoveDown) {
+    if nav_down {
         state.selected = (state.selected + 1) % total;
     }
+    // Keyboard / gamepad navigation clears any tap-armed row so the
+    // next pointer press starts fresh.
+    if nav_up || nav_down {
+        state.pointer_armed = None;
+    }
 
-    if actions.just_pressed(&SandboxAction::Jump) {
+    let confirm = actions.just_pressed(&SandboxAction::Jump) || state.pointer_confirm;
+    state.pointer_confirm = false;
+    if confirm {
         let kind = ItemKind::ALL[state.selected];
         if inventory.count(kind) > 0 {
             apply_item_effect(kind, &mut inventory, &mut runtime);
+        }
+    }
+}
+
+/// Mouse / touch input for the inventory panel rows.
+///
+/// Hover moves the highlight; press routes through
+/// `MenuTapMode::resolve_press`. Inventory items are never treated as
+/// destructive (using a Health Potion is fully recoverable), so under
+/// the default `SingleTapWithDestructiveGuard` mode a tap activates
+/// immediately.
+#[cfg(feature = "input")]
+pub fn inventory_pointer_input(
+    mut state: ResMut<InventoryUiState>,
+    user_settings: Res<crate::settings::UserSettings>,
+    rows: Query<(&Interaction, &InventoryItemRow), Changed<Interaction>>,
+) {
+    if !state.visible {
+        return;
+    }
+    let tap_mode = user_settings.controls.menu_tap_mode;
+    let items = ItemKind::ALL;
+    for (interaction, row) in &rows {
+        let Some(index) = items.iter().position(|k| k == &row.kind) else {
+            continue;
+        };
+        match interaction {
+            Interaction::Hovered => {
+                if state.selected != index {
+                    state.selected = index;
+                }
+            }
+            Interaction::Pressed => {
+                let press = tap_mode.resolve_press(
+                    index,
+                    state.selected,
+                    false,
+                    &mut state.pointer_armed,
+                );
+                state.selected = index;
+                if matches!(press, crate::settings::MenuPointerPress::Confirm) {
+                    state.pointer_confirm = true;
+                }
+            }
+            Interaction::None => {}
         }
     }
 }
@@ -215,10 +279,10 @@ pub fn spawn_inventory_panel(mut commands: Commands) {
     let panel = commands
         .spawn((
             Node {
-                width: Val::Px(440.0),
-                padding: UiRect::all(Val::Px(24.0)),
+                width: Val::Px(520.0),
+                padding: UiRect::all(Val::Px(28.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.0),
+                row_gap: Val::Px(12.0),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.08, 0.10, 0.16, 0.96)),
@@ -231,7 +295,7 @@ pub fn spawn_inventory_panel(mut commands: Commands) {
         .spawn((
             Text::new("Inventory"),
             TextFont {
-                font_size: 22.0,
+                font_size: 28.0,
                 ..default()
             },
             TextColor(Color::srgba(0.92, 0.96, 1.0, 0.98)),
@@ -243,16 +307,19 @@ pub fn spawn_inventory_panel(mut commands: Commands) {
     for kind in ItemKind::ALL {
         let row = commands
             .spawn((
+                Button,
                 Node {
                     width: Val::Percent(100.0),
-                    padding: UiRect::axes(Val::Px(10.0), Val::Px(6.0)),
+                    min_height: Val::Px(44.0),
+                    padding: UiRect::axes(Val::Px(14.0), Val::Px(10.0)),
                     justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
                 Text::new(""),
                 TextFont {
-                    font_size: 18.0,
+                    font_size: 22.0,
                     ..default()
                 },
                 TextColor(Color::srgba(0.82, 0.92, 1.0, 0.96)),

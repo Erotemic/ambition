@@ -191,6 +191,7 @@ pub fn pause_menu_toggle(
     mut next_mode: ResMut<NextState<GameMode>>,
     mut state: ResMut<PauseMenuState>,
     mut inventory: ResMut<InventoryUiState>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     let kbd_start = action_state
         .single()
@@ -206,10 +207,18 @@ pub fn pause_menu_toggle(
             state.selected = 0;
             state.stack.clear();
             next_mode.set(GameMode::Paused);
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::UI_PAUSE_OPEN,
+                pos: ambition_engine::Vec2::ZERO,
+            });
         }
         GameMode::Paused => {
             inventory.visible = false;
             next_mode.set(GameMode::Playing);
+            sfx.write(crate::audio::SfxMessage::Play {
+                id: ambition_sfx::ids::UI_PAUSE_CLOSE,
+                pos: ambition_engine::Vec2::ZERO,
+            });
         }
         _ => {}
     }

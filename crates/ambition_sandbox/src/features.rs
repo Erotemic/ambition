@@ -158,6 +158,14 @@ pub struct FeatureEvents {
     /// `switch_activations` (which carries the payload string). Drives
     /// the `world.switch.toggle` SFX.
     pub switches_activated_pos: Vec<ae::Vec2>,
+    /// Generic SFX-only events: `(SfxId, pos)`. The presentation layer
+    /// drains these into `SfxMessage::Play`. Use this for events that
+    /// are *only* audible — anything that also drives VFX, persistence,
+    /// or quest hooks should go through a typed event vec above so
+    /// every consumer can subscribe independently.
+    ///
+    /// Helper: `events.play_sfx(id, pos)`.
+    pub sfx_plays: Vec<(ambition_sfx::SfxId, ae::Vec2)>,
 }
 
 impl FeatureEvents {
@@ -185,6 +193,15 @@ impl FeatureEvents {
             .append(&mut other.breakables_destroyed);
         self.switches_activated_pos
             .append(&mut other.switches_activated_pos);
+        self.sfx_plays.append(&mut other.sfx_plays);
+    }
+
+    /// Enqueue a one-shot SFX at a position. Cheap helper for sim-side
+    /// code that wants to play a sound without adding a dedicated
+    /// typed event vec. Drained by `handle_feature_events` into
+    /// `SfxMessage::Play`.
+    pub fn play_sfx(&mut self, id: ambition_sfx::SfxId, pos: ae::Vec2) {
+        self.sfx_plays.push((id, pos));
     }
 }
 
@@ -571,6 +588,7 @@ impl FeatureRuntime {
                     strength: 1.0,
                     amount: hazard.volume.damage.amount.max(1),
                 });
+                events.play_sfx(hazard_sfx_id(&hazard.name), player.pos);
             }
         }
 
@@ -687,6 +705,7 @@ impl FeatureRuntime {
                         .messages
                         .push(format!("{} hit the player", enemy.name));
                     events.impacts.push(damage.impact_pos);
+                    events.play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
                     events.player_damage.push(damage);
                 }
             }
@@ -699,6 +718,7 @@ impl FeatureRuntime {
                     events
                         .messages
                         .push(format!("{} pattern hit the player", boss.name));
+                    events.play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
                     events.impacts.push(damage.impact_pos);
                     events.player_damage.push(damage);
                 }
@@ -2960,6 +2980,33 @@ fn approximately_same_aabb(a: ae::Aabb, b: ae::Aabb) -> bool {
 
 fn midpoint(a: ae::Vec2, b: ae::Vec2) -> ae::Vec2 {
     ae::Vec2::new((a.x + b.x) * 0.5, (a.y + b.y) * 0.5)
+}
+
+/// Pick the SFX bank entry for a hazard contact based on the hazard's
+/// authored name. Substring match keeps this resilient to naming
+/// drift (e.g. `Lava Pit` and `lava_pool` both resolve to lava splash)
+/// without coupling the engine to an SFX-asset enum. Falls back to a
+/// generic player-damage clip when no keyword matches.
+///
+/// Long-term, a typed `HazardKind` field on the engine-side
+/// `DamageVolume` (or `RoomObjectKind::Hazard`) would let this
+/// dispatch happen on a real enum; until then the substring set is
+/// short enough to grep.
+fn hazard_sfx_id(name: &str) -> ambition_sfx::SfxId {
+    let n = name.to_ascii_lowercase();
+    if n.contains("lava") {
+        ambition_sfx::ids::HAZARD_LAVA_SPLASH
+    } else if n.contains("acid") {
+        ambition_sfx::ids::HAZARD_ACID_SPLASH
+    } else if n.contains("electric") || n.contains("shock") {
+        ambition_sfx::ids::HAZARD_ELECTRIC_ARC
+    } else if n.contains("saw") {
+        ambition_sfx::ids::HAZARD_SAW_HIT
+    } else if n.contains("spike") || n.contains("thorn") {
+        ambition_sfx::ids::HAZARD_SPIKE_HIT
+    } else {
+        ambition_sfx::ids::PLAYER_DAMAGE
+    }
 }
 
 trait SignumOr {

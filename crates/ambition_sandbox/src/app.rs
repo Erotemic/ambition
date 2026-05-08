@@ -1950,6 +1950,21 @@ fn room_transition_phase(
     else {
         return PhaseOutcome::Continue;
     };
+    // Door zones get a `world.door.open` cue at the player's current
+    // position (the zone's own AABB is the threshold, but we want the
+    // sound at the listener). EdgeExits get `world.portal.enter` —
+    // they're conceptually a screen-edge teleport, distinct from
+    // walking through a door. Authored content can override later
+    // with a `LoadingZoneActivation` variant if heavy doors / save
+    // teleports want their own clips.
+    let player_pos = runtime.player.pos;
+    let zone_sfx = match zone.zone.activation {
+        rooms::LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),
+        rooms::LoadingZoneActivation::EdgeExit => Some(ambition_sfx::ids::WORLD_PORTAL_ENTER),
+    };
+    if let Some(id) = zone_sfx {
+        feedback.sfx.push(SfxMessage::Play { id, pos: player_pos });
+    }
     runtime.clear_interact_buffer();
     load_room(
         commands,
@@ -2529,6 +2544,13 @@ fn handle_feature_events(
             id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
             pos,
         });
+    }
+    // Generic SFX-only events queued by sim-side code via
+    // `events.play_sfx(id, pos)`. Used for things that have no other
+    // consumer (player damage, hazard contact, etc.); anything that
+    // also drives VFX/persistence/quests stays on a typed event vec.
+    for &(id, pos) in &events.sfx_plays {
+        sfx.push(SfxMessage::Play { id, pos });
     }
 }
 

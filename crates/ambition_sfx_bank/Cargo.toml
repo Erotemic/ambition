@@ -1,0 +1,10 @@
+[package]
+name = "ambition_sfx_bank"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reader + format spec for Ambition's binary SFX bank file (.sfxbank). Pure data; no audio or Bevy deps."
+
+[dependencies]
+thiserror = "1"

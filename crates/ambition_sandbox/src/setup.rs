@@ -22,6 +22,8 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 #[cfg(feature = "audio")]
 use crate::audio::{AudioLibrary, MusicPlaybackState};
+#[cfg(feature = "audio")]
+use ambition_sfx::BankProvider;
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
@@ -168,15 +170,82 @@ pub fn presentation_world(
 ) {
     let sandbox_data = params.sandbox_data;
     presentation_world_inner(commands, params, player);
-    let audio_library = AudioLibrary::new(audio_sources, &sandbox_data.audio, Some(asset_server));
+    let bank_provider = try_load_sfx_bank();
+    let audio_library = AudioLibrary::new(
+        audio_sources,
+        &sandbox_data.audio,
+        Some(asset_server),
+        bank_provider.as_ref().map(|provider| provider as &dyn ambition_sfx::SfxProvider),
+    );
     let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
     commands.insert_resource(audio_library);
     commands.insert_resource(music_state);
+    if let Some(provider) = bank_provider {
+        info!(
+            "loaded sfx bank: {} entries",
+            provider.entry_count()
+        );
+        commands.insert_resource(SfxBankResource(std::sync::Arc::new(provider)));
+    }
 }
 
 #[cfg(not(feature = "audio"))]
 pub fn presentation_world(commands: &mut Commands, params: PresentationSetup<'_>, player: Entity) {
     presentation_world_inner(commands, params, player);
+}
+
+/// Process-wide handle to the loaded SFX bank, when one was found at
+/// startup. Wrapped in `Arc` so future systems that need to play
+/// catalog SFX (beyond the typed `SoundCue` set the `AudioLibrary`
+/// preloads) can clone cheaply and look up by id without re-reading
+/// the file. Absent when the bank file isn't on disk; gameplay falls
+/// through to fundsp synthesis for the typed cues.
+#[cfg(feature = "audio")]
+#[derive(Resource, Clone)]
+pub struct SfxBankResource(pub std::sync::Arc<BankProvider>);
+
+/// Best-effort sync load of `assets/audio/sfx.bank`. Returns `None`
+/// (with a single info log) if the file isn't present anywhere we
+/// know to look. Tries:
+///   1) `$AMBITION_SFX_BANK_PATH` env var
+///   2) `<cwd>/assets/audio/sfx.bank`
+///   3) `<cwd>/crates/ambition_sandbox/assets/audio/sfx.bank`
+///   4) `<CARGO_MANIFEST_DIR>/assets/audio/sfx.bank` (dev fallback)
+#[cfg(feature = "audio")]
+fn try_load_sfx_bank() -> Option<BankProvider> {
+    use std::path::PathBuf;
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(env_path) = std::env::var("AMBITION_SFX_BANK_PATH") {
+        candidates.push(PathBuf::from(env_path));
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("assets/audio/sfx.bank"));
+        candidates.push(cwd.join("crates/ambition_sandbox/assets/audio/sfx.bank"));
+    }
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/audio/sfx.bank"));
+
+    for path in &candidates {
+        if path.is_file() {
+            match BankProvider::from_path(path) {
+                Ok(provider) => {
+                    debug!("sfx bank loaded from {}", path.display());
+                    return Some(provider);
+                }
+                Err(error) => {
+                    warn!("found sfx bank at {} but failed to parse: {error}", path.display());
+                }
+            }
+        }
+    }
+    info!(
+        "no sfx bank found (looked in: {}); falling back to fundsp synthesis for SFX",
+        candidates
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    None
 }
 
 fn presentation_world_inner(

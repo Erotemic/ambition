@@ -154,6 +154,7 @@ name = "ambition_sandbox"
 version = "0.2.0"
 dependencies = [
  "ambition_engine",
+ "ambition_sfx",
  "avian2d",
  "bevy",
  "bevy-inspector-egui",
@@ -170,6 +171,21 @@ dependencies = [
  "serde",
  "serde_json",
  "virtual_joystick",
+]
+
+[[package]]
+name = "ambition_sfx"
+version = "0.1.0"
+dependencies = [
+ "ambition_sfx_bank",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "ambition_sfx_bank"
+version = "0.1.0"
+dependencies = [
+ "thiserror 1.0.69",
 ]
 
 [[package]]

@@ -7,6 +7,8 @@
 
 use ambition_engine as ae;
 #[cfg(feature = "audio")]
+use ambition_sfx::{self as sfx, SfxId, SfxProvider};
+#[cfg(feature = "audio")]
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 #[cfg(feature = "audio")]
@@ -18,6 +20,8 @@ use bevy_kira_audio::prelude::{
 use fundsp::audiounit::AudioUnit;
 #[cfg(feature = "audio")]
 use fundsp::prelude as dsp;
+#[cfg(feature = "audio")]
+use std::io::Cursor;
 #[cfg(feature = "audio")]
 use std::sync::Arc;
 #[cfg(feature = "audio")]
@@ -194,6 +198,27 @@ impl SoundCue {
         Self::Death,
         Self::Respawn,
     ];
+
+    /// Maps a typed cue to the corresponding bank id. Bank entries
+    /// come from `tools/ambition_sfx_renderer/output/<id>/`. When a
+    /// bank entry exists for the cue, `AudioLibrary::new` uses it
+    /// instead of the local fundsp synthesizer.
+    #[cfg(feature = "audio")]
+    pub fn sfx_id(self) -> SfxId {
+        match self {
+            Self::Jump => sfx::ids::PLAYER_JUMP,
+            Self::DoubleJump => sfx::ids::PLAYER_DOUBLE_JUMP,
+            Self::Dash => sfx::ids::PLAYER_DASH,
+            Self::Blink => sfx::ids::PLAYER_BLINK,
+            Self::PrecisionBlink => sfx::ids::PLAYER_PRECISION_BLINK,
+            Self::Slash => sfx::ids::PLAYER_SLASH,
+            Self::Hit => sfx::ids::PLAYER_HIT,
+            Self::Pogo => sfx::ids::PLAYER_POGO,
+            Self::Reset => sfx::ids::PLAYER_RESET,
+            Self::Death => sfx::ids::PLAYER_DEATH,
+            Self::Respawn => sfx::ids::PLAYER_RESPAWN,
+        }
+    }
 }
 
 impl From<SoundCue> for SoundCueKey {
@@ -241,23 +266,46 @@ impl AudioLibrary {
     /// `asset_server` from headless / RL contexts that don't have one;
     /// any track with `asset_path` set will fall back to procedural
     /// synth in that case.
+    ///
+    /// `sfx_provider` (when `Some`) is consulted first for each
+    /// [`SoundCue`]; if it has a clip, it's decoded into a Kira
+    /// `StaticSoundData` and used. On miss the existing fundsp
+    /// synthesizer fills in. Pass `None` (e.g. from the inline test
+    /// harness or an RL context with no bank file) to force the
+    /// fundsp path for everything. See `crates/ambition_sfx/`.
     pub fn new(
         audio_sources: &mut Assets<KiraAudioSource>,
         spec: &AudioSpec,
         asset_server: Option<&AssetServer>,
+        sfx_provider: Option<&dyn SfxProvider>,
     ) -> Self {
         if let Err(error) = spec.validate() {
             warn!("invalid audio spec: {error}");
         }
         let sample_rate = spec.sample_rate.max(8_000);
-        let mut sfx = HashMap::default();
+        let mut sfx_handles = HashMap::default();
         for cue in SoundCue::ALL {
-            let sfx_spec = find_sfx(spec, cue);
-            sfx.insert(
-                cue,
-                add_rendered_audio(audio_sources, render_sfx(sfx_spec, sample_rate)),
-            );
+            let from_bank = sfx_provider
+                .and_then(|provider| provider.provide_clip(cue.sfx_id()))
+                .and_then(|clip| match audio_source_from_sfx_clip(clip) {
+                    Ok(source) => Some(audio_sources.add(source)),
+                    Err(error) => {
+                        warn!(
+                            "bank entry for {cue:?} failed to decode ({error}); falling back to fundsp"
+                        );
+                        None
+                    }
+                });
+            let handle = match from_bank {
+                Some(handle) => handle,
+                None => {
+                    let sfx_spec = find_sfx(spec, cue);
+                    add_rendered_audio(audio_sources, render_sfx(sfx_spec, sample_rate))
+                }
+            };
+            sfx_handles.insert(cue, handle);
         }
+        let sfx = sfx_handles;
         let fallback_sfx = sfx.get(&SoundCue::Jump).cloned().unwrap_or_else(|| {
             add_rendered_audio(
                 audio_sources,
@@ -495,6 +543,17 @@ fn add_rendered_audio(
     rendered: RenderedAudio,
 ) -> Handle<KiraAudioSource> {
     audio_sources.add(rendered.into_source())
+}
+
+/// Decode an [`sfx::SfxClip`]'s encoded bytes into a Kira
+/// `StaticSoundData`. Mirrors what `bevy_kira_audio`'s WAV/OGG asset
+/// loaders do internally — see
+/// `bevy_kira_audio::source::wav_loader::WavLoader::load`.
+#[cfg(feature = "audio")]
+fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource, String> {
+    let cursor = Cursor::new(clip.bytes.to_vec());
+    let sound = StaticSoundData::from_cursor(cursor).map_err(|e| e.to_string())?;
+    Ok(KiraAudioSource { sound })
 }
 
 #[cfg(feature = "audio")]
@@ -969,6 +1028,54 @@ mod tests {
         }
     }
 
+    /// End-to-end check that every typed `SoundCue` resolves through
+    /// the packed sfx bank into a Kira-decodable `AudioSource`. Skipped
+    /// (with an eprintln) if the bank file isn't checked in / packed
+    /// yet, so a cold checkout stays buildable; CI / pre-commit should
+    /// run `tools/ambition_sfx_pack/pack.py` to keep the bank fresh.
+    #[test]
+    fn audio_library_loads_every_cue_from_real_bank() {
+        let bank_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join("audio")
+            .join("sfx.bank");
+        if !bank_path.exists() {
+            eprintln!(
+                "(skipped) {} missing — run `python3 tools/ambition_sfx_pack/pack.py`",
+                bank_path.display()
+            );
+            return;
+        }
+
+        let provider =
+            ambition_sfx::BankProvider::from_path(&bank_path).expect("load real bank");
+        // Every typed cue must resolve in the bank — this is the
+        // contract gameplay code relies on.
+        for cue in SoundCue::ALL {
+            assert!(
+                provider.has(cue.sfx_id()),
+                "bank is missing entry for typed cue {:?} (id {})",
+                cue,
+                cue.sfx_id()
+            );
+        }
+
+        // Decode all typed cues end-to-end through the same path the
+        // game uses at startup.
+        let spec = SandboxDataSpec::load_embedded();
+        let mut assets = Assets::<KiraAudioSource>::default();
+        let library = AudioLibrary::new(&mut assets, &spec.audio, None, Some(&provider));
+
+        for cue in SoundCue::ALL {
+            let handle = library.sfx_handle(cue);
+            assert_ne!(
+                handle,
+                Handle::<KiraAudioSource>::default(),
+                "no handle produced for {cue:?}"
+            );
+        }
+    }
+
     #[test]
     fn embedded_music_renders_expected_durations() {
         let spec = SandboxDataSpec::load_embedded();
@@ -1011,7 +1118,7 @@ mod tests {
     fn music_track_order_cycles() {
         let spec = SandboxDataSpec::load_embedded();
         let mut assets = Assets::<KiraAudioSource>::default();
-        let library = AudioLibrary::new(&mut assets, &spec.audio, None);
+        let library = AudioLibrary::new(&mut assets, &spec.audio, None, None);
         // 3 tracks since the encounter music addition: original lofi
         // loop, long lofi drift, pulse drift voyage (encounter intro).
         assert_eq!(library.track_count(), 3);

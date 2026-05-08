@@ -56,22 +56,44 @@ pub struct SfxChannel;
 /// another refactor; today's audio playback ignores it.
 #[derive(Message, Clone, Copy, Debug)]
 pub enum SfxMessage {
-    Jump { pos: ae::Vec2 },
-    DoubleJump { pos: ae::Vec2 },
-    Dash { pos: ae::Vec2 },
-    Blink { pos: ae::Vec2, precision: bool },
-    Pogo { pos: ae::Vec2 },
-    Slash { pos: ae::Vec2 },
-    Hit { pos: ae::Vec2 },
-    Death { pos: ae::Vec2 },
-    Reset { pos: ae::Vec2 },
+    Jump {
+        pos: ae::Vec2,
+    },
+    DoubleJump {
+        pos: ae::Vec2,
+    },
+    Dash {
+        pos: ae::Vec2,
+    },
+    Blink {
+        pos: ae::Vec2,
+        precision: bool,
+    },
+    Pogo {
+        pos: ae::Vec2,
+    },
+    Slash {
+        pos: ae::Vec2,
+    },
+    Hit {
+        pos: ae::Vec2,
+    },
+    Death {
+        pos: ae::Vec2,
+    },
+    Reset {
+        pos: ae::Vec2,
+    },
     /// Play any clip from the SFX bank by id. Avoids exploding the
     /// typed enum every time a new sound gets wired in. Falls back to
     /// silence if the bank doesn't have the id (logged once per id).
     /// New gameplay events should prefer this over adding more typed
     /// variants — keep typed variants for cues that need bespoke
     /// per-cue logic on the consumer side.
-    Play { id: SfxId, pos: ae::Vec2 },
+    Play {
+        id: SfxId,
+        pos: ae::Vec2,
+    },
 }
 
 impl SfxMessage {
@@ -126,9 +148,7 @@ pub fn audio_play_sfx_messages(
             // practice but we guard rather than panic.
             continue;
         };
-        let Some(handle) =
-            cache.handle_for(id, bank.as_deref(), audio_sources.as_mut())
-        else {
+        let Some(handle) = cache.handle_for(id, bank.as_deref(), audio_sources.as_mut()) else {
             continue;
         };
         sfx_channel.play(handle);
@@ -618,9 +638,7 @@ impl SfxBankHandleCache {
             match audio_source_from_sfx_clip(clip) {
                 Ok(source) => Some(audio_sources.add(source)),
                 Err(error) => {
-                    warn!(
-                        "sfx bank entry for id {id} failed to decode ({error})"
-                    );
+                    warn!("sfx bank entry for id {id} failed to decode ({error})");
                     None
                 }
             }
@@ -1135,8 +1153,7 @@ mod tests {
             return;
         }
 
-        let provider =
-            ambition_sfx::BankProvider::from_path(&bank_path).expect("load real bank");
+        let provider = ambition_sfx::BankProvider::from_path(&bank_path).expect("load real bank");
         // Every typed cue must resolve in the bank — this is the
         // contract gameplay code relies on.
         for cue in SoundCue::ALL {

@@ -313,10 +313,7 @@ pub mod bevy_plugin {
     /// Per Jon's "make mobile_touch overlay intentionally testable
     /// with a mouse on desktop builds. ... mouse is a single-pointer
     /// debug path, not a replacement for real multitouch testing."
-    fn spawn_touch_joysticks(
-        mut cmd: Commands,
-        mut images: ResMut<Assets<Image>>,
-    ) {
+    fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
         let knob = images.add(build_joystick_knob_image());
         let outline = images.add(build_joystick_outline_image());
 
@@ -630,7 +627,11 @@ pub mod bevy_plugin {
 
     /// Build one gameplay-action button: 72x72 with a visible text
     /// label. Margin is small so the cluster fits in the corner.
-    fn spawn_action_button(parent: &mut ChildSpawnerCommands, action: TouchActionButton, label: &str) {
+    fn spawn_action_button(
+        parent: &mut ChildSpawnerCommands,
+        action: TouchActionButton,
+        label: &str,
+    ) {
         parent
             .spawn((
                 Button,
@@ -661,7 +662,11 @@ pub mod bevy_plugin {
     /// Build one menu-row button: 64x40, smaller text. Used for
     /// Start / Reset which are intermittent and OK to sit at the top
     /// of the gameplay viewport.
-    fn spawn_menu_button(parent: &mut ChildSpawnerCommands, action: TouchActionButton, label: &str) {
+    fn spawn_menu_button(
+        parent: &mut ChildSpawnerCommands,
+        action: TouchActionButton,
+        label: &str,
+    ) {
         parent
             .spawn((
                 Button,
@@ -811,9 +816,9 @@ pub mod bevy_plugin {
         // Mutually-exclusive axis: touch wins iff its post-deadzone
         // magnitude beats threshold 0.05. Otherwise leave keyboard
         // axis alone.
-        let touch_move_mag =
-            (touch_frame.axis_x * touch_frame.axis_x + touch_frame.axis_y * touch_frame.axis_y)
-                .sqrt();
+        let touch_move_mag = (touch_frame.axis_x * touch_frame.axis_x
+            + touch_frame.axis_y * touch_frame.axis_y)
+            .sqrt();
         if touch_move_mag > 0.05 {
             frame.axis_x = touch_frame.axis_x;
             frame.axis_y = touch_frame.axis_y;
@@ -899,7 +904,10 @@ pub mod bevy_plugin {
     }
 
     // Re-export the helper so `MobileTouchPlugin` is a one-import seam.
-    pub use super::{fold_touch_into_control_frame as _fold_for_doc, TouchButton as _btn_for_doc, TouchInputState as _state_for_doc};
+    pub use super::{
+        fold_touch_into_control_frame as _fold_for_doc, TouchButton as _btn_for_doc,
+        TouchInputState as _state_for_doc,
+    };
     // Suppress dead-code warnings for the re-export aliases.
     #[allow(dead_code)]
     fn _re_exports_used() {

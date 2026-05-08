@@ -2155,7 +2155,8 @@ mod tests {
         for level in &project.levels {
             for fi in &level.field_instances {
                 if fi.identifier == "activeArea"
-                    && fi.value
+                    && fi
+                        .value
                         .as_str()
                         .map(|s| s == "central_hub_complex")
                         .unwrap_or(false)

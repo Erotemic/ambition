@@ -70,10 +70,13 @@ fn fixture_replays_with_zero_divergence() {
         .get("frames")
         .and_then(|v| v.as_array())
         .expect("fixture has frames array");
-    assert!(!frames.is_empty(), "fixture must contain at least one frame");
+    assert!(
+        !frames.is_empty(),
+        "fixture must contain at least one frame"
+    );
 
-    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz())
-        .expect("SandboxSim builds");
+    let mut sim =
+        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("SandboxSim builds");
 
     let tolerance = 0.001_f32;
     let mut max_dx: f32 = 0.0;
@@ -82,7 +85,10 @@ fn fixture_replays_with_zero_divergence() {
         let controls = frame.get("controls").expect("frame has controls");
         let action = agent_action_from_json_controls(controls);
         let live = sim.step(action);
-        let recorded = frame.get("player").and_then(|v| v.get("pos")).expect("frame has player.pos");
+        let recorded = frame
+            .get("player")
+            .and_then(|v| v.get("pos"))
+            .expect("frame has player.pos");
         let recorded_x = f32_field(recorded, "x");
         let recorded_y = f32_field(recorded, "y");
         let dx = (live.player_pos.0 - recorded_x).abs();

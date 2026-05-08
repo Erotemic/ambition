@@ -12,8 +12,8 @@
 //! message — the bug is then reproducible by running the same seed
 //! through `cargo run --bin rl_random_walker -- <STEPS> <SEED>`.
 
-use ambition_sandbox::{AgentAction, SandboxSim};
 use ambition_sandbox::rl::TimestepMode;
+use ambition_sandbox::{AgentAction, SandboxSim};
 
 /// Tiny LCG copied from `bin/rl_random_walker.rs` so the test stays
 /// dependency-free. Shared shape, not shared code — the test bin
@@ -25,7 +25,10 @@ impl Lcg {
         Self(seed.max(1))
     }
     fn next_u32(&mut self) -> u32 {
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (self.0 >> 32) as u32
     }
     fn unit(&mut self) -> f32 {
@@ -42,7 +45,11 @@ impl Lcg {
 fn random_action(rng: &mut Lcg, sticky_axis_x: &mut f32) -> AgentAction {
     if rng.chance(0.06) {
         *sticky_axis_x = if rng.chance(0.5) {
-            if rng.chance(0.5) { 1.0 } else { -1.0 }
+            if rng.chance(0.5) {
+                1.0
+            } else {
+                -1.0
+            }
         } else {
             rng.signed_unit()
         };

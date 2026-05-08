@@ -215,10 +215,11 @@ impl BossPatternSchedule {
             vec![
                 BossPatternStep::new(BossAttackKind::FloorSlam, 0.40, 0.18, 0.38)
                     .with_movement(BossMovementKind::Dash { distance: 240.0 }),
-                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.55, 1.00, 0.28)
-                    .with_movement(BossMovementKind::Reposition {
+                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.55, 1.00, 0.28).with_movement(
+                    BossMovementKind::Reposition {
                         anchor: ArenaAnchor::TopLeft,
-                    }),
+                    },
+                ),
                 BossPatternStep::new(BossAttackKind::Rest, 0.10, 0.50, 0.10)
                     .with_movement(BossMovementKind::Orbit { magnitude: 1.0 }),
                 BossPatternStep::new(BossAttackKind::SideSweep, 0.35, 0.22, 0.40)
@@ -369,7 +370,10 @@ mod tests {
     #[test]
     fn gradient_sentinel_phase3_traversal_is_valid() {
         let sched = BossPatternSchedule::gradient_sentinel_phase3_traversal();
-        assert!(sched.is_valid(), "phase 3 traversal pattern should validate");
+        assert!(
+            sched.is_valid(),
+            "phase 3 traversal pattern should validate"
+        );
         assert_eq!(sched.phase, 3);
         // The traversal pattern should pair offensive steps with non-Hold
         // movements: at least 3 of the 4 steps move (the Rest step
@@ -406,9 +410,7 @@ mod tests {
     #[test]
     fn step_with_invalid_dash_distance_fails_validation() {
         let bad = BossPatternStep::new(BossAttackKind::FloorSlam, 0.4, 0.2, 0.4)
-            .with_movement(BossMovementKind::Dash {
-                distance: f32::NAN,
-            });
+            .with_movement(BossMovementKind::Dash { distance: f32::NAN });
         assert!(!bad.is_valid(), "NaN dash distance should fail validation");
     }
 

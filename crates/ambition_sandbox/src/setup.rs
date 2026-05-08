@@ -22,8 +22,6 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 #[cfg(feature = "audio")]
 use crate::audio::{AudioLibrary, MusicPlaybackState};
-#[cfg(feature = "audio")]
-use ambition_sfx::BankProvider;
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
@@ -37,6 +35,8 @@ use crate::rendering::{spawn_room_visuals, HudText, PlayerVisual, QuestPanelText
 use crate::rooms::RoomSet;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use crate::{GameWorld, SandboxRuntime};
+#[cfg(feature = "audio")]
+use ambition_sfx::BankProvider;
 
 /// Borrowed inputs for `simulation_world`.
 ///
@@ -175,16 +175,15 @@ pub fn presentation_world(
         audio_sources,
         &sandbox_data.audio,
         Some(asset_server),
-        bank_provider.as_ref().map(|provider| provider as &dyn ambition_sfx::SfxProvider),
+        bank_provider
+            .as_ref()
+            .map(|provider| provider as &dyn ambition_sfx::SfxProvider),
     );
     let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
     commands.insert_resource(audio_library);
     commands.insert_resource(music_state);
     if let Some(provider) = bank_provider {
-        info!(
-            "loaded sfx bank: {} entries",
-            provider.entry_count()
-        );
+        info!("loaded sfx bank: {} entries", provider.entry_count());
         commands.insert_resource(SfxBankResource(std::sync::Arc::new(provider)));
     }
 }
@@ -232,7 +231,10 @@ fn try_load_sfx_bank() -> Option<BankProvider> {
                     return Some(provider);
                 }
                 Err(error) => {
-                    warn!("found sfx bank at {} but failed to parse: {error}", path.display());
+                    warn!(
+                        "found sfx bank at {} but failed to parse: {error}",
+                        path.display()
+                    );
                 }
             }
         }

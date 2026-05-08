@@ -509,7 +509,8 @@ pub fn apply_action(
                 action,
                 SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
             ) {
-                settings.controls.touch_controls_visible = !settings.controls.touch_controls_visible;
+                settings.controls.touch_controls_visible =
+                    !settings.controls.touch_controls_visible;
             }
         }
         SettingsItem::MenuTapMode => match action {

@@ -147,11 +147,7 @@ pub enum BankError {
         file_len: u64,
     },
     #[error("entry table not sorted by id_hash (entry {index} hash 0x{this:016x} < prior 0x{prior:016x})")]
-    EntriesUnsorted {
-        index: usize,
-        prior: u64,
-        this: u64,
-    },
+    EntriesUnsorted { index: usize, prior: u64, this: u64 },
     #[error("duplicate id_hash 0x{0:016x}")]
     DuplicateHash(u64),
     #[error("unknown codec byte: {0}")]
@@ -522,8 +518,7 @@ mod tests {
             buf.extend_from_slice(id.as_bytes());
         }
         // Patch in the names offset.
-        buf[names_offset_pos..names_offset_pos + 8]
-            .copy_from_slice(&names_offset.to_le_bytes());
+        buf[names_offset_pos..names_offset_pos + 8].copy_from_slice(&names_offset.to_le_bytes());
 
         let bank = SfxBank::from_bytes(buf).expect("parse");
         assert_eq!(bank.entry_count(), 2);

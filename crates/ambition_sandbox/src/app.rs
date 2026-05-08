@@ -212,10 +212,7 @@ fn parse_headless_ticks(args: &[String]) -> Option<u32> {
         match args[i].as_str() {
             "--headless-ticks" => return args.get(i + 1).and_then(|raw| raw.parse().ok()),
             arg if arg.starts_with("--headless-ticks=") => {
-                return arg
-                    .trim_start_matches("--headless-ticks=")
-                    .parse()
-                    .ok();
+                return arg.trim_start_matches("--headless-ticks=").parse().ok();
             }
             _ => {}
         }
@@ -1257,9 +1254,10 @@ fn setup_presentation_system(
     let game_assets =
         game_assets::load_game_assets(&asset_config, &asset_server, &mut atlas_layouts);
     let t_assets = t0.elapsed().as_secs_f32() * 1000.0;
-    profiler
-        .marks
-        .push(("setup_presentation::load_game_assets", std::time::Instant::now()));
+    profiler.marks.push((
+        "setup_presentation::load_game_assets",
+        std::time::Instant::now(),
+    ));
     let t1 = std::time::Instant::now();
     setup::presentation_world(
         &mut commands,
@@ -1963,7 +1961,10 @@ fn room_transition_phase(
         rooms::LoadingZoneActivation::EdgeExit => Some(ambition_sfx::ids::WORLD_PORTAL_ENTER),
     };
     if let Some(id) = zone_sfx {
-        feedback.sfx.push(SfxMessage::Play { id, pos: player_pos });
+        feedback.sfx.push(SfxMessage::Play {
+            id,
+            pos: player_pos,
+        });
     }
     runtime.clear_interact_buffer();
     load_room(

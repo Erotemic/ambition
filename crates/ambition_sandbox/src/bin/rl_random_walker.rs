@@ -36,7 +36,10 @@ impl Lcg {
 
     fn next_u32(&mut self) -> u32 {
         // Numerical Recipes-style 64-bit LCG.
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (self.0 >> 32) as u32
     }
 
@@ -99,7 +102,11 @@ impl RandomPolicy {
             // time pure analog. Keeps the test exercising both "stick
             // pinned" and "stick partial" inputs.
             self.axis_x = if self.rng.chance(0.5) {
-                if self.rng.chance(0.5) { 1.0 } else { -1.0 }
+                if self.rng.chance(0.5) {
+                    1.0
+                } else {
+                    -1.0
+                }
             } else {
                 self.rng.signed_unit()
             };

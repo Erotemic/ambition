@@ -89,9 +89,18 @@ mod tests {
 
     #[test]
     fn display_mode_kind_labels_are_distinct() {
-        assert_ne!(DisplayModeKind::Windowed.label(), DisplayModeKind::Borderless.label());
-        assert_ne!(DisplayModeKind::Windowed.label(), DisplayModeKind::Fullscreen.label());
-        assert_ne!(DisplayModeKind::Borderless.label(), DisplayModeKind::Fullscreen.label());
+        assert_ne!(
+            DisplayModeKind::Windowed.label(),
+            DisplayModeKind::Borderless.label()
+        );
+        assert_ne!(
+            DisplayModeKind::Windowed.label(),
+            DisplayModeKind::Fullscreen.label()
+        );
+        assert_ne!(
+            DisplayModeKind::Borderless.label(),
+            DisplayModeKind::Fullscreen.label()
+        );
     }
 
     #[test]

@@ -596,14 +596,10 @@ mod tests {
         // Two ladders side-by-side. Body sits inside the second
         // (`right`); query should return that region's metrics, not
         // the first.
-        let left = ClimbableRegion::ladder(Aabb::new(
-            Vec2::new(100.0, 200.0),
-            Vec2::new(20.0, 100.0),
-        ));
-        let right = ClimbableRegion::ladder(Aabb::new(
-            Vec2::new(300.0, 200.0),
-            Vec2::new(20.0, 100.0),
-        ));
+        let left =
+            ClimbableRegion::ladder(Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(20.0, 100.0)));
+        let right =
+            ClimbableRegion::ladder(Aabb::new(Vec2::new(300.0, 200.0), Vec2::new(20.0, 100.0)));
         let world = World::new(
             "test",
             Vec2::new(500.0, 500.0),

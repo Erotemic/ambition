@@ -113,12 +113,8 @@ pub fn update_body_mode(
     // where ladders typically begin at floor level.
     let climb_initiator = (up_held) || (down_held && !on_ground);
     if climbable_contact_present && climb_initiator && mode != ae::BodyMode::MorphBall {
-        let _ = ae::try_change_body_mode(
-            &mut runtime.player,
-            ae::BodyMode::Climbing,
-            &world.0,
-            solid,
-        );
+        let _ =
+            ae::try_change_body_mode(&mut runtime.player, ae::BodyMode::Climbing, &world.0, solid);
         return;
     }
 

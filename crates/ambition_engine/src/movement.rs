@@ -2979,7 +2979,8 @@ mod tests {
         ));
         world.climbable_regions.push(ladder);
 
-        let mut player = Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
+        let mut player =
+            Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
         player.body_mode = crate::player_state::BodyMode::Climbing;
         player.climbable_contact = world.climbable_at(player.aabb());
         let initial_y = player.pos.y;
@@ -3042,7 +3043,8 @@ mod tests {
             Vec2::new(60.0, 16.0),
         ));
 
-        let mut player = Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
+        let mut player =
+            Player::new_with_abilities(Vec2::new(400.0, 700.0), AbilitySet::sandbox_all());
         player.body_mode = crate::player_state::BodyMode::Climbing;
         player.climbable_contact = world.climbable_at(player.aabb());
         let initial_pos = player.pos;

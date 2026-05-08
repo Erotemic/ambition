@@ -40,8 +40,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use ambition_sandbox::{AgentAction, SandboxSim};
 use ambition_sandbox::rl::TimestepMode;
+use ambition_sandbox::{AgentAction, SandboxSim};
 
 #[derive(Debug, Default, Clone, Copy)]
 struct RecordedControls {
@@ -223,7 +223,10 @@ fn replay(path: &PathBuf, tolerance: f32) -> Result<(), String> {
 
     println!("--- replay complete ---");
     println!("frames replayed     : {}", frames.len() - 1);
-    println!("diverged frames     : {} (tolerance={tolerance})", diverged_frames);
+    println!(
+        "diverged frames     : {} (tolerance={tolerance})",
+        diverged_frames
+    );
     println!("max dx              : {:.3}", max_dx);
     println!("max dy              : {:.3}", max_dy);
     match first_divergence {

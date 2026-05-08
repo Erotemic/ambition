@@ -211,7 +211,11 @@ impl FilesystemProvider {
                 Ok(n) => n,
                 Err(_) => continue,
             };
-            for (ext, codec) in [("wav", Codec::Wav), ("ogg", Codec::Ogg), ("flac", Codec::Flac)] {
+            for (ext, codec) in [
+                ("wav", Codec::Wav),
+                ("ogg", Codec::Ogg),
+                ("flac", Codec::Flac),
+            ] {
                 let candidate = child.path().join(format!("{name}.{ext}"));
                 if candidate.exists() {
                     by_hash.insert(

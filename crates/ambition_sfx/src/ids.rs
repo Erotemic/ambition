@@ -89,8 +89,10 @@ pub const WORLD_GATE_FALL: SfxId = SfxId::from_static("world.gate.fall");
 pub const WORLD_LEVER_ENGAGE: SfxId = SfxId::from_static("world.lever.engage");
 pub const WORLD_LEVER_DISENGAGE: SfxId = SfxId::from_static("world.lever.disengage");
 pub const WORLD_LOCK_OPEN: SfxId = SfxId::from_static("world.lock.open");
-pub const WORLD_PRESSURE_PLATE_CLICK_ON: SfxId = SfxId::from_static("world.pressure_plate.click_on");
-pub const WORLD_PRESSURE_PLATE_CLICK_OFF: SfxId = SfxId::from_static("world.pressure_plate.click_off");
+pub const WORLD_PRESSURE_PLATE_CLICK_ON: SfxId =
+    SfxId::from_static("world.pressure_plate.click_on");
+pub const WORLD_PRESSURE_PLATE_CLICK_OFF: SfxId =
+    SfxId::from_static("world.pressure_plate.click_off");
 pub const WORLD_SWITCH_TOGGLE: SfxId = SfxId::from_static("world.switch.toggle");
 pub const WORLD_CRATE_BREAK: SfxId = SfxId::from_static("world.crate.break");
 pub const WORLD_ROCK_BREAK: SfxId = SfxId::from_static("world.rock.break");
@@ -110,7 +112,8 @@ pub const WORLD_PLATFORM_STOP: SfxId = SfxId::from_static("world.platform.stop")
 // Pickups
 pub const WORLD_PICKUP_GENERIC: SfxId = SfxId::from_static("world.pickup.generic");
 pub const WORLD_HEALTH_COLLECT: SfxId = SfxId::from_static("world.health.collect");
-pub const WORLD_HEART_CONTAINER_COLLECT: SfxId = SfxId::from_static("world.heart_container.collect");
+pub const WORLD_HEART_CONTAINER_COLLECT: SfxId =
+    SfxId::from_static("world.heart_container.collect");
 pub const WORLD_COIN_PICKUP: SfxId = SfxId::from_static("world.coin.pickup");
 pub const WORLD_COIN_COLLECT: SfxId = SfxId::from_static("world.coin.collect");
 pub const WORLD_COIN_LARGE: SfxId = SfxId::from_static("world.coin.large");

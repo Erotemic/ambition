@@ -661,11 +661,7 @@ mod tests {
                 "tick {i}: velocities diverged ({:?} vs {:?})",
                 a.player_vel, b.player_vel
             );
-            assert_eq!(
-                a.hp, b.hp,
-                "tick {i}: HP diverged ({} vs {})",
-                a.hp, b.hp
-            );
+            assert_eq!(a.hp, b.hp, "tick {i}: HP diverged ({} vs {})", a.hp, b.hp);
         }
     }
 

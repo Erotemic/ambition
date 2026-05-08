@@ -47,7 +47,11 @@ fn lock_wall_layout() -> World {
         Vec2::new(1808.0, 1264.0),
         Vec2::new(80.0, 1232.0),
         vec![
-            Block::solid("arena_ceiling", Vec2::new(0.0, 0.0), Vec2::new(1808.0, 32.0)),
+            Block::solid(
+                "arena_ceiling",
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1808.0, 32.0),
+            ),
             // Lock wall: top=400, height=208, x=480..704.
             Block::solid(
                 "lockwall:mob_lab",

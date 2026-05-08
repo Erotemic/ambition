@@ -224,12 +224,8 @@ pub fn inventory_pointer_input(
                 }
             }
             Interaction::Pressed => {
-                let press = tap_mode.resolve_press(
-                    index,
-                    state.selected,
-                    false,
-                    &mut state.pointer_armed,
-                );
+                let press =
+                    tap_mode.resolve_press(index, state.selected, false, &mut state.pointer_armed);
                 state.selected = index;
                 if matches!(press, crate::settings::MenuPointerPress::Confirm) {
                     state.pointer_confirm = true;

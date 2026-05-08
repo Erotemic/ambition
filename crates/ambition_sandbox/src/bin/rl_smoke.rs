@@ -193,16 +193,17 @@ fn main() {
         .iter()
         .skip(1)
         .filter(|a| !a.starts_with("--rooms") && !a.contains("--rooms="))
-        .filter(|a| !args.iter().any(|prev| prev == "--rooms" && std::ptr::eq(*a, &args[0])))
+        .filter(|a| {
+            !args
+                .iter()
+                .any(|prev| prev == "--rooms" && std::ptr::eq(*a, &args[0]))
+        })
         .collect();
     let steps: u32 = positionals
         .first()
         .and_then(|s| s.parse().ok())
         .unwrap_or(200);
-    let seed: u64 = positionals
-        .get(1)
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(1);
+    let seed: u64 = positionals.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
     let filter = parse_rooms_filter(&args);
 
     // Build a sim once just to enumerate the room ids.
@@ -223,9 +224,7 @@ fn main() {
         // doesn't silently produce a 0-room run.
         for p in picks {
             if !all_room_ids.iter().any(|id| id == p) {
-                eprintln!(
-                    "rl_smoke: warning: --rooms entry '{p}' did not match any known room"
-                );
+                eprintln!("rl_smoke: warning: --rooms entry '{p}' did not match any known room");
             }
         }
     }

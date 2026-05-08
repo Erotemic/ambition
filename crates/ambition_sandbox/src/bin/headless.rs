@@ -24,7 +24,7 @@ use std::path::PathBuf;
 
 use ambition_sandbox::input::ControlFrame;
 use ambition_sandbox::rl::{SandboxSim, SandboxSimOptions, TimestepMode};
-use ambition_sandbox::trace::{self, DumpReason, GameplayTraceBuffer, record_simulation_frame};
+use ambition_sandbox::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
 
 fn parse_max_ticks(args: &[String]) -> u32 {
     // First positional non-flag arg is the tick count.
@@ -74,10 +74,10 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     // Idle inputs only -- the trace captures the deterministic gameplay
     // baseline; agents that want a richer trace can replay this binary
     // pattern from their own scripted policy.
-    use ambition_sandbox::GameWorld;
-    use ambition_sandbox::SandboxRuntime;
     use ambition_sandbox::game_mode::GameMode as GameModeState;
     use ambition_sandbox::rooms::RoomSet;
+    use ambition_sandbox::GameWorld;
+    use ambition_sandbox::SandboxRuntime;
     use bevy::state::state::State;
 
     for _ in 0..max_ticks {
@@ -92,8 +92,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let game_mode = world_ref.resource::<State<GameModeState>>();
         let active_area = room_set.active_spec().id.clone();
         let mode_label = format!("{:?}", game_mode.get());
-        let locomotion_state =
-            ambition_engine::LocomotionState::from_player(&runtime.player);
+        let locomotion_state = ambition_engine::LocomotionState::from_player(&runtime.player);
         let body_mode_state = ambition_engine::BodyMode::from_player(&runtime.player);
         record_simulation_frame(
             &mut buffer,
@@ -109,7 +108,13 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         );
     }
 
-    match trace::write_dump(&buffer, &DumpReason::Programmatic { label: "headless".into() }, &dump_dir) {
+    match trace::write_dump(
+        &buffer,
+        &DumpReason::Programmatic {
+            label: "headless".into(),
+        },
+        &dump_dir,
+    ) {
         Ok(path) => {
             println!(
                 "headless run completed: {} ticks; trace dumped to {}",

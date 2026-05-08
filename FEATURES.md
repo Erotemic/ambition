@@ -131,6 +131,7 @@ Status badges:
 - **Adaptive music cues** `[playable]` — fast_paced_violin_boss, dinosaur_liberators (Freebird-length 9:08), violin_boss_relentless, crooked_ascent_boss (5/4 klezmer/Bartok), 3 faction-area themes. Commits `dddf505`, `fdfd4a5`, `a03c1d7`, `d4b25ca`, `207294e`, `ec5a3d1`.
 - **Audio validation tests + `music_track_report` binary** `[stable]`. Commit `fb175f5`.
 - **LFO automation curves + per-cue dynamics tuning** `[stable]`. Commits `a03c1d7`, `533c47d`.
+- **Binary SFX bank (`.sfxbank`) + `SfxProvider` contract** `[stable]` — sandbox SFX are drawn from a packed binary bank produced offline by the `ambition_sfx_renderer` submodule, replacing in-process fundsp synthesis for the typed `SoundCue` set. Three crates: `ambition_sfx_bank` (pure-data format + FNV-1a 64 + reader), `ambition_sfx` (`SfxId` newtype, `SfxClip`, `SfxProvider` with Bank/Filesystem/Silent/Layered impls, `ids::*` const module), and `tools/ambition_sfx_pack/pack.py` (stdlib-only Python packer reading each `<id>.render.json`). `AudioLibrary::new` consults a provider per cue and decodes via `StaticSoundData::from_cursor`; missing-bank builds fall through to fundsp so cold checkouts still run. End-to-end pinned by `audio_library_loads_every_cue_from_real_bank`. Bank is gitignored under `crates/ambition_sandbox/assets/audio/`; regenerate with `python3 tools/ambition_sfx_pack/pack.py --dump`. Commit `8ca3f1d`.
 
 ## Input
 

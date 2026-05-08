@@ -831,6 +831,18 @@ fn drive_adaptive_cue_state(
         pending.delay_seconds -= dt;
         if pending.delay_seconds <= 0.0 {
             director.pending_state = None;
+            // intro→loop transitions get a tighter crossfade than
+            // loop↔loop section swaps. The intro's last bar already
+            // signals the change melodically; a longer fade just
+            // smears the downbeat of the loop. The longer
+            // LOOP_SECTION_CROSSFADE_SECONDS still applies when
+            // moving between loop sections (wave1↔wave2 etc.), where
+            // we want the overlap to mask the section boundary.
+            let crossfade = if director.mode == MusicDirectorMode::AdaptiveIntro {
+                INTRO_TO_LOOP_CROSSFADE_SECONDS
+            } else {
+                LOOP_SECTION_CROSSFADE_SECONDS
+            };
             start_adaptive_state(
                 director,
                 cue,
@@ -838,7 +850,7 @@ fn drive_adaptive_cue_state(
                 assets,
                 channels,
                 settings,
-                LOOP_SECTION_CROSSFADE_SECONDS,
+                crossfade,
             );
         } else {
             director.pending_state = Some(pending);
@@ -1390,22 +1402,10 @@ fn first_goblin_tune_v2_spec() -> MusicCueSpec {
         },
     ];
 
-    fn stem_sources(section: &str) -> Vec<MusicLayerSourceSpec> {
-        [
-            "strings",
-            "brass",
-            "winds",
-            "choir_pad",
-            "mallets",
-            "percussion",
-        ]
-        .into_iter()
-        .map(|layer| MusicLayerSourceSpec {
-            layer_id: layer.to_string(),
-            path: format!("adaptive/{section}/{section}.{layer}.ogg"),
-        })
-        .collect()
-    }
+    // `stem_sources` (per-stem layer set) was used here before the
+    // 2026-05-08 rebalance. Re-add it when the renderer applies its
+    // mastering chain to per-stem outputs and stems are individually
+    // audible.
 
     fn full_source(section: &str) -> Vec<MusicLayerSourceSpec> {
         vec![MusicLayerSourceSpec {
@@ -1424,6 +1424,25 @@ fn first_goblin_tune_v2_spec() -> MusicCueSpec {
             .collect()
     }
 
+    // 2026-05-08 rebalance: the renderer's mastering chain
+    // (compressor / reverb / limiter) only runs on the per-section
+    // full-mix file, not on individual stems. The raw stems for
+    // wave1/2/3 measure -50 to -inf LUFS — three of the six stems
+    // are essentially silent — while the per-section full mixes sit
+    // around -35 LUFS. To keep the cue audible at intro-level
+    // loudness without pushing distortion, wave sections now play
+    // the mastered full mix as a single layer with a fixed gain
+    // boost (~ +14 dB → -21 LUFS, close to the lofi tracks at
+    // -24 LUFS). The intro / outro / recap_loop full mixes are
+    // already mastered and ride the same path.
+    //
+    // Cost: the wave2_brute state can no longer differ from wave2
+    // (both share the wave2 section's single source). Acceptable
+    // tradeoff until the renderer learns to master stems too —
+    // until then the per-stem gains were applied on near-silence
+    // anyway, so wave2_brute was inaudibly different from wave2.
+    let wave_state_gain = 5.0;
+    let bridge_state_gain = 2.4;
     MusicCueSpec {
         id: FIRST_GOBLIN_CUE_ID.to_string(),
         asset_root,
@@ -1442,25 +1461,25 @@ fn first_goblin_tune_v2_spec() -> MusicCueSpec {
                 id: "wave1".into(),
                 duration_beats: 32.0,
                 looped: true,
-                sources: stem_sources("wave1"),
+                sources: full_source("wave1"),
             },
             MusicSectionSpec {
                 id: "wave2".into(),
                 duration_beats: 32.0,
                 looped: true,
-                sources: stem_sources("wave2"),
+                sources: full_source("wave2"),
             },
             MusicSectionSpec {
                 id: "wave3".into(),
                 duration_beats: 32.0,
                 looped: true,
-                sources: stem_sources("wave3"),
+                sources: full_source("wave3"),
             },
             MusicSectionSpec {
                 id: "recap_loop".into(),
                 duration_beats: 32.0,
                 looped: true,
-                sources: stem_sources("recap_loop"),
+                sources: full_source("recap_loop"),
             },
             MusicSectionSpec {
                 id: "outro".into(),
@@ -1478,62 +1497,30 @@ fn first_goblin_tune_v2_spec() -> MusicCueSpec {
             MusicStateSpec {
                 id: "wave1".into(),
                 section_id: "wave1".into(),
-                gains: gains(&[
-                    ("strings", 0.54),
-                    ("brass", 0.05),
-                    ("winds", 0.24),
-                    ("choir_pad", 0.08),
-                    ("mallets", 0.11),
-                    ("percussion", 0.00),
-                ]),
+                gains: gains(&[("full", wave_state_gain)]),
             },
             MusicStateSpec {
                 id: "wave2".into(),
                 section_id: "wave2".into(),
-                gains: gains(&[
-                    ("strings", 0.62),
-                    ("brass", 0.24),
-                    ("winds", 0.22),
-                    ("choir_pad", 0.10),
-                    ("mallets", 0.10),
-                    ("percussion", 0.30),
-                ]),
+                gains: gains(&[("full", wave_state_gain)]),
             },
             MusicStateSpec {
+                // wave2_brute degenerates to wave2 with the full-mix
+                // approach — keep the state so existing encounter
+                // wiring (`wave2_reinforced_state`) still resolves.
                 id: "wave2_brute".into(),
                 section_id: "wave2".into(),
-                gains: gains(&[
-                    ("strings", 0.68),
-                    ("brass", 0.34),
-                    ("winds", 0.24),
-                    ("choir_pad", 0.12),
-                    ("mallets", 0.10),
-                    ("percussion", 0.39),
-                ]),
+                gains: gains(&[("full", wave_state_gain)]),
             },
             MusicStateSpec {
                 id: "wave3".into(),
                 section_id: "wave3".into(),
-                gains: gains(&[
-                    ("strings", 0.72),
-                    ("brass", 0.44),
-                    ("winds", 0.28),
-                    ("choir_pad", 0.16),
-                    ("mallets", 0.12),
-                    ("percussion", 0.42),
-                ]),
+                gains: gains(&[("full", wave_state_gain)]),
             },
             MusicStateSpec {
                 id: "cleared_bridge".into(),
                 section_id: "recap_loop".into(),
-                gains: gains(&[
-                    ("strings", 0.26),
-                    ("brass", 0.00),
-                    ("winds", 0.10),
-                    ("choir_pad", 0.08),
-                    ("mallets", 0.03),
-                    ("percussion", 0.00),
-                ]),
+                gains: gains(&[("full", bridge_state_gain)]),
             },
             MusicStateSpec {
                 id: "outro".into(),

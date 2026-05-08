@@ -20,7 +20,12 @@ from pathlib import Path
 CUE_ID = "first_goblin_tune_v2"
 SECTIONS = ("intro", "wave1", "wave2", "wave3", "recap_loop", "outro")
 STEMS = ("strings", "brass", "winds", "choir_pad", "mallets", "percussion")
-FULL_SECTIONS = ("intro", "outro")
+# Per-section full mixes get installed for every section because the
+# in-game cue spec plays them directly: only intro / outro have ever
+# played as a single mastered file, but wave1/2/3 / recap_loop now do
+# the same to dodge the silent-stem problem (the renderer's mastering
+# chain only runs on the full mix, not individual stems).
+FULL_SECTIONS = SECTIONS
 
 
 def repo_root() -> Path:

@@ -220,7 +220,7 @@ pub fn update_boss_encounters(
         }
         let mut spec = ae::BossEncounterSpec::gradient_sentinel();
         spec.id = encounter_id.clone();
-        spec.name = boss_name.clone();
+        spec.name = boss_name.to_string();
         // Pick up the runtime's authored max_hp so the encounter
         // doesn't replace it on first link.
         spec.max_hp = (*max_hp).max(1);

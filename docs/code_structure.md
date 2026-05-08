@@ -3,8 +3,10 @@
 > **Status (2026-05-07):** This document recorded the **first**
 > extensibility pass after the Bevy port (sandbox split into focused
 > modules). The structure has continued to evolve since — sandbox
-> `main.rs` is now a ~10-line shim, the App-builder lives in
-> `app.rs`, and several "remaining hard-coded areas" listed below
+> `main.rs` is now a ~10-line shim, and the App-builder public
+> surface lives in `app.rs` with implementation modules under
+> `src/app/` (`plugins`, `resources`, `update`, `phases`, `world_flow`,
+> `hud`, etc.). Several "remaining hard-coded areas" listed below
 > have already been resolved (notably `slash_hitbox` moving to
 > `ambition_engine::combat`). The historical sections are kept for
 > archaeology; current authoritative descriptions of structure live
@@ -29,8 +31,9 @@ file.
 
 This kept the behavior close to the working Bevy prototype while making
 future changes more local. Subsequent passes have continued in the same
-direction; the App-builder logic later moved to `app.rs`, and `main.rs`
-became a thin shim that invokes `ambition_sandbox::app::run_visible`.
+direction; `main.rs` became a thin shim that invokes
+`ambition_sandbox::app::run_visible`, and the App-builder implementation was
+split into `src/app/` modules so LLM/human edits can load one concern at a time.
 
 ## Engine refactor pass
 

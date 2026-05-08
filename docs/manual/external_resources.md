@@ -3,6 +3,8 @@ Good talk / article about metroidvania design: https://aran.ink/metroidvania-gen
 
 Royalty Free Music: https://bit-by-bit-sound.itch.io/
 
+Sound Effects: https://freesound.org/search/?q=&f=license%253A%2522Creative%2520Commons%25200%2522%2520category%253A%2522Sound%2520effects%2522&s=Duration+%28shortest+first%29&si_tags=0&si_name=0&si_description=0&si_packname=0&si_sound_id=0&si_username=0&d0=0&d1=%2A&ig=0&r=0&g=1&dp=0&cm=0&mm=0&page=13#sound
+
 
 
 https://www.pcgamer.com/how-to-design-a-great-metroidvania-map/

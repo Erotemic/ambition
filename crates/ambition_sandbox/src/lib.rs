@@ -60,6 +60,18 @@ pub mod headless;
 pub mod rl;
 pub mod setup;
 
+/// Android shared-library entry point.
+///
+/// Desktop builds use `src/main.rs`; Android builds package this library as a
+/// `cdylib` and Bevy's `bevy_main` macro expands to the platform entry point
+/// expected by GameActivity. Keep this thin so Android and desktop visible
+/// builds compose the same app.
+#[cfg(target_os = "android")]
+#[bevy::prelude::bevy_main]
+fn main() {
+    app::run_visible();
+}
+
 pub use game_mode::GameMode;
 pub use headless::{run_headless, HeadlessReport};
 #[cfg(feature = "rl")]

@@ -6,6 +6,9 @@ license.workspace = true
 authors.workspace = true
 description = "Bevy-powered playable sandbox for Ambition Engine."
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [features]
 # Default preserves prior behavior plus the feature-gated ergonomic
 # additions (mobile touch + RL adapter). All of these can be disabled
@@ -44,6 +47,11 @@ dev_hot_reload = ["bevy/file_watcher"]
 # not require recompiling Rust. Enabling this feature also embeds the checked-in
 # map and falls back to it if the external map cannot be read or parsed.
 static_map = []
+
+# Android phone-test packaging. Keeps the regular visible sandbox defaults,
+# statically packs the map for early APK tests, and explicitly requests
+# Bevy's GameActivity integration for the cargo-ndk + Gradle path.
+android = ["static_map", "bevy/android-game-activity"]
 
 # Subsystem gates. Deps are flipped to `optional = true` so toggling
 # these features actually moves crates in/out of the dep graph. Code

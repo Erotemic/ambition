@@ -23,7 +23,11 @@ const DIALOG_CONTINUE_HINT: &str = "Enter/Space/F/E: continue   Up/Down: choose 
 /// view does not depend on Yarn Spinner.
 #[cfg(feature = "ui")]
 pub fn yarn_spinner_plugin() -> YarnSpinnerPlugin {
-    YarnSpinnerPlugin::new()
+    // Android cannot enumerate asset folders inside the APK, so use an
+    // explicit Yarn source instead of YarnSpinnerPlugin::new() (which scans
+    // the dialogue folder on desktop builds). Keep this path relative to
+    // Bevy's asset root: crates/ambition_sandbox/assets/dialogue/...
+    YarnSpinnerPlugin::with_yarn_source(YarnFileSource::file("dialogue/ambition_sandbox.yarn"))
 }
 
 #[derive(Clone, Debug, Default)]

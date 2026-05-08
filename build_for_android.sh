@@ -17,6 +17,7 @@ Usage: ./build_for_android.sh [options]
 
 Options:
   --install              Install the APK on an attached Android device with adb.
+  --fresh-install        Uninstall the app for the current user before installing.
   --run                  Install and launch the APK on an attached Android device.
   --device SERIAL        Pass -s SERIAL to adb for install/run.
   --rust-debug           Build the Rust shared library without --release.
@@ -125,6 +126,7 @@ copy_tree_contents() {
 }
 
 INSTALL=false
+FRESH_INSTALL=false
 RUN_APP=false
 CLEAN=false
 DOCTOR=false
@@ -141,6 +143,7 @@ GRADLE_USER_HOME_ARG=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --install) INSTALL=true ;;
+        --fresh-install) FRESH_INSTALL=true; INSTALL=true ;;
         --run) RUN_APP=true; INSTALL=true ;;
         --device) shift; [[ $# -gt 0 ]] || fatal "--device needs a serial"; DEVICE_SERIAL=$1 ;;
         --rust-debug) RUST_PROFILE="debug" ;;
@@ -277,6 +280,7 @@ android.useAndroidX=true
 # Keep the generated Android project local and predictable. The build script
 # already points GRADLE_USER_HOME at target/android/gradle-user-home by default.
 org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+android.javaCompile.suppressSourceTargetDeprecationWarning=true
 EOF
 
 
@@ -300,8 +304,36 @@ android {
     }
 }
 
+// Keep transitive Kotlin artifacts aligned. Some AndroidX/GameActivity
+// dependency combinations pull kotlin-stdlib 1.8.x together with older
+// kotlin-stdlib-jdk7/jdk8 1.6.x artifacts, which duplicate JDK extension
+// classes at package time. For this generated Java-only shell we do not use
+// Kotlin directly, but aligning the transitive runtime avoids duplicate-class
+// failures without introducing a checked-in Gradle project.
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.jetbrains.kotlin') {
+            details.useVersion '1.8.22'
+            details.because 'Align Kotlin stdlib transitive dependencies for AndroidX/GameActivity.'
+        }
+    }
+    // Kotlin 1.8 folds the JDK7/JDK8 extension classes into kotlin-stdlib.
+    // Some AndroidX transitive dependency combinations still request the old
+    // kotlin-stdlib-jdk7/jdk8 artifacts, which then duplicate those classes.
+    // Exclude the compatibility artifacts and keep the unified stdlib.
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+}
+
 dependencies {
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
     implementation 'androidx.games:games-activity:$GAMES_ACTIVITY_VERSION'
+    // GameActivity extends AppCompatActivity and also uses AndroidX Core.
+    // Keep these explicit so the generated project is self-contained even if
+    // future GameActivity POMs do not pull them transitively.
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.core:core:1.13.1'
 }
 EOF
 
@@ -313,12 +345,11 @@ cat > "$APP_DIR/src/main/AndroidManifest.xml" <<EOF
 
     <application
         android:allowBackup="false"
-        android:extractNativeLibs="true"
         android:hasCode="true"
         android:label="$APP_LABEL"
         android:theme="@style/Theme.Ambition">
         <activity
-            android:name="androidx.games.activity.GameActivity"
+            android:name=".MainActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="true"
             android:screenOrientation="landscape">
@@ -332,13 +363,42 @@ cat > "$APP_DIR/src/main/AndroidManifest.xml" <<EOF
 </manifest>
 EOF
 
+JAVA_PACKAGE_PATH=$(printf '%s' "$APP_ID" | tr '.' '/')
+JAVA_SRC_DIR="$APP_DIR/src/main/java/$JAVA_PACKAGE_PATH"
+mkdir -p "$JAVA_SRC_DIR"
+cat > "$JAVA_SRC_DIR/MainActivity.java" <<EOF
+package $APP_ID;
+
+import com.google.androidgamesdk.GameActivity;
+
+/**
+ * Thin launcher activity for the generated Ambition Android project.
+ *
+ * GameActivity's Java class lives in the com.google.androidgamesdk package.
+ * Keep this app-local subclass so Android launches a class packaged in this APK
+ * and so the native Rust library is loaded before GameActivity enters native
+ * code.
+ */
+public class MainActivity extends GameActivity {
+    static {
+        System.loadLibrary("ambition_sandbox");
+    }
+}
+EOF
+
 mkdir -p "$APP_DIR/src/main/res/values"
 cat > "$APP_DIR/src/main/res/values/styles.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Ambition" parent="android:style/Theme.Material.NoActionBar.Fullscreen">
-        <item name="android:windowFullscreen">true</item>
+    <!-- GameActivity extends AppCompatActivity, so the launched activity must
+         use an AppCompat-derived theme. Keep it fullscreen/no-title for the
+         game surface while satisfying AppCompatDelegate's runtime check. -->
+    <style name="Theme.Ambition" parent="Theme.AppCompat.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
     </style>
 </resources>
 EOF
@@ -383,8 +443,14 @@ if [[ -n "$DEVICE_SERIAL" ]]; then
 fi
 
 if [[ "$INSTALL" == true ]]; then
+    if [[ "$FRESH_INSTALL" == true ]]; then
+        log "fresh install requested; removing existing package for current user if present"
+        adb "${ADB_ARGS[@]}" shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
+        adb "${ADB_ARGS[@]}" shell cmd package uninstall --user 0 "$APP_ID" >/dev/null 2>&1 || true
+        adb "${ADB_ARGS[@]}" uninstall "$APP_ID" >/dev/null 2>&1 || true
+    fi
     log "installing APK via adb"
-    adb "${ADB_ARGS[@]}" install -r "$OUT_APK"
+    adb "${ADB_ARGS[@]}" install -r -d --install-location 0 "$OUT_APK"
 fi
 
 if [[ "$RUN_APP" == true ]]; then

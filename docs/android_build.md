@@ -122,3 +122,42 @@ cache directory under `~/.gradle`, repair ownership with:
 ```bash
 sudo chown -R "$USER:$USER" "$HOME/.gradle"
 ```
+
+### GameActivity launcher class
+
+The generated project uses a tiny app-local `MainActivity` Java class that
+extends `com.google.androidgamesdk.GameActivity` and loads
+`libambition_sandbox.so`. Do not point `AndroidManifest.xml` directly at
+`androidx.games.activity.GameActivity`; the runtime class provided by the
+GameActivity AAR is in the `com.google.androidgamesdk` package, and using the
+wrong manifest class crashes before Rust starts.
+
+
+
+### GameActivity dependencies
+
+The generated Gradle project uses a tiny `MainActivity` subclass of
+`com.google.androidgamesdk.GameActivity`. GameActivity itself is distributed in
+`androidx.games:games-activity`, and it extends `AppCompatActivity`, so the
+generated app declares `androidx.appcompat:appcompat` and `androidx.core:core`
+explicitly. If either dependency is missing, Android/Gradle can fail before the
+Rust library is ever loaded.
+
+
+### Kotlin duplicate-class failures
+
+The generated Android shell is Java-only, but AndroidX/GameActivity dependencies
+can pull Kotlin runtime artifacts transitively. If Gradle reports duplicate
+classes involving `kotlin-stdlib`, `kotlin-stdlib-jdk7`, and
+`kotlin-stdlib-jdk8`, the generated `app/build.gradle` aligns all
+`org.jetbrains.kotlin` artifacts to Kotlin `1.8.22` and imports the Kotlin BOM.
+This keeps transitive AndroidX dependencies compatible without checking in a
+full Android project.
+
+### AppCompat theme requirement
+
+`GameActivity` extends `AppCompatActivity`, so the generated manifest applies
+`@style/Theme.Ambition`, and that style must inherit from an AppCompat theme
+(for example `Theme.AppCompat.NoActionBar`). If Android crashes with
+`You need to use a Theme.AppCompat theme`, regenerate the Android project with
+`./build_for_android.sh --clean` after updating this script.

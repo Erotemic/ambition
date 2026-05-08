@@ -6,8 +6,9 @@
 //! source of truth for cue shapes and music arrangements.
 
 use ambition_engine as ae;
+use ambition_sfx::SfxId;
 #[cfg(feature = "audio")]
-use ambition_sfx::{self as sfx, SfxId, SfxProvider};
+use ambition_sfx::{self as sfx, SfxProvider};
 #[cfg(feature = "audio")]
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -41,64 +42,21 @@ pub struct MusicChannel;
 #[derive(Resource)]
 pub struct SfxChannel;
 
-/// Typed sandbox-side audio message (Bevy 0.18 buffered-message API; the
-/// pre-0.18 `Event`/`EventReader` names moved to observer-style one-shots).
-///
-/// Simulation systems emit `SfxMessage` values into a per-frame `Vec` (the
-/// "Vec collector" pattern documented in `docs/events_refactor_plan.md`).
-/// `sandbox_update` drains the Vec into the `Messages<SfxMessage>` resource
-/// at end-of-frame, and the presentation-side `audio_play_sfx_messages`
-/// system reads it and plays the actual sound. Headless builds omit the
-/// audio subscriber; messages accumulate until drained, costing nothing
-/// visible.
-///
-/// Each variant carries `pos` to set up future spatialized audio without
-/// another refactor; today's audio playback ignores it.
 #[derive(Message, Clone, Copy, Debug)]
 pub enum SfxMessage {
-    Jump {
-        pos: ae::Vec2,
-    },
-    DoubleJump {
-        pos: ae::Vec2,
-    },
-    Dash {
-        pos: ae::Vec2,
-    },
-    Blink {
-        pos: ae::Vec2,
-        precision: bool,
-    },
-    Pogo {
-        pos: ae::Vec2,
-    },
-    Slash {
-        pos: ae::Vec2,
-    },
-    Hit {
-        pos: ae::Vec2,
-    },
-    Death {
-        pos: ae::Vec2,
-    },
-    Reset {
-        pos: ae::Vec2,
-    },
-    /// Play any clip from the SFX bank by id. Avoids exploding the
-    /// typed enum every time a new sound gets wired in. Falls back to
-    /// silence if the bank doesn't have the id (logged once per id).
-    /// New gameplay events should prefer this over adding more typed
-    /// variants — keep typed variants for cues that need bespoke
-    /// per-cue logic on the consumer side.
-    Play {
-        id: SfxId,
-        pos: ae::Vec2,
-    },
+    Jump { pos: ae::Vec2 },
+    DoubleJump { pos: ae::Vec2 },
+    Dash { pos: ae::Vec2 },
+    Blink { pos: ae::Vec2, precision: bool },
+    Pogo { pos: ae::Vec2 },
+    Slash { pos: ae::Vec2 },
+    Hit { pos: ae::Vec2 },
+    Death { pos: ae::Vec2 },
+    Reset { pos: ae::Vec2 },
+    Play { id: SfxId, pos: ae::Vec2 },
 }
 
 impl SfxMessage {
-    /// Maps a typed-cue variant to its `SoundCue`. Returns `None` for
-    /// the generic `Play` variant which is dispatched separately.
     pub fn cue(self) -> Option<SoundCue> {
         Some(match self {
             SfxMessage::Jump { .. } => SoundCue::Jump,
@@ -120,15 +78,6 @@ impl SfxMessage {
     }
 }
 
-/// Presentation-side subscriber. Reads `SfxMessage`s and plays the actual
-/// sound through Kira's SFX channel. Skipped in headless builds.
-///
-/// Typed variants (`Jump`, `Dash`, …) take the existing `AudioLibrary`
-/// preload path. The generic `Play { id, .. }` variant routes through
-/// the bank: on first play of an id we decode the bank's encoded
-/// bytes via `StaticSoundData::from_cursor`, cache the resulting
-/// `Handle<KiraAudioSource>`, and reuse it on every subsequent play.
-/// A missing id is logged once and silently dropped.
 #[cfg(feature = "audio")]
 pub fn audio_play_sfx_messages(
     mut messages: MessageReader<SfxMessage>,
@@ -144,8 +93,6 @@ pub fn audio_play_sfx_messages(
             continue;
         }
         let SfxMessage::Play { id, .. } = *message else {
-            // cue() returned None only for Play; unreachable in
-            // practice but we guard rather than panic.
             continue;
         };
         let Some(handle) = cache.handle_for(id, bank.as_deref(), audio_sources.as_mut()) else {
@@ -155,26 +102,15 @@ pub fn audio_play_sfx_messages(
     }
 }
 
-/// Convert a linear amplitude in `[0, 1]` to decibels suitable for
-/// Kira's `set_volume`. Below `~0.001` we collapse to silence so the
-/// channel goes fully quiet rather than approaching `-inf` dB.
 #[cfg(feature = "audio")]
 pub fn amplitude_to_decibels(linear: f32) -> f32 {
     let clamped = linear.clamp(0.0, 1.0);
     if clamped < 0.001 {
-        // Match `Decibels::SILENCE = -60.0` from kira.
         return -60.0;
     }
     20.0 * clamped.log10()
 }
 
-/// Presentation-side system: react to `EncounterMusicRequest` and
-/// `RoomMusicRequest`. Encounter override takes priority; absent that,
-/// the active room's `music_track` (set on the LDtk level field) is
-/// the default track; absent both, the sandbox-wide default track
-/// applies. Track-id values that aren't registered in the
-/// `AudioLibrary` are silently ignored so a typo in an LDtk level
-/// field cannot stop playback or panic.
 #[cfg(feature = "audio")]
 pub fn apply_encounter_music(
     library: Res<AudioLibrary>,
@@ -202,9 +138,6 @@ pub fn apply_encounter_music(
     request.last_applied = Some(target);
 }
 
-/// Presentation-side system: detect changes in
-/// `UserSettings.audio` and push the new volumes to the music / SFX
-/// channels. Runs every frame; the underlying channel call is cheap.
 #[cfg(feature = "audio")]
 pub fn apply_audio_settings(
     settings: Res<crate::settings::UserSettings>,
@@ -253,10 +186,6 @@ impl SoundCue {
         Self::Respawn,
     ];
 
-    /// Maps a typed cue to the corresponding bank id. Bank entries
-    /// come from `tools/ambition_sfx_renderer/output/<id>/`. When a
-    /// bank entry exists for the cue, `AudioLibrary::new` uses it
-    /// instead of the local fundsp synthesizer.
     #[cfg(feature = "audio")]
     pub fn sfx_id(self) -> SfxId {
         match self {
@@ -312,21 +241,6 @@ pub struct AudioLibrary {
 
 #[cfg(feature = "audio")]
 impl AudioLibrary {
-    /// Build the audio library from the data spec. When a music track
-    /// declares `asset_path`, the OGG is loaded via `asset_server`
-    /// (cheap; decode happens lazily on first play) instead of the
-    /// procedural `render_lofi_theme` path that historically blocked
-    /// startup for ~2.4 seconds doing `sinf()` math. Pass `None` for
-    /// `asset_server` from headless / RL contexts that don't have one;
-    /// any track with `asset_path` set will fall back to procedural
-    /// synth in that case.
-    ///
-    /// `sfx_provider` (when `Some`) is consulted first for each
-    /// [`SoundCue`]; if it has a clip, it's decoded into a Kira
-    /// `StaticSoundData` and used. On miss the existing fundsp
-    /// synthesizer fills in. Pass `None` (e.g. from the inline test
-    /// harness or an RL context with no bank file) to force the
-    /// fundsp path for everything. See `crates/ambition_sfx/`.
     pub fn new(
         audio_sources: &mut Assets<KiraAudioSource>,
         spec: &AudioSpec,
@@ -599,10 +513,6 @@ fn add_rendered_audio(
     audio_sources.add(rendered.into_source())
 }
 
-/// Decode an [`sfx::SfxClip`]'s encoded bytes into a Kira
-/// `StaticSoundData`. Mirrors what `bevy_kira_audio`'s WAV/OGG asset
-/// loaders do internally — see
-/// `bevy_kira_audio::source::wav_loader::WavLoader::load`.
 #[cfg(feature = "audio")]
 fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource, String> {
     let cursor = Cursor::new(clip.bytes.to_vec());
@@ -610,11 +520,6 @@ fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource, Str
     Ok(KiraAudioSource { sound })
 }
 
-/// Lazy cache of `Handle<KiraAudioSource>` keyed by [`SfxId`]. Built
-/// up on demand by `audio_play_sfx_messages` the first time a clip is
-/// played: fetch from the bank, decode, register in `Assets`, and
-/// remember the handle. Misses (and decode failures) are remembered
-/// too so the same id doesn't keep trying.
 #[cfg(feature = "audio")]
 #[derive(Resource, Default)]
 pub struct SfxBankHandleCache {
@@ -1063,23 +968,18 @@ mod tests {
 
     #[test]
     fn amplitude_to_decibels_silent_floor() {
-        // Below 0.001 collapses to -60 dB (kira's silence floor).
         assert_eq!(amplitude_to_decibels(0.0), -60.0);
         assert_eq!(amplitude_to_decibels(0.0005), -60.0);
-        // Negative inputs clamp to 0 → silence floor.
         assert_eq!(amplitude_to_decibels(-1.0), -60.0);
     }
 
     #[test]
     fn amplitude_to_decibels_unit_is_zero() {
-        // 1.0 amplitude → 0 dB (no attenuation).
         assert!((amplitude_to_decibels(1.0)).abs() < 1e-4);
     }
 
     #[test]
     fn amplitude_to_decibels_half_is_minus_six() {
-        // 0.5 amplitude → ~-6 dB (the canonical "half perceived
-        // loudness" reference).
         let db = amplitude_to_decibels(0.5);
         assert!((db - (-6.0205)).abs() < 0.01);
     }
@@ -1134,11 +1034,6 @@ mod tests {
         }
     }
 
-    /// End-to-end check that every typed `SoundCue` resolves through
-    /// the packed sfx bank into a Kira-decodable `AudioSource`. Skipped
-    /// (with an eprintln) if the bank file isn't checked in / packed
-    /// yet, so a cold checkout stays buildable; CI / pre-commit should
-    /// run `tools/ambition_sfx_pack/pack.py` to keep the bank fresh.
     #[test]
     fn audio_library_loads_every_cue_from_real_bank() {
         let bank_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -1154,8 +1049,6 @@ mod tests {
         }
 
         let provider = ambition_sfx::BankProvider::from_path(&bank_path).expect("load real bank");
-        // Every typed cue must resolve in the bank — this is the
-        // contract gameplay code relies on.
         for cue in SoundCue::ALL {
             assert!(
                 provider.has(cue.sfx_id()),
@@ -1165,8 +1058,6 @@ mod tests {
             );
         }
 
-        // Decode all typed cues end-to-end through the same path the
-        // game uses at startup.
         let spec = SandboxDataSpec::load_embedded();
         let mut assets = Assets::<KiraAudioSource>::default();
         let library = AudioLibrary::new(&mut assets, &spec.audio, None, Some(&provider));
@@ -1224,25 +1115,19 @@ mod tests {
         let spec = SandboxDataSpec::load_embedded();
         let mut assets = Assets::<KiraAudioSource>::default();
         let library = AudioLibrary::new(&mut assets, &spec.audio, None, None);
-        // 3 tracks since the encounter music addition: original lofi
-        // loop, long lofi drift, pulse drift voyage (encounter intro).
         assert_eq!(library.track_count(), 3);
-        // long_lofi_drift is index 1; previous wraps to index 0 (original).
         assert_eq!(
             library.previous_track_id("long_lofi_drift"),
             Some(ORIGINAL_TRACK_ID)
         );
-        // Original cycles forward to long_lofi_drift.
         assert_eq!(
             library.next_track_id(ORIGINAL_TRACK_ID),
             Some("long_lofi_drift")
         );
-        // The encounter track is reachable as the third.
         assert_eq!(
             library.next_track_id("long_lofi_drift"),
             Some("pulse_drift_voyage")
         );
-        // And the cycle wraps back to original from the encounter track.
         assert_eq!(
             library.next_track_id("pulse_drift_voyage"),
             Some(ORIGINAL_TRACK_ID)

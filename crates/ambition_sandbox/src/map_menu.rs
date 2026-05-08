@@ -15,10 +15,6 @@ use std::collections::BTreeSet;
 
 use bevy::prelude::*;
 
-/// One LDtk-authored room as the map UI sees it: id, world-space
-/// rectangle (in LDtk world coords), and visited flag. Populated
-/// once at startup from the LDtk project, then read every frame by
-/// the map UI sync system.
 #[derive(Clone, Debug)]
 pub struct MapRoomNode {
     pub id: String,
@@ -31,13 +27,7 @@ pub struct MapMenuState {
     pub open: bool,
     pub minimap_enabled: bool,
     pub visited: BTreeSet<String>,
-    /// World-space bounding boxes for each known room. Built from
-    /// `LdtkProject` at startup.
     pub rooms: Vec<MapRoomNode>,
-    /// Zoom multiplier applied on top of the auto-fit scale (full
-    /// map only — the minimap stays fit-to-canvas). 1.0 = fit;
-    /// `MAP_ZOOM_STEP` adjusts up/down. Clamped to
-    /// `[MAP_ZOOM_MIN, MAP_ZOOM_MAX]`.
     pub zoom: f32,
 }
 
@@ -53,36 +43,27 @@ impl Default for MapMenuState {
     }
 }
 
-/// Zoom multiplier per `+`/`-` press while the map is open.
 pub const MAP_ZOOM_STEP: f32 = 1.25;
-/// Minimum zoom — fit the whole world or smaller.
 pub const MAP_ZOOM_MIN: f32 = 0.5;
-/// Maximum zoom — useful for reading individual room labels in
-/// dense graphs.
 pub const MAP_ZOOM_MAX: f32 = 4.0;
 
 impl MapMenuState {
-    /// Toggle the full map.
     pub fn toggle_open(&mut self) {
         self.open = !self.open;
     }
 
-    /// Toggle the corner minimap.
     pub fn toggle_minimap(&mut self) {
         self.minimap_enabled = !self.minimap_enabled;
     }
 
-    /// Zoom the full map in; clamps to `MAP_ZOOM_MAX`.
     pub fn zoom_in(&mut self) {
         self.zoom = (self.zoom * MAP_ZOOM_STEP).clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
     }
 
-    /// Zoom the full map out; clamps to `MAP_ZOOM_MIN`.
     pub fn zoom_out(&mut self) {
         self.zoom = (self.zoom / MAP_ZOOM_STEP).clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
     }
 
-    /// Reset the full map zoom to `1.0` (fit-to-canvas).
     pub fn zoom_reset(&mut self) {
         self.zoom = 1.0;
     }
@@ -91,7 +72,6 @@ impl MapMenuState {
         self.visited.insert(room_id.to_string());
     }
 
-    /// Lines suitable for the HUD's quest log section.
     pub fn summary_lines(&self, current_room: &str) -> Vec<String> {
         if !self.open {
             if self.minimap_enabled {
@@ -112,9 +92,6 @@ impl MapMenuState {
     }
 }
 
-/// Bevy system: sync the map's visited set with the live save flags.
-/// We record the room id whenever the active room changes; the
-/// `RoomEntered` quest event fires from the same frame.
 pub fn track_room_visits(
     room_set: Res<crate::rooms::RoomSet>,
     mut map: ResMut<MapMenuState>,
@@ -127,13 +104,10 @@ pub fn track_room_visits(
     }
     *last = Some(current.clone());
     map.record_visit(&current);
-    // Also write a save flag so the visited set persists across saves.
     save.data_mut()
         .set_flag(format!("room_visited_{current}"), true);
 }
 
-/// Bevy system: keep the in-memory visited set in sync with the save
-/// resource on first load. Idempotent.
 pub fn sync_map_from_save(
     save: Res<crate::save::SandboxSave>,
     mut map: ResMut<MapMenuState>,
@@ -150,8 +124,6 @@ pub fn sync_map_from_save(
     }
 }
 
-/// Startup system: populate the room layout from the loaded LDtk
-/// project. The world-space rectangles drive the map UI's room boxes.
 pub fn populate_map_rooms(
     project: Res<crate::ldtk_world::SandboxLdtkProject>,
     mut map: ResMut<MapMenuState>,
@@ -168,10 +140,6 @@ pub fn populate_map_rooms(
     }
 }
 
-/// Mouse / touch dismissal: while the full map is open, a click or
-/// tap anywhere on the map panel closes it. The map has no
-/// selectable items today, so collapse-on-press is the natural
-/// pointer affordance to match the keyboard `M` toggle.
 #[cfg(feature = "input")]
 pub fn map_menu_pointer_dismiss(
     mut map: ResMut<MapMenuState>,
@@ -187,9 +155,9 @@ pub fn map_menu_pointer_dismiss(
     }
 }
 
-/// Toggle systems for keyboard input. `M` opens the map menu, `N`
-/// toggles the minimap. Hidden behind dev_tools so the main game can
-/// override the bindings later.
+#[cfg(not(feature = "input"))]
+pub fn map_menu_pointer_dismiss() {}
+
 #[cfg(feature = "input")]
 pub fn handle_map_menu_hotkeys(
     keys: Res<bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>>,
@@ -202,10 +170,6 @@ pub fn handle_map_menu_hotkeys(
     if keys.just_pressed(KeyCode::KeyN) {
         map.toggle_minimap();
     }
-    // Map zoom: only honored while the full map is open. Minus / Equal
-    // (with optional shift) match the conventional "zoom in / out"
-    // bindings; Digit0 resets. NumpadAdd / NumpadSubtract / Numpad0
-    // are alternate bindings.
     if map.open {
         let zoom_in = keys.just_pressed(KeyCode::Equal) || keys.just_pressed(KeyCode::NumpadAdd);
         let zoom_out =
@@ -223,7 +187,8 @@ pub fn handle_map_menu_hotkeys(
     }
 }
 
-// ─── UI: full-screen map + corner minimap ─────────────────────────
+#[cfg(not(feature = "input"))]
+pub fn handle_map_menu_hotkeys() {}
 
 const MAP_PANEL_WIDTH: f32 = 720.0;
 const MAP_PANEL_HEIGHT: f32 = 480.0;
@@ -252,10 +217,7 @@ pub struct MapRoomBox {
     pub room_id: String,
 }
 
-/// Spawn the map UI roots once. Both start hidden; visibility flips
-/// each frame to match `MapMenuState::open` / `minimap_enabled`.
 pub fn spawn_map_menu(mut commands: Commands) {
-    // Full map (M).
     let root = commands
         .spawn((
             Button,
@@ -321,7 +283,6 @@ pub fn spawn_map_menu(mut commands: Commands) {
         .id();
     commands.entity(root).add_children(&[title, status, canvas]);
 
-    // Minimap (N) — corner panel.
     let minimap_root = commands
         .spawn((
             Node {
@@ -358,7 +319,6 @@ pub fn spawn_map_menu(mut commands: Commands) {
         .add_children(&[minimap_canvas]);
 }
 
-/// Sync visibility + content of both the full map and the minimap.
 pub fn sync_map_menu(
     mut commands: Commands,
     map: Res<MapMenuState>,
@@ -401,9 +361,6 @@ pub fn sync_map_menu(
         return;
     }
 
-    // Despawn old room boxes; we re-spawn a fresh set each tick. This
-    // is cheap because the room count is small (<20). When a richer
-    // UI lands, a per-room entity with change detection is the path.
     for entity in &existing_boxes {
         commands.entity(entity).despawn();
     }
@@ -436,7 +393,7 @@ pub fn sync_map_menu(
                 MINIMAP_WIDTH - MINIMAP_PADDING * 2.0,
                 MINIMAP_HEIGHT - MINIMAP_PADDING * 2.0,
                 MapLabelStyle::None,
-                1.0, // minimap is always fit-to-canvas
+                1.0,
             );
         }
     }
@@ -444,17 +401,9 @@ pub fn sync_map_menu(
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum MapLabelStyle {
-    /// Show full room id (e.g. "central_hub_complex") — full map only.
-    /// Falls back to `Short` automatically when a room box is too narrow
-    /// to fit the full name; the legible threshold is encoded in
-    /// `paint_room_boxes`.
     Full,
-    /// Show 2-letter initialism (e.g. "CHC") — used inside `Full` when
-    /// the room box is too narrow for the full name. Reserved for
-    /// future minimap-with-labels modes.
     #[allow(dead_code)]
     Short,
-    /// No label — minimap default.
     None,
 }
 
@@ -472,7 +421,6 @@ fn paint_room_boxes(
     if rooms.is_empty() {
         return;
     }
-    // Compute world-space bounds.
     let min_x = rooms
         .iter()
         .map(|r| r.world_min.x)
@@ -491,13 +439,8 @@ fn paint_room_boxes(
         .fold(f32::NEG_INFINITY, f32::max);
     let span_x = (max_x - min_x).max(1.0);
     let span_y = (max_y - min_y).max(1.0);
-    // Auto-fit, then apply user zoom on top. When zoomed, the active
-    // room's center is anchored to the canvas center so zooming feels
-    // like it focuses on the player's current location instead of
-    // the map's geometric center.
     let fit_scale = (canvas_w / span_x).min(canvas_h / span_y);
-    let scale = fit_scale * zoom.max(MAP_ZOOM_MIN).min(MAP_ZOOM_MAX);
-    // Anchor offset: when zoom > 1, recenter on the active room.
+    let scale = fit_scale * zoom.clamp(MAP_ZOOM_MIN, MAP_ZOOM_MAX);
     let active_room = rooms.iter().find(|r| r.id == active);
     let (offset_x, offset_y) = if zoom > 1.0001 {
         if let Some(active_room) = active_room {
@@ -570,10 +513,6 @@ fn paint_room_boxes(
                 });
             }
             MapLabelStyle::Full => {
-                // On the full map, only show full names if the room
-                // box is wide enough to read them. For tiny boxes
-                // (high room density / low zoom) fall back to the
-                // 2-letter initialism.
                 let label = if width >= 80.0 {
                     room.id.clone()
                 } else {
@@ -596,8 +535,6 @@ fn paint_room_boxes(
     }
 }
 
-/// Compact a long room id (`central_hub_basement`) into a 2-letter
-/// initialism (`CB`) for label-cramped minimap entries.
 fn short_room_label(id: &str) -> String {
     let parts: Vec<&str> = id.split('_').collect();
     if parts.len() <= 1 {

@@ -1,0 +1,3 @@
+[submodule "tools/ambition_sfx_renderer"]
+	path = tools/ambition_sfx_renderer
+	url = https://github.com/Erotemic/ambition_sfx_renderer.git

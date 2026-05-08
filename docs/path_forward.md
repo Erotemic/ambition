@@ -180,26 +180,24 @@ This is *cheap* and creates the natural homes for the IntGrid migration
 **Stop gate:** does the build still pass with no behavior change? `git
 log --stat` should show pure code movement (`-N M`).
 
-#### C status (focused 2-way split landed)
+#### C status (multi-module split in progress)
 
-Pulled all bevy_ecs_ldtk-using items out of `ldtk_world.rs` into
-`ldtk_world/bevy_runtime.rs` (528 lines): the `AmbitionLdtkRegistration`
-plugin + markers + spine types + spine systems + `LdtkRuntimeIndex` +
-`SandboxLdtkAsset`/`load_ldtk_asset_handle` + `SandboxLdtkWorldRoot` +
-`sync_ldtk_level_set` + the entity-identifier list. `ldtk_world.rs`
-shrank from 2360 to 1860 lines and is now bevy_ecs_ldtk-free except for
-the `pub use bevy_runtime::*` barrel re-export. `git log --stat` shows
-the expected pure-movement shape (-512 / +12).
+`features.rs` has been split into a small facade plus domain modules under
+`src/features/` (`runtime`, `bus`, `events`, `hazards`, `enemies`, `bosses`,
+`breakables`, `pickups`, `chests`, `npcs`, `path_motion`, `world_overlay`, and
+focused tests). This is the preferred shape for future gameplay-system edits:
+load the domain file instead of the whole historical feature runtime.
 
-Default build passes; 31/31 lib tests pass; `--no-default-features
---features headless,ldtk_runtime` still passes (no regression).
+`ldtk_world.rs` is now also partly decomposed. The earlier
+`ldtk_world/bevy_runtime.rs` extraction still owns the bevy_ecs_ldtk-facing
+runtime-spine surface. Additional non-Bevy pieces now live in `hot_reload.rs`,
+`intgrid.rs`, `surfaces.rs`, `fields.rs`, and `tests.rs`, with the top-level file
+kept as the public facade plus the remaining schema/validation/room-composition
+body. The remaining cleanup is to split that facade body into explicit schema,
+validation, and room-compiler modules.
 
-The doc's full 7-way decomp (json/validate/compile/runtime_index/
-runtime_spine/hot_reload/bevy_plugin) is **not yet done** — that's
-finer-grained cleanup that can land in a follow-up. The current 2-way
-split already isolates the bevy_ecs_ldtk surface, which is what the
-A.2 `ldtk_runtime` gate needs to land cleanly. `features.rs` cleanup
-(hazards/enemies/bosses/breakables/pickups/npc) is also still TODO.
+Default and headless-ish build checks should continue to pass after each slice;
+there should be no behavior change from these moves.
 
 ### D. Stabilize collision (~1-2 days)
 

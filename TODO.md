@@ -105,8 +105,8 @@
 
 ## D — Compile-time investments
 
-- [ ] Split `features.rs` (2819 lines) into `features/{hazards,enemies,bosses,breakables,pickups,npcs}.rs` `[V4/D4]`
-- [ ] Split `ldtk_world.rs` (2567 lines) into 7 modules per `path_forward.md` step C — only `bevy_runtime.rs` extracted (1 of 7) `[V3/D4]`
+- [x] Split `features.rs` into `features/` domain modules `[V4/D4]` — landed 2026-05-08. The old mega-file is now a facade plus `runtime`, `bus`, `events`, `hazards`, `enemies`, `bosses`, `breakables`, `pickups`, `chests`, `npcs`, `path_motion`, `world_overlay`, and focused tests.
+- [~] Split `ldtk_world.rs` into modules per `path_forward.md` step C `[V3/D4]` — in progress. Extracted `bevy_runtime`, `hot_reload`, `intgrid`, `surfaces`, `fields`, and LDtk tests; remaining follow-up is to split the facade body into schema/validation/room-compiler modules.
 - [ ] Promote `KinematicPath` to typed components + index `[V2/D3]`
 - [ ] **Extract `ambition_game` crate** `[V4/D5]` — engine / game / sandbox 3-crate layout. Holds encounter, boss_encounter, quest, cutscene, save, ledge_grab, swim, map_menu, NPC AI, audio, rendering primitives. Source: `crate_split_plan.md`.
 

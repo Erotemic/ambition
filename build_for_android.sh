@@ -406,6 +406,16 @@ EOF
 log "copying runtime assets into generated Android project"
 rm -rf "$ASSETS_OUT"
 copy_tree_contents "$ROOT/crates/ambition_sandbox/assets" "$ASSETS_OUT"
+if [[ -d "$ASSETS_OUT/sprites" ]]; then
+    sprite_png_count=$(find "$ASSETS_OUT/sprites" -type f -name '*.png' | wc -l | tr -d ' ')
+    if [[ "$sprite_png_count" == "0" ]]; then
+        warn "no sprite PNGs were copied into the APK assets; the game will use colored-rectangle sprite fallbacks. Regenerate/copy sprites under crates/ambition_sandbox/assets/sprites before building Android."
+    else
+        log "copied $sprite_png_count sprite PNGs into APK assets"
+    fi
+else
+    warn "no sprites/ asset directory copied into APK; sprite art will fall back to colored rectangles"
+fi
 
 CARGO_NDK_ARGS=(cargo ndk -t "$TARGET_ABI" -P "$MIN_SDK" -o "$JNI_OUT" build -p ambition_sandbox --lib)
 if [[ "$RUST_PROFILE" == "release" ]]; then

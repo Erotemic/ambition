@@ -26,6 +26,7 @@
 //!    struct rather than baking specific paths into call sites.
 
 use std::collections::HashMap;
+#[cfg(not(target_os = "android"))]
 use std::path::Path;
 
 use ambition_engine as ae;
@@ -282,14 +283,27 @@ fn load_entity_sprites(asset_server: &AssetServer, sprite_folder: &str) -> Entit
 }
 
 fn asset_exists(rel_path: &str) -> bool {
+    // Android assets are packaged inside the APK; probing the host build
+    // machine's CARGO_MANIFEST_DIR at runtime will always fail there. Let
+    // Bevy's Android asset reader resolve the path and keep the fallback
+    // behavior in the rendering layer if the image is genuinely absent.
+    #[cfg(target_os = "android")]
+    {
+        let _ = rel_path;
+        true
+    }
+
     // Bevy's FileAssetReader resolves assets relative to CARGO_MANIFEST_DIR
     // when running through cargo. Mirror that here so the existence probe
     // matches the asset server's lookup path.
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    Path::new(manifest_dir)
-        .join("assets")
-        .join(rel_path)
-        .exists()
+    #[cfg(not(target_os = "android"))]
+    {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        std::path::Path::new(manifest_dir)
+            .join("assets")
+            .join(rel_path)
+            .exists()
+    }
 }
 
 /// Build a `Sprite` for the given entity-sprite key, falling back to the

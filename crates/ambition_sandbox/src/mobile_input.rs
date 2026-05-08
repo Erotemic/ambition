@@ -187,7 +187,9 @@ pub fn fold_touch_into_control_frame(
 pub mod bevy_plugin {
     use super::{fold_touch_into_control_frame, TouchButton, TouchInputState};
     use crate::input::ControlFrame;
+    use bevy::input::touch::Touches;
     use bevy::prelude::*;
+    use bevy::window::PrimaryWindow;
     use virtual_joystick::*;
 
     /// Joystick id. The `virtual_joystick` plugin is generic over a
@@ -700,23 +702,38 @@ pub mod bevy_plugin {
     /// previous frame's held mask in `TouchButtonEdges`.
     fn update_buttons_from_interactions(
         query: Query<(&Interaction, &TouchActionButton), With<Button>>,
+        touches: Res<Touches>,
+        windows: Query<&Window, With<PrimaryWindow>>,
         mut state: ResMut<MobileTouchState>,
         mut edges: ResMut<TouchButtonEdges>,
     ) {
         let mut now = TouchButtonEdges::default();
+
+        // Desktop / editor path: Bevy UI interactions are enough for
+        // mouse-driven button testing.
         for (interaction, action) in &query {
             let held = matches!(interaction, Interaction::Pressed);
-            match action {
-                TouchActionButton::Jump => now.jump |= held,
-                TouchActionButton::Attack => now.attack |= held,
-                TouchActionButton::Dash => now.dash |= held,
-                TouchActionButton::Blink => now.blink |= held,
-                TouchActionButton::Interact => now.interact |= held,
-                TouchActionButton::Projectile => now.projectile |= held,
-                TouchActionButton::Start => now.start |= held,
-                TouchActionButton::Reset => now.reset |= held,
+            set_button_held(&mut now, *action, held);
+        }
+
+        // Android / real-touch path: Bevy's Button `Interaction` is
+        // not a reliable multitouch source while another finger owns
+        // the virtual joystick. Read raw active touches and hit-test
+        // against the same fixed button layout instead. This lets the
+        // player keep the left thumb on the move stick while tapping
+        // Jump / Attack / Dash with the right thumb.
+        let window_size = windows
+            .single()
+            .ok()
+            .map(|w| Vec2::new(w.width(), w.height()));
+        if let Some(window_size) = window_size {
+            for touch in touches.iter() {
+                if let Some(action) = touch_action_at_position(touch.position(), window_size) {
+                    set_button_held(&mut now, action, true);
+                }
             }
         }
+
         let make_btn = |held_now: bool, held_prev: bool| TouchButton {
             held: held_now,
             pressed_this_frame: held_now && !held_prev,
@@ -731,6 +748,74 @@ pub mod bevy_plugin {
         state.0.start = make_btn(now.start, edges.start);
         state.0.reset = make_btn(now.reset, edges.reset);
         *edges = now;
+    }
+
+    fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held: bool) {
+        if !held {
+            return;
+        }
+        match action {
+            TouchActionButton::Jump => edges.jump = true,
+            TouchActionButton::Attack => edges.attack = true,
+            TouchActionButton::Dash => edges.dash = true,
+            TouchActionButton::Blink => edges.blink = true,
+            TouchActionButton::Interact => edges.interact = true,
+            TouchActionButton::Projectile => edges.projectile = true,
+            TouchActionButton::Start => edges.start = true,
+            TouchActionButton::Reset => edges.reset = true,
+        }
+    }
+
+    fn touch_action_at_position(pos: Vec2, window_size: Vec2) -> Option<TouchActionButton> {
+        // Touch positions use the same top-left-origin logical coordinate
+        // space as Bevy window cursor positions. These constants mirror
+        // `spawn_touch_buttons` so the raw-touch fallback matches the
+        // visible UI without needing to query layout nodes.
+        const RIGHT_MARGIN: f32 = 12.0;
+        const BOTTOM_MARGIN: f32 = 12.0;
+        const TOP_MARGIN: f32 = 12.0;
+        const BUTTON: f32 = 56.0;
+        const ACTION_CELL: f32 = 64.0; // 56px button + 4px margin each side
+        const MENU_W: f32 = 72.0;
+        const MENU_CELL: f32 = 80.0; // 72px button + 4px margin each side
+        const MENU_H: f32 = 40.0;
+
+        // Action cluster: right=12, bottom=12, 3 columns x 2 rows.
+        let cluster_left = window_size.x - RIGHT_MARGIN - 192.0;
+        let cluster_top = window_size.y - BOTTOM_MARGIN - 128.0;
+        let action_grid = [
+            // Row 0 (top): Blink / Projectile / Dash.
+            (TouchActionButton::Blink, 0usize, 0usize),
+            (TouchActionButton::Projectile, 1, 0),
+            (TouchActionButton::Dash, 2, 0),
+            // Row 1 (bottom): Attack / Interact / Jump.
+            (TouchActionButton::Attack, 0, 1),
+            (TouchActionButton::Interact, 1, 1),
+            (TouchActionButton::Jump, 2, 1),
+        ];
+        for (action, col, row) in action_grid {
+            let left = cluster_left + col as f32 * ACTION_CELL + 4.0;
+            let top = cluster_top + row as f32 * ACTION_CELL + 4.0;
+            if pos.x >= left && pos.x <= left + BUTTON && pos.y >= top && pos.y <= top + BUTTON {
+                return Some(action);
+            }
+        }
+
+        // Menu row: right=12, top=12, Start / Reset.
+        let menu_left = window_size.x - RIGHT_MARGIN - 168.0;
+        let menu_top = TOP_MARGIN;
+        for (action, col) in [
+            (TouchActionButton::Start, 0usize),
+            (TouchActionButton::Reset, 1),
+        ] {
+            let left = menu_left + col as f32 * MENU_CELL + 4.0;
+            let top = menu_top + 4.0;
+            if pos.x >= left && pos.x <= left + MENU_W && pos.y >= top && pos.y <= top + MENU_H {
+                return Some(action);
+            }
+        }
+
+        None
     }
 
     /// Read every `VirtualJoystickMessage<MobileStick>` published this

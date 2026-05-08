@@ -9,6 +9,7 @@
 //! animations. The split keeps both clean and makes it obvious which sheet
 //! a given pipeline expects.
 
+#[cfg(not(target_os = "android"))]
 use std::path::Path;
 
 use bevy::math::URect;
@@ -179,12 +180,15 @@ pub fn load_boss_sprite_in(
     sprite_folder: &str,
 ) -> Option<BossSpriteAsset> {
     let rel = format!("{sprite_folder}/{BOSS_FILENAME}");
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    if !Path::new(manifest_dir).join("assets").join(&rel).exists() {
-        eprintln!(
-            "[boss_sprites] boss spritesheet not found at assets/{rel} — falling back to entity sprite (boss_core.png)"
-        );
-        return None;
+    #[cfg(not(target_os = "android"))]
+    {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        if !Path::new(manifest_dir).join("assets").join(&rel).exists() {
+            eprintln!(
+                "[boss_sprites] boss spritesheet not found at assets/{rel} — falling back to entity sprite (boss_core.png)"
+            );
+            return None;
+        }
     }
     let layout = layouts.add(BOSS_SHEET.build_atlas());
     Some(BossSpriteAsset {

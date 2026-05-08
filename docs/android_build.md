@@ -161,3 +161,20 @@ full Android project.
 (for example `Theme.AppCompat.NoActionBar`). If Android crashes with
 `You need to use a Theme.AppCompat theme`, regenerate the Android project with
 `./build_for_android.sh --clean` after updating this script.
+
+## Phone usability notes
+
+Android builds package the checked-out `crates/ambition_sandbox/assets/` tree into
+`app/src/main/assets/`. Generated sprite PNGs are usually ignored by git, so the
+build script now prints how many sprite PNGs were copied. If that count is zero,
+the APK will still run but character/entity art falls back to colored rectangles.
+Regenerate or copy the sprite PNGs into `crates/ambition_sandbox/assets/sprites/`
+before rebuilding the APK.
+
+The Android build starts with debug HUD/gizmo overlays disabled so the small
+phone screen is not covered by desktop tuning text. Desktop builds keep the
+traditional debug-first defaults.
+
+Touch buttons are folded from raw active touches as well as Bevy UI
+`Interaction`s. This is intentional: the joystick can own one touch while another
+finger taps Jump / Attack / Dash / Blink / Interact / Projectile / Pause.

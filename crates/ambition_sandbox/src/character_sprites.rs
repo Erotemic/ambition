@@ -6,6 +6,7 @@
 //! `Option` stays `None` and callers fall back to the colored-rectangle
 //! visuals that predate this module — the game must always run.
 
+#[cfg(not(target_os = "android"))]
 use std::path::Path;
 
 use ambition_engine as ae;
@@ -500,14 +501,25 @@ fn build_optional(
 }
 
 fn asset_exists(rel_path: &str) -> bool {
+    // Android assets live inside the APK, not under the host-side
+    // CARGO_MANIFEST_DIR. Let Bevy's Android asset reader try the load.
+    #[cfg(target_os = "android")]
+    {
+        let _ = rel_path;
+        true
+    }
+
     // Bevy's FileAssetReader resolves assets relative to CARGO_MANIFEST_DIR
     // when running through cargo. Mirror that here so the existence check
     // matches the asset server's lookup path.
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    Path::new(manifest_dir)
-        .join("assets")
-        .join(rel_path)
-        .exists()
+    #[cfg(not(target_os = "android"))]
+    {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        std::path::Path::new(manifest_dir)
+            .join("assets")
+            .join(rel_path)
+            .exists()
+    }
 }
 
 /// Per-character animation cursor.

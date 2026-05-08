@@ -41,26 +41,31 @@ pub struct DeveloperTools {
 
 impl Default for DeveloperTools {
     fn default() -> Self {
+        let phone_demo = cfg!(target_os = "android");
         Self {
             inspector_visible: false,
             world_inspector_visible: false,
-            gizmos_enabled: true,
-            show_hud: true,
+            // Desktop keeps the traditional debug-first sandbox posture.
+            // Android starts clean so the touch HUD and gameplay viewport
+            // are usable on a small screen; debug/gizmo state can still be
+            // toggled from settings/dev paths later.
+            gizmos_enabled: !phone_demo,
+            show_hud: !phone_demo,
             compact_hud: true,
-            show_room_bounds: true,
-            // Default ON so collision rects are visible from the start —
-            // sprite art often has large transparent regions that cover
-            // less of the actual collision box than the eye reads.
-            show_world_blocks: true,
-            show_loading_zones: true,
-            show_player_hitbox: true,
-            show_player_vectors: true,
-            show_blink_preview: true,
-            show_combat_preview: true,
-            show_feature_hitboxes: true,
-            show_health_bars: true,
-            show_moving_platform: true,
-            show_rebound_vectors: true,
+            show_room_bounds: !phone_demo,
+            // Default ON on desktop so collision rects are visible from the
+            // start — sprite art often has large transparent regions that
+            // cover less of the actual collision box than the eye reads.
+            show_world_blocks: !phone_demo,
+            show_loading_zones: !phone_demo,
+            show_player_hitbox: !phone_demo,
+            show_player_vectors: !phone_demo,
+            show_blink_preview: !phone_demo,
+            show_combat_preview: !phone_demo,
+            show_feature_hitboxes: !phone_demo,
+            show_health_bars: !phone_demo,
+            show_moving_platform: !phone_demo,
+            show_rebound_vectors: !phone_demo,
             overview_camera: false,
             overview_camera_scale: 2.35,
         }

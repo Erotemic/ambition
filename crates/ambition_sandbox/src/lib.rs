@@ -62,10 +62,12 @@ pub mod setup;
 
 /// Android shared-library entry point.
 ///
-/// Desktop builds use `src/main.rs`; Android builds package this library as a
-/// `cdylib` and Bevy's `bevy_main` macro expands to the platform entry point
-/// expected by GameActivity. Keep this thin so Android and desktop visible
-/// builds compose the same app.
+/// Desktop builds enter through `src/main.rs`, but the Android Gradle project
+/// packages this crate as `libambition_sandbox.so`. GameActivity /
+/// android-activity expects that shared library to export `android_main`;
+/// Bevy's `#[bevy_main]` macro generates that boilerplate and registers the
+/// Android app handle for `bevy_winit` before calling into our normal visible
+/// app builder.
 #[cfg(target_os = "android")]
 #[bevy::prelude::bevy_main]
 fn main() {
@@ -230,7 +232,7 @@ impl SandboxRuntime {
         Self {
             player,
             player_health: ae::Health::new(20),
-            debug: true,
+            debug: !cfg!(target_os = "android"),
             slowmo: false,
             presets: KeyboardPreset::presets().to_vec(),
             preset_index: 0,

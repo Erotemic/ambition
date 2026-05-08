@@ -98,6 +98,12 @@ The current sandbox level-authoring POC is:
 crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
+The sandbox normally loads this LDtk file from disk at runtime so map edits and
+modded maps do not require recompiling Rust. Override it with `--ldtk <path>` or
+`AMBITION_LDTK=<path>`. Build with `--features static_map` to also embed the
+checked-in map in the binary and fall back to it when the external map cannot be
+read or parsed.
+
 Older root-level asset paths are obsolete unless a patch explicitly says otherwise.
 
 The audio manifest uses a track-list shape: `default_music_track` selects the startup track, and `music_tracks` contains procedural/declarative arrangements. The old 32-beat loop remains available as `original_lofi_loop`; the current default is a longer generated track for sandbox iteration. These names are implementation data, not final game promises.

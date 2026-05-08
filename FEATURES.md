@@ -87,6 +87,7 @@ Status badges:
 
 - **OneWayPlatform + DamageVolume promotion** `[stable]` — typed LDtk runtime-spine components with parity overlay; JSON authority retained until parity tests pass. Commit `d5e0f52`.
 - **LDtk biome metadata → runtime resource** `[stable]` — populates on every embedded active area. Commits `3ca2e2f`, `08afafb`.
+- **External LDtk map loading + `static_map` fallback** `[stable]` — the sandbox loads `assets/ambition/worlds/sandbox.ldtk` from disk by default, with `--ldtk <path>` / `AMBITION_LDTK=<path>` for modded maps. `--features static_map` embeds the checked-in LDtk file and warns/falls back to that copy if the external map cannot be read or parsed.
 - **Room music driven by biome metadata seam** `[stable]` — replaces ad-hoc per-room overrides. Commits `fdbbb02`, `458d902`.
 - **Programmatic LDtk authoring + room builder + layout lints** `[stable]` — agent-friendlier authoring path. Commits `9db48f7`, `f8a75b6`, `fcda12d`.
 - **`list_ldtk_metadata.py` tool + body_mode reset tests** `[stable]`. Commit `7ae5dd6`.

@@ -417,7 +417,13 @@ pub struct StartRoomOverride(pub String);
 
 pub fn init_sandbox_resources(app: &mut App) {
     let sandbox_data = data::SandboxDataSpec::load_embedded();
-    let ldtk_project = ldtk_world::LdtkProject::load_embedded();
+    let ldtk_project = match ldtk_world::LdtkProject::load_default() {
+        Ok(project) => project,
+        Err(error) => {
+            eprintln!("failed to load sandbox LDtk map: {error}");
+            std::process::exit(2);
+        }
+    };
     let ldtk_report = ldtk_project.validate();
     ldtk_report.print_to_stderr();
     let valid_track_ids = sandbox_data
@@ -433,7 +439,9 @@ pub fn init_sandbox_resources(app: &mut App) {
     let mut room_set = match ldtk_project.to_room_set() {
         Ok(room_set) => room_set,
         Err(errors) => {
-            eprintln!("embedded LDtk world failed validation; fix crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk before running:");
+            eprintln!(
+                "sandbox LDtk world failed validation; fix the configured map before running:"
+            );
             for error in &errors {
                 eprintln!("  - {error}");
             }
@@ -746,7 +754,7 @@ fn spawn_ldtk_world_root(
                 .as_ref()
                 .map(|collection| collection.ldtk_project.clone())
         })
-        .unwrap_or_else(|| asset_server.load(ldtk_world::SANDBOX_LDTK_ASSET));
+        .unwrap_or_else(|| asset_server.load(ldtk_world::sandbox_ldtk_asset_path()));
     commands.spawn((
         bevy_ecs_ldtk::prelude::LdtkWorldBundle {
             ldtk_handle: ldtk_handle.into(),

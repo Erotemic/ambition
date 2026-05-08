@@ -23,7 +23,7 @@ use bevy_ecs_ldtk::prelude::{
 
 use ambition_engine as ae;
 
-use super::{LdtkLevel, LdtkProject, SANDBOX_LDTK_ASSET};
+use super::{sandbox_ldtk_asset_path, sandbox_ldtk_path, LdtkLevel, LdtkProject};
 
 /// Lightweight bundle registered for every Ambition-authored LDtk entity.
 ///
@@ -725,7 +725,19 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
 pub struct SandboxLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
 
 pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(SandboxLdtkAsset(asset_server.load(SANDBOX_LDTK_ASSET)));
+    let asset_path = sandbox_ldtk_asset_path();
+    if asset_path == super::SANDBOX_LDTK_ASSET
+        && sandbox_ldtk_path() != super::default_sandbox_ldtk_path()
+    {
+        eprintln!(
+            "LDtk warning: configured map {} is outside the Bevy asset root; \
+             Ambition's JSON loader will use it, but the bevy_ecs_ldtk runtime-spine handle \
+             falls back to {}",
+            sandbox_ldtk_path().display(),
+            super::SANDBOX_LDTK_ASSET
+        );
+    }
+    commands.insert_resource(SandboxLdtkAsset(asset_server.load(asset_path)));
 }
 
 #[derive(Component)]

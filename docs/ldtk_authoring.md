@@ -8,6 +8,19 @@ All LDtk authoring goes through the `ambition_ldtk_tools` modal CLI.
 Agents should not hand-edit `sandbox.ldtk` JSON; use the semantic edits
 in this CLI so mutations are repaired and validated before write.
 
+At runtime the visible sandbox loads the LDtk project from disk by default. This
+keeps the map modifiable after the binary is compiled and keeps LDtk edits out of
+Rust's incremental build fingerprint. Use either form to test an alternate map:
+
+```bash
+cargo run -p ambition_sandbox -- --ldtk mods/my_world.ldtk
+AMBITION_LDTK=mods/my_world.ldtk cargo run -p ambition_sandbox
+```
+
+For a self-contained executable, build with `--features static_map`; that embeds
+the checked-in `sandbox.ldtk` and falls back to it with a warning if the external
+map is missing or invalid.
+
 ```bash
 python -m ambition_ldtk_tools doctor crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 python -m ambition_ldtk_tools area create <spec.yaml> --apply

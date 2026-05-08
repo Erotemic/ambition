@@ -360,12 +360,12 @@ impl SandboxSim {
     /// `--start-room` flag semantics: any room id from the LDtk
     /// project's `activeArea` field can be used.
     pub fn new_with_options(options: SandboxSimOptions) -> Result<Self, String> {
-        let project = ldtk_world::LdtkProject::load_embedded();
+        let project = ldtk_world::LdtkProject::load_default()?;
         let report = project.validate();
         if !report.is_ok() {
             report.print_to_stderr();
             return Err(format!(
-                "embedded LDtk validation failed: {} error(s)",
+                "sandbox LDtk validation failed: {} error(s)",
                 report.errors.len()
             ));
         }

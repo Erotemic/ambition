@@ -1660,7 +1660,7 @@ mod tests {
 
     #[test]
     fn load_encounter_specs_picks_up_mob_lab() {
-        let project = LdtkProject::load_embedded();
+        let project = LdtkProject::load_default().expect("sandbox LDtk should load");
         let save = ae::SandboxSaveData::default();
         let entries = load_encounter_specs_from_ldtk(&project, &save);
         let mob_lab = entries
@@ -1674,7 +1674,7 @@ mod tests {
 
     #[test]
     fn load_encounter_specs_respects_persisted_cleared() {
-        let project = LdtkProject::load_embedded();
+        let project = LdtkProject::load_default().expect("sandbox LDtk should load");
         let mut save = ae::SandboxSaveData::default();
         save.set_encounter("mob_lab", PersistedEncounterState::Cleared);
         let entries = load_encounter_specs_from_ldtk(&project, &save);
@@ -1693,7 +1693,7 @@ mod tests {
         // ("mob_lab_reset_switch"). That mismatch made
         // `FeatureRuntime::set_switch_on(activation.id)` a no-op and
         // the switch sprite stayed stuck red.
-        let project = LdtkProject::load_embedded();
+        let project = LdtkProject::load_default().expect("sandbox LDtk should load");
         let room_set = project.to_room_set().expect("mob_lab world composes");
         let mob_lab = room_set
             .rooms
@@ -1729,7 +1729,7 @@ mod tests {
 
     #[test]
     fn mob_lab_loaded_spec_has_three_waves_lockwall_and_intro() {
-        let project = LdtkProject::load_embedded();
+        let project = LdtkProject::load_default().expect("sandbox LDtk should load");
         let save = ae::SandboxSaveData::default();
         let entries = load_encounter_specs_from_ldtk(&project, &save);
         let (_, spec, _) = entries

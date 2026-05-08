@@ -74,7 +74,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // Validate the embedded LDtk file up front so we can return Err with a
     // useful diagnostic. `init_sandbox_resources` does this too but exits
     // the process on failure; tests want a structured error instead.
-    let project = ldtk_world::LdtkProject::load_embedded();
+    let project = ldtk_world::LdtkProject::load_default()?;
     let report = project.validate();
     if !report.is_ok() {
         report.print_to_stderr();

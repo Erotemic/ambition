@@ -39,6 +39,12 @@ dev_tools = ["dep:bevy-inspector-egui", "bevy/file_watcher"]
 # File-watcher only, no inspector; matches prior `dev_hot_reload` semantics.
 dev_hot_reload = ["bevy/file_watcher"]
 
+# Opt-in self-contained map build. Normal sandbox builds load
+# assets/ambition/worlds/sandbox.ldtk from disk so LDtk edits and modded maps do
+# not require recompiling Rust. Enabling this feature also embeds the checked-in
+# map and falls back to it if the external map cannot be read or parsed.
+static_map = []
+
 # Subsystem gates. Deps are flipped to `optional = true` so toggling
 # these features actually moves crates in/out of the dep graph. Code
 # inside these subsystems is not yet cfg-gated end-to-end, so disabling

@@ -11,6 +11,18 @@ Invoked through the parent CLI:
 
     python -m ambition_sprite2d_renderer render sandbag
     python -m ambition_sprite2d_renderer render-publish sandbag
+
+TODO(integrate-sandbag-into-adapters): the rest of the package uses the
+``adapters.TARGETS`` registry and a ``CharacterJob``-driven config (YAML jobs
+under ``configs/``). Sandbag is currently a tack-on: it ships its own
+``render(out_dir, legacy_aliases=False) -> list[Path]`` entry that the CLI
+calls directly via the ``render``/``install``/``render-publish`` subcommands,
+bypassing the adapter system. Folding it into ``BaseAdapter`` (with a
+``configs/sandbag.yaml`` job, animation map, sample spec, and per-frame
+``render_frame``) would let it participate in ``draw-all``/``draw-canonicals``
+and share spritesheet packing with robot/goblin/boss. Out of scope for the
+initial migration; do this when the next sandbag-shaped target lands and the
+duplication starts to bite.
 """
 from __future__ import annotations
 

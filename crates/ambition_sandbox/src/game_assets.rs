@@ -7,8 +7,9 @@
 //!   `character_sprites`. Loaded here to keep all asset config in one place.
 //! - **Entity sprites** — single-image placeholders for chests, pickups,
 //!   breakables, hazards, NPCs, blocks, loading zones, and so on. Their
-//!   identity/path comes from the gen2d
-//!   `tools/generators/gen2d/assets/entities/entity_manifest.yaml`.
+//!   identity/path is emitted by
+//!   `python -m ambition_sprite2d_renderer draw-entities` as
+//!   `entity_manifest.yaml` next to the generated PNGs.
 //!
 //! Two design rules:
 //!

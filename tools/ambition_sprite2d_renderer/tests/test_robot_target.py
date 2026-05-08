@@ -3,7 +3,7 @@
 The animation set grew to include `blink_out`, `blink_in`, and `dash`
 since the original 8-row layout. Tests reflect the current adapter.
 """
-from proc2d_character_lab.adapters import get_adapter
+from ambition_sprite2d_renderer.adapters import get_adapter
 
 
 EXPECTED_ROBOT_ANIMS = [

@@ -1,8 +1,7 @@
 //! Sprite-sheet rendering for the player robot and goblin enemies.
 //!
-//! Character sheets (player robot, goblins) are produced by
-//! `tools/generators/gen2d` (legacy character lab); the sandbag sheet is
-//! produced by `tools/ambition_sprite2d_renderer`. Sheets are copied into
+//! All character sheets (player robot, goblins, sandbag, boss) are
+//! produced by `tools/ambition_sprite2d_renderer` and copied into
 //! `assets/sprites/`. If a PNG is missing at startup the corresponding
 //! `Option` stays `None` and callers fall back to the colored-rectangle
 //! visuals that predate this module — the game must always run.
@@ -78,7 +77,7 @@ pub struct CharacterSheetSpec {
 }
 
 // Frame counts, durations, label widths, and `feet_anchor_y` values are
-// kept in sync with `tools/generators/gen2d` output. After regenerating
+// kept in sync with `tools/ambition_sprite2d_renderer` output. After regenerating
 // sheets, mirror the new YAML headers + body_metrics here. When the
 // runtime gains a YAML loader for the `body_metrics` field, these
 // constants can be removed.

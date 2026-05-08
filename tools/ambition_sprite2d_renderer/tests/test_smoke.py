@@ -7,13 +7,18 @@ API so the suite is green from a clean checkout.
 """
 from pathlib import Path
 
-from proc2d_character_lab.canonical import render_canonical
-from proc2d_character_lab.config import CharacterJob
-from proc2d_character_lab.sheet import write_spritesheet
+from ambition_sprite2d_renderer.canonical import render_canonical
+from ambition_sprite2d_renderer.config import CharacterJob
+from ambition_sprite2d_renderer.sheet import write_spritesheet
+
+
+
+# Resolve configs relative to the package, not the cwd.
+CONFIGS = Path(__file__).resolve().parent.parent / 'ambition_sprite2d_renderer' / 'configs'
 
 
 def test_goblin_sheet_smoke(tmp_path: Path):
-    job = CharacterJob.load(Path("proc2d_character_lab/configs/goblin.yaml"))
+    job = CharacterJob.load(CONFIGS / "goblin.yaml")
     job.render.frame_width = 64
     job.render.frame_height = 64
     job.render.supersample = 1
@@ -27,7 +32,7 @@ def test_goblin_sheet_smoke(tmp_path: Path):
 
 
 def test_robot_sheet_smoke(tmp_path: Path):
-    job = CharacterJob.load(Path("proc2d_character_lab/configs/robot.yaml"))
+    job = CharacterJob.load(CONFIGS / "robot.yaml")
     job.render.frame_width = 64
     job.render.frame_height = 64
     job.render.supersample = 1
@@ -37,6 +42,6 @@ def test_robot_sheet_smoke(tmp_path: Path):
 
 
 def test_canonical_smoke():
-    job = CharacterJob.load(Path("proc2d_character_lab/configs/robot.yaml"))
+    job = CharacterJob.load(CONFIGS / "robot.yaml")
     image = render_canonical(job)
     assert image.size == (job.render.single_width, job.render.single_height)

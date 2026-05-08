@@ -52,8 +52,8 @@ rust-project.json
 debug_traces
 __pycache__
 *.png
-tools/generators/robot_sprite_component_tool/output
-tools/generators/robot_sprite_component_tool/assets
+tools/experimental/robot_sprite_component_tool/output
+tools/experimental/robot_sprite_component_tool/assets
 
 assets/fonts
 crates/ambition_sandbox/assets/fonts/
@@ -66,6 +66,7 @@ tools/ambition_music_renderer/generated/
 tools/ambition_sprite2d_renderer/generated/
 tools/experimental/**/generated/
 tools/experimental/**/assets/
+tools/experimental/**/output/
 tools/**/.venv/
 tools/**/__pycache__/
 tools/**/*.egg-info/

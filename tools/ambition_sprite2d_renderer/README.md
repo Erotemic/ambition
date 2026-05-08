@@ -1,37 +1,68 @@
 # Ambition 2D Sprite Renderer
 
-Procedural 2D sprite generator for Ambition. Targets are registered Python
-modules that draw a spritesheet PNG plus a YAML manifest.
+Procedural 2D sprite renderer for Ambition. Two surfaces share the package:
 
-Each target generates local files first, under `generated/<target>/`. Runtime
-assets are only updated when you explicitly run `install` or `render-publish`.
+1. **Adapter targets** — a `BaseAdapter` per target (robot / goblin / boss /
+   robot25d), driven by YAML jobs in `configs/`. Powered by the
+   `adapters.TARGETS` registry; jobs are loaded by `config.CharacterJob`
+   and packed into sheets by `sheet.py`. This is the "character lab"
+   surface formerly published as `proc2d_character_lab`.
+2. **Tack-on targets** — a per-target module under `targets/<name>.py`
+   that exposes `TARGET_NAME`, `SHEET_FILES`, and a
+   `render(out_dir, **opts) -> list[Path]` function. Used for one-off
+   sheets that do not yet plug into the adapter system. Currently:
+   `sandbag`. See the `TODO(integrate-sandbag-into-adapters)` note in
+   `targets/sandbag.py` for the path to fold it in.
 
 ## Modal CLI
 
+Adapter (character lab) commands:
+
 ```
-python -m ambition_sprite2d_renderer list
-python -m ambition_sprite2d_renderer render <target>
-python -m ambition_sprite2d_renderer preview <target>
-python -m ambition_sprite2d_renderer install <target>
-python -m ambition_sprite2d_renderer render-publish <target>
+python -m ambition_sprite2d_renderer list-targets        # adapter + tack-on targets
+python -m ambition_sprite2d_renderer draw-all            # render every job in configs/
+python -m ambition_sprite2d_renderer draw-canonicals     # canonical poses + contact sheet
+python -m ambition_sprite2d_renderer draw-entities       # non-character entity sprites
+python -m ambition_sprite2d_renderer spritesheet <cfg> <out>
+python -m ambition_sprite2d_renderer single <cfg> <out> --animation idle --frame-index 0
 ```
 
-`render` writes the sheet into `tools/ambition_sprite2d_renderer/generated/<target>/`.
+Tack-on commands:
 
-`install` copies the canonical sheet files into
-`crates/ambition_sandbox/assets/sprites/`.
+```
+python -m ambition_sprite2d_renderer render <target>           # write to generated/<target>/
+python -m ambition_sprite2d_renderer preview <target>          # render and report paths
+python -m ambition_sprite2d_renderer install <target>          # copy into sandbox assets
+python -m ambition_sprite2d_renderer render-publish <target>   # render then install
+```
 
+`render` writes the sheet into
+`tools/ambition_sprite2d_renderer/generated/<target>/`. `install` copies the
+canonical sheet files into `crates/ambition_sandbox/assets/sprites/`.
 `render-publish` does both.
 
 ## Targets
 
-### sandbag
+### Adapter targets
+
+| Target | Animations | Job |
+|---|---|---|
+| `robot` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/robot.yaml` |
+| `goblin` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/goblin.yaml` |
+| `boss` | rest, floor_slam, side_sweep, spike_halo, dash_echo, hit, death | `configs/boss.yaml` |
+| `robot25d` | (legacy 2.5D experiment) | — |
+
+Run `python -m ambition_sprite2d_renderer list-targets` to see the live
+animation map for each adapter.
+
+### Tack-on targets
+
+#### sandbag
 
 Procedural pale cloth sandbag character. Sparse output (only `idle`, `hit`,
 `death`). Runtime support for missing animations is provided by
-`character_sprites.rs` resolving them to `idle` at load time.
-
-Pass `--legacy-aliases` to also emit the 11-row alias sheet
+`character_sprites.rs` resolving them to `idle` at load time. Pass
+`--legacy-aliases` to also emit the 11-row alias sheet
 (`sandbag_legacy_11row_spritesheet.*`) for old-runtime compatibility.
 
 ```bash
@@ -39,30 +70,31 @@ python -m ambition_sprite2d_renderer render sandbag
 python -m ambition_sprite2d_renderer render-publish sandbag
 ```
 
-Output:
-
-```
-generated/sandbag/sandbag_spritesheet.png
-generated/sandbag/sandbag_spritesheet.yaml
-```
-
-After install:
-
-```
-crates/ambition_sandbox/assets/sprites/sandbag_spritesheet.png
-crates/ambition_sandbox/assets/sprites/sandbag_spritesheet.yaml
-```
-
 ## Adding a new target
 
-1. Drop a module under `ambition_sprite2d_renderer/targets/<name>.py`.
-2. Export `TARGET_NAME`, `SHEET_FILES`, and a `render(out_dir, **opts)`
-   function that returns the list of paths it wrote.
-3. Register the module in `ambition_sprite2d_renderer/targets/__init__.py`.
+### As an adapter target (preferred for character-shaped sprites)
+
+1. Drop a module under `targets/<name>.py` that subclasses
+   `adapters.BaseAdapter` and implements `animations()`, `sample_spec()`,
+   and `render_frame()`.
+2. Register the adapter class in `adapters.TARGETS`.
+3. Add a `configs/<name>.yaml` job describing the render parameters.
+
+### As a tack-on target (when adapter shape doesn't fit)
+
+1. Drop a module under `targets/<name>.py` exposing `TARGET_NAME`,
+   `SHEET_FILES`, and `render(out_dir, **opts) -> list[Path]`.
+2. Register the target id in `_TACKON_TARGETS` in `cli.py`.
+3. File a follow-up to fold it into the adapter system once it stabilizes
+   (see the `TODO` block in `targets/sandbag.py` for the rough plan).
 
 ## Conventions
 
 - Generated outputs live under `generated/` and are gitignored.
 - Targets must be deterministic for a given input (same code → same bytes).
-- Runtime assets are written only by explicit `install` / `render-publish`.
+- Runtime assets are written only by explicit `install` / `render-publish`
+  (or `draw-all` / `draw-canonicals` / `draw-entities` for adapter targets).
 - Do not commit `.png`, `.yaml`, etc., from `generated/`.
+
+See `docs/design.md` for the architecture rationale and `docs/ENTITY_TODOS.md`
+for outstanding entity-sprite work.

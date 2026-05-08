@@ -11,13 +11,11 @@ helpers.
 ```
 tools/
   ambition_music_renderer/      # MusicIR YAML → adaptive OGG stems / preview mixes
-  ambition_sprite2d_renderer/   # procedural 2D sprite/spritesheet renderer
+  ambition_sprite2d_renderer/   # procedural 2D sprite renderer (robot/goblin/boss/sandbag/entities)
   ambition_ldtk_tools/          # modal CLI for editing/validating sandbox.ldtk
   experimental/
     ambition_sprite3d_renderer/ # reference / failed Blender-first 3D experiment
-  generators/
-    gen2d/                      # legacy 2D character lab (robot/goblin)
-    robot_sprite_component_tool/
+    robot_sprite_component_tool/ # in-progress component-based robot sprite tool
   test_coverage_report.sh
 ```
 

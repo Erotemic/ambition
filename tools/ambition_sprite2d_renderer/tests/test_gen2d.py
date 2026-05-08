@@ -2,11 +2,16 @@ from pathlib import Path
 
 from PIL import Image
 
-from proc2d_character_lab.adapters import get_adapter
-from proc2d_character_lab.cli import draw_all, draw_canonicals
-from proc2d_character_lab.config import CharacterJob
-from proc2d_character_lab.entities import ENTITY_SPECS, write_entity_sprites
-from proc2d_character_lab.sheet import build_spritesheet
+from ambition_sprite2d_renderer.adapters import get_adapter
+from ambition_sprite2d_renderer.cli import draw_all, draw_canonicals
+from ambition_sprite2d_renderer.config import CharacterJob
+from ambition_sprite2d_renderer.entities import ENTITY_SPECS, write_entity_sprites
+from ambition_sprite2d_renderer.sheet import build_spritesheet
+
+
+
+# Resolve configs relative to the package, not the cwd.
+CONFIGS = Path(__file__).resolve().parent.parent / 'ambition_sprite2d_renderer' / 'configs'
 
 
 def _alpha_bbox_metrics(img):
@@ -24,8 +29,8 @@ def _alpha_bbox_metrics(img):
 
 def test_render_default_assets(tmp_path):
     out_dir = tmp_path / "assets"
-    outputs = draw_all("proc2d_character_lab/configs", out_dir)
-    outputs += draw_canonicals("proc2d_character_lab/configs", out_dir / "canonicals")
+    outputs = draw_all(str(CONFIGS), out_dir)
+    outputs += draw_canonicals(str(CONFIGS), out_dir / "canonicals")
     expected = {
         out_dir / "boss_spritesheet.png",
         out_dir / "boss_spritesheet.yaml",
@@ -53,7 +58,7 @@ def test_animation_sets_include_blink_parts_and_dash():
 
 def test_death_frames_keep_visible_mass_and_anchor():
     for cfg in ["robot.yaml", "goblin.yaml", "boss.yaml"]:
-        job = CharacterJob.load(Path("proc2d_character_lab/configs") / cfg)
+        job = CharacterJob.load(Path(str(CONFIGS)) / cfg)
         adapter = get_adapter(job.target)
         spec = adapter.sample_spec(job)
         info = adapter.animations()["death"]
@@ -72,7 +77,7 @@ def test_death_frames_keep_visible_mass_and_anchor():
 def test_blink_parts_are_teleport_not_eyelid_blink():
     for target in ["robot", "goblin"]:
         adapter = get_adapter(target)
-        adapter.sample_spec(CharacterJob.load(Path("proc2d_character_lab/configs") / f"{target}.yaml"))
+        adapter.sample_spec(CharacterJob.load(Path(str(CONFIGS)) / f"{target}.yaml"))
         generator = adapter.generator
         for name in ["blink_out", "blink_in"]:
             info = adapter.animations()[name]
@@ -178,7 +183,7 @@ def test_boss_animation_set_matches_rust_boss_attack_kind():
 
 
 def test_boss_attack_rows_render_non_empty():
-    job = CharacterJob.load(Path("proc2d_character_lab/configs/boss.yaml"))
+    job = CharacterJob.load(CONFIGS / "boss.yaml")
     adapter = get_adapter("boss")
     spec = adapter.sample_spec(job)
     for name in ["rest", "floor_slam", "side_sweep", "spike_halo", "dash_echo"]:
@@ -191,7 +196,7 @@ def test_spritesheet_emits_body_metrics():
     """Sprite manifests must carry measured body extent so Rust can align
     sprites with collision boxes without hand-tuned anchor constants."""
     for cfg_name in ("robot", "goblin", "boss"):
-        job = CharacterJob.load(Path(f"proc2d_character_lab/configs/{cfg_name}.yaml"))
+        job = CharacterJob.load(Path(CONFIGS / f"{cfg_name}.yaml"))
         # Truncate to one anim and skip supersampling so this test is fast.
         job.animations = job.animations[:1]
         job.render.supersample = 1

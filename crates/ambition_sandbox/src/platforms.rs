@@ -13,9 +13,10 @@ use bevy::prelude::*;
 
 use crate::config::{world_to_bevy, WORLD_Z_BLOCK};
 use crate::rendering::RoomVisual;
+use crate::rooms::RoomSet;
 
 /// A deterministic horizontal platform used as a visible game-time reference.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MovingPlatformState {
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
@@ -28,6 +29,9 @@ pub struct MovingPlatformState {
 impl MovingPlatformState {
     /// Place the reference platform high enough to be visible from spawn, but
     /// away from the immediate combat-practice lane.
+    ///
+    /// This is a compatibility fallback only. New playable rooms should author
+    /// `MovingPlatform` entities in LDtk so the map remains the source of truth.
     pub fn time_reference(world: &ae::World) -> Self {
         let min_x = (world.size.x * 0.28).max(100.0);
         let max_x = (world.size.x * 0.48).max(min_x + 180.0);
@@ -94,7 +98,7 @@ impl MovingPlatformState {
 
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
-            name: "moving time-reference platform".to_string(),
+            name: "moving platform".to_string(),
             aabb: self.aabb(),
             // Moving platforms are ordinary solids for walking/riding because
             // `BlockKind::BlinkWall` still resolves as solid collision on both
@@ -123,6 +127,19 @@ impl MovingPlatformState {
     }
 }
 
+/// Return the active room's LDtk-authored moving platform, or the legacy
+/// procedural reference platform when the room has not been authored yet.
+///
+/// This keeps old rooms playable while ensuring authored rooms are owned by
+/// LDtk placement, not by a hidden `time_reference` construction path.
+pub fn moving_platform_for_room(
+    world: &ae::World,
+    room: &crate::rooms::RoomSpec,
+) -> MovingPlatformState {
+    room.moving_platform
+        .unwrap_or_else(|| MovingPlatformState::time_reference(world))
+}
+
 /// Return a temporary collision world with the current moving platform inserted.
 ///
 /// The inserted block is solid for normal collision, but blink-passable for
@@ -149,7 +166,7 @@ pub fn spawn_moving_platform(
                 BVec2::new(platform.size.x, platform.size.y),
             ),
             Transform::from_translation(world_to_bevy(world, platform.pos, WORLD_Z_BLOCK + 4.0)),
-            Name::new("Moving time-reference platform"),
+            Name::new("Moving platform"),
             MovingPlatformVisual,
             RoomVisual,
         ))
@@ -158,9 +175,32 @@ pub fn spawn_moving_platform(
 
 pub fn sync_moving_platform(
     world: Res<crate::GameWorld>,
-    runtime: Res<crate::SandboxRuntime>,
+    room_set: Res<RoomSet>,
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut active_platform_room: Local<Option<String>>,
+    mut active_platform_source: Local<Option<MovingPlatformState>>,
     mut query: Query<(&mut Transform, &mut Sprite), With<MovingPlatformVisual>>,
 ) {
+    let active_spec = room_set.active_spec();
+    let desired_start = moving_platform_for_room(&world.0, active_spec);
+
+    // Refresh only when the authored source changes, not every time RoomSet or
+    // GameWorld gets marked changed by an unrelated system. The runtime copy is
+    // live state: `sandbox_update` advances it and carries the player by its
+    // frame delta. Resetting it here every frame turns the invisible collision
+    // platform into a conveyor belt while the visual stays pinned at the
+    // authored start position.
+    let source_changed = active_platform_room.as_deref() != Some(active_spec.id.as_str())
+        || active_platform_source
+            .as_ref()
+            .map(|source| *source != desired_start)
+            .unwrap_or(true);
+    if source_changed {
+        runtime.moving_platform = desired_start;
+        *active_platform_room = Some(active_spec.id.clone());
+        *active_platform_source = Some(desired_start);
+    }
+
     for (mut transform, mut sprite) in &mut query {
         transform.translation =
             world_to_bevy(&world.0, runtime.moving_platform.pos, WORLD_Z_BLOCK + 4.0);
@@ -182,6 +222,44 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             Vec::new(),
         )
+    }
+
+    fn test_room_with_platform(
+        world: ae::World,
+        platform: Option<MovingPlatformState>,
+    ) -> crate::rooms::RoomSpec {
+        crate::rooms::RoomSpec {
+            id: "test".into(),
+            world,
+            loading_zones: Vec::new(),
+            metadata: crate::rooms::RoomMetadata::default(),
+            moving_platform: platform,
+        }
+    }
+
+    #[test]
+    fn moving_platform_for_room_prefers_authored_ldtk_platform() {
+        let world = test_world();
+        let authored = MovingPlatformState::from_authored(
+            ae::Vec2::new(400.0, 800.0),
+            ae::Vec2::new(96.0, 16.0),
+            180.0,
+            90.0,
+        );
+        let room = test_room_with_platform(world.clone(), Some(authored));
+        let selected = moving_platform_for_room(&world, &room);
+        assert_eq!(selected.pos, authored.pos);
+        assert_eq!(selected.size, authored.size);
+    }
+
+    #[test]
+    fn moving_platform_for_room_falls_back_for_unauthored_rooms() {
+        let world = test_world();
+        let room = test_room_with_platform(world.clone(), None);
+        let selected = moving_platform_for_room(&world, &room);
+        let fallback = MovingPlatformState::time_reference(&world);
+        assert_eq!(selected.pos, fallback.pos);
+        assert_eq!(selected.size, fallback.size);
     }
 
     #[test]

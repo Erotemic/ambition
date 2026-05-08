@@ -39,6 +39,11 @@ use crate::{GameWorld, SandboxRuntime};
 use ambition_sfx::BankProvider;
 
 /// Borrowed inputs for `simulation_world`.
+///
+/// Grouped as a struct because Bevy's max-system-param budget is tight and
+/// keeping these as positional args would push the calling startup system
+/// past 16 params again. The struct also documents what the simulation
+/// half of setup actually needs.
 pub struct SimulationSetup<'a> {
     pub world: &'a GameWorld,
     pub room_set: &'a RoomSet,
@@ -60,15 +65,33 @@ pub struct PresentationSetup<'a> {
     pub sandbox_data: &'a SandboxDataSpec,
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,
-    // `UiFonts` is only required for the visible/default audio build path.
-    // No-audio/headless-ish builds still compile presentation code for
-    // checking, but they do not need custom font handles in the setup struct.
     #[cfg(feature = "audio")]
     pub ui_fonts: Option<&'a UiFonts>,
 }
 
 /// Spawn simulation-only entities and resources.
+///
+/// Returns the player entity so `presentation_world` (or any future RL
+/// adapter) can attach presentation components without re-querying.
+///
+/// This includes:
+/// * pre-fetching sandbox/LDtk asset handles to keep the asset server alive
+/// * logging room layout warnings
+/// * spawning the `LdtkWorldBundle` so `bevy_ecs_ldtk` can own LDtk entity
+///   lifecycle and the runtime-spine systems have something to query
+/// * constructing `SandboxRuntime` and inserting it as a resource
+/// * spawning the player entity with the gameplay-essential components
+///   (`Transform`, `PlayerVisual`). Leafwing's `ActionState` and
+///   `InputMap` get attached by the presentation-side
+///   `attach_player_input_components` startup system; sim-only builds
+///   stay leafwing-free per the ADR 0012 input seam.
+/// * inserting a `SceneEntities` resource with `hud: Entity::PLACEHOLDER`
+///   that `presentation_world` overwrites once the HUD entity exists
 pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) -> Entity {
+    // `sandbox_data` is reserved on `SimulationSetup` for symmetry with
+    // `PresentationSetup` and to support future sim-side reads (e.g. movement
+    // tuning resolved through SandboxDataSpec instead of the editable
+    // resources). Suppress the unused-field warning until then.
     let SimulationSetup {
         world,
         room_set,
@@ -93,15 +116,23 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     for warning in room_set.layout_warnings() {
         eprintln!("room layout warning: {warning}");
     }
+    // The LdtkWorldBundle spawn lives in the Ldtk-runtime startup system
+    // (`crate::app::add_ldtk_runtime_plugin`) because asset_server.load on a
+    // typed `LdtkProject` handle requires `LdtkPlugin` to be registered.
+    // Headless builds skip LdtkPlugin (its tile pipeline needs RenderApp),
+    // so this function must not assume the LDtk asset type is available.
+    // Suppress the unused-binding warnings until follow-up patches retire
+    // the `ldtk_asset` / `ldtk_index` / `asset_server` params or move them.
     let _ = (ldtk_asset, asset_server);
     let _ = ldtk_index;
 
-    let runtime = SandboxRuntime::new(
+    let mut runtime = SandboxRuntime::new(
         &world.0,
         editable_abilities.as_engine(),
         editable_tuning.as_engine(),
         physics_settings,
     );
+    runtime.moving_platform = platforms::moving_platform_for_room(&world.0, room_set.active_spec());
     commands.insert_resource(runtime);
 
     let player = commands
@@ -112,6 +143,8 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         ))
         .id();
 
+    // HUD entity is presentation-side; placeholder until presentation_world
+    // overwrites this resource.
     commands.insert_resource(SceneEntities {
         player,
         hud: Entity::PLACEHOLDER,
@@ -121,6 +154,14 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     player
 }
 
+/// Spawn presentation-only entities (Camera2d, sprites, HUD text) and
+/// presentation-only resources (`AudioLibrary`). Adds the player's `Sprite`
+/// to the entity returned by `simulation_world`.
+///
+/// Skipped entirely in headless builds. With the `audio` feature off
+/// the `KiraAudioSource` asset registry doesn't exist; the audio_sources
+/// parameter is gated out and the audio library / music state inserts
+/// are skipped.
 #[cfg(feature = "audio")]
 pub fn presentation_world(
     commands: &mut Commands,
@@ -154,10 +195,23 @@ pub fn presentation_world(commands: &mut Commands, params: PresentationSetup<'_>
     presentation_world_inner(commands, params, player);
 }
 
+/// Process-wide handle to the loaded SFX bank, when one was found at
+/// startup. Wrapped in `Arc` so future systems that need to play
+/// catalog SFX (beyond the typed `SoundCue` set the `AudioLibrary`
+/// preloads) can clone cheaply and look up by id without re-reading
+/// the file. Absent when the bank file isn't on disk; gameplay falls
+/// through to fundsp synthesis for the typed cues.
 #[cfg(feature = "audio")]
 #[derive(Resource, Clone)]
 pub struct SfxBankResource(pub std::sync::Arc<BankProvider>);
 
+/// Best-effort sync load of `assets/audio/sfx.bank`. Returns `None`
+/// (with a single info log) if the file isn't present anywhere we
+/// know to look. Tries:
+///   1) `$AMBITION_SFX_BANK_PATH` env var
+///   2) `<cwd>/assets/audio/sfx.bank`
+///   3) `<cwd>/crates/ambition_sandbox/assets/audio/sfx.bank`
+///   4) `<CARGO_MANIFEST_DIR>/assets/audio/sfx.bank` (dev fallback)
 #[cfg(feature = "audio")]
 fn try_load_sfx_bank() -> Option<BankProvider> {
     use std::path::PathBuf;
@@ -203,15 +257,12 @@ fn presentation_world_inner(
     params: PresentationSetup<'_>,
     player: Entity,
 ) {
-    let PresentationSetup {
-        world,
-        room_set,
-        sandbox_data: _,
-        physics_settings,
-        game_assets,
-        #[cfg(feature = "audio")]
-        ui_fonts,
-    } = params;
+    let world = params.world;
+    let room_set = params.room_set;
+    let physics_settings = params.physics_settings;
+    let game_assets = params.game_assets;
+    #[cfg(feature = "audio")]
+    let ui_fonts = params.ui_fonts;
     #[cfg(not(feature = "audio"))]
     let ui_fonts: Option<&UiFonts> = None;
     let character_sprites = &game_assets.characters;
@@ -233,7 +284,7 @@ fn presentation_world_inner(
     platforms::spawn_moving_platform(
         commands,
         &world.0,
-        platforms::MovingPlatformState::time_reference(&world.0),
+        platforms::moving_platform_for_room(&world.0, room_set.active_spec()),
     );
 
     let player_collision = BVec2::new(28.0, 46.0);
@@ -273,6 +324,8 @@ fn presentation_world_inner(
         ))
         .id();
 
+    // Quest panel: top-right corner, dedicated text widget. Separated
+    // from the debug HUD so the quest log doesn't trail the stats dump.
     let quest_panel = commands
         .spawn((
             Text::new(""),
@@ -295,11 +348,16 @@ fn presentation_world_inner(
         ))
         .id();
 
+    // Overwrite the placeholder SceneEntities from simulation_world now
+    // that the HUD entity exists. `commands.insert_resource` replaces the
+    // existing resource on apply_deferred.
     commands.insert_resource(SceneEntities {
         player,
         hud,
         quest_panel,
     });
 
+    // Reserve the physics_settings binding for future presentation systems
+    // that might need it; suppress the unused-variable warning until then.
     let _ = physics_settings;
 }

@@ -27,7 +27,11 @@
 //! - **`SandboxRuntime`**: warped to the start room's spawn via
 //!   `runtime.reset(world, tuning)` — this rebuilds `features` from
 //!   the world (so all NPCs are alive and peaceful again, all
-//!   breakables intact, all chests closed).
+//!   breakables intact, all chests closed). Immediately afterward,
+//!   the moving-platform runtime state is re-seeded from the start
+//!   room's LDtk-authored `MovingPlatform`, falling back to the legacy
+//!   test/reference platform only for rooms that have no authored
+//!   platform yet.
 //! - **Active room**: `room_set.active` resets to `room_set.start`
 //!   (captured at `RoomSet::from_parts` time) so the player ends up
 //!   wherever a fresh game would start, not wherever they happened
@@ -52,6 +56,7 @@ use ambition_engine as ae;
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterController, EncounterMusicRequest, EncounterRegistry};
 use crate::physics;
+use crate::platforms;
 use crate::quest::QuestRegistry;
 use crate::rendering::RoomVisual;
 use crate::rooms::RoomSet;
@@ -147,6 +152,7 @@ pub fn process_sandbox_reset_request(
     //    a same-room reset; we're calling it after flipping the
     //    active room so it uses the start room's spawn point.
     runtime.reset(&world.0, tuning.as_engine());
+    runtime.moving_platform = platforms::moving_platform_for_room(&world.0, &start_spec);
 
     // 7. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used
@@ -327,5 +333,39 @@ mod tests {
         let runtime = app.world().resource::<SandboxRuntime>();
         let world = app.world().resource::<GameWorld>();
         assert_eq!(runtime.player.pos, world.0.spawn);
+    }
+
+    /// Reset must restore the moving platform from the start room's
+    /// authored LDtk platform, not from the old procedural fallback.
+    #[test]
+    fn processor_restores_authored_start_room_platform() {
+        let mut app = min_app();
+        let authored = crate::platforms::MovingPlatformState::from_authored(
+            ae::Vec2::new(512.0, 900.0),
+            ae::Vec2::new(128.0, 16.0),
+            192.0,
+            75.0,
+        );
+        {
+            let mut room_set = app.world_mut().resource_mut::<RoomSet>();
+            room_set.rooms[0].moving_platform = Some(authored);
+        }
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.moving_platform = crate::platforms::MovingPlatformState::from_authored(
+                ae::Vec2::new(10.0, 20.0),
+                ae::Vec2::new(32.0, 8.0),
+                64.0,
+                10.0,
+            );
+        }
+        {
+            let mut req = app.world_mut().resource_mut::<SandboxResetRequested>();
+            req.request();
+        }
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert_eq!(runtime.moving_platform.pos, authored.pos);
+        assert_eq!(runtime.moving_platform.size, authored.size);
     }
 }

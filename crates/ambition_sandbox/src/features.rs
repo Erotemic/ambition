@@ -143,6 +143,21 @@ pub struct FeatureEvents {
     /// Save flags to set this frame. `(flag_id, on)`. Routed by the
     /// sandbox runtime into `SandboxSave`.
     pub flag_writes: Vec<(String, bool)>,
+    /// Position of every chest the player opened this frame. The
+    /// presentation layer maps these to `world.treasure_chest.open`
+    /// SFX. Sim-only callers (headless / RL) ignore this.
+    pub chests_opened: Vec<ae::Vec2>,
+    /// `(kind, pos)` of every pickup collected this frame. The
+    /// presentation layer dispatches per-kind SFX (coin / health).
+    pub pickups_collected: Vec<(ae::PickupKind, ae::Vec2)>,
+    /// Position of every breakable destroyed this frame (in addition
+    /// to the existing `physics_bursts.Breakable` entry which already
+    /// drives debris). Drives the `world.crate.break` SFX.
+    pub breakables_destroyed: Vec<ae::Vec2>,
+    /// Position of every switch activated this frame. Pairs 1:1 with
+    /// `switch_activations` (which carries the payload string). Drives
+    /// the `world.switch.toggle` SFX.
+    pub switches_activated_pos: Vec<ae::Vec2>,
 }
 
 impl FeatureEvents {
@@ -164,6 +179,12 @@ impl FeatureEvents {
         self.npc_struck.append(&mut other.npc_struck);
         self.quest_advance.append(&mut other.quest_advance);
         self.flag_writes.append(&mut other.flag_writes);
+        self.chests_opened.append(&mut other.chests_opened);
+        self.pickups_collected.append(&mut other.pickups_collected);
+        self.breakables_destroyed
+            .append(&mut other.breakables_destroyed);
+        self.switches_activated_pos
+            .append(&mut other.switches_activated_pos);
     }
 }
 
@@ -586,6 +607,7 @@ impl FeatureRuntime {
                             pos: breakable.pos,
                             cue: FeaturePhysicsCue::Breakable,
                         });
+                        events.breakables_destroyed.push(breakable.pos);
                     }
                 }
             } else {
@@ -601,6 +623,9 @@ impl FeatureRuntime {
                     events.player_heal += amount;
                 }
                 events.bursts.push(pickup.pos);
+                events
+                    .pickups_collected
+                    .push((pickup.pickup.kind.clone(), pickup.pos));
             }
         }
 
@@ -611,6 +636,7 @@ impl FeatureRuntime {
                     events.consumed_interaction = true;
                     events.messages.push(format!("opened {}", chest.name));
                     events.bursts.push(chest.pos);
+                    events.chests_opened.push(chest.pos);
                     // Persist the looted state so save+reload re-spawns
                     // the chest in its opened state. Encounter chests
                     // are keyed `encounter_chest_<id>`; the matching
@@ -648,6 +674,7 @@ impl FeatureRuntime {
                         .switch_activations
                         .push(switch.custom_payload.clone());
                     events.bursts.push(switch.pos);
+                    events.switches_activated_pos.push(switch.pos);
                 }
             }
         }
@@ -894,6 +921,7 @@ impl FeatureRuntime {
                         pos: breakable.pos,
                         cue: FeaturePhysicsCue::Breakable,
                     });
+                    report.events.breakables_destroyed.push(breakable.pos);
                 }
             }
         }
@@ -931,6 +959,7 @@ impl FeatureRuntime {
                     pos: breakable.pos,
                     cue: FeaturePhysicsCue::Breakable,
                 });
+                events.breakables_destroyed.push(breakable.pos);
             }
         }
         events

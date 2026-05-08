@@ -371,6 +371,33 @@ pub mod ids {
     pub const PLAYER_FOOTSTEP_METAL_02: SfxId = SfxId::from_static("player.footstep.metal.02");
     pub const PLAYER_FOOTSTEP_SOFT_01: SfxId = SfxId::from_static("player.footstep.soft.01");
     pub const PLAYER_FOOTSTEP_SOFT_02: SfxId = SfxId::from_static("player.footstep.soft.02");
+
+    // World interactions
+    pub const WORLD_TREASURE_CHEST_OPEN: SfxId =
+        SfxId::from_static("world.treasure_chest.open");
+    pub const WORLD_DOOR_OPEN: SfxId = SfxId::from_static("world.door.open");
+    pub const WORLD_DOOR_CLOSE: SfxId = SfxId::from_static("world.door.close");
+    pub const WORLD_SWITCH_TOGGLE: SfxId = SfxId::from_static("world.switch.toggle");
+    pub const WORLD_CRATE_BREAK: SfxId = SfxId::from_static("world.crate.break");
+    pub const WORLD_PORTAL_ENTER: SfxId = SfxId::from_static("world.portal.enter");
+    pub const WORLD_CHECKPOINT_ACTIVATE: SfxId =
+        SfxId::from_static("world.checkpoint.activate");
+    pub const WORLD_SECRET_REVEAL: SfxId = SfxId::from_static("world.secret.reveal");
+
+    // Pickups
+    pub const WORLD_PICKUP_GENERIC: SfxId = SfxId::from_static("world.pickup.generic");
+    pub const WORLD_HEALTH_COLLECT: SfxId = SfxId::from_static("world.health.collect");
+    pub const WORLD_COIN_PICKUP: SfxId = SfxId::from_static("world.coin.pickup");
+    pub const WORLD_COIN_COLLECT: SfxId = SfxId::from_static("world.coin.collect");
+    pub const PLAYER_COLLECT_COIN: SfxId = SfxId::from_static("player.collect.coin");
+    pub const PLAYER_COLLECT_HEALTH: SfxId = SfxId::from_static("player.collect.health");
+    pub const PLAYER_PICKUP_HEALTH: SfxId = SfxId::from_static("player.pickup.health");
+
+    // Ladder / climbing
+    pub const PLAYER_LADDER_GRAB: SfxId = SfxId::from_static("player.ladder.grab");
+    pub const PLAYER_LADDER_CLIMB: SfxId = SfxId::from_static("player.ladder.climb");
+    pub const PLAYER_LADDER_CLIMB_LOOP: SfxId =
+        SfxId::from_static("player.ladder.climb_loop");
 }
 
 #[cfg(test)]

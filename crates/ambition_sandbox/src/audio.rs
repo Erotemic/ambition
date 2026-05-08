@@ -65,11 +65,20 @@ pub enum SfxMessage {
     Hit { pos: ae::Vec2 },
     Death { pos: ae::Vec2 },
     Reset { pos: ae::Vec2 },
+    /// Play any clip from the SFX bank by id. Avoids exploding the
+    /// typed enum every time a new sound gets wired in. Falls back to
+    /// silence if the bank doesn't have the id (logged once per id).
+    /// New gameplay events should prefer this over adding more typed
+    /// variants — keep typed variants for cues that need bespoke
+    /// per-cue logic on the consumer side.
+    Play { id: SfxId, pos: ae::Vec2 },
 }
 
 impl SfxMessage {
-    pub fn cue(self) -> SoundCue {
-        match self {
+    /// Maps a typed-cue variant to its `SoundCue`. Returns `None` for
+    /// the generic `Play` variant which is dispatched separately.
+    pub fn cue(self) -> Option<SoundCue> {
+        Some(match self {
             SfxMessage::Jump { .. } => SoundCue::Jump,
             SfxMessage::DoubleJump { .. } => SoundCue::DoubleJump,
             SfxMessage::Dash { .. } => SoundCue::Dash,
@@ -84,20 +93,45 @@ impl SfxMessage {
             SfxMessage::Hit { .. } => SoundCue::Hit,
             SfxMessage::Death { .. } => SoundCue::Death,
             SfxMessage::Reset { .. } => SoundCue::Reset,
-        }
+            SfxMessage::Play { .. } => return None,
+        })
     }
 }
 
 /// Presentation-side subscriber. Reads `SfxMessage`s and plays the actual
 /// sound through Kira's SFX channel. Skipped in headless builds.
+///
+/// Typed variants (`Jump`, `Dash`, …) take the existing `AudioLibrary`
+/// preload path. The generic `Play { id, .. }` variant routes through
+/// the bank: on first play of an id we decode the bank's encoded
+/// bytes via `StaticSoundData::from_cursor`, cache the resulting
+/// `Handle<KiraAudioSource>`, and reuse it on every subsequent play.
+/// A missing id is logged once and silently dropped.
 #[cfg(feature = "audio")]
 pub fn audio_play_sfx_messages(
     mut messages: MessageReader<SfxMessage>,
     library: Res<AudioLibrary>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,
+    bank: Option<Res<crate::setup::SfxBankResource>>,
+    mut cache: ResMut<SfxBankHandleCache>,
+    mut audio_sources: ResMut<Assets<KiraAudioSource>>,
 ) {
     for message in messages.read() {
-        sfx_channel.play(library.sfx_handle(message.cue()));
+        if let Some(cue) = message.cue() {
+            sfx_channel.play(library.sfx_handle(cue));
+            continue;
+        }
+        let SfxMessage::Play { id, .. } = *message else {
+            // cue() returned None only for Play; unreachable in
+            // practice but we guard rather than panic.
+            continue;
+        };
+        let Some(handle) =
+            cache.handle_for(id, bank.as_deref(), audio_sources.as_mut())
+        else {
+            continue;
+        };
+        sfx_channel.play(handle);
     }
 }
 
@@ -556,6 +590,49 @@ fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource, Str
     Ok(KiraAudioSource { sound })
 }
 
+/// Lazy cache of `Handle<KiraAudioSource>` keyed by [`SfxId`]. Built
+/// up on demand by `audio_play_sfx_messages` the first time a clip is
+/// played: fetch from the bank, decode, register in `Assets`, and
+/// remember the handle. Misses (and decode failures) are remembered
+/// too so the same id doesn't keep trying.
+#[cfg(feature = "audio")]
+#[derive(Resource, Default)]
+pub struct SfxBankHandleCache {
+    handles: HashMap<SfxId, Option<Handle<KiraAudioSource>>>,
+}
+
+#[cfg(feature = "audio")]
+impl SfxBankHandleCache {
+    fn handle_for(
+        &mut self,
+        id: SfxId,
+        bank: Option<&crate::setup::SfxBankResource>,
+        audio_sources: &mut Assets<KiraAudioSource>,
+    ) -> Option<Handle<KiraAudioSource>> {
+        if let Some(slot) = self.handles.get(&id) {
+            return slot.clone();
+        }
+        let result = (|| {
+            let bank = bank?;
+            let clip = bank.0.provide_clip(id)?;
+            match audio_source_from_sfx_clip(clip) {
+                Ok(source) => Some(audio_sources.add(source)),
+                Err(error) => {
+                    warn!(
+                        "sfx bank entry for id {id} failed to decode ({error})"
+                    );
+                    None
+                }
+            }
+        })();
+        if result.is_none() {
+            warn!("sfx bank has no entry for id {id}");
+        }
+        self.handles.insert(id, result.clone());
+        result
+    }
+}
+
 #[cfg(feature = "audio")]
 fn find_sfx(spec: &AudioSpec, cue: SoundCue) -> SfxSpec {
     let key = SoundCueKey::from(cue);
@@ -992,16 +1069,19 @@ mod tests {
     #[test]
     fn sfx_message_maps_to_sound_cue() {
         let pos = ae::Vec2::ZERO;
-        assert_eq!(SfxMessage::Jump { pos }.cue(), SoundCue::Jump);
-        assert_eq!(SfxMessage::DoubleJump { pos }.cue(), SoundCue::DoubleJump);
-        assert_eq!(SfxMessage::Dash { pos }.cue(), SoundCue::Dash);
+        assert_eq!(SfxMessage::Jump { pos }.cue(), Some(SoundCue::Jump));
+        assert_eq!(
+            SfxMessage::DoubleJump { pos }.cue(),
+            Some(SoundCue::DoubleJump)
+        );
+        assert_eq!(SfxMessage::Dash { pos }.cue(), Some(SoundCue::Dash));
         assert_eq!(
             SfxMessage::Blink {
                 pos,
                 precision: false
             }
             .cue(),
-            SoundCue::Blink
+            Some(SoundCue::Blink)
         );
         assert_eq!(
             SfxMessage::Blink {
@@ -1009,13 +1089,21 @@ mod tests {
                 precision: true
             }
             .cue(),
-            SoundCue::PrecisionBlink
+            Some(SoundCue::PrecisionBlink)
         );
-        assert_eq!(SfxMessage::Pogo { pos }.cue(), SoundCue::Pogo);
-        assert_eq!(SfxMessage::Slash { pos }.cue(), SoundCue::Slash);
-        assert_eq!(SfxMessage::Hit { pos }.cue(), SoundCue::Hit);
-        assert_eq!(SfxMessage::Death { pos }.cue(), SoundCue::Death);
-        assert_eq!(SfxMessage::Reset { pos }.cue(), SoundCue::Reset);
+        assert_eq!(SfxMessage::Pogo { pos }.cue(), Some(SoundCue::Pogo));
+        assert_eq!(SfxMessage::Slash { pos }.cue(), Some(SoundCue::Slash));
+        assert_eq!(SfxMessage::Hit { pos }.cue(), Some(SoundCue::Hit));
+        assert_eq!(SfxMessage::Death { pos }.cue(), Some(SoundCue::Death));
+        assert_eq!(SfxMessage::Reset { pos }.cue(), Some(SoundCue::Reset));
+        assert_eq!(
+            SfxMessage::Play {
+                id: sfx::ids::PLAYER_JUMP,
+                pos
+            }
+            .cue(),
+            None
+        );
     }
 
     #[test]

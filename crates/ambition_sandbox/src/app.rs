@@ -1052,6 +1052,7 @@ fn add_mobile_touch_plugin(_app: &mut App) {}
 #[cfg(feature = "audio")]
 fn add_audio_plugins(app: &mut App) {
     app.add_plugins(KiraAudioPlugin)
+        .init_resource::<crate::audio::SfxBankHandleCache>()
         .add_audio_channel::<MusicChannel>()
         .add_audio_channel::<SfxChannel>()
         .add_audio_channel::<crate::music::MusicLayer0AChannel>()
@@ -2499,6 +2500,34 @@ fn handle_feature_events(
             speed: 230.0,
             color: [0.84, 0.95, 1.0, 0.82],
             kind: ParticleKind::Spark,
+        });
+    }
+    for &pos in &events.chests_opened {
+        sfx.push(SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_TREASURE_CHEST_OPEN,
+            pos,
+        });
+    }
+    for (kind, pos) in &events.pickups_collected {
+        let id = match kind {
+            ae::PickupKind::Health { .. } => ambition_sfx::ids::WORLD_HEALTH_COLLECT,
+            ae::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
+            // Ability / StoryFlag / Custom — fall back to the generic
+            // pickup SFX until those gain dedicated sounds.
+            _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
+        };
+        sfx.push(SfxMessage::Play { id, pos: *pos });
+    }
+    for &pos in &events.breakables_destroyed {
+        sfx.push(SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_CRATE_BREAK,
+            pos,
+        });
+    }
+    for &pos in &events.switches_activated_pos {
+        sfx.push(SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
+            pos,
         });
     }
 }

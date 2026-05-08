@@ -69,23 +69,20 @@ def install_stable(src: Path, dest: Path, file_base: str) -> list[Path]:
 def _autodetect_src() -> Path:
     """Pick the renderer output dir with the newest manifest.
 
-    The renderer writes to two known locations historically:
+    The renderer writes to two known locations:
     1. ``target/generated-audio/<cue>`` (CI / build-time output)
-    2. ``tools/audio/music_renderer/output/<cue>`` (interactive
-       author runs)
+    2. ``tools/ambition_music_renderer/generated/<cue>`` (interactive
+       author runs through the modal CLI)
 
     When both exist, picking whichever has the newer
     ``adaptive_manifest.json`` gets re-runs of this script the
     *latest* stems without the user having to remember which
-    ``--src`` to point at. The 2026-05-07 install bug where the
-    target/ copy was older than the music_renderer/output/ copy
-    surfaced this footgun; auto-detection is the fix.
+    ``--src`` to point at.
     """
     candidates = [
         repo_root() / "target/generated-audio" / CUE_ID,
         repo_root() / "tools/ambition_music_renderer/generated" / CUE_ID,
         repo_root() / "tools/ambition_music_renderer/output" / CUE_ID,
-        repo_root() / "tools/audio/music_renderer/output" / CUE_ID,  # legacy
     ]
     scored: list[tuple[float, Path]] = []
     for c in candidates:

@@ -21,7 +21,8 @@ cd "$repo_root"
 renderer_dir="$repo_root/tools/ambition_music_renderer"
 spec="$renderer_dir/scores/active/first_goblin_tune_v2.music.yaml"
 staging="$renderer_dir/generated/first_goblin_tune_v2"
-installer="$repo_root/tools/audio/install_first_goblin_tune_v2_assets.py"
+installer="$renderer_dir/install_first_goblin_tune_v2.py"
+auditor="$renderer_dir/audit_cue_balance.py"
 backend="${AMBITION_MUSIC_BACKEND:-pretty-midi}"
 
 skip_render=0
@@ -60,7 +61,7 @@ if [ ! -d "$staging/adaptive" ]; then
 fi
 
 echo "==> audit generated cue balance"
-python "$repo_root/tools/audio/audit_generated_cue_balance.py" "$staging" || true
+python "$auditor" "$staging" || true
 
 echo "==> installing into crates/ambition_sandbox/assets/audio/music/generated/first_goblin_tune_v2"
 python "$installer" --src "$staging" --clean

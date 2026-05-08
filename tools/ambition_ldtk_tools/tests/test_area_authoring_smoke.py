@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Smoke test for `tools/author_ldtk_area.py`.
+"""Smoke test for ``ambition_ldtk_tools area create``.
 
-Copies the real sandbox `.ldtk` to a temp file, drops in a tiny test
+Copies the real sandbox ``.ldtk`` to a temp file, drops in a tiny test
 area via the authoring tool, verifies validation passes, and confirms
 the new level + entities round-trip through the standard repair pass
 without losing fields.
 
-Run directly: `python tools/author_ldtk_area_smoketest.py`.
+Run directly:
+    python tools/ambition_ldtk_tools/tests/test_area_authoring_smoke.py
+
 Exit code 0 means the tool produced an editor-roundtrip-clean file
 that validates against both Ambition semantics and the LDtk schema.
 """
@@ -19,9 +21,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+# tools/ambition_ldtk_tools/tests/test_area_authoring_smoke.py -> repo root
+REPO_ROOT = Path(__file__).resolve().parents[3]
 LDTK_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "ambition" / "worlds" / "sandbox.ldtk"
-TOOL = REPO_ROOT / "tools" / "author_ldtk_area.py"
+PKG_ROOT = REPO_ROOT / "tools" / "ambition_ldtk_tools"
 
 # Minimal but realistic: a PlayerStart, a floor solid, a loading zone back
 # to the central hub. Placement is well past the existing levels' rightmost
@@ -80,13 +83,19 @@ def main() -> int:
 
         cmd = [
             sys.executable,
-            str(TOOL),
+            "-m",
+            "ambition_ldtk_tools",
+            "area",
+            "create",
             str(spec_path),
             "--ldtk",
             str(ldtk_copy),
         ]
+        env = {"PYTHONPATH": str(PKG_ROOT)}
+        import os
+        env = {**os.environ, **env}
         print("$ " + " ".join(cmd))
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, env=env)
         print(result.stdout, end="")
         if result.stderr:
             print(result.stderr, file=sys.stderr, end="")

@@ -48,14 +48,14 @@ def merge_metadata(levels):
     return merged
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--ldtk",
         type=Path,
         default=Path("crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk"),
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not args.ldtk.exists():
         print(f"error: {args.ldtk} does not exist", file=sys.stderr)

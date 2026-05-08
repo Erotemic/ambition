@@ -1,43 +1,51 @@
 #!/usr/bin/env python3
-"""Tests for `tools/author_ldtk_area.py` features beyond the basic
-smoketest:
+"""Feature tests for ``ambition_ldtk_tools area create`` beyond the
+basic smoketest:
 
-- `--dry-run` builds the level entirely in memory, prints a preview,
+- ``--dry-run`` builds the level entirely in memory, prints a preview,
   and does NOT mutate the file.
-- `connect_to:` inserts a reciprocal `LoadingZone` into an existing
+- ``connect_to:`` inserts a reciprocal ``LoadingZone`` into an existing
   target level.
-- Biome metadata (`biome` / `music_track` / etc.) is emitted as level
-  field instances.
+- Biome metadata (``biome`` / ``music_track`` / etc.) is emitted as
+  level field instances.
 - Unknown entity identifiers and unknown fields produce actionable
   error messages with suggestions.
 
-Run directly: `python tools/author_ldtk_area_features_test.py`.
+Run directly:
+    python tools/ambition_ldtk_tools/tests/test_area_authoring_features.py
+
 Exit code 0 means every feature behaves as documented.
 """
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+# tools/ambition_ldtk_tools/tests/test_area_authoring_features.py -> repo root
+REPO_ROOT = Path(__file__).resolve().parents[3]
 LDTK_PATH = REPO_ROOT / "crates" / "ambition_sandbox" / "assets" / "ambition" / "worlds" / "sandbox.ldtk"
-TOOL = REPO_ROOT / "tools" / "author_ldtk_area.py"
+PKG_ROOT = REPO_ROOT / "tools" / "ambition_ldtk_tools"
 
 
 def run_tool(spec_path: Path, ldtk_path: Path, *extra_args: str) -> subprocess.CompletedProcess:
     cmd = [
         sys.executable,
-        str(TOOL),
+        "-m",
+        "ambition_ldtk_tools",
+        "area",
+        "create",
         str(spec_path),
         "--ldtk",
         str(ldtk_path),
         *extra_args,
     ]
-    return subprocess.run(cmd, capture_output=True, text=True)
+    env = {**os.environ, "PYTHONPATH": str(PKG_ROOT)}
+    return subprocess.run(cmd, capture_output=True, text=True, env=env)
 
 
 def fail(msg: str) -> None:

@@ -5,7 +5,9 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     validate                       Validate the Ambition LDtk file.
     repair                         Repair editor metadata for round-trip.
     roundtrip                      Non-mutating round-trip smoke check.
-    doctor                         [TODO] Run validate + roundtrip.
+    doctor                         Run roundtrip + validate.
+    compact                        Re-format JSON arrays to LDtk editor style.
+    list-metadata                  Print biome/music/ambient metadata per level.
     schema fetch                   Fetch the official LDtk JSON schema.
     schema validate                Run schema-only validation against an LDtk.
 
@@ -80,6 +82,14 @@ def cmd_doctor(args, rest):
     return _delegate("ambition_ldtk_tools.validate", rest)
 
 
+def cmd_compact(args, rest):
+    return _delegate("ambition_ldtk_tools.compact", rest)
+
+
+def cmd_list_metadata(args, rest):
+    return _delegate("ambition_ldtk_tools.list_metadata", rest)
+
+
 def cmd_schema(args, rest):
     if args.schema_action == "fetch":
         return _delegate("ambition_ldtk_tools.schema", rest)
@@ -143,6 +153,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp_doctor = sub.add_parser("doctor", help="Run roundtrip + validate")
     sp_doctor.set_defaults(func=cmd_doctor)
+
+    sp_compact = sub.add_parser("compact", help="Compact LDtk JSON arrays to editor style")
+    sp_compact.set_defaults(func=cmd_compact)
+
+    sp_list_metadata = sub.add_parser(
+        "list-metadata",
+        help="Print biome/music/ambient metadata per level",
+    )
+    sp_list_metadata.set_defaults(func=cmd_list_metadata)
 
     # schema {fetch,validate}
     sp_schema = sub.add_parser("schema", help="Schema fetch/validate helpers")

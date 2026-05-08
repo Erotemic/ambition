@@ -12,5 +12,6 @@
 # would require a separate `cargo apk` / `cargo ndk` toolchain plus
 # an Android NDK install. Nothing here invokes either of those.
 set -euo pipefail
-python tools/validate_ambition_ldtk.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+PYTHONPATH="$(dirname "$0")/tools/ambition_ldtk_tools" \
+    python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 RUST_BACKTRACE=1 cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release

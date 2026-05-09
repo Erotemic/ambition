@@ -14,4 +14,4 @@
 set -euo pipefail
 PYTHONPATH="$(dirname "$0")/tools/ambition_ldtk_tools" \
     python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
-RUST_BACKTRACE=1 cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release
+RUST_BACKTRACE=full cargo run -p ambition_sandbox --bin ambition_sandbox --features dev_hot_reload --release

@@ -157,4 +157,3 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     slash_recoil: SLASH_RECOIL,
     air_jumps: AIR_JUMPS,
 };
-

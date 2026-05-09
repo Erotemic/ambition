@@ -93,4 +93,3 @@ impl SwitchActivation {
 pub struct EncounterController {
     pub encounter_id: String,
 }
-

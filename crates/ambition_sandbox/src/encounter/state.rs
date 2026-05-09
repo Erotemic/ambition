@@ -442,4 +442,3 @@ fn countdown_bar(remaining: f32, total: f32) -> String {
     let empty = 8usize.saturating_sub(filled);
     format!("[{}{}]", "#".repeat(filled), ".".repeat(empty))
 }
-

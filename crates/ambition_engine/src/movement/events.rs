@@ -42,4 +42,3 @@ impl FrameEvents {
         self.pogo_hits.extend(other.pogo_hits);
     }
 }
-

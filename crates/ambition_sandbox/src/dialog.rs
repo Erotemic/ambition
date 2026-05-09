@@ -650,8 +650,16 @@ pub fn sync_dialog_ui(
                     let end = (start + DIALOG_VISIBLE_OPTIONS).min(total);
                     for idx in start..end {
                         let option = &options[idx];
-                        let prefix = if idx == start && start > 0 { "↑ " } else { "" };
-                        let suffix = if idx + 1 == end && end < total { " ↓" } else { "" };
+                        let prefix = if idx == start && start > 0 {
+                            "↑ "
+                        } else {
+                            ""
+                        };
+                        let suffix = if idx + 1 == end && end < total {
+                            " ↓"
+                        } else {
+                            ""
+                        };
                         spawn_dialog_choice_row(
                             parent,
                             idx,

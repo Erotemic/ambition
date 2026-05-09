@@ -366,7 +366,11 @@ fn visible_row_index(
 
 fn windowed_title(base: &str, selected: usize, total: usize, capacity: usize) -> String {
     if total > capacity {
-        format!("{base} — {}/{}", selected.min(total.saturating_sub(1)) + 1, total)
+        format!(
+            "{base} — {}/{}",
+            selected.min(total.saturating_sub(1)) + 1,
+            total
+        )
     } else {
         base.to_string()
     }
@@ -374,7 +378,11 @@ fn windowed_title(base: &str, selected: usize, total: usize, capacity: usize) ->
 
 fn indexed_title(base: &str, selected: usize, total: usize) -> String {
     if total > 1 {
-        format!("{base} — {}/{}", selected.min(total.saturating_sub(1)) + 1, total)
+        format!(
+            "{base} — {}/{}",
+            selected.min(total.saturating_sub(1)) + 1,
+            total
+        )
     } else {
         base.to_string()
     }
@@ -392,8 +400,16 @@ fn decorate_windowed_label(
     }
     let start = visible_window_start(selected, total, capacity);
     let end = (start + capacity).min(total);
-    let prefix = if index == start && start > 0 { "↑ " } else { "  " };
-    let suffix = if index + 1 == end && end < total { " ↓" } else { "" };
+    let prefix = if index == start && start > 0 {
+        "↑ "
+    } else {
+        "  "
+    };
+    let suffix = if index + 1 == end && end < total {
+        " ↓"
+    } else {
+        ""
+    };
     format!("{prefix}{label}{suffix}")
 }
 
@@ -650,12 +666,9 @@ pub fn pause_menu_pointer_input(
             #[cfg(not(feature = "audio"))]
             let row_count = 1;
             for (interaction, slot) in &settings_rows {
-                let Some(index) = visible_row_index(
-                    slot.index,
-                    state.selected,
-                    row_count,
-                    RADIO_VISIBLE_ROWS,
-                ) else {
+                let Some(index) =
+                    visible_row_index(slot.index, state.selected, row_count, RADIO_VISIBLE_ROWS)
+                else {
                     continue;
                 };
                 handle_row_pointer_interaction(interaction, index, tap_mode, &mut state);
@@ -677,12 +690,8 @@ fn handle_row_pointer_interaction(
             }
         }
         Interaction::Pressed => {
-            let press = tap_mode.resolve_press(
-                index,
-                state.selected,
-                false,
-                &mut state.pointer_armed,
-            );
+            let press =
+                tap_mode.resolve_press(index, state.selected, false, &mut state.pointer_armed);
             state.selected = index;
             if matches!(press, MenuPointerPress::Confirm) {
                 state.pointer_confirm = true;
@@ -951,12 +960,9 @@ pub fn sync_pause_menu(
             .selected_track()
             .unwrap_or(music_state.active_track.as_str());
         for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
-            if let Some(track_index) = visible_row_index(
-                slot.index,
-                state.selected,
-                count,
-                RADIO_VISIBLE_ROWS,
-            ) {
+            if let Some(track_index) =
+                visible_row_index(slot.index, state.selected, count, RADIO_VISIBLE_ROWS)
+            {
                 if let Some(label) = library.radio_label(track_index, active) {
                     **text = decorate_windowed_label(
                         label,

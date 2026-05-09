@@ -74,4 +74,3 @@ pub struct ComboMark {
     pub op: MovementOp,
     pub age: f32,
 }
-

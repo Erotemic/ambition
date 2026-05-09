@@ -39,4 +39,3 @@ pub struct InputState {
     /// time is nearly frozen. If zero, the engine falls back to scaled dt.
     pub control_dt: f32,
 }
-

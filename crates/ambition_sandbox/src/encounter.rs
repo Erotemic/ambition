@@ -27,9 +27,7 @@ mod state;
 pub use events::EncounterEvent;
 pub use registry::{EncounterController, EncounterRegistry, SwitchActivation};
 pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
-pub use state::{
-    EncounterPhase, EncounterRun, EncounterState, ENCOUNTER_INTER_WAVE_DELAY_SECONDS,
-};
+pub use state::{EncounterPhase, EncounterRun, EncounterState, ENCOUNTER_INTER_WAVE_DELAY_SECONDS};
 
 /// Read all `EncounterTrigger` + `LockWall` markers in the active
 /// LDtk project, build matching `EncounterSpec`s, and register them.

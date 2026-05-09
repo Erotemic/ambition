@@ -96,3 +96,65 @@ When writing questions for these classes, prefer the pre-error operation prompt:
 "move this code into child modules while preserving compile-time fixtures and
 new regression tests." Then include an error-repair variant only as a secondary
 Level B prompt.
+
+## Beyond single-issue questions: compositions
+
+Real refactors put several invariants in flight at once. A single-issue
+question tests whether an agent can preserve one named invariant. A
+**compositional** question tests whether the agent can enumerate the
+invariants from the shape of the task, hold several in working memory
+while drafting one patch, and detect cases where the invariants
+interfere.
+
+Compositional candidates live in `compositions.md`. Each composition
+cross-references the component single-issue questions it builds on,
+along with the source commit(s) that motivate it. A composition is
+worth keeping when its score on a model is *not* fully predicted by
+that model's score on the components — otherwise it's just a stand-in
+for the worst component.
+
+Currently catalogued compositions:
+
+- **C-001** — the entire 4-module split (composes Q1…Q5 in
+  `rust-questions.md`).
+- **C-002** — adding a third `ControlFrame` writer (composes the
+  edge-vs-held, multi-source-merge, activity-gate questions).
+- **C-003** — module split during a Bevy version migration (tests
+  error attribution across two independent axes of change).
+
+When a real Ambition refactor touches multiple invariants, tag the
+commit with the component Q-ids and consider whether it's worth
+distilling into a composition. The natural prompt for a composition
+is "plan this refactor as one PR; enumerate the categories of
+mistake you will explicitly guard against, *before* writing any
+code."
+
+## Tag taxonomy
+
+Tags help cluster questions by the *invariant* tested, not the
+surface technology. When tagging, prefer the failure class over the
+toolchain.
+
+Stable tag clusters (extend as new categories appear):
+
+- **Refactor invariants** — `rust-module-refactor`, `rust-visibility`,
+  `rust-attributes`, `rustdoc`, `rust-tests`, `derive-partialeq`,
+  `include-str`, `asset-paths`.
+- **Game-input invariants** — `game-input`, `edge-vs-held-state`,
+  `multi-source-input`, `cross-system-signal`, `architecture-seam`.
+- **Determinism** — `record-replay`, `deterministic-sim`,
+  `off-by-one`, `ci-fixture`.
+- **Bevy specifics** — `bevy-resource`, `bevy-ui`, `bevy-0.18`,
+  `bevy-plugin-default`, `bevy-b0001-aliasing`, `bevy-message-api`.
+- **Editor / asset interop** — `ldtk`, `editor-interop`,
+  `migration`, `procedural-audio`, `game-assets`.
+- **Touch / mobile** — `touch-ui`, `touch-controls`,
+  `mobile-touch`, `android`.
+- **Audio / event design** — `event-design`,
+  `code-shape-tradeoff`, `architecture-seam`.
+
+When in doubt, tag with both the invariant and the surface
+(e.g. `edge-vs-held-state`, `game-input`, `bevy-resource`). The
+invariant tag is what makes the corpus searchable for "what does
+this model fail at"; the surface tag is what makes it searchable
+for "what part of the project does this concern."

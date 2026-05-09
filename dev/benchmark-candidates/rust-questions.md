@@ -431,3 +431,327 @@ return type did not change, but the new assertion introduced a trait requirement
 that normal gameplay code did not need. This is a common maintenance trap: test
 expressiveness can require additional derives on small domain enums even when the
 runtime path compiles.
+
+## 2026-05-09: Don't auto-derive a per-frame edge flag from a held axis
+
+Tags: `game-input`, `edge-vs-held-state`, `bevy-resource`, `multi-source-input`
+
+### Setup
+
+A Bevy game has a per-frame `ControlFrame` resource consumed by simulation
+systems:
+
+```rust
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct ControlFrame {
+    /// Continuous axis from -1.0 (held up) through 0.0 (centered) to +1.0
+    /// (held down). Read by gameplay code that wants the held value (crouch
+    /// gating, fast-fall accel, ladder climb).
+    pub move_y: f32,
+    /// True ONLY on the frame the player just pressed Down. False while held.
+    /// Counted by `SandboxRuntime::register_down_tap`; two distinct
+    /// `down_pressed` edges within the double-tap window fire the MorphBall
+    /// transition.
+    pub down_pressed: bool,
+    /// (other axes / edges...)
+}
+```
+
+The desktop input pipeline populates `down_pressed` from a Leafwing edge
+query (`actions.just_pressed(MoveDown)`) and `move_y` from the held axis.
+
+You're now writing a *second* source: an `AgentAction` → `ControlFrame`
+converter for an RL agent. `AgentAction` looks like:
+
+```rust
+#[derive(Default, Debug, Clone, Copy)]
+pub struct AgentAction {
+    pub move_x: f32,
+    pub move_y: f32,
+    pub jump: bool,
+    pub attack: bool,
+    pub dash: bool,
+    pub blink: bool,
+    // ...
+}
+```
+
+The agent emits one `AgentAction` per simulation step.
+
+### Question
+
+Sketch the converter from `AgentAction` to `ControlFrame`. Be specific
+about how you populate axis fields (`move_y`) versus edge fields
+(`down_pressed`, `up_pressed`). What symptoms appear at runtime if you
+get the edge fields wrong, and what test would catch the bug pre-merge?
+
+### Expected answer
+
+Continuous axes copy across each frame:
+
+```rust
+frame.move_y = action.move_y;
+```
+
+Edge fields **must not** be derived from the held axis. The `>0.5`
+threshold of a held value is true on every frame the user holds the
+input, not just the frame they just pressed it. Either:
+
+- (a) give `AgentAction` matching explicit edge fields
+  (`AgentAction { down_pressed: bool, up_pressed: bool, ... }`) that
+  default to `false` and that the agent sets only on the frame it wants
+  the edge, **or**
+- (b) keep a one-frame `Local<f32>` history of the source's own axis
+  in the converter and emit the edge from a threshold *crossing* (this
+  frame above threshold, last frame below).
+
+If you get this wrong, holding `move_y = 1.0` produces
+`down_pressed = true` every frame. `register_down_tap` counts each
+frame as a fresh tap, the double-tap-down window fires on frame 2,
+`MorphBall` transitions, and the next frame's body-mode driver flips
+back. The user sees ~30 Hz body-mode oscillation and a flickering
+sprite/camera while merely holding crouch.
+
+A multi-frame regression test pins this:
+
+```rust
+#[test]
+fn held_down_axis_does_not_fire_repeated_edges() {
+    let mut sim = SandboxSim::default();
+    for _ in 0..30 {
+        sim.set_action(AgentAction { move_y: 1.0, ..default() });
+        sim.step();
+    }
+    assert_eq!(sim.body_mode(), BodyMode::Crouching);
+    // Per-frame |delta_y| should also stay under the body-resize step
+    // size — the test fails on the buggy converter.
+}
+```
+
+When more than one source can write `ControlFrame` in the same frame
+(e.g. keyboard + on-screen touch joystick), every writer additionally
+must gate on its *own* activity before writing — otherwise a stateless
+writer that runs each frame will overwrite state another writer just
+computed. The same multi-frame held-input test catches both the
+"derived edge" failure mode and the "stomped by inactive writer"
+failure mode.
+
+### Why this was easy to miss
+
+`down_pressed = move_y > 0.5` is the natural shape for a translator
+that wants to feel responsive and has no per-source frame history.
+The bug is invisible in single-frame unit tests; only multi-frame
+held-input coverage reproduces it. In Ambition this exact bug class
+shipped *three times* in three different writers (one RL converter,
+two touch paths) before the held-Down-for-N-frames test pattern
+became standard.
+
+## 2026-05-09: Don't overlay derived gameplay signals onto an input boundary resource
+
+Tags: `bevy-resource`, `cross-system-signal`, `game-input`, `architecture-seam`
+
+### Setup
+
+A Bevy game frames the simulation as several systems sharing
+`Res<ControlFrame>` and `ResMut<SandboxRuntime>`. The schedule is:
+
+```text
+populate_control_frame_from_actions  (rebuilds ControlFrame each frame)
+sandbox_update                       (mutates ControlFrame in place via ResMut)
+body_mode_driver                     (reads Res<ControlFrame> + Res<SandboxRuntime>)
+```
+
+`sandbox_update` calls a small helper `input_timer_phase` that wants to
+detect a double-tap-down gesture and signal the later
+`body_mode_driver` system to enter MorphBall this frame. The simplest
+shape an agent reaches for is:
+
+```rust
+fn input_timer_phase(controls: &mut ControlFrame, runtime: &mut SandboxRuntime) {
+    if runtime.register_down_tap() {
+        controls.fast_fall_pressed = true; // signal the body-mode driver
+    }
+}
+
+fn body_mode_driver(
+    controls: Res<ControlFrame>,
+    runtime: Res<SandboxRuntime>,
+    /* ... */
+) {
+    if controls.fast_fall_pressed {
+        // enter MorphBall
+    }
+}
+```
+
+The in-frame fast-fall path inside `sandbox_update` already reads
+`controls` via the same `&mut` borrow, so it sees the flag and
+fast-fall works. But the body-mode driver, which runs as a separate
+Bevy system later in the same frame, never enters MorphBall.
+
+### Question
+
+Why doesn't the body-mode driver see the flag, and what's the right
+shape for a one-frame "edge pending" signal that crosses Bevy systems
+without re-coupling the gesture detector to the input boundary?
+
+### Expected answer
+
+Two issues compound:
+
+- `populate_control_frame_from_actions` runs every frame and
+  *rebuilds* `ControlFrame` from the input pipeline. Even when
+  `sandbox_update` mutates `controls` via `ResMut<ControlFrame>` and
+  later systems can technically observe the change in the same frame,
+  the very next frame's input rebuild discards anything derived. The
+  flag's lifetime is fragile.
+- More importantly, `ControlFrame` is the *input boundary* — the
+  contract is "this is what the input pipeline says happened this
+  frame." Overlaying a derived gameplay signal ("double-tap detected,
+  please trigger MorphBall") onto an input field conflates two layers
+  and is exactly the kind of seam violation that breaks silently in
+  refactors.
+
+The right shape is a separate one-frame "pending edge" field on a
+long-lived state resource:
+
+```rust
+#[derive(Resource, Default)]
+pub struct SandboxRuntime {
+    pub double_tap_down_pending: bool,
+    // ... other long-lived sim state
+}
+```
+
+`input_timer_phase` sets it whenever `register_down_tap` returns
+`true`. The body-mode driver consumes it via `mem::take` so a stale
+signal can't latch across frames:
+
+```rust
+let double_tap_down = std::mem::take(&mut runtime.double_tap_down_pending);
+if double_tap_down {
+    // enter MorphBall
+}
+```
+
+`SandboxRuntime::reset` clears it defensively (death/respawn must not
+leave a stale gesture pending).
+
+A regression test pins the routing — set `controls.fast_fall_pressed
+= true` on the resource directly and assert the driver does **not**
+enter MorphBall. The test message itself documents the invariant:
+
+```rust
+assert_eq!(
+    runtime.player.body_mode,
+    BodyMode::Standing,
+    "the body-mode driver must read runtime.double_tap_down_pending, \
+     not controls.fast_fall_pressed (which sandbox_update consumes \
+     on a local copy that doesn't reach later systems)"
+);
+```
+
+### Why this was easy to miss
+
+In Ambition the in-frame consumer (fast-fall integration) ran inside
+the same `&mut ControlFrame` scope as the gesture detector and saw
+the flag, so the detector "looked like" it was working. The body-mode
+driver was a separate Bevy system that visibly didn't fire the
+gesture, but only one of two consumers was failing — making the bug
+look like a body-mode driver issue instead of a routing/seam issue.
+The right test is "set the field directly on the resource and assert
+the driver does NOT respond" — the negative assertion is what pins
+the seam.
+
+## 2026-05-09: Aligning a deterministic-sim trace dump with its replay loop
+
+Tags: `record-replay`, `deterministic-sim`, `off-by-one`, `ci-fixture`
+
+### Setup
+
+A Bevy/headless game has a deterministic, fixed-timestep simulation
+(deterministic RNG, fixed `dt`, all input flows through `ControlFrame`).
+You add a `--dump-trace` flag to the headless binary that writes a JSON
+file with one `Frame` per step. The dump convention is documented as
+**"record state AFTER each step"** and the format is:
+
+```rust
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DumpedFrame {
+    /// The ControlFrame applied during step i+1 (i.e. the inputs that
+    /// produced the state recorded below).
+    pub controls: ControlFrame,
+    /// Player position AFTER step i+1 ran.
+    pub player_pos: Vec2,
+}
+
+pub struct DumpFile {
+    pub frames: Vec<DumpedFrame>,
+}
+```
+
+You now want a `trace_replay` binary that takes a dump file, re-runs
+the same simulation, and asserts that the live post-step position
+matches the recorded `player_pos` for every step. The intent is a CI
+determinism guard — any drift is a regression.
+
+### Question
+
+Write the replay loop. Be precise about which `frames[i].controls` is
+applied on which step, and which `frames[i].player_pos` is compared
+to which post-step state. What sub-pixel symptom appears if you get
+this wrong, and what acceptance criterion proves the determinism
+guard is real?
+
+### Expected answer
+
+The dump records `(controls applied during step i+1, pos after step
+i+1)` into `frames[i]`. So in the replay, `frames[i].controls` drives
+the i-th step (0-indexed), and the post-step position must equal
+`frames[i].player_pos`:
+
+```rust
+for i in 0..frames.len() {
+    sim.set_controls(frames[i].controls);
+    sim.step();
+    assert_eq!(sim.player_pos(), frames[i].player_pos);
+}
+```
+
+**Do not** `frames.iter().skip(1)` and apply `frames[i].controls` on
+step `i+1`. That pairs the controls of one frame with the post-state
+of a different frame in the comparison — any non-zero player velocity
+will introduce a one-frame offset that drifts as the integrator runs,
+producing sub-pixel `dx` / `dy` divergence by frame 1 and accumulating
+across the trace.
+
+The acceptance criterion that proves the guard is real:
+
+```text
+cargo run --bin headless -- 30 --dump-trace /tmp/t/
+cargo run --bin trace_replay -- /tmp/t/ambition_trace_*.json
+# expected: max_dx == 0.0 && max_dy == 0.0  (NOT "close to zero")
+```
+
+Sub-pixel is not "close enough" on a deterministic sim — true
+determinism gives bit-exact equality. If the round trip is exact, the
+trace replay binary is suitable as a CI fixture: a checked-in trace
+file plus a one-line assertion will catch any unintentional change to
+sim behavior.
+
+### Why this was easy to miss
+
+Sub-pixel drift looks like float noise — easy to shrug off with "must
+be FP roundoff" and write off as acceptable. It isn't. On a
+deterministic sim with bit-exact RNG and fixed dt, the integrator is
+a pure function of (state, controls); any non-bit-exact divergence
+across a re-run is a real bug, almost always in the alignment of
+controls and state across the seam. The test that catches it is
+"replay a trace you just dumped and demand equality", not "replay and
+assert |dx| < 1.0".
+
+The simplest defense is to write the alignment convention down in
+plain words next to the format definition (e.g.
+`docs/gameplay_trace_recorder.md`) and make the replay loop's first
+line read like prose: "frames[i].controls drives step i; the
+resulting position must equal frames[i].player_pos."

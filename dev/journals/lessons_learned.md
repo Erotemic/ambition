@@ -269,3 +269,186 @@ Node {
 
 When updating UI style code, check the current Bevy migration notes or local
 examples before assuming a visual style type is still a component.
+
+## 2026-05-07: `ControlFrame` edge fields cannot be derived from a held axis
+
+This bug class shipped *three times* in three different writers before the
+held-input regression-test pattern became standard:
+
+- `ebe3686` — `AgentAction` → `ControlFrame` converter set
+  `down_pressed = move_y > 0.5` every frame.
+- `42f3545` — the touch-input `fold_to_control_frame` did the same shape on
+  the touch axis.
+- `a63c258` — even with no touch input, the touch fold ran every frame and
+  unconditionally overwrote `ControlFrame`, zeroing out keyboard-derived
+  `down_pressed` between frames Leafwing had set it true.
+
+### Symptom
+
+Holding Down (keyboard or touch) caused the player sprite and camera to
+"shake" or "blink" at ~30 Hz, oscillating between Standing and Crouching.
+Two consecutive held-down frames also incorrectly fired MorphBall via
+`SandboxRuntime::register_down_tap`'s double-tap-down detector. The bug
+was invisible in single-frame unit tests; only multi-frame held inputs
+reproduced it.
+
+### Root cause
+
+`ControlFrame.down_pressed` is documented as edge-triggered (true only on
+the frame the input was just pressed). Leafwing populates it correctly
+via `actions.just_pressed(MoveDown)`. But three other `ControlFrame`
+writers each independently re-derived `down_pressed = move_y > 0.5`
+from the held axis, producing `true` on every frame the user held Down.
+`register_down_tap` counted each frame as a fresh tap, the double-tap
+window fired on frame 2, MorphBall transitioned, and the next frame's
+body-mode driver flipped back. Per-frame flip = ~30 Hz oscillation.
+
+The third occurrence (touch fold stomping keyboard) was a related shape:
+a stateless writer that runs every frame and unconditionally writes a
+shared resource will overwrite state another writer just computed,
+even when its own input is empty.
+
+### Fix
+
+Three coordinated invariants:
+
+1. **Don't auto-derive edge fields from a held axis.** Source structs
+   (`AgentAction`, `TouchInputState`) gain explicit `up_pressed` /
+   `down_pressed` edge fields with `#[derive(Default)]` to `false`. The
+   source must opt in by setting the field once on the desired edge
+   frame.
+2. **Compute touch edges from a one-frame history.**
+   `read_joystick_messages` keeps a `Local<f32>` of the previous
+   frame's `move_y` and emits explicit `move_y_just_crossed_up` /
+   `move_y_just_crossed_down` flags only on threshold crossings.
+3. **Gate the writer on its own activity.** `fold_to_control_frame`
+   checks `touch_state_is_active(...)` before writing; with no
+   deflection / no held button / no edge flag, the existing
+   `ControlFrame` is left intact.
+
+Regression tests live in
+[`crates/ambition_sandbox/tests/crouch_stability.rs`](../../crates/ambition_sandbox/tests/crouch_stability.rs)
+(held Down for 30 frames must stay Crouching with per-frame `pos.y`
+delta < 5 px) and
+[`fold_held_down_without_edge_flag_does_not_fire_down_pressed`](../../crates/ambition_sandbox/src/mobile_input.rs)
+(pins the touch path).
+
+### Takeaway
+
+Edge fields are a contract, not a derivation. Any
+`ControlFrame`-shaped resource with both axis fields and edge fields
+needs an unambiguous answer to "who computes the edge, and from
+what?" — and the answer can never be "from the held axis, in this
+writer." When more than one source writes the same frame-rebuilt
+resource, every writer additionally must gate on its own activity. A
+"held axis for 30 frames" test on every new input source catches both
+failure modes.
+
+This is also a good signal that **lessons must propagate.** The same
+class shipped three times because the lesson lived only in the
+fix-commit's message; it wasn't in any project-level discipline doc
+until the third occurrence. When a class of bug recurs, the lesson
+should be promoted from commit-message to journal entry to benchmark
+question (in this repo, see the corresponding entry in
+`dev/benchmark-candidates/rust-questions.md`).
+
+## 2026-05: Local-copy `ControlFrame` doesn't propagate to other Bevy systems
+
+### Symptom
+
+A double-tap-down gesture correctly entered fast-fall (visible in the
+in-frame physics path inside `sandbox_update`), but the `body_mode`
+driver — a separate Bevy system scheduled later — never saw the
+`fast_fall_pressed = true` write that `input_timer_phase` performed.
+Crouch worked because it reads the held `controls.axis_y` populated
+upstream. MorphBall didn't fire.
+
+### Root cause
+
+`sandbox_update` mutates `ControlFrame` via `ResMut`. But
+`populate_control_frame_from_actions` runs `.before(sandbox_update)`
+each frame and rebuilds `ControlFrame` from the input pipeline; the
+*previous* frame's mutation is gone. More importantly, `ControlFrame`
+is the input boundary — overlaying a derived gameplay signal
+("double-tap detected, please trigger MorphBall") onto an input field
+conflates two layers and is exactly the kind of seam violation that
+breaks silently in refactors.
+
+### Fix
+
+Add a separate "pending edge" field on the long-lived `SandboxRuntime`
+resource:
+
+```rust
+pub struct SandboxRuntime {
+    pub double_tap_down_pending: bool,
+    // ...
+}
+```
+
+`input_timer_phase` sets it whenever `register_down_tap` returns
+`true`. The body-mode driver consumes via `mem::take` so a stale
+signal can't latch across frames. `SandboxRuntime::reset` clears it
+defensively.
+
+Regression test
+[`morph_ball_does_not_fire_from_control_frame_alone`](../../crates/ambition_sandbox/src/body_mode.rs)
+sets `controls.fast_fall_pressed = true` directly on the resource and
+asserts the driver does **not** enter MorphBall. The negative
+assertion pins the seam.
+
+### Takeaway
+
+Don't overlay derived gameplay signals onto an input-boundary
+resource. `ControlFrame` is what the input pipeline says happened
+this frame; its values are rebuilt every frame. Anything *derived*
+from input — gesture detections, multi-frame edges, double-tap
+timers — belongs on a separate state resource that lives across
+frames. The discipline pays off twice: it's the right architectural
+seam (driver reads what driver needs), and it makes the routing
+testable independently of the input pipeline.
+
+## 2026-05: Trace dump records state AFTER each step — replay must align accordingly
+
+### Symptom
+
+A determinism guard binary (`trace_replay`) re-ran a deterministic
+sim against a `--dump-trace`-recorded fixture and reported sub-pixel
+`dx` / `dy` divergence by frame 1, accumulating across the trace. The
+sim was deterministic and the dump was stable; the divergence was in
+the replay loop's frame alignment.
+
+### Root cause
+
+The dump convention is "record state AFTER each step." So
+`frames[i]` holds `(controls applied during step i+1, player_pos
+after step i+1)`. The replay loop did `skip(1)` and applied
+`frames[i].controls` on step `i` — pairing the controls of frame `i`
+with the post-state of frame `i-1` in the comparison. Any non-zero
+velocity introduces a one-frame offset that drifts as the integrator
+runs.
+
+### Fix
+
+```rust
+for i in 0..frames.len() {
+    sim.set_controls(frames[i].controls);
+    sim.step();
+    assert_eq!(sim.player_pos(), frames[i].player_pos);
+}
+```
+
+After the alignment fix, a 30-tick round trip reports
+`max_dx == 0.0`, `max_dy == 0.0`. That makes `trace_replay` a real
+determinism guard usable as a CI fixture.
+
+### Takeaway
+
+Sub-pixel is not "close enough" on a deterministic sim — bit-exact
+equality is the only acceptance criterion. When you see drift on a
+re-run that's supposed to be deterministic, the bug is almost always
+in the *alignment* of (controls, state) across the record/replay
+seam, not in float precision. Write the alignment convention down in
+plain words next to the format definition; the replay loop's first
+line should read like prose: "frames[i].controls drives step i; the
+resulting position must equal frames[i].player_pos."

@@ -43,6 +43,27 @@ python -m ambition_ldtk_tools roundtrip crates/ambition_sandbox/assets/ambition/
 python -m ambition_ldtk_tools validate crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 ```
 
+## Diff-friendly format
+
+Tool writes (`area create`, `repair`, `entity add`, etc.) go through
+the `ambition_ldtk_tools.editor_format` serializer, which mirrors the
+LDtk 1.5 editor's mixed inline/multi-line JSON layout closely enough
+that consecutive tool runs and editor saves diff cleanly against each
+other. The repository's `sandbox.ldtk` is checked in in this format.
+
+If you saved the file in the LDtk editor and now want to see a clean
+diff against your prior commit, re-canonicalize via:
+
+```bash
+python -m ambition_ldtk_tools.editor_format \
+  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+```
+
+This is idempotent — running it twice produces no further changes.
+Format-decision rules (inline thresholds, scalar-array chunking,
+asymmetric brace spacing, first-key flow, closing-line key flow)
+are pinned by `tools/ambition_ldtk_tools/tests/test_editor_format.py`.
+
 Run the sandbox with hot reload enabled:
 
 ```bash

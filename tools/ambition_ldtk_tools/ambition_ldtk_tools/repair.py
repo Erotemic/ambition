@@ -28,11 +28,19 @@ def load_project(path: Path) -> dict:
 
 
 def write_project(path: Path, project: dict) -> None:
-    # LDtk's own editor uses tabs + inline-where-short formatting; we
-    # can't perfectly reproduce that with json.dumps, but writing with
-    # indent='\t' at least keeps tab-level whitespace stable so a diff
-    # against an LDtk-edited or previously-repaired file stays small.
-    path.write_text(json.dumps(project, indent="\t") + "\n")
+    """Write the project in LDtk-editor-shaped JSON via the
+    `editor_format` serializer.
+
+    Earlier versions wrote `json.dumps(project, indent="\\t")`, which
+    produced a fully-expanded layout that diffed against an
+    editor-saved file as ~30k lines of pure formatting noise. The
+    `editor_format` serializer mirrors the editor's mixed inline /
+    multi-line layout closely enough that tool-edited files diff
+    cleanly against editor-edited ones.
+    """
+    from ambition_ldtk_tools.editor_format import dump_editor_style
+
+    path.write_text(dump_editor_style(project))
 
 
 def main(argv=None) -> int:

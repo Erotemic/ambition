@@ -819,7 +819,9 @@ def main(argv=None):
             project = json.loads(args.path.read_text())
             changes = normalize_project_for_editor(project)
             if changes:
-                args.path.write_text(json.dumps(project, indent=2) + "\n")
+                from ambition_ldtk_tools.editor_format import dump_editor_style
+
+                args.path.write_text(dump_editor_style(project))
                 print(f"repaired {len(changes)} LDtk editor-roundtrip issue(s) in {args.path}", file=sys.stderr)
                 for change in changes[:20]:
                     print(f"  - {change}", file=sys.stderr)

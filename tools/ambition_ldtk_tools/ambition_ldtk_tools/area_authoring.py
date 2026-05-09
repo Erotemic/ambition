@@ -140,7 +140,9 @@ def load_project(path: Path) -> dict:
 
 
 def write_project(path: Path, project: dict) -> None:
-    path.write_text(json.dumps(project, indent=2) + "\n")
+    from .editor_format import dump_editor_style
+
+    path.write_text(dump_editor_style(project))
 
 
 def find_entity_def(project: dict, identifier: str) -> dict:

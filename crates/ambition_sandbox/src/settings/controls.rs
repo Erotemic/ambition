@@ -12,21 +12,38 @@ use serde::{Deserialize, Serialize};
 /// All three modes share the same hover semantic (pointer-over moves
 /// the highlight); they differ only in what a *press* does.
 ///
-/// - `SingleTapWithDestructiveGuard` (default): non-destructive items
+/// - `SingleTapWithDestructiveGuard` (default on desktop): non-destructive items
 ///   activate on the first press. Destructive items (Quit, Reset
 ///   Sandbox) only highlight on the first press; a second press on the
 ///   same item activates. Matches the safety/expectation balance most
 ///   players want on touch.
 /// - `SingleTap`: every press activates immediately. Faster, but a
 ///   stray touch on Quit will exit the game.
-/// - `TapToSelectThenConfirm`: first press only highlights; a second
-///   press on the same item activates. Console-style; fewer mistaps.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// - `TapToSelectThenConfirm` (default on Android): first press only
+///   highlights; a second press on the same item activates. Console-style;
+///   fewer mistaps.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MenuTapMode {
-    #[default]
     SingleTapWithDestructiveGuard,
     SingleTap,
     TapToSelectThenConfirm,
+}
+
+impl Default for MenuTapMode {
+    fn default() -> Self {
+        // Touch-only Android testing is more tolerant when a row tap selects
+        // first and requires an explicit second tap / Confirm. Desktop and
+        // Steam Deck keep the faster single-tap behavior, while Android avoids
+        // accidental activation when a finger press turns into a small drag.
+        #[cfg(target_os = "android")]
+        {
+            Self::TapToSelectThenConfirm
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            Self::SingleTapWithDestructiveGuard
+        }
+    }
 }
 
 impl MenuTapMode {

@@ -178,3 +178,77 @@ traditional debug-first defaults.
 Touch buttons are folded from raw active touches as well as Bevy UI
 `Interaction`s. This is intentional: the joystick can own one touch while another
 finger taps Jump / Attack / Dash / Blink / Interact / Projectile / Pause.
+
+## Size-focused Android builds
+
+The default Android script uses `--no-default-features --features android`, so it
+keeps the playable sandbox, touch controls, audio, LDtk runtime, UI, and RL/test
+seams while excluding desktop-only inspector/file-watcher tooling from the phone
+artifact.
+
+For a smaller phone-test APK without changing gameplay features, use the
+`android-size` Cargo profile:
+
+```bash
+./build_for_android.sh --size-profile --fresh-install
+```
+
+This profile uses size-oriented optimization, thin LTO, one codegen unit,
+`panic = "abort"`, and symbol stripping. The script also runs the NDK
+`llvm-strip --strip-unneeded` as a backstop and prints native library before / after
+sizes.
+
+Useful variants:
+
+```bash
+./build_for_android.sh --size-profile --size-report
+./build_for_android.sh --size-profile --static-map
+./build_for_android.sh --use-default-features  # intentionally includes desktop defaults
+```
+
+If the binary is unexpectedly large, compare the native library and APK sizes
+between these commands:
+
+```bash
+./build_for_android.sh --clean
+ls -lh target/android/ambition_sandbox_android/app/src/main/jniLibs/arm64-v8a/libambition_sandbox.so \
+      target/android/apks/ambition_sandbox-debug-arm64-v8a.apk
+
+./build_for_android.sh --clean --size-profile
+ls -lh target/android/ambition_sandbox_android/app/src/main/jniLibs/arm64-v8a/libambition_sandbox.so \
+      target/android/apks/ambition_sandbox-debug-arm64-v8a.apk
+```
+
+Note: the Android composite feature still includes `static_map` today because the
+LDtk world is synchronously parsed by sandbox startup code before Bevy's
+Android asset pipeline can provide a packaged asset handle. This is only about
+~1 MiB of source map data and is not the main native-library size driver. A
+future cleanup can teach the LDtk loader to read from Android APK assets and
+then make `--no-static-map` the normal Android path.
+
+
+## SFX bank on Android
+
+The current SFX-bank runtime loader is synchronous and path/byte based. Desktop
+can read `assets/audio/sfx.bank` directly from the checkout, but Android APK
+assets are not ordinary filesystem files. Until the SFX bank gets an Android
+asset-reader backend, `build_for_android.sh` automatically enables the
+`static_sfx_bank` Cargo feature when `crates/ambition_sandbox/assets/audio/sfx.bank`
+exists and passes the bank path to Rust for `include_bytes!`.
+
+That keeps the phone build using the real SFX bank instead of falling back to
+old generated/fundsp sounds. The same bank is still copied into APK assets so a
+future APK asset-loader path can stop embedding it in the native library.
+
+Controls:
+
+```bash
+./build_for_android.sh --static-sfx-bank
+./build_for_android.sh --no-static-sfx-bank
+```
+
+## Size diagnostics
+
+`--size-profile` now prints native library, APK, and APK-asset sizes. It also
+prints the largest APK entries and an optional `cargo bloat` command to run when
+symbol-level attribution is needed.

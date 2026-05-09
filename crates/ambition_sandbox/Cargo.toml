@@ -10,13 +10,17 @@ description = "Bevy-powered playable sandbox for Ambition Engine."
 crate-type = ["rlib", "cdylib"]
 
 [features]
-# Default preserves prior behavior plus the feature-gated ergonomic
-# additions (mobile touch + RL adapter). All of these can be disabled
-# from a downstream build with `default-features = false` + a
-# narrower feature pick.
-default = ["visible", "dev_tools", "mobile_touch", "rl"]
+# Default preserves the full desktop sandbox / development posture. Android
+# builds use the `android` composite below with `--no-default-features` so the
+# phone build keeps gameplay/touch/audio/LDtk while avoiding desktop-only
+# inspector/file-watcher tooling.
+default = ["desktop_dev"]
 
-# Composite for the playable Bevy app. `cargo run` enables this via default.
+# Full desktop sandbox. This is the regular `cargo run` experience: visible
+# gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
+desktop_dev = ["visible", "dev_tools", "mobile_touch", "rl"]
+
+# Composite for the playable Bevy app. Desktop and Android both build on this.
 visible = ["ldtk_runtime", "input", "audio", "ui", "physics_debris"]
 
 # RL / programmatic-input adapter. The `rl` module + `SandboxSim`
@@ -48,10 +52,25 @@ dev_hot_reload = ["bevy/file_watcher"]
 # map and falls back to it if the external map cannot be read or parsed.
 static_map = []
 
-# Android phone-test packaging. Keeps the regular visible sandbox defaults,
-# statically packs the map for early APK tests, and explicitly requests
-# Bevy's GameActivity integration for the cargo-ndk + Gradle path.
-android = ["static_map", "bevy/android-game-activity"]
+# Opt-in static SFX bank embedding. This is mainly for Android until the
+# synchronous SFX-bank loader can read from APK assets. The build script enables
+# this automatically when crates/ambition_sandbox/assets/audio/sfx.bank exists
+# and passes AMBITION_STATIC_SFX_BANK_PATH for include_bytes!.
+static_sfx_bank = []
+
+# Android phone-test packaging. This is platform composition, not a stripped
+# release persona: keep the playable sandbox, touch controls, audio, LDtk,
+# UI, and RL/test seams, but do not pull desktop-only inspector/file-watcher
+# tooling into the phone build. Keep `static_map` here for now because the
+# sandbox LDtk world is synchronously parsed before Bevy's Android AssetServer
+# path can hand it to the runtime; the APK still packages the loose asset tree
+# for sprites/audio/fonts and future map-loading work.
+android = ["visible", "mobile_touch", "rl", "static_map", "bevy/android-game-activity"]
+
+# Explicit alias for Android builds that still include sandbox/dev gameplay
+# behavior. Kept separate so future phone-only diagnostics can be added without
+# changing the base Android packaging feature.
+android_dev = ["android"]
 
 # Subsystem gates. Deps are flipped to `optional = true` so toggling
 # these features actually moves crates in/out of the dep graph. Code

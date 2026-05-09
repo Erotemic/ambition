@@ -66,3 +66,48 @@ its text when the setting is off. Quest/objective UI and debug HUD text should b
 separately because the quest panel is useful during play while the debug dump can consume most
 of a phone screen.
 
+
+## 2026-05-08: Android size is a separate profile and platform-composition problem
+
+A large Android APK/native library should not immediately trigger semantic
+feature-gate churn. First separate the size mechanics from the gameplay feature
+set:
+
+- build Android with `--no-default-features --features android` so desktop-only
+  inspector/file-watcher tooling does not enter the phone artifact by default;
+- keep the playable sandbox, touch controls, audio, LDtk runtime, UI, and RL/test
+  seams in the Android composite feature;
+- add a dedicated `android-size` Cargo profile before removing gameplay systems;
+- strip the final `.so` explicitly with the NDK `llvm-strip` as a backstop;
+- print before/after sizes so future patches compare measurements instead of
+  guessing from APK size alone.
+
+The principle is platform composition, not release minimalism: Android can remain
+a dev/test build while excluding desktop inspector/editor conveniences that are
+not useful on a phone screen.
+
+
+## 2026-05-08: Android APK assets are not regular files
+
+The Android build copied `assets/audio/sfx.bank` into the APK, but the game still
+fell back to generated/fundsp SFX. The reason was that the SFX bank loader used
+`std::fs` and normal paths such as `/assets/audio/sfx.bank`; packaged APK assets
+are not visible at those paths on-device. Bevy's `AssetServer` can load many
+runtime assets from the APK, but this specific SFX-bank path is a synchronous
+custom loader built around `BankProvider::from_path` / `from_bytes`.
+
+Temporary fix: let `build_for_android.sh` statically embed the SFX bank with a
+separate `static_sfx_bank` feature when the bank exists locally. Long-term fix:
+teach the SFX bank loader to read bytes from Android APK assets or route it
+through Bevy asset loading, then remove the static embedding workaround.
+
+The lesson is to distinguish "copied into APK assets" from "readable via
+`std::fs`". Any custom synchronous loader needs an explicit Android asset path,
+static fallback, or Bevy asset pipeline bridge.
+
+## 2026-05-08: Size diagnostics should be automatic for phone builds
+
+A 200 MiB native library became a much more reasonable ~49 MiB `.so` after using
+a size-oriented Cargo profile, disabling desktop-only default features for
+Android, and stripping with the NDK toolchain. Future Android patches should keep
+printing `.so`, APK, and asset-tree sizes so we notice regressions immediately.

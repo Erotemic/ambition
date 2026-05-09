@@ -15,3 +15,11 @@ description = "Ambition: a code-generated endgame movement sandbox for a mathema
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[profile.android-size]
+inherits = "release"
+opt-level = "z"
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

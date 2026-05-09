@@ -20,8 +20,10 @@ Options:
   --fresh-install        Uninstall the app for the current user before installing.
   --run                  Install and launch the APK on an attached Android device.
   --device SERIAL        Pass -s SERIAL to adb for install/run.
-  --rust-debug           Build the Rust shared library without --release.
-  --rust-release         Build the Rust shared library with --release (default).
+  --rust-debug           Build the Rust shared library with Cargo dev profile.
+  --rust-release         Build the Rust shared library with Cargo release profile (default).
+  --size-profile         Build the Rust shared library with Cargo profile android-size.
+  --cargo-profile NAME   Build the Rust shared library with a named Cargo profile.
   --apk-release          Run Gradle assembleRelease instead of assembleDebug.
   --apk-debug            Run Gradle assembleDebug (default; debug-signed).
   --target ABI           Android ABI for cargo-ndk. Default: arm64-v8a.
@@ -29,7 +31,15 @@ Options:
   --compile-sdk API      Android compileSdk. Default: highest installed, else 35.
   --target-sdk API       Android targetSdk. Default: compileSdk.
   --features LIST        Cargo features to add. Default: android.
-  --no-static-map        Do not add static_map to the Android cargo features. This also removes the android composite feature if it is still present.
+  --use-default-features Also enable ambition_sandbox default features. Off by default for Android.
+  --no-default-features  Disable default features (default for Android builds).
+  --static-map           Add static_map to the Android cargo features.
+  --no-static-map        Remove static_map from the Android cargo features.
+  --static-sfx-bank      Embed assets/audio/sfx.bank into the native library.
+  --no-static-sfx-bank   Do not embed assets/audio/sfx.bank (default is auto).
+  --strip                Strip the final native library after cargo-ndk (default).
+  --no-strip             Do not strip the final native library.
+  --size-report          Print native/APK size diagnostics. Enabled by --size-profile.
   --clean                Delete the generated Android project before building.
   --doctor               Check tools/environment and print what would be used.
   --gradle-user-home DIR  Gradle cache dir. Default: target/android/gradle-user-home.
@@ -51,6 +61,7 @@ Examples:
   ./build_for_android.sh --install
   ./build_for_android.sh --run --device 0123456789ABCDEF
   ./build_for_android.sh --doctor
+  ./build_for_android.sh --size-profile --fresh-install
 EOF
 }
 
@@ -125,6 +136,111 @@ copy_tree_contents() {
     fi
 }
 
+feature_list_has() {
+    local needle=$1
+    local word
+    for word in $(printf '%s' "${FEATURES:-}" | tr ',' ' '); do
+        [[ "$word" == "$needle" ]] && return 0
+    done
+    return 1
+}
+
+add_feature() {
+    local name=$1
+    if ! feature_list_has "$name"; then
+        if [[ -z "${FEATURES:-}" ]]; then
+            FEATURES="$name"
+        else
+            FEATURES="$FEATURES $name"
+        fi
+    fi
+}
+
+remove_feature() {
+    local name=$1
+    FEATURES=$(printf '%s' "${FEATURES:-}" | tr ',' ' ' | awk -v name="$name" '{sep=""; for (i=1;i<=NF;i++) if ($i != name) {printf "%s%s", sep, $i; sep=" "}}')
+}
+
+human_size() {
+    local path=$1
+    if [[ -e "$path" ]]; then
+        du -h "$path" | awk '{print $1}'
+    else
+        printf 'missing'
+    fi
+}
+
+dir_size() {
+    local path=$1
+    if [[ -d "$path" ]]; then
+        du -sh "$path" | awk '{print $1}'
+    else
+        printf 'missing'
+    fi
+}
+
+file_bytes() {
+    local path=$1
+    if [[ -e "$path" ]]; then
+        wc -c < "$path" | tr -d ' '
+    else
+        printf '0'
+    fi
+}
+
+print_apk_size_report() {
+    local apk_path=$1
+    [[ -f "$apk_path" ]] || return 0
+    log "largest APK entries"
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -l "$apk_path"             | awk 'NF >= 4 && $1 ~ /^[0-9]+$/ {print $1 " " $4}'             | sort -n             | tail -30             | awk '{size=$1; name=$2; for (i=3;i<=NF;i++) name=name " " $i; printf "%10.1f MiB  %s\n", size / 1048576, name}'
+    else
+        warn "unzip not found; skipping APK entry report"
+    fi
+}
+
+find_ndk_tool() {
+    local tool=$1
+    local host_tag="linux-x86_64"
+    local candidate="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/$host_tag/bin/$tool"
+    if [[ -x "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    if command -v "$tool" >/dev/null 2>&1; then
+        command -v "$tool"
+        return 0
+    fi
+    return 1
+}
+
+strip_native_library() {
+    local so_path=$1
+    [[ -f "$so_path" ]] || fatal "native library not found after cargo-ndk build: $so_path"
+    local before after strip_tool
+    before=$(human_size "$so_path")
+    if strip_tool=$(find_ndk_tool llvm-strip); then
+        log "stripping native library with $strip_tool"
+        "$strip_tool" --strip-unneeded "$so_path"
+        after=$(human_size "$so_path")
+        log "native library size: $before -> $after"
+    else
+        warn "llvm-strip not found; native library remains unstripped at $before"
+    fi
+}
+
+print_native_size_report() {
+    local so_path=$1
+    [[ -f "$so_path" ]] || return 0
+    local size_tool
+    if size_tool=$(find_ndk_tool llvm-size); then
+        log "native library section-size tail from $size_tool"
+        "$size_tool" -A "$so_path" | sort -k2 -n | tail -40 || true
+    else
+        warn "llvm-size not found; skipping native section-size report"
+    fi
+}
+
 INSTALL=false
 FRESH_INSTALL=false
 RUN_APP=false
@@ -137,6 +253,11 @@ TARGET_SDK=""
 RUST_PROFILE="release"
 APK_BUILD_TYPE="debug"
 FEATURES="android"
+USE_DEFAULT_FEATURES=false
+STRIP_NATIVE=true
+SIZE_REPORT=false
+STATIC_SFX_BANK="auto"
+STATIC_SFX_BANK_PATH=""
 DEVICE_SERIAL=""
 GRADLE_USER_HOME_ARG=""
 
@@ -148,6 +269,8 @@ while [[ $# -gt 0 ]]; do
         --device) shift; [[ $# -gt 0 ]] || fatal "--device needs a serial"; DEVICE_SERIAL=$1 ;;
         --rust-debug) RUST_PROFILE="debug" ;;
         --rust-release) RUST_PROFILE="release" ;;
+        --size-profile) RUST_PROFILE="android-size"; STRIP_NATIVE=true; SIZE_REPORT=true ;;
+        --cargo-profile) shift; [[ $# -gt 0 ]] || fatal "--cargo-profile needs a profile name"; RUST_PROFILE=$1 ;;
         --apk-debug) APK_BUILD_TYPE="debug" ;;
         --apk-release) APK_BUILD_TYPE="release" ;;
         --target) shift; [[ $# -gt 0 ]] || fatal "--target needs an ABI"; TARGET_ABI=$1 ;;
@@ -155,9 +278,15 @@ while [[ $# -gt 0 ]]; do
         --compile-sdk) shift; [[ $# -gt 0 ]] || fatal "--compile-sdk needs an API level"; COMPILE_SDK=$1 ;;
         --target-sdk) shift; [[ $# -gt 0 ]] || fatal "--target-sdk needs an API level"; TARGET_SDK=$1 ;;
         --features) shift; [[ $# -gt 0 ]] || fatal "--features needs a comma-separated or space-separated feature list"; FEATURES=$1 ;;
-        --no-static-map)
-            FEATURES=$(printf '%s' "$FEATURES" | tr ',' ' ' | awk '{for (i=1;i<=NF;i++) if ($i != "static_map" && $i != "android") printf "%s%s", sep, $i; sep=" "}')
-            ;;
+        --use-default-features) USE_DEFAULT_FEATURES=true ;;
+        --no-default-features) USE_DEFAULT_FEATURES=false ;;
+        --static-map) add_feature static_map ;;
+        --no-static-map) remove_feature static_map ;;
+        --static-sfx-bank) STATIC_SFX_BANK=true ;;
+        --no-static-sfx-bank) STATIC_SFX_BANK=false; remove_feature static_sfx_bank ;;
+        --strip) STRIP_NATIVE=true ;;
+        --no-strip) STRIP_NATIVE=false ;;
+        --size-report) SIZE_REPORT=true ;;
         --clean) CLEAN=true ;;
         --doctor) DOCTOR=true ;;
         --gradle-user-home) shift; [[ $# -gt 0 ]] || fatal "--gradle-user-home needs a path"; GRADLE_USER_HOME_ARG=$1 ;;
@@ -226,13 +355,44 @@ if [[ "$INSTALL" == true ]]; then
     need_cmd adb "Run: ./scripts/setup_android_prereqs.sh"
 fi
 
+DEFAULT_SFX_BANK_PATH="$ROOT/crates/ambition_sandbox/assets/audio/sfx.bank"
+if [[ -n "${AMBITION_SFX_BANK_PATH:-}" ]]; then
+    DEFAULT_SFX_BANK_PATH="$AMBITION_SFX_BANK_PATH"
+fi
+case "$STATIC_SFX_BANK" in
+    true)
+        [[ -f "$DEFAULT_SFX_BANK_PATH" ]] || fatal "--static-sfx-bank requested but no sfx bank exists at $DEFAULT_SFX_BANK_PATH. Generate it first, or use --no-static-sfx-bank."
+        STATIC_SFX_BANK_PATH="$DEFAULT_SFX_BANK_PATH"
+        add_feature static_sfx_bank
+        ;;
+    false)
+        remove_feature static_sfx_bank
+        ;;
+    auto)
+        if [[ -f "$DEFAULT_SFX_BANK_PATH" ]]; then
+            STATIC_SFX_BANK_PATH="$DEFAULT_SFX_BANK_PATH"
+            add_feature static_sfx_bank
+        else
+            remove_feature static_sfx_bank
+        fi
+        ;;
+    *) fatal "internal error: bad STATIC_SFX_BANK value: $STATIC_SFX_BANK" ;;
+esac
+
 log "repo: $ROOT"
 log "sdk: $SDK_ROOT"
 log "ndk: $NDK_ROOT"
 log "target ABI: $TARGET_ABI"
 log "minSdk: $MIN_SDK  compileSdk: $COMPILE_SDK  targetSdk: $TARGET_SDK"
 log "Rust profile: $RUST_PROFILE  Android APK build type: $APK_BUILD_TYPE"
+log "default features: $USE_DEFAULT_FEATURES"
 log "features: ${FEATURES:-<default only>}"
+log "strip native library: $STRIP_NATIVE  size report: $SIZE_REPORT"
+if [[ -n "$STATIC_SFX_BANK_PATH" ]]; then
+    log "static sfx bank: $STATIC_SFX_BANK_PATH ($(human_size "$STATIC_SFX_BANK_PATH"))"
+else
+    log "static sfx bank: disabled (no bank found at $DEFAULT_SFX_BANK_PATH)"
+fi
 log "app id: $APP_ID"
 log "Gradle user home: $GRADLE_USER_HOME"
 
@@ -416,17 +576,42 @@ if [[ -d "$ASSETS_OUT/sprites" ]]; then
 else
     warn "no sprites/ asset directory copied into APK; sprite art will fall back to colored rectangles"
 fi
+if [[ -f "$ASSETS_OUT/audio/sfx.bank" ]]; then
+    log "copied sfx.bank into APK assets: $(human_size "$ASSETS_OUT/audio/sfx.bank")"
+else
+    warn "no sfx.bank copied into APK assets; generated/fundsp SFX fallback will be used unless static_sfx_bank is enabled"
+fi
+log "APK asset tree size: $(dir_size "$ASSETS_OUT")"
 
 CARGO_NDK_ARGS=(cargo ndk -t "$TARGET_ABI" -P "$MIN_SDK" -o "$JNI_OUT" build -p ambition_sandbox --lib)
-if [[ "$RUST_PROFILE" == "release" ]]; then
-    CARGO_NDK_ARGS+=(--release)
+case "$RUST_PROFILE" in
+    debug) ;;
+    release) CARGO_NDK_ARGS+=(--release) ;;
+    *) CARGO_NDK_ARGS+=(--profile "$RUST_PROFILE") ;;
+esac
+if [[ "$USE_DEFAULT_FEATURES" != true ]]; then
+    CARGO_NDK_ARGS+=(--no-default-features)
 fi
 if [[ -n "$FEATURES" ]]; then
     CARGO_NDK_ARGS+=(--features "$FEATURES")
 fi
 
 log "building Rust shared library"
-"${CARGO_NDK_ARGS[@]}"
+if [[ -n "$STATIC_SFX_BANK_PATH" ]]; then
+    AMBITION_STATIC_SFX_BANK_PATH="$STATIC_SFX_BANK_PATH" "${CARGO_NDK_ARGS[@]}"
+else
+    "${CARGO_NDK_ARGS[@]}"
+fi
+
+SO_PATH="$JNI_OUT/$TARGET_ABI/libambition_sandbox.so"
+if [[ "$STRIP_NATIVE" == true ]]; then
+    strip_native_library "$SO_PATH"
+else
+    log "native library size: $(human_size "$SO_PATH") (strip disabled)"
+fi
+if [[ "$SIZE_REPORT" == true ]]; then
+    print_native_size_report "$SO_PATH"
+fi
 
 GRADLE_TASK="assembleDebug"
 if [[ "$APK_BUILD_TYPE" == "release" ]]; then
@@ -446,6 +631,11 @@ OUT_APK="$OUT_DIR/ambition_sandbox-${APK_BUILD_TYPE}-${TARGET_ABI}.apk"
 cp "$APK" "$OUT_APK"
 
 log "APK: $OUT_APK"
+log "size summary: native=$(human_size "$SO_PATH")  apk=$(human_size "$OUT_APK")  apk-assets=$(dir_size "$ASSETS_OUT")"
+if [[ "$SIZE_REPORT" == true ]]; then
+    print_apk_size_report "$OUT_APK"
+    log "cargo-bloat hint: cargo bloat --profile $RUST_PROFILE --target aarch64-linux-android -p ambition_sandbox --lib --no-default-features --features '${FEATURES}' --crates -n 40"
+fi
 
 ADB_ARGS=()
 if [[ -n "$DEVICE_SERIAL" ]]; then

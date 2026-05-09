@@ -205,15 +205,46 @@ pub fn presentation_world(commands: &mut Commands, params: PresentationSetup<'_>
 #[derive(Resource, Clone)]
 pub struct SfxBankResource(pub std::sync::Arc<BankProvider>);
 
+/// Load a statically packed SFX bank.
+///
+/// Android APK assets are not normal host filesystem paths, while the current
+/// SFX bank loader is synchronous and path/byte based. Until that loader grows
+/// an APK-asset backend, `build_for_android.sh` can enable `static_sfx_bank`
+/// and pass `AMBITION_STATIC_SFX_BANK_PATH` so the packed bank is available to
+/// the same runtime bank provider used on desktop.
+#[cfg(all(feature = "audio", feature = "static_sfx_bank"))]
+fn try_load_static_sfx_bank() -> Option<BankProvider> {
+    let bytes = include_bytes!(env!("AMBITION_STATIC_SFX_BANK_PATH"));
+    match BankProvider::from_bytes(bytes.to_vec()) {
+        Ok(provider) => {
+            info!(
+                "loaded statically packed sfx bank: {} entries",
+                provider.entry_count()
+            );
+            Some(provider)
+        }
+        Err(error) => {
+            warn!("statically packed sfx bank failed to parse: {error}");
+            None
+        }
+    }
+}
+
 /// Best-effort sync load of `assets/audio/sfx.bank`. Returns `None`
 /// (with a single info log) if the file isn't present anywhere we
 /// know to look. Tries:
-///   1) `$AMBITION_SFX_BANK_PATH` env var
-///   2) `<cwd>/assets/audio/sfx.bank`
-///   3) `<cwd>/crates/ambition_sandbox/assets/audio/sfx.bank`
-///   4) `<CARGO_MANIFEST_DIR>/assets/audio/sfx.bank` (dev fallback)
+///   1) statically packed bank when `static_sfx_bank` is enabled
+///   2) `$AMBITION_SFX_BANK_PATH` env var
+///   3) `<cwd>/assets/audio/sfx.bank`
+///   4) `<cwd>/crates/ambition_sandbox/assets/audio/sfx.bank`
+///   5) `<CARGO_MANIFEST_DIR>/assets/audio/sfx.bank` (dev fallback)
 #[cfg(feature = "audio")]
 fn try_load_sfx_bank() -> Option<BankProvider> {
+    #[cfg(feature = "static_sfx_bank")]
+    if let Some(provider) = try_load_static_sfx_bank() {
+        return Some(provider);
+    }
+
     use std::path::PathBuf;
     let mut candidates: Vec<PathBuf> = Vec::new();
     if let Ok(env_path) = std::env::var("AMBITION_SFX_BANK_PATH") {

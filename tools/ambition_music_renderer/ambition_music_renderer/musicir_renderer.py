@@ -34,7 +34,7 @@ import soundfile as sf
 import yaml
 from scipy import signal
 
-RENDERER_VERSION = "ambition-musicir-renderer-v0.8.0-compressor-reverb-constraints"
+RENDERER_VERSION = "ambition-musicir-renderer-v0.8.1-render-cache-v1"
 DEFAULT_SOUNDFONTS = [
     "/usr/share/sounds/sf3/MuseScore_General_Full.sf3",
     "/usr/share/sounds/sf3/MuseScore_General.sf3",

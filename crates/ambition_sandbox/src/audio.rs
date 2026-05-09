@@ -363,8 +363,13 @@ impl AudioLibrary {
 
     pub fn radio_label(&self, index: usize, active: &str) -> Option<String> {
         let track = self.track_at(index)?;
-        let marker = if track.id == active { "▶ " } else { "  " };
-        Some(format!("{marker}{}", track.display_name))
+        let marker = if track.id == active { "▶" } else { " " };
+        Some(format!(
+            "{marker} {:02}/{:02} {}",
+            index + 1,
+            self.track_count().max(1),
+            track.display_name
+        ))
     }
 
     pub fn default_track_id<'a>(&'a self, configured: &'a str) -> Option<&'a str> {
@@ -1175,7 +1180,22 @@ mod tests {
         let spec = SandboxDataSpec::load_embedded();
         let mut assets = Assets::<KiraAudioSource>::default();
         let library = AudioLibrary::new(&mut assets, &spec.audio, None, None);
-        assert_eq!(library.track_count(), 3);
+        let expected = spec
+            .audio
+            .music_tracks
+            .iter()
+            .map(|track| track.id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(library.track_count(), expected.len());
+        assert_eq!(
+            expected,
+            vec![
+                ORIGINAL_TRACK_ID,
+                "long_lofi_drift",
+                "pulse_drift_voyage",
+                "first_goblin_tune_v2_radio",
+            ]
+        );
         assert_eq!(
             library.previous_track_id("long_lofi_drift"),
             Some(ORIGINAL_TRACK_ID)
@@ -1190,6 +1210,10 @@ mod tests {
         );
         assert_eq!(
             library.next_track_id("pulse_drift_voyage"),
+            Some("first_goblin_tune_v2_radio")
+        );
+        assert_eq!(
+            library.next_track_id("first_goblin_tune_v2_radio"),
             Some(ORIGINAL_TRACK_ID)
         );
     }

@@ -55,6 +55,66 @@ def in_game_preview_mixes(spec: dict, group_names: list[str]) -> dict[str, dict[
     return out
 
 
+def _manifest_paths(manifest: dict, outdir: Path) -> list[Path]:
+    """Return output files referenced by an adaptive music manifest."""
+    paths: list[Path] = []
+    files = manifest.get("files") or {}
+    preview = files.get("preview") or {}
+    for rel in preview.values():
+        if isinstance(rel, str):
+            paths.append(outdir / rel)
+    adaptive = files.get("adaptive") or {}
+    if isinstance(adaptive, dict):
+        for section in adaptive.values():
+            if isinstance(section, dict):
+                for rel in section.values():
+                    if isinstance(rel, str):
+                        paths.append(outdir / rel)
+    return paths
+
+
+def _current_manifest_path(outdir: Path, cue_id: str, cue_hash: str) -> Path:
+    return outdir / f"{cue_id}_{cue_hash}.adaptive_manifest.json"
+
+
+def is_render_current(
+    spec_path: Path,
+    outdir: Path,
+    cue_id: str,
+    cue_hash: str,
+    *,
+    simple_mix: bool,
+) -> tuple[bool, Path | None, str]:
+    """Return whether rendered music is current for this spec + renderer version.
+
+    The hash already includes the YAML text, renderer version, soundfont, and
+    backend. The mtime check catches manual file copies or partially restored
+    generated directories whose manifest happened to survive.
+    """
+    manifest_path = _current_manifest_path(outdir, cue_id, cue_hash)
+    if not manifest_path.exists():
+        return False, None, "missing manifest"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf8"))
+    except Exception as ex:  # noqa: BLE001 - malformed manifests should regenerate.
+        return False, manifest_path, f"unreadable manifest: {ex}"
+    if manifest.get("hash") != cue_hash:
+        return False, manifest_path, "manifest hash/version does not match"
+    if bool(manifest.get("simple_mix", False)) != simple_mix:
+        return False, manifest_path, "manifest render mode does not match"
+    outputs = _manifest_paths(manifest, outdir)
+    if not outputs:
+        return False, manifest_path, "manifest lists no output files"
+    missing = [path for path in outputs if not path.exists()]
+    if missing:
+        return False, manifest_path, f"missing output file: {missing[0]}"
+    spec_mtime = spec_path.stat().st_mtime
+    stale = [path for path in [manifest_path, *outputs] if path.stat().st_mtime < spec_mtime]
+    if stale:
+        return False, manifest_path, f"output older than source: {stale[0]}"
+    return True, manifest_path, "current"
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Render Ambition MusicIR via isolated stem workers")
     ap.add_argument("spec")
@@ -70,6 +130,14 @@ def main(argv=None) -> int:
             "encodes per cue down to 1; appropriate for non-adaptive "
             "single-track music (e.g. sandbox lofi cues) where the runtime "
             "loads only the master mix anyway."
+        ),
+    )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "force regeneration even when the adaptive manifest hash, renderer "
+            "version, output files, and timestamps are current"
         ),
     )
     ap.add_argument(
@@ -92,12 +160,31 @@ def main(argv=None) -> int:
     soundfont = r.choose_soundfont(render_cfg.get("soundfont"))
     cue_hash = r.spec_hash(spec_path, soundfont, ns.backend)
     quality = float(render_cfg.get("ogg_quality", 5.0))
+    outdir = Path(ns.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    if not ns.force:
+        current, manifest_path, reason = is_render_current(
+            spec_path, outdir, spec["id"], cue_hash, simple_mix=ns.simple_mix
+        )
+        if current and manifest_path is not None:
+            manifest = json.loads(manifest_path.read_text(encoding="utf8"))
+            preview_rel = (manifest.get("files", {}).get("preview", {}) or {}).get("full_soundtrack")
+            print(json.dumps({
+                "skipped": True,
+                "reason": reason,
+                "manifest": str(manifest_path),
+                "preview": str(outdir / preview_rel) if isinstance(preview_rel, str) else None,
+                "hash": cue_hash,
+            }, indent=2))
+            return 0
+        if manifest_path is not None:
+            print(f"render_isolated: regenerating {spec['id']}: {reason}", file=sys.stderr)
+
     pm, groups, meta = r.build_score(spec)
     total = meta[-1]["end_seconds"]
     target = int(math.ceil(total * sr))
     group_names = sorted(set(groups.values()))
-    outdir = Path(ns.outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
 
     # Run per-group workers in parallel up to --jobs at a time. Each
     # worker is a separate Python subprocess with its own FluidSynth
@@ -218,6 +305,7 @@ def main(argv=None) -> int:
 
     manifest = r.build_manifest(spec, cue_hash, meta, group_names, output_files, sr)
     manifest["render_mode"] = "isolated_process_stem_warmmix"
+    manifest["simple_mix"] = bool(ns.simple_mix)
     manifest_path = outdir / f"{spec['id']}_{cue_hash}.adaptive_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf8")
 
@@ -241,9 +329,7 @@ def main(argv=None) -> int:
         'cd "$renderer_dir"\n'
         'if [ -d .venv ]; then source .venv/bin/activate; fi\n'
         'rm -rf "$outdir"\n'
-        'python -m ambition_music_renderer.render_isolated "$spec" \\\n'
-        '    --outdir "$outdir" \\\n'
-        '    --backend "$backend"\n',
+        'python -m ambition_music_renderer.render_isolated "${spec}" --outdir "${outdir}" --backend "${backend}" --force\n',
         encoding="utf8",
     )
     regen.chmod(0o755)
@@ -256,6 +342,7 @@ def main(argv=None) -> int:
         pass
 
     print(json.dumps({
+        "skipped": False,
         "manifest": str(manifest_path),
         "preview": str(preview),
         "in_game_previews": [v for k, v in output_files["preview"].items() if k.startswith("in_game_")],

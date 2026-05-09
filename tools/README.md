@@ -43,6 +43,16 @@ local `.venv`), or set `PYTHONPATH=tools/<package>` and invoke `python
   - `render <target>`
   - `install <target>` (or `publish`)
   - `render-publish <target>` (run both)
+- Render commands should skip work by default when outputs are current.
+  Prefer a manifest/hash check that includes source YAML contents, the
+  renderer code/data version, backend-relevant options, and expected
+  output files; also treat outputs older than their source spec as stale.
+  Provide an explicit `--force` flag for rebuilds after backend changes,
+  audits, or manual cleanup.
+- Python CLIs should prefer Rich for human-facing output when available,
+  but keep a plain `print()` fallback so minimal environments still work.
+  When printing file paths, prefer clickable Rich markup:
+  `rich.print(f"[link={path.resolve().as_uri()}]{path}[/link]")`.
 
 ### LDtk tools
 

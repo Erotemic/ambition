@@ -250,11 +250,12 @@ shitspotter/scatspotter work.
 
 Other factions:
 
-* art guild - explore ethical issues here.
-* probably mages / fighter guild as classics.
-* mathamaticians - obviously
-* physicists - we can make a geoff hinton / other nobel lauriates as the head depending on questlines as a reference to the controverial nobel prize award
-* pirates - yarrrg (and mockingbirds as a boss battle on the moon)
+* Art guild - explore ethical issues here.
+* Probably mages / fighter guild as classics.
+* Mathematicians - obviously, implementation may be left as an exercise to the player.
+* Physicists - we can make a Geoff Hinton / other Nobel laureates as the head depending on quest lines as a reference to the controversial Nobel prize award
+* Pirates - yarrrg (and mockingbirds as a boss battle on the moon)
+* Luddites - but like historically accurate and not the unfair wrap they often get.
 
 
 It would be neat if we could leverage the RL agents to add legitimate AI

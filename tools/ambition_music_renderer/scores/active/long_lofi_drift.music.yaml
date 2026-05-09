@@ -112,7 +112,9 @@ motifs:
     velocities: [0.46, 0.54, 0.40]
   - id: vibe_glint_low
     root: E5
-    intervals: [0, -3, 0]
+    # Use C natural instead of C# for the low glint; the previous
+    # minor-third drop was the little sour color against the Cmaj return.
+    intervals: [0, -4, 0]
     rhythm:    [1.5, 2.5, 3.0]
     velocities: [0.42, 0.50, 0.38]
 

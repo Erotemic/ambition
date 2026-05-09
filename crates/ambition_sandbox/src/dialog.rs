@@ -18,6 +18,7 @@ use bevy::log::info;
 
 const DIALOG_CONTINUE_HINT: &str =
     "Tap an option, press Confirm / Jump / Interact, or drag / use Up-Down. Back closes.";
+const DIALOG_VISIBLE_OPTIONS: usize = 4;
 
 /// Marker plugin: registers Yarn Spinner so dialogue assets and future Yarn
 /// runners are available, while keeping this first sandbox dialogue view
@@ -140,6 +141,16 @@ impl DialogState {
         self.close();
         true
     }
+}
+
+fn dialog_visible_window_start(selected: usize, total: usize) -> usize {
+    if total <= DIALOG_VISIBLE_OPTIONS || DIALOG_VISIBLE_OPTIONS == 0 {
+        return 0;
+    }
+    let half = DIALOG_VISIBLE_OPTIONS / 2;
+    selected
+        .saturating_sub(half)
+        .min(total - DIALOG_VISIBLE_OPTIONS)
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -592,58 +603,80 @@ pub fn sync_dialog_ui(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(36.0),
-                right: Val::Px(36.0),
-                bottom: Val::Px(28.0),
-                padding: UiRect::all(Val::Px(22.0)),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(12.0),
-                border: UiRect::all(Val::Px(2.0)),
-                border_radius: BorderRadius::all(Val::Px(22.0)),
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                padding: UiRect::all(Val::Px(14.0)),
+                justify_content: JustifyContent::FlexEnd,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.025, 0.030, 0.045, 0.95)),
-            BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.86)),
-            Name::new("Dialogue Overlay"),
+            ZIndex(45),
+            Name::new("Dialogue Overlay Root"),
             DialogOverlayRoot,
         ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new(title),
-                dialog_font(24.0, UiFontWeight::Semibold),
-                TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
-            ));
-            parent.spawn((
-                Text::new(body),
-                dialog_font(18.0, UiFontWeight::Regular),
-                TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
-            ));
-            if !options.is_empty() {
-                for (idx, option) in options.iter().enumerate() {
+        .with_children(|root| {
+            root.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    max_width: Val::Px(960.0),
+                    max_height: Val::Percent(94.0),
+                    padding: UiRect::all(Val::Px(14.0)),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(5.0),
+                    border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::all(Val::Px(20.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.025, 0.030, 0.045, 0.95)),
+                BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.86)),
+                Name::new("Dialogue Overlay Panel"),
+            ))
+            .with_children(|parent| {
+                parent.spawn((
+                    Text::new(title),
+                    dialog_font(20.0, UiFontWeight::Semibold),
+                    TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
+                ));
+                parent.spawn((
+                    Text::new(body),
+                    dialog_font(16.0, UiFontWeight::Regular),
+                    TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
+                ));
+                if !options.is_empty() {
+                    let total = options.len();
+                    let start = dialog_visible_window_start(selected, total);
+                    let end = (start + DIALOG_VISIBLE_OPTIONS).min(total);
+                    for idx in start..end {
+                        let option = &options[idx];
+                        let prefix = if idx == start && start > 0 { "↑ " } else { "" };
+                        let suffix = if idx + 1 == end && end < total { " ↓" } else { "" };
+                        spawn_dialog_choice_row(
+                            parent,
+                            idx,
+                            &format!("{prefix}{}{suffix}", option.label),
+                            idx == selected,
+                            selected_marker,
+                            &dialog_font,
+                        );
+                    }
+                } else {
                     spawn_dialog_choice_row(
                         parent,
-                        idx,
-                        option.label,
-                        idx == selected,
+                        0,
+                        "Continue",
+                        true,
                         selected_marker,
                         &dialog_font,
                     );
                 }
-            } else {
-                spawn_dialog_choice_row(
-                    parent,
-                    0,
-                    "Continue",
-                    true,
-                    selected_marker,
-                    &dialog_font,
-                );
-            }
-            parent.spawn((
-                Text::new(DIALOG_CONTINUE_HINT),
-                dialog_font(13.0, UiFontWeight::Regular),
-                TextColor(Color::srgba(0.66, 0.76, 0.88, 0.96)),
-            ));
+                parent.spawn((
+                    Text::new(DIALOG_CONTINUE_HINT),
+                    dialog_font(12.0, UiFontWeight::Regular),
+                    TextColor(Color::srgba(0.66, 0.76, 0.88, 0.96)),
+                ));
+            });
         });
 }
 
@@ -666,24 +699,29 @@ fn spawn_dialog_choice_row(
         Color::srgba(0.82, 0.90, 1.0, 0.98)
     };
     let marker = if selected { selected_marker } else { " " };
-    parent.spawn((
-        Button,
-        Node {
-            width: Val::Percent(100.0),
-            min_height: Val::Px(52.0),
-            padding: UiRect::axes(Val::Px(18.0), Val::Px(12.0)),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::FlexStart,
-            border_radius: BorderRadius::all(Val::Px(14.0)),
-            ..default()
-        },
-        BackgroundColor(bg),
-        Text::new(format!("{marker} {label}")),
-        dialog_font(18.0, UiFontWeight::Regular),
-        TextColor(fg),
-        DialogChoiceSlot { index },
-        Name::new(format!("Dialogue choice {index}: {label}")),
-    ));
+    parent
+        .spawn((
+            Button,
+            Node {
+                width: Val::Percent(100.0),
+                min_height: Val::Px(38.0),
+                padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::FlexStart,
+                border_radius: BorderRadius::all(Val::Px(12.0)),
+                ..default()
+            },
+            BackgroundColor(bg),
+            DialogChoiceSlot { index },
+            Name::new(format!("Dialogue choice {index}: {label}")),
+        ))
+        .with_children(|row| {
+            row.spawn((
+                Text::new(format!("{marker} {label}")),
+                dialog_font(16.0, UiFontWeight::Regular),
+                TextColor(fg),
+            ));
+        });
 }
 
 #[cfg(test)]
@@ -733,5 +771,12 @@ mod tests {
         let mut s = DialogState::default();
         s.start("guide", "Guide");
         assert_eq!(s.selected_option(), 0);
+    }
+
+    #[test]
+    fn visible_dialog_window_keeps_selected_option_in_range() {
+        assert_eq!(dialog_visible_window_start(0, 8), 0);
+        assert_eq!(dialog_visible_window_start(4, 8), 2);
+        assert_eq!(dialog_visible_window_start(7, 8), 4);
     }
 }

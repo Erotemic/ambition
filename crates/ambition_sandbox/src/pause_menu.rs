@@ -134,6 +134,9 @@ pub enum PauseMenuPage {
     Radio,
 }
 
+const SETTINGS_VISIBLE_ROWS: usize = 6;
+const RADIO_VISIBLE_ROWS: usize = 6;
+
 #[derive(Resource, Default)]
 pub struct PauseMenuState {
     pub selected: usize,
@@ -338,6 +341,62 @@ fn apply_vertical_scroll(frame: &mut MenuInputFrame, steps: i32) {
     }
 }
 
+fn visible_window_start(selected: usize, total: usize, capacity: usize) -> usize {
+    if total <= capacity || capacity == 0 {
+        return 0;
+    }
+    let half = capacity / 2;
+    let start = selected.saturating_sub(half);
+    start.min(total - capacity)
+}
+
+fn visible_row_index(
+    slot_index: usize,
+    selected: usize,
+    total: usize,
+    capacity: usize,
+) -> Option<usize> {
+    if total == 0 || slot_index >= capacity {
+        return None;
+    }
+    let start = visible_window_start(selected, total, capacity);
+    let absolute = start + slot_index;
+    (absolute < total).then_some(absolute)
+}
+
+fn windowed_title(base: &str, selected: usize, total: usize, capacity: usize) -> String {
+    if total > capacity {
+        format!("{base} — {}/{}", selected.min(total.saturating_sub(1)) + 1, total)
+    } else {
+        base.to_string()
+    }
+}
+
+fn indexed_title(base: &str, selected: usize, total: usize) -> String {
+    if total > 1 {
+        format!("{base} — {}/{}", selected.min(total.saturating_sub(1)) + 1, total)
+    } else {
+        base.to_string()
+    }
+}
+
+fn decorate_windowed_label(
+    label: String,
+    index: usize,
+    selected: usize,
+    total: usize,
+    capacity: usize,
+) -> String {
+    if total <= capacity || capacity == 0 {
+        return label;
+    }
+    let start = visible_window_start(selected, total, capacity);
+    let end = (start + capacity).min(total);
+    let prefix = if index == start && start > 0 { "↑ " } else { "  " };
+    let suffix = if index + 1 == end && end < total { " ↓" } else { "" };
+    format!("{prefix}{label}{suffix}")
+}
+
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 fn handle_top_input(
@@ -529,6 +588,7 @@ pub fn pause_menu_pointer_input(
     mut state: ResMut<PauseMenuState>,
     top_items: Query<(&Interaction, &PauseMenuItem), Changed<Interaction>>,
     settings_rows: Query<(&Interaction, &SettingsRowSlot), Changed<Interaction>>,
+    #[cfg(feature = "audio")] library: Res<AudioLibrary>,
 ) {
     if !matches!(mode.get(), GameMode::Paused) {
         return;
@@ -573,25 +633,32 @@ pub fn pause_menu_pointer_input(
         PauseMenuPage::Settings(page) => {
             let rows = SettingsItem::rows_for(page);
             for (interaction, slot) in &settings_rows {
-                let Some(_item) = rows.get(slot.index) else {
+                let Some(index) = visible_row_index(
+                    slot.index,
+                    state.selected,
+                    rows.len(),
+                    SETTINGS_VISIBLE_ROWS,
+                ) else {
                     continue;
                 };
-                handle_row_pointer_interaction(
-                    interaction,
-                    slot.index,
-                    tap_mode,
-                    &mut state,
-                );
+                handle_row_pointer_interaction(interaction, index, tap_mode, &mut state);
             }
         }
         PauseMenuPage::Radio => {
+            #[cfg(feature = "audio")]
+            let row_count = library.track_count();
+            #[cfg(not(feature = "audio"))]
+            let row_count = 1;
             for (interaction, slot) in &settings_rows {
-                handle_row_pointer_interaction(
-                    interaction,
+                let Some(index) = visible_row_index(
                     slot.index,
-                    tap_mode,
-                    &mut state,
-                );
+                    state.selected,
+                    row_count,
+                    RADIO_VISIBLE_ROWS,
+                ) else {
+                    continue;
+                };
+                handle_row_pointer_interaction(interaction, index, tap_mode, &mut state);
             }
         }
     }
@@ -634,6 +701,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
+                padding: UiRect::all(Val::Px(14.0)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.02, 0.03, 0.06, 0.78)),
@@ -647,10 +715,12 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     let top_panel = commands
         .spawn((
             Node {
-                width: Val::Px(440.0),
-                padding: UiRect::all(Val::Px(32.0)),
+                width: Val::Px(400.0),
+                max_width: Val::Percent(92.0),
+                max_height: Val::Percent(94.0),
+                padding: UiRect::all(Val::Px(18.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(16.0),
+                row_gap: Val::Px(5.0),
                 align_items: AlignItems::Center,
                 ..default()
             },
@@ -666,7 +736,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
         .spawn((
             Text::new("Paused"),
             TextFont {
-                font_size: 30.0,
+                font_size: 25.0,
                 ..default()
             },
             TextColor(Color::srgba(0.92, 0.96, 1.0, 0.98)),
@@ -682,8 +752,8 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 Button,
                 Node {
                     width: Val::Percent(100.0),
-                    min_height: Val::Px(44.0),
-                    padding: UiRect::axes(Val::Px(16.0), Val::Px(12.0)),
+                    min_height: Val::Px(34.0),
+                    padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
@@ -691,7 +761,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 BackgroundColor(Color::NONE),
                 Text::new(label),
                 TextFont {
-                    font_size: 24.0,
+                    font_size: 19.0,
                     ..default()
                 },
                 TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96)),
@@ -705,10 +775,12 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     let settings_panel = commands
         .spawn((
             Node {
-                width: Val::Px(520.0),
-                padding: UiRect::all(Val::Px(32.0)),
+                width: Val::Px(500.0),
+                max_width: Val::Percent(94.0),
+                max_height: Val::Percent(94.0),
+                padding: UiRect::all(Val::Px(16.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(12.0),
+                row_gap: Val::Px(4.0),
                 align_items: AlignItems::Center,
                 display: Display::None,
                 ..default()
@@ -725,7 +797,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
         .spawn((
             Text::new("Settings"),
             TextFont {
-                font_size: 28.0,
+                font_size: 22.0,
                 ..default()
             },
             TextColor(Color::srgba(0.92, 0.96, 1.0, 0.98)),
@@ -746,8 +818,8 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 Button,
                 Node {
                     width: Val::Percent(100.0),
-                    min_height: Val::Px(40.0),
-                    padding: UiRect::axes(Val::Px(14.0), Val::Px(10.0)),
+                    min_height: Val::Px(30.0),
+                    padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
@@ -755,7 +827,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 BackgroundColor(Color::NONE),
                 Text::new(""),
                 TextFont {
-                    font_size: 22.0,
+                    font_size: 17.0,
                     ..default()
                 },
                 TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96)),
@@ -780,6 +852,7 @@ pub fn sync_pause_menu(
     inventory: Res<InventoryUiState>,
     library: Res<AudioLibrary>,
     music_state: Res<MusicPlaybackState>,
+    radio: Res<RadioStationState>,
     user_settings: Res<UserSettings>,
     mut roots: Query<&mut Visibility, With<PauseMenuRoot>>,
     mut top_panels: Query<&mut Node, (With<PauseMenuTopPanel>, Without<PauseMenuSettingsPanel>)>,
@@ -839,28 +912,63 @@ pub fn sync_pause_menu(
     } else if let PauseMenuPage::Settings(page) = state.page {
         let rows = SettingsItem::rows_for(page);
         for (mut text, _) in &mut titles {
-            **text = page.title().to_string();
+            **text = windowed_title(
+                page.title(),
+                state.selected,
+                rows.len(),
+                SETTINGS_VISIBLE_ROWS,
+            );
         }
         for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
-            if let Some(item) = rows.get(slot.index) {
-                **text = item.label(&user_settings);
-                let selected = state.selected == slot.index;
-                apply_item_highlight(&mut color, &mut bg, selected);
-                *vis = Visibility::Visible;
+            if let Some(row_index) = visible_row_index(
+                slot.index,
+                state.selected,
+                rows.len(),
+                SETTINGS_VISIBLE_ROWS,
+            ) {
+                if let Some(item) = rows.get(row_index) {
+                    **text = decorate_windowed_label(
+                        item.label(&user_settings),
+                        row_index,
+                        state.selected,
+                        rows.len(),
+                        SETTINGS_VISIBLE_ROWS,
+                    );
+                    let selected = state.selected == row_index;
+                    apply_item_highlight(&mut color, &mut bg, selected);
+                    *vis = Visibility::Visible;
+                }
             } else {
                 *vis = Visibility::Hidden;
             }
         }
     } else if matches!(state.page, PauseMenuPage::Radio) {
+        let count = library.track_count();
         for (mut text, _) in &mut titles {
-            **text = "Radio".to_string();
+            **text = indexed_title("Radio", state.selected, count);
         }
+        let active = radio
+            .selected_track()
+            .unwrap_or(music_state.active_track.as_str());
         for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
-            if let Some(label) = library.radio_label(slot.index, &music_state.active_track) {
-                **text = label;
-                let selected = state.selected == slot.index;
-                apply_item_highlight(&mut color, &mut bg, selected);
-                *vis = Visibility::Visible;
+            if let Some(track_index) = visible_row_index(
+                slot.index,
+                state.selected,
+                count,
+                RADIO_VISIBLE_ROWS,
+            ) {
+                if let Some(label) = library.radio_label(track_index, active) {
+                    **text = decorate_windowed_label(
+                        label,
+                        track_index,
+                        state.selected,
+                        count,
+                        RADIO_VISIBLE_ROWS,
+                    );
+                    let selected = state.selected == track_index;
+                    apply_item_highlight(&mut color, &mut bg, selected);
+                    *vis = Visibility::Visible;
+                }
             } else {
                 *vis = Visibility::Hidden;
             }
@@ -931,14 +1039,32 @@ pub fn sync_pause_menu(
     } else if let PauseMenuPage::Settings(page) = state.page {
         let rows = SettingsItem::rows_for(page);
         for (mut text, _) in &mut titles {
-            **text = page.title().to_string();
+            **text = windowed_title(
+                page.title(),
+                state.selected,
+                rows.len(),
+                SETTINGS_VISIBLE_ROWS,
+            );
         }
         for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
-            if let Some(item) = rows.get(slot.index) {
-                **text = item.label(&user_settings);
-                let selected = state.selected == slot.index;
-                apply_item_highlight(&mut color, &mut bg, selected);
-                *vis = Visibility::Visible;
+            if let Some(row_index) = visible_row_index(
+                slot.index,
+                state.selected,
+                rows.len(),
+                SETTINGS_VISIBLE_ROWS,
+            ) {
+                if let Some(item) = rows.get(row_index) {
+                    **text = decorate_windowed_label(
+                        item.label(&user_settings),
+                        row_index,
+                        state.selected,
+                        rows.len(),
+                        SETTINGS_VISIBLE_ROWS,
+                    );
+                    let selected = state.selected == row_index;
+                    apply_item_highlight(&mut color, &mut bg, selected);
+                    *vis = Visibility::Visible;
+                }
             } else {
                 *vis = Visibility::Hidden;
             }
@@ -1036,5 +1162,15 @@ mod tests {
     #[test]
     fn menu_settings_item_is_settings_item() {
         let _ = MenuSettingsItem::DisplayMode;
+    }
+
+    #[test]
+    fn visible_window_tracks_selected_row_without_overflow() {
+        assert_eq!(visible_window_start(0, 12, 5), 0);
+        assert_eq!(visible_window_start(4, 12, 5), 2);
+        assert_eq!(visible_window_start(11, 12, 5), 7);
+        assert_eq!(visible_row_index(0, 11, 12, 5), Some(7));
+        assert_eq!(visible_row_index(4, 11, 12, 5), Some(11));
+        assert_eq!(visible_row_index(5, 11, 12, 5), None);
     }
 }

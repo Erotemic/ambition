@@ -217,6 +217,7 @@ pub mod bevy_plugin {
     #[derive(Resource, Default, Clone, Copy, Debug)]
     pub struct MenuTouchGestureState {
         last_pos: Option<Vec2>,
+        drag_scroll_accum: f32,
         stick_input: MenuInputState,
     }
 
@@ -347,9 +348,12 @@ pub mod bevy_plugin {
             MobileStick::Move,
             knob,
             outline,
-            Some(Color::srgba(0.95, 0.95, 0.95, 0.9)),
-            Some(Color::srgba(0.20, 0.30, 0.45, 0.8)),
-            Some(Color::srgba(0.10, 0.16, 0.24, 0.30)),
+            // Keep the idle stick visible but quieter; active drags are still
+            // readable because the knob moves, and the button cluster brightens
+            // under the user's finger through normal Bevy interaction tinting.
+            Some(Color::srgba(0.95, 0.95, 0.95, 0.58)),
+            Some(Color::srgba(0.20, 0.30, 0.45, 0.46)),
+            Some(Color::srgba(0.10, 0.16, 0.24, 0.18)),
             Vec2::new(56.0, 56.0),
             Vec2::new(120.0, 120.0),
             Node {
@@ -545,10 +549,10 @@ pub mod bevy_plugin {
         reset: bool,
     }
 
-    const ACTION_CLUSTER_MARGIN: f32 = 12.0;
-    const ACTION_BEZEL_PAD: f32 = 12.0;
-    const ACTION_CLUSTER_W: f32 = 360.0;
-    const ACTION_CLUSTER_H: f32 = 406.0;
+    const ACTION_CLUSTER_MARGIN: f32 = 10.0;
+    const ACTION_BEZEL_PAD: f32 = 8.0;
+    const ACTION_CLUSTER_W: f32 = 310.0;
+    const ACTION_CLUSTER_H: f32 = 312.0;
     const ACTION_BEZEL_W: f32 = ACTION_CLUSTER_W + ACTION_BEZEL_PAD * 2.0;
     const ACTION_BEZEL_H: f32 = ACTION_CLUSTER_H + ACTION_BEZEL_PAD * 2.0;
     const MENU_ROW_MARGIN: f32 = 12.0;
@@ -575,58 +579,58 @@ pub mod bevy_plugin {
             TouchActionSpec {
                 action: TouchActionButton::Blink,
                 label: "Blink",
-                left: 28.0,
-                top: 12.0,
-                size: 74.0,
-                font_size: 14.0,
+                left: 18.0,
+                top: 10.0,
+                size: 64.0,
+                font_size: 13.0,
             },
             TouchActionSpec {
                 action: TouchActionButton::FlyToggle,
                 label: "Fly",
-                left: 141.0,
-                top: 4.0,
-                size: 78.0,
-                font_size: 15.0,
+                left: 123.0,
+                top: 2.0,
+                size: 68.0,
+                font_size: 14.0,
             },
             TouchActionSpec {
                 action: TouchActionButton::Projectile,
                 label: "Shot",
-                left: 258.0,
-                top: 12.0,
-                size: 74.0,
-                font_size: 14.0,
+                left: 228.0,
+                top: 10.0,
+                size: 64.0,
+                font_size: 13.0,
             },
             TouchActionSpec {
                 action: TouchActionButton::Interact,
                 label: "Interact",
-                left: 137.0,
-                top: 104.0,
-                size: 86.0,
-                font_size: 15.0,
+                left: 116.0,
+                top: 76.0,
+                size: 76.0,
+                font_size: 14.0,
             },
             TouchActionSpec {
                 action: TouchActionButton::Attack,
                 label: "Attack",
-                left: 54.0,
-                top: 205.0,
-                size: 86.0,
-                font_size: 15.0,
+                left: 48.0,
+                top: 148.0,
+                size: 78.0,
+                font_size: 14.0,
             },
             TouchActionSpec {
                 action: TouchActionButton::Dash,
                 label: "Dash",
-                left: 220.0,
-                top: 205.0,
-                size: 86.0,
-                font_size: 15.0,
+                left: 184.0,
+                top: 148.0,
+                size: 78.0,
+                font_size: 14.0,
             },
             TouchActionSpec {
                 action: TouchActionButton::Jump,
                 label: "Jump",
-                left: 135.0,
-                top: 306.0,
-                size: 90.0,
-                font_size: 16.0,
+                left: 115.0,
+                top: 218.0,
+                size: 80.0,
+                font_size: 15.0,
             },
         ]
     }
@@ -653,8 +657,9 @@ pub mod bevy_plugin {
         //        Attack              Dash
         //                  Jump
         //
-        // The cluster is intentionally taller than the first pass so the
-        // shoulder row, Interact, and lower face buttons have clear gutters.
+        // The cluster uses a compact diagonal diamond. Its circular hit-test
+        // below matches the visible circles, so diagonal square bounds may
+        // overlap without making the controls ambiguous.
         // The raw touch hit-test below consumes `touch_action_layout()` so
         // multitouch stays aligned with the rendered overlay.
         cmd.spawn((
@@ -667,7 +672,7 @@ pub mod bevy_plugin {
                 border_radius: BorderRadius::all(Val::Px(34.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.04, 0.05, 0.08, 0.42)),
+            BackgroundColor(Color::srgba(0.04, 0.05, 0.08, 0.18)),
             Name::new("MobileTouchActionBezel"),
             MobileTouchUiRoot,
         ));
@@ -754,8 +759,8 @@ pub mod bevy_plugin {
                     border_radius: BorderRadius::all(Val::Px(size * 0.5)),
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.16, 0.19, 0.27, 0.72)),
-                BorderColor::all(Color::srgba(0.68, 0.76, 0.92, 0.48)),
+                BackgroundColor(Color::srgba(0.16, 0.19, 0.27, 0.38)),
+                BorderColor::all(Color::srgba(0.68, 0.76, 0.92, 0.28)),
                 action,
                 Name::new(format!("Touch{label}")),
             ))
@@ -789,7 +794,7 @@ pub mod bevy_plugin {
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.20, 0.16, 0.22, 0.72)),
+                BackgroundColor(Color::srgba(0.20, 0.16, 0.22, 0.60)),
                 action,
                 Name::new(format!("Touch{label}")),
             ))
@@ -897,18 +902,16 @@ pub mod bevy_plugin {
         window_size: Vec2,
     ) -> Option<TouchActionButton> {
         // Touch positions use the same top-left-origin logical coordinate
-        // space as Bevy window cursor positions. The gameplay cluster consumes
-        // `touch_action_layout()` so raw multitouch hit testing matches the
-        // visible overlay exactly and spacing fixes cannot drift.
+        // space as Bevy window cursor positions. Gameplay action buttons are
+        // visible circles, so hit-test them as circles too: diagonal square
+        // bounds are allowed to overlap when the circles themselves do not.
         let cluster_origin = touch_action_cluster_origin(window_size);
         for spec in touch_action_layout() {
-            let left = cluster_origin.x + spec.left;
-            let top = cluster_origin.y + spec.top;
-            if pos.x >= left
-                && pos.x <= left + spec.size
-                && pos.y >= top
-                && pos.y <= top + spec.size
-            {
+            let center = Vec2::new(
+                cluster_origin.x + spec.left + spec.size * 0.5,
+                cluster_origin.y + spec.top + spec.size * 0.5,
+            );
+            if pos.distance(center) <= spec.size * 0.5 {
                 return Some(spec.action);
             }
         }
@@ -1082,6 +1085,7 @@ pub mod bevy_plugin {
     ) {
         if !visible.0 {
             gesture.last_pos = None;
+            gesture.drag_scroll_accum = 0.0;
             gesture.stick_input = MenuInputState::default();
             return;
         }
@@ -1126,6 +1130,7 @@ pub mod bevy_plugin {
 
         let Ok(window) = windows.single() else {
             gesture.last_pos = None;
+            gesture.drag_scroll_accum = 0.0;
             return;
         };
         let window_size = Vec2::new(window.width(), window.height());
@@ -1149,13 +1154,19 @@ pub mod bevy_plugin {
                 // Bevy touch/cursor positions are top-left-origin. A phone-style
                 // swipe up (negative dy) should move the highlighted row down,
                 // matching normal phone scroll semantics.
-                if dy.abs() >= 6.0 {
-                    frame.scroll_y += dy / 36.0;
+                if dy.abs() >= 3.0 {
+                    gesture.drag_scroll_accum += dy / 30.0;
+                    let whole_steps = gesture.drag_scroll_accum.trunc().clamp(-5.0, 5.0);
+                    if whole_steps != 0.0 {
+                        frame.scroll_y += whole_steps;
+                        gesture.drag_scroll_accum -= whole_steps;
+                    }
                 }
             }
             gesture.last_pos = Some(pos);
         } else {
             gesture.last_pos = None;
+            gesture.drag_scroll_accum = 0.0;
         }
     }
 
@@ -1419,31 +1430,10 @@ mod tests {
 
     #[cfg(feature = "mobile_touch")]
     #[test]
-    fn touch_action_layout_has_no_overlapping_hit_boxes() {
-        use crate::mobile_input::bevy_plugin::touch_action_layout;
-
-        let layout = touch_action_layout();
-        for (i, a) in layout.iter().enumerate() {
-            for b in layout.iter().skip(i + 1) {
-                let separated = a.left + a.size <= b.left
-                    || b.left + b.size <= a.left
-                    || a.top + a.size <= b.top
-                    || b.top + b.size <= a.top;
-                assert!(
-                    separated,
-                    "touch hit boxes should not overlap: {} and {}",
-                    a.label, b.label
-                );
-            }
-        }
-    }
-
-    #[cfg(feature = "mobile_touch")]
-    #[test]
     fn touch_action_layout_keeps_visible_circles_apart() {
         use crate::mobile_input::bevy_plugin::touch_action_layout;
 
-        const MIN_VISUAL_GAP: f32 = 12.0;
+        const MIN_VISUAL_GAP: f32 = 4.0;
         let layout = touch_action_layout();
         for (i, a) in layout.iter().enumerate() {
             let ac = bevy::prelude::Vec2::new(a.left + a.size * 0.5, a.top + a.size * 0.5);
@@ -1457,5 +1447,36 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[cfg(feature = "mobile_touch")]
+    #[test]
+    fn touch_action_hit_test_uses_visible_circle_not_square_bounds() {
+        use crate::mobile_input::bevy_plugin::{
+            touch_action_at_position, touch_action_cluster_origin, touch_action_layout,
+            TouchActionButton,
+        };
+
+        let window_size = bevy::prelude::Vec2::new(1280.0, 720.0);
+        let layout = touch_action_layout();
+        let attack = layout
+            .iter()
+            .find(|spec| matches!(spec.action, TouchActionButton::Attack))
+            .expect("Attack remains in the touch action layout");
+        let jump = layout
+            .iter()
+            .find(|spec| matches!(spec.action, TouchActionButton::Jump))
+            .expect("Jump remains in the touch action layout");
+        assert!(
+            attack.top + attack.size > jump.top,
+            "diagonal square bounds should be allowed to overlap vertically"
+        );
+
+        let origin = touch_action_cluster_origin(window_size);
+        let square_only = bevy::prelude::Vec2::new(
+            origin.x + attack.left + attack.size - 2.0,
+            origin.y + jump.top + 2.0,
+        );
+        assert_eq!(touch_action_at_position(square_only, window_size), None);
     }
 }

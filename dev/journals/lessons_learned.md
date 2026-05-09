@@ -241,3 +241,31 @@ query fixes `Text` conflicts, but a separate root query mutating `Visibility`
 still conflicts with any child-widget query that also asks for `&mut
 Visibility`. Prefer a single visibility owner for panel roots and use
 `Node.display` for child-level show/hide inside the widget query.
+
+## 2026-05-08: Touch buttons should name actions, not keyboard keys
+
+The mobile HUD is used on Android and as a desktop mouse-test overlay, so labels like `E` are misleading even when the default keyboard binding still uses E. Touch buttons should use semantic action labels such as `Interact`, `Jump`, `Dash`, and `Fly`. When adding a new touch button, update all three seams together: visible UI layout, raw multitouch/mouse hit testing, and `TouchButtonEdges` folding into `ControlFrame`. Missing any one of those can make the button appear on screen but not reach gameplay.
+
+
+## 2026-05-08: Bevy 0.18 moved BorderRadius into Node
+
+The touch-controller overlay tried to make circular mobile buttons by adding
+`BorderRadius::all(...)` as a standalone UI component. That worked in older
+Bevy examples and still looks plausible, but Bevy 0.18 moved border radius into
+`Node::border_radius`; `BorderRadius` is no longer a component. The symptom is a
+confusing `is not a Bundle` error for the whole spawn tuple, because one element
+of the tuple is not a component bundle item.
+
+For Bevy 0.18 UI, put radius styling inside the `Node` literal:
+
+```rust
+Node {
+    width: Val::Px(size),
+    height: Val::Px(size),
+    border_radius: BorderRadius::all(Val::Px(size * 0.5)),
+    ..default()
+}
+```
+
+When updating UI style code, check the current Bevy migration notes or local
+examples before assuming a visual style type is still a component.

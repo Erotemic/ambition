@@ -1,7 +1,7 @@
 //! Mobile / touch input adapter for the Android demo path.
 //!
 //! Goal: a sideloadable Pixel-class APK where the sandbox is playable
-//! with on-screen joysticks + buttons. The Leafwing keyboard/gamepad
+//! with on-screen joysticks + controller-like touch buttons. The Leafwing keyboard/gamepad
 //! pipeline is the canonical desktop input surface; this module
 //! translates touch joystick + virtual buttons into the same
 //! `ControlFrame` resource the simulator already consumes.
@@ -187,6 +187,7 @@ pub fn fold_touch_into_control_frame(
 pub mod bevy_plugin {
     use super::{fold_touch_into_control_frame, TouchButton, TouchInputState};
     use crate::input::{ControlFrame, MenuControlFrame};
+    use bevy::input::mouse::MouseButton;
     use bevy::input::touch::Touches;
     use bevy::prelude::*;
     use bevy::window::PrimaryWindow;
@@ -521,6 +522,7 @@ pub mod bevy_plugin {
         Blink,
         Interact,
         Projectile,
+        FlyToggle,
         Start,
         Reset,
     }
@@ -537,88 +539,134 @@ pub mod bevy_plugin {
         blink: bool,
         interact: bool,
         projectile: bool,
+        fly_toggle: bool,
         start: bool,
         reset: bool,
     }
 
-    /// Spawn the touch button UI. Layout follows Jon's 2026-05-07
-    /// guidance:
-    ///
-    /// - Gameplay-action buttons (Jump / Attack / Dash / Blink / E /
-    ///   Proj) live on a right-anchored 2-column grid in the bottom
-    ///   right CORNER, NOT spanning the main screen. This keeps the
-    ///   gameplay viewport unobstructed.
-    /// - Menu-style buttons (Start / Reset) live on a top-anchored
-    ///   row that's allowed to sit "on the main screen" since menus
-    ///   are intermittent.
-    ///
-    /// Each button has a visible Text label (Jump / Atk / Dash / etc.)
-    /// so the tap targets are differentiated rather than identical
-    /// gray squares.
+    /// Spawn the touch button UI. Layout follows a controller mental model:
+    /// a lower-right diamond for primary face buttons plus a small shoulder row
+    /// above it. Labels describe gameplay intent ("Interact", "Jump", "Fly")
+    /// rather than keyboard keys, so the same HUD makes sense on desktop mouse
+    /// testing and on an Android phone.
     fn spawn_touch_buttons(mut cmd: Commands) {
-        // -- Mobile HUD bezel + gameplay action buttons --
-        // Per Jon's "pad the left and right parts of the screen ...
-        // could be the start of a mobile hud" note, frame the touch
-        // cluster with a slightly darker translucent backdrop so the
-        // buttons read as a HUD strip rather than floating sprites
-        // over gameplay. Some overlap with gameplay view is OK; the
-        // bezel just signals "this region is HUD".
+        // -- Mobile HUD bezel + controller-style gameplay action cluster --
+        // Right-thumb controls, bottom-right:
+        //
+        //       Blink     Fly     Shot
+        //
+        //             Interact
+        //        Attack       Dash
+        //              Jump
+        //
+        // The diamond uses larger circular targets than the earlier grid so it
+        // is easier to hit with a thumb. The raw touch hit-test below mirrors
+        // these constants so multitouch works even while another finger is on
+        // the movement stick.
         cmd.spawn((
             Node {
-                width: Val::Px(216.0),
-                height: Val::Px(152.0),
+                width: Val::Px(354.0),
+                height: Val::Px(318.0),
                 position_type: PositionType::Absolute,
                 right: Val::Px(0.0),
                 bottom: Val::Px(0.0),
+                border_radius: BorderRadius::all(Val::Px(34.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.04, 0.05, 0.08, 0.45)),
+            BackgroundColor(Color::srgba(0.04, 0.05, 0.08, 0.42)),
             Name::new("MobileTouchActionBezel"),
             MobileTouchUiRoot,
         ));
         cmd.spawn((
             Node {
-                width: Val::Px(192.0),
-                height: Val::Px(128.0),
+                width: Val::Px(330.0),
+                height: Val::Px(294.0),
                 position_type: PositionType::Absolute,
                 right: Val::Px(12.0),
                 bottom: Val::Px(12.0),
-                flex_direction: FlexDirection::Row,
-                flex_wrap: FlexWrap::Wrap,
-                align_items: AlignItems::FlexEnd,
-                justify_content: JustifyContent::FlexEnd,
                 ..default()
             },
             Name::new("MobileTouchActionCluster"),
             MobileTouchUiRoot,
         ))
         .with_children(|parent| {
-            for action in [
+            // Shoulder-like row. Keep Fly visible and explicit; it is a gameplay
+            // action, not a hidden keyboard-only utility.
+            spawn_action_button_at(
+                parent,
                 TouchActionButton::Blink,
+                "Blink",
+                28.0,
+                10.0,
+                78.0,
+                14.0,
+            );
+            spawn_action_button_at(
+                parent,
+                TouchActionButton::FlyToggle,
+                "Fly",
+                126.0,
+                0.0,
+                82.0,
+                15.0,
+            );
+            spawn_action_button_at(
+                parent,
                 TouchActionButton::Projectile,
-                TouchActionButton::Dash,
-                TouchActionButton::Attack,
+                "Shot",
+                224.0,
+                10.0,
+                78.0,
+                14.0,
+            );
+
+            // Primary face-button diamond.
+            spawn_action_button_at(
+                parent,
                 TouchActionButton::Interact,
+                "Interact",
+                118.0,
+                70.0,
+                94.0,
+                15.0,
+            );
+            spawn_action_button_at(
+                parent,
+                TouchActionButton::Attack,
+                "Attack",
+                46.0,
+                144.0,
+                92.0,
+                15.0,
+            );
+            spawn_action_button_at(
+                parent,
+                TouchActionButton::Dash,
+                "Dash",
+                192.0,
+                144.0,
+                92.0,
+                15.0,
+            );
+            spawn_action_button_at(
+                parent,
                 TouchActionButton::Jump,
-            ] {
-                let label = match action {
-                    TouchActionButton::Jump => "Jump",
-                    TouchActionButton::Attack => "Atk",
-                    TouchActionButton::Dash => "Dash",
-                    TouchActionButton::Blink => "Blink",
-                    TouchActionButton::Interact => "E",
-                    TouchActionButton::Projectile => "Proj",
-                    _ => "?",
-                };
-                spawn_action_button(parent, action, label);
-            }
+                "Jump",
+                118.0,
+                212.0,
+                98.0,
+                16.0,
+            );
         });
 
-        // -- Menu-style buttons (top-right, smaller) --
+        // -- Menu-style buttons (top-right) --
+        // Start opens/closes the pause menu. Reset doubles as menu Back while a
+        // menu is open; label it explicitly so phone users have a native escape
+        // affordance without needing a keyboard Escape key.
         cmd.spawn((
             Node {
-                width: Val::Px(168.0),
-                height: Val::Px(48.0),
+                width: Val::Px(198.0),
+                height: Val::Px(54.0),
                 position_type: PositionType::Absolute,
                 right: Val::Px(12.0),
                 top: Val::Px(12.0),
@@ -633,8 +681,8 @@ pub mod bevy_plugin {
         .with_children(|parent| {
             for action in [TouchActionButton::Start, TouchActionButton::Reset] {
                 let label = match action {
-                    TouchActionButton::Start => "Pause",
-                    TouchActionButton::Reset => "Reset",
+                    TouchActionButton::Start => "Menu",
+                    TouchActionButton::Reset => "Back",
                     _ => "?",
                 };
                 spawn_menu_button(parent, action, label);
@@ -642,25 +690,34 @@ pub mod bevy_plugin {
         });
     }
 
-    /// Build one gameplay-action button: 72x72 with a visible text
-    /// label. Margin is small so the cluster fits in the corner.
-    fn spawn_action_button(
+    /// Build one absolutely-positioned gameplay-action button inside the right
+    /// thumb cluster. Absolute placement keeps the visible controller diamond and
+    /// raw-touch hit testing in lock-step.
+    fn spawn_action_button_at(
         parent: &mut ChildSpawnerCommands,
         action: TouchActionButton,
         label: &str,
+        left: f32,
+        top: f32,
+        size: f32,
+        font_size: f32,
     ) {
         parent
             .spawn((
                 Button,
                 Node {
-                    width: Val::Px(56.0),
-                    height: Val::Px(56.0),
-                    margin: UiRect::all(Val::Px(4.0)),
+                    width: Val::Px(size),
+                    height: Val::Px(size),
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(left),
+                    top: Val::Px(top),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    border_radius: BorderRadius::all(Val::Px(size * 0.5)),
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.18, 0.22, 0.30, 0.55)),
+                BackgroundColor(Color::srgba(0.16, 0.19, 0.27, 0.72)),
+                BorderColor::all(Color::srgba(0.68, 0.76, 0.92, 0.48)),
                 action,
                 Name::new(format!("Touch{label}")),
             ))
@@ -668,17 +725,16 @@ pub mod bevy_plugin {
                 button.spawn((
                     Text::new(label),
                     TextFont {
-                        font_size: 14.0,
+                        font_size,
                         ..default()
                     },
-                    TextColor(Color::srgb(0.95, 0.95, 0.95)),
+                    TextColor(Color::srgb(0.96, 0.97, 1.0)),
                 ));
             });
     }
 
-    /// Build one menu-row button: 64x40, smaller text. Used for
-    /// Start / Reset which are intermittent and OK to sit at the top
-    /// of the gameplay viewport.
+    /// Build one menu-row button. Used for Menu / Back, which are intermittent
+    /// and live away from the gameplay action diamond.
     fn spawn_menu_button(
         parent: &mut ChildSpawnerCommands,
         action: TouchActionButton,
@@ -688,14 +744,14 @@ pub mod bevy_plugin {
             .spawn((
                 Button,
                 Node {
-                    width: Val::Px(72.0),
-                    height: Val::Px(40.0),
+                    width: Val::Px(88.0),
+                    height: Val::Px(44.0),
                     margin: UiRect::all(Val::Px(4.0)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BackgroundColor(Color::srgba(0.20, 0.16, 0.22, 0.65)),
+                BackgroundColor(Color::srgba(0.20, 0.16, 0.22, 0.72)),
                 action,
                 Name::new(format!("Touch{label}")),
             ))
@@ -703,10 +759,10 @@ pub mod bevy_plugin {
                 button.spawn((
                     Text::new(label),
                     TextFont {
-                        font_size: 14.0,
+                        font_size: 15.0,
                         ..default()
                     },
-                    TextColor(Color::srgb(0.92, 0.88, 0.92)),
+                    TextColor(Color::srgb(0.94, 0.90, 0.96)),
                 ));
             });
     }
@@ -718,6 +774,7 @@ pub mod bevy_plugin {
     fn update_buttons_from_interactions(
         query: Query<(&Interaction, &TouchActionButton), With<Button>>,
         touches: Res<Touches>,
+        mouse_buttons: Res<ButtonInput<MouseButton>>,
         windows: Query<&Window, With<PrimaryWindow>>,
         mut state: ResMut<MobileTouchState>,
         mut edges: ResMut<TouchButtonEdges>,
@@ -747,6 +804,20 @@ pub mod bevy_plugin {
                     set_button_held(&mut now, action, true);
                 }
             }
+
+            // Desktop touch-HUD testing path: raw mouse hit testing mirrors the
+            // Android raw-touch path, so the visible controller-like overlay can
+            // be exercised even when another UI panel would otherwise consume
+            // normal Bevy `Button` interaction.
+            if mouse_buttons.pressed(MouseButton::Left) {
+                if let Ok(window) = windows.single() {
+                    if let Some(cursor) = window.cursor_position() {
+                        if let Some(action) = touch_action_at_position(cursor, window_size) {
+                            set_button_held(&mut now, action, true);
+                        }
+                    }
+                }
+            }
         }
 
         let make_btn = |held_now: bool, held_prev: bool| TouchButton {
@@ -760,6 +831,7 @@ pub mod bevy_plugin {
         state.0.blink = make_btn(now.blink, edges.blink);
         state.0.interact = make_btn(now.interact, edges.interact);
         state.0.projectile = make_btn(now.projectile, edges.projectile);
+        state.0.fly_toggle = make_btn(now.fly_toggle, edges.fly_toggle);
         state.0.start = make_btn(now.start, edges.start);
         state.0.reset = make_btn(now.reset, edges.reset);
         *edges = now;
@@ -776,48 +848,51 @@ pub mod bevy_plugin {
             TouchActionButton::Blink => edges.blink = true,
             TouchActionButton::Interact => edges.interact = true,
             TouchActionButton::Projectile => edges.projectile = true,
+            TouchActionButton::FlyToggle => edges.fly_toggle = true,
             TouchActionButton::Start => edges.start = true,
             TouchActionButton::Reset => edges.reset = true,
         }
     }
 
-    fn touch_action_at_position(pos: Vec2, window_size: Vec2) -> Option<TouchActionButton> {
+    pub(super) fn touch_action_at_position(
+        pos: Vec2,
+        window_size: Vec2,
+    ) -> Option<TouchActionButton> {
         // Touch positions use the same top-left-origin logical coordinate
         // space as Bevy window cursor positions. These constants mirror
-        // `spawn_touch_buttons` so the raw-touch fallback matches the
-        // visible UI without needing to query layout nodes.
+        // `spawn_touch_buttons` so raw multitouch hit testing matches the
+        // visible controller-style cluster without needing to inspect UI layout.
         const RIGHT_MARGIN: f32 = 12.0;
         const BOTTOM_MARGIN: f32 = 12.0;
         const TOP_MARGIN: f32 = 12.0;
-        const BUTTON: f32 = 56.0;
-        const ACTION_CELL: f32 = 64.0; // 56px button + 4px margin each side
-        const MENU_W: f32 = 72.0;
-        const MENU_CELL: f32 = 80.0; // 72px button + 4px margin each side
-        const MENU_H: f32 = 40.0;
+        const ACTION_CLUSTER_W: f32 = 330.0;
+        const ACTION_CLUSTER_H: f32 = 294.0;
+        const MENU_ROW_W: f32 = 198.0;
+        const MENU_W: f32 = 88.0;
+        const MENU_H: f32 = 44.0;
+        const MENU_CELL: f32 = 96.0; // 88px button + 4px margin each side
 
-        // Action cluster: right=12, bottom=12, 3 columns x 2 rows.
-        let cluster_left = window_size.x - RIGHT_MARGIN - 192.0;
-        let cluster_top = window_size.y - BOTTOM_MARGIN - 128.0;
-        let action_grid = [
-            // Row 0 (top): Blink / Projectile / Dash.
-            (TouchActionButton::Blink, 0usize, 0usize),
-            (TouchActionButton::Projectile, 1, 0),
-            (TouchActionButton::Dash, 2, 0),
-            // Row 1 (bottom): Attack / Interact / Jump.
-            (TouchActionButton::Attack, 0, 1),
-            (TouchActionButton::Interact, 1, 1),
-            (TouchActionButton::Jump, 2, 1),
+        let cluster_left = window_size.x - RIGHT_MARGIN - ACTION_CLUSTER_W;
+        let cluster_top = window_size.y - BOTTOM_MARGIN - ACTION_CLUSTER_H;
+        let action_boxes = [
+            (TouchActionButton::Blink, 28.0, 10.0, 78.0),
+            (TouchActionButton::FlyToggle, 126.0, 0.0, 82.0),
+            (TouchActionButton::Projectile, 224.0, 10.0, 78.0),
+            (TouchActionButton::Interact, 118.0, 70.0, 94.0),
+            (TouchActionButton::Attack, 46.0, 144.0, 92.0),
+            (TouchActionButton::Dash, 192.0, 144.0, 92.0),
+            (TouchActionButton::Jump, 118.0, 212.0, 98.0),
         ];
-        for (action, col, row) in action_grid {
-            let left = cluster_left + col as f32 * ACTION_CELL + 4.0;
-            let top = cluster_top + row as f32 * ACTION_CELL + 4.0;
-            if pos.x >= left && pos.x <= left + BUTTON && pos.y >= top && pos.y <= top + BUTTON {
+        for (action, left, top, size) in action_boxes {
+            let left = cluster_left + left;
+            let top = cluster_top + top;
+            if pos.x >= left && pos.x <= left + size && pos.y >= top && pos.y <= top + size {
                 return Some(action);
             }
         }
 
-        // Menu row: right=12, top=12, Start / Reset.
-        let menu_left = window_size.x - RIGHT_MARGIN - 168.0;
+        // Menu row: right=12, top=12, Menu / Back.
+        let menu_left = window_size.x - RIGHT_MARGIN - MENU_ROW_W;
         let menu_top = TOP_MARGIN;
         for (action, col) in [
             (TouchActionButton::Start, 0usize),
@@ -1019,7 +1094,7 @@ pub mod bevy_plugin {
         // exact nodes are owned by `virtual_joystick`, so a geometric exclusion is
         // the least-coupled way to avoid treating movement-stick drags as menu
         // scroll gestures.
-        pos.x <= 260.0 && pos.y >= window_size.y - 260.0
+        pos.x <= 300.0 && pos.y >= window_size.y - 300.0
     }
 
     /// True if any touch input field has a non-default value. Used
@@ -1203,5 +1278,22 @@ mod tests {
         assert!(frame.fly_toggle_pressed);
         assert!(frame.start_pressed);
         assert!(frame.reset_pressed);
+    }
+
+    #[cfg(feature = "mobile_touch")]
+    #[test]
+    fn touch_action_hit_test_includes_fly_button() {
+        use crate::mobile_input::bevy_plugin::{touch_action_at_position, TouchActionButton};
+
+        let window_size = bevy::prelude::Vec2::new(1080.0, 2340.0);
+        // Center of the visible Fly shoulder button in the lower-right cluster.
+        let pos = bevy::prelude::Vec2::new(
+            1080.0 - 12.0 - 330.0 + 126.0 + 41.0,
+            2340.0 - 12.0 - 294.0 + 41.0,
+        );
+        assert!(matches!(
+            touch_action_at_position(pos, window_size),
+            Some(TouchActionButton::FlyToggle)
+        ));
     }
 }

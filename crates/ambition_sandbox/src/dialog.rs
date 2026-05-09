@@ -16,7 +16,8 @@ use crate::input::MenuControlFrame;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::log::info;
 
-const DIALOG_CONTINUE_HINT: &str = "Enter/Space/F/E: continue   Up/Down: choose   Esc: close";
+const DIALOG_CONTINUE_HINT: &str =
+    "Confirm / Interact / Jump: continue   Up/Down or drag: choose   Back: close";
 
 /// Marker plugin: registers Yarn Spinner so dialogue assets and future Yarn
 /// runners are available, while keeping this first sandbox dialogue view

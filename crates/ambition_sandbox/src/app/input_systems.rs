@@ -36,13 +36,14 @@ pub(super) fn attach_player_input_components(
 /// which means headless / RL drivers can populate the resource directly
 /// without an `InputManagerPlugin` in scope.
 ///
-/// Dialogue mode also resets leafwing's pressed/just-pressed edges so
-/// action edges from the moment dialogue opened don't leak into the
-/// next gameplay frame.
+/// Non-gameplay modes suppress the sim-side `ControlFrame` without
+/// mutating leafwing's `ActionState`. Menu systems read their own
+/// semantic `MenuControlFrame`, so clearing gameplay here must not
+/// make held keyboard/menu buttons look newly pressed every frame.
 #[cfg(feature = "input")]
 pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
-    mut player_input: Query<&mut ActionState<SandboxAction>, With<PlayerVisual>>,
+    player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut frame: ResMut<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
@@ -51,9 +52,10 @@ pub fn populate_control_frame_from_actions(
     time: Res<Time>,
 ) {
     if matches!(mode.get(), GameMode::Dialogue) {
-        if let Ok(mut action_state) = player_input.single_mut() {
-            action_state.reset_all();
-        }
+        // Dialogue is a UI state: gameplay input is suppressed, but the
+        // underlying `ActionState` must remain intact so a held arrow/D-pad
+        // key does not become `just_pressed` again on every frame.
+        dash_state.edge = crate::settings::TriggerEdgeState::default();
         *frame = ControlFrame::default();
         return;
     }

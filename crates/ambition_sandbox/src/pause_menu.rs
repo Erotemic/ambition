@@ -21,7 +21,9 @@ use bevy::window::PrimaryWindow;
 use bevy_kira_audio::prelude::AudioChannel;
 
 #[cfg(feature = "audio")]
-use crate::audio::{switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState};
+use crate::audio::{
+    set_radio_track, AudioLibrary, MusicChannel, MusicPlaybackState, RadioStationState,
+};
 use crate::game_mode::GameMode;
 use crate::input::{KeyboardPreset, MenuControlFrame, MenuInputFrame};
 use crate::inventory::InventoryUiState;
@@ -69,7 +71,7 @@ impl PauseMenuItem {
         match self {
             Self::Resume => "Resume",
             Self::Settings => "Settings",
-            Self::MusicTrack => "Music",
+            Self::MusicTrack => "Radio",
             Self::Inventory => "Inventory",
             Self::ResetSandbox => "Reset Sandbox",
             Self::Quit => "Quit to Desktop",
@@ -88,7 +90,7 @@ impl PauseMenuItem {
                     .zip(library)
                     .map(|(state, library)| state.active_display_name(library))
                     .unwrap_or("Unavailable");
-                format!("Music: {display}  < / >")
+                format!("Radio: {display}")
             }
             _ => self.static_label().to_string(),
         }
@@ -99,7 +101,7 @@ impl PauseMenuItem {
     #[cfg(not(feature = "audio"))]
     pub fn label(self) -> String {
         match self {
-            Self::MusicTrack => "Music: <audio disabled>".into(),
+            Self::MusicTrack => "Radio: <audio disabled>".into(),
             _ => self.static_label().to_string(),
         }
     }
@@ -129,6 +131,7 @@ pub enum PauseMenuPage {
     #[default]
     Top,
     Settings(SettingsPage),
+    Radio,
 }
 
 #[derive(Resource, Default)]
@@ -225,6 +228,7 @@ pub fn pause_menu_navigate(
     windows: Query<&mut Window, With<PrimaryWindow>>,
     #[cfg(feature = "audio")] library: Res<AudioLibrary>,
     #[cfg(feature = "audio")] mut music_state: ResMut<MusicPlaybackState>,
+    #[cfg(feature = "audio")] mut radio: ResMut<RadioStationState>,
     #[cfg(feature = "audio")] music_channel: Res<AudioChannel<MusicChannel>>,
 ) {
     if !matches!(mode.get(), GameMode::Paused) {
@@ -264,7 +268,7 @@ pub fn pause_menu_navigate(
                 inventory.visible = false;
                 next_mode.set(GameMode::Playing);
             }
-            PauseMenuPage::Settings(SettingsPage::Top) => {
+            PauseMenuPage::Settings(SettingsPage::Top) | PauseMenuPage::Radio => {
                 state.page = PauseMenuPage::Top;
                 state.selected = 0;
                 state.stack.clear();
@@ -290,6 +294,8 @@ pub fn pause_menu_navigate(
                 #[cfg(feature = "audio")]
                 &mut music_state,
                 #[cfg(feature = "audio")]
+                &mut radio,
+                #[cfg(feature = "audio")]
                 &music_channel,
             );
         }
@@ -303,6 +309,23 @@ pub fn pause_menu_navigate(
                 windows,
                 preset_count,
             );
+        }
+        PauseMenuPage::Radio => {
+            #[cfg(feature = "audio")]
+            handle_radio_input(
+                frame,
+                &mut state,
+                &library,
+                &mut radio,
+                &mut music_state,
+                &music_channel,
+            );
+            #[cfg(not(feature = "audio"))]
+            {
+                if frame.back || frame.select {
+                    state.pop_page();
+                }
+            }
         }
     }
 }
@@ -326,6 +349,7 @@ fn handle_top_input(
     reset_request: &mut crate::reset::SandboxResetRequested,
     #[cfg(feature = "audio")] library: &AudioLibrary,
     #[cfg(feature = "audio")] music_state: &mut MusicPlaybackState,
+    #[cfg(feature = "audio")] radio: &mut RadioStationState,
     #[cfg(feature = "audio")] music_channel: &AudioChannel<MusicChannel>,
 ) {
     let items = PauseMenuItem::ALL;
@@ -340,15 +364,18 @@ fn handle_top_input(
 
     #[cfg(feature = "audio")]
     if item == PauseMenuItem::MusicTrack {
+        let active = radio
+            .selected_track()
+            .unwrap_or(music_state.active_track.as_str());
         let next_track = if nav.left {
-            library.previous_track_id(&music_state.active_track)
+            library.previous_track_id(active)
         } else if nav.right {
-            library.next_track_id(&music_state.active_track)
+            library.next_track_id(active)
         } else {
             None
         };
         if let Some(next_track) = next_track.map(str::to_string) {
-            switch_to_music_track(library, music_state, music_channel, &next_track);
+            set_radio_track(library, radio, music_state, music_channel, &next_track);
         }
     }
 
@@ -364,12 +391,16 @@ fn handle_top_input(
             PauseMenuItem::MusicTrack => {
                 #[cfg(feature = "audio")]
                 {
-                    if let Some(next_track) = library
-                        .next_track_id(&music_state.active_track)
-                        .map(str::to_string)
-                    {
-                        switch_to_music_track(library, music_state, music_channel, &next_track);
-                    }
+                    state.enter_page(PauseMenuPage::Radio);
+                    let active = radio
+                        .selected_track()
+                        .unwrap_or(music_state.active_track.as_str());
+                    state.selected = library.track_index(active).unwrap_or(0);
+                }
+                #[cfg(not(feature = "audio"))]
+                {
+                    state.enter_page(PauseMenuPage::Radio);
+                    state.selected = 0;
                 }
             }
             PauseMenuItem::Inventory => {
@@ -388,6 +419,42 @@ fn handle_top_input(
             PauseMenuItem::Quit => {
                 exit.write(AppExit::Success);
             }
+        }
+    }
+}
+
+#[cfg(all(feature = "input", feature = "audio"))]
+fn handle_radio_input(
+    nav: MenuInputFrame,
+    state: &mut PauseMenuState,
+    library: &AudioLibrary,
+    radio: &mut RadioStationState,
+    music_state: &mut MusicPlaybackState,
+    music_channel: &AudioChannel<MusicChannel>,
+) {
+    let count = library.track_count();
+    if count == 0 {
+        return;
+    }
+    if nav.up {
+        state.selected = (state.selected + count - 1) % count;
+    }
+    if nav.down {
+        state.selected = (state.selected + 1) % count;
+    }
+    if nav.left {
+        state.selected = (state.selected + count - 1) % count;
+    }
+    if nav.right {
+        state.selected = (state.selected + 1) % count;
+    }
+    if state.selected >= count {
+        state.selected = 0;
+    }
+    if nav.select || nav.left || nav.right {
+        if let Some(track) = library.track_at(state.selected) {
+            let track_id = track.id.clone();
+            set_radio_track(library, radio, music_state, music_channel, &track_id);
         }
     }
 }
@@ -509,32 +576,52 @@ pub fn pause_menu_pointer_input(
                 let Some(_item) = rows.get(slot.index) else {
                     continue;
                 };
-                match interaction {
-                    Interaction::Hovered => {
-                        if state.selected != slot.index {
-                            state.selected = slot.index;
-                        }
-                    }
-                    Interaction::Pressed => {
-                        // Settings rows are never treated as destructive
-                        // for tap-guard purposes — `Reset Filter
-                        // Defaults` is recoverable and the cycle / toggle
-                        // rows are already non-destructive.
-                        let press = tap_mode.resolve_press(
-                            slot.index,
-                            state.selected,
-                            false,
-                            &mut state.pointer_armed,
-                        );
-                        state.selected = slot.index;
-                        if matches!(press, MenuPointerPress::Confirm) {
-                            state.pointer_confirm = true;
-                        }
-                    }
-                    Interaction::None => {}
-                }
+                handle_row_pointer_interaction(
+                    interaction,
+                    slot.index,
+                    tap_mode,
+                    &mut state,
+                );
             }
         }
+        PauseMenuPage::Radio => {
+            for (interaction, slot) in &settings_rows {
+                handle_row_pointer_interaction(
+                    interaction,
+                    slot.index,
+                    tap_mode,
+                    &mut state,
+                );
+            }
+        }
+    }
+}
+
+fn handle_row_pointer_interaction(
+    interaction: &Interaction,
+    index: usize,
+    tap_mode: crate::settings::MenuTapMode,
+    state: &mut PauseMenuState,
+) {
+    match interaction {
+        Interaction::Hovered => {
+            if state.selected != index {
+                state.selected = index;
+            }
+        }
+        Interaction::Pressed => {
+            let press = tap_mode.resolve_press(
+                index,
+                state.selected,
+                false,
+                &mut state.pointer_armed,
+            );
+            state.selected = index;
+            if matches!(press, MenuPointerPress::Confirm) {
+                state.pointer_confirm = true;
+            }
+        }
+        Interaction::None => {}
     }
 }
 
@@ -652,7 +739,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     // the renderer fills `slot.index < rows.len()` slots with text and
     // hides the rest. This avoids respawning UI nodes per page swap,
     // which can cost a frame of layout instability.
-    const MAX_ROWS: usize = 12;
+    const MAX_ROWS: usize = 24;
     for index in 0..MAX_ROWS {
         let entity = commands
             .spawn((
@@ -764,6 +851,20 @@ pub fn sync_pause_menu(
                 *vis = Visibility::Hidden;
             }
         }
+    } else if matches!(state.page, PauseMenuPage::Radio) {
+        for (mut text, _) in &mut titles {
+            **text = "Radio".to_string();
+        }
+        for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
+            if let Some(label) = library.radio_label(slot.index, &music_state.active_track) {
+                **text = label;
+                let selected = state.selected == slot.index;
+                apply_item_highlight(&mut color, &mut bg, selected);
+                *vis = Visibility::Visible;
+            } else {
+                *vis = Visibility::Hidden;
+            }
+        }
     }
 }
 
@@ -837,6 +938,19 @@ pub fn sync_pause_menu(
                 **text = item.label(&user_settings);
                 let selected = state.selected == slot.index;
                 apply_item_highlight(&mut color, &mut bg, selected);
+                *vis = Visibility::Visible;
+            } else {
+                *vis = Visibility::Hidden;
+            }
+        }
+    } else if matches!(state.page, PauseMenuPage::Radio) {
+        for (mut text, _) in &mut titles {
+            **text = "Radio".to_string();
+        }
+        for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
+            if slot.index == 0 {
+                **text = "Audio feature disabled".to_string();
+                apply_item_highlight(&mut color, &mut bg, state.selected == 0);
                 *vis = Visibility::Visible;
             } else {
                 *vis = Visibility::Hidden;

@@ -186,7 +186,7 @@ pub fn fold_touch_into_control_frame(
 #[cfg(feature = "mobile_touch")]
 pub mod bevy_plugin {
     use super::{fold_touch_into_control_frame, TouchButton, TouchInputState};
-    use crate::input::{ControlFrame, MenuControlFrame};
+    use crate::input::{ControlFrame, MenuControlFrame, MenuInputState};
     use bevy::input::mouse::MouseButton;
     use bevy::input::touch::Touches;
     use bevy::prelude::*;
@@ -217,6 +217,7 @@ pub mod bevy_plugin {
     #[derive(Resource, Default, Clone, Copy, Debug)]
     pub struct MenuTouchGestureState {
         last_pos: Option<Vec2>,
+        stick_input: MenuInputState,
     }
 
     /// Runtime visibility toggle for the touch UI. `true` shows the
@@ -976,7 +977,7 @@ pub mod bevy_plugin {
         *prev_move_y = state.0.move_y;
     }
 
-    /// Merge the latest `MobileTouchState` into `ControlFrame`. The
+    /// Merge the latest `MobileTouchState` into gameplay `ControlFrame`. The
     /// desktop input pipeline (Leafwing) writes its own version of
     /// the frame upstream; this system MERGES rather than replaces:
     ///
@@ -993,14 +994,20 @@ pub mod bevy_plugin {
     ///   both register. Per Jon's "the held/release buttons for
     ///   actions I think should be independent."
     ///
-    /// When the touch UI is hidden or inactive, the merge is a
-    /// no-op so the keyboard-derived frame passes through unchanged.
+    /// When the touch UI is hidden, inactive, or the game is in a UI mode, the
+    /// merge is a no-op so the keyboard-derived/suppressed frame passes through
+    /// unchanged. UI modes consume touch stick/button intent via
+    /// `fold_to_menu_control_frame` instead.
     fn fold_to_control_frame(
+        mode: Res<State<crate::game_mode::GameMode>>,
         state: Res<MobileTouchState>,
         visible: Res<TouchControlsVisible>,
         mut frame: ResMut<ControlFrame>,
     ) {
         if !visible.0 {
+            return;
+        }
+        if !mode.get().allows_gameplay() {
             return;
         }
         if !touch_state_is_active(&state.0) {
@@ -1051,22 +1058,31 @@ pub mod bevy_plugin {
         frame.pogo_pressed |= touch_frame.pogo_pressed;
     }
 
-    /// Merge touch buttons and non-control drag gestures into the semantic menu frame.
+    /// Merge touch buttons, the touch stick in UI modes, and non-control drag
+    /// gestures into the semantic menu frame.
     ///
     /// This is intentionally separate from `fold_to_control_frame`: gameplay axes
     /// and UI gestures have different consumers. The touch Start button toggles
-    /// pause, Reset acts as Back, Jump/Interact can confirm, and a one-finger drag
-    /// outside the fixed touch-control regions maps to menu scroll/navigation.
+    /// pause, Reset acts as Back, Jump/Interact can confirm, and the move stick
+    /// becomes the same repeated up/down/left/right intent as keyboard arrows
+    /// while a dialog or pause menu is active. One-finger drags outside the fixed
+    /// touch-control regions still map to menu scroll/navigation, and the same
+    /// drag path accepts a pressed left mouse button for desktop testing.
     fn fold_to_menu_control_frame(
+        time: Res<Time>,
+        mode: Res<State<crate::game_mode::GameMode>>,
         state: Res<MobileTouchState>,
         visible: Res<TouchControlsVisible>,
         touches: Res<Touches>,
+        mouse_buttons: Res<ButtonInput<MouseButton>>,
         windows: Query<&Window, With<PrimaryWindow>>,
+        user_settings: Res<crate::settings::UserSettings>,
         mut gesture: ResMut<MenuTouchGestureState>,
         mut frame: ResMut<MenuControlFrame>,
     ) {
         if !visible.0 {
             gesture.last_pos = None;
+            gesture.stick_input = MenuInputState::default();
             return;
         }
 
@@ -1077,26 +1093,62 @@ pub mod bevy_plugin {
         frame.select |= touch.jump.pressed_this_frame || touch.interact.pressed_this_frame;
         frame.select_held |= touch.jump.held || touch.interact.held;
 
-        let Some(window_size) = windows
-            .single()
-            .ok()
-            .map(|w| Vec2::new(w.width(), w.height()))
-        else {
+        let menu_mode = matches!(
+            mode.get(),
+            crate::game_mode::GameMode::Dialogue | crate::game_mode::GameMode::Paused
+        );
+        if menu_mode {
+            let analog_dir = touch_move_to_menu_dir(
+                touch,
+                user_settings.controls.left_stick_deadzone,
+            );
+            let input = gesture.stick_input.step(
+                false,
+                false,
+                false,
+                false,
+                analog_dir,
+                false,
+                false,
+                false,
+                time.delta_secs(),
+                user_settings.controls.menu_repeat_initial_delay,
+                user_settings.controls.menu_repeat_interval,
+            );
+            let stick_frame = MenuControlFrame::from_menu_input(input);
+            frame.up |= stick_frame.up;
+            frame.down |= stick_frame.down;
+            frame.left |= stick_frame.left;
+            frame.right |= stick_frame.right;
+        } else {
+            gesture.stick_input = MenuInputState::default();
+        }
+
+        let Ok(window) = windows.single() else {
             gesture.last_pos = None;
             return;
         };
+        let window_size = Vec2::new(window.width(), window.height());
 
-        let menu_pos = touches
+        let touch_pos = touches
             .iter()
             .map(|touch| touch.position())
             .find(|pos| !touch_control_area_contains(*pos, window_size));
+        let mouse_pos = if mouse_buttons.pressed(MouseButton::Left) {
+            window
+                .cursor_position()
+                .filter(|pos| !touch_control_area_contains(*pos, window_size))
+        } else {
+            None
+        };
+        let menu_pos = touch_pos.or(mouse_pos);
 
         if let Some(pos) = menu_pos {
             if let Some(last) = gesture.last_pos {
                 let dy = pos.y - last.y;
-                // Bevy touch positions are top-left-origin. A phone-style swipe up
-                // (negative dy) should move the highlighted row down, matching
-                // normal phone scroll semantics.
+                // Bevy touch/cursor positions are top-left-origin. A phone-style
+                // swipe up (negative dy) should move the highlighted row down,
+                // matching normal phone scroll semantics.
                 if dy.abs() >= 6.0 {
                     frame.scroll_y += dy / 36.0;
                 }
@@ -1105,6 +1157,21 @@ pub mod bevy_plugin {
         } else {
             gesture.last_pos = None;
         }
+    }
+
+    pub(super) fn touch_move_to_menu_dir(
+        touch: TouchInputState,
+        deadzone: f32,
+    ) -> Option<crate::input::MenuDir> {
+        let (x, y_down) = crate::settings::ControlSettings::apply_deadzone(
+            touch.move_x,
+            touch.move_y,
+            deadzone,
+        );
+        // Touch/gameplay stores +Y as down, while the menu analog helper expects
+        // +Y as up to match gamepad/keyboard menu convention. Flip here so
+        // dragging the visible joystick down selects the next dialog option.
+        crate::input::analog_to_dir(x, -y_down, 0.5)
     }
 
     fn touch_control_area_contains(pos: Vec2, window_size: Vec2) -> bool {
@@ -1299,6 +1366,30 @@ mod tests {
         assert!(frame.fly_toggle_pressed);
         assert!(frame.start_pressed);
         assert!(frame.reset_pressed);
+    }
+
+    #[cfg(feature = "mobile_touch")]
+    #[test]
+    fn touch_move_to_menu_dir_flips_touch_y_for_menu_navigation() {
+        use crate::input::MenuDir;
+        use crate::mobile_input::bevy_plugin::touch_move_to_menu_dir;
+
+        let mut state = TouchInputState::default();
+        state.move_y = 1.0;
+        assert_eq!(touch_move_to_menu_dir(state, 0.05), Some(MenuDir::Down));
+
+        state.move_y = -1.0;
+        assert_eq!(touch_move_to_menu_dir(state, 0.05), Some(MenuDir::Up));
+    }
+
+    #[cfg(feature = "mobile_touch")]
+    #[test]
+    fn touch_move_to_menu_dir_applies_deadzone() {
+        use crate::mobile_input::bevy_plugin::touch_move_to_menu_dir;
+
+        let mut state = TouchInputState::default();
+        state.move_y = 0.10;
+        assert_eq!(touch_move_to_menu_dir(state, 0.25), None);
     }
 
     #[cfg(feature = "mobile_touch")]

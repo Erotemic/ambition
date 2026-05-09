@@ -17,7 +17,7 @@ use crate::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::log::info;
 
 const DIALOG_CONTINUE_HINT: &str =
-    "Confirm / Interact / Jump: continue   Up/Down or drag: choose   Back: close";
+    "Tap an option, press Confirm / Jump / Interact, or drag / use Up-Down. Back closes.";
 
 /// Marker plugin: registers Yarn Spinner so dialogue assets and future Yarn
 /// runners are available, while keeping this first sandbox dialogue view
@@ -443,6 +443,56 @@ const GENERIC_NODES: &[DialogNode] = &[
 #[derive(Component)]
 pub struct DialogOverlayRoot;
 
+#[derive(Component, Clone, Copy, Debug)]
+pub struct DialogChoiceSlot {
+    pub index: usize,
+}
+
+#[cfg(feature = "input")]
+pub fn dialog_pointer_input(
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    mode: Res<State<GameMode>>,
+    mut next_mode: ResMut<NextState<GameMode>>,
+    choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
+) {
+    if !runtime.dialogue.active() {
+        return;
+    }
+    if !matches!(mode.get(), GameMode::Dialogue) {
+        return;
+    }
+
+    let option_count = runtime.dialogue.options().len();
+    for (interaction, slot) in &choices {
+        let valid_slot = if option_count == 0 {
+            slot.index == 0
+        } else {
+            slot.index < option_count
+        };
+        if !valid_slot {
+            continue;
+        }
+
+        match interaction {
+            Interaction::Hovered => {
+                runtime.dialogue.selected_option = slot.index.min(option_count.saturating_sub(1));
+            }
+            Interaction::Pressed => {
+                runtime.dialogue.selected_option = slot.index.min(option_count.saturating_sub(1));
+                let closed = runtime.dialogue.confirm_or_advance();
+                if closed {
+                    next_mode.set(GameMode::Playing);
+                }
+                return;
+            }
+            Interaction::None => {}
+        }
+    }
+}
+
+#[cfg(not(feature = "input"))]
+pub fn dialog_pointer_input() {}
+
 #[cfg(feature = "input")]
 pub fn dialog_input(
     menu: Res<MenuControlFrame>,
@@ -542,62 +592,98 @@ pub fn sync_dialog_ui(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(120.0),
-                right: Val::Px(120.0),
-                bottom: Val::Px(34.0),
-                padding: UiRect::all(Val::Px(18.0)),
+                left: Val::Px(36.0),
+                right: Val::Px(36.0),
+                bottom: Val::Px(28.0),
+                padding: UiRect::all(Val::Px(22.0)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(9.0),
+                row_gap: Val::Px(12.0),
                 border: UiRect::all(Val::Px(2.0)),
+                border_radius: BorderRadius::all(Val::Px(22.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.025, 0.030, 0.045, 0.94)),
-            BorderColor::all(Color::srgba(0.38, 0.76, 1.00, 0.80)),
+            BackgroundColor(Color::srgba(0.025, 0.030, 0.045, 0.95)),
+            BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.86)),
             Name::new("Dialogue Overlay"),
             DialogOverlayRoot,
         ))
         .with_children(|parent| {
             parent.spawn((
                 Text::new(title),
-                dialog_font(22.0, UiFontWeight::Semibold),
+                dialog_font(24.0, UiFontWeight::Semibold),
                 TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
             ));
             parent.spawn((
                 Text::new(body),
-                dialog_font(17.0, UiFontWeight::Regular),
+                dialog_font(18.0, UiFontWeight::Regular),
                 TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
             ));
             if !options.is_empty() {
                 for (idx, option) in options.iter().enumerate() {
-                    let marker = if idx == selected {
-                        selected_marker
-                    } else {
-                        " "
-                    };
-                    let color = if idx == selected {
-                        Color::srgba(1.00, 0.86, 0.34, 1.0)
-                    } else {
-                        Color::srgba(0.72, 0.82, 0.94, 1.0)
-                    };
-                    parent.spawn((
-                        Text::new(format!("{} {}", marker, option.label)),
-                        dialog_font(16.0, UiFontWeight::Regular),
-                        TextColor(color),
-                    ));
+                    spawn_dialog_choice_row(
+                        parent,
+                        idx,
+                        option.label,
+                        idx == selected,
+                        selected_marker,
+                        &dialog_font,
+                    );
                 }
             } else {
-                parent.spawn((
-                    Text::new(format!("{selected_marker} Continue")),
-                    dialog_font(16.0, UiFontWeight::Regular),
-                    TextColor(Color::srgba(1.00, 0.86, 0.34, 1.0)),
-                ));
+                spawn_dialog_choice_row(
+                    parent,
+                    0,
+                    "Continue",
+                    true,
+                    selected_marker,
+                    &dialog_font,
+                );
             }
             parent.spawn((
                 Text::new(DIALOG_CONTINUE_HINT),
-                dialog_font(12.0, UiFontWeight::Regular),
-                TextColor(Color::srgba(0.62, 0.72, 0.84, 0.96)),
+                dialog_font(13.0, UiFontWeight::Regular),
+                TextColor(Color::srgba(0.66, 0.76, 0.88, 0.96)),
             ));
         });
+}
+
+fn spawn_dialog_choice_row(
+    parent: &mut ChildSpawnerCommands,
+    index: usize,
+    label: &str,
+    selected: bool,
+    selected_marker: &str,
+    dialog_font: &impl Fn(f32, UiFontWeight) -> TextFont,
+) {
+    let bg = if selected {
+        Color::srgba(0.95, 0.78, 0.32, 0.96)
+    } else {
+        Color::srgba(0.10, 0.13, 0.20, 0.74)
+    };
+    let fg = if selected {
+        Color::srgba(0.18, 0.06, 0.04, 1.0)
+    } else {
+        Color::srgba(0.82, 0.90, 1.0, 0.98)
+    };
+    let marker = if selected { selected_marker } else { " " };
+    parent.spawn((
+        Button,
+        Node {
+            width: Val::Percent(100.0),
+            min_height: Val::Px(52.0),
+            padding: UiRect::axes(Val::Px(18.0), Val::Px(12.0)),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::FlexStart,
+            border_radius: BorderRadius::all(Val::Px(14.0)),
+            ..default()
+        },
+        BackgroundColor(bg),
+        Text::new(format!("{marker} {label}")),
+        dialog_font(18.0, UiFontWeight::Regular),
+        TextColor(fg),
+        DialogChoiceSlot { index },
+        Name::new(format!("Dialogue choice {index}: {label}")),
+    ));
 }
 
 #[cfg(test)]

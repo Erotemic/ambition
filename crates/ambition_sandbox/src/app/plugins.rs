@@ -480,14 +480,11 @@ pub(super) fn add_input_plugins(app: &mut App) {
             Startup,
             attach_player_input_components.after(setup_simulation_system),
         )
-        // Collect semantic menu intent BEFORE gameplay input is suppressed.
-        // Dialogue mode intentionally zeros `ControlFrame` and resets leafwing
-        // action edges in `populate_control_frame_from_actions` so gameplay
-        // presses cannot leak through while a conversation is open. If the menu
-        // frame is populated after that reset, keyboard arrows / Enter / Space
-        // are wiped before `dialog_input` can read them. Touch input did not hit
-        // this bug because `mobile_input` folds its menu buttons in after the
-        // keyboard bridge.
+        // Collect semantic menu intent before gameplay input is suppressed.
+        // `populate_control_frame_from_actions` may zero the sim-side
+        // `ControlFrame` in UI modes, but it must not mutate leafwing's
+        // `ActionState`; held keyboard/menu buttons should not become
+        // `just_pressed` again on every dialog frame.
         //
         // Therefore the order is:
         // 1. read keyboard/gamepad menu actions into `MenuControlFrame`,
@@ -505,6 +502,7 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 populate_menu_control_frame_from_actions,
                 populate_control_frame_from_actions,
                 apply_menu_frame_to_cutscene_request,
+                dialog::dialog_pointer_input,
                 pause_menu::pause_menu_toggle,
                 inventory::inventory_input,
                 pause_menu::pause_menu_pointer_input,
@@ -550,6 +548,7 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
     app.add_plugins(KiraAudioPlugin)
+        .init_resource::<crate::audio::RadioStationState>()
         .init_resource::<crate::audio::SfxBankHandleCache>()
         .add_audio_channel::<MusicChannel>()
         .add_audio_channel::<SfxChannel>()

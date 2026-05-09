@@ -26,6 +26,7 @@ use bevy_kira_audio::prelude::{
 
 use crate::audio::{
     amplitude_to_decibels, switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState,
+    RadioStationState,
 };
 use crate::data::SandboxDataSpec;
 use crate::encounter::{EncounterMusicRequest, EncounterPhase, EncounterRegistry};
@@ -509,6 +510,7 @@ pub fn drive_music_director(
     base_music_channel: Res<AudioChannel<MusicChannel>>,
     library: Res<AudioLibrary>,
     mut music_state: ResMut<MusicPlaybackState>,
+    radio: Option<Res<RadioStationState>>,
     sandbox_data: Res<SandboxDataSpec>,
     settings: Res<UserSettings>,
 ) {
@@ -563,6 +565,7 @@ pub fn drive_music_director(
                     &mut music_state,
                     &base_music_channel,
                     &room_music,
+                    radio.as_deref(),
                     &sandbox_data,
                     &mut encounter_music,
                 );
@@ -582,6 +585,7 @@ pub fn drive_music_director(
                     &mut music_state,
                     &base_music_channel,
                     &room_music,
+                    radio.as_deref(),
                     &sandbox_data,
                     &mut encounter_music,
                 );
@@ -592,6 +596,7 @@ pub fn drive_music_director(
                     &mut music_state,
                     &base_music_channel,
                     &room_music,
+                    radio.as_deref(),
                     &sandbox_data,
                     &mut encounter_music,
                 );
@@ -610,6 +615,7 @@ pub fn drive_music_director(
                 &mut music_state,
                 &base_music_channel,
                 &room_music,
+                radio.as_deref(),
                 &sandbox_data,
                 &mut encounter_music,
             );
@@ -708,10 +714,11 @@ fn apply_simple_music_intent(
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
     room_music: &RoomMusicRequest,
+    radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
 ) {
-    let target = resolved_simple_track(library, room_music, sandbox_data, encounter_music);
+    let target = resolved_simple_track(library, room_music, radio, sandbox_data, encounter_music);
     let needs_switch = director.last_simple_track.as_deref() != Some(target.as_str())
         || music_state.active_track != target;
     if needs_switch && library.track(&target).is_some() {
@@ -726,12 +733,18 @@ fn apply_simple_music_intent(
 fn resolved_simple_track(
     library: &AudioLibrary,
     room_music: &RoomMusicRequest,
+    radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &EncounterMusicRequest,
 ) -> String {
     if let Some(track) = &encounter_music.desired_track {
         if library.track(track).is_some() {
             return track.clone();
+        }
+    }
+    if let Some(track) = radio.and_then(|radio| radio.selected_track()) {
+        if library.track(track).is_some() {
+            return track.to_string();
         }
     }
     room_music
@@ -1049,6 +1062,7 @@ fn drive_outro_tail(
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
     room_music: &RoomMusicRequest,
+    radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
 ) {
@@ -1070,6 +1084,7 @@ fn drive_outro_tail(
             music_state,
             base_music_channel,
             room_music,
+            radio,
             sandbox_data,
             encounter_music,
         );
@@ -1098,6 +1113,7 @@ fn shutdown_adaptive_cue(
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
     room_music: &RoomMusicRequest,
+    radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
 ) {
@@ -1122,6 +1138,7 @@ fn shutdown_adaptive_cue(
         music_state,
         base_music_channel,
         room_music,
+        radio,
         sandbox_data,
         encounter_music,
     );
@@ -1133,10 +1150,11 @@ fn resume_simple_music(
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
     room_music: &RoomMusicRequest,
+    radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
 ) {
-    let target = resolved_simple_track(library, room_music, sandbox_data, encounter_music);
+    let target = resolved_simple_track(library, room_music, radio, sandbox_data, encounter_music);
     if library.track(&target).is_some() {
         info!(target: MUSIC_LOG_TARGET, "resume_simple_music target={}", target);
         switch_to_music_track(library, music_state, base_music_channel, &target);

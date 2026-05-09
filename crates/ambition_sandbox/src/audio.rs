@@ -239,6 +239,32 @@ pub struct AudioLibrary {
     music_tracks: Vec<MusicTrackRuntime>,
 }
 
+/// Player-selected simple music track. The music director treats this as the
+/// sandbox radio station: rooms can still provide a default when no station is
+/// set, and adaptive encounter cues can temporarily take over, but the chosen
+/// radio track resumes afterward.
+#[derive(Resource, Clone, Debug, Default)]
+#[cfg(feature = "audio")]
+pub struct RadioStationState {
+    selected_track: Option<String>,
+}
+
+#[cfg(feature = "audio")]
+impl RadioStationState {
+    pub fn selected_track(&self) -> Option<&str> {
+        self.selected_track.as_deref()
+    }
+
+    pub fn set_selected_track(&mut self, track_id: impl Into<String>) {
+        self.selected_track = Some(track_id.into());
+    }
+
+    #[allow(dead_code)]
+    pub fn clear(&mut self) {
+        self.selected_track = None;
+    }
+}
+
 #[cfg(feature = "audio")]
 impl AudioLibrary {
     pub fn new(
@@ -321,6 +347,24 @@ impl AudioLibrary {
 
     pub fn track_count(&self) -> usize {
         self.music_tracks.len()
+    }
+
+    pub fn track_at(&self, index: usize) -> Option<&MusicTrackRuntime> {
+        self.music_tracks.get(index)
+    }
+
+    pub fn track_index(&self, id: &str) -> Option<usize> {
+        self.music_tracks.iter().position(|track| track.id == id)
+    }
+
+    pub fn display_name_at(&self, index: usize) -> Option<&str> {
+        self.track_at(index).map(|track| track.display_name.as_str())
+    }
+
+    pub fn radio_label(&self, index: usize, active: &str) -> Option<String> {
+        let track = self.track_at(index)?;
+        let marker = if track.id == active { "▶ " } else { "  " };
+        Some(format!("{marker}{}", track.display_name))
     }
 
     pub fn default_track_id<'a>(&'a self, configured: &'a str) -> Option<&'a str> {
@@ -418,6 +462,22 @@ pub fn switch_to_music_track(
         AudioEasing::OutPowi(2),
     ));
     play_music_track(library, next_track, music_channel);
+}
+
+#[cfg(feature = "audio")]
+pub fn set_radio_track(
+    library: &AudioLibrary,
+    radio: &mut RadioStationState,
+    state: &mut MusicPlaybackState,
+    music_channel: &AudioChannel<MusicChannel>,
+    next_track: &str,
+) {
+    if library.track(next_track).is_none() {
+        warn!("cannot set radio to missing music track '{next_track}'");
+        return;
+    }
+    radio.set_selected_track(next_track);
+    switch_to_music_track(library, state, music_channel, next_track);
 }
 
 #[cfg(feature = "audio")]

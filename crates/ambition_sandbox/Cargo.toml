@@ -88,7 +88,7 @@ input = ["dep:leafwing-input-manager"]
 # Pure helper (`mobile_input::fold_touch_into_control_frame`) is
 # always-available so its tests run in a default `cargo test` without
 # requiring the feature.
-mobile_touch = ["dep:virtual_joystick"]
+mobile_touch = ["input", "dep:virtual_joystick"]
 
 # Bevy/Tracy per-system profiling. Off by default because it pulls
 # `tracing-tracy` and instruments every Bevy system, increasing binary

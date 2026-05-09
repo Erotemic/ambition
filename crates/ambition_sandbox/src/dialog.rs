@@ -11,6 +11,8 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::*;
 
 use crate::game_mode::GameMode;
+#[cfg(feature = "input")]
+use crate::input::MenuControlFrame;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::log::info;
 
@@ -440,8 +442,9 @@ const GENERIC_NODES: &[DialogNode] = &[
 #[derive(Component)]
 pub struct DialogOverlayRoot;
 
+#[cfg(feature = "input")]
 pub fn dialog_input(
-    keys: Res<ButtonInput<KeyCode>>,
+    menu: Res<MenuControlFrame>,
     mut runtime: ResMut<crate::SandboxRuntime>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
@@ -452,28 +455,28 @@ pub fn dialog_input(
     if !matches!(mode.get(), GameMode::Dialogue) {
         return;
     }
-    if keys.just_pressed(KeyCode::Escape) {
+    if menu.back || menu.start {
         runtime.dialogue.close();
         next_mode.set(GameMode::Playing);
         return;
     }
-    if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::KeyW) {
+    let steps = menu.vertical_scroll_steps();
+    if menu.up || steps > 0 {
         runtime.dialogue.select_delta(-1);
     }
-    if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::KeyS) {
+    if menu.down || steps < 0 {
         runtime.dialogue.select_delta(1);
     }
-    if keys.just_pressed(KeyCode::Enter)
-        || keys.just_pressed(KeyCode::Space)
-        || keys.just_pressed(KeyCode::KeyE)
-        || keys.just_pressed(KeyCode::KeyF)
-    {
+    if menu.select {
         let closed = runtime.dialogue.confirm_or_advance();
         if closed {
             next_mode.set(GameMode::Playing);
         }
     }
 }
+
+#[cfg(not(feature = "input"))]
+pub fn dialog_input() {}
 
 pub fn sync_dialog_ui(
     mut commands: Commands,

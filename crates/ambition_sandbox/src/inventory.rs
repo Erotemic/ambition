@@ -11,13 +11,11 @@
 //! a schema decision right now.
 
 use bevy::prelude::*;
-#[cfg(feature = "input")]
-use leafwing_input_manager::prelude::ActionState;
 
 #[cfg(feature = "input")]
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
-use crate::input::SandboxAction;
+use crate::input::MenuControlFrame;
 use crate::SandboxRuntime;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -130,22 +128,18 @@ pub struct InventoryStatusText;
 
 #[cfg(feature = "input")]
 pub fn inventory_input(
-    action_state: Query<&ActionState<SandboxAction>>,
+    menu: Res<MenuControlFrame>,
     mut state: ResMut<InventoryUiState>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut inventory: ResMut<PlayerInventory>,
     mut runtime: ResMut<SandboxRuntime>,
 ) {
-    let Ok(actions) = action_state.single() else {
-        return;
-    };
-
-    // Toggle inventory directly from gameplay using `MenuToggle` is owned by
-    // the pause menu; here we listen for the dedicated `Inventory` action so
-    // `I` (or gamepad Y) opens the panel without going through pause. When
-    // already open, the same key dismisses it.
-    if actions.just_pressed(&SandboxAction::Inventory) {
+    // Toggle inventory directly from gameplay using the semantic menu frame.
+    // Keyboard/gamepad still feed this through the `Inventory` action; touch
+    // can reach the same panel through pause-menu rows without growing a
+    // separate raw-input path.
+    if menu.inventory {
         if state.visible {
             state.visible = false;
             // Direct opens (from gameplay) return to gameplay; opens from
@@ -170,22 +164,36 @@ pub fn inventory_input(
         return;
     }
 
+    if menu.back || menu.start {
+        state.visible = false;
+        if !state.opened_from_pause && matches!(mode.get(), GameMode::Paused) {
+            next_mode.set(GameMode::Playing);
+        }
+        return;
+    }
+
     let total = ItemKind::ALL.len();
-    let nav_up = actions.just_pressed(&SandboxAction::MoveUp);
-    let nav_down = actions.just_pressed(&SandboxAction::MoveDown);
+    let mut nav_up = menu.up;
+    let mut nav_down = menu.down;
+    let steps = menu.vertical_scroll_steps();
+    if steps > 0 {
+        nav_up = true;
+    } else if steps < 0 {
+        nav_down = true;
+    }
     if nav_up {
         state.selected = (state.selected + total - 1) % total;
     }
     if nav_down {
         state.selected = (state.selected + 1) % total;
     }
-    // Keyboard / gamepad navigation clears any tap-armed row so the
+    // Keyboard / gamepad / gesture navigation clears any tap-armed row so the
     // next pointer press starts fresh.
-    if nav_up || nav_down {
+    if nav_up || nav_down || menu.scroll_y.abs() >= 0.5 {
         state.pointer_armed = None;
     }
 
-    let confirm = actions.just_pressed(&SandboxAction::Jump) || state.pointer_confirm;
+    let confirm = menu.select || state.pointer_confirm;
     state.pointer_confirm = false;
     if confirm {
         let kind = ItemKind::ALL[state.selected];

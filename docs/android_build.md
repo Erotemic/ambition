@@ -252,3 +252,11 @@ Controls:
 `--size-profile` now prints native library, APK, and APK-asset sizes. It also
 prints the largest APK entries and an optional `cargo bloat` command to run when
 symbol-level attribution is needed.
+
+## Menu/touch input seam
+
+Android touch menus use the same semantic `MenuControlFrame` as desktop
+keyboard/gamepad menu navigation. Touch Start folds into pause, Reset folds into
+Back, Jump/Interact fold into Confirm, and a one-finger drag outside the fixed
+on-screen controls folds into menu scroll. Keep this separate from gameplay
+`ControlFrame` so RL/gameplay movement does not learn about UI gestures.

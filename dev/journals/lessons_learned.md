@@ -111,3 +111,24 @@ A 200 MiB native library became a much more reasonable ~49 MiB `.so` after using
 a size-oriented Cargo profile, disabling desktop-only default features for
 Android, and stripping with the NDK toolchain. Future Android patches should keep
 printing `.so`, APK, and asset-tree sizes so we notice regressions immediately.
+
+## 2026-05-08: menu controls need their own semantic frame
+
+Touch menu polish should not be implemented by making every menu read raw
+`Touches`, raw `ButtonInput<KeyCode>`, or Leafwing `ActionState` directly.
+That repeats the same problem we solved for gameplay with `ControlFrame` and
+makes Android ergonomics fight keyboard/gamepad/RL semantics.
+
+The better pattern is a parallel `MenuControlFrame` resource:
+
+- gameplay systems consume `ControlFrame` only;
+- menus/dialogue/cutscenes consume `MenuControlFrame` only;
+- keyboard/gamepad, mouse wheel, touch buttons, and touch drag gestures fold
+  into the menu frame before menu systems run;
+- mobile touch can add scroll/back/confirm semantics without adding
+  Android-specific branches to every menu.
+
+This came up when the Android pause/settings menu was hard to use: there was no
+standard touch scroll/back seam, and some systems still consumed raw keyboard
+or Leafwing actions. The fix is an intent layer, not a collection of menu-local
+touch hacks.

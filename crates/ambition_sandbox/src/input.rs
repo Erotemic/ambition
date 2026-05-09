@@ -626,6 +626,66 @@ impl MenuInputFrame {
     }
 }
 
+/// Device-agnostic per-frame UI/menu intent.
+///
+/// This is the menu-side companion to [`ControlFrame`]. Keyboard/gamepad,
+/// mouse wheel, touch gestures, on-screen buttons, and eventually Android
+/// system back should all fold into this resource before menu systems run.
+/// Menus consume semantic intents instead of raw Leafwing `ActionState` or
+/// raw touch events, which keeps RL/gameplay controls separate from UI
+/// ergonomics.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct MenuControlFrame {
+    pub up: bool,
+    pub down: bool,
+    pub left: bool,
+    pub right: bool,
+    pub select: bool,
+    pub select_held: bool,
+    pub back: bool,
+    pub back_held: bool,
+    pub start: bool,
+    pub inventory: bool,
+    pub map: bool,
+    /// Positive values mean “navigate/scroll up”, negative values mean
+    /// “navigate/scroll down”. Mouse wheels and touch drags both add here.
+    pub scroll_y: f32,
+}
+
+impl MenuControlFrame {
+    pub fn from_menu_input(input: MenuInputFrame) -> Self {
+        Self {
+            up: input.up,
+            down: input.down,
+            left: input.left,
+            right: input.right,
+            select: input.select,
+            select_held: input.select,
+            back: input.back,
+            back_held: input.back,
+            start: input.start,
+            ..Default::default()
+        }
+    }
+
+    pub fn any_directional(self) -> bool {
+        self.up || self.down || self.left || self.right
+    }
+
+    pub fn any_navigation(self) -> bool {
+        self.any_directional() || self.scroll_y.abs() >= 0.5
+    }
+
+    /// Convert accumulated scroll/drag into discrete row navigation steps.
+    ///
+    /// Mouse wheels usually arrive as small integer deltas. Touch drag uses
+    /// pixel deltas divided by a coarse divisor before entering this frame.
+    /// Clamping keeps one giant swipe from skipping an entire menu page.
+    pub fn vertical_scroll_steps(self) -> i32 {
+        self.scroll_y.round().clamp(-6.0, 6.0) as i32
+    }
+}
+
 /// State the menu input system carries across frames so analog repeat
 /// behaves predictably.
 ///
@@ -978,6 +1038,20 @@ mod tests {
         );
         assert!(f.select);
         assert!(!f.any_directional());
+    }
+
+    #[test]
+    fn menu_control_scroll_steps_round_and_clamp() {
+        let frame = MenuControlFrame {
+            scroll_y: -2.4,
+            ..Default::default()
+        };
+        assert_eq!(frame.vertical_scroll_steps(), -2);
+        let frame = MenuControlFrame {
+            scroll_y: 42.0,
+            ..Default::default()
+        };
+        assert_eq!(frame.vertical_scroll_steps(), 6);
     }
 
     #[test]

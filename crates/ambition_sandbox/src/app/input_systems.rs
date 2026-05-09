@@ -1,3 +1,4 @@
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
@@ -5,7 +6,9 @@ use leafwing_input_manager::prelude::ActionState;
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
-use crate::input::{ControlFrame, PlayerDashTriggerState};
+use crate::input::{
+    analog_to_dir, ControlFrame, MenuControlFrame, MenuInputState, PlayerDashTriggerState,
+};
 #[cfg(feature = "input")]
 use crate::rendering::PlayerVisual;
 use crate::SandboxRuntime;
@@ -106,4 +109,91 @@ pub fn populate_control_frame_from_actions(
         }
         Err(_) => ControlFrame::default(),
     };
+}
+
+/// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.
+///
+/// Menu systems should read this resource instead of reading raw
+/// `ActionState<SandboxAction>`. Touch folds into the same resource from
+/// `mobile_input`, so phone menus, desktop keyboard/gamepad, and mouse wheel
+/// scrolling share one semantic seam.
+#[cfg(feature = "input")]
+pub fn populate_menu_control_frame_from_actions(
+    time: Res<Time>,
+    player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
+    mut menu_frame: ResMut<MenuControlFrame>,
+    mut menu_input_state: ResMut<MenuInputState>,
+    user_settings: Res<crate::settings::UserSettings>,
+    mut mouse_wheel: MessageReader<MouseWheel>,
+) {
+    let mut next = MenuControlFrame::default();
+
+    if let Ok(actions) = player_input.single() {
+        let edge_up = actions.just_pressed(&SandboxAction::MenuNavigateUp);
+        let edge_down = actions.just_pressed(&SandboxAction::MenuNavigateDown);
+        let edge_left = actions.just_pressed(&SandboxAction::MenuNavigateLeft);
+        let edge_right = actions.just_pressed(&SandboxAction::MenuNavigateRight);
+
+        let raw = actions.clamped_axis_pair(&SandboxAction::MenuStick);
+        let (sx, sy) = crate::settings::ControlSettings::apply_deadzone(
+            raw.x,
+            raw.y,
+            user_settings.controls.left_stick_deadzone,
+        );
+        let analog_dir = analog_to_dir(sx, sy, 0.5);
+
+        let input = menu_input_state.step(
+            edge_up,
+            edge_down,
+            edge_left,
+            edge_right,
+            analog_dir,
+            actions.just_pressed(&SandboxAction::MenuSelect),
+            actions.just_pressed(&SandboxAction::MenuBack),
+            actions.just_pressed(&SandboxAction::Start),
+            time.delta_secs(),
+            user_settings.controls.menu_repeat_initial_delay,
+            user_settings.controls.menu_repeat_interval,
+        );
+        next = MenuControlFrame::from_menu_input(input);
+        next.select_held = actions.pressed(&SandboxAction::MenuSelect)
+            || actions.pressed(&SandboxAction::Jump)
+            || actions.pressed(&SandboxAction::Interact);
+        next.back_held =
+            actions.pressed(&SandboxAction::MenuBack) || actions.pressed(&SandboxAction::Reset);
+        next.inventory = actions.just_pressed(&SandboxAction::Inventory);
+        next.map = actions.just_pressed(&SandboxAction::Map);
+    }
+
+    for ev in mouse_wheel.read() {
+        next.scroll_y += ev.y;
+    }
+
+    *menu_frame = next;
+}
+
+/// Cutscene controls are UI/menu intent, not gameplay movement. Keep this
+/// small bridge beside the menu frame so touch Confirm/Back can advance or
+/// skip cutscenes without teaching the gameplay `ControlFrame` about menu
+/// gestures.
+#[cfg(feature = "input")]
+pub fn apply_menu_frame_to_cutscene_request(
+    time: Res<Time>,
+    menu_frame: Res<MenuControlFrame>,
+    cutscene: Res<crate::cutscene::ActiveCutscene>,
+    mut cutscene_request: ResMut<crate::cutscene::CutsceneAdvanceRequest>,
+) {
+    if !cutscene.is_playing() {
+        return;
+    }
+    if menu_frame.select || menu_frame.select_held {
+        cutscene_request.dismiss_dialogue = true;
+    }
+    if menu_frame.back_held {
+        cutscene_request.skip_hold_seconds += time.delta_secs();
+        if cutscene_request.skip_hold_seconds >= crate::cutscene::SKIP_HOLD_THRESHOLD_SECS {
+            cutscene_request.skip_cutscene = true;
+            cutscene_request.skip_hold_seconds = 0.0;
+        }
+    }
 }

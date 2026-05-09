@@ -19,15 +19,11 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioChannel;
-#[cfg(feature = "input")]
-use leafwing_input_manager::prelude::ActionState;
 
 #[cfg(feature = "audio")]
 use crate::audio::{switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState};
 use crate::game_mode::GameMode;
-use crate::input::KeyboardPreset;
-#[cfg(feature = "input")]
-use crate::input::{analog_to_dir, MenuInputFrame, MenuInputState, SandboxAction};
+use crate::input::{KeyboardPreset, MenuControlFrame, MenuInputFrame};
 use crate::inventory::InventoryUiState;
 use crate::settings::{
     apply_action as handle_settings_action, MenuPointerPress, SettingsAction, SettingsItem,
@@ -176,29 +172,19 @@ impl PauseMenuState {
 
 /// `Start` input opens/closes the pause menu by toggling `GameMode`.
 ///
-/// Reads from BOTH `ActionState<SandboxAction>` (keyboard / gamepad
-/// path) and `ControlFrame.start_pressed` (touch path). The touch
-/// fold runs `.before(pause_menu_toggle)`, so by the time we read
-/// here ControlFrame already includes any touch Start press for the
-/// frame. Without this dual read, on-screen touch buttons were
-/// invisible to the pause menu -- the elegant fix would be to make
-/// ControlFrame the only seam, but that's a multi-system migration.
+/// Reads from `MenuControlFrame`, the semantic menu-input seam. Keyboard,
+/// gamepad, mouse/touch buttons, and touch gestures all fold into that
+/// resource before this system runs.
 #[cfg(feature = "input")]
 pub fn pause_menu_toggle(
-    action_state: Query<&ActionState<SandboxAction>>,
-    controls: Res<crate::input::ControlFrame>,
+    menu: Res<MenuControlFrame>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut state: ResMut<PauseMenuState>,
     mut inventory: ResMut<InventoryUiState>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let kbd_start = action_state
-        .single()
-        .map(|a| a.just_pressed(&SandboxAction::Start))
-        .unwrap_or(false);
-    let any_start = kbd_start || controls.start_pressed;
-    if !any_start {
+    if !menu.start {
         return;
     }
     match mode.get() {
@@ -225,75 +211,11 @@ pub fn pause_menu_toggle(
 }
 
 #[cfg(feature = "input")]
-fn read_menu_frame(
-    actions: &ActionState<SandboxAction>,
-    state: &mut MenuInputState,
-    settings: &UserSettings,
-    dt: f32,
-) -> MenuInputFrame {
-    // D-pad / arrow keys / WASD edges. The D-pad navigation can be
-    // disabled in settings; keyboard cardinal edges always work.
-    let edge_up = actions.just_pressed(&SandboxAction::MenuNavigateUp);
-    let edge_down = actions.just_pressed(&SandboxAction::MenuNavigateDown);
-    let edge_left = actions.just_pressed(&SandboxAction::MenuNavigateLeft);
-    let edge_right = actions.just_pressed(&SandboxAction::MenuNavigateRight);
-
-    // Analog stick (left stick) navigation — apply the configured
-    // deadzone so a drifting controller can't autoscroll the menu.
-    let raw = actions.clamped_axis_pair(&SandboxAction::MenuStick);
-    let (sx, sy) = crate::settings::ControlSettings::apply_deadzone(
-        raw.x,
-        raw.y,
-        settings.controls.left_stick_deadzone,
-    );
-    let analog_dir = analog_to_dir(sx, sy, 0.5);
-
-    let select_pressed = actions.just_pressed(&SandboxAction::MenuSelect);
-    let back_pressed = actions.just_pressed(&SandboxAction::MenuBack);
-    let start_pressed = actions.just_pressed(&SandboxAction::Start);
-
-    let mut frame = state.step(
-        edge_up,
-        edge_down,
-        edge_left,
-        edge_right,
-        analog_dir,
-        select_pressed,
-        back_pressed,
-        start_pressed,
-        dt,
-        settings.controls.menu_repeat_initial_delay,
-        settings.controls.menu_repeat_interval,
-    );
-
-    if !settings.controls.dpad_menu_navigation {
-        // The D-pad bindings are still attached to the same
-        // `MenuNavigate*` actions; if the user has disabled D-pad
-        // navigation we suppress the frame entirely. Keyboard / stick
-        // navigation continues to work because their press edges have
-        // already been folded in.
-        // This is a coarse stub: D-pad and keyboard share the same
-        // edge today, so disabling D-pad nav also disables WASD/arrow
-        // edges. Future patches can split these by inspecting the
-        // input source.
-        frame = MenuInputFrame {
-            select: frame.select,
-            back: frame.back,
-            start: frame.start,
-            ..Default::default()
-        };
-    }
-    frame
-}
-
-#[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 pub fn pause_menu_navigate(
-    time: Res<Time>,
-    action_state: Query<&ActionState<SandboxAction>>,
+    menu: Res<MenuControlFrame>,
     mode: Res<State<GameMode>>,
     mut state: ResMut<PauseMenuState>,
-    mut menu_input_state: ResMut<MenuInputState>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut inventory: ResMut<InventoryUiState>,
     mut exit: MessageWriter<AppExit>,
@@ -311,11 +233,16 @@ pub fn pause_menu_navigate(
     if inventory.visible {
         return;
     }
-    let Ok(actions) = action_state.single() else {
-        return;
+    let mut frame = MenuInputFrame {
+        up: menu.up,
+        down: menu.down,
+        left: menu.left,
+        right: menu.right,
+        select: menu.select,
+        back: menu.back,
+        start: menu.start,
     };
-    let dt = time.delta_secs();
-    let mut frame = read_menu_frame(actions, &mut menu_input_state, &user_settings, dt);
+    apply_vertical_scroll(&mut frame, menu.vertical_scroll_steps());
 
     // Fold pointer-driven confirms into the frame, and clear any
     // armed pointer state when the user navigates with kbd / gamepad
@@ -324,7 +251,7 @@ pub fn pause_menu_navigate(
         frame.select = true;
         state.pointer_confirm = false;
     }
-    if frame.any_directional() || frame.back {
+    if frame.any_directional() || frame.back || menu.scroll_y.abs() >= 0.5 {
         state.pointer_armed = None;
     }
 
@@ -377,6 +304,14 @@ pub fn pause_menu_navigate(
                 preset_count,
             );
         }
+    }
+}
+
+fn apply_vertical_scroll(frame: &mut MenuInputFrame, steps: i32) {
+    if steps > 0 {
+        frame.up = true;
+    } else if steps < 0 {
+        frame.down = true;
     }
 }
 

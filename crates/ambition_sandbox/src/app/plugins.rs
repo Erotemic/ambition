@@ -473,6 +473,7 @@ pub(super) fn add_ui_plugins(_app: &mut App) {}
 #[cfg(feature = "input")]
 pub(super) fn add_input_plugins(app: &mut App) {
     app.init_resource::<MenuInputState>()
+        .init_resource::<MenuControlFrame>()
         .init_resource::<PlayerDashTriggerState>()
         .add_plugins(InputManagerPlugin::<SandboxAction>::default())
         .add_systems(
@@ -495,6 +496,8 @@ pub(super) fn add_input_plugins(app: &mut App) {
             Update,
             (
                 populate_control_frame_from_actions,
+                populate_menu_control_frame_from_actions,
+                apply_menu_frame_to_cutscene_request,
                 pause_menu::pause_menu_toggle,
                 inventory::inventory_input,
                 pause_menu::pause_menu_pointer_input,

@@ -57,7 +57,7 @@ use crate::game_assets::{self, GameAssetConfig};
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
-use crate::input::{ControlFrame, GAMEPAD_MAP};
+use crate::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
 #[cfg(feature = "input")]
 use crate::input::{MenuInputState, PlayerDashTriggerState};
 use crate::inventory;
@@ -95,7 +95,10 @@ pub use cli::run_visible;
 pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
 pub use hud::update_quest_panel;
 #[cfg(feature = "input")]
-pub use input_systems::populate_control_frame_from_actions;
+pub use input_systems::{
+    apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
+    populate_menu_control_frame_from_actions,
+};
 pub use plugins::{add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins};
 pub use resources::{init_sandbox_resources, StartRoomOverride};
 pub use update::sandbox_update;

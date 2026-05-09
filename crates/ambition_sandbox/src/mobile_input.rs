@@ -186,7 +186,7 @@ pub fn fold_touch_into_control_frame(
 #[cfg(feature = "mobile_touch")]
 pub mod bevy_plugin {
     use super::{fold_touch_into_control_frame, TouchButton, TouchInputState};
-    use crate::input::ControlFrame;
+    use crate::input::{ControlFrame, MenuControlFrame};
     use bevy::input::touch::Touches;
     use bevy::prelude::*;
     use bevy::window::PrimaryWindow;
@@ -207,6 +207,16 @@ pub mod bevy_plugin {
     /// writes the canonical `ControlFrame`.
     #[derive(Resource, Default, Clone, Copy, Debug)]
     pub struct MobileTouchState(pub TouchInputState);
+
+    /// Tracks the last non-control touch position used for menu drag scrolling.
+    ///
+    /// Bevy UI button `Interaction` covers taps on concrete rows. This state is
+    /// only for whole-panel gestures such as dragging up/down to navigate a
+    /// menu while another finger is still on the movement stick.
+    #[derive(Resource, Default, Clone, Copy, Debug)]
+    pub struct MenuTouchGestureState {
+        last_pos: Option<Vec2>,
+    }
 
     /// Runtime visibility toggle for the touch UI. `true` shows the
     /// stick + button HUD; `false` hides the elements and zeroes
@@ -254,6 +264,7 @@ pub mod bevy_plugin {
         fn build(&self, app: &mut App) {
             app.add_plugins(VirtualJoystickPlugin::<MobileStick>::default())
                 .insert_resource(MobileTouchState::default())
+                .insert_resource(MenuTouchGestureState::default())
                 .insert_resource(TouchButtonEdges::default())
                 .insert_resource(TouchControlsVisible::default())
                 .add_systems(Startup, (spawn_touch_buttons, spawn_touch_joysticks))
@@ -265,6 +276,10 @@ pub mod bevy_plugin {
                         sync_touch_ui_visibility,
                         read_joystick_messages,
                         update_buttons_from_interactions,
+                        fold_to_menu_control_frame
+                            .after(crate::app::populate_menu_control_frame_from_actions)
+                            .before(crate::app::apply_menu_frame_to_cutscene_request)
+                            .before(crate::pause_menu::pause_menu_toggle),
                         fold_to_control_frame
                             // Touch fold MUST run AFTER the keyboard
                             // fold (`populate_control_frame_from_actions`)
@@ -938,6 +953,73 @@ pub mod bevy_plugin {
         frame.reset_pressed |= touch_frame.reset_pressed;
         frame.start_pressed |= touch_frame.start_pressed;
         frame.pogo_pressed |= touch_frame.pogo_pressed;
+    }
+
+    /// Merge touch buttons and non-control drag gestures into the semantic menu frame.
+    ///
+    /// This is intentionally separate from `fold_to_control_frame`: gameplay axes
+    /// and UI gestures have different consumers. The touch Start button toggles
+    /// pause, Reset acts as Back, Jump/Interact can confirm, and a one-finger drag
+    /// outside the fixed touch-control regions maps to menu scroll/navigation.
+    fn fold_to_menu_control_frame(
+        state: Res<MobileTouchState>,
+        visible: Res<TouchControlsVisible>,
+        touches: Res<Touches>,
+        windows: Query<&Window, With<PrimaryWindow>>,
+        mut gesture: ResMut<MenuTouchGestureState>,
+        mut frame: ResMut<MenuControlFrame>,
+    ) {
+        if !visible.0 {
+            gesture.last_pos = None;
+            return;
+        }
+
+        let touch = state.0;
+        frame.start |= touch.start.pressed_this_frame;
+        frame.back |= touch.reset.pressed_this_frame;
+        frame.back_held |= touch.reset.held;
+        frame.select |= touch.jump.pressed_this_frame || touch.interact.pressed_this_frame;
+        frame.select_held |= touch.jump.held || touch.interact.held;
+
+        let Some(window_size) = windows
+            .single()
+            .ok()
+            .map(|w| Vec2::new(w.width(), w.height()))
+        else {
+            gesture.last_pos = None;
+            return;
+        };
+
+        let menu_pos = touches
+            .iter()
+            .map(|touch| touch.position())
+            .find(|pos| !touch_control_area_contains(*pos, window_size));
+
+        if let Some(pos) = menu_pos {
+            if let Some(last) = gesture.last_pos {
+                let dy = pos.y - last.y;
+                // Bevy touch positions are top-left-origin. A phone-style swipe up
+                // (negative dy) should move the highlighted row down, matching
+                // normal phone scroll semantics.
+                if dy.abs() >= 6.0 {
+                    frame.scroll_y += dy / 36.0;
+                }
+            }
+            gesture.last_pos = Some(pos);
+        } else {
+            gesture.last_pos = None;
+        }
+    }
+
+    fn touch_control_area_contains(pos: Vec2, window_size: Vec2) -> bool {
+        if touch_action_at_position(pos, window_size).is_some() {
+            return true;
+        }
+        // Approximate virtual joystick footprint in the lower-left corner. The
+        // exact nodes are owned by `virtual_joystick`, so a geometric exclusion is
+        // the least-coupled way to avoid treating movement-stick drags as menu
+        // scroll gestures.
+        pos.x <= 260.0 && pos.y >= window_size.y - 260.0
     }
 
     /// True if any touch input field has a non-default value. Used

@@ -14,8 +14,9 @@ def test_review_configs_render(tmp_path):
     outputs = draw_review(REVIEW_DIR, out_dir)
     pngs = sorted(out_dir.rglob("*.png"))
     assert outputs
-    assert len(pngs) >= 11  # 5 sheets + 5 canonicals + contact sheet
+    assert len(pngs) >= 13  # 6 sheets + 6 canonicals + contact sheet
     assert (out_dir / "general_hero_spritesheet.png").exists()
+    assert (out_dir / "absurd_general_spritesheet.png").exists()
     assert (out_dir / "canonicals" / "canonicals_contact_sheet.png").exists()
 
 
@@ -49,3 +50,19 @@ def test_toon_target_supports_overrides(tmp_path):
     img.save(out)
     assert out.exists()
     assert img.size == (96, 96)
+
+
+def test_absurd_general_has_shouting_trope_spec(tmp_path):
+    job = CharacterJob.load(REVIEW_DIR / "absurd_general.yaml")
+    adapter = get_adapter(job.target)
+    spec = adapter.sample_spec(job)
+    assert spec.archetype == "absurd_general"
+    assert spec.outfit == "general_uniform"
+    assert spec.hair_style == "general_hat"
+    assert spec.accessory == "medals"
+    assert spec.prop == "baton"
+    img = adapter.render_single(spec, "talk", 2, job)
+    out = tmp_path / "absurd_general_talk.png"
+    img.save(out)
+    assert out.exists()
+    assert img.getchannel("A").getbbox() is not None

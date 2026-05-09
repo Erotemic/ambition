@@ -77,7 +77,9 @@ python -m ambition_sprite2d_renderer render-publish sandbag
 
 `CharacterJob` now accepts optional `name`, `output_name`, and `spec` fields.
 The `toon` target uses those `spec` overrides to author silhouette-first
-characters without inventing a brand new renderer per NPC. Example:
+characters without inventing a brand new renderer per NPC. Review presets can
+be intentionally trope-heavy: `absurd_general` is the shouting-general pass with
+a giant star cap, epaulets, medals, awards, baton, and irate yell face. Example:
 
 ```yaml
 target: toon
@@ -92,8 +94,8 @@ spec:
 The curated review pass lives in `ambition_sprite2d_renderer/configs/review/`
 and is meant to answer the question, “do these feel like different characters?”
 Use `draw-review` to regenerate the current cast (`general_hero`,
-`kernel_guide`, `merchant_prototype`, `vault_keeper`, `architect`) along with
-a canonical contact sheet.
+`absurd_general`, `kernel_guide`, `merchant_prototype`, `vault_keeper`,
+`architect`) along with a canonical contact sheet.
 
 ## Adding a new target
 

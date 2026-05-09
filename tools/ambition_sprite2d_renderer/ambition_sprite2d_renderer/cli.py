@@ -4,11 +4,12 @@ Two surfaces live here:
 
 (a) The procedural character lab — formerly ``proc2d_character_lab``.
     Targets defined under ``targets/`` (robot_side, goblin_side, boss_side,
-    robot25d) are driven by YAML jobs in ``configs/`` and the
+    toon_side, robot25d) are driven by YAML jobs in ``configs/`` and the
     ``adapters.TARGETS`` registry.
 
       list-targets               Show registered character adapters.
-      draw-all                   Render every job in ``configs/`` to a sheet.
+      draw-all                   Render core runtime jobs in ``configs/``.
+      draw-review                Render review/variant jobs in ``configs/review/``.
       draw-canonicals            Render canonical poses + contact sheet.
       draw-entities              Render non-character gameplay entity sprites.
       spritesheet <config> <out> Render one job's sheet.
@@ -41,6 +42,8 @@ from .canonical import write_canonicals
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
 from .entities import write_entity_sprites
+from .item_icons import write_item_icons
+from .faction_lineup import write_faction_lineup
 from .sheet import write_spritesheet
 
 
@@ -58,9 +61,11 @@ def repo_root() -> Path:
 DEFAULT_CONFIG_DIR = (
     Path(__file__).resolve().parent / "configs"
 )
+DEFAULT_REVIEW_CONFIG_DIR = DEFAULT_CONFIG_DIR / "review"
 DEFAULT_ASSET_DIR = (
     package_dir() / "generated"
 )
+DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 
 
 # ---- Tack-on targets registry --------------------------------------------------
@@ -95,12 +100,33 @@ def generated_dir(target_name: str) -> Path:
 
 def draw_all(config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | Path = DEFAULT_ASSET_DIR) -> List[Path]:
     out_dir = Path(out_dir)
+    config_dir_path = Path(config_dir)
+    runtime_stems = {"boss", "goblin", "robot", "sandbag"}
+    default_runtime_dir = config_dir_path.resolve() == Path(DEFAULT_CONFIG_DIR).resolve()
     outputs: List[Path] = []
-    for path, job in load_jobs(config_dir):
-        stem = job.target
+    for path, job in load_jobs(config_dir_path):
+        # The default configs/ directory has accumulated a few older review
+        # jobs for compatibility. Keep draw-all focused on the runtime sheets
+        # so it stays quick and does not unexpectedly publish review variants.
+        # Custom config dirs still render every .yaml they contain.
+        stem = path.stem
+        if default_runtime_dir and stem not in runtime_stems:
+            continue
+        # Use an explicit output_name when provided, otherwise the config stem,
+        # so multiple variants of the same adapter do not overwrite each other.
+        stem = job.output_stem(path)
         image_out = out_dir / f"{stem}_spritesheet.png"
         manifest_out = out_dir / f"{stem}_spritesheet.yaml"
         outputs.extend(write_spritesheet(job, image_out, manifest_out))
+    return outputs
+
+
+def draw_review(
+    config_dir: str | Path = DEFAULT_REVIEW_CONFIG_DIR,
+    out_dir: str | Path = DEFAULT_ASSET_DIR / "review",
+) -> List[Path]:
+    outputs = draw_all(config_dir, out_dir)
+    outputs += draw_canonicals(config_dir, Path(out_dir) / "canonicals")
     return outputs
 
 
@@ -115,8 +141,24 @@ def draw_entities(out_dir: str | Path = DEFAULT_ASSET_DIR / "entities") -> List[
     return write_entity_sprites(out_dir)
 
 
+def draw_icons(out_dir: str | Path = DEFAULT_ASSET_DIR / "icons") -> List[Path]:
+    return write_item_icons(out_dir)
+
+
+def draw_factions(
+    config: str | Path = DEFAULT_FACTION_CONFIG,
+    out_dir: str | Path = DEFAULT_ASSET_DIR / "factions",
+) -> List[Path]:
+    return write_faction_lineup(config, out_dir)
+
+
 def _cmd_draw_all(args: argparse.Namespace) -> int:
     print_paths(draw_all(args.config_dir, args.out_dir))
+    return 0
+
+
+def _cmd_draw_review(args: argparse.Namespace) -> int:
+    print_paths(draw_review(args.config_dir, args.out_dir))
     return 0
 
 
@@ -127,6 +169,16 @@ def _cmd_draw_canonicals(args: argparse.Namespace) -> int:
 
 def _cmd_draw_entities(args: argparse.Namespace) -> int:
     print_paths(draw_entities(args.out_dir))
+    return 0
+
+
+def _cmd_draw_icons(args: argparse.Namespace) -> int:
+    print_paths(draw_icons(args.out_dir))
+    return 0
+
+
+def _cmd_draw_factions(args: argparse.Namespace) -> int:
+    print_paths(draw_factions(args.config, args.out_dir))
     return 0
 
 
@@ -249,6 +301,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR))
     p.set_defaults(func=_cmd_draw_all)
 
+    p = sub.add_parser("draw-review", help="Render review/variant sprite sheets")
+    p.add_argument("--config-dir", default=str(DEFAULT_REVIEW_CONFIG_DIR))
+    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "review"))
+    p.set_defaults(func=_cmd_draw_review)
+
     p = sub.add_parser("draw-canonicals", help="Render canonical images + contact sheet")
     p.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "canonicals"))
@@ -257,6 +314,15 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("draw-entities", help="Render non-character gameplay entity sprites")
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "entities"))
     p.set_defaults(func=_cmd_draw_entities)
+
+    p = sub.add_parser("draw-icons", help="Render ability/item icon review sprites")
+    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "icons"))
+    p.set_defaults(func=_cmd_draw_icons)
+
+    p = sub.add_parser("draw-factions", help="Render music-faction leader/NPC review sprites")
+    p.add_argument("--config", default=str(DEFAULT_FACTION_CONFIG))
+    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "factions"))
+    p.set_defaults(func=_cmd_draw_factions)
 
     p = sub.add_parser("list-targets", help="Show registered targets (adapter + tack-on)")
     p.set_defaults(func=_cmd_list_targets)

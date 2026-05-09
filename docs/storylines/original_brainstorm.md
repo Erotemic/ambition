@@ -255,7 +255,18 @@ Other factions:
 * Mathematicians - obviously, implementation may be left as an exercise to the player.
 * Physicists - we can make a Geoff Hinton / other Nobel laureates as the head depending on quest lines as a reference to the controversial Nobel prize award
 * Pirates - yarrrg (and mockingbirds as a boss battle on the moon)
+* Ninjas - well we do need both, and we already have robots.
 * Luddites - but like historically accurate and not the unfair wrap they often get.
+
+* Artists guild
+* Mages guild
+* Fighters guild
+* Thieves guild
+* Mathematicians guild
+* Physicists guild
+* Pirates guild
+* Ninja guild
+* Luddites guild
 
 
 It would be neat if we could leverage the RL agents to add legitimate AI

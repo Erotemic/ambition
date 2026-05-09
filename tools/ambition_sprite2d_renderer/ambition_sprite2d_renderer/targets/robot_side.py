@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw
 
 from .common_draw import RESAMPLING, draw_capsule, draw_rotated_rounded_rect
 from .robot25d import BotSpec, Pose, parse_background
+from ..animation_vocab import DEFAULT_ADVANCED_TIMINGS, DEFAULT_EXTENDED_TIMINGS
 from ..rig import add, clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep, vec
 
 Color = Tuple[int, int, int, int]
@@ -63,6 +64,8 @@ class SideRobotGenerator:
         "blink_out": {"frames": 6, "duration_ms": 62},
         "blink_in": {"frames": 6, "duration_ms": 62},
         "dash": {"frames": 6, "duration_ms": 65},
+        **DEFAULT_EXTENDED_TIMINGS,
+        **DEFAULT_ADVANCED_TIMINGS,
     }
 
     PALETTE = {
@@ -83,15 +86,22 @@ class SideRobotGenerator:
     def sample_spec(self, seed: int, archetype: str = "cute_scout") -> BotSpec:
         rng = random.Random(seed)
         scale = 1.0
-        if archetype == "guardian":
-            scale = 1.07
-        elif archetype == "runner":
-            scale = 0.97
+        key = str(archetype or "").lower()
+        if archetype in {"guardian", "heavy_guardian"} or any(token in key for token in ["marshal", "iron", "warden"]):
+            scale = 1.08
+        elif archetype in {"runner", "scout_runner"} or any(token in key for token in ["pulse", "captain"]):
+            scale = 0.96
+        elif archetype in {"diver", "swimmer"}:
+            scale = 0.99
+        elif archetype in {"caster", "radio_mage"}:
+            scale = 1.01
+        elif archetype in {"engineer", "field_mechanic"}:
+            scale = 1.02
         return BotSpec(
             target=self.name,
             seed=seed,
             archetype=archetype,
-            palette_name="classic",
+            palette_name=archetype,
             head_w=(41 + rng.uniform(-1.0, 1.0)) * scale,
             head_h=(34 + rng.uniform(-1.0, 1.0)) * scale,
             body_w=(26 + rng.uniform(-0.8, 0.8)) * scale,
@@ -103,8 +113,91 @@ class SideRobotGenerator:
             visor_w=(23.5 + rng.uniform(-0.6, 0.6)) * scale,
             visor_h=(12.0 + rng.uniform(-0.4, 0.4)) * scale,
             antenna_h=(12.0 + rng.uniform(-0.8, 0.8)) * scale,
-            blade_len=(30.0 + rng.uniform(-1.0, 2.0)) * scale,
+            blade_len=(30.0 + rng.uniform(-1.0, 2.0)) * scale * (1.12 if (archetype in {"guardian", "heavy_guardian"} or any(token in key for token in ["marshal", "iron", "warden"])) else 0.94 if (archetype in {"runner", "scout_runner"} or any(token in key for token in ["pulse", "captain"])) else 1.0),
         )
+
+    def _palette_for_spec(self, spec: BotSpec) -> Dict[str, Color]:
+        pal = dict(self.PALETTE)
+        name = str(spec.palette_name or spec.archetype or "").lower()
+        if any(token in name for token in ["drift", "dj", "lofi", "radio"]):
+            pal["accent"] = _rgba("#FF86D7")
+            pal["accent_dark"] = _rgba("#9542B8")
+            pal["visor_glow"] = _rgba("#FFE36E")
+            pal["shell_side"] = _rgba("#E9E1F1")
+        elif any(token in name for token in ["pulse", "captain", "voyage"]):
+            pal["accent"] = _rgba("#58D6FF")
+            pal["accent_dark"] = _rgba("#1A78B3")
+            pal["visor_glow"] = _rgba("#B6FFF5")
+            pal["shell_side"] = _rgba("#E0EEF5")
+        elif any(token in name for token in ["tech", "disrupt"]):
+            pal["accent"] = _rgba("#9FE66A")
+            pal["accent_dark"] = _rgba("#4D9D43")
+            pal["visor_glow"] = _rgba("#86FF7A")
+            pal["shell_side"] = _rgba("#E7F0DD")
+        elif any(token in name for token in ["dino", "saur", "liberator"]):
+            pal["accent"] = _rgba("#A8F05E")
+            pal["accent_dark"] = _rgba("#5B8F31")
+            pal["visor_glow"] = _rgba("#FFF18A")
+            pal["shell_side"] = _rgba("#E9F1D7")
+        elif any(token in name for token in ["env", "advocate", "solace"]):
+            pal["accent"] = _rgba("#38E983")
+            pal["accent_dark"] = _rgba("#1C9C60")
+            pal["visor_glow"] = _rgba("#D8FFE5")
+            pal["shell_side"] = _rgba("#DFF0E4")
+        elif any(token in name for token in ["iron", "marshal", "military"]):
+            pal["accent"] = _rgba("#FF7059")
+            pal["accent_dark"] = _rgba("#983729")
+            pal["visor_glow"] = _rgba("#FFD0C7")
+            pal["metal"] = _rgba("#CBD0D7")
+        elif any(token in name for token in ["moonlit", "canal", "noct"]):
+            pal["accent"] = _rgba("#8D7CFF")
+            pal["accent_dark"] = _rgba("#3D367F")
+            pal["visor_glow"] = _rgba("#B6FFF5")
+            pal["shell_side"] = _rgba("#DDE6F8")
+        elif any(token in name for token in ["glass", "warden", "canopy"]):
+            pal["accent"] = _rgba("#83BDFF")
+            pal["accent_dark"] = _rgba("#4567B0")
+            pal["visor_glow"] = _rgba("#E7FFFF")
+            pal["shell_side"] = _rgba("#EAF4FF")
+        elif name in {"runner", "scout_runner"}:
+            pal["accent"] = _rgba("#FFB15E")
+            pal["accent_dark"] = _rgba("#D66A2D")
+            pal["visor_glow"] = _rgba("#86FF7A")
+            pal["shell_side"] = _rgba("#DED8CF")
+        elif name in {"guardian", "heavy_guardian"}:
+            pal["accent"] = _rgba("#7EA7FF")
+            pal["accent_dark"] = _rgba("#4D69C9")
+            pal["visor_glow"] = _rgba("#7DE7FF")
+            pal["metal"] = _rgba("#C0C6D1")
+        elif name in {"diver", "swimmer"}:
+            pal["accent"] = _rgba("#58D6FF")
+            pal["accent_dark"] = _rgba("#2387B8")
+            pal["visor_glow"] = _rgba("#B6FFF5")
+            pal["shell_side"] = _rgba("#DDEBF0")
+        elif name in {"caster", "radio_mage"}:
+            pal["accent"] = _rgba("#FF86D7")
+            pal["accent_dark"] = _rgba("#B957A7")
+            pal["visor_glow"] = _rgba("#FFE36E")
+        elif name in {"engineer", "field_mechanic"}:
+            pal["accent"] = _rgba("#9FE66A")
+            pal["accent_dark"] = _rgba("#5EA83B")
+            pal["visor_glow"] = _rgba("#56F1B7")
+        elif name in {"medic", "field_medic"}:
+            pal["accent"] = _rgba("#38E983")
+            pal["accent_dark"] = _rgba("#1D9C59")
+            pal["visor_glow"] = _rgba("#D9FFF0")
+            pal["shell_side"] = _rgba("#E7F1E7")
+        elif name in {"miner", "cavern_miner"}:
+            pal["accent"] = _rgba("#FFD65A")
+            pal["accent_dark"] = _rgba("#B88922")
+            pal["visor_glow"] = _rgba("#FFEFA7")
+            pal["shell_side"] = _rgba("#D8D0C1")
+        elif name in {"archivist", "map_keeper"}:
+            pal["accent"] = _rgba("#83BDFF")
+            pal["accent_dark"] = _rgba("#4567B0")
+            pal["visor_glow"] = _rgba("#D9EFFF")
+            pal["shell_side"] = _rgba("#E7E7F3")
+        return pal
 
     def pose_for_animation(self, animation: str, frame_index: int, frame_count: int) -> Pose:
         p = Pose()
@@ -220,6 +313,339 @@ class SideRobotGenerator:
             p.slash = max(0.2, wind, strike)
             p.slash_arc = strike
             p.eye_squint = 0.22 + strike * 0.20
+        elif animation == "crouch":
+            crouch = smoothstep(clamp(math.sin(t * math.pi), 0.0, 1.0))
+            p.root_y = 5.0 * crouch
+            p.body_bob = 3.0 * crouch
+            p.body_tilt = -7.0 * crouch
+            p.head_tilt = -4.0 * crouch
+            p.far_arm_upper = 158.0
+            p.far_arm_lower = 144.0
+            p.near_arm_upper = 20.0
+            p.near_arm_lower = 8.0
+            p.far_leg_upper = 132.0
+            p.far_leg_lower = 52.0
+            p.near_leg_upper = 96.0
+            p.near_leg_lower = 48.0
+            p.eye_squint = 0.18
+        elif animation == "wall_slide":
+            jitter = math.sin(t * math.tau * 2.0)
+            p.root_x = -7.5
+            p.root_y = 3.0 + t * 4.0
+            p.body_tilt = 12.0 + jitter * 1.2
+            p.head_tilt = 6.0
+            p.far_arm_upper = 200.0
+            p.far_arm_lower = 186.0
+            p.near_arm_upper = -18.0
+            p.near_arm_lower = -26.0
+            p.far_leg_upper = 118.0
+            p.far_leg_lower = 122.0
+            p.near_leg_upper = 72.0
+            p.near_leg_lower = 118.0
+            p.eye_squint = 0.24
+        elif animation == "wall_jump":
+            kick = smoothstep(clamp(t / 0.55, 0.0, 1.0))
+            arc = math.sin(t * math.pi)
+            p.root_x = -8.0 + 16.0 * kick
+            p.root_y = -18.0 * arc
+            p.body_tilt = -18.0 + 34.0 * kick
+            p.head_tilt = -8.0 + 12.0 * kick
+            p.far_arm_upper = 178.0 - 18.0 * kick
+            p.far_arm_lower = 160.0 - 14.0 * kick
+            p.near_arm_upper = -12.0 + 32.0 * kick
+            p.near_arm_lower = -20.0 + 28.0 * kick
+            p.far_leg_upper = 145.0 - 42.0 * kick
+            p.far_leg_lower = 72.0 + 28.0 * kick
+            p.near_leg_upper = 100.0 - 20.0 * kick
+            p.near_leg_lower = 54.0 + 36.0 * kick
+            p.eye_squint = 0.22
+        elif animation == "ledge_grab":
+            pull = smoothstep(clamp((t - 0.24) / 0.62, 0.0, 1.0))
+            p.root_x = -4.0 + 5.0 * pull
+            p.root_y = -9.0 + 10.0 * pull
+            p.body_tilt = -11.0 + 10.0 * pull
+            p.head_tilt = -6.0 + 5.0 * pull
+            p.far_arm_upper = 198.0 - 32.0 * pull
+            p.far_arm_lower = 206.0 - 48.0 * pull
+            p.near_arm_upper = -48.0 + 36.0 * pull
+            p.near_arm_lower = -52.0 + 42.0 * pull
+            p.far_leg_upper = 120.0 + 20.0 * pull
+            p.far_leg_lower = 88.0
+            p.near_leg_upper = 88.0 + 16.0 * pull
+            p.near_leg_lower = 72.0
+            p.eye_squint = 0.18
+        elif animation == "climb":
+            stride = math.sin(t * math.tau)
+            p.root_y = -2.0 + stride * 1.2
+            p.body_tilt = stride * 5.0
+            p.head_tilt = -stride * 2.0
+            p.far_arm_upper = 194.0 + stride * 18.0
+            p.far_arm_lower = 180.0 + stride * 18.0
+            p.near_arm_upper = -24.0 - stride * 18.0
+            p.near_arm_lower = -8.0 - stride * 16.0
+            p.far_leg_upper = 118.0 - stride * 28.0
+            p.far_leg_lower = 72.0 - stride * 20.0
+            p.near_leg_upper = 78.0 + stride * 28.0
+            p.near_leg_lower = 64.0 + stride * 20.0
+            p.eye_squint = 0.10
+        elif animation == "swim":
+            stroke = math.sin(t * math.tau)
+            p.root_y = -10.0 + math.sin(t * math.tau * 2.0) * 1.4
+            p.body_tilt = -27.0 + stroke * 3.0
+            p.head_tilt = -7.0 + stroke * 2.0
+            p.far_arm_upper = 190.0 + stroke * 24.0
+            p.far_arm_lower = 175.0 + stroke * 20.0
+            p.near_arm_upper = 8.0 - stroke * 30.0
+            p.near_arm_lower = -12.0 - stroke * 24.0
+            p.far_leg_upper = 148.0 - stroke * 14.0
+            p.far_leg_lower = 150.0 + stroke * 18.0
+            p.near_leg_upper = 124.0 + stroke * 14.0
+            p.near_leg_lower = 132.0 - stroke * 18.0
+            p.eye_squint = 0.16
+        elif animation == "interact":
+            reach = smoothstep(clamp(math.sin(t * math.pi), 0.0, 1.0))
+            p.root_x = 1.8 * reach
+            p.body_tilt = -2.0 + 3.0 * reach
+            p.head_tilt = 2.0 * reach
+            p.far_arm_upper = 148.0
+            p.far_arm_lower = 132.0
+            p.near_arm_upper = 0.0 + 12.0 * reach
+            p.near_arm_lower = -8.0 + 8.0 * reach
+            p.near_leg_upper = 76.0
+            p.near_leg_lower = 82.0
+            p.eye_squint = 0.08
+        elif animation == "talk":
+            mouth_like = 0.5 + 0.5 * math.sin(t * math.tau * 2.0)
+            p.body_bob = abs(wave) * 0.8
+            p.body_tilt = wave * 1.0
+            p.head_tilt = 2.5 * wave
+            p.far_arm_upper = 142.0 + wave * 5.0
+            p.near_arm_upper = 28.0 - wave * 5.0
+            p.eye_squint = 0.06 + 0.12 * mouth_like
+        elif animation == "block":
+            brace = smoothstep(clamp(t / 0.30, 0.0, 1.0)) * (1.0 - 0.25 * smoothstep(clamp((t - 0.65) / 0.35, 0.0, 1.0)))
+            p.root_x = -2.0 * brace
+            p.body_tilt = -10.0 * brace
+            p.head_tilt = -3.0 * brace
+            p.far_arm_upper = 168.0
+            p.far_arm_lower = 150.0
+            p.near_arm_upper = -30.0 + 8.0 * wave
+            p.near_arm_lower = -38.0 + 6.0 * wave
+            p.far_leg_upper = 122.0
+            p.far_leg_lower = 86.0
+            p.near_leg_upper = 82.0
+            p.near_leg_lower = 72.0
+            p.eye_squint = 0.26
+        elif animation == "land":
+            impact = 1.0 - smoothstep(clamp(t / 0.72, 0.0, 1.0))
+            rebound = math.sin(t * math.pi)
+            p.root_y = 7.0 * impact - 2.0 * rebound
+            p.body_bob = 4.0 * impact
+            p.body_tilt = -6.0 * impact
+            p.head_tilt = -4.0 * impact
+            p.far_arm_upper = 166.0 - 12.0 * rebound
+            p.far_arm_lower = 150.0 - 8.0 * rebound
+            p.near_arm_upper = 16.0 + 16.0 * rebound
+            p.near_arm_lower = 8.0 + 12.0 * rebound
+            p.far_leg_upper = 134.0
+            p.far_leg_lower = 54.0
+            p.near_leg_upper = 94.0
+            p.near_leg_lower = 48.0
+            p.eye_squint = 0.22 * impact
+        elif animation == "roll":
+            spin = t * 360.0
+            tuck = math.sin(t * math.pi)
+            p.root_x = -8.0 + 18.0 * t
+            p.root_y = 6.0 + 2.0 * math.sin(t * math.tau)
+            p.body_tilt = -32.0 + spin
+            p.head_tilt = -26.0 + spin * 0.88
+            p.far_arm_upper = 184.0 + 18.0 * tuck
+            p.far_arm_lower = 188.0 + 10.0 * tuck
+            p.near_arm_upper = -20.0 - 18.0 * tuck
+            p.near_arm_lower = -28.0 - 10.0 * tuck
+            p.far_leg_upper = 150.0 - 28.0 * tuck
+            p.far_leg_lower = 42.0 + 24.0 * tuck
+            p.near_leg_upper = 106.0 - 22.0 * tuck
+            p.near_leg_lower = 34.0 + 28.0 * tuck
+            p.eye_squint = 0.26
+        elif animation == "slide":
+            skid = smoothstep(clamp(t / 0.35, 0.0, 1.0))
+            p.root_x = 4.0 + 10.0 * t
+            p.root_y = 8.0
+            p.body_tilt = -24.0 + 4.0 * wave
+            p.head_tilt = -10.0
+            p.far_arm_upper = 176.0
+            p.far_arm_lower = 164.0
+            p.near_arm_upper = 150.0 - 14.0 * skid
+            p.near_arm_lower = 162.0 - 10.0 * skid
+            p.far_leg_upper = 152.0
+            p.far_leg_lower = 152.0
+            p.near_leg_upper = 126.0
+            p.near_leg_lower = 142.0
+            p.eye_squint = 0.28
+        elif animation == "crouch_walk":
+            stride = math.sin(t * math.tau)
+            bounce = (1.0 - math.cos(t * math.tau * 2.0)) * 0.5
+            p.root_y = 5.0 + bounce * 0.9
+            p.root_x = stride * 0.8
+            p.body_bob = 3.0
+            p.body_tilt = -10.0 - stride * 2.5
+            p.head_tilt = -5.0
+            p.far_arm_upper = 150.0 + stride * 7.0
+            p.far_arm_lower = 140.0 + stride * 5.0
+            p.near_arm_upper = 24.0 - stride * 8.0
+            p.near_arm_lower = 12.0 - stride * 5.0
+            p.far_leg_upper = 133.0 + stride * 14.0
+            p.far_leg_lower = 48.0 - max(0.0, stride) * 9.0
+            p.near_leg_upper = 94.0 - stride * 14.0
+            p.near_leg_lower = 46.0 - max(0.0, -stride) * 9.0
+            p.eye_squint = 0.16
+        elif animation == "pickup":
+            bend = smoothstep(clamp(t / 0.55, 0.0, 1.0)) * (1.0 - 0.35 * smoothstep(clamp((t - 0.60) / 0.40, 0.0, 1.0)))
+            lift = smoothstep(clamp((t - 0.42) / 0.45, 0.0, 1.0))
+            p.root_y = 4.0 * bend - 3.0 * lift
+            p.body_tilt = -18.0 * bend + 6.0 * lift
+            p.head_tilt = -9.0 * bend + 3.0 * lift
+            p.near_arm_upper = 26.0 + 50.0 * bend - 48.0 * lift
+            p.near_arm_lower = 44.0 + 34.0 * bend - 46.0 * lift
+            p.far_arm_upper = 160.0
+            p.far_arm_lower = 150.0
+            p.far_leg_upper = 132.0
+            p.far_leg_lower = 56.0
+            p.near_leg_upper = 96.0
+            p.near_leg_lower = 52.0
+            p.eye_squint = 0.12
+        elif animation == "throw":
+            wind = 1.0 - smoothstep(clamp(t / 0.35, 0.0, 1.0))
+            release = smoothstep(clamp((t - 0.28) / 0.32, 0.0, 1.0))
+            p.root_x = -3.0 * wind + 6.0 * release
+            p.body_tilt = -18.0 * wind + 18.0 * release
+            p.head_tilt = -6.0 * wind + 4.0 * release
+            p.near_arm_upper = -50.0 * wind + 30.0 * release
+            p.near_arm_lower = -68.0 * wind + 24.0 * release
+            p.far_arm_upper = 162.0
+            p.far_arm_lower = 146.0
+            p.far_leg_upper = 118.0 + 8.0 * release
+            p.near_leg_upper = 66.0 - 8.0 * wind
+            p.eye_squint = 0.26
+        elif animation == "aim":
+            settle = smoothstep(clamp(t / 0.36, 0.0, 1.0))
+            p.root_x = -1.0 * settle
+            p.body_tilt = -6.0 * settle
+            p.head_tilt = -2.0 * settle
+            p.far_arm_upper = 160.0
+            p.far_arm_lower = 148.0
+            p.near_arm_upper = -2.0 + 2.0 * wave
+            p.near_arm_lower = -8.0 + 2.0 * wave
+            p.far_leg_upper = 120.0
+            p.near_leg_upper = 72.0
+            p.eye_squint = 0.18
+        elif animation == "shoot":
+            recoil = 1.0 - smoothstep(clamp(t / 0.50, 0.0, 1.0))
+            p.root_x = -3.0 * recoil
+            p.body_tilt = -10.0 - 7.0 * recoil
+            p.head_tilt = -3.0 - 3.0 * recoil
+            p.near_arm_upper = -5.0 - 12.0 * recoil
+            p.near_arm_lower = -10.0 - 12.0 * recoil
+            p.far_arm_upper = 160.0
+            p.far_arm_lower = 148.0
+            p.far_leg_upper = 122.0
+            p.near_leg_upper = 70.0
+            p.eye_squint = 0.32
+        elif animation == "charge":
+            charge = smoothstep(t)
+            pulse = 0.5 + 0.5 * math.sin(t * math.tau * 3.0)
+            p.root_y = -2.0 * pulse
+            p.body_tilt = -6.0 + pulse * 4.0
+            p.head_tilt = -4.0 + pulse * 3.0
+            p.far_arm_upper = 188.0 - 28.0 * charge
+            p.far_arm_lower = 176.0 - 22.0 * charge
+            p.near_arm_upper = -34.0 + 16.0 * pulse
+            p.near_arm_lower = -34.0 + 18.0 * pulse
+            p.far_leg_upper = 126.0
+            p.near_leg_upper = 76.0
+            p.eye_squint = 0.18 + 0.22 * pulse
+        elif animation == "cast":
+            cast = smoothstep(clamp(t / 0.70, 0.0, 1.0))
+            p.root_y = -3.0 * math.sin(t * math.pi)
+            p.body_tilt = -7.0 + 14.0 * cast
+            p.head_tilt = -4.0 + 7.0 * cast
+            p.far_arm_upper = 180.0 - 20.0 * cast
+            p.far_arm_lower = 162.0 - 12.0 * cast
+            p.near_arm_upper = -50.0 + 46.0 * cast
+            p.near_arm_lower = -58.0 + 42.0 * cast
+            p.far_leg_upper = 124.0
+            p.near_leg_upper = 74.0
+            p.eye_squint = 0.20
+        elif animation == "celebrate":
+            hop = abs(math.sin(t * math.tau))
+            p.root_y = -8.0 * hop
+            p.body_tilt = wave * 8.0
+            p.head_tilt = -wave * 6.0
+            p.far_arm_upper = 214.0 + wave * 12.0
+            p.far_arm_lower = 218.0 + wave * 10.0
+            p.near_arm_upper = -74.0 - wave * 12.0
+            p.near_arm_lower = -82.0 - wave * 10.0
+            p.far_leg_upper = 118.0 + wave * 10.0
+            p.near_leg_upper = 78.0 - wave * 10.0
+            p.eye_squint = 0.06
+        elif animation == "sit":
+            settle = smoothstep(clamp(t / 0.55, 0.0, 1.0))
+            p.root_y = 13.0 * settle
+            p.body_tilt = -6.0 * settle
+            p.head_tilt = -2.0 * settle
+            p.far_arm_upper = 158.0
+            p.far_arm_lower = 142.0
+            p.near_arm_upper = 20.0
+            p.near_arm_lower = 4.0
+            p.far_leg_upper = 158.0
+            p.far_leg_lower = 18.0
+            p.near_leg_upper = 38.0
+            p.near_leg_lower = 18.0
+            p.eye_squint = 0.10
+        elif animation == "sleep":
+            breathe = 0.5 + 0.5 * math.sin(t * math.tau)
+            p.root_y = 14.0
+            p.body_tilt = -8.0
+            p.head_tilt = -7.0
+            p.body_bob = breathe * 1.0
+            p.far_arm_upper = 160.0
+            p.far_arm_lower = 150.0
+            p.near_arm_upper = 20.0
+            p.near_arm_lower = 16.0
+            p.far_leg_upper = 158.0
+            p.far_leg_lower = 24.0
+            p.near_leg_upper = 42.0
+            p.near_leg_lower = 24.0
+            p.eye_squint = 0.55
+            p.blink = True
+        elif animation == "hover":
+            hover = math.sin(t * math.tau)
+            p.root_y = -12.0 + hover * 2.0
+            p.body_tilt = -6.0 + hover * 3.0
+            p.head_tilt = -2.0 + hover * 1.5
+            p.far_arm_upper = 168.0 + hover * 8.0
+            p.far_arm_lower = 150.0 + hover * 6.0
+            p.near_arm_upper = 12.0 - hover * 8.0
+            p.near_arm_lower = 2.0 - hover * 6.0
+            p.far_leg_upper = 142.0
+            p.far_leg_lower = 138.0
+            p.near_leg_upper = 116.0
+            p.near_leg_lower = 128.0
+            p.eye_squint = 0.13
+        elif animation == "stomp":
+            wind = 1.0 - smoothstep(clamp(t / 0.46, 0.0, 1.0))
+            impact = smoothstep(clamp((t - 0.42) / 0.22, 0.0, 1.0))
+            p.root_y = -12.0 * wind + 7.0 * impact
+            p.body_tilt = -8.0 * wind + 10.0 * impact
+            p.head_tilt = -6.0 * wind + 4.0 * impact
+            p.far_arm_upper = 188.0 - 28.0 * impact
+            p.near_arm_upper = -34.0 + 40.0 * impact
+            p.far_leg_upper = 156.0 - 42.0 * impact
+            p.far_leg_lower = 24.0 + 24.0 * impact
+            p.near_leg_upper = 78.0
+            p.near_leg_lower = 58.0
+            p.eye_squint = 0.30
         elif animation == "hit":
             j = abs(math.sin(t * math.pi * 2.0))
             p.root_x = -4.0 * j
@@ -270,6 +696,110 @@ class SideRobotGenerator:
             p.dead = True
             p.eye_squint = 0.55
         return p
+
+
+    def _draw_archetype_accessories(self, img: Image.Image, d: ImageDraw.ImageDraw, spec: BotSpec, pal: Dict[str, Color], S: float, root_x: float, ground_y: float, body_center: Point, head_center: Point) -> None:
+        """Draw small silhouette-level NPC variant reads after the base robot.
+
+        These are intentionally additive and keyed only by archetype so review
+        configs can create distinct NPCs without a larger rig schema yet.
+        """
+        name = (spec.archetype or spec.palette_name or "").lower()
+        outline = pal["outline"]
+        accent = pal["accent"]
+        glow = pal["visor_glow"]
+        if any(token in name for token in ["drift", "dj", "lofi", "radio"]):
+            # DJ headphones, transmitter antenna, and a tiny waveform panel.
+            d.arc((head_center[0] - 27*S, head_center[1] - 21*S, head_center[0] + 29*S, head_center[1] + 22*S), start=190, end=350, fill=accent, width=max(1, int(2.0*S)))
+            d.ellipse((head_center[0] - 30*S, head_center[1] - 4*S, head_center[0] - 20*S, head_center[1] + 10*S), fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.ellipse((head_center[0] + 24*S, head_center[1] - 4*S, head_center[0] + 34*S, head_center[1] + 10*S), fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.rounded_rectangle((body_center[0] - 30*S, body_center[1] - 6*S, body_center[0] - 18*S, body_center[1] + 18*S), radius=3*S, fill=_with_alpha(accent, 130), outline=outline, width=max(1, int(1*S)))
+            for i, h in enumerate([4, 9, 6, 12]):
+                x = body_center[0] - (26 - i*2.8)*S
+                d.line([(x, body_center[1] + 11*S), (x, body_center[1] + (11-h)*S)], fill=glow, width=max(1, int(1.2*S)))
+        elif any(token in name for token in ["pulse", "captain", "voyage"]):
+            # Officer cap and comet-tail speed pennants.
+            d.rounded_rectangle((head_center[0] - 18*S, head_center[1] - 29*S, head_center[0] + 18*S, head_center[1] - 21*S), radius=4*S, fill=accent, outline=outline, width=max(1, int(1*S)))
+            d.polygon([(head_center[0] + 2*S, head_center[1] - 31*S), (head_center[0] + 12*S, head_center[1] - 42*S), (head_center[0] + 21*S, head_center[1] - 28*S)], fill=glow, outline=outline)
+            for y in (ground_y - 22*S, ground_y - 14*S, ground_y - 6*S):
+                d.line([(root_x - 23*S, y), (root_x - 44*S, y - 3*S)], fill=_with_alpha(accent, 120), width=max(1, int(1.5*S)))
+        elif any(token in name for token in ["tech", "disrupt"]):
+            # Oversized smart-glasses + lanyard badge + laptop slab.
+            d.rounded_rectangle((head_center[0] - 18*S, head_center[1] - 9*S, head_center[0] + 24*S, head_center[1] + 4*S), radius=3*S, fill=_with_alpha(glow, 210), outline=outline, width=max(1, int(1*S)))
+            d.line([(body_center[0] + 2*S, body_center[1] - 7*S), (body_center[0] + 8*S, body_center[1] + 13*S)], fill=accent, width=max(1, int(2*S)))
+            d.rounded_rectangle((body_center[0] + 3*S, body_center[1] + 10*S, body_center[0] + 15*S, body_center[1] + 20*S), radius=2*S, fill=pal["metal"], outline=outline, width=max(1, int(0.8*S)))
+            d.rounded_rectangle((body_center[0] - 31*S, body_center[1] - 4*S, body_center[0] - 19*S, body_center[1] + 18*S), radius=2*S, fill=_rgba("#2B3348"), outline=outline, width=max(1, int(1*S)))
+        elif any(token in name for token in ["dino", "saur", "liberator"]):
+            # Dinosaur crest, tail flag, and fossil-bone badge.
+            for dx in (-10, 1, 12):
+                d.polygon([(head_center[0] + dx*S, head_center[1] - 28*S), (head_center[0] + (dx+6)*S, head_center[1] - 42*S), (head_center[0] + (dx+12)*S, head_center[1] - 28*S)], fill=accent, outline=outline)
+            d.arc((root_x - 43*S, ground_y - 40*S, root_x - 9*S, ground_y - 2*S), start=215, end=338, fill=accent, width=max(1, int(3*S)))
+            d.ellipse((body_center[0] + 8*S, body_center[1] - 1*S, body_center[0] + 18*S, body_center[1] + 9*S), fill=_rgba("#F3E8C8"), outline=outline, width=max(1, int(0.8*S)))
+        elif any(token in name for token in ["env", "advocate", "solace"]):
+            # Leaf collar and seed-pod satchel.
+            for dx, rot in [(-18, -1), (-5, 1), (8, -1), (20, 1)]:
+                d.ellipse((body_center[0] + dx*S - 5*S, body_center[1] - 17*S, body_center[0] + dx*S + 7*S, body_center[1] - 5*S), fill=_with_alpha(accent, 170), outline=outline, width=max(1, int(0.7*S)))
+            d.rounded_rectangle((body_center[0] - 30*S, body_center[1] - 2*S, body_center[0] - 18*S, body_center[1] + 18*S), radius=5*S, fill=_with_alpha(glow, 150), outline=outline, width=max(1, int(1*S)))
+        elif any(token in name for token in ["iron", "marshal", "military"]):
+            # Red cap, epaulettes, and command sash.
+            d.rounded_rectangle((head_center[0] - 19*S, head_center[1] - 29*S, head_center[0] + 20*S, head_center[1] - 21*S), radius=3*S, fill=accent, outline=outline, width=max(1, int(1*S)))
+            d.rectangle((head_center[0] - 8*S, head_center[1] - 34*S, head_center[0] + 8*S, head_center[1] - 29*S), fill=pal["metal"], outline=outline, width=max(1, int(0.8*S)))
+            for sx in (-1, 1):
+                d.rounded_rectangle((body_center[0] + sx*14*S - 8*S, body_center[1] - 14*S, body_center[0] + sx*14*S + 8*S, body_center[1] - 5*S), radius=3*S, fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.line([(body_center[0] - 16*S, body_center[1] - 12*S), (body_center[0] + 17*S, body_center[1] + 16*S)], fill=accent, width=max(1, int(3*S)))
+        elif any(token in name for token in ["moonlit", "canal", "noct"]):
+            # Crescent antenna, dock lantern, and watery half-cloak.
+            d.arc((head_center[0] - 4*S, head_center[1] - 40*S, head_center[0] + 25*S, head_center[1] - 15*S), start=80, end=270, fill=glow, width=max(1, int(2*S)))
+            d.rounded_rectangle((body_center[0] - 31*S, body_center[1] - 6*S, body_center[0] - 19*S, body_center[1] + 16*S), radius=4*S, fill=_rgba("#24304F"), outline=outline, width=max(1, int(1*S)))
+            d.ellipse((body_center[0] - 28*S, body_center[1] - 2*S, body_center[0] - 22*S, body_center[1] + 5*S), fill=glow)
+            for yy in (ground_y - 10*S, ground_y - 4*S):
+                d.arc((root_x - 30*S, yy - 5*S, root_x + 26*S, yy + 8*S), start=190, end=350, fill=_with_alpha(accent, 120), width=max(1, int(1*S)))
+        elif any(token in name for token in ["glass", "warden", "canopy"]):
+            # Glass antler branches and translucent cloak triangle.
+            for sx in (-1, 1):
+                base = (head_center[0] + sx*12*S, head_center[1] - 23*S)
+                d.line([base, (base[0] + sx*13*S, base[1] - 17*S)], fill=glow, width=max(1, int(2*S)))
+                d.line([(base[0] + sx*7*S, base[1] - 9*S), (base[0] + sx*18*S, base[1] - 13*S)], fill=glow, width=max(1, int(1.3*S)))
+            d.polygon([(body_center[0] - 25*S, body_center[1] - 7*S), (body_center[0] + 25*S, body_center[1] - 7*S), (body_center[0] + 2*S, body_center[1] + 28*S)], fill=_with_alpha(glow, 64), outline=_with_alpha(accent, 150))
+        elif name in {"guardian", "heavy_guardian"}:
+            # Broad shoulder guard + hip plate reads as a defensive NPC even in idle.
+            d.rounded_rectangle((body_center[0] - 24*S, body_center[1] - 14*S, body_center[0] - 7*S, body_center[1] - 3*S), radius=4*S, fill=pal["metal"], outline=outline, width=max(1, int(1.0*S)))
+            d.rounded_rectangle((body_center[0] + 11*S, body_center[1] - 14*S, body_center[0] + 28*S, body_center[1] - 3*S), radius=4*S, fill=pal["metal"], outline=outline, width=max(1, int(1.0*S)))
+            d.rounded_rectangle((body_center[0] - 23*S, body_center[1] + 3*S, body_center[0] + 24*S, body_center[1] + 12*S), radius=3*S, fill=_with_alpha(accent, 185), outline=outline, width=max(1, int(0.9*S)))
+        elif name in {"runner", "scout_runner"}:
+            # Thin antenna fin and ankle streamers.
+            d.polygon([(head_center[0] - 13*S, head_center[1] - 29*S), (head_center[0] + 3*S, head_center[1] - 42*S), (head_center[0] - 1*S, head_center[1] - 27*S)], fill=accent, outline=outline)
+            for y in (ground_y - 14*S, ground_y - 7*S):
+                d.line([(root_x - 24*S, y), (root_x - 42*S, y + 3*S)], fill=_with_alpha(accent, 145), width=max(1, int(1.6*S)))
+        elif name in {"diver", "swimmer"}:
+            # Bubble helmet ring and fin-like boots.
+            d.ellipse((head_center[0] - 27*S, head_center[1] - 24*S, head_center[0] + 30*S, head_center[1] + 22*S), outline=_with_alpha(glow, 120), width=max(1, int(1.6*S)))
+            for x in (root_x - 12*S, root_x + 11*S):
+                d.polygon([(x, ground_y - 2*S), (x + 16*S, ground_y + 5*S), (x - 2*S, ground_y + 7*S)], fill=_with_alpha(accent, 160), outline=outline)
+        elif name in {"caster", "radio_mage"}:
+            # Floating tuning halo and spell mote.
+            d.arc((head_center[0] - 23*S, head_center[1] - 34*S, head_center[0] + 25*S, head_center[1] - 9*S), start=190, end=350, fill=_with_alpha(accent, 180), width=max(1, int(1.6*S)))
+            d.ellipse((head_center[0] + 25*S, head_center[1] - 26*S, head_center[0] + 33*S, head_center[1] - 18*S), fill=_with_alpha(glow, 210), outline=outline)
+        elif name in {"engineer", "field_mechanic"}:
+            # Backpack battery and little wrench badge.
+            d.rounded_rectangle((body_center[0] - 29*S, body_center[1] - 7*S, body_center[0] - 19*S, body_center[1] + 19*S), radius=3*S, fill=pal["metal"], outline=outline, width=max(1, int(1.0*S)))
+            d.line([(body_center[0] + 13*S, body_center[1] - 4*S), (body_center[0] + 26*S, body_center[1] + 8*S)], fill=accent, width=max(1, int(2*S)))
+            d.ellipse((body_center[0] + 23*S, body_center[1] + 5*S, body_center[0] + 29*S, body_center[1] + 11*S), outline=outline, width=max(1, int(1*S)))
+        elif name in {"medic", "field_medic"}:
+            # Cross badge and soft backpack pack.
+            d.rounded_rectangle((body_center[0] - 28*S, body_center[1] - 6*S, body_center[0] - 18*S, body_center[1] + 17*S), radius=3*S, fill=_with_alpha(accent, 130), outline=outline, width=max(1, int(1.0*S)))
+            bx, by = body_center[0] + 8*S, body_center[1] + 1*S
+            d.rounded_rectangle((bx - 8*S, by - 2*S, bx + 8*S, by + 3*S), radius=1.5*S, fill=accent)
+            d.rounded_rectangle((bx - 2*S, by - 8*S, bx + 3*S, by + 8*S), radius=1.5*S, fill=accent)
+        elif name in {"miner", "cavern_miner"}:
+            # Headlamp + tool roll.
+            d.rounded_rectangle((head_center[0] - 18*S, head_center[1] - 25*S, head_center[0] + 16*S, head_center[1] - 18*S), radius=3*S, fill=pal["metal"], outline=outline, width=max(1, int(1.0*S)))
+            d.ellipse((head_center[0] + 5*S, head_center[1] - 29*S, head_center[0] + 15*S, head_center[1] - 19*S), fill=glow, outline=outline, width=max(1, int(0.8*S)))
+            d.polygon([(head_center[0] + 14*S, head_center[1] - 26*S), (head_center[0] + 45*S, head_center[1] - 34*S), (head_center[0] + 45*S, head_center[1] - 16*S)], fill=_with_alpha(glow, 42))
+        elif name in {"archivist", "map_keeper"}:
+            # Scroll satchel and paper tab.
+            d.rounded_rectangle((body_center[0] - 30*S, body_center[1] - 4*S, body_center[0] - 17*S, body_center[1] + 17*S), radius=3*S, fill=_with_alpha(accent, 160), outline=outline, width=max(1, int(1.0*S)))
+            d.rectangle((body_center[0] - 28*S, body_center[1] - 2*S, body_center[0] - 18*S, body_center[1] + 4*S), fill=_rgba("#F3E8C8"), outline=outline, width=max(1, int(0.7*S)))
 
     def _leg_chain(self, hip: Point, upper_len: float, lower_len: float, a1: float, a2: float) -> Tuple[Point, Point]:
         knee = add(hip, vec(upper_len, a1))
@@ -458,7 +988,7 @@ class SideRobotGenerator:
         bg = (0, 0, 0, 0) if background is None else background
         img = Image.new("RGBA", (W, H), bg)
         S = float(scale)
-        pal = self.PALETTE
+        pal = self._palette_for_spec(spec)
         p = self.pose_for_animation(animation, frame_index, frame_count)
         ground_y = (101.0 + p.root_y) * S
         root_x = (62.0 + p.root_x) * S
@@ -476,6 +1006,87 @@ class SideRobotGenerator:
             for i in range(4):
                 y = (49 + i * 12 + math.sin(frame_index + i) * 2) * S
                 d.line([(14 * S, y), ((43 - i * 3) * S, y - 2 * S)], fill=(12, 235, 255, 90), width=max(1, int(1.6 * S)))
+        if animation == "swim":
+            for i in range(4):
+                x = (24 + i * 18 + math.sin(frame_index + i) * 2) * S
+                y = (83 + i % 2 * 6) * S
+                d.arc((x, y, x + 18 * S, y + 9 * S), start=180, end=358, fill=(89, 210, 255, 92), width=max(1, int(1.1 * S)))
+        if animation == "interact":
+            pulse = math.sin((0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)) * math.pi)
+            if pulse > 0.05:
+                d.line([(94 * S, 49 * S), (107 * S, 42 * S)], fill=(255, 241, 150, int(140 * pulse)), width=max(1, int(1.5 * S)))
+                d.line([(96 * S, 61 * S), (112 * S, 61 * S)], fill=(255, 241, 150, int(140 * pulse)), width=max(1, int(1.5 * S)))
+        if animation == "block":
+            d.rounded_rectangle((31 * S, 43 * S, 43 * S, 85 * S), radius=4 * S, fill=(197, 205, 232, 165), outline=pal["outline"], width=max(1, int(1.0 * S)))
+
+        # Review-only action FX. These are intentionally simple read-at-a-glance
+        # effects that make the generated sheet useful before Rust selects rows.
+        if animation in {"land", "stomp"}:
+            impact_t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+            impact = 1.0 - min(1.0, abs(impact_t - 0.52) / 0.52)
+            for i in range(3):
+                rx = (18 + i * 12 + 20 * impact) * S
+                ry = (2.2 + i * 0.7) * S
+                alpha = int(86 * impact * (1.0 - i * 0.18))
+                if alpha > 0:
+                    d.arc((root_x - rx, ground_y - ry, root_x + rx, ground_y + ry), start=190, end=350, fill=_with_alpha(pal["accent"], alpha), width=max(1, int(1.1 * S)))
+        if animation in {"slide", "roll"}:
+            for i in range(4):
+                alpha = 70 - i * 13
+                x0 = (28 - i * 8) * S
+                y = (96 + i * 3) * S
+                d.line([(x0, y), (x0 - (16 + i * 3) * S, y + 4 * S)], fill=(210, 206, 190, alpha), width=max(1, int(1.2 * S)))
+        if animation == "pickup":
+            lift_t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+            obj_y = (93 - 36 * smoothstep(clamp((lift_t - 0.30) / 0.55, 0.0, 1.0))) * S
+            obj_x = (91 - 8 * smoothstep(clamp(lift_t / 0.55, 0.0, 1.0))) * S
+            d.rounded_rectangle((obj_x - 5 * S, obj_y - 5 * S, obj_x + 5 * S, obj_y + 5 * S), radius=2 * S, fill=_with_alpha(pal["accent"], 200), outline=pal["outline"], width=max(1, int(0.8 * S)))
+        if animation == "throw":
+            throw_t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+            if throw_t > 0.18:
+                arc_t = smoothstep(clamp((throw_t - 0.18) / 0.74, 0.0, 1.0))
+                obj_x = (73 + 45 * arc_t) * S
+                obj_y = (52 - 18 * math.sin(arc_t * math.pi) + 18 * arc_t) * S
+                d.ellipse((obj_x - 4 * S, obj_y - 4 * S, obj_x + 4 * S, obj_y + 4 * S), fill=_with_alpha(pal["accent"], 210), outline=pal["outline"], width=max(1, int(0.8 * S)))
+                d.arc((66 * S, 34 * S, 126 * S, 85 * S), start=205, end=314, fill=_with_alpha(pal["accent"], 78), width=max(1, int(1.0 * S)))
+        if animation in {"aim", "shoot"}:
+            tx, ty = 111 * S, 51 * S
+            a = 110 if animation == "aim" else 170
+            d.ellipse((tx - 6 * S, ty - 6 * S, tx + 6 * S, ty + 6 * S), outline=_with_alpha(pal["visor_glow"], a), width=max(1, int(1.0 * S)))
+            d.line([(tx - 9 * S, ty), (tx - 3 * S, ty)], fill=_with_alpha(pal["visor_glow"], a), width=max(1, int(0.9 * S)))
+            d.line([(tx + 3 * S, ty), (tx + 9 * S, ty)], fill=_with_alpha(pal["visor_glow"], a), width=max(1, int(0.9 * S)))
+        if animation == "shoot":
+            flash = 1.0 - smoothstep(clamp((0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)) / 0.50, 0.0, 1.0))
+            if flash > 0.05:
+                mx, my = 96 * S, 54 * S
+                d.polygon([(mx, my), (mx + 22 * S * flash, my - 7 * S), (mx + 18 * S * flash, my + 6 * S)], fill=(255, 238, 126, int(205 * flash)))
+        if animation in {"charge", "cast"}:
+            spell_t = 0.0 if frame_count <= 1 else frame_index / float(frame_count - 1)
+            radius = (11 + 13 * smoothstep(spell_t)) * S
+            cx = (92 if animation == "charge" else 98) * S
+            cy = (57 if animation == "charge" else 45) * S
+            alpha = 90 + int(70 * (0.5 + 0.5 * math.sin(spell_t * math.tau * 3.0)))
+            d.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), outline=_with_alpha(pal["accent"], alpha), width=max(1, int(1.5 * S)))
+            d.ellipse((cx - 3 * S, cy - 3 * S, cx + 3 * S, cy + 3 * S), fill=_with_alpha(pal["visor_glow"], alpha))
+        if animation == "celebrate":
+            for i, (dx, dy) in enumerate([(-20, -35), (0, -41), (21, -34), (33, -20), (-30, -18)]):
+                phase = (frame_index + i) % max(1, frame_count)
+                alpha = 80 + int(90 * (phase / max(1, frame_count - 1)))
+                x = root_x + dx * S
+                y = ground_y + dy * S + phase * 1.4 * S
+                color = pal["accent"] if i % 2 else pal["visor_glow"]
+                d.rectangle((x - 2 * S, y - 2 * S, x + 2 * S, y + 2 * S), fill=_with_alpha(color, min(210, alpha)))
+        if animation == "sleep":
+            for i in range(3):
+                zt = ((frame_index + i * 2) % max(1, frame_count)) / max(1, frame_count - 1)
+                x = (83 + i * 8) * S
+                y = (42 - zt * 24) * S
+                d.text((x, y), "Z", fill=_with_alpha(pal["visor_glow"], int(150 * (1.0 - zt * 0.45))))
+        if animation == "hover":
+            flame = 0.6 + 0.4 * math.sin(frame_index * 1.7)
+            for x in (54, 73):
+                d.polygon([(x * S, 101 * S), ((x - 4) * S, (116 + 6 * flame) * S), ((x + 4) * S, (116 + 6 * flame) * S)], fill=_with_alpha(pal["visor_glow"], int(150 * flame)))
+                d.polygon([(x * S, 105 * S), ((x - 2) * S, (114 + 4 * flame) * S), ((x + 2) * S, (114 + 4 * flame) * S)], fill=(255, 245, 166, int(160 * flame)))
 
         character_img = img if animation not in {"blink_out", "blink_in"} else Image.new("RGBA", (W, H), (0, 0, 0, 0))
         character_draw = ImageDraw.Draw(character_img)
@@ -512,6 +1123,9 @@ class SideRobotGenerator:
         draw_rotated_rounded_rect(character_img, body_center, (spec.body_w * S, spec.body_h * S), body_angle, 7 * S, pal["shell"], pal["outline"], outline)
         draw_rotated_rounded_rect(character_img, (body_center[0] + 3 * S, body_center[1] - 1 * S), (10 * S, 9 * S), body_angle, 2.5 * S, pal["accent"], pal["outline"], outline * 0.45)
         self._draw_rigid_head(character_img, head_center, spec, pal, S, head_angle, p.blink, p.eye_squint, p.dead)
+
+        # Archetype accessories sit over the base body but under the front hand.
+        self._draw_archetype_accessories(character_img, character_draw, spec, pal, S, root_x, ground_y, body_center, head_center)
 
         # Near/front arm and weapon after the torso/head.
         self._draw_robot_arm(character_img, character_draw, shoulder_near, p.near_arm_upper, p.near_arm_lower, pal["shell"], spec, pal, S, outline, p.slash, p.slash_arc)

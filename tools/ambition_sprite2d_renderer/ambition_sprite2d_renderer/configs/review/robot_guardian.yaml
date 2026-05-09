@@ -1,0 +1,23 @@
+target: robot
+name: robot_guardian
+seed: 29
+archetype: guardian
+variant: heavy_defensive_variant
+animations:
+  - idle
+  - walk
+  - block
+  - slash
+  - hit
+  - death
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 120

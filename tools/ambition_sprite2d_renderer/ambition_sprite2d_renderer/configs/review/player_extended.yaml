@@ -1,0 +1,53 @@
+target: robot
+name: player_extended
+seed: 7
+archetype: cute_scout
+variant: extended_mechanics_review
+animations:
+  - idle
+  - walk
+  - run
+  - jump
+  - fall
+  - slash
+  - hit
+  - death
+  - blink_out
+  - blink_in
+  - dash
+  - crouch
+  - wall_slide
+  - wall_jump
+  - ledge_grab
+  - climb
+  - swim
+  - interact
+  - talk
+  - block
+  - land
+  - roll
+  - slide
+  - crouch_walk
+  - pickup
+  - throw
+  - aim
+  - shoot
+  - charge
+  - cast
+  - celebrate
+  - sit
+  - sleep
+  - hover
+  - stomp
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 140
+  crop: true

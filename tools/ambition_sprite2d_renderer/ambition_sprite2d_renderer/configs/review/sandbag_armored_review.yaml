@@ -1,0 +1,24 @@
+target: sandbag
+name: sandbag_armored_review
+seed: 17
+archetype: heavy_dummy
+variant: armored
+animations:
+  - idle
+  - hit
+  - block
+  - land
+  - stomp
+  - death
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 132
+  crop: false

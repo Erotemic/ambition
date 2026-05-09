@@ -1,0 +1,40 @@
+target: robot
+name: player_traversal_review
+seed: 17
+archetype: runner
+variant: traversal_actions
+animations:
+  - idle
+  - walk
+  - run
+  - jump
+  - fall
+  - slash
+  - hit
+  - death
+  - blink_out
+  - blink_in
+  - dash
+  - crouch
+  - crouch_walk
+  - slide
+  - roll
+  - land
+  - wall_slide
+  - wall_jump
+  - ledge_grab
+  - climb
+  - hover
+  - stomp
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 142
+  crop: true

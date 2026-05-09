@@ -1,0 +1,31 @@
+target: sandbag
+name: sandbag
+seed: 3
+archetype: training_dummy
+variant: classic
+animations:
+  - idle
+  - walk
+  - run
+  - jump
+  - fall
+  - slash
+  - hit
+  - death
+  - blink_out
+  - blink_in
+  - dash
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 100
+  # Keep runtime-compatible 128x128 frames for the dummy sheet.  Other
+  # character sheets can continue using union cropping for tighter atlases.
+  crop: false

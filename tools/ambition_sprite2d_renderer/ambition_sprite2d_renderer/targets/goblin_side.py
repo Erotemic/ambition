@@ -116,6 +116,10 @@ class SideGoblinGenerator:
         "blink_out": {"frames": 6, "duration_ms": 62},
         "blink_in": {"frames": 6, "duration_ms": 62},
         "dash": {"frames": 6, "duration_ms": 65},
+        "talk": {"frames": 8, "duration_ms": 110},
+        "interact": {"frames": 6, "duration_ms": 90},
+        "celebrate": {"frames": 8, "duration_ms": 92},
+        "block": {"frames": 6, "duration_ms": 85},
     }
 
     PALETTES = {
@@ -153,36 +157,111 @@ class SideGoblinGenerator:
             "metal": rgba("#DADCE4"),
             "shadow": rgba("#000000", 34),
         },
+        "cave": {
+            "skin": rgba("#5F6F68"), "skin_top": rgba("#8EA29A"), "skin_shadow": rgba("#35423E"), "belly": rgba("#778A82"),
+            "cloth": rgba("#394BA0"), "cloth_dark": rgba("#242C69"), "eye": rgba("#6BE9FF"), "eye_glow": rgba("#D9FFFF"),
+            "outline": rgba("#15171B"), "mouth": rgba("#251D1D"), "tooth": rgba("#F4EBD5"), "weapon": rgba("#75B8FF"),
+            "weapon_dark": rgba("#2D5E98"), "metal": rgba("#CDD3DA"), "shadow": rgba("#000000", 36),
+        },
+        "desert": {
+            "skin": rgba("#A7A34B"), "skin_top": rgba("#D4C76B"), "skin_shadow": rgba("#67632B"), "belly": rgba("#BDB65D"),
+            "cloth": rgba("#B06B2A"), "cloth_dark": rgba("#72451D"), "eye": rgba("#FF7059"), "eye_glow": rgba("#FFD0C7"),
+            "outline": rgba("#15171B"), "mouth": rgba("#2A1B18"), "tooth": rgba("#F4EBD5"), "weapon": rgba("#FFB15E"),
+            "weapon_dark": rgba("#9A5A25"), "metal": rgba("#E7DDC4"), "shadow": rgba("#000000", 34),
+        },
+        "frost": {
+            "skin": rgba("#6EA0A3"), "skin_top": rgba("#A8DDE0"), "skin_shadow": rgba("#3B686B"), "belly": rgba("#85BFC0"),
+            "cloth": rgba("#5063B8"), "cloth_dark": rgba("#2B3677"), "eye": rgba("#FFFFFF"), "eye_glow": rgba("#B6FFF5"),
+            "outline": rgba("#15171B"), "mouth": rgba("#1E2527"), "tooth": rgba("#F4EBD5"), "weapon": rgba("#9FEAFF"),
+            "weapon_dark": rgba("#37798C"), "metal": rgba("#E2F6FA"), "shadow": rgba("#000000", 34),
+        },
+        "brute": {
+            "skin": rgba("#7B8F35"), "skin_top": rgba("#A8C24D"), "skin_shadow": rgba("#4D5C23"), "belly": rgba("#8DA544"),
+            "cloth": rgba("#8A3A2B"), "cloth_dark": rgba("#5C241B"), "eye": rgba("#FF7059"), "eye_glow": rgba("#FFD0C7"),
+            "outline": rgba("#15171B"), "mouth": rgba("#2A1B18"), "tooth": rgba("#F4EBD5"), "weapon": rgba("#FF8A5E"),
+            "weapon_dark": rgba("#A0432D"), "metal": rgba("#E2D3C0"), "shadow": rgba("#000000", 38),
+        },
+        "shaman": {
+            "skin": rgba("#4C8A5B"), "skin_top": rgba("#78C987"), "skin_shadow": rgba("#2E5D37"), "belly": rgba("#6BAB73"),
+            "cloth": rgba("#7E4FCC"), "cloth_dark": rgba("#4C2C87"), "eye": rgba("#FFE36E"), "eye_glow": rgba("#FFF6B0"),
+            "outline": rgba("#15171B"), "mouth": rgba("#261D22"), "tooth": rgba("#F4EBD5"), "weapon": rgba("#B98CFF"),
+            "weapon_dark": rgba("#6A2CC1"), "metal": rgba("#DADCE4"), "shadow": rgba("#000000", 34),
+        },
+        "chieftain": {
+            "skin": rgba("#6E9238"), "skin_top": rgba("#B4CF55"), "skin_shadow": rgba("#3F5C25"), "belly": rgba("#93AA47"),
+            "cloth": rgba("#C07039"), "cloth_dark": rgba("#6B2F1F"), "eye": rgba("#FFDA66"), "eye_glow": rgba("#FFF0A8"),
+            "outline": rgba("#15171B"), "mouth": rgba("#291815"), "tooth": rgba("#F4EBD5"), "weapon": rgba("#FFB15E"),
+            "weapon_dark": rgba("#934A25"), "metal": rgba("#E7D2A8"), "shadow": rgba("#000000", 38),
+        },
+        "bard": {
+            "skin": rgba("#5B9A56"), "skin_top": rgba("#8FD36F"), "skin_shadow": rgba("#376333"), "belly": rgba("#78B763"),
+            "cloth": rgba("#D85EA5"), "cloth_dark": rgba("#842E69"), "eye": rgba("#FFE36E"), "eye_glow": rgba("#FFF6B0"),
+            "outline": rgba("#15171B"), "mouth": rgba("#261D22"), "tooth": rgba("#F4EBD5"), "weapon": rgba("#FFD65A"),
+            "weapon_dark": rgba("#A96B22"), "metal": rgba("#DADCE4"), "shadow": rgba("#000000", 34),
+        },
     }
 
     def sample_spec(self, seed: int, archetype: str = "default", held_item: Optional[str] = None) -> GoblinSpec:
         rng = random.Random(seed)
-        palette_name = "classic" if archetype == "default" else "forest"
+        archetype_key = str(archetype or "default").lower()
+        palette_name = "classic"
+        for token, palette in [
+            ("chieftain", "chieftain"),
+            ("chief", "chieftain"),
+            ("bard", "bard"),
+            ("drummer", "bard"),
+            ("brute", "brute"),
+            ("shaman", "shaman"),
+            ("cave", "cave"),
+            ("desert", "desert"),
+            ("frost", "frost"),
+            ("scout", "forest"),
+            ("forest", "forest"),
+        ]:
+            if token in archetype_key:
+                palette_name = palette
+                break
+        if archetype != "default" and palette_name == "classic":
+            palette_name = "forest"
         if held_item is None:
-            held_item = rng.choice(["dagger", "spear", "sword"])
+            if any(token in archetype_key for token in ["chieftain", "chief", "brute"]):
+                held_item = "hammer"
+            elif any(token in archetype_key for token in ["shaman", "bard", "drummer"]):
+                held_item = "staff"
+            elif "scout" in archetype_key:
+                held_item = "bow"
+            else:
+                held_item = rng.choice(["dagger", "spear", "sword"])
+        scale = 1.0
+        if any(token in archetype_key for token in ["chieftain", "chief", "brute"]):
+            scale = 1.14
+        elif "scout" in archetype_key:
+            scale = 0.93
+        elif any(token in archetype_key for token in ["shaman", "bard", "drummer"]):
+            scale = 1.02
         return GoblinSpec(
             target=self.name,
             seed=seed,
             archetype=archetype,
             held_item=held_item,
             palette_name=palette_name,
-            head_w=rng.uniform(29.0, 32.0),
-            head_h=rng.uniform(23.5, 26.0),
-            snout_len=rng.uniform(7.0, 8.5),
-            ear_w=rng.uniform(15.0, 17.0),
-            ear_h=rng.uniform(11.0, 13.0),
-            body_w=rng.uniform(21.0, 23.0),
-            body_h=rng.uniform(18.0, 20.0),
-            arm_upper=rng.uniform(11.5, 13.0),
-            arm_lower=rng.uniform(10.5, 12.0),
-            leg_upper=rng.uniform(11.0, 13.0),
-            leg_lower=rng.uniform(10.5, 12.0),
-            hand_r=rng.uniform(3.2, 3.8),
-            foot_w=rng.uniform(10.5, 12.0),
-            foot_h=rng.uniform(4.8, 5.6),
-            eye_w=rng.uniform(4.5, 5.4),
-            eye_h=rng.uniform(7.2, 8.8),
-            tooth_size=rng.uniform(2.4, 3.2),
+            head_w=rng.uniform(29.0, 32.0) * scale,
+            head_h=rng.uniform(23.5, 26.0) * scale,
+            snout_len=rng.uniform(7.0, 8.5) * scale,
+            ear_w=rng.uniform(15.0, 17.0) * scale,
+            ear_h=rng.uniform(11.0, 13.0) * scale,
+            body_w=rng.uniform(21.0, 23.0) * scale,
+            body_h=rng.uniform(18.0, 20.0) * scale,
+            arm_upper=rng.uniform(11.5, 13.0) * scale,
+            arm_lower=rng.uniform(10.5, 12.0) * scale,
+            leg_upper=rng.uniform(11.0, 13.0) * scale,
+            leg_lower=rng.uniform(10.5, 12.0) * scale,
+            hand_r=rng.uniform(3.2, 3.8) * scale,
+            foot_w=rng.uniform(10.5, 12.0) * scale,
+            foot_h=rng.uniform(4.8, 5.6) * scale,
+            eye_w=rng.uniform(4.5, 5.4) * scale,
+            eye_h=rng.uniform(7.2, 8.8) * scale,
+            tooth_size=rng.uniform(2.4, 3.2) * scale,
         )
 
     def pose_for_animation(self, animation: str, frame_index: int, frame_count: int) -> GoblinPose:
@@ -196,6 +275,39 @@ class SideGoblinGenerator:
             p.head_tilt = -3.0 + bob * 1.0
             p.blink = frame_index == frame_count // 2
             p.eye_squint = 0.10 if frame_index in {1, frame_count - 2} else 0.0
+        elif animation == "talk":
+            bob = abs(wave)
+            p.body_bob = bob * 0.9
+            p.head_tilt = -4.0 + wave * 3.0
+            p.near_arm_upper = 24.0 + wave * 10.0
+            p.near_arm_lower = -18.0 + wave * 8.0
+            p.far_arm_upper = 178.0 - wave * 7.0
+            p.far_arm_lower = 146.0
+            p.eye_squint = 0.06 + 0.06 * bob
+        elif animation == "interact":
+            reach = smoothstep(clamp(t / 0.55, 0.0, 1.0))
+            p.body_tilt = -4.0 * reach
+            p.head_tilt = -3.0 * reach
+            p.near_arm_upper = lerp(18.0, -20.0, reach)
+            p.near_arm_lower = lerp(8.0, -32.0, reach)
+        elif animation == "celebrate":
+            lift = math.sin(t * math.pi)
+            p.body_bob = -2.0 * lift
+            p.body_tilt = wave * 6.0
+            p.head_tilt = -wave * 5.0
+            p.near_arm_upper = -62.0 + wave * 8.0
+            p.near_arm_lower = -46.0
+            p.far_arm_upper = 214.0 - wave * 8.0
+            p.far_arm_lower = 210.0
+            p.eye_squint = 0.02
+        elif animation == "block":
+            p.body_tilt = -10.0
+            p.head_tilt = -8.0
+            p.near_arm_upper = -24.0
+            p.near_arm_lower = -52.0
+            p.far_arm_upper = 156.0
+            p.far_arm_lower = 188.0
+            p.eye_squint = 0.18
         elif animation == "blink_out":
             charge = smoothstep(clamp(t / 0.46, 0.0, 1.0))
             burst = smoothstep(clamp((t - 0.30) / 0.48, 0.0, 1.0))
@@ -430,6 +542,22 @@ class SideGoblinGenerator:
             tip = add(handle, vec(18 * S, angle - 6))
             d.line([handle, tip], fill=pal["outline"], width=max(1, int(4.0 * S)))
             d.line([handle, tip], fill=pal["metal"], width=max(1, int(2.0 * S)))
+        elif item == "hammer":
+            tip = add(handle, vec(16 * S, angle - 4))
+            d.line([handle, tip], fill=pal["outline"], width=max(1, int(4.0 * S)))
+            d.line([handle, tip], fill=pal["weapon_dark"], width=max(1, int(2.0 * S)))
+            head = add(tip, vec(4 * S, angle - 5))
+            d.rounded_rectangle((head[0] - 5*S, head[1] - 5*S, head[0] + 8*S, head[1] + 5*S), radius=2*S, fill=pal["metal"], outline=pal["outline"], width=max(1, int(1.0*S)))
+        elif item == "staff":
+            tip = add(handle, vec(22 * S, angle + 1))
+            d.line([handle, tip], fill=pal["outline"], width=max(1, int(3.0 * S)))
+            d.line([handle, tip], fill=pal["weapon_dark"], width=max(1, int(1.4 * S)))
+            d.ellipse((tip[0] - 5*S, tip[1] - 5*S, tip[0] + 5*S, tip[1] + 5*S), fill=pal["eye"], outline=pal["outline"], width=max(1, int(0.9*S)))
+        elif item == "bow":
+            tip = add(handle, vec(16 * S, angle - 4))
+            d.arc((tip[0] - 4*S, tip[1] - 17*S, tip[0] + 14*S, tip[1] + 17*S), start=250, end=105, fill=pal["weapon"], width=max(1, int(2.0*S)))
+            d.line([(tip[0] + 6*S, tip[1] - 12*S), (tip[0] + 6*S, tip[1] + 12*S)], fill=pal["metal"], width=max(1, int(0.8*S)))
+            d.line([handle, (tip[0] + 19*S, tip[1])], fill=pal["metal"], width=max(1, int(1.1*S)))
         else:
             tip = add(handle, vec(12 * S, angle - 10))
             d.line([handle, tip], fill=pal["outline"], width=max(1, int(3.4 * S)))
@@ -541,6 +669,49 @@ class SideGoblinGenerator:
                 resolved.putalpha(a)
                 base.alpha_composite(resolved)
 
+
+    def _draw_variant_accessories(self, d: ImageDraw.ImageDraw, spec: GoblinSpec, pal: Dict[str, Color], S: float, root_x: float, ground_y: float, body_center: Point, head_center: Point) -> None:
+        name = (spec.archetype or "").lower()
+        outline = pal["outline"]
+        if any(token in name for token in ["chieftain", "chief"]):
+            # Crude crown, boss pauldrons, and rally banner silhouette.
+            for dx in (-12, 0, 12):
+                d.polygon([(head_center[0] + dx*S - 7*S, head_center[1] - 27*S), (head_center[0] + dx*S, head_center[1] - 42*S), (head_center[0] + dx*S + 7*S, head_center[1] - 27*S)], fill=pal["weapon"], outline=outline)
+            d.rounded_rectangle((body_center[0] - 22*S, body_center[1] - 14*S, body_center[0] - 5*S, body_center[1] - 3*S), radius=4*S, fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.rounded_rectangle((body_center[0] + 8*S, body_center[1] - 14*S, body_center[0] + 25*S, body_center[1] - 3*S), radius=4*S, fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.line([(body_center[0] - 24*S, body_center[1] + 15*S), (body_center[0] - 24*S, body_center[1] - 26*S)], fill=outline, width=max(1, int(2*S)))
+            d.polygon([(body_center[0] - 24*S, body_center[1] - 26*S), (body_center[0] - 5*S, body_center[1] - 19*S), (body_center[0] - 24*S, body_center[1] - 12*S)], fill=pal["cloth"], outline=outline)
+        elif any(token in name for token in ["bard", "drummer"]):
+            # Ear tassels and little drum/sound charm for the music faction tie-in.
+            d.arc((head_center[0] - 24*S, head_center[1] - 34*S, head_center[0] + 24*S, head_center[1] - 8*S), start=205, end=335, fill=pal["weapon"], width=max(1, int(1.8*S)))
+            for dx in (-22, 24):
+                d.line([(head_center[0] + dx*S, head_center[1] - 13*S), (head_center[0] + dx*S, head_center[1] + 5*S)], fill=pal["cloth"], width=max(1, int(2*S)))
+                d.ellipse((head_center[0] + dx*S - 3*S, head_center[1] + 4*S, head_center[0] + dx*S + 3*S, head_center[1] + 10*S), fill=pal["weapon"], outline=outline)
+            d.ellipse((body_center[0] - 24*S, body_center[1] + 2*S, body_center[0] - 6*S, body_center[1] + 20*S), fill=pal["cloth_dark"], outline=outline, width=max(1, int(1*S)))
+            d.line([(body_center[0] - 22*S, body_center[1] + 10*S), (body_center[0] - 8*S, body_center[1] + 9*S)], fill=pal["weapon"], width=max(1, int(1*S)))
+        elif "brute" in name:
+            d.rounded_rectangle((body_center[0] - 19*S, body_center[1] - 13*S, body_center[0] - 4*S, body_center[1] - 3*S), radius=4*S, fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.rounded_rectangle((body_center[0] + 7*S, body_center[1] - 13*S, body_center[0] + 23*S, body_center[1] - 3*S), radius=4*S, fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            for dx in (-8, 2, 12):
+                d.polygon([(head_center[0] + dx*S, head_center[1] - 28*S), (head_center[0] + (dx+5)*S, head_center[1] - 40*S), (head_center[0] + (dx+10)*S, head_center[1] - 28*S)], fill=pal["tooth"], outline=outline)
+        elif "shaman" in name:
+            d.arc((head_center[0] - 22*S, head_center[1] - 35*S, head_center[0] + 23*S, head_center[1] - 10*S), start=195, end=345, fill=pal["eye"], width=max(1, int(1.8*S)))
+            for dx, dy in [(-18, -34), (3, -39), (23, -31)]:
+                d.ellipse((head_center[0] + dx*S - 2*S, head_center[1] + dy*S - 2*S, head_center[0] + dx*S + 2*S, head_center[1] + dy*S + 2*S), fill=pal["eye_glow"])
+        elif "scout" in name:
+            d.polygon([(head_center[0] - 24*S, head_center[1] - 12*S), (head_center[0] + 11*S, head_center[1] - 25*S), (head_center[0] + 26*S, head_center[1] - 8*S), (head_center[0] + 6*S, head_center[1] - 13*S)], fill=pal["cloth"], outline=outline)
+            d.line([(body_center[0] - 16*S, body_center[1] - 3*S), (body_center[0] + 18*S, body_center[1] + 13*S)], fill=pal["cloth_dark"], width=max(1, int(2*S)))
+        elif "frost" in name:
+            d.rounded_rectangle((head_center[0] - 8*S, head_center[1] + 12*S, head_center[0] + 23*S, head_center[1] + 21*S), radius=3*S, fill=pal["cloth"], outline=outline, width=max(1, int(1*S)))
+            for dx in (-10, 6, 20):
+                d.line([(head_center[0] + dx*S, head_center[1] + 20*S), (head_center[0] + (dx-4)*S, head_center[1] + 29*S)], fill=pal["cloth"], width=max(1, int(2*S)))
+        elif "desert" in name:
+            d.rounded_rectangle((head_center[0] - 17*S, head_center[1] - 20*S, head_center[0] + 24*S, head_center[1] - 12*S), radius=4*S, fill=pal["cloth"], outline=outline, width=max(1, int(1*S)))
+            d.polygon([(head_center[0] + 17*S, head_center[1] - 18*S), (head_center[0] + 33*S, head_center[1] - 23*S), (head_center[0] + 24*S, head_center[1] - 11*S)], fill=pal["cloth"], outline=outline)
+        elif "cave" in name:
+            d.rounded_rectangle((body_center[0] - 20*S, body_center[1] - 3*S, body_center[0] - 9*S, body_center[1] + 15*S), radius=3*S, fill=pal["metal"], outline=outline, width=max(1, int(1*S)))
+            d.ellipse((head_center[0] + 12*S, head_center[1] - 25*S, head_center[0] + 19*S, head_center[1] - 18*S), fill=pal["eye_glow"], outline=outline, width=max(1, int(0.8*S)))
+
     def _render_highres(self, spec: GoblinSpec, animation: str, frame_index: int, frame_count: int, size: Tuple[int, int], background: Optional[Color], scale: int) -> Image.Image:
         W, H = size[0] * scale, size[1] * scale
         bg = (0, 0, 0, 0) if background is None else background
@@ -593,6 +764,7 @@ class SideGoblinGenerator:
 
         self._draw_body(character_img, body_center, spec, pal, S, p.body_tilt)
         self._draw_rigid_head(character_img, head_center, spec, pal, S, p.head_tilt, p.blink, p.eye_squint, p.dead)
+        self._draw_variant_accessories(character_draw, spec, pal, S, root_x, ground_y, body_center, head_center)
 
         # Near arm and weapon on top.
         elbow, hand = self._limb_chain(shoulder_near, spec.arm_upper * S, spec.arm_lower * S, p.near_arm_upper, p.near_arm_lower)

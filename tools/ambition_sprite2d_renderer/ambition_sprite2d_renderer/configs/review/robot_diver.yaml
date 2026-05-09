@@ -1,0 +1,29 @@
+target: robot
+name: robot_diver
+seed: 43
+archetype: diver
+variant: aquatic_review
+animations:
+  - idle
+  - walk
+  - run
+  - jump
+  - fall
+  - swim
+  - hover
+  - dash
+  - interact
+  - hit
+  - death
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 132
+  crop: true

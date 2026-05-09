@@ -22,6 +22,7 @@ Adapter (character lab) commands:
 python -m ambition_sprite2d_renderer list-targets        # adapter + tack-on targets
 python -m ambition_sprite2d_renderer draw-all            # render every job in configs/
 python -m ambition_sprite2d_renderer draw-canonicals     # canonical poses + contact sheet
+python -m ambition_sprite2d_renderer draw-review         # curated general-character + NPC review pass
 python -m ambition_sprite2d_renderer draw-entities       # non-character entity sprites
 python -m ambition_sprite2d_renderer spritesheet <cfg> <out>
 python -m ambition_sprite2d_renderer single <cfg> <out> --animation idle --frame-index 0
@@ -48,6 +49,7 @@ canonical sheet files into `crates/ambition_sandbox/assets/sprites/`.
 | Target | Animations | Job |
 |---|---|---|
 | `robot` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/robot.yaml` |
+| `toon` | idle, walk, run, jump, fall, talk, interact, slash, dash, celebrate, hit, death | `configs/review/*.yaml` |
 | `goblin` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/goblin.yaml` |
 | `boss` | rest, floor_slam, side_sweep, spike_halo, dash_echo, hit, death | `configs/boss.yaml` |
 | `robot25d` | (legacy 2.5D experiment) | — |
@@ -69,6 +71,29 @@ Procedural pale cloth sandbag character. Sparse output (only `idle`, `hit`,
 python -m ambition_sprite2d_renderer render sandbag
 python -m ambition_sprite2d_renderer render-publish sandbag
 ```
+
+
+## Character specs and review casts
+
+`CharacterJob` now accepts optional `name`, `output_name`, and `spec` fields.
+The `toon` target uses those `spec` overrides to author silhouette-first
+characters without inventing a brand new renderer per NPC. Example:
+
+```yaml
+target: toon
+name: Merchant Prototype
+output_name: merchant_prototype
+archetype: merchant_prototype
+spec:
+  torso_w: 31.5
+  leg_upper: 10.5
+```
+
+The curated review pass lives in `ambition_sprite2d_renderer/configs/review/`
+and is meant to answer the question, “do these feel like different characters?”
+Use `draw-review` to regenerate the current cast (`general_hero`,
+`kernel_guide`, `merchant_prototype`, `vault_keeper`, `architect`) along with
+a canonical contact sheet.
 
 ## Adding a new target
 

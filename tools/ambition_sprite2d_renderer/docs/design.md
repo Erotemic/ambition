@@ -2,42 +2,85 @@
 
 ## Direction
 
-This package is now organized around a target-neutral pipeline:
+The sprite renderer now uses one shared character pipeline for robot, goblin,
+boss, and sandbag:
 
 1. load a small YAML job,
 2. choose a target adapter,
-3. sample a deterministic character spec,
-4. render frames through the target generator,
+3. sample a deterministic spec,
+4. render animation frames,
 5. compose a labeled sprite sheet and manifest.
 
-The adapter layer keeps target-specific rendering code isolated while the CLI,
-manifest format, and YAML configuration stay stable.
+The adapter layer keeps target-specific drawing isolated while config shape,
+manifest shape, body metrics, canonical previews, and generated-sheet naming
+stay stable.
+
+## Shared animation vocabulary
+
+`animation_vocab.py` is the canonical place for row names. The core vocabulary
+matches the runtime character grid:
+
+```text
+idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash
+```
+
+The extended review vocabulary covers player mechanics that exist or are likely
+near-term but do not yet have a complete Rust animation selector:
+
+```text
+crouch, wall_slide, wall_jump, ledge_grab, climb, swim, interact, talk, block
+```
+
+Extended rows should be generated in Python first, reviewed visually, and then
+wired into Rust deliberately in a later integration pass.
 
 ## Robot target
 
-The robot target lives in `proc2d_character_lab/targets/robot25d.py`. It is the
-current polished target and should be treated as the design reference.
+The side-view robot remains the primary player-character design reference. It
+now supports the core runtime rows plus an extended review set for mechanics
+that previously fell back to weak or mismatched poses:
 
-The robot is a left-facing side-scroller enemy. It uses:
+- crouch / compressed idle,
+- wall slide,
+- wall jump,
+- ledge grab / pull-up,
+- climb,
+- swim,
+- interact,
+- talk,
+- block / guard.
 
-- a 3D-aware head and torso volume,
-- orthographic projection,
-- visor-local eye placement,
-- depth-aware limb ordering,
-- automatic overscan / fit-to-frame for wide poses,
-- labeled row export in `sheet.py`.
+`configs/robot.yaml` stays runtime-compatible. `configs/player_extended.yaml`
+is the review sheet for the richer set.
 
-The boost animation is explicitly staged for leftward acceleration: head and
-torso lead left, limbs trail right, and speed streaks stay behind the robot.
+## Sandbag target
 
-The death animation uses normal eyes at the start, transitions early to X eyes,
-and then fades the X as power drops.
+Sandbag is no longer only a tack-on renderer. `SandbagAdapter` wraps the same
+procedural sandbag drawing code behind `BaseAdapter`, and `configs/sandbag.yaml`
+renders an 11-row runtime-compatible sheet with `crop: false` so 128×128 cells
+are preserved.
 
-## Goblin target
+The legacy tack-on commands remain because they are still useful for the sparse
+idle/hit/death output and old runtime aliases:
 
-The goblin target is still backed by `legacy/goblin_legacy.py`. It remains
-useful for experimentation but is intentionally marked legacy because it still
-uses more ad-hoc 2D placement.
+```bash
+python -m ambition_sprite2d_renderer render sandbag --legacy-aliases
+```
+
+## Variants
+
+`draw-all` uses the config filename as the output stem. This allows several
+jobs for the same adapter without overwriting outputs:
+
+```text
+robot_spritesheet.png
+robot_runner_spritesheet.png
+robot_guardian_spritesheet.png
+player_extended_spritesheet.png
+```
+
+Future variants should normally be new YAML jobs first. Add new target code only
+when a variant needs a different body plan or renderer.
 
 ## Shared rig primitives
 
@@ -48,15 +91,15 @@ uses more ad-hoc 2D placement.
 - `FaceGuide`
 - `Rig.validate()`
 
-The robot target demonstrates the desired direction; future goblin work should
-migrate toward named sockets, consistent face guides, weapon sockets, and
-validator-friendly pose data.
+The robot target demonstrates the desired direction; future goblin and sandbag
+work should migrate toward named sockets, consistent face guides, weapon
+sockets, and validator-friendly pose data.
 
 ## Package standards
 
-- Keep target code in `proc2d_character_lab/targets/`.
-- Keep one-off historical prototypes in `proc2d_character_lab/legacy/`.
+- Keep target code in `ambition_sprite2d_renderer/targets/`.
+- Keep historical prototypes in `ambition_sprite2d_renderer/legacy/`.
 - Keep the adapter API small: `animations`, `sample_spec`, `render_frame`.
 - Keep YAML jobs human-editable and deterministic.
-- Keep generated sprite sheets and manifests outside the package, normally in an
-  `assets/` directory.
+- Keep generated sprite sheets and manifests outside the package, normally in
+  `generated/` or a deliberate asset install destination.

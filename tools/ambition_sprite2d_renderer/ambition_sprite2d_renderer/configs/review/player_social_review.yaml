@@ -1,0 +1,29 @@
+target: robot
+name: player_social_review
+seed: 37
+archetype: engineer
+variant: social_world_actions
+animations:
+  - idle
+  - walk
+  - interact
+  - talk
+  - pickup
+  - throw
+  - sit
+  - sleep
+  - celebrate
+  - hit
+  - death
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 142
+  crop: true

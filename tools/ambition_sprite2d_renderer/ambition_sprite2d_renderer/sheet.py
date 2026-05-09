@@ -71,7 +71,7 @@ def _measure_body_extent(frame: Image.Image) -> Dict[str, Any] | None:
 # aliased character edges are only slightly transparent, so without a small
 # pad bilinear sampling could clip them. Two pixels is enough at the current
 # 128px source frames.
-_CROP_PADDING = 2
+_DEFAULT_CROP_PADDING = 2
 
 
 def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
@@ -125,11 +125,15 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
                 union_max_y = max(union_max_y, y_max)
         rendered.append(row_frames)
 
-    if any_visible:
-        crop_min_x = max(0, union_min_x - _CROP_PADDING)
-        crop_min_y = max(0, union_min_y - _CROP_PADDING)
-        crop_max_x = min(src_fw, union_max_x + _CROP_PADDING)
-        crop_max_y = min(src_fh, union_max_y + _CROP_PADDING)
+    crop_padding = max(0, int(getattr(job.render, "crop_padding", _DEFAULT_CROP_PADDING)))
+    if not getattr(job.render, "crop", True):
+        crop_min_x, crop_min_y = 0, 0
+        crop_max_x, crop_max_y = src_fw, src_fh
+    elif any_visible:
+        crop_min_x = max(0, union_min_x - crop_padding)
+        crop_min_y = max(0, union_min_y - crop_padding)
+        crop_max_x = min(src_fw, union_max_x + crop_padding)
+        crop_max_y = min(src_fh, union_max_y + crop_padding)
     else:
         # Defensive fallback: completely transparent input keeps the original
         # canvas size so downstream code never sees a zero-sized frame.
@@ -146,9 +150,16 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
     font = _font(12)
     manifest: Dict[str, Any] = {
         "target": job.target,
+        "name": job.name,
+        "output_name": getattr(job, "output_name", None),
         "seed": job.seed,
         "archetype": job.archetype,
+        "variant": job.variant,
         "held_item": job.held_item,
+        "faction": job.faction,
+        "role": job.role,
+        "music_cue": job.music_cue,
+        "tags": list(job.tags),
         "frame_width": fw,
         "frame_height": fh,
         "label_width": label_w,
@@ -158,7 +169,8 @@ def build_spritesheet(job: CharacterJob) -> Tuple[Image.Image, Dict[str, Any]]:
             "source_frame_width": src_fw,
             "source_frame_height": src_fh,
             "offset": {"x": int(crop_min_x), "y": int(crop_min_y)},
-            "padding_px": _CROP_PADDING,
+            "enabled": bool(getattr(job.render, "crop", True)),
+            "padding_px": crop_padding,
         },
         "animations": {},
     }

@@ -1,0 +1,166 @@
+title: Music-Faction Leader Sprite Lineup
+notes: >-
+  Review-only character lineup keyed to music cues that already exist in
+  tools/ambition_music_renderer. This is a transitional spec: it keeps per-
+  character YAML jobs working, but gives faction/lair art a data-driven shape
+  similar to the music renderer.
+default_animations: [idle, walk, talk, interact, celebrate, hit, death]
+default_render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 2
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 120
+  crop: true
+  crop_padding: 2
+factions:
+  - id: goblin_cantina
+    display_name: Goblin Cantina
+    music_cue: first_goblin_tune_v2
+    music_source: tools/ambition_music_renderer/scores/active/first_goblin_tune_v2.music.yaml
+    palette_hint: rowdy green / brass / tavern-banner oranges
+    lair_hook: first combat lair, noisy training pit, boss goblin host
+    characters:
+      - id: goblin_cantina_chieftain
+        display_name: Fretjaw, Cantina Chieftain
+        target: goblin
+        archetype: chieftain_bard
+        held_item: hammer
+        role: leader
+        seed: 42024093
+        animations: [idle, walk, talk, slash, celebrate, hit, death]
+        notes: Leader for the faction currently represented by first_goblin_tune_v2.
+  - id: lofi_drift_hub
+    display_name: Lofi Drift Hub
+    music_cue: long_lofi_drift
+    music_source: tools/ambition_music_renderer/scores/active/long_lofi_drift.music.yaml
+    palette_hint: magenta/yellow radio glow on soft white robot shells
+    lair_hook: neutral hub, radio desk, tutorial NPCs
+    characters:
+      - id: lofi_radio_host
+        display_name: Mx. Drift, Radio Host
+        target: robot
+        archetype: drift_dj
+        role: leader
+        seed: 202605073
+        animations: [idle, talk, interact, cast, celebrate, hit]
+        notes: Candidate leader / hub host for radio and tutorial interactions.
+      - id: sandbox_guide_npc
+        display_name: Sandbox Guide
+        target: robot
+        archetype: archivist
+        role: in_game_npc
+        seed: 202605071
+        animations: [idle, walk, talk, interact, hit]
+        notes: More character-like replacement direction for the generic in-game NPC terminal.
+      - id: shop_stub_clerk
+        display_name: Prototype Shop Clerk
+        target: robot
+        archetype: engineer
+        role: in_game_npc
+        seed: 202605072
+        animations: [idle, talk, interact, pickup, hit]
+        notes: Visual direction for the current shop-stub dialogue role.
+  - id: pulse_voyagers
+    display_name: Pulse Voyagers
+    music_cue: pulse_drift_voyage
+    music_source: tools/ambition_music_renderer/scores/active/pulse_drift_voyage.music.yaml
+    palette_hint: cyan voyage glow / winglets / comet trails
+    lair_hook: water-world or skybridge faction outpost
+    characters:
+      - id: pulse_voyager_captain
+        display_name: Captain Pulse
+        target: robot
+        archetype: pulse_captain
+        role: leader
+        seed: 92026057
+        animations: [idle, walk, run, talk, dash, celebrate, hit, death]
+  - id: tech_bros
+    display_name: Tech-Bros Basement
+    music_cue: tech_bros_disruption
+    music_source: tools/ambition_music_renderer/scores/examples/tech_bros_disruption.music.yaml
+    palette_hint: neon green / black glass / badge lanyards
+    lair_hook: basement dungeon full of dashboards and unsolicited pitches
+    characters:
+      - id: tech_bro_disruptor
+        display_name: Chadwick Disruptor III
+        target: robot
+        archetype: tech_disruptor
+        role: leader
+        seed: 25048391
+        animations: [idle, walk, talk, charge, cast, celebrate, hit, death]
+  - id: dinosaur_liberators
+    display_name: Dinosaur Liberators
+    music_cue: dinosaur_liberators
+    music_source: tools/ambition_music_renderer/scores/examples/dinosaur_liberators.music.yaml
+    palette_hint: green crest / road-worn southern-rock energy
+    lair_hook: rebel garage with banners, fossils, and overdriven speakers
+    characters:
+      - id: dinosaur_liberator_frontbot
+        display_name: Sauria Freebird
+        target: robot
+        archetype: dinosaur_liberator
+        role: leader
+        seed: 19770804
+        animations: [idle, walk, run, talk, slash, celebrate, hit, death]
+  - id: environmental_advocacy
+    display_name: Watershed Advocates
+    music_cue: env_advocacy_solace
+    music_source: tools/ambition_music_renderer/scores/examples/env_advocacy_solace.music.yaml
+    palette_hint: pastoral green / seed pods / leaf collars
+    lair_hook: watershed headquarters, gentle but politically forceful
+    characters:
+      - id: watershed_advocate
+        display_name: Solace Reed
+        target: robot
+        archetype: env_advocate
+        role: leader
+        seed: 60419722
+        animations: [idle, walk, talk, interact, cast, celebrate, hit]
+  - id: iron_resolve
+    display_name: Iron Resolve
+    music_cue: military_iron_resolve
+    music_source: tools/ambition_music_renderer/scores/examples/military_iron_resolve.music.yaml
+    palette_hint: red command sash / steel cap / brass fanfare posture
+    lair_hook: parade-yard stronghold with checkpoints and banners
+    characters:
+      - id: iron_resolve_marshal
+        display_name: Marshal Downbeat
+        target: robot
+        archetype: iron_marshal
+        role: leader
+        seed: 81920473
+        animations: [idle, walk, talk, block, slash, celebrate, hit, death]
+  - id: glasswood_canopy
+    display_name: Glasswood Canopy
+    music_cue: glasswood_canopy
+    music_source: tools/ambition_music_renderer/scores/examples/glasswood.yaml
+    palette_hint: translucent blue / old-light antlers / canopy cloak
+    lair_hook: luminous arboretum and high-branch elder court
+    characters:
+      - id: glasswood_warden
+        display_name: Old-Light Warden
+        target: robot
+        archetype: glasswood_warden
+        role: leader
+        seed: 73190417
+        animations: [idle, walk, talk, cast, hover, celebrate, hit]
+  - id: moonlit_canal
+    display_name: Moonlit Canal
+    music_cue: moonlit_canal_nocturne
+    music_source: tools/ambition_music_renderer/scores/examples/moonlit_canal.music.yaml
+    palette_hint: blue night glass / watery mallets / quiet keeper
+    lair_hook: nocturne canal dock with reflective platforms
+    characters:
+      - id: moonlit_canal_keeper
+        display_name: Canal Keeper Noct
+        target: robot
+        archetype: moonlit_canal_keeper
+        role: leader
+        seed: 230519
+        animations: [idle, walk, talk, swim, cast, hit]

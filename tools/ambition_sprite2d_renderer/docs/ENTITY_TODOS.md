@@ -47,6 +47,16 @@
   fallback.
 
 ## P1: add compact animation sheets for entities that need motion
+
+Character pipeline follow-up:
+- ✅ Sandbag now has an adapter/YAML path (`configs/sandbag.yaml`) in addition
+  to the old sparse tack-on renderer.
+- ✅ Robot now has an extended review sheet (`configs/player_extended.yaml`)
+  for crouch, wall-slide, wall-jump, ledge-grab, climb, swim, interact, talk,
+  and block. Rust integration is intentionally deferred.
+- Add visual review / integration tasks for selecting the extended rows from
+  gameplay state once the animations are accepted.
+
 - Chest opening: closed -> open -> reward flash.
 - Breakable crumble: intact -> cracks -> debris burst.
 - Pickup sparkle / bob / collect pop.
@@ -71,3 +81,13 @@
 - Review sheets grouped by category/state.
 - A command to copy generated PNGs into `crates/ambition_sandbox/assets/sprites` or `assets/entities` once the Rust loader path is finalized.
 - More projectile, VFX, and boss hazard variants.
+
+## Character review sheet follow-ups
+
+- Compare `player_traversal_review`, `player_combat_review`, and
+  `player_social_review` in-game-scale before committing any of the new rows to
+  a runtime atlas.
+- Decide which advanced rows should be first-class player states versus flavor
+  rows for NPCs and cutscenes.
+- If `draw-review` becomes too slow again, keep tests on representative config
+  subsets and generate full review sheets manually before art review.

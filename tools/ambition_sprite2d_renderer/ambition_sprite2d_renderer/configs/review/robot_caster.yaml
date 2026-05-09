@@ -1,0 +1,30 @@
+target: robot
+name: robot_caster
+seed: 53
+archetype: caster
+variant: spell_review
+animations:
+  - idle
+  - walk
+  - run
+  - aim
+  - shoot
+  - charge
+  - cast
+  - blink_out
+  - blink_in
+  - dash
+  - hit
+  - death
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 132
+  crop: true

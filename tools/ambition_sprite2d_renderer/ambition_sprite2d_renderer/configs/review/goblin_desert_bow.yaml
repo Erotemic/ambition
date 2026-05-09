@@ -1,0 +1,26 @@
+target: goblin
+name: goblin_desert_bow
+seed: 85
+archetype: desert_scout
+held_item: bow
+variant: desert_bow_scout
+animations:
+  - idle
+  - walk
+  - run
+  - slash
+  - dash
+  - hit
+  - death
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 1
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 132
+  crop: true

@@ -14,6 +14,9 @@ use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use crate::input::MenuControlFrame;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
+#[cfg(feature = "input")]
+use crate::ui_nav::apply_vertical_scroll;
+use crate::ui_nav::{decorate_windowed_label, visible_window_start};
 use bevy::log::info;
 
 const DIALOG_CONTINUE_HINT: &str =
@@ -141,16 +144,6 @@ impl DialogState {
         self.close();
         true
     }
-}
-
-fn dialog_visible_window_start(selected: usize, total: usize) -> usize {
-    if total <= DIALOG_VISIBLE_OPTIONS || DIALOG_VISIBLE_OPTIONS == 0 {
-        return 0;
-    }
-    let half = DIALOG_VISIBLE_OPTIONS / 2;
-    selected
-        .saturating_sub(half)
-        .min(total - DIALOG_VISIBLE_OPTIONS)
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -522,14 +515,23 @@ pub fn dialog_input(
         next_mode.set(GameMode::Playing);
         return;
     }
-    let steps = menu.vertical_scroll_steps();
-    if menu.up || steps > 0 {
+    let mut frame = crate::input::MenuInputFrame {
+        up: menu.up,
+        down: menu.down,
+        left: menu.left,
+        right: menu.right,
+        select: menu.select,
+        back: menu.back,
+        start: menu.start,
+    };
+    apply_vertical_scroll(&mut frame, menu.vertical_scroll_steps());
+    if frame.up {
         runtime.dialogue.select_delta(-1);
     }
-    if menu.down || steps < 0 {
+    if frame.down {
         runtime.dialogue.select_delta(1);
     }
-    if menu.select {
+    if frame.select {
         let closed = runtime.dialogue.confirm_or_advance();
         if closed {
             next_mode.set(GameMode::Playing);
@@ -646,24 +648,21 @@ pub fn sync_dialog_ui(
                 ));
                 if !options.is_empty() {
                     let total = options.len();
-                    let start = dialog_visible_window_start(selected, total);
+                    let start = visible_window_start(selected, total, DIALOG_VISIBLE_OPTIONS);
                     let end = (start + DIALOG_VISIBLE_OPTIONS).min(total);
                     for idx in start..end {
                         let option = &options[idx];
-                        let prefix = if idx == start && start > 0 {
-                            "↑ "
-                        } else {
-                            ""
-                        };
-                        let suffix = if idx + 1 == end && end < total {
-                            " ↓"
-                        } else {
-                            ""
-                        };
+                        let label = decorate_windowed_label(
+                            option.label.to_string(),
+                            idx,
+                            selected,
+                            total,
+                            DIALOG_VISIBLE_OPTIONS,
+                        );
                         spawn_dialog_choice_row(
                             parent,
                             idx,
-                            &format!("{prefix}{}{suffix}", option.label),
+                            &label,
                             idx == selected,
                             selected_marker,
                             &dialog_font,
@@ -783,8 +782,8 @@ mod tests {
 
     #[test]
     fn visible_dialog_window_keeps_selected_option_in_range() {
-        assert_eq!(dialog_visible_window_start(0, 8), 0);
-        assert_eq!(dialog_visible_window_start(4, 8), 2);
-        assert_eq!(dialog_visible_window_start(7, 8), 4);
+        assert_eq!(visible_window_start(0, 8, DIALOG_VISIBLE_OPTIONS), 0);
+        assert_eq!(visible_window_start(4, 8, DIALOG_VISIBLE_OPTIONS), 2);
+        assert_eq!(visible_window_start(7, 8, DIALOG_VISIBLE_OPTIONS), 4);
     }
 }

@@ -28,9 +28,12 @@ use crate::game_mode::GameMode;
 use crate::input::{KeyboardPreset, MenuControlFrame, MenuInputFrame};
 use crate::inventory::InventoryUiState;
 use crate::settings::{
-    apply_action as handle_settings_action, MenuPointerPress, SettingsAction, SettingsItem,
-    SettingsOutcome, SettingsPage, UserSettings,
+    apply_action as handle_settings_action, SettingsAction, SettingsItem, SettingsOutcome,
+    SettingsPage, UserSettings,
 };
+#[cfg(feature = "input")]
+use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction, RowPointerOutcome};
+use crate::ui_nav::{decorate_windowed_label, indexed_title, visible_row_index, windowed_title};
 use crate::windowing::DisplayModeState;
 
 /// Re-export the settings-row component so other modules that want to
@@ -333,86 +336,6 @@ pub fn pause_menu_navigate(
     }
 }
 
-fn apply_vertical_scroll(frame: &mut MenuInputFrame, steps: i32) {
-    if steps > 0 {
-        frame.up = true;
-    } else if steps < 0 {
-        frame.down = true;
-    }
-}
-
-fn visible_window_start(selected: usize, total: usize, capacity: usize) -> usize {
-    if total <= capacity || capacity == 0 {
-        return 0;
-    }
-    let half = capacity / 2;
-    let start = selected.saturating_sub(half);
-    start.min(total - capacity)
-}
-
-fn visible_row_index(
-    slot_index: usize,
-    selected: usize,
-    total: usize,
-    capacity: usize,
-) -> Option<usize> {
-    if total == 0 || slot_index >= capacity {
-        return None;
-    }
-    let start = visible_window_start(selected, total, capacity);
-    let absolute = start + slot_index;
-    (absolute < total).then_some(absolute)
-}
-
-fn windowed_title(base: &str, selected: usize, total: usize, capacity: usize) -> String {
-    if total > capacity {
-        format!(
-            "{base} — {}/{}",
-            selected.min(total.saturating_sub(1)) + 1,
-            total
-        )
-    } else {
-        base.to_string()
-    }
-}
-
-fn indexed_title(base: &str, selected: usize, total: usize) -> String {
-    if total > 1 {
-        format!(
-            "{base} — {}/{}",
-            selected.min(total.saturating_sub(1)) + 1,
-            total
-        )
-    } else {
-        base.to_string()
-    }
-}
-
-fn decorate_windowed_label(
-    label: String,
-    index: usize,
-    selected: usize,
-    total: usize,
-    capacity: usize,
-) -> String {
-    if total <= capacity || capacity == 0 {
-        return label;
-    }
-    let start = visible_window_start(selected, total, capacity);
-    let end = (start + capacity).min(total);
-    let prefix = if index == start && start > 0 {
-        "↑ "
-    } else {
-        "  "
-    };
-    let suffix = if index + 1 == end && end < total {
-        " ↓"
-    } else {
-        ""
-    };
-    format!("{prefix}{label}{suffix}")
-}
-
 #[cfg(feature = "input")]
 #[allow(clippy::too_many_arguments)]
 fn handle_top_input(
@@ -621,28 +544,18 @@ pub fn pause_menu_pointer_input(
                 let Some(index) = items.iter().position(|i| i == item) else {
                     continue;
                 };
-                match interaction {
-                    Interaction::Hovered => {
-                        // Mouse hover: just move the highlight. Don't
-                        // disturb the armed-confirm state — the user
-                        // may be hovering past a destructive item.
-                        if state.selected != index {
-                            state.selected = index;
-                        }
-                    }
-                    Interaction::Pressed => {
-                        let press = tap_mode.resolve_press(
-                            index,
-                            state.selected,
-                            item.is_destructive(),
-                            &mut state.pointer_armed,
-                        );
-                        state.selected = index;
-                        if matches!(press, MenuPointerPress::Confirm) {
-                            state.pointer_confirm = true;
-                        }
-                    }
-                    Interaction::None => {}
+                let update = resolve_selectable_row_interaction(
+                    interaction,
+                    index,
+                    state.selected,
+                    tap_mode,
+                    item.is_destructive(),
+                    state.pointer_armed,
+                );
+                state.selected = update.selected;
+                state.pointer_armed = update.pointer_armed;
+                if matches!(update.outcome, RowPointerOutcome::Confirmed) {
+                    state.pointer_confirm = true;
                 }
             }
         }
@@ -683,21 +596,18 @@ fn handle_row_pointer_interaction(
     tap_mode: crate::settings::MenuTapMode,
     state: &mut PauseMenuState,
 ) {
-    match interaction {
-        Interaction::Hovered => {
-            if state.selected != index {
-                state.selected = index;
-            }
-        }
-        Interaction::Pressed => {
-            let press =
-                tap_mode.resolve_press(index, state.selected, false, &mut state.pointer_armed);
-            state.selected = index;
-            if matches!(press, MenuPointerPress::Confirm) {
-                state.pointer_confirm = true;
-            }
-        }
-        Interaction::None => {}
+    let update = resolve_selectable_row_interaction(
+        interaction,
+        index,
+        state.selected,
+        tap_mode,
+        false,
+        state.pointer_armed,
+    );
+    state.selected = update.selected;
+    state.pointer_armed = update.pointer_armed;
+    if matches!(update.outcome, RowPointerOutcome::Confirmed) {
+        state.pointer_confirm = true;
     }
 }
 
@@ -1172,9 +1082,9 @@ mod tests {
 
     #[test]
     fn visible_window_tracks_selected_row_without_overflow() {
-        assert_eq!(visible_window_start(0, 12, 5), 0);
-        assert_eq!(visible_window_start(4, 12, 5), 2);
-        assert_eq!(visible_window_start(11, 12, 5), 7);
+        assert_eq!(crate::ui_nav::visible_window_start(0, 12, 5), 0);
+        assert_eq!(crate::ui_nav::visible_window_start(4, 12, 5), 2);
+        assert_eq!(crate::ui_nav::visible_window_start(11, 12, 5), 7);
         assert_eq!(visible_row_index(0, 11, 12, 5), Some(7));
         assert_eq!(visible_row_index(4, 11, 12, 5), Some(11));
         assert_eq!(visible_row_index(5, 11, 12, 5), None);

@@ -161,5 +161,10 @@ navigation, drag gestures should accumulate into scroll steps, and mouse input
 may proxy touch on desktop for testing. Gameplay `ControlFrame` movement should
 be suppressed while dialog/pause/menu state owns the input.
 
+Shared list/windowing, pointer-row activation, and drag-scroll accumulation now
+live in `crate::ui_nav` (`crates/ambition_sandbox/src/ui_nav/`). Pause menus,
+dialog choices, and the mobile touch bridge should reuse those helpers instead
+of reimplementing scroll sign conventions or visible-window math locally.
+
 The idle touch HUD should remain visible enough to teach the controls, but less
 visually dominant until the user actively touches or drags a control.

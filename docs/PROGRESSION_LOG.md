@@ -24,6 +24,7 @@ This log is a compact map of major architecture and feature waves. It is not a f
 
 - Leafwing Input Manager replaced bespoke keyboard polling.
 - Gameplay input is converted into `ControlFrame` only when the relevant game mode allows it.
+- Shared menu/list navigation helpers now live under `crate::ui_nav`, so pause, dialog, and mobile drag-scroll reuse the same windowing and pointer-row semantics.
 - Bevy `GameMode` states now distinguish playing, paused, dialogue, room transition, and cutscene intent.
 - Presentation/debug previews were also gated so paused input does not visually leak into gameplay previews.
 

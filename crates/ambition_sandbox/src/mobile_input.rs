@@ -187,6 +187,7 @@ pub fn fold_touch_into_control_frame(
 pub mod bevy_plugin {
     use super::{fold_touch_into_control_frame, TouchButton, TouchInputState};
     use crate::input::{ControlFrame, MenuControlFrame, MenuInputState};
+    use crate::ui_nav::DragScrollState;
     use bevy::input::mouse::MouseButton;
     use bevy::input::touch::Touches;
     use bevy::prelude::*;
@@ -216,8 +217,7 @@ pub mod bevy_plugin {
     /// menu while another finger is still on the movement stick.
     #[derive(Resource, Default, Clone, Copy, Debug)]
     pub struct MenuTouchGestureState {
-        last_pos: Option<Vec2>,
-        drag_scroll_accum: f32,
+        drag_scroll: DragScrollState,
         stick_input: MenuInputState,
     }
 
@@ -1084,8 +1084,7 @@ pub mod bevy_plugin {
         mut frame: ResMut<MenuControlFrame>,
     ) {
         if !visible.0 {
-            gesture.last_pos = None;
-            gesture.drag_scroll_accum = 0.0;
+            gesture.drag_scroll.reset();
             gesture.stick_input = MenuInputState::default();
             return;
         }
@@ -1127,8 +1126,7 @@ pub mod bevy_plugin {
         }
 
         let Ok(window) = windows.single() else {
-            gesture.last_pos = None;
-            gesture.drag_scroll_accum = 0.0;
+            gesture.drag_scroll.reset();
             return;
         };
         let window_size = Vec2::new(window.width(), window.height());
@@ -1146,26 +1144,7 @@ pub mod bevy_plugin {
         };
         let menu_pos = touch_pos.or(mouse_pos);
 
-        if let Some(pos) = menu_pos {
-            if let Some(last) = gesture.last_pos {
-                let dy = pos.y - last.y;
-                // Bevy touch/cursor positions are top-left-origin. A phone-style
-                // swipe up (negative dy) should move the highlighted row down,
-                // matching normal phone scroll semantics.
-                if dy.abs() >= 3.0 {
-                    gesture.drag_scroll_accum += dy / 30.0;
-                    let whole_steps = gesture.drag_scroll_accum.trunc().clamp(-5.0, 5.0);
-                    if whole_steps != 0.0 {
-                        frame.scroll_y += whole_steps;
-                        gesture.drag_scroll_accum -= whole_steps;
-                    }
-                }
-            }
-            gesture.last_pos = Some(pos);
-        } else {
-            gesture.last_pos = None;
-            gesture.drag_scroll_accum = 0.0;
-        }
+        frame.scroll_y += gesture.drag_scroll.update(menu_pos, 30.0, 3.0, 5.0);
     }
 
     pub(super) fn touch_move_to_menu_dir(

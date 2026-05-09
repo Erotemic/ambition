@@ -28,6 +28,7 @@ pub(super) fn update_hud(
     room_set: Res<rooms::RoomSet>,
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
+    user_settings: Res<crate::settings::UserSettings>,
     ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
     ldtk_spine: Res<ldtk_world::LdtkRuntimeSpineStats>,
     ldtk_spine_index: Res<ldtk_world::LdtkRuntimeSpineIndex>,
@@ -46,7 +47,7 @@ pub(super) fn update_hud(
     let Ok(mut text) = query.get_mut(entities.hud) else {
         return;
     };
-    if !developer_tools.show_hud {
+    if !developer_tools.show_hud || !user_settings.gameplay.debug_hud_visible {
         **text = String::new();
         return;
     }
@@ -337,6 +338,7 @@ pub(super) fn update_hud(
 /// quests, which collapses the panel visually.
 pub fn update_quest_panel(
     quests: Res<crate::quest::QuestRegistry>,
+    user_settings: Res<crate::settings::UserSettings>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<crate::rendering::QuestPanelText>>,
 ) {
@@ -346,6 +348,10 @@ pub fn update_quest_panel(
     let Ok(mut text) = query.get_mut(entities.quest_panel) else {
         return;
     };
+    if !user_settings.gameplay.quest_hud_visible {
+        **text = String::new();
+        return;
+    }
     let lines = quests.quest_log_lines();
     if lines.is_empty() {
         **text = String::new();

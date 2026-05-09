@@ -139,6 +139,8 @@ pub enum SettingsItem {
     Assist,
     PlayerDamageMultiplier,
     GameplayFlashes,
+    DebugHud,
+    QuestHud,
     TraceAutoDump,
 }
 
@@ -186,6 +188,8 @@ impl SettingsItem {
                 Self::Assist,
                 Self::PlayerDamageMultiplier,
                 Self::GameplayFlashes,
+                Self::DebugHud,
+                Self::QuestHud,
                 Self::TraceAutoDump,
                 Self::Back,
             ],
@@ -299,6 +303,22 @@ impl SettingsItem {
             Self::GameplayFlashes => format!(
                 "Flashes (gameplay): {}  < / >",
                 settings.video.flashes.label()
+            ),
+            Self::DebugHud => format!(
+                "Debug HUD: {}",
+                if settings.gameplay.debug_hud_visible {
+                    "on"
+                } else {
+                    "off"
+                }
+            ),
+            Self::QuestHud => format!(
+                "Quest HUD: {}",
+                if settings.gameplay.quest_hud_visible {
+                    "on"
+                } else {
+                    "off"
+                }
             ),
             Self::TraceAutoDump => format!(
                 "Trace Auto-Dump: {}",
@@ -551,6 +571,22 @@ pub fn apply_action(
                 .gameplay
                 .nudge_player_damage(GameplaySettings::DAMAGE_STEP),
         },
+        SettingsItem::DebugHud => {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
+                settings.gameplay.debug_hud_visible = !settings.gameplay.debug_hud_visible;
+            }
+        }
+        SettingsItem::QuestHud => {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
+                settings.gameplay.quest_hud_visible = !settings.gameplay.quest_hud_visible;
+            }
+        }
         SettingsItem::TraceAutoDump => {
             if matches!(
                 action,

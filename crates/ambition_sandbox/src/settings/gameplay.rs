@@ -104,8 +104,25 @@ pub struct GameplaySettings {
     pub assist: AssistMode,
     /// Multiplier for outgoing player damage (projectiles, melee).
     pub player_damage_multiplier: f32,
+    /// Whether the large debug HUD text panel is visible.
+    ///
+    /// Desktop defaults to visible to preserve the sandbox-first dev posture.
+    /// Android defaults to hidden so the phone viewport starts usable.
+    #[serde(default = "default_debug_hud_visible")]
+    pub debug_hud_visible: bool,
+    /// Whether the dedicated quest objective panel is visible.
+    #[serde(default = "default_quest_hud_visible")]
+    pub quest_hud_visible: bool,
     /// Whether the trace recorder dumps automatically on OOB / death.
     pub trace_auto_dump: bool,
+}
+
+fn default_debug_hud_visible() -> bool {
+    !cfg!(target_os = "android")
+}
+
+fn default_quest_hud_visible() -> bool {
+    true
 }
 
 impl Default for GameplaySettings {
@@ -114,6 +131,8 @@ impl Default for GameplaySettings {
             difficulty: Difficulty::default(),
             assist: AssistMode::default(),
             player_damage_multiplier: 1.0,
+            debug_hud_visible: default_debug_hud_visible(),
+            quest_hud_visible: default_quest_hud_visible(),
             trace_auto_dump: true,
         }
     }
@@ -162,6 +181,13 @@ mod tests {
         let on = AssistMode::Off.toggle();
         assert_eq!(on, AssistMode::On);
         assert_eq!(on.toggle(), AssistMode::Off);
+    }
+
+    #[test]
+    fn hud_settings_have_expected_defaults() {
+        let settings = GameplaySettings::default();
+        assert_eq!(settings.debug_hud_visible, !cfg!(target_os = "android"));
+        assert!(settings.quest_hud_visible);
     }
 
     #[test]

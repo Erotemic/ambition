@@ -56,3 +56,13 @@ The Android sequence progressed through distinct phases:
 3. Native library loaded but `android_main` was missing.
 
 Each phase required a different layer of the stack to be fixed. Avoid guessing from the symptom alone; use `adb logcat` and identify whether the failure is Gradle, install/package-manager, Java activity startup, native library loading, or Rust/Bevy runtime.
+
+## 2026-05-08: Keep Android HUD defaults and menu toggles separate
+
+The Android build can boot with the same desktop sandbox systems, but phone usability needs
+coarse user-facing switches for large overlays. Do not only change `DeveloperTools::default`
+when a HUD is too large: add an explicit persisted setting and make the render system clear
+its text when the setting is off. Quest/objective UI and debug HUD text should be controlled
+separately because the quest panel is useful during play while the debug dump can consume most
+of a phone screen.
+

@@ -52,6 +52,7 @@ pub mod settings;
 pub mod swim;
 pub mod trace;
 pub mod ui_fonts;
+pub mod ui_nav;
 pub mod windowing;
 
 pub mod app;

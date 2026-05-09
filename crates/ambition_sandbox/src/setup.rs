@@ -114,7 +114,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         let _loaded_ldtk_project_handle = collection.ldtk_project.clone();
     }
     for warning in room_set.layout_warnings() {
-        eprintln!("room layout warning: {warning}");
+        bevy::log::debug!(target: "ambition::room_layout", "{warning}");
     }
     // The LdtkWorldBundle spawn lives in the Ldtk-runtime startup system
     // (`crate::app::add_ldtk_runtime_plugin`) because asset_server.load on a

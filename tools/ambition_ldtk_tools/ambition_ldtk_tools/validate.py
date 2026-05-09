@@ -273,8 +273,6 @@ def validate_official_schema(project, schema_path: Path | None, require_schema: 
     for error in schema_errors:
         path = ".".join(str(part) for part in error.absolute_path) or "<root>"
         errors.append(f"LDtk JSON schema: {path}: {error.message}")
-    if not schema_errors:
-        warnings.append(f"official LDtk JSON schema passed: {schema_path}")
     return errors, warnings
 
 

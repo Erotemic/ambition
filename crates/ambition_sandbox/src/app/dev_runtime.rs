@@ -178,7 +178,7 @@ pub(super) fn prepare_ldtk_reload_transaction(
         if warning.contains("references missing") {
             hard_errors.push(format!("LDtk reload graph error: {warning}"));
         } else {
-            eprintln!("LDtk reload layout warning: {warning}");
+            bevy::log::debug!(target: "ambition::room_layout", "LDtk reload: {warning}");
         }
     }
     if !hard_errors.is_empty() {

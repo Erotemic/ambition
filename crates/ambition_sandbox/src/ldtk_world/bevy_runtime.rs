@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use bevy::asset::{AssetServer, Handle};
 use bevy::prelude::{
-    warn, Added, App, Bundle, Commands, Component, Entity, Name, Plugin, Query, Res, ResMut,
+    debug, warn, Added, App, Bundle, Commands, Component, Entity, Name, Plugin, Query, Res, ResMut,
     Resource, With,
 };
 use bevy_ecs_ldtk::prelude::{
@@ -635,7 +635,11 @@ pub fn check_ldtk_runtime_spine_parity(
     } else {
         let summary = next.summary();
         if parity.last_warn.as_deref() != Some(summary.as_str()) {
-            warn!(target: "ambition::ldtk_runtime_spine", "{}", summary);
+            if std::env::var_os("AMBITION_LDTK_SPINE_WARN").is_some() {
+                warn!(target: "ambition::ldtk_runtime_spine", "{}", summary);
+            } else {
+                debug!(target: "ambition::ldtk_runtime_spine", "{}", summary);
+            }
             parity.last_warn = Some(summary);
         }
     }

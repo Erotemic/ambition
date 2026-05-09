@@ -125,7 +125,7 @@ impl<'w> MusicLayerChannels<'w> {
     }
 }
 
-trait MusicLayerChannel {
+pub(super) trait MusicLayerChannel {
     fn stop_with_fade(&self, fade_ms: u64);
     fn set_linear_volume(&self, linear: f32);
     fn play_handle(&self, handle: Handle<KiraAudioSource>, looped: bool, fade_ms: u64);

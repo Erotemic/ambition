@@ -1,12 +1,11 @@
 # Mobile / Android touch controls
 
-Status (2026-05-07): foundation landed. The `mobile_touch` feature
-flag is default-enabled; the `mobile_input` module exposes a pure
-helper + a Bevy plugin behind the flag that wires `virtual_joystick`
-to the engine's `ControlFrame`. **Touch buttons (Jump/Attack/Dash/...)
-are not yet authored as on-screen UI — only the two analog sticks are
-wired today.** RL agents and tests can still use the pure helper to
-construct touch state from any code path.
+Status (2026-05-09): Android phone testing is active. The `mobile_touch`
+feature is default-enabled for desktop-dev and part of the Android feature
+set. The `mobile_input` module exposes a pure helper plus Bevy systems that
+wire virtual joysticks, touch action buttons, mouse-as-touch testing, and
+menu/dialog gestures into the same `ControlFrame` / `MenuControlFrame` seams
+used by keyboard and gamepad.
 
 ## Goal
 
@@ -91,10 +90,10 @@ naturally drop out of a no-rl build.
   is a public resource but no UI exposes it yet. F2-style hotkeys
   are intentionally avoided per Jon's "move all dev hotkeys into
   the settings menu" rule.
-- **Android target build verified**: the plugin compiles for desktop
-  but the `cargo apk` / `cargo ndk` pipeline isn't wired in this
-  repo yet. Real-device touch-multitouch testing also depends on
-  this.
+- **More native-feeling tap release semantics**: current Android row
+  activation is conservative tap-to-select-then-confirm. A future pass can
+  replace this with true press/move/release tap recognition once the UI layer
+  has reliable pointer-up events and per-row geometry hit testing.
 
 ## What's done
 
@@ -107,6 +106,8 @@ naturally drop out of a no-rl build.
   (Pause/Reset) with text labels
 - ✅ Bottom-right cluster + bezel layout (192x128 + 216x152 backdrop)
 - ✅ TouchControlsVisible runtime toggle
+- ✅ Shared `ui_nav` helpers for windowed lists, drag-scroll accumulation, and pointer-row behavior
+- ✅ Android/touch defaults to tap-to-select-then-confirm for menu rows to avoid accidental activation while dragging
 - ✅ Activity-gated ControlFrame write (empty touch state doesn't
   stomp keyboard input)
 - ✅ Mouse-drag works on desktop because `virtual_joystick` and

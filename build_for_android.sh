@@ -18,8 +18,15 @@ Usage: ./build_for_android.sh [options]
 Options:
   --install              Install the APK on an attached Android device with adb.
   --fresh-install        Uninstall the app for the current user before installing.
-  --run                  Install and launch the APK on an attached Android device.
-  --device SERIAL        Pass -s SERIAL to adb for install/run.
+  --run                  Install, launch, and follow filtered logcat by default.
+  --logs                 Follow filtered logcat after --run / --install.
+  --no-logs              Do not follow logcat after --run.
+  --log-filter FILTER    Logcat filter spec. Default: RustStdoutStderr:I event:W AndroidRuntime:E *:S
+  --device SERIAL        Pass -s SERIAL to adb for install/run/logs.
+  --list-emulators       List available Android Virtual Devices and exit.
+  --emulator NAME        Start/use the named AVD before install/run. Defaults target ABI to x86_64.
+  --create-emulator NAME Create the named AVD if missing, then start/use it.
+  --emulator-api API     System-image API for --create-emulator. Default: compileSdk.
   --rust-debug           Build the Rust shared library with Cargo dev profile.
   --rust-release         Build the Rust shared library with Cargo release profile (default).
   --size-profile         Build the Rust shared library with Cargo profile android-size.
@@ -60,6 +67,8 @@ Examples:
   ./build_for_android.sh
   ./build_for_android.sh --install
   ./build_for_android.sh --run --device 0123456789ABCDEF
+  ./build_for_android.sh --run --emulator ambition_pixel
+  ./build_for_android.sh --run --create-emulator ambition_pixel
   ./build_for_android.sh --doctor
   ./build_for_android.sh --size-profile --fresh-install
 EOF
@@ -114,6 +123,44 @@ need_cmd() {
     if ! command -v "$cmd" >/dev/null 2>&1; then
         fatal "missing '$cmd'. $hint"
     fi
+}
+
+sdk_tool() {
+    local name=$1
+    local candidate
+    for candidate in \
+        "$ANDROID_SDK_ROOT/emulator/$name" \
+        "$ANDROID_SDK_ROOT/platform-tools/$name" \
+        "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/$name" \
+        "$ANDROID_SDK_ROOT/tools/bin/$name"
+    do
+        if [[ -x "$candidate" ]]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    command -v "$name" 2>/dev/null || return 1
+}
+
+need_sdk_tool() {
+    local name=$1
+    local hint=$2
+    local path
+    if path=$(sdk_tool "$name"); then
+        printf '%s\n' "$path"
+        return 0
+    fi
+    fatal "missing Android SDK tool '$name'. $hint"
+}
+
+rust_target_for_abi() {
+    case "$1" in
+        arm64-v8a) printf 'aarch64-linux-android\n' ;;
+        armeabi-v7a) printf 'armv7-linux-androideabi\n' ;;
+        x86) printf 'i686-linux-android\n' ;;
+        x86_64) printf 'x86_64-linux-android\n' ;;
+        *) fatal "unsupported Android ABI for rustup target mapping: $1" ;;
+    esac
 }
 
 copy_tree_contents() {
@@ -199,6 +246,70 @@ print_apk_size_report() {
     fi
 }
 
+avd_exists() {
+    local name=$1
+    local emulator_tool
+    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup_android_prereqs.sh --with-emulator")
+    "$emulator_tool" -list-avds | grep -Fxq "$name"
+}
+
+create_android_avd() {
+    local name=$1
+    local api=$2
+    local sdkmanager avdmanager package
+    sdkmanager=$(need_sdk_tool sdkmanager "Install Android command-line tools.")
+    avdmanager=$(need_sdk_tool avdmanager "Install Android command-line tools.")
+    package="system-images;android-$api;google_apis;x86_64"
+    log "installing emulator system image: $package"
+    "$sdkmanager" --install "$package"
+    if avd_exists "$name"; then
+        log "AVD already exists: $name"
+    else
+        log "creating AVD: $name"
+        printf 'no\n' | "$avdmanager" create avd --force --name "$name" --package "$package" --device "pixel_6"
+    fi
+}
+
+start_android_emulator() {
+    local name=$1
+    local emulator_tool
+    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup_android_prereqs.sh --with-emulator")
+    avd_exists "$name" || fatal "AVD not found: $name. Create it with: ./build_for_android.sh --create-emulator $name --doctor"
+    log "starting Android emulator: $name"
+    "$emulator_tool" -avd "$name" -netdelay none -netspeed full >/tmp/ambition-emulator-$name.log 2>&1 &
+    log "emulator stdout/stderr: /tmp/ambition-emulator-$name.log"
+}
+
+select_started_emulator_serial() {
+    local serial
+    serial=$(adb devices | awk '/^emulator-[0-9]+[[:space:]]+device$/ {print $1; exit}')
+    printf '%s\n' "$serial"
+}
+
+wait_for_android_device() {
+    local adb_args=()
+    if [[ -n "$DEVICE_SERIAL" ]]; then
+        adb_args=(-s "$DEVICE_SERIAL")
+    fi
+    log "waiting for adb device"
+    adb "${adb_args[@]}" wait-for-device
+    local i booted
+    for i in $(seq 1 90); do
+        booted=$(adb "${adb_args[@]}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)
+        [[ "$booted" == "1" ]] && return 0
+        sleep 1
+    done
+    warn "device did not report sys.boot_completed=1 within timeout; continuing"
+}
+
+follow_android_logs() {
+    local filter_args=()
+    read -r -a filter_args <<< "$LOG_FILTER"
+    log "following Android logs; press Ctrl-C to stop"
+    adb "${ADB_ARGS[@]}" logcat -c || true
+    adb "${ADB_ARGS[@]}" logcat -v time "${filter_args[@]}"
+}
+
 find_ndk_tool() {
     local tool=$1
     local host_tag="linux-x86_64"
@@ -260,20 +371,34 @@ STATIC_SFX_BANK="auto"
 STATIC_SFX_BANK_PATH=""
 DEVICE_SERIAL=""
 GRADLE_USER_HOME_ARG=""
+FOLLOW_LOGS="auto"
+LOG_FILTER="RustStdoutStderr:I event:W AndroidRuntime:E *:S"
+LIST_EMULATORS=false
+EMULATOR_NAME=""
+CREATE_EMULATOR_NAME=""
+EMULATOR_API=""
+TARGET_ABI_EXPLICIT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --install) INSTALL=true ;;
         --fresh-install) FRESH_INSTALL=true; INSTALL=true ;;
         --run) RUN_APP=true; INSTALL=true ;;
+        --logs) FOLLOW_LOGS=true ;;
+        --no-logs) FOLLOW_LOGS=false ;;
+        --log-filter) shift; [[ $# -gt 0 ]] || fatal "--log-filter needs a logcat filter spec"; LOG_FILTER=$1 ;;
         --device) shift; [[ $# -gt 0 ]] || fatal "--device needs a serial"; DEVICE_SERIAL=$1 ;;
+        --list-emulators) LIST_EMULATORS=true ;;
+        --emulator) shift; [[ $# -gt 0 ]] || fatal "--emulator needs an AVD name"; EMULATOR_NAME=$1 ;;
+        --create-emulator) shift; [[ $# -gt 0 ]] || fatal "--create-emulator needs an AVD name"; CREATE_EMULATOR_NAME=$1; EMULATOR_NAME=$1 ;;
+        --emulator-api) shift; [[ $# -gt 0 ]] || fatal "--emulator-api needs an API level"; EMULATOR_API=$1 ;;
         --rust-debug) RUST_PROFILE="debug" ;;
         --rust-release) RUST_PROFILE="release" ;;
         --size-profile) RUST_PROFILE="android-size"; STRIP_NATIVE=true; SIZE_REPORT=true ;;
         --cargo-profile) shift; [[ $# -gt 0 ]] || fatal "--cargo-profile needs a profile name"; RUST_PROFILE=$1 ;;
         --apk-debug) APK_BUILD_TYPE="debug" ;;
         --apk-release) APK_BUILD_TYPE="release" ;;
-        --target) shift; [[ $# -gt 0 ]] || fatal "--target needs an ABI"; TARGET_ABI=$1 ;;
+        --target) shift; [[ $# -gt 0 ]] || fatal "--target needs an ABI"; TARGET_ABI=$1; TARGET_ABI_EXPLICIT=true ;;
         --min-sdk) shift; [[ $# -gt 0 ]] || fatal "--min-sdk needs an API level"; MIN_SDK=$1 ;;
         --compile-sdk) shift; [[ $# -gt 0 ]] || fatal "--compile-sdk needs an API level"; COMPILE_SDK=$1 ;;
         --target-sdk) shift; [[ $# -gt 0 ]] || fatal "--target-sdk needs an API level"; TARGET_SDK=$1 ;;
@@ -323,6 +448,12 @@ fi
 export ANDROID_SDK_ROOT="$SDK_ROOT"
 export ANDROID_HOME="$SDK_ROOT"
 
+if [[ "$LIST_EMULATORS" == true ]]; then
+    emulator_tool=$(need_sdk_tool emulator "Install emulator packages with: ./scripts/setup_android_prereqs.sh --with-emulator")
+    "$emulator_tool" -list-avds
+    exit 0
+fi
+
 NDK_ROOT=${ANDROID_NDK_ROOT:-${ANDROID_NDK_HOME:-}}
 if [[ -z "$NDK_ROOT" ]]; then
     NDK_ROOT=$(newest_ndk_root "$SDK_ROOT")
@@ -339,6 +470,19 @@ fi
 if [[ -z "$TARGET_SDK" ]]; then
     TARGET_SDK="$COMPILE_SDK"
 fi
+if [[ -z "$EMULATOR_API" ]]; then
+    EMULATOR_API="$COMPILE_SDK"
+fi
+if [[ -n "$EMULATOR_NAME" && "$TARGET_ABI_EXPLICIT" != true ]]; then
+    TARGET_ABI="x86_64"
+fi
+if [[ "$FOLLOW_LOGS" == "auto" ]]; then
+    if [[ "$RUN_APP" == true ]]; then
+        FOLLOW_LOGS=true
+    else
+        FOLLOW_LOGS=false
+    fi
+fi
 
 need_cmd rustup "Install Rust via rustup."
 need_cmd cargo "Install Rust/Cargo via rustup."
@@ -351,8 +495,20 @@ if ! command -v "$GRADLE_CMD" >/dev/null 2>&1; then
         fatal "missing 'gradle'. Run: ./scripts/setup_android_prereqs.sh"
     fi
 fi
-if [[ "$INSTALL" == true ]]; then
+if [[ "$INSTALL" == true || -n "$EMULATOR_NAME" ]]; then
     need_cmd adb "Run: ./scripts/setup_android_prereqs.sh"
+fi
+if [[ -n "$CREATE_EMULATOR_NAME" ]]; then
+    create_android_avd "$CREATE_EMULATOR_NAME" "$EMULATOR_API"
+fi
+if [[ -n "$EMULATOR_NAME" ]]; then
+    start_android_emulator "$EMULATOR_NAME"
+    wait_for_android_device
+    if [[ -z "$DEVICE_SERIAL" ]]; then
+        DEVICE_SERIAL=$(select_started_emulator_serial)
+        [[ -n "$DEVICE_SERIAL" ]] || fatal "could not determine emulator serial after starting $EMULATOR_NAME"
+        log "selected emulator device: $DEVICE_SERIAL"
+    fi
 fi
 
 DEFAULT_SFX_BANK_PATH="$ROOT/crates/ambition_sandbox/assets/audio/sfx.bank"
@@ -394,6 +550,9 @@ else
     log "static sfx bank: disabled (no bank found at $DEFAULT_SFX_BANK_PATH)"
 fi
 log "app id: $APP_ID"
+if [[ "$FOLLOW_LOGS" == true ]]; then
+    log "logcat filter: $LOG_FILTER"
+fi
 log "Gradle user home: $GRADLE_USER_HOME"
 
 if [[ "$DOCTOR" == true ]]; then
@@ -401,7 +560,8 @@ if [[ "$DOCTOR" == true ]]; then
     exit 0
 fi
 
-rustup target add aarch64-linux-android >/dev/null
+RUST_TARGET=$(rust_target_for_abi "$TARGET_ABI")
+rustup target add "$RUST_TARGET" >/dev/null
 
 PROJECT_DIR="$ROOT/target/android/ambition_sandbox_android"
 APP_DIR="$PROJECT_DIR/app"
@@ -598,9 +758,9 @@ fi
 
 log "building Rust shared library"
 if [[ -n "$STATIC_SFX_BANK_PATH" ]]; then
-    AMBITION_STATIC_SFX_BANK_PATH="$STATIC_SFX_BANK_PATH" "${CARGO_NDK_ARGS[@]}"
+    AMBITION_ANDROID_APP_ID="$APP_ID" AMBITION_STATIC_SFX_BANK_PATH="$STATIC_SFX_BANK_PATH" "${CARGO_NDK_ARGS[@]}"
 else
-    "${CARGO_NDK_ARGS[@]}"
+    AMBITION_ANDROID_APP_ID="$APP_ID" "${CARGO_NDK_ARGS[@]}"
 fi
 
 SO_PATH="$JNI_OUT/$TARGET_ABI/libambition_sandbox.so"
@@ -656,5 +816,8 @@ fi
 if [[ "$RUN_APP" == true ]]; then
     log "launching app via adb monkey"
     adb "${ADB_ARGS[@]}" shell monkey -p "$APP_ID" 1 >/dev/null
-    log "logs: adb ${ADB_ARGS[*]} logcat | grep -E 'RustStdoutStderr|ambition|bevy|wgpu'"
+fi
+
+if [[ "$FOLLOW_LOGS" == true ]]; then
+    follow_android_logs
 fi

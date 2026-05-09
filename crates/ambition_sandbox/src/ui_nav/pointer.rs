@@ -39,6 +39,11 @@ pub fn handle_selectable_row_interaction(
         Interaction::Hovered => {
             if *selected != index {
                 *selected = index;
+                // Once the pointer has drifted to a different row, a prior
+                // tap-to-confirm arm should not survive. This matches mobile
+                // expectations: a touch that becomes a drag is navigation, not
+                // a latent activation waiting to fire on the next tap.
+                *pointer_armed = None;
             }
             RowPointerOutcome::Hovered
         }
@@ -82,5 +87,51 @@ pub fn resolve_selectable_row_interaction(
         selected,
         pointer_armed,
         outcome,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hover_to_new_row_clears_tap_arm() {
+        let update = resolve_selectable_row_interaction(
+            &Interaction::Hovered,
+            2,
+            1,
+            MenuTapMode::TapToSelectThenConfirm,
+            false,
+            Some(1),
+        );
+        assert_eq!(update.selected, 2);
+        assert_eq!(update.pointer_armed, None);
+        assert_eq!(update.outcome, RowPointerOutcome::Hovered);
+    }
+
+    #[test]
+    fn tap_to_select_requires_second_press_same_row() {
+        let first = resolve_selectable_row_interaction(
+            &Interaction::Pressed,
+            3,
+            0,
+            MenuTapMode::TapToSelectThenConfirm,
+            false,
+            None,
+        );
+        assert_eq!(first.selected, 3);
+        assert_eq!(first.pointer_armed, Some(3));
+        assert_eq!(first.outcome, RowPointerOutcome::None);
+
+        let second = resolve_selectable_row_interaction(
+            &Interaction::Pressed,
+            3,
+            first.selected,
+            MenuTapMode::TapToSelectThenConfirm,
+            false,
+            first.pointer_armed,
+        );
+        assert_eq!(second.pointer_armed, None);
+        assert_eq!(second.outcome, RowPointerOutcome::Confirmed);
     }
 }

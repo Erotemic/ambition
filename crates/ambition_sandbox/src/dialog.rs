@@ -44,6 +44,10 @@ pub struct DialogState {
     npc_name: String,
     node_index: usize,
     selected_option: usize,
+    /// Android/touch row activation is deliberately two-step: first tap selects,
+    /// second tap or a Confirm button activates. This prevents a finger press
+    /// that turns into a small drag from accidentally advancing dialogue.
+    pointer_armed: Option<usize>,
     mode: DialogMode,
     last_note: String,
 }
@@ -55,12 +59,14 @@ impl DialogState {
         self.npc_name = npc_name.to_string();
         self.node_index = 0;
         self.selected_option = 0;
+        self.pointer_armed = None;
         self.mode = DialogMode::from_dialogue_id(dialogue_id);
         self.last_note.clear();
     }
 
     pub fn close(&mut self) {
         self.active = false;
+        self.pointer_armed = None;
         self.last_note.clear();
     }
 
@@ -107,6 +113,9 @@ impl DialogState {
             return;
         }
         let next = (self.selected_option as isize + delta).rem_euclid(len as isize) as usize;
+        if self.selected_option != next {
+            self.pointer_armed = None;
+        }
         self.selected_option = next;
     }
 
@@ -119,6 +128,7 @@ impl DialogState {
             if let Some(next) = node.default_next {
                 self.node_index = next;
                 self.selected_option = 0;
+                self.pointer_armed = None;
                 return false;
             }
             self.close();
@@ -139,6 +149,7 @@ impl DialogState {
         if let Some(next) = choice.next_node {
             self.node_index = next;
             self.selected_option = 0;
+            self.pointer_armed = None;
             return false;
         }
         self.close();
@@ -479,13 +490,38 @@ pub fn dialog_pointer_input(
 
         match interaction {
             Interaction::Hovered => {
-                runtime.dialogue.selected_option = slot.index.min(option_count.saturating_sub(1));
+                let index = slot.index.min(option_count.saturating_sub(1));
+                if runtime.dialogue.selected_option != index {
+                    runtime.dialogue.pointer_armed = None;
+                }
+                runtime.dialogue.selected_option = index;
             }
             Interaction::Pressed => {
-                runtime.dialogue.selected_option = slot.index.min(option_count.saturating_sub(1));
-                let closed = runtime.dialogue.confirm_or_advance();
-                if closed {
-                    next_mode.set(GameMode::Playing);
+                let index = slot.index.min(option_count.saturating_sub(1));
+
+                #[cfg(target_os = "android")]
+                {
+                    let confirm = runtime.dialogue.selected_option == index
+                        && runtime.dialogue.pointer_armed == Some(index);
+                    runtime.dialogue.selected_option = index;
+                    if confirm {
+                        runtime.dialogue.pointer_armed = None;
+                        let closed = runtime.dialogue.confirm_or_advance();
+                        if closed {
+                            next_mode.set(GameMode::Playing);
+                        }
+                    } else {
+                        runtime.dialogue.pointer_armed = Some(index);
+                    }
+                }
+
+                #[cfg(not(target_os = "android"))]
+                {
+                    runtime.dialogue.selected_option = index;
+                    let closed = runtime.dialogue.confirm_or_advance();
+                    if closed {
+                        next_mode.set(GameMode::Playing);
+                    }
                 }
                 return;
             }

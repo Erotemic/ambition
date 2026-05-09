@@ -87,11 +87,16 @@ adb devices
 ./build_for_android.sh --install
 ```
 
-Build, install, and launch:
+Build, install, launch, and follow filtered logcat:
 
 ```bash
 ./build_for_android.sh --run
 ```
+
+`--run` now follows the Rust/tracing log stream by default. Press `Ctrl-C`
+to stop watching logs; the installed app keeps running. Use `--no-logs` when
+you only want to build/install/launch, or pass `--log-filter` to replace the
+default logcat filter.
 
 If more than one device/emulator is connected:
 
@@ -100,11 +105,43 @@ adb devices
 ./build_for_android.sh --run --device <serial>
 ```
 
-Watch logs:
+## Emulator workflow
+
+Install emulator prerequisites once:
 
 ```bash
-adb logcat | grep -E 'RustStdoutStderr|ambition|bevy|wgpu'
+./scripts/setup_android_prereqs.sh --with-emulator
 ```
+
+List existing Android Virtual Devices:
+
+```bash
+./build_for_android.sh --list-emulators
+```
+
+Create a Pixel-style x86_64 emulator if needed, build an x86_64 APK, install,
+launch, and follow logs:
+
+```bash
+./build_for_android.sh --run --create-emulator ambition_pixel
+```
+
+Reuse an existing AVD:
+
+```bash
+./build_for_android.sh --run --emulator ambition_pixel
+```
+
+When an emulator is requested and `--target` is not specified, the script uses
+`--target x86_64` so the APK matches the usual desktop emulator system image.
+
+## Android data path
+
+Android builds compile the app id into the Rust library and use
+`/data/data/<app-id>/files/ambition/` for settings and sandbox save data. This
+avoids attempting to write `./ambition/settings.ron` inside the read-only APK
+working directory. `AMBITION_DATA_DIR` still overrides the root for tests and
+local experiments.
 
 ## Gradle cache permissions
 

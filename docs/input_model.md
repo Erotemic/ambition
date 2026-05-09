@@ -67,3 +67,19 @@ The current pogo rule is:
 - Most action-platformer layouts: hold Down and press Attack.
 - Current chirality test layouts: hold Down and press Attack. Their fourth action
   keys are currently bound to Blink.
+
+
+## Implementation layout
+
+`crates/ambition_sandbox/src/input.rs` is now a facade. The child modules under
+`src/input/` separate the concerns that used to be interleaved:
+
+- `actions.rs` — Leafwing `SandboxAction` declarations.
+- `presets.rs` — keyboard/gamepad preset data and labels.
+- `control.rs` — gameplay `ControlFrame` and dash trigger edge state.
+- `menu.rs` — `MenuInputFrame`, `MenuControlFrame`, analog direction mapping,
+  and repeat/scroll handling.
+
+Menu/dialog/inventory/pause code should consume `MenuControlFrame`, not raw
+keyboard, touch, or Leafwing state. Gameplay systems should consume
+`ControlFrame`, not menu semantics.

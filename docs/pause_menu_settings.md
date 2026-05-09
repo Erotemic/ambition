@@ -108,3 +108,17 @@ audio backend is not present.
 Run with `cargo test -p ambition_sandbox --lib settings::` or
 `cargo test -p ambition_sandbox --lib pause_menu::` or
 `cargo test -p ambition_sandbox --lib input::`.
+
+
+## Radio and compact mobile layout
+
+The pause menu now treats Radio as a pageable settings-style page rather than a
+single toggle row. It should show selected-position context (`Radio — i/N`) and
+use compact/windowed rows so 16:9 desktop, Steam Deck, and mobile screens all
+communicate that more tracks exist. Drag, wheel, joystick repeat, and keyboard
+navigation should all flow through `MenuControlFrame` instead of page-local raw
+input reads.
+
+Dialog choices should use the same menu-like interaction feel: bounded panels,
+vertically centered row text where space allows, and windowed touch-friendly
+choice lists when content would otherwise run off-screen.

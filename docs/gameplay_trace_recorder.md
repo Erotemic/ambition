@@ -219,3 +219,21 @@ cargo test -p ambition_sandbox trace::
   attaches to.
 - `docs/events_refactor_plan.md` — the per-frame `Vec` collector
   pattern the trace's event channel mirrors.
+
+
+## Implementation layout
+
+`crates/ambition_sandbox/src/trace.rs` is now a facade over focused child
+modules:
+
+- `trace/model.rs` — serializable points, AABBs, frame snapshots, events, and
+  dump/OOB reason enums.
+- `trace/buffer.rs` — rolling ring buffer and dump request state.
+- `trace/detect.rs` — OOB detection, nearby collision capture, frame building,
+  and synthetic event diffing.
+- `trace/dump.rs` — JSON/Markdown dump path construction and writing.
+- `trace/systems.rs` — Bevy systems for recording, hotkey handling, and flush.
+
+The public imports remain `crate::trace::GameplayTraceBuffer`,
+`GameplayTraceEvent`, `record_frame_system`, `flush_pending_dump`, and
+`handle_trace_hotkey`; callers should not depend on child-module paths.

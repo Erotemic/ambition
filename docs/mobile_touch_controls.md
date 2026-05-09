@@ -151,3 +151,15 @@ state from stomping keyboard input.
 
 See `TODO.md` → "Android demo touch controls via `virtual_joystick`
 + ControlFrame bridge". Tracks the remaining work.
+
+
+## Menu/dialog touch policy
+
+During menu-like modes, mobile touch should feed semantic menu intent rather
+than gameplay movement. The on-screen joystick may act like directional menu
+navigation, drag gestures should accumulate into scroll steps, and mouse input
+may proxy touch on desktop for testing. Gameplay `ControlFrame` movement should
+be suppressed while dialog/pause/menu state owns the input.
+
+The idle touch HUD should remain visible enough to teach the controls, but less
+visually dominant until the user actively touches or drags a control.

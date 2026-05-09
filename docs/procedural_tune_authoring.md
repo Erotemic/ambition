@@ -99,3 +99,18 @@ default_music_track: "new_tune",
 ```
 
 The pause menu can switch between tracks already listed in `music_tracks`.
+
+
+## Generated-output policy
+
+Active editable score YAMLs live in
+`tools/ambition_music_renderer/scores/active/`. Generated audio belongs under
+`assets/` and is git-ignored output. Regeneration tools should skip unchanged
+scores by default using input timestamps/hashes and a renderer version stamp,
+then provide `--force` for full rebuilds. When a renderer-code version changes,
+existing audio should be treated as stale even if the YAML timestamp did not
+change.
+
+For Python generator UX, prefer `rich.print`. When printing a file path, prefer
+link markup such as `[link={path}]{path}[/link]` so terminal users can open the
+artifact directly.

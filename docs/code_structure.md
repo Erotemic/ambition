@@ -1,21 +1,44 @@
 # Ambition code structure notes
 
-> **Status (2026-05-07):** This document recorded the **first**
-> extensibility pass after the Bevy port (sandbox split into focused
-> modules). The structure has continued to evolve since — sandbox
-> `main.rs` is now a ~10-line shim, and the App-builder public
-> surface lives in `app.rs` with implementation modules under
-> `src/app/` (`plugins`, `resources`, `update`, `phases`, `world_flow`,
-> `hud`, etc.). Several "remaining hard-coded areas" listed below
-> have already been resolved (notably `slash_hitbox` moving to
-> `ambition_engine::combat`). The historical sections are kept for
-> archaeology; current authoritative descriptions of structure live
-> in `docs/engine_architecture.md` and `docs/headless_simulation.md`.
+> **Status (2026-05-09):** This document began as the first post-Bevy-port
+> extensibility note, but several follow-up refactor passes have landed.
+> `main.rs` is now a thin shim, App-builder code lives under `src/app/`,
+> engine movement is a facade over `src/movement/`, and sandbox
+> `encounter`, `audio`, `music`, `input`, and `trace` are now facade modules
+> over focused child files. Historical sections below are kept for archaeology;
+> current authoritative descriptions live in this note,
+> `docs/engine_architecture.md`, and `docs/headless_simulation.md`.
 
 This document records the first extensibility pass after the Bevy port. The goal
 was not to perfect the architecture, but to remove the most obvious hard-coded
 pressure points so the sandbox can keep evolving without turning into one large
 file.
+
+## Current facade-module split status (2026-05-09)
+
+The current large-file split policy is to keep the original public module file
+(`foo.rs`) as a stable facade and move implementation into `foo/*.rs`. This
+avoids overlay cleanup problems from replacing `foo.rs` with `foo/mod.rs` and
+keeps existing imports stable.
+
+- `ambition_engine::movement` now splits player state, input, ops/events,
+  tuning constants, and tests under `crates/ambition_engine/src/movement/`.
+- `ambition_sandbox::encounter` now splits events, registry, specs, state, and
+  tests under `src/encounter/`.
+- `ambition_sandbox::audio` now splits runtime playback/state from procedural
+  rendering and audio tests under `src/audio/`.
+- `ambition_sandbox::music` now splits the adaptive catalog, channel bank,
+  director state, director systems, built-in cue spec, and tests under
+  `src/music/`.
+- `ambition_sandbox::input` now splits actions, presets, gameplay
+  `ControlFrame`, menu input repeat/scroll state, and tests under `src/input/`.
+- `ambition_sandbox::trace` now splits serializable trace model, ring buffer,
+  detection/event synthesis, dump writing, Bevy systems, and tests under
+  `src/trace/`.
+
+When continuing this work, compare the old facade's public imports against the
+new `pub use` surface before handoff. Missing re-exports are the easiest mistake
+to make in this pattern; see `dev/benchmark-candidates/rust-questions.md`.
 
 ## What changed (first pass — historical)
 

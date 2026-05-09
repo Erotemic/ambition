@@ -22,6 +22,30 @@ future story/game crates
 
 The engine may depend on Bevy and Bevy-adjacent crates when useful. It should still avoid owning sandbox presentation details such as colors, HUD layout, inspector windows, and temporary visual experiments.
 
+## 2026-05-09 UI, radio, audio-generation, and module-split update
+
+Recent mobile/menu polish made dialog choices behave like menu rows: larger
+touch targets, compact/windowed option lists, drag/wheel/joystick navigation,
+and mouse-as-touch proxy behavior where appropriate. The radio is now a real
+track-selection page rather than a single Music row: it exposes the simple-track
+lineup, remembers a user-selected station in `RadioStationState`, and lets
+adaptive encounter music temporarily take over before resuming the selected
+station.
+
+The active music score YAMLs live under
+`tools/ambition_music_renderer/scores/active/`; generated audio under `assets/`
+remains ignored output. The audio generator should skip unchanged YAML by
+default using timestamp/hash/version checks and should support an explicit force
+path when renderer code changes or authors want to rebuild everything. Python
+generators should prefer `rich.print` and render file paths as terminal links
+when possible.
+
+The large-file refactor has also moved from planning into implementation:
+`movement`, `encounter`, `audio`, `music`, `input`, and `trace` now use stable
+facade files with child modules. Remaining stale refactor notes that describe
+those files as unsplit should be read historically unless they call out a deeper
+crate-extraction or gameplay-state redesign that is still pending.
+
 ## Current stack
 
 - Bevy 0.18

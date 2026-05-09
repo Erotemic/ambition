@@ -23,9 +23,7 @@ recommendation column is opinionated and call-out the alternatives.
   0012's "Implementation progress (as of 2026-05-07)" section). The
   follow-on threads (crate refactor, IntGrid LDtk migration, bug
   record/replay) build on the landed seam.
-- **An audio agent is in flight in parallel** — owns `audio.rs`,
-  `pause_menu.rs` music wiring, and related work. Anything new this
-  session must avoid touching audio code paths.
+- **The audio/music branch has landed its current internal split** — audio and music still live in `ambition_sandbox`, but the runtime/rendering/director/catalog seams are now child modules. Future work can touch these paths normally, using the facade public surface as the compatibility contract.
 - **Recent visible regressions still open:**
   - Wall-jump occasionally catapults the player out of bounds in the
     square arena. Two regression tests landed in `movement.rs` that
@@ -198,6 +196,23 @@ validation, and room-compiler modules.
 
 Default and headless-ish build checks should continue to pass after each slice;
 there should be no behavior change from these moves.
+
+#### C.1 status (2026-05-09 facade splits)
+
+Additional large-file splits have landed after the initial `features` and
+`ldtk_world` work:
+
+- `ambition_engine::movement` is split internally while preserving the existing
+  crate-root `pub use movement::{...}` API.
+- `ambition_sandbox::encounter` is split into event, spec, registry, state, and
+  test modules.
+- `ambition_sandbox::audio`, `music`, `input`, and `trace` are now facade modules
+  with focused child files.
+
+This means older plan text that lists `movement.rs`, `encounter.rs`,
+`audio.rs`, `music.rs`, `input.rs`, or `trace.rs` as monolithic files is stale
+for internal organization. It can still be relevant for later crate extraction,
+feature gating, or deeper gameplay-state redesign.
 
 ### D. Stabilize collision (~1-2 days)
 

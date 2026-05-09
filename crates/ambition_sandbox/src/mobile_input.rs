@@ -519,7 +519,7 @@ pub mod bevy_plugin {
     /// Marker + identity for touch action buttons. Each `TouchActionButton`
     /// entity is a Bevy `Button` whose `Interaction` state is folded into
     /// the matching `TouchInputState` field each frame.
-    #[derive(Component, Clone, Copy, Debug)]
+    #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
     pub enum TouchActionButton {
         Jump,
         Attack,
@@ -1102,10 +1102,8 @@ pub mod bevy_plugin {
             crate::game_mode::GameMode::Dialogue | crate::game_mode::GameMode::Paused
         );
         if menu_mode {
-            let analog_dir = touch_move_to_menu_dir(
-                touch,
-                user_settings.controls.left_stick_deadzone,
-            );
+            let analog_dir =
+                touch_move_to_menu_dir(touch, user_settings.controls.left_stick_deadzone);
             let input = gesture.stick_input.step(
                 false,
                 false,
@@ -1174,11 +1172,8 @@ pub mod bevy_plugin {
         touch: TouchInputState,
         deadzone: f32,
     ) -> Option<crate::input::MenuDir> {
-        let (x, y_down) = crate::settings::ControlSettings::apply_deadzone(
-            touch.move_x,
-            touch.move_y,
-            deadzone,
-        );
+        let (x, y_down) =
+            crate::settings::ControlSettings::apply_deadzone(touch.move_x, touch.move_y, deadzone);
         // Touch/gameplay stores +Y as down, while the menu analog helper expects
         // +Y as up to match gamepad/keyboard menu convention. Flip here so
         // dragging the visible joystick down selects the next dialog option.

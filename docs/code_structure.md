@@ -35,6 +35,12 @@ keeps existing imports stable.
 - `ambition_sandbox::trace` now splits serializable trace model, ring buffer,
   detection/event synthesis, dump writing, Bevy systems, and tests under
   `src/trace/`.
+- `ambition_sandbox::ui_nav` is a folder-backed shared helper module for
+  windowed list math, drag-scroll accumulation, and pointer-row semantics used
+  by pause menus, dialogs, inventory-like UI, and mobile touch bridges.
+- Android-specific platform composition now uses `android_platform` rather than
+  Bevy's broad `default_platform`, so phone builds avoid unsupported desktop
+  `gilrs` initialization while desktop builds keep the default platform stack.
 
 When continuing this work, compare the old facade's public imports against the
 new `pub use` surface before handoff. Missing re-exports are the easiest mistake

@@ -155,12 +155,17 @@ impl LdtkValidationReport {
 impl LdtkProject {
     /// Load the sandbox map using the normal runtime policy.
     ///
-    /// By default the map is an external asset loaded from disk (the checked-in
-    /// `assets/ambition/worlds/sandbox.ldtk`, or a user-specified `--ldtk` /
-    /// `AMBITION_LDTK` path). With `--features static_map`, a copy of the
-    /// checked-in map is also embedded in the binary and used as a fallback if
-    /// the external file cannot be read or parsed.
+    /// Desktop builds default to the external checked-in asset path so LDtk edits
+    /// and modded maps do not require recompiling Rust. Android `static_map`
+    /// builds default to the embedded map unless a user explicitly passes
+    /// `--ldtk`, `--map`, or `AMBITION_LDTK`; the source-tree path is not a
+    /// meaningful filesystem location inside the APK.
     pub fn load_default() -> Result<Self, String> {
+        #[cfg(all(target_os = "android", feature = "static_map"))]
+        if configured_ldtk_path().is_none() {
+            return Self::load_static_map();
+        }
+
         let path = sandbox_ldtk_path();
         match Self::load_from_path(&path) {
             Ok(project) => Ok(project),

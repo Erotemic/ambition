@@ -128,3 +128,11 @@ https://www.gamedeveloper.com/design/how-the-i-hollow-knight-i-devs-mapped-out-t
 [11]: https://kayin.moe/the-mechanics-of-a-metroidvania-are-tools-not-the-destination "The Mechanics of a Metroidvania are Tools, not the Destination | Kayinworks"
 [12]: https://book.leveldesignbook.com/process/blockout/wayfinding "Wayfinding | The Level Design Book"
 
+
+## Font candidates
+
+- Inter: https://rsms.me/inter/ — UI/dialog candidate. Distributed under the SIL Open Font License.
+- JetBrains Mono: https://www.jetbrains.com/lp/mono/ — monospace/debug HUD candidate. Distributed under the SIL Open Font License.
+- Atkinson Hyperlegible / Atkinson Hyperlegible Mono: https://www.brailleinstitute.org/freefont/ — accessibility-focused alternatives worth evaluating for UI or debug text.
+
+Use `./scripts/grab_font_assets.py` to download the current bundled-font set into the ignored sandbox asset tree before force-adding or IPFS-tracking accepted font assets.

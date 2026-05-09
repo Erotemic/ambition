@@ -5,9 +5,13 @@ use std::path::Path;
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 
-pub const DIALOG_FONT_REGULAR: &str = "fonts/local/InterDisplay-Regular.otf";
-pub const DIALOG_FONT_SEMIBOLD: &str = "fonts/local/InterDisplay-SemiBold.otf";
-pub const DEBUG_FONT_MONO: &str = "fonts/local/DejaVuSansMono.ttf";
+pub const DIALOG_FONT_REGULAR: &str = "fonts/bundled/InterDisplay-Regular.otf";
+pub const DIALOG_FONT_SEMIBOLD: &str = "fonts/bundled/InterDisplay-SemiBold.otf";
+pub const DEBUG_FONT_MONO: &str = "fonts/bundled/JetBrainsMono-Regular.ttf";
+
+const LEGACY_DIALOG_FONT_REGULAR: &str = "fonts/local/InterDisplay-Regular.otf";
+const LEGACY_DIALOG_FONT_SEMIBOLD: &str = "fonts/local/InterDisplay-SemiBold.otf";
+const LEGACY_DEBUG_FONT_MONO: &str = "fonts/local/DejaVuSansMono.ttf";
 
 #[derive(Resource, Clone, Debug, Default)]
 pub struct UiFonts {
@@ -57,31 +61,36 @@ pub enum UiFontWeight {
 }
 
 pub fn load_ui_fonts(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let regular = load_optional_font(
+    let regular = load_first_available_font(
         &asset_server,
-        DIALOG_FONT_REGULAR,
+        &[DIALOG_FONT_REGULAR, LEGACY_DIALOG_FONT_REGULAR],
         "regular dialogue UI font",
     );
 
-    let semibold = load_optional_font(
+    let semibold = load_first_available_font(
         &asset_server,
-        DIALOG_FONT_SEMIBOLD,
+        &[DIALOG_FONT_SEMIBOLD, LEGACY_DIALOG_FONT_SEMIBOLD],
         "semibold dialogue UI font",
     )
     .or_else(|| regular.clone());
 
-    let mono = load_optional_font(&asset_server, DEBUG_FONT_MONO, "monospace debug UI font");
+    let mono = load_first_available_font(
+        &asset_server,
+        &[DEBUG_FONT_MONO, LEGACY_DEBUG_FONT_MONO],
+        "monospace debug UI font",
+    );
 
     if regular.is_none() {
         warn!(
-            "No local dialogue UI font found; falling back to Bevy default font and ASCII selector. \
-             Recommended local font: Inter Display. Expected asset path: assets/{DIALOG_FONT_REGULAR}"
+            "No bundled dialogue UI font found; falling back to Bevy default font and ASCII selector. \
+             Run scripts/grab_font_assets.py and check in the generated IPFS-tracked assets. \
+             Expected asset path: assets/{DIALOG_FONT_REGULAR}"
         );
     }
 
     if mono.is_none() {
         warn!(
-            "No monospace debug UI font found; debug HUD will fall back to the regular UI font or Bevy default. \
+            "No bundled monospace debug UI font found; debug HUD will fall back to the regular UI font or Bevy default. \
              Expected asset path: assets/{DEBUG_FONT_MONO}"
         );
     }
@@ -93,18 +102,26 @@ pub fn load_ui_fonts(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-fn load_optional_font(
+fn load_first_available_font(
     asset_server: &AssetServer,
-    relative_asset_path: &'static str,
+    relative_asset_paths: &[&'static str],
     label: &str,
 ) -> Option<Handle<Font>> {
-    if asset_exists(relative_asset_path) {
-        info!("Using {label}: assets/{relative_asset_path}");
-        Some(asset_server.load(relative_asset_path))
-    } else {
-        warn!("Missing {label}: assets/{relative_asset_path}");
-        None
+    for relative_asset_path in relative_asset_paths {
+        if asset_exists(relative_asset_path) {
+            info!("Using {label}: assets/{relative_asset_path}");
+            return Some(asset_server.load(*relative_asset_path));
+        }
     }
+    warn!(
+        "Missing {label}; tried {}",
+        relative_asset_paths
+            .iter()
+            .map(|path| format!("assets/{path}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    None
 }
 
 fn asset_exists(relative_asset_path: &str) -> bool {
@@ -130,8 +147,7 @@ mod tests {
     #[test]
     fn selected_marker_falls_back_to_ascii_when_no_dialog_font() {
         // Without a dialog font, use a portable ">" marker (the
-        // unicode "►" pointer needs the Inter-Display font to
-        // render legibly).
+        // unicode "►" pointer needs a bundled UI font to render legibly).
         let fonts = UiFonts::default();
         assert_eq!(fonts.selected_marker(), ">");
     }

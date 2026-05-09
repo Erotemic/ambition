@@ -297,3 +297,52 @@ keyboard/gamepad menu navigation. Touch Start folds into pause, Reset folds into
 Back, Jump/Interact fold into Confirm, and a one-finger drag outside the fixed
 on-screen controls folds into menu scroll. Keep this separate from gameplay
 `ControlFrame` so RL/gameplay movement does not learn about UI gestures.
+
+## Android platform feature hygiene
+
+The sandbox crate uses two explicit Bevy platform feature groups:
+
+- `desktop_platform = ["bevy/default_platform"]`
+- `android_platform = [...]`
+
+The Android group intentionally does **not** include `bevy/default_platform`,
+because that broad Bevy collection includes desktop-oriented features such as
+`bevy_gilrs`, X11/Wayland, web platform support, and the sysinfo plugin. Android
+still gets GameActivity/winit/std/multi-threaded support, but a healthy launch
+should no longer emit the noisy `bevy_gilrs` unsupported-platform error.
+
+## LDtk loading policy on Android
+
+Android builds still package `crates/ambition_sandbox/assets/` into APK assets,
+but the startup LDtk JSON is synchronously parsed before the Android AssetServer
+path is convenient for world composition. For now, `static_map` Android builds
+load the embedded `sandbox.ldtk` first unless an explicit `--ldtk`, `--map`, or
+`AMBITION_LDTK` override is provided. Desktop builds continue to default to the
+external checked-in LDtk path for iteration and hot reload.
+
+## Bundled UI fonts
+
+The app prefers fonts under:
+
+```text
+crates/ambition_sandbox/assets/fonts/bundled/
+```
+
+Generate them with:
+
+```bash
+./scripts/grab_font_assets.py
+```
+
+The font files are git-ignored by default. Review the generated
+`FONT_ASSET_MANIFEST.json` and license files, then force-add or IPFS-track the
+assets when accepted. The current script downloads Inter Display for UI/dialog
+text and JetBrains Mono for debug/monospace text; both are distributed under the
+SIL Open Font License.
+
+## Battery / power plan
+
+See `docs/android_power_plan.md` for the current battery-life plan. The first
+steps are platform-feature cleanup, static-first Android LDtk loading, bundled
+fonts, frame-pacing settings, background throttling, and keeping phone builds
+free of desktop debug overlays unless explicitly requested.

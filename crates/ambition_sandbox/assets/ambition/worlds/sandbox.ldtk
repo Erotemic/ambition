@@ -4799,7 +4799,7 @@
 						},
 						{
 							"__identifier": "DebugLabel",
-							"__grid": [3,3],
+							"__grid": [3,33],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -4808,7 +4808,7 @@
 							"width": 680,
 							"height": 24,
 							"defUid": 2007,
-							"px": [60,60],
+							"px": [60,540],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "ldtk label", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
@@ -4824,7 +4824,7 @@
 								}] }
 							],
 							"__worldX": 60,
-							"__worldY": 60
+							"__worldY": 540
 						}
 					]
 				},
@@ -18871,6 +18871,44 @@
 							],
 							"__worldX": 26080,
 							"__worldY": 1104
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [54,21],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"iid": "8abf0e00-48b0-11f1-8559-bd8f3f4d502c",
+							"width": 16,
+							"height": 16,
+							"defUid": 2015,
+							"px": [864,336],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Pickup", "__tile": null, "defUid": 3039, "realEditorValues": [] },
+								{ "__identifier": "kind", "__type": "String", "__value": "health:1", "__tile": null, "defUid": 3040, "realEditorValues": [] }
+							],
+							"__worldX": 26864,
+							"__worldY": 1360
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [58,21],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"iid": "8b54be50-48b0-11f1-8559-25687c6cdb21",
+							"width": 16,
+							"height": 16,
+							"defUid": 2015,
+							"px": [928,336],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Pickup", "__tile": null, "defUid": 3039, "realEditorValues": [] },
+								{ "__identifier": "kind", "__type": "String", "__value": "health:1", "__tile": null, "defUid": 3040, "realEditorValues": [] }
+							],
+							"__worldX": 26928,
+							"__worldY": 1360
 						}
 					]
 				},
@@ -20937,7 +20975,7 @@
 						},
 						{
 							"__identifier": "DebugLabel",
-							"__grid": [5,5],
+							"__grid": [5,6],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -20946,7 +20984,7 @@
 							"width": 600,
 							"height": 24,
 							"defUid": 2007,
-							"px": [80,80],
+							"px": [80,96],
 							"fieldInstances": [
 								{ "__identifier": "name", "__type": "String", "__value": "switch_lab_intro_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
@@ -20962,7 +21000,7 @@
 								}] }
 							],
 							"__worldX": 30880,
-							"__worldY": 1104
+							"__worldY": 1120
 						}
 					]
 				},

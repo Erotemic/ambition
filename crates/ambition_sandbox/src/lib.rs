@@ -39,6 +39,7 @@ pub mod mobile_input;
 pub mod music;
 pub mod pause_menu;
 pub mod physics;
+pub mod platform;
 pub mod platforms;
 pub mod profiling;
 pub mod projectile;

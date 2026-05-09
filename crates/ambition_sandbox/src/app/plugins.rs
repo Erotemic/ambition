@@ -262,6 +262,7 @@ pub fn add_presentation_plugins(app: &mut App) {
         .register_type::<EditablePlayerStats>()
         .register_type::<SandboxFeelTuning>();
 
+    app.add_plugins(crate::platform::PlatformPlugin);
     add_dev_tools_plugins(app);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);

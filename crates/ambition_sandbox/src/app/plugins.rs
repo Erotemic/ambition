@@ -480,23 +480,30 @@ pub(super) fn add_input_plugins(app: &mut App) {
             Startup,
             attach_player_input_components.after(setup_simulation_system),
         )
-        // Collect input into ControlFrame FIRST, then run menu / pause /
-        // inventory toggles that consume it. Touch fold (mobile_input
-        // plugin) runs `.after(populate_control_frame_from_actions)`
-        // and `.before(pause_menu_toggle)`, so by the time pause /
-        // inventory / navigate read ControlFrame, both keyboard and
-        // touch have been merged.
+        // Collect semantic menu intent BEFORE gameplay input is suppressed.
+        // Dialogue mode intentionally zeros `ControlFrame` and resets leafwing
+        // action edges in `populate_control_frame_from_actions` so gameplay
+        // presses cannot leak through while a conversation is open. If the menu
+        // frame is populated after that reset, keyboard arrows / Enter / Space
+        // are wiped before `dialog_input` can read them. Touch input did not hit
+        // this bug because `mobile_input` folds its menu buttons in after the
+        // keyboard bridge.
         //
-        // Per Jon 2026-05-07: "We need an elegant structure and
-        // abstraction layer so different control methods are not
-        // finicky." This reorder makes ControlFrame the canonical
-        // input seam for menus/pause too -- previously they read
-        // ActionState directly and missed touch input entirely.
+        // Therefore the order is:
+        // 1. read keyboard/gamepad menu actions into `MenuControlFrame`,
+        // 2. read/suppress gameplay into `ControlFrame`,
+        // 3. let touch folds merge into both seams before the consumers below.
+        //
+        // Touch fold (mobile_input plugin) runs
+        // `.after(populate_control_frame_from_actions)` for gameplay and
+        // `.after(populate_menu_control_frame_from_actions)` for menus, then
+        // `.before(pause_menu_toggle)`, so pause / inventory / navigation see
+        // keyboard, gamepad, and touch contributions in one frame.
         .add_systems(
             Update,
             (
-                populate_control_frame_from_actions,
                 populate_menu_control_frame_from_actions,
+                populate_control_frame_from_actions,
                 apply_menu_frame_to_cutscene_request,
                 pause_menu::pause_menu_toggle,
                 inventory::inventory_input,

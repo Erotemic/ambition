@@ -544,6 +544,99 @@ pub mod bevy_plugin {
         reset: bool,
     }
 
+    const ACTION_CLUSTER_MARGIN: f32 = 12.0;
+    const ACTION_BEZEL_PAD: f32 = 12.0;
+    const ACTION_CLUSTER_W: f32 = 360.0;
+    const ACTION_CLUSTER_H: f32 = 406.0;
+    const ACTION_BEZEL_W: f32 = ACTION_CLUSTER_W + ACTION_BEZEL_PAD * 2.0;
+    const ACTION_BEZEL_H: f32 = ACTION_CLUSTER_H + ACTION_BEZEL_PAD * 2.0;
+    const MENU_ROW_MARGIN: f32 = 12.0;
+    const MENU_ROW_W: f32 = 198.0;
+    const MENU_W: f32 = 88.0;
+    const MENU_H: f32 = 44.0;
+    const MENU_CELL: f32 = 96.0; // 88px button + 4px margin each side
+
+    #[derive(Clone, Copy, Debug)]
+    pub(super) struct TouchActionSpec {
+        pub(super) action: TouchActionButton,
+        pub(super) label: &'static str,
+        pub(super) left: f32,
+        pub(super) top: f32,
+        pub(super) size: f32,
+        pub(super) font_size: f32,
+    }
+
+    /// Canonical lower-right action layout used by both the rendered UI and
+    /// raw multitouch hit testing. Keep all positions here so spacing fixes
+    /// cannot drift between the visible overlay and the Android touch path.
+    pub(super) fn touch_action_layout() -> [TouchActionSpec; 7] {
+        [
+            TouchActionSpec {
+                action: TouchActionButton::Blink,
+                label: "Blink",
+                left: 28.0,
+                top: 12.0,
+                size: 74.0,
+                font_size: 14.0,
+            },
+            TouchActionSpec {
+                action: TouchActionButton::FlyToggle,
+                label: "Fly",
+                left: 141.0,
+                top: 4.0,
+                size: 78.0,
+                font_size: 15.0,
+            },
+            TouchActionSpec {
+                action: TouchActionButton::Projectile,
+                label: "Shot",
+                left: 258.0,
+                top: 12.0,
+                size: 74.0,
+                font_size: 14.0,
+            },
+            TouchActionSpec {
+                action: TouchActionButton::Interact,
+                label: "Interact",
+                left: 137.0,
+                top: 104.0,
+                size: 86.0,
+                font_size: 15.0,
+            },
+            TouchActionSpec {
+                action: TouchActionButton::Attack,
+                label: "Attack",
+                left: 54.0,
+                top: 205.0,
+                size: 86.0,
+                font_size: 15.0,
+            },
+            TouchActionSpec {
+                action: TouchActionButton::Dash,
+                label: "Dash",
+                left: 220.0,
+                top: 205.0,
+                size: 86.0,
+                font_size: 15.0,
+            },
+            TouchActionSpec {
+                action: TouchActionButton::Jump,
+                label: "Jump",
+                left: 135.0,
+                top: 306.0,
+                size: 90.0,
+                font_size: 16.0,
+            },
+        ]
+    }
+
+    pub(super) fn touch_action_cluster_origin(window_size: Vec2) -> Vec2 {
+        Vec2::new(
+            window_size.x - ACTION_CLUSTER_MARGIN - ACTION_CLUSTER_W,
+            window_size.y - ACTION_CLUSTER_MARGIN - ACTION_CLUSTER_H,
+        )
+    }
+
     /// Spawn the touch button UI. Layout follows a controller mental model:
     /// a lower-right diamond for primary face buttons plus a small shoulder row
     /// above it. Labels describe gameplay intent ("Interact", "Jump", "Fly")
@@ -553,20 +646,20 @@ pub mod bevy_plugin {
         // -- Mobile HUD bezel + controller-style gameplay action cluster --
         // Right-thumb controls, bottom-right:
         //
-        //       Blink     Fly     Shot
+        //       Blink        Fly        Shot
         //
-        //             Interact
-        //        Attack       Dash
-        //              Jump
+        //                Interact
+        //        Attack              Dash
+        //                  Jump
         //
-        // The diamond uses larger circular targets than the earlier grid so it
-        // is easier to hit with a thumb. The raw touch hit-test below mirrors
-        // these constants so multitouch works even while another finger is on
-        // the movement stick.
+        // The cluster is intentionally taller than the first pass so the
+        // shoulder row, Interact, and lower face buttons have clear gutters.
+        // The raw touch hit-test below consumes `touch_action_layout()` so
+        // multitouch stays aligned with the rendered overlay.
         cmd.spawn((
             Node {
-                width: Val::Px(354.0),
-                height: Val::Px(318.0),
+                width: Val::Px(ACTION_BEZEL_W),
+                height: Val::Px(ACTION_BEZEL_H),
                 position_type: PositionType::Absolute,
                 right: Val::Px(0.0),
                 bottom: Val::Px(0.0),
@@ -579,84 +672,28 @@ pub mod bevy_plugin {
         ));
         cmd.spawn((
             Node {
-                width: Val::Px(330.0),
-                height: Val::Px(294.0),
+                width: Val::Px(ACTION_CLUSTER_W),
+                height: Val::Px(ACTION_CLUSTER_H),
                 position_type: PositionType::Absolute,
-                right: Val::Px(12.0),
-                bottom: Val::Px(12.0),
+                right: Val::Px(ACTION_CLUSTER_MARGIN),
+                bottom: Val::Px(ACTION_CLUSTER_MARGIN),
                 ..default()
             },
             Name::new("MobileTouchActionCluster"),
             MobileTouchUiRoot,
         ))
         .with_children(|parent| {
-            // Shoulder-like row. Keep Fly visible and explicit; it is a gameplay
-            // action, not a hidden keyboard-only utility.
-            spawn_action_button_at(
-                parent,
-                TouchActionButton::Blink,
-                "Blink",
-                28.0,
-                10.0,
-                78.0,
-                14.0,
-            );
-            spawn_action_button_at(
-                parent,
-                TouchActionButton::FlyToggle,
-                "Fly",
-                126.0,
-                0.0,
-                82.0,
-                15.0,
-            );
-            spawn_action_button_at(
-                parent,
-                TouchActionButton::Projectile,
-                "Shot",
-                224.0,
-                10.0,
-                78.0,
-                14.0,
-            );
-
-            // Primary face-button diamond.
-            spawn_action_button_at(
-                parent,
-                TouchActionButton::Interact,
-                "Interact",
-                118.0,
-                70.0,
-                94.0,
-                15.0,
-            );
-            spawn_action_button_at(
-                parent,
-                TouchActionButton::Attack,
-                "Attack",
-                46.0,
-                144.0,
-                92.0,
-                15.0,
-            );
-            spawn_action_button_at(
-                parent,
-                TouchActionButton::Dash,
-                "Dash",
-                192.0,
-                144.0,
-                92.0,
-                15.0,
-            );
-            spawn_action_button_at(
-                parent,
-                TouchActionButton::Jump,
-                "Jump",
-                118.0,
-                212.0,
-                98.0,
-                16.0,
-            );
+            for spec in touch_action_layout() {
+                spawn_action_button_at(
+                    parent,
+                    spec.action,
+                    spec.label,
+                    spec.left,
+                    spec.top,
+                    spec.size,
+                    spec.font_size,
+                );
+            }
         });
 
         // -- Menu-style buttons (top-right) --
@@ -665,11 +702,11 @@ pub mod bevy_plugin {
         // affordance without needing a keyboard Escape key.
         cmd.spawn((
             Node {
-                width: Val::Px(198.0),
+                width: Val::Px(MENU_ROW_W),
                 height: Val::Px(54.0),
                 position_type: PositionType::Absolute,
-                right: Val::Px(12.0),
-                top: Val::Px(12.0),
+                right: Val::Px(MENU_ROW_MARGIN),
+                top: Val::Px(MENU_ROW_MARGIN),
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::FlexEnd,
                 align_items: AlignItems::Center,
@@ -859,41 +896,25 @@ pub mod bevy_plugin {
         window_size: Vec2,
     ) -> Option<TouchActionButton> {
         // Touch positions use the same top-left-origin logical coordinate
-        // space as Bevy window cursor positions. These constants mirror
-        // `spawn_touch_buttons` so raw multitouch hit testing matches the
-        // visible controller-style cluster without needing to inspect UI layout.
-        const RIGHT_MARGIN: f32 = 12.0;
-        const BOTTOM_MARGIN: f32 = 12.0;
-        const TOP_MARGIN: f32 = 12.0;
-        const ACTION_CLUSTER_W: f32 = 330.0;
-        const ACTION_CLUSTER_H: f32 = 294.0;
-        const MENU_ROW_W: f32 = 198.0;
-        const MENU_W: f32 = 88.0;
-        const MENU_H: f32 = 44.0;
-        const MENU_CELL: f32 = 96.0; // 88px button + 4px margin each side
-
-        let cluster_left = window_size.x - RIGHT_MARGIN - ACTION_CLUSTER_W;
-        let cluster_top = window_size.y - BOTTOM_MARGIN - ACTION_CLUSTER_H;
-        let action_boxes = [
-            (TouchActionButton::Blink, 28.0, 10.0, 78.0),
-            (TouchActionButton::FlyToggle, 126.0, 0.0, 82.0),
-            (TouchActionButton::Projectile, 224.0, 10.0, 78.0),
-            (TouchActionButton::Interact, 118.0, 70.0, 94.0),
-            (TouchActionButton::Attack, 46.0, 144.0, 92.0),
-            (TouchActionButton::Dash, 192.0, 144.0, 92.0),
-            (TouchActionButton::Jump, 118.0, 212.0, 98.0),
-        ];
-        for (action, left, top, size) in action_boxes {
-            let left = cluster_left + left;
-            let top = cluster_top + top;
-            if pos.x >= left && pos.x <= left + size && pos.y >= top && pos.y <= top + size {
-                return Some(action);
+        // space as Bevy window cursor positions. The gameplay cluster consumes
+        // `touch_action_layout()` so raw multitouch hit testing matches the
+        // visible overlay exactly and spacing fixes cannot drift.
+        let cluster_origin = touch_action_cluster_origin(window_size);
+        for spec in touch_action_layout() {
+            let left = cluster_origin.x + spec.left;
+            let top = cluster_origin.y + spec.top;
+            if pos.x >= left
+                && pos.x <= left + spec.size
+                && pos.y >= top
+                && pos.y <= top + spec.size
+            {
+                return Some(spec.action);
             }
         }
 
-        // Menu row: right=12, top=12, Menu / Back.
-        let menu_left = window_size.x - RIGHT_MARGIN - MENU_ROW_W;
-        let menu_top = TOP_MARGIN;
+        // Menu row: right=MENU_ROW_MARGIN, top=MENU_ROW_MARGIN, Menu / Back.
+        let menu_left = window_size.x - MENU_ROW_MARGIN - MENU_ROW_W;
+        let menu_top = MENU_ROW_MARGIN;
         for (action, col) in [
             (TouchActionButton::Start, 0usize),
             (TouchActionButton::Reset, 1),
@@ -1283,17 +1304,67 @@ mod tests {
     #[cfg(feature = "mobile_touch")]
     #[test]
     fn touch_action_hit_test_includes_fly_button() {
-        use crate::mobile_input::bevy_plugin::{touch_action_at_position, TouchActionButton};
+        use crate::mobile_input::bevy_plugin::{
+            touch_action_at_position, touch_action_cluster_origin, touch_action_layout,
+            TouchActionButton,
+        };
 
         let window_size = bevy::prelude::Vec2::new(1080.0, 2340.0);
+        let fly = touch_action_layout()
+            .into_iter()
+            .find(|spec| matches!(spec.action, TouchActionButton::FlyToggle))
+            .expect("Fly button remains in the touch action layout");
         // Center of the visible Fly shoulder button in the lower-right cluster.
+        let cluster_origin = touch_action_cluster_origin(window_size);
         let pos = bevy::prelude::Vec2::new(
-            1080.0 - 12.0 - 330.0 + 126.0 + 41.0,
-            2340.0 - 12.0 - 294.0 + 41.0,
+            cluster_origin.x + fly.left + fly.size * 0.5,
+            cluster_origin.y + fly.top + fly.size * 0.5,
         );
         assert!(matches!(
             touch_action_at_position(pos, window_size),
             Some(TouchActionButton::FlyToggle)
         ));
+    }
+
+    #[cfg(feature = "mobile_touch")]
+    #[test]
+    fn touch_action_layout_has_no_overlapping_hit_boxes() {
+        use crate::mobile_input::bevy_plugin::touch_action_layout;
+
+        let layout = touch_action_layout();
+        for (i, a) in layout.iter().enumerate() {
+            for b in layout.iter().skip(i + 1) {
+                let separated = a.left + a.size <= b.left
+                    || b.left + b.size <= a.left
+                    || a.top + a.size <= b.top
+                    || b.top + b.size <= a.top;
+                assert!(
+                    separated,
+                    "touch hit boxes should not overlap: {} and {}",
+                    a.label, b.label
+                );
+            }
+        }
+    }
+
+    #[cfg(feature = "mobile_touch")]
+    #[test]
+    fn touch_action_layout_keeps_visible_circles_apart() {
+        use crate::mobile_input::bevy_plugin::touch_action_layout;
+
+        const MIN_VISUAL_GAP: f32 = 12.0;
+        let layout = touch_action_layout();
+        for (i, a) in layout.iter().enumerate() {
+            let ac = bevy::prelude::Vec2::new(a.left + a.size * 0.5, a.top + a.size * 0.5);
+            for b in layout.iter().skip(i + 1) {
+                let bc = bevy::prelude::Vec2::new(b.left + b.size * 0.5, b.top + b.size * 0.5);
+                let gap = ac.distance(bc) - (a.size + b.size) * 0.5;
+                assert!(
+                    gap >= MIN_VISUAL_GAP,
+                    "touch circles should have at least {MIN_VISUAL_GAP}px gap: {} and {} only have {gap:.1}px",
+                    a.label, b.label
+                );
+            }
+        }
     }
 }

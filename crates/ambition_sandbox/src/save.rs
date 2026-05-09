@@ -43,23 +43,11 @@ impl SandboxSave {
 /// as the settings persistence module so both files end up alongside
 /// each other.
 pub fn save_path() -> PathBuf {
-    save_path_under(&data_dir_root())
+    save_path_under(&crate::settings::platform_paths::data_dir_root())
 }
 
 pub fn save_path_under(root: &Path) -> PathBuf {
     root.join(SANDBOX_SAVE_FILE)
-}
-
-fn data_dir_root() -> PathBuf {
-    // Reuse the settings module's path resolution so `settings.ron` and
-    // `sandbox_save.ron` always land next to each other.
-    // `settings_path()` returns `<root>/ambition/settings.ron`; strip
-    // the last two components to recover `<root>`.
-    crate::settings::persistence::settings_path()
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 pub fn load_save(path: &Path) -> SandboxSaveData {

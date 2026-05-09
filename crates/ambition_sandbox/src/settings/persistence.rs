@@ -15,66 +15,20 @@ use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
 
+use super::platform_paths::data_dir_root;
 use super::UserSettings;
 
 /// Where the settings file lives on disk relative to the user's data
 /// dir. The sandbox passes this through `data_dir().join(SETTINGS_FILE)`.
 pub const SETTINGS_FILE: &str = "ambition/settings.ron";
 
-/// Resolve the OS-conventional data directory for Ambition. Falls back
-/// to the current working directory when no env var is set (tests,
-/// CI).
-///
-/// On Linux this resolves to `$XDG_DATA_HOME/ambition` or
-/// `$HOME/.local/share/ambition`; on macOS to
-/// `~/Library/Application Support/ambition`; on Windows to
-/// `%APPDATA%\ambition`.
+/// Resolve the absolute path of the settings file for the live build.
 pub fn settings_path() -> PathBuf {
     settings_path_under(&data_dir_root())
 }
 
 pub fn settings_path_under(root: &Path) -> PathBuf {
     root.join(SETTINGS_FILE)
-}
-
-fn data_dir_root() -> PathBuf {
-    if let Ok(value) = std::env::var("AMBITION_DATA_DIR") {
-        // Tests / sandbox sessions can override the dir explicitly.
-        return PathBuf::from(value);
-    }
-    #[cfg(target_os = "android")]
-    {
-        // Android's process working directory is read-only in a GameActivity
-        // APK. Use the app's internal files directory instead so settings and
-        // saves persist without spamming logcat with EROFS warnings. The build
-        // script passes AMBITION_ANDROID_APP_ID at compile time so custom app
-        // IDs still get the matching package directory.
-        let app_id =
-            option_env!("AMBITION_ANDROID_APP_ID").unwrap_or("org.erotemic.ambition.sandbox");
-        return PathBuf::from("/data/data").join(app_id).join("files");
-    }
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
-            return PathBuf::from(xdg);
-        }
-        if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home).join(".local/share");
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home).join("Library/Application Support");
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            return PathBuf::from(appdata);
-        }
-    }
-    PathBuf::from(".")
 }
 
 /// Load `UserSettings` from `path`. Returns defaults if the file is

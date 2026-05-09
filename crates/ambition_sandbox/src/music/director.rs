@@ -290,6 +290,48 @@ fn resolved_simple_track(
         .unwrap_or_else(|| sandbox_data.audio.default_music_track.clone())
 }
 
+/// Decide whether `drive_adaptive_cue_state` should stop the base
+/// (simple-track) channel and (re)start the adaptive cue from its
+/// intro.
+///
+/// Three conditions trigger a restart, all preserving the invariant
+/// that **simple base track and adaptive layers cannot remain
+/// audible at the same time**:
+///
+/// 1. A different cue is taking over (the obvious case).
+/// 2. The director's mode says a simple base track is playing
+///    (`SimpleTrack`, `Idle`, `AdaptiveFinished`). Defensive: the
+///    primary `resume_simple_music(set_mode = false)` fix prevents
+///    this state from coexisting with `Some(active_cue_id)`, but
+///    if anything leaves the director in that shape we still need
+///    to stop the base channel before the adaptive layers ramp up.
+/// 3. The cue is in `AdaptiveOutro` and the new directive points
+///    back to a non-outro state — i.e. the encounter restarted
+///    during the outro tail. `drive_outro_tail` had already started
+///    the base lofi channel for the overlap; we must stop it
+///    before the adaptive layers come back.
+///
+/// Captured as a free function so the decision can be unit-tested
+/// without spinning up Bevy resources (audio channels, asset
+/// servers, etc.).
+pub(super) fn should_restart_adaptive(
+    director_active_cue: Option<&str>,
+    director_mode: MusicDirectorMode,
+    cue_id: &str,
+    target_state_is_outro: bool,
+) -> bool {
+    let same_cue = director_active_cue == Some(cue_id);
+    let mode_lost_adaptive = matches!(
+        director_mode,
+        MusicDirectorMode::SimpleTrack
+            | MusicDirectorMode::Idle
+            | MusicDirectorMode::AdaptiveFinished
+    );
+    let outro_to_active =
+        same_cue && director_mode == MusicDirectorMode::AdaptiveOutro && !target_state_is_outro;
+    !same_cue || mode_lost_adaptive || outro_to_active
+}
+
 fn drive_adaptive_cue_state(
     director: &mut MusicDirectorState,
     cue: &MusicCueSpec,
@@ -300,7 +342,12 @@ fn drive_adaptive_cue_state(
     settings: &UserSettings,
     dt: f32,
 ) {
-    if director.active_cue_id.as_deref() != Some(cue.id.as_str()) {
+    if should_restart_adaptive(
+        director.active_cue_id.as_deref(),
+        director.mode,
+        cue.id.as_str(),
+        is_outro_target(cue, target_state),
+    ) {
         base_music_channel.stop().fade_out(AudioTween::new(
             Duration::from_millis(650),
             AudioEasing::OutPowi(2),
@@ -613,6 +660,13 @@ fn drive_outro_tail(
     if !director.default_resume_started
         && director.seconds_in_mode >= (duration - DEFAULT_RETURN_OVERLAP_SECONDS).max(0.0)
     {
+        // Overlap: start the base lofi track UNDER the still-tailing
+        // adaptive outro. Mode stays AdaptiveOutro until the outro
+        // duration completes (block below); only then do we
+        // transition to AdaptiveFinished + clear the adaptive cue
+        // identity. Setting `mode = SimpleTrack` here would break
+        // the same-cue restart invariant — see the
+        // `resume_simple_music` doc.
         resume_simple_music(
             director,
             library,
@@ -622,6 +676,7 @@ fn drive_outro_tail(
             radio,
             sandbox_data,
             encounter_music,
+            false,
         );
         director.default_resume_started = true;
     }
@@ -667,6 +722,8 @@ fn shutdown_adaptive_cue(
     director.mode = MusicDirectorMode::Idle;
     director.pending_state = None;
     zero_all_current_and_targets(director);
+    // Adaptive cue identity is fully cleared here, so it's safe for
+    // resume_simple_music to flip the mode to SimpleTrack.
     resume_simple_music(
         director,
         library,
@@ -676,9 +733,26 @@ fn shutdown_adaptive_cue(
         radio,
         sandbox_data,
         encounter_music,
+        true,
     );
 }
 
+/// Bring the simple base music track up.
+///
+/// `set_mode_to_simple_track` controls whether the director's mode
+/// flips to [`MusicDirectorMode::SimpleTrack`] after the base track
+/// starts. Pass `true` from callers that have already torn down the
+/// adaptive cue (cleared `active_cue_id`, stopped the layer channels);
+/// pass `false` from callers that overlap the simple track with a
+/// still-running adaptive tail (the outro overlap).
+///
+/// Why the flag matters: setting `mode = SimpleTrack` while the
+/// adaptive cue identity is still live breaks the invariant
+/// `SimpleTrack ⇒ no adaptive cue identity / no adaptive layers
+/// audible`. If an encounter restarts during that liminal state,
+/// `drive_adaptive_cue_state` would see a same-cue match and skip
+/// the base-channel-stop path, leaving lofi and adaptive layers
+/// playing simultaneously (Jon's 2026-05-09 report).
 fn resume_simple_music(
     director: &mut MusicDirectorState,
     library: &AudioLibrary,
@@ -688,14 +762,22 @@ fn resume_simple_music(
     radio: Option<&RadioStationState>,
     sandbox_data: &SandboxDataSpec,
     encounter_music: &mut EncounterMusicRequest,
+    set_mode_to_simple_track: bool,
 ) {
     let target = resolved_simple_track(library, room_music, radio, sandbox_data, encounter_music);
     if library.track(&target).is_some() {
-        info!(target: MUSIC_LOG_TARGET, "resume_simple_music target={}", target);
+        info!(
+            target: MUSIC_LOG_TARGET,
+            "resume_simple_music target={} set_mode={}",
+            target,
+            set_mode_to_simple_track,
+        );
         switch_to_music_track(library, music_state, base_music_channel, &target);
         director.last_simple_track = Some(target.clone());
         encounter_music.last_applied = Some(target);
-        director.mode = MusicDirectorMode::SimpleTrack;
+        if set_mode_to_simple_track {
+            director.mode = MusicDirectorMode::SimpleTrack;
+        }
     }
 }
 

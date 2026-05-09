@@ -156,3 +156,120 @@ fn resolver_iterates_multiple_bindings() {
     let result = resolve_adaptive_directive(&catalog, &registry, &director);
     assert!(matches!(result, Some(AdaptiveCueDirective::Play { .. })));
 }
+
+// ---- should_restart_adaptive: encounter-restart-during-outro race ----
+//
+// Jon's 2026-05-09 report: "started the goblin encounter, beat it,
+// but also died at the same time, which reset me back to the start.
+// I reset and restarted the goblin encounter, so maybe the timed
+// trigger to restart the lofi music happened and then the trigger
+// to start the goblin music happened (because i reset the
+// encounter), so they both played at the same time."
+//
+// The race is in `drive_adaptive_cue_state`: when the encounter
+// restarts during the outro overlap window (after `drive_outro_tail`
+// has started the base lofi channel for the return-to-room overlap
+// but before the outro's full duration expires), the director still
+// has `active_cue_id = Some(goblin)` and the cue id matches the
+// new directive. The pre-fix predicate skipped the
+// stop-base-channel + restart-adaptive path on a same-cue match,
+// leaving lofi playing alongside the rebuilt adaptive layers.
+//
+// The fix preserves the invariant
+//   `simple base track playing ⇒ no adaptive layers audible`
+// by additionally restarting the adaptive cue from its intro when
+// the mode says a simple base track is currently audible OR the
+// director is in `AdaptiveOutro` and the directive's target state
+// is no longer the outro section.
+
+use super::director::should_restart_adaptive;
+
+#[test]
+fn should_restart_adaptive_when_cue_id_changes() {
+    // The classic case: a different cue is taking over.
+    assert!(should_restart_adaptive(
+        Some("first_goblin_tune_v2"),
+        MusicDirectorMode::AdaptiveLoop,
+        "boss_intro_v1",
+        false,
+    ));
+}
+
+#[test]
+fn should_restart_adaptive_when_no_cue_was_active() {
+    // No prior adaptive cue — definitely need to set one up.
+    assert!(should_restart_adaptive(
+        None,
+        MusicDirectorMode::SimpleTrack,
+        "first_goblin_tune_v2",
+        false,
+    ));
+}
+
+#[test]
+fn should_not_restart_adaptive_on_same_cue_in_loop() {
+    // Steady-state: cue is already running its loop. Moving between
+    // wave states does NOT reset the adaptive cue from its intro.
+    assert!(!should_restart_adaptive(
+        Some("first_goblin_tune_v2"),
+        MusicDirectorMode::AdaptiveLoop,
+        "first_goblin_tune_v2",
+        false,
+    ));
+}
+
+#[test]
+fn should_restart_adaptive_when_mode_says_simple_track_playing() {
+    // Defensive: if anything leaves the director in mode=SimpleTrack
+    // while still claiming an active adaptive cue, the new directive
+    // must stop the base channel before the adaptive layers ramp up.
+    // (The primary fix prevents this state from being created, but
+    // the predicate is robust against other code paths.)
+    assert!(should_restart_adaptive(
+        Some("first_goblin_tune_v2"),
+        MusicDirectorMode::SimpleTrack,
+        "first_goblin_tune_v2",
+        false,
+    ));
+    // Same for the post-outro Idle/Finished states.
+    assert!(should_restart_adaptive(
+        Some("first_goblin_tune_v2"),
+        MusicDirectorMode::Idle,
+        "first_goblin_tune_v2",
+        false,
+    ));
+    assert!(should_restart_adaptive(
+        Some("first_goblin_tune_v2"),
+        MusicDirectorMode::AdaptiveFinished,
+        "first_goblin_tune_v2",
+        false,
+    ));
+}
+
+#[test]
+fn should_restart_adaptive_when_outro_returns_to_active_state() {
+    // The Jon-2026-05-09 race: encounter cleared → outro tail
+    // playing AND base lofi playing (overlap), then encounter
+    // restarts → directive points to a non-outro state. Without
+    // this guard, the same-cue match would skip the
+    // stop-base-channel path and lofi + adaptive layers play
+    // simultaneously.
+    assert!(should_restart_adaptive(
+        Some("first_goblin_tune_v2"),
+        MusicDirectorMode::AdaptiveOutro,
+        "first_goblin_tune_v2",
+        false, // target_state is e.g. wave1, NOT the outro
+    ));
+}
+
+#[test]
+fn should_not_restart_adaptive_when_outro_continues_to_outro() {
+    // The encounter is still in its cleared/outro phase; the same
+    // outro keeps tailing. No restart.
+    assert!(!should_restart_adaptive(
+        Some("first_goblin_tune_v2"),
+        MusicDirectorMode::AdaptiveOutro,
+        "first_goblin_tune_v2",
+        true, // target_state IS the outro
+    ));
+}

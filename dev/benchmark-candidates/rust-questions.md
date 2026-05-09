@@ -755,3 +755,153 @@ plain words next to the format definition (e.g.
 `docs/gameplay_trace_recorder.md`) and make the replay loop's first
 line read like prose: "frames[i].controls drives step i; the
 resulting position must equal frames[i].player_pos."
+
+## 2026-05-09: Preserve "exactly one music source audible" across an outro overlap
+
+Tags: `state-machine-invariant`, `music-director`, `bevy-resource`,
+`overlap-window`, `architecture-seam`
+
+### Setup
+
+A Bevy game has a music director with two audio paths sharing one
+output:
+
+- A simple base track on `MusicChannel` (the room's lofi loop).
+- An adaptive cue (e.g. boss / encounter music) layered across
+  several `bevy_kira_audio` channels with crossfade-driven section
+  transitions.
+
+The director's mode enum looks like:
+
+```rust
+pub enum MusicDirectorMode {
+    Idle,
+    SimpleTrack,
+    AdaptiveIntro,
+    AdaptiveLoop,
+    AdaptiveOutro,
+    AdaptiveFinished,
+}
+
+pub struct MusicDirectorState {
+    pub mode: MusicDirectorMode,
+    pub active_cue_id: Option<String>,
+    /* timers, current state/section ids, gain targets, ... */
+}
+```
+
+When an encounter clears, the cleared-state binding drives the cue
+into its **outro** section. Near the end of the outro the director
+calls a `resume_simple_music(...)` helper that ramps up the room's
+lofi track on `MusicChannel` so the return-to-room transition isn't
+a hard cut. Today that helper unconditionally sets
+`director.mode = SimpleTrack` and `director.last_simple_track =
+Some(target)` after switching `MusicChannel`'s playing track.
+
+A separate per-frame `drive_adaptive_cue_state(...)` decides
+whether to (re)start the adaptive cue from its intro. Its current
+guard is:
+
+```rust
+if director.active_cue_id.as_deref() != Some(cue.id.as_str()) {
+    base_music_channel.stop().fade_out(...);
+    start_adaptive_state(director, cue, target_state, /* ... */);
+    return;
+}
+// Otherwise: fall through into pending-state /
+// crossfade / loop-section bookkeeping, NEVER stops
+// base_music_channel.
+```
+
+A user reports: starting the encounter, beating it, and dying at
+the same time so the player resets. They reset and re-trigger the
+encounter while the director is still in the outro tail. Now the
+room's lofi *and* the adaptive layers play at the same time.
+
+### Question
+
+What is the invariant the director must preserve, where exactly is
+it broken, and what is the smallest fix? Include a free function
+that captures the decision so it can be unit-tested without
+spinning up Bevy resources.
+
+### Expected answer
+
+The invariant is:
+
+> Simple base track audible ⇔ no adaptive cue identity, no adaptive
+> layers audible.
+>
+> Adaptive cue active ⇔ base music channel stopped/faded out.
+
+The break is two-part:
+
+1. `resume_simple_music` flips `director.mode = SimpleTrack` while
+   `director.active_cue_id` is still `Some(cue_id)` and adaptive
+   channels are still playing the outro tail. The director enters
+   a state the invariant explicitly forbids.
+2. `drive_adaptive_cue_state`'s guard only stops the base channel
+   when `active_cue_id` differs from the new cue. On encounter
+   restart during the overlap window, the cue id matches, so the
+   guard skips the stop-and-restart path. Both paths now claim
+   the output.
+
+The minimal fix is two changes:
+
+**(a)** `resume_simple_music` takes a `set_mode_to_simple_track:
+bool` parameter. Pass `false` from the outro-overlap call site;
+pass `true` only from full-shutdown call sites that have already
+cleared `active_cue_id` and stopped adaptive layer channels. The
+mode then accurately reflects what's audible, not what we wish
+were.
+
+**(b)** Extract the restart predicate from
+`drive_adaptive_cue_state` into a free function and broaden it:
+
+```rust
+pub(super) fn should_restart_adaptive(
+    director_active_cue: Option<&str>,
+    director_mode: MusicDirectorMode,
+    cue_id: &str,
+    target_state_is_outro: bool,
+) -> bool {
+    let same_cue = director_active_cue == Some(cue_id);
+    let mode_lost_adaptive = matches!(
+        director_mode,
+        MusicDirectorMode::SimpleTrack
+            | MusicDirectorMode::Idle
+            | MusicDirectorMode::AdaptiveFinished,
+    );
+    let outro_to_active = same_cue
+        && director_mode == MusicDirectorMode::AdaptiveOutro
+        && !target_state_is_outro;
+    !same_cue || mode_lost_adaptive || outro_to_active
+}
+```
+
+`outro_to_active` is the case the original guard missed:
+encounter restart during the outro tail returns the directive to
+a non-outro state while the cue id still matches, so the same-cue
+fast path would otherwise skip the base-channel stop. The
+`mode_lost_adaptive` clause is a defensive belt-and-suspenders
+check against any other code path that might leave the director
+claiming an active cue while the simple base track is the
+audible source.
+
+The free function form lets a unit test cover all six scenarios
+(different cue, no prior cue, same-cue steady-state, mode-says-
+simple, outro-to-active-restart, outro-continues-into-outro)
+without instantiating an `App` with audio channels and asset
+servers.
+
+### Why this was easy to miss
+
+The single-channel mental model — "simple track plays through
+MusicChannel, adaptive plays through layer channels, they're
+different channels so they can't collide" — is backwards. The
+director's job is to ensure those channels never produce sound
+at the same time, regardless of how they're plumbed. The first
+guard was written assuming "different cue id ⇒ source switch",
+which is true but covers only one of the three scenarios that
+break the audible invariant. The overlap-window restart is the
+specific scenario the unit test pins.

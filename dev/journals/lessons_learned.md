@@ -452,3 +452,95 @@ seam, not in float precision. Write the alignment convention down in
 plain words next to the format definition; the replay loop's first
 line should read like prose: "frames[i].controls drives step i; the
 resulting position must equal frames[i].player_pos."
+
+## 2026-05-09: Music director plays lofi + adaptive at the same time after outro-restart race
+
+### Symptom
+
+Jon's report: "started the goblin encounter, beat it, but also died
+at the same time, which reset me back to the start. I reset and
+restarted the goblin encounter, so maybe the timed trigger to
+restart the lofi music happened and then the trigger to start the
+goblin music happened (because i reset the encounter), so they both
+played at the same time."
+
+The room's lofi base track and the encounter's adaptive layers were
+audible at the same time — exactly what the director was supposed
+to make impossible.
+
+### Root cause
+
+Two-part state machine break:
+
+- `resume_simple_music(...)` was called near the end of the
+  AdaptiveOutro tail to overlap the room's lofi return on
+  `MusicChannel`. It flipped `director.mode = SimpleTrack`
+  *immediately*, while `director.active_cue_id` was still
+  `Some(goblin)` and the adaptive layer channels were still
+  playing the outro section.
+- `drive_adaptive_cue_state(...)` had a single same-cue fast
+  path: when the new directive's cue id matched
+  `active_cue_id`, it skipped the
+  `base_music_channel.stop()` + `start_adaptive_state(...)` path
+  and fell through to pending-state / crossfade bookkeeping.
+
+When the encounter restarted during the overlap window, the cue id
+still matched, so the fast path fired. The base channel kept
+playing lofi while the adaptive layers ramped back up from
+`start_adaptive_state` was never called.
+
+The invariant the director was *supposed* to preserve, but didn't
+state explicitly:
+
+> Simple base track audible ⇔ no adaptive cue identity, no
+> adaptive layers audible.
+
+### Fix
+
+Two coordinated changes in `crates/ambition_sandbox/src/music/director.rs`:
+
+1. `resume_simple_music` takes `set_mode_to_simple_track: bool`.
+   `drive_outro_tail` passes `false` (still in `AdaptiveOutro`
+   until full duration completion). `shutdown_adaptive_cue` passes
+   `true` (adaptive layers stopped, `active_cue_id` cleared, mode
+   transition is safe).
+2. The restart predicate inside `drive_adaptive_cue_state` extracts
+   into a free `should_restart_adaptive(...)` and gains two more
+   trigger conditions:
+   - mode says a simple base track is currently audible
+     (`SimpleTrack` / `Idle` / `AdaptiveFinished`) — defensive
+     against any other code path leaving the director in an
+     invariant-breaking state;
+   - the cue is in `AdaptiveOutro` but the new directive points
+     to a non-outro state — the encounter-restart-during-outro
+     case Jon reported.
+
+The function-extraction step matters because the predicate has six
+scenarios to test (cue change, no prior cue, same-cue
+steady-state, mode-says-simple, outro-to-active-restart,
+outro-continues-to-outro) and each takes 5+ lines of director-state
+setup. As a free function it's table-testable in milliseconds; as
+a closure inside `drive_adaptive_cue_state` it would need the
+whole Bevy `App` + audio channels + asset server to drive.
+
+Regression tests live in
+[`crates/ambition_sandbox/src/music/tests.rs`](../../crates/ambition_sandbox/src/music/tests.rs)
+under `should_restart_adaptive_*`.
+
+### Takeaway
+
+State-machine bugs in audio mixers / music directors are
+fingerprint-recognizable: "two sources playing at the same time
+when the design says only one can." Write the invariant down at
+the top of the module — even just a docstring on the mode enum —
+so a future change that flips `mode = X` while `cue_id =
+Some(Y)` lights up as suspect.
+
+When a state-machine guard is "if (single condition) → take
+restart path; else fall through", suspect that the fall-through
+path is missing protection against rare-but-real states. Capture
+the decision as a free function so each scenario takes one
+unit test, not an `App` setup. The smallest reproduction is a
+table test against the predicate; the in-game test is the user's
+report. Both have a place but the predicate test is the one the
+CI runs every commit.

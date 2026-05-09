@@ -6,9 +6,6 @@
 //! `Option` stays `None` and callers fall back to the colored-rectangle
 //! visuals that predate this module — the game must always run.
 
-#[cfg(not(target_os = "android"))]
-use std::path::Path;
-
 use ambition_engine as ae;
 use bevy::math::URect;
 use bevy::prelude::*;

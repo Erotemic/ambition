@@ -25,12 +25,9 @@
 //!    To make that swap painless we go through the high-level `GameAssets`
 //!    struct rather than baking specific paths into call sites.
 
-use std::collections::HashMap;
-#[cfg(not(target_os = "android"))]
-use std::path::Path;
-
 use ambition_engine as ae;
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 use crate::boss_sprites::{self, BossSpriteAsset};
 use crate::character_sprites::{self, CharacterSpriteAssets};

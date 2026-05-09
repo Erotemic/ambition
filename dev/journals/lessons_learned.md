@@ -132,3 +132,112 @@ This came up when the Android pause/settings menu was hard to use: there was no
 standard touch scroll/back seam, and some systems still consumed raw keyboard
 or Leafwing actions. The fix is an intent layer, not a collection of menu-local
 touch hacks.
+
+## 2026-05-08: Menu controls should be semantic, tabbed, and touch-visible
+
+The Android phone test showed that mapping touch controls directly onto a few
+keyboard/gameplay actions is not enough for menus. A menu needs its own semantic
+input layer (`MenuControlFrame`) and visible touch affordances. In particular:
+
+- Back/cancel must be visible in player-facing overlays, not only implied by a
+  keyboard Escape key or gamepad button.
+- Left/right should be reserved for changing high-level menu pages where a
+  Zelda-style tab model is desired.
+- Scroll/drag should manipulate text-heavy menu content without making gameplay
+  `ControlFrame` or RL action shapes more complex.
+- Phone polish and battery life are related: avoid adding per-frame heavy menu
+  work just to support touch; prefer small semantic resources and simple UI
+  state transitions.
+
+The inventory panel now acts as a small adventure menu with Items / Map / Quests
+tabs. That keeps the phone UI understandable while preserving the existing
+keyboard/gamepad menu contract.
+
+## 2026-05-08: Touch controls need controller-shaped affordances, not keyboard labels
+
+The Android touch overlay originally exposed the keyboard interaction action as
+an `E` button and arranged six actions as a dense 3x2 grid. That worked as a
+mechanical input bridge, but it was not a good phone interface: `E` is a
+keyboard mnemonic, not a player-facing action, and small grid buttons are hard to
+hit while the left thumb is also holding the movement stick.
+
+Prefer touch-native labels and controller-like spatial grouping:
+
+- use `Use` / `Talk` / `Open` style labels instead of keyboard letters;
+- put primary actions in a right-thumb diamond, with secondary actions nearby;
+- make buttons large enough for thumbs and keep raw-touch hit testing aligned
+  with the visible layout constants;
+- keep a visible Back/Menu affordance for escape/cancel rather than assuming a
+  keyboard Escape key.
+
+This keeps the semantic input seam intact (`MenuControlFrame` / `ControlFrame`),
+but makes the phone UI legible and ergonomic.
+
+## 2026-05-08: Use `ParamSet` for tabbed UI systems that mutate several `Text` queries
+
+The tabbed adventure-menu overlay compiled but the desktop game panicked during Bevy
+system initialization with error `B0001`. The system had several separate mutable
+queries over `Text`: title text, tab labels, item rows, tab-content text,
+description text, and status text. Even though the entities are intended to be
+different, Bevy cannot prove that arbitrary mutable queries over the same component
+are disjoint unless the filters make that explicit or the queries are wrapped in a
+`ParamSet`.
+
+For UI sync systems that update several text-bearing widgets in one pass, prefer one
+of these patterns:
+
+- use `ParamSet` and touch each query sequentially;
+- make query filters explicitly disjoint with marker components plus `Without<T>`;
+- split the system into smaller systems if the updates do not need shared local state.
+
+Do not assume a successful `cargo check` catches every Bevy ECS query conflict. Some
+access conflicts are validated when schedules initialize at runtime, so `./run_game.sh`
+and Android launch smoke tests remain important after UI refactors.
+
+## 2026-05-08: ParamSet does not replace explicit UI disjointness
+
+A follow-up inventory patch tried to fix Bevy `B0001` by wrapping several
+text-mutating inventory queries in a `ParamSet`, but the desktop game still
+panicked during schedule initialization. The safer pattern for Bevy UI sync
+systems is to make the entity families explicit in the query filters as well:
+`With<InventoryTitleText>` should also carry `Without<InventoryTabButton>`,
+`Without<InventoryItemRow>`, and the other mutually exclusive marker components.
+
+When a system updates several widgets that all carry `Text`, use both tools:
+
+- group conflicting queries in a `ParamSet` when they need to share local state;
+- add marker-component `Without<T>` filters so Bevy can prove each widget family
+  is disjoint;
+- always run a real Bevy startup smoke test (`./run_game.sh`), because query
+  access conflicts can pass compile and fail only when the schedule initializes.
+
+## 2026-05-08: For Bevy UI text sync, one role-tagged query is safer than many mutable `Text` queries
+
+The adventure-menu panel repeatedly hit Bevy `B0001` during desktop startup.
+Several fixes tried to convince Bevy that independent UI widget families were
+disjoint by using `ParamSet` and marker `Without<T>` filters. That can work, but
+it is fragile for UI panels where many different widgets all share `Text`,
+`TextColor`, `BackgroundColor`, `Node`, and `Visibility`.
+
+The safer pattern for one-panel sync systems is to use one role-tagged query:
+query every relevant widget once with `Option<&RoleMarker>` components and
+`Option<&mut ...>` presentation components, then branch by marker in code. This
+creates exactly one mutable access path to `Text`, so Bevy's schedule validator
+has no aliasing ambiguity.
+
+Also watch overlay archive mtimes. If an overlay zip normalizes entries to times
+older than the existing `target/release` output, Cargo may run the old binary and
+appear to ignore a source fix. When a source-only overlay is meant to fix a
+runtime panic, either preserve a current timestamp in the zip or explicitly run
+`touch` on the changed file before the smoke test.
+
+
+## 2026-05-08 - Bevy UI visibility is also a mutable component access
+
+When fixing query aliasing in Bevy UI systems, remember that `Visibility`,
+`Node`, `Text`, `TextColor`, and `BackgroundColor` are all independent ECS
+components with their own access rules. Moving text widgets into one mutable
+query fixes `Text` conflicts, but a separate root query mutating `Visibility`
+still conflicts with any child-widget query that also asks for `&mut
+Visibility`. Prefer a single visibility owner for panel roots and use
+`Node.display` for child-level show/hide inside the widget query.

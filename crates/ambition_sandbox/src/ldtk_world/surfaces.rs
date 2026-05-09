@@ -1,6 +1,7 @@
 use ambition_engine as ae;
 
-use super::{field_f32, field_i32, field_string, LdtkEntityInstance};
+use super::fields::{field_f32, field_i32, field_string};
+use super::project::LdtkEntityInstance;
 
 /// Collision behavior contributed by an LDtk-authored `Surface`.
 ///

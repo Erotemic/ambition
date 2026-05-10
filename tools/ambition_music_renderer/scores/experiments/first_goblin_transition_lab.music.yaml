@@ -629,43 +629,43 @@ sections:
   - Gm
   - A7
   postprocess:
-    gain_db: -7.8
-    reverb_wet: 0.003
-    reverb_decay_seconds: 0.11
-    reverb_damping_hz: 2400
+    gain_db: -6.0
+    reverb_wet: 0.002
+    reverb_decay_seconds: 0.09
+    reverb_damping_hz: 2200
     post_reverb_high_shelf_db: -1.8
-    target_peak_db: -9.2
-    stereo_width: 0.003
+    target_peak_db: -8.0
+    stereo_width: 0.002
   layers:
   - kind: automation
     group: strings
     automation:
     - group: strings
       cc: expression
-      from: 54
-      to: 34
+      from: 52
+      to: 44
       curve: smooth
       points: 8
     - group: brass
       cc: expression
-      from: 38
-      to: 24
+      from: 34
+      to: 20
       curve: smooth
       points: 8
     - group: winds
       cc: expression
-      from: 56
-      to: 36
+      from: 48
+      to: 22
       curve: smooth
       points: 8
     - group: choir_pad
       cc: expression
-      from: 14
-      to: 6
+      from: 10
+      to: 4
       curve: smooth
       points: 8
   - template: string_pad
-    velocity: 18
+    velocity: 22
   - template: low_goblin
     starts:
     - - 1
@@ -683,7 +683,33 @@ sections:
       - 0
       - 2
       beat: 0.0
-      velocity: 14
+      velocity: 12
+  - transition_lab_marker: intro_tail_contrabass_bed
+    kind: root_hits
+    instrument: contrabass
+    octave: 2
+    velocity: 56
+    articulation: tenuto
+    humanize_ms: 0.0
+    humanize_velocity_pct: 0.0
+    hits:
+    - - 3
+      - 0.0
+      - -12
+      - 1.85
+  - transition_lab_marker: intro_tail_celli_bed
+    kind: root_hits
+    instrument: celli
+    octave: 2
+    velocity: 44
+    articulation: tenuto
+    humanize_ms: 0.0
+    humanize_velocity_pct: 0.0
+    hits:
+    - - 3
+      - 0.0
+      - 0
+      - 1.7
 - id: wave1
   kind: loop_component
   label: transition lab - wave 1 pickup handoff

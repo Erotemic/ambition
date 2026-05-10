@@ -205,12 +205,15 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
             # The previous lab version still had a hot final 1-2 seconds. Keep
             # the intro audible, but stop the tail from cresting above wave1's
             # first bar.
-            "gain_db": -7.8,
-            "reverb_wet": 0.003,
-            "reverb_decay_seconds": 0.11,
-            "reverb_damping_hz": 2400,
-            "target_peak_db": -9.2,
-            "stereo_width": 0.003,
+            # Iteration 5: iteration 4 made the last intro bar too empty
+            # (-30 dBFS tail) even though the high-band ratio stayed visible.
+            # Bring back low/mid body, but keep the intro dry and dark.
+            "gain_db": -6.0,
+            "reverb_wet": 0.002,
+            "reverb_decay_seconds": 0.09,
+            "reverb_damping_hz": 2200,
+            "target_peak_db": -8.0,
+            "stereo_width": 0.002,
         },
     )
     replace_named_layer(
@@ -220,14 +223,14 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
             "kind": "automation",
             "group": "strings",
             "automation": [
-                {"group": "strings", "cc": "expression", "from": 54, "to": 34, "curve": "smooth", "points": 8},
-                {"group": "brass", "cc": "expression", "from": 38, "to": 24, "curve": "smooth", "points": 8},
-                {"group": "winds", "cc": "expression", "from": 56, "to": 36, "curve": "smooth", "points": 8},
-                {"group": "choir_pad", "cc": "expression", "from": 14, "to": 6, "curve": "smooth", "points": 8},
+                {"group": "strings", "cc": "expression", "from": 52, "to": 44, "curve": "smooth", "points": 8},
+                {"group": "brass", "cc": "expression", "from": 34, "to": 20, "curve": "smooth", "points": 8},
+                {"group": "winds", "cc": "expression", "from": 48, "to": 22, "curve": "smooth", "points": 8},
+                {"group": "choir_pad", "cc": "expression", "from": 10, "to": 4, "curve": "smooth", "points": 8},
             ],
         },
     )
-    replace_layer_template(intro, "string_pad", {"velocity": 18})
+    replace_layer_template(intro, "string_pad", {"velocity": 22})
     # Keep the warning motif, but remove the bar-3 restart that was making the
     # last second crest just before the wave1 handoff.
     replace_layer_template(intro, "low_goblin", {"velocity": 16, "starts": [[1, 0.5]]})
@@ -236,7 +239,41 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
         if isinstance(layer, dict) and layer.get("kind") == "drums":
             for event in layer.get("events", []) or []:
                 if isinstance(event, dict) and isinstance(event.get("velocity"), (int, float)):
-                    event["velocity"] = int(round(float(event["velocity"]) * 0.38))
+                    event["velocity"] = int(round(float(event["velocity"]) * 0.32))
+
+    # Add a dark, sustained final-bar bed so the crossfade has low/mid energy
+    # to hand off from. This is intentionally root-only: it raises RMS without
+    # bringing back the high-frequency haze that made the intro tail obvious.
+    append_layer_once(
+        intro,
+        "transition_lab_marker",
+        {
+            "transition_lab_marker": "intro_tail_contrabass_bed",
+            "kind": "root_hits",
+            "instrument": "contrabass",
+            "octave": 2,
+            "velocity": 56,
+            "articulation": "tenuto",
+            "humanize_ms": 0.0,
+            "humanize_velocity_pct": 0.0,
+            "hits": [[3, 0.0, -12, 1.85]],
+        },
+    )
+    append_layer_once(
+        intro,
+        "transition_lab_marker",
+        {
+            "transition_lab_marker": "intro_tail_celli_bed",
+            "kind": "root_hits",
+            "instrument": "celli",
+            "octave": 2,
+            "velocity": 44,
+            "articulation": "tenuto",
+            "humanize_ms": 0.0,
+            "humanize_velocity_pct": 0.0,
+            "hits": [[3, 0.0, 0, 1.70]],
+        },
+    )
 
     wave1 = section_by_id(score, "wave1")
     wave1["label"] = "transition lab - wave 1 pickup handoff"

@@ -153,3 +153,10 @@ python tools/ambition_sprite2d_renderer/mockingbird_boss_part_editor.py
 - Escape exits Transform Node mode first. If transform mode is already off, Escape keeps the previous up-one-level behavior.
 - Rear wing group no longer stores a negative `scale_y`; the mirror is pushed down onto the child primitive so the selectable group has a more stable pivot.
 - Ribs remain grouped under the `ribs` node, and the rib primitives were respaced/aligned for easier group translation.
+
+## animation fx pass
+
+- The sprite sheet now uses vector-space per-node animation transforms instead of duplicating static frames.
+- Living animations all get baseline hover motion: root/body bobbing, subtle head/wing/leg/foreclaw offsets, rotor strobing, and cyan flame flicker.
+- Attack rows add extra motion: `bite` opens the lower jaw and lunges the head, `slash` sweeps the foreclaws, `thrust` stretches the flame and pitches the body, and `hit` shakes the rig.
+- `death` collapses the body, droops wings/claws/legs, stops the flame, slows/fades the rotors, and draws a large X over the eye.

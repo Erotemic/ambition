@@ -14,6 +14,7 @@ force=0
 jobs=""
 clean=0
 transition_crossfade="0.65"
+crossfade_shape="equal_power"
 crossfade_explicit=0
 source_score="$renderer_dir/scores/active/first_goblin_tune_v2.music.yaml"
 experiment_score="$renderer_dir/scores/experiments/first_goblin_transition_lab.music.yaml"
@@ -33,6 +34,7 @@ Options:
   --jobs N                Pass --jobs N to render_isolated.py.
   --backend NAME          pretty-midi|fluidsynth-cli|fallback|auto.
   --crossfade SECONDS     Transition-audit preview crossfade. Default: 0.65.
+  --crossfade-shape SHAPE  linear|equal_power. Default: equal_power.
   --source PATH           Active/base score to derive from.
   --score PATH            Experiment score path to write/use.
   --outdir PATH           Experiment render output directory.
@@ -52,6 +54,7 @@ while [[ $# -gt 0 ]]; do
         --jobs|-j) jobs="$2"; shift 2 ;;
         --backend) backend="$2"; shift 2 ;;
         --crossfade) transition_crossfade="$2"; crossfade_explicit=1; shift 2 ;;
+        --crossfade-shape) crossfade_shape="$2"; crossfade_explicit=1; shift 2 ;;
         --source) source_score="$2"; shift 2 ;;
         --score) experiment_score="$2"; shift 2 ;;
         --outdir) outdir="$2"; shift 2 ;;
@@ -100,9 +103,12 @@ audit_outdir="$outdir/transition_audit"
 if [[ "$crossfade_explicit" -eq 1 ]]; then
     crossfade_label="${transition_crossfade//./p}"
     crossfade_label="${crossfade_label//[^0-9p]/_}"
-    audit_outdir="$outdir/transition_audit_xfade_${crossfade_label}"
+    shape_label="${crossfade_shape//-/_}"
+    audit_outdir="$outdir/transition_audit_xfade_${crossfade_label}_${shape_label}"
+else
+    audit_outdir="$outdir/transition_audit_equal_power"
 fi
-python "$renderer_dir/transition_audit.py" "$outdir" --sections intro wave1 --crossfade "$transition_crossfade" --outdir "$audit_outdir"
+python "$renderer_dir/transition_audit.py" "$outdir" --sections intro wave1 --crossfade "$transition_crossfade" --crossfade-shape "$crossfade_shape" --outdir "$audit_outdir"
 
 cat <<EOF
 

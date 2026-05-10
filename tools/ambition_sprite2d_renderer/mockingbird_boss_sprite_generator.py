@@ -88,6 +88,31 @@ def transform_matrix(t=None):
     return [[c * sx, -s * sy, x], [s * sx, c * sy, y], [0, 0, 1]]
 
 
+def transform_merge(base, delta):
+    """Merge additive animation transform deltas into a YAML scene transform."""
+    out = dict(base or {})
+    for key in ("x", "y", "rotation"):
+        if key in delta:
+            out[key] = float(out.get(key, 0)) + float(delta[key])
+    for key in ("scale", "scale_x", "scale_y"):
+        if key in delta:
+            out[key] = float(out.get(key, 1)) * float(delta[key])
+    return out
+
+
+def color_scale_alpha(color, scale):
+    r, g, b, a = color
+    return (r, g, b, max(0, min(255, int(round(a * scale)))))
+
+
+def wave(phase, cycles=1.0, offset=0.0):
+    return math.sin(math.tau * (phase * cycles + offset))
+
+
+def blink01(phase, cycles=1.0, offset=0.0):
+    return 0.5 + 0.5 * wave(phase, cycles, offset)
+
+
 def lerp(a, b, t):
     return a + (b - a) * t
 
@@ -228,22 +253,151 @@ class Renderer:
             return [tuple(p) for p in prim.get("points", [])]
         return []
 
+    def animation_transform_delta(self, node_id, anim_name, phase):
+        """Return per-node transform deltas for sprite-sheet animation frames.
+
+        These are deliberately vector-space transforms.  The renderer never warps
+        an already-rasterized frame; instead, each moving part is transformed
+        before primitive rasterization so the sheet stays crisp.
+        """
+        s1 = wave(phase, 1.0)
+        s2 = wave(phase, 2.0)
+        c1 = math.cos(math.tau * phase)
+        b2 = blink01(phase, 2.0)
+
+        # Death is mostly a single collapse pose with small settling motion.
+        if anim_name == "death":
+            settle = min(1.0, phase * 1.35)
+            wobble = wave(phase, 1.5) * (1.0 - settle)
+            death_pose = {
+                "root": {"x": -10 * settle, "y": 34 * settle, "rotation": 17 * settle + wobble * 3},
+                "body": {"rotation": 8 * settle, "scale_y": 0.96},
+                "head": {"x": -6 * settle, "y": 8 * settle, "rotation": 13 * settle},
+                "head_lower_jaw": {"y": 5 * settle, "rotation": 20 * settle},
+                "front_wing": {"y": 10 * settle, "rotation": 24 * settle},
+                "rear_wing": {"y": 8 * settle, "rotation": -18 * settle},
+                "left_foreclaw": {"y": 12 * settle, "rotation": -30 * settle},
+                "right_foreclaw": {"y": 10 * settle, "rotation": 26 * settle},
+                "left_leg": {"y": 8 * settle, "rotation": -13 * settle},
+                "right_leg": {"y": 8 * settle, "rotation": 12 * settle},
+                "tail": {"y": 6 * settle, "rotation": -11 * settle},
+            }
+            return death_pose.get(node_id, {})
+
+        # Baseline engine hover motion is present in every living animation.
+        delta = {}
+        if node_id == "root":
+            delta.update({"y": -3.4 * s1, "rotation": 0.9 * s1})
+        elif node_id == "body":
+            delta.update({"y": 1.7 * c1, "rotation": 0.55 * s1})
+        elif node_id == "tail":
+            delta.update({"rotation": -1.2 * s1, "y": 1.0 * c1})
+        elif node_id == "head":
+            delta.update({"x": 1.1 * c1, "rotation": 0.8 * s1})
+        elif node_id == "front_wing":
+            delta.update({"rotation": 2.4 * s1, "y": -1.1 * c1})
+        elif node_id == "rear_wing":
+            delta.update({"rotation": -1.9 * s1, "y": 0.9 * c1})
+        elif node_id == "left_leg":
+            delta.update({"rotation": 1.4 * s1, "y": 1.2 * b2})
+        elif node_id == "right_leg":
+            delta.update({"rotation": -1.2 * s1, "y": 1.1 * blink01(phase, 2.0, 0.5)})
+        elif node_id == "left_foreclaw":
+            delta.update({"rotation": -2.0 * s1, "x": -1.4 * b2})
+        elif node_id == "right_foreclaw":
+            delta.update({"rotation": 1.7 * s1, "x": 1.2 * blink01(phase, 2.0, 0.5)})
+
+        # Animation-specific accents.
+        if anim_name == "thrust":
+            if node_id == "root":
+                delta.update({"x": delta.get("x", 0) - 3.0 - 2.4 * b2, "y": delta.get("y", 0) - 2.0 * b2})
+            elif node_id == "body":
+                delta.update({"rotation": delta.get("rotation", 0) - 2.6, "scale_x": 1.018})
+            elif node_id in {"front_wing", "rear_wing"}:
+                delta.update({"rotation": delta.get("rotation", 0) + (7 if node_id == "front_wing" else -6)})
+            elif node_id == "tail":
+                delta.update({"x": delta.get("x", 0) + 3.0, "rotation": delta.get("rotation", 0) - 3.5})
+        elif anim_name == "bite":
+            snap = blink01(phase, 1.0)
+            if node_id == "head":
+                delta.update({"x": delta.get("x", 0) - 6.0 * snap, "rotation": delta.get("rotation", 0) - 4.0 * snap})
+            elif node_id == "head_lower_jaw":
+                delta.update({"y": 5.5 * snap, "rotation": 23.0 * snap})
+            elif node_id == "head_teeth":
+                delta.update({"x": -2.2 * snap})
+            elif node_id == "body":
+                delta.update({"x": -2.2 * snap, "rotation": delta.get("rotation", 0) - 1.0 * snap})
+        elif anim_name == "slash":
+            cut = blink01(phase, 1.0)
+            lead = wave(phase, 1.0, -0.18)
+            if node_id == "left_foreclaw":
+                delta.update({"x": -16.0 * cut, "y": -6.0 * cut, "rotation": -48.0 * cut + 5 * lead})
+            elif node_id == "right_foreclaw":
+                delta.update({"x": -10.0 * cut, "y": 4.0 * cut, "rotation": 31.0 * cut})
+            elif node_id == "front_wing":
+                delta.update({"rotation": delta.get("rotation", 0) + 10.0 * cut})
+            elif node_id == "body":
+                delta.update({"rotation": delta.get("rotation", 0) - 3.0 * cut, "x": -3.0 * cut})
+        elif anim_name == "hit":
+            jolt = wave(phase, 2.0)
+            if node_id == "root":
+                delta.update({"x": 7.0 * jolt, "y": delta.get("y", 0) - 3.0 * abs(jolt), "rotation": delta.get("rotation", 0) + 4.0 * jolt})
+            elif node_id == "head":
+                delta.update({"x": delta.get("x", 0) + 5.0 * jolt, "rotation": delta.get("rotation", 0) + 6.0 * jolt})
+            elif node_id in {"front_wing", "rear_wing", "left_foreclaw", "right_foreclaw"}:
+                delta.update({"rotation": delta.get("rotation", 0) + (10.0 if node_id in {"front_wing", "right_foreclaw"} else -10.0) * jolt})
+        return delta
+
+    def animated_transform(self, node, anim_name, phase):
+        base = node.get("transform", {})
+        delta = self.animation_transform_delta(node.get("id", ""), anim_name, phase)
+        return transform_merge(base, delta) if delta else base
+
+    def draw_death_eye_x(self, draw, node, prim, M):
+        box = prim.get("box", [-32, -4, -29, -1])
+        x1, y1, x2, y2 = box
+        # Deliberately larger than the tiny live-eye dot so the death read is
+        # unmistakable at 256px sprite scale. Draw a dark stroke first, then a
+        # bright stroke, to keep the X visible on both the skull and background.
+        pad = max(7.5, max(x2 - x1, y2 - y1) * 2.4)
+        cx = (x1 + x2) / 2
+        cy = (y1 + y2) / 2
+        a = [mat_apply(M, (cx - pad, cy - pad)), mat_apply(M, (cx + pad, cy + pad))]
+        b = [mat_apply(M, (cx - pad, cy + pad)), mat_apply(M, (cx + pad, cy - pad))]
+        self.draw_line(draw, a, self.scene.color("outline"), 4.0)
+        self.draw_line(draw, b, self.scene.color("outline"), 4.0)
+        self.draw_line(draw, a, self.scene.color("tooth"), 2.2)
+        self.draw_line(draw, b, self.scene.color("tooth"), 2.2)
+        return a + b
+
     def draw_special(self, draw, node, prim, M, anim_name, phase):
         typ = prim.get("type")
         outline = self.scene.color(prim.get("outline", "outline"))
         pts_for_bounds = []
         if typ == "flame":
+            if anim_name == "death":
+                return []
             length = float(prim.get("length", 56))
             height = float(prim.get("height", 24))
-            stretch = 1.0
+            # Every living animation gets an alternating engine pattern.  The
+            # outer plume, inner plume, and core drift at different rates so
+            # consecutive frames are visually distinct even in idle/hover.
+            flicker = 0.78 + 0.30 * blink01(phase, 2.0, 0.10)
+            stretch = flicker
+            height *= 0.86 + 0.24 * blink01(phase, 3.0, 0.29)
+            alpha_scale = 0.72 + 0.42 * blink01(phase, 2.0, 0.34)
             if anim_name == "thrust":
-                stretch += 0.5
+                stretch += 0.62 + 0.28 * blink01(phase, 3.0, 0.17)
+                alpha_scale += 0.20
+            elif anim_name in {"bite", "slash", "hit"}:
+                stretch += 0.14 * blink01(phase, 1.0, 0.45)
             outer = [(0, 0), (length*.2*stretch, -height*.35), (length*.55*stretch, -height*.15), (length*stretch, height*.15), (length*.55*stretch, height*.45), (length*.15*stretch, height*.35)]
             inner = [(0, 0), (length*.25*stretch, -height*.15), (length*.72*stretch, height*.1), (length*.28*stretch, height*.3)]
             core = [(0, 0), (length*.16*stretch, -height*.06), (length*.42*stretch, height*.06), (length*.2*stretch, height*.22)]
-            for pts, col in [(outer, "flame1"), (inner, "flame2"), (core, "flame3")]:
+            for idx, (pts, col) in enumerate([(outer, "flame1"), (inner, "flame2"), (core, "flame3")]):
                 wpts = [mat_apply(M, p) for p in pts]
-                self.draw_polygon(draw, wpts, self.scene.color(col), None)
+                color = color_scale_alpha(self.scene.color(col), alpha_scale * (1.0 + 0.10 * idx))
+                self.draw_polygon(draw, wpts, color, None)
                 pts_for_bounds += wpts
         elif typ == "spine":
             start = tuple(prim.get("start", [0, 0])); end = tuple(prim.get("end", [-60, 0]))
@@ -342,13 +496,23 @@ class Renderer:
             center = tuple(prim.get("center", [0, 0]))
             radius = float(prim.get("radius", 26))
             tilt = float(prim.get("tilt", 0.24))
-            phase_deg = float(prim.get("phase", 0)) + phase * 360 * 1.7
+            base_phase = float(prim.get("phase", 0))
+            spin = 0.0 if anim_name == "death" else {"hover": 1.7, "thrust": 2.8, "bite": 1.9, "slash": 2.2, "hit": 2.5}.get(anim_name, 1.7)
+            phase_deg = base_phase + phase * 360 * spin
+            strobe = 0.5 + 0.5 * math.sin(math.tau * phase * (3.0 if anim_name != "hover" else 2.0) + math.radians(base_phase))
             blur_alpha = int(prim.get("blur_alpha", 48))
             shine_alpha = int(prim.get("shine_alpha", 145))
+            if anim_name == "death":
+                blur_alpha = int(blur_alpha * 0.28)
+                shine_alpha = int(shine_alpha * 0.18)
+            else:
+                blur_alpha = int(blur_alpha * (0.78 + 0.30 * strobe))
+                shine_alpha = int(shine_alpha * (0.72 + 0.46 * strobe))
             c = mat_apply(M, center)
 
-            # Rotor as a spinning disc: layered translucent ellipses plus one bright
-            # specular streak. This reads better at sprite scale than outlined blades.
+            # Rotor as a spinning disc: layered translucent ellipses plus alternating
+            # specular streaks. This reads better at sprite scale than outlined blades
+            # and makes every living animation visibly cycle frame-to-frame.
             disc_layers = [
                 (radius * 1.08, radius * tilt, blur_alpha),
                 (radius * 0.88, radius * tilt * 0.62, int(blur_alpha * 0.72)),
@@ -374,6 +538,20 @@ class Renderer:
             ]
             self.draw_polygon(draw, shine, (196, 210, 226, int(shine_alpha * 0.92)), None)
             pts_for_bounds += shine
+            if anim_name != "death":
+                r2 = r + math.pi / 2
+                co2 = math.cos(r2); si2 = math.sin(r2)
+                def proj2(u, v):
+                    return (c[0] + u * co2 - v * si2, c[1] + (u * si2 + v * co2) * tilt)
+                alt = [
+                    proj2(-shine_len * 0.64, -shine_w * 0.55),
+                    proj2( shine_len * 0.60, -shine_w * 0.18),
+                    proj2( shine_len * 0.70,  shine_w * 0.18),
+                    proj2(-shine_len * 0.58,  shine_w * 0.45),
+                ]
+                alt_alpha = int(shine_alpha * (0.22 + 0.34 * (1.0 - strobe)))
+                self.draw_polygon(draw, alt, (116, 132, 150, alt_alpha), None)
+                pts_for_bounds += alt
 
             # Do not draw a separate rotor hub ball here; the mast assembly already
             # provides the visible hub / cap, and leaving only the blurred blades
@@ -391,10 +569,15 @@ class Renderer:
         width = float(prim.get("width", 1))
         if typ in {"polygon", "rect", "rounded_rect", "ellipse", "line"}:
             pts = [mat_apply(M, p) for p in self.primitive_points(prim)]
+            is_dead_eye = anim_name == "death" and node.get("id") == "head_06_ellipse"
+            if is_dead_eye:
+                fill = self.scene.color("black")
             if typ == "line":
                 self.draw_line(draw, pts, fill or self.scene.color("outline"), width)
             else:
                 self.draw_polygon(draw, pts, fill, outline, width)
+                if is_dead_eye:
+                    pts_for_bounds += self.draw_death_eye_x(draw, node, prim, M)
             pts_for_bounds += pts
         else:
             pts_for_bounds += self.draw_special(draw, node, prim, M, anim_name, phase) or []
@@ -404,7 +587,7 @@ class Renderer:
         if not node.get("visible", True):
             return []
         self.nodes_by_id[node["id"]] = node
-        M = mat_mul(parent_M, transform_matrix(node.get("transform", {})))
+        M = mat_mul(parent_M, transform_matrix(self.animated_transform(node, anim_name, phase)))
         pts_all = []
         if node.get("kind") == "shape":
             pts_all += self.draw_shape(draw, node, M, anim_name, phase)

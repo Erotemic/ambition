@@ -117,16 +117,31 @@ def stats_for(path: Path, *, sample_window_seconds: float, tail_window_seconds: 
     }
 
 
-def fade(length: int, *, direction: str) -> np.ndarray:
+def fade(length: int, *, direction: str, shape: str = "linear") -> np.ndarray:
     if length <= 0:
         return np.zeros((0, 1), dtype="float32")
-    if direction == "in":
-        values = np.linspace(0.0, 1.0, length, endpoint=True, dtype="float32")
-    elif direction == "out":
-        values = np.linspace(1.0, 0.0, length, endpoint=True, dtype="float32")
+    phase = np.linspace(0.0, 1.0, length, endpoint=True, dtype="float32")
+    if shape == "linear":
+        if direction == "in":
+            values = phase
+        elif direction == "out":
+            values = 1.0 - phase
+        else:
+            raise ValueError(direction)
+    elif shape in {"equal_power", "equal-power"}:
+        # Linear-amplitude crossfades can create a visible RMS dip when the two
+        # sections are not correlated. Equal-power fades preserve perceived
+        # energy better: outgoing=cos(theta), incoming=sin(theta).
+        theta = phase * (0.5 * math.pi)
+        if direction == "in":
+            values = np.sin(theta)
+        elif direction == "out":
+            values = np.cos(theta)
+        else:
+            raise ValueError(direction)
     else:
-        raise ValueError(direction)
-    return values[:, None]
+        raise ValueError(f"unknown crossfade shape: {shape}")
+    return values.astype("float32", copy=False)[:, None]
 
 
 def transition_components(
@@ -136,6 +151,7 @@ def transition_components(
     crossfade_seconds: float,
     context_seconds: float,
     level_match_second: bool = False,
+    crossfade_shape: str = "linear",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
     first, sr1 = read_audio(first_path)
     second, sr2 = read_audio(second_path)
@@ -160,7 +176,7 @@ def transition_components(
     outgoing = np.concatenate(
         [
             first_tail[:-crossfade_frames],
-            first_tail[-crossfade_frames:] * fade(crossfade_frames, direction="out"),
+            first_tail[-crossfade_frames:] * fade(crossfade_frames, direction="out", shape=crossfade_shape),
             zeros_post,
         ],
         axis=0,
@@ -168,7 +184,7 @@ def transition_components(
     incoming = np.concatenate(
         [
             zeros_pre,
-            second_head[:crossfade_frames] * fade(crossfade_frames, direction="in"),
+            second_head[:crossfade_frames] * fade(crossfade_frames, direction="in", shape=crossfade_shape),
             second_head[crossfade_frames:],
         ],
         axis=0,
@@ -185,6 +201,7 @@ def write_runtime_preview(
     crossfade_seconds: float,
     context_seconds: float,
     level_match_second: bool = False,
+    crossfade_shape: str = "linear",
 ) -> None:
     _, _, preview, sr = transition_components(
         first_path,
@@ -192,6 +209,7 @@ def write_runtime_preview(
         crossfade_seconds=crossfade_seconds,
         context_seconds=context_seconds,
         level_match_second=level_match_second,
+        crossfade_shape=crossfade_shape,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     sf.write(output, preview, sr)
@@ -274,6 +292,7 @@ def plot_transition_components(
     context_seconds: float,
     window_ms: float,
     hop_ms: float,
+    crossfade_shape: str = "linear",
 ) -> Path | None:
     plt = load_matplotlib()
     if plt is None:
@@ -284,6 +303,7 @@ def plot_transition_components(
         crossfade_seconds=crossfade_seconds,
         context_seconds=context_seconds,
         level_match_second=False,
+        crossfade_shape=crossfade_shape,
     )
     t_out, y_out = windowed_rms_db(outgoing, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
     t_in, y_in = windowed_rms_db(incoming, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
@@ -437,6 +457,7 @@ def crossfade_envelope_summary(
     context_seconds: float,
     window_ms: float,
     hop_ms: float,
+    crossfade_shape: str = "linear",
 ) -> dict[str, float]:
     """Quantify the visible dip around the runtime-style crossfade."""
     _outgoing, _incoming, summed, sample_rate = transition_components(
@@ -445,6 +466,7 @@ def crossfade_envelope_summary(
         crossfade_seconds=crossfade_seconds,
         context_seconds=context_seconds,
         level_match_second=False,
+        crossfade_shape=crossfade_shape,
     )
     times, values = windowed_rms_db(summed, sample_rate, window_ms=window_ms, hop_ms=hop_ms)
     crossfade_start = max(0.0, context_seconds - crossfade_seconds)
@@ -488,6 +510,7 @@ def write_markdown_report(
     raw_preview: Path | None,
     matched_preview: Path | None,
     crossfade_summary: dict[str, float] | None = None,
+    crossfade_shape: str = "linear",
 ) -> None:
     lookup = {str(row["section"]): row for row in rows}
     a = lookup.get(section_a, {})
@@ -509,7 +532,7 @@ def write_markdown_report(
     ]
     if crossfade_summary:
         lines.extend([
-            f"- Runtime crossfade: {crossfade_summary['crossfade_seconds']:.2f}s",
+            f"- Runtime crossfade: {crossfade_summary['crossfade_seconds']:.2f}s ({crossfade_shape})",
             f"- Crossfade floor RMS: {crossfade_summary['crossfade_floor_rms_db']:.1f} dBFS",
             f"- Crossfade dip vs pre-window median: {crossfade_summary['dip_vs_pre_db']:+.1f} dB",
             f"- Crossfade dip vs post-window median: {crossfade_summary['dip_vs_post_db']:+.1f} dB",
@@ -580,6 +603,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--window", type=float, default=1.0, help="head/tail analysis window in seconds")
     parser.add_argument("--tail-window", type=float, default=1.5, help="tail hiss/noise window in seconds")
     parser.add_argument("--crossfade", type=float, default=0.35, help="runtime-style crossfade seconds")
+    parser.add_argument("--crossfade-shape", choices=["linear", "equal_power"], default="linear", help="preview crossfade curve shape")
     parser.add_argument("--context", type=float, default=4.0, help="seconds of each side to include in previews")
     parser.add_argument("--outdir", type=Path, default=None, help="directory for reports/previews; default root/transition_audit")
     parser.add_argument("--no-preview", action="store_true", help="only print metrics; do not write WAV previews")
@@ -614,6 +638,7 @@ def main(argv: list[str] | None = None) -> int:
         context_seconds=args.context,
         window_ms=args.envelope_window_ms,
         hop_ms=args.envelope_hop_ms,
+        crossfade_shape=args.crossfade_shape,
     )
     if not args.no_preview:
         raw_preview = outdir / f"{section_a}_to_{section_b}_runtime_preview.wav"
@@ -625,6 +650,7 @@ def main(argv: list[str] | None = None) -> int:
             crossfade_seconds=args.crossfade,
             context_seconds=args.context,
             level_match_second=False,
+            crossfade_shape=args.crossfade_shape,
         )
         write_runtime_preview(
             path_a,
@@ -633,6 +659,7 @@ def main(argv: list[str] | None = None) -> int:
             crossfade_seconds=args.crossfade,
             context_seconds=args.context,
             level_match_second=True,
+            crossfade_shape=args.crossfade_shape,
         )
         generated_files.extend([raw_preview, matched_preview])
         rich_print(f"[green]preview[/green] {path_link(raw_preview)}")
@@ -659,6 +686,7 @@ def main(argv: list[str] | None = None) -> int:
                 context_seconds=args.context,
                 window_ms=args.envelope_window_ms,
                 hop_ms=args.envelope_hop_ms,
+                crossfade_shape=args.crossfade_shape,
             )
             env = plot_transition_envelope(
                 raw_preview,
@@ -693,10 +721,11 @@ def main(argv: list[str] | None = None) -> int:
             raw_preview=raw_preview,
             matched_preview=matched_preview,
             crossfade_summary=crossfade_summary,
+            crossfade_shape=args.crossfade_shape,
         )
         rich_print(f"[green]report[/green] {path_link(report)}")
 
-    rich_print("[dim]Tip: if level_matched sounds smooth but runtime_preview does not, focus on mastering/gain. If both sounds obvious, focus on arrangement/timbre continuity. Use the component/envelope/spectrogram plots to spot outgoing/incoming handoff dips, loudness cliffs, noisy tails, or spectral discontinuities.[/dim]")
+    rich_print("[dim]Tip: if level_matched sounds smooth but runtime_preview does not, focus on mastering/gain. If both sounds obvious, focus on arrangement/timbre continuity. Use the component/envelope/spectrogram plots to spot outgoing/incoming handoff dips, loudness cliffs, noisy tails, or spectral discontinuities. Compare --crossfade-shape linear vs equal_power to distinguish content holes from amplitude-curve dips.[/dim]")
     return 0
 
 

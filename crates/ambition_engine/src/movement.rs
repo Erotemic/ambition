@@ -886,25 +886,47 @@ fn sweep_player_y(
             return landing_from_above && !drop_through;
         }
         // AMBITION_REVIEW(spatial): reject blocks the body is already
-        // overlapping dominantly on the y axis. Concrete repro: a player
-        // wall-clinging on a tall left-side wall whose top is at world
-        // y=0 used to get a `time_of_impact = 0` hit on the wall during
-        // the downward y-sweep, then snap the body's bottom to the wall's
-        // top — teleporting the player from `(62, 1678)` to `(62, -23)`
-        // (= `0 - half_height`). The fix mirrors `resolve_axis(Axis::X)`'s
-        // overlap-shape guard: when the existing x-overlap is non-zero
-        // and the y-overlap is larger, this is a *side-wall* contact and
-        // belongs to the x-axis sweep/resolve. The vertical sweep should
-        // not see it. See `docs/lessons_learned.md` for the trace
-        // signature and the regression test.
-        if body_is_side_contact(start_body, block.aabb) {
+        // overlapping. Two repros:
+        //
+        // 1. Wall-clinging on a tall left-side wall whose top is at
+        //    world y=0: a TOI=0 hit on the wall during the downward
+        //    y-sweep snapped the body's bottom to the wall's top —
+        //    teleporting the player from `(62, 1678)` to `(62, -23)`.
+        //    This was the *fully-nested* case (body.y-range inside
+        //    wall.y-range), caught by `body_is_side_contact`.
+        //
+        // 2. Player straddles a column's bottom edge — body's top
+        //    sticks 4 px above column.bottom, but body.bottom is
+        //    well below it. `body_is_side_contact` returns false
+        //    (not fully nested), TOI=0 from the existing penetration,
+        //    and the falling-branch snaps body.bottom to column.top
+        //    (high above the player), again teleporting OOB.
+        //
+        // Generalized guard: if the body strictly intersects the
+        // block at the start of the sweep, this is a pre-existing
+        // penetration the y-sweep cannot resolve — the x-resolver
+        // (or the next frame's normal y-sweep) owns it. Skipping
+        // here matches the spirit of `resolve_axis(Axis::X)`'s
+        // overlap-shape guard.
+        if start_body.strict_intersects(block.aabb) {
             return false;
         }
         true
     }) {
         player.pos.y += delta.y * sweep_fraction(hit.time_of_impact);
         let body = player.aabb();
-        if delta.y > 0.0 || body.center().y < hit.block.aabb.center().y {
+        // Landing-from-above branch: only snap body.bottom onto the
+        // block's top edge when the body was actually approaching the
+        // block from above this frame. The original `delta.y > 0.0`
+        // alone fired the snap unconditionally on any downward motion,
+        // which catapulted the player upward when delta.y was tiny
+        // and the block sat far above the body (the symmetric repro
+        // to bug #2 in the predicate above). Mirroring the OneWay
+        // landing test (`prev_bottom <= block.top + tol`) keeps real
+        // floor landings working and rejects the fake one.
+        let approaching_from_above =
+            delta.y > 0.0 && prev_bottom <= hit.block.aabb.top() + 4.0;
+        if approaching_from_above || body.center().y < hit.block.aabb.center().y {
             player.pos.y += hit.block.aabb.top() - body.bottom();
             player.on_ground = true;
         } else {

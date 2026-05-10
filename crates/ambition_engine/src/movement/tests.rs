@@ -885,6 +885,84 @@ fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
     );
 }
 
+/// Regression: player wall-clinging on a tall column whose top
+/// is far above the player must NOT teleport upward when their
+/// body partially overlaps the column on its bottom edge.
+///
+/// Concrete repro from the May 2026 mob_lab F8 trace: player at
+/// (718, 419), body=(704, 396, 732, 442), wall-clinging on the
+/// right face of a column at (704, 16, 720, 400). The body's
+/// top corner (y=396) sticks 4 px above column.bottom (y=400),
+/// so body and column strictly overlap in both axes. The y-sweep
+/// found a TOI=0 hit on the column with delta.y ≈ 0.1 (tiny,
+/// gravity-decelerated downward motion), and the falling-branch
+/// snapped body.bottom to column.top (y=16) — teleporting the
+/// player from y=419 to y=-7 (above the world's top edge).
+///
+/// Two guards prevent this:
+/// 1. y-sweep predicate rejects blocks `start_body` already
+///    strictly intersects (entrenched penetrations belong to
+///    the x-resolver, not the y-sweep).
+/// 2. The landing-from-above branch additionally requires
+///    `prev_bottom <= block.top + tol`, mirroring the OneWay
+///    landing test, so a downward-but-tiny delta near a far-away
+///    block can't fire the snap.
+#[test]
+fn partial_wall_cling_overlap_does_not_teleport_upward() {
+    let world = World {
+        name: "column".into(),
+        size: Vec2::new(1600.0, 768.0),
+        spawn: Vec2::new(50.0, 50.0),
+        // Column matching the trace: x=[704, 720], y=[16, 400].
+        // Center=(712, 208), size=(16, 384).
+        blocks: vec![Block::solid(
+            "column",
+            Vec2::new(712.0, 208.0),
+            Vec2::new(16.0, 384.0),
+        )],
+        objects: Vec::new(),
+        water_regions: Vec::new(),
+        climbable_regions: Vec::new(),
+    };
+    let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    // Reproduce the exact pre-OOB state from the trace.
+    player.pos = Vec2::new(718.0, 419.0);
+    player.vel = Vec2::new(0.0, 15.0); // gravity-decelerated tiny downward
+    player.on_ground = false;
+    player.on_wall = true;
+    player.wall_clinging = true;
+    player.wall_normal_x = -1.0;
+
+    let start_y = player.pos.y;
+    let _ = update_player_simulation_with_tuning(
+        &world,
+        &mut player,
+        InputState {
+            control_dt: 1.0 / 60.0,
+            axis_x: -1.0, // pressing toward wall
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        DEFAULT_TUNING,
+    );
+
+    // The player must NOT have been catapulted across the room.
+    // A normal frame's motion is single-digit pixels; anything more
+    // than ~50 px is the bug.
+    let dy = (player.pos.y - start_y).abs();
+    assert!(
+        dy < 50.0,
+        "y-sweep teleported player by {} px; expected ~tiny gravity-driven motion (start_y={}, end_y={})",
+        dy, start_y, player.pos.y,
+    );
+    // Sanity: still inside the world.
+    assert!(
+        player.pos.y > 0.0 && player.pos.y < world.size.y,
+        "player ended OOB at y={}",
+        player.pos.y,
+    );
+}
+
 /// Guards against `body_is_side_contact` being too broad. Player
 /// descending onto the *top corner* of a tall solid (a pillar) with
 /// slight x overlap should still resolve as a normal landing —

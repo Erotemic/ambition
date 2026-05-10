@@ -412,6 +412,147 @@ fn fireball_bounces_off_floor_in_system() {
     assert_eq!(body.bounces_remaining, starting_bounces - 1);
 }
 
+/// Same scenario as `fireball_bounces_off_floor_in_system`, but the
+/// floor block is a `OneWay` platform. The fireball must still
+/// bounce — the player expects skipping fireballs to skip across
+/// thin ledges identically to thick floors.
+#[test]
+fn fireball_bounces_off_one_way_platform_in_system() {
+    let mut app = App::new();
+    app.insert_resource(Time::<()>::default());
+    let world = ae::World::new(
+        "one_way_bounce_test",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![ae::Block::one_way(
+            "ledge",
+            ae::Vec2::new(0.0, 400.0),
+            ae::Vec2::new(2000.0, 8.0),
+        )],
+    );
+    app.insert_resource(GameWorld(world.clone()));
+    let mut runtime = SandboxRuntime::new(
+        &world,
+        ae::AbilitySet::sandbox_all(),
+        ae::DEFAULT_TUNING,
+        crate::physics::PhysicsSandboxSettings::default(),
+    );
+    runtime.player.pos = ae::Vec2::new(200.0, 200.0);
+    app.insert_resource(runtime);
+    app.insert_resource(ControlFrame::default());
+    app.insert_resource(crate::settings::UserSettings::default());
+    app.insert_resource(GameplayTraceBuffer::default());
+    app.insert_resource(PlayerProjectileState::default());
+    app.insert_resource(FeatureEventBus::default());
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_systems(Update, update_projectiles);
+
+    let starting_bounces;
+    {
+        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let spec = ae::ProjectileSpec::new(
+            ae::ProjectileKind::Fireball,
+            ae::Vec2::new(500.0, 380.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ae::ProjectileBody::from_spec(spec);
+        body.pos = ae::Vec2::new(500.0, 395.0);
+        body.vel = ae::Vec2::new(60.0, 240.0);
+        starting_bounces = body.bounces_remaining;
+        assert!(starting_bounces > 0);
+        state.bodies.push(PlayerProjectile { body });
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+    let state = app.world().resource::<PlayerProjectileState>();
+    assert_eq!(
+        state.bodies.len(),
+        1,
+        "fireball must survive a one-way-platform bounce"
+    );
+    let body = &state.bodies[0].body;
+    assert!(
+        body.vel.y < 0.0,
+        "post-bounce vy must be upward; got {}",
+        body.vel.y
+    );
+    assert_eq!(body.bounces_remaining, starting_bounces - 1);
+}
+
+/// A fireball flying horizontally beneath a thin one-way platform
+/// (or rising up into one from below) must NOT be stopped by it —
+/// the platform is non-solid from below. Pin the "fireballs pass
+/// through one-ways unless they land on top" rule at the system
+/// level so a future regression that treats one-ways like solid
+/// walls breaks the test.
+#[test]
+fn fireball_passes_through_one_way_from_below_in_system() {
+    let mut app = App::new();
+    app.insert_resource(Time::<()>::default());
+    let world = ae::World::new(
+        "one_way_passthrough_test",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(200.0, 200.0),
+        vec![ae::Block::one_way(
+            "ledge",
+            ae::Vec2::new(0.0, 400.0),
+            ae::Vec2::new(2000.0, 8.0),
+        )],
+    );
+    app.insert_resource(GameWorld(world.clone()));
+    let mut runtime = SandboxRuntime::new(
+        &world,
+        ae::AbilitySet::sandbox_all(),
+        ae::DEFAULT_TUNING,
+        crate::physics::PhysicsSandboxSettings::default(),
+    );
+    runtime.player.pos = ae::Vec2::new(200.0, 500.0);
+    app.insert_resource(runtime);
+    app.insert_resource(ControlFrame::default());
+    app.insert_resource(crate::settings::UserSettings::default());
+    app.insert_resource(GameplayTraceBuffer::default());
+    app.insert_resource(PlayerProjectileState::default());
+    app.insert_resource(FeatureEventBus::default());
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_systems(Update, update_projectiles);
+
+    {
+        let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
+        let spec = ae::ProjectileSpec::new(
+            ae::ProjectileKind::Fireball,
+            ae::Vec2::new(500.0, 405.0),
+            ae::Vec2::new(1.0, 0.0),
+            1.0,
+        );
+        let mut body = ae::ProjectileBody::from_spec(spec);
+        // Centre the body inside the platform's y-range so the
+        // contact is unambiguously a side / overlap, not a top
+        // landing. Velocity is purely horizontal.
+        body.pos = ae::Vec2::new(500.0, 404.0);
+        body.vel = ae::Vec2::new(360.0, 0.0);
+        state.bodies.push(PlayerProjectile { body });
+    }
+    advance_time(&mut app, 0.016);
+    app.update();
+    let state = app.world().resource::<PlayerProjectileState>();
+    assert_eq!(
+        state.bodies.len(),
+        1,
+        "fireball must pass through a one-way platform on side contact"
+    );
+    let body = &state.bodies[0].body;
+    assert!(
+        body.vel.x > 0.0,
+        "horizontal velocity should be unchanged after passthrough; got {}",
+        body.vel.x
+    );
+}
+
 /// Hadouken spawns with `bounces_remaining = 0`. Hitting any solid
 /// expires it on the first contact — pinning the "horizontal
 /// projectile that disappears on first wall" behavior at the

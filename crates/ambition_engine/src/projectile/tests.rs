@@ -253,6 +253,77 @@ fn fireball_expires_when_bounce_budget_exhausted() {
     assert_eq!(outcome, ProjectileSolidHit::Expired);
 }
 
+/// One-way platforms must bounce a fireball coming down on top
+/// just like a solid floor does. Otherwise the player can shoot
+/// across thick floors but loses the bounce on thin ledges, which
+/// feels arbitrary.
+#[test]
+fn fireball_bounces_off_one_way_platform_top() {
+    let spec = ProjectileSpec::new(
+        ProjectileKind::Fireball,
+        Vec2::new(100.0, 100.0),
+        Vec2::new(1.0, 0.0),
+        1.0,
+    );
+    let mut body = ProjectileBody::from_spec(spec);
+    body.vel = Vec2::new(200.0, 240.0);
+    body.pos = Vec2::new(150.0, 195.0);
+    let starting_bounces = body.bounces_remaining;
+    let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
+    let outcome = body.resolve_one_way_hit(platform);
+    assert_eq!(outcome, ProjectileSolidHit::Bounced);
+    assert_eq!(body.bounces_remaining, starting_bounces - 1);
+    assert!(body.vel.y < 0.0);
+    assert!(body.aabb().bottom() <= platform.top() + 1.0);
+}
+
+/// Side, ceiling, and below contacts on a one-way platform must
+/// pass through — the platform is non-solid from those directions,
+/// so a fireball flying horizontally past a thin ledge or rising up
+/// into one from below shouldn't be stopped or expired.
+#[test]
+fn fireball_passes_through_one_way_on_non_top_contact() {
+    let spec = ProjectileSpec::new(
+        ProjectileKind::Fireball,
+        Vec2::ZERO,
+        Vec2::new(1.0, 0.0),
+        1.0,
+    );
+    let mut body = ProjectileBody::from_spec(spec);
+    // From below, moving upward — not a landing.
+    body.pos = Vec2::new(150.0, 220.0);
+    body.vel = Vec2::new(200.0, -240.0);
+    let bounces_before = body.bounces_remaining;
+    let pos_before = body.pos;
+    let vel_before = body.vel;
+    let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
+    let outcome = body.resolve_one_way_hit(platform);
+    assert_eq!(outcome, ProjectileSolidHit::Passthrough);
+    assert_eq!(body.bounces_remaining, bounces_before);
+    assert_eq!(body.pos, pos_before);
+    assert_eq!(body.vel, vel_before);
+}
+
+/// A fireball with no bounce budget left passes through a one-way
+/// platform instead of expiring (a solid floor would expire it). This
+/// keeps the platform feeling non-solid from any non-bounce angle.
+#[test]
+fn fireball_with_no_bounces_passes_through_one_way_top() {
+    let spec = ProjectileSpec::new(
+        ProjectileKind::Fireball,
+        Vec2::ZERO,
+        Vec2::new(1.0, 0.0),
+        1.0,
+    );
+    let mut body = ProjectileBody::from_spec(spec);
+    body.bounces_remaining = 0;
+    body.vel = Vec2::new(200.0, 240.0);
+    body.pos = Vec2::new(150.0, 195.0);
+    let platform = block_aabb(Vec2::new(0.0, 200.0), Vec2::new(400.0, 8.0));
+    let outcome = body.resolve_one_way_hit(platform);
+    assert_eq!(outcome, ProjectileSolidHit::Passthrough);
+}
+
 /// Hadouken spawns with 0 bounces, so the very first solid hit
 /// expires it regardless of contact face. This pins the
 /// "horizontal projectile that disappears on first wall" UX.

@@ -67,6 +67,46 @@ impl ProjectileBody {
         self.age >= self.max_lifetime
     }
 
+    /// True when the contact geometry qualifies as a top-of-block
+    /// landing: projectile coming from above, moving downward, not
+    /// merely grazing the side. Shared by solid- and one-way- hit
+    /// resolution so both surfaces use identical bounce geometry.
+    fn is_top_landing(&self, block_aabb: Aabb) -> bool {
+        let body = self.aabb();
+        // Side / ceiling-contact filter: if the projectile's y-range
+        // fits inside the block's y-range, the contact is on the
+        // block's *side*, not its top. (Mirrors the
+        // `body_is_side_contact` predicate that movement.rs uses to
+        // skip side walls during the y-sweep.) A 1e-3 epsilon allows
+        // an exact-edge-touching projectile that just grazes the
+        // floor face.
+        const SIDE_EPS: f32 = 1e-3;
+        let side_contact = body.top() >= block_aabb.top() - SIDE_EPS
+            && body.bottom() <= block_aabb.bottom() + SIDE_EPS;
+        if side_contact {
+            return false;
+        }
+        // Floor vs ceiling contact: projectile center above the block
+        // center AND moving downward → top-of-block hit.
+        let from_above = body.center().y < block_aabb.center().y;
+        let going_down = self.vel.y > 0.0;
+        from_above && going_down
+    }
+
+    /// Reposition the body so its bottom rests on the block's top
+    /// edge plus a 1px lift, reflect vy with restitution, and
+    /// decrement the bounce budget. Caller has already checked that
+    /// `bounces_remaining > 0`.
+    fn apply_top_bounce(&mut self, block_aabb: Aabb) {
+        // The 1px lift prevents an immediate re-hit on the next tick
+        // when gravity hasn't yet reaccelerated downward.
+        const RESTITUTION: f32 = 0.65;
+        const SETTLE_LIFT: f32 = 1.0;
+        self.pos.y = block_aabb.top() - self.half_extent.y - SETTLE_LIFT;
+        self.vel.y = -self.vel.y.abs() * RESTITUTION;
+        self.bounces_remaining -= 1;
+    }
+
     /// Resolution outcome when this projectile overlaps a solid block.
     /// The caller decides what to do: bounce paths re-position the
     /// body and continue the next tick; expire paths despawn the
@@ -79,51 +119,44 @@ impl ProjectileBody {
     /// — a flying horizontal projectile doesn't suddenly retrace its
     /// path back through the player.
     pub fn resolve_solid_hit(&mut self, block_aabb: Aabb) -> ProjectileSolidHit {
-        let body = self.aabb();
-        // Side / ceiling-contact filter: if the projectile's y-range
-        // fits inside the block's y-range, the contact is on the
-        // block's *side*, not its top. (Mirrors the
-        // `body_is_side_contact` predicate that movement.rs uses to
-        // skip side walls during the y-sweep — same idea, applied
-        // here so a horizontal projectile flying past a tall wall
-        // doesn't get classified as a floor landing.) A 1e-3 epsilon
-        // allows for an exact-edge-touching projectile that just
-        // grazes the floor / ceiling face.
-        const SIDE_EPS: f32 = 1e-3;
-        let side_contact = body.top() >= block_aabb.top() - SIDE_EPS
-            && body.bottom() <= block_aabb.bottom() + SIDE_EPS;
-        if side_contact {
-            return ProjectileSolidHit::Expired;
+        if self.is_top_landing(block_aabb) && self.bounces_remaining > 0 {
+            self.apply_top_bounce(block_aabb);
+            ProjectileSolidHit::Bounced
+        } else {
+            ProjectileSolidHit::Expired
         }
-        // Floor vs ceiling contact: projectile center above the block
-        // center AND moving downward → top-of-block hit. Anything else
-        // (ceiling, sub-pixel hover-up, bounced-up grazing the floor
-        // again) expires.
-        let from_above = body.center().y < block_aabb.center().y;
-        let going_down = self.vel.y > 0.0;
-        if !from_above || !going_down || self.bounces_remaining == 0 {
-            return ProjectileSolidHit::Expired;
+    }
+
+    /// Resolution outcome when this projectile overlaps a one-way
+    /// platform. A top-of-block landing bounces the same way a solid
+    /// floor would — the player expects fireballs to skip across
+    /// thin platforms identically to thick floors. Every other
+    /// contact (sides, below, top with no bounce budget) returns
+    /// `Passthrough` so the projectile keeps flying — the platform
+    /// is non-solid from those directions.
+    pub fn resolve_one_way_hit(&mut self, block_aabb: Aabb) -> ProjectileSolidHit {
+        if self.is_top_landing(block_aabb) && self.bounces_remaining > 0 {
+            self.apply_top_bounce(block_aabb);
+            ProjectileSolidHit::Bounced
+        } else {
+            ProjectileSolidHit::Passthrough
         }
-        // Reposition so the body's bottom rests on the block's top
-        // edge plus a 1px lift, then reflect vy with restitution. The
-        // 1px lift prevents an immediate re-hit on the next tick when
-        // gravity hasn't yet reaccelerated downward.
-        const RESTITUTION: f32 = 0.65;
-        const SETTLE_LIFT: f32 = 1.0;
-        self.pos.y = block_aabb.top() - self.half_extent.y - SETTLE_LIFT;
-        self.vel.y = -self.vel.y.abs() * RESTITUTION;
-        self.bounces_remaining -= 1;
-        ProjectileSolidHit::Bounced
     }
 }
 
-/// Outcome of [`ProjectileBody::resolve_solid_hit`].
+/// Outcome of [`ProjectileBody::resolve_solid_hit`] /
+/// [`ProjectileBody::resolve_one_way_hit`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProjectileSolidHit {
     /// Projectile bounced off the block top; `bounces_remaining`
     /// decremented and `vel.y` reflected. Caller keeps the body alive.
     Bounced,
-    /// Projectile should be removed (no bounces left, or contact wasn't
-    /// a top-of-block landing).
+    /// Projectile should be removed (no bounces left on a solid hit,
+    /// or contact wasn't a top-of-block landing on a solid).
     Expired,
+    /// Projectile flies through the block unaffected. Only returned
+    /// from one-way resolution: the body keeps its position and
+    /// velocity and the caller treats the contact as if the block
+    /// weren't there.
+    Passthrough,
 }

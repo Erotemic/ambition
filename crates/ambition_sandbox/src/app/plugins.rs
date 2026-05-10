@@ -358,6 +358,17 @@ pub fn add_presentation_plugins(app: &mut App) {
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
         )
+        // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
+        // Bevy entities against `world.blocks` so the wall is visible
+        // for the player when an encounter slams it shut. Must run
+        // after `update_encounters_from_world` (which inserts /
+        // removes the backing `lockwall:*` blocks) so we observe the
+        // current frame's world state, not last frame's.
+        .add_systems(
+            Update,
+            crate::rendering::sync_lock_wall_visuals
+                .after(crate::encounter::update_encounters_from_world),
+        )
         // NPC spritesheet upgrade. Lives outside the big presentation
         // tuple because that tuple is already at Bevy's 20-system
         // `IntoSystemConfigs::chain()` cap. `.after(sync_visuals)`

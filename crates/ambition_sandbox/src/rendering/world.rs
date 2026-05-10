@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use super::primitives::{
     block_color, feature_color, feature_z, object_visual_kind, spawn_world_label, FeatureVisual,
-    RoomVisual,
+    LockWallVisual, RoomVisual,
 };
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
@@ -310,5 +310,85 @@ pub fn spawn_room_object(
         spawn_world_label(commands, world, label.position, &label.text, 14.0);
     } else if let ae::RoomObjectKind::DestinationLabel(label) = &object.kind {
         spawn_world_label(commands, world, label.position, &label.text(), 14.0);
+    }
+}
+
+/// Reconcile `LockWallVisual` Bevy entities against the encounter-
+/// driven `lockwall:*` blocks in `world.blocks`. Spawn a sprite for
+/// any new lock wall, despawn entities whose backing block has been
+/// removed (encounter cleared / failed).
+///
+/// Without this system the lock wall has collision (the engine reads
+/// `world.blocks` every frame) but no rendered tile — the player
+/// bumps into an invisible barrier. The dedicated `LockWallTile`
+/// asset keeps the visual distinct from regular solid walls so the
+/// "this just slammed shut" beat reads at a glance.
+pub fn sync_lock_wall_visuals(
+    mut commands: Commands,
+    world: Res<crate::GameWorld>,
+    assets: Option<Res<GameAssets>>,
+    existing: Query<(Entity, &LockWallVisual)>,
+) {
+    use bevy::math::Vec2 as BVec2;
+
+    // Index existing visuals by their backing block name so we can
+    // diff against the world snapshot in linear time.
+    let mut existing_by_name: std::collections::HashMap<String, Entity> =
+        std::collections::HashMap::new();
+    for (entity, visual) in &existing {
+        existing_by_name.insert(visual.block_name.clone(), entity);
+    }
+
+    // Pass 1: spawn a visual for any lockwall block that doesn't have
+    // one yet. Mark consumed names so the despawn pass below leaves
+    // them alone.
+    let mut consumed: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for block in &world.0.blocks {
+        if !block.name.starts_with("lockwall:") {
+            continue;
+        }
+        if existing_by_name.contains_key(&block.name) {
+            consumed.insert(block.name.clone());
+            continue;
+        }
+        let size = block.aabb.half_size() * 2.0;
+        let render = BVec2::new(size.x, size.y);
+        // Bright purple fallback when no asset is loaded — distinct
+        // from the standard solid-block fallback so a missing tile
+        // is obvious in playtest.
+        let fallback = Color::srgba(0.65, 0.20, 0.85, 0.92);
+        let sprite = match assets.as_deref() {
+            Some(a) => entity_sprite_or_color(
+                a,
+                Some(game_assets::EntitySprite::LockWallTile),
+                render,
+                fallback,
+            ),
+            None => Sprite::from_color(fallback, render),
+        };
+        commands.spawn((
+            sprite,
+            Transform::from_translation(world_to_bevy(
+                &world.0,
+                block.aabb.center(),
+                // Sit just above the regular block layer so a lock
+                // wall reads on top of any floor/wall art it overlaps.
+                WORLD_Z_BLOCK + 4.0,
+            )),
+            Name::new(format!("LockWall: {}", block.name)),
+            LockWallVisual {
+                block_name: block.name.clone(),
+            },
+            RoomVisual,
+        ));
+        consumed.insert(block.name.clone());
+    }
+
+    // Pass 2: despawn visuals whose block disappeared (encounter
+    // cleared / failed → `sync_lock_walls` removed the block).
+    for (name, entity) in &existing_by_name {
+        if !consumed.contains(name) {
+            commands.entity(*entity).despawn();
+        }
     }
 }

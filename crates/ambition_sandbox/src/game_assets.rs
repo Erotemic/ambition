@@ -128,6 +128,11 @@ pub enum EntitySprite {
     HazardTile,
     SoftBlinkTile,
     HardBlinkTile,
+    /// Visual for the encounter-driven "lock wall" block that
+    /// `sync_lock_walls` inserts into `world.blocks` while an
+    /// encounter is in flight. Uses a dedicated tile so it reads as
+    /// "this just appeared" rather than blending into adjacent walls.
+    LockWallTile,
 }
 
 impl EntitySprite {
@@ -161,6 +166,7 @@ impl EntitySprite {
             Self::HazardTile => "entities/hazard_tile.png",
             Self::SoftBlinkTile => "entities/soft_blink_tile.png",
             Self::HardBlinkTile => "entities/hard_blink_tile.png",
+            Self::LockWallTile => "entities/lock_wall_tile.png",
         }
     }
 
@@ -192,6 +198,7 @@ impl EntitySprite {
         Self::HazardTile,
         Self::SoftBlinkTile,
         Self::HardBlinkTile,
+        Self::LockWallTile,
     ];
 }
 

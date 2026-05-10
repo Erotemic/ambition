@@ -47,6 +47,19 @@ pub struct QuestPanelText;
 #[derive(Component)]
 pub struct RoomVisual;
 
+/// Marker for an encounter-driven lock-wall block visual. The
+/// encounter system inserts `Block::solid` entries named
+/// `lockwall:<encounter_id>` into `world.blocks` while the encounter
+/// is in flight; `sync_lock_wall_visuals` reads that name and keeps
+/// one Bevy entity per matching block in sync (spawn on first sight,
+/// despawn when the block is removed). `block_name` is the full name
+/// (`lockwall:mob_lab`, etc.) so the dedup is bullet-proof against
+/// multiple concurrent encounters in the same world.
+#[derive(Component, Clone, Debug)]
+pub struct LockWallVisual {
+    pub block_name: String,
+}
+
 #[derive(Component)]
 pub struct FeatureVisual {
     pub id: String,

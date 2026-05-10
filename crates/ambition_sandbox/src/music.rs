@@ -54,10 +54,11 @@ const ADAPTIVE_MUSIC_RELATIVE_VOLUME: f32 = 1.0;
 const STEM_GAIN_BLEND_SECONDS: f32 = 0.18;
 const LOOP_SECTION_CROSSFADE_SECONDS: f32 = 1.70;
 
-/// Intro -> first loop should feel closer to a beat-locked handoff than a
-/// cinematic crossfade. The intro asset may end abruptly; that is fine because
-/// the director owns the de-click / overlap at the exact section boundary.
-const INTRO_TO_LOOP_CROSSFADE_SECONDS: f32 = 0.35;
+/// Intro -> first loop should feel like a continuous handoff rather than a
+/// hard file switch. Transition-lab audits showed that the source material is
+/// level-matched around a ~0.65s seam; shorter overlaps leave a measurable dip
+/// before wave1 establishes its first-bar bed.
+const INTRO_TO_LOOP_CROSSFADE_SECONDS: f32 = 0.65;
 const OUTRO_CROSSFADE_SECONDS: f32 = 1.65;
 
 /// Start room/radio music before the adaptive outro finishes so the return to

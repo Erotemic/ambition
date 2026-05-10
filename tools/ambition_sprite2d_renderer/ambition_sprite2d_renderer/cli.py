@@ -11,6 +11,7 @@ Two surfaces live here:
       draw-all                   Render core runtime jobs in ``configs/``.
       draw-review                Render review/variant jobs in ``configs/review/``.
       draw-canonicals            Render canonical poses + contact sheet.
+      draw-character <config>    Render canonical + spritesheet + YAML for one job.
       draw-entities              Render non-character gameplay entity sprites.
       spritesheet <config> <out> Render one job's sheet.
       single <config> <out>      Render one frame.
@@ -38,7 +39,7 @@ from pathlib import Path
 from typing import List
 
 from .adapters import TARGETS, get_adapter
-from .canonical import write_canonicals
+from .canonical import render_canonical, write_canonicals
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
 from .entities import write_entity_sprites
@@ -101,7 +102,7 @@ def generated_dir(target_name: str) -> Path:
 def draw_all(config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | Path = DEFAULT_ASSET_DIR) -> List[Path]:
     out_dir = Path(out_dir)
     config_dir_path = Path(config_dir)
-    runtime_stems = {"boss", "goblin", "robot", "sandbag"}
+    runtime_stems = {"boss", "goblin", "ninja", "ninja_leader", "robot", "sandbag"}
     default_runtime_dir = config_dir_path.resolve() == Path(DEFAULT_CONFIG_DIR).resolve()
     outputs: List[Path] = []
     for path, job in load_jobs(config_dir_path):
@@ -137,6 +138,30 @@ def draw_canonicals(
     return write_canonicals(config_dir, out_dir)
 
 
+def draw_character(config: str | Path, out_dir: str | Path = DEFAULT_ASSET_DIR) -> List[Path]:
+    """Render both review artifacts for one character config.
+
+    This is the one-shot path for art iteration: it writes the canonical still
+    frame used for visual review and the runtime spritesheet + YAML manifest
+    used by the game.  It deliberately shares the same `CharacterJob` adapter
+    path as `single` and `spritesheet`, so the canonical pose and the sheet are
+    generated from the exact same spec.
+    """
+    config_path = Path(config)
+    out_dir = Path(out_dir)
+    job = CharacterJob.load(config_path)
+    stem = job.output_stem(config_path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    canonical_out = out_dir / f"{stem}_canonical.png"
+    render_canonical(job).save(canonical_out)
+
+    sheet_out = out_dir / f"{stem}_spritesheet.png"
+    manifest_out = out_dir / f"{stem}_spritesheet.yaml"
+    image_out, yaml_out = write_spritesheet(job, sheet_out, manifest_out)
+    return [canonical_out, image_out, yaml_out]
+
+
 def draw_entities(out_dir: str | Path = DEFAULT_ASSET_DIR / "entities") -> List[Path]:
     return write_entity_sprites(out_dir)
 
@@ -164,6 +189,11 @@ def _cmd_draw_review(args: argparse.Namespace) -> int:
 
 def _cmd_draw_canonicals(args: argparse.Namespace) -> int:
     print_canonical_outputs(draw_canonicals(args.config_dir, args.out_dir))
+    return 0
+
+
+def _cmd_draw_character(args: argparse.Namespace) -> int:
+    print_paths(draw_character(args.config, args.out_dir))
     return 0
 
 
@@ -310,6 +340,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "canonicals"))
     p.set_defaults(func=_cmd_draw_canonicals)
+
+    p = sub.add_parser("draw-character", help="Render one config's canonical image, spritesheet, and YAML")
+    p.add_argument("config")
+    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR))
+    p.set_defaults(func=_cmd_draw_character)
 
     p = sub.add_parser("draw-entities", help="Render non-character gameplay entity sprites")
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "entities"))

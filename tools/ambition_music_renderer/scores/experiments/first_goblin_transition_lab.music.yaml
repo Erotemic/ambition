@@ -694,9 +694,9 @@ sections:
     humanize_velocity_pct: 0.0
     hits:
     - - 3
-      - 0.0
+      - 2.25
       - -12
-      - 1.85
+      - 2.05
   - transition_lab_marker: intro_tail_celli_bed
     kind: root_hits
     instrument: celli
@@ -707,9 +707,9 @@ sections:
     humanize_velocity_pct: 0.0
     hits:
     - - 3
-      - 0.0
+      - 2.25
       - 0
-      - 1.7
+      - 2.05
 - id: wave1
   kind: loop_component
   label: transition lab - wave 1 pickup handoff
@@ -811,7 +811,7 @@ sections:
     - - 0
       - 0.0
       - -12
-      - 1.4
+      - 1.7
   - transition_lab_marker: wave1_sustained_celli_floor
     kind: root_hits
     instrument: celli
@@ -824,7 +824,7 @@ sections:
     - - 0
       - 0.0
       - 0
-      - 1.25
+      - 1.6
   - transition_lab_marker: wave1_sustained_harmony_pad
     kind: pad_chords
     instruments:

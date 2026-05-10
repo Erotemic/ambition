@@ -23,6 +23,7 @@ python -m ambition_sprite2d_renderer list-targets        # adapter + tack-on tar
 python -m ambition_sprite2d_renderer draw-all            # render every job in configs/
 python -m ambition_sprite2d_renderer draw-canonicals     # canonical poses + contact sheet
 python -m ambition_sprite2d_renderer draw-review         # curated general-character + NPC review pass
+python -m ambition_sprite2d_renderer draw-character <cfg> # one config: canonical + spritesheet + YAML
 python -m ambition_sprite2d_renderer draw-entities       # non-character entity sprites
 python -m ambition_sprite2d_renderer spritesheet <cfg> <out>
 python -m ambition_sprite2d_renderer single <cfg> <out> --animation idle --frame-index 0
@@ -49,6 +50,7 @@ canonical sheet files into `crates/ambition_sandbox/assets/sprites/`.
 | Target | Animations | Job |
 |---|---|---|
 | `robot` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/robot.yaml` |
+| `ninja` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/ninja.yaml`, `configs/ninja_leader.yaml` |
 | `toon` | idle, walk, run, jump, fall, talk, interact, slash, dash, celebrate, hit, death | `configs/review/*.yaml` |
 | `goblin` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/goblin.yaml` |
 | `boss` | rest, floor_slam, side_sweep, spike_halo, dash_echo, hit, death | `configs/boss.yaml` |
@@ -56,6 +58,31 @@ canonical sheet files into `crates/ambition_sandbox/assets/sprites/`.
 
 Run `python -m ambition_sprite2d_renderer list-targets` to see the live
 animation map for each adapter.
+
+### Ninja first-pass target
+
+`ninja` is a bespoke masked shadow-duelist renderer that still participates in
+the adapter spritesheet/YAML pipeline.  The base `shadow_duelist` archetype is
+slim and blade-forward: slate cloth, red eye slits, angular armor plates,
+scarf/sash tails, and a long katana.  The `shadow_oni_leader` archetype uses
+the same renderer but deliberately changes the silhouette: visible oni horns,
+a ragged command banner, broader shoulder plates, a skirted waist profile,
+lamellar chest marks, and a less awkward command-idle arm pose.
+
+Use `draw-character` for art iteration when you want the canonical still and
+the runtime sheet/manifest from the same spec in one command:
+
+```bash
+python -m ambition_sprite2d_renderer draw-character ambition_sprite2d_renderer/configs/ninja.yaml --out-dir generated
+python -m ambition_sprite2d_renderer draw-character ambition_sprite2d_renderer/configs/ninja_leader.yaml --out-dir generated
+```
+
+The older split commands still work:
+
+```bash
+python -m ambition_sprite2d_renderer single ambition_sprite2d_renderer/configs/ninja.yaml generated/ninja_shadow_duelist_canonical.png --animation idle --frame-index 1
+python -m ambition_sprite2d_renderer spritesheet ambition_sprite2d_renderer/configs/ninja.yaml generated/ninja_shadow_duelist_spritesheet.png
+```
 
 ### Tack-on targets
 

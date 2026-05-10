@@ -45,3 +45,41 @@ def test_canonical_smoke():
     job = CharacterJob.load(CONFIGS / "robot.yaml")
     image = render_canonical(job)
     assert image.size == (job.render.single_width, job.render.single_height)
+
+
+def test_ninja_canonical_smoke():
+    job = CharacterJob.load(CONFIGS / "ninja.yaml")
+    image = render_canonical(job)
+    assert image.size == (job.render.single_width, job.render.single_height)
+
+
+def test_ninja_sheet_smoke(tmp_path: Path):
+    job = CharacterJob.load(CONFIGS / "ninja.yaml")
+    job.render.frame_width = 64
+    job.render.frame_height = 64
+    job.render.supersample = 1
+    job.animations = ["idle"]
+    image_path, manifest_path = write_spritesheet(
+        job, tmp_path / "ninja.png", tmp_path / "ninja.yaml"
+    )
+    assert image_path.exists()
+    assert manifest_path.exists()
+
+
+def test_ninja_leader_canonical_smoke():
+    job = CharacterJob.load(CONFIGS / "ninja_leader.yaml")
+    image = render_canonical(job)
+    assert image.size == (job.render.single_width, job.render.single_height)
+
+
+def test_ninja_leader_sheet_smoke(tmp_path: Path):
+    job = CharacterJob.load(CONFIGS / "ninja_leader.yaml")
+    job.render.frame_width = 64
+    job.render.frame_height = 64
+    job.render.supersample = 1
+    job.animations = ["idle"]
+    image_path, manifest_path = write_spritesheet(
+        job, tmp_path / "ninja_leader.png", tmp_path / "ninja_leader.yaml"
+    )
+    assert image_path.exists()
+    assert manifest_path.exists()

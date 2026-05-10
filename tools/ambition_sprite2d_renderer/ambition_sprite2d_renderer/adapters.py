@@ -9,6 +9,7 @@ from .animation_vocab import FULL_PLAYER_ANIMATION_ORDER, ordered_subset
 from .config import CharacterJob
 from .targets.boss_side import AISlopZetaGenerator, parse_background as boss_parse_background
 from .targets.goblin_side import SideGoblinGenerator, parse_background as goblin_parse_background
+from .targets.ninja_side import NinjaSideGenerator, parse_background as ninja_parse_background
 from .targets.robot_side import SideRobotGenerator
 from .targets.sandbag import ADAPTER_ANIMATIONS as SANDBAG_ANIMATIONS, SandbagSpec, render_frame as render_sandbag_frame
 from .targets.robot25d import parse_background as robot_parse_background
@@ -145,6 +146,36 @@ class RobotAdapter(BaseAdapter):
         )
 
 
+class NinjaAdapter(BaseAdapter):
+    target = "ninja"
+
+    def __init__(self) -> None:
+        self.generator = NinjaSideGenerator()
+
+    def animations(self) -> Dict[str, Dict[str, int]]:
+        return dict(self.generator.ANIMATIONS)
+
+    def sample_spec(self, job: CharacterJob) -> Any:
+        spec = self.generator.sample_spec(job.seed, job.archetype)
+        return self._apply_overrides(spec, job)
+
+    def spec_dict(self, spec: Any) -> Dict[str, Any]:
+        return spec.to_dict()
+
+    def render_frame(self, spec: Any, animation: str, frame_index: int, size: Tuple[int, int], job: CharacterJob) -> Image.Image:
+        anim = self.animations()[animation]
+        return self.generator.render_animation_frame(
+            spec,
+            animation,
+            frame_index % anim["frames"],
+            anim["frames"],
+            size,
+            background=ninja_parse_background(job.render.background),
+            supersample=job.render.supersample,
+            downsample=job.render.downsample,
+        )
+
+
 class SandbagAdapter(BaseAdapter):
     target = "sandbag"
 
@@ -205,6 +236,7 @@ class ToonAdapter(BaseAdapter):
 TARGETS: Dict[str, BaseAdapter] = {
     "boss": BossAdapter(),
     "goblin": GoblinAdapter(),
+    "ninja": NinjaAdapter(),
     "robot": RobotAdapter(),
     "sandbag": SandbagAdapter(),
     "toon": ToonAdapter(),

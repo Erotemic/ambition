@@ -241,9 +241,12 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(event, dict) and isinstance(event.get("velocity"), (int, float)):
                     event["velocity"] = int(round(float(event["velocity"]) * 0.32))
 
-    # Add a dark, sustained final-bar bed so the crossfade has low/mid energy
-    # to hand off from. This is intentionally root-only: it raises RMS without
-    # bringing back the high-frequency haze that made the intro tail obvious.
+    # Add a dark, sustained late final-bar bed so the actual crossfade window
+    # has low/mid energy to hand off from. Earlier versions started this at
+    # bar 3 beat 0, which improved broad tail RMS but ended before the last
+    # ~0.65s runtime crossfade window. Start near beat 2.25 and hold through
+    # the boundary instead. This raises seam energy without bringing back the
+    # high-frequency haze that made the intro tail obvious.
     append_layer_once(
         intro,
         "transition_lab_marker",
@@ -256,7 +259,7 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
             "articulation": "tenuto",
             "humanize_ms": 0.0,
             "humanize_velocity_pct": 0.0,
-            "hits": [[3, 0.0, -12, 1.85]],
+            "hits": [[3, 2.25, -12, 2.05]],
         },
     )
     append_layer_once(
@@ -271,7 +274,7 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
             "articulation": "tenuto",
             "humanize_ms": 0.0,
             "humanize_velocity_pct": 0.0,
-            "hits": [[3, 0.0, 0, 1.70]],
+            "hits": [[3, 2.25, 0, 2.05]],
         },
     )
 
@@ -354,7 +357,7 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
             "articulation": "tenuto",
             "humanize_ms": 0.0,
             "humanize_velocity_pct": 0.0,
-            "hits": [[0, 0.0, -12, 1.40]],
+            "hits": [[0, 0.0, -12, 1.70]],
         },
     )
     append_layer_once(
@@ -369,7 +372,7 @@ def apply_transition_lab_changes(score: dict[str, Any]) -> dict[str, Any]:
             "articulation": "tenuto",
             "humanize_ms": 0.0,
             "humanize_velocity_pct": 0.0,
-            "hits": [[0, 0.0, 0, 1.25]],
+            "hits": [[0, 0.0, 0, 1.60]],
         },
     )
     append_layer_once(

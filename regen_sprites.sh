@@ -7,8 +7,8 @@
 #     crates/ambition_sandbox/assets/sprites/.
 #   - Entity sprites (chest, breakable, door zone, etc.): re-rendered into
 #     crates/ambition_sandbox/assets/sprites/entities/.
-#   - Tack-on targets (sandbag): rendered into the renderer's generated/
-#     dir then installed into crates/ambition_sandbox/assets/sprites/.
+#   - Tack-on targets (sandbag, mockingbird): rendered into the renderer's
+#     generated/ dir then installed into crates/ambition_sandbox/assets/sprites/.
 #
 # Usage:
 #   ./regen_sprites.sh   # render + install everything
@@ -89,5 +89,9 @@ done
 
 echo "==> tack-on: sandbag (render-publish into $sprites_dir)"
 (cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer render-publish sandbag --dest-root "$sprites_dir")
+
+echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbird_boss)"
+"$renderer_py" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \
+    --install-dir "$sprites_dir/mockingbird_boss"
 
 echo "==> done"

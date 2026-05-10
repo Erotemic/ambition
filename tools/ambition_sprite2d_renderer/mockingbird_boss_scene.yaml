@@ -2,8 +2,8 @@ schema_version: 2
 meta:
   name: mockingbird_boss
   frame_size:
-  - 256
-  - 256
+  - 576
+  - 216
   work_size:
   - 900
   - 640
@@ -20,16 +20,25 @@ render:
   - 40
   - 255
   default_frame_size:
-  - 256
-  - 256
+  - 576
+  - 216
   default_canonical_size:
-  - 512
-  - 512
+  - 864
+  - 324
   work_size:
   - 900
   - 640
   supersample: 2
-  bounds_policy: render on work canvas, crop alpha extent, fit to target
+  frame_fill_frac:
+  - 0.82
+  - 0.8
+  frame_center:
+  - 0.515
+  - 0.53
+  canonical_fill_frac:
+  - 0.94
+  - 0.88
+  bounds_policy: scale vector scene on work canvas, crop alpha extent, fit to a wide target frame
   global_outline: false
   editor_outline_boxes: false
 animations:
@@ -153,8 +162,8 @@ root:
     x: 0
     y: 0
     rotation: 0
-    scale_x: 1
-    scale_y: 1
+    scale_x: 2.1
+    scale_y: 2.1
   children:
   - id: body
     kind: group

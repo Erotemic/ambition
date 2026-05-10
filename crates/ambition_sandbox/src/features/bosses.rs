@@ -1,5 +1,9 @@
 use super::*;
 
+fn mockingbird_combat_size() -> ae::Vec2 {
+    ae::Vec2::new(500.0, 185.0)
+}
+
 #[derive(Clone, Debug)]
 pub struct BossRuntime {
     pub id: String,
@@ -80,8 +84,29 @@ impl BossRuntime {
         }
     }
 
+    pub fn is_mockingbird(&self) -> bool {
+        self.name.eq_ignore_ascii_case("mockingbird")
+    }
+
+    pub fn render_size(&self) -> ae::Vec2 {
+        self.size
+    }
+
+    pub fn combat_size(&self) -> ae::Vec2 {
+        if self.is_mockingbird() {
+            // The mockingbird sprite is a wide flying boss. Its authored LDtk
+            // size still drives render scale, but combat should match the
+            // visible ship/creature silhouette rather than the old narrow
+            // placeholder rectangle. Keep this per-boss so the gradient
+            // sentinel and any other BossSpawn keep their original authored box.
+            mockingbird_combat_size()
+        } else {
+            self.size
+        }
+    }
+
     pub fn aabb(&self) -> ae::Aabb {
-        ae::Aabb::new(self.pos, self.size * 0.5)
+        ae::Aabb::new(self.pos, self.combat_size() * 0.5)
     }
 
     pub fn attack_volumes(&self) -> Vec<ae::Aabb> {
@@ -103,7 +128,8 @@ impl BossRuntime {
     }
 
     pub(super) fn move_toward_target(&mut self, world: &ae::World, target: ae::Vec2, dt: f32) {
-        let half = self.size * 0.5;
+        let move_size = self.combat_size();
+        let half = move_size * 0.5;
         let margin = 8.0;
         let max_x = (world.size.x - half.x - margin).max(half.x + margin);
         let max_y = (world.size.y - half.y - margin).max(half.y + margin);
@@ -120,33 +146,34 @@ impl BossRuntime {
         };
 
         let try_x = ae::Vec2::new(self.pos.x + step.x, self.pos.y);
-        if boss_space_is_free(world, try_x, self.size) {
+        if boss_space_is_free(world, try_x, move_size) {
             self.pos.x = try_x.x;
         }
         let try_y = ae::Vec2::new(self.pos.x, self.pos.y + step.y);
-        if boss_space_is_free(world, try_y, self.size) {
+        if boss_space_is_free(world, try_y, move_size) {
             self.pos.y = try_y.y;
         }
     }
 
     pub(super) fn pattern_volumes(&self) -> Vec<ae::Aabb> {
+        let size = self.combat_size();
         let phase = ((self.pattern_timer / BOSS_ATTACK_COOLDOWN) as i32).rem_euclid(3);
         match phase {
             0 => vec![ae::Aabb::new(
-                self.pos + ae::Vec2::new(0.0, self.size.y * 0.5 + 22.0),
-                ae::Vec2::new(self.size.x * 0.75, 18.0),
+                self.pos + ae::Vec2::new(0.0, size.y * 0.5 + 22.0),
+                ae::Vec2::new(size.x * 0.75, 18.0),
             )],
             1 => vec![
                 ae::Aabb::new(
-                    self.pos + ae::Vec2::new(-self.size.x * 0.75, 0.0),
-                    ae::Vec2::new(22.0, self.size.y * 0.72),
+                    self.pos + ae::Vec2::new(-size.x * 0.50, 0.0),
+                    ae::Vec2::new(size.x * 0.25, size.y * 0.72),
                 ),
                 ae::Aabb::new(
-                    self.pos + ae::Vec2::new(self.size.x * 0.75, 0.0),
-                    ae::Vec2::new(22.0, self.size.y * 0.72),
+                    self.pos + ae::Vec2::new(size.x * 0.50, 0.0),
+                    ae::Vec2::new(size.x * 0.25, size.y * 0.72),
                 ),
             ],
-            _ => vec![ae::Aabb::new(self.pos, self.size * 0.70)],
+            _ => vec![ae::Aabb::new(self.pos, size * 0.70)],
         }
     }
 

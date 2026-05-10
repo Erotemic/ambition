@@ -619,16 +619,45 @@ class Renderer:
         return img
 
 
-def fit_on_canvas(img, size=(512,512), background=True, fill_frac=(0.92,0.82), pad=12, bg_color=(231,235,240,255)):
+def fit_on_canvas(
+    img,
+    size=(512, 512),
+    background=True,
+    fill_frac=(0.92, 0.82),
+    pad=12,
+    bg_color=(231, 235, 240, 255),
+    center=(0.5, 0.53),
+):
+    """Crop transparent slack and fit the sprite inside a target frame.
+
+    The mockingbird is a wide flying boss.  Square 256 px frames made the
+    alpha bbox only about one third of the canvas height, which forced the
+    Rust renderer to scale the whole texture quad up.  Keep this function
+    aspect-preserving, but let the scene choose a wide/high-resolution target
+    frame and fill fraction so the native pixels are spent on the character.
+    """
     img = crop_alpha(img, pad)
-    W,H = size
-    bg = Image.new("RGBA", size, tuple(bg_color) if background else (0,0,0,0))
+    W, H = size
+    bg = Image.new("RGBA", size, tuple(bg_color) if background else (0, 0, 0, 0))
     if img.width == 0 or img.height == 0:
         return bg
-    scale = min(W*fill_frac[0]/img.width, H*fill_frac[1]/img.height)
-    obj = img.resize((max(1,int(img.width*scale)), max(1,int(img.height*scale))), Image.Resampling.LANCZOS)
-    bg.alpha_composite(obj, (int(W*.5 - obj.width/2), int(H*.53 - obj.height/2)))
+    scale = min(W * fill_frac[0] / img.width, H * fill_frac[1] / img.height)
+    obj = img.resize((max(1, int(img.width * scale)), max(1, int(img.height * scale))), Image.Resampling.LANCZOS)
+    bg.alpha_composite(obj, (int(W * center[0] - obj.width / 2), int(H * center[1] - obj.height / 2)))
     return bg
+
+
+def alpha_metrics(img):
+    """Return compact alpha-bbox metrics for generated manifests."""
+    bbox = img.getbbox()
+    if bbox is None:
+        return {"bbox": None, "fill_x": 0.0, "fill_y": 0.0}
+    x1, y1, x2, y2 = bbox
+    return {
+        "bbox": {"x": x1, "y": y1, "w": x2 - x1, "h": y2 - y1},
+        "fill_x": round((x2 - x1) / max(1, img.width), 4),
+        "fill_y": round((y2 - y1) / max(1, img.height), 4),
+    }
 
 
 def render_work(scene, anim="hover", frame=0, nframes=1, debug=False):
@@ -655,7 +684,14 @@ def build_sheet(scene, frame_size=(256,256), labeled=False):
         rects = []
         for c in range(nframes):
             raw = render_work(scene, name, c, nframes)
-            frame = fit_on_canvas(raw, size=frame_size, background=False, fill_frac=(0.92,0.82), pad=16)
+            frame = fit_on_canvas(
+                raw,
+                size=frame_size,
+                background=False,
+                fill_frac=tuple(scene.render_cfg.get("frame_fill_frac", [0.92, 0.9])),
+                pad=16,
+                center=tuple(scene.render_cfg.get("frame_center", [0.5, 0.53])),
+            )
             x = label_w + c * fw; y = r * fh
             sheet.alpha_composite(frame, (x,y))
             rects.append({"x": x, "y": y, "w": fw, "h": fh})
@@ -706,8 +742,24 @@ def render_outputs(scene_path=DEFAULT_SCENE, outdir=None, frame_size=None, quick
     bg_color = scene.background_rgba()
     with Timer("canonical renders"):
         raw = render_work(scene, "hover", 1, 6)
-        can = fit_on_canvas(raw, canonical_size, True, (0.94,0.84), 20, bg_color=bg_color)
-        cant = fit_on_canvas(raw, canonical_size, False, (0.94,0.84), 20, bg_color=bg_color)
+        can = fit_on_canvas(
+            raw,
+            canonical_size,
+            True,
+            tuple(scene.render_cfg.get("canonical_fill_frac", [0.94, 0.88])),
+            20,
+            bg_color=bg_color,
+            center=tuple(scene.render_cfg.get("canonical_center", scene.render_cfg.get("frame_center", [0.5, 0.53]))),
+        )
+        cant = fit_on_canvas(
+            raw,
+            canonical_size,
+            False,
+            tuple(scene.render_cfg.get("canonical_fill_frac", [0.94, 0.88])),
+            20,
+            bg_color=bg_color,
+            center=tuple(scene.render_cfg.get("canonical_center", scene.render_cfg.get("frame_center", [0.5, 0.53]))),
+        )
         can.save(outdir / f"{TARGET_NAME}_canonical.png"); outputs.append(outdir / f"{TARGET_NAME}_canonical.png")
         cant.save(outdir / f"{TARGET_NAME}_canonical_transparent.png"); outputs.append(outdir / f"{TARGET_NAME}_canonical_transparent.png")
     with Timer("parts debug"):
@@ -722,15 +774,28 @@ def render_outputs(scene_path=DEFAULT_SCENE, outdir=None, frame_size=None, quick
             preview.save(outdir / f"{TARGET_NAME}_preview_labeled.png"); outputs.append(outdir / f"{TARGET_NAME}_preview_labeled.png")
     else:
         rows = []
+    alpha_summary = {}
+    if not quick:
+        sheet_path = outdir / f"{TARGET_NAME}_spritesheet.png"
+        sheet_img = Image.open(sheet_path)
+        for row in rows:
+            frames = []
+            for rect in row["rects"]:
+                crop = sheet_img.crop((rect["x"], rect["y"], rect["x"] + rect["w"], rect["y"] + rect["h"]))
+                frames.append(alpha_metrics(crop))
+            alpha_summary[row["animation"]] = frames
     manifest = {
         "target": TARGET_NAME,
         "schema_version": scene.data.get("schema_version"),
         "scene": str(Path(scene_path).name),
         "frame_size": {"w": frame_size[0], "h": frame_size[1]},
         "canonical_size": {"w": canonical_size[0], "h": canonical_size[1]},
+        "frame_fill_frac": list(scene.render_cfg.get("frame_fill_frac", [0.92, 0.9])),
+        "canonical_fill_frac": list(scene.render_cfg.get("canonical_fill_frac", [0.94, 0.88])),
         "quick": quick,
         "source_urls": scene.meta.get("source_urls", []),
         "rows": rows,
+        "alpha_summary": alpha_summary,
     }
     (outdir / f"{TARGET_NAME}_spritesheet_manifest.json").write_text(json.dumps(manifest, indent=2))
     outputs.append(outdir / f"{TARGET_NAME}_spritesheet_manifest.json")

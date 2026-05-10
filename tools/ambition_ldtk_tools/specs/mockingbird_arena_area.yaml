@@ -121,7 +121,9 @@ entities:
   # encounter machinery picks the schedule by id); the
   # `PhaseScript:mockingbird` value mirrors what the gradient
   # sentinel sets so future controllers that key on `brain` keep
-  # working. Width/height set the boss's collision/render box.
+  # working. Width/height still drives the sprite render scale; the
+  # wider mockingbird combat/hurtbox is selected in BossRuntime so it
+  # can match the generated wide silhouette without changing other bosses.
   # ─────────────────────────────────────────────────────────────────
   - type: BossSpawn
     px: [430, 256]

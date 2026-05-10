@@ -813,7 +813,7 @@ impl FeatureRuntime {
             if boss.id == id {
                 return Some(FeatureView {
                     pos: boss.pos,
-                    size: boss.size,
+                    size: boss.render_size(),
                     kind: FeatureVisualKind::Boss,
                     visible: boss.alive,
                     flash: boss.hit_flash > 0.0

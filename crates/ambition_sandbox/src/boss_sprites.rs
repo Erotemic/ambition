@@ -161,9 +161,12 @@ pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
     // The mockingbird sheet has no per-row label strip — frame 0
     // sits at x=0 — so label_width is zero.
     label_width: 0,
-    // 256×256 frames straight from the manifest.
-    frame_width: 256,
-    frame_height: 256,
+    // 576×216 wide frames straight from the manifest. The extra edge
+    // margin keeps the pointed nose/flame silhouettes safely inside each
+    // atlas rect while still spending native pixels on the bird instead of
+    // packing a short/wide silhouette into a mostly-empty square canvas.
+    frame_width: 576,
+    frame_height: 216,
     rows: &[
         (
             BossAnim::Rest,
@@ -208,19 +211,18 @@ pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
             },
         ),
     ],
-    // The mockingbird's body occupies only ~32% of the 256-tall
-    // canvas (y≈94..176; the rest is wing-spread / motion-trail
-    // headroom). To make the visible body fill the collision box,
-    // render_height needs to be ~3× the AABB max-axis: 1.0/0.32 ≈
-    // 3.0, so for collision.y=185 the rendered quad is ~555 px tall
-    // and the body inside it is ~178 px — close to the AABB.
-    collision_scale: 3.0,
+    // The 576×216 generator output now fits the wide silhouette a bit
+    // more conservatively (roughly y≈34..194 on the hover row) so the
+    // beak / tail / flame tips keep safer atlas margins during in-game
+    // animation. We still no longer need the old 3× Rust-side blow-up
+    // used for the sparse 256×256 sheet.
+    // 1.25 keeps the visible body close to the authored 185px tall
+    // combat box while using much denser native source pixels.
+    collision_scale: 1.25,
     // `body_centered: true` below makes this read as the body's
     // normalized vertical offset within the sprite quad rather than
-    // a feet-on-floor delta. Texture body-center sits at y=135 of
-    // 256 → (128-135)/128 = -0.055 in Bevy +Y-up. A small downward
-    // nudge keeps the silhouette honest without overriding the
-    // physical AABB center.
+    // a feet-on-floor delta. Texture bbox-center sits near y=101 of
+    // 216 → (108-114)/108 ≈ -0.05 in Bevy +Y-up.
     feet_anchor_y: -0.055,
     frame_sample_inset: 1,
     body_centered: true,

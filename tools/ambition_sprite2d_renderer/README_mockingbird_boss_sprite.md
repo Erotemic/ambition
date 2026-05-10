@@ -24,8 +24,8 @@ python tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py ren
 
 Generated files:
 
-- `mockingbird_boss_spritesheet.png`
-- `mockingbird_boss_spritesheet_manifest.json`
+- `mockingbird_boss_spritesheet.png` — 576×216 frames by default
+- `mockingbird_boss_spritesheet_manifest.json` — includes frame size and alpha-bbox fill metrics
 - `mockingbird_boss_preview_labeled.png`
 - `mockingbird_boss_canonical.png`
 - `mockingbird_boss_canonical_transparent.png`
@@ -34,15 +34,16 @@ Generated files:
 ## Animation rows
 
 The spritesheet is organized by animation row and frame column.
-Current rows:
+Current rows, in manifest / PNG order:
 
-- `rest`
-- `floor_slam`
-- `side_sweep`
-- `spike_halo`
-- `dash_echo`
+- `hover`
+- `thrust`
+- `bite`
+- `slash`
 - `hit`
 - `death`
+
+The Rust `MOCKINGBIRD_SHEET` maps those rows onto the shared boss animation vocabulary.
 
 ## Inspiration links
 
@@ -52,5 +53,6 @@ Current rows:
 ## Notes
 
 - The boss is intentionally larger and more aggressive than the earlier draft.
+- The default frame is wide rather than square so the bird fills ~82% of the frame height instead of ~32% while preserving safer edge margin for the nose/flame silhouettes; this avoids Rust-side texture upscaling.
 - The reconstruction is still primitive / PIL-based and does not depend on extracted source art assets.
 - This is a standalone tool-side script for later integration into the fuller `ambition_sprite2d_renderer` package.

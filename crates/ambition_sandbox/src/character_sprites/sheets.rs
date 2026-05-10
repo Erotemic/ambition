@@ -138,6 +138,17 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
                 duration_secs: 0.065,
             },
         ),
+        // Hover / free-flight pose with jet flames at the feet. Sits
+        // after Dash because the robot config lists `hover` after
+        // `dash`; PNG row order is the source of truth, so any
+        // reorder here must match a regenerated sheet.
+        (
+            CharacterAnim::Fly,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.078,
+            },
+        ),
     ],
     collision_scale: 2.1,
     feet_anchor_y: -0.320,

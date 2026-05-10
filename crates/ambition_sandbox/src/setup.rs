@@ -22,7 +22,9 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 #[cfg(feature = "audio")]
 use crate::audio::{AudioLibrary, MusicPlaybackState};
-use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
+use crate::character_sprites::{
+    build_character_sprite, feet_anchor_for, sprite_render_size, CharacterAnimator,
+};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
 use crate::dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -31,7 +33,9 @@ use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::loading::SandboxAssetCollection;
 use crate::physics::PhysicsSandboxSettings;
 use crate::platforms;
-use crate::rendering::{spawn_room_visuals, HudText, PlayerVisual, QuestPanelText, SceneEntities};
+use crate::rendering::{
+    spawn_room_visuals, HudText, PlayerSpriteBaseline, PlayerVisual, QuestPanelText, SceneEntities,
+};
 use crate::rooms::RoomSet;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use crate::{GameWorld, SandboxRuntime};
@@ -325,6 +329,9 @@ fn presentation_world_inner(
             sprite,
             feet_anchor_for(asset.spec, player_collision),
             CharacterAnimator::new(asset.spec),
+            PlayerSpriteBaseline {
+                standing_render: sprite_render_size(asset.spec, player_collision),
+            },
         ));
     } else {
         commands.entity(player).insert(Sprite::from_color(

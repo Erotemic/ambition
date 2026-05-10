@@ -39,8 +39,8 @@ pub use camera::camera_follow;
 pub use features::spawn_dynamic_feature_visuals;
 pub use health::sync_health_overlays;
 pub use primitives::{
-    block_color, switch_on_color, FeatureVisual, HealthOverlayVisual, HudText, PlayerVisual,
-    QuestPanelText, RoomVisual, SceneEntities,
+    block_color, switch_on_color, FeatureVisual, HealthOverlayVisual, HudText, PlayerSpriteBaseline,
+    PlayerVisual, QuestPanelText, RoomVisual, SceneEntities,
 };
 pub use world::{
     spawn_block, spawn_grid, spawn_loading_zone, spawn_room_object, spawn_room_visuals,

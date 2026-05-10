@@ -17,6 +17,23 @@ pub struct SceneEntities {
 #[derive(Component)]
 pub struct PlayerVisual;
 
+/// Standing-stance render size of the textured player sprite, recorded
+/// at sprite-build time. The crouch-squash hack in `sync_visuals` uses
+/// it to scale the sprite vertically to the current `body_mode`'s
+/// height while keeping the feet planted — the sprite anchor is in
+/// normalized space, so a proportional vertical squash preserves foot
+/// alignment without re-anchoring.
+///
+/// HACK(crouch-sprite-row): the robot sheet has no authored Crouching
+/// row yet, so we visually squash the standing pose as a placeholder.
+/// Once the sprite generator emits a real Crouch (and Crawl/MorphBall)
+/// animation, this baseline + the squash branch in `sync_visuals` can
+/// go away and the standing anchor will plant feet directly.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PlayerSpriteBaseline {
+    pub standing_render: Vec2,
+}
+
 #[derive(Component)]
 pub struct HudText;
 

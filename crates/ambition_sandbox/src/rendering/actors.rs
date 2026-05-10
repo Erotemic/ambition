@@ -8,7 +8,8 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::{
-    feature_color, feature_z, switch_on_color, FeatureVisual, PlayerVisual, SceneEntities,
+    feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
+    SceneEntities,
 };
 use crate::boss_sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
@@ -21,13 +22,16 @@ pub fn sync_visuals(
     runtime: Res<crate::SandboxRuntime>,
     entities: Res<SceneEntities>,
     assets: Option<Res<GameAssets>>,
-    mut player_query: Query<(&mut Transform, &mut Sprite), With<PlayerVisual>>,
+    mut player_query: Query<
+        (&mut Transform, &mut Sprite, Option<&PlayerSpriteBaseline>),
+        With<PlayerVisual>,
+    >,
     mut feature_query: Query<
         (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
         Without<PlayerVisual>,
     >,
 ) {
-    if let Ok((mut transform, mut sprite)) = player_query.get_mut(entities.player) {
+    if let Ok((mut transform, mut sprite, baseline)) = player_query.get_mut(entities.player) {
         transform.translation = world_to_bevy(&world.0, runtime.player.pos, WORLD_Z_PLAYER);
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Colored-rectangle fallback only — stretch to the collision-box
@@ -36,6 +40,23 @@ pub fn sync_visuals(
             sprite.custom_size = Some(BVec2::new(runtime.player.size.x, runtime.player.size.y));
             let alpha = if runtime.flash_timer > 0.0 { 0.72 } else { 1.0 };
             sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
+        } else if let Some(baseline) = baseline {
+            // HACK(crouch-sprite-row): when the player crouches (or
+            // morphs / crawls / slides), the engine shrinks the AABB
+            // and slides `pos.y` down to keep feet planted. The
+            // textured sprite was sized for the standing pose, so
+            // without compensation it floats below the floor by half
+            // the height delta. Re-scale the sprite's vertical extent
+            // by the same ratio the collision shrunk; the normalized
+            // sprite anchor preserves foot alignment automatically.
+            // Replace with an authored Crouch row in the sheet once
+            // the generator emits one — see PlayerSpriteBaseline doc.
+            let base_y = runtime.player.base_size.y.max(1.0);
+            let ratio = (runtime.player.size.y / base_y).clamp(0.1, 1.0);
+            sprite.custom_size = Some(BVec2::new(
+                baseline.standing_render.x,
+                baseline.standing_render.y * ratio,
+            ));
         }
     }
 

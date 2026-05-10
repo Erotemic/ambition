@@ -25,6 +25,10 @@ pub enum CharacterAnim {
     BlinkOut = 8,
     BlinkIn = 9,
     Dash = 10,
+    /// Free-flight pose (jets / hover). Maps to the generator's
+    /// `hover` row — the row we emit when the robot config lists
+    /// `hover` after `dash`.
+    Fly = 11,
 }
 
 pub(super) fn non_looping(anim: CharacterAnim) -> bool {
@@ -36,7 +40,11 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 
 /// Pick the player's animation from runtime state.
 ///
-/// Priority: hit > slash > dash > airborne (jump/fall) > run/walk/idle.
+/// Priority: hit > slash > fly > dash > airborne (jump/fall) > run/walk/idle.
+/// Free-flight overrides ground/airborne motion because the engine
+/// integrator already disables gravity in flight; the visual should
+/// reflect the active mode rather than whatever fall/run inertia
+/// happens to read.
 /// Death is not represented yet — the player respawns instantly today.
 /// `BlinkOut`/`BlinkIn` are not used yet because the runtime doesn't
 /// track a per-blink anim window; once a `blink_anim_timer` is added
@@ -49,6 +57,9 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
         return CharacterAnim::Slash;
     }
     let player = &runtime.player;
+    if player.fly_enabled {
+        return CharacterAnim::Fly;
+    }
     if player.dash_timer > 0.0 {
         return CharacterAnim::Dash;
     }

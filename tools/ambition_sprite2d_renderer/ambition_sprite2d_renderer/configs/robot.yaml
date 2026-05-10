@@ -13,6 +13,7 @@ animations:
   - blink_out
   - blink_in
   - dash
+  - hover
 render:
   frame_width: 128
   frame_height: 128

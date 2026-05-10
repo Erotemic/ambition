@@ -65,6 +65,24 @@ fn flat_index_clamps_to_last_frame_of_row() {
 }
 
 #[test]
+fn robot_sheet_has_fly_row() {
+    // The generator's `hover` row is the source of the Fly visual.
+    // If a future sheet regen drops or reorders hover, this test
+    // catches it before runtime indexes a non-existent row.
+    assert_eq!(ROBOT_SHEET.frame_count(CharacterAnim::Fly), 8);
+    assert!((ROBOT_SHEET.frame_duration(CharacterAnim::Fly) - 0.078).abs() < 1e-4);
+    // Hover is the LAST row in the regenerated sheet, so its frames
+    // sit after every other row in atlas-flat-index space.
+    let fly_first = ROBOT_SHEET.flat_index(CharacterAnim::Fly, 0);
+    let dash_last =
+        ROBOT_SHEET.flat_index(CharacterAnim::Dash, ROBOT_SHEET.frame_count(CharacterAnim::Dash));
+    assert!(
+        fly_first > dash_last,
+        "Fly row must follow Dash; fly_first={fly_first} dash_last={dash_last}"
+    );
+}
+
+#[test]
 fn frame_duration_positive_for_every_row() {
     // Zero or negative duration would wedge the animation cursor
     // (advance_anim divides by it). Pin the contract.

@@ -14,6 +14,7 @@ use super::primitives::{
 };
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
+use crate::character_sprites::sprite_render_size;
 use crate::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
 use crate::physics;
 use crate::rooms::{LoadingZone, LoadingZoneActivation};
@@ -298,10 +299,31 @@ pub fn spawn_room_object(
             RoomVisual,
         ));
         if matches!(kind, FeatureVisualKind::Npc | FeatureVisualKind::Chest) {
+            // NPCs render with `collision_scale > 1`, so the sprite extends
+            // past the AABB top. When a character sheet is registered for
+            // this NPC, lift the label to clear the sprite's actual top by
+            // 12px; otherwise fall back to the AABB-based 22px gap (chests
+            // + anonymous NPCs render inside their AABB).
+            let half_h = object.aabb.half_size().y;
+            let mut label_dy = -half_h - 22.0;
+            if matches!(kind, FeatureVisualKind::Npc) {
+                if let Some(ch) = assets
+                    .and_then(|a| a.characters.npc_asset_for_name(&object.name))
+                {
+                    let collision = object.aabb.half_size() * 2.0;
+                    let render_h = sprite_render_size(ch.spec, collision).y;
+                    // World y is y-down: sprite top relative to AABB centre
+                    // is `half_h - render_h` (negative when render exceeds
+                    // collision). `min` so a registered sheet only ever
+                    // pushes the label further up.
+                    let sprite_top_dy = half_h - render_h;
+                    label_dy = label_dy.min(sprite_top_dy - 12.0);
+                }
+            }
             spawn_world_label(
                 commands,
                 world,
-                object.aabb.center() + ae::Vec2::new(0.0, -object.aabb.half_size().y - 22.0),
+                object.aabb.center() + ae::Vec2::new(0.0, label_dy),
                 &object.name,
                 14.0,
             );

@@ -306,13 +306,26 @@ fn asset_exists(rel_path: &str) -> bool {
         true
     }
 
-    // Bevy's FileAssetReader resolves assets relative to CARGO_MANIFEST_DIR
-    // when running through cargo. Mirror that here so the existence probe
-    // matches the asset server's lookup path.
+    // Desktop / Steam Deck bundles can run from a different path than the
+    // Linux machine that built them, so the probe must not only use the
+    // compile-time CARGO_MANIFEST_DIR. If BEVY_ASSET_ROOT is set, mirror
+    // Bevy's FileAssetReader root exactly. Without that env var, try the
+    // direct-binary convention of `cwd/assets/`, then fall back to the
+    // Cargo manifest assets directory for normal local `cargo run`.
     #[cfg(not(target_os = "android"))]
     {
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        std::path::Path::new(manifest_dir)
+        if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
+            return std::path::PathBuf::from(root).join(rel_path).exists();
+        }
+
+        if let Ok(cwd) = std::env::current_dir() {
+            let bundled = cwd.join("assets").join(rel_path);
+            if bundled.exists() {
+                return true;
+            }
+        }
+
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("assets")
             .join(rel_path)
             .exists()

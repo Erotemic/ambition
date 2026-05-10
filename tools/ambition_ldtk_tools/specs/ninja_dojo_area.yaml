@@ -42,10 +42,14 @@ visual_theme: blue
 # y=832 row at x=1050 (right side); we drop the dojo door at x=376
 # (leftmost gap on the y=832 row, per `door free-spots
 # central_hub_main`) so the two faction rooms read symmetrically
-# from the hub: pirates on the right, ninjas on the left.
+# from the hub: pirates on the right, ninjas on the left. y=880
+# came from `door snap central_hub_main --x 376 --door-w 48
+# --door-h 96` — the snap reports the y where the door's bottom
+# lands flush on the floor surface at this x (different from the
+# cove's y=832 because the floor profile isn't uniform).
 connect_to:
   - target_room: central_hub_main
-    px: [376, 832]
+    px: [376, 880]
     size: [48, 96]
     id: ninja_dojo_door
     target_zone: ninja_dojo_entry
@@ -109,9 +113,12 @@ entities:
       bidirectional: true
 
   # Boss-arena entry on the right side of the dojo. One-way: walking
-  # IN warps the player into the arena (same `mockingbird_arena_entry`
-  # landing zone the cove uses), but the arena's own `arena_lock_door`
-  # Solid panel keeps the player committed to the boss fight.
+  # IN warps the player into the arena via the dedicated
+  # `mockingbird_arena_ninja_entry` LoadingZone (added to the arena
+  # alongside the cove's existing `mockingbird_arena_entry`, so the
+  # two factions land on opposite sides of the boss). The arena's
+  # own `arena_lock_door_ninja` Solid panel keeps the player
+  # committed to the fight, mirroring the cove side.
   - type: LoadingZone
     px: [1180, 512]
     size: [48, 96]
@@ -120,7 +127,7 @@ entities:
       name: ninja_dojo_to_arena
       activation: Door
       target_room: mockingbird_arena
-      target_zone: mockingbird_arena_entry
+      target_zone: mockingbird_arena_ninja_entry
       bidirectional: false
 
   # ─────────────────────────────────────────────────────────────────

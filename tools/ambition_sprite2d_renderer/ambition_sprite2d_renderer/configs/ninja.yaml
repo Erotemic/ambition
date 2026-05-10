@@ -1,0 +1,37 @@
+target: ninja
+name: Shadow Duelist
+output_name: ninja_shadow_duelist
+seed: 403
+archetype: shadow_duelist
+variant: first_pass_reference_inspired
+faction: ninja
+role: duelist
+tags:
+  - ninja
+  - duelist
+  - masked
+animations:
+  - idle
+  - walk
+  - run
+  - jump
+  - fall
+  - slash
+  - hit
+  - death
+  - blink_out
+  - blink_in
+  - dash
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 4
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 100
+  crop: true
+  crop_padding: 2

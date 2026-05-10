@@ -1,0 +1,38 @@
+target: ninja
+name: Shadow Oni Leader
+output_name: ninja_shadow_oni_leader
+seed: 1515
+archetype: shadow_oni_leader
+variant: first_pass_reference_inspired_leader
+faction: ninja
+role: leader
+tags:
+  - ninja
+  - leader
+  - oni_mask
+  - horned_silhouette
+animations:
+  - idle
+  - walk
+  - run
+  - jump
+  - fall
+  - slash
+  - hit
+  - death
+  - blink_out
+  - blink_in
+  - dash
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 4
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 100
+  crop: true
+  crop_padding: 2

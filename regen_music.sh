@@ -4,9 +4,9 @@
 # Covers:
 #   - first_goblin_tune_v2 (delegates to generate_audio_assets.sh, which
 #     renders, audits, and installs the adaptive boss cue).
-#   - sandbox single-track cues (lofi_study_loop, long_lofi_drift,
-#     pulse_drift_voyage) via `ambition_music_renderer sandbox
-#     render-publish`.
+#   - All radio cues: scores/active/* (auto-discovered) plus the curated
+#     EXTRA_RADIO_CUES list (example-tree cues we expose on the radio).
+#     Driven via `ambition_music_renderer radio render-publish`.
 #
 # Usage:
 #   ./regen_music.sh                # render + install everything (default)
@@ -45,11 +45,11 @@ else
     bash "$repo_root/generate_audio_assets.sh"
 fi
 
-echo "==> sandbox cues (lofi_study_loop, long_lofi_drift, pulse_drift_voyage)"
+echo "==> radio cues (scores/active/* + EXTRA_RADIO_CUES, simple-mix)"
 if [ "$skip_render" -eq 1 ]; then
-    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer sandbox publish)
+    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer radio publish)
 else
-    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer sandbox render-publish)
+    (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer radio render-publish)
 fi
 
 echo "==> done"

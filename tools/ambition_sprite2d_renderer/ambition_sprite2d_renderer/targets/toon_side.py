@@ -1046,6 +1046,22 @@ class ToonSideGenerator:
                 0.0,
             )
 
+        def draw_skin_hand(hand: Point, *, scale: float = 1.0, outline_width: float = 1.0) -> None:
+            """Draw the terminal hand circle large enough to cover the sleeve cap."""
+            diameter = spec.hand_r * scale * S
+            if spec.outfit == "general_uniform":
+                # For the general, hand_r behaves like a radius: the green
+                # sleeve capsule already draws a rounded terminal cap, so the
+                # skin hand must be a full ball on top of that cap rather than
+                # a tiny dot at the wrist.
+                diameter *= 2.0
+            d.ellipse(
+                _bbox(hand, diameter, diameter),
+                fill=pal["skin"],
+                outline=pal["outline"],
+                width=max(1, int(outline_width * S)),
+            )
+
         # far limbs first
         far_hip, far_knee, far_ankle = leg_points(False)
         far_tint = _scale_color(pal["outfit_dark"], 0.93)
@@ -1058,7 +1074,7 @@ class ToonSideGenerator:
         draw_uniform_cuff(far_elbow, far_hand, scale=0.88)
         # Keep sleeves uniform-colored, but hands skin-toned. The far hand is
         # drawn before the torso so it still sits behind the body volume.
-        d.ellipse(_bbox(far_hand, spec.hand_r * 0.90 * S, spec.hand_r * 0.90 * S), fill=pal["skin"], outline=pal["outline"], width=max(1, int(0.9 * S)))
+        draw_skin_hand(far_hand, scale=0.90, outline_width=0.9)
 
         # torso/head core silhouette
         self._draw_torso(img, torso_center, spec, pal, S, p)
@@ -1080,7 +1096,7 @@ class ToonSideGenerator:
         self._draw_prop(img, near_hand, spec, pal, S, prop_angle)
         # Draw the near hand last so the baton/prop reads as being held by a
         # skin-toned hand instead of painting over it.
-        d.ellipse(_bbox(near_hand, spec.hand_r * S, spec.hand_r * S), fill=pal["skin"], outline=pal["outline"], width=max(1, int(1.0 * S)))
+        draw_skin_hand(near_hand, scale=1.0, outline_width=1.0)
         if p.slash > 0.0:
             d.arc((near_hand[0] - 4 * S, near_hand[1] - 28 * S, near_hand[0] + 42 * S, near_hand[1] + 16 * S), start=-70, end=35, fill=with_alpha(pal["accent"], 160), width=max(1, int(2.5 * S)))
         if p.hit > 0.0:

@@ -138,7 +138,13 @@ pub enum PauseMenuPage {
 }
 
 const SETTINGS_VISIBLE_ROWS: usize = 6;
-const RADIO_VISIBLE_ROWS: usize = 6;
+/// Max row slots pre-spawned in the settings/radio panel. Hidden slots toggle
+/// `Display::None` so they don't reserve layout — the panel sizes to the
+/// actual visible row count. Bump only if a single page needs more
+/// simultaneously visible rows than this cap.
+const MAX_ROWS: usize = 32;
+/// Radio shows every track up to `MAX_ROWS`; beyond that the list windows.
+const RADIO_VISIBLE_ROWS: usize = MAX_ROWS;
 
 #[derive(Resource, Default)]
 pub struct PauseMenuState {
@@ -730,7 +736,6 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     // the renderer fills `slot.index < rows.len()` slots with text and
     // hides the rest. This avoids respawning UI nodes per page swap,
     // which can cost a frame of layout instability.
-    const MAX_ROWS: usize = 24;
     for index in 0..MAX_ROWS {
         let entity = commands
             .spawn((
@@ -741,6 +746,9 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                     padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
+                    // Start out of layout; sync_pause_menu flips to Flex
+                    // for slots that map to a real row this frame.
+                    display: Display::None,
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
@@ -792,6 +800,7 @@ pub fn sync_pause_menu(
     mut row_slots: Query<
         (
             &SettingsRowSlot,
+            &mut Node,
             &mut Visibility,
             &mut Text,
             &mut TextColor,
@@ -801,6 +810,8 @@ pub fn sync_pause_menu(
             Without<PauseMenuRoot>,
             Without<PauseMenuItem>,
             Without<SettingsTitle>,
+            Without<PauseMenuTopPanel>,
+            Without<PauseMenuSettingsPanel>,
         ),
     >,
 ) {
@@ -824,9 +835,8 @@ pub fn sync_pause_menu(
             **text = item.label(Some(&music_state), Some(&library));
             apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
         }
-        // Hide all settings rows.
-        for (_, mut vis, _, _, _) in &mut row_slots {
-            *vis = Visibility::Hidden;
+        for (_, mut node, mut vis, _, _, _) in &mut row_slots {
+            hide_row_slot(&mut node, &mut vis);
         }
     } else if let PauseMenuPage::Settings(page) = state.page {
         let rows = SettingsItem::rows_for(page);
@@ -838,7 +848,7 @@ pub fn sync_pause_menu(
                 SETTINGS_VISIBLE_ROWS,
             );
         }
-        for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
+        for (slot, mut node, mut vis, mut text, mut color, mut bg) in &mut row_slots {
             if let Some(row_index) = visible_row_index(
                 slot.index,
                 state.selected,
@@ -855,11 +865,11 @@ pub fn sync_pause_menu(
                     );
                     let selected = state.selected == row_index;
                     apply_item_highlight(&mut color, &mut bg, selected);
-                    *vis = Visibility::Visible;
+                    show_row_slot(&mut node, &mut vis);
+                    continue;
                 }
-            } else {
-                *vis = Visibility::Hidden;
             }
+            hide_row_slot(&mut node, &mut vis);
         }
     } else if matches!(state.page, PauseMenuPage::Radio) {
         let count = library.track_count();
@@ -869,7 +879,7 @@ pub fn sync_pause_menu(
         let active = radio
             .selected_track()
             .unwrap_or(music_state.active_track.as_str());
-        for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
+        for (slot, mut node, mut vis, mut text, mut color, mut bg) in &mut row_slots {
             if let Some(track_index) =
                 visible_row_index(slot.index, state.selected, count, RADIO_VISIBLE_ROWS)
             {
@@ -883,12 +893,35 @@ pub fn sync_pause_menu(
                     );
                     let selected = state.selected == track_index;
                     apply_item_highlight(&mut color, &mut bg, selected);
-                    *vis = Visibility::Visible;
+                    show_row_slot(&mut node, &mut vis);
+                    continue;
                 }
-            } else {
-                *vis = Visibility::Hidden;
             }
+            hide_row_slot(&mut node, &mut vis);
         }
+    }
+}
+
+/// Show a row slot. Toggles `display: Flex` so the row participates in the
+/// settings panel's column layout (matching the original spawn-time default)
+/// and clears any leftover `Visibility::Hidden` from the previous frame.
+fn show_row_slot(node: &mut Node, vis: &mut Visibility) {
+    if node.display != Display::Flex {
+        node.display = Display::Flex;
+    }
+    if *vis != Visibility::Visible {
+        *vis = Visibility::Visible;
+    }
+}
+
+/// Hide a row slot and remove it from layout entirely so empty slots do not
+/// pad the settings/radio panel with blank vertical space.
+fn hide_row_slot(node: &mut Node, vis: &mut Visibility) {
+    if node.display != Display::None {
+        node.display = Display::None;
+    }
+    if *vis != Visibility::Hidden {
+        *vis = Visibility::Hidden;
     }
 }
 
@@ -918,6 +951,7 @@ pub fn sync_pause_menu(
     mut row_slots: Query<
         (
             &SettingsRowSlot,
+            &mut Node,
             &mut Visibility,
             &mut Text,
             &mut TextColor,
@@ -927,6 +961,8 @@ pub fn sync_pause_menu(
             Without<PauseMenuRoot>,
             Without<PauseMenuItem>,
             Without<SettingsTitle>,
+            Without<PauseMenuTopPanel>,
+            Without<PauseMenuSettingsPanel>,
         ),
     >,
 ) {
@@ -949,8 +985,8 @@ pub fn sync_pause_menu(
             **text = item.label();
             apply_item_highlight(&mut color, &mut bg, Some(*item) == selected_item);
         }
-        for (_, mut vis, _, _, _) in &mut row_slots {
-            *vis = Visibility::Hidden;
+        for (_, mut node, mut vis, _, _, _) in &mut row_slots {
+            hide_row_slot(&mut node, &mut vis);
         }
     } else if let PauseMenuPage::Settings(page) = state.page {
         let rows = SettingsItem::rows_for(page);
@@ -962,7 +998,7 @@ pub fn sync_pause_menu(
                 SETTINGS_VISIBLE_ROWS,
             );
         }
-        for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
+        for (slot, mut node, mut vis, mut text, mut color, mut bg) in &mut row_slots {
             if let Some(row_index) = visible_row_index(
                 slot.index,
                 state.selected,
@@ -979,23 +1015,23 @@ pub fn sync_pause_menu(
                     );
                     let selected = state.selected == row_index;
                     apply_item_highlight(&mut color, &mut bg, selected);
-                    *vis = Visibility::Visible;
+                    show_row_slot(&mut node, &mut vis);
+                    continue;
                 }
-            } else {
-                *vis = Visibility::Hidden;
             }
+            hide_row_slot(&mut node, &mut vis);
         }
     } else if matches!(state.page, PauseMenuPage::Radio) {
         for (mut text, _) in &mut titles {
             **text = "Radio".to_string();
         }
-        for (slot, mut vis, mut text, mut color, mut bg) in &mut row_slots {
+        for (slot, mut node, mut vis, mut text, mut color, mut bg) in &mut row_slots {
             if slot.index == 0 {
                 **text = "Audio feature disabled".to_string();
                 apply_item_highlight(&mut color, &mut bg, state.selected == 0);
-                *vis = Visibility::Visible;
+                show_row_slot(&mut node, &mut vis);
             } else {
-                *vis = Visibility::Hidden;
+                hide_row_slot(&mut node, &mut vis);
             }
         }
     }

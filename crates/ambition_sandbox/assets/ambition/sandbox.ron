@@ -326,6 +326,268 @@
                     bass_roots: [0, -5, -7, -2, 0, -5, -8, -7],
                 ),
             ),
+            // Faction guild radio tracks. All pre-rendered via
+            // tools/ambition_music_renderer (scores in
+            // tools/ambition_music_renderer/scores/active/<id>.music.yaml).
+            // The arrangement field is a placeholder — the asset_path
+            // OGG is what actually plays; arrangement is only used for
+            // duration_seconds() reporting.
+            (
+                id: "artists_guild_chiaroscuro",
+                display_name: "Chiaroscuro",
+                asset_path: Some("audio/music/generated/artists_guild_chiaroscuro/full.ogg"),
+                arrangement: (
+                    bpm: 96.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "fighters_guild_oath_of_steel",
+                display_name: "Oath of Steel",
+                asset_path: Some("audio/music/generated/fighters_guild_oath_of_steel/full.ogg"),
+                arrangement: (
+                    bpm: 116.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "luddites_guild_loom_and_liberty",
+                display_name: "Loom and Liberty",
+                asset_path: Some("audio/music/generated/luddites_guild_loom_and_liberty/full.ogg"),
+                arrangement: (
+                    bpm: 92.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "mages_guild_arcane_lanterns",
+                display_name: "Arcane Lanterns",
+                asset_path: Some("audio/music/generated/mages_guild_arcane_lanterns/full.ogg"),
+                arrangement: (
+                    bpm: 72.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "mathematicians_guild_proof_by_moonlight",
+                display_name: "Proof by Moonlight",
+                asset_path: Some("audio/music/generated/mathematicians_guild_proof_by_moonlight/full.ogg"),
+                arrangement: (
+                    bpm: 100.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "ninja_guild_shadow_kata",
+                display_name: "Shadow Kata",
+                asset_path: Some("audio/music/generated/ninja_guild_shadow_kata/full.ogg"),
+                arrangement: (
+                    bpm: 92.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "physicists_guild_event_horizon_waltz",
+                display_name: "Event Horizon Waltz",
+                asset_path: Some("audio/music/generated/physicists_guild_event_horizon_waltz/full.ogg"),
+                arrangement: (
+                    bpm: 176.0, total_beats: 96.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "pirates_guild_black_flag_jig",
+                display_name: "Black Flag Jig",
+                asset_path: Some("audio/music/generated/pirates_guild_black_flag_jig/full.ogg"),
+                arrangement: (
+                    bpm: 112.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "thieves_guild_cobblestone_whisper",
+                display_name: "Cobblestone Whisper",
+                asset_path: Some("audio/music/generated/thieves_guild_cobblestone_whisper/full.ogg"),
+                arrangement: (
+                    bpm: 126.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            // Additional non-guild cues rendered via the music renderer
+            // (scores in tools/ambition_music_renderer/scores/examples/).
+            // Some are boss/encounter cues exposed on the radio so they can
+            // be auditioned without triggering the encounter.
+            (
+                id: "crooked_ascent_boss",
+                display_name: "Crooked Ascent (Boss)",
+                asset_path: Some("audio/music/generated/crooked_ascent_boss/full.ogg"),
+                arrangement: (
+                    bpm: 152.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "dinosaur_liberators",
+                display_name: "Dinosaur Liberators",
+                asset_path: Some("audio/music/generated/dinosaur_liberators/full.ogg"),
+                arrangement: (
+                    bpm: 110.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "dinosaur_liberators_long",
+                display_name: "Dinosaur Liberators (Long)",
+                asset_path: Some("audio/music/generated/dinosaur_liberators_long/full.ogg"),
+                arrangement: (
+                    bpm: 110.0, total_beats: 832.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "env_advocacy_solace",
+                display_name: "Env Advocacy — Solace",
+                asset_path: Some("audio/music/generated/env_advocacy_solace/full.ogg"),
+                arrangement: (
+                    bpm: 84.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "fast_paced_violin_boss",
+                display_name: "Fast-Paced Violin (Boss)",
+                asset_path: Some("audio/music/generated/fast_paced_violin_boss/full.ogg"),
+                arrangement: (
+                    bpm: 176.0, total_beats: 96.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "glasswood",
+                display_name: "Glasswood",
+                asset_path: Some("audio/music/generated/glasswood/full.ogg"),
+                arrangement: (
+                    bpm: 96.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "military_iron_resolve",
+                display_name: "Military Iron Resolve",
+                asset_path: Some("audio/music/generated/military_iron_resolve/full.ogg"),
+                arrangement: (
+                    bpm: 108.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "moonlit_canal",
+                display_name: "Moonlit Canal",
+                asset_path: Some("audio/music/generated/moonlit_canal/full.ogg"),
+                arrangement: (
+                    bpm: 84.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "solo_soar",
+                display_name: "Solo Soar",
+                asset_path: Some("audio/music/generated/solo_soar/full.ogg"),
+                arrangement: (
+                    bpm: 132.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "solo_soar_9m08_loud",
+                display_name: "Solo Soar (Loud, 9m)",
+                asset_path: Some("audio/music/generated/solo_soar_9m08_loud/full.ogg"),
+                arrangement: (
+                    bpm: 91.0, total_beats: 832.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "tech_bros_disruption",
+                display_name: "Tech Bros Disruption",
+                asset_path: Some("audio/music/generated/tech_bros_disruption/full.ogg"),
+                arrangement: (
+                    bpm: 124.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
+                id: "violin_boss_relentless",
+                display_name: "Violin Boss Relentless",
+                asset_path: Some("audio/music/generated/violin_boss_relentless/full.ogg"),
+                arrangement: (
+                    bpm: 144.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
         ],
     ),
 )

@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use super::sheets::{
     CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET,
-    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, PIRATE_SHEET,
+    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, NINJA_SHEET, PIRATE_SHEET,
     PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET,
     VAULT_KEEPER_SHEET,
 };
@@ -103,6 +103,19 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
         "Pirate Raider",
         "pirate_raider_spritesheet.png",
         PIRATE_SHEET,
+    ),
+    // Ninja-faction characters in the Shadow Dojo. Same sheet layout
+    // (idle/walk/run/jump/fall/slash/hit/death/blink_out/blink_in/
+    // dash) for both — see NINJA_SHEET.
+    (
+        "Shadow Oni Leader",
+        "ninja_shadow_oni_leader_spritesheet.png",
+        NINJA_SHEET,
+    ),
+    (
+        "Shadow Duelist",
+        "ninja_shadow_duelist_spritesheet.png",
+        NINJA_SHEET,
     ),
     // Hub NPCs already authored in LDtk; we just point them at the
     // toon-target sheets rendered for them.

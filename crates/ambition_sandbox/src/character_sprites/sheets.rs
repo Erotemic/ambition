@@ -523,6 +523,104 @@ pub const SANDBAG_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 1,
 };
 
+/// Shadow Oni Leader / Shadow Duelist — both ship the same generator
+/// layout (idle / walk / run / jump / fall / slash / hit / death /
+/// blink_out / blink_in / dash; 128×128 frames, no inter-frame
+/// padding, label_width = 100). Mirrors the PIRATE_SHEET pattern:
+/// two filenames, one indexing contract. Both ninja manifests
+/// report `feet_anchor_norm.y = -0.4921875`.
+pub const NINJA_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 100,
+    frame_width: 128,
+    frame_height: 128,
+    rows: &[
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.120,
+            },
+        ),
+        (
+            CharacterAnim::Walk,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Run,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::Jump,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Fall,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Slash,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.068,
+            },
+        ),
+        (
+            CharacterAnim::Hit,
+            AnimRow {
+                frame_count: 5,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            CharacterAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+        (
+            CharacterAnim::BlinkOut,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::BlinkIn,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::Dash,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.058,
+            },
+        ),
+    ],
+    // Ninja silhouettes fill nearly the full 128px frame height (body
+    // bbox h = 128 in both manifests), so a smaller scale than the
+    // robot/goblin (2.1) keeps the rendered sprite roughly proportional
+    // to the LDtk collision box.
+    collision_scale: 1.5,
+    feet_anchor_y: -0.492,
+    frame_sample_inset: 1,
+};
+
 /// Per-target sprite render size. The generator's character occupies only
 /// part of the 128×128 frame, so the rendered quad must be larger than
 /// the collision box for the visible body to roughly match the hitbox.

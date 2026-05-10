@@ -1,0 +1,170 @@
+# Ninja-faction lair — the Shadow Dojo. A wide horizontal room
+# tucked above the Pirate Cove (worldY = -800). Two doors: one back
+# to the central hub, one across into the Mockingbird boss arena.
+#
+# Storyline: ninjas and pirates loathe each other on principle, but
+# the Mockingbird stole a kata from the dojo and a hoard from the
+# cove, so each crew has agreed to run their own door into the boss
+# room. The leader (Shadow Oni) will broker a one-engagement truce;
+# the duelist will trash-talk pirates for the entire conversation.
+#
+# Layout (1280 wide × 640 tall — same shell shape as the cove so
+# both faction rooms read as siblings on the world map):
+#
+#   +---------------------------------------------------+  y = 0
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+#   |                                                   |
+#   |        ░░ training beam ░░                        |
+#   |                              ░░ training beam ░░  |
+#   |                                                   |
+#   |  [hub door]                          [arena door] |
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  | y = 608 (floor)
+#   +---------------------------------------------------+
+#
+# Music: `ninja_guild_shadow_kata` — already registered in
+# `crates/ambition_sandbox/assets/ambition/sandbox.ron`. The boss
+# track swap to `how_to_kill_a_mockingbird` happens when the player
+# crosses the loading zone into the arena, identical to the cove.
+id: ninja_dojo
+level_id: ninja_dojo
+world_x: -8000
+world_y: -800
+px_wid: 1280
+px_hei: 640
+fill_collision: empty
+
+biome: cove
+music_track: ninja_guild_shadow_kata
+ambient_profile: tide
+visual_theme: blue
+
+# Entry door from the central hub. The cove already sits on the
+# y=832 row at x=1050 (right side); we drop the dojo door at x=376
+# (leftmost gap on the y=832 row, per `door free-spots
+# central_hub_main`) so the two faction rooms read symmetrically
+# from the hub: pirates on the right, ninjas on the left.
+connect_to:
+  - target_room: central_hub_main
+    px: [376, 832]
+    size: [48, 96]
+    id: ninja_dojo_door
+    target_zone: ninja_dojo_entry
+    activation: Door
+    bidirectional: true
+
+entities:
+  # ─────────────────────────────────────────────────────────────────
+  # Outer shell — same shape as the cove for sibling-room parity.
+  # ─────────────────────────────────────────────────────────────────
+  - type: Solid
+    px: [0, 608]
+    size: [1280, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [16, 608]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [1264, 0]
+    size: [16, 608]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [1248, 16]
+    fields: { name: ceiling }
+
+  # ─────────────────────────────────────────────────────────────────
+  # Two one-way training beams. Visual parity with the cove's
+  # lookout ledges; the route to the arena is a flat walk along
+  # the floor so these don't gate anything.
+  # ─────────────────────────────────────────────────────────────────
+  - type: OneWayPlatform
+    px: [320, 384]
+    size: [192, 16]
+    fields: { name: training_beam_left }
+  - type: OneWayPlatform
+    px: [720, 320]
+    size: [192, 16]
+    fields: { name: training_beam_right }
+
+  # ─────────────────────────────────────────────────────────────────
+  # Player spawn — just inside the hub door on the left side.
+  # ─────────────────────────────────────────────────────────────────
+  - type: PlayerStart
+    px: [80, 562]
+    size: [28, 46]
+    fields: { name: ninja_dojo_spawn }
+
+  # Return-to-hub LoadingZone. `target_room` is the activeArea id
+  # `central_hub_complex` (matches the cove's pattern).
+  - type: LoadingZone
+    px: [56, 512]
+    size: [48, 96]
+    fields:
+      id: ninja_dojo_entry
+      name: ninja_dojo_entry
+      activation: Door
+      target_room: central_hub_complex
+      target_zone: ninja_dojo_door
+      bidirectional: true
+
+  # Boss-arena entry on the right side of the dojo. One-way: walking
+  # IN warps the player into the arena (same `mockingbird_arena_entry`
+  # landing zone the cove uses), but the arena's own `arena_lock_door`
+  # Solid panel keeps the player committed to the boss fight.
+  - type: LoadingZone
+    px: [1180, 512]
+    size: [48, 96]
+    fields:
+      id: ninja_dojo_to_arena
+      name: ninja_dojo_to_arena
+      activation: Door
+      target_room: mockingbird_arena
+      target_zone: mockingbird_arena_entry
+      bidirectional: false
+
+  # ─────────────────────────────────────────────────────────────────
+  # Faction NPCs. The Shadow Oni Leader proposes the truce-of-
+  # convenience with the cove and unlocks the arena door; the
+  # Duelist grumbles about working with pirates. Both are
+  # registered in `NPC_SPRITE_REGISTRY` (sprite paths
+  # `ninja_shadow_oni_leader_spritesheet.png` /
+  # `ninja_shadow_duelist_spritesheet.png`) and `dialogue_id`s
+  # match the entries added to `dialog.rs`.
+  # y=538 mirrors the cove (floor top y=608, NPC h=70 → 538+70=608).
+  # ─────────────────────────────────────────────────────────────────
+  - type: NpcSpawn
+    px: [220, 538]
+    size: [42, 70]
+    fields:
+      name: Shadow Oni Leader
+      prompt: Talk
+      dialogue_id: ninja_leader
+      patrol_radius: 0
+  - type: NpcSpawn
+    px: [560, 538]
+    size: [42, 70]
+    fields:
+      name: Shadow Duelist
+      prompt: Talk
+      dialogue_id: ninja_duelist
+      patrol_radius: 0
+
+  # ─────────────────────────────────────────────────────────────────
+  # Camera + signage.
+  # ─────────────────────────────────────────────────────────────────
+  - type: CameraZone
+    px: [0, 0]
+    size: [1280, 640]
+    fields:
+      id: ninja_dojo_camera
+      name: ninja_dojo_camera
+      mode: Default
+
+  - type: DebugLabel
+    px: [40, 540]
+    size: [600, 20]
+    fields:
+      name: ninja_dojo_intro_label
+      text: "Shadow Dojo — the Mockingbird mocked a kata. Through the far door."
+      category: Custom

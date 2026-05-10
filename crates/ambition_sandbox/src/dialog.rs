@@ -203,6 +203,14 @@ pub enum DialogMode {
     /// admiral. Cheaper banter — the raider gets a different beat to
     /// keep the cove from feeling like one looping admiral.
     PirateRaiderAfterTreasure,
+    /// Ninja-faction leader. Runs the Shadow Dojo and proposes a
+    /// truce-of-convenience with the pirates so the two crews can
+    /// settle the Mockingbird together. Dialog hangs on the rivalry
+    /// (ninjas vs pirates) softening into a temporary alliance.
+    NinjaLeader,
+    /// Ninja-faction grunt. Trash-talks the pirates, then grudgingly
+    /// admits the bird is the bigger problem.
+    NinjaDuelist,
     Generic,
 }
 
@@ -219,6 +227,8 @@ impl DialogMode {
             "tech_bros_disruptor" => Self::TechBrosDisruptor,
             "pirate_admiral" => Self::PirateAdmiral,
             "pirate_raider" => Self::PirateRaider,
+            "ninja_leader" => Self::NinjaLeader,
+            "ninja_duelist" => Self::NinjaDuelist,
             _ => Self::Generic,
         }
     }
@@ -235,6 +245,8 @@ impl DialogMode {
             Self::TechBrosDisruptor => "tech-bros disruptor",
             Self::PirateAdmiral | Self::PirateAdmiralAfterTreasure => "pirate admiral",
             Self::PirateRaider | Self::PirateRaiderAfterTreasure => "pirate raider",
+            Self::NinjaLeader => "ninja shadow oni leader",
+            Self::NinjaDuelist => "ninja shadow duelist",
             Self::Generic => "sandbox dialogue",
         }
     }
@@ -253,6 +265,8 @@ impl DialogMode {
             Self::PirateAdmiralAfterTreasure => PIRATE_ADMIRAL_AFTER_TREASURE_NODES,
             Self::PirateRaider => PIRATE_RAIDER_NODES,
             Self::PirateRaiderAfterTreasure => PIRATE_RAIDER_AFTER_TREASURE_NODES,
+            Self::NinjaLeader => NINJA_LEADER_NODES,
+            Self::NinjaDuelist => NINJA_DUELIST_NODES,
             Self::Generic => GENERIC_NODES,
         }
     }
@@ -993,6 +1007,141 @@ const PIRATE_RAIDER_NODES: &[DialogNode] = &[
         speaker: "Raider",
         line: "Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. One of those. I'm the muscle, not the navigator.",
         options: PIRATE_RAIDER_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Ninja Shadow Dojo dialog: Leader (Shadow Oni) + Duelist (grunt).
+// Shared narrative beat: ninjas and pirates loathe each other on
+// principle, but the Mockingbird is everybody's problem and the
+// Leader is willing to broker a one-engagement truce. The Duelist
+// grumbles about it the way a soldier grumbles about a peace treaty
+// they secretly agree with.
+// ─────────────────────────────────────────────────────────────────
+
+const NINJA_LEADER_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Why team up with the pirates?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "What's your grievance with the bird?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Where does the dojo stand on the cove?",
+        next_node: Some(3),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Open the arena door.",
+        next_node: None,
+        note: Some("The Leader inclines her horned mask. Somewhere in the rafters, a paper lantern unrolls a sigil that wasn't there a moment ago. The far door slides aside."),
+        close_after: true,
+    },
+];
+
+const NINJA_LEADER_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Open the arena door.",
+        next_node: None,
+        note: Some("The Leader's blade rests an inch out of its saya. The dojo holds its breath in the way only a room of disciplined breathers can."),
+        close_after: true,
+    },
+];
+
+const NINJA_LEADER_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Shadow Oni",
+        line: "Stranger. You walked through our doorway without my permission, which means either you are very rude or very good. The Mockingbird stole a song that wasn't theirs to sing. We will end them. Even if it means standing shoulder to shoulder with a pirate.",
+        options: NINJA_LEADER_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Shadow Oni",
+        line: "We are knives in the dark; the pirates are shouts in broad daylight. We don't share a worldview — we share a target. The bird mocks our katas as fluently as it mocks their shanties. A loud enemy and a quiet enemy still bury the same corpse.",
+        options: NINJA_LEADER_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Shadow Oni",
+        line: "It learned a kata. ONE of ours. Not perfectly — but the bird performed it back at us in a courtyard at dawn, with our own footwork, and laughed. A bird does not laugh. A bird that does is no longer a bird; it is an insult that flies.",
+        options: NINJA_LEADER_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Shadow Oni",
+        line: "Tell the Admiral the dojo will hold position on the eastern thermals. We will not steal his songs and he will not steal our shadows. The bird falls. After that, we go back to politely loathing each other from a distance.",
+        options: NINJA_LEADER_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+const NINJA_DUELIST_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Heard you're working with pirates now.",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Any tips for the bird?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("The duelist resumes a kata that consists mostly of stepping on a single tile in five slightly different ways."),
+        close_after: true,
+    },
+];
+
+const NINJA_DUELIST_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("The duelist nods once. The nod is also a kata."),
+        close_after: true,
+    },
+];
+
+const NINJA_DUELIST_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Duelist",
+        line: "Quiet. The Leader is meditating, which means anyone who slams a door dies. Don't slam the door. ...You walked in without slamming. Fine. Acceptable. State your business.",
+        options: NINJA_DUELIST_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Duelist",
+        line: "Working WITH them. Not joining. There's a distinction. A pirate has never washed his hands in his life, and a ninja is mostly hands. The arithmetic is ugly. But the bird is uglier. After the bird's down, we go back to being insulted by their cologne and their volume.",
+        options: NINJA_DUELIST_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Duelist",
+        line: "It mimics. Don't believe a sound it makes — your own voice in your own kata could come out of its beak. Strike on the silence between its calls. If you hear yourself, you're already losing.",
+        options: NINJA_DUELIST_RETURN_OPTIONS,
         default_next: None,
     },
 ];

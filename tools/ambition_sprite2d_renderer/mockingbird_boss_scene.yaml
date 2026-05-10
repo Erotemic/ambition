@@ -479,9 +479,9 @@ root:
       label: Neck
       visible: true
       locked: false
-      z_order: 3
+      z_order: 1
       transform:
-        x: -8.6
+        x: 11.4
         y: 1.2
         rotation: 18.5
         scale_x: 1

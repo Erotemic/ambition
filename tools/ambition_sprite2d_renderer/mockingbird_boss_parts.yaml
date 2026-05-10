@@ -1,0 +1,1530 @@
+schema_version: 2
+meta:
+  name: mockingbird_boss
+  frame_size:
+  - 256
+  - 256
+  work_size:
+  - 900
+  - 640
+  origin:
+  - 450
+  - 320
+  source_urls:
+  - https://archive.org/download/htkam/TKAM%28www.albinoblacksheep.com%29.swf
+  - https://archive.org/download/how-to-kill-a-mockingbird/how-to-kill-a-mockingbird.swf
+render:
+  background_rgba:
+  - 43
+  - 33
+  - 40
+  - 255
+  default_frame_size:
+  - 256
+  - 256
+  default_canonical_size:
+  - 512
+  - 512
+  work_size:
+  - 900
+  - 640
+  supersample: 2
+  bounds_policy: render on work canvas, crop alpha extent, fit to target
+  global_outline: false
+  editor_outline_boxes: false
+animations:
+  hover:
+    frames: 6
+    duration_ms: 110
+  thrust:
+    frames: 6
+    duration_ms: 90
+  bite:
+    frames: 6
+    duration_ms: 90
+  slash:
+    frames: 6
+    duration_ms: 88
+  hit:
+    frames: 4
+    duration_ms: 80
+  death:
+    frames: 8
+    duration_ms: 105
+colors:
+  outline:
+  - 14
+  - 17
+  - 24
+  - 255
+  black:
+  - 28
+  - 34
+  - 45
+  - 255
+  dark:
+  - 44
+  - 54
+  - 70
+  - 255
+  dark2:
+  - 60
+  - 72
+  - 91
+  - 255
+  steel:
+  - 103
+  - 123
+  - 146
+  - 255
+  steel2:
+  - 158
+  - 176
+  - 198
+  - 255
+  rib:
+  - 120
+  - 142
+  - 165
+  - 150
+  cyan:
+  - 116
+  - 221
+  - 255
+  - 255
+  red:
+  - 230
+  - 54
+  - 40
+  - 255
+  tooth:
+  - 241
+  - 241
+  - 230
+  - 255
+  orange:
+  - 255
+  - 156
+  - 46
+  - 255
+  flame1:
+  - 80
+  - 220
+  - 255
+  - 90
+  flame2:
+  - 122
+  - 242
+  - 255
+  - 205
+  flame3:
+  - 255
+  - 255
+  - 196
+  - 180
+  steel_plate:
+  - 170
+  - 184
+  - 198
+  - 255
+  debug_magenta:
+  - 255
+  - 0
+  - 255
+  - 160
+  debug_cyan:
+  - 40
+  - 180
+  - 255
+  - 160
+  dark_outline:
+  - 14
+  - 17
+  - 24
+  - 255
+root:
+  id: root
+  kind: group
+  label: Root
+  visible: true
+  locked: false
+  z_order: 0
+  transform:
+    x: 0
+    y: 0
+    rotation: 0
+    scale_x: 1
+    scale_y: 1
+  children:
+  - id: body
+    kind: group
+    label: Body
+    visible: true
+    locked: false
+    z_order: 5
+    transform:
+      x: 10.2
+      y: -1.8
+      rotation: -1.0
+      scale_x: 1.64
+      scale_y: 1.06
+    children:
+    - id: tail
+      kind: group
+      label: Tail
+      visible: true
+      locked: false
+      z_order: 4
+      transform:
+        x: 50.0
+        y: 2.8
+        rotation: 0
+        scale_x: 1
+        scale_y: 1
+      children:
+      - id: tail_boom
+        kind: group
+        label: Tail / boom and nozzle
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: tail_00_rounded_rect
+          kind: shape
+          label: tail 00 rounded_rect
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: rounded_rect
+            box:
+            - -2
+            - -10
+            - 28
+            - 10
+            radius: 6
+            fill: dark2
+            outline: outline
+            width: 1.8
+        - id: tail_01_polygon
+          kind: shape
+          label: tail 01 polygon
+          visible: true
+          locked: false
+          z_order: 1
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: polygon
+            points:
+            - - 28
+              - -11
+            - - 41
+              - -2
+            - - 28
+              - 6
+            fill: dark
+            outline: outline
+            width: 1.2
+      - id: tail_fins
+        kind: group
+        label: Tail / fins
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: tail_02_polygon
+          kind: shape
+          label: tail 02 polygon
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: polygon
+            points:
+            - - 16
+              - 9
+            - - 42
+              - 19
+            - - 10
+              - 14
+            fill: cyan
+            outline: outline
+            width: 1.1
+        - id: tail_03_polygon
+          kind: shape
+          label: tail 03 polygon
+          visible: true
+          locked: false
+          z_order: 1
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: polygon
+            points:
+            - - 11
+              - -11
+            - - 28
+              - -21
+            - - 8
+              - -14
+            fill: dark2
+            outline: outline
+            width: 1
+      - id: flame
+        kind: group
+        label: Flame
+        visible: true
+        locked: false
+        z_order: 2
+        transform:
+          x: 27.0
+          y: -0.8
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: flame_00_flame
+          kind: shape
+          label: flame 00 flame
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: flame
+            length: 56
+            height: 24
+            fill: null
+            outline: null
+    - id: ribs
+      kind: group
+      label: Ribs
+      visible: true
+      locked: false
+      z_order: 5
+      transform:
+        x: -5.8
+        y: 3.2
+        rotation: -3.0
+        scale_x: 0.98
+        scale_y: 0.92
+      children:
+      - id: ribs_00_line
+        kind: shape
+        label: Rib 1
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: line
+          points:
+          - - -28
+            - -18
+          - - -12
+            - -6
+          - - -10
+            - 20
+          fill: rib
+          width: 3
+          outline: null
+      - id: ribs_01_line
+        kind: shape
+        label: Rib 2
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: line
+          points:
+          - - -16
+            - -17
+          - - 0
+            - -5
+          - - 2
+            - 20
+          fill: rib
+          width: 3
+          outline: null
+      - id: ribs_02_line
+        kind: shape
+        label: Rib 3
+        visible: true
+        locked: false
+        z_order: 2
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: line
+          points:
+          - - -4
+            - -16
+          - - 12
+            - -4
+          - - 14
+            - 19
+          fill: rib
+          width: 3
+          outline: null
+      - id: ribs_03_line
+        kind: shape
+        label: Rib 4
+        visible: true
+        locked: false
+        z_order: 3
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: line
+          points:
+          - - 8
+            - -15
+          - - 24
+            - -2
+          - - 26
+            - 18
+          fill: rib
+          width: 3
+          outline: null
+      - id: ribs_04_line
+        kind: shape
+        label: Rib crossbar
+        visible: true
+        locked: false
+        z_order: 10
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: line
+          points:
+          - - -30
+            - -1
+          - - 28
+            - 0
+          fill: steel2
+          width: 2.1
+          outline: null
+    - id: neck
+      kind: group
+      label: Neck
+      visible: true
+      locked: false
+      z_order: 3
+      transform:
+        x: -8.6
+        y: 1.2
+        rotation: 18.5
+        scale_x: 1
+        scale_y: 1
+      children:
+      - id: neck_00_spine
+        kind: shape
+        label: neck 00 spine
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: spine
+          segments: 8
+          start:
+          - 0
+          - 0
+          end:
+          - -76
+          - -10
+          bend: -9
+          fill: null
+          outline: null
+      - id: head
+        kind: group
+        label: Head
+        visible: true
+        locked: false
+        z_order: 7
+        transform:
+          x: -95.0
+          y: -14.0
+          rotation: -24.0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: head_teeth
+          kind: group
+          label: Head / teeth rows
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          children:
+          - id: head_00_teeth_row
+            kind: shape
+            label: head 00 teeth_row
+            visible: true
+            locked: false
+            z_order: 0
+            transform:
+              x: -32.400111863104364
+              y: 2.306029085548969
+              rotation: -30.422612175584156
+              scale_x: 0.6629647894094792
+              scale_y: 0.7105353550124861
+            primitive:
+              type: teeth_row
+              start:
+              - 6
+              - 10
+              end:
+              - -43
+              - 9
+              count: 7
+              direction: down
+              length: 7.0
+              tooth_width: 3.2
+              lean: -2.4
+              fill: tooth
+              outline: null
+          - id: head_01_teeth_row
+            kind: shape
+            label: head 01 teeth_row
+            visible: true
+            locked: false
+            z_order: 1
+            transform:
+              x: -24.013565055681134
+              y: -7.56748239727716
+              rotation: 18.886429563121837
+              scale_x: 0.6796546011237427
+              scale_y: 0.8638593609202201
+            primitive:
+              type: teeth_row
+              start:
+              - 3
+              - 28
+              end:
+              - -38
+              - 24
+              count: 5
+              direction: up
+              length: 6.4
+              tooth_width: 3.0
+              lean: -2.0
+              fill: tooth
+              outline: null
+        - id: head_skull
+          kind: group
+          label: Head / skull armor
+          visible: true
+          locked: false
+          z_order: 1
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          children:
+          - id: head_02_polygon
+            kind: shape
+            label: head 02 polygon
+            visible: true
+            locked: false
+            z_order: 0
+            transform:
+              rotation: -0.36519854582762434
+              x: 0.5522132793647525
+              y: 0.10180470473642739
+            primitive:
+              type: polygon
+              points:
+              - - 18
+                - 7
+              - - 9
+                - -10
+              - - -18
+                - -20
+              - - -43
+                - -12
+              - - -54
+                - -4
+              - - -37
+                - 8
+              - - -4
+                - 13
+              - - 15
+                - 11
+              fill: black
+              outline: outline
+              width: 2
+          - id: head_04_polygon
+            kind: shape
+            label: head 04 polygon
+            visible: true
+            locked: false
+            z_order: 1
+            transform:
+              x: -12.489583419230854
+              y: -6.584912508909903
+              rotation: -18.005040800737476
+            primitive:
+              type: polygon
+              points:
+              - - 4
+                - -1
+              - - -12
+                - -12
+              - - -34
+                - -7
+              - - -14
+                - 1
+              fill: dark2
+              outline: outline
+              width: 1
+          - id: head_05_polygon
+            kind: shape
+            label: head 05 polygon
+            visible: true
+            locked: false
+            z_order: 2
+            transform:
+              x: -1.2848981781455655
+              y: -8.516116074471048
+              rotation: -19.38042915144426
+            primitive:
+              type: polygon
+              points:
+              - - -15
+                - -3
+              - - -28
+                - -10
+              - - -42
+                - -4
+              - - -22
+                - 4
+              fill: red
+              outline: outline
+              width: 0.8
+        - id: head_lower_jaw
+          kind: group
+          label: Head / lower jaw
+          visible: true
+          locked: false
+          z_order: 2
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          children:
+          - id: head_03_polygon
+            kind: shape
+            label: head 03 polygon
+            visible: true
+            locked: false
+            z_order: 0
+            transform:
+              x: 3.2330698492934
+              y: 2.5944770585634136
+              scale_x: 1.088662628565784
+              scale_y: 0.8907296431081259
+            primitive:
+              type: polygon
+              points:
+              - - 8
+                - 12
+              - - -25
+                - 12
+              - - -50
+                - 28
+              - - -18
+                - 42
+              - - 12
+                - 21
+              fill: dark
+              outline: outline
+              width: 1.8
+        - id: head_eye
+          kind: group
+          label: Head / eye
+          visible: true
+          locked: false
+          z_order: 3
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          children:
+          - id: head_06_ellipse
+            kind: shape
+            label: head 06 ellipse
+            visible: true
+            locked: false
+            z_order: 0
+            transform:
+              x: 0
+              y: 0
+              rotation: 0
+              scale_x: 1
+              scale_y: 1
+            primitive:
+              type: ellipse
+              box:
+              - -32
+              - -4
+              - -29
+              - -1
+              fill: orange
+              outline: null
+    - id: rear_wing
+      kind: group
+      label: Rear Wing
+      visible: true
+      locked: false
+      z_order: 0
+      transform:
+        x: 58.0
+        y: -16.5
+        rotation: 2.5
+        scale_x: 0.95
+        scale_y: 0.82
+      children:
+      - id: rear_wing_00_wing
+        kind: shape
+        label: rear_wing 00 wing (mirrored)
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: -1.0
+        primitive:
+          type: wing
+          darker: true
+          cannon: true
+          fill: null
+          outline: null
+    - id: front_wing
+      kind: group
+      label: Front Wing
+      visible: true
+      locked: false
+      z_order: 9
+      transform:
+        x: 76.0
+        y: 8.2
+        rotation: -8.0
+        scale_x: 1.08
+        scale_y: 1.0
+      children:
+      - id: front_wing_00_wing
+        kind: shape
+        label: front_wing 00 wing
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: wing
+          darker: false
+          cannon: true
+          fill: null
+          outline: null
+    - id: legs
+      kind: group
+      label: Legs
+      visible: true
+      locked: false
+      z_order: 1
+      transform:
+        x: 35.0
+        y: 13.8
+        rotation: 0
+        scale_x: 1
+        scale_y: 1
+      children:
+      - id: left_leg
+        kind: group
+        label: Left leg
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: legs_00_leg
+          kind: shape
+          label: legs 00 leg
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: leg
+            hip:
+            - -2
+            - -1
+            knee:
+            - 5
+            - 24
+            foot:
+            - 0
+            - 48
+            fill: null
+            outline: null
+      - id: right_leg
+        kind: group
+        label: Right leg
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: legs_01_leg
+          kind: shape
+          label: legs 01 leg
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: leg
+            hip:
+            - 18
+            - -3
+            knee:
+            - 28
+            - 24
+            foot:
+            - 34
+            - 47
+            fill: null
+            outline: null
+    - id: foreclaws
+      kind: group
+      label: Foreclaws
+      visible: true
+      locked: false
+      z_order: 10
+      transform:
+        x: -38.0
+        y: 14.0
+        rotation: 0
+        scale_x: 1
+        scale_y: 1
+      children:
+      - id: left_foreclaw
+        kind: group
+        label: Left foreclaw
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: foreclaws_00_claw_arm
+          kind: shape
+          label: foreclaws 00 claw_arm
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: claw_arm
+            anchor:
+            - 6
+            - 5
+            elbow:
+            - -20
+            - 18
+            wrist:
+            - -42
+            - 25
+            spread: 9
+            fill: null
+            outline: null
+      - id: right_foreclaw
+        kind: group
+        label: Right foreclaw
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: foreclaws_01_claw_arm
+          kind: shape
+          label: foreclaws 01 claw_arm
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: claw_arm
+            anchor:
+            - 18
+            - 2
+            elbow:
+            - -8
+            - 18
+            wrist:
+            - -30
+            - 26
+            spread: 8
+            fill: null
+            outline: null
+    - id: masts
+      kind: group
+      label: Masts
+      visible: true
+      locked: false
+      z_order: 11
+      transform:
+        x: -11.0
+        y: -26.5
+        rotation: 0
+        scale_x: 1.02
+        scale_y: 1.28
+      children:
+      - id: left_rotor_mast
+        kind: group
+        label: Left rotor mast
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: masts_00_line
+          kind: shape
+          label: masts 00 line
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: line
+            points:
+            - - 0
+              - 0
+            - - 0
+              - -32
+            fill: steel2
+            width: 4.7
+            outline: null
+        - id: masts_01_ellipse
+          kind: shape
+          label: masts 01 ellipse
+          visible: true
+          locked: false
+          z_order: 1
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: ellipse
+            box:
+            - -7
+            - -40
+            - 7
+            - -24
+            fill: dark2
+            outline: outline
+            width: 1.1
+      - id: right_rotor_mast
+        kind: group
+        label: Right rotor mast
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: masts_02_line
+          kind: shape
+          label: masts 02 line
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: line
+            points:
+            - - 25
+              - 1
+            - - 25
+              - -30
+            fill: steel2
+            width: 4.7
+            outline: null
+        - id: masts_03_ellipse
+          kind: shape
+          label: masts 03 ellipse
+          visible: true
+          locked: false
+          z_order: 1
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: ellipse
+            box:
+            - 18
+            - -38
+            - 32
+            - -22
+            fill: dark2
+            outline: outline
+            width: 1.1
+      - id: mast_crossbrace
+        kind: group
+        label: Mast crossbrace
+        visible: true
+        locked: false
+        z_order: 2
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        children:
+        - id: masts_04_line
+          kind: shape
+          label: masts 04 line
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          primitive:
+            type: line
+            points:
+            - - 0
+              - 0
+            - - 25
+              - 1
+            fill: dark2
+            width: 2
+            outline: null
+      - id: rotors
+        kind: group
+        label: Rotors
+        visible: true
+        locked: false
+        z_order: 3
+        transform:
+          x: 2.0
+          y: -43.0
+          rotation: 0
+          scale_x: 1.16
+          scale_y: 1.06
+        children:
+        - id: left_rotor
+          kind: group
+          label: Left rotor disc
+          visible: true
+          locked: false
+          z_order: 0
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          children:
+          - id: rotors_00_rotor
+            kind: shape
+            label: rotors 00 rotor
+            visible: true
+            locked: false
+            z_order: 0
+            transform:
+              x: 0
+              y: 0
+              rotation: 0
+              scale_x: 1
+              scale_y: 1
+            primitive:
+              type: rotor
+              center:
+              - 0
+              - 0
+              radius: 32
+              phase: 10
+              tilt: 0.28
+              shear: -0.05
+              fill: null
+              outline: null
+              blur_alpha: 64
+              shine_alpha: 165
+        - id: right_rotor
+          kind: group
+          label: Right rotor disc
+          visible: true
+          locked: false
+          z_order: 1
+          transform:
+            x: 0
+            y: 0
+            rotation: 0
+            scale_x: 1
+            scale_y: 1
+          children:
+          - id: rotors_01_rotor
+            kind: shape
+            label: rotors 01 rotor
+            visible: true
+            locked: false
+            z_order: 0
+            transform:
+              x: 0
+              y: 0
+              rotation: 0
+              scale_x: 1
+              scale_y: 1
+            primitive:
+              type: rotor
+              center:
+              - 25
+              - 2
+              radius: 32
+              phase: 44
+              tilt: 0.28
+              shear: -0.05
+              fill: null
+              outline: null
+              blur_alpha: 64
+              shine_alpha: 165
+    - id: body_hull_core
+      kind: group
+      label: Body / hull core
+      visible: true
+      locked: false
+      z_order: 2
+      transform:
+        x: 0
+        y: 0
+        rotation: 0
+        scale_x: 1
+        scale_y: 1
+      children:
+      - id: body_00_ellipse
+        kind: shape
+        label: body 00 ellipse
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: ellipse
+          box:
+          - -32.26587005227782
+          - -27.253174010455563
+          - 57.73412994772217
+          - 26.746825989544437
+          fill: black
+          outline: outline
+          width: 2
+      - id: body_01_rounded_rect
+        kind: shape
+        label: body 01 rounded_rect
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: -8.077859263005461
+          y: 0.7478701240967194
+          scale_x: 0.591832594423412
+          scale_y: 0.9511079898088612
+        primitive:
+          type: rounded_rect
+          box:
+          - -24
+          - -16
+          - 35
+          - -6
+          radius: 6
+          fill: steel_plate
+          outline: outline
+          width: 1.0
+    - id: body_sensor_ports
+      kind: group
+      label: Body / cyan sensor ports
+      visible: true
+      locked: false
+      z_order: 6
+      transform:
+        x: 0
+        y: 0
+        rotation: 0
+        scale_x: 1
+        scale_y: 1
+      children:
+      - id: body_02_ellipse
+        kind: shape
+        label: body 02 ellipse
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 0.4074004581538032
+          y: 2.8122632722650818
+        primitive:
+          type: ellipse
+          box:
+          - -24
+          - -3
+          - -17
+          - 3
+          fill: cyan
+          outline: outline
+          width: 0.7
+      - id: body_03_ellipse
+        kind: shape
+        label: body 03 ellipse
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: 7.059106650274601
+          y: 2.2237028186760592
+        primitive:
+          type: ellipse
+          box:
+          - -10
+          - -3
+          - -3
+          - 3
+          fill: cyan
+          outline: outline
+          width: 0.7
+      - id: body_04_ellipse
+        kind: shape
+        label: body 04 ellipse
+        visible: true
+        locked: false
+        z_order: 2
+        transform:
+          x: 14.020998603911345
+          y: 1.8836954544046425
+        primitive:
+          type: ellipse
+          box:
+          - 4
+          - -3
+          - 11
+          - 3
+          fill: cyan
+          outline: outline
+          width: 0.7
+      - id: body_05_ellipse
+        kind: shape
+        label: body 05 ellipse
+        visible: true
+        locked: false
+        z_order: 3
+        transform:
+          x: 20.645143755974953
+          y: 2.45677006666737
+        primitive:
+          type: ellipse
+          box:
+          - 18
+          - -3
+          - 25
+          - 3
+          fill: cyan
+          outline: outline
+          width: 0.7
+    - id: body_lower_bay
+      kind: group
+      label: Body / lower red bay
+      visible: true
+      locked: false
+      z_order: 7
+      transform:
+        x: 0
+        y: 0
+        rotation: 0
+        scale_x: 1
+        scale_y: 1
+      children:
+      - id: body_06_rounded_rect
+        kind: shape
+        label: body 06 rounded_rect
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: -10.328335553345266
+          y: 9.006173103272147
+          scale_x: 1.210610673390937
+          scale_y: 0.5828218541200637
+        primitive:
+          type: rounded_rect
+          box:
+          - 4
+          - 2
+          - 34
+          - 29
+          radius: 10
+          fill: red
+          outline: outline
+          width: 1.6
+      - id: body_07_line
+        kind: shape
+        label: body 07 line
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: 0
+          y: 0
+          rotation: 0
+          scale_x: 1
+          scale_y: 1
+        primitive:
+          type: line
+          points:
+          - - 8
+            - 6
+          - - 30
+            - 6
+          fill:
+          - 166
+          - 185
+          - 205
+          - 55
+          width: 1
+          outline: null
+    - id: body_dorsal_spikes
+      kind: group
+      label: Body / dorsal spikes
+      visible: true
+      locked: false
+      z_order: 8
+      transform:
+        x: 0
+        y: 0
+        rotation: 0
+        scale_x: 1
+        scale_y: 1
+      children:
+      - id: body_08_polygon
+        kind: shape
+        label: body 08 polygon
+        visible: true
+        locked: false
+        z_order: 0
+        transform:
+          x: 7.3271997952670755
+          y: -2.414724406657311
+          rotation: 10.251607455497407
+        primitive:
+          type: polygon
+          points:
+          - - 4
+            - -27
+          - - 8
+            - -43
+          - - 12
+            - -27
+          fill: dark2
+          outline: outline
+          width: 1
+      - id: body_09_polygon
+        kind: shape
+        label: body 09 polygon
+        visible: true
+        locked: false
+        z_order: 1
+        transform:
+          x: 8.856079770801035
+          y: -0.24265090738788112
+          rotation: 9.783507644217536
+        primitive:
+          type: polygon
+          points:
+          - - 18
+            - -27
+          - - 22
+            - -45
+          - - 26
+            - -27
+          fill: dark2
+          outline: outline
+          width: 1
+      - id: body_10_polygon
+        kind: shape
+        label: body 10 polygon
+        visible: true
+        locked: false
+        z_order: 2
+        transform:
+          x: 2.577198675890064
+          y: -8.706730929368872
+          rotation: 24.09560821474416
+        primitive:
+          type: polygon
+          points:
+          - - 32
+            - -27
+          - - 36
+            - -42
+          - - 40
+            - -27
+          fill: dark2
+          outline: outline
+          width: 1

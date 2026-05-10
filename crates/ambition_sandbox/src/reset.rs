@@ -55,10 +55,11 @@ use ambition_engine as ae;
 
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterController, EncounterMusicRequest, EncounterRegistry};
+use crate::game_assets::GameAssets;
 use crate::physics;
 use crate::platforms;
 use crate::quest::QuestRegistry;
-use crate::rendering::RoomVisual;
+use crate::rendering::{spawn_room_visuals, RoomVisual};
 use crate::rooms::RoomSet;
 use crate::save::SandboxSave;
 use crate::SandboxRuntime;
@@ -95,6 +96,7 @@ pub fn process_sandbox_reset_request(
     mut room_set: ResMut<RoomSet>,
     mut world: ResMut<crate::GameWorld>,
     tuning: Res<crate::dev_tools::EditableMovementTuning>,
+    assets: Option<Res<GameAssets>>,
     mut commands: Commands,
     encounter_controllers: Query<Entity, With<EncounterController>>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
@@ -154,7 +156,21 @@ pub fn process_sandbox_reset_request(
     runtime.reset(&world.0, tuning.as_engine());
     runtime.moving_platform = platforms::moving_platform_for_room(&world.0, &start_spec);
 
-    // 7. User feedback: surface a banner so the reset is visibly
+    // 7. Respawn the static world visuals + moving platform for the
+    //    start room. Without this, the despawn in step 4 leaves the
+    //    scene empty until something else (LDtk reload, room transition)
+    //    triggers a fresh `spawn_room_visuals`. Mirrors the pattern in
+    //    `app::world_flow::load_room` and the LDtk hot-reload path.
+    spawn_room_visuals(
+        &mut commands,
+        &world.0,
+        &start_spec.loading_zones,
+        runtime.physics_settings,
+        assets.as_deref(),
+    );
+    platforms::spawn_moving_platform(&mut commands, &world.0, runtime.moving_platform);
+
+    // 8. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used
     //    for "ARENA CLEAR" etc.
     runtime.features.banner = "SANDBOX RESET".into();

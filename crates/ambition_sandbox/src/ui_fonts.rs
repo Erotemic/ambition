@@ -1,7 +1,5 @@
 // crates/ambition_sandbox/src/ui_fonts.rs
 
-use std::path::Path;
-
 use bevy::log::{info, warn};
 use bevy::prelude::*;
 
@@ -125,10 +123,53 @@ fn load_first_available_font(
 }
 
 fn asset_exists(relative_asset_path: &str) -> bool {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join(relative_asset_path)
-        .exists()
+    // Android assets live inside the APK. Let Bevy's Android asset reader try
+    // the load instead of probing a host filesystem path.
+    #[cfg(target_os = "android")]
+    {
+        let _ = relative_asset_path;
+        true
+    }
+
+    // Desktop / Steam Deck bundles can run from a different path than the
+    // Linux machine that built them. Check the same app-root layout Bevy uses
+    // first, but tolerate both BEVY_ASSET_ROOT=<app> and
+    // BEVY_ASSET_ROOT=<app>/assets while preserving local cargo-run fallback.
+    #[cfg(not(target_os = "android"))]
+    {
+        desktop_asset_exists(relative_asset_path)
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn desktop_asset_exists(rel_path: &str) -> bool {
+    let rel = std::path::Path::new(rel_path);
+    let mut candidates = Vec::new();
+
+    if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
+        let root = std::path::PathBuf::from(root);
+        // Preferred form: BEVY_ASSET_ROOT points at the app/project root,
+        // and Bevy's file asset reader loads from root/assets/<rel>.
+        candidates.push(root.join("assets").join(rel));
+        // Tolerate launchers that set BEVY_ASSET_ROOT to the assets dir.
+        candidates.push(root.join(rel));
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        // Direct binary launches from the app dir.
+        candidates.push(cwd.join("assets").join(rel));
+        // Tolerate launches from the assets dir or compatibility symlinks.
+        candidates.push(cwd.join(rel));
+    }
+
+    // Local cargo run / tests fallback.
+    candidates.push(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join(rel),
+    );
+
+    candidates.into_iter().any(|path| path.exists())
 }
 
 #[cfg(test)]

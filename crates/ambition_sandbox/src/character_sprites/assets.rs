@@ -212,27 +212,43 @@ fn asset_exists(rel_path: &str) -> bool {
     }
 
     // Desktop / Steam Deck bundles can run from a different path than the
-    // Linux machine that built them, so the probe must not only use the
-    // compile-time CARGO_MANIFEST_DIR. If BEVY_ASSET_ROOT is set, mirror
-    // Bevy's FileAssetReader root exactly. Without that env var, try the
-    // direct-binary convention of `cwd/assets/`, then fall back to the
-    // Cargo manifest assets directory for normal local `cargo run`.
+    // Linux machine that built them. Check the same app-root layout Bevy uses
+    // first, but tolerate both BEVY_ASSET_ROOT=<app> and
+    // BEVY_ASSET_ROOT=<app>/assets while preserving local cargo-run fallback.
     #[cfg(not(target_os = "android"))]
     {
-        if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
-            return std::path::PathBuf::from(root).join(rel_path).exists();
-        }
-
-        if let Ok(cwd) = std::env::current_dir() {
-            let bundled = cwd.join("assets").join(rel_path);
-            if bundled.exists() {
-                return true;
-            }
-        }
-
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("assets")
-            .join(rel_path)
-            .exists()
+        desktop_asset_exists(rel_path)
     }
 }
+
+#[cfg(not(target_os = "android"))]
+fn desktop_asset_exists(rel_path: &str) -> bool {
+    let rel = std::path::Path::new(rel_path);
+    let mut candidates = Vec::new();
+
+    if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
+        let root = std::path::PathBuf::from(root);
+        // Preferred form: BEVY_ASSET_ROOT points at the app/project root,
+        // and Bevy's file asset reader loads from root/assets/<rel>.
+        candidates.push(root.join("assets").join(rel));
+        // Tolerate launchers that set BEVY_ASSET_ROOT to the assets dir.
+        candidates.push(root.join(rel));
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+        // Direct binary launches from the app dir.
+        candidates.push(cwd.join("assets").join(rel));
+        // Tolerate launches from the assets dir or compatibility symlinks.
+        candidates.push(cwd.join(rel));
+    }
+
+    // Local cargo run / tests fallback.
+    candidates.push(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join(rel),
+    );
+
+    candidates.into_iter().any(|path| path.exists())
+}
+

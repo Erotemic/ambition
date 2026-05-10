@@ -1170,6 +1170,7 @@ def even_space_entities(
     start_x: int | None = None,
     end_x: int | None = None,
     strategy: str = "preserve-ends",
+    snap_to_grid: bool = False,
     dry_run: bool = False,
 ) -> int:
     """Even-space entities of one type along the x axis in a room.
@@ -1271,29 +1272,37 @@ def even_space_entities(
         return 2
 
     # Plan + apply.
+    # By default we keep exact pixel positions so gaps come out
+    # uniform — grid-snapping a fractional even-spacing produces
+    # the alternating 80/80/64/80 pattern the basement bottom row
+    # had after a previous `entity even-space` run with snap enabled.
+    # Authors who specifically need 16px-aligned door tops opt in
+    # via `--snap-to-grid`.
     grid_size = int(project.get("defaultGridSize", 16))
     print(f"# even-space {len(matched)} '{identifier}' in '{target_room}' "
-          f"(strategy={strategy})")
+          f"(strategy={strategy}, snap_to_grid={snap_to_grid})")
     changed = 0
     for ent, target in zip(matched, new_x):
         old = int(ent["px"][0])
-        # Snap to grid for editor-clean placements.
-        snapped = int(round(target / grid_size) * grid_size)
+        if snap_to_grid:
+            new_pos = int(round(target / grid_size) * grid_size)
+        else:
+            new_pos = int(round(target))
         ident = "?"
         for fi in ent.get("fieldInstances", []):
             if fi["__identifier"] == "id":
                 ident = str(fi.get("__value") or "?")
                 break
-        if snapped != old:
+        if new_pos != old:
             changed += 1
-            print(f"  {ident:30s}  x: {old:>5} -> {snapped:>5}  (delta {snapped - old:+d})")
+            print(f"  {ident:30s}  x: {old:>5} -> {new_pos:>5}  (delta {new_pos - old:+d})")
         else:
             print(f"  {ident:30s}  x: {old:>5}  (unchanged)")
         if not dry_run:
-            ent["px"][0] = snapped
+            ent["px"][0] = new_pos
             # Update the world-coord mirror Bevy renderers read from.
             level_world_x = int(target_level.get("worldX", 0))
-            ent["__worldX"] = snapped + level_world_x
+            ent["__worldX"] = new_pos + level_world_x
     print(f"# {changed} entit{'y' if changed == 1 else 'ies'} repositioned")
     return 0
 
@@ -1535,6 +1544,15 @@ def main(argv=None) -> int:
         choices=["preserve-ends", "fit"],
         help="how to distribute entities along x (default preserve-ends)",
     )
+    parser.add_argument(
+        "--snap-to-grid",
+        action="store_true",
+        help=(
+            "round each repositioned x to defaultGridSize (default 16). "
+            "Off by default — produces uniform gaps but non-grid-aligned "
+            "door tops. Turn on if you need editor-grid alignment."
+        ),
+    )
     args = parser.parse_args(argv)
 
     # `--list-free-spots` short-circuits before we touch the spec; the
@@ -1576,6 +1594,7 @@ def main(argv=None) -> int:
             start_x=args.start_x,
             end_x=args.end_x,
             strategy=args.strategy,
+            snap_to_grid=args.snap_to_grid,
             dry_run=args.dry_run,
         )
         if rc != 0:

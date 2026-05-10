@@ -1,0 +1,351 @@
+generated_by: proc2d_character_lab.entities
+frame_width: 128
+frame_height: 128
+sprites:
+- key: chest_closed
+  filename: chest_closed.png
+  category: FeatureVisualKind::Chest
+  state: ChestClosed
+  gameplay_hint: closed treasure chest
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: chest_open
+  filename: chest_open.png
+  category: FeatureVisualKind::Chest
+  state: ChestOpened
+  gameplay_hint: opened reward chest
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: breakable_intact
+  filename: breakable_intact.png
+  category: FeatureVisualKind::Breakable
+  state: BreakableIntact
+  gameplay_hint: intact breakable block
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: breakable_cracked
+  filename: breakable_cracked.png
+  category: FeatureVisualKind::Breakable
+  state: BreakableCracking
+  gameplay_hint: damaged breakable block
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: breakable_broken
+  filename: breakable_broken.png
+  category: FeatureVisualKind::Breakable
+  state: BreakableBroken
+  gameplay_hint: broken debris state
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: pickup_health
+  filename: pickup_health.png
+  category: FeatureVisualKind::Pickup
+  state: PickupKind::Health
+  gameplay_hint: health pickup
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: pickup_currency
+  filename: pickup_currency.png
+  category: FeatureVisualKind::Pickup
+  state: PickupKind::Currency
+  gameplay_hint: currency pickup
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: pickup_ability
+  filename: pickup_ability.png
+  category: FeatureVisualKind::Pickup
+  state: PickupKind::Ability
+  gameplay_hint: ability pickup
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: hazard_spikes
+  filename: hazard_spikes.png
+  category: FeatureVisualKind::Hazard
+  state: DamageVolume/HazardBlock
+  gameplay_hint: spike hazard
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: npc_terminal
+  filename: npc_terminal.png
+  category: FeatureVisualKind::Npc
+  state: InteractionKind::Npc
+  gameplay_hint: talkable terminal NPC
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: boss_core
+  filename: boss_core.png
+  category: FeatureVisualKind::Boss
+  state: BossDormant/BossPhase
+  gameplay_hint: boss core placeholder
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: sandbag_dummy
+  filename: sandbag_dummy.png
+  category: FeatureVisualKind::Sandbag
+  state: sandbag_infinite/sandbag_finite
+  gameplay_hint: combat-practice sandbag
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: moving_platform
+  filename: moving_platform.png
+  category: ActorKind::MovingPlatform
+  state: MovingPlatformVisual
+  gameplay_hint: time-reference moving platform
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: rebound_pad
+  filename: rebound_pad.png
+  category: BlockKind::Rebound
+  state: SurfaceContact::Rebound
+  gameplay_hint: momentum rebound pad
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: pogo_orb
+  filename: pogo_orb.png
+  category: BlockKind::PogoOrb
+  state: SurfaceContact::PogoRefresh
+  gameplay_hint: pogo refresh orb
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: soft_blink_wall
+  filename: soft_blink_wall.png
+  category: BlockKind::BlinkWall
+  state: BlinkWallTier::Soft
+  gameplay_hint: soft blink-passable wall
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: hard_blink_wall
+  filename: hard_blink_wall.png
+  category: BlockKind::BlinkWall
+  state: BlinkWallTier::Hard
+  gameplay_hint: hard blink wall
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: solid_block
+  filename: solid_block.png
+  category: BlockKind::Solid
+  state: SurfaceCollision::Solid
+  gameplay_hint: solid room block tile
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: one_way_platform
+  filename: one_way_platform.png
+  category: BlockKind::OneWay
+  state: SurfaceCollision::OneWayUp
+  gameplay_hint: one-way platform tile
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: door_zone
+  filename: door_zone.png
+  category: LoadingZoneActivation::Door
+  state: Door
+  gameplay_hint: interior door loading zone
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: edge_exit
+  filename: edge_exit.png
+  category: LoadingZoneActivation::EdgeExit
+  state: EdgeExit
+  gameplay_hint: edge-exit loading zone
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: projectile_energy
+  filename: projectile_energy.png
+  category: ActorKind::Projectile
+  state: future projectile
+  gameplay_hint: small energy projectile placeholder
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: solid_tile
+  filename: solid_tile.png
+  category: BlockKind::Solid (IntGrid)
+  state: ldtk solid tile
+  gameplay_hint: tilable stone-brick floor/wall
+  size:
+  - 32
+  - 32
+  tight_crop: false
+- key: one_way_tile
+  filename: one_way_tile.png
+  category: BlockKind::OneWay (IntGrid)
+  state: ldtk one-way tile
+  gameplay_hint: tilable one-way platform plate
+  size:
+  - 32
+  - 16
+  tight_crop: false
+- key: hazard_tile
+  filename: hazard_tile.png
+  category: BlockKind::Hazard (IntGrid)
+  state: ldtk hazard tile
+  gameplay_hint: tilable spike strip
+  size:
+  - 32
+  - 16
+  tight_crop: false
+- key: soft_blink_tile
+  filename: soft_blink_tile.png
+  category: BlockKind::BlinkWall::Soft (IntGrid)
+  state: ldtk blink-soft tile
+  gameplay_hint: tilable soft blink wall
+  size:
+  - 32
+  - 32
+  tight_crop: false
+- key: hard_blink_tile
+  filename: hard_blink_tile.png
+  category: BlockKind::BlinkWall::Hard (IntGrid)
+  state: ldtk blink-hard tile
+  gameplay_hint: tilable hard blink wall
+  size:
+  - 32
+  - 32
+  tight_crop: false
+- key: switch_armed
+  filename: switch_armed.png
+  category: FeatureVisualKind::Switch
+  state: Switch armed (red)
+  gameplay_hint: "encounter switch \u2014 armed / will trigger on touch"
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: switch_disabled
+  filename: switch_disabled.png
+  category: FeatureVisualKind::Switch
+  state: Switch disabled (green)
+  gameplay_hint: "encounter switch \u2014 disabled / encounter cleared"
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: morph_ball
+  filename: morph_ball.png
+  category: BodyMode::MorphBall
+  state: player morph stance
+  gameplay_hint: player curled into a rolling sphere
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: save_point
+  filename: save_point.png
+  category: future SavePoint
+  state: checkpoint pillar (planned)
+  gameplay_hint: vertical save pillar with glowing core
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: spike_ball
+  filename: spike_ball.png
+  category: future hazard
+  state: swinging / rolling iron spike ball
+  gameplay_hint: iron sphere with radial spikes
+  size:
+  - 128
+  - 128
+  tight_crop: true
+- key: lock_wall_tile
+  filename: lock_wall_tile.png
+  category: runtime LockWall
+  state: encounter lock-wall barrier
+  gameplay_hint: tilable bars-and-rivets lock wall
+  size:
+  - 32
+  - 32
+  tight_crop: false
+- key: water_surface_tile
+  filename: water_surface_tile.png
+  category: WaterRegion overlay
+  state: water-surface ripple overlay
+  gameplay_hint: tilable wavy ripple overlay for water bodies
+  size:
+  - 32
+  - 32
+  tight_crop: false
+- key: ladder_tile
+  filename: ladder_tile.png
+  category: future ClimbZone
+  state: climbable ladder column
+  gameplay_hint: tilable ladder column (1 cell wide, 2 cells tall)
+  size:
+  - 16
+  - 32
+  tight_crop: false
+- key: acid_tile
+  filename: acid_tile.png
+  category: BlockKind::Hazard variant
+  state: neon-green acid pool
+  gameplay_hint: "tilable acid surface \u2014 hazard variant"
+  size:
+  - 32
+  - 16
+  tight_crop: false
+- key: lava_tile
+  filename: lava_tile.png
+  category: BlockKind::Hazard variant
+  state: red-orange lava flow
+  gameplay_hint: "tilable lava surface \u2014 hazard variant"
+  size:
+  - 32
+  - 16
+  tight_crop: false
+- key: bg_circuit_tile
+  filename: bg_circuit_tile.png
+  category: biome decoration
+  state: hub circuit-board parallax
+  gameplay_hint: tilable circuit-board pattern for hub backdrops
+  size:
+  - 32
+  - 32
+  tight_crop: false
+notes:
+- Individual entity/state sprites are intentionally not forced into character animation
+  rows.
+- Rust integration can load these optionally and keep the current colored-rectangle
+  fallback.

@@ -64,6 +64,16 @@ pub struct BossSheetSpec {
     /// Sample inset (pixels) on every URect to prevent bilinear filtering
     /// from sampling neighboring frames.
     pub frame_sample_inset: u32,
+    /// True for flying / floating bosses whose body should be centered
+    /// in the collision box rather than anchored to its bottom (the
+    /// default for ground-locked humanoid bosses). When set,
+    /// `collision_anchor` short-circuits and treats `feet_anchor_y` as
+    /// the body's normalized vertical offset within the sprite quad
+    /// (Bevy +Y-up; 0 = sprite center). The gradient sentinel is
+    /// ground-locked so it stays `false`; the mockingbird is airborne
+    /// so it sets this `true` and the sprite quad sits centered on
+    /// the AABB instead of hanging below it.
+    pub body_centered: bool,
 }
 
 // `feet_anchor_y` matches the body-metrics measurement for the current
@@ -129,6 +139,7 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     collision_scale: 1.6,
     feet_anchor_y: -0.336,
     frame_sample_inset: 1,
+    body_centered: false,
 };
 
 /// The Mockingbird boss sheet from the standalone Python generator
@@ -197,18 +208,22 @@ pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
             },
         ),
     ],
-    // The mockingbird occupies a smaller fraction of its 256×256
-    // canvas than the gradient sentinel did of its 128×128 canvas
-    // (lots of motion-trail / wing-spread headroom). 1.05 keeps the
-    // rendered silhouette roughly matched to the LDtk-authored
-    // collision box.
-    collision_scale: 1.05,
-    // Roughly placed: the mockingbird's body sits near vertical
-    // center and the wing fan extends both up and down, so a
-    // near-zero anchor centers it without the wings clipping. Tune
-    // after a regen if the manifest grows `feet_anchor_norm`.
-    feet_anchor_y: 0.0,
+    // The mockingbird's body occupies only ~32% of the 256-tall
+    // canvas (y≈94..176; the rest is wing-spread / motion-trail
+    // headroom). To make the visible body fill the collision box,
+    // render_height needs to be ~3× the AABB max-axis: 1.0/0.32 ≈
+    // 3.0, so for collision.y=185 the rendered quad is ~555 px tall
+    // and the body inside it is ~178 px — close to the AABB.
+    collision_scale: 3.0,
+    // `body_centered: true` below makes this read as the body's
+    // normalized vertical offset within the sprite quad rather than
+    // a feet-on-floor delta. Texture body-center sits at y=135 of
+    // 256 → (128-135)/128 = -0.055 in Bevy +Y-up. A small downward
+    // nudge keeps the silhouette honest without overriding the
+    // physical AABB center.
+    feet_anchor_y: -0.055,
     frame_sample_inset: 1,
+    body_centered: true,
 };
 
 impl BossSheetSpec {
@@ -297,7 +312,16 @@ impl BossSheetSpec {
     /// bottom of the collision box rather than at its centre. Mirrors
     /// `character_sprites::feet_anchor_for` — see that function for the
     /// derivation.
+    ///
+    /// For `body_centered` sheets (flying bosses) we skip the feet-delta
+    /// term and use `feet_anchor_y` directly as the body-center offset.
+    /// Otherwise the sprite quad would hang below the AABB the same way
+    /// a humanoid sheet hangs below its waist when the anchor is at
+    /// "feet" — wrong silhouette for an airborne creature.
     pub fn collision_anchor(&self, collision: Vec2) -> Anchor {
+        if self.body_centered {
+            return Anchor(Vec2::new(0.0, self.feet_anchor_y));
+        }
         let render_height = collision.x.max(collision.y).max(8.0) * self.collision_scale;
         let half_collision_y = collision.y * 0.5;
         let ay = self.feet_anchor_y + half_collision_y / render_height;
@@ -494,6 +518,43 @@ mod tests {
         // ever drift, indexing by `anim as usize` would panic at
         // runtime.
         assert_eq!(BOSS_SHEET.rows.len(), 7);
+    }
+
+    #[test]
+    fn mockingbird_anchor_keeps_body_inside_aabb() {
+        // Mockingbird is body_centered, so collision_anchor must return
+        // the spec's feet_anchor_y verbatim (no half_collision_y boost).
+        // Concrete repro: with the old collision_anchor the bird hung
+        // ~half its render height below the AABB.
+        let aabb = Vec2::new(150.0, 185.0);
+        let anchor = MOCKINGBIRD_SHEET.collision_anchor(aabb);
+        assert!(MOCKINGBIRD_SHEET.body_centered);
+        // feet_anchor_y is small (slight downward offset), nowhere
+        // near +0.5 (which is what the feet-delta term would push it
+        // to for this AABB / scale combo).
+        assert!(anchor.0.y.abs() < 0.20, "anchor.y = {}", anchor.0.y);
+    }
+
+    #[test]
+    fn boss_sheet_anchor_adds_feet_delta_when_not_body_centered() {
+        // The gradient sentinel keeps the feet-on-floor anchoring:
+        // collision_anchor adds half_collision_y / render_height to
+        // feet_anchor_y. Pin the additive behavior — if body_centered
+        // accidentally flips to true here, the sprite would slide
+        // half its render height down.
+        assert!(!BOSS_SHEET.body_centered);
+        let aabb = Vec2::new(60.0, 80.0);
+        let anchor = BOSS_SHEET.collision_anchor(aabb);
+        let render_h = aabb.x.max(aabb.y).max(8.0) * BOSS_SHEET.collision_scale;
+        let expected = BOSS_SHEET.feet_anchor_y + (aabb.y * 0.5) / render_h;
+        assert!(
+            (anchor.0.y - expected).abs() < 1e-4,
+            "expected {} got {}",
+            expected,
+            anchor.0.y
+        );
+        // And the additive term must be non-trivial (not a no-op).
+        assert!((anchor.0.y - BOSS_SHEET.feet_anchor_y).abs() > 0.05);
     }
 
     #[test]

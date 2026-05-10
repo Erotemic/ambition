@@ -135,8 +135,12 @@ entities:
   # pirate_admiral / pirate_raider spritesheets at sprite-bind time.
   # `dialogue_id`s match the entries added to `dialog.rs`.
   # ─────────────────────────────────────────────────────────────────
+  # y=538 is the snap-to-floor result from
+  # `area_authoring --snap-to-surface pirate_cove --x 220/--x 560
+  # --door-w 42 --door-h 70` — earlier y=562 sank the NPCs ~24px
+  # into the floor (NPC bottom = 562+70 = 632, floor top = 608).
   - type: NpcSpawn
-    px: [220, 562]
+    px: [220, 538]
     size: [42, 70]
     fields:
       name: Pirate Admiral
@@ -144,7 +148,7 @@ entities:
       dialogue_id: pirate_admiral
       patrol_radius: 0
   - type: NpcSpawn
-    px: [560, 562]
+    px: [560, 538]
     size: [42, 70]
     fields:
       name: Pirate Raider

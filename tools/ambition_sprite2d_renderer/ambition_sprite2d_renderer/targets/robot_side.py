@@ -621,7 +621,13 @@ class SideRobotGenerator:
             p.blink = True
         elif animation == "hover":
             hover = math.sin(t * math.tau)
-            p.root_y = -12.0 + hover * 2.0
+            # Modest lift only. The original -12 pushed the antenna
+            # tip above the canvas top (clipped 6-8px in downsample),
+            # which the eye reads as the antenna blipping in and out
+            # across the bob oscillation. -2 keeps the silhouette
+            # entirely in-frame; the FLAMES carry the "lifted off the
+            # ground" read, not the body translation.
+            p.root_y = -2.0 + hover * 2.0
             p.body_tilt = -6.0 + hover * 3.0
             p.head_tilt = -2.0 + hover * 1.5
             p.far_arm_upper = 168.0 + hover * 8.0
@@ -1084,9 +1090,35 @@ class SideRobotGenerator:
                 d.text((x, y), "Z", fill=_with_alpha(pal["visor_glow"], int(150 * (1.0 - zt * 0.45))))
         if animation == "hover":
             flame = 0.6 + 0.4 * math.sin(frame_index * 1.7)
-            for x in (54, 73):
-                d.polygon([(x * S, 101 * S), ((x - 4) * S, (116 + 6 * flame) * S), ((x + 4) * S, (116 + 6 * flame) * S)], fill=_with_alpha(pal["visor_glow"], int(150 * flame)))
-                d.polygon([(x * S, 105 * S), ((x - 2) * S, (114 + 4 * flame) * S), ((x + 2) * S, (114 + 4 * flame) * S)], fill=(255, 245, 166, int(160 * flame)))
+            # Anchor each jet at the actual foot position, mirroring
+            # the leg_chain / foot_center math used by the body draw
+            # below. The previous fixed-canvas flames floated ~10px
+            # below the lifted hover body, looking detached. Tracking
+            # the feet keeps the jets glued on through the bob.
+            hover_body_x = root_x + lerp(0.0, 12 * S, p.collapse)
+            hover_body_y = ground_y - lerp(39 * S, 11 * S, p.collapse) + p.body_bob * S
+            jet_hips = (
+                (hover_body_x - 6 * S, hover_body_y + 11 * S, p.far_leg_upper, p.far_leg_lower, -2.0),
+                (hover_body_x + 8 * S, hover_body_y + 10 * S, p.near_leg_upper, p.near_leg_lower, 3.0),
+            )
+            for hx, hy, a1, a2, foot_shift in jet_hips:
+                _, ankle = self._leg_chain((hx, hy), spec.leg_upper * S, spec.leg_lower * S, a1, a2)
+                foot_w = 12 * S
+                foot_cx = ankle[0] + (foot_w * 0.34) + foot_shift * S
+                foot_cy = min(ground_y - 2 * S, ankle[1] + 2 * S)
+                # Outer cyan plume + inner yellow core, top of the
+                # triangle on the foot, base extending downward.
+                top = (foot_cx, foot_cy + 1 * S)
+                outer_base = foot_cy + (10 + 6 * flame) * S
+                inner_base = foot_cy + (8 + 4 * flame) * S
+                d.polygon(
+                    [top, (foot_cx - 4 * S, outer_base), (foot_cx + 4 * S, outer_base)],
+                    fill=_with_alpha(pal["visor_glow"], int(150 * flame)),
+                )
+                d.polygon(
+                    [(foot_cx, foot_cy + 3 * S), (foot_cx - 2 * S, inner_base), (foot_cx + 2 * S, inner_base)],
+                    fill=(255, 245, 166, int(160 * flame)),
+                )
 
         character_img = img if animation not in {"blink_out", "blink_in"} else Image.new("RGBA", (W, H), (0, 0, 0, 0))
         character_draw = ImageDraw.Draw(character_img)

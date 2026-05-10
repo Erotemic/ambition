@@ -151,42 +151,35 @@ fn music_track_order_cycles() {
     let spec = SandboxDataSpec::load_embedded();
     let mut assets = Assets::<KiraAudioSource>::default();
     let library = AudioLibrary::new(&mut assets, &spec.audio, None, None);
-    let expected = spec
+    let ids: Vec<&str> = spec
         .audio
         .music_tracks
         .iter()
         .map(|track| track.id.as_str())
-        .collect::<Vec<_>>();
-    assert_eq!(library.track_count(), expected.len());
-    assert_eq!(
-        expected,
-        vec![
-            ORIGINAL_TRACK_ID,
-            "long_lofi_drift",
-            "pulse_drift_voyage",
-            "first_goblin_tune_v2_radio",
-        ]
+        .collect();
+    assert_eq!(library.track_count(), ids.len());
+    assert!(
+        ids.len() >= 2,
+        "cycle test needs at least 2 tracks, got {}",
+        ids.len()
     );
+    // Pin only the head of the list — the seed tracks the radio ships
+    // with. Adding tracks after these must not break this test.
+    assert_eq!(ids[0], ORIGINAL_TRACK_ID);
+    assert_eq!(ids[1], "long_lofi_drift");
+
+    // Forward step from the head.
+    assert_eq!(library.next_track_id(ORIGINAL_TRACK_ID), Some(ids[1]));
+    // Backward step round-trips with forward step.
     assert_eq!(
-        library.previous_track_id("long_lofi_drift"),
-        Some(ORIGINAL_TRACK_ID)
+        library.previous_track_id(ids[1]),
+        Some(ORIGINAL_TRACK_ID),
     );
-    assert_eq!(
-        library.next_track_id(ORIGINAL_TRACK_ID),
-        Some("long_lofi_drift")
-    );
-    assert_eq!(
-        library.next_track_id("long_lofi_drift"),
-        Some("pulse_drift_voyage")
-    );
-    assert_eq!(
-        library.next_track_id("pulse_drift_voyage"),
-        Some("first_goblin_tune_v2_radio")
-    );
-    assert_eq!(
-        library.next_track_id("first_goblin_tune_v2_radio"),
-        Some(ORIGINAL_TRACK_ID)
-    );
+    // Cycle wraps: next of the last track is the first.
+    let last = *ids.last().expect("non-empty list");
+    assert_eq!(library.next_track_id(last), Some(ORIGINAL_TRACK_ID));
+    // Cycle wraps the other way too.
+    assert_eq!(library.previous_track_id(ORIGINAL_TRACK_ID), Some(last));
 }
 
 #[test]

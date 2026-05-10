@@ -238,7 +238,8 @@ pub fn pause_menu_navigate(
     mut user_settings: ResMut<UserSettings>,
     mut reset_request: ResMut<crate::reset::SandboxResetRequested>,
     windows: Query<&mut Window, With<PrimaryWindow>>,
-    #[cfg(feature = "audio")] library: Res<AudioLibrary>,
+    #[cfg(feature = "audio")] mut library: ResMut<AudioLibrary>,
+    #[cfg(feature = "audio")] asset_server: Res<AssetServer>,
     #[cfg(feature = "audio")] mut music_state: ResMut<MusicPlaybackState>,
     #[cfg(feature = "audio")] mut radio: ResMut<RadioStationState>,
     #[cfg(feature = "audio")] music_channel: Res<AudioChannel<MusicChannel>>,
@@ -302,7 +303,9 @@ pub fn pause_menu_navigate(
                 &mut exit,
                 &mut reset_request,
                 #[cfg(feature = "audio")]
-                &library,
+                &mut library,
+                #[cfg(feature = "audio")]
+                &asset_server,
                 #[cfg(feature = "audio")]
                 &mut music_state,
                 #[cfg(feature = "audio")]
@@ -327,7 +330,8 @@ pub fn pause_menu_navigate(
             handle_radio_input(
                 frame,
                 &mut state,
-                &library,
+                &mut library,
+                &asset_server,
                 &mut radio,
                 &mut music_state,
                 &music_channel,
@@ -351,7 +355,8 @@ fn handle_top_input(
     inventory: &mut InventoryUiState,
     exit: &mut MessageWriter<AppExit>,
     reset_request: &mut crate::reset::SandboxResetRequested,
-    #[cfg(feature = "audio")] library: &AudioLibrary,
+    #[cfg(feature = "audio")] library: &mut AudioLibrary,
+    #[cfg(feature = "audio")] asset_server: &AssetServer,
     #[cfg(feature = "audio")] music_state: &mut MusicPlaybackState,
     #[cfg(feature = "audio")] radio: &mut RadioStationState,
     #[cfg(feature = "audio")] music_channel: &AudioChannel<MusicChannel>,
@@ -379,7 +384,14 @@ fn handle_top_input(
             None
         };
         if let Some(next_track) = next_track.map(str::to_string) {
-            set_radio_track(library, radio, music_state, music_channel, &next_track);
+            set_radio_track(
+                library,
+                asset_server,
+                radio,
+                music_state,
+                music_channel,
+                &next_track,
+            );
         }
     }
 
@@ -431,7 +443,8 @@ fn handle_top_input(
 fn handle_radio_input(
     nav: MenuInputFrame,
     state: &mut PauseMenuState,
-    library: &AudioLibrary,
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
     radio: &mut RadioStationState,
     music_state: &mut MusicPlaybackState,
     music_channel: &AudioChannel<MusicChannel>,
@@ -456,9 +469,24 @@ fn handle_radio_input(
         state.selected = 0;
     }
     if nav.select || nav.left || nav.right {
-        if let Some(track) = library.track_at(state.selected) {
-            let track_id = track.id.clone();
-            set_radio_track(library, radio, music_state, music_channel, &track_id);
+        let track_id = library.track_at(state.selected).map(|track| track.id.clone());
+        if let Some(track_id) = track_id {
+            set_radio_track(
+                library,
+                asset_server,
+                radio,
+                music_state,
+                music_channel,
+                &track_id,
+            );
+        }
+    } else if nav.up || nav.down {
+        // Up/down move the highlight without confirming. Warm the
+        // highlighted track's handle so the next confirm doesn't
+        // hitch on cold asset IO.
+        let preload_id = library.track_at(state.selected).map(|track| track.id.clone());
+        if let Some(preload_id) = preload_id {
+            library.preload_track(&preload_id, asset_server);
         }
     }
 }

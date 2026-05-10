@@ -43,7 +43,8 @@ pub fn drive_music_director(
     room_music: Res<RoomMusicRequest>,
     layer_channels: MusicLayerChannels,
     base_music_channel: Res<AudioChannel<MusicChannel>>,
-    library: Res<AudioLibrary>,
+    mut library: ResMut<AudioLibrary>,
+    asset_server: Res<AssetServer>,
     mut music_state: ResMut<MusicPlaybackState>,
     radio: Option<Res<RadioStationState>>,
     sandbox_data: Res<SandboxDataSpec>,
@@ -96,7 +97,8 @@ pub fn drive_music_director(
                 shutdown_adaptive_cue(
                     &mut director,
                     &layer_channels,
-                    &library,
+                    &mut library,
+                    &asset_server,
                     &mut music_state,
                     &base_music_channel,
                     &room_music,
@@ -116,7 +118,8 @@ pub fn drive_music_director(
                 shutdown_adaptive_cue(
                     &mut director,
                     &layer_channels,
-                    &library,
+                    &mut library,
+                    &asset_server,
                     &mut music_state,
                     &base_music_channel,
                     &room_music,
@@ -127,7 +130,8 @@ pub fn drive_music_director(
             } else {
                 apply_simple_music_intent(
                     &mut director,
-                    &library,
+                    &mut library,
+                    &asset_server,
                     &mut music_state,
                     &base_music_channel,
                     &room_music,
@@ -146,7 +150,8 @@ pub fn drive_music_director(
                 &mut director,
                 cue,
                 &layer_channels,
-                &library,
+                &mut library,
+                &asset_server,
                 &mut music_state,
                 &base_music_channel,
                 &room_music,
@@ -245,7 +250,8 @@ pub(super) fn resolve_directive_for_binding(
 
 fn apply_simple_music_intent(
     director: &mut MusicDirectorState,
-    library: &AudioLibrary,
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
     room_music: &RoomMusicRequest,
@@ -258,7 +264,7 @@ fn apply_simple_music_intent(
         || music_state.active_track != target;
     if needs_switch && library.track(&target).is_some() {
         info!(target: MUSIC_LOG_TARGET, "simple_music target={}", target);
-        switch_to_music_track(library, music_state, base_music_channel, &target);
+        switch_to_music_track(library, asset_server, music_state, base_music_channel, &target);
         director.last_simple_track = Some(target.clone());
         director.mode = MusicDirectorMode::SimpleTrack;
     }
@@ -664,7 +670,8 @@ fn drive_outro_tail(
     director: &mut MusicDirectorState,
     cue: &MusicCueSpec,
     channels: &MusicLayerChannels,
-    library: &AudioLibrary,
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
     room_music: &RoomMusicRequest,
@@ -694,6 +701,7 @@ fn drive_outro_tail(
         resume_simple_music(
             director,
             library,
+            asset_server,
             music_state,
             base_music_channel,
             room_music,
@@ -723,7 +731,8 @@ fn drive_outro_tail(
 fn shutdown_adaptive_cue(
     director: &mut MusicDirectorState,
     channels: &MusicLayerChannels,
-    library: &AudioLibrary,
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
     room_music: &RoomMusicRequest,
@@ -751,6 +760,7 @@ fn shutdown_adaptive_cue(
     resume_simple_music(
         director,
         library,
+        asset_server,
         music_state,
         base_music_channel,
         room_music,
@@ -779,7 +789,8 @@ fn shutdown_adaptive_cue(
 /// playing simultaneously (Jon's 2026-05-09 report).
 fn resume_simple_music(
     director: &mut MusicDirectorState,
-    library: &AudioLibrary,
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
     base_music_channel: &AudioChannel<MusicChannel>,
     room_music: &RoomMusicRequest,
@@ -796,7 +807,7 @@ fn resume_simple_music(
             target,
             set_mode_to_simple_track,
         );
-        switch_to_music_track(library, music_state, base_music_channel, &target);
+        switch_to_music_track(library, asset_server, music_state, base_music_channel, &target);
         director.last_simple_track = Some(target.clone());
         encounter_music.last_applied = Some(target);
         if set_mode_to_simple_track {

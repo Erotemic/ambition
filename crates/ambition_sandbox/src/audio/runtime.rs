@@ -87,7 +87,8 @@ pub fn amplitude_to_decibels(linear: f32) -> f32 {
 
 #[cfg(feature = "audio")]
 pub fn apply_encounter_music(
-    library: Res<AudioLibrary>,
+    mut library: ResMut<AudioLibrary>,
+    asset_server: Res<AssetServer>,
     mut music_state: ResMut<MusicPlaybackState>,
     music_channel: Res<AudioChannel<MusicChannel>>,
     mut request: ResMut<crate::encounter::EncounterMusicRequest>,
@@ -107,7 +108,13 @@ pub fn apply_encounter_music(
     let already_applied =
         request.last_applied.as_ref() == Some(&target) && music_state.active_track == target;
     if !already_applied && library.track(&target).is_some() {
-        switch_to_music_track(&library, &mut music_state, &music_channel, &target);
+        switch_to_music_track(
+            &mut library,
+            &asset_server,
+            &mut music_state,
+            &music_channel,
+            &target,
+        );
     }
     request.last_applied = Some(target);
 }
@@ -196,13 +203,30 @@ impl From<SoundCue> for SoundCueKey {
     }
 }
 
+/// Backing storage for a music track's audio source.
+///
+/// Procedural tracks are synthesized at `AudioLibrary::new` time (cheap,
+/// deterministic, and tolerated by tests that have no `AssetServer`).
+/// File-backed tracks defer the `asset_server.load(...)` call until the
+/// first time the track is requested via `resolve_track_handle` so the
+/// 25 OGGs in the data spec don't all hit the IO queue at startup.
+#[derive(Clone)]
+#[cfg(feature = "audio")]
+enum TrackSource {
+    Procedural(Handle<KiraAudioSource>),
+    Lazy {
+        asset_path: String,
+        handle: Option<Handle<KiraAudioSource>>,
+    },
+}
+
 #[derive(Clone)]
 #[cfg(feature = "audio")]
 pub struct MusicTrackRuntime {
     pub id: String,
     pub display_name: String,
-    pub handle: Handle<KiraAudioSource>,
     pub duration_seconds: f32,
+    source: TrackSource,
 }
 
 #[derive(Resource)]
@@ -285,18 +309,25 @@ impl AudioLibrary {
             .music_tracks
             .iter()
             .map(|track| {
-                let handle = match (&track.asset_path, asset_server) {
-                    (Some(path), Some(server)) => server.load(path),
-                    _ => add_rendered_audio(
+                // Lazy path: file-backed track + an asset server. Store the
+                // path; defer `asset_server.load(...)` to first resolve. Falls
+                // through to the procedural branch when no asset server is
+                // available (tests, headless mode without IO).
+                let source = match (&track.asset_path, asset_server) {
+                    (Some(path), Some(_)) => TrackSource::Lazy {
+                        asset_path: path.clone(),
+                        handle: None,
+                    },
+                    _ => TrackSource::Procedural(add_rendered_audio(
                         audio_sources,
                         render_lofi_theme(&track.arrangement, sample_rate),
-                    ),
+                    )),
                 };
                 MusicTrackRuntime {
                     id: track.id.clone(),
                     display_name: track.display_name.clone(),
-                    handle,
                     duration_seconds: track.arrangement.duration_seconds(),
+                    source,
                 }
             })
             .collect();
@@ -393,6 +424,37 @@ impl AudioLibrary {
         let next = (index as isize + offset).rem_euclid(len) as usize;
         Some(self.music_tracks[next].id.as_str())
     }
+
+    /// Resolve a music track's playable handle, loading from disk on the
+    /// first request for file-backed tracks. Returns `None` only for
+    /// missing IDs.
+    pub fn resolve_track_handle(
+        &mut self,
+        track_id: &str,
+        asset_server: &AssetServer,
+    ) -> Option<Handle<KiraAudioSource>> {
+        let track = self
+            .music_tracks
+            .iter_mut()
+            .find(|track| track.id == track_id)?;
+        let handle = match &mut track.source {
+            TrackSource::Procedural(handle) => handle.clone(),
+            TrackSource::Lazy { asset_path, handle } => {
+                if handle.is_none() {
+                    *handle = Some(asset_server.load(asset_path.clone()));
+                }
+                handle.clone().expect("handle just populated")
+            }
+        };
+        Some(handle)
+    }
+
+    /// Warm a file-backed track's handle ahead of likely use (e.g. when
+    /// the radio menu highlights it). No-op for procedural tracks and
+    /// already-resolved ones.
+    pub fn preload_track(&mut self, track_id: &str, asset_server: &AssetServer) {
+        let _ = self.resolve_track_handle(track_id, asset_server);
+    }
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -418,16 +480,23 @@ impl MusicPlaybackState {
 
 #[cfg(feature = "audio")]
 pub fn start_default_music(
-    library: Res<AudioLibrary>,
+    mut library: ResMut<AudioLibrary>,
+    asset_server: Res<AssetServer>,
     state: Res<MusicPlaybackState>,
     music_channel: Res<AudioChannel<MusicChannel>>,
 ) {
-    play_music_track(&library, &state.active_track, &music_channel);
+    play_music_track(
+        &mut library,
+        &asset_server,
+        &state.active_track,
+        &music_channel,
+    );
 }
 
 #[cfg(feature = "audio")]
 pub fn switch_to_music_track(
-    library: &AudioLibrary,
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
     state: &mut MusicPlaybackState,
     music_channel: &AudioChannel<MusicChannel>,
     next_track: &str,
@@ -441,12 +510,13 @@ pub fn switch_to_music_track(
         Duration::from_millis(180),
         AudioEasing::OutPowi(2),
     ));
-    play_music_track(library, next_track, music_channel);
+    play_music_track(library, asset_server, next_track, music_channel);
 }
 
 #[cfg(feature = "audio")]
 pub fn set_radio_track(
-    library: &AudioLibrary,
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
     radio: &mut RadioStationState,
     state: &mut MusicPlaybackState,
     music_channel: &AudioChannel<MusicChannel>,
@@ -457,21 +527,22 @@ pub fn set_radio_track(
         return;
     }
     radio.set_selected_track(next_track);
-    switch_to_music_track(library, state, music_channel, next_track);
+    switch_to_music_track(library, asset_server, state, music_channel, next_track);
 }
 
 #[cfg(feature = "audio")]
 fn play_music_track(
-    library: &AudioLibrary,
+    library: &mut AudioLibrary,
+    asset_server: &AssetServer,
     track_id: &str,
     music_channel: &AudioChannel<MusicChannel>,
 ) {
-    let Some(track) = library.track(track_id) else {
+    let Some(handle) = library.resolve_track_handle(track_id, asset_server) else {
         warn!("cannot play missing music track '{track_id}'");
         return;
     };
     music_channel
-        .play(track.handle.clone())
+        .play(handle)
         .looped()
         .fade_in(AudioTween::new(
             Duration::from_millis(220),

@@ -4680,7 +4680,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [28,55],
+							"__grid": [31,55],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -4689,7 +4689,7 @@
 							"width": 48,
 							"height": 96,
 							"defUid": 2002,
-							"px": [452,880],
+							"px": [500,880],
 							"fieldInstances": [
 								{ "__identifier": "id", "__type": "String", "__value": "lower_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
 									"id": "V_String",
@@ -4716,7 +4716,7 @@
 									"params": [ false ]
 								}] }
 							],
-							"__worldX": 452,
+							"__worldX": 500,
 							"__worldY": 880
 						},
 						{
@@ -4833,8 +4833,6 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 1176,
-							"__worldY": 880,
 							"iid": "LoadingZone-4262",
 							"width": 48,
 							"height": 96,
@@ -4865,7 +4863,9 @@
 									"id": "V_Bool",
 									"params": [ true ]
 								}] }
-							]
+							],
+							"__worldX": 1176,
+							"__worldY": 880
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -4874,8 +4874,6 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 202,
-							"__worldY": 880,
 							"iid": "LoadingZone-4272",
 							"width": 48,
 							"height": 96,
@@ -4906,7 +4904,9 @@
 									"id": "V_Bool",
 									"params": [ true ]
 								}] }
-							]
+							],
+							"__worldX": 202,
+							"__worldY": 880
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -4915,8 +4915,6 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 800,
-							"__worldY": 832,
 							"iid": "LoadingZone-4282",
 							"width": 48,
 							"height": 96,
@@ -4947,7 +4945,9 @@
 									"id": "V_Bool",
 									"params": [ true ]
 								}] }
-							]
+							],
+							"__worldX": 800,
+							"__worldY": 832
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -4956,8 +4956,6 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 1538,
-							"__worldY": 880,
 							"iid": "LoadingZone-4292",
 							"width": 48,
 							"height": 96,
@@ -4988,17 +4986,17 @@
 									"id": "V_Bool",
 									"params": [ true ]
 								}] }
-							]
+							],
+							"__worldX": 1538,
+							"__worldY": 880
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [65,55],
+							"__grid": [65,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 1050,
-							"__worldY": 832,
 							"iid": "LoadingZone-4302",
 							"width": 48,
 							"height": 96,
@@ -5029,22 +5027,22 @@
 									"id": "V_Bool",
 									"params": [ true ]
 								}] }
-							]
+							],
+							"__worldX": 1050,
+							"__worldY": 832
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [23,55],
+							"__grid": [21,55],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 376,
-							"__worldY": 832,
 							"iid": "LoadingZone-4326",
 							"width": 48,
 							"height": 96,
 							"defUid": 2002,
-							"px": [376,880],
+							"px": [344,880],
 							"fieldInstances": [
 								{ "__identifier": "id", "__type": "String", "__value": "ninja_dojo_door", "__tile": null, "defUid": 3002, "realEditorValues": [{
 									"id": "V_String",
@@ -5070,7 +5068,9 @@
 									"id": "V_Bool",
 									"params": [ true ]
 								}] }
-							]
+							],
+							"__worldX": 344,
+							"__worldY": 880
 						}
 					]
 				},

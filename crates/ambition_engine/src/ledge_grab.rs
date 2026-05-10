@@ -97,6 +97,20 @@ pub fn probe_ledge_grab(
             top - half.y - 1.0,
         );
         let probe_aabb = Aabb::new(probe_center, half - Vec2::new(2.0, 2.0));
+        // World-bounds check: the player body sitting on top of this
+        // ledge must stay inside the playable rect. Engine uses
+        // top-left coords with the world spanning [0, size]. Without
+        // this guard, a block whose top is at y≈0 (e.g. a ceiling
+        // tile) yields a climb_target above the world, the climb-up
+        // teleports the player OOB, and the engine's
+        // collision-correction yanks them back — producing the
+        // teleport loop seen in the May 2026 mob_lab F8 trace.
+        if probe_center.y - half.y < 0.0
+            || probe_center.x - half.x < 0.0
+            || probe_center.x + half.x > world.size.x
+        {
+            continue;
+        }
         let blocked = world.body_overlaps_any(probe_aabb, |b| {
             matches!(b.kind, BlockKind::Solid) && !std::ptr::eq(b, block)
         });
@@ -210,6 +224,33 @@ mod tests {
         )]);
         let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), 0.0, &world);
         assert!(contact.is_none());
+    }
+
+    /// Regression: a ledge whose top sits near the world's ceiling
+    /// must be rejected — climbing onto it would put the player
+    /// out of bounds. This was the May 2026 mob_lab teleport-loop
+    /// bug: a ceiling tile near y=0 produced a climb_target above
+    /// the world, the climb-up snapped the player OOB, and the
+    /// engine's collision-correction yanked them back, looping.
+    #[test]
+    fn rejects_ledge_when_player_would_land_above_world_top() {
+        // Ceiling block: top edge at y=1 (world ranges y=0..600).
+        // Player half-height is 23, so a body sitting on this ledge
+        // would have its top at y = 1 - 46 - 1 = -46 (above world).
+        let world = world_with(vec![Block::solid(
+            "ceiling",
+            Vec2::new(100.0, 1.0),
+            Vec2::new(200.0, 80.0),
+        )]);
+        // Player wall-clinging just below the ceiling block, with
+        // their head right under the block's top.
+        let player_pos = Vec2::new(86.0, 24.0);
+        let player_size = Vec2::new(28.0, 46.0);
+        let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+        assert!(
+            contact.is_none(),
+            "ceiling-adjacent ledge must be rejected (climb_target would be OOB)"
+        );
     }
 
     #[test]

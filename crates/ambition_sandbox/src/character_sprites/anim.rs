@@ -35,6 +35,12 @@ pub enum CharacterAnim {
     /// atlas indexing aligns with the PNG even when nothing requests
     /// it, and so future combat-banter systems can pick it up.
     Taunt = 12,
+    /// Held hang on a ledge — both arms gripping the ledge top with
+    /// the body slumped below. Driven by `pick_player_anim` while
+    /// `SandboxRuntime::ledge_grab` is `Some`. The pull-up itself
+    /// is instantaneous in the runtime, so this row is a loop, not
+    /// a transition.
+    LedgeGrab = 13,
 }
 
 pub(super) fn non_looping(anim: CharacterAnim) -> bool {
@@ -61,6 +67,9 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
     }
     if runtime.slash_anim_timer > 0.0 {
         return CharacterAnim::Slash;
+    }
+    if runtime.ledge_grab.is_some() {
+        return CharacterAnim::LedgeGrab;
     }
     let player = &runtime.player;
     if player.fly_enabled {

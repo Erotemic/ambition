@@ -14,6 +14,7 @@ animations:
   - blink_in
   - dash
   - hover
+  - ledge_grab
 render:
   frame_width: 128
   frame_height: 128

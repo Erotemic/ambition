@@ -38,6 +38,11 @@ pub fn update_ledge_grab(
     // Already on a ledge: handle climb / drop input.
     if let Some(mut state) = runtime.ledge_grab {
         state.elapsed += dt;
+        // Face into the wall so the overhead-reaching ledge-grab
+        // sprite (drawn for facing-right) flips to match the cling
+        // side. wall_normal_x = -1 (wall on player's right) → face
+        // right; +1 (wall on left) → face left.
+        runtime.player.facing = -state.contact.wall_normal_x;
         let want_climb = (controls.axis_y < -0.4 && controls.jump_pressed)
             || (controls.axis_y < -0.4 && controls.interact_pressed);
         let want_drop = controls.axis_y > 0.4 && !controls.jump_pressed;
@@ -78,6 +83,7 @@ pub fn update_ledge_grab(
     };
     runtime.player.pos = contact.anchor;
     runtime.player.vel = ae::Vec2::ZERO;
+    runtime.player.facing = -contact.wall_normal_x;
     runtime.ledge_grab = Some(crate::LedgeGrabState {
         contact,
         elapsed: 0.0,

@@ -360,20 +360,25 @@ class SideRobotGenerator:
             p.near_leg_lower = 54.0 + 36.0 * kick
             p.eye_squint = 0.22
         elif animation == "ledge_grab":
-            pull = smoothstep(clamp((t - 0.24) / 0.62, 0.0, 1.0))
-            p.root_x = -4.0 + 5.0 * pull
-            p.root_y = -9.0 + 10.0 * pull
-            p.body_tilt = -11.0 + 10.0 * pull
-            p.head_tilt = -6.0 + 5.0 * pull
-            p.far_arm_upper = 198.0 - 32.0 * pull
-            p.far_arm_lower = 206.0 - 48.0 * pull
-            p.near_arm_upper = -48.0 + 36.0 * pull
-            p.near_arm_lower = -52.0 + 42.0 * pull
-            p.far_leg_upper = 120.0 + 20.0 * pull
-            p.far_leg_lower = 88.0
-            p.near_leg_upper = 88.0 + 16.0 * pull
-            p.near_leg_lower = 72.0
-            p.eye_squint = 0.18
+            # Held hang loop. The runtime snaps instantly to the
+            # climb target on Up+Jump, so this animation is a
+            # steady-state dangle, not a pull-up transition. Both
+            # arms reach overhead gripping the ledge; the body
+            # slumps below with a subtle weight bob + leg sway.
+            grip = math.sin(t * math.tau)
+            p.root_x = -2.0
+            p.root_y = -8.0 + grip * 1.4
+            p.body_tilt = -9.0 + grip * 1.5
+            p.head_tilt = -5.0 + grip * 1.0
+            p.far_arm_upper = 200.0
+            p.far_arm_lower = 208.0
+            p.near_arm_upper = -52.0 - grip * 2.0
+            p.near_arm_lower = -56.0 - grip * 2.0
+            p.far_leg_upper = 122.0 + grip * 4.0
+            p.far_leg_lower = 92.0 - grip * 3.0
+            p.near_leg_upper = 92.0 - grip * 4.0
+            p.near_leg_lower = 76.0 + grip * 3.0
+            p.eye_squint = 0.22
         elif animation == "climb":
             stride = math.sin(t * math.tau)
             p.root_y = -2.0 + stride * 1.2

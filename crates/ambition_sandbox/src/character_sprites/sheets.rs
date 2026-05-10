@@ -149,6 +149,16 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
                 duration_secs: 0.078,
             },
         ),
+        // Held ledge-grab dangle. Last row (index 12) on the robot
+        // sheet — the config lists `ledge_grab` after `hover` so
+        // PNG row order matches this declaration.
+        (
+            CharacterAnim::LedgeGrab,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.100,
+            },
+        ),
     ],
     collision_scale: 2.1,
     feet_anchor_y: -0.320,

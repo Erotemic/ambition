@@ -110,6 +110,11 @@ class ToonSpec:
     hair_volume: float
     nose_len: float
     satchel_size: float
+    # General-hat local authored offsets.  YAML `spec` can use these to
+    # tune the brim without touching drawing code. Negative Y moves the
+    # brim upward in image space; positive Y lowers it.
+    hat_brim_offset_x: float = 0.0
+    hat_brim_offset_y: float = 0.0
 
 
 @dataclass
@@ -310,6 +315,8 @@ class ToonSideGenerator:
             "hair_volume": 4.0,
             "nose_len": 4.4,
             "satchel_size": 0.0,
+            "hat_brim_offset_x": 0.0,
+            "hat_brim_offset_y": -2.0,
         },
         "kernel_guide": {
             "name": "Kernel Guide",
@@ -686,17 +693,26 @@ class ToonSideGenerator:
             ]
             d.polygon(crown, fill=pal["outfit"], outline=outline)
             d.rounded_rectangle((c[0] - 16.5 * S, c[1] - 19.4 * S, c[0] + 16.5 * S, c[1] - 12.6 * S), radius=2.0 * S, fill=pal["accent"], outline=outline, width=max(1, int(1.0 * S)))
+            brim_dx = spec.hat_brim_offset_x * S
+            brim_dy = spec.hat_brim_offset_y * S
             brim = [
-                (c[0] - 18.2 * S, c[1] - 12.8 * S),
-                (c[0] + 12.2 * S, c[1] - 11.4 * S),
-                (c[0] + 21.0 * S, c[1] - 8.2 * S),
-                (c[0] + 6.0 * S, c[1] - 5.0 * S),
-                (c[0] - 15.8 * S, c[1] - 8.0 * S),
+                (c[0] - 18.2 * S + brim_dx, c[1] - 12.8 * S + brim_dy),
+                (c[0] + 12.2 * S + brim_dx, c[1] - 11.4 * S + brim_dy),
+                (c[0] + 21.0 * S + brim_dx, c[1] - 8.2 * S + brim_dy),
+                (c[0] + 6.0 * S + brim_dx, c[1] - 5.0 * S + brim_dy),
+                (c[0] - 15.8 * S + brim_dx, c[1] - 8.0 * S + brim_dy),
             ]
             d.polygon(brim, fill=pal["outfit_dark"], outline=outline)
             # A narrow highlight on the lower lip of the raised brim separates
             # it from the eyebrows / eyes when the sprite is downsampled.
-            d.line([(c[0] - 12.0 * S, c[1] - 7.0 * S), (c[0] + 6.2 * S, c[1] - 5.0 * S)], fill=_scale_color(pal["outfit"], 1.18), width=max(1, int(0.8 * S)))
+            d.line(
+                [
+                    (c[0] - 12.0 * S + brim_dx, c[1] - 7.0 * S + brim_dy),
+                    (c[0] + 6.2 * S + brim_dx, c[1] - 5.0 * S + brim_dy),
+                ],
+                fill=_scale_color(pal["outfit"], 1.18),
+                width=max(1, int(0.8 * S)),
+            )
             star_c = (c[0] + 0.5 * S, c[1] - 25.2 * S)
             star = []
             for i in range(10):
@@ -998,6 +1014,38 @@ class ToonSideGenerator:
             hand = add(elbow, vec(spec.arm_lower * S, lower + p.torso_tilt * 0.12))
             return shoulder, elbow, hand
 
+        def draw_uniform_cuff(elbow: Point, hand: Point, *, scale: float = 1.0) -> None:
+            """Draw a short yellow wrist band at the sleeve/hand boundary."""
+            if spec.outfit != "general_uniform":
+                return
+            angle = math.degrees(math.atan2(hand[1] - elbow[1], hand[0] - elbow[0]))
+            # Place the cuff just before the skin-toned hand so it reads as the
+            # yellow trim at the end of the green sleeve, not as a bracelet.
+            cuff_center = add(hand, vec((spec.hand_r * -0.58 * scale) * S, angle))
+            draw_rotated_rounded_rect(
+                img,
+                cuff_center,
+                (4.8 * scale * S, spec.arm_radius * 2.85 * scale * S),
+                angle,
+                2.0 * scale * S,
+                pal["accent"],
+                pal["outline"],
+                0.9 * scale * S,
+            )
+            # A small darker trailing edge keeps the cuff from becoming a flat
+            # yellow blob when the arm is anti-aliased down to runtime size.
+            edge_center = add(cuff_center, vec(1.65 * scale * S, angle + 180.0))
+            draw_rotated_rounded_rect(
+                img,
+                edge_center,
+                (1.3 * scale * S, spec.arm_radius * 2.45 * scale * S),
+                angle,
+                0.8 * scale * S,
+                pal["accent_dark"],
+                None,
+                0.0,
+            )
+
         # far limbs first
         far_hip, far_knee, far_ankle = leg_points(False)
         far_tint = _scale_color(pal["outfit_dark"], 0.93)
@@ -1007,6 +1055,7 @@ class ToonSideGenerator:
         far_shoulder, far_elbow, far_hand = arm_points(False)
         draw_capsule(d, far_shoulder, far_elbow, spec.arm_radius * 0.92 * S, far_tint, pal["outline"], 1.1 * S)
         draw_capsule(d, far_elbow, far_hand, spec.arm_radius * 0.88 * S, far_tint, pal["outline"], 1.1 * S)
+        draw_uniform_cuff(far_elbow, far_hand, scale=0.88)
         # Keep sleeves uniform-colored, but hands skin-toned. The far hand is
         # drawn before the torso so it still sits behind the body volume.
         d.ellipse(_bbox(far_hand, spec.hand_r * 0.90 * S, spec.hand_r * 0.90 * S), fill=pal["skin"], outline=pal["outline"], width=max(1, int(0.9 * S)))
@@ -1025,10 +1074,13 @@ class ToonSideGenerator:
         sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform"} else pal["skin"]
         draw_capsule(d, near_shoulder, near_elbow, spec.arm_radius * S, sleeve_fill, pal["outline"], 1.1 * S)
         draw_capsule(d, near_elbow, near_hand, spec.arm_radius * 0.95 * S, sleeve_fill, pal["outline"], 1.1 * S)
-        d.ellipse(_bbox(near_hand, spec.hand_r * S, spec.hand_r * S), fill=pal["skin"], outline=pal["outline"], width=max(1, int(1.0 * S)))
+        draw_uniform_cuff(near_elbow, near_hand, scale=1.0)
 
         prop_angle = p.near_arm_lower + p.torso_tilt * 0.10 + (14.0 if p.prop_swing > 0 else 0.0)
         self._draw_prop(img, near_hand, spec, pal, S, prop_angle)
+        # Draw the near hand last so the baton/prop reads as being held by a
+        # skin-toned hand instead of painting over it.
+        d.ellipse(_bbox(near_hand, spec.hand_r * S, spec.hand_r * S), fill=pal["skin"], outline=pal["outline"], width=max(1, int(1.0 * S)))
         if p.slash > 0.0:
             d.arc((near_hand[0] - 4 * S, near_hand[1] - 28 * S, near_hand[0] + 42 * S, near_hand[1] + 16 * S), start=-70, end=35, fill=with_alpha(pal["accent"], 160), width=max(1, int(2.5 * S)))
         if p.hit > 0.0:

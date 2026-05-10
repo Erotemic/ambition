@@ -332,6 +332,21 @@ pub(super) fn should_restart_adaptive(
     !same_cue || mode_lost_adaptive || outro_to_active
 }
 
+/// Decide whether a newly started adaptive bank should begin at its
+/// target gain instead of ramping up from silence.
+///
+/// Intro-to-loop full-mix handoffs need to feel like one continuous
+/// cue. If the loop bank starts silent and ramps up while the intro
+/// bank fades down, players hear a brief hole and become aware that
+/// the engine switched files. Loop-to-loop transitions still use the
+/// normal gain smoothing so wave changes can blend rather than pop.
+pub(super) fn should_start_new_bank_at_target_gain(
+    previous_mode: MusicDirectorMode,
+    target_section_looped: bool,
+) -> bool {
+    previous_mode == MusicDirectorMode::AdaptiveIntro && target_section_looped
+}
+
 fn drive_adaptive_cue_state(
     director: &mut MusicDirectorState,
     cue: &MusicCueSpec,
@@ -548,16 +563,20 @@ fn start_adaptive_state(
         return;
     };
 
+    let previous_mode = director.mode;
     let old_bank = director.active_bank;
     let new_bank = if director.active_cue_id.is_some() {
         old_bank.other()
     } else {
         MusicBank::A
     };
+    let target_gains = gains_for_state(cue, target_state, settings);
+    let start_new_bank_at_target =
+        should_start_new_bank_at_target_gain(previous_mode, section.looped);
 
     info!(
         target: MUSIC_LOG_TARGET,
-        "start_adaptive_state cue={} state={} section={} old_bank={} new_bank={} looped={} crossfade={:.2}s gains={}",
+        "start_adaptive_state cue={} state={} section={} old_bank={} new_bank={} looped={} crossfade={:.2}s gains={} gain_start={}",
         cue.id,
         target_state.id,
         section.id,
@@ -565,7 +584,8 @@ fn start_adaptive_state(
         new_bank.label(),
         section.looped,
         crossfade_seconds,
-        format_gains(gains_for_state(cue, target_state, settings)),
+        format_gains(target_gains),
+        if start_new_bank_at_target { "target" } else { "smooth" },
     );
 
     channels.stop_bank(new_bank, 80);
@@ -603,11 +623,15 @@ fn start_adaptive_state(
         director.fade_stop_seconds = 0.0;
     }
 
-    set_bank_targets(
-        director,
-        new_bank,
-        gains_for_state(cue, target_state, settings),
-    );
+    if start_new_bank_at_target {
+        director.current_gains[new_bank.index()] = target_gains;
+        director.target_gains[new_bank.index()] = target_gains;
+        for slot in 0..MAX_LAYERS {
+            channels.set_layer_volume(new_bank, slot, target_gains[slot]);
+        }
+    } else {
+        set_bank_targets(director, new_bank, target_gains);
+    }
     director.active_cue_id = Some(cue.id.clone());
     director.current_state_id = Some(target_state.id.clone());
     director.current_section_id = Some(section.id.clone());

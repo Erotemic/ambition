@@ -3,32 +3,11 @@ use super::*;
 pub(super) fn first_goblin_tune_v2_spec() -> MusicCueSpec {
     let asset_root = "audio/music/generated/first_goblin_tune_v2".to_string();
     let layers = vec![
-        MusicLayerSpec {
-            id: "strings".into(),
-            slot: 0,
-        },
-        MusicLayerSpec {
-            id: "brass".into(),
-            slot: 1,
-        },
-        MusicLayerSpec {
-            id: "winds".into(),
-            slot: 2,
-        },
-        MusicLayerSpec {
-            id: "choir_pad".into(),
-            slot: 3,
-        },
-        MusicLayerSpec {
-            id: "mallets".into(),
-            slot: 4,
-        },
-        MusicLayerSpec {
-            id: "percussion".into(),
-            slot: 5,
-        },
-        // The full intro/outro renders are intentionally mapped to slot 0;
-        // they are exclusive one-shot layers, not simultaneous stems.
+        // The current generated goblin cue intentionally plays mastered
+        // per-section full mixes rather than raw per-stem files. Keep the cue
+        // layer vocabulary to the actual playable layer so old runtime stem
+        // balance overrides cannot accidentally overwrite the `full` layer's
+        // slot gain for wave sections.
         MusicLayerSpec {
             id: "full".into(),
             slot: 0,
@@ -36,9 +15,12 @@ pub(super) fn first_goblin_tune_v2_spec() -> MusicCueSpec {
     ];
 
     // `stem_sources` (per-stem layer set) was used here before the
-    // 2026-05-08 rebalance. Re-add it when the renderer applies its
-    // mastering chain to per-stem outputs and stems are individually
-    // audible.
+    // 2026-05-08 rebalance. Re-add it only after the renderer applies its
+    // mastering chain to per-stem outputs and stems are individually audible.
+    // Until then, section boundaries can be abrupt: the runtime music director
+    // owns the crossfade/overlap, while generated section files should avoid
+    // baking long fade-outs that would double-count the transition and create
+    // a perceived dip before wave1.
 
     fn full_source(section: &str) -> Vec<MusicLayerSourceSpec> {
         vec![MusicLayerSourceSpec {
@@ -60,20 +42,25 @@ pub(super) fn first_goblin_tune_v2_spec() -> MusicCueSpec {
     // 2026-05-08 rebalance: the renderer's mastering chain
     // (compressor / reverb / limiter) only runs on the per-section
     // full-mix file, not on individual stems. The raw stems for
-    // wave1/2/3 measure -50 to -inf LUFS — three of the six stems
-    // are essentially silent — while the per-section full mixes sit
+    // wave1/2/3 measure -50 to -inf LUFS -- three of the six stems
+    // are essentially silent -- while the per-section full mixes sit
     // around -35 LUFS. To keep the cue audible at intro-level
     // loudness without pushing distortion, wave sections now play
     // the mastered full mix as a single layer with a fixed gain
-    // boost (~ +14 dB → -21 LUFS, close to the lofi tracks at
+    // boost (~ +14 dB -> -21 LUFS, close to the lofi tracks at
     // -24 LUFS). The intro / outro / recap_loop full mixes are
     // already mastered and ride the same path.
     //
     // Cost: the wave2_brute state can no longer differ from wave2
     // (both share the wave2 section's single source). Acceptable
-    // tradeoff until the renderer learns to master stems too —
+    // tradeoff until the renderer learns to master stems too --
     // until then the per-stem gains were applied on near-silence
     // anyway, so wave2_brute was inaudibly different from wave2.
+    //
+    // Important: keep `layers` above in sync with this full-mix approach. If
+    // stale stem layer ids remain registered, runtime legacy balance overrides
+    // can find them and overwrite slot 0 after the `full` gain has been set,
+    // making wave1 sound far quieter than the authored 5.0 gain implies.
     let wave_state_gain = 5.0;
     let bridge_state_gain = 2.4;
     MusicCueSpec {
@@ -139,7 +126,7 @@ pub(super) fn first_goblin_tune_v2_spec() -> MusicCueSpec {
             },
             MusicStateSpec {
                 // wave2_brute degenerates to wave2 with the full-mix
-                // approach — keep the state so existing encounter
+                // approach -- keep the state so existing encounter
                 // wiring (`wave2_reinforced_state`) still resolves.
                 id: "wave2_brute".into(),
                 section_id: "wave2".into(),

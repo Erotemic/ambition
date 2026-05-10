@@ -45,11 +45,24 @@ const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 /// tracks, so keep the per-cue default conservative and let cue states shape
 /// individual layer gains.
 const ADAPTIVE_MUSIC_RELATIVE_VOLUME: f32 = 1.0;
-const STEM_GAIN_BLEND_SECONDS: f32 = 1.05;
+
+/// Runtime gain smoothing for adaptive layer targets.
+///
+/// Keep this short enough that an intro-to-wave handoff reads as one continuous
+/// cue instead of "intro ended, then another track faded in." Long musical
+/// overlap is still controlled by the section crossfade constants below.
+const STEM_GAIN_BLEND_SECONDS: f32 = 0.18;
 const LOOP_SECTION_CROSSFADE_SECONDS: f32 = 1.70;
-const INTRO_TO_LOOP_CROSSFADE_SECONDS: f32 = 1.25;
+
+/// Intro -> first loop should feel closer to a beat-locked handoff than a
+/// cinematic crossfade. The intro asset may end abruptly; that is fine because
+/// the director owns the de-click / overlap at the exact section boundary.
+const INTRO_TO_LOOP_CROSSFADE_SECONDS: f32 = 0.35;
 const OUTRO_CROSSFADE_SECONDS: f32 = 1.65;
-const DEFAULT_RETURN_OVERLAP_SECONDS: f32 = 1.35;
+
+/// Start room/radio music before the adaptive outro finishes so the return to
+/// exploration does not leave a silent gap after encounter music fades.
+const DEFAULT_RETURN_OVERLAP_SECONDS: f32 = 2.25;
 const MIN_TRANSITION_DELAY_SECONDS: f32 = 0.08;
 const LAYER_START_FADE_MS: u64 = 0;
 const DEBUG_LOG_PERIOD_SECONDS: f32 = 1.0;

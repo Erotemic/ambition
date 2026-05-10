@@ -1,0 +1,27 @@
+target: toon
+name: Absurd General
+output_name: absurd_general
+seed: 406
+archetype: absurd_general
+animations:
+  - idle
+  - walk
+  - talk
+  - interact
+  - celebrate
+  - hit
+spec:
+  # Negative Y moves the brim up; positive Y lowers it.
+  hat_brim_offset_x: 0.0
+  hat_brim_offset_y: -2.0
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 160
+  single_height: 160
+  supersample: 4
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 4
+  label_width: 112

@@ -114,9 +114,12 @@ entities:
       target_zone: pirate_cove_door
       bidirectional: true
 
-  # Boss-arena entry on the right side of the cove. One-way (the
-  # arena ejects the player back to the cove on its own loading
-  # zone, but you can re-enter by walking back into the door).
+  # Boss-arena entry on the right side of the cove. One-way: walking
+  # IN warps the player into the arena, but the arena's own door is
+  # blocked by a locked-door Solid panel so the player commits to
+  # the boss fight. `bidirectional: false` matches the basement_boss
+  # convention and was applied via
+  # `python3 -m ambition_ldtk_tools entity set-field`.
   - type: LoadingZone
     px: [1180, 512]
     size: [48, 96]
@@ -126,7 +129,7 @@ entities:
       activation: Door
       target_room: mockingbird_arena
       target_zone: mockingbird_arena_entry
-      bidirectional: true
+      bidirectional: false
 
   # ─────────────────────────────────────────────────────────────────
   # Faction NPCs. The Admiral runs the cove and offers the Mockingbird

@@ -15,7 +15,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     door free-spots <room>         List free 48x96 door slots in a level.
 
     entity add <spec.yaml>         Add entity instance(s) into a level.
-    entity set-field [TODO]        Set a field on an existing entity.
+    entity set-field <spec.yaml>   Set field instances on existing entities.
     entity move      [TODO]        Move an existing entity.
     entity delete    [TODO]        Delete an entity instance.
 
@@ -118,6 +118,8 @@ def cmd_door(args, rest):
 def cmd_entity(args, rest):
     if args.entity_action == "add":
         return _delegate("ambition_ldtk_tools.edit.entities", rest)
+    if args.entity_action == "set-field":
+        return _delegate("ambition_ldtk_tools.edit.set_field", rest)
     if args.entity_action == "even-space":
         # area_authoring exposes --even-space-entities; forward through.
         return _delegate(
@@ -201,7 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp_entity = sub.add_parser("entity", help="Entity instance edits")
     entity_sub = sp_entity.add_subparsers(dest="entity_action", required=True)
     entity_sub.add_parser("add", help="Add entity instance(s)")
-    entity_sub.add_parser("set-field", help="[TODO] Set a field on an existing entity")
+    entity_sub.add_parser("set-field", help="Set field instances on existing entities")
     entity_sub.add_parser("move", help="[TODO] Move an existing entity")
     entity_sub.add_parser("delete", help="[TODO] Delete an entity instance")
     entity_sub.add_parser(

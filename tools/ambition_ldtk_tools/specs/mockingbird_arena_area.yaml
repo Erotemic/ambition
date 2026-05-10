@@ -66,6 +66,18 @@ entities:
     size: [928, 16]
     fields: { name: ceiling }
 
+  # Visible "locked door panel" sealing the arena's left-side exit
+  # while the boss is alive. The cove's LoadingZone is one-way (set
+  # via `entity set-field`) so the player can teleport IN but
+  # the door panel is what they bump into on the way back out — a
+  # visible Solid block instead of an invisible warp boundary.
+  # Currently always present; future iteration: remove it on boss
+  # defeat (likely via a save-flag-driven block-toggle system).
+  - type: Solid
+    px: [16, 640]
+    size: [40, 96]
+    fields: { name: arena_lock_door }
+
   # ─────────────────────────────────────────────────────────────────
   # Two one-way "perch" platforms. Give the player an option to gain
   # height during a hover beat (the boss is up high; a perch puts

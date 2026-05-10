@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 4312,
+	"nextUid": 4314,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -4666,12 +4666,12 @@
 							"__tile": null,
 							"__smartColor": "#FFD166",
 							"__worldX": 1050,
-							"__worldY": 880,
+							"__worldY": 832,
 							"iid": "LoadingZone-4302",
 							"width": 48,
 							"height": 96,
 							"defUid": 2002,
-							"px": [1050,880],
+							"px": [1050,832],
 							"fieldInstances": [
 								{ "__identifier": "id", "__type": "String", "__value": "pirate_cove_door", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["pirate_cove_door"] } ] },
 								{ "__identifier": "name", "__type": "String", "__value": "pirate_cove_door", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["pirate_cove_door"] } ] },
@@ -21227,6 +21227,48 @@
 									"realEditorValues": [ { "id": "V_String", "params": ["Pirate Cove — the Mockingbird is through the far door."] } ]
 								},
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [ { "id": "V_String", "params": ["Custom"] } ] }
+							]
+						},
+						{
+							"__identifier": "NpcSpawn",
+							"__grid": [13,35],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF9EEA",
+							"__worldX": 220,
+							"__worldY": 562,
+							"iid": "NpcSpawn-4312",
+							"width": 42,
+							"height": 70,
+							"defUid": 2006,
+							"px": [220,562],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Pirate Admiral", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Pirate Admiral"] } ] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Talk", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Talk"] } ] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "pirate_admiral", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["pirate_admiral"] } ] },
+								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [ { "id": "V_Float", "params": [0.0] } ] }
+							]
+						},
+						{
+							"__identifier": "NpcSpawn",
+							"__grid": [35,35],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF9EEA",
+							"__worldX": 560,
+							"__worldY": 562,
+							"iid": "NpcSpawn-4313",
+							"width": 42,
+							"height": 70,
+							"defUid": 2006,
+							"px": [560,562],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Pirate Raider", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Pirate Raider"] } ] },
+								{ "__identifier": "prompt", "__type": "String", "__value": "Talk", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Talk"] } ] },
+								{ "__identifier": "dialogue_id", "__type": "String", "__value": "pirate_raider", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["pirate_raider"] } ] },
+								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0.0, "__tile": null, "defUid": 4123, "realEditorValues": [ { "id": "V_Float", "params": [0.0] } ] }
 							]
 						}
 					]

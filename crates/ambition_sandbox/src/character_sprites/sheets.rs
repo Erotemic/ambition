@@ -297,6 +297,68 @@ pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 // the silhouette scaled to the LDtk collision box.
 // ─────────────────────────────────────────────────────────────────
 
+/// Pirate Admiral / Pirate Raider — both ship the same generator
+/// layout (idle / walk / slash / taunt / hurt / death; 128×128
+/// frames; feet_anchor_norm.y ≈ -0.375). They share one sheet spec
+/// because the layout is identical even though the rendered art
+/// differs. Two filenames; one indexing contract.
+pub const PIRATE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 100,
+    frame_width: 128,
+    frame_height: 128,
+    rows: &[
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.120,
+            },
+        ),
+        (
+            CharacterAnim::Walk,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            CharacterAnim::Slash,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.085,
+            },
+        ),
+        (
+            CharacterAnim::Taunt,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.100,
+            },
+        ),
+        (
+            CharacterAnim::Hit,
+            AnimRow {
+                frame_count: 4,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            CharacterAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+    ],
+    // Generator leaves enough headroom that 1.6 lines the silhouette
+    // up roughly to the LDtk collision box (matches the goblin/robot
+    // ballpark for similarly-sized characters).
+    collision_scale: 1.6,
+    // From both pirate manifests: feet_anchor_norm.y = -0.375.
+    feet_anchor_y: -0.375,
+    frame_sample_inset: 1,
+};
+
 /// Architect — hub research / ADR-explainer NPC.
 pub const ARCHITECT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 116,

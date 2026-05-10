@@ -168,6 +168,8 @@ enum DialogMode {
     GoblinCantinaChieftain,
     PulseVoyagerCaptain,
     TechBrosDisruptor,
+    PirateAdmiral,
+    PirateRaider,
     Generic,
 }
 
@@ -182,6 +184,8 @@ impl DialogMode {
             "goblin_cantina_chieftain" => Self::GoblinCantinaChieftain,
             "pulse_voyager_captain" => Self::PulseVoyagerCaptain,
             "tech_bros_disruptor" => Self::TechBrosDisruptor,
+            "pirate_admiral" => Self::PirateAdmiral,
+            "pirate_raider" => Self::PirateRaider,
             _ => Self::Generic,
         }
     }
@@ -196,6 +200,8 @@ impl DialogMode {
             Self::GoblinCantinaChieftain => "goblin cantina chieftain",
             Self::PulseVoyagerCaptain => "pulse voyager captain",
             Self::TechBrosDisruptor => "tech-bros disruptor",
+            Self::PirateAdmiral => "pirate admiral",
+            Self::PirateRaider => "pirate raider",
             Self::Generic => "sandbox dialogue",
         }
     }
@@ -210,6 +216,8 @@ impl DialogMode {
             Self::GoblinCantinaChieftain => GOBLIN_CANTINA_CHIEFTAIN_NODES,
             Self::PulseVoyagerCaptain => PULSE_VOYAGER_CAPTAIN_NODES,
             Self::TechBrosDisruptor => TECH_BROS_DISRUPTOR_NODES,
+            Self::PirateAdmiral => PIRATE_ADMIRAL_NODES,
+            Self::PirateRaider => PIRATE_RAIDER_NODES,
             Self::Generic => GENERIC_NODES,
         }
     }
@@ -695,6 +703,139 @@ const TECH_BROS_DISRUPTOR_NODES: &[DialogNode] = &[
         speaker: "Chadwick III",
         line: "The boardroom faces up because vision is a direction. Looking down is for accountants. We do not look down. We are the down.",
         options: TECH_BROS_DISRUPTOR_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Pirate Cove dialog: Admiral (faction leader) + Raider (grunt).
+// Shared narrative beat: a Mockingbird stole the cove's treasure.
+// The Admiral hires the player to kill it; the Raider grumbles at
+// the indignity.
+// ─────────────────────────────────────────────────────────────────
+
+const PIRATE_ADMIRAL_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What happened to the treasure?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Where can I find this Mockingbird?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Why don't your raiders handle it?",
+        next_node: Some(3),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "I'll bring it down.",
+        next_node: None,
+        note: Some("The Admiral straightens. The cove takes a breath. A door at the far end of the cove unlocks itself out of pure protocol."),
+        close_after: true,
+    },
+];
+
+const PIRATE_ADMIRAL_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "I'll bring it down.",
+        next_node: None,
+        note: Some("The Admiral lifts a half-empty mug in salute. The cove watches the far door as if it might do something interesting."),
+        close_after: true,
+    },
+];
+
+const PIRATE_ADMIRAL_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Admiral",
+        line: "Ahoy, landstrider. You catch us in low tide and lower tempers — a bird made off with our hoard, and the chest it lifted weighed more than the bird does. Riddle me THAT.",
+        options: PIRATE_ADMIRAL_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Admiral",
+        line: "A Mockingbird. Big as a galleon's mainsail, mean as low water. Snatched the iron-bound chest right off the bar. Left us a feather, two splinters, and an apology in a voice that wasn't its own.",
+        options: PIRATE_ADMIRAL_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Admiral",
+        line: "Past the door at the back of the cove. The bird circles in there like it owns the air. Bring it down. Bring the chest back. I don't care which order.",
+        options: PIRATE_ADMIRAL_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Admiral",
+        line: "Have you SEEN the raider? He fights cutlass-and-cuss, not aerial gunnery. The bird hovers; he swears; the chest doesn't come back. We need somebody who can climb after a flying thing.",
+        options: PIRATE_ADMIRAL_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+const PIRATE_RAIDER_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What was in the chest?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Got any tips for the bird?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("The raider bites the rim of his mug for emphasis. The mug objects."),
+        close_after: true,
+    },
+];
+
+const PIRATE_RAIDER_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("The raider salutes with the wrong hand and is too proud to correct it."),
+        close_after: true,
+    },
+];
+
+const PIRATE_RAIDER_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Raider",
+        line: "Oi. Don't ask me about the bird. The Admiral's all 'strategy' and 'resolve' — I'm 'beak twice my size, talons twice my pay'. We had a chest. Now we don't. Connect the dots.",
+        options: PIRATE_RAIDER_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Raider",
+        line: "Shanties. Specifically, OURS. The bird heard the cove sing about plunder one too many times and decided to file a counterclaim, in talons. The chest's not gold, it's the SONGS. Don't tell the Admiral I said that.",
+        options: PIRATE_RAIDER_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Raider",
+        line: "Mind the swoops. It hovers, it lulls you, then it dives. If it spits something at you, count to two and step LEFT. Or right. One of those. I'm the muscle, not the navigator.",
+        options: PIRATE_RAIDER_RETURN_OPTIONS,
         default_next: None,
     },
 ];

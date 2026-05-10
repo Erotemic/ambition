@@ -11,8 +11,9 @@ use bevy::prelude::*;
 
 use super::sheets::{
     CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET,
-    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET,
-    ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
+    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, PIRATE_SHEET,
+    PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET,
+    VAULT_KEEPER_SHEET,
 };
 use crate::features::FeatureVisualKind;
 
@@ -90,6 +91,18 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
         "Chadwick Disruptor III",
         "tech_bro_disruptor_spritesheet.png",
         TECH_BRO_DISRUPTOR_SHEET,
+    ),
+    // Pirate-faction characters in the Pirate Cove. Same sheet layout
+    // (idle/walk/slash/taunt/hurt/death) for both — see PIRATE_SHEET.
+    (
+        "Pirate Admiral",
+        "pirate_admiral_spritesheet.png",
+        PIRATE_SHEET,
+    ),
+    (
+        "Pirate Raider",
+        "pirate_raider_spritesheet.png",
+        PIRATE_SHEET,
     ),
     // Hub NPCs already authored in LDtk; we just point them at the
     // toon-target sheets rendered for them.

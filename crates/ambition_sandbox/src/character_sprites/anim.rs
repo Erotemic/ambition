@@ -29,6 +29,12 @@ pub enum CharacterAnim {
     /// `hover` row — the row we emit when the robot config lists
     /// `hover` after `dash`.
     Fly = 11,
+    /// Idle-variant gesture for hostile NPCs (pirate admiral / raider
+    /// generators emit a `taunt` row between `slash` and `hurt`).
+    /// Not currently produced by `pick_*_anim` — the row exists so
+    /// atlas indexing aligns with the PNG even when nothing requests
+    /// it, and so future combat-banter systems can pick it up.
+    Taunt = 12,
 }
 
 pub(super) fn non_looping(anim: CharacterAnim) -> bool {

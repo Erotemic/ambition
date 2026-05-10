@@ -43,8 +43,13 @@ visual_theme: blue
 # whose y range overlaps a y=880 placement when the door is 96px tall.
 # Bidirectional so the player can walk back out the same way.
 connect_to:
+  # y=832 was confirmed via `area_authoring --snap-to-surface
+  # central_hub_main --x 1050`: the floor surface at this x is
+  # OneWayUp at y=832, so the 96-tall door must sit with its top at
+  # y=832 to land on the floor (an earlier y=880 placement put the
+  # bottom 48px through the floor).
   - target_room: central_hub_main
-    px: [1050, 880]
+    px: [1050, 832]
     size: [48, 96]
     id: pirate_cove_door
     target_zone: pirate_cove_entry
@@ -122,6 +127,30 @@ entities:
       target_room: mockingbird_arena
       target_zone: mockingbird_arena_entry
       bidirectional: true
+
+  # ─────────────────────────────────────────────────────────────────
+  # Faction NPCs. The Admiral runs the cove and offers the Mockingbird
+  # bounty; the Raider grumbles about the missing chest. Both are
+  # registered in `NPC_SPRITE_REGISTRY` so they pick up the
+  # pirate_admiral / pirate_raider spritesheets at sprite-bind time.
+  # `dialogue_id`s match the entries added to `dialog.rs`.
+  # ─────────────────────────────────────────────────────────────────
+  - type: NpcSpawn
+    px: [220, 562]
+    size: [42, 70]
+    fields:
+      name: Pirate Admiral
+      prompt: Talk
+      dialogue_id: pirate_admiral
+      patrol_radius: 0
+  - type: NpcSpawn
+    px: [560, 562]
+    size: [42, 70]
+    fields:
+      name: Pirate Raider
+      prompt: Talk
+      dialogue_id: pirate_raider
+      patrol_radius: 0
 
   # ─────────────────────────────────────────────────────────────────
   # Camera + signage.

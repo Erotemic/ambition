@@ -818,6 +818,33 @@ impl FeatureRuntime {
         None
     }
 
+    /// Authored display name for an NPC by feature id (LDtk iid).
+    /// The renderer uses this to pick a faction-specific spritesheet
+    /// (see `CharacterSpriteAssets::npc_asset_for_name`); ids are not
+    /// human-meaningful, the LDtk `name` field is.
+    pub fn npc_name(&self, id: &str) -> Option<&str> {
+        self.npcs
+            .iter()
+            .find(|n| n.id == id)
+            .map(|n| n.name.as_str())
+    }
+
+    /// Snapshot the NPC state needed to drive its sprite animation.
+    /// Returns `None` if no NPC with that id exists. Mirrors
+    /// `enemy_anim_state` so the animation system can fall through
+    /// to NPCs after enemies (a feature id is only ever in one of
+    /// the two lists at a time).
+    pub fn npc_anim_state(&self, id: &str) -> Option<crate::character_sprites::NpcAnimState> {
+        self.npcs
+            .iter()
+            .find(|n| n.id == id)
+            .map(|n| crate::character_sprites::NpcAnimState {
+                vel: n.vel,
+                facing: n.facing,
+                hit_flash: n.hit_flash > 0.0,
+            })
+    }
+
     /// Snapshot the enemy state needed to drive its sprite animation.
     /// Returns `None` if no enemy with that id exists.
     pub fn enemy_anim_state(&self, id: &str) -> Option<crate::character_sprites::EnemyAnimState> {

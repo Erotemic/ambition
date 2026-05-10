@@ -96,3 +96,33 @@ pub fn pick_enemy_anim(state: EnemyAnimState) -> CharacterAnim {
         CharacterAnim::Idle
     }
 }
+
+/// Snapshot of a peaceful NPC's per-frame state for animation.
+///
+/// Smaller than `EnemyAnimState` because NPCs don't carry attack /
+/// alive state (a hostile NPC is migrated to an `EnemyRuntime`
+/// elsewhere; once the migration happens, the entity flows through
+/// `pick_enemy_anim` instead).
+#[derive(Clone, Copy, Debug)]
+pub struct NpcAnimState {
+    pub vel: ae::Vec2,
+    pub facing: f32,
+    pub hit_flash: bool,
+}
+
+/// Pick an NPC's animation. Hit-flash flickers `Hit` for a frame
+/// after a strike; non-zero horizontal speed plays `Walk`; otherwise
+/// `Idle`. Sheets without a Walk row fall back to Idle via
+/// `CharacterSheetSpec::resolve_anim`, so a stationary General
+/// rendered with the (idle-only) `ABSURD_GENERAL_SHEET` cycles its
+/// 8 idle frames the moment a `CharacterAnimator` is attached.
+pub fn pick_npc_anim(state: NpcAnimState) -> CharacterAnim {
+    if state.hit_flash {
+        return CharacterAnim::Hit;
+    }
+    if state.vel.x.abs() > 8.0 {
+        CharacterAnim::Walk
+    } else {
+        CharacterAnim::Idle
+    }
+}

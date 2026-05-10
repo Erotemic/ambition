@@ -340,7 +340,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 upgrade_enemy_sprites,
                 upgrade_boss_sprites,
                 animate_player,
-                animate_enemies,
+                animate_characters,
                 animate_bosses,
                 camera_follow,
                 debug_overlay::draw_debug_overlay,
@@ -358,13 +358,22 @@ pub fn add_presentation_plugins(app: &mut App) {
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
         )
+        // NPC spritesheet upgrade. Lives outside the big presentation
+        // tuple because that tuple is already at Bevy's 20-system
+        // `IntoSystemConfigs::chain()` cap. `.after(sync_visuals)`
+        // preserves the ordering guarantee the chain otherwise
+        // provided (FeatureVisuals must exist before we look them up).
+        .add_systems(
+            Update,
+            crate::rendering::upgrade_npc_sprites.after(sync_visuals),
+        )
         // Mouse / touch dismissal for the map menu — separate from the
-        // big presentation tuple to keep that under Bevy's 16-system
+        // big presentation tuple to keep that under Bevy's 20-system
         // tuple budget.
         .add_systems(Update, crate::map_menu::map_menu_pointer_dismiss)
         // Quest panel runs alongside the verbose HUD; placed in its
         // own `add_systems` so the main presentation tuple doesn't
-        // overflow Bevy's 16-system tuple budget.
+        // overflow Bevy's 20-system tuple budget.
         .add_systems(Update, update_quest_panel.after(update_hud))
         // Procedural morph-ball visual: build the texture once at
         // startup, spawn the sibling sprite as soon as the player

@@ -26,7 +26,9 @@ mod sheets;
 #[cfg(test)]
 mod tests;
 
-pub use anim::{pick_enemy_anim, pick_player_anim, CharacterAnim, EnemyAnimState};
+pub use anim::{
+    pick_enemy_anim, pick_npc_anim, pick_player_anim, CharacterAnim, EnemyAnimState, NpcAnimState,
+};
 pub use animator::CharacterAnimator;
 pub use assets::{load_character_sprites_in, CharacterSpriteAsset, CharacterSpriteAssets};
 pub use sheets::{

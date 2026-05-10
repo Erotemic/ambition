@@ -138,6 +138,48 @@ pub fn upgrade_enemy_sprites(
     }
 }
 
+/// Replace the static `EntitySprite::NpcTerminal` placeholder with a
+/// faction-specific spritesheet once the asset is loaded. Today the
+/// dispatch is keyed off the NPC's authored name (see
+/// `CharacterSpriteAssets::npc_asset_for_name`); when LDtk grows a
+/// `category` field on `NpcSpawn`, switch this to lookup-by-category
+/// so the dispatch survives display-name edits.
+///
+/// NPCs without a registered sprite (the common case for the existing
+/// hub guides etc.) keep the default terminal placeholder — symmetric
+/// with `enemy_asset` returning `None` for non-enemy kinds.
+pub fn upgrade_npc_sprites(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    runtime: Res<crate::SandboxRuntime>,
+    new_features: Query<(Entity, &FeatureVisual), Without<CharacterAnimator>>,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    for (entity, visual) in &new_features {
+        let Some(view) = runtime.features.view(&visual.id) else {
+            continue;
+        };
+        if !matches!(view.kind, FeatureVisualKind::Npc) {
+            continue;
+        }
+        let Some(name) = runtime.features.npc_name(&visual.id) else {
+            continue;
+        };
+        let Some(character_asset) = assets.characters.npc_asset_for_name(name) else {
+            continue;
+        };
+        let collision = BVec2::new(view.size.x, view.size.y);
+        let sprite = build_character_sprite(character_asset, collision);
+        commands.entity(entity).insert((
+            sprite,
+            feet_anchor_for(character_asset.spec, collision),
+            CharacterAnimator::new(character_asset.spec),
+        ));
+    }
+}
+
 /// Drive the player sprite's animation state, atlas index, and facing flip.
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 pub fn animate_player(
@@ -167,27 +209,51 @@ pub fn animate_player(
     };
 }
 
-/// Drive enemy sprite animation, atlas index, and facing flip.
-pub fn animate_enemies(
+/// Drive enemy AND NPC sprite animation, atlas index, and facing flip.
+///
+/// Enemies and NPCs both render through `CharacterAnimator`; their
+/// per-frame state is owned by separate runtime lists, but a feature
+/// id only ever appears in one of them at a time. We try the enemy
+/// lookup first (most entities in the room) and fall through to the
+/// NPC lookup, so a stationary General sheet ticks its 8 idle frames
+/// once the animator is attached.
+///
+/// One system instead of two avoids the borrow conflict on the
+/// shared `(&mut Sprite, &mut CharacterAnimator)` query.
+pub fn animate_characters(
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
     mut query: Query<(&FeatureVisual, &mut Sprite, &mut CharacterAnimator), Without<PlayerVisual>>,
 ) {
     let dt = time.delta_secs();
     for (visual, mut sprite, mut animator) in &mut query {
-        let Some(state) = runtime.features.enemy_anim_state(&visual.id) else {
-            continue;
-        };
-        let anim = crate::character_sprites::pick_enemy_anim(state);
+        let (anim, facing, hit_flash, attacking) =
+            if let Some(state) = runtime.features.enemy_anim_state(&visual.id) {
+                (
+                    crate::character_sprites::pick_enemy_anim(state),
+                    state.facing,
+                    state.hit_flash,
+                    state.attack_active || state.attack_windup,
+                )
+            } else if let Some(state) = runtime.features.npc_anim_state(&visual.id) {
+                (
+                    crate::character_sprites::pick_npc_anim(state),
+                    state.facing,
+                    state.hit_flash,
+                    false,
+                )
+            } else {
+                continue;
+            };
         animator.request(anim);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;
         }
-        sprite.flip_x = state.facing < 0.0;
-        sprite.color = if state.hit_flash {
+        sprite.flip_x = facing < 0.0;
+        sprite.color = if hit_flash {
             Color::srgba(1.0, 0.55, 0.55, 1.0)
-        } else if state.attack_active || state.attack_windup {
+        } else if attacking {
             Color::srgba(1.0, 0.85, 0.55, 1.0)
         } else {
             Color::WHITE

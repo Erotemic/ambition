@@ -12,7 +12,7 @@
 //!   feature-kind helpers and `spawn_world_label`.
 //! - [`actors`] — per-frame sync of player + enemy + boss sprites
 //!   and animation. Owns [`sync_visuals`], [`animate_player`],
-//!   [`animate_enemies`], [`animate_bosses`], [`upgrade_enemy_sprites`],
+//!   [`animate_characters`], [`animate_bosses`], [`upgrade_enemy_sprites`],
 //!   [`upgrade_boss_sprites`].
 //! - [`world`] — static room visuals. Owns [`spawn_room_visuals`],
 //!   [`spawn_block`], [`spawn_loading_zone`], [`spawn_grid`],
@@ -32,8 +32,8 @@ mod primitives;
 mod world;
 
 pub use actors::{
-    animate_bosses, animate_enemies, animate_player, sync_visuals, upgrade_boss_sprites,
-    upgrade_enemy_sprites,
+    animate_bosses, animate_characters, animate_player, sync_visuals, upgrade_boss_sprites,
+    upgrade_enemy_sprites, upgrade_npc_sprites,
 };
 pub use camera::camera_follow;
 pub use features::spawn_dynamic_feature_visuals;

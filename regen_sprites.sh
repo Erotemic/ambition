@@ -41,6 +41,28 @@ echo "==> adapter targets (robot / goblin / boss) → $sprites_dir"
 echo "==> entity sprites → $entities_dir"
 (cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-entities --out-dir "$entities_dir")
 
+echo "==> review NPC sheets (e.g. absurd_general) → $sprites_dir"
+# `draw-review` renders configs/review/*.yaml (faction/leader NPC
+# variants). We render to a scratch dir, then copy the specific
+# sheets we use in-game into $sprites_dir. Promoting a review config
+# to a permanent runtime sheet means: add the cue id to the copy
+# list below AND register a CharacterSheetSpec for it in
+# `crates/ambition_sandbox/src/character_sprites/sheets.rs`.
+review_scratch="$renderer_dir/generated/review"
+mkdir -p "$review_scratch"
+(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")
+for cue in absurd_general; do
+    for ext in png yaml; do
+        src="$review_scratch/${cue}_spritesheet.$ext"
+        if [ -f "$src" ]; then
+            cp "$src" "$sprites_dir/${cue}_spritesheet.$ext"
+            echo "  installed ${cue}_spritesheet.$ext"
+        else
+            echo "  WARN: $src missing — skipped"
+        fi
+    done
+done
+
 echo "==> tack-on: sandbag (render-publish into $sprites_dir)"
 (cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer render-publish sandbag --dest-root "$sprites_dir")
 

@@ -2,6 +2,76 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-05-10: LDtk `LoadingZone.target_room` is the activeArea id, not the level id
+
+The Ambition LDtk validator (`ambition_ldtk_tools doctor`) keys on a level's `activeArea` field, not the LDtk level identifier. `central_hub_main` and `central_hub_basement` both share the `central_hub_complex` activeArea — multiple LDtk levels can stitch into a single runtime room.
+
+Authoring a `LoadingZone` with `target_room: central_hub_main` (the level id) parses fine and writes a structurally valid project, but `doctor` reports:
+
+```text
+error: LoadingZone 'foo_entry' in 'foo' targets unknown room/activeArea 'central_hub_main'
+```
+
+The runtime stitches by activeArea, so this is not a cosmetic warning — the warp will not resolve. The `examples/music_biome_lab.yaml` spec in `tools/ambition_ldtk_tools/specs/examples/` still uses the level-id form (likely never applied or pre-validator); do not copy that pattern. New specs should use the activeArea identifier.
+
+Quick check for a destination's activeArea:
+
+```bash
+grep -B1 -A1 '"identifier": "central_hub_main"' crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+  | head -2
+# Then look for the level's "activeArea" field instance below.
+```
+
+## 2026-05-10: Sandbox.ldtk mutations go through `ambition_ldtk_tools`, never sed/Edit
+
+The repo contract is "agents should not hand-edit the LDtk JSON" ([tools/ambition_ldtk_tools/README.md](../../tools/ambition_ldtk_tools/README.md)). The tool's repair + validate pipeline catches editor-roundtrip drift, normalises `realEditorValues` records, and ensures the file stays editor-safe.
+
+When `ambition_ldtk_tools area create` writes the level but `doctor` reports an issue afterward, the right fix is one of:
+
+1. `git checkout` the LDtk file, edit the spec, re-run `area create`. This was the right move for the `target_room` mismatch above.
+2. Implement the missing functionality in the tool (some `entity {set-field, move, delete}` subcommands are still placeholders per the README).
+
+Reaching for `sed` or the `Edit` tool is the wrong muscle: the file's `realEditorValues` mirror data has to round-trip with LDtk 1.5 cleanly, and direct edits skip that normalization.
+
+## 2026-05-10: Calibrate `CharacterSheetSpec.collision_scale` against the generator's `body_pixel_bbox` fraction
+
+`build_character_sprite` in [crates/ambition_sandbox/src/character_sprites/sheets.rs](../../crates/ambition_sandbox/src/character_sprites/sheets.rs) sizes the rendered quad as `collision.max() * collision_scale`. The visible body inside that quad is determined by the generator's frame layout: how much of `frame_height × frame_width` is opaque body pixels.
+
+Robot/Goblin sheets use `collision_scale: 2.1` because their generator leaves big transparent margins (the silhouette occupies maybe 60% of the frame). Copying `2.1` for a generator like `absurd_general` whose `body_pixel_bbox` covers ~95% of the frame produces a sprite ~2× too tall — the General towers above the player.
+
+Rule of thumb when adding a new sheet:
+
+```
+collision_scale ≈ 1 / (body_pixel_bbox_h / frame_h)
+```
+
+So a sheet whose body fills the frame ends up near `1.0`, while one with lots of margin ends up near `2.0`. Read `body_metrics.body_pixel_bbox` and `body_metrics.frame_height` from the generator's `<target>_spritesheet.yaml` instead of guessing.
+
+`feet_anchor_y` should match the generator's `body_metrics.feet_anchor_norm.y` directly — that field already encodes the offset from frame center to feet in the same convention Bevy's `Anchor` uses (negative = below center).
+
+## 2026-05-10: Bevy `add_systems` tuple chains cap at 20 systems
+
+Adding `upgrade_npc_sprites` to the big presentation tuple in [crates/ambition_sandbox/src/app/plugins.rs](../../crates/ambition_sandbox/src/app/plugins.rs) (the chain that runs after `sandbox_update`) pushed it from 20 to 21 systems and produced this error:
+
+```text
+error[E0599]: the method `chain` exists for tuple `(..., ..., ..., …)`, but its trait bounds were not satisfied
+   --> crates/ambition_sandbox/src/app/plugins.rs:355:18
+355 |                 .chain()
+    |                 ^^^^^ method cannot be called due to unsatisfied trait bounds
+```
+
+`IntoSystemConfigs` (and the `chain()` extension) is implemented for tuples up to **20** elements in Bevy 0.18. There is no compile-time message about the cap; you only see the trait-bound failure on `.chain()`. Several earlier comments in this file said "16-system tuple budget" — that was right for older Bevy versions and is now stale.
+
+The established pattern in [plugins.rs](../../crates/ambition_sandbox/src/app/plugins.rs) is **not** to subdivide the chain (which would silently change ordering) but to pull the new system out into its own `add_systems(Update, sys.after(prev))` call. `sync_health_overlays`, `map_menu_pointer_dismiss`, and `update_quest_panel` are already wired this way; `upgrade_npc_sprites` joins them.
+
+Why this beats splitting into two chained tuples:
+
+- Two adjacent chained tuples are not the same as one chain — they don't enforce ordering between each other unless explicitly linked, which is easy to forget.
+- A separate `add_systems` with explicit `.after(...)` declares the actual dependency (here: must run after `sync_visuals` populated `FeatureVisual`s) and lets Bevy parallelise the rest.
+- Reviewers can see exactly what the system depends on, instead of having to reason about position in a 20-line tuple.
+
+When extending the presentation tuple in the future: keep it at ≤ 20, and prefer adding new systems as standalone `add_systems` calls with `.after(...)` ordering against whichever existing system actually dictates the dependency.
+
 ## 2026-05-08: Android APK bring-up
 
 ### Prefer generated Android projects, but keep the generated Java/Gradle side explicit

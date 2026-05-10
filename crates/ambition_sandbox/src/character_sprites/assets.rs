@@ -7,7 +7,9 @@
 
 use bevy::prelude::*;
 
-use super::sheets::{CharacterSheetSpec, GOBLIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET};
+use super::sheets::{
+    CharacterSheetSpec, ABSURD_GENERAL_SHEET, GOBLIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+};
 use crate::features::FeatureVisualKind;
 
 #[derive(Clone)]
@@ -23,6 +25,12 @@ pub struct CharacterSpriteAssets {
     pub robot: Option<CharacterSpriteAsset>,
     pub goblin: Option<CharacterSpriteAsset>,
     pub sandbag: Option<CharacterSpriteAsset>,
+    /// Faction-NPC sheet for the Absurd General (military lair leader).
+    /// Loaded only for NPCs whose authored name resolves to this asset
+    /// via `npc_asset_for_name`; absence falls back to the default
+    /// `EntitySprite::NpcTerminal` rectangle, so missing the file
+    /// degrades gracefully.
+    pub absurd_general: Option<CharacterSpriteAsset>,
     // The boss uses the entity-sprite path (`EntitySprite::BossCore`) rather
     // than the character-spritesheet path: its generator emits non-standard
     // animation rows (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/
@@ -38,11 +46,26 @@ impl CharacterSpriteAssets {
             _ => None,
         }
     }
+
+    /// Pick a character spritesheet for an NPC by its authored name.
+    /// Today this is a small explicit table — once the LDtk schema
+    /// gains a `category` field on `NpcSpawn`, this becomes a
+    /// category lookup instead of a name match.
+    pub fn npc_asset_for_name(&self, name: &str) -> Option<&CharacterSpriteAsset> {
+        match name {
+            // Display name in the LDtk NpcSpawn is "General"; the
+            // sprite asset id stays `absurd_general` because that's
+            // the generator archetype we render from.
+            "General" => self.absurd_general.as_ref(),
+            _ => None,
+        }
+    }
 }
 
 const ROBOT_FILENAME: &str = "robot_spritesheet.png";
 const GOBLIN_FILENAME: &str = "goblin_spritesheet.png";
 const SANDBAG_FILENAME: &str = "sandbag_spritesheet.png";
+const ABSURD_GENERAL_FILENAME: &str = "absurd_general_spritesheet.png";
 
 /// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
 /// Missing files are not an error — callers fall back to colored rectangles.
@@ -54,15 +77,27 @@ pub fn load_character_sprites_in(
     let robot_rel = format!("{sprite_folder}/{ROBOT_FILENAME}");
     let goblin_rel = format!("{sprite_folder}/{GOBLIN_FILENAME}");
     let sandbag_rel = format!("{sprite_folder}/{SANDBAG_FILENAME}");
+    let absurd_general_rel = format!("{sprite_folder}/{ABSURD_GENERAL_FILENAME}");
 
     let robot = build_optional(asset_server, layouts, &robot_rel, ROBOT_SHEET);
     let goblin = build_optional(asset_server, layouts, &goblin_rel, GOBLIN_SHEET);
     let sandbag = build_optional(asset_server, layouts, &sandbag_rel, SANDBAG_SHEET);
+    let absurd_general = build_optional(
+        asset_server,
+        layouts,
+        &absurd_general_rel,
+        ABSURD_GENERAL_SHEET,
+    );
 
     for (name, rel, present) in [
         ("robot", &robot_rel, robot.is_some()),
         ("goblin", &goblin_rel, goblin.is_some()),
         ("sandbag", &sandbag_rel, sandbag.is_some()),
+        (
+            "absurd_general",
+            &absurd_general_rel,
+            absurd_general.is_some(),
+        ),
     ] {
         if !present {
             eprintln!(
@@ -75,6 +110,7 @@ pub fn load_character_sprites_in(
         robot,
         goblin,
         sandbag,
+        absurd_general,
     }
 }
 

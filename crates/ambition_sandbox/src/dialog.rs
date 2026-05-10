@@ -164,6 +164,7 @@ enum DialogMode {
     VaultKeeper,
     MerchantSeed,
     HubGuide,
+    MilitaryGeneral,
     Generic,
 }
 
@@ -174,6 +175,7 @@ impl DialogMode {
             "vault_keeper" => Self::VaultKeeper,
             "merchant_seed" => Self::MerchantSeed,
             "hub_guide" => Self::HubGuide,
+            "military_general" => Self::MilitaryGeneral,
             _ => Self::Generic,
         }
     }
@@ -184,6 +186,7 @@ impl DialogMode {
             Self::VaultKeeper => "merchant / persistence seed",
             Self::MerchantSeed => "merchant design sketch",
             Self::HubGuide => "central hub guidance",
+            Self::MilitaryGeneral => "military faction leader",
             Self::Generic => "sandbox dialogue",
         }
     }
@@ -194,6 +197,7 @@ impl DialogMode {
             Self::VaultKeeper => VAULT_KEEPER_NODES,
             Self::MerchantSeed => MERCHANT_SEED_NODES,
             Self::HubGuide => HUB_GUIDE_NODES,
+            Self::MilitaryGeneral => MILITARY_GENERAL_NODES,
             Self::Generic => GENERIC_NODES,
         }
     }
@@ -451,6 +455,63 @@ const GENERIC_NODES: &[DialogNode] = &[
         speaker: "Sandbox NPC",
         line: "This NPC has no named Yarn node yet. The fallback still proves the interaction contract: trigger, pause, show line, choose, close, resume.",
         options: GENERIC_OPTIONS,
+        default_next: None,
+    },
+];
+
+const MILITARY_GENERAL_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What is this place?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Why so many medals?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Salute and withdraw.",
+        next_node: None,
+        note: Some("The General returns the salute with surgical precision and twelve audible clicks."),
+        close_after: true,
+    },
+];
+
+const MILITARY_GENERAL_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Salute and withdraw.",
+        next_node: None,
+        note: Some("The General returns the salute with surgical precision and twelve audible clicks."),
+        close_after: true,
+    },
+];
+
+const MILITARY_GENERAL_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "General",
+        line: "AT EASE, RECRUIT. You have ascended the Tower of Acceptable Casualties. Below us: parade grounds. Above us: bureaucracy. Around us: an oath you have not yet sworn.",
+        options: MILITARY_GENERAL_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "General",
+        line: "This is the Iron Bastion of the Faction Of Steel — a tower built from after-action reports and hand-cranked optimism. We host parades on the parts that aren't structural.",
+        options: MILITARY_GENERAL_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "General",
+        line: "Each medal commemorates a meeting I survived. Three are for punctuality. Two are for the meetings ABOUT punctuality. The largest one is awarded by, and to, myself.",
+        options: MILITARY_GENERAL_RETURN_OPTIONS,
         default_next: None,
     },
 ];

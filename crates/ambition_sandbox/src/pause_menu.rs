@@ -977,8 +977,12 @@ fn show_row_slot(node: &mut Node, vis: &mut Visibility) {
     if node.display != Display::Flex {
         node.display = Display::Flex;
     }
-    if *vis != Visibility::Visible {
-        *vis = Visibility::Visible;
+    // `Inherited` (not `Visible`) so the row follows the pause-menu root.
+    // `Visible` is force-visible and would survive the root flipping to
+    // `Hidden` on unpause, leaving stale rows on screen until the menu
+    // was toggled twice.
+    if *vis != Visibility::Inherited {
+        *vis = Visibility::Inherited;
     }
 }
 

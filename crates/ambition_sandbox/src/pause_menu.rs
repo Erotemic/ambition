@@ -15,6 +15,7 @@
 //! `--no-default-features --features input` still compiles.
 
 use bevy::app::AppExit;
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 #[cfg(feature = "audio")]
@@ -27,10 +28,13 @@ use crate::audio::{
 use crate::game_mode::GameMode;
 use crate::input::{KeyboardPreset, MenuControlFrame, MenuInputFrame};
 use crate::inventory::InventoryUiState;
+use crate::dev_tools::DeveloperTools;
+use crate::ldtk_world::LdtkHotReloadState;
 use crate::settings::{
-    apply_action as handle_settings_action, SettingsAction, SettingsItem, SettingsOutcome,
-    SettingsPage, UserSettings,
+    apply_action as handle_settings_action, DevToggleSnapshot, SettingsAction, SettingsItem,
+    SettingsOutcome, SettingsPage, UserSettings,
 };
+use crate::SandboxRuntime;
 #[cfg(feature = "input")]
 use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction, RowPointerOutcome};
 use crate::ui_nav::{decorate_windowed_label, indexed_title, visible_row_index, windowed_title};
@@ -39,6 +43,25 @@ use crate::windowing::DisplayModeState;
 /// Re-export the settings-row component so other modules that want to
 /// query menu rows by tag don't need to remember which module owns it.
 pub use crate::settings::SettingsItem as MenuSettingsItem;
+
+/// Mutable bundle of the runtime resources the Developer settings page
+/// toggles. Packed into a single `SystemParam` so `pause_menu_navigate`
+/// stays under Bevy's 16-param budget.
+#[derive(SystemParam)]
+pub struct DevToggleParams<'w> {
+    pub runtime: ResMut<'w, SandboxRuntime>,
+    pub developer: ResMut<'w, DeveloperTools>,
+    pub ldtk_reload: ResMut<'w, LdtkHotReloadState>,
+}
+
+/// Read-only counterpart used by `sync_pause_menu` to sample the
+/// developer-toggle snapshot for label rendering.
+#[derive(SystemParam)]
+pub struct DevToggleView<'w> {
+    pub runtime: Res<'w, SandboxRuntime>,
+    pub developer: Res<'w, DeveloperTools>,
+    pub ldtk_reload: Res<'w, LdtkHotReloadState>,
+}
 
 #[derive(Component)]
 pub struct PauseMenuRoot;
@@ -237,6 +260,7 @@ pub fn pause_menu_navigate(
     mut display_state: ResMut<DisplayModeState>,
     mut user_settings: ResMut<UserSettings>,
     mut reset_request: ResMut<crate::reset::SandboxResetRequested>,
+    mut dev_toggles: DevToggleParams,
     windows: Query<&mut Window, With<PrimaryWindow>>,
     #[cfg(feature = "audio")] mut library: ResMut<AudioLibrary>,
     #[cfg(feature = "audio")] asset_server: Res<AssetServer>,
@@ -323,6 +347,9 @@ pub fn pause_menu_navigate(
                 &mut display_state,
                 windows,
                 preset_count,
+                &mut dev_toggles.runtime,
+                &mut dev_toggles.developer,
+                &mut dev_toggles.ldtk_reload,
             );
         }
         PauseMenuPage::Radio => {
@@ -492,6 +519,7 @@ fn handle_radio_input(
 }
 
 #[cfg(feature = "input")]
+#[allow(clippy::too_many_arguments)]
 fn handle_settings_page_input(
     nav: MenuInputFrame,
     page: SettingsPage,
@@ -500,6 +528,9 @@ fn handle_settings_page_input(
     display_state: &mut DisplayModeState,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
     preset_count: usize,
+    runtime: &mut SandboxRuntime,
+    developer: &mut DeveloperTools,
+    ldtk_reload: &mut LdtkHotReloadState,
 ) {
     let rows = SettingsItem::rows_for(page);
     if rows.is_empty() {
@@ -533,6 +564,9 @@ fn handle_settings_page_input(
             display_state,
             &mut windows,
             preset_count,
+            runtime,
+            developer,
+            ldtk_reload,
         );
         match outcome {
             SettingsOutcome::Stay => {}
@@ -809,6 +843,7 @@ pub fn sync_pause_menu(
     music_state: Res<MusicPlaybackState>,
     radio: Res<RadioStationState>,
     user_settings: Res<UserSettings>,
+    dev_view: DevToggleView,
     mut roots: Query<&mut Visibility, With<PauseMenuRoot>>,
     mut top_panels: Query<&mut Node, (With<PauseMenuTopPanel>, Without<PauseMenuSettingsPanel>)>,
     mut settings_panels: Query<
@@ -868,6 +903,11 @@ pub fn sync_pause_menu(
         }
     } else if let PauseMenuPage::Settings(page) = state.page {
         let rows = SettingsItem::rows_for(page);
+        let dev = DevToggleSnapshot::capture(
+            &dev_view.runtime,
+            &dev_view.developer,
+            &dev_view.ldtk_reload,
+        );
         for (mut text, _) in &mut titles {
             **text = windowed_title(
                 page.title(),
@@ -885,7 +925,7 @@ pub fn sync_pause_menu(
             ) {
                 if let Some(item) = rows.get(row_index) {
                     **text = decorate_windowed_label(
-                        item.label(&user_settings),
+                        item.label_with_dev(&user_settings, dev),
                         row_index,
                         state.selected,
                         rows.len(),
@@ -960,6 +1000,7 @@ pub fn sync_pause_menu(
     state: Res<PauseMenuState>,
     inventory: Res<InventoryUiState>,
     user_settings: Res<UserSettings>,
+    dev_view: DevToggleView,
     mut roots: Query<&mut Visibility, With<PauseMenuRoot>>,
     mut top_panels: Query<&mut Node, (With<PauseMenuTopPanel>, Without<PauseMenuSettingsPanel>)>,
     mut settings_panels: Query<
@@ -1018,6 +1059,11 @@ pub fn sync_pause_menu(
         }
     } else if let PauseMenuPage::Settings(page) = state.page {
         let rows = SettingsItem::rows_for(page);
+        let dev = DevToggleSnapshot::capture(
+            &dev_view.runtime,
+            &dev_view.developer,
+            &dev_view.ldtk_reload,
+        );
         for (mut text, _) in &mut titles {
             **text = windowed_title(
                 page.title(),
@@ -1035,7 +1081,7 @@ pub fn sync_pause_menu(
             ) {
                 if let Some(item) = rows.get(row_index) {
                     **text = decorate_windowed_label(
-                        item.label(&user_settings),
+                        item.label_with_dev(&user_settings, dev),
                         row_index,
                         state.selected,
                         rows.len(),

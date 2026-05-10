@@ -54,8 +54,8 @@ pub use controls::{
 };
 pub use gameplay::{AssistMode, Difficulty, GameplaySettings};
 pub use model::{
-    apply_action, apply_display_mode, next_display_mode, prev_display_mode, SettingsAction,
-    SettingsItem, SettingsOutcome, SettingsPage,
+    apply_action, apply_display_mode, next_display_mode, prev_display_mode, DevToggleSnapshot,
+    SettingsAction, SettingsItem, SettingsOutcome, SettingsPage,
 };
 pub use video::{
     CameraZoomPreset, ColorblindMode, FlashIntensity, SerializableDisplayMode, VideoSettings,

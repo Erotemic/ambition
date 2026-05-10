@@ -14,7 +14,10 @@ use super::audio::AudioSettings;
 use super::gameplay::GameplaySettings;
 use super::video::SerializableDisplayMode;
 use super::UserSettings;
+use crate::dev_tools::DeveloperTools;
+use crate::ldtk_world::LdtkHotReloadState;
 use crate::windowing::{DisplayModeKind, DisplayModeState};
+use crate::SandboxRuntime;
 
 /// Top-level settings page. The pause menu starts at `Top` (the
 /// category list) and pushes onto a small stack when the user
@@ -27,6 +30,7 @@ pub enum SettingsPage {
     Audio,
     Controls,
     Gameplay,
+    Developer,
 }
 
 impl SettingsPage {
@@ -37,6 +41,7 @@ impl SettingsPage {
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Gameplay => "Gameplay",
+            Self::Developer => "Developer",
         }
     }
 
@@ -46,6 +51,7 @@ impl SettingsPage {
         Self::Audio,
         Self::Controls,
         Self::Gameplay,
+        Self::Developer,
     ];
 }
 
@@ -58,6 +64,7 @@ pub enum SettingsItem {
     OpenAudio,
     OpenControls,
     OpenGameplay,
+    OpenDeveloper,
     Back,
 
     // Video page.
@@ -94,6 +101,14 @@ pub enum SettingsItem {
     DebugHud,
     QuestHud,
     TraceAutoDump,
+
+    // Developer page (F-key equivalents).
+    DebugOverlay,
+    SlowMotion,
+    Inspector,
+    WorldInspector,
+    OverviewCamera,
+    LdtkAutoApply,
 }
 
 impl SettingsItem {
@@ -104,6 +119,7 @@ impl SettingsItem {
                 Self::OpenAudio,
                 Self::OpenControls,
                 Self::OpenGameplay,
+                Self::OpenDeveloper,
                 Self::Back,
             ],
             SettingsPage::Video => &[
@@ -145,17 +161,35 @@ impl SettingsItem {
                 Self::TraceAutoDump,
                 Self::Back,
             ],
+            SettingsPage::Developer => &[
+                Self::DebugOverlay,
+                Self::SlowMotion,
+                Self::Inspector,
+                Self::WorldInspector,
+                Self::OverviewCamera,
+                Self::LdtkAutoApply,
+                Self::Back,
+            ],
         }
     }
 
     /// Label shown to the user for this row, given the current
     /// settings snapshot.
     pub fn label(self, settings: &UserSettings) -> String {
+        self.label_with_dev(settings, DevToggleSnapshot::default())
+    }
+
+    /// Variant of [`label`](Self::label) that knows about the
+    /// developer-page toggles. Use this when rendering the Developer
+    /// page so the toggle state shows correctly; non-developer rows
+    /// ignore the snapshot.
+    pub fn label_with_dev(self, settings: &UserSettings, dev: DevToggleSnapshot) -> String {
         match self {
             Self::OpenVideo => "Video >".into(),
             Self::OpenAudio => "Audio >".into(),
             Self::OpenControls => "Controls >".into(),
             Self::OpenGameplay => "Gameplay >".into(),
+            Self::OpenDeveloper => "Developer >".into(),
             Self::Back => "Back".into(),
 
             Self::DisplayMode => format!(
@@ -280,6 +314,61 @@ impl SettingsItem {
                     "off"
                 }
             ),
+
+            Self::DebugOverlay => format!(
+                "Debug Overlay (F1): {}",
+                on_off(dev.debug_overlay)
+            ),
+            Self::SlowMotion => format!("Slow Motion (F2): {}", on_off(dev.slowmo)),
+            Self::Inspector => format!("Inspector (F3): {}", on_off(dev.inspector)),
+            Self::WorldInspector => {
+                format!("World Inspector (F4): {}", on_off(dev.world_inspector))
+            }
+            Self::OverviewCamera => {
+                format!("Overview Camera (F5): {}", on_off(dev.overview_camera))
+            }
+            Self::LdtkAutoApply => {
+                format!("LDtk Auto-Reload (F12): {}", on_off(dev.ldtk_auto_apply))
+            }
+        }
+    }
+}
+
+fn on_off(value: bool) -> &'static str {
+    if value {
+        "on"
+    } else {
+        "off"
+    }
+}
+
+/// Snapshot of the developer-page toggles, sampled from the live
+/// resources (`SandboxRuntime`, `DeveloperTools`, `LdtkHotReloadState`)
+/// so the pause-menu renderer can label rows without holding `Res`
+/// handles.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DevToggleSnapshot {
+    pub debug_overlay: bool,
+    pub slowmo: bool,
+    pub inspector: bool,
+    pub world_inspector: bool,
+    pub overview_camera: bool,
+    pub ldtk_auto_apply: bool,
+}
+
+impl DevToggleSnapshot {
+    pub fn capture(
+        runtime: &SandboxRuntime,
+        developer: &DeveloperTools,
+        ldtk_reload: &LdtkHotReloadState,
+    ) -> Self {
+        Self {
+            debug_overlay: runtime.debug_enabled(),
+            slowmo: runtime.slowmo,
+            inspector: developer.inspector_visible,
+            world_inspector: developer.world_inspector_visible,
+            overview_camera: developer.overview_camera,
+            ldtk_auto_apply: ldtk_reload.auto_apply,
         }
     }
 }
@@ -311,6 +400,7 @@ pub enum SettingsOutcome {
 /// `display_state` and `windows` are only required for the display-
 /// mode row because applying the change touches the live primary
 /// window.
+#[allow(clippy::too_many_arguments)]
 pub fn apply_action(
     item: SettingsItem,
     action: SettingsAction,
@@ -318,6 +408,9 @@ pub fn apply_action(
     display_state: &mut DisplayModeState,
     windows: &mut Query<&mut Window, With<PrimaryWindow>>,
     keyboard_preset_count: usize,
+    runtime: &mut SandboxRuntime,
+    developer: &mut DeveloperTools,
+    ldtk_reload: &mut LdtkHotReloadState,
 ) -> SettingsOutcome {
     match item {
         SettingsItem::OpenVideo => {
@@ -338,6 +431,11 @@ pub fn apply_action(
         SettingsItem::OpenGameplay => {
             if matches!(action, SettingsAction::Confirm) {
                 return SettingsOutcome::OpenPage(SettingsPage::Gameplay);
+            }
+        }
+        SettingsItem::OpenDeveloper => {
+            if matches!(action, SettingsAction::Confirm) {
+                return SettingsOutcome::OpenPage(SettingsPage::Developer);
             }
         }
         SettingsItem::Back => {
@@ -547,8 +645,54 @@ pub fn apply_action(
                 settings.gameplay.trace_auto_dump = !settings.gameplay.trace_auto_dump;
             }
         }
+
+        SettingsItem::DebugOverlay => {
+            if is_toggle_action(action) {
+                runtime.debug = !runtime.debug;
+            }
+        }
+        SettingsItem::SlowMotion => {
+            if is_toggle_action(action) {
+                runtime.slowmo = !runtime.slowmo;
+            }
+        }
+        SettingsItem::Inspector => {
+            if is_toggle_action(action) {
+                developer.inspector_visible = !developer.inspector_visible;
+            }
+        }
+        SettingsItem::WorldInspector => {
+            if is_toggle_action(action) {
+                developer.world_inspector_visible = !developer.world_inspector_visible;
+            }
+        }
+        SettingsItem::OverviewCamera => {
+            if is_toggle_action(action) {
+                developer.overview_camera = !developer.overview_camera;
+            }
+        }
+        SettingsItem::LdtkAutoApply => {
+            if is_toggle_action(action) {
+                ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
+                ldtk_reload.last_status = format!(
+                    "LDtk auto-apply {}",
+                    if ldtk_reload.auto_apply {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
+                );
+            }
+        }
     }
     SettingsOutcome::Stay
+}
+
+fn is_toggle_action(action: SettingsAction) -> bool {
+    matches!(
+        action,
+        SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+    )
 }
 
 pub fn next_display_mode(current: DisplayModeKind) -> DisplayModeKind {

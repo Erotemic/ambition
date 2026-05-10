@@ -27,6 +27,16 @@ pub struct EnemyRuntime {
     /// (enemy must be standing on something before it tries to fall
     /// through it) and by future jump AI.
     pub on_ground: bool,
+    /// When this enemy was spawned by migrating a hostile NPC, the
+    /// LDtk display name of the original NPC. The sprite resolver
+    /// passes this through `npc_asset_for_name` so faction NPCs that
+    /// turn hostile keep their own sheet (and their own slash / hit
+    /// rows) instead of being re-skinned as a goblin. Only the Kernel
+    /// Guide NPC has the dedicated "transforms into a goblin" beat —
+    /// every other hostile NPC stays themselves and uses their own
+    /// attack animations. `None` means "use the default `Enemy` sprite
+    /// (currently `goblin_spritesheet`)".
+    pub sprite_override_npc_name: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -197,6 +207,7 @@ impl EnemyRuntime {
             hit_flash: 0.0,
             ai_mode: ae::CharacterAiMode::Idle,
             on_ground: false,
+            sprite_override_npc_name: None,
         }
     }
 

@@ -95,6 +95,18 @@ impl FeatureRuntime {
                 npc.pos,
                 ae::Vec2::new(npc.size.x.max(22.0), npc.size.y.max(38.0)),
             );
+            // Sprite-override gate. Only the Kernel Guide has the
+            // dedicated "turns into a goblin" beat (it's a deliberate
+            // joke about the hub guide growing tusks); every other
+            // hostile NPC keeps their own spritesheet so their
+            // authored slash / hit rows actually drive the visual.
+            // `None` here means "use the default `Enemy` sheet
+            // (goblin)" — the kernel guide's name shadows that.
+            if npc.name != "Kernel Guide NPC" {
+                if let Some(enemy) = self.enemies.last_mut() {
+                    enemy.sprite_override_npc_name = Some(npc.name.clone());
+                }
+            }
             self.banner = format!("{} attacks!", npc.name);
             self.banner_timer = 1.5;
         }
@@ -827,6 +839,18 @@ impl FeatureRuntime {
             .iter()
             .find(|n| n.id == id)
             .map(|n| n.name.as_str())
+    }
+
+    /// If this enemy was spawned by migrating a hostile NPC, return
+    /// the LDtk display name of the original NPC so the renderer can
+    /// keep the NPC's authored spritesheet. Falls through to `None`
+    /// for authored / encounter-spawned enemies, which use the
+    /// default goblin sheet.
+    pub fn enemy_sprite_override(&self, id: &str) -> Option<&str> {
+        self.enemies
+            .iter()
+            .find(|e| e.id == id)
+            .and_then(|e| e.sprite_override_npc_name.as_deref())
     }
 
     /// Snapshot the NPC state needed to drive its sprite animation.

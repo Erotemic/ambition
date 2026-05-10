@@ -161,7 +161,21 @@ pub fn upgrade_enemy_sprites(
         if matches!(bound, Some(BoundFeatureKind(k)) if *k == view.kind) {
             continue;
         }
-        let Some(character_asset) = assets.characters.enemy_asset(view.kind) else {
+        // Sprite-override path: an enemy that was spawned by migrating
+        // a hostile NPC carries the original LDtk display name so the
+        // renderer can keep that NPC's sheet (with its authored slash
+        // / hit rows). Only the Kernel Guide migration leaves the
+        // override blank, so kernel→goblin keeps its dedicated visual
+        // gag while every other faction NPC stays themselves when
+        // hostile.
+        let character_asset = match runtime.features.enemy_sprite_override(&visual.id) {
+            Some(name) => assets
+                .characters
+                .npc_asset_for_name(name)
+                .or_else(|| assets.characters.enemy_asset(view.kind)),
+            None => assets.characters.enemy_asset(view.kind),
+        };
+        let Some(character_asset) = character_asset else {
             continue;
         };
         let collision = BVec2::new(view.size.x, view.size.y);

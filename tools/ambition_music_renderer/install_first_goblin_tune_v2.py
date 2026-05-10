@@ -43,21 +43,28 @@ def find_manifest(src: Path) -> Path:
     return matches[0]
 
 
-def install_stable(src: Path, dest: Path, file_base: str) -> list[Path]:
+def install_stable(
+    src: Path,
+    dest: Path,
+    file_base: str,
+    *,
+    install_stems: bool,
+) -> list[Path]:
     written: list[Path] = []
     missing: list[str] = []
     for section in SECTIONS:
         section_src = src / "adaptive" / section
         section_dest = dest / "adaptive" / section
         section_dest.mkdir(parents=True, exist_ok=True)
-        for stem in STEMS:
-            src_file = section_src / f"{file_base}.{section}.{stem}.ogg"
-            dst_file = section_dest / f"{section}.{stem}.ogg"
-            if not src_file.exists():
-                missing.append(str(src_file.relative_to(src)))
-                continue
-            shutil.copy2(src_file, dst_file)
-            written.append(dst_file)
+        if install_stems:
+            for stem in STEMS:
+                src_file = section_src / f"{file_base}.{section}.{stem}.ogg"
+                dst_file = section_dest / f"{section}.{stem}.ogg"
+                if not src_file.exists():
+                    missing.append(str(src_file.relative_to(src)))
+                    continue
+                shutil.copy2(src_file, dst_file)
+                written.append(dst_file)
         if section in FULL_SECTIONS:
             src_full = section_src / f"{file_base}.{section}.full.ogg"
             dst_full = section_dest / f"{section}.full.ogg"
@@ -122,6 +129,15 @@ def main() -> int:
         action="store_true",
         help="Wipe destination directory (and any legacy first_goblin_encounter assets) first",
     )
+    parser.add_argument(
+        "--with-stems",
+        action="store_true",
+        help=(
+            "Also require/install per-stem OGGs. The game currently plays "
+            "per-section full mixes for this cue, so the default is faster "
+            "and installs full mixes only."
+        ),
+    )
     args = parser.parse_args()
 
     src = Path(args.src).resolve()
@@ -144,13 +160,14 @@ def main() -> int:
         shutil.rmtree(asset_root / "first_goblin_encounter", ignore_errors=True)
     dest.mkdir(parents=True, exist_ok=True)
 
-    written = install_stable(src, dest, file_base)
+    written = install_stable(src, dest, file_base, install_stems=args.with_stems)
     shutil.copy2(manifest_path, dest / "adaptive_manifest.json")
 
     print(f"installed {len(written)} OGG assets")
     print(f"  src:  {src}")
     print(f"  dest: {dest}")
     print(f"  cue:  {CUE_ID}  hash={manifest['hash']}")
+    print(f"  stems_installed: {args.with_stems}")
     return 0
 
 

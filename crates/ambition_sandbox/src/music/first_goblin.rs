@@ -39,30 +39,17 @@ pub(super) fn first_goblin_tune_v2_spec() -> MusicCueSpec {
             .collect()
     }
 
-    // 2026-05-08 rebalance: the renderer's mastering chain
-    // (compressor / reverb / limiter) only runs on the per-section
-    // full-mix file, not on individual stems. The raw stems for
-    // wave1/2/3 measure -50 to -inf LUFS -- three of the six stems
-    // are essentially silent -- while the per-section full mixes sit
-    // around -35 LUFS. To keep the cue audible at intro-level
-    // loudness without pushing distortion, wave sections now play
-    // the mastered full mix as a single layer with a fixed gain
-    // boost (~ +14 dB -> -21 LUFS, close to the lofi tracks at
-    // -24 LUFS). The intro / outro / recap_loop full mixes are
-    // already mastered and ride the same path.
+    // Full-mix sections should arrive from the renderer at roughly matched
+    // perceived loudness. Keep runtime gains near unity so the music director
+    // is not acting as a fake mastering stage: large runtime boosts magnify
+    // SoundFont/reverb/codec noise floors and make section boundaries obvious.
+    // If a section needs +10 dB here, fix the YAML/generator and rerender.
     //
-    // Cost: the wave2_brute state can no longer differ from wave2
-    // (both share the wave2 section's single source). Acceptable
-    // tradeoff until the renderer learns to master stems too --
-    // until then the per-stem gains were applied on near-silence
-    // anyway, so wave2_brute was inaudibly different from wave2.
-    //
-    // Important: keep `layers` above in sync with this full-mix approach. If
-    // stale stem layer ids remain registered, runtime legacy balance overrides
-    // can find them and overwrite slot 0 after the `full` gain has been set,
-    // making wave1 sound far quieter than the authored 5.0 gain implies.
-    let wave_state_gain = 5.0;
-    let bridge_state_gain = 2.4;
+    // Cost: wave2_brute still degenerates to wave2 while the cue uses one
+    // mastered full mix per section. Reintroduce stem state gains only after
+    // the renderer masters per-stem outputs at usable levels.
+    let wave_state_gain = 1.0;
+    let bridge_state_gain = 0.85;
     MusicCueSpec {
         id: FIRST_GOBLIN_CUE_ID.to_string(),
         asset_root,

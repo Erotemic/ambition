@@ -6,8 +6,12 @@ This is the production-oriented entry point for long adaptive cues. It writes:
 - adaptive/<section>/<section>.full.ogg
 - preview/<cue>.full_soundtrack_preview.ogg     (mastered full mix)
 - preview/<cue>.in_game_full_active.ogg         (all stems summed, no master)
-- preview/<cue>.in_game_state_<name>.ogg        (minimal/maximal state mixes)
+- preview/<cue>.in_game_state_<name>.ogg        (minimal/maximal state mixes, optional)
 - <cue>.adaptive_manifest.json
+
+For the current in-game goblin cue, the runtime consumes per-section full mixes
+and not per-stem OGG files. Use --full-mix-only to skip those per-stem encodes
+while still rendering the adaptive section full mixes that the game loads.
 """
 from __future__ import annotations
 import argparse, json, math, os, shlex, subprocess, sys
@@ -84,6 +88,7 @@ def is_render_current(
     cue_hash: str,
     *,
     simple_mix: bool,
+    full_mix_only: bool,
 ) -> tuple[bool, Path | None, str]:
     """Return whether rendered music is current for this spec + renderer version.
 
@@ -101,7 +106,9 @@ def is_render_current(
     if manifest.get("hash") != cue_hash:
         return False, manifest_path, "manifest hash/version does not match"
     if bool(manifest.get("simple_mix", False)) != simple_mix:
-        return False, manifest_path, "manifest render mode does not match"
+        return False, manifest_path, "manifest simple_mix mode does not match"
+    if bool(manifest.get("full_mix_only", False)) != full_mix_only:
+        return False, manifest_path, "manifest full_mix_only mode does not match"
     outputs = _manifest_paths(manifest, outdir)
     if not outputs:
         return False, manifest_path, "manifest lists no output files"
@@ -133,6 +140,26 @@ def main(argv=None) -> int:
         ),
     )
     ap.add_argument(
+        "--full-mix-only",
+        action="store_true",
+        help=(
+            "Emit the mastered preview plus per-section full mixes, but skip "
+            "per-section per-stem OGGs and in-game preview mixes. This is the "
+            "fast path for adaptive cues whose Rust spec plays full mixes "
+            "directly, such as first_goblin_tune_v2."
+        ),
+    )
+    ap.add_argument(
+        "--keep-debug-stems",
+        action="store_true",
+        help=(
+            "Keep intermediate .npy stem buffers under scratch_stems/. By "
+            "default they are deleted at the end of a successful render; they "
+            "exist only so isolated worker processes can pass audio back to "
+            "the parent process for full-mix assembly."
+        ),
+    )
+    ap.add_argument(
         "--force",
         action="store_true",
         help=(
@@ -153,6 +180,8 @@ def main(argv=None) -> int:
         ),
     )
     ns = ap.parse_args(argv)
+    if ns.simple_mix and ns.full_mix_only:
+        ap.error("--simple-mix and --full-mix-only are mutually exclusive")
     spec_path = Path(ns.spec)
     spec = yaml.safe_load(spec_path.read_text())
     render_cfg = spec.get("render", {})
@@ -165,7 +194,12 @@ def main(argv=None) -> int:
 
     if not ns.force:
         current, manifest_path, reason = is_render_current(
-            spec_path, outdir, spec["id"], cue_hash, simple_mix=ns.simple_mix
+            spec_path,
+            outdir,
+            spec["id"],
+            cue_hash,
+            simple_mix=ns.simple_mix,
+            full_mix_only=ns.full_mix_only,
         )
         if current and manifest_path is not None:
             manifest = json.loads(manifest_path.read_text(encoding="utf8"))
@@ -195,7 +229,7 @@ def main(argv=None) -> int:
             sys.executable, "-m", "ambition_music_renderer.render_group_worker",
             str(spec_path), "--outdir", str(outdir), "--group", group, "--backend", ns.backend,
         ]
-        if ns.simple_mix:
+        if ns.simple_mix or ns.full_mix_only:
             cmd.append("--skip-section-ogg")
         return cmd
 
@@ -238,11 +272,12 @@ def main(argv=None) -> int:
     # Load all stems into memory once for the various preview mixes.
     stem_audio: dict[str, np.ndarray] = {}
     for group in group_names:
-        npy = outdir / "debug_stems" / f"{spec['id']}_{cue_hash}.{group}.npy"
+        npy = outdir / "scratch_stems" / f"{spec['id']}_{cue_hash}.{group}.npy"
         stem_audio[group] = r.ensure_audio_length(np.load(npy), target)
         for sec in meta:
-            path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.{group}.ogg"
-            output_files["adaptive"].setdefault(sec["id"], {})[group] = str(path.relative_to(outdir))
+            if not (ns.simple_mix or ns.full_mix_only):
+                path = outdir / "adaptive" / sec["id"] / f"{spec['id']}_{cue_hash}.{sec['id']}.{group}.ogg"
+                output_files["adaptive"].setdefault(sec["id"], {})[group] = str(path.relative_to(outdir))
 
     # ---- Full mastered preview (matches the YAML postprocess intent) ----
     full = np.zeros((target, 2), dtype="float32")
@@ -284,9 +319,9 @@ def main(argv=None) -> int:
     # The runtime layers stems on the fly and never runs the master postprocess.
     # These previews approximate that mixing path so it's possible to listen
     # to what each gameplay state actually sounds like in-engine. Skipped in
-    # --simple-mix mode because non-adaptive single-track cues never load
-    # them and the OGG encoding cost dominates render time.
-    if not ns.simple_mix:
+    # --simple-mix / --full-mix-only modes because those paths do not install
+    # per-stem runtime assets and the extra OGG encodes dominate render time.
+    if not (ns.simple_mix or ns.full_mix_only):
         in_game_mixes = in_game_preview_mixes(spec, group_names)
 
         for label, weights in in_game_mixes.items():
@@ -306,6 +341,7 @@ def main(argv=None) -> int:
     manifest = r.build_manifest(spec, cue_hash, meta, group_names, output_files, sr)
     manifest["render_mode"] = "isolated_process_stem_warmmix"
     manifest["simple_mix"] = bool(ns.simple_mix)
+    manifest["full_mix_only"] = bool(ns.full_mix_only)
     manifest_path = outdir / f"{spec['id']}_{cue_hash}.adaptive_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf8")
 
@@ -326,26 +362,34 @@ def main(argv=None) -> int:
         f"spec={shlex.quote(str(abs_spec))}\n"
         f"outdir={shlex.quote(str(abs_outdir))}\n"
         f"backend={shlex.quote(ns.backend)}\n"
+        f"full_mix_only={1 if ns.full_mix_only else 0}\n"
+        f"keep_debug_stems={1 if ns.keep_debug_stems else 0}\n"
         'cd "$renderer_dir"\n'
         'if [ -d .venv ]; then source .venv/bin/activate; fi\n'
         'rm -rf "$outdir"\n'
-        'python -m ambition_music_renderer.render_isolated "${spec}" --outdir "${outdir}" --backend "${backend}" --force\n',
+        'args=("${spec}" --outdir "${outdir}" --backend "${backend}" --force)\n'
+        'if [ "${full_mix_only}" -eq 1 ]; then args+=(--full-mix-only); fi\n'
+        'if [ "${keep_debug_stems}" -eq 1 ]; then args+=(--keep-debug-stems); fi\n'
+        'python -m ambition_music_renderer.render_isolated "${args[@]}"\n',
         encoding="utf8",
     )
     regen.chmod(0o755)
 
-    for npy in (outdir / "debug_stems").glob("*.npy"):
-        npy.unlink()
-    try:
-        (outdir / "debug_stems").rmdir()
-    except OSError:
-        pass
+    if not ns.keep_debug_stems:
+        for npy in (outdir / "scratch_stems").glob("*.npy"):
+            npy.unlink()
+        try:
+            (outdir / "scratch_stems").rmdir()
+        except OSError:
+            pass
 
     print(json.dumps({
         "skipped": False,
         "manifest": str(manifest_path),
         "preview": str(preview),
         "in_game_previews": [v for k, v in output_files["preview"].items() if k.startswith("in_game_")],
+        "full_mix_only": bool(ns.full_mix_only),
+        "kept_debug_stems": bool(ns.keep_debug_stems),
         "hash": cue_hash,
     }, indent=2))
     return 0

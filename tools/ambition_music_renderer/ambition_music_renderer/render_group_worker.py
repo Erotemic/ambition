@@ -22,10 +22,11 @@ def main(argv=None) -> int:
         "--skip-section-ogg",
         action="store_true",
         help=(
-            "Skip writing per-section per-group OGGs. The npy stem dump "
-            "is still written (the main process needs it to mix the "
-            "master preview). Used by render_isolated --simple-mix to "
-            "remove unused encoded outputs from the render budget."
+            "Skip writing per-section per-group OGGs. The temporary .npy "
+            "stem buffer is still written (the parent process needs it to "
+            "mix the mastered preview and/or per-section full mixes). Used "
+            "by render_isolated --simple-mix / --full-mix-only to remove "
+            "unused encoded outputs from the render budget."
         ),
     )
     ns = ap.parse_args(argv)
@@ -49,7 +50,7 @@ def main(argv=None) -> int:
         settings.setdefault("normalize", False)
         settings.setdefault("target_peak_db", -2.5)
         audio = r.post_process(raw, sr, settings)
-    npy = outdir / "debug_stems" / f"{spec['id']}_{cue_hash}.{ns.group}.npy"
+    npy = outdir / "scratch_stems" / f"{spec['id']}_{cue_hash}.{ns.group}.npy"
     npy.parent.mkdir(parents=True, exist_ok=True)
     np.save(npy, audio.astype("float32"))
     files = {}

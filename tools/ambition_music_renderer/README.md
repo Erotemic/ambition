@@ -378,3 +378,19 @@ The current renderer version is recorded in `RENDERER_VERSION` at the top
 of `musicir_renderer.py`. The version is part of the cue hash, so bumping
 it invalidates all stored hashes — useful when changing rendering behavior
 in a way that affects audio output.
+
+## First goblin full-mix helper
+
+For the currently active adaptive encounter cue, prefer the top-level wrapper:
+
+```bash
+./generate_audio_assets.sh --force
+```
+
+Despite the generic name, this script only renders `first_goblin_tune_v2`. By
+default it uses `render_isolated --full-mix-only`, which writes the mastered
+preview and per-section full mixes the game actually loads, while skipping
+per-stem OGG encodes. Pass `--with-stems` only when inspecting or reviving
+stem-driven runtime playback. Temporary `.npy` scratch buffers are deleted after
+successful renders unless `--keep-debug-stems` is passed.
+

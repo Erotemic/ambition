@@ -819,18 +819,18 @@ fn apply_first_goblin_runtime_balance_overrides(
         return;
     }
 
+    // The current first_goblin_tune_v2 runtime plays one mastered `full` layer
+    // per section. In that mode, state.gains are intentionally near unity and
+    // the renderer/YAML owns section-to-section loudness. Do not apply the old
+    // per-stem runtime balance table: doing so hides generator problems and can
+    // overwrite the slot used by the `full` layer.
+    if cue.layers.len() == 1 && cue.layer("full").is_some() {
+        return;
+    }
+
     let overrides: &[(&str, f32)] = match state.id.as_str() {
-        // Intro: the cue authors `full = 1.0` against the pre-rendered
-        // intro mix. The newest goblin v2 stems are mastered hotter
-        // than the wave1 stems-mix, which made the encounter open
-        // loud relative to wave1/wave2. Drop intro's full layer to
-        // 0.40 so the perceived loudness lines up with the
-        // post-intro stem blend. (Fine-tuning will need a real audio
-        // mastering pass; this is the conservative single-knob fix.)
-        "intro" => &[("full", 0.40)],
-        // Outro: same logic as intro.
-        "outro" => &[("full", 0.40)],
-        // Cleared bridge: keep dialed-back, the encounter is over.
+        "intro" => &[("full", 0.95)],
+        "outro" => &[("full", 0.85)],
         "cleared_bridge" => &[
             ("strings", 0.40),
             ("winds", 0.36),
@@ -847,11 +847,6 @@ fn apply_first_goblin_runtime_balance_overrides(
             ("brass", 0.00),
             ("choir_pad", 0.00),
         ],
-        // wave2: drums COME IN (intentional entrance). Percussion at
-        // 0.42 gives a clear "rhythm has joined the mix" feel without
-        // overpowering the strings/brass. wave1 (0.08) is the
-        // pre-percussion baseline; wave2 is the first beat-driven
-        // beat-of-the-encounter.
         "wave2" => &[
             ("strings", 0.95),
             ("winds", 1.00),
@@ -860,8 +855,6 @@ fn apply_first_goblin_runtime_balance_overrides(
             ("brass", 0.44),
             ("choir_pad", 0.04),
         ],
-        // wave2_brute: heavier mob variant. Drums + brass push beyond
-        // standard wave2 to match the "brute encounter" intensity.
         "wave2_brute" => &[
             ("strings", 0.95),
             ("winds", 1.00),
@@ -870,11 +863,6 @@ fn apply_first_goblin_runtime_balance_overrides(
             ("brass", 0.58),
             ("choir_pad", 0.06),
         ],
-        // wave3: drums KICK UP FURTHER. Bumped from the prior 0.42 to
-        // 0.58 so the wave3 transition is unambiguously a step up from
-        // wave2's 0.42 -- enough headroom that the audio file change
-        // at the section crossfade reads as "drums got louder + the
-        // rhythm shifted" rather than "the track switched".
         "wave3" => &[
             ("strings", 0.90),
             ("winds", 1.00),

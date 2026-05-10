@@ -73,3 +73,55 @@ entity's footprint would catch it.
 
 `ldtk`, `tooling`, `bevy-collision`, `silent-failure`,
 `tool-vs-runtime-mismatch`
+
+## Q: Implement a "ledge grab + climb-up" snap mechanic that cannot teleport the player out of the world
+
+### Context
+
+You're adding a ledge-grab mechanic to a 2D platformer. The player can wall-cling, and while clinging the engine each frame calls a probe routine that asks: *"is there a grabbable ledge at head height on the side I'm clinging to?"* If yes, the probe returns:
+
+* `anchor` — where the player's center should sit while hanging.
+* `climb_target` — where the player should snap when they press Up + Jump to climb up.
+
+The world is a finite rect; coordinates are top-left (Y grows downward), and the playable area is `[Vec2::ZERO, world.size]`. The world contains `Solid` blocks. Levels are authored in an external editor (LDtk) and may include ceiling tiles, floor tiles, and arbitrary geometry; the probe's caller does not pre-filter blocks by location, only by `BlockKind`.
+
+A natural first cut of the probe checks two things for each candidate Solid:
+
+1. The ledge top sits within a "shoulder height" band around the player's head.
+2. The space directly above the ledge is clear of *other* solid blocks (probe an AABB the player's size sitting on top of the ledge; reject if it overlaps another Solid).
+
+This passes every unit test the engine ships, and the player can grab and climb most ledges in the level.
+
+### Failure
+
+In one room the player can grab a ledge near the ceiling and then snaps *above* the world's top edge after pressing Up + Jump. The engine's collision-correction or a follow-up movement step bounces them back to the wall, the wall-cling state re-fires the probe, the probe returns the same ledge, and the player is stuck oscillating between two positions ~450 px apart — visually a flickering teleport, mechanically a soft-lock that traps them inside an arena lock-wall encounter.
+
+The only signal in an F8 trace dump is two repeating `CollisionCorrection :: <large>px (vel-budget <small>px)` events alternating directions, with no `InputEdge` events between them.
+
+### Expected answer
+
+The probe is missing a world-bounds rejection. "Clear of other blocks" is necessary but not sufficient — the climbed-onto AABB must also stay inside the world rect. With top-left coordinates and a player half-extent `half`, the probe AABB whose center is `(target_x, target_y)` must satisfy:
+
+```rust
+target_y - half.y >= 0.0
+target_x - half.x >= 0.0
+target_x + half.x <= world.size.x
+```
+
+These three checks belong inside the probe alongside the existing `body_overlaps_any` clearance check, not in the caller. Splitting them invites a future call site to skip the bounds check; co-locating them keeps "is this snap target physically valid" as one decision.
+
+The deeper invariant: **any movement primitive that snaps the player to a computed position (ledge climb, blink, dash-through, mantle, teleport) must validate the destination against world bounds before the snap commits, even when local clearance looks fine.** Recovery systems (collision-correction, last-safe-pos) are not a substitute — they fight the snap each frame and produce visible teleport-loops rather than fail closed.
+
+### Diagnostic hint
+
+The fingerprint of "physics fight between a bad snap and a recovery system" in an F8 trace is paired `CollisionCorrection` events with equal-and-opposite deltas and no `InputEdge` between them. When you see that pattern, look for snap mechanics — not for collision bugs in the sweep code.
+
+### Validation
+
+* Unit test: a world with a `Solid` whose top edge is at `y ≈ 1` (so the player sitting on top would have their head above `y = 0`) — the probe must return `None`. Without the bounds check the probe returns a `LedgeContact` whose `climb_target.y` is negative.
+* In-engine: kicking off a wall-cling against a near-ceiling tile should not produce a teleport, period.
+
+### Tags
+
+`game-physics`, `world-bounds`, `snap-mechanic`, `record-replay`,
+`silent-failure`, `feedback-loop`, `architecture-seam`

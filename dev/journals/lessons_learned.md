@@ -2,6 +2,25 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-05-10: Movement-snap probes must validate world bounds, not just intra-block clearance
+
+[`ambition_engine::probe_ledge_grab`](../../crates/ambition_engine/src/ledge_grab.rs) checked that the platform on top of a candidate ledge was clear of *other* solid blocks (good), but did not check that the climbed-onto position lay inside the world rect. The mob_lab arena has a ceiling tile at y≈1; a wall-clinging player whose head touched that ceiling could pass `probe_ledge_grab`'s clearance test, get snapped to a `climb_target.y = -23`, and end up above the world.
+
+The visible symptom was a teleport-loop trapping the player in the goblin encounter:
+
+1. Wall-cling near the ceiling.
+2. `update_ledge_grab` latches; Up + Jump snaps player to `climb_target` (OOB at y=-23).
+3. Engine collision-correction or follow-up movement step bounces the player back to the wall (y≈423).
+4. Wall-cling re-fires the probe → step 2.
+
+F8 trace dumps showed two repeating `CollisionCorrection :: 446px (vel-budget 16px)` events alternating directions, with no input edges between them — the giveaway that physics, not input, was driving the loop.
+
+Rule: any "snap-to-target" mechanic (ledge grab climb, blink, dash through, teleport, mantle) must reject targets that fall outside the world AABB before the snap commits, even if local clearance against blocks looks fine. World-bounds rejection belongs in the same probe that does block-clearance — it's the same family of "is this destination physically valid" check, and splitting them invites the snap to fire while the bounds check happens elsewhere.
+
+In this codebase the World rect is `[Vec2::ZERO, world.size]` in top-left coordinates, so for a player body of half-extent `half`, the snap target's AABB must satisfy `target.y - half.y >= 0`, `target.x - half.x >= 0`, `target.x + half.x <= world.size.x`. (Bottom-edge checks aren't needed for upward snaps, but should be added for any future downward mechanics.)
+
+When debugging similar teleport-loops: read the F8 trace's event list for paired `CollisionCorrection` events with equal-and-opposite deltas and no `InputEdge` between them; that's the fingerprint of a physics fight between a bad snap and a recovery system.
+
 ## 2026-05-10: Enemies and NPCs share the player's collision semantics via `KinematicBody`
 
 The sandbox used to ship per-actor collision predicates `blocked` / `blocked_y` in `crates/ambition_sandbox/src/features/util.rs` that diverged from `ambition_engine::movement::sweep_player_y` in a load-bearing way: OneWay platforms always blocked vertical motion regardless of approach direction. Symptoms downstream:

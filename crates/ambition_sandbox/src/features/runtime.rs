@@ -217,6 +217,43 @@ impl FeatureRuntime {
     }
 }
 
+/// Run one fixed-`dt` gravity step on a falling chest, sub-stepped so
+/// a fast-falling chest can't tunnel through a thin floor. Clears
+/// `falling` (and `vel_y`) on the first solid contact below.
+///
+/// Pulled out of `FeatureRuntime::update` so the boss-encounter
+/// "spawn-and-fast-settle" path can run the same physics in a tight
+/// loop (see `sync_mockingbird_treasure_chest`) — guaranteeing a
+/// looted chest re-spawns at the *same* settled y the live tick
+/// would have produced, instead of dropping again on every room load.
+pub fn tick_chest_fall(chest: &mut ChestRuntime, world: &ae::World, dt: f32) {
+    chest.vel_y = (chest.vel_y + CHEST_FALL_GRAVITY * dt).min(CHEST_FALL_MAX_SPEED);
+    let step = chest.vel_y * dt;
+    if step <= 0.0 {
+        return;
+    }
+    let max_substep = (chest.size.y * 0.5).max(2.0);
+    let mut remaining = step;
+    while remaining > 0.0 {
+        let advance = remaining.min(max_substep);
+        let try_pos = ae::Vec2::new(chest.pos.x, chest.pos.y + advance);
+        let try_aabb = ae::Aabb::new(try_pos, chest.size * 0.5);
+        let blocked = world.body_overlaps_any(try_aabb, |block| {
+            matches!(
+                block.kind,
+                ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
+            )
+        });
+        if blocked {
+            chest.falling = false;
+            chest.vel_y = 0.0;
+            break;
+        }
+        chest.pos = try_pos;
+        remaining -= advance;
+    }
+}
+
 impl FeatureRuntime {
     pub fn from_world(world: &ae::World) -> Self {
         let paths = room_paths(world);
@@ -374,6 +411,18 @@ impl FeatureRuntime {
             }
         }
 
+        // Falling-chest physics. Chests spawned mid-air (today: the
+        // pirate-hoard drop from a defeated mockingbird) integrate
+        // gravity until they touch a solid block below, then settle
+        // and behave like any other static chest. Authored / encounter
+        // chests have `falling = false` and skip this loop entirely.
+        for chest in &mut self.chests {
+            if !chest.falling {
+                continue;
+            }
+            tick_chest_fall(chest, world, dt);
+        }
+
         for pickup in &mut self.pickups {
             if pickup.visible && pickup.aabb().strict_intersects(player_body) {
                 pickup.visible = false;
@@ -413,14 +462,21 @@ impl FeatureRuntime {
                     events.consumed_interaction = true;
                     events.messages.push(npc.message());
                     if !npc.hostile {
-                        events.dialogue_request = Some(npc.dialogue_request());
+                        let dialogue_request = npc.dialogue_request();
                         // Quest hook: "talked to NPC" + a generic
                         // "met any hub NPC" flag the tutorial quest
-                        // listens for.
+                        // listens for, plus a per-dialogue flag so
+                        // quests can key on specific NPCs without
+                        // depending on the LDtk-issued iid.
                         events
                             .quest_advance
                             .push(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()));
                         events.flag_writes.push(("met_any_hub_npc".into(), true));
+                        events.flag_writes.push((
+                            format!("npc_{}_talked", dialogue_request.dialogue_id),
+                            true,
+                        ));
+                        events.dialogue_request = Some(dialogue_request);
                     }
                     events.bursts.push(npc.pos);
                 }

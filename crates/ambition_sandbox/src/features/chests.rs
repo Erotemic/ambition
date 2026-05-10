@@ -8,6 +8,14 @@ pub struct ChestRuntime {
     pub size: ae::Vec2,
     pub chest: ae::Chest,
     pub opened: bool,
+    /// True while the chest is dropping toward the floor (e.g. just
+    /// released by a defeated boss). Cleared on first solid contact.
+    /// Authored / encounter chests start `false` — they're already
+    /// where the room author wants them.
+    pub falling: bool,
+    /// Vertical velocity in y-down world space (positive = downward).
+    /// Only meaningful while `falling`.
+    pub vel_y: f32,
 }
 
 impl ChestRuntime {
@@ -19,6 +27,8 @@ impl ChestRuntime {
             size: object.aabb.half_size() * 2.0,
             chest,
             opened: false,
+            falling: false,
+            vel_y: 0.0,
         }
     }
 

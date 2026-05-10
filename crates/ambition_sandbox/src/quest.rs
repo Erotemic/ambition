@@ -7,6 +7,7 @@
 //! - listens for advance events (NPC talks, encounter clears, boss
 //!   defeats, flag flips) and routes them into the registry
 //! - exposes a `quest_log_lines` helper the HUD can render
+//! - grants completion rewards (e.g. the pirate treasure payout)
 //!
 //! Today the sandbox carries one tutorial quest, "First Steps", as a
 //! proof-of-concept. Future content adds more by appending to
@@ -16,6 +17,21 @@ use std::collections::BTreeMap;
 
 use ambition_engine as ae;
 use bevy::prelude::*;
+
+use crate::inventory::{ItemKind, PlayerInventory};
+
+/// Save flag set once the pirate-treasure reward has been granted, so
+/// the payout fires exactly once across save/reload cycles.
+pub const PIRATE_TREASURE_REWARD_FLAG: &str = "pirate_treasure_reward_granted";
+
+/// Items the pirate admiral hands over when the treasure is returned.
+/// Kept as a const so the payout is data-defined (and test-pinable)
+/// rather than buried in a system body.
+pub const PIRATE_TREASURE_REWARD: &[(ItemKind, u32)] = &[
+    (ItemKind::HealthPotion, 3),
+    (ItemKind::SpareBattery, 2),
+    (ItemKind::DataChip, 1),
+];
 
 /// Sandbox quest registry. Keyed by quest id matching `QuestSpec::id`.
 #[derive(Resource, Default)]
@@ -120,6 +136,31 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
                 ),
             ],
         ),
+        // Pirate cove bounty: the cove's hoard was stolen by a
+        // mockingbird. Auto-starts at boot so the player can take
+        // either path first — slay the bird or chat up the admiral.
+        // Step ordering encodes the *minimum* sequence: the chest has
+        // to actually exist (i.e. the bird must be dead) before
+        // returning it to the admiral can complete the quest. Talking
+        // to the admiral first is fine — the FlagSet event simply
+        // doesn't match step 0 and the quest stays put. The fallback
+        // path (kill the bird first, then walk in) lands the player
+        // at step 1 with no extra preamble required.
+        ae::QuestSpec::new(
+            "pirate_treasure",
+            "The Plundered Hoard",
+            "A mockingbird looted the pirate cove. Bring the chest back.",
+            vec![
+                ae::QuestStepSpec::new(
+                    "Hunt the mockingbird and reclaim the chest.",
+                    ae::QuestStepCondition::BossDefeated("mockingbird".into()),
+                ),
+                ae::QuestStepSpec::new(
+                    "Return the treasure to the pirate admiral.",
+                    ae::QuestStepCondition::FlagSet("npc_pirate_admiral_talked".into()),
+                ),
+            ],
+        ),
     ]
 }
 
@@ -149,6 +190,9 @@ pub fn populate_quest_registry(
         let _ = q.start();
     }
     if let Some(q) = registry.quests.get_mut("quest_lab_visit") {
+        let _ = q.start();
+    }
+    if let Some(q) = registry.quests.get_mut("pirate_treasure") {
         let _ = q.start();
     }
     registry.initialized = true;
@@ -196,6 +240,40 @@ pub fn apply_quest_advance_events(
                 .set_quest(&id, state.progression, state.step);
         }
     }
+}
+
+/// Apply the items in `PIRATE_TREASURE_REWARD` to the inventory and
+/// return a banner string for the HUD. Pure helper so tests can drive
+/// the payout without spinning up Bevy.
+pub fn grant_pirate_treasure_reward(inventory: &mut PlayerInventory) -> String {
+    for (kind, count) in PIRATE_TREASURE_REWARD {
+        inventory.add(*kind, *count);
+    }
+    "TREASURE RETURNED — Admiral pays out the hoard".to_string()
+}
+
+/// Detect newly-completed quests with payouts and grant their rewards
+/// once. Today only the pirate-treasure quest has a payout; new
+/// quests that need rewards on completion can extend the match.
+pub fn grant_quest_completion_rewards(
+    registry: Res<QuestRegistry>,
+    mut save: ResMut<crate::save::SandboxSave>,
+    mut inventory: ResMut<PlayerInventory>,
+    mut runtime: ResMut<crate::SandboxRuntime>,
+) {
+    let Some(state) = registry.quests.get("pirate_treasure") else {
+        return;
+    };
+    if !state.is_complete() {
+        return;
+    }
+    if save.data().flag(PIRATE_TREASURE_REWARD_FLAG) {
+        return;
+    }
+    let banner = grant_pirate_treasure_reward(&mut inventory);
+    save.data_mut().set_flag(PIRATE_TREASURE_REWARD_FLAG, true);
+    runtime.features.banner = banner;
+    runtime.features.banner_timer = 3.0;
 }
 
 #[cfg(test)]
@@ -253,5 +331,65 @@ mod tests {
         registry.push_event(ae::QuestAdvanceEvent::FlagSet("foo".into()));
         registry.push_event(ae::QuestAdvanceEvent::FlagSet("bar".into()));
         assert_eq!(registry.pending_events.len(), 2);
+    }
+
+    fn pirate_treasure_spec() -> ae::QuestSpec {
+        default_quest_specs()
+            .into_iter()
+            .find(|s| s.id == "pirate_treasure")
+            .expect("pirate_treasure spec")
+    }
+
+    fn pirate_treasure_state() -> ae::QuestState {
+        let mut state = ae::QuestState::new(pirate_treasure_spec());
+        state.start();
+        state
+    }
+
+    #[test]
+    fn pirate_treasure_completes_when_bird_defeated_then_admiral_talked() {
+        let mut state = pirate_treasure_state();
+        assert!(state.is_active());
+        assert!(state.try_advance(&ae::QuestAdvanceEvent::BossDefeated("mockingbird".into())));
+        assert!(state.is_active());
+        assert!(state.try_advance(&ae::QuestAdvanceEvent::FlagSet(
+            "npc_pirate_admiral_talked".into()
+        )));
+        assert!(state.is_complete());
+    }
+
+    /// Fallback path: the player wanders into the mockingbird arena
+    /// and downs the bird before ever speaking to the admiral. The
+    /// quest must still progress from step 0 to step 1, then complete
+    /// once the player walks back and talks to the admiral. The
+    /// pre-kill admiral flag (if any) is irrelevant.
+    #[test]
+    fn pirate_treasure_handles_admiral_talk_before_kill_as_a_no_op() {
+        let mut state = pirate_treasure_state();
+        // Talk to admiral first — wrong condition for step 0 (which
+        // wants BossDefeated). Quest must stay put.
+        assert!(!state.try_advance(&ae::QuestAdvanceEvent::FlagSet(
+            "npc_pirate_admiral_talked".into()
+        )));
+        assert_eq!(state.step, 0);
+        assert!(state.is_active());
+        // Kill the bird → step advances.
+        assert!(state.try_advance(&ae::QuestAdvanceEvent::BossDefeated("mockingbird".into())));
+        assert_eq!(state.step, 1);
+        // Walk back and talk again → completes.
+        assert!(state.try_advance(&ae::QuestAdvanceEvent::FlagSet(
+            "npc_pirate_admiral_talked".into()
+        )));
+        assert!(state.is_complete());
+    }
+
+    #[test]
+    fn grant_pirate_treasure_reward_adds_each_item_listed_in_payout() {
+        let mut inventory = PlayerInventory::default();
+        let banner = grant_pirate_treasure_reward(&mut inventory);
+        for (kind, count) in PIRATE_TREASURE_REWARD {
+            assert_eq!(inventory.count(*kind), *count);
+        }
+        assert!(banner.contains("TREASURE"));
     }
 }

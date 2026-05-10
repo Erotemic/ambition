@@ -6,6 +6,7 @@
 //! content can migrate to real Yarn nodes without changing NPC/merchant-facing
 //! gameplay semantics.
 
+use ambition_engine as ae;
 use bevy::prelude::*;
 #[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::*;
@@ -72,6 +73,28 @@ impl DialogState {
 
     pub fn active(&self) -> bool {
         self.active
+    }
+
+    /// Swap the dialog's mode mid-conversation, resetting node /
+    /// option indices so the next render shows the new branch from
+    /// its first node. Intended for redirect systems (e.g. quest
+    /// state changes the dialog tree) — callers must guarantee the
+    /// new mode's node list is non-empty.
+    pub fn set_mode(&mut self, mode: DialogMode) {
+        if self.mode == mode {
+            return;
+        }
+        self.mode = mode;
+        self.node_index = 0;
+        self.selected_option = 0;
+        self.pointer_armed = None;
+        self.last_note.clear();
+    }
+
+    /// Read the current dialog branch — used by redirect systems to
+    /// decide whether a remap is needed without forcing a write.
+    pub fn mode(&self) -> DialogMode {
+        self.mode
     }
 
     pub fn title(&self) -> String {
@@ -158,7 +181,7 @@ impl DialogState {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-enum DialogMode {
+pub enum DialogMode {
     #[default]
     Architect,
     VaultKeeper,
@@ -169,7 +192,17 @@ enum DialogMode {
     PulseVoyagerCaptain,
     TechBrosDisruptor,
     PirateAdmiral,
+    /// Post-treasure-return variant. Chosen by `redirect_post_quest_dialog`
+    /// when the player walks up to the admiral after the mockingbird is
+    /// dead. Carries the "thank you for the chest" beat so the admiral
+    /// stops asking the player to go kill a bird that is, in fact,
+    /// already on the floor of the arena.
+    PirateAdmiralAfterTreasure,
     PirateRaider,
+    /// Post-treasure-return variant for the raider, mirroring the
+    /// admiral. Cheaper banter — the raider gets a different beat to
+    /// keep the cove from feeling like one looping admiral.
+    PirateRaiderAfterTreasure,
     Generic,
 }
 
@@ -200,8 +233,8 @@ impl DialogMode {
             Self::GoblinCantinaChieftain => "goblin cantina chieftain",
             Self::PulseVoyagerCaptain => "pulse voyager captain",
             Self::TechBrosDisruptor => "tech-bros disruptor",
-            Self::PirateAdmiral => "pirate admiral",
-            Self::PirateRaider => "pirate raider",
+            Self::PirateAdmiral | Self::PirateAdmiralAfterTreasure => "pirate admiral",
+            Self::PirateRaider | Self::PirateRaiderAfterTreasure => "pirate raider",
             Self::Generic => "sandbox dialogue",
         }
     }
@@ -217,7 +250,9 @@ impl DialogMode {
             Self::PulseVoyagerCaptain => PULSE_VOYAGER_CAPTAIN_NODES,
             Self::TechBrosDisruptor => TECH_BROS_DISRUPTOR_NODES,
             Self::PirateAdmiral => PIRATE_ADMIRAL_NODES,
+            Self::PirateAdmiralAfterTreasure => PIRATE_ADMIRAL_AFTER_TREASURE_NODES,
             Self::PirateRaider => PIRATE_RAIDER_NODES,
+            Self::PirateRaiderAfterTreasure => PIRATE_RAIDER_AFTER_TREASURE_NODES,
             Self::Generic => GENERIC_NODES,
         }
     }
@@ -819,6 +854,128 @@ const PIRATE_RAIDER_RETURN_OPTIONS: &[DialogChoice] = &[
     },
 ];
 
+// Post-defeat / post-return cove dialog. Lights up when
+// `redirect_post_quest_dialog` swaps the dialog mode after the
+// mockingbird's encounter state flips to `Cleared`. The chest may or
+// may not have been physically retrieved by the player yet; the
+// `quest::PIRATE_TREASURE_REWARD_FLAG` flag tracks whether the
+// admiral has actually paid out, but at the conversation level, the
+// admiral's mood changes the moment the bird stops being a problem.
+
+const PIRATE_ADMIRAL_AFTER_TREASURE_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "About the chest…",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Anything else?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on, Admiral.",
+        next_node: None,
+        note: Some("The Admiral lifts a fresh mug. The cove, for once, looks like the inside of a cove and not the outside of a grievance."),
+        close_after: true,
+    },
+];
+
+const PIRATE_ADMIRAL_AFTER_TREASURE_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on, Admiral.",
+        next_node: None,
+        note: Some("The Admiral salutes with the right hand. Possibly the only correct salute the cove has filed all season."),
+        close_after: true,
+    },
+];
+
+const PIRATE_ADMIRAL_AFTER_TREASURE_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Admiral",
+        line: "Landstrider returns. The bird is feathers and the chest is OURS again — I owe you a hold full of thanks and a small fortune in goods. The cove sleeps tonight without one ear cocked at the sky.",
+        options: PIRATE_ADMIRAL_AFTER_TREASURE_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Admiral",
+        line: "Iron-bound, salt-cured, three locks the Mockingbird picked with a beak — proves the bird had hands somewhere a respectable bird shouldn't. Whatever was inside is yours; whatever's in the cove's books is square.",
+        options: PIRATE_ADMIRAL_AFTER_TREASURE_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Admiral",
+        line: "Stay sharp out there. There's always another bird, another cove, another bar that thinks our shanties belong to them. If something needs hunting, we know where to find you now.",
+        options: PIRATE_ADMIRAL_AFTER_TREASURE_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+const PIRATE_RAIDER_AFTER_TREASURE_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What's the cove drinking to tonight?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Sing me a shanty.",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("The raider toasts with a mug that, against all odds, has stayed full for an entire conversation."),
+        close_after: true,
+    },
+];
+
+const PIRATE_RAIDER_AFTER_TREASURE_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Carry on.",
+        next_node: None,
+        note: Some("The raider salutes with the wrong hand. Old habits."),
+        close_after: true,
+    },
+];
+
+const PIRATE_RAIDER_AFTER_TREASURE_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Raider",
+        line: "There they are. The bird-killer. I owe you a drink and the Admiral owes you a fortune. I'll let you collect from the one that pays better.",
+        options: PIRATE_RAIDER_AFTER_TREASURE_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Raider",
+        line: "You. Loud. The bird, who's not here. The bar, who's still here. And the chest, which is BACK. We do not toast the chest — the chest toasts itself. That's just respect.",
+        options: PIRATE_RAIDER_AFTER_TREASURE_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Raider",
+        line: "Yo-ho, the Mockingbird's done / Yo-ho, the songs are won / Yo-ho, the chest is RETURNED / and the chest is the actual ledger of every yo-ho ever filed. ...you don't need the third verse.",
+        options: PIRATE_RAIDER_AFTER_TREASURE_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
 const PIRATE_RAIDER_NODES: &[DialogNode] = &[
     DialogNode {
         speaker: "Raider",
@@ -962,6 +1119,45 @@ pub fn dialog_input(
 
 #[cfg(not(feature = "input"))]
 pub fn dialog_input() {}
+
+/// Swap the live dialog branch when world state has progressed past
+/// the conversation's original prompt. Today this only affects the
+/// pirate cove: once the mockingbird's encounter is `Cleared`, the
+/// admiral and raider both pivot from "go kill the bird" to "the bird
+/// is dead, here is your reward / banter."
+///
+/// GENERALIZATION PLAN: this is the second piece of pirate-specific
+/// glue (the first is `boss_encounter::sync_mockingbird_treasure_chest`).
+/// When a third quest needs post-completion dialog, lift this into a
+/// data table — `(trigger_mode, gate_predicate, target_mode)` triples
+/// registered by content code — and let the system iterate. Until
+/// then, the pair-of-conditions is small enough to inline.
+///
+/// Runs each frame `.after(sandbox_update).before(sync_dialog_ui)` so
+/// the redirected mode is the one the renderer reads.
+pub fn redirect_post_quest_dialog(
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    save: Res<crate::save::SandboxSave>,
+) {
+    if !runtime.dialogue.active() {
+        return;
+    }
+    let bird_dead = matches!(
+        save.data().boss(crate::boss_encounter::MOCKINGBIRD_ENCOUNTER_ID),
+        ae::PersistedEncounterState::Cleared,
+    );
+    if !bird_dead {
+        return;
+    }
+    let new_mode = match runtime.dialogue.mode() {
+        DialogMode::PirateAdmiral => Some(DialogMode::PirateAdmiralAfterTreasure),
+        DialogMode::PirateRaider => Some(DialogMode::PirateRaiderAfterTreasure),
+        _ => None,
+    };
+    if let Some(mode) = new_mode {
+        runtime.dialogue.set_mode(mode);
+    }
+}
 
 pub fn sync_dialog_ui(
     mut commands: Commands,

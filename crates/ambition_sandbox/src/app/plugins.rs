@@ -134,6 +134,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::sync_features_with_save,
                 crate::quest::push_room_entered_quest_events,
                 crate::quest::apply_quest_advance_events,
+                crate::quest::grant_quest_completion_rewards,
                 crate::ledge_grab::update_ledge_grab,
                 crate::body_mode::update_body_mode,
                 crate::rooms::sync_active_room_metadata,
@@ -357,6 +358,18 @@ pub fn add_presentation_plugins(app: &mut App) {
         .add_systems(
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
+        )
+        // Quest-state-driven dialog redirect: flips the live dialog
+        // branch the moment the underlying world state advances past
+        // the conversation's prompt (e.g. mockingbird is now dead).
+        // Must run AFTER `sandbox_update` (which is where dialog
+        // start happens) and BEFORE `sync_dialog_ui` (which renders
+        // the chosen branch) so the redirected mode is the one drawn.
+        .add_systems(
+            Update,
+            dialog::redirect_post_quest_dialog
+                .after(sandbox_update)
+                .before(dialog::sync_dialog_ui),
         )
         // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
         // Bevy entities against `world.blocks` so the wall is visible

@@ -25,6 +25,15 @@ const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 const BOSS_ATTACK_COOLDOWN: f32 = 1.35;
 const BREAK_ON_STAND_SECONDS: f32 = 0.85;
 
+/// Gravity (px/s²) used by the falling-chest tick. Lighter than the
+/// player's GRAVITY (2250) so a treasure chest reads as a heavy-but-
+/// floaty drop, not a brick. Tuned by feel against the mockingbird
+/// arena: at 1400 px/s² and 80 px of fall, the drop lands in ~0.34 s.
+const CHEST_FALL_GRAVITY: f32 = 1400.0;
+/// Terminal-velocity cap so a chest dropped from a tall arena doesn't
+/// blast through the floor sweep before the sub-step kicks in.
+const CHEST_FALL_MAX_SPEED: f32 = 900.0;
+
 mod bosses;
 mod breakables;
 mod bus;
@@ -55,7 +64,7 @@ pub use hazards::HazardRuntime;
 pub use npcs::NpcRuntime;
 pub use path_motion::PathMotion;
 pub use pickups::PickupRuntime;
-pub use runtime::{FeatureRuntime, SwitchRuntime};
+pub use runtime::{tick_chest_fall, FeatureRuntime, SwitchRuntime};
 pub use world_overlay::world_with_sandbox_solids;
 
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;

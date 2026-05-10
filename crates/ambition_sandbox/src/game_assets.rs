@@ -230,6 +230,12 @@ pub struct GameAssets {
     /// don't fit `CharacterAnim`. `None` falls back to the static
     /// `EntitySprite::BossCore` image.
     pub boss: Option<BossSpriteAsset>,
+    /// Mockingbird boss spritesheet — different generator (the
+    /// standalone PIL-based mockingbird tool) with a 6-row layout
+    /// (hover / thrust / bite / slash / hit / death). The rendering
+    /// layer dispatches on the boss's authored name to pick this
+    /// asset; other bosses fall back to `boss`.
+    pub mockingbird: Option<BossSpriteAsset>,
 }
 
 /// Build a fresh `GameAssets` from disk, honoring `config`.
@@ -251,6 +257,8 @@ pub fn load_game_assets(
         character_sprites::load_character_sprites_in(asset_server, layouts, &config.sprite_folder);
     let entities = load_entity_sprites(asset_server, &config.sprite_folder);
     let boss = boss_sprites::load_boss_sprite_in(asset_server, layouts, &config.sprite_folder);
+    let mockingbird =
+        boss_sprites::load_mockingbird_sprite_in(asset_server, layouts, &config.sprite_folder);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {
@@ -265,6 +273,7 @@ pub fn load_game_assets(
         characters,
         entities,
         boss,
+        mockingbird,
     }
 }
 

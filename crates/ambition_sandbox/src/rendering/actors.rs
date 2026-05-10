@@ -332,9 +332,6 @@ pub fn upgrade_boss_sprites(
     let Some(assets) = assets else {
         return;
     };
-    let Some(boss_asset) = &assets.boss else {
-        return;
-    };
     for (entity, visual) in &new_bosses {
         let Some(view) = runtime.features.view(&visual.id) else {
             continue;
@@ -342,6 +339,22 @@ pub fn upgrade_boss_sprites(
         if !matches!(view.kind, FeatureVisualKind::Boss) {
             continue;
         }
+        // Pick the per-boss sheet by authored name. The mockingbird
+        // ships its own 6-row sheet (hover / thrust / bite / slash /
+        // hit / death) installed by the standalone python generator;
+        // other bosses fall back to the gradient-sentinel sheet that
+        // ships with the main `ambition_sprite2d_renderer` package.
+        // If neither is available we skip — the colored rectangle
+        // fallback in `sync_visuals` continues to render.
+        let boss_name = runtime.features.boss_name(&visual.id).unwrap_or("");
+        let boss_asset = if boss_name.eq_ignore_ascii_case("mockingbird") {
+            assets.mockingbird.as_ref().or(assets.boss.as_ref())
+        } else {
+            assets.boss.as_ref()
+        };
+        let Some(boss_asset) = boss_asset else {
+            continue;
+        };
         let collision = BVec2::new(view.size.x, view.size.y);
         let mut sprite = Sprite::from_atlas_image(
             boss_asset.texture.clone(),

@@ -144,6 +144,33 @@ impl BossEncounterSpec {
             music_enrage: "original_lofi_loop".into(),
         }
     }
+
+    /// Mockingbird boss — pirate-faction arena boss. Shorter HP pool
+    /// than the gradient sentinel to keep the fight crisp; the design
+    /// intent is "swooping aerial pressure" rather than a long combat
+    /// of attrition. Uses the `how_to_kill_a_mockingbird` audio score
+    /// (rendered separately by the music renderer); falls back to
+    /// existing boss tracks if the audio asset isn't on disk.
+    pub fn mockingbird() -> Self {
+        Self {
+            id: "mockingbird".into(),
+            name: "Mockingbird".into(),
+            max_hp: 28,
+            phase1_to_transition_hp: 0.60,
+            transition_to_phase2_hp: 0.60,
+            phase2_to_enrage_hp: 0.25,
+            intro_seconds: 2.0,
+            transition_seconds: 1.4,
+            stagger_seconds: 1.6,
+            death_seconds: 2.2,
+            stagger_threshold: 5,
+            stagger_window_seconds: 1.4,
+            music_intro: "how_to_kill_a_mockingbird".into(),
+            music_phase1: "how_to_kill_a_mockingbird".into(),
+            music_phase2: "how_to_kill_a_mockingbird".into(),
+            music_enrage: "how_to_kill_a_mockingbird".into(),
+        }
+    }
 }
 
 /// Live encounter state.
@@ -210,6 +237,15 @@ impl BossEncounterState {
             }
             ("gradient_sentinel", BossEncounterPhase::Enrage) => {
                 Some(crate::BossPatternSchedule::gradient_sentinel_phase3_traversal())
+            }
+            ("mockingbird", BossEncounterPhase::Phase1) => {
+                Some(crate::BossPatternSchedule::mockingbird_phase1())
+            }
+            ("mockingbird", BossEncounterPhase::Phase2) => {
+                Some(crate::BossPatternSchedule::mockingbird_phase2())
+            }
+            ("mockingbird", BossEncounterPhase::Enrage) => {
+                Some(crate::BossPatternSchedule::mockingbird_phase2())
             }
             _ => None,
         }

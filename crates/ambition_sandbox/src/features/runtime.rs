@@ -900,6 +900,16 @@ impl FeatureRuntime {
         self.chests.iter().find(|c| c.id == id).map(|c| c.opened)
     }
 
+    /// Look up a boss's authored display name by feature id. Used by
+    /// the rendering layer to pick the right per-boss spritesheet
+    /// (mockingbird vs gradient sentinel) at sprite-bind time.
+    pub fn boss_name(&self, id: &str) -> Option<&str> {
+        self.bosses
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| b.name.as_str())
+    }
+
     /// Snapshot the boss state used to drive its spritesheet animation.
     pub fn boss_anim_state(&self, id: &str) -> Option<crate::boss_sprites::BossAnimState> {
         self.bosses

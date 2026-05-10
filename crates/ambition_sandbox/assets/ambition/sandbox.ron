@@ -357,6 +357,18 @@
                 ),
             ),
             (
+                id: "how_to_kill_a_mockingbird",
+                display_name: "How to Kill a Mockingbird",
+                asset_path: Some("audio/music/generated/how_to_kill_a_mockingbird/full.ogg"),
+                arrangement: (
+                    bpm: 132.0, total_beats: 64.0,
+                    root_hz: 220.0, bass_root_hz: 55.0, key_root_hz: 220.0,
+                    master_gain: 0.7, lowpass_alpha: 0.07, tape_hiss: 0.0,
+                    gains: (chord_pad: 0.0, lead: 1.0, soft_keys: 0.0, bass: 0.0, drums: 1.0),
+                    lead: [], chords: [(0, 3, 7, 10)], bass_roots: [0],
+                ),
+            ),
+            (
                 id: "luddites_guild_loom_and_liberty",
                 display_name: "Loom and Liberty",
                 asset_path: Some("audio/music/generated/luddites_guild_loom_and_liberty/full.ogg"),

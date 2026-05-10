@@ -228,6 +228,50 @@ impl BossPatternSchedule {
         )
     }
 
+    /// Mockingbird Phase 1 — "hover-first" loop the user picked:
+    /// Hover (Rest) → Swoop (DashEcho left) → Fireball (SpikeHalo) →
+    /// Swoop (DashEcho right). The hover-first opener gives the
+    /// player a clean read of the boss before the first commit, then
+    /// alternates aerial swoops with a single ranged beat. Roughly
+    /// 6-7s per loop; tune in the controller, not here.
+    pub fn mockingbird_phase1() -> Self {
+        Self::new(
+            "mockingbird",
+            1,
+            0xB1D5_0001,
+            vec![
+                BossPatternStep::new(BossAttackKind::Rest, 0.10, 1.80, 0.20),
+                BossPatternStep::new(BossAttackKind::DashEcho, 0.45, 0.32, 0.40)
+                    .with_movement(BossMovementKind::Dash { distance: -260.0 }),
+                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.55, 0.45, 0.55),
+                BossPatternStep::new(BossAttackKind::DashEcho, 0.45, 0.32, 0.40)
+                    .with_movement(BossMovementKind::Dash { distance: 260.0 }),
+            ],
+        )
+    }
+
+    /// Mockingbird Phase 2 — same opening shape as Phase 1 with
+    /// tighter telegraphs and an extra swoop pair. Doubles as the
+    /// Enrage schedule for now; phase-distinct content can split
+    /// later when the Bevy controller has more verbs to mix in.
+    pub fn mockingbird_phase2() -> Self {
+        Self::new(
+            "mockingbird",
+            2,
+            0xB1D5_0002,
+            vec![
+                BossPatternStep::new(BossAttackKind::Rest, 0.10, 1.20, 0.18),
+                BossPatternStep::new(BossAttackKind::DashEcho, 0.32, 0.28, 0.30)
+                    .with_movement(BossMovementKind::Dash { distance: -280.0 }),
+                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.45, 0.45, 0.40),
+                BossPatternStep::new(BossAttackKind::DashEcho, 0.32, 0.28, 0.30)
+                    .with_movement(BossMovementKind::Dash { distance: 280.0 }),
+                BossPatternStep::new(BossAttackKind::DashEcho, 0.30, 0.26, 0.34)
+                    .with_movement(BossMovementKind::Dash { distance: -240.0 }),
+            ],
+        )
+    }
+
     pub fn is_valid(&self) -> bool {
         !self.boss_id.is_empty()
             && self.phase > 0
@@ -332,6 +376,25 @@ impl BossPatternSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mockingbird_schedules_are_valid_and_loop() {
+        let p1 = BossPatternSchedule::mockingbird_phase1();
+        let p2 = BossPatternSchedule::mockingbird_phase2();
+        assert!(p1.is_valid());
+        assert!(p2.is_valid());
+        // First step must be the Hover (Rest) opener — the user
+        // explicitly picked the hover-first shape to give the player
+        // a clean read before the boss commits.
+        assert_eq!(p1.steps[0].attack, BossAttackKind::Rest);
+        // The pattern includes both a Swoop (DashEcho) and a Fireball
+        // (SpikeHalo) beat per loop — the user's prose contract.
+        assert!(p1.steps.iter().any(|s| s.attack == BossAttackKind::DashEcho));
+        assert!(p1.steps.iter().any(|s| s.attack == BossAttackKind::SpikeHalo));
+        // Loop length is bounded (sanity, not a strict tuning gate).
+        assert!(p1.total_time() > 1.5 && p1.total_time() < 12.0);
+        assert!(p2.total_time() > 1.5 && p2.total_time() < 12.0);
+    }
 
     #[test]
     fn gradient_sentinel_schedules_are_valid() {

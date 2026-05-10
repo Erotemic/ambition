@@ -37,18 +37,22 @@ pub struct AnimRow {
 }
 
 /// Frame layout for a boss sheet. Mirror of `character_sprites::CharacterSheetSpec`
-/// but with 7 rows and per-target anchor/scale tuning so bosses can render at
-/// a different size than playable characters.
+/// with sparse rows so different boss generators can emit different
+/// row subsets (e.g. the gradient sentinel ships 7 rows; the mockingbird
+/// ships 6 with no `FloorSlam`/`SideSweep`). Per-target anchor/scale
+/// tuning keeps bosses rendered at the right scale relative to playable
+/// characters.
 #[derive(Clone, Copy, Debug)]
 pub struct BossSheetSpec {
     pub label_width: u32,
     /// Per-frame size in source-image pixels after the gen2d union-bbox
-    /// crop. Boss currently fills its 128×128 canvas (spike_halo radial
-    /// pose), so the crop is a no-op for now; a future tighter pose set
-    /// would shrink these values.
+    /// crop. Each generator picks its own canvas; resync after a sheet
+    /// regen by checking the manifest's `frame_size` block.
     pub frame_width: u32,
     pub frame_height: u32,
-    pub rows: [AnimRow; 7],
+    /// Animation rows in the order the generator emits them in the PNG.
+    /// Sparse: a sheet may omit any row except `Rest` (the fallback).
+    pub rows: &'static [(BossAnim, AnimRow)],
     /// Multiplier applied to an entity's collision-box max dimension to
     /// derive the rendered sprite's height. Width is derived from the
     /// cropped frame's aspect ratio so the boss isn't squashed.
@@ -69,35 +73,56 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     label_width: 100,
     frame_width: 128,
     frame_height: 128,
-    rows: [
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.120,
-        }, // Rest
-        AnimRow {
-            frame_count: 7,
-            duration_secs: 0.082,
-        }, // FloorSlam
-        AnimRow {
-            frame_count: 7,
-            duration_secs: 0.072,
-        }, // SideSweep
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.092,
-        }, // SpikeHalo
-        AnimRow {
-            frame_count: 7,
-            duration_secs: 0.062,
-        }, // DashEcho
-        AnimRow {
-            frame_count: 5,
-            duration_secs: 0.090,
-        }, // Hit
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.110,
-        }, // Death
+    rows: &[
+        (
+            BossAnim::Rest,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.120,
+            },
+        ),
+        (
+            BossAnim::FloorSlam,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.082,
+            },
+        ),
+        (
+            BossAnim::SideSweep,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.072,
+            },
+        ),
+        (
+            BossAnim::SpikeHalo,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.092,
+            },
+        ),
+        (
+            BossAnim::DashEcho,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            BossAnim::Hit,
+            AnimRow {
+                frame_count: 5,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
     ],
     // Bosses are visually larger than goblins; a slightly smaller scale
     // factor stops them from overpowering the rendered scene.
@@ -106,16 +131,128 @@ pub const BOSS_SHEET: BossSheetSpec = BossSheetSpec {
     frame_sample_inset: 1,
 };
 
+/// The Mockingbird boss sheet from the standalone Python generator
+/// (`tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`,
+/// installed via that script's `install` command). Rows in PNG order:
+/// hover, thrust, bite, slash, hit, death. Mapped onto the existing
+/// `BossAnim` vocabulary so the gameplay layer can issue the same
+/// verbs across both bosses:
+/// - `hover`  → `Rest`      (the long idle / hover-in-place pose)
+/// - `thrust` → `DashEcho`  (the swoop / dive attack)
+/// - `bite`   → `FloorSlam` (close-range commit attack)
+/// - `slash`  → `SpikeHalo` (used for the ranged Hadouken / fireball
+///   beat — the slash pose telegraphs an outward strike that the
+///   sandbox controller pairs with a projectile spawn)
+/// - `hit`/`death` keep their meanings.
+/// `SideSweep` is unmapped; `BossAnimator::request` falls back to
+/// `Rest` if the schedule asks for a row this sheet doesn't ship.
+pub const MOCKINGBIRD_SHEET: BossSheetSpec = BossSheetSpec {
+    // The mockingbird sheet has no per-row label strip — frame 0
+    // sits at x=0 — so label_width is zero.
+    label_width: 0,
+    // 256×256 frames straight from the manifest.
+    frame_width: 256,
+    frame_height: 256,
+    rows: &[
+        (
+            BossAnim::Rest,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.110,
+            },
+        ),
+        (
+            BossAnim::DashEcho,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::FloorSlam,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            BossAnim::SpikeHalo,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.088,
+            },
+        ),
+        (
+            BossAnim::Hit,
+            AnimRow {
+                frame_count: 4,
+                duration_secs: 0.080,
+            },
+        ),
+        (
+            BossAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.105,
+            },
+        ),
+    ],
+    // The mockingbird occupies a smaller fraction of its 256×256
+    // canvas than the gradient sentinel did of its 128×128 canvas
+    // (lots of motion-trail / wing-spread headroom). 1.05 keeps the
+    // rendered silhouette roughly matched to the LDtk-authored
+    // collision box.
+    collision_scale: 1.05,
+    // Roughly placed: the mockingbird's body sits near vertical
+    // center and the wing fan extends both up and down, so a
+    // near-zero anchor centers it without the wings clipping. Tune
+    // after a regen if the manifest grows `feet_anchor_norm`.
+    feet_anchor_y: 0.0,
+    frame_sample_inset: 1,
+};
+
 impl BossSheetSpec {
+    fn row_index(&self, anim: BossAnim) -> Option<usize> {
+        self.rows.iter().position(|(row_anim, _)| *row_anim == anim)
+    }
+
+    /// Resolve a requested animation against this sheet's row set.
+    /// Falls back to `Rest` if the requested row isn't shipped (e.g.
+    /// the mockingbird sheet has no `SideSweep`). Bosses without a
+    /// `Rest` row would crash the indexer; the static `BOSS_SHEET` /
+    /// `MOCKINGBIRD_SHEET` constants both ship one. Future sheets that
+    /// omit `Rest` should fail loudly, not silently — change this if
+    /// the contract changes.
+    pub fn resolve_anim(&self, anim: BossAnim) -> BossAnim {
+        if self.row_index(anim).is_some() {
+            anim
+        } else {
+            BossAnim::Rest
+        }
+    }
+
+    pub(crate) fn row(&self, anim: BossAnim) -> AnimRow {
+        let resolved = self.resolve_anim(anim);
+        let idx = self
+            .row_index(resolved)
+            .expect("boss sprite sheet must define a Rest row");
+        self.rows[idx].1
+    }
+
     pub fn build_atlas(&self) -> TextureAtlasLayout {
-        let max_frames = self.rows.iter().map(|r| r.frame_count).max().unwrap_or(0) as u32;
+        let max_frames = self
+            .rows
+            .iter()
+            .map(|(_, r)| r.frame_count)
+            .max()
+            .unwrap_or(0) as u32;
         let total_w = self.label_width + max_frames * self.frame_width;
         let total_h = self.rows.len() as u32 * self.frame_height;
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
         let inset = self
             .frame_sample_inset
             .min(self.frame_width.min(self.frame_height) / 4);
-        for (row_idx, row) in self.rows.iter().enumerate() {
+        for (row_idx, (_, row)) in self.rows.iter().enumerate() {
             for col in 0..row.frame_count {
                 let x = self.label_width + col as u32 * self.frame_width;
                 let y = row_idx as u32 * self.frame_height;
@@ -128,14 +265,20 @@ impl BossSheetSpec {
     }
 
     pub fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
-        let row = anim as usize;
-        let frames_before: usize = self.rows[..row].iter().map(|r| r.frame_count).sum();
-        let max_frame = self.rows[row].frame_count.saturating_sub(1);
+        let resolved = self.resolve_anim(anim);
+        let row = self
+            .row_index(resolved)
+            .expect("boss sprite sheet must define a Rest row");
+        let frames_before: usize = self.rows[..row]
+            .iter()
+            .map(|(_, r)| r.frame_count)
+            .sum();
+        let max_frame = self.rows[row].1.frame_count.saturating_sub(1);
         frames_before + frame.min(max_frame)
     }
 
     pub fn frame_count(&self, anim: BossAnim) -> usize {
-        self.rows[anim as usize].frame_count
+        self.row(anim).frame_count
     }
 
     pub fn render_size(&self, collision: Vec2) -> Vec2 {
@@ -170,31 +313,61 @@ pub struct BossSpriteAsset {
 }
 
 const BOSS_FILENAME: &str = "boss_spritesheet.png";
+const MOCKINGBIRD_FILENAME: &str = "mockingbird_boss/mockingbird_boss_spritesheet.png";
 
-/// Build the boss sprite asset. Returns `None` if the PNG isn't on disk —
-/// callers fall back to the static `EntitySprite::BossCore` image, which in
-/// turn falls back to the colored rectangle.
+/// Build the boss sprite asset for the gradient sentinel sheet.
+/// Returns `None` if the PNG isn't on disk — callers fall back to the
+/// static `EntitySprite::BossCore` image, which in turn falls back to
+/// the colored rectangle.
 pub fn load_boss_sprite_in(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
 ) -> Option<BossSpriteAsset> {
-    let rel = format!("{sprite_folder}/{BOSS_FILENAME}");
+    load_named_boss_sprite_in(asset_server, layouts, sprite_folder, BOSS_FILENAME, BOSS_SHEET)
+}
+
+/// Build the boss sprite asset for the mockingbird sheet (installed by
+/// `tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py install`).
+/// Returns `None` if the PNG is missing — the rendering layer keeps
+/// the colored-rectangle fallback for that boss.
+pub fn load_mockingbird_sprite_in(
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    sprite_folder: &str,
+) -> Option<BossSpriteAsset> {
+    load_named_boss_sprite_in(
+        asset_server,
+        layouts,
+        sprite_folder,
+        MOCKINGBIRD_FILENAME,
+        MOCKINGBIRD_SHEET,
+    )
+}
+
+fn load_named_boss_sprite_in(
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    sprite_folder: &str,
+    filename: &str,
+    spec: BossSheetSpec,
+) -> Option<BossSpriteAsset> {
+    let rel = format!("{sprite_folder}/{filename}");
     #[cfg(not(target_os = "android"))]
     {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         if !Path::new(manifest_dir).join("assets").join(&rel).exists() {
             eprintln!(
-                "[boss_sprites] boss spritesheet not found at assets/{rel} — falling back to entity sprite (boss_core.png)"
+                "[boss_sprites] boss spritesheet not found at assets/{rel} — falling back to entity sprite"
             );
             return None;
         }
     }
-    let layout = layouts.add(BOSS_SHEET.build_atlas());
+    let layout = layouts.add(spec.build_atlas());
     Some(BossSpriteAsset {
         texture: asset_server.load(rel),
         layout,
-        spec: BOSS_SHEET,
+        spec,
     })
 }
 
@@ -231,7 +404,7 @@ impl BossAnimator {
     }
 
     pub fn tick(&mut self, dt: f32) -> usize {
-        let row = self.spec.rows[self.current as usize];
+        let row = self.spec.row(self.current);
         if row.frame_count == 0 || row.duration_secs <= 0.0 {
             return self.spec.flat_index(self.current, self.frame);
         }
@@ -321,6 +494,31 @@ mod tests {
         // ever drift, indexing by `anim as usize` would panic at
         // runtime.
         assert_eq!(BOSS_SHEET.rows.len(), 7);
+    }
+
+    #[test]
+    fn mockingbird_sheet_maps_six_rows_with_passthrough_for_missing() {
+        // The mockingbird sheet ships hover/thrust/bite/slash/hit/death,
+        // mapped onto the existing BossAnim vocabulary. SideSweep is
+        // intentionally absent — `resolve_anim` must fall back to Rest
+        // so a schedule that asks for SideSweep doesn't panic the
+        // indexer.
+        assert_eq!(MOCKINGBIRD_SHEET.rows.len(), 6);
+        assert_eq!(
+            MOCKINGBIRD_SHEET.resolve_anim(BossAnim::SideSweep),
+            BossAnim::Rest
+        );
+        // The mapped rows resolve to themselves.
+        for anim in [
+            BossAnim::Rest,
+            BossAnim::DashEcho,
+            BossAnim::FloorSlam,
+            BossAnim::SpikeHalo,
+            BossAnim::Hit,
+            BossAnim::Death,
+        ] {
+            assert_eq!(MOCKINGBIRD_SHEET.resolve_anim(anim), anim);
+        }
     }
 
     #[test]

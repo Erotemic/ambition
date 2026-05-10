@@ -41,19 +41,43 @@ echo "==> adapter targets (robot / goblin / boss) → $sprites_dir"
 echo "==> entity sprites → $entities_dir"
 (cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-entities --out-dir "$entities_dir")
 
-echo "==> review NPC sheets (e.g. absurd_general) → $sprites_dir"
-# `draw-review` renders configs/review/*.yaml (faction/leader NPC
-# variants). We render to a scratch dir, then copy the specific
-# sheets we use in-game into $sprites_dir. Promoting a review config
-# to a permanent runtime sheet means: add the cue id to the copy
-# list below AND register a CharacterSheetSpec for it in
-# `crates/ambition_sandbox/src/character_sprites/sheets.rs`.
+echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
+# `draw-review` renders configs/review/*.yaml (toon-target NPC
+# variants such as absurd_general, architect, kernel_guide). We
+# render to a scratch dir, then copy the specific sheets we use
+# in-game into $sprites_dir. Promoting a review config to a
+# permanent runtime sheet means: add the cue id to the copy list
+# below AND register a CharacterSheetSpec for it in
+# `crates/ambition_sandbox/src/character_sprites/sheets.rs`, plus
+# wire it into `NPC_SPRITE_REGISTRY` in
+# `crates/ambition_sandbox/src/character_sprites/assets.rs`.
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
 (cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")
-for cue in absurd_general; do
+for cue in absurd_general architect kernel_guide vault_keeper merchant_prototype; do
     for ext in png yaml; do
         src="$review_scratch/${cue}_spritesheet.$ext"
+        if [ -f "$src" ]; then
+            cp "$src" "$sprites_dir/${cue}_spritesheet.$ext"
+            echo "  installed ${cue}_spritesheet.$ext"
+        else
+            echo "  WARN: $src missing — skipped"
+        fi
+    done
+done
+
+echo "==> faction-leader sheets (robot-target leaders) → $sprites_dir"
+# `draw-factions` renders configs/factions/*.yaml (the
+# faction-leader manifest). Same pattern as draw-review: render to a
+# scratch dir, then copy the named sheets into the runtime asset
+# tree. Factions intentionally render to a separate scratch path so
+# the lineup manifest + canonicals don't pollute review/.
+factions_scratch="$renderer_dir/generated/factions"
+mkdir -p "$factions_scratch"
+(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-factions --out-dir "$factions_scratch")
+for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
+    for ext in png yaml; do
+        src="$factions_scratch/${cue}_spritesheet.$ext"
         if [ -f "$src" ]; then
             cp "$src" "$sprites_dir/${cue}_spritesheet.$ext"
             echo "  installed ${cue}_spritesheet.$ext"

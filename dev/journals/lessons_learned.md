@@ -2,6 +2,25 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-05-10: Enemies and NPCs share the player's collision semantics via `KinematicBody`
+
+The sandbox used to ship per-actor collision predicates `blocked` / `blocked_y` in `crates/ambition_sandbox/src/features/util.rs` that diverged from `ambition_engine::movement::sweep_player_y` in a load-bearing way: OneWay platforms always blocked vertical motion regardless of approach direction. Symptoms downstream:
+
+- A hostile NPC (e.g. the kernel guide that turns into a goblin after three strikes) could not chase the player through a one-way platform. The goblin stood on top of the platform forever while the player fell through it.
+- Free-falling enemies could become wedged on top of one-way platforms even when they should have walked off the edge, because the predicate didn't expose `prev_bottom` for the landing-from-above check.
+
+Fix: `ambition_engine::kinematic::step_kinematic` is now the shared sweep used by both `EnemyRuntime::update` and `NpcRuntime::update`. It owns:
+
+- Gravity application with `max_fall_speed` clamp.
+- X sweep that matches the player: Solid + BlinkWall block, OneWay never blocks horizontally.
+- Y sweep with the player's exact landing-from-above test (`falling && prev_bottom <= block.aabb.top() + 8.0`).
+- A `drop_through` input that suppresses the OneWay block this tick — chasing enemies set this when the player is meaningfully below them and they're currently grounded, so the goblin can follow the player through one-way platforms.
+- `on_ground` returned to the caller for chase / jump / animation logic.
+
+When adding a new actor type that needs to walk in a level: do NOT roll a new `blocked_*` predicate. Construct an `ae::KinematicBody` from your runtime's `pos / vel / size / on_ground / facing`, call `ae::step_kinematic`, and write the result back. The engine's tests in `kinematic.rs::tests` cover the load-bearing invariants (lands on Solid, lands on OneWay from above, drop-through passes OneWay but still respects Solid, walks off ledge falls, rising body does not get stuck on OneWay) so failures regress as test failures rather than gameplay bugs.
+
+When/if the player migrates to this primitive, the player's tuning grows the abilities-shaped fields and the duplicate sweep helpers in `movement` come out. For now both code paths agree on semantics; the player path keeps its extra affordances (jump buffer, blink, dash, climb, ledge grab).
+
 ## 2026-05-10: LDtk `LoadingZone.target_room` is the activeArea id, not the level id
 
 The Ambition LDtk validator (`ambition_ldtk_tools doctor`) keys on a level's `activeArea` field, not the LDtk level identifier. `central_hub_main` and `central_hub_basement` both share the `central_hub_complex` activeArea — multiple LDtk levels can stitch into a single runtime room.

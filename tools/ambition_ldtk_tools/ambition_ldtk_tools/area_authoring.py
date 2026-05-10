@@ -970,9 +970,30 @@ def add_reciprocal_loading_zone(
     if size is None or len(size) != 2:
         raise SystemExit("connect_to entry missing required 'size: [w, h]'")
 
-    # Reject overlap with any existing entity rect in the target level.
     new_x, new_y = int(px[0]), int(px[1])
     new_w, new_h = int(size[0]), int(size[1])
+
+    # Optional: snap door y to the nearest Collision surface so the
+    # door visually rests on a floor instead of hovering in mid-air.
+    # Authors who already know the right y leave the flag off and the
+    # snap is a no-op.
+    if connection.get("snap_to_surface"):
+        snapped_x, snapped_y, surface_kind = snap_door_to_surface(
+            project,
+            target_room,
+            new_x,
+            door_w=new_w,
+            door_h=new_h,
+            prefer_y=new_y,
+        )
+        if snapped_y != new_y:
+            print(
+                f"connect_to: snapped door y in '{target_room}' from {new_y} to "
+                f"{snapped_y} (rests on {surface_kind} at x={snapped_x})"
+            )
+        new_x, new_y = snapped_x, snapped_y
+
+    # Reject overlap with any existing entity rect in the target level.
     for inst in ambition.get("entityInstances", []):
         ix, iy = inst["px"]
         iw, ih = inst["width"], inst["height"]
@@ -1030,6 +1051,251 @@ def run_repair_and_validate(project_path: Path, schema: Path | None) -> int:
         cmd_val.extend(["--schema", str(schema), "--require-schema"])
     print(f"$ {' '.join(cmd_val)}")
     return subprocess.run(cmd_val).returncode
+
+
+# Collision IntGrid value mapping. Keep in sync with the project's
+# Collision layer defs in `sandbox.ldtk`. The sandbox treats Solid (1)
+# and OneWayUp (2) as floors a door can rest on; BlinkSoft / BlinkHard
+# / Hazard are intentionally excluded as door-bases (BlinkWalls move,
+# Hazards damage you).
+_COLLISION_SOLID = 1
+_COLLISION_ONEWAY_UP = 2
+_DOOR_SUPPORTING_VALUES = frozenset({_COLLISION_SOLID, _COLLISION_ONEWAY_UP})
+
+
+def snap_door_to_surface(
+    project: dict,
+    target_room: str,
+    x: int,
+    door_w: int = 48,
+    door_h: int = 96,
+    prefer_y: int | None = None,
+) -> tuple[int, int, str]:
+    """Find the door y so a `door_w × door_h` rect rests flush on a surface.
+
+    Reads the target room's Collision IntGrid and looks for the topmost
+    cell row R where every cell column the door spans (`x..x+door_w`)
+    contains a Solid or OneWayUp value. The door's bottom edge then
+    lands at `R * gridSize`, so the returned door y is `R*gridSize - door_h`.
+
+    When `prefer_y` is given, the surface closest to (but at or below)
+    `prefer_y + door_h` wins — useful when authors already had a y in
+    mind from `door free-spots` and want the snap to honor that row's
+    intent rather than always picking the highest reachable surface.
+
+    Returns `(x, snapped_y, surface_kind)` where surface_kind is
+    'Solid' or 'OneWayUp'. Raises `SystemExit` if no continuous surface
+    exists in the door's column range.
+    """
+    target_level = find_level(project, target_room)
+    if target_level is None:
+        known = ", ".join(sorted(l["identifier"] for l in project.get("levels", [])))
+        raise SystemExit(
+            f"snap target_room '{target_room}' not found. Known levels: {known}"
+        )
+    collision = find_layer_in_level(target_level, "Collision")
+    if collision is None:
+        raise SystemExit(f"'{target_room}' has no Collision IntGrid layer")
+    grid_size = int(collision.get("__gridSize", 16))
+    c_wid = int(collision["__cWid"])
+    c_hei = int(collision["__cHei"])
+    csv = collision.get("intGridCsv") or []
+    if len(csv) != c_wid * c_hei:
+        raise SystemExit(
+            f"'{target_room}' Collision csv length {len(csv)} != cWid*cHei={c_wid * c_hei}"
+        )
+
+    cx_start = x // grid_size
+    cx_end_excl = (x + door_w + grid_size - 1) // grid_size
+    if cx_start < 0 or cx_end_excl > c_wid:
+        raise SystemExit(
+            f"door x={x} (cells {cx_start}..{cx_end_excl - 1}) is outside the room's "
+            f"collision grid (0..{c_wid - 1})"
+        )
+
+    # Walk every row top-down. The first row whose cells span the
+    # door's column range with all Solid/OneWayUp wins. We also need
+    # the rows *above* the surface (where the door body sits) to be
+    # empty — otherwise the door geometry intersects level geometry.
+    door_rows = max(1, door_h // grid_size)
+    candidates: list[tuple[int, str]] = []
+    for r in range(c_hei):
+        row_cells = [csv[r * c_wid + c] for c in range(cx_start, cx_end_excl)]
+        if not all(v in _DOOR_SUPPORTING_VALUES for v in row_cells):
+            continue
+        # Surface row at r. Door body occupies rows [r - door_rows, r-1].
+        body_start = r - door_rows
+        if body_start < 0:
+            continue
+        body_clear = True
+        for body_r in range(body_start, r):
+            for c in range(cx_start, cx_end_excl):
+                if csv[body_r * c_wid + c] != 0:
+                    body_clear = False
+                    break
+            if not body_clear:
+                break
+        if not body_clear:
+            continue
+        kind = "Solid" if all(v == _COLLISION_SOLID for v in row_cells) else "OneWayUp"
+        candidates.append((r, kind))
+
+    if not candidates:
+        raise SystemExit(
+            f"snap_to_surface: no continuous Solid/OneWayUp surface under door at "
+            f"x={x} (cells {cx_start}..{cx_end_excl - 1}) wide enough for {door_w}x{door_h}"
+        )
+
+    if prefer_y is None:
+        # Default: pick the LOWEST surface (largest r). Authors usually
+        # mean "this door sits on the floor", not "this door dangles
+        # off the ceiling".
+        chosen_r, chosen_kind = candidates[-1]
+    else:
+        # Pick the candidate whose snapped door y is closest to prefer_y.
+        chosen_r, chosen_kind = min(
+            candidates,
+            key=lambda rk: abs((rk[0] * grid_size - door_h) - prefer_y),
+        )
+    snapped_y = chosen_r * grid_size - door_h
+    return (x, snapped_y, chosen_kind)
+
+
+def even_space_entities(
+    project: dict,
+    target_room: str,
+    identifier: str,
+    y_row: int | None = None,
+    y_tolerance: int = 32,
+    start_x: int | None = None,
+    end_x: int | None = None,
+    strategy: str = "preserve-ends",
+    dry_run: bool = False,
+) -> int:
+    """Even-space entities of one type along the x axis in a room.
+
+    Selects every entity in `target_room`'s Ambition layer whose
+    `__identifier == identifier`. If `y_row` is given, restricts the
+    selection to entities whose px[1] sits within `y_tolerance` of
+    that row (so a hub with multiple door rows can be spaced one row
+    at a time).
+
+    Strategy:
+    - ``preserve-ends`` (default): keeps the leftmost + rightmost
+      entity in place and even-spaces every entity between them.
+    - ``fit``: distributes every entity evenly across
+      ``[start_x, end_x]`` (defaults: 0..pxWid). Outermost entities
+      get gaps on either side equal to the inner spacing.
+
+    Returns 0 on success, prints a one-line plan per entity.
+    Mutates `project` in place when `dry_run=False`.
+    """
+    target_level = find_level(project, target_room)
+    if target_level is None:
+        known = ", ".join(sorted(l["identifier"] for l in project.get("levels", [])))
+        print(f"error: target_room '{target_room}' not found. Known levels: {known}")
+        return 2
+    ambition = find_layer_in_level(target_level, "Ambition")
+    if ambition is None:
+        print(f"error: '{target_room}' has no Ambition entity layer")
+        return 2
+
+    # Collect matching entities with original positions and width.
+    matched: list[dict] = []
+    for ent in ambition.get("entityInstances", []):
+        if ent.get("__identifier") != identifier:
+            continue
+        if y_row is not None and abs(int(ent["px"][1]) - y_row) > y_tolerance:
+            continue
+        matched.append(ent)
+    if len(matched) < 2:
+        print(
+            f"error: need at least 2 '{identifier}' entities to even-space; "
+            f"found {len(matched)} in '{target_room}'"
+            + (f" near y={y_row}" if y_row is not None else "")
+        )
+        return 2
+
+    matched.sort(key=lambda e: int(e["px"][0]))
+    widths = [int(e["width"]) for e in matched]
+
+    # Decide the x range to distribute across.
+    level_w = int(target_level["pxWid"])
+    if strategy == "preserve-ends":
+        first_x = int(matched[0]["px"][0])
+        last_x = int(matched[-1]["px"][0])
+        last_w = widths[-1]
+        # Keep first / last in place; even-space inner entities.
+        # Compute the total inner width consumed by entities (excluding
+        # the first, which is fixed) and divide remaining gap budget.
+        inner_w_sum = sum(widths[1:])
+        span = (last_x + last_w) - first_x
+        gap_budget = span - sum(widths)
+        if gap_budget < 0:
+            print(
+                f"error: entities don't fit in span {span} (sum widths={sum(widths)})"
+            )
+            return 2
+        n_gaps = len(matched) - 1
+        gap = gap_budget / n_gaps
+        new_x = []
+        cursor = first_x
+        for i, w in enumerate(widths):
+            if i == 0:
+                new_x.append(first_x)
+                cursor = first_x + w + gap
+            elif i == len(matched) - 1:
+                new_x.append(last_x)
+            else:
+                new_x.append(int(round(cursor)))
+                cursor += w + gap
+    elif strategy == "fit":
+        s = 0 if start_x is None else int(start_x)
+        e = level_w if end_x is None else int(end_x)
+        span = e - s
+        gap_budget = span - sum(widths)
+        if gap_budget < 0:
+            print(
+                f"error: entities don't fit in span {span} (sum widths={sum(widths)})"
+            )
+            return 2
+        n_gaps = len(matched) + 1  # leading + between + trailing gap
+        gap = gap_budget / n_gaps
+        new_x = []
+        cursor = s + gap
+        for w in widths:
+            new_x.append(int(round(cursor)))
+            cursor += w + gap
+    else:
+        print(f"error: unknown strategy {strategy!r}; use 'preserve-ends' or 'fit'")
+        return 2
+
+    # Plan + apply.
+    grid_size = int(project.get("defaultGridSize", 16))
+    print(f"# even-space {len(matched)} '{identifier}' in '{target_room}' "
+          f"(strategy={strategy})")
+    changed = 0
+    for ent, target in zip(matched, new_x):
+        old = int(ent["px"][0])
+        # Snap to grid for editor-clean placements.
+        snapped = int(round(target / grid_size) * grid_size)
+        ident = "?"
+        for fi in ent.get("fieldInstances", []):
+            if fi["__identifier"] == "id":
+                ident = str(fi.get("__value") or "?")
+                break
+        if snapped != old:
+            changed += 1
+            print(f"  {ident:30s}  x: {old:>5} -> {snapped:>5}  (delta {snapped - old:+d})")
+        else:
+            print(f"  {ident:30s}  x: {old:>5}  (unchanged)")
+        if not dry_run:
+            ent["px"][0] = snapped
+            # Update the world-coord mirror Bevy renderers read from.
+            level_world_x = int(target_level.get("worldX", 0))
+            ent["__worldX"] = snapped + level_world_x
+    print(f"# {changed} entit{'y' if changed == 1 else 'ies'} repositioned")
+    return 0
 
 
 def list_free_spots(project: dict, target_room: str) -> int:
@@ -1184,6 +1450,91 @@ def main(argv=None) -> int:
             "door so you don't have to find an empty corridor slot by hand."
         ),
     )
+    parser.add_argument(
+        "--snap-to-surface",
+        type=str,
+        default=None,
+        metavar="TARGET_ROOM",
+        help=(
+            "Don't build a new level. Instead, given a target room and an x "
+            "coordinate (via --x), print the door y that lands the door's "
+            "bottom flush on the nearest Collision surface. Use when "
+            "`door free-spots` returned an x in a row that turns out to be "
+            "mid-air for that column."
+        ),
+    )
+    parser.add_argument(
+        "--x",
+        type=int,
+        default=None,
+        help="x in pixels for --snap-to-surface",
+    )
+    parser.add_argument(
+        "--door-w",
+        type=int,
+        default=48,
+        help="door width in pixels (default 48) for --snap-to-surface",
+    )
+    parser.add_argument(
+        "--door-h",
+        type=int,
+        default=96,
+        help="door height in pixels (default 96) for --snap-to-surface",
+    )
+    parser.add_argument(
+        "--prefer-y",
+        type=int,
+        default=None,
+        help="optional preferred door y for --snap-to-surface tie-breaking",
+    )
+    parser.add_argument(
+        "--even-space-entities",
+        type=str,
+        default=None,
+        metavar="TARGET_ROOM",
+        help=(
+            "Don't build a new level. Even-space every entity of "
+            "--entity-type in this room along the x axis. Use --y-row "
+            "to restrict to one door row. Strategy via --strategy."
+        ),
+    )
+    parser.add_argument(
+        "--entity-type",
+        type=str,
+        default="LoadingZone",
+        help="entity __identifier to even-space (default LoadingZone)",
+    )
+    parser.add_argument(
+        "--y-row",
+        type=int,
+        default=None,
+        help="restrict --even-space to entities near this y (within --y-tolerance)",
+    )
+    parser.add_argument(
+        "--y-tolerance",
+        type=int,
+        default=32,
+        help="vertical band width for --y-row (default 32px)",
+    )
+    parser.add_argument(
+        "--start-x",
+        type=int,
+        default=None,
+        help="start x of distribution span for --strategy fit (default 0)",
+    )
+    parser.add_argument(
+        "--end-x",
+        type=int,
+        default=None,
+        help="end x of distribution span for --strategy fit (default level width)",
+    )
+    parser.add_argument(
+        "--strategy",
+        type=str,
+        default="preserve-ends",
+        choices=["preserve-ends", "fit"],
+        help="how to distribute entities along x (default preserve-ends)",
+    )
     args = parser.parse_args(argv)
 
     # `--list-free-spots` short-circuits before we touch the spec; the
@@ -1194,6 +1545,52 @@ def main(argv=None) -> int:
     if args.list_free_spots:
         project = load_project(args.ldtk)
         return list_free_spots(project, args.list_free_spots)
+
+    if args.snap_to_surface:
+        if args.x is None:
+            return _fail("--snap-to-surface requires --x <px>")
+        project = load_project(args.ldtk)
+        try:
+            x, y, kind = snap_door_to_surface(
+                project,
+                args.snap_to_surface,
+                args.x,
+                door_w=args.door_w,
+                door_h=args.door_h,
+                prefer_y=args.prefer_y,
+            )
+        except SystemExit as ex:
+            print(f"error: {ex}", file=sys.stderr)
+            return 2
+        print(f"snap x={x} y={y} surface={kind}  -> px=[{x}, {y}] size=[{args.door_w}, {args.door_h}]")
+        return 0
+
+    if args.even_space_entities:
+        project = load_project(args.ldtk)
+        rc = even_space_entities(
+            project,
+            args.even_space_entities,
+            args.entity_type,
+            y_row=args.y_row,
+            y_tolerance=args.y_tolerance,
+            start_x=args.start_x,
+            end_x=args.end_x,
+            strategy=args.strategy,
+            dry_run=args.dry_run,
+        )
+        if rc != 0:
+            return rc
+        if args.dry_run:
+            return 0
+        # Write + repair + validate, mirroring `area create`.
+        write_project(args.ldtk, project)
+        if not args.no_repair:
+            from . import repair, validate as ldtk_validate
+            repair_rc = repair.main([str(args.ldtk), "--in-place"])
+            if repair_rc != 0:
+                return repair_rc
+            return ldtk_validate.main([str(args.ldtk), "--schema", str(args.schema), "--require-schema"])
+        return 0
 
     if args.spec is None:
         return _fail("missing required positional 'spec'")

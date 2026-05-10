@@ -1,0 +1,175 @@
+# Pulse Voyagers faction lair — a sky/water platform outpost.
+#
+# Layout (768 wide × 768 tall):
+#
+#   +----------------------------------------+
+#   |▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
+#   |                                        |
+#   |                ▒▒▒▒▒▒▒▒                |
+#   |              [Captain Pulse]           |  ← captain dais
+#   |          ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒            |
+#   |                                        |
+#   |    ▒▒▒▒                  ▒▒▒▒          |
+#   |     stepping stones (one-way)          |
+#   |          ▒▒▒▒                          |
+#   |                          ▒▒▒▒          |
+#   | ▒▒▒                                    |
+#   |                                ▒▒▒     |
+#   | [Ent door]            [PlayerStart]    |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|  ← floor (water-tinted)
+#   +----------------------------------------+
+#
+# Movement contract: hop the staggered one-way stepping stones up
+# to the central dais where Captain Pulse waits. The vertical climb
+# uses OneWayPlatforms exclusively so the player can fall back to
+# the floor and try again without the puzzle locking them in.
+id: pulse_voyager_outpost
+level_id: pulse_voyager_outpost
+world_x: 34000
+world_y: 1024
+px_wid: 768
+px_hei: 768
+fill_collision: empty
+
+biome: skybridge
+music_track: pulse_drift_voyage
+ambient_profile: tide
+visual_theme: blue
+
+connect_to:
+  # `connect_to.target_room` is the LEVEL identifier (where the
+  # reciprocal door is placed). The runtime warp target on the
+  # entity below uses the activeArea (`central_hub_complex`).
+  # `snap_to_surface: true` forces the door y to land flush on the
+  # nearest Collision floor — for x=800 that's the lower OneWayUp
+  # platform over the basement-drop hole, which fits the sky-bridge
+  # theme of the Pulse Voyagers outpost.
+  - target_room: central_hub_main
+    px: [800, 776]
+    size: [48, 96]
+    snap_to_surface: true
+    id: pulse_voyager_door
+    target_zone: pulse_voyager_entry
+    activation: Door
+    bidirectional: true
+
+entities:
+  # Outer shell.
+  - type: Solid
+    px: [0, 720]
+    size: [768, 48]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [16, 720]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [752, 0]
+    size: [16, 720]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [736, 16]
+    fields: { name: ceiling }
+
+  # ─────────────────────────────────────────────────────────────────
+  # Stepping stones (one-way platforms). Staggered so the path zigs
+  # up to the captain's dais.
+  # ─────────────────────────────────────────────────────────────────
+
+  # Tier 1 (nearest the floor): two stones on opposite sides.
+  - type: OneWayPlatform
+    px: [80, 624]
+    size: [96, 16]
+    fields: { name: stone_t1_left }
+  - type: OneWayPlatform
+    px: [592, 624]
+    size: [96, 16]
+    fields: { name: stone_t1_right }
+
+  # Tier 2: middle-right cluster.
+  - type: OneWayPlatform
+    px: [432, 528]
+    size: [96, 16]
+    fields: { name: stone_t2_mid_right }
+  - type: OneWayPlatform
+    px: [192, 528]
+    size: [80, 16]
+    fields: { name: stone_t2_mid_left }
+
+  # Tier 3: middle-left cluster.
+  - type: OneWayPlatform
+    px: [288, 432]
+    size: [128, 16]
+    fields: { name: stone_t3_mid }
+
+  # Tier 4: dais approach pads.
+  - type: OneWayPlatform
+    px: [144, 336]
+    size: [96, 16]
+    fields: { name: stone_t4_left }
+  - type: OneWayPlatform
+    px: [528, 336]
+    size: [96, 16]
+    fields: { name: stone_t4_right }
+
+  # Captain's dais — the destination platform (Solid, since
+  # standing on it is the goal). Sized so the Captain's 42x70
+  # collision box has comfortable footing.
+  - type: Solid
+    px: [256, 240]
+    size: [256, 16]
+    fields: { name: captain_dais }
+
+  # Decorative dais ceiling for visual framing of the captain.
+  - type: Solid
+    px: [288, 80]
+    size: [192, 16]
+    fields: { name: captain_dais_ceiling }
+
+  # ─────────────────────────────────────────────────────────────────
+  # Spawn + entry/exit.
+  # ─────────────────────────────────────────────────────────────────
+  - type: PlayerStart
+    px: [600, 674]
+    size: [28, 46]
+    fields: { name: pulse_voyager_spawn }
+
+  - type: LoadingZone
+    px: [40, 624]
+    size: [48, 96]
+    fields:
+      id: pulse_voyager_entry
+      name: pulse_voyager_entry
+      activation: Door
+      target_room: central_hub_complex
+      target_zone: pulse_voyager_door
+      bidirectional: true
+
+  # ─────────────────────────────────────────────────────────────────
+  # Faction leader: Captain Pulse on the central dais.
+  # ─────────────────────────────────────────────────────────────────
+  - type: NpcSpawn
+    px: [362, 170]
+    size: [42, 70]
+    fields:
+      name: Captain Pulse
+      prompt: Talk
+      dialogue_id: pulse_voyager_captain
+      patrol_radius: 0
+
+  - type: CameraZone
+    px: [0, 0]
+    size: [768, 768]
+    fields:
+      id: pulse_voyager_camera
+      name: pulse_voyager_camera
+      mode: Default
+
+  - type: DebugLabel
+    px: [40, 700]
+    size: [600, 20]
+    fields:
+      name: pulse_voyager_intro_label
+      text: "Pulse Voyager Outpost — hop the stones to the dais."
+      category: Custom

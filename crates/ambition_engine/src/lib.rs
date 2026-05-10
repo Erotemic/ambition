@@ -21,6 +21,7 @@ pub mod debug;
 pub mod enemy;
 pub mod geometry;
 pub mod interaction;
+pub mod kinematic;
 pub mod ledge_grab;
 pub mod movement;
 pub mod music;
@@ -60,6 +61,7 @@ pub use interaction::{
     Breakable, BreakableCollision, BreakableState, BreakableTrigger, Chest, ChestState,
     Interactable, InteractionKind, Pickup, PickupKind,
 };
+pub use kinematic::{step_kinematic, KinematicBody, KinematicInputs, KinematicTuning};
 pub use ledge_grab::{probe_ledge_grab, LedgeContact};
 pub use movement::{
     blink_destination, blink_destination_to_point, update_player, update_player_control,

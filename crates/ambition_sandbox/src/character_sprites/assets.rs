@@ -5,10 +5,14 @@
 //! always run regardless of asset state). Android assets live inside
 //! the APK; desktop reads through `CARGO_MANIFEST_DIR`.
 
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 
 use super::sheets::{
-    CharacterSheetSpec, ABSURD_GENERAL_SHEET, GOBLIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET,
+    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET,
+    ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::features::FeatureVisualKind;
 
@@ -19,18 +23,20 @@ pub struct CharacterSpriteAsset {
     pub spec: CharacterSheetSpec,
 }
 
-/// Holds optional spritesheet handles. `None` = file missing → fallback.
+/// Holds optional spritesheet handles. A missing PNG produces a
+/// `None` (or absent map entry); callers fall back to colored
+/// rectangles.
 #[derive(Resource, Default, Clone)]
 pub struct CharacterSpriteAssets {
     pub robot: Option<CharacterSpriteAsset>,
     pub goblin: Option<CharacterSpriteAsset>,
     pub sandbag: Option<CharacterSpriteAsset>,
-    /// Faction-NPC sheet for the Absurd General (military lair leader).
-    /// Loaded only for NPCs whose authored name resolves to this asset
-    /// via `npc_asset_for_name`; absence falls back to the default
-    /// `EntitySprite::NpcTerminal` rectangle, so missing the file
-    /// degrades gracefully.
-    pub absurd_general: Option<CharacterSpriteAsset>,
+    /// Per-NPC sprite sheets keyed by the LDtk `NpcSpawn.name` field.
+    /// Adding a new faction-leader or hub NPC means adding a row to
+    /// `NPC_SPRITE_REGISTRY` below — no struct field churn or
+    /// dispatcher match-arm needed. Once LDtk grows a `category`
+    /// field on `NpcSpawn`, the key swaps from name to category.
+    pub npcs: HashMap<&'static str, CharacterSpriteAsset>,
     // The boss uses the entity-sprite path (`EntitySprite::BossCore`) rather
     // than the character-spritesheet path: its generator emits non-standard
     // animation rows (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/
@@ -48,24 +54,62 @@ impl CharacterSpriteAssets {
     }
 
     /// Pick a character spritesheet for an NPC by its authored name.
-    /// Today this is a small explicit table — once the LDtk schema
-    /// gains a `category` field on `NpcSpawn`, this becomes a
-    /// category lookup instead of a name match.
+    /// Returns `None` for NPCs that have no registered sprite —
+    /// those keep the default `EntitySprite::NpcTerminal` rectangle.
     pub fn npc_asset_for_name(&self, name: &str) -> Option<&CharacterSpriteAsset> {
-        match name {
-            // Display name in the LDtk NpcSpawn is "General"; the
-            // sprite asset id stays `absurd_general` because that's
-            // the generator archetype we render from.
-            "General" => self.absurd_general.as_ref(),
-            _ => None,
-        }
+        self.npcs.get(name)
     }
 }
 
 const ROBOT_FILENAME: &str = "robot_spritesheet.png";
 const GOBLIN_FILENAME: &str = "goblin_spritesheet.png";
 const SANDBAG_FILENAME: &str = "sandbag_spritesheet.png";
-const ABSURD_GENERAL_FILENAME: &str = "absurd_general_spritesheet.png";
+
+/// Source-of-truth registry mapping `(LDtk NpcSpawn.name → asset
+/// filename, sheet spec)`. Add a row here to wire a new NPC sprite;
+/// `load_character_sprites_in` walks the table and inserts each
+/// present sheet into `CharacterSpriteAssets::npcs`.
+const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
+    // Faction leaders.
+    (
+        "General",
+        "absurd_general_spritesheet.png",
+        ABSURD_GENERAL_SHEET,
+    ),
+    (
+        "Fretjaw, Cantina Chieftain",
+        "goblin_cantina_chieftain_spritesheet.png",
+        GOBLIN_CANTINA_CHIEFTAIN_SHEET,
+    ),
+    (
+        "Captain Pulse",
+        "pulse_voyager_captain_spritesheet.png",
+        PULSE_VOYAGER_CAPTAIN_SHEET,
+    ),
+    (
+        "Chadwick Disruptor III",
+        "tech_bro_disruptor_spritesheet.png",
+        TECH_BRO_DISRUPTOR_SHEET,
+    ),
+    // Hub NPCs already authored in LDtk; we just point them at the
+    // toon-target sheets rendered for them.
+    ("Architect NPC", "architect_spritesheet.png", ARCHITECT_SHEET),
+    (
+        "Kernel Guide NPC",
+        "kernel_guide_spritesheet.png",
+        KERNEL_GUIDE_SHEET,
+    ),
+    (
+        "Vault Keeper NPC",
+        "vault_keeper_spritesheet.png",
+        VAULT_KEEPER_SHEET,
+    ),
+    (
+        "Merchant Prototype NPC",
+        "merchant_prototype_spritesheet.png",
+        MERCHANT_PROTOTYPE_SHEET,
+    ),
+];
 
 /// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
 /// Missing files are not an error — callers fall back to colored rectangles.
@@ -77,31 +121,31 @@ pub fn load_character_sprites_in(
     let robot_rel = format!("{sprite_folder}/{ROBOT_FILENAME}");
     let goblin_rel = format!("{sprite_folder}/{GOBLIN_FILENAME}");
     let sandbag_rel = format!("{sprite_folder}/{SANDBAG_FILENAME}");
-    let absurd_general_rel = format!("{sprite_folder}/{ABSURD_GENERAL_FILENAME}");
 
     let robot = build_optional(asset_server, layouts, &robot_rel, ROBOT_SHEET);
     let goblin = build_optional(asset_server, layouts, &goblin_rel, GOBLIN_SHEET);
     let sandbag = build_optional(asset_server, layouts, &sandbag_rel, SANDBAG_SHEET);
-    let absurd_general = build_optional(
-        asset_server,
-        layouts,
-        &absurd_general_rel,
-        ABSURD_GENERAL_SHEET,
-    );
 
-    for (name, rel, present) in [
+    for (label, rel, present) in [
         ("robot", &robot_rel, robot.is_some()),
         ("goblin", &goblin_rel, goblin.is_some()),
         ("sandbag", &sandbag_rel, sandbag.is_some()),
-        (
-            "absurd_general",
-            &absurd_general_rel,
-            absurd_general.is_some(),
-        ),
     ] {
         if !present {
             eprintln!(
-                "[character_sprites] {name} spritesheet not found at assets/{rel} — falling back to colored rectangle"
+                "[character_sprites] {label} spritesheet not found at assets/{rel} — falling back to colored rectangle"
+            );
+        }
+    }
+
+    let mut npcs: HashMap<&'static str, CharacterSpriteAsset> = HashMap::new();
+    for (name, filename, spec) in NPC_SPRITE_REGISTRY {
+        let rel = format!("{sprite_folder}/{filename}");
+        if let Some(asset) = build_optional(asset_server, layouts, &rel, *spec) {
+            npcs.insert(*name, asset);
+        } else {
+            eprintln!(
+                "[character_sprites] NPC sheet '{name}' not found at assets/{rel} — falling back to colored rectangle"
             );
         }
     }
@@ -110,7 +154,7 @@ pub fn load_character_sprites_in(
         robot,
         goblin,
         sandbag,
-        absurd_general,
+        npcs,
     }
 }
 

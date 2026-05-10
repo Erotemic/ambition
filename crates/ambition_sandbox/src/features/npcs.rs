@@ -168,41 +168,44 @@ impl NpcRuntime {
         // NPC accelerates / decelerates at a similar pace and the
         // patrol pacing reads as a deliberate gait.
         self.vel.x = approach(self.vel.x, target_x, 650.0 * dt);
-        self.vel.y = (self.vel.y + ENEMY_GRAVITY * dt).min(ENEMY_MAX_FALL);
 
-        // Horizontal sweep with wall reverse. Mirrors the enemy
-        // path — if the patrol step puts the NPC into a wall (or
-        // off the edge of a one-cell-wide ledge), back out and
-        // flip facing so the NPC bounces off the obstacle instead
-        // of grinding into it.
-        let old_x = self.pos.x;
-        self.pos.x += self.vel.x * dt;
-        if blocked(world, self.aabb()) {
-            self.pos.x = old_x;
-            self.vel.x = 0.0;
-            if matches!(self.ai_mode, ae::CharacterAiMode::Patrol) {
-                self.facing *= -1.0;
-            }
-        }
+        // Bridge into the engine's shared kinematic sweep so NPCs
+        // hit the same OneWay / Solid / BlinkWall rules the player
+        // does (the predecessor's per-NPC sweep had OneWay-as-wall
+        // semantics that diverged from the player and broke
+        // hostile-NPC chase paths). Peaceful NPCs never set
+        // `drop_through` — they are not trying to navigate
+        // vertically toward the player, so OneWay platforms stay as
+        // floors.
+        let mut body = ae::KinematicBody {
+            pos: self.pos,
+            vel: self.vel,
+            size: self.size,
+            on_ground: self.on_ground,
+            facing: self.facing,
+        };
+        let prev_vel_x = body.vel.x;
+        ae::step_kinematic(
+            &mut body,
+            world,
+            ae::KinematicTuning {
+                gravity: ENEMY_GRAVITY,
+                max_fall_speed: ENEMY_MAX_FALL,
+            },
+            ae::KinematicInputs::default(),
+            dt,
+        );
+        self.pos = body.pos;
+        self.vel = body.vel;
+        self.on_ground = body.on_ground;
 
-        // Vertical sweep. NPCs collide with one-way platforms from
-        // above just like the player / enemies do (`blocked_y`
-        // includes OneWay), so an NPC patrolling on a platform
-        // stays on the platform instead of falling through.
-        let old_y = self.pos.y;
-        self.pos.y += self.vel.y * dt;
-        let mut grounded = false;
-        if blocked_y(world, self.aabb()) {
-            self.pos.y = old_y;
-            // Landed (vy was downward) vs. bonked head (vy upward).
-            // NPCs don't jump today so vy is almost always
-            // downward here, but the branch is correct either way.
-            if self.vel.y > 0.0 {
-                grounded = true;
-            }
-            self.vel.y = 0.0;
+        // Patrol-style facing flip when we hit a wall horizontally.
+        if matches!(self.ai_mode, ae::CharacterAiMode::Patrol)
+            && prev_vel_x.abs() > 1.0
+            && self.vel.x.abs() < 0.01
+        {
+            self.facing *= -1.0;
         }
-        self.on_ground = grounded;
 
         // After moving, re-face the player while in talk range so
         // the dialog prompt sits on the correct side of the NPC.

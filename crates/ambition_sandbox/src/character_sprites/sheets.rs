@@ -276,6 +276,148 @@ pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
+// ─────────────────────────────────────────────────────────────────
+// Toon-target NPC sheets — share the generator's 4-px inter-frame
+// padding (col_pitch = content_w + 4, row_pitch = content_h + 4) and
+// `feet_anchor_norm.y ≈ -0.47` from `body_metrics`. We declare only
+// `Idle` here; rows added later (Walk/Talk) need to land at PNG row
+// indices 1, 2, … in order, since `build_atlas` walks rows
+// sequentially. `collision_scale ≈ 1 / (body_h / row_pitch)` keeps
+// the silhouette scaled to the LDtk collision box.
+// ─────────────────────────────────────────────────────────────────
+
+/// Architect — hub research / ADR-explainer NPC.
+pub const ARCHITECT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 116,
+    // body_metrics frame=97×114, +4px padding both axes → 101×118.
+    frame_width: 101,
+    frame_height: 118,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.465,
+    frame_sample_inset: 2,
+};
+
+/// Kernel Guide — onboarding NPC at the hub spawn area.
+pub const KERNEL_GUIDE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 116,
+    // body_metrics frame=89×97, +4px padding → 93×101.
+    frame_width: 93,
+    frame_height: 101,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.469,
+    frame_sample_inset: 2,
+};
+
+/// Vault Keeper — persistence / save-seed NPC in the basement.
+pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 116,
+    // body_metrics frame=99×116, +4px padding → 103×120.
+    frame_width: 103,
+    frame_height: 120,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.474,
+    frame_sample_inset: 2,
+};
+
+/// Merchant Prototype — placeholder shopkeeper NPC.
+pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 116,
+    // body_metrics frame=83×98, +4px padding → 87×102.
+    frame_width: 87,
+    frame_height: 102,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.469,
+    frame_sample_inset: 2,
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Robot-target faction-leader sheets. Tightly packed (no inter-frame
+// padding), `feet_anchor_norm.y ≈ -0.328`, body fills ~83% of the
+// row pitch → `collision_scale ≈ 1.20`.
+// ─────────────────────────────────────────────────────────────────
+
+/// Fretjaw — Goblin Cantina chieftain (faction leader of the
+/// rowdy training-pit faction). Goblin-target generator output:
+/// label_w=120, no inter-frame padding, body fills ~86% of the
+/// 128-tall row.
+pub const GOBLIN_CANTINA_CHIEFTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 120,
+    frame_width: 114,
+    frame_height: 128,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.16,
+    feet_anchor_y: -0.352,
+    frame_sample_inset: 1,
+};
+
+/// Captain Pulse — Pulse Voyagers faction leader.
+pub const PULSE_VOYAGER_CAPTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 120,
+    frame_width: 110,
+    frame_height: 128,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.20,
+    feet_anchor_y: -0.328,
+    frame_sample_inset: 1,
+};
+
+/// Chadwick Disruptor III — Tech-Bros Basement faction leader.
+pub const TECH_BRO_DISRUPTOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 120,
+    frame_width: 111,
+    frame_height: 128,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.20,
+    feet_anchor_y: -0.328,
+    frame_sample_inset: 1,
+};
+
 pub const SANDBAG_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
     frame_width: 128,

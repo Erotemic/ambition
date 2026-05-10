@@ -165,6 +165,9 @@ enum DialogMode {
     MerchantSeed,
     HubGuide,
     MilitaryGeneral,
+    GoblinCantinaChieftain,
+    PulseVoyagerCaptain,
+    TechBrosDisruptor,
     Generic,
 }
 
@@ -176,6 +179,9 @@ impl DialogMode {
             "merchant_seed" => Self::MerchantSeed,
             "hub_guide" => Self::HubGuide,
             "military_general" => Self::MilitaryGeneral,
+            "goblin_cantina_chieftain" => Self::GoblinCantinaChieftain,
+            "pulse_voyager_captain" => Self::PulseVoyagerCaptain,
+            "tech_bros_disruptor" => Self::TechBrosDisruptor,
             _ => Self::Generic,
         }
     }
@@ -187,6 +193,9 @@ impl DialogMode {
             Self::MerchantSeed => "merchant design sketch",
             Self::HubGuide => "central hub guidance",
             Self::MilitaryGeneral => "military faction leader",
+            Self::GoblinCantinaChieftain => "goblin cantina chieftain",
+            Self::PulseVoyagerCaptain => "pulse voyager captain",
+            Self::TechBrosDisruptor => "tech-bros disruptor",
             Self::Generic => "sandbox dialogue",
         }
     }
@@ -198,6 +207,9 @@ impl DialogMode {
             Self::MerchantSeed => MERCHANT_SEED_NODES,
             Self::HubGuide => HUB_GUIDE_NODES,
             Self::MilitaryGeneral => MILITARY_GENERAL_NODES,
+            Self::GoblinCantinaChieftain => GOBLIN_CANTINA_CHIEFTAIN_NODES,
+            Self::PulseVoyagerCaptain => PULSE_VOYAGER_CAPTAIN_NODES,
+            Self::TechBrosDisruptor => TECH_BROS_DISRUPTOR_NODES,
             Self::Generic => GENERIC_NODES,
         }
     }
@@ -512,6 +524,177 @@ const MILITARY_GENERAL_NODES: &[DialogNode] = &[
         speaker: "General",
         line: "Each medal commemorates a meeting I survived. Three are for punctuality. Two are for the meetings ABOUT punctuality. The largest one is awarded by, and to, myself.",
         options: MILITARY_GENERAL_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+const GOBLIN_CANTINA_CHIEFTAIN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What goes on here?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Why a training pit, not a stronghold?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Walk away.",
+        next_node: None,
+        note: Some("Fretjaw bangs a flagon on the dais. The entire pit cheers, then immediately resumes losing at darts."),
+        close_after: true,
+    },
+];
+
+const GOBLIN_CANTINA_CHIEFTAIN_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Walk away.",
+        next_node: None,
+        note: Some("Fretjaw bangs a flagon on the dais. The cheering is real. The dart skill is not."),
+        close_after: true,
+    },
+];
+
+const GOBLIN_CANTINA_CHIEFTAIN_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Fretjaw",
+        line: "Mind the tables, friend. We don't FIGHT in the cantina, we REHEARSE fighting. There's a difference. Mostly the volume.",
+        options: GOBLIN_CANTINA_CHIEFTAIN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Fretjaw",
+        line: "House rules: vault the tables, duck the bar shelf, buy a round if you bleed on the floorboards. Three goblins are passed out under the dais. They are also house rules.",
+        options: GOBLIN_CANTINA_CHIEFTAIN_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Fretjaw",
+        line: "Strongholds make you proud. Pits make you GOOD. Anyone can stand a wall up. Try keeping your footing on a beer floor.",
+        options: GOBLIN_CANTINA_CHIEFTAIN_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+const PULSE_VOYAGER_CAPTAIN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Where do these stones lead?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Why park up in the sky?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Cast off.",
+        next_node: None,
+        note: Some("Captain Pulse touches a rune on the dais. The stones below shimmer once, as if amused, and stay put."),
+        close_after: true,
+    },
+];
+
+const PULSE_VOYAGER_CAPTAIN_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Cast off.",
+        next_node: None,
+        note: Some("Captain Pulse offers a salute that ends in a wave. Or a wave that ends in a salute. Hard to tell."),
+        close_after: true,
+    },
+];
+
+const PULSE_VOYAGER_CAPTAIN_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Captain Pulse",
+        line: "Welcome aboard the dais, drifter. We don't moor in the sky because we LIKE heights. We moor here because the tide is a measurement, not a condition.",
+        options: PULSE_VOYAGER_CAPTAIN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Captain Pulse",
+        line: "Each stone is a beat. Skip one and you don't fall — you just arrive late. Late is a kind of wrong place that pretends to be a wrong time.",
+        options: PULSE_VOYAGER_CAPTAIN_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Captain Pulse",
+        line: "Below the stones is water. Above them is also water, just slower. We split the difference and call the difference a deck.",
+        options: PULSE_VOYAGER_CAPTAIN_RETURN_OPTIONS,
+        default_next: None,
+    },
+];
+
+const TECH_BROS_DISRUPTOR_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "What is this place pivoting toward?",
+        next_node: Some(1),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Why does the boardroom face up?",
+        next_node: Some(2),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Touch grass.",
+        next_node: None,
+        note: Some("Chadwick blinks. \"You'll be back. The runway always slopes downward.\""),
+        close_after: true,
+    },
+];
+
+const TECH_BROS_DISRUPTOR_RETURN_OPTIONS: &[DialogChoice] = &[
+    DialogChoice {
+        label: "Ask another question.",
+        next_node: Some(0),
+        note: None,
+        close_after: false,
+    },
+    DialogChoice {
+        label: "Touch grass.",
+        next_node: None,
+        note: Some("Chadwick uploads the conversation to a deck and shareholders applaud somewhere far away."),
+        close_after: true,
+    },
+];
+
+const TECH_BROS_DISRUPTOR_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Chadwick III",
+        line: "Welcome to the basement! We're not failing — we're SUBTERRANEAN. Premium iteration depth. We dropped down here on purpose; gravity is just runway you don't have to lobby for.",
+        options: TECH_BROS_DISRUPTOR_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Chadwick III",
+        line: "Disruption-as-a-service, friend. We disrupt anything that holds still long enough. Our roadmap is a slope. Our slope is the roadmap. Both are pivots.",
+        options: TECH_BROS_DISRUPTOR_RETURN_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Chadwick III",
+        line: "The boardroom faces up because vision is a direction. Looking down is for accountants. We do not look down. We are the down.",
+        options: TECH_BROS_DISRUPTOR_RETURN_OPTIONS,
         default_next: None,
     },
 ];

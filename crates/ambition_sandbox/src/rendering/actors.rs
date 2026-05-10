@@ -103,19 +103,30 @@ fn state_aware_entity_sprite(
     }
 }
 
-/// Replace the colored-rectangle sprite on enemy/sandbag entities with the
-/// appropriate character sprite-sheet sprite once the asset is available. Newly-spawned
-/// feature visuals (initial setup or room transitions) are picked up here.
+/// Marker recording which `FeatureVisualKind` the current sprite +
+/// `CharacterAnimator` were bound for. The upgrade systems read this
+/// to detect mid-life kind changes — e.g. when a peaceful NPC turns
+/// hostile and `apply_save` migrates the runtime entry from `npcs`
+/// to `enemies`. Without this marker, the existing
+/// `Without<CharacterAnimator>` filter hid the entity from the enemy
+/// upgrade pass and the kernel guide stayed visually a kernel guide
+/// after the third strike.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BoundFeatureKind(pub FeatureVisualKind);
+
+/// Bind enemy/sandbag visuals to the appropriate character sheet
+/// once the asset is available — and re-bind when an existing visual
+/// changes kind (e.g. NPC → Enemy on hostility flip).
 pub fn upgrade_enemy_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     runtime: Res<crate::SandboxRuntime>,
-    new_features: Query<(Entity, &FeatureVisual), Without<CharacterAnimator>>,
+    features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
 ) {
     let Some(assets) = assets else {
         return;
     };
-    for (entity, visual) in &new_features {
+    for (entity, visual, bound) in &features {
         let Some(view) = runtime.features.view(&visual.id) else {
             continue;
         };
@@ -123,6 +134,10 @@ pub fn upgrade_enemy_sprites(
             view.kind,
             FeatureVisualKind::Enemy | FeatureVisualKind::Sandbag
         ) {
+            continue;
+        }
+        // Already bound to the correct kind — nothing to do this frame.
+        if matches!(bound, Some(BoundFeatureKind(k)) if *k == view.kind) {
             continue;
         }
         let Some(character_asset) = assets.characters.enemy_asset(view.kind) else {
@@ -134,6 +149,7 @@ pub fn upgrade_enemy_sprites(
             sprite,
             feet_anchor_for(character_asset.spec, collision),
             CharacterAnimator::new(character_asset.spec),
+            BoundFeatureKind(view.kind),
         ));
     }
 }
@@ -152,16 +168,19 @@ pub fn upgrade_npc_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     runtime: Res<crate::SandboxRuntime>,
-    new_features: Query<(Entity, &FeatureVisual), Without<CharacterAnimator>>,
+    features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
 ) {
     let Some(assets) = assets else {
         return;
     };
-    for (entity, visual) in &new_features {
+    for (entity, visual, bound) in &features {
         let Some(view) = runtime.features.view(&visual.id) else {
             continue;
         };
         if !matches!(view.kind, FeatureVisualKind::Npc) {
+            continue;
+        }
+        if matches!(bound, Some(BoundFeatureKind(k)) if *k == view.kind) {
             continue;
         }
         let Some(name) = runtime.features.npc_name(&visual.id) else {
@@ -176,6 +195,7 @@ pub fn upgrade_npc_sprites(
             sprite,
             feet_anchor_for(character_asset.spec, collision),
             CharacterAnimator::new(character_asset.spec),
+            BoundFeatureKind(view.kind),
         ));
     }
 }

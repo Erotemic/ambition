@@ -35,23 +35,15 @@ pub(super) fn room_paths(world: &ae::World) -> Vec<(String, ae::KinematicPath)> 
         .collect()
 }
 
-pub(super) fn blocked(world: &ae::World, aabb: ae::Aabb) -> bool {
-    world.body_overlaps_any(aabb, |block| {
-        matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        )
-    })
-}
-
-pub(super) fn blocked_y(world: &ae::World, aabb: ae::Aabb) -> bool {
-    world.body_overlaps_any(aabb, |block| {
-        matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-        )
-    })
-}
+// Note: the older `blocked` / `blocked_y` predicates lived here.
+// They were ad-hoc collision tests used by enemy / NPC sweep code,
+// and their OneWay handling did not differentiate above-vs-below
+// approaches — a hostile NPC chasing the player could not drop
+// through a one-way platform, breaking the chase. Both paths now
+// route through `ambition_engine::step_kinematic`, which mirrors
+// the player's sweep semantics exactly. Don't reintroduce the
+// old helpers; if a new caller needs collision-aware motion, add
+// it through `KinematicBody`.
 
 pub(super) fn approach(value: f32, target: f32, delta: f32) -> f32 {
     if value < target {

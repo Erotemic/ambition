@@ -109,12 +109,21 @@ def cmd_door(args, rest):
     if args.door_action == "free-spots":
         # area_authoring exposes --list-free-spots <room>; forward through.
         return _delegate("ambition_ldtk_tools.area_authoring", ["--list-free-spots", *rest])
+    if args.door_action == "snap":
+        # area_authoring exposes --snap-to-surface; forward through.
+        return _delegate("ambition_ldtk_tools.area_authoring", ["--snap-to-surface", *rest])
     return _todo(f"door {args.door_action}")
 
 
 def cmd_entity(args, rest):
     if args.entity_action == "add":
         return _delegate("ambition_ldtk_tools.edit.entities", rest)
+    if args.entity_action == "even-space":
+        # area_authoring exposes --even-space-entities; forward through.
+        return _delegate(
+            "ambition_ldtk_tools.area_authoring",
+            ["--even-space-entities", *rest],
+        )
     return _todo(f"entity {args.entity_action}")
 
 
@@ -176,19 +185,31 @@ def build_parser() -> argparse.ArgumentParser:
     area_sub.add_parser("create", help="Create an area/level from a spec")
     sp_area.set_defaults(func=cmd_area)
 
-    # door free-spots
+    # door free-spots / door snap
     sp_door = sub.add_parser("door", help="Door helpers")
     door_sub = sp_door.add_subparsers(dest="door_action", required=True)
     door_sub.add_parser("free-spots", help="List free 48x96 door slots in a level")
+    door_sub.add_parser(
+        "snap",
+        help="Snap a door to the nearest Collision surface; forwards to "
+        "area-authoring's --snap-to-surface flag. Usage: door snap <room> --x N "
+        "[--door-w 48] [--door-h 96] [--prefer-y N]",
+    )
     sp_door.set_defaults(func=cmd_door)
 
-    # entity {add,set-field,move,delete}
+    # entity {add,set-field,move,delete,even-space}
     sp_entity = sub.add_parser("entity", help="Entity instance edits")
     entity_sub = sp_entity.add_subparsers(dest="entity_action", required=True)
     entity_sub.add_parser("add", help="Add entity instance(s)")
     entity_sub.add_parser("set-field", help="[TODO] Set a field on an existing entity")
     entity_sub.add_parser("move", help="[TODO] Move an existing entity")
     entity_sub.add_parser("delete", help="[TODO] Delete an entity instance")
+    entity_sub.add_parser(
+        "even-space",
+        help="Even-space entities of one type along x in a level. "
+        "Usage: entity even-space <room> [--entity-type ID] [--y-row Y] "
+        "[--strategy preserve-ends|fit] [--start-x N --end-x N]",
+    )
     sp_entity.set_defaults(func=cmd_entity)
 
     # def register-entity

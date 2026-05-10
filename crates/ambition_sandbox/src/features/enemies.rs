@@ -23,6 +23,10 @@ pub struct EnemyRuntime {
     /// HUD / rendering / debug overlay so they can branch on a single
     /// vocabulary instead of inferring it from the timer fields.
     pub ai_mode: ae::CharacterAiMode,
+    /// Set by [`step_kinematic`] each tick. Used by chase-drop-through
+    /// (enemy must be standing on something before it tries to fall
+    /// through it) and by future jump AI.
+    pub on_ground: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -192,6 +196,7 @@ impl EnemyRuntime {
             respawn_timer: 0.0,
             hit_flash: 0.0,
             ai_mode: ae::CharacterAiMode::Idle,
+            on_ground: false,
         }
     }
 
@@ -300,19 +305,56 @@ impl EnemyRuntime {
                 }
             };
             self.vel.x = approach(self.vel.x, desired_x, 650.0 * dt);
-            self.vel.y = (self.vel.y + ENEMY_GRAVITY * dt).min(ENEMY_MAX_FALL);
-            let old_x = self.pos.x;
-            self.pos.x += self.vel.x * dt;
-            if blocked(world, self.aabb()) {
-                self.pos.x = old_x;
+
+            // Chase-drop-through: when actively chasing a player who
+            // is meaningfully BELOW us, AND we're currently standing
+            // on something, suppress the OneWay vertical block this
+            // tick so we follow the player through the same platform.
+            // Threshold matches a player's standing height (~46) so
+            // we only drop when the player has crossed at least one
+            // floor below; smaller deltas would make patrolling
+            // enemies fall off platforms whenever the player is on a
+            // slightly lower surface.
+            let drop_through = matches!(self.ai_mode, ae::CharacterAiMode::Chase)
+                && self.on_ground
+                && delta_to_player.y > 48.0;
+
+            // Bridge into the engine's shared kinematic sweep so
+            // enemies hit the same OneWay / Solid / BlinkWall rules
+            // the player does. Same primitive will eventually carry
+            // RL agents and remote-controlled characters.
+            let mut body = ae::KinematicBody {
+                pos: self.pos,
+                vel: self.vel,
+                size: self.size,
+                on_ground: self.on_ground,
+                facing: self.facing,
+            };
+            let prev_vel_x = body.vel.x;
+            ae::step_kinematic(
+                &mut body,
+                world,
+                ae::KinematicTuning {
+                    gravity: ENEMY_GRAVITY,
+                    max_fall_speed: ENEMY_MAX_FALL,
+                },
+                ae::KinematicInputs { drop_through },
+                dt,
+            );
+            self.pos = body.pos;
+            self.vel = body.vel;
+            self.on_ground = body.on_ground;
+
+            // Patrol-style facing flip when we hit a wall horizontally.
+            // `step_kinematic` zeros vel.x on a Solid/BlinkWall block,
+            // so a non-zero pre-step velocity dropping to zero post-
+            // step signals a wall. Chase-mode enemies don't flip;
+            // they keep aiming at the player.
+            if !matches!(self.ai_mode, ae::CharacterAiMode::Chase)
+                && prev_vel_x.abs() > 1.0
+                && self.vel.x.abs() < 0.01
+            {
                 self.facing *= -1.0;
-                self.vel.x = 0.0;
-            }
-            let old_y = self.pos.y;
-            self.pos.y += self.vel.y * dt;
-            if blocked_y(world, self.aabb()) {
-                self.pos.y = old_y;
-                self.vel.y = 0.0;
             }
         }
 

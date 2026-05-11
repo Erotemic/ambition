@@ -1,4 +1,3 @@
-use super::model::{MAX_ROWS, RADIO_VISIBLE_ROWS};
 use super::*;
 
 #[test]
@@ -58,24 +57,24 @@ fn visible_window_tracks_selected_row_without_overflow() {
 }
 
 #[test]
-fn radio_page_is_windowed_for_mobile_sized_menus() {
-    // The radio track catalog is already large enough that showing one row per
-    // track overflows the pause panel on small/mobile displays. Keep the
-    // visible radio rows capped below the backing row-slot pool so the shared
-    // windowing helpers scroll the list instead of rendering every track.
-    assert!(RADIO_VISIBLE_ROWS < MAX_ROWS);
-    assert_eq!(RADIO_VISIBLE_ROWS, 8);
+fn radio_rows_are_windowed_for_mobile_panels() {
+    assert!(super::model::RADIO_VISIBLE_ROWS < super::model::MAX_ROWS);
+    assert_eq!(super::model::RADIO_VISIBLE_ROWS, 8);
+    let cursor = crate::ui_nav::ListCursor::new(12, 26);
     assert_eq!(
-        crate::ui_nav::windowed_title("Radio", 12, 26, RADIO_VISIBLE_ROWS),
+        cursor.windowed_title("Radio", super::model::RADIO_VISIBLE_ROWS),
         "Radio — 13/26"
     );
-    assert_eq!(visible_row_index(0, 12, 26, RADIO_VISIBLE_ROWS), Some(8));
     assert_eq!(
-        visible_row_index(RADIO_VISIBLE_ROWS - 1, 12, 26, RADIO_VISIBLE_ROWS),
+        cursor.visible_row_for_slot(0, super::model::RADIO_VISIBLE_ROWS),
+        Some(8)
+    );
+    assert_eq!(
+        cursor.visible_row_for_slot(7, super::model::RADIO_VISIBLE_ROWS),
         Some(15)
     );
     assert_eq!(
-        visible_row_index(RADIO_VISIBLE_ROWS, 12, 26, RADIO_VISIBLE_ROWS),
+        cursor.visible_row_for_slot(8, super::model::RADIO_VISIBLE_ROWS),
         None
     );
 }

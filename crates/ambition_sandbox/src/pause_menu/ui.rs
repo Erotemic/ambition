@@ -1,6 +1,8 @@
 use super::model::{MAX_ROWS, RADIO_VISIBLE_ROWS, SETTINGS_VISIBLE_ROWS};
 use super::*;
 
+use crate::ui_nav::ListCursor;
+
 pub fn spawn_pause_menu(mut commands: Commands) {
     let root = commands
         .spawn((
@@ -230,27 +232,17 @@ pub fn sync_pause_menu(
             &dev_view.developer,
             &dev_view.ldtk_reload,
         );
+        let cursor = ListCursor::new(state.selected, rows.len());
         for (mut text, _) in &mut titles {
-            **text = windowed_title(
-                page.title(),
-                state.selected,
-                rows.len(),
-                SETTINGS_VISIBLE_ROWS,
-            );
+            **text = cursor.windowed_title(page.title(), SETTINGS_VISIBLE_ROWS);
         }
         for (slot, mut node, mut vis, mut text, mut color, mut bg) in &mut row_slots {
-            if let Some(row_index) = visible_row_index(
-                slot.index,
-                state.selected,
-                rows.len(),
-                SETTINGS_VISIBLE_ROWS,
-            ) {
+            if let Some(row_index) = cursor.visible_row_for_slot(slot.index, SETTINGS_VISIBLE_ROWS)
+            {
                 if let Some(item) = rows.get(row_index) {
-                    **text = decorate_windowed_label(
+                    **text = cursor.decorate_visible_label(
                         item.label_with_dev(&user_settings, dev),
                         row_index,
-                        state.selected,
-                        rows.len(),
                         SETTINGS_VISIBLE_ROWS,
                     );
                     let selected = state.selected == row_index;
@@ -263,24 +255,17 @@ pub fn sync_pause_menu(
         }
     } else if matches!(state.page, PauseMenuPage::Radio) {
         let count = library.track_count();
+        let cursor = ListCursor::new(state.selected, count);
         for (mut text, _) in &mut titles {
-            **text = indexed_title("Radio", state.selected, count);
+            **text = cursor.windowed_title("Radio", RADIO_VISIBLE_ROWS);
         }
         let active = radio
             .selected_track()
             .unwrap_or(music_state.active_track.as_str());
         for (slot, mut node, mut vis, mut text, mut color, mut bg) in &mut row_slots {
-            if let Some(track_index) =
-                visible_row_index(slot.index, state.selected, count, RADIO_VISIBLE_ROWS)
-            {
+            if let Some(track_index) = cursor.visible_row_for_slot(slot.index, RADIO_VISIBLE_ROWS) {
                 if let Some(label) = library.radio_label(track_index, active) {
-                    **text = decorate_windowed_label(
-                        label,
-                        track_index,
-                        state.selected,
-                        count,
-                        RADIO_VISIBLE_ROWS,
-                    );
+                    **text = cursor.decorate_visible_label(label, track_index, RADIO_VISIBLE_ROWS);
                     let selected = state.selected == track_index;
                     apply_item_highlight(&mut color, &mut bg, selected);
                     show_row_slot(&mut node, &mut vis);
@@ -390,27 +375,17 @@ pub fn sync_pause_menu(
             &dev_view.developer,
             &dev_view.ldtk_reload,
         );
+        let cursor = ListCursor::new(state.selected, rows.len());
         for (mut text, _) in &mut titles {
-            **text = windowed_title(
-                page.title(),
-                state.selected,
-                rows.len(),
-                SETTINGS_VISIBLE_ROWS,
-            );
+            **text = cursor.windowed_title(page.title(), SETTINGS_VISIBLE_ROWS);
         }
         for (slot, mut node, mut vis, mut text, mut color, mut bg) in &mut row_slots {
-            if let Some(row_index) = visible_row_index(
-                slot.index,
-                state.selected,
-                rows.len(),
-                SETTINGS_VISIBLE_ROWS,
-            ) {
+            if let Some(row_index) = cursor.visible_row_for_slot(slot.index, SETTINGS_VISIBLE_ROWS)
+            {
                 if let Some(item) = rows.get(row_index) {
-                    **text = decorate_windowed_label(
+                    **text = cursor.decorate_visible_label(
                         item.label_with_dev(&user_settings, dev),
                         row_index,
-                        state.selected,
-                        rows.len(),
                         SETTINGS_VISIBLE_ROWS,
                     );
                     let selected = state.selected == row_index;

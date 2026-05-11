@@ -34,9 +34,9 @@ use crate::settings::{
     apply_action as handle_settings_action, DevToggleSnapshot, SettingsAction, SettingsItem,
     SettingsOutcome, SettingsPage, UserSettings,
 };
+use crate::ui_nav::visible_row_index;
 #[cfg(feature = "input")]
 use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction, RowPointerOutcome};
-use crate::ui_nav::{decorate_windowed_label, indexed_title, visible_row_index, windowed_title};
 use crate::windowing::DisplayModeState;
 use crate::SandboxRuntime;
 

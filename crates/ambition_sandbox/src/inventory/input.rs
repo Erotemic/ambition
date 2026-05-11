@@ -1,6 +1,8 @@
 use super::effects::apply_item_effect;
 use super::*;
 
+use crate::ui_nav::ListCursor;
+
 #[cfg(feature = "input")]
 pub fn inventory_input(
     menu: Res<MenuControlFrame>,
@@ -72,23 +74,13 @@ fn handle_item_tab_input(
     runtime: &mut SandboxRuntime,
 ) {
     let total = ItemKind::ALL.len();
-    let mut nav_up = menu.up;
-    let mut nav_down = menu.down;
-    let steps = menu.vertical_scroll_steps();
-    if steps > 0 {
-        nav_up = true;
-    } else if steps < 0 {
-        nav_down = true;
-    }
-    if nav_up {
-        state.selected = (state.selected + total - 1) % total;
-    }
-    if nav_down {
-        state.selected = (state.selected + 1) % total;
-    }
+    let mut cursor = ListCursor::new(state.selected, total);
+    let moved_by_buttons = cursor.apply_directional(menu.up, menu.down);
+    let moved_by_scroll = cursor.apply_scroll_steps(menu.vertical_scroll_steps());
+    state.selected = cursor.selected();
     // Keyboard / gamepad / gesture navigation clears any tap-armed row so the
     // next pointer press starts fresh.
-    if nav_up || nav_down || menu.scroll_y.abs() >= 0.5 {
+    if moved_by_buttons || moved_by_scroll || menu.scroll_y.abs() >= 0.5 {
         state.pointer_armed = None;
     }
 

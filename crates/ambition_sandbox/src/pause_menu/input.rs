@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::ui_nav::ListCursor;
+
 /// `Start` input opens/closes the pause menu by toggling `GameMode`.
 ///
 /// Reads from `MenuControlFrame`, the semantic menu-input seam. Keyboard,
@@ -181,12 +183,9 @@ fn handle_top_input(
     #[cfg(feature = "audio")] music_channel: &AudioChannel<MusicChannel>,
 ) {
     let items = PauseMenuItem::ALL;
-    if nav.up {
-        state.selected = (state.selected + items.len() - 1) % items.len();
-    }
-    if nav.down {
-        state.selected = (state.selected + 1) % items.len();
-    }
+    let mut cursor = ListCursor::new(state.selected, items.len());
+    cursor.apply_directional(nav.up, nav.down);
+    state.selected = cursor.selected();
 
     let item = items[state.selected];
 
@@ -272,21 +271,9 @@ fn handle_radio_input(
     if count == 0 {
         return;
     }
-    if nav.up {
-        state.selected = (state.selected + count - 1) % count;
-    }
-    if nav.down {
-        state.selected = (state.selected + 1) % count;
-    }
-    if nav.left {
-        state.selected = (state.selected + count - 1) % count;
-    }
-    if nav.right {
-        state.selected = (state.selected + 1) % count;
-    }
-    if state.selected >= count {
-        state.selected = 0;
-    }
+    let mut cursor = ListCursor::new(state.selected, count);
+    cursor.apply_directional(nav.up || nav.left, nav.down || nav.right);
+    state.selected = cursor.selected();
     if nav.select || nav.left || nav.right {
         let track_id = library
             .track_at(state.selected)
@@ -332,15 +319,9 @@ fn handle_settings_page_input(
     if rows.is_empty() {
         return;
     }
-    if nav.up {
-        state.selected = (state.selected + rows.len() - 1) % rows.len();
-    }
-    if nav.down {
-        state.selected = (state.selected + 1) % rows.len();
-    }
-    if state.selected >= rows.len() {
-        state.selected = 0;
-    }
+    let mut cursor = ListCursor::new(state.selected, rows.len());
+    cursor.apply_directional(nav.up, nav.down);
+    state.selected = cursor.selected();
     let item = rows[state.selected];
 
     let action = if nav.left {

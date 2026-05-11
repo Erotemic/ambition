@@ -1,5 +1,10 @@
 use super::*;
 
+use crate::ui_nav::ScrollWindow;
+
+const MAP_TAB_VISIBLE_LINES: usize = 10;
+const QUEST_TAB_VISIBLE_LINES: usize = 9;
+
 pub fn spawn_inventory_panel(mut commands: Commands) {
     let root = commands
         .spawn((
@@ -325,8 +330,12 @@ pub fn sync_inventory_panel(
         InventoryTab::Items => {
             "Tap tabs or ←/→ pages   Confirm uses item   Back closes".to_string()
         }
-        InventoryTab::Map => "Tap tabs or ←/→ pages   Drag to scroll   Back closes".to_string(),
-        InventoryTab::Quests => "Tap tabs or ←/→ pages   Drag to scroll   Back closes".to_string(),
+        InventoryTab::Map => {
+            "Tap tabs or ←/→ pages   ↑/↓ or drag scrolls rooms   Back closes".to_string()
+        }
+        InventoryTab::Quests => {
+            "Tap tabs or ←/→ pages   ↑/↓ or drag scrolls quests   Back closes".to_string()
+        }
     };
 
     // Use a single query over all adventure-menu text widgets instead of several
@@ -434,16 +443,24 @@ fn map_tab_text(
     if map.visited.is_empty() {
         lines.push("No rooms visited yet.".into());
     } else {
-        for id in map.visited.iter().skip(state.content_scroll).take(10) {
+        let window = ScrollWindow::new(
+            state.content_scroll,
+            map.visited.len(),
+            MAP_TAB_VISIBLE_LINES,
+        );
+        for id in map
+            .visited
+            .iter()
+            .skip(window.start)
+            .take(MAP_TAB_VISIBLE_LINES)
+        {
             let marker = if id == current { "→" } else { " " };
             lines.push(format!("{marker} {id}"));
         }
-    }
-    if state.content_scroll > 0 {
-        lines.push("↑ more".into());
-    }
-    if state.content_scroll + 10 < map.visited.len() {
-        lines.push("↓ more".into());
+        if let Some(hint) = window.hint_line() {
+            lines.push(String::new());
+            lines.push(hint);
+        }
     }
     lines.join("\n")
 }
@@ -453,15 +470,30 @@ fn quest_tab_text(state: &InventoryUiState, quests: &crate::quest::QuestRegistry
     if lines.is_empty() {
         return "No active quests.".into();
     }
+    let window = ScrollWindow::new(state.content_scroll, lines.len(), QUEST_TAB_VISIBLE_LINES);
     let mut visible = Vec::new();
-    for line in lines.iter().skip(state.content_scroll).take(9) {
+    if window.has_before() {
+        visible.push(format!(
+            "↑ more   rows {}-{} of {}",
+            window.start + 1,
+            window.end(),
+            window.total
+        ));
+    }
+    for line in lines
+        .iter()
+        .skip(window.start)
+        .take(QUEST_TAB_VISIBLE_LINES)
+    {
         visible.push(format!("• {line}"));
     }
-    if state.content_scroll > 0 {
-        visible.insert(0, "↑ more".into());
-    }
-    if state.content_scroll + 9 < lines.len() {
-        visible.push("↓ more".into());
+    if window.has_after() {
+        visible.push(format!(
+            "rows {}-{} of {}   ↓ more",
+            window.start + 1,
+            window.end(),
+            window.total
+        ));
     }
     visible.join("\n")
 }

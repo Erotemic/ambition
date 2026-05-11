@@ -118,6 +118,126 @@ impl MusicCueCatalog {
         self.cues.get(id)
     }
 
+    /// Validate internal cue/state/layer/binding references.
+    ///
+    /// This is intentionally independent of the audio backend: it checks the
+    /// authored adaptive-music graph before the director tries to resolve a
+    /// state or play a layer source at runtime.
+    pub(crate) fn validate_references(&self) -> Vec<String> {
+        let mut errors = Vec::new();
+        for cue in self.cues.values() {
+            let sections = cue
+                .sections
+                .iter()
+                .map(|section| section.id.as_str())
+                .collect::<std::collections::BTreeSet<_>>();
+            let layers = cue
+                .layers
+                .iter()
+                .map(|layer| layer.id.as_str())
+                .collect::<std::collections::BTreeSet<_>>();
+            let states = cue
+                .states
+                .iter()
+                .map(|state| state.id.as_str())
+                .collect::<std::collections::BTreeSet<_>>();
+
+            for state in &cue.states {
+                if !sections.contains(state.section_id.as_str()) {
+                    errors.push(format!(
+                        "cue '{}' state '{}' references unknown section '{}'",
+                        cue.id, state.id, state.section_id
+                    ));
+                }
+                for gain in &state.gains {
+                    if !layers.contains(gain.layer_id.as_str()) {
+                        errors.push(format!(
+                            "cue '{}' state '{}' references unknown layer '{}'",
+                            cue.id, state.id, gain.layer_id
+                        ));
+                    }
+                }
+            }
+
+            for section in &cue.sections {
+                for source in &section.sources {
+                    if !layers.contains(source.layer_id.as_str()) {
+                        errors.push(format!(
+                            "cue '{}' section '{}' references unknown layer '{}'",
+                            cue.id, section.id, source.layer_id
+                        ));
+                    }
+                    if source.path.trim().is_empty() {
+                        errors.push(format!(
+                            "cue '{}' section '{}' has an empty source path for layer '{}'",
+                            cue.id, section.id, source.layer_id
+                        ));
+                    }
+                }
+            }
+
+            for (field, value) in [
+                ("outro_state", cue.outro_state.as_ref()),
+                (
+                    "post_clear_bridge_state",
+                    cue.post_clear_bridge_state.as_ref(),
+                ),
+            ] {
+                if let Some(state_id) = value {
+                    if !states.contains(state_id.as_str()) {
+                        errors.push(format!(
+                            "cue '{}' {field} references unknown state '{}'",
+                            cue.id, state_id
+                        ));
+                    }
+                }
+            }
+        }
+
+        for binding in &self.encounter_bindings {
+            let Some(cue) = self.cues.get(&binding.cue_id) else {
+                errors.push(format!(
+                    "encounter binding '{}' references unknown cue '{}'",
+                    binding.encounter_id, binding.cue_id
+                ));
+                continue;
+            };
+            let states = cue
+                .states
+                .iter()
+                .map(|state| state.id.as_str())
+                .collect::<std::collections::BTreeSet<_>>();
+            for (field, state_id) in [
+                ("starting_state", binding.starting_state.as_str()),
+                ("cleared_state", binding.cleared_state.as_str()),
+            ] {
+                if !states.contains(state_id) {
+                    errors.push(format!(
+                        "encounter binding '{}' {field} references unknown state '{}' on cue '{}'",
+                        binding.encounter_id, state_id, binding.cue_id
+                    ));
+                }
+            }
+            for state_id in &binding.wave_states {
+                if !states.contains(state_id.as_str()) {
+                    errors.push(format!(
+                        "encounter binding '{}' wave_states references unknown state '{}' on cue '{}'",
+                        binding.encounter_id, state_id, binding.cue_id
+                    ));
+                }
+            }
+            if let Some(state_id) = &binding.wave2_reinforced_state {
+                if !states.contains(state_id.as_str()) {
+                    errors.push(format!(
+                        "encounter binding '{}' wave2_reinforced_state references unknown state '{}' on cue '{}'",
+                        binding.encounter_id, state_id, binding.cue_id
+                    ));
+                }
+            }
+        }
+        errors
+    }
+
     /// Find the binding that maps an encounter id to its adaptive
     /// cue. Used by tests + tooling that want to inspect which cue
     /// will fire for a given encounter; the live `resolve_adaptive_directive`

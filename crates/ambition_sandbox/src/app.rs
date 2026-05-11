@@ -44,6 +44,7 @@ use crate::audio::{
     apply_audio_settings, audio_play_sfx_messages, start_default_music, MusicChannel, SfxChannel,
 };
 use crate::config::{WINDOW_H, WINDOW_W};
+use crate::content_validation;
 use crate::data;
 use crate::debug_overlay;
 use crate::dev_tools::{

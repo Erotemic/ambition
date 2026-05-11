@@ -1,3 +1,4 @@
+use super::model::{MAX_ROWS, RADIO_VISIBLE_ROWS};
 use super::*;
 
 #[test]
@@ -68,13 +69,13 @@ fn radio_page_is_windowed_for_mobile_sized_menus() {
         crate::ui_nav::windowed_title("Radio", 12, 26, RADIO_VISIBLE_ROWS),
         "Radio — 13/26"
     );
-    assert_eq!(
-        visible_row_index(0, 12, 26, RADIO_VISIBLE_ROWS),
-        Some(8)
-    );
+    assert_eq!(visible_row_index(0, 12, 26, RADIO_VISIBLE_ROWS), Some(8));
     assert_eq!(
         visible_row_index(RADIO_VISIBLE_ROWS - 1, 12, 26, RADIO_VISIBLE_ROWS),
         Some(15)
     );
-    assert_eq!(visible_row_index(RADIO_VISIBLE_ROWS, 12, 26, RADIO_VISIBLE_ROWS), None);
+    assert_eq!(
+        visible_row_index(RADIO_VISIBLE_ROWS, 12, 26, RADIO_VISIBLE_ROWS),
+        None
+    );
 }

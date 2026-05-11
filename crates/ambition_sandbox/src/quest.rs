@@ -103,8 +103,8 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
                     ae::QuestStepCondition::EncounterCleared("mob_lab".into()),
                 ),
                 ae::QuestStepSpec::new(
-                    "Defeat the gradient sentinel.",
-                    ae::QuestStepCondition::BossDefeated("gradient_sentinel".into()),
+                    "Defeat the clockwork warden.",
+                    ae::QuestStepCondition::BossDefeated("clockwork_warden".into()),
                 ),
             ],
         ),

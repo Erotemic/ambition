@@ -38,15 +38,16 @@ pub fn init_sandbox_resources(app: &mut App) {
             std::process::exit(2);
         }
     };
-    let ldtk_report = ldtk_project.validate();
-    ldtk_report.print_to_stderr();
-    let valid_track_ids = sandbox_data
-        .audio
-        .music_tracks
-        .iter()
-        .map(|t| t.id.as_str());
-    for warning in ldtk_project.music_track_warnings(valid_track_ids) {
-        eprintln!("LDtk validation warning: {warning}");
+    let content_report = content_validation::validate_content_graph(&sandbox_data, &ldtk_project);
+    for warning in &content_report.warnings {
+        eprintln!("content validation warning: {warning}");
+    }
+    if !content_report.is_ok() {
+        eprintln!("sandbox content graph failed validation; fix authored content before running:");
+        for error in &content_report.errors {
+            eprintln!("  - {error}");
+        }
+        std::process::exit(2);
     }
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);

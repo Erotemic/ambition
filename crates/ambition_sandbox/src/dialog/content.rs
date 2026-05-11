@@ -32,6 +32,26 @@ pub enum DialogMode {
     Generic,
 }
 
+pub(crate) const KNOWN_DIALOGUE_IDS: &[&str] = &[
+    "architect_intro",
+    "vault_keeper",
+    "merchant_seed",
+    "hub_guide",
+    "military_general",
+    "goblin_cantina_chieftain",
+    "pulse_voyager_captain",
+    "tech_bros_disruptor",
+    "pirate_admiral",
+    "pirate_raider",
+    "ninja_leader",
+    "ninja_duelist",
+    "generic_npc",
+];
+
+pub(crate) fn known_dialogue_ids() -> &'static [&'static str] {
+    KNOWN_DIALOGUE_IDS
+}
+
 impl DialogMode {
     pub(in crate::dialog) fn from_dialogue_id(dialogue_id: &str) -> Self {
         match dialogue_id {
@@ -47,6 +67,7 @@ impl DialogMode {
             "pirate_raider" => Self::PirateRaider,
             "ninja_leader" => Self::NinjaLeader,
             "ninja_duelist" => Self::NinjaDuelist,
+            "generic_npc" => Self::Generic,
             _ => Self::Generic,
         }
     }

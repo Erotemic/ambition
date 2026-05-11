@@ -17,6 +17,7 @@ pub mod boss_encounter;
 pub mod boss_sprites;
 pub mod character_sprites;
 pub mod config;
+pub mod content_validation;
 pub mod cutscene;
 pub mod data;
 pub mod debug_overlay;

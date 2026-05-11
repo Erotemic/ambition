@@ -35,6 +35,12 @@ The sandbox maps Ambition's top-left +Y-down room coordinates into Bevy/Avian's 
 - It does not add physics-authored RON fields yet.
 - It does not make intact breakable platforms into Avian colliders yet; the player collision system already handles those via `FeatureRuntime`.
 
+## Fidelity tiers and mobile power
+
+Reward chests currently use a cheap settle-until-first-contact helper instead of a continuously simulated rigid body. That means a falling chest stops on the first blocking object it reaches; if that blocker is a moving platform, the chest does not automatically resume falling when the platform moves away. Treat that as an intentional low-cost shortcut for now, not as the desired long-term model.
+
+Future physics features should make fidelity explicit. A phone/battery-focused build may choose kinematic or one-shot settling for props that rarely need continuous simulation, while desktop/dev/physics-lab builds should be able to opt entities into full dynamic simulation so gravity, moving supports, force fields, and other systemic interactions can produce fun emergent behavior. Prefer data/build-feature/runtime-setting seams over one-off forks so the same authored entity can select between cheap settling and full physics depending on platform and mode.
+
 ## Next steps
 
 1. Compile-test the Avian version/API against Bevy 0.18.

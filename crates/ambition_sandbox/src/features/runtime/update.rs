@@ -128,9 +128,7 @@ impl FeatureRuntime {
                     // looted flag is `encounter_<id>_reward_dropped`
                     // (`crate::encounter::encounter_reward_looted_flag`).
                     if let Some(encounter_id) = chest.id.strip_prefix("encounter_chest_") {
-                        events
-                            .flag_writes
-                            .push((format!("encounter_{encounter_id}_reward_dropped"), true));
+                        events.set_flag(format!("encounter_{encounter_id}_reward_dropped"), true);
                     }
                 }
             }
@@ -145,13 +143,9 @@ impl FeatureRuntime {
                         // listens for, plus a per-dialogue flag so
                         // quests can key on specific NPCs without
                         // depending on the LDtk-issued iid.
-                        events
-                            .quest_advance
-                            .push(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()));
-                        events.flag_writes.push(("met_any_hub_npc".into(), true));
-                        events
-                            .flag_writes
-                            .push((format!("npc_{}_talked", dialogue_request.dialogue_id), true));
+                        events.advance_quest(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()));
+                        events.set_flag("met_any_hub_npc", true);
+                        events.set_flag(format!("npc_{}_talked", dialogue_request.dialogue_id), true);
                         events.dialogue_request = Some(dialogue_request);
                     }
                     events.bursts.push(npc.pos);
@@ -161,11 +155,8 @@ impl FeatureRuntime {
                 if switch.aabb().strict_intersects(player_body) {
                     events.consumed_interaction = true;
                     events.messages.push(format!("activated {}", switch.name));
-                    events
-                        .switch_activations
-                        .push(switch.custom_payload.clone());
+                    events.activate_switch(switch.custom_payload.clone(), switch.pos);
                     events.bursts.push(switch.pos);
-                    events.switches_activated_pos.push(switch.pos);
                 }
             }
         }

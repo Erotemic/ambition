@@ -179,7 +179,7 @@ pub fn sandbox_update(
     // Drain switch activations into the encounter system's queue.
     // The encounter `update_encounters_from_world` system reads it
     // after `sandbox_update` fires.
-    for payload in &feature_events.switch_activations {
+    for (payload, _pos) in feature_events.switch_activations() {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
             switch_queue.0.push(activation);
         }

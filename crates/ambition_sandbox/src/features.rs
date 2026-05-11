@@ -57,7 +57,7 @@ pub use chests::ChestRuntime;
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{
     DamageEvent, DamageReport, DamageSource, FeatureCombatTuning, FeatureEvents,
-    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind, NpcDialogueRequest,
+    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind, GameplayEffect, NpcDialogueRequest,
     PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
 };
 pub use hazards::HazardRuntime;

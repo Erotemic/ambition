@@ -17,24 +17,31 @@ pub fn sync_features_with_save(
     apply_save_to_features(&mut runtime.features, save.data());
 }
 
-/// Cross-system bus for feature events that need to fan out to
+/// Cross-system bus for typed feature effects that need to fan out to
 /// resources `sandbox_update` doesn't hold. Refilled each frame in
 /// `feature_runtime_phase`; drained by `drain_feature_event_bus`.
 #[derive(Resource, Default)]
 pub struct FeatureEventBus {
-    pub boss_damage: Vec<(String, i32)>,
-    pub npc_struck: Vec<(String, ae::Vec2)>,
-    pub quest_advance: Vec<ae::QuestAdvanceEvent>,
-    pub flag_writes: Vec<(String, bool)>,
+    pub effects: Vec<GameplayEffect>,
 }
 
 impl FeatureEventBus {
     pub fn ingest(&mut self, events: &FeatureEvents) {
-        self.boss_damage.extend(events.boss_damage.iter().cloned());
-        self.npc_struck.extend(events.npc_struck.iter().cloned());
-        self.quest_advance
-            .extend(events.quest_advance.iter().cloned());
-        self.flag_writes.extend(events.flag_writes.iter().cloned());
+        self.effects.extend(
+            events
+                .effects
+                .iter()
+                .filter(|effect| {
+                    matches!(
+                        effect,
+                        GameplayEffect::SetFlag { .. }
+                            | GameplayEffect::AdvanceQuest(_)
+                            | GameplayEffect::DamageBoss { .. }
+                            | GameplayEffect::StrikeNpc { .. }
+                    )
+                })
+                .cloned(),
+        );
     }
 }
 
@@ -50,36 +57,42 @@ pub fn drain_feature_event_bus(
     mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
     mut cutscene_queue: ResMut<crate::cutscene::CutsceneTriggerQueue>,
 ) {
+    let effects = std::mem::take(&mut bus.effects);
+
     // Flag writes first so quest conditions that read flags see them
     // this same frame.
-    let flags = std::mem::take(&mut bus.flag_writes);
-    for (id, on) in flags {
-        // Mirror flag write into a quest advance event so any quest
-        // step keyed on this flag can react.
-        if on {
-            quests.push_event(ae::QuestAdvanceEvent::FlagSet(id.clone()));
+    for effect in &effects {
+        if let GameplayEffect::SetFlag { id, on } = effect {
+            if *on {
+                quests.push_event(ae::QuestAdvanceEvent::FlagSet(id.clone()));
+            }
+            save.data_mut().set_flag(id.clone(), *on);
         }
-        save.data_mut().set_flag(id, on);
     }
-    // Quest advance events from gameplay (NPC talked, etc.).
-    let advances = std::mem::take(&mut bus.quest_advance);
-    for ev in advances {
-        quests.push_event(ev);
+
+    // Quest advance events from gameplay (NPC talked, item collected, etc.).
+    for effect in &effects {
+        if let GameplayEffect::AdvanceQuest(event) = effect {
+            quests.push_event(event.clone());
+        }
     }
+
     // Boss damage routes through the boss encounter machine.
-    let boss_damage = std::mem::take(&mut bus.boss_damage);
-    for (boss_id, amount) in boss_damage {
-        crate::boss_encounter::record_boss_damage(
-            &mut boss_registry,
-            &mut music_request,
-            &mut cutscene_queue,
-            &mut runtime.features,
-            &boss_id,
-            amount,
-        );
+    for effect in &effects {
+        if let GameplayEffect::DamageBoss { boss_id, amount } = effect {
+            crate::boss_encounter::record_boss_damage(
+                &mut boss_registry,
+                &mut music_request,
+                &mut cutscene_queue,
+                &mut runtime.features,
+                boss_id,
+                *amount,
+            );
+        }
     }
+
     // NPC strikes are reportable for the trace; the actual hostility
-    // flip happens inside `apply_player_attack`. Drain to avoid
-    // accumulation.
-    bus.npc_struck.clear();
+    // flip happens inside `apply_player_attack`. No additional action
+    // today, but retaining the typed effect keeps a single path for
+    // future trace / hostility systems.
 }

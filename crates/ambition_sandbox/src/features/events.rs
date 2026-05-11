@@ -88,6 +88,50 @@ pub struct PlayerDamageEvent {
     pub amount: i32,
 }
 
+/// Typed cross-system gameplay effects emitted by feature code.
+///
+/// `FeatureEvents` still owns presentation-facing vectors such as impacts,
+/// bursts, chest-open cues, and pickup-collected cues. Anything that changes
+/// progression state or needs to fan out to another gameplay system should go
+/// through this table instead of adding another parallel stringly typed vector.
+#[derive(Clone, Debug, PartialEq)]
+pub enum GameplayEffect {
+    /// Set a save/quest flag. Consumers mirror `on == true` into a
+    /// `QuestAdvanceEvent::FlagSet` so flag-driven quest steps advance in the
+    /// same frame as the save write.
+    SetFlag { id: String, on: bool },
+    /// Feed a structured quest event into `QuestRegistry`.
+    AdvanceQuest(ae::QuestAdvanceEvent),
+    /// A Switch interactable was activated. `payload` is still the authored
+    /// Custom string for now, but it is contained in one typed effect variant
+    /// instead of a standalone side-channel.
+    ActivateSwitch { payload: String, pos: ae::Vec2 },
+    /// Route damage into the boss encounter state machine.
+    DamageBoss { boss_id: String, amount: i32 },
+    /// Record that an NPC was struck. Today this is trace/reporting glue;
+    /// hostility is flipped at the emit site.
+    StrikeNpc { npc_id: String, pos: ae::Vec2 },
+    /// SFX-only effect. Use typed presentation vectors for sounds that also
+    /// imply VFX/progression, and this variant for standalone audio.
+    PlaySfx { id: ambition_sfx::SfxId, pos: ae::Vec2 },
+}
+
+impl GameplayEffect {
+    pub fn switch_activation(&self) -> Option<(&str, ae::Vec2)> {
+        match self {
+            Self::ActivateSwitch { payload, pos } => Some((payload.as_str(), *pos)),
+            _ => None,
+        }
+    }
+
+    pub fn sfx_play(&self) -> Option<(ambition_sfx::SfxId, ae::Vec2)> {
+        match self {
+            Self::PlaySfx { id, pos } => Some((*id, *pos)),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Default, Clone, Debug)]
 pub struct FeatureEvents {
     pub dialogue_request: Option<NpcDialogueRequest>,
@@ -101,28 +145,9 @@ pub struct FeatureEvents {
     pub physics_bursts: Vec<FeaturePhysicsBurst>,
     pub player_damage: Vec<PlayerDamageEvent>,
     pub player_heal: i32,
-    /// Switch interactables the player activated this frame. Drained
-    /// by the encounter system into `SwitchActivationQueue`. The
-    /// payload is the Custom string from `Interactable::Custom("switch:...")`
-    /// — the consumer parses it via `SwitchActivation::parse_custom`.
-    pub switch_activations: Vec<String>,
-    /// Per-boss damage events from this frame's player attack(s).
-    /// `(boss_runtime_id, damage_amount)`. Drained by
-    /// `boss_encounter::record_boss_damage` so the encounter phase
-    /// machine can react.
-    pub boss_damage: Vec<(String, i32)>,
-    /// NPCs the player struck this frame. Used by the hostile-NPC
-    /// system to convert peaceful NPCs into combat encounters.
-    /// `(npc_id, npc_pos)`.
-    pub npc_struck: Vec<(String, ae::Vec2)>,
-    /// Quest advance events surfaced from gameplay this frame
-    /// (e.g. NPC talked, item collected). Drained by
-    /// `quest::apply_quest_advance_events`. Kept as `String` payloads
-    /// so the engine doesn't need a Bevy-aware enum here.
-    pub quest_advance: Vec<ae::QuestAdvanceEvent>,
-    /// Save flags to set this frame. `(flag_id, on)`. Routed by the
-    /// sandbox runtime into `SandboxSave`.
-    pub flag_writes: Vec<(String, bool)>,
+    /// Typed gameplay effects for progression, persistence, switch routing,
+    /// boss routing, and standalone audio.
+    pub effects: Vec<GameplayEffect>,
     /// Position of every chest the player opened this frame. The
     /// presentation layer maps these to `world.treasure_chest.open`
     /// SFX. Sim-only callers (headless / RL) ignore this.
@@ -134,18 +159,6 @@ pub struct FeatureEvents {
     /// to the existing `physics_bursts.Breakable` entry which already
     /// drives debris). Drives the `world.crate.break` SFX.
     pub breakables_destroyed: Vec<ae::Vec2>,
-    /// Position of every switch activated this frame. Pairs 1:1 with
-    /// `switch_activations` (which carries the payload string). Drives
-    /// the `world.switch.toggle` SFX.
-    pub switches_activated_pos: Vec<ae::Vec2>,
-    /// Generic SFX-only events: `(SfxId, pos)`. The presentation layer
-    /// drains these into `SfxMessage::Play`. Use this for events that
-    /// are *only* audible — anything that also drives VFX, persistence,
-    /// or quest hooks should go through a typed event vec above so
-    /// every consumer can subscribe independently.
-    ///
-    /// Helper: `events.play_sfx(id, pos)`.
-    pub sfx_plays: Vec<(ambition_sfx::SfxId, ae::Vec2)>,
 }
 
 impl FeatureEvents {
@@ -161,27 +174,60 @@ impl FeatureEvents {
         self.physics_bursts.append(&mut other.physics_bursts);
         self.player_damage.append(&mut other.player_damage);
         self.player_heal += other.player_heal;
-        self.switch_activations
-            .append(&mut other.switch_activations);
-        self.boss_damage.append(&mut other.boss_damage);
-        self.npc_struck.append(&mut other.npc_struck);
-        self.quest_advance.append(&mut other.quest_advance);
-        self.flag_writes.append(&mut other.flag_writes);
+        self.effects.append(&mut other.effects);
         self.chests_opened.append(&mut other.chests_opened);
         self.pickups_collected.append(&mut other.pickups_collected);
         self.breakables_destroyed
             .append(&mut other.breakables_destroyed);
-        self.switches_activated_pos
-            .append(&mut other.switches_activated_pos);
-        self.sfx_plays.append(&mut other.sfx_plays);
+    }
+
+    pub fn push_effect(&mut self, effect: GameplayEffect) {
+        self.effects.push(effect);
+    }
+
+    pub fn set_flag(&mut self, id: impl Into<String>, on: bool) {
+        self.push_effect(GameplayEffect::SetFlag { id: id.into(), on });
+    }
+
+    pub fn advance_quest(&mut self, event: ae::QuestAdvanceEvent) {
+        self.push_effect(GameplayEffect::AdvanceQuest(event));
+    }
+
+    pub fn activate_switch(&mut self, payload: impl Into<String>, pos: ae::Vec2) {
+        self.push_effect(GameplayEffect::ActivateSwitch {
+            payload: payload.into(),
+            pos,
+        });
+    }
+
+    pub fn damage_boss(&mut self, boss_id: impl Into<String>, amount: i32) {
+        self.push_effect(GameplayEffect::DamageBoss {
+            boss_id: boss_id.into(),
+            amount,
+        });
+    }
+
+    pub fn strike_npc(&mut self, npc_id: impl Into<String>, pos: ae::Vec2) {
+        self.push_effect(GameplayEffect::StrikeNpc {
+            npc_id: npc_id.into(),
+            pos,
+        });
     }
 
     /// Enqueue a one-shot SFX at a position. Cheap helper for sim-side
     /// code that wants to play a sound without adding a dedicated
-    /// typed event vec. Drained by `handle_feature_events` into
+    /// typed presentation vector. Drained by `handle_feature_events` into
     /// `SfxMessage::Play`.
     pub fn play_sfx(&mut self, id: ambition_sfx::SfxId, pos: ae::Vec2) {
-        self.sfx_plays.push((id, pos));
+        self.push_effect(GameplayEffect::PlaySfx { id, pos });
+    }
+
+    pub fn switch_activations(&self) -> impl Iterator<Item = (&str, ae::Vec2)> + '_ {
+        self.effects.iter().filter_map(GameplayEffect::switch_activation)
+    }
+
+    pub fn sfx_plays(&self) -> impl Iterator<Item = (ambition_sfx::SfxId, ae::Vec2)> + '_ {
+        self.effects.iter().filter_map(GameplayEffect::sfx_play)
     }
 }
 
@@ -252,5 +298,54 @@ impl DamageReport {
     /// resolution to decide whether to despawn the body.
     pub fn any_actor_hit(&self) -> bool {
         self.enemies_hit + self.bosses_hit + self.breakables_hit + self.npcs_hit > 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gameplay_effect_table_carries_cross_system_side_effects() {
+        let mut events = FeatureEvents::default();
+        events.set_flag("met_any_hub_npc", true);
+        events.advance_quest(ae::QuestAdvanceEvent::NpcTalked("guide".into()));
+        events.activate_switch("switch:mob_lab", ae::Vec2::new(1.0, 2.0));
+        events.damage_boss("mockingbird", 3);
+        events.strike_npc("pirate_admiral", ae::Vec2::new(5.0, 6.0));
+        events.play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, ae::Vec2::new(7.0, 8.0));
+
+        assert!(matches!(
+            events.effects[0],
+            GameplayEffect::SetFlag { ref id, on: true } if id == "met_any_hub_npc"
+        ));
+        assert_eq!(
+            events.switch_activations().collect::<Vec<_>>(),
+            vec![("switch:mob_lab", ae::Vec2::new(1.0, 2.0))]
+        );
+        assert_eq!(
+            events.sfx_plays().collect::<Vec<_>>(),
+            vec![(ambition_sfx::ids::PLAYER_DAMAGE, ae::Vec2::new(7.0, 8.0))]
+        );
+    }
+
+    #[test]
+    fn merging_feature_events_preserves_effect_order() {
+        let mut first = FeatureEvents::default();
+        first.set_flag("first", true);
+        let mut second = FeatureEvents::default();
+        second.set_flag("second", true);
+
+        first.merge(second);
+
+        let ids = first
+            .effects
+            .iter()
+            .filter_map(|effect| match effect {
+                GameplayEffect::SetFlag { id, .. } => Some(id.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec!["first", "second"]);
     }
 }

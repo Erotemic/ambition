@@ -37,7 +37,7 @@ impl FeatureRuntime {
     ///   "enemy_<id>_dead" save flag because the encounter state
     ///   machine owns their lifecycle.
     /// - Bosses: damage routes to the boss-encounter machine via
-    ///   `events.boss_damage`.
+    ///   `GameplayEffect::DamageBoss`.
     /// - NPCs: any hit increments `strikes`; crossing the threshold
     ///   flips hostility (regardless of source — projectiles provoke
     ///   too).
@@ -93,8 +93,7 @@ impl FeatureRuntime {
                         {
                             report
                                 .events
-                                .flag_writes
-                                .push((format!("enemy_{}_dead", enemy.id), true));
+                                .set_flag(format!("enemy_{}_dead", enemy.id), true);
                         }
                     }
                     report.events.bursts.push(enemy.pos);
@@ -115,7 +114,7 @@ impl FeatureRuntime {
                     .events
                     .impacts
                     .push(midpoint(attack.center(), boss.pos));
-                report.events.boss_damage.push((boss.id.clone(), amount));
+                report.events.damage_boss(boss.id.clone(), amount);
                 report.bosses_hit += 1;
                 if killed {
                     boss.alive = false;
@@ -137,7 +136,7 @@ impl FeatureRuntime {
         // cross `NPC_HOSTILE_STRIKE_THRESHOLD` they flip hostile and
         // begin acting like a striker enemy. Already-hostile NPCs
         // take real damage like any other enemy. The save flag write
-        // (`npc_<id>_hostile`) is queued via `flag_writes` so the
+        // (`npc_<id>_hostile`) is queued via `GameplayEffect::SetFlag` so the
         // sandbox runtime persists it. Any damage source provokes —
         // projectiles count as strikes too.
         for npc in &mut self.npcs {
@@ -149,7 +148,7 @@ impl FeatureRuntime {
                 .events
                 .impacts
                 .push(midpoint(attack.center(), npc.pos));
-            report.events.npc_struck.push((npc.id.clone(), npc.pos));
+            report.events.strike_npc(npc.id.clone(), npc.pos);
             report.npcs_hit += 1;
             if npc.hostile {
                 npc.strikes = npc.strikes.saturating_add(1);
@@ -167,7 +166,7 @@ impl FeatureRuntime {
                         .events
                         .messages
                         .push(format!("{} turns hostile", npc.name));
-                    report.events.flag_writes.push((npc.flag_id(), true));
+                    report.events.set_flag(npc.flag_id(), true);
                     report.events.bursts.push(npc.pos);
                 }
             }

@@ -13,7 +13,7 @@ repository and all initialized recursive submodules.
 
 Options:
   --output-dir DIR   Directory for the generated archive
-                     default: target/source_archives
+                     default: current repository root
   --output PATH      Exact archive path to write
   --prefix NAME      Top-level directory name inside the archive
                      default: <repo>-source-<UTC timestamp>-<short sha>
@@ -41,7 +41,7 @@ require_value() {
     fi
 }
 
-output_dir="target/source_archives"
+output_dir=""
 output_path=""
 prefix=""
 
@@ -93,13 +93,18 @@ if [[ -n "$output_path" ]]; then
     archive_path="$output_path"
     archive_dir=$(dirname "$archive_path")
 else
-    archive_dir="$output_dir"
-    archive_path="${archive_dir}/${prefix}.tar.gz"
+    if [[ -n "$output_dir" ]]; then
+        archive_dir="$output_dir"
+        archive_path="${archive_dir}/${prefix}.tar.gz"
+    else
+        archive_dir="."
+        archive_path="${prefix}.tar.gz"
+    fi
 fi
 
 mkdir -p "$archive_dir"
 
-tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/ambition-source-archive.XXXXXX")
+tmpdir=$(mktemp -d "${TMPDIR:-/tmp}/${repo_name}-source-archive.XXXXXX")
 cleanup() {
     rm -rf "$tmpdir"
 }

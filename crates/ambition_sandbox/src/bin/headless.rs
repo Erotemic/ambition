@@ -23,7 +23,7 @@
 use std::path::PathBuf;
 
 use ambition_sandbox::input::ControlFrame;
-use ambition_sandbox::rl::{SandboxSim, SandboxSimOptions, TimestepMode};
+use ambition_sandbox::rl_sim::{SandboxSim, SandboxSimOptions, TimestepMode};
 use ambition_sandbox::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
 
 fn parse_max_ticks(args: &[String]) -> u32 {

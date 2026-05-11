@@ -15,9 +15,9 @@
 //! position `pos.y + size.y * 0.5`, which is the same invariant
 //! (feet planted ⇔ standing-pose center stable).
 
-#![cfg(feature = "rl")]
+#![cfg(feature = "rl_sim")]
 
-use ambition_sandbox::rl::TimestepMode;
+use ambition_sandbox::rl_sim::TimestepMode;
 use ambition_sandbox::{AgentAction, SandboxSim, SandboxSimOptions};
 
 #[test]

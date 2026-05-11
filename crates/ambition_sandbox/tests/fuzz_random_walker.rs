@@ -12,7 +12,7 @@
 //! message — the bug is then reproducible by running the same seed
 //! through `cargo run --bin rl_random_walker -- <STEPS> <SEED>`.
 
-use ambition_sandbox::rl::TimestepMode;
+use ambition_sandbox::rl_sim::TimestepMode;
 use ambition_sandbox::{AgentAction, SandboxSim};
 
 /// Tiny LCG copied from `bin/rl_random_walker.rs` so the test stays

@@ -68,7 +68,7 @@ inject `ControlFrame`s and assert on emitted message counts.
 ## Phase 3 — RL adapter (in progress)
 
 The first half of the RL adapter has landed in
-`crates/ambition_sandbox/src/rl.rs`. It exposes:
+`crates/ambition_sandbox/src/rl_sim.rs`. It exposes:
 
 - **`AgentAction`** — sparse per-tick intent struct (move x/y, jump,
   jump_held, dash, attack, blink, interact, projectile, fly_toggle,

@@ -58,8 +58,8 @@ pub mod windowing;
 
 pub mod app;
 pub mod headless;
-#[cfg(feature = "rl")]
-pub mod rl;
+#[cfg(feature = "rl_sim")]
+pub mod rl_sim;
 pub mod setup;
 
 /// Android shared-library entry point.
@@ -78,8 +78,8 @@ fn main() {
 
 pub use game_mode::GameMode;
 pub use headless::{run_headless, HeadlessReport};
-#[cfg(feature = "rl")]
-pub use rl::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
+#[cfg(feature = "rl_sim")]
+pub use rl_sim::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
 
 use ambition_engine as ae;
 use bevy::prelude::{Message, Resource};

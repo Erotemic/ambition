@@ -22,7 +22,7 @@
 //! cargo run -p ambition_sandbox --bin rl_smoke -- 500 42     # 500 steps, seed=42
 //! ```
 
-use ambition_sandbox::rl::TimestepMode;
+use ambition_sandbox::rl_sim::TimestepMode;
 use ambition_sandbox::{AgentAction, SandboxSim, SandboxSimOptions};
 
 struct Lcg(u64);

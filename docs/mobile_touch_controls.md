@@ -79,10 +79,10 @@ ports / minimal builds:
 cargo build -p ambition_sandbox --no-default-features --features visible
 ```
 
-This skips `virtual_joystick` (mobile_touch) and the `crate::rl`
-module (rl). Headless / RL binaries (rl_random_walker / rl_smoke /
-trace_replay / headless) all `required-features = ["rl"]` so they
-naturally drop out of a no-rl build.
+This skips `virtual_joystick` (mobile_touch) and the `crate::rl_sim`
+module. Headless / RL binaries (rl_random_walker / rl_smoke /
+trace_replay / headless) all `required-features = ["rl_sim"]` so they
+naturally drop out of a no-rl_sim build.
 
 ## What's not done yet
 

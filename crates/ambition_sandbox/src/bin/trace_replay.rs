@@ -17,7 +17,7 @@
 //!   exactly" pins all the gameplay invariants in one shot).
 //!
 //! The replay drives the same fixed-60Hz timestep the determinism
-//! test in `crates/ambition_sandbox/src/rl.rs` uses, so live-sim
+//! test in `crates/ambition_sandbox/src/rl_sim.rs` uses, so live-sim
 //! divergence on a deterministic-mode trace localizes a behavior
 //! change. Wall-clock-recorded traces will diverge by construction
 //! (the original wasn't deterministic) — the binary still prints the
@@ -40,7 +40,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use ambition_sandbox::rl::TimestepMode;
+use ambition_sandbox::rl_sim::TimestepMode;
 use ambition_sandbox::{AgentAction, SandboxSim};
 
 #[derive(Debug, Default, Clone, Copy)]

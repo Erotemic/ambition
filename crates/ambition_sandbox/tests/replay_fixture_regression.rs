@@ -20,9 +20,9 @@
 //! Mirrors the `trace_replay` binary's logic but inline so the test
 //! doesn't shell out.
 
-#![cfg(feature = "rl")]
+#![cfg(feature = "rl_sim")]
 
-use ambition_sandbox::rl::TimestepMode;
+use ambition_sandbox::rl_sim::TimestepMode;
 use ambition_sandbox::{AgentAction, SandboxSim};
 
 const FIXTURE_PATH: &str = "tests/fixtures/replay_central_hub_60f_v1.json";

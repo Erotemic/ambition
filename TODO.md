@@ -21,7 +21,7 @@
 - NOTE: don't always trust difficulty ratings, don't be afraid to tackle something because it is difficult.
 
 ## Recently completed (will migrate to FEATURES.md as they age)
-- [x] **`SandboxSim` programmatic step API + visible-binary headless fallback** — see FEATURES.md → "Headless / RL adapter". Visible binary no longer panics on display-less VMs (auto-falls-back, or via `--headless`). RL drivers can now call `SandboxSim::new()` then `sim.step(action)` to advance the sim with a typed `AgentAction`/`AgentObservation` pair. [rl.rs](crates/ambition_sandbox/src/rl.rs), [app.rs:185](crates/ambition_sandbox/src/app.rs#L185).
+- [x] **`SandboxSim` programmatic step API + visible-binary headless fallback** — see FEATURES.md → "Headless / rl_sim adapter". Visible binary no longer panics on display-less VMs (auto-falls-back, or via `--headless`). RL drivers can now call `SandboxSim::new()` then `sim.step(action)` to advance the sim with a typed `AgentAction`/`AgentObservation` pair. [rl_sim.rs](crates/ambition_sandbox/src/rl_sim.rs), [app.rs:185](crates/ambition_sandbox/src/app.rs#L185).
 - [x] Wall-jump OOB fix via `body_is_side_contact` — see FEATURES.md → physics
 - [x] mob_lab full pass (intro / lock-wall / waves / music swap) — see FEATURES.md → encounter
 - [x] Settings system (controls / gameplay / persistence / deadzone) — see FEATURES.md → settings
@@ -97,7 +97,7 @@
   - [x] Add `tests/scripted_gameplay.rs` integration test (3 scenarios: 30 idle frames, Reset press emits Reset message, heterogeneous Reset/Jump/move sequence runs to completion).
 - [ ] **CharacterAi authoritative migration** `[V3/D4]` — convert one enemy archetype's movement to read evaluator output (currently observed-only); then one boss pattern; parity test. Source: `character_ai_refactor.md`.
 - [x] **Bug record/replay ring buffer** `[V4/D4]` — last 600 frames of `ControlFrame + SimMessages + player snapshot`, F8 / auto-OOB dump, replay binary all landed. Trace recorder in [trace.rs](crates/ambition_sandbox/src/trace.rs) writes JSON+Markdown dumps; auto-OOB triggers via `detect_oob` + `request_dump(DumpReason::OobAuto)`. Manual F8 hotkey via `handle_trace_hotkey`. Replay binary at [bin/trace_replay.rs](crates/ambition_sandbox/src/bin/trace_replay.rs) drives a fresh `SandboxSim` from any trace JSON and reports divergence. Source: `path_forward.md` step F.
-- [~] **`bevy_rl` integration for AI playtesting** `[V4/D4]` — RL agents that exercise the sandbox to surface bugs (and eventually for proper RL training). **Substantially landed 2026-05-07** as `SandboxSim` (`crates/ambition_sandbox/src/rl.rs`): step API, action/observation structs, deterministic fixed-timestep mode, `rl_random_walker` and `trace_replay` binaries, 8 unit tests. Remaining:
+- [~] **`bevy_rl` integration for AI playtesting** `[V4/D4]` — RL agents that exercise the sandbox to surface bugs (and eventually for proper RL training). **Substantially landed 2026-05-07** as `SandboxSim` (`crates/ambition_sandbox/src/rl_sim.rs`): step API, action/observation structs, deterministic fixed-timestep mode, `rl_random_walker` and `trace_replay` binaries, 8 unit tests. Remaining:
   - PyO3 binding so research code in Python can drive it
   - Reward shaping (currently observation-only; reward is the agent's job)
   - Evaluate `bevy_rl` crate vs continuing custom — `SandboxSim`'s shape is intentionally compatible

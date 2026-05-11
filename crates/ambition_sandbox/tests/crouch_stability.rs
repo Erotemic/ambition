@@ -11,9 +11,9 @@
 //! tail of the run, with no per-frame Standing↔Crouching flips
 //! producing camera-shake-sized pos.y deltas.
 
-#![cfg(feature = "rl")]
+#![cfg(feature = "rl_sim")]
 
-use ambition_sandbox::rl::TimestepMode;
+use ambition_sandbox::rl_sim::TimestepMode;
 use ambition_sandbox::{AgentAction, SandboxSim, SandboxSimOptions};
 
 #[test]

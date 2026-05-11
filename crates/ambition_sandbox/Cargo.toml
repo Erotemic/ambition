@@ -18,7 +18,7 @@ default = ["desktop_dev"]
 
 # Full desktop sandbox. This is the regular `cargo run` experience: visible
 # gameplay plus inspector/devtools, mobile touch, and RL/test adapters.
-desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl"]
+desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_sim"]
 
 
 # Desktop platform support mirrors Bevy's default platform collection: windowing,
@@ -43,13 +43,13 @@ android_platform = [
 # Composite for the playable Bevy app. Desktop and Android both build on this.
 visible = ["ldtk_runtime", "input", "audio", "ui", "physics_debris"]
 
-# RL / programmatic-input adapter. The `rl` module + `SandboxSim`
+# RL / programmatic-input adapter. The `rl_sim` module + `SandboxSim`
 # stepping API + `AgentAction` / `AgentObservation` shapes. Enabled
 # by default so research code and the in-tree binaries (`rl_random_walker`,
 # `rl_smoke`, `trace_replay`) build out of the box; can be disabled
 # for tightly-stripped builds (e.g. console ports, distribution
 # binaries that don't need the RL surface).
-rl = []
+rl_sim = []
 
 # Composite for the headless simulation binary. Intentionally enables
 # nothing: this is the lever that strips heavy deps from the dep graph
@@ -85,7 +85,7 @@ static_sfx_bank = []
 # sandbox LDtk world is synchronously parsed before Bevy's Android AssetServer
 # path can hand it to the runtime; the APK still packages the loose asset tree
 # for sprites/audio/fonts and future map-loading work.
-android = ["visible", "android_platform", "mobile_touch", "rl", "static_map"]
+android = ["visible", "android_platform", "mobile_touch", "rl_sim", "static_map"]
 
 # Explicit alias for Android builds that still include sandbox/dev gameplay
 # behavior. Kept separate so future phone-only diagnostics can be added without
@@ -165,22 +165,22 @@ required-features = ["audio"]
 
 # headless binary doesn't need any subsystem features (the sim's seam
 # is feature-gated; messages drain harmlessly without subscribers).
-# It does use SandboxSim for the --dump-trace path so the `rl` feature
+# It does use SandboxSim for the --dump-trace path so the `rl_sim` feature
 # is required.
 [[bin]]
 name = "headless"
-required-features = ["rl"]
+required-features = ["rl_sim"]
 
 # RL / fuzz / replay binaries that drive SandboxSim. All gated behind
-# the `rl` feature so a no-rl build skips the bins entirely.
+# the `rl_sim` feature so a no-rl_sim build skips the bins entirely.
 [[bin]]
 name = "rl_random_walker"
-required-features = ["rl"]
+required-features = ["rl_sim"]
 
 [[bin]]
 name = "rl_smoke"
-required-features = ["rl"]
+required-features = ["rl_sim"]
 
 [[bin]]
 name = "trace_replay"
-required-features = ["rl"]
+required-features = ["rl_sim"]

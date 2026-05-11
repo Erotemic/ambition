@@ -122,8 +122,11 @@ pub(super) const SETTINGS_VISIBLE_ROWS: usize = 6;
 /// actual visible row count. Bump only if a single page needs more
 /// simultaneously visible rows than this cap.
 pub(super) const MAX_ROWS: usize = 32;
-/// Radio shows every track up to `MAX_ROWS`; beyond that the list windows.
-pub(super) const RADIO_VISIBLE_ROWS: usize = MAX_ROWS;
+/// Radio has many tracks, so cap visible rows even when the backing slot pool
+/// is larger. Keeping the radio page windowed prevents it from overflowing the
+/// pause panel on small/mobile displays while preserving keyboard/gamepad/wheel
+/// navigation across the full track list.
+pub(super) const RADIO_VISIBLE_ROWS: usize = 8;
 
 #[derive(Resource, Default)]
 pub struct PauseMenuState {

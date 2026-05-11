@@ -55,3 +55,26 @@ fn visible_window_tracks_selected_row_without_overflow() {
     assert_eq!(visible_row_index(4, 11, 12, 5), Some(11));
     assert_eq!(visible_row_index(5, 11, 12, 5), None);
 }
+
+#[test]
+fn radio_page_is_windowed_for_mobile_sized_menus() {
+    // The radio track catalog is already large enough that showing one row per
+    // track overflows the pause panel on small/mobile displays. Keep the
+    // visible radio rows capped below the backing row-slot pool so the shared
+    // windowing helpers scroll the list instead of rendering every track.
+    assert!(RADIO_VISIBLE_ROWS < MAX_ROWS);
+    assert_eq!(RADIO_VISIBLE_ROWS, 8);
+    assert_eq!(
+        crate::ui_nav::windowed_title("Radio", 12, 26, RADIO_VISIBLE_ROWS),
+        "Radio — 13/26"
+    );
+    assert_eq!(
+        visible_row_index(0, 12, 26, RADIO_VISIBLE_ROWS),
+        Some(8)
+    );
+    assert_eq!(
+        visible_row_index(RADIO_VISIBLE_ROWS - 1, 12, 26, RADIO_VISIBLE_ROWS),
+        Some(15)
+    );
+    assert_eq!(visible_row_index(RADIO_VISIBLE_ROWS, 12, 26, RADIO_VISIBLE_ROWS), None);
+}

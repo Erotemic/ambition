@@ -66,7 +66,6 @@ pub fn sandbox_update(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
-    let switch_queue = &mut queues.switch_queue;
     let feature_bus = &mut queues.feature_bus;
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
@@ -176,17 +175,8 @@ pub fn sandbox_update(
         frame_dt,
     );
 
-    // Drain switch activations into the encounter system's queue.
-    // The encounter `update_encounters_from_world` system reads it
-    // after `sandbox_update` fires.
-    for (payload, _pos) in feature_events.switch_activations() {
-        if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
-            switch_queue.0.push(activation);
-        }
-    }
-    // Forward boss-damage / quest / flag events to downstream
-    // systems via the bus. Drained next frame by
-    // `drain_feature_event_bus`.
+    // Forward typed gameplay events to the bus. The bus drains later in the
+    // same Update frame, before encounter/boss/quest progression systems run.
     feature_bus.ingest(&feature_events);
 
     if matches!(

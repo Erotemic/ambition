@@ -48,18 +48,16 @@ pub struct SandboxEventWriters<'w> {
 /// 16-`SystemParam` budget (each `Res`/`ResMut` counts as one).
 ///
 /// Producers (here):
-/// - `switch_queue`: one switch activation enqueued per frame the
-///   player toggles a Switch entity. Drained by
-///   `crate::encounter::sync_encounter_controller_states`.
-/// - `feature_bus`: aggregate of damage / heal / interaction events
-///   produced by `crate::features::run_feature_logic`.
+/// - `feature_bus`: aggregate of typed gameplay events produced by
+///   `crate::features::FeatureRuntime` and projectile hits. Drained by
+///   `crate::features::drain_feature_event_bus` before encounter/boss/quest
+///   progression systems consume those queues.
 ///
 /// Add new sim → sim queues (NOT sim → presentation, which is
 /// `SandboxEventWriters`) here when they grow naturally; resist the
 /// urge to thread them through the system signature directly.
 #[derive(SystemParam)]
 pub struct SandboxQueues<'w> {
-    pub switch_queue: ResMut<'w, crate::encounter::SwitchActivationQueue>,
     pub feature_bus: ResMut<'w, crate::features::FeatureEventBus>,
 }
 

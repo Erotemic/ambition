@@ -1,8 +1,11 @@
-# Gameplay effects table
+# Gameplay effects and event bus
 
-The sandbox now has a first-pass typed gameplay effect table in
-`features::GameplayEffect`. This is the migration path away from adding one
-stringly typed vector to `FeatureEvents` for every new cross-system side effect.
+The sandbox has a typed gameplay event stream in `features::GameplayEffect` and
+one Bevy resource, `features::FeatureEventBus`, that routes those events across
+simulation systems.
+
+This is the migration path away from adding one stringly typed vector to
+`FeatureEvents` for every new cross-system side effect.
 
 ## Current boundary
 
@@ -17,7 +20,7 @@ already concrete visual/audio facts:
 - breakable-destroyed positions
 
 Anything that changes progression state, save state, or another simulation
-system should prefer `GameplayEffect`:
+system should prefer `GameplayEffect` and the bus:
 
 - `SetFlag { id, on }`
 - `AdvanceQuest(QuestAdvanceEvent)`
@@ -25,6 +28,24 @@ system should prefer `GameplayEffect`:
 - `DamageBoss { boss_id, amount }`
 - `StrikeNpc { npc_id, pos }`
 - `PlaySfx { id, pos }` for standalone audio-only effects
+
+## Bus contract
+
+Producers enqueue effects with `FeatureEventBus::ingest` or
+`FeatureEventBus::emit`. The `drain_feature_event_bus` system is the central
+routing table.
+
+Scheduling matters:
+
+1. `sandbox_update` emits feature effects.
+2. `update_projectiles` emits projectile-hit effects.
+3. `drain_feature_event_bus` drains the bus.
+4. encounter, boss, quest, save, and audio consumers see those effects in the
+   same `Update` frame.
+
+Keep this order when adding new producers. Do not make each producer manually
+reach into save, quest, boss, switch, or audio resources unless the behavior is
+truly local to that producer.
 
 ## Design intent
 

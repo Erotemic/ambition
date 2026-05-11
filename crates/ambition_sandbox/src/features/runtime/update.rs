@@ -145,7 +145,8 @@ impl FeatureRuntime {
                         // depending on the LDtk-issued iid.
                         events.advance_quest(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()));
                         events.set_flag("met_any_hub_npc", true);
-                        events.set_flag(format!("npc_{}_talked", dialogue_request.dialogue_id), true);
+                        events
+                            .set_flag(format!("npc_{}_talked", dialogue_request.dialogue_id), true);
                         events.dialogue_request = Some(dialogue_request);
                     }
                     events.bursts.push(npc.pos);

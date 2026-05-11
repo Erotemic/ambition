@@ -113,7 +113,10 @@ pub enum GameplayEffect {
     StrikeNpc { npc_id: String, pos: ae::Vec2 },
     /// SFX-only effect. Use typed presentation vectors for sounds that also
     /// imply VFX/progression, and this variant for standalone audio.
-    PlaySfx { id: ambition_sfx::SfxId, pos: ae::Vec2 },
+    PlaySfx {
+        id: ambition_sfx::SfxId,
+        pos: ae::Vec2,
+    },
 }
 
 impl GameplayEffect {
@@ -223,7 +226,9 @@ impl FeatureEvents {
     }
 
     pub fn switch_activations(&self) -> impl Iterator<Item = (&str, ae::Vec2)> + '_ {
-        self.effects.iter().filter_map(GameplayEffect::switch_activation)
+        self.effects
+            .iter()
+            .filter_map(GameplayEffect::switch_activation)
     }
 
     pub fn sfx_plays(&self) -> impl Iterator<Item = (ambition_sfx::SfxId, ae::Vec2)> + '_ {

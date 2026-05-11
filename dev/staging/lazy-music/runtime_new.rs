@@ -541,8 +541,11 @@ fn play_music_track(
         warn!("cannot play missing music track '{track_id}'");
         return;
     };
-    music_channel.play(handle).looped().fade_in(AudioTween::new(
-        Duration::from_millis(220),
-        AudioEasing::InPowi(2),
-    ));
+    music_channel
+        .play(handle)
+        .looped()
+        .fade_in(AudioTween::new(
+            Duration::from_millis(220),
+            AudioEasing::InPowi(2),
+        ));
 }

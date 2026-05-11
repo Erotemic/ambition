@@ -47,10 +47,9 @@
 ## S — Active sandbox blockers (do first)
 
 - [~] **Wall-cling teleport on mob_lab lock wall** `[V5/D3]` — currently mitigated by `body_is_side_contact` predicate; pinned by `mob_lab_lock_wall_cling_does_not_teleport` regression test in `repro_walls.rs` AND by the new proptest fuzz in `wall_cling_fuzz.rs` (random positions across two scenarios). The historical y=434 → y=-23 snap is closed; the parry contact-normal fix (path_forward step D1) is the proper cleanup but no longer urgent. Source: `docs/tech_debt_log.md` (HIGH).
-- [ ] **Parry contact-normal in `sweep_player_x` / `sweep_player_y` (path_forward step D1)** `[V5/D3]` — replace bespoke snap direction with parry's `ShapeCastHit::normal1`. Retires the entire snap-direction bug class.
-  - Plumb `normal1` through hit struct
-  - Replace snap branches in [movement.rs:1287](crates/ambition_engine/src/movement.rs#L1287)
-  - Re-run `repro_walls.rs` + add fuzz (see B)
+- [~] **Parry contact-normal in `sweep_player_x` / `sweep_player_y` (path_forward step D1)** `[V5/D3]` — Parry `ShapeCastHit::normal1` is now plumbed through `geometry`/`world`, but direct snap-direction consumption was reverted after full-world wall-cling repros teleported to `y=-23`. Keep the existing overlap/approach guards in `movement/collision.rs` until D1 has a targeted semantic test for side-wall vs floor/ceiling contacts.
+  - Local validation gate: `cargo fmt --all`, `cargo test -p ambition_engine --lib`, `cargo test -p ambition_sandbox --test repro_walls`, and `cargo test -p ambition_sandbox --test fuzz_random_walker`.
+  - Benchmark/lesson notes for this failed refactor live under `dev/benchmark-candidates/` and `dev/journals/` as additive files.
 - [x] **Double-tap-up Interact trigger audit** — `register_up_tap` in [SandboxRuntime](crates/ambition_sandbox/src/lib.rs#L282) emits the `door_double_tap_up` gesture; [app.rs:1519](crates/ambition_sandbox/src/app.rs#L1519) ORs it into `controls.interact_pressed` before doors / NPCs / chests see it. Single-press Up never fires interact via any current site (chest_open / npc_talk / LoadingZone Door all read `interact_pressed` only). Save-point sites don't exist yet; when they land, route through `interact_pressed` to inherit the same gating.
 - [ ] **Glitchy platform behavior (intermittent)** `[V4/D3]` — vague repro. Bug record/replay (see C) would catch this. Source: `tmp-todo-notes.txt`. _Diagnostic logging on riding-state transitions landed via `Player::was_riding_platform` + `tracing::debug!` (target=`ambition::platform`); enable with `RUST_LOG=ambition::platform=debug` to capture the contact transition trail._
 

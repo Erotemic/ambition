@@ -315,10 +315,7 @@ impl SettingsItem {
                 }
             ),
 
-            Self::DebugOverlay => format!(
-                "Debug Overlay (F1): {}",
-                on_off(dev.debug_overlay)
-            ),
+            Self::DebugOverlay => format!("Debug Overlay (F1): {}", on_off(dev.debug_overlay)),
             Self::SlowMotion => format!("Slow Motion (F2): {}", on_off(dev.slowmo)),
             Self::Inspector => format!("Inspector (F3): {}", on_off(dev.inspector)),
             Self::WorldInspector => {

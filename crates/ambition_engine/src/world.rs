@@ -319,6 +319,8 @@ pub struct SweepHit<'a> {
     pub block: &'a Block,
     /// Normalized time along the requested delta, in `[0, 1]`.
     pub time_of_impact: f32,
+    /// Contact normal reported for the moving body by the underlying shape cast.
+    pub normal1: Vec2,
 }
 
 impl World {
@@ -430,13 +432,14 @@ impl World {
             if !predicate(block) {
                 continue;
             }
-            let Some(time_of_impact) = body.sweep_time_of_impact(delta, block.aabb) else {
+            let Some(sweep_hit) = body.sweep_hit(delta, block.aabb) else {
                 continue;
             };
-            if best.is_none_or(|hit| time_of_impact < hit.time_of_impact) {
+            if best.is_none_or(|hit| sweep_hit.time_of_impact < hit.time_of_impact) {
                 best = Some(SweepHit {
                     block,
-                    time_of_impact,
+                    time_of_impact: sweep_hit.time_of_impact,
+                    normal1: sweep_hit.normal1,
                 });
             }
         }

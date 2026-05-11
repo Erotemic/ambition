@@ -28,6 +28,15 @@ pub fn aabb_from_min_size(min: Vec2, size: Vec2) -> Aabb {
     Aabb::new(min + size * 0.5, size * 0.5)
 }
 
+/// Result of sweeping an AABB by a normalized frame delta.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AabbSweepHit {
+    /// Normalized time along the requested delta, in `[0, 1]`.
+    pub time_of_impact: f32,
+    /// Outward contact normal reported for the moving shape.
+    pub normal1: Vec2,
+}
+
 /// Ambition-specific helpers layered on Bevy's `Aabb2d`.
 ///
 /// Bevy's own bounding-volume traits intentionally use general-purpose geometry
@@ -44,7 +53,13 @@ pub trait AabbExt {
     fn right(self) -> f32;
     fn translated(self, delta: Vec2) -> Self;
     fn strict_intersects(self, rhs: Self) -> bool;
-    fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32>;
+    fn sweep_hit(self, delta: Vec2, rhs: Self) -> Option<AabbSweepHit>;
+    fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32>
+    where
+        Self: Sized,
+    {
+        self.sweep_hit(delta, rhs).map(|hit| hit.time_of_impact)
+    }
 }
 
 impl AabbExt for Aabb {
@@ -108,7 +123,7 @@ impl AabbExt for Aabb {
             .unwrap_or(true)
     }
 
-    /// Return the time in `[0, 1]` at which this box first touches `rhs` while
+    /// Return the first hit at which this box first touches `rhs` while
     /// moving by `delta`, or `None` if no hit occurs along that segment.
     ///
     /// This is a thin wrapper around Parry's shape cast / swept collision query.
@@ -121,9 +136,12 @@ impl AabbExt for Aabb {
     /// vertical motion. We therefore discard zero-time Parry hits when the boxes
     /// were merely touching and the requested delta is not moving into the
     /// touching face.
-    fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32> {
+    fn sweep_hit(self, delta: Vec2, rhs: Self) -> Option<AabbSweepHit> {
         if delta.length_squared() <= 1.0e-8 {
-            return self.strict_intersects(rhs).then_some(0.0);
+            return self.strict_intersects(rhs).then_some(AabbSweepHit {
+                time_of_impact: 0.0,
+                normal1: Vec2::ZERO,
+            });
         }
 
         let moving_shape = parry_cuboid(self);
@@ -132,6 +150,9 @@ impl AabbExt for Aabb {
         options.max_time_of_impact = 1.0;
         options.target_distance = 0.0;
         options.stop_at_penetration = true;
+        // Movement consumes `normal1` for t=0 contacts, so ask Parry to
+        // compute reliable impact geometry when a cast begins in penetration.
+        options.compute_impact_geometry_on_penetration = true;
 
         query::cast_shapes(
             &parry_pose(self),
@@ -152,7 +173,10 @@ impl AabbExt for Aabb {
             {
                 None
             } else {
-                Some(time_of_impact)
+                Some(AabbSweepHit {
+                    time_of_impact,
+                    normal1: Vec2::new(hit.normal1.x, hit.normal1.y),
+                })
             }
         })
     }
@@ -220,6 +244,21 @@ mod tests {
         assert_eq!(
             body.sweep_time_of_impact(Vec2::new(8.0, 0.0), wall),
             Some(0.0)
+        );
+    }
+
+    #[test]
+    fn moving_into_touching_wall_reports_outward_moving_shape_normal() {
+        let body = Aabb::new(Vec2::new(50.0, 80.0), Vec2::new(10.0, 20.0));
+        let wall = Aabb::new(Vec2::new(70.0, 80.0), Vec2::new(10.0, 80.0));
+        let hit = body
+            .sweep_hit(Vec2::new(8.0, 0.0), wall)
+            .expect("moving into a touching wall should report an immediate hit");
+        assert_eq!(hit.time_of_impact, 0.0);
+        assert!(
+            hit.normal1.x > 0.9 && hit.normal1.y.abs() < 0.1,
+            "expected the outward normal on the moving body to point right, got {:?}",
+            hit.normal1
         );
     }
 

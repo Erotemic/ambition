@@ -1,6 +1,7 @@
 use super::*;
+use crate::geometry::AabbExt;
 use crate::world::{BlinkWallTier, Block};
-use crate::AbilitySet;
+use crate::{Aabb, AbilitySet, Vec2};
 
 fn step(world: &World, player: &mut Player, input: InputState) -> FrameEvents {
     update_player_with_tuning(world, player, input, 1.0 / 60.0, DEFAULT_TUNING)

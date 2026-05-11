@@ -25,20 +25,20 @@ use bevy_kira_audio::prelude::AudioChannel;
 use crate::audio::{
     set_radio_track, AudioLibrary, MusicChannel, MusicPlaybackState, RadioStationState,
 };
+use crate::dev_tools::DeveloperTools;
 use crate::game_mode::GameMode;
 use crate::input::{KeyboardPreset, MenuControlFrame, MenuInputFrame};
 use crate::inventory::InventoryUiState;
-use crate::dev_tools::DeveloperTools;
 use crate::ldtk_world::LdtkHotReloadState;
 use crate::settings::{
     apply_action as handle_settings_action, DevToggleSnapshot, SettingsAction, SettingsItem,
     SettingsOutcome, SettingsPage, UserSettings,
 };
-use crate::SandboxRuntime;
 #[cfg(feature = "input")]
 use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction, RowPointerOutcome};
 use crate::ui_nav::{decorate_windowed_label, indexed_title, visible_row_index, windowed_title};
 use crate::windowing::DisplayModeState;
+use crate::SandboxRuntime;
 
 /// Re-export the settings-row component so other modules that want to
 /// query menu rows by tag don't need to remember which module owns it.
@@ -496,7 +496,9 @@ fn handle_radio_input(
         state.selected = 0;
     }
     if nav.select || nav.left || nav.right {
-        let track_id = library.track_at(state.selected).map(|track| track.id.clone());
+        let track_id = library
+            .track_at(state.selected)
+            .map(|track| track.id.clone());
         if let Some(track_id) = track_id {
             set_radio_track(
                 library,
@@ -511,7 +513,9 @@ fn handle_radio_input(
         // Up/down move the highlight without confirming. Warm the
         // highlighted track's handle so the next confirm doesn't
         // hitch on cold asset IO.
-        let preload_id = library.track_at(state.selected).map(|track| track.id.clone());
+        let preload_id = library
+            .track_at(state.selected)
+            .map(|track| track.id.clone());
         if let Some(preload_id) = preload_id {
             library.preload_track(&preload_id, asset_server);
         }

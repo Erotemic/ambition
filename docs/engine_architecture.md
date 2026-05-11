@@ -19,10 +19,10 @@ Important source modules:
 - `cutscene.rs` — `CutsceneScript`, `CutsceneRuntime` for scripted sequences.
 - `debug.rs` — `DebugLabel`, `DestinationLabel` for sandbox-side debug overlays.
 - `enemy.rs` — test dummy / `Dummy` / `DummyKind` and knockback behavior.
-- `geometry.rs` — Bevy `Aabb2d` helpers plus Ambition-specific strict overlap and Parry-backed shape casts.
+- `geometry.rs` — Bevy `Aabb2d` helpers plus Ambition-specific strict overlap and Parry-backed shape casts, including contact normals for swept hits.
 - `interaction.rs` — `Breakable`, `Chest`, `Pickup`, `Interactable` primitives.
 - `ledge_grab.rs` — `probe_ledge_grab`, `LedgeContact` for ledge-grab AABB lookup.
-- `movement.rs` — player movement, blink, dash, fly, wall, rebound, pogo, and symbolic operation traces. Owns `Player`, `MovementTuning`, default constants.
+- `movement.rs` / `movement/` — player movement facade plus child modules for blink, collision/sweeps, control actions, velocity integration, simulation clocks, player state, input, ops/events, tuning, and tests.
 - `music.rs` — data structures shared by generated audio/music authoring.
 - `physics.rs` — `PhysicsBodyKind`, `PhysicsMaterial`, `PhysicsShape`, `RagdollSpec` (data, not Avian wiring).
 - `player_state.rs` — `BodyMode`, `BodyShape`, `LocomotionState`, `ResourceMeter`, collision-safe `try_change_body_mode`.

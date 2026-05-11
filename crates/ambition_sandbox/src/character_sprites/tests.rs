@@ -74,8 +74,10 @@ fn robot_sheet_has_fly_row() {
     // Hover is the LAST row in the regenerated sheet, so its frames
     // sit after every other row in atlas-flat-index space.
     let fly_first = ROBOT_SHEET.flat_index(CharacterAnim::Fly, 0);
-    let dash_last =
-        ROBOT_SHEET.flat_index(CharacterAnim::Dash, ROBOT_SHEET.frame_count(CharacterAnim::Dash));
+    let dash_last = ROBOT_SHEET.flat_index(
+        CharacterAnim::Dash,
+        ROBOT_SHEET.frame_count(CharacterAnim::Dash),
+    );
     assert!(
         fly_first > dash_last,
         "Fly row must follow Dash; fly_first={fly_first} dash_last={dash_last}"

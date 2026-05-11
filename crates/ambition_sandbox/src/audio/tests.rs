@@ -171,10 +171,7 @@ fn music_track_order_cycles() {
     // Forward step from the head.
     assert_eq!(library.next_track_id(ORIGINAL_TRACK_ID), Some(ids[1]));
     // Backward step round-trips with forward step.
-    assert_eq!(
-        library.previous_track_id(ids[1]),
-        Some(ORIGINAL_TRACK_ID),
-    );
+    assert_eq!(library.previous_track_id(ids[1]), Some(ORIGINAL_TRACK_ID),);
     // Cycle wraps: next of the last track is the first.
     let last = *ids.last().expect("non-empty list");
     assert_eq!(library.next_track_id(last), Some(ORIGINAL_TRACK_ID));

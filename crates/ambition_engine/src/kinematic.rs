@@ -120,7 +120,13 @@ pub fn step_kinematic(
     let old_y = body.pos.y;
     body.pos.y += body.vel.y * dt;
     let was_falling = body.vel.y >= 0.0;
-    if body_blocked_y(body.aabb(), world, prev_bottom, was_falling, inputs.drop_through) {
+    if body_blocked_y(
+        body.aabb(),
+        world,
+        prev_bottom,
+        was_falling,
+        inputs.drop_through,
+    ) {
         body.pos.y = old_y;
         body.on_ground = was_falling;
         body.vel.y = 0.0;
@@ -131,10 +137,7 @@ pub fn step_kinematic(
 
 fn body_blocked_x(aabb: Aabb, world: &World) -> bool {
     world.body_overlaps_any(aabb, |block| {
-        matches!(
-            block.kind,
-            BlockKind::Solid | BlockKind::BlinkWall { .. }
-        )
+        matches!(block.kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
     })
 }
 
@@ -203,7 +206,13 @@ mod tests {
         )]);
         let mut b = body(Vec2::new(50.0, 0.0));
         for _ in 0..30 {
-            step_kinematic(&mut b, &world, tuning(), KinematicInputs::default(), 1.0 / 60.0);
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
         }
         assert!(b.on_ground, "expected to land on solid floor");
         assert!(b.vel.y.abs() < 0.01, "vel.y reset on landing");
@@ -220,9 +229,18 @@ mod tests {
         )]);
         let mut b = body(Vec2::new(50.0, 0.0));
         for _ in 0..30 {
-            step_kinematic(&mut b, &world, tuning(), KinematicInputs::default(), 1.0 / 60.0);
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
         }
-        assert!(b.on_ground, "expected to land on one-way platform from above");
+        assert!(
+            b.on_ground,
+            "expected to land on one-way platform from above"
+        );
     }
 
     #[test]
@@ -236,7 +254,13 @@ mod tests {
         let mut b = body(Vec2::new(50.0, 50.0));
         // First, settle on the platform.
         for _ in 0..20 {
-            step_kinematic(&mut b, &world, tuning(), KinematicInputs::default(), 1.0 / 60.0);
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
         }
         assert!(b.on_ground, "precondition: must be on the platform");
         // Now drop through. Past the platform's bottom (y=116 in
@@ -283,15 +307,31 @@ mod tests {
         let mut b = body(Vec2::new(60.0, 50.0));
         // Settle on the ledge.
         for _ in 0..20 {
-            step_kinematic(&mut b, &world, tuning(), KinematicInputs::default(), 1.0 / 60.0);
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
         }
         assert!(b.on_ground, "precondition: on ledge");
         // Walk right past the edge.
         b.vel.x = 200.0;
         for _ in 0..30 {
-            step_kinematic(&mut b, &world, tuning(), KinematicInputs::default(), 1.0 / 60.0);
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
         }
-        assert!(b.pos.x > 110.0, "must clear the ledge horizontally; x={}", b.pos.x);
+        assert!(
+            b.pos.x > 110.0,
+            "must clear the ledge horizontally; x={}",
+            b.pos.x
+        );
         assert!(!b.on_ground, "should be airborne after clearing the edge");
         assert!(b.vel.y > 0.0, "should be falling");
     }
@@ -311,7 +351,13 @@ mod tests {
         // should not be pinned by the one-way platform on the way up.
         let mut min_y = b.pos.y;
         for _ in 0..15 {
-            step_kinematic(&mut b, &world, tuning(), KinematicInputs::default(), 1.0 / 60.0);
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
             if b.pos.y < min_y {
                 min_y = b.pos.y;
             }

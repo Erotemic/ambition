@@ -21,8 +21,10 @@ The current large-file split policy is to keep the original public module file
 avoids overlay cleanup problems from replacing `foo.rs` with `foo/mod.rs` and
 keeps existing imports stable.
 
-- `ambition_engine::movement` now splits player state, input, ops/events,
-  tuning constants, and tests under `crates/ambition_engine/src/movement/`.
+- `ambition_engine::movement` now keeps `movement.rs` as the stable facade and
+  splits blink pathing, collision/sweeps, control actions, velocity integration,
+  simulation clocks, player state, input, ops/events, tuning constants, and
+  tests under `crates/ambition_engine/src/movement/`.
 - `ambition_sandbox::encounter` now splits events, registry, specs, state, and
   tests under `src/encounter/`.
 - `ambition_sandbox::audio` now splits runtime playback/state from procedural
@@ -38,6 +40,9 @@ keeps existing imports stable.
 - `ambition_sandbox::ui_nav` is a folder-backed shared helper module for
   windowed list math, drag-scroll accumulation, and pointer-row semantics used
   by pause menus, dialogs, inventory-like UI, and mobile touch bridges.
+- `ambition_sandbox::dialog` now keeps `dialog.rs` as a stable facade over
+  authored content, runtime state, input/post-quest systems, Bevy UI construction,
+  and tests under `src/dialog/`.
 - Android-specific platform composition now uses `android_platform` rather than
   Bevy's broad `default_platform`, so phone builds avoid unsupported desktop
   `gilrs` initialization while desktop builds keep the default platform stack.

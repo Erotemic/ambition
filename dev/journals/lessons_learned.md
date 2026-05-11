@@ -2,6 +2,43 @@
 
 This journal records unexpected errors encountered while iterating on the Ambition sandbox, especially places where an overlay or generated build script looked reasonable but failed in a real local/device test. The goal is to make future LLM-generated patches less likely to repeat the same mistakes.
 
+## 2026-05-11: Movement split broke extension-trait scope and `Self: Sized` assumptions
+
+A movement refactor split [`crates/ambition_engine/src/movement.rs`](../../crates/ambition_engine/src/movement.rs) into child modules and changed AABB sweeps from returning only `time_of_impact` to returning an `AabbSweepHit` with Parry's contact normal. The patch looked mechanically reasonable but failed immediately when the user ran the suggested checks.
+
+The first handoff mistake was the command itself:
+
+```text
+cargo test -p ambition_engine movement geometry world
+error: unexpected argument 'geometry' found
+```
+
+`cargo test` accepts one optional test-name filter, not a list of module names. For a refactor that moves module boundaries, recommend either the whole package (`cargo test -p ambition_engine`) or separate filtered commands. Do not invent a multi-filter syntax in handoff notes.
+
+The real compile errors were two Rust boundary mistakes:
+
+```text
+error[E0277]: the size for values of type `Self` cannot be known at compilation time
+  --> crates/ambition_engine/src/geometry.rs:57:29
+   |
+57 |     fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32> {
+```
+
+The new default method was added to an extension trait and accepted `Self` by value. Declarations had compiled before, but adding a default body forced the trait to type-check the method for potentially unsized implementors. In this codebase the trait is for concrete AABB values, so the compatibility method should keep the old by-value call shape and add `where Self: Sized`.
+
+```text
+error[E0599]: no method named `bottom` found for struct `Aabb2d` in the current scope
+   --> crates/ambition_engine/src/movement/integration.rs:118:37
+    |
+118 |     let prev_bottom = player.aabb().bottom();
+```
+
+The original monolithic file imported `AabbExt` near the top. After extraction, `movement/integration.rs` became its own module, and extension-trait lookup does not inherit facade imports. Any child module that calls methods such as `.bottom()`, `.strict_intersects()`, or `.translated()` needs its own `use crate::geometry::AabbExt;` unless the call is rewritten to inherent fields/functions.
+
+Takeaway: after a facade split, audit imports by *use site*, not by whether the facade still imports something. Extension traits, derive helper imports, and test-only imports are local to the destination module. Also treat handoff commands as part of the patch: if the environment cannot run them, at least check their syntax against Cargo's command model before recommending them.
+
+Benchmark candidate: [`dev/benchmark-candidates/rust-questions.md`](../benchmark-candidates/rust-questions.md) now has a distilled question for this failure class under "Keep trait bounds and extension-trait imports during child-module splits."
+
 ## 2026-05-10: Movement-snap probes must validate world bounds, not just intra-block clearance
 
 [`ambition_engine::probe_ledge_grab`](../../crates/ambition_engine/src/ledge_grab.rs) checked that the platform on top of a candidate ledge was clear of *other* solid blocks (good), but did not check that the climbed-onto position lay inside the world rect. The mob_lab arena has a ceiling tile at y≈1; a wall-clinging player whose head touched that ceiling could pass `probe_ledge_grab`'s clearance test, get snapped to a `climb_target.y = -23`, and end up above the world.

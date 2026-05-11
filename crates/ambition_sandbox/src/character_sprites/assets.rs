@@ -120,7 +120,11 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     ),
     // Hub NPCs already authored in LDtk; we just point them at the
     // toon-target sheets rendered for them.
-    ("Architect NPC", "architect_spritesheet.png", ARCHITECT_SHEET),
+    (
+        "Architect NPC",
+        "architect_spritesheet.png",
+        ARCHITECT_SHEET,
+    ),
     (
         "Kernel Guide NPC",
         "kernel_guide_spritesheet.png",
@@ -251,4 +255,3 @@ fn desktop_asset_exists(rel_path: &str) -> bool {
 
     candidates.into_iter().any(|path| path.exists())
 }
-

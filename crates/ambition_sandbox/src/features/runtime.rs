@@ -472,10 +472,9 @@ impl FeatureRuntime {
                             .quest_advance
                             .push(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()));
                         events.flag_writes.push(("met_any_hub_npc".into(), true));
-                        events.flag_writes.push((
-                            format!("npc_{}_talked", dialogue_request.dialogue_id),
-                            true,
-                        ));
+                        events
+                            .flag_writes
+                            .push((format!("npc_{}_talked", dialogue_request.dialogue_id), true));
                         events.dialogue_request = Some(dialogue_request);
                     }
                     events.bursts.push(npc.pos);

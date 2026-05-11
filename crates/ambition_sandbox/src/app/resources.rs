@@ -127,6 +127,11 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(DeveloperTools::default())
         .insert_resource(EditablePlayerStats::default())
         .insert_resource(SandboxFeelTuning::default())
+        // PlayerInventory is simulation state, not only presentation UI state.
+        // Headless SandboxSim runs quest reward systems without loading
+        // `add_presentation_plugins`, so the resource must exist before the
+        // first Update tick.
+        .insert_resource(crate::inventory::PlayerInventory::starter())
         .insert_resource(editable_abilities)
         .insert_resource(editable_tuning)
         // Sim/presentation seam for input (ADR 0012): the sim reads

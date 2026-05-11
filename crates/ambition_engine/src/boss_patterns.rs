@@ -389,8 +389,14 @@ mod tests {
         assert_eq!(p1.steps[0].attack, BossAttackKind::Rest);
         // The pattern includes both a Swoop (DashEcho) and a Fireball
         // (SpikeHalo) beat per loop — the user's prose contract.
-        assert!(p1.steps.iter().any(|s| s.attack == BossAttackKind::DashEcho));
-        assert!(p1.steps.iter().any(|s| s.attack == BossAttackKind::SpikeHalo));
+        assert!(p1
+            .steps
+            .iter()
+            .any(|s| s.attack == BossAttackKind::DashEcho));
+        assert!(p1
+            .steps
+            .iter()
+            .any(|s| s.attack == BossAttackKind::SpikeHalo));
         // Loop length is bounded (sanity, not a strict tuning gate).
         assert!(p1.total_time() > 1.5 && p1.total_time() < 12.0);
         assert!(p2.total_time() > 1.5 && p2.total_time() < 12.0);

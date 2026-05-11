@@ -242,7 +242,10 @@ mod tests {
         registry.ensure(ae::BossEncounterSpec::mockingbird());
         registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
         let mut save = ae::SandboxSaveData::default();
-        save.set_boss(MOCKINGBIRD_ENCOUNTER_ID, ae::PersistedEncounterState::Cleared);
+        save.set_boss(
+            MOCKINGBIRD_ENCOUNTER_ID,
+            ae::PersistedEncounterState::Cleared,
+        );
 
         sync_mockingbird_treasure_chest(&mut features, &save, &registry, &empty_world());
 
@@ -295,7 +298,10 @@ mod tests {
         registry.ensure(ae::BossEncounterSpec::mockingbird());
         registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
         let mut save = ae::SandboxSaveData::default();
-        save.set_boss(MOCKINGBIRD_ENCOUNTER_ID, ae::PersistedEncounterState::Cleared);
+        save.set_boss(
+            MOCKINGBIRD_ENCOUNTER_ID,
+            ae::PersistedEncounterState::Cleared,
+        );
         // Looted flag is NOT set — this is the fresh-kill path.
 
         sync_mockingbird_treasure_chest(&mut features, &save, &registry, &empty_world());
@@ -324,7 +330,10 @@ mod tests {
         registry.ensure(ae::BossEncounterSpec::mockingbird());
         registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
         let mut save = ae::SandboxSaveData::default();
-        save.set_boss(MOCKINGBIRD_ENCOUNTER_ID, ae::PersistedEncounterState::Cleared);
+        save.set_boss(
+            MOCKINGBIRD_ENCOUNTER_ID,
+            ae::PersistedEncounterState::Cleared,
+        );
         save.set_flag(
             crate::encounter::encounter_reward_looted_flag(MOCKINGBIRD_ENCOUNTER_ID),
             true,
@@ -354,7 +363,10 @@ mod tests {
         registry.ensure(ae::BossEncounterSpec::mockingbird());
         registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
         let mut save = ae::SandboxSaveData::default();
-        save.set_boss(MOCKINGBIRD_ENCOUNTER_ID, ae::PersistedEncounterState::Cleared);
+        save.set_boss(
+            MOCKINGBIRD_ENCOUNTER_ID,
+            ae::PersistedEncounterState::Cleared,
+        );
         save.set_flag(
             crate::encounter::encounter_reward_looted_flag(MOCKINGBIRD_ENCOUNTER_ID),
             true,
@@ -634,10 +646,7 @@ pub fn sync_mockingbird_treasure_chest(
     let Some(boss) = features.bosses.iter().find(|b| b.id == runtime_id) else {
         return;
     };
-    let chest_pos = ae::Vec2::new(
-        boss.spawn.x,
-        boss.spawn.y + MOCKINGBIRD_CHEST_DROP_OFFSET_Y,
-    );
+    let chest_pos = ae::Vec2::new(boss.spawn.x, boss.spawn.y + MOCKINGBIRD_CHEST_DROP_OFFSET_Y);
     let chest_id = format!("encounter_chest_{MOCKINGBIRD_ENCOUNTER_ID}");
     // Detect first-spawn so we can kick off the falling-chest physics
     // *only* when the chest is genuinely new. `spawn_chest` is

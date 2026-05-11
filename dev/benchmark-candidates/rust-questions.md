@@ -5,6 +5,121 @@ refactor mistakes. Each item should be answerable without knowing the eventual
 compiler error, but should contain enough surrounding context that a model has
 to preserve the intended API rather than only patch the local symptom.
 
+## 2026-05-11: Keep trait bounds and extension-trait imports during child-module splits
+
+Tags: `rust-module-refactor`, `rust-traits`, `extension-trait`, `trait-bounds`, `cargo-command`
+
+### Setup
+
+You are refactoring the movement/collision layer in a Rust game engine. The
+existing geometry module defines an extension trait over Bevy's `Aabb2d`:
+
+```rust
+pub trait AabbExt {
+    fn bottom(self) -> f32;
+    fn strict_intersects(self, rhs: Self) -> bool;
+    fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32>;
+}
+```
+
+The original `movement.rs` lived in one file and imported that extension trait
+near the top:
+
+```rust
+use crate::geometry::{Aabb, AabbExt};
+```
+
+During a refactor, you split movement into private child modules and also add a
+richer sweep result:
+
+```rust
+pub struct AabbSweepHit {
+    pub time_of_impact: f32,
+    pub normal1: Vec2,
+}
+
+pub trait AabbExt {
+    fn bottom(self) -> f32;
+    fn strict_intersects(self, rhs: Self) -> bool;
+    fn sweep_hit(self, delta: Vec2, rhs: Self) -> Option<AabbSweepHit>;
+    fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32> {
+        self.sweep_hit(delta, rhs).map(|hit| hit.time_of_impact)
+    }
+}
+```
+
+The extracted `movement/integration.rs` uses:
+
+```rust
+let prev_bottom = player.aabb().bottom();
+```
+
+A handoff recommends this command:
+
+```bash
+cargo test -p ambition_engine movement geometry world
+```
+
+### Question
+
+Before handing off this refactor, what Rust trait/module invariants and command
+syntax invariants should you check? What minimal code-shape changes preserve the
+old behavior while allowing the richer sweep hit API?
+
+### Expected answer
+
+A default trait method that takes `Self` by value outside the receiver position
+must either avoid by-value `Self` or explicitly require sized implementors. This
+extension trait is intended for concrete AABB values, so keep the by-value API
+and add a method-level bound:
+
+```rust
+pub trait AabbExt {
+    fn bottom(self) -> f32;
+    fn strict_intersects(self, rhs: Self) -> bool;
+    fn sweep_hit(self, delta: Vec2, rhs: Self) -> Option<AabbSweepHit>;
+    fn sweep_time_of_impact(self, delta: Vec2, rhs: Self) -> Option<f32>
+    where
+        Self: Sized,
+    {
+        self.sweep_hit(delta, rhs).map(|hit| hit.time_of_impact)
+    }
+}
+```
+
+Every child module that calls extension-trait methods must import the extension
+trait itself; imports in the facade or sibling modules are not inherited. The
+extracted movement integration module needs:
+
+```rust
+use crate::geometry::AabbExt;
+```
+
+Finally, generated validation commands must be valid Cargo syntax. `cargo test`
+accepts at most one optional test-name filter before `--`; it does not accept
+multiple positional filters. Use one broad command or separate filtered commands:
+
+```bash
+cargo test -p ambition_engine
+cargo test -p ambition_engine movement
+cargo test -p ambition_engine geometry
+cargo test -p ambition_engine world
+```
+
+For this refactor, the broad package command is the safer handoff check because
+it compiles all moved child modules and tests together.
+
+### Why this was easy to miss
+
+All three mistakes are consequences of reasoning at the facade level instead of
+at the physical Rust item/module boundary. The default method looked like a thin
+compatibility wrapper around the new richer sweep API, but adding a body made the
+trait's implicit `Self` sizing assumptions compile-time visible. The `.bottom()`
+call looked unchanged from the original file, but extension-trait method lookup
+requires the trait import in the module that contains the call. The Cargo command
+looked like a natural list of affected areas, but Cargo parses those words as
+positional arguments, not independent filters.
+
 ## 2026-05-09: Preserve facade re-exports when splitting a large Rust module
 
 ### Setup

@@ -345,7 +345,6 @@ fn desktop_asset_exists(rel_path: &str) -> bool {
     candidates.into_iter().any(|path| path.exists())
 }
 
-
 /// Build a `Sprite` for the given entity-sprite key, falling back to the
 /// supplied colored-rectangle if the handle is missing. Render size always
 /// equals `size`, so block/feature spawns can pass through their authored

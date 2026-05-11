@@ -12,9 +12,9 @@ use super::primitives::{
     block_color, feature_color, feature_z, object_visual_kind, spawn_world_label, FeatureVisual,
     LockWallVisual, RoomVisual,
 };
+use crate::character_sprites::sprite_render_size;
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
-use crate::character_sprites::sprite_render_size;
 use crate::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
 use crate::physics;
 use crate::rooms::{LoadingZone, LoadingZoneActivation};
@@ -307,8 +307,7 @@ pub fn spawn_room_object(
             let half_h = object.aabb.half_size().y;
             let mut label_dy = -half_h - 22.0;
             if matches!(kind, FeatureVisualKind::Npc) {
-                if let Some(ch) = assets
-                    .and_then(|a| a.characters.npc_asset_for_name(&object.name))
+                if let Some(ch) = assets.and_then(|a| a.characters.npc_asset_for_name(&object.name))
                 {
                     let collision = object.aabb.half_size() * 2.0;
                     let render_h = sprite_render_size(ch.spec, collision).y;

@@ -283,10 +283,7 @@ impl BossSheetSpec {
         let row = self
             .row_index(resolved)
             .expect("boss sprite sheet must define a Rest row");
-        let frames_before: usize = self.rows[..row]
-            .iter()
-            .map(|(_, r)| r.frame_count)
-            .sum();
+        let frames_before: usize = self.rows[..row].iter().map(|(_, r)| r.frame_count).sum();
         let max_frame = self.rows[row].1.frame_count.saturating_sub(1);
         frames_before + frame.min(max_frame)
     }
@@ -347,7 +344,13 @@ pub fn load_boss_sprite_in(
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
 ) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_in(asset_server, layouts, sprite_folder, BOSS_FILENAME, BOSS_SHEET)
+    load_named_boss_sprite_in(
+        asset_server,
+        layouts,
+        sprite_folder,
+        BOSS_FILENAME,
+        BOSS_SHEET,
+    )
 }
 
 /// Build the boss sprite asset for the mockingbird sheet (installed by
@@ -428,7 +431,6 @@ fn desktop_asset_exists(rel_path: &str) -> bool {
 
     candidates.into_iter().any(|path| path.exists())
 }
-
 
 /// Per-entity boss animation cursor. Same shape as `CharacterAnimator` but
 /// keyed off `BossAnim`.

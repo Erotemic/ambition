@@ -264,7 +264,13 @@ fn apply_simple_music_intent(
         || music_state.active_track != target;
     if needs_switch && library.track(&target).is_some() {
         info!(target: MUSIC_LOG_TARGET, "simple_music target={}", target);
-        switch_to_music_track(library, asset_server, music_state, base_music_channel, &target);
+        switch_to_music_track(
+            library,
+            asset_server,
+            music_state,
+            base_music_channel,
+            &target,
+        );
         director.last_simple_track = Some(target.clone());
         director.mode = MusicDirectorMode::SimpleTrack;
     }
@@ -807,7 +813,13 @@ fn resume_simple_music(
             target,
             set_mode_to_simple_track,
         );
-        switch_to_music_track(library, asset_server, music_state, base_music_channel, &target);
+        switch_to_music_track(
+            library,
+            asset_server,
+            music_state,
+            base_music_channel,
+            &target,
+        );
         director.last_simple_track = Some(target.clone());
         encounter_music.last_applied = Some(target);
         if set_mode_to_simple_track {

@@ -15,6 +15,7 @@ tools/
   ambition_ldtk_tools/          # modal CLI for editing/validating sandbox.ldtk
   experimental/
     ambition_sprite3d_renderer/ # reference / failed Blender-first 3D experiment
+    ambition_procedural_fit/    # differentiable primitive fitting to concept-art crops
     robot_sprite_component_tool/ # in-progress component-based robot sprite tool
   test_coverage_report.sh
 ```
@@ -26,6 +27,7 @@ tools/
 | Music renderer | `python -m ambition_music_renderer` | Render + publish MusicIR cues |
 | 2D sprite renderer | `python -m ambition_sprite2d_renderer` | Render + install sprite targets (e.g., sandbag) |
 | LDtk tools | `python -m ambition_ldtk_tools` | Validate, repair, round-trip, area/entity/def edits, list-metadata, compact |
+| Procedural fit experiment | `python -m ambition_procedural_fit` | Fit soft-rendered rectangles/ellipses/segments to concept-art crops |
 
 Run each from its package directory (it resolves its own deps via the
 local `.venv`), or set `PYTHONPATH=tools/<package>` and invoke `python

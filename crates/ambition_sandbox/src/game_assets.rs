@@ -239,6 +239,7 @@ pub enum ParallaxTheme {
     Skybridge,
     Boss,
     Water,
+    Forest,
     Cave,
 }
 
@@ -251,6 +252,7 @@ impl ParallaxTheme {
         Self::Skybridge,
         Self::Boss,
         Self::Water,
+        Self::Forest,
         Self::Cave,
     ];
 
@@ -263,11 +265,30 @@ impl ParallaxTheme {
             Self::Skybridge => "skybridge",
             Self::Boss => "boss",
             Self::Water => "water",
+            Self::Forest => "forest",
             Self::Cave => "cave",
         }
     }
 
     pub fn from_room_metadata(metadata: &RoomMetadata) -> Self {
+        // Strong room identity overrides. The ninja dojo currently inherits an
+        // older cove/tide metadata set, but the music / ids still carry the
+        // dojo identity. Prefer the forest art for that space.
+        for value in [
+            metadata.music_track.as_deref(),
+            metadata.biome.as_deref(),
+            metadata.ambient_profile.as_deref(),
+            metadata.visual_theme.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            let key = value.trim().to_ascii_lowercase().replace('-', "_");
+            if key.contains("ninja") || key.contains("dojo") || key.contains("forest") {
+                return Self::Forest;
+            }
+        }
+
         // Prefer the semantic biome. Some existing LDtk rooms use visual_theme
         // as a color word ("blue", "pink", "orange"), which is not specific
         // enough to choose art motifs safely.
@@ -293,6 +314,9 @@ impl ParallaxTheme {
             "skybridge" | "sky" | "blue" => Some(Self::Skybridge),
             "boss" | "mob_arena" | "arena" => Some(Self::Boss),
             "water" | "underwater" | "tide" => Some(Self::Water),
+            "forest" | "woods" | "grove" | "bamboo" | "dojo" | "ninja" | "ninja_dojo" => {
+                Some(Self::Forest)
+            }
             "cave" | "damp" => Some(Self::Cave),
             _ => None,
         }

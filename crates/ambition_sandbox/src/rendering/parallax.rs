@@ -20,6 +20,11 @@ pub struct ParallaxLayerVisual {
     /// 0.0 is screen locked; 1.0 tracks gameplay/world motion.
     pub factor: Vec2,
     pub z: f32,
+    /// Screen-space room-relative travel budget. We avoid tile repetition by
+    /// keeping each layer as a single large panel and shifting it within this
+    /// budget based on camera position inside the room.
+    pub travel: Vec2,
+    pub world_size: Vec2,
 }
 
 #[derive(Clone, Copy)]
@@ -27,38 +32,33 @@ struct RuntimeParallaxLayerSpec {
     asset: ParallaxLayerAsset,
     factor: f32,
     z: f32,
-    /// Repeat the transparent atmosphere plates so their edge-biased motifs
-    /// frame the current camera view. Keep the sky untiled so suns/moons/stars
-    /// stay singular.
-    tiled: bool,
+    panel_scale: f32,
 }
 
 const RUNTIME_PARALLAX_LAYERS: &[RuntimeParallaxLayerSpec] = &[
-    // Keep all generated layers in front of the debug grid so an opaque sky
-    // actually replaces it visually, while still staying far behind gameplay.
     RuntimeParallaxLayerSpec {
         asset: ParallaxLayerAsset::Sky,
-        factor: 0.08,
+        factor: 0.10,
         z: -18.0,
-        tiled: false,
+        panel_scale: 1.20,
     },
     RuntimeParallaxLayerSpec {
         asset: ParallaxLayerAsset::FarBackplate,
-        factor: 0.18,
+        factor: 0.20,
         z: -17.0,
-        tiled: true,
+        panel_scale: 1.34,
     },
     RuntimeParallaxLayerSpec {
         asset: ParallaxLayerAsset::NearBackground,
-        factor: 0.55,
+        factor: 0.42,
         z: -16.0,
-        tiled: true,
+        panel_scale: 1.52,
     },
     RuntimeParallaxLayerSpec {
         asset: ParallaxLayerAsset::ForegroundAtmosphere,
-        factor: 0.82,
+        factor: 0.60,
         z: -15.0,
-        tiled: true,
+        panel_scale: 1.72,
     },
 ];
 
@@ -75,29 +75,25 @@ pub fn spawn_parallax_layers(
         return;
     }
     let theme = ParallaxTheme::from_room_metadata(metadata);
-    let render_size = parallax_render_size(world);
+    let viewport = BVec2::new(WINDOW_W as f32, WINDOW_H as f32);
+    let panel_base = viewport.x.max(viewport.y);
     for spec in RUNTIME_PARALLAX_LAYERS {
         let Some(image) = assets.parallax_layers.get(theme, spec.asset) else {
             continue;
         };
+        let panel_extent = panel_base * spec.panel_scale;
+        let panel_size = BVec2::splat(panel_extent);
+        let travel = ((panel_size - viewport) * 0.5).max(BVec2::ZERO);
         let mut sprite = Sprite::from_image(image.clone());
-        sprite.custom_size = Some(render_size);
-        if spec.tiled {
-            // Transparent plates contain edge-framing silhouettes / haze. Tiling
-            // keeps them visible around the current camera view instead of
-            // stretching those motifs out to the far edges of a large room.
-            sprite.image_mode = bevy::sprite::SpriteImageMode::Tiled {
-                tile_x: true,
-                tile_y: true,
-                stretch_value: 1.0,
-            };
-        }
+        sprite.custom_size = Some(panel_size);
         commands.spawn((
             sprite,
             Transform::from_translation(Vec3::new(0.0, 0.0, spec.z)),
             ParallaxLayerVisual {
                 factor: Vec2::splat(spec.factor),
                 z: spec.z,
+                travel: Vec2::new(travel.x, travel.y),
+                world_size: Vec2::new(world.size.x.max(1.0), world.size.y.max(1.0)),
             },
             RoomVisual,
             Name::new(format!(
@@ -116,20 +112,25 @@ pub fn sync_parallax_layers(
     let Ok(camera_transform) = camera.single() else {
         return;
     };
+    let camera_xy = camera_transform.translation.truncate();
     for (mut transform, layer) in &mut layers {
-        transform.translation.x = camera_transform.translation.x * (1.0 - layer.factor.x);
-        transform.translation.y = camera_transform.translation.y * (1.0 - layer.factor.y);
+        let tx = if layer.world_size.x > 1.0 {
+            (camera_xy.x / layer.world_size.x).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+        let ty = if layer.world_size.y > 1.0 {
+            (camera_xy.y / layer.world_size.y).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+        let centered = Vec2::new(tx * 2.0 - 1.0, ty * 2.0 - 1.0);
+        let offset = Vec2::new(
+            -centered.x * layer.travel.x * layer.factor.x,
+            -centered.y * layer.travel.y * layer.factor.y,
+        );
+        transform.translation.x = camera_xy.x + offset.x;
+        transform.translation.y = camera_xy.y + offset.y;
         transform.translation.z = layer.z;
     }
-}
-
-fn parallax_render_size(world: &ae::World) -> BVec2 {
-    // Big enough to cover camera-relative offset at the edges of large rooms;
-    // generated layers are fixed-size tiles, so this remains cheap.
-    let margin_x = WINDOW_W as f32 * 2.0;
-    let margin_y = WINDOW_H as f32 * 2.0;
-    BVec2::new(
-        (world.size.x + margin_x).max(WINDOW_W as f32 * 2.5),
-        (world.size.y + margin_y).max(WINDOW_H as f32 * 2.5),
-    )
 }

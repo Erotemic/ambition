@@ -304,7 +304,7 @@ intent).
 
 ## How to add to this file
 
-When you fix a bug that took >1 hour to diagnose, ask yourself: **could
+When you fix a bug that took effort to diagnose, ask yourself: **could
 the lesson save the next person time, or is the fix obvious from the
 diff?** If the *diagnosis* was the hard part, write it up here.
 

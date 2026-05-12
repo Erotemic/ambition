@@ -80,7 +80,7 @@ reading before adding a new question.
 
 ## `dev/journals/`
 
-**What it is.** Postmortem journal of bugs that took >1 hour to
+**What it is.** Postmortem journal of bugs that effort to
 diagnose. Newest-first, written in the moment so the symptom
 language matches what a future debugger would search for.
 
@@ -93,7 +93,7 @@ language matches what a future debugger would search for.
   The entries are deliberately written so the symptom keywords
   match what you'd search for from inside the bug, not the
   technically correct vocabulary that comes after diagnosis.
-- **Write** here after a fix that took >1 hour to diagnose. The
+- **Write** here after a fix that took effort to diagnose. The
   goal is for the next person to recognise the bug 10× faster.
   Skip the narrative — the format at the end of the file shows
   the canonical shape: Symptom, Root cause, Fix, Takeaway.

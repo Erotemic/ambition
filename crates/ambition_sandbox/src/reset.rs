@@ -161,11 +161,16 @@ pub fn process_sandbox_reset_request(
     //    scene empty until something else (LDtk reload, room transition)
     //    triggers a fresh `spawn_room_visuals`. Mirrors the pattern in
     //    `app::world_flow::load_room` and the LDtk hot-reload path.
+    crate::rendering::spawn_parallax_layers(
+        &mut commands,
+        &world.0,
+        &start_spec.metadata,
+        assets.as_deref(),
+    );
     spawn_room_visuals(
         &mut commands,
         &world.0,
         &start_spec.loading_zones,
-        &start_spec.metadata,
         runtime.physics_settings,
         assets.as_deref(),
     );

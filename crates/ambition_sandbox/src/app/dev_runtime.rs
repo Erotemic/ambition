@@ -241,11 +241,16 @@ pub(super) fn reload_ldtk_world_from_disk(
 
     ldtk_index.replace_from_project(&transaction.project, active_room.clone());
 
+    crate::rendering::spawn_parallax_layers(
+        commands,
+        &world.0,
+        &room_set.active_spec().metadata,
+        assets,
+    );
     spawn_room_visuals(
         commands,
         &world.0,
         &room_set.active_spec().loading_zones,
-        &room_set.active_spec().metadata,
         runtime.physics_settings,
         assets,
     );

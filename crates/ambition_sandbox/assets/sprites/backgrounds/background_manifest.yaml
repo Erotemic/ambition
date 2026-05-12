@@ -1,0 +1,77 @@
+generated_by: ambition_sprite2d_renderer.backgrounds
+notes:
+- Generated PNGs are runtime artifacts and should not be checked in.
+- Foreground layers are sparse, transparent edge framing for camera-relative parallax.
+layers:
+- key: hub_foreground
+  filename: hub_foreground.png
+  biome: hub
+  layer: foreground
+  parallax_factor: 1.08
+  description: dark violet structural edge silhouettes
+  size:
+  - 512
+  - 512
+- key: lab_foreground
+  filename: lab_foreground.png
+  biome: lab
+  layer: foreground
+  parallax_factor: 1.1
+  description: cables, pipes, dim glass and teal instrument lines
+  size:
+  - 512
+  - 512
+- key: basement_foreground
+  filename: basement_foreground.png
+  biome: basement
+  layer: foreground
+  parallax_factor: 1.12
+  description: broken pillars, cracked arch silhouettes, dusty slabs
+  size:
+  - 512
+  - 512
+- key: cove_foreground
+  filename: cove_foreground.png
+  biome: cove
+  layer: foreground
+  parallax_factor: 1.06
+  description: reeds, rigging, palm edges and low sea mist
+  size:
+  - 512
+  - 512
+- key: skybridge_foreground
+  filename: skybridge_foreground.png
+  biome: skybridge
+  layer: foreground
+  parallax_factor: 1.04
+  description: wispy bright haze, wind streaks and thin bridge cables
+  size:
+  - 512
+  - 512
+- key: boss_foreground
+  filename: boss_foreground.png
+  biome: boss
+  layer: foreground
+  parallax_factor: 1.05
+  description: very sparse spikes, red shards and embers at extreme edges
+  size:
+  - 512
+  - 512
+- key: water_foreground
+  filename: water_foreground.png
+  biome: water
+  layer: foreground
+  parallax_factor: 1.08
+  description: side kelp, bubble trails, shimmer bands and blue-green haze
+  size:
+  - 512
+  - 512
+- key: cave_foreground
+  filename: cave_foreground.png
+  biome: cave
+  layer: foreground
+  parallax_factor: 1.1
+  description: stalactites, rock contours, drips and corner darkness
+  size:
+  - 512
+  - 512

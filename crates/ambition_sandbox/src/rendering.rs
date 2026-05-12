@@ -21,16 +21,16 @@
 //!   [`spawn_dynamic_feature_visuals`].
 //! - [`health`] — debug health-bar overlay
 //!   ([`sync_health_overlays`]).
-//! - [`foreground`] — generated camera-relative foreground parallax layers
-//!   ([`spawn_room_foreground_parallax`], [`sync_foreground_parallax`]).
+//! - [`parallax`] — optional generated sky/background/atmosphere layers
+//!   ([`spawn_parallax_layers`], [`sync_parallax_layers`]).
 //! - [`camera`] — player-following camera with eased zoom around
 //!   encounter transitions ([`camera_follow`]).
 
 mod actors;
 mod camera;
 mod features;
-mod foreground;
 mod health;
+mod parallax;
 mod primitives;
 mod world;
 
@@ -40,8 +40,8 @@ pub use actors::{
 };
 pub use camera::camera_follow;
 pub use features::spawn_dynamic_feature_visuals;
-pub use foreground::{spawn_room_foreground_parallax, sync_foreground_parallax, ForegroundParallax};
 pub use health::sync_health_overlays;
+pub use parallax::{spawn_parallax_layers, sync_parallax_layers, ParallaxLayerVisual};
 pub use primitives::{
     block_color, switch_on_color, FeatureVisual, HealthOverlayVisual, HudText, LockWallVisual,
     PlayerSpriteBaseline, PlayerVisual, QuestPanelText, RoomVisual, SceneEntities,

@@ -8,7 +8,6 @@ use ambition_engine::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use super::foreground::spawn_room_foreground_parallax;
 use super::primitives::{
     block_color, feature_color, feature_z, object_visual_kind, spawn_world_label, FeatureVisual,
     LockWallVisual, RoomVisual,
@@ -18,13 +17,12 @@ use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
 use crate::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
 use crate::physics;
-use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomMetadata};
+use crate::rooms::{LoadingZone, LoadingZoneActivation};
 
 pub fn spawn_room_visuals(
     commands: &mut Commands,
     world: &ae::World,
     loading_zones: &[LoadingZone],
-    metadata: &RoomMetadata,
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
@@ -44,7 +42,6 @@ pub fn spawn_room_visuals(
     for object in &world.objects {
         spawn_room_object(commands, world, object, assets);
     }
-    spawn_room_foreground_parallax(commands, world, metadata, assets);
 }
 
 /// Render a single `WaterRegion` as a tinted overlay quad. Source-

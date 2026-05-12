@@ -357,11 +357,11 @@ pub fn add_presentation_plugins(app: &mut App) {
         )
         .add_systems(
             Update,
-            crate::rendering::sync_foreground_parallax.after(camera_follow),
+            crate::rendering::sync_health_overlays.after(sync_visuals),
         )
         .add_systems(
             Update,
-            crate::rendering::sync_health_overlays.after(sync_visuals),
+            crate::rendering::sync_parallax_layers.after(camera_follow),
         )
         // Quest-state-driven dialog redirect: flips the live dialog
         // branch the moment the underlying world state advances past

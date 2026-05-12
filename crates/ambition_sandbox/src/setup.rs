@@ -34,7 +34,8 @@ use crate::loading::SandboxAssetCollection;
 use crate::physics::PhysicsSandboxSettings;
 use crate::platforms;
 use crate::rendering::{
-    spawn_room_visuals, HudText, PlayerSpriteBaseline, PlayerVisual, QuestPanelText, SceneEntities,
+    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, PlayerVisual,
+    QuestPanelText, SceneEntities,
 };
 use crate::rooms::RoomSet;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
@@ -305,11 +306,16 @@ fn presentation_world_inner(
     commands.spawn((Camera2d, Name::new("Main Camera")));
 
     let t_room = std::time::Instant::now();
+    spawn_parallax_layers(
+        commands,
+        &world.0,
+        &room_set.active_spec().metadata,
+        Some(game_assets),
+    );
     spawn_room_visuals(
         commands,
         &world.0,
         room_set.active_loading_zones(),
-        &room_set.active_spec().metadata,
         physics_settings,
         Some(game_assets),
     );

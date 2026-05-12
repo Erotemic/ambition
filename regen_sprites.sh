@@ -18,32 +18,28 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
-renderer_py="${PYTHON:-python}"
+python_bin="${PYTHON:-python}"
 sprites_dir="$repo_root/crates/ambition_sandbox/assets/sprites"
 entities_dir="$sprites_dir/entities"
-backgrounds_dir="$sprites_dir/backgrounds"
 
 for arg in "$@"; do
     case "$arg" in
-        -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) grep '^# ' "$0" | sed 's/^# //'; exit 0 ;;
         *) echo "unknown arg: $arg" >&2; exit 2 ;;
     esac
 done
 
-if ! command -v "$renderer_py" >/dev/null 2>&1; then
-    echo "python executable not found: $renderer_py" >&2
-    echo "activate your Python environment or set PYTHON=/path/to/python" >&2
+if ! command -v "$python_bin" >/dev/null 2>&1; then
+    echo "python executable not found: $python_bin" >&2
+    echo "activate your venv or set PYTHON=/path/to/python" >&2
     exit 1
 fi
 
 echo "==> adapter targets (robot / goblin / boss) → $sprites_dir"
-(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir")
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir")
 
 echo "==> entity sprites → $entities_dir"
-(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-entities --out-dir "$entities_dir")
-
-echo "==> biome foreground parallax layers → $backgrounds_dir"
-(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-backgrounds --out-dir "$backgrounds_dir")
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-entities --out-dir "$entities_dir")
 
 echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # `draw-review` renders configs/review/*.yaml (toon-target NPC
@@ -57,7 +53,7 @@ echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # `crates/ambition_sandbox/src/character_sprites/assets.rs`.
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
-(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")
 for cue in absurd_general architect kernel_guide vault_keeper merchant_prototype; do
     for ext in png yaml; do
         src="$review_scratch/${cue}_spritesheet.$ext"
@@ -78,7 +74,7 @@ echo "==> faction-leader sheets (robot-target leaders) → $sprites_dir"
 # the lineup manifest + canonicals don't pollute review/.
 factions_scratch="$renderer_dir/generated/factions"
 mkdir -p "$factions_scratch"
-(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-factions --out-dir "$factions_scratch")
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-factions --out-dir "$factions_scratch")
 for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
     for ext in png yaml; do
         src="$factions_scratch/${cue}_spritesheet.$ext"
@@ -92,10 +88,10 @@ for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
 done
 
 echo "==> tack-on: sandbag (render-publish into $sprites_dir)"
-(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer render-publish sandbag --dest-root "$sprites_dir")
+(cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer render-publish sandbag --dest-root "$sprites_dir")
 
 echo "==> tack-on: mockingbird boss (render-publish into $sprites_dir/mockingbird_boss)"
-"$renderer_py" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \
+"$python_bin" "$renderer_dir/mockingbird_boss_sprite_generator.py" render-publish \
     --install-dir "$sprites_dir/mockingbird_boss"
 
 echo "==> done"

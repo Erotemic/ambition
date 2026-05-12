@@ -115,7 +115,6 @@ pub fn add_simulation_plugins(app: &mut App) {
                 ldtk_world::check_ldtk_runtime_spine_parity,
                 platforms::sync_moving_platform,
                 crate::projectile::update_projectiles,
-                crate::features::drain_feature_event_bus,
                 crate::encounter::update_encounters_from_world,
                 crate::encounter::sync_encounter_controller_states,
             )
@@ -130,6 +129,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::cutscene::auto_trigger_room_cutscenes,
                 crate::cutscene::drain_cutscene_triggers,
                 crate::cutscene::tick_active_cutscene,
+                crate::features::drain_feature_event_bus,
                 crate::boss_encounter::update_boss_encounters,
                 crate::features::sync_features_with_save,
                 crate::quest::push_room_entered_quest_events,
@@ -270,6 +270,7 @@ pub fn add_presentation_plugins(app: &mut App) {
     add_input_plugins(app);
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
+    app.add_plugins(crate::parallax::ParallaxPlugin);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
 
@@ -609,10 +610,7 @@ pub(super) fn add_audio_plugins(app: &mut App) {
                 .chain()
                 .after(setup_presentation_system),
         )
-        .add_systems(
-            Update,
-            audio_play_sfx_messages.after(crate::features::drain_feature_event_bus),
-        )
+        .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
         // Push UserSettings.audio (master/music/sfx/mute) into the
         // Kira channels whenever the user changes the menu sliders.
         // Cheap; the system early-returns when settings are unchanged.

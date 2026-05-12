@@ -7,8 +7,8 @@ use crate::cutscene::CutsceneTriggerQueue;
 use crate::quest::QuestRegistry;
 
 use super::{
-    default_boss_specs, encounter_id_from_name, events::publish_events,
-    sync_mockingbird_treasure_chest, BossEncounterRegistry,
+    default_boss_profiles, encounter_id_from_name, events::publish_events, sync_boss_reward_chests,
+    BossEncounterRegistry, BossProfile,
 };
 
 pub fn populate_boss_encounter_registry(
@@ -18,8 +18,8 @@ pub fn populate_boss_encounter_registry(
     if registry.specs_loaded {
         return;
     }
-    for spec in default_boss_specs() {
-        registry.ensure(spec);
+    for profile in default_boss_profiles() {
+        registry.ensure_profile(profile);
     }
     let save_data = save.data();
     for (id, state) in registry.encounters.iter_mut() {
@@ -80,16 +80,13 @@ pub fn update_boss_encounters(
     for (boss_runtime_id, boss_name, _pos, _hp, max_hp) in &bosses_in_room {
         let encounter_id = encounter_id_from_name(boss_name);
         registry.link_runtime(&encounter_id, boss_runtime_id);
-        if registry.encounters.contains_key(&encounter_id) {
-            continue;
+        if !registry.encounters.contains_key(&encounter_id) {
+            let profile =
+                BossProfile::for_encounter_id_or_name(&encounter_id).unwrap_or_else(|| {
+                    BossProfile::generic(encounter_id.clone(), boss_name.clone(), *max_hp)
+                });
+            registry.ensure_profile(profile);
         }
-        let mut spec = ae::BossEncounterSpec::gradient_sentinel();
-        spec.id = encounter_id.clone();
-        spec.name = boss_name.to_string();
-        // Pick up the runtime's authored max_hp so the encounter
-        // doesn't replace it on first link.
-        spec.max_hp = (*max_hp).max(1);
-        registry.ensure(spec);
     }
 
     // Wake up an encounter whose boss is now visible in the room.
@@ -139,6 +136,7 @@ pub fn update_boss_encounters(
     // existing combat/feature systems already mutate it; the engine
     // state is the *progression machine* fed by the damage delta.
     let runtime_id_lookup: BTreeMap<String, String> = registry.runtime_ids.clone();
+    let profile_lookup = registry.profiles.clone();
     for (id, state) in registry.encounters.iter_mut() {
         let runtime_id = runtime_id_lookup
             .get(id)
@@ -152,6 +150,9 @@ pub fn update_boss_encounters(
         else {
             continue;
         };
+        if let Some(profile) = profile_lookup.get(id) {
+            boss.apply_behavior_profile(profile.behavior.clone());
+        }
         // Sync max_hp on first link (the BossRuntime defaults to 18,
         // the engine spec might say more). The engine spec wins
         // because it carries the design intent.
@@ -202,5 +203,5 @@ pub fn update_boss_encounters(
         let _ = music_request; // Already mutated in `publish_events`.
     }
 
-    sync_mockingbird_treasure_chest(&mut runtime.features, save.data(), &registry, &world.0);
+    sync_boss_reward_chests(&mut runtime.features, save.data(), &registry, &world.0);
 }

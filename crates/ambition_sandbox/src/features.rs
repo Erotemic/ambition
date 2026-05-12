@@ -48,7 +48,7 @@ mod runtime;
 mod util;
 mod world_overlay;
 
-pub use bosses::BossRuntime;
+pub use bosses::{BossAttackProfile, BossBehaviorProfile, BossMovementProfile, BossRuntime};
 pub use breakables::BreakableRuntime;
 pub use bus::{
     apply_save_to_features, drain_feature_event_bus, sync_features_with_save, FeatureEventBus,
@@ -57,8 +57,8 @@ pub use chests::ChestRuntime;
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{
     DamageEvent, DamageReport, DamageSource, FeatureCombatTuning, FeatureEvents,
-    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind, GameplayEffect,
-    NpcDialogueRequest, PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
+    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind, NpcDialogueRequest,
+    PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::NpcRuntime;

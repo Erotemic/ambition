@@ -1,4 +1,5 @@
 use super::*;
+use crate::features::events::GameplayEffect;
 use bevy::prelude::{MessageWriter, Res, ResMut, Resource};
 
 /// Apply save-derived state (NPC hostility, boss defeats) onto the
@@ -143,7 +144,6 @@ pub fn drain_feature_event_bus(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::prelude::{MessageWriter, Res, ResMut, Resource};
 
     #[test]
     fn bus_ingests_all_typed_effect_variants() {

@@ -100,6 +100,7 @@ fn mockingbird_features_with_boss(spawn: ae::Vec2) -> crate::features::FeatureRu
         size: ae::Vec2::new(48.0, 48.0),
         health: ae::Health::new(30),
         brain: ae::BossBrain::Custom("mockingbird".into()),
+        behavior: crate::features::BossBehaviorProfile::mockingbird(),
         alive: false,
         pattern_timer: 0.0,
         movement_timer: 0.0,
@@ -116,7 +117,7 @@ fn sync_mockingbird_treasure_chest_drops_chest_when_save_marks_cleared() {
     let spawn = ae::Vec2::new(120.0, 80.0);
     let mut features = mockingbird_features_with_boss(spawn);
     let mut registry = BossEncounterRegistry::default();
-    registry.ensure(ae::BossEncounterSpec::mockingbird());
+    registry.ensure_profile(BossProfile::mockingbird());
     registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
     let mut save = ae::SandboxSaveData::default();
     save.set_boss(
@@ -149,7 +150,7 @@ fn sync_mockingbird_treasure_chest_drops_chest_when_save_marks_cleared() {
 fn sync_mockingbird_treasure_chest_is_a_no_op_before_kill() {
     let mut features = mockingbird_features_with_boss(ae::Vec2::new(0.0, 0.0));
     let mut registry = BossEncounterRegistry::default();
-    registry.ensure(ae::BossEncounterSpec::mockingbird());
+    registry.ensure_profile(BossProfile::mockingbird());
     registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
     // No `set_boss` call → save default is `NotStarted`.
     let save = ae::SandboxSaveData::default();
@@ -172,7 +173,7 @@ fn sync_mockingbird_treasure_chest_is_a_no_op_before_kill() {
 fn sync_mockingbird_treasure_chest_starts_falling_on_first_kill() {
     let mut features = mockingbird_features_with_boss(ae::Vec2::new(0.0, 0.0));
     let mut registry = BossEncounterRegistry::default();
-    registry.ensure(ae::BossEncounterSpec::mockingbird());
+    registry.ensure_profile(BossProfile::mockingbird());
     registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
     let mut save = ae::SandboxSaveData::default();
     save.set_boss(
@@ -204,7 +205,7 @@ fn sync_mockingbird_treasure_chest_starts_falling_on_first_kill() {
 fn sync_mockingbird_treasure_chest_fast_settles_on_reload_when_looted() {
     let mut features = mockingbird_features_with_boss(ae::Vec2::new(0.0, 0.0));
     let mut registry = BossEncounterRegistry::default();
-    registry.ensure(ae::BossEncounterSpec::mockingbird());
+    registry.ensure_profile(BossProfile::mockingbird());
     registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
     let mut save = ae::SandboxSaveData::default();
     save.set_boss(
@@ -237,7 +238,7 @@ fn sync_mockingbird_treasure_chest_fast_settles_on_reload_when_looted() {
 fn sync_mockingbird_treasure_chest_mirrors_looted_flag_on_reload() {
     let mut features = mockingbird_features_with_boss(ae::Vec2::new(0.0, 0.0));
     let mut registry = BossEncounterRegistry::default();
-    registry.ensure(ae::BossEncounterSpec::mockingbird());
+    registry.ensure_profile(BossProfile::mockingbird());
     registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
     let mut save = ae::SandboxSaveData::default();
     save.set_boss(

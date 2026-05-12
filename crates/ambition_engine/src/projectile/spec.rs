@@ -195,13 +195,18 @@ impl ProjectileSpec {
             return self;
         }
         self.charge_tier = tier.min(2);
-        let (size_mult, damage_mult) = match self.charge_tier {
-            0 => (1.0, 1.0),
-            1 => (1.4, 2.0),
-            _ => (1.8, 3.0),
+        let size_mult = match self.charge_tier {
+            0 => 1.0,
+            1 => 1.4,
+            _ => 1.8,
         };
+        // Exponential damage ramp for fast boss-battle test loops:
+        // tier 0 = 1x, tier 1 = 4x, tier 2 = 16x. This intentionally
+        // makes a fully charged fireball dramatically stronger than
+        // the old linear-ish 1x/2x/3x table.
+        let damage_mult = 4_i32.pow(self.charge_tier as u32).max(1);
         self.half_extent *= size_mult;
-        self.damage = ((self.damage as f32) * damage_mult).round().max(1.0) as i32;
+        self.damage = self.damage.saturating_mul(damage_mult).max(1);
         self
     }
 

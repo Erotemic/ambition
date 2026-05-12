@@ -408,9 +408,9 @@ fn charge_tier_scales_fireball_size_and_damage() {
     // Size monotonically increases with tier.
     assert!(medium.half_extent.x > baseline.half_extent.x);
     assert!(heavy.half_extent.x > medium.half_extent.x);
-    // Damage monotonically increases with tier.
-    assert!(medium.damage > baseline.damage);
-    assert!(heavy.damage > medium.damage);
+    // Damage increases exponentially: tier 0 = 1x, tier 1 = 4x, tier 2 = 16x.
+    assert_eq!(medium.damage, baseline.damage * 4);
+    assert_eq!(heavy.damage, baseline.damage * 16);
     // Hadouken with a charge tier ignores the request.
     let hadouken_baseline = ProjectileSpec::new(
         ProjectileKind::Hadouken,

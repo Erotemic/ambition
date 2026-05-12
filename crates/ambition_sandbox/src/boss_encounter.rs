@@ -19,6 +19,7 @@
 mod damage;
 mod events;
 mod ids;
+mod profile;
 mod registry;
 mod rewards;
 mod specs;
@@ -29,7 +30,8 @@ mod tests;
 
 pub use damage::record_boss_damage;
 pub use ids::{encounter_id_from_name, MOCKINGBIRD_ENCOUNTER_ID};
+pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
-pub use rewards::sync_mockingbird_treasure_chest;
+pub use rewards::{sync_boss_reward_chests, sync_mockingbird_treasure_chest};
 pub use specs::default_boss_specs;
 pub use systems::{populate_boss_encounter_registry, update_boss_encounters};

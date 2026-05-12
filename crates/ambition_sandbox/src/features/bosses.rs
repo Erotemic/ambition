@@ -1,7 +1,174 @@
 use super::*;
 
-fn mockingbird_combat_size() -> ae::Vec2 {
-    ae::Vec2::new(500.0, 185.0)
+/// Movement family for a live boss actor. Encounter phases decide *when* a boss
+/// is active; this profile decides how the authored actor moves while active.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BossMovementProfile {
+    /// Existing grounded/hovering sentinel feel: stay near the authored spawn,
+    /// sway horizontally, and chase the player a little without abandoning the
+    /// arena anchor.
+    AnchorSway {
+        x_radius: f32,
+        y_bob: f32,
+        x_frequency: f32,
+        y_frequency: f32,
+        chase_scale: f32,
+        chase_limit: f32,
+        speed: f32,
+    },
+    /// Wide airborne arcs for ship/bird-like bosses. Keeps a stable home anchor
+    /// but spends more of the fight sweeping across it.
+    AirSwoop {
+        x_radius: f32,
+        y_radius: f32,
+        x_frequency: f32,
+        y_frequency: f32,
+        chase_scale: f32,
+        chase_limit: f32,
+        speed: f32,
+    },
+}
+
+impl BossMovementProfile {
+    fn target(&self, boss: &BossRuntime, player: &ae::Player) -> ae::Vec2 {
+        let anchor_to_player = player.pos - boss.spawn;
+        match *self {
+            Self::AnchorSway {
+                x_radius,
+                y_bob,
+                x_frequency,
+                y_frequency,
+                chase_scale,
+                chase_limit,
+                ..
+            } => {
+                let chase = (anchor_to_player.x * chase_scale).clamp(-chase_limit, chase_limit);
+                ae::Vec2::new(
+                    boss.spawn.x + (boss.movement_timer * x_frequency).sin() * x_radius + chase,
+                    boss.spawn.y - (boss.movement_timer * y_frequency).sin().abs() * y_bob,
+                )
+            }
+            Self::AirSwoop {
+                x_radius,
+                y_radius,
+                x_frequency,
+                y_frequency,
+                chase_scale,
+                chase_limit,
+                ..
+            } => {
+                let chase = (anchor_to_player.x * chase_scale).clamp(-chase_limit, chase_limit);
+                ae::Vec2::new(
+                    boss.spawn.x + (boss.movement_timer * x_frequency).sin() * x_radius + chase,
+                    boss.spawn.y + (boss.movement_timer * y_frequency).sin() * y_radius
+                        - y_radius * 0.35,
+                )
+            }
+        }
+    }
+
+    fn speed(&self) -> f32 {
+        match *self {
+            Self::AnchorSway { speed, .. } | Self::AirSwoop { speed, .. } => speed,
+        }
+    }
+}
+
+/// Attack hitbox vocabulary used by `BossRuntime`.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BossAttackProfile {
+    FloorSlam,
+    SideSweep,
+    FullBodyPulse,
+    WingSweep,
+    DiveLane,
+    Broadside,
+}
+
+/// Live sandbox-side behavior tuning for a boss. This is deliberately separate
+/// from `ae::BossEncounterSpec`: the engine spec owns phase progression and HP
+/// thresholds, while this profile owns sandbox movement, contact size, damage,
+/// and hitbox shapes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BossBehaviorProfile {
+    pub id: String,
+    pub combat_size: Option<ae::Vec2>,
+    pub movement: BossMovementProfile,
+    pub attacks: Vec<BossAttackProfile>,
+    pub attack_cooldown: f32,
+    pub attack_windup: f32,
+    pub attack_active: f32,
+    pub attack_damage: i32,
+    pub body_damage: i32,
+}
+
+impl BossBehaviorProfile {
+    pub fn clockwork_warden() -> Self {
+        Self {
+            id: "clockwork_warden".into(),
+            combat_size: None,
+            movement: BossMovementProfile::AnchorSway {
+                x_radius: 130.0,
+                y_bob: 18.0,
+                x_frequency: 0.72,
+                y_frequency: 1.10,
+                chase_scale: 0.18,
+                chase_limit: 70.0,
+                speed: 220.0,
+            },
+            attacks: vec![
+                BossAttackProfile::FloorSlam,
+                BossAttackProfile::SideSweep,
+                BossAttackProfile::FullBodyPulse,
+            ],
+            attack_cooldown: BOSS_ATTACK_COOLDOWN,
+            attack_windup: 0.52,
+            attack_active: 0.32,
+            attack_damage: 2,
+            body_damage: 1,
+        }
+    }
+
+    pub fn mockingbird() -> Self {
+        Self {
+            id: "mockingbird".into(),
+            combat_size: Some(ae::Vec2::new(500.0, 185.0)),
+            movement: BossMovementProfile::AirSwoop {
+                x_radius: 250.0,
+                y_radius: 62.0,
+                x_frequency: 0.56,
+                y_frequency: 1.35,
+                chase_scale: 0.08,
+                chase_limit: 95.0,
+                speed: 320.0,
+            },
+            attacks: vec![
+                BossAttackProfile::WingSweep,
+                BossAttackProfile::DiveLane,
+                BossAttackProfile::Broadside,
+            ],
+            attack_cooldown: 1.05,
+            attack_windup: 0.44,
+            attack_active: 0.28,
+            attack_damage: 2,
+            body_damage: 1,
+        }
+    }
+
+    pub fn generic(id: impl Into<String>) -> Self {
+        let mut profile = Self::clockwork_warden();
+        profile.id = id.into();
+        profile
+    }
+
+    pub fn for_authored_boss(id_or_name: &str) -> Self {
+        let key = crate::boss_encounter::encounter_id_from_name(id_or_name);
+        match key.as_str() {
+            "mockingbird" => Self::mockingbird(),
+            "clockwork_warden" | "gradient_sentinel" => Self::clockwork_warden(),
+            other => Self::generic(other),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -13,6 +180,7 @@ pub struct BossRuntime {
     pub size: ae::Vec2,
     pub health: ae::Health,
     pub brain: ae::BossBrain,
+    pub behavior: BossBehaviorProfile,
     pub alive: bool,
     pub pattern_timer: f32,
     pub movement_timer: f32,
@@ -31,6 +199,7 @@ impl BossRuntime {
             spawn: object.aabb.center(),
             size: object.aabb.half_size() * 2.0,
             health: ae::Health::new(18),
+            behavior: BossBehaviorProfile::for_authored_boss(&object.name),
             brain,
             alive: true,
             pattern_timer: 0.0,
@@ -54,18 +223,7 @@ impl BossRuntime {
         }
         self.pattern_timer += dt;
         self.movement_timer += dt;
-        // AMBITION_REVIEW(spatial): this is still a cheap authored boss movement
-        // prototype, but it now computes chase from the stable spawn anchor and
-        // moves toward the target with an axis-separated collision guard. The
-        // previous version used current position as feedback in the chase term,
-        // which could flip sign every frame near the player and visually split
-        // the boss into two flickering locations.
-        let anchor_to_player = player.pos - self.spawn;
-        let chase = (anchor_to_player.x * 0.18).clamp(-70.0, 70.0);
-        let target = ae::Vec2::new(
-            self.spawn.x + (self.movement_timer * 0.72).sin() * 130.0 + chase,
-            self.spawn.y - (self.movement_timer * 1.10).sin().abs() * 18.0,
-        );
+        let target = self.behavior.movement.target(self, player);
         self.move_toward_target(world, target, dt);
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         let was_winding_up = self.attack_windup_timer > 0.0;
@@ -73,36 +231,35 @@ impl BossRuntime {
         self.attack_timer = (self.attack_timer - dt).max(0.0);
         self.attack_cooldown = (self.attack_cooldown - dt).max(0.0);
         if was_winding_up && self.attack_windup_timer <= 0.0 {
-            self.attack_timer = tuning.boss_attack_active.max(0.01);
+            self.attack_timer = self
+                .behavior
+                .attack_active
+                .max(tuning.boss_attack_active)
+                .max(0.01);
         }
         if self.attack_cooldown <= 0.0
             && self.attack_windup_timer <= 0.0
             && self.attack_timer <= 0.0
         {
-            self.attack_windup_timer = tuning.boss_attack_windup.max(0.01);
-            self.attack_cooldown = BOSS_ATTACK_COOLDOWN;
+            self.attack_windup_timer = self.behavior.attack_windup.max(0.01);
+            self.attack_cooldown = self.behavior.attack_cooldown.max(0.05);
         }
     }
 
     pub fn is_mockingbird(&self) -> bool {
-        self.name.eq_ignore_ascii_case("mockingbird")
+        self.behavior.id == "mockingbird" || self.name.eq_ignore_ascii_case("mockingbird")
     }
 
     pub fn render_size(&self) -> ae::Vec2 {
         self.size
     }
 
+    pub fn apply_behavior_profile(&mut self, behavior: BossBehaviorProfile) {
+        self.behavior = behavior;
+    }
+
     pub fn combat_size(&self) -> ae::Vec2 {
-        if self.is_mockingbird() {
-            // The mockingbird sprite is a wide flying boss. Its authored LDtk
-            // size still drives render scale, but combat should match the
-            // visible ship/creature silhouette rather than the old narrow
-            // placeholder rectangle. Keep this per-boss so the gradient
-            // sentinel and any other BossSpawn keep their original authored box.
-            mockingbird_combat_size()
-        } else {
-            self.size
-        }
+        self.behavior.combat_size.unwrap_or(self.size)
     }
 
     pub fn aabb(&self) -> ae::Aabb {
@@ -138,7 +295,7 @@ impl BossRuntime {
             target.y.clamp(half.y + margin, max_y),
         );
         let delta = clamped_target - self.pos;
-        let max_step = 220.0 * dt.max(0.0);
+        let max_step = self.behavior.movement.speed() * dt.max(0.0);
         let step = if delta.length() > max_step && max_step > 0.0 {
             delta.normalize_or_zero() * max_step
         } else {
@@ -157,13 +314,20 @@ impl BossRuntime {
 
     pub(super) fn pattern_volumes(&self) -> Vec<ae::Aabb> {
         let size = self.combat_size();
-        let phase = ((self.pattern_timer / BOSS_ATTACK_COOLDOWN) as i32).rem_euclid(3);
-        match phase {
-            0 => vec![ae::Aabb::new(
+        let attack_count = self.behavior.attacks.len().max(1);
+        let phase = ((self.pattern_timer / self.behavior.attack_cooldown.max(0.05)) as usize)
+            % attack_count;
+        let attack = self
+            .behavior
+            .attacks
+            .get(phase)
+            .unwrap_or(&BossAttackProfile::FullBodyPulse);
+        match attack {
+            BossAttackProfile::FloorSlam => vec![ae::Aabb::new(
                 self.pos + ae::Vec2::new(0.0, size.y * 0.5 + 22.0),
                 ae::Vec2::new(size.x * 0.75, 18.0),
             )],
-            1 => vec![
+            BossAttackProfile::SideSweep => vec![
                 ae::Aabb::new(
                     self.pos + ae::Vec2::new(-size.x * 0.50, 0.0),
                     ae::Vec2::new(size.x * 0.25, size.y * 0.72),
@@ -173,7 +337,25 @@ impl BossRuntime {
                     ae::Vec2::new(size.x * 0.25, size.y * 0.72),
                 ),
             ],
-            _ => vec![ae::Aabb::new(self.pos, size * 0.70)],
+            BossAttackProfile::FullBodyPulse => vec![ae::Aabb::new(self.pos, size * 0.70)],
+            BossAttackProfile::WingSweep => vec![ae::Aabb::new(
+                self.pos + ae::Vec2::new(0.0, size.y * 0.08),
+                ae::Vec2::new(size.x * 0.56, size.y * 0.42),
+            )],
+            BossAttackProfile::DiveLane => vec![ae::Aabb::new(
+                self.pos + ae::Vec2::new(0.0, size.y * 0.42),
+                ae::Vec2::new(size.x * 0.22, size.y * 0.72),
+            )],
+            BossAttackProfile::Broadside => vec![
+                ae::Aabb::new(
+                    self.pos + ae::Vec2::new(-size.x * 0.34, 0.0),
+                    ae::Vec2::new(size.x * 0.18, size.y * 0.84),
+                ),
+                ae::Aabb::new(
+                    self.pos + ae::Vec2::new(size.x * 0.34, 0.0),
+                    ae::Vec2::new(size.x * 0.18, size.y * 0.84),
+                ),
+            ],
         }
     }
 
@@ -191,7 +373,7 @@ impl BossRuntime {
                     impact_pos: midpoint(player_body.center(), volume.center()),
                     knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
                     strength: 1.25,
-                    amount: 2,
+                    amount: self.behavior.attack_damage.max(1),
                 });
             }
         }
@@ -204,7 +386,7 @@ impl BossRuntime {
                 impact_pos: midpoint(player_body.center(), body_damage.center()),
                 knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
                 strength: 1.0,
-                amount: 1,
+                amount: self.behavior.body_damage.max(1),
             });
         }
         None

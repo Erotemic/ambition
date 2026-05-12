@@ -3,12 +3,15 @@ use std::collections::BTreeMap;
 use ambition_engine as ae;
 use bevy::prelude::Resource;
 
+use super::BossProfile;
+
 #[derive(Resource, Default)]
 pub struct BossEncounterRegistry {
     pub encounters: BTreeMap<String, ae::BossEncounterState>,
+    pub profiles: BTreeMap<String, BossProfile>,
     /// id -> the boss runtime id we wired to. Used to route damage.
     pub runtime_ids: BTreeMap<String, String>,
-    /// True once we've registered the default boss specs.
+    /// True once we've registered the default boss profiles/specs.
     pub specs_loaded: bool,
 }
 
@@ -20,8 +23,18 @@ impl BossEncounterRegistry {
             .or_insert_with(|| ae::BossEncounterState::new(spec));
     }
 
+    pub fn ensure_profile(&mut self, profile: BossProfile) {
+        let id = profile.id.clone();
+        self.ensure(profile.encounter.clone());
+        self.profiles.entry(id).or_insert(profile);
+    }
+
     pub fn get(&self, id: &str) -> Option<&ae::BossEncounterState> {
         self.encounters.get(id)
+    }
+
+    pub fn profile(&self, id: &str) -> Option<&BossProfile> {
+        self.profiles.get(id)
     }
 
     pub fn link_runtime(&mut self, encounter_id: &str, runtime_id: &str) {

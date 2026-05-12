@@ -32,6 +32,7 @@ pub use anim::{
 pub use animator::CharacterAnimator;
 pub use assets::{load_character_sprites_in, CharacterSpriteAsset, CharacterSpriteAssets};
 pub use sheets::{
-    build_character_sprite, feet_anchor_for, sprite_render_size, AnimRow, CharacterSheetSpec,
-    GOBLIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
+    feet_anchor_for_render_size, player_placeholder_render_size, sprite_render_size, AnimRow,
+    CharacterSheetSpec, GOBLIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
 };

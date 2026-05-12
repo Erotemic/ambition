@@ -488,11 +488,11 @@ pub(super) fn room_transition_phase(
 /// Phase 10 — slash / pogo attack triggering.
 ///
 /// Owns: hitstun gate, attack/pogo button check, dispatching to
-/// `process_attack` (which itself emits sfx/vfx/debris and runs the
-/// feature-side hit application).
+/// `start_attack` / `advance_attack` (which emit sfx/vfx/debris and run
+/// feature-side hit application during active frames).
 ///
 /// Should not own: damage application semantics — those live in
-/// `process_attack` and the engine. New attack archetypes should add
+/// `advance_attack` and the engine. New attack archetypes should add
 /// branches here only when the trigger condition differs.
 pub(super) fn attack_phase(
     controls: &ControlFrame,
@@ -500,18 +500,20 @@ pub(super) fn attack_phase(
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
+    frame_dt: f32,
 ) {
     if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
-        process_attack(
-            &mut feedback.sfx,
-            &mut feedback.vfx,
-            &mut feedback.debris,
-            runtime,
-            *controls,
-            tuning,
-            feel,
-        );
+        start_attack(&mut feedback.sfx, &mut feedback.vfx, runtime, *controls);
     }
+    advance_attack(
+        &mut feedback.sfx,
+        &mut feedback.vfx,
+        &mut feedback.debris,
+        runtime,
+        tuning,
+        feel,
+        frame_dt,
+    );
 }
 
 /// Phase 11 — flash / preset / slash animation timer decay.

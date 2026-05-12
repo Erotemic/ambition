@@ -129,50 +129,252 @@ impl DamageVolume {
     }
 }
 
-/// Compute the current slash/pogo hitbox for a player.
+/// Player melee intent resolved from input + movement state.
+///
+/// This is deliberately coarser than animation rows: several intents can share
+/// art while still carrying different hitboxes, timing, and movement modifiers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AttackIntent {
+    Neutral,
+    Forward,
+    Back,
+    Up,
+    Down,
+    DashForward,
+    AirForward,
+    AirUp,
+    AirDown,
+    WallOut,
+}
+
+impl AttackIntent {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Neutral => "neutral",
+            Self::Forward => "forward",
+            Self::Back => "back",
+            Self::Up => "up",
+            Self::Down => "down",
+            Self::DashForward => "dash_forward",
+            Self::AirForward => "air_forward",
+            Self::AirUp => "air_up",
+            Self::AirDown => "air_down",
+            Self::WallOut => "wall_out",
+        }
+    }
+}
+
+/// Coarse lifecycle of a single melee swing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AttackPhase {
+    Startup,
+    Active,
+    Recovery,
+}
+
+impl AttackPhase {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Startup => "startup",
+            Self::Active => "active",
+            Self::Recovery => "recovery",
+        }
+    }
+}
+
+/// Resolved melee swing parameters. Offsets are in world units and are already
+/// signed for the player's current facing direction.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AttackSpec {
+    pub intent: AttackIntent,
+    pub startup_seconds: f32,
+    pub active_seconds: f32,
+    pub recovery_seconds: f32,
+    pub hitbox_offset: Vec2,
+    pub hitbox_half_size: Vec2,
+    pub self_impulse: Vec2,
+    pub knockback: Vec2,
+    pub damage_kind: DamageKind,
+    pub can_pogo: bool,
+}
+
+impl AttackSpec {
+    pub fn total_seconds(self) -> f32 {
+        self.startup_seconds + self.active_seconds + self.recovery_seconds
+    }
+
+    pub fn phase_at(self, elapsed: f32) -> Option<AttackPhase> {
+        if elapsed < self.startup_seconds {
+            Some(AttackPhase::Startup)
+        } else if elapsed < self.startup_seconds + self.active_seconds {
+            Some(AttackPhase::Active)
+        } else if elapsed < self.total_seconds() {
+            Some(AttackPhase::Recovery)
+        } else {
+            None
+        }
+    }
+}
+
+/// Resolve a directional attack intent from input and current player state.
 ///
 /// `axis_y` follows `InputState`: negative means up, positive means down.
 /// `forced_pogo` is used by layouts that expose downward slash/pogo as a
 /// dedicated face-button verb rather than requiring down + attack.
-pub fn slash_hitbox(player: &Player, axis_y: f32, forced_pogo: bool) -> Aabb {
-    let body = player.aabb();
+pub fn resolve_attack_intent(
+    player: &Player,
+    axis_x: f32,
+    axis_y: f32,
+    forced_pogo: bool,
+) -> AttackIntent {
     if forced_pogo || axis_y > 0.25 {
-        Aabb::new(
-            Vec2::new(body.center().x, body.bottom() + 24.0),
-            Vec2::new(body.half_size().x * 0.95, 26.0),
-        )
-    } else if axis_y < -0.25 {
-        Aabb::new(
-            Vec2::new(body.center().x, body.top() - 22.0),
-            Vec2::new(body.half_size().x * 1.10, 24.0),
-        )
+        return if player.on_ground {
+            AttackIntent::Down
+        } else {
+            AttackIntent::AirDown
+        };
+    }
+    if axis_y < -0.25 {
+        return if player.on_ground {
+            AttackIntent::Up
+        } else {
+            AttackIntent::AirUp
+        };
+    }
+
+    let forward = axis_x * player.facing > 0.25;
+    let back = axis_x * player.facing < -0.25;
+    if player.wall_clinging && back {
+        return AttackIntent::WallOut;
+    }
+    if player.dash_timer > 0.0 && !back {
+        return AttackIntent::DashForward;
+    }
+    if back && player.abilities.directional_primary {
+        return AttackIntent::Back;
+    }
+    if !player.on_ground {
+        return AttackIntent::AirForward;
+    }
+    if forward {
+        AttackIntent::Forward
     } else {
-        Aabb::new(
-            Vec2::new(
-                body.center().x + player.facing * (body.half_size().x + 30.0),
-                body.center().y - 2.0,
-            ),
-            Vec2::new(34.0, 24.0),
-        )
+        AttackIntent::Neutral
     }
 }
 
-/// Build a structured player slash hitbox from the legacy slash shape helper.
+/// Build the attack spec for an already-resolved intent.
+pub fn attack_spec(player: &Player, intent: AttackIntent) -> AttackSpec {
+    let body = player.aabb();
+    let facing = if player.facing < 0.0 { -1.0 } else { 1.0 };
+    let half = body.half_size();
+
+    match intent {
+        AttackIntent::Up | AttackIntent::AirUp => AttackSpec {
+            intent,
+            startup_seconds: 0.035,
+            active_seconds: 0.105,
+            recovery_seconds: 0.150,
+            hitbox_offset: Vec2::new(0.0, -half.y - 32.0),
+            hitbox_half_size: Vec2::new(26.0, 34.0),
+            self_impulse: Vec2::new(0.0, -35.0),
+            knockback: Vec2::new(0.0, -300.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::Down | AttackIntent::AirDown => AttackSpec {
+            intent,
+            startup_seconds: 0.035,
+            active_seconds: 0.110,
+            recovery_seconds: 0.165,
+            hitbox_offset: Vec2::new(0.0, half.y + 32.0),
+            hitbox_half_size: Vec2::new(26.0, 34.0),
+            self_impulse: Vec2::new(0.0, 35.0),
+            knockback: Vec2::new(0.0, 260.0),
+            damage_kind: DamageKind::Pogo,
+            can_pogo: true,
+        },
+        AttackIntent::Back | AttackIntent::WallOut => AttackSpec {
+            intent,
+            startup_seconds: 0.040,
+            active_seconds: 0.090,
+            recovery_seconds: 0.170,
+            hitbox_offset: Vec2::new(-facing * (half.x + 28.0), -2.0),
+            hitbox_half_size: Vec2::new(28.0, 24.0),
+            self_impulse: Vec2::new(facing * 120.0, -20.0),
+            knockback: Vec2::new(-facing * 280.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::DashForward => AttackSpec {
+            intent,
+            startup_seconds: 0.020,
+            active_seconds: 0.095,
+            recovery_seconds: 0.185,
+            hitbox_offset: Vec2::new(facing * (half.x + 46.0), -2.0),
+            hitbox_half_size: Vec2::new(46.0, 24.0),
+            self_impulse: Vec2::new(facing * 55.0, 0.0),
+            knockback: Vec2::new(facing * 390.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::AirForward => AttackSpec {
+            intent,
+            startup_seconds: 0.030,
+            active_seconds: 0.105,
+            recovery_seconds: 0.155,
+            hitbox_offset: Vec2::new(facing * (half.x + 38.0), -2.0),
+            hitbox_half_size: Vec2::new(38.0, 26.0),
+            self_impulse: Vec2::new(-facing * 45.0, -25.0),
+            knockback: Vec2::new(facing * 320.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::Forward | AttackIntent::Neutral => AttackSpec {
+            intent,
+            startup_seconds: 0.035,
+            active_seconds: 0.100,
+            recovery_seconds: 0.160,
+            hitbox_offset: Vec2::new(facing * (half.x + 38.0), -2.0),
+            hitbox_half_size: Vec2::new(38.0, 26.0),
+            self_impulse: if matches!(intent, AttackIntent::Forward) {
+                Vec2::new(facing * 30.0, 0.0)
+            } else {
+                Vec2::new(-facing * 65.0, 0.0)
+            },
+            knockback: Vec2::new(facing * 320.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+    }
+}
+
+/// Hitbox for an attack spec at the player's current position.
+pub fn attack_hitbox(player: &Player, spec: AttackSpec) -> Aabb {
+    Aabb::new(player.pos + spec.hitbox_offset, spec.hitbox_half_size)
+}
+
+/// Compute the current slash/pogo hitbox for legacy callers. Prefer
+/// `resolve_attack_intent` + `attack_spec` + `attack_hitbox` when the caller
+/// has access to horizontal input or wants phase/debug metadata.
+pub fn slash_hitbox(player: &Player, axis_y: f32, forced_pogo: bool) -> Aabb {
+    let intent = resolve_attack_intent(player, 0.0, axis_y, forced_pogo);
+    attack_hitbox(player, attack_spec(player, intent))
+}
+
+/// Build a structured player slash hitbox from the directional attack helpers.
 pub fn player_slash_hitbox(
     player: &Player,
     axis_y: f32,
     forced_pogo: bool,
     damage_amount: i32,
 ) -> Hitbox {
-    let kind = if forced_pogo || axis_y > 0.25 {
-        DamageKind::Pogo
-    } else {
-        DamageKind::Slash
-    };
+    let intent = resolve_attack_intent(player, 0.0, axis_y, forced_pogo);
+    let spec = attack_spec(player, intent);
     Hitbox::new(
         "player_slash",
-        slash_hitbox(player, axis_y, forced_pogo),
-        Damage::new(damage_amount, kind, ActorFaction::Player),
+        attack_hitbox(player, spec),
+        Damage::new(damage_amount, spec.damage_kind, ActorFaction::Player),
     )
 }
 

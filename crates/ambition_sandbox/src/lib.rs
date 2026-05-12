@@ -193,6 +193,9 @@ pub struct SandboxRuntime {
     /// triggered so the sprite plays the Slash row even after the brief
     /// hitstop window ends. Decays toward 0 in the gameplay loop.
     pub slash_anim_timer: f32,
+    /// Active player melee swing. Holds timing + one-hit-per-target state
+    /// for directional attacks with startup / active / recovery phases.
+    pub player_attack: Option<PlayerAttackState>,
     /// Ledge grab state. `Some` while the player is hanging on a
     /// ledge — gravity is suspended and Up + Jump kicks off the
     /// climb. `None` otherwise. Only mutated by `update_ledge_grab`.
@@ -208,6 +211,38 @@ pub struct SandboxRuntime {
     /// to give post-update mutators the signal without changing
     /// `sandbox_update`'s already-saturated parameter list.
     pub double_tap_down_pending: bool,
+}
+
+/// Sandbox-side state for one active player melee swing.
+#[derive(Clone, Debug)]
+pub struct PlayerAttackState {
+    pub spec: ae::AttackSpec,
+    pub elapsed: f32,
+    pub hit_targets: Vec<String>,
+    pub active_started: bool,
+}
+
+impl PlayerAttackState {
+    pub fn new(spec: ae::AttackSpec) -> Self {
+        Self {
+            spec,
+            elapsed: 0.0,
+            hit_targets: Vec::new(),
+            active_started: false,
+        }
+    }
+
+    pub fn phase(&self) -> Option<ae::AttackPhase> {
+        self.spec.phase_at(self.elapsed)
+    }
+
+    pub fn done(&self) -> bool {
+        self.phase().is_none()
+    }
+
+    pub fn progress(&self) -> f32 {
+        (self.elapsed / self.spec.total_seconds().max(0.001)).clamp(0.0, 1.0)
+    }
 }
 
 /// Sandbox-side ledge grab snapshot. Engine-pure data wrapped with
@@ -256,6 +291,7 @@ impl SandboxRuntime {
             physics_settings,
             room_transition_cooldown: 0.0,
             slash_anim_timer: 0.0,
+            player_attack: None,
             ledge_grab: None,
             double_tap_down_pending: false,
         }
@@ -280,6 +316,7 @@ impl SandboxRuntime {
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
         self.slash_anim_timer = 0.0;
+        self.player_attack = None;
         // Refill mana on reset; the editor-tuned damage_multiplier /
         // invincible flag now lives on `Player` and survives reset
         // because `reset_to` only touches movement state, not these

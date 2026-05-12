@@ -1,5 +1,13 @@
 use super::*;
 
+fn target_key(prefix: &str, id: &str) -> String {
+    format!("{prefix}:{id}")
+}
+
+fn target_ignored(ignored: &[String], key: &str) -> bool {
+    ignored.iter().any(|known| known == key)
+}
+
 impl FeatureRuntime {
     pub fn apply_player_attack(
         &mut self,
@@ -15,8 +23,24 @@ impl FeatureRuntime {
             volume: attack,
             damage,
             source: DamageSource::PlayerSlash { knock_x },
+            ignored_targets: Vec::new(),
         });
         report.events
+    }
+
+    pub fn apply_player_attack_report(
+        &mut self,
+        attack: ae::Aabb,
+        damage: i32,
+        knock_x: f32,
+        ignored_targets: Vec<String>,
+    ) -> DamageReport {
+        self.apply_damage_event(&DamageEvent {
+            volume: attack,
+            damage,
+            source: DamageSource::PlayerSlash { knock_x },
+            ignored_targets,
+        })
     }
     /// Apply a damage event against every damageable feature whose
     /// AABB strictly overlaps `event.volume`. Single source of truth
@@ -53,6 +77,10 @@ impl FeatureRuntime {
         };
 
         for enemy in &mut self.enemies {
+            let key = target_key("enemy", &enemy.id);
+            if target_ignored(&event.ignored_targets, &key) {
+                continue;
+            }
             if enemy.alive && attack.strict_intersects(enemy.aabb()) {
                 enemy.hit_flash = 0.16;
                 if let Some(knock_x) = knock {
@@ -67,6 +95,7 @@ impl FeatureRuntime {
                 let hit_pos = midpoint(attack.center(), enemy.pos);
                 report.events.impacts.push(hit_pos);
                 report.enemies_hit += 1;
+                report.hit_targets.push(key);
                 if killed {
                     enemy.alive = false;
                     report.kills += 1;
@@ -106,6 +135,10 @@ impl FeatureRuntime {
         }
 
         for boss in &mut self.bosses {
+            let key = target_key("boss", &boss.id);
+            if target_ignored(&event.ignored_targets, &key) {
+                continue;
+            }
             if boss.alive && attack.strict_intersects(boss.aabb()) {
                 boss.hit_flash = 0.18;
                 let amount = damage.max(1);
@@ -116,6 +149,7 @@ impl FeatureRuntime {
                     .push(midpoint(attack.center(), boss.pos));
                 report.events.damage_boss(boss.id.clone(), amount);
                 report.bosses_hit += 1;
+                report.hit_targets.push(key);
                 if killed {
                     boss.alive = false;
                     report.kills += 1;
@@ -140,6 +174,10 @@ impl FeatureRuntime {
         // sandbox runtime persists it. Any damage source provokes —
         // projectiles count as strikes too.
         for npc in &mut self.npcs {
+            let key = target_key("npc", &npc.id);
+            if target_ignored(&event.ignored_targets, &key) {
+                continue;
+            }
             if !attack.strict_intersects(npc.aabb()) {
                 continue;
             }
@@ -150,6 +188,7 @@ impl FeatureRuntime {
                 .push(midpoint(attack.center(), npc.pos));
             report.events.strike_npc(npc.id.clone(), npc.pos);
             report.npcs_hit += 1;
+            report.hit_targets.push(key);
             if npc.hostile {
                 npc.strikes = npc.strikes.saturating_add(1);
                 if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD * 2 {
@@ -173,6 +212,10 @@ impl FeatureRuntime {
         }
 
         for breakable in &mut self.breakables {
+            let key = target_key("breakable", &breakable.id);
+            if target_ignored(&event.ignored_targets, &key) {
+                continue;
+            }
             // Breakable pogo orbs take damage exclusively through the pogo
             // bounce path (`on_pogo_bounce`). Slashing or pogoing onto one
             // would otherwise apply two damage in a single frame — once
@@ -191,6 +234,7 @@ impl FeatureRuntime {
                     .impacts
                     .push(midpoint(attack.center(), breakable.pos));
                 report.breakables_hit += 1;
+                report.hit_targets.push(key);
                 if broke {
                     breakable.start_respawn_timer();
                     report

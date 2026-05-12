@@ -485,53 +485,113 @@ pub(super) fn controls_for_hitstun(
     controls
 }
 
-pub(super) fn process_attack(
+pub(super) fn start_attack(
+    sfx: &mut Vec<SfxMessage>,
+    vfx: &mut Vec<VfxMessage>,
+    runtime: &mut SandboxRuntime,
+    controls: ControlFrame,
+) {
+    if !runtime.player.abilities.attack || runtime.player_attack.is_some() {
+        return;
+    }
+    let intent = ae::resolve_attack_intent(
+        &runtime.player,
+        controls.axis_x,
+        controls.axis_y,
+        controls.pogo_pressed,
+    );
+    let spec = ae::attack_spec(&runtime.player, intent);
+
+    // Directional attacks get small self-motion so the hitbox feels connected
+    // to the controller. Keep these impulses modest; the engine control path
+    // still owns the canonical slash/pogo op + recoil bookkeeping.
+    runtime.player.vel += spec.self_impulse;
+    if matches!(intent, ae::AttackIntent::AirUp | ae::AttackIntent::Up)
+        && runtime.player.vel.y > -40.0
+    {
+        runtime.player.vel.y = -40.0;
+    }
+    if matches!(intent, ae::AttackIntent::AirDown | ae::AttackIntent::Down)
+        && runtime.player.vel.y < 80.0
+    {
+        runtime.player.vel.y = 80.0;
+    }
+
+    let player_pos = runtime.player.pos;
+    sfx.push(SfxMessage::Slash { pos: player_pos });
+    runtime.slash_anim_timer = spec.total_seconds().max(0.20);
+    runtime.player_attack = Some(crate::PlayerAttackState::new(spec));
+    vfx.push(VfxMessage::SlashPreview {
+        hitbox: ae::attack_hitbox(&runtime.player, spec),
+    });
+}
+
+pub(super) fn advance_attack(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     debris: &mut Vec<DebrisBurstMessage>,
     runtime: &mut SandboxRuntime,
-    controls: ControlFrame,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
+    frame_dt: f32,
 ) {
-    if !runtime.player.abilities.attack {
+    let Some(mut attack_state) = runtime.player_attack.take() else {
         return;
-    }
-    let player_pos = runtime.player.pos;
-    sfx.push(SfxMessage::Slash { pos: player_pos });
-    // Roughly the slash sheet's eight 75ms frames; the animation system
-    // freezes on the last frame once `clip_held` is set, so this only
-    // needs to cover the typical clip duration.
-    runtime.slash_anim_timer = 0.60;
-    let attack = ae::slash_hitbox(&runtime.player, controls.axis_y, controls.pogo_pressed);
-    vfx.push(VfxMessage::SlashPreview { hitbox: attack });
-    let mut landed = false;
-    let mut killed = false;
-    let player_facing = runtime.player.facing;
-    let slash_damage = runtime.player.damage_multiplier.max(1);
-    let feature_events =
-        runtime
-            .features
-            .apply_player_attack(attack, slash_damage, player_facing * 300.0);
-    landed |= !feature_events.impacts.is_empty();
-    killed |= feature_events
-        .messages
-        .iter()
-        .any(|message| message.contains("defeated"));
-    handle_feature_events(sfx, vfx, debris, &feature_events, player_pos);
+    };
 
-    if landed {
-        sfx.push(SfxMessage::Hit { pos: player_pos });
-        runtime.hitstop_timer = feel.attack_hitstop_time;
-        runtime.flash_timer = 0.16;
+    attack_state.elapsed += frame_dt.max(0.0);
+    let Some(phase) = attack_state.phase() else {
+        runtime.slash_anim_timer = 0.0;
+        return;
+    };
+
+    if phase == ae::AttackPhase::Active {
+        let attack = ae::attack_hitbox(&runtime.player, attack_state.spec);
+        if !attack_state.active_started {
+            attack_state.active_started = true;
+            vfx.push(VfxMessage::SlashPreview { hitbox: attack });
+        }
+
+        let player_pos = runtime.player.pos;
+        let slash_damage = runtime.player.damage_multiplier.max(1);
+        let knock_x = if attack_state.spec.knockback.x.abs() > 0.0 {
+            attack_state.spec.knockback.x
+        } else {
+            runtime.player.facing * 300.0
+        };
+        let report = runtime.features.apply_player_attack_report(
+            attack,
+            slash_damage,
+            knock_x,
+            attack_state.hit_targets.clone(),
+        );
+        let landed = report.any_actor_hit();
+        let killed = report
+            .events
+            .messages
+            .iter()
+            .any(|message| message.contains("defeated"));
+        attack_state.hit_targets.extend(report.hit_targets.iter().cloned());
+        handle_feature_events(sfx, vfx, debris, &report.events, player_pos);
+
+        if landed {
+            sfx.push(SfxMessage::Hit { pos: player_pos });
+            runtime.hitstop_timer = feel.attack_hitstop_time;
+            runtime.flash_timer = 0.16;
+        }
+        if killed {
+            sfx.push(SfxMessage::Death { pos: player_pos });
+        }
+        if landed && runtime.player.abilities.pogo && attack_state.spec.can_pogo {
+            runtime.player.vel.y = -tuning.pogo_speed;
+            runtime.player.refresh_movement_resources(tuning);
+            sfx.push(SfxMessage::Pogo { pos: player_pos });
+        }
     }
-    if killed {
-        sfx.push(SfxMessage::Death { pos: player_pos });
-    }
-    if landed && runtime.player.abilities.pogo && (controls.pogo_pressed || controls.axis_y > 0.25)
-    {
-        runtime.player.vel.y = -tuning.pogo_speed;
-        runtime.player.refresh_movement_resources(tuning);
-        sfx.push(SfxMessage::Pogo { pos: player_pos });
+
+    if attack_state.done() {
+        runtime.slash_anim_timer = 0.0;
+    } else {
+        runtime.player_attack = Some(attack_state);
     }
 }

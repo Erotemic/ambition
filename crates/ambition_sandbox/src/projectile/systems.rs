@@ -61,6 +61,7 @@ pub fn update_projectiles(
             volume: p.body.aabb(),
             damage: p.body.damage,
             source: DamageSource::PlayerProjectile { kind: p.body.kind },
+            ignored_targets: Vec::new(),
         };
         let report = runtime.features.apply_damage_event(&damage_event);
         if report.any_actor_hit() {

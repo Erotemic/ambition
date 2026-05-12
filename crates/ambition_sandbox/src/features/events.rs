@@ -278,6 +278,9 @@ pub struct DamageEvent {
     pub volume: ae::Aabb,
     pub damage: i32,
     pub source: DamageSource,
+    /// Target keys that have already been hit by this one-hit-per-target
+    /// source. Empty for ordinary one-frame projectiles / hazards.
+    pub ignored_targets: Vec<String>,
 }
 
 /// What `apply_damage_event` did. Carries the side-effect bundle
@@ -296,6 +299,9 @@ pub struct DamageReport {
     pub breakables_hit: usize,
     pub npcs_hit: usize,
     pub kills: usize,
+    /// Stable target keys damaged by this event. Used by multi-frame player
+    /// melee so active frames do not multi-hit the same entity.
+    pub hit_targets: Vec<String>,
 }
 
 impl DamageReport {

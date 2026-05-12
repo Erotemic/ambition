@@ -51,7 +51,8 @@ pub use boss_patterns::{
 };
 pub use character_ai::{evaluate_character_ai, CharacterAiMode, CharacterAiSnapshot};
 pub use combat::{
-    player_slash_hitbox, slash_hitbox, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
+    attack_hitbox, attack_spec, player_slash_hitbox, resolve_attack_intent, slash_hitbox,
+    AttackIntent, AttackPhase, AttackSpec, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
 pub use cutscene::{CutsceneBeat, CutsceneEvent, CutsceneRuntime, CutsceneScript};
 pub use debug::{DebugLabel, DebugLabelKind, DestinationLabel};

@@ -24,7 +24,8 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 #[cfg(feature = "audio")]
 use crate::audio::{AudioLibrary, MusicPlaybackState};
 use crate::character_sprites::{
-    build_character_sprite, feet_anchor_for, sprite_render_size, CharacterAnimator,
+    build_character_sprite_with_render_size, feet_anchor_for_render_size,
+    player_placeholder_render_size, CharacterAnimator,
 };
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::data::{SandboxDataAsset, SandboxDataSpec};
@@ -335,13 +336,14 @@ fn presentation_world_inner(
         ae::DEFAULT_PLAYER_BODY_HEIGHT,
     );
     if let Some(asset) = &character_sprites.robot {
-        let sprite = build_character_sprite(asset, player_collision);
+        let player_render = player_placeholder_render_size(asset.spec, player_collision);
+        let sprite = build_character_sprite_with_render_size(asset, player_render);
         commands.entity(player).insert((
             sprite,
-            feet_anchor_for(asset.spec, player_collision),
+            feet_anchor_for_render_size(asset.spec, player_collision, player_render),
             CharacterAnimator::new(asset.spec),
             PlayerSpriteBaseline {
-                standing_render: sprite_render_size(asset.spec, player_collision),
+                standing_render: player_render,
                 standing_collision: player_collision,
             },
         ));

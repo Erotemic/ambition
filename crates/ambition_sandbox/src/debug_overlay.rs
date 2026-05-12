@@ -227,9 +227,10 @@ fn draw_player_debug(
         }
     }
 
-    // Show the currently implied attack box while the attack key is held. This
-    // brings back the old raw collision-box tuning view without requiring an
-    // actual attack event every frame.
+    // Combat preview: active attacks show their real phase hitbox. When no
+    // swing is active, holding the button previews the resolved directional
+    // intent from the live input axes. Colors mirror the attack lifecycle:
+    // startup = yellow, active = red, recovery = gray.
     let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
     let attack_held = actions
         .map(|actions| actions.pressed(&SandboxAction::Attack))
@@ -237,16 +238,26 @@ fn draw_player_debug(
     let dedicated_pogo_held = actions
         .map(|actions| actions.pressed(&SandboxAction::Pogo))
         .unwrap_or(false);
-    if gameplay_active
-        && developer_tools.show_combat_preview
-        && (attack_held || dedicated_pogo_held)
-    {
-        let hitbox = ae::slash_hitbox(
-            player,
-            controls.axis_y,
-            dedicated_pogo_held || controls.pogo_pressed,
-        );
-        draw_aabb(gizmos, world, hitbox, yellow());
+    if gameplay_active && developer_tools.show_combat_preview {
+        if let Some(attack_state) = runtime.player_attack.as_ref() {
+            let hitbox = ae::attack_hitbox(player, attack_state.spec);
+            let color = match attack_state.phase() {
+                Some(ae::AttackPhase::Startup) => yellow(),
+                Some(ae::AttackPhase::Active) => red(),
+                Some(ae::AttackPhase::Recovery) => gray(),
+                None => gray(),
+            };
+            draw_aabb(gizmos, world, hitbox, color);
+        } else if attack_held || dedicated_pogo_held {
+            let intent = ae::resolve_attack_intent(
+                player,
+                controls.axis_x,
+                controls.axis_y,
+                dedicated_pogo_held || controls.pogo_pressed,
+            );
+            let hitbox = ae::attack_hitbox(player, ae::attack_spec(player, intent));
+            draw_aabb(gizmos, world, hitbox, yellow());
+        }
     }
 
     // Blink aim preview. A quick tap blinks a short distance; once the hold

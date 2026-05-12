@@ -237,9 +237,26 @@ pub(super) fn update_hud(
     let mechanics_line = format!(
         "\nLOCO: {locomotion}  BODY: {body_mode}  MECH: {mechanics_summary}  ROOM: {metadata_summary}  TRACE: {trace_status}"
     );
+    let attack_line = runtime
+        .player_attack
+        .as_ref()
+        .map(|attack| {
+            let phase = attack
+                .phase()
+                .map(|phase| phase.label())
+                .unwrap_or("done");
+            format!(
+                "\nATTACK: {} {} {:.0}% hits={}",
+                attack.spec.intent.label(),
+                phase,
+                attack.progress() * 100.0,
+                attack.hit_targets.len()
+            )
+        })
+        .unwrap_or_default();
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -274,6 +291,7 @@ pub(super) fn update_hud(
             boss_line,
             encounter_line,
             map_line,
+            attack_line,
             mechanics_line,
         );
         return;
@@ -300,7 +318,9 @@ pub(super) fn update_hud(
          {}\n\
          enemies: {}\n\
          {}\n\
-         gamepad: {}{}{}{}\n",
+         {}\n\
+         {}\n\
+         gamepad: {}{}{}\n",
         world.0.name,
         mode.get().label(),
         room_set.active + 1,
@@ -325,10 +345,11 @@ pub(super) fn update_hud(
         window_line,
         enemy_health,
         runtime.features.feature_summary(),
+        mechanics_line,
+        attack_line,
         gamepad,
         flash_line,
         feature_banner,
-        mechanics_line,
     );
     // Cutscene / boss / encounter / map lines stay in the verbose HUD
     // because they're tightly coupled to the live combat / traversal

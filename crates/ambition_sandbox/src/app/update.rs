@@ -216,7 +216,14 @@ pub fn sandbox_update(
         return;
     }
 
-    attack_phase(&controls, &mut runtime, &mut feedback, tuning, feel);
+    attack_phase(
+        &controls,
+        &mut runtime,
+        &mut feedback,
+        tuning,
+        feel,
+        frame_dt,
+    );
 
     cleanup_timers_phase(&mut runtime, frame_dt);
 

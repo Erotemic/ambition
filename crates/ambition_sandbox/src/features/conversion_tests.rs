@@ -90,6 +90,7 @@ mod conversion_tests {
             volume: attack,
             damage: 1,
             source: DamageSource::PlayerSlash { knock_x: 300.0 },
+            ignored_targets: Vec::new(),
         });
         assert_eq!(report.enemies_hit, 1);
         assert!(report.events.impacts.len() >= 1);
@@ -131,6 +132,7 @@ mod conversion_tests {
             source: DamageSource::PlayerProjectile {
                 kind: ae::ProjectileKind::Fireball,
             },
+            ignored_targets: Vec::new(),
         });
         assert_eq!(report.enemies_hit, 1);
         assert!(features.enemies[0].health.current < starting_health);
@@ -175,6 +177,7 @@ mod conversion_tests {
             source: DamageSource::PlayerProjectile {
                 kind: ae::ProjectileKind::Hadouken,
             },
+            ignored_targets: Vec::new(),
         });
         assert_eq!(report.enemies_hit, 3);
         assert!(!report.any_actor_hit() == false);

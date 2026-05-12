@@ -178,6 +178,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
             physics_settings: crate::physics::PhysicsSandboxSettings::default(),
             room_transition_cooldown: 0.0,
             slash_anim_timer: 0.0,
+            player_attack: None,
             ledge_grab: None,
             double_tap_down_pending: false,
         },
@@ -228,6 +229,7 @@ fn write_dump_writes_two_files() {
             physics_settings: crate::physics::PhysicsSandboxSettings::default(),
             room_transition_cooldown: 0.0,
             slash_anim_timer: 0.0,
+            player_attack: None,
             ledge_grab: None,
             double_tap_down_pending: false,
         },
@@ -309,6 +311,7 @@ fn make_runtime(world: &ae::World, player: ae::Player) -> SandboxRuntime {
         physics_settings: crate::physics::PhysicsSandboxSettings::default(),
         room_transition_cooldown: 0.0,
         slash_anim_timer: 0.0,
+        player_attack: None,
         ledge_grab: None,
         double_tap_down_pending: false,
     }

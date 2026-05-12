@@ -1,30 +1,77 @@
 use bevy::prelude::*;
 use bevy::sprite::SpriteImageMode;
 
+use crate::rooms::{ActiveRoomMetadata, RoomSet};
+
 use super::layers::{parallax_layer_translation, ParallaxLayer};
-use super::profiles::{default_parallax_profile, ParallaxLayerProfile};
+use super::profiles::{select_parallax_profile, ParallaxLayerProfile, ParallaxProfile};
 
 /// Presentation-only plugin for simple asset-backed parallax backgrounds.
 pub struct ParallaxPlugin;
 
+#[derive(Component)]
+struct ParallaxBackdropLayer;
+
+#[derive(Resource, Clone, Debug, Default)]
+struct ActiveParallaxProfile {
+    name: Option<String>,
+}
+
 impl Plugin for ParallaxPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_default_parallax_background)
+        app.init_resource::<ActiveParallaxProfile>()
+            .add_systems(PostStartup, spawn_initial_parallax_background)
             .add_systems(
                 Update,
-                sync_parallax_layers.after(crate::rendering::camera_follow),
+                (
+                    refresh_parallax_background.after(crate::rooms::sync_active_room_metadata),
+                    sync_parallax_layers.after(crate::rendering::camera_follow),
+                ),
             );
     }
 }
 
-/// Spawn the current default background stack.
+/// Spawn the active room's background stack on startup.
 ///
-/// The generated PNGs live in `assets/backgrounds/default`. Hand-painted art can
-/// replace those files without touching Rust code.
-pub fn spawn_default_parallax_background(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let profile = default_parallax_profile();
+/// Profiles are selected from room metadata and ultimately resolve to the
+/// generated PNGs under `crates/ambition_sandbox/assets/backgrounds/<profile>/`.
+pub fn spawn_initial_parallax_background(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    room_set: Option<Res<RoomSet>>,
+    mut active_profile: ResMut<ActiveParallaxProfile>,
+) {
+    let profile = room_set
+        .as_ref()
+        .map(|room_set| select_parallax_profile(room_set.active_metadata()))
+        .unwrap_or_else(super::profiles::default_parallax_profile);
+    spawn_profile_stack(&mut commands, &asset_server, profile);
+    active_profile.name = Some(profile.name.to_string());
+}
+
+/// Swap the parallax profile when the active room metadata points at a
+/// different biome/theme profile.
+pub fn refresh_parallax_background(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    active_room: Res<ActiveRoomMetadata>,
+    mut active_profile: ResMut<ActiveParallaxProfile>,
+    existing_layers: Query<Entity, With<ParallaxBackdropLayer>>,
+) {
+    let profile = select_parallax_profile(&active_room.0);
+    if active_profile.name.as_deref() == Some(profile.name) {
+        return;
+    }
+    for entity in &existing_layers {
+        commands.entity(entity).despawn();
+    }
+    spawn_profile_stack(&mut commands, &asset_server, profile);
+    active_profile.name = Some(profile.name.to_string());
+}
+
+fn spawn_profile_stack(commands: &mut Commands, asset_server: &AssetServer, profile: ParallaxProfile) {
     for layer in profile.layers {
-        spawn_layer(&mut commands, &asset_server, layer, profile.name);
+        spawn_layer(commands, asset_server, layer, profile.name);
     }
 }
 
@@ -50,6 +97,7 @@ fn spawn_layer(
         sprite,
         Transform::from_translation(parallax_layer_translation(Vec3::ZERO, component)),
         component,
+        ParallaxBackdropLayer,
         Name::new(format!("Parallax {profile_name}: {}", layer.name)),
     ));
 }
@@ -66,5 +114,24 @@ pub fn sync_parallax_layers(
     let camera = camera_transform.translation;
     for (layer, mut transform) in &mut layers {
         transform.translation = parallax_layer_translation(camera, *layer);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn refresh_is_noop_when_profile_matches() {
+        let mut app = App::new();
+        app.init_resource::<ActiveParallaxProfile>();
+        app.insert_resource(ActiveRoomMetadata(crate::rooms::RoomMetadata {
+            biome: Some("hub".into()),
+            ..Default::default()
+        }));
+        app.add_systems(Update, refresh_parallax_background);
+        app.world_mut().resource_mut::<ActiveParallaxProfile>().name = Some("hub".into());
+        app.update();
+        assert_eq!(app.world().resource::<ActiveParallaxProfile>().name.as_deref(), Some("hub"));
     }
 }

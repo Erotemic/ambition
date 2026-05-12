@@ -16,17 +16,17 @@ That script uses the Python package in:
 tools/ambition_background_renderer/
 ```
 
-and publishes generated PNGs to:
+and publishes generated PNGs to the Bevy package-local asset root:
 
 ```text
-assets/backgrounds/default/
+crates/ambition_sandbox/assets/backgrounds/<profile>/
 ```
 
 The generated art is intentionally simple. It provides deterministic placeholder
 layers and a working file convention so hand-painted production art can replace
 individual PNGs later without changing runtime code.
 
-Current layers:
+Each generated profile contains the same four layers:
 
 ```text
 sky.png   # opaque gradient/star layer
@@ -35,10 +35,25 @@ mid.png   # mid-distance structures
 near.png  # sparse foreground silhouettes
 ```
 
+Current generated profiles:
+
+```text
+default
+hub
+lab
+basement
+cove
+skybridge
+boss
+water
+cave
+```
+
 ## Runtime model
 
-`crate::parallax::ParallaxPlugin` is presentation-only and spawns a default
-background stack. Layers follow the active camera with a parallax factor:
+`crate::parallax::ParallaxPlugin` is presentation-only and selects a profile
+from active room metadata (`visual_theme` override first, then `biome`).
+Layers follow the active camera with a parallax factor:
 
 ```text
 0.0 = locked to the camera, like a skybox
@@ -48,17 +63,32 @@ background stack. Layers follow the active camera with a parallax factor:
 The current default profile uses factors between those extremes so background
 layers drift at different speeds behind the world.
 
-## Future directions
+## Routing
 
-The next natural step is profile selection from LDtk room/area metadata:
+Today the runtime routes multiple biomes into a smaller set of art profiles:
 
 ```text
-lab/default
-cave/default
-pirate_cove/default
-water_world/default
+hub                    -> hub
+lab, tower             -> lab
+basement               -> basement
+cove, cantina          -> cove
+skybridge, mob_arena   -> skybridge
+water                  -> water
+boss                   -> boss
+visual_theme=<profile> -> exact override
+otherwise              -> default
 ```
 
 Art should stay low contrast behind gameplay. Foreground layers are allowed, but
 must be sparse and visually quiet so they do not hide hazards, projectiles, or
 small boss tells.
+
+
+## Visibility note
+
+The default generated layers are intentionally higher contrast than final art and sit close to the world backplane. This makes the first scaffold visible while rooms still use dark placeholder blocks and grid lines. Final painted art should usually reduce contrast and saturation, and any near/foreground overlay must stay sparse so it does not hide gameplay-critical information.
+
+
+## Asset root note
+
+Bevy resolves `asset_server.load("backgrounds/default/sky.png")` relative to the active package asset root for `ambition_sandbox`, which is `crates/ambition_sandbox/assets/` when running the sandbox package. Do not publish runtime sandbox assets only to the repository-level `assets/` directory; those files are useful for shared design references, but the sandbox binary will not load them through the package-local `AssetServer` path.

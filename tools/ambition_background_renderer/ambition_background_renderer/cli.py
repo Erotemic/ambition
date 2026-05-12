@@ -12,13 +12,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path("assets/backgrounds"),
-        help="Output root. Profiles are written below this directory.",
+        default=Path("crates/ambition_sandbox/assets/backgrounds"),
+        help="Output root. Profiles are written below this directory. For Bevy, use the sandbox package asset root.",
     )
     parser.add_argument(
         "--profile",
         default="all",
-        help="Profile to render, or 'all'. Currently: default.",
+        help="Profile to render, or 'all'. Known profiles: default, hub, lab, basement, cove, skybridge, boss, water, cave.",
     )
     return parser
 

@@ -12,7 +12,7 @@ mod systems;
 
 pub use layers::{parallax_layer_translation, ParallaxLayer};
 pub use profiles::{
-    cave_parallax_profile, cove_parallax_profile, default_parallax_profile,
-    parallax_profile_named, select_parallax_profile, ParallaxLayerProfile, ParallaxProfile,
+    cave_parallax_profile, cove_parallax_profile, default_parallax_profile, parallax_profile_named,
+    select_parallax_profile, ParallaxLayerProfile, ParallaxProfile,
 };
-pub use systems::{refresh_parallax_background, sync_parallax_layers, ParallaxPlugin};
+pub use systems::{sync_parallax_layers, ParallaxPlugin};

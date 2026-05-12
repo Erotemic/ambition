@@ -537,12 +537,22 @@ mod tests {
     fn assert_profile_sane(profile: ParallaxProfile) {
         assert!(profile.layers.len() >= 3);
         for pair in profile.layers.windows(2) {
-            assert!(pair[0].z < pair[1].z, "{} should be behind {}", pair[0].name, pair[1].name);
+            assert!(
+                pair[0].z < pair[1].z,
+                "{} should be behind {}",
+                pair[0].name,
+                pair[1].name
+            );
         }
         for layer in profile.layers {
             assert!(layer.asset_path.starts_with("backgrounds/"));
             assert!(layer.asset_path.ends_with(".png"));
-            assert!(layer.asset_path.contains(profile.name), "{} should live in {}", layer.asset_path, profile.name);
+            assert!(
+                layer.asset_path.contains(profile.name),
+                "{} should live in {}",
+                layer.asset_path,
+                profile.name
+            );
         }
     }
 

@@ -35,9 +35,9 @@ impl Plugin for ParallaxPlugin {
 ///
 /// Profiles are selected from room metadata and ultimately resolve to the
 /// generated PNGs under `crates/ambition_sandbox/assets/backgrounds/<profile>/`.
-pub fn spawn_initial_parallax_background(
+fn spawn_initial_parallax_background(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    asset_server: Option<Res<AssetServer>>,
     room_set: Option<Res<RoomSet>>,
     mut active_profile: ResMut<ActiveParallaxProfile>,
 ) {
@@ -45,15 +45,19 @@ pub fn spawn_initial_parallax_background(
         .as_ref()
         .map(|room_set| select_parallax_profile(room_set.active_metadata()))
         .unwrap_or_else(super::profiles::default_parallax_profile);
+    let Some(asset_server) = asset_server else {
+        active_profile.name = Some(profile.name.to_string());
+        return;
+    };
     spawn_profile_stack(&mut commands, &asset_server, profile);
     active_profile.name = Some(profile.name.to_string());
 }
 
 /// Swap the parallax profile when the active room metadata points at a
 /// different biome/theme profile.
-pub fn refresh_parallax_background(
+fn refresh_parallax_background(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    asset_server: Option<Res<AssetServer>>,
     active_room: Res<ActiveRoomMetadata>,
     mut active_profile: ResMut<ActiveParallaxProfile>,
     existing_layers: Query<Entity, With<ParallaxBackdropLayer>>,
@@ -62,6 +66,9 @@ pub fn refresh_parallax_background(
     if active_profile.name.as_deref() == Some(profile.name) {
         return;
     }
+    let Some(asset_server) = asset_server else {
+        return;
+    };
     for entity in &existing_layers {
         commands.entity(entity).despawn();
     }
@@ -69,7 +76,11 @@ pub fn refresh_parallax_background(
     active_profile.name = Some(profile.name.to_string());
 }
 
-fn spawn_profile_stack(commands: &mut Commands, asset_server: &AssetServer, profile: ParallaxProfile) {
+fn spawn_profile_stack(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    profile: ParallaxProfile,
+) {
     for layer in profile.layers {
         spawn_layer(commands, asset_server, layer, profile.name);
     }
@@ -132,6 +143,12 @@ mod tests {
         app.add_systems(Update, refresh_parallax_background);
         app.world_mut().resource_mut::<ActiveParallaxProfile>().name = Some("hub".into());
         app.update();
-        assert_eq!(app.world().resource::<ActiveParallaxProfile>().name.as_deref(), Some("hub"));
+        assert_eq!(
+            app.world()
+                .resource::<ActiveParallaxProfile>()
+                .name
+                .as_deref(),
+            Some("hub")
+        );
     }
 }

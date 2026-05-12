@@ -258,6 +258,8 @@ pub fn add_presentation_plugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .insert_resource(windowing::DisplayModeState::default())
         .register_type::<DeveloperTools>()
+        .register_type::<PlayerBodyProfile>()
+        .register_type::<MovementProfile>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
@@ -332,8 +334,16 @@ pub fn add_presentation_plugins(app: &mut App) {
                 dialog::dialog_input,
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
+                dev_tools::sync_developer_body_profile,
                 crate::trace::handle_trace_hotkey,
                 crate::map_menu::handle_map_menu_hotkeys,
+            )
+                .chain()
+                .after(sandbox_update),
+        )
+        .add_systems(
+            Update,
+            (
                 // Spawn visual entities for encounter-spawned enemies
                 // BEFORE sync_visuals reads positions for them.
                 crate::rendering::spawn_dynamic_feature_visuals,
@@ -343,6 +353,13 @@ pub fn add_presentation_plugins(app: &mut App) {
                 animate_player,
                 animate_characters,
                 animate_bosses,
+            )
+                .chain()
+                .after(crate::map_menu::handle_map_menu_hotkeys),
+        )
+        .add_systems(
+            Update,
+            (
                 camera_follow,
                 debug_overlay::draw_debug_overlay,
                 fx::update_particles,
@@ -353,7 +370,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 dialog::sync_dialog_ui,
             )
                 .chain()
-                .after(sandbox_update),
+                .after(animate_bosses),
         )
         .add_systems(
             Update,

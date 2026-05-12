@@ -189,7 +189,7 @@ mod tests {
         let raw = r#"(
             video: (
                 display_mode: Windowed,
-                camera_zoom: Normal,
+                camera_zoom: Combat,
                 flashes: On,
                 colorblind: Off,
             ),

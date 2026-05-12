@@ -7,6 +7,7 @@ use super::*;
 pub struct DevToggleParams<'w> {
     pub runtime: ResMut<'w, SandboxRuntime>,
     pub developer: ResMut<'w, DeveloperTools>,
+    pub editable_tuning: ResMut<'w, crate::dev_tools::EditableMovementTuning>,
     pub ldtk_reload: ResMut<'w, LdtkHotReloadState>,
 }
 

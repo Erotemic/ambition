@@ -25,6 +25,7 @@ pub fn camera_follow(
     runtime: Res<crate::SandboxRuntime>,
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     encounter_registry: Res<crate::encounter::EncounterRegistry>,
+    user_settings: Res<crate::settings::UserSettings>,
     mut camera_state: ResMut<crate::CameraEaseState>,
     ease_tuning: Res<crate::CameraEaseTuning>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -90,18 +91,26 @@ pub fn camera_follow(
         world_to_bevy(&world.0, camera_target_world, 0.0)
     };
 
-    // Use the actual logical window size so resized, borderless, and fullscreen
-    // windows clamp the camera correctly. In overview mode the orthographic
-    // scale expands the effective view so large stitched areas can be inspected.
-    let (view_w, view_h) = windows
+    // Fixed gameplay viewport: larger desktop windows should not reveal an
+    // accidentally larger slice of the level. The user-selected viewport
+    // profile defines the base world-space view; encounter zoom multiplies
+    // that profile. The orthographic scale is then derived from the actual
+    // window dimensions. Wider-than-design aspect ratios can still reveal
+    // extra horizontal margin for now; strict letterboxing/safe-rect support is
+    // a later camera policy pass.
+    let (window_w, window_h) = windows
         .single()
-        .map(|w| (w.width(), w.height()))
+        .map(|w| (w.width().max(1.0), w.height().max(1.0)))
         .unwrap_or((
             crate::config::WINDOW_W as f32,
             crate::config::WINDOW_H as f32,
         ));
-    let half_view_w = view_w * camera_scale * 0.5;
-    let half_view_h = view_h * camera_scale * 0.5;
+    let (base_view_w, base_view_h) = user_settings.video.camera_zoom.base_view();
+    let target_view_w = base_view_w * camera_scale;
+    let target_view_h = base_view_h * camera_scale;
+    let orthographic_scale = (target_view_h / window_h).max(target_view_w / window_w);
+    let half_view_w = window_w * orthographic_scale * 0.5;
+    let half_view_h = window_h * orthographic_scale * 0.5;
     let min_x = -world.0.size.x * 0.5 + half_view_w;
     let max_x = world.0.size.x * 0.5 - half_view_w;
     let min_y = -world.0.size.y * 0.5 + half_view_h;
@@ -120,7 +129,7 @@ pub fn camera_follow(
 
     for (mut transform, mut projection) in &mut query {
         if let Projection::Orthographic(orthographic) = &mut *projection {
-            orthographic.scale = camera_scale;
+            orthographic.scale = orthographic_scale;
         }
         transform.translation.x = x;
         transform.translation.y = y;

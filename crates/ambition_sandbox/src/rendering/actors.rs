@@ -49,13 +49,18 @@ pub fn sync_visuals(
             // the height delta. Re-scale the sprite's vertical extent
             // by the same ratio the collision shrunk; the normalized
             // sprite anchor preserves foot alignment automatically.
-            // Replace with an authored Crouch row in the sheet once
-            // the generator emits one — see PlayerSpriteBaseline doc.
+            // Phase 1 also lets the development menu swap standing body
+            // profiles live. Scale the placeholder art against the recorded
+            // startup collision so body-profile experiments remain visual.
+            // Replace with authored body-profile rows once the generator emits
+            // them — see PlayerSpriteBaseline doc.
             let base_y = runtime.player.base_size.y.max(1.0);
-            let ratio = (runtime.player.size.y / base_y).clamp(0.1, 1.0);
+            let stance_ratio_y = (runtime.player.size.y / base_y).clamp(0.1, 1.0);
+            let scale_x = runtime.player.base_size.x / baseline.standing_collision.x.max(1.0);
+            let scale_y = runtime.player.base_size.y / baseline.standing_collision.y.max(1.0);
             sprite.custom_size = Some(BVec2::new(
-                baseline.standing_render.x,
-                baseline.standing_render.y * ratio,
+                baseline.standing_render.x * scale_x,
+                baseline.standing_render.y * scale_y * stance_ratio_y,
             ));
         }
     }

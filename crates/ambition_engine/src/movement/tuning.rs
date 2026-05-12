@@ -4,22 +4,22 @@ use serde::{Deserialize, Serialize};
 // but the simulation accepts a `MovementTuning` so experiments can override
 // them without recompiling every assumption into the update function.
 pub const GRAVITY: f32 = 2250.0;
-pub const RUN_ACCEL: f32 = 7600.0;
-pub const AIR_ACCEL: f32 = 4700.0;
-pub const GROUND_FRICTION: f32 = 9200.0;
-pub const AIR_FRICTION: f32 = 860.0;
-pub const MAX_RUN_SPEED: f32 = 330.0;
-pub const MAX_FALL_SPEED: f32 = 1040.0;
-pub const JUMP_SPEED: f32 = 660.0;
-pub const DOUBLE_JUMP_SPEED: f32 = 610.0;
-pub const WALL_JUMP_X: f32 = 500.0;
-pub const WALL_SLIDE_SPEED: f32 = 170.0;
-pub const WALL_CLIMB_SPEED: f32 = 250.0;
-pub const DASH_SPEED: f32 = 820.0;
-pub const DASH_TIME: f32 = 0.105;
-pub const DASH_COOLDOWN: f32 = 0.060;
+pub const RUN_ACCEL: f32 = 5200.0;
+pub const AIR_ACCEL: f32 = 3100.0;
+pub const GROUND_FRICTION: f32 = 7600.0;
+pub const AIR_FRICTION: f32 = 650.0;
+pub const MAX_RUN_SPEED: f32 = 270.0;
+pub const MAX_FALL_SPEED: f32 = 950.0;
+pub const JUMP_SPEED: f32 = 600.0;
+pub const DOUBLE_JUMP_SPEED: f32 = 520.0;
+pub const WALL_JUMP_X: f32 = 430.0;
+pub const WALL_SLIDE_SPEED: f32 = 145.0;
+pub const WALL_CLIMB_SPEED: f32 = 210.0;
+pub const DASH_SPEED: f32 = 760.0;
+pub const DASH_TIME: f32 = 0.115;
+pub const DASH_COOLDOWN: f32 = 0.160;
 /// Grace window for a dash press that happens just before dash becomes legal.
-pub const DASH_BUFFER: f32 = 0.110;
+pub const DASH_BUFFER: f32 = 0.100;
 pub const BLINK_DISTANCE: f32 = 190.0;
 pub const PRECISION_BLINK_DISTANCE: f32 = 430.0;
 pub const PRECISION_BLINK_AIM_SPEED: f32 = 1_650.0;
@@ -48,10 +48,10 @@ pub const GLIDE_FALL_SPEED: f32 = 220.0;
 /// `air_accel` (4700) so the player can steer mid-glide; lower than
 /// `run_accel` (7600) so ground feel still beats air feel.
 pub const GLIDE_AIR_ACCEL: f32 = 6200.0;
-pub const FLIGHT_ACCEL: f32 = 900.0;
-pub const FLIGHT_DRAG: f32 = 520.0;
-pub const FLIGHT_TERMINAL_SPEED: f32 = 430.0;
-pub const FLIGHT_HOVER_SPEED: f32 = 42.0;
+pub const FLIGHT_ACCEL: f32 = 3200.0;
+pub const FLIGHT_DRAG: f32 = 2400.0;
+pub const FLIGHT_TERMINAL_SPEED: f32 = 760.0;
+pub const FLIGHT_HOVER_SPEED: f32 = 35.0;
 pub const FLIGHT_HOVER_HZ: f32 = 0.85;
 pub const COYOTE_TIME: f32 = 0.120;
 pub const JUMP_BUFFER: f32 = 0.135;
@@ -60,8 +60,8 @@ pub const JUMP_BUFFER: f32 = 0.135;
 /// landing tolerance under typical gravity, short enough that the player can
 /// still re-land on a one-way they jump back up onto.
 pub const ONE_WAY_DROP_THROUGH_GRACE: f32 = 0.18;
-pub const POGO_SPEED: f32 = 810.0;
-pub const SLASH_RECOIL: f32 = 130.0;
+pub const POGO_SPEED: f32 = 720.0;
+pub const SLASH_RECOIL: f32 = 110.0;
 pub const AIR_JUMPS: u8 = 1;
 
 /// Tunable movement parameters.

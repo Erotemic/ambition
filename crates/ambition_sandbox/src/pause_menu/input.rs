@@ -143,6 +143,7 @@ pub fn pause_menu_navigate(
                 preset_count,
                 &mut dev_toggles.runtime,
                 &mut dev_toggles.developer,
+                &mut dev_toggles.editable_tuning,
                 &mut dev_toggles.ldtk_reload,
             );
         }
@@ -313,6 +314,7 @@ fn handle_settings_page_input(
     preset_count: usize,
     runtime: &mut SandboxRuntime,
     developer: &mut DeveloperTools,
+    editable_tuning: &mut crate::dev_tools::EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
 ) {
     let rows = SettingsItem::rows_for(page);
@@ -343,6 +345,7 @@ fn handle_settings_page_input(
             preset_count,
             runtime,
             developer,
+            editable_tuning,
             ldtk_reload,
         );
         match outcome {

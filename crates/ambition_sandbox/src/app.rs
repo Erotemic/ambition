@@ -49,6 +49,7 @@ use crate::data;
 use crate::debug_overlay;
 use crate::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
+    MovementProfile, PlayerBodyProfile,
 };
 use crate::dialog;
 use crate::features;

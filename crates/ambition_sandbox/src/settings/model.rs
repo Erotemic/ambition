@@ -14,7 +14,9 @@ use super::audio::AudioSettings;
 use super::gameplay::GameplaySettings;
 use super::video::SerializableDisplayMode;
 use super::UserSettings;
-use crate::dev_tools::DeveloperTools;
+use crate::dev_tools::{
+    apply_movement_profile, apply_player_body_profile, DeveloperTools, EditableMovementTuning,
+};
 use crate::ldtk_world::LdtkHotReloadState;
 use crate::windowing::{DisplayModeKind, DisplayModeState};
 use crate::SandboxRuntime;
@@ -108,6 +110,8 @@ pub enum SettingsItem {
     Inspector,
     WorldInspector,
     OverviewCamera,
+    PlayerBodyProfile,
+    MovementProfile,
     LdtkAutoApply,
 }
 
@@ -167,6 +171,8 @@ impl SettingsItem {
                 Self::Inspector,
                 Self::WorldInspector,
                 Self::OverviewCamera,
+                Self::PlayerBodyProfile,
+                Self::MovementProfile,
                 Self::LdtkAutoApply,
                 Self::Back,
             ],
@@ -197,7 +203,7 @@ impl SettingsItem {
                 DisplayModeKind::from(settings.video.display_mode).label()
             ),
             Self::CameraZoom => {
-                format!("Camera Zoom: {}  < / >", settings.video.camera_zoom.label())
+                format!("Camera View: {}  < / >", settings.video.camera_zoom.label())
             }
             Self::Flashes => format!("Flashes: {}  < / >", settings.video.flashes.label()),
             Self::Colorblind => format!("Colorblind: {}  < / >", settings.video.colorblind.label()),
@@ -324,6 +330,12 @@ impl SettingsItem {
             Self::OverviewCamera => {
                 format!("Overview Camera (F5): {}", on_off(dev.overview_camera))
             }
+            Self::PlayerBodyProfile => {
+                format!("Player Body: {}  < / >", dev.player_body_profile.label())
+            }
+            Self::MovementProfile => {
+                format!("Movement Profile: {}  < / >", dev.movement_profile.label())
+            }
             Self::LdtkAutoApply => {
                 format!("LDtk Auto-Reload (F12): {}", on_off(dev.ldtk_auto_apply))
             }
@@ -350,6 +362,8 @@ pub struct DevToggleSnapshot {
     pub inspector: bool,
     pub world_inspector: bool,
     pub overview_camera: bool,
+    pub player_body_profile: crate::dev_tools::PlayerBodyProfile,
+    pub movement_profile: crate::dev_tools::MovementProfile,
     pub ldtk_auto_apply: bool,
 }
 
@@ -365,6 +379,8 @@ impl DevToggleSnapshot {
             inspector: developer.inspector_visible,
             world_inspector: developer.world_inspector_visible,
             overview_camera: developer.overview_camera,
+            player_body_profile: developer.player_body_profile,
+            movement_profile: developer.movement_profile,
             ldtk_auto_apply: ldtk_reload.auto_apply,
         }
     }
@@ -407,6 +423,7 @@ pub fn apply_action(
     keyboard_preset_count: usize,
     runtime: &mut SandboxRuntime,
     developer: &mut DeveloperTools,
+    editable_tuning: &mut EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
 ) -> SettingsOutcome {
     match item {
@@ -668,6 +685,26 @@ pub fn apply_action(
                 developer.overview_camera = !developer.overview_camera;
             }
         }
+        SettingsItem::PlayerBodyProfile => match action {
+            SettingsAction::Prev => {
+                developer.player_body_profile = developer.player_body_profile.prev();
+                apply_player_body_profile(&mut runtime.player, developer.player_body_profile);
+            }
+            SettingsAction::Next | SettingsAction::Confirm => {
+                developer.player_body_profile = developer.player_body_profile.next();
+                apply_player_body_profile(&mut runtime.player, developer.player_body_profile);
+            }
+        },
+        SettingsItem::MovementProfile => match action {
+            SettingsAction::Prev => {
+                developer.movement_profile = developer.movement_profile.prev();
+                apply_movement_profile(runtime, editable_tuning, developer.movement_profile);
+            }
+            SettingsAction::Next | SettingsAction::Confirm => {
+                developer.movement_profile = developer.movement_profile.next();
+                apply_movement_profile(runtime, editable_tuning, developer.movement_profile);
+            }
+        },
         SettingsItem::LdtkAutoApply => {
             if is_toggle_action(action) {
                 ldtk_reload.auto_apply = !ldtk_reload.auto_apply;

@@ -100,50 +100,67 @@ impl ColorblindMode {
     }
 }
 
-/// Camera zoom preset. Stored as a setting; gameplay camera follow
-/// reads it where wired. Today it influences debug HUD only; the
-/// camera-zone driven zoom is unaffected.
+/// Gameplay camera viewport preset.
+///
+/// The camera now targets a fixed world-space gameplay rectangle instead of
+/// letting larger desktop windows reveal more of the level. Encounter zooms
+/// multiply this base viewport; debug overview remains a separate developer
+/// override.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CameraZoomPreset {
+    Tight,
     #[default]
-    Normal,
-    Wide,
+    Combat,
+    Arena,
+    Cinematic,
     Debug,
 }
 
 impl CameraZoomPreset {
-    pub const ALL: [Self; 3] = [Self::Normal, Self::Wide, Self::Debug];
+    pub const ALL: [Self; 5] = [
+        Self::Tight,
+        Self::Combat,
+        Self::Arena,
+        Self::Cinematic,
+        Self::Debug,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Normal => "normal",
-            Self::Wide => "wide",
-            Self::Debug => "debug",
+            Self::Tight => "tight 640x360",
+            Self::Combat => "combat 800x450",
+            Self::Arena => "arena 960x540",
+            Self::Cinematic => "cinematic 1120x630",
+            Self::Debug => "debug 1600x900",
         }
     }
 
-    pub fn scale(self) -> f32 {
+    /// Base gameplay viewport in world units before encounter/debug multipliers.
+    pub fn base_view(self) -> (f32, f32) {
         match self {
-            Self::Normal => 1.0,
-            Self::Wide => 1.4,
-            Self::Debug => 2.0,
+            Self::Tight => (640.0, 360.0),
+            Self::Combat => (800.0, 450.0),
+            Self::Arena => (960.0, 540.0),
+            Self::Cinematic => (1120.0, 630.0),
+            Self::Debug => (1600.0, 900.0),
         }
+    }
+
+    /// Relative scale versus the combat default. Kept for HUD/tests and for
+    /// callers that still treat this as a zoom-like setting.
+    pub fn scale(self) -> f32 {
+        let (_, h) = self.base_view();
+        h / 450.0
     }
 
     pub fn next(self) -> Self {
-        match self {
-            Self::Normal => Self::Wide,
-            Self::Wide => Self::Debug,
-            Self::Debug => Self::Normal,
-        }
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
     }
 
     pub fn prev(self) -> Self {
-        match self {
-            Self::Normal => Self::Debug,
-            Self::Wide => Self::Normal,
-            Self::Debug => Self::Wide,
-        }
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
     }
 }
 
@@ -252,7 +269,7 @@ mod tests {
     #[test]
     fn camera_zoom_preset_cycles_through_all() {
         let mut visited: Vec<CameraZoomPreset> = Vec::new();
-        let mut cur = CameraZoomPreset::Normal;
+        let mut cur = CameraZoomPreset::Combat;
         for _ in 0..CameraZoomPreset::ALL.len() {
             if !visited.contains(&cur) {
                 visited.push(cur);

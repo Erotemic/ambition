@@ -4,6 +4,19 @@ use crate::Vec2;
 
 use super::{ComboMark, MovementOp, MovementTuning, BLINK_DISTANCE, DEFAULT_TUNING};
 
+/// Default standing movement collider width in world pixels.
+///
+/// Keep this authoritative for gameplay; presentation code may render a
+/// larger placeholder sprite around this body while art is still temporary.
+pub const DEFAULT_PLAYER_BODY_WIDTH: f32 = 30.0;
+/// Default standing movement collider height in world pixels.
+pub const DEFAULT_PLAYER_BODY_HEIGHT: f32 = 48.0;
+
+/// Default standing movement collider size.
+pub fn default_player_body_size() -> Vec2 {
+    Vec2::new(DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_PLAYER_BODY_HEIGHT)
+}
+
 /// Kinematic player state.
 ///
 /// The player is represented by a single AABB and hand-authored movement
@@ -157,8 +170,8 @@ impl Player {
             abilities,
             pos: spawn,
             vel: Vec2::ZERO,
-            size: Vec2::new(28.0, 46.0),
-            base_size: Vec2::new(28.0, 46.0),
+            size: default_player_body_size(),
+            base_size: default_player_body_size(),
             facing: 1.0,
             on_ground: false,
             on_wall: false,

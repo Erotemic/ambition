@@ -33,7 +33,7 @@ pub fn load_encounter_specs_from_ldtk(
         let trigger_id = crate::ldtk_world::field_string(trigger, "id")
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| area_id.clone());
-        let camera_zoom = crate::ldtk_world::field_f32(trigger, "camera_zoom").unwrap_or(1.5);
+        let camera_zoom = crate::ldtk_world::field_f32(trigger, "camera_zoom").unwrap_or(1.2);
         let trigger_min = [trigger.px[0] as f32, trigger.px[1] as f32];
         let trigger_size = [trigger.width as f32, trigger.height as f32];
 

@@ -15,6 +15,7 @@
 //! parameters. They are not Bevy systems themselves; the outer `setup`
 //! system in `main.rs` does the param wiring and calls them in sequence.
 
+use ambition_engine as ae;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 #[cfg(feature = "audio")]
@@ -329,7 +330,10 @@ fn presentation_world_inner(
         platforms::moving_platform_for_room(&world.0, room_set.active_spec()),
     );
 
-    let player_collision = BVec2::new(28.0, 46.0);
+    let player_collision = BVec2::new(
+        ae::DEFAULT_PLAYER_BODY_WIDTH,
+        ae::DEFAULT_PLAYER_BODY_HEIGHT,
+    );
     if let Some(asset) = &character_sprites.robot {
         let sprite = build_character_sprite(asset, player_collision);
         commands.entity(player).insert((
@@ -338,6 +342,7 @@ fn presentation_world_inner(
             CharacterAnimator::new(asset.spec),
             PlayerSpriteBaseline {
                 standing_render: sprite_render_size(asset.spec, player_collision),
+                standing_collision: player_collision,
             },
         ));
     } else {

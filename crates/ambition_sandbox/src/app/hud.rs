@@ -75,17 +75,32 @@ pub(super) fn update_hud(
     for (physical, semantic) in GAMEPAD_MAP.iter().take(6) {
         gamepad.push_str(&format!("{} = {}  ", physical, semantic));
     }
+    let (camera_base_w, camera_base_h) = user_settings.video.camera_zoom.base_view();
+    let camera_multiplier = if developer_tools.overview_camera {
+        developer_tools.overview_camera_scale.max(1.0)
+    } else {
+        encounter_registry.active_camera_zoom().max(1.0)
+    };
+    let camera_view_line = format!(
+        "view: {} -> {:.0}x{:.0} body={} move={}",
+        user_settings.video.camera_zoom.label(),
+        camera_base_w * camera_multiplier,
+        camera_base_h * camera_multiplier,
+        developer_tools.player_body_profile.label(),
+        developer_tools.movement_profile.label(),
+    );
     let window_line = windows
         .single()
         .map(|w| {
             format!(
-                "window: {:.0}x{:.0} {}",
+                "window: {:.0}x{:.0} {} | {}",
                 w.width(),
                 w.height(),
-                display_mode.label()
+                display_mode.label(),
+                camera_view_line
             )
         })
-        .unwrap_or_else(|_| format!("window: unknown {}", display_mode.label()));
+        .unwrap_or_else(|_| format!("window: unknown {} | {}", display_mode.label(), camera_view_line));
     let zone_hint = {
         let hints = room_set.nearby_zone_hints(&runtime.player, runtime.player.fly_enabled);
         if hints.is_empty() {
@@ -224,7 +239,7 @@ pub(super) fn update_hud(
     );
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -250,6 +265,7 @@ pub(super) fn update_hud(
             runtime.damage_invuln_timer,
             runtime.hitstop_timer,
             preset.name,
+            window_line,
             developer_tools.overview_camera,
             runtime.features.feature_summary(),
             feature_banner,

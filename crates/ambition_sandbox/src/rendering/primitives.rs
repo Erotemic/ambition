@@ -32,6 +32,7 @@ pub struct PlayerVisual;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PlayerSpriteBaseline {
     pub standing_render: Vec2,
+    pub standing_collision: Vec2,
 }
 
 #[derive(Component)]

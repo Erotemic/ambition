@@ -9,6 +9,142 @@
 use ambition_engine as ae;
 use bevy::prelude::*;
 
+
+/// Coarse player-body presets for feel testing.
+///
+/// These affect the movement collider only. The placeholder sprite is scaled
+/// separately around the collider so temporary art can change without becoming
+/// gameplay authority.
+#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PlayerBodyProfile {
+    Compact,
+    #[default]
+    ReadableDefault,
+    Heavy,
+}
+
+impl PlayerBodyProfile {
+    pub const ALL: [Self; 3] = [Self::Compact, Self::ReadableDefault, Self::Heavy];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Compact => "compact 26x42",
+            Self::ReadableDefault => "default 30x48",
+            Self::Heavy => "heavy 32x50",
+        }
+    }
+
+    pub fn size(self) -> ae::Vec2 {
+        match self {
+            Self::Compact => ae::Vec2::new(26.0, 42.0),
+            Self::ReadableDefault => ae::Vec2::new(30.0, 48.0),
+            Self::Heavy => ae::Vec2::new(32.0, 50.0),
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
+/// High-level movement profiles for fast chassis swaps from the dev menu.
+#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MovementProfile {
+    AgileBase,
+    #[default]
+    SandboxFast,
+    Heavy,
+    Legacy,
+}
+
+impl MovementProfile {
+    pub const ALL: [Self; 4] = [Self::AgileBase, Self::SandboxFast, Self::Heavy, Self::Legacy];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::AgileBase => "agile base",
+            Self::SandboxFast => "sandbox fast",
+            Self::Heavy => "heavy",
+            Self::Legacy => "legacy",
+        }
+    }
+
+    pub fn tuning(self) -> ae::MovementTuning {
+        let mut tuning = ae::MovementTuning::default();
+        match self {
+            Self::AgileBase => {
+                tuning.flight_accel = 2200.0;
+                tuning.flight_drag = 1600.0;
+                tuning.flight_terminal_speed = 560.0;
+                tuning.flight_hover_speed = 30.0;
+            }
+            Self::SandboxFast => {
+                // Matches the Phase 1 default constants: slower base chassis,
+                // but fast explicit flight for sandbox traversal.
+            }
+            Self::Heavy => {
+                tuning.max_run_speed = 240.0;
+                tuning.run_accel = 4200.0;
+                tuning.air_accel = 2400.0;
+                tuning.ground_friction = 7000.0;
+                tuning.air_friction = 550.0;
+                tuning.gravity = 2450.0;
+                tuning.jump_speed = 570.0;
+                tuning.double_jump_speed = 470.0;
+                tuning.max_fall_speed = 1000.0;
+                tuning.dash_speed = 700.0;
+                tuning.dash_time = 0.115;
+                tuning.dash_cooldown = 0.220;
+                tuning.flight_accel = 1900.0;
+                tuning.flight_drag = 1450.0;
+                tuning.flight_terminal_speed = 520.0;
+                tuning.flight_hover_speed = 28.0;
+            }
+            Self::Legacy => {
+                tuning.gravity = 2250.0;
+                tuning.run_accel = 7600.0;
+                tuning.air_accel = 4700.0;
+                tuning.ground_friction = 9200.0;
+                tuning.air_friction = 860.0;
+                tuning.max_run_speed = 330.0;
+                tuning.max_fall_speed = 1040.0;
+                tuning.jump_speed = 690.0;
+                tuning.double_jump_speed = 630.0;
+                tuning.wall_jump_x = 565.0;
+                tuning.wall_slide_speed = 170.0;
+                tuning.wall_climb_speed = 250.0;
+                tuning.dash_speed = 820.0;
+                tuning.dash_time = 0.105;
+                tuning.dash_cooldown = 0.060;
+                tuning.dash_buffer = 0.110;
+                tuning.flight_accel = 900.0;
+                tuning.flight_drag = 520.0;
+                tuning.flight_terminal_speed = 430.0;
+                tuning.flight_hover_speed = 42.0;
+                tuning.pogo_speed = 810.0;
+                tuning.slash_recoil = 130.0;
+            }
+        }
+        tuning
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
 /// Top-level switches for debug UI and gizmo layers.
 #[derive(Resource, Reflect, Clone, Debug)]
 #[reflect(Resource)]
@@ -37,6 +173,10 @@ pub struct DeveloperTools {
     pub overview_camera: bool,
     /// Orthographic scale used while overview camera is enabled.
     pub overview_camera_scale: f32,
+    /// High-level movement collider size preset for sandbox feel testing.
+    pub player_body_profile: PlayerBodyProfile,
+    /// High-level movement tuning preset for sandbox feel testing.
+    pub movement_profile: MovementProfile,
 }
 
 impl Default for DeveloperTools {
@@ -68,6 +208,8 @@ impl Default for DeveloperTools {
             show_rebound_vectors: !phone_demo,
             overview_camera: false,
             overview_camera_scale: 2.35,
+            player_body_profile: PlayerBodyProfile::default(),
+            movement_profile: MovementProfile::default(),
         }
     }
 }
@@ -316,6 +458,41 @@ impl Default for EditableMovementTuning {
     fn default() -> Self {
         ae::MovementTuning::default().into()
     }
+}
+
+
+
+/// Keep the live player's body collider aligned with the selected development
+/// profile after resets / room loads rebuild the player from engine defaults.
+pub fn sync_developer_body_profile(
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    developer: Res<DeveloperTools>,
+) {
+    let desired = developer.player_body_profile.size();
+    if (runtime.player.base_size - desired).length_squared() > 0.01 {
+        apply_player_body_profile(&mut runtime.player, developer.player_body_profile);
+    }
+}
+
+/// Apply a player-body profile to the live player while keeping the feet planted.
+pub fn apply_player_body_profile(player: &mut ae::Player, profile: PlayerBodyProfile) {
+    let new_size = profile.size();
+    let old_bottom = player.pos.y + player.size.y * 0.5;
+    player.base_size = new_size;
+    player.size = new_size;
+    player.pos.y = old_bottom - new_size.y * 0.5;
+}
+
+/// Apply a movement profile to the reflected tuning resource and refresh live
+/// movement resources that depend on the configured number of air jumps.
+pub fn apply_movement_profile(
+    runtime: &mut crate::SandboxRuntime,
+    editable_tuning: &mut EditableMovementTuning,
+    profile: MovementProfile,
+) {
+    let tuning = profile.tuning();
+    *editable_tuning = EditableMovementTuning::from(tuning);
+    runtime.player.refresh_movement_resources(tuning);
 }
 
 /// Apply live ability-flag edits without rebuilding the player every frame.

@@ -124,6 +124,7 @@ pub(super) fn load_room(
         commands,
         &world.0,
         &spec.loading_zones,
+        &spec.metadata,
         physics_settings,
         assets,
     );
@@ -301,10 +302,19 @@ pub(super) fn handle_feature_events(
             pos,
         });
     }
-    // Switch-toggle and standalone gameplay SFX now route through
-    // `FeatureEventBus`, which drains after the sim tick and before audio
-    // playback. Presentation-shaped cues above stay here because they already
-    // carry concrete chest/pickup/breakable render facts.
+    for (_payload, pos) in events.switch_activations() {
+        sfx.push(SfxMessage::Play {
+            id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
+            pos,
+        });
+    }
+    // Generic SFX-only effects queued by sim-side code via
+    // `events.play_sfx(id, pos)`. Used for things that have no other
+    // consumer (player damage, hazard contact, etc.); anything that
+    // also drives VFX/persistence/quests stays on a typed event vec.
+    for (id, pos) in events.sfx_plays() {
+        sfx.push(SfxMessage::Play { id, pos });
+    }
 }
 
 pub(super) fn handle_player_heal_events(

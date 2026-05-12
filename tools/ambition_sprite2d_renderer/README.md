@@ -25,6 +25,7 @@ python -m ambition_sprite2d_renderer draw-canonicals     # canonical poses + con
 python -m ambition_sprite2d_renderer draw-review         # curated general-character + NPC review pass
 python -m ambition_sprite2d_renderer draw-character <cfg> # one config: canonical + spritesheet + YAML
 python -m ambition_sprite2d_renderer draw-entities       # non-character entity sprites
+python -m ambition_sprite2d_renderer draw-backgrounds    # biome foreground parallax layers
 python -m ambition_sprite2d_renderer spritesheet <cfg> <out>
 python -m ambition_sprite2d_renderer single <cfg> <out> --animation idle --frame-index 0
 ```
@@ -100,6 +101,20 @@ python -m ambition_sprite2d_renderer render-publish sandbag
 ```
 
 
+
+### Background / foreground parallax layers
+
+`draw-backgrounds` renders sparse transparent 512x512 foreground layers for
+biomes (`hub`, `lab`, `basement`, `cove`, `skybridge`, `boss`, `water`,
+`cave`). These PNGs are generated runtime artifacts and should not be checked
+in. `./regen_sprites.sh` installs them into
+`crates/ambition_sandbox/assets/sprites/backgrounds/`, which is ignored by the
+repo-wide `*.png` rule.
+
+```bash
+python -m ambition_sprite2d_renderer draw-backgrounds --out-dir ../../crates/ambition_sandbox/assets/sprites/backgrounds
+```
+
 ## Character specs and review casts
 
 `CharacterJob` now accepts optional `name`, `output_name`, and `spec` fields.
@@ -147,7 +162,7 @@ Use `draw-review` to regenerate the current cast (`general_hero`,
 - Generated outputs live under `generated/` and are gitignored.
 - Targets must be deterministic for a given input (same code → same bytes).
 - Runtime assets are written only by explicit `install` / `render-publish`
-  (or `draw-all` / `draw-canonicals` / `draw-entities` for adapter targets).
+  (or `draw-all` / `draw-canonicals` / `draw-entities` / `draw-backgrounds` for generated runtime art).
 - Do not commit `.png`, `.yaml`, etc., from `generated/`.
 
 See `docs/design.md` for the architecture rationale and `docs/ENTITY_TODOS.md`

@@ -18,9 +18,10 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
-renderer_py="$renderer_dir/.venv/bin/python"
+renderer_py="${PYTHON:-python}"
 sprites_dir="$repo_root/crates/ambition_sandbox/assets/sprites"
 entities_dir="$sprites_dir/entities"
+backgrounds_dir="$sprites_dir/backgrounds"
 
 for arg in "$@"; do
     case "$arg" in
@@ -29,9 +30,9 @@ for arg in "$@"; do
     esac
 done
 
-if [ ! -x "$renderer_py" ]; then
-    echo "sprite renderer venv missing: $renderer_py" >&2
-    echo "create one with: (cd tools/ambition_sprite2d_renderer && uv venv && uv pip install -e .)" >&2
+if ! command -v "$renderer_py" >/dev/null 2>&1; then
+    echo "python executable not found: $renderer_py" >&2
+    echo "activate your Python environment or set PYTHON=/path/to/python" >&2
     exit 1
 fi
 
@@ -40,6 +41,9 @@ echo "==> adapter targets (robot / goblin / boss) → $sprites_dir"
 
 echo "==> entity sprites → $entities_dir"
 (cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-entities --out-dir "$entities_dir")
+
+echo "==> biome foreground parallax layers → $backgrounds_dir"
+(cd "$renderer_dir" && "$renderer_py" -m ambition_sprite2d_renderer draw-backgrounds --out-dir "$backgrounds_dir")
 
 echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # `draw-review` renders configs/review/*.yaml (toon-target NPC

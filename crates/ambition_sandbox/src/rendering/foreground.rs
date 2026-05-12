@@ -1,0 +1,107 @@
+//! Camera-relative foreground parallax layers.
+//!
+//! These layers are generated PNGs from the sprite2d background generator and
+//! are intentionally optional. If a generated PNG is absent, no fallback quad is
+//! spawned; foreground atmosphere should never become gameplay-critical.
+
+use ambition_engine as ae;
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+
+use super::primitives::RoomVisual;
+use crate::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
+use crate::game_assets::{
+    foreground_parallax_factor, foreground_parallax_sprite_for_biome, ForegroundParallaxSprite,
+    GameAssets,
+};
+use crate::rooms::RoomMetadata;
+
+const FOREGROUND_OVERSCAN: f32 = 1.32;
+const FOREGROUND_Z: f32 = WORLD_Z_FX - 0.75;
+
+#[derive(Component, Clone, Debug)]
+pub struct ForegroundParallax {
+    /// Near-camera drift factor. Values just above 1.0 drift opposite the camera
+    /// a little faster than the gameplay world while remaining screen-framed.
+    pub factor: f32,
+    /// Bevy-space center of the active room. The sync system measures camera
+    /// displacement from here so layers are stable when entering a room.
+    pub room_center: Vec2,
+}
+
+/// Spawn the active room's optional generated foreground layer.
+pub fn spawn_room_foreground_parallax(
+    commands: &mut Commands,
+    world: &ae::World,
+    metadata: &RoomMetadata,
+    assets: Option<&GameAssets>,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    let has_boss_spawn = world
+        .objects
+        .iter()
+        .any(|object| matches!(object.kind, ae::RoomObjectKind::BossSpawn(_)));
+    let sprite_key = if has_boss_spawn {
+        ForegroundParallaxSprite::Boss
+    } else {
+        foreground_parallax_sprite_for_biome(metadata.biome.as_deref())
+    };
+    let Some(handle) = assets.foregrounds.get(sprite_key).cloned() else {
+        return;
+    };
+
+    let room_center = world_to_bevy(world, world.size * 0.5, FOREGROUND_Z).truncate();
+    let mut sprite = Sprite::from_image(handle);
+    // Startup fallback; the per-frame sync replaces this with the real window
+    // size and camera scale. Keep it larger than the default window so the first
+    // visible frame does not flash uncovered corners.
+    sprite.custom_size = Some(Vec2::new(WINDOW_W as f32, WINDOW_H as f32) * FOREGROUND_OVERSCAN);
+
+    commands.spawn((
+        sprite,
+        Transform::from_xyz(room_center.x, room_center.y, FOREGROUND_Z),
+        ForegroundParallax {
+            factor: foreground_parallax_factor(sprite_key),
+            room_center,
+        },
+        RoomVisual,
+        Name::new(format!("Foreground parallax: {:?}", sprite_key)),
+    ));
+}
+
+/// Keep foreground layers viewport-sized and apply a subtle near-camera drift.
+///
+/// The texture stays centered on the camera, but its screen-space offset is
+/// `(1 - factor) * camera_delta_from_room_center`. For a factor of 1.10, a
+/// 1000px camera pan moves the foreground edge art about 100px across the
+/// screen: enough to imply depth without creating a readable gameplay layer.
+pub fn sync_foreground_parallax(
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera: Query<(&Transform, &Projection), (With<Camera>, Without<ForegroundParallax>)>,
+    mut layers: Query<(&ForegroundParallax, &mut Transform, &mut Sprite)>,
+) {
+    let Ok((camera_transform, projection)) = camera.single() else {
+        return;
+    };
+    let (view_w, view_h) = windows
+        .single()
+        .map(|w| (w.width(), w.height()))
+        .unwrap_or((WINDOW_W as f32, WINDOW_H as f32));
+    let camera_scale = match projection {
+        Projection::Orthographic(orthographic) => orthographic.scale.max(1.0),
+        _ => 1.0,
+    };
+    let visible_size = Vec2::new(view_w, view_h) * camera_scale * FOREGROUND_OVERSCAN;
+    let camera_xy = camera_transform.translation.truncate();
+
+    for (parallax, mut transform, mut sprite) in &mut layers {
+        let camera_delta = camera_xy - parallax.room_center;
+        let screen_offset = camera_delta * (1.0 - parallax.factor);
+        transform.translation.x = camera_xy.x + screen_offset.x;
+        transform.translation.y = camera_xy.y + screen_offset.y;
+        transform.translation.z = FOREGROUND_Z;
+        sprite.custom_size = Some(visible_size);
+    }
+}

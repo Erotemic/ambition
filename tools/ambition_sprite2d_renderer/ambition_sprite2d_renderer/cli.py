@@ -13,6 +13,7 @@ Two surfaces live here:
       draw-canonicals            Render canonical poses + contact sheet.
       draw-character <config>    Render canonical + spritesheet + YAML for one job.
       draw-entities              Render non-character gameplay entity sprites.
+      draw-backgrounds           Render biome background/foreground parallax layers.
       spritesheet <config> <out> Render one job's sheet.
       single <config> <out>      Render one frame.
 
@@ -43,6 +44,7 @@ from .canonical import render_canonical, write_canonicals
 from .console import print_canonical_outputs, print_paths
 from .config import CharacterJob, load_jobs
 from .entities import write_entity_sprites
+from .backgrounds import write_background_layers
 from .item_icons import write_item_icons
 from .faction_lineup import write_faction_lineup
 from .sheet import write_spritesheet
@@ -166,6 +168,10 @@ def draw_entities(out_dir: str | Path = DEFAULT_ASSET_DIR / "entities") -> List[
     return write_entity_sprites(out_dir)
 
 
+def draw_backgrounds(out_dir: str | Path = DEFAULT_ASSET_DIR / "backgrounds") -> List[Path]:
+    return write_background_layers(out_dir)
+
+
 def draw_icons(out_dir: str | Path = DEFAULT_ASSET_DIR / "icons") -> List[Path]:
     return write_item_icons(out_dir)
 
@@ -199,6 +205,11 @@ def _cmd_draw_character(args: argparse.Namespace) -> int:
 
 def _cmd_draw_entities(args: argparse.Namespace) -> int:
     print_paths(draw_entities(args.out_dir))
+    return 0
+
+
+def _cmd_draw_backgrounds(args: argparse.Namespace) -> int:
+    print_paths(draw_backgrounds(args.out_dir))
     return 0
 
 
@@ -349,6 +360,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("draw-entities", help="Render non-character gameplay entity sprites")
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "entities"))
     p.set_defaults(func=_cmd_draw_entities)
+
+    p = sub.add_parser("draw-backgrounds", help="Render biome background / foreground parallax layers")
+    p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "backgrounds"))
+    p.set_defaults(func=_cmd_draw_backgrounds)
 
     p = sub.add_parser("draw-icons", help="Render ability/item icon review sprites")
     p.add_argument("--out-dir", default=str(DEFAULT_ASSET_DIR / "icons"))

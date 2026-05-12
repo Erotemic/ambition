@@ -165,6 +165,7 @@ pub fn process_sandbox_reset_request(
         &mut commands,
         &world.0,
         &start_spec.loading_zones,
+        &start_spec.metadata,
         runtime.physics_settings,
         assets.as_deref(),
     );

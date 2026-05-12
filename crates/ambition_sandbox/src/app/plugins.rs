@@ -270,7 +270,6 @@ pub fn add_presentation_plugins(app: &mut App) {
     add_input_plugins(app);
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
-    app.add_plugins(crate::parallax::ParallaxPlugin);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
 
@@ -355,6 +354,10 @@ pub fn add_presentation_plugins(app: &mut App) {
             )
                 .chain()
                 .after(sandbox_update),
+        )
+        .add_systems(
+            Update,
+            crate::rendering::sync_foreground_parallax.after(camera_follow),
         )
         .add_systems(
             Update,

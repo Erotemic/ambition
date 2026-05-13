@@ -1,3 +1,5 @@
+use ambition_engine::AabbExt;
+
 #[allow(unused_imports)]
 use super::cli::*;
 #[allow(unused_imports)]
@@ -536,6 +538,7 @@ pub(super) fn advance_attack(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     debris: &mut Vec<DebrisBurstMessage>,
+    world: &ae::World,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -559,6 +562,36 @@ pub(super) fn advance_attack(
         }
 
         let player_pos = runtime.player.pos;
+        let mut pogo_landed = false;
+        if runtime.player.abilities.pogo
+            && attack_state.spec.can_pogo
+            && !attack_state.pogo_applied
+        {
+            let attack_world = features::world_with_sandbox_solids(
+                world,
+                &runtime.moving_platform,
+                &runtime.features,
+            );
+            if let Some(orb_aabb) = attack_world.blocks.iter().find_map(|block| {
+                let valid_target = matches!(
+                    block.kind,
+                    ae::BlockKind::PogoOrb
+                        | ae::BlockKind::Solid
+                        | ae::BlockKind::BlinkWall { .. }
+                        | ae::BlockKind::Rebound { .. }
+                );
+                (valid_target && attack.strict_intersects(block.aabb)).then_some(block.aabb)
+            }) {
+                runtime.player.vel.y = -tuning.pogo_speed;
+                runtime.player.refresh_movement_resources(tuning);
+                runtime.player.on_ground = false;
+                attack_state.pogo_applied = true;
+                pogo_landed = true;
+                sfx.push(SfxMessage::Pogo { pos: player_pos });
+                let feature_events = runtime.features.on_pogo_bounce(orb_aabb, 1);
+                handle_feature_events(sfx, vfx, debris, &feature_events, player_pos);
+            }
+        }
         let slash_damage = runtime.player.damage_multiplier.max(1);
         let knock_x = if attack_state.spec.knockback.x.abs() > 0.0 {
             attack_state.spec.knockback.x
@@ -580,17 +613,24 @@ pub(super) fn advance_attack(
         attack_state.hit_targets.extend(report.hit_targets.iter().cloned());
         handle_feature_events(sfx, vfx, debris, &report.events, player_pos);
 
-        if landed {
-            sfx.push(SfxMessage::Hit { pos: player_pos });
+        if landed || pogo_landed {
+            if landed {
+                sfx.push(SfxMessage::Hit { pos: player_pos });
+            }
             runtime.hitstop_timer = feel.attack_hitstop_time;
             runtime.flash_timer = 0.16;
         }
         if killed {
             sfx.push(SfxMessage::Death { pos: player_pos });
         }
-        if landed && runtime.player.abilities.pogo && attack_state.spec.can_pogo {
+        if landed
+            && runtime.player.abilities.pogo
+            && attack_state.spec.can_pogo
+            && !attack_state.pogo_applied
+        {
             runtime.player.vel.y = -tuning.pogo_speed;
             runtime.player.refresh_movement_resources(tuning);
+            attack_state.pogo_applied = true;
             sfx.push(SfxMessage::Pogo { pos: player_pos });
         }
     }

@@ -235,16 +235,19 @@ impl CameraFramingPreset {
         let facing = if facing < 0.0 { -1.0 } else { 1.0 };
         match self {
             Self::Centered => (0.0, 0.0),
-            // More look-ahead and a little more space above the character for
+            // Combat default avoids horizontal look-ahead: a quick tap/turn
+            // should not move the camera. Keep only a small upward bias for
             // jumps, flying enemies, and combat reads. Negative Y means "move
             // the camera upward" in Ambition's +Y-down coordinate frame.
-            Self::Combat => (view_w * 0.08 * facing, -view_h * 0.05),
-            Self::Forward => (view_w * 0.14 * facing, -view_h * 0.02),
+            Self::Combat => (0.0, -view_h * 0.05),
+            // Explicit opt-in look-ahead preset. Kept intentionally small so
+            // facing flips do not read as camera jerks.
+            Self::Forward => (view_w * 0.04 * facing, -view_h * 0.02),
             // Thumb controls tend to occlude the bottom corners; keep the
             // player lower on the physical screen by biasing the camera target
-            // upward, with a smaller forward lead so the character remains
-            // visible under touch controls.
-            Self::MobileSafe => (view_w * 0.05 * facing, -view_h * 0.12),
+            // upward. Avoid horizontal bias here too; thumb motion should not
+            // make the camera twitch left/right.
+            Self::MobileSafe => (0.0, -view_h * 0.12),
         }
     }
 
@@ -392,12 +395,12 @@ mod tests {
     }
 
     #[test]
-    fn combat_framing_biases_forward_and_up() {
+    fn combat_framing_biases_up_without_horizontal_tap_lookahead() {
         let (dx, dy) = CameraFramingPreset::Combat.target_offset(800.0, 450.0, 1.0);
-        assert!(dx > 0.0);
+        assert_eq!(dx, 0.0);
         assert!(dy < 0.0);
         let (dx_left, _) = CameraFramingPreset::Combat.target_offset(800.0, 450.0, -1.0);
-        assert!(dx_left < 0.0);
+        assert_eq!(dx_left, 0.0);
     }
 
     #[test]

@@ -70,6 +70,9 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
     if runtime.slash_anim_timer > 0.0 {
         return CharacterAnim::Slash;
     }
+    if runtime.player.blink_aiming || runtime.player.blink_hold_active {
+        return CharacterAnim::BlinkOut;
+    }
     if let Some(ledge) = runtime.ledge_grab.as_ref() {
         return if ledge.climbing {
             CharacterAnim::LedgeClimb

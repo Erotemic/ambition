@@ -36,6 +36,11 @@ pub const LEDGE_CLIMB_TIME: f32 = 0.24;
 /// the ledge hang into an effectively invisible state on the same visual beat.
 pub const LEDGE_TOWARD_CLIMB_DELAY: f32 = 0.045;
 
+/// Minimum hang time before any climb input can start the pull-up. This gives
+/// players a reliable beat to choose between hanging, dropping, or climbing
+/// instead of auto-mantling on the same frame the ledge grab catches.
+pub const LEDGE_MIN_CLIMB_DELAY: f32 = 0.16;
+
 fn smoothstep(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
@@ -101,10 +106,12 @@ pub fn update_ledge_grab(
         let input_down = controls.axis_y > 0.4 || controls.down_pressed;
         let input_into_platform = controls.axis_x * into_platform_axis(state.contact) > 0.4;
         let input_away_from_platform = controls.axis_x * away_from_platform_axis(state.contact) > 0.4;
-        let want_climb = input_up
-            || controls.interact_pressed
-            || controls.jump_pressed
-            || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform);
+        let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
+        let want_climb = climb_unlocked
+            && (input_up
+                || controls.interact_pressed
+                || controls.jump_pressed
+                || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform));
         let want_drop = input_down || input_away_from_platform;
 
         if want_drop && !want_climb {
@@ -318,6 +325,27 @@ mod tests {
         assert!(!runtime.player.on_wall);
     }
 
+
+    #[test]
+    fn climb_input_waits_for_minimum_hang_time() {
+        let mut app = ledge_app(true);
+        let anchor = ae::Vec2::new(120.0, 400.0);
+        let target = ae::Vec2::new(150.0, 380.0);
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            runtime.ledge_grab = Some(ledge_state(1.0, anchor, target));
+        }
+        *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
+            axis_y: -1.0,
+            ..ControlFrame::default()
+        };
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        let ledge = runtime.ledge_grab.expect("ledge should remain latched");
+        assert!(!ledge.climbing, "climb should wait for the minimum hang beat");
+        assert_eq!(runtime.player.pos, anchor);
+    }
+
     /// With ability on and a latched ledge, Up starts the climb-up
     /// transition. The transition, not the initial input frame, is
     /// responsible for placing the player at `climb_target`.
@@ -328,7 +356,9 @@ mod tests {
         let target = ae::Vec2::new(150.0, 380.0);
         {
             let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-            runtime.ledge_grab = Some(ledge_state(1.0, anchor, target));
+            let mut state = ledge_state(1.0, anchor, target);
+            state.elapsed = LEDGE_MIN_CLIMB_DELAY;
+            runtime.ledge_grab = Some(state);
         }
         *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
             axis_y: -1.0,
@@ -352,7 +382,7 @@ mod tests {
         {
             let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
             let mut state = ledge_state(-1.0, anchor, target);
-            state.elapsed = LEDGE_TOWARD_CLIMB_DELAY;
+            state.elapsed = LEDGE_MIN_CLIMB_DELAY;
             runtime.ledge_grab = Some(state);
         }
         *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
@@ -363,7 +393,7 @@ mod tests {
         let runtime = app.world().resource::<SandboxRuntime>();
         assert!(
             runtime.ledge_grab.expect("state should still exist").climbing,
-            "holding toward the platform should start the pull-up"
+            "holding toward the platform should start the pull-up after the hang delay"
         );
     }
 

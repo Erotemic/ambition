@@ -496,6 +496,7 @@ pub(super) fn room_transition_phase(
 /// branches here only when the trigger condition differs.
 pub(super) fn attack_phase(
     controls: &ControlFrame,
+    world: &ae::World,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
@@ -509,6 +510,7 @@ pub(super) fn attack_phase(
         &mut feedback.sfx,
         &mut feedback.vfx,
         &mut feedback.debris,
+        world,
         runtime,
         tuning,
         feel,

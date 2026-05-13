@@ -58,7 +58,7 @@ pub struct SandboxFeelTuning {
 impl Default for SandboxFeelTuning {
     fn default() -> Self {
         Self {
-            bullet_time_scale: 0.05,
+            bullet_time_scale: 0.125,
             blink_hold_slow_scale: 0.35,
             debug_slowmo_scale: 0.25,
             time_ramp_down_rate: 5.0,

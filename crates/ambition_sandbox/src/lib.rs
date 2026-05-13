@@ -220,6 +220,9 @@ pub struct PlayerAttackState {
     pub elapsed: f32,
     pub hit_targets: Vec<String>,
     pub active_started: bool,
+    /// True once a downward/pogo active-frame attack has produced its bounce.
+    /// Prevents one long active window from repeatedly bouncing every frame.
+    pub pogo_applied: bool,
 }
 
 impl PlayerAttackState {
@@ -229,6 +232,7 @@ impl PlayerAttackState {
             elapsed: 0.0,
             hit_targets: Vec::new(),
             active_started: false,
+            pogo_applied: false,
         }
     }
 

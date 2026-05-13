@@ -274,7 +274,7 @@ pub(super) fn update_hud(
                     .clamp(0.0, 1.0);
                 format!("\nLEDGE: climb {:.0}%", progress * 100.0)
             } else {
-                "\nLEDGE: hang  up/toward=climb  down/away=drop".to_string()
+                "\nLEDGE: hang  brief delay then up/toward=climb  down/away=drop".to_string()
             }
         })
         .unwrap_or_default();

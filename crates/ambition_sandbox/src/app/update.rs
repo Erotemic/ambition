@@ -218,6 +218,7 @@ pub fn sandbox_update(
 
     attack_phase(
         &controls,
+        &world.0,
         &mut runtime,
         &mut feedback,
         tuning,

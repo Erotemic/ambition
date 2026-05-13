@@ -65,17 +65,17 @@ pub use interaction::{
 pub use kinematic::{step_kinematic, KinematicBody, KinematicInputs, KinematicTuning};
 pub use ledge_grab::{probe_ledge_grab, LedgeContact};
 pub use movement::{
-    blink_destination, blink_destination_to_point, update_player, update_player_control,
-    update_player_control_with_tuning, update_player_simulation,
+    blink_destination, blink_destination_to_point, default_player_body_size, update_player,
+    update_player_control, update_player_control_with_tuning, update_player_simulation,
     update_player_simulation_with_tuning, update_player_with_tuning, BlinkEvent, ComboMark,
-    default_player_body_size, FrameEvents, InputState, MovementOp, MovementTuning, Player,
-    DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH, AIR_ACCEL, AIR_FRICTION,
+    FrameEvents, InputState, MovementOp, MovementTuning, Player, AIR_ACCEL, AIR_FRICTION,
     AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER,
-    DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_TUNING, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL,
-    FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED,
-    FLIGHT_TERMINAL_SPEED, GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED,
-    MAX_RUN_SPEED, POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, RUN_ACCEL,
-    SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
+    DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH,
+    DEFAULT_TUNING, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG,
+    FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GRAVITY, GROUND_FRICTION,
+    JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
+    PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X,
+    WALL_SLIDE_SPEED,
 };
 pub use physics::{
     PhysicsBodyKind, PhysicsBodyRole, PhysicsBodySpec, PhysicsMaterial, PhysicsShape, RagdollSpec,

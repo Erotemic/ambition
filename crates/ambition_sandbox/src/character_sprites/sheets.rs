@@ -986,9 +986,8 @@ pub fn sprite_render_size_scaled(
     // Height is collision-driven; width preserves the cropped frame's
     // aspect ratio so the character isn't horizontally squashed when the
     // generator crop produces non-square frames (e.g. robot 120×128).
-    let height = collision.x.max(collision.y).max(8.0)
-        * spec.collision_scale
-        * visual_scale.max(0.05);
+    let height =
+        collision.x.max(collision.y).max(8.0) * spec.collision_scale * visual_scale.max(0.05);
     let width = height * (spec.frame_width as f32 / spec.frame_height as f32);
     Vec2::new(width, height)
 }
@@ -1054,7 +1053,9 @@ impl CharacterSheetSpec {
         if self.row_index(anim).is_some() {
             return anim;
         }
-        if matches!(anim, CharacterAnim::LedgeClimb) && self.row_index(CharacterAnim::LedgeGrab).is_some() {
+        if matches!(anim, CharacterAnim::LedgeClimb)
+            && self.row_index(CharacterAnim::LedgeGrab).is_some()
+        {
             return CharacterAnim::LedgeGrab;
         }
         CharacterAnim::Idle

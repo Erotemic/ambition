@@ -227,8 +227,6 @@ impl EntitySpriteSet {
     }
 }
 
-
-
 /// Biome/theme key for generated parallax layers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ParallaxTheme {
@@ -352,7 +350,11 @@ impl ParallaxLayerAsset {
     }
 
     pub fn relative_path(self, theme: ParallaxTheme) -> String {
-        format!("backgrounds/parallax_layers/{}_{}.png", theme.key(), self.key())
+        format!(
+            "backgrounds/parallax_layers/{}_{}.png",
+            theme.key(),
+            self.key()
+        )
     }
 }
 
@@ -363,11 +365,7 @@ pub struct ParallaxLayerSet {
 }
 
 impl ParallaxLayerSet {
-    pub fn get(
-        &self,
-        theme: ParallaxTheme,
-        layer: ParallaxLayerAsset,
-    ) -> Option<&Handle<Image>> {
+    pub fn get(&self, theme: ParallaxTheme, layer: ParallaxLayerAsset) -> Option<&Handle<Image>> {
         self.handles.get(&(theme, layer))
     }
 
@@ -456,7 +454,6 @@ fn load_entity_sprites(asset_server: &AssetServer, sprite_folder: &str) -> Entit
     }
     EntitySpriteSet { handles }
 }
-
 
 fn load_parallax_layers(asset_server: &AssetServer) -> ParallaxLayerSet {
     let mut handles = HashMap::new();

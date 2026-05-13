@@ -111,7 +111,13 @@ pub(super) fn update_hud(
                 camera_view_line
             )
         })
-        .unwrap_or_else(|_| format!("window: unknown {} | {}", display_mode.label(), camera_view_line));
+        .unwrap_or_else(|_| {
+            format!(
+                "window: unknown {} | {}",
+                display_mode.label(),
+                camera_view_line
+            )
+        });
     let zone_hint = {
         let hints = room_set.nearby_zone_hints(&runtime.player, runtime.player.fly_enabled);
         if hints.is_empty() {
@@ -252,10 +258,7 @@ pub(super) fn update_hud(
         .player_attack
         .as_ref()
         .map(|attack| {
-            let phase = attack
-                .phase()
-                .map(|phase| phase.label())
-                .unwrap_or("done");
+            let phase = attack.phase().map(|phase| phase.label()).unwrap_or("done");
             format!(
                 "\nATTACK: {} {} {:.0}% hits={}",
                 attack.spec.intent.label(),
@@ -270,8 +273,8 @@ pub(super) fn update_hud(
         .as_ref()
         .map(|ledge| {
             if ledge.climbing {
-                let progress = (ledge.climb_elapsed / crate::ledge_grab::LEDGE_CLIMB_TIME)
-                    .clamp(0.0, 1.0);
+                let progress =
+                    (ledge.climb_elapsed / crate::ledge_grab::LEDGE_CLIMB_TIME).clamp(0.0, 1.0);
                 format!("\nLEDGE: climb {:.0}%", progress * 100.0)
             } else {
                 "\nLEDGE: hang  brief delay then up/toward=climb  down/away=drop".to_string()

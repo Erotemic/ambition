@@ -30,7 +30,9 @@ pub use blink::{blink_destination, blink_destination_to_point};
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
 pub use ops::{ComboMark, MovementOp};
-pub use player::{default_player_body_size, Player, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
+pub use player::{
+    default_player_body_size, Player, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH,
+};
 pub use tuning::{
     MovementTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE,
     BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER,

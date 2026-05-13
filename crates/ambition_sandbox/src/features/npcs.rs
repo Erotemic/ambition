@@ -287,31 +287,93 @@ impl NpcRuntime {
 
 fn npc_hit_barks(key: &str, name: &str) -> &'static [&'static str] {
     if key.contains("hub_guide") || name.contains("kernel") || name.contains("guide") {
-        &["Ow. Tutorial says: don't.", "Input received. Annoyance rising.", "Debug friendship failed."]
+        &[
+            "Ow. Tutorial says: don't.",
+            "Input received. Annoyance rising.",
+            "Debug friendship failed.",
+        ]
     } else if key.contains("architect") || name.contains("architect") {
-        &["Careful! I'm load-bearing.", "That was not in the blueprint.", "You're voiding the warranty."]
+        &[
+            "Careful! I'm load-bearing.",
+            "That was not in the blueprint.",
+            "You're voiding the warranty.",
+        ]
     } else if key.contains("vault_keeper") || name.contains("vault") {
-        &["Hands off the vault staff.", "I count every scratch.", "That debt has interest."]
+        &[
+            "Hands off the vault staff.",
+            "I count every scratch.",
+            "That debt has interest.",
+        ]
     } else if key.contains("merchant") || name.contains("merchant") {
-        &["No refunds for violence.", "You break it, you buy it.", "That's coming out of your wallet."]
+        &[
+            "No refunds for violence.",
+            "You break it, you buy it.",
+            "That's coming out of your wallet.",
+        ]
     } else if key.contains("military_general") || name.contains("general") {
-        &["Soldier, explain yourself.", "That is insubordination.", "Court-martial posture engaged."]
+        &[
+            "Soldier, explain yourself.",
+            "That is insubordination.",
+            "Court-martial posture engaged.",
+        ]
     } else if key.contains("goblin") || name.contains("fretjaw") || name.contains("chieftain") {
-        &["Oi! That's my good arm.", "Fretjaw bites back!", "Cantina rules: no free hits!"]
-    } else if key.contains("pulse_voyager") || name.contains("captain pulse") || name.contains("pulse") {
-        &["Easy on the hull, starling.", "That's not standard docking procedure.", "Pulse shields to angry!"]
+        &[
+            "Oi! That's my good arm.",
+            "Fretjaw bites back!",
+            "Cantina rules: no free hits!",
+        ]
+    } else if key.contains("pulse_voyager")
+        || name.contains("captain pulse")
+        || name.contains("pulse")
+    {
+        &[
+            "Easy on the hull, starling.",
+            "That's not standard docking procedure.",
+            "Pulse shields to angry!",
+        ]
     } else if key.contains("tech_bros") || name.contains("chadwick") || name.contains("disruptor") {
-        &["Bro. Optics.", "My brand is literally disruption.", "I'm posting about this."]
-    } else if key.contains("pirate_admiral") || name.contains("pirate admiral") || name.contains("admiral") {
-        &["Mind the epaulettes.", "Avast, that's admiralty property.", "I'll keelhaul your cooldowns."]
-    } else if key.contains("pirate_raider") || name.contains("pirate raider") || name.contains("raider") {
-        &["Yarrg!", "Quit pokin' me loot hand!", "I'll swab the floor with ye!"]
-    } else if key.contains("ninja_leader") || name.contains("oni leader") || name.contains("leader") {
-        &["Your form is loud.", "A warning: one breath left.", "The shadow answers."]
+        &[
+            "Bro. Optics.",
+            "My brand is literally disruption.",
+            "I'm posting about this.",
+        ]
+    } else if key.contains("pirate_admiral")
+        || name.contains("pirate admiral")
+        || name.contains("admiral")
+    {
+        &[
+            "Mind the epaulettes.",
+            "Avast, that's admiralty property.",
+            "I'll keelhaul your cooldowns.",
+        ]
+    } else if key.contains("pirate_raider")
+        || name.contains("pirate raider")
+        || name.contains("raider")
+    {
+        &[
+            "Yarrg!",
+            "Quit pokin' me loot hand!",
+            "I'll swab the floor with ye!",
+        ]
+    } else if key.contains("ninja_leader") || name.contains("oni leader") || name.contains("leader")
+    {
+        &[
+            "Your form is loud.",
+            "A warning: one breath left.",
+            "The shadow answers.",
+        ]
     } else if key.contains("ninja_duelist") || name.contains("duelist") {
-        &["Tch. Sloppy opening.", "Again? Then draw properly.", "Now we duel."]
+        &[
+            "Tch. Sloppy opening.",
+            "Again? Then draw properly.",
+            "Now we duel.",
+        ]
     } else if key.contains("quartermaster") || name.contains("quartermaster") {
-        &["Inventory says no.", "Cut it out.", "You're paying replacement cost."]
+        &[
+            "Inventory says no.",
+            "Cut it out.",
+            "You're paying replacement cost.",
+        ]
     } else if key.contains("guard") || name.contains("guard") {
         &["Hey.", "Last warning.", "That's it!"]
     } else {
@@ -332,15 +394,25 @@ fn npc_hostile_bark(key: &str, name: &str) -> &'static str {
         "Weapons free!"
     } else if key.contains("goblin") || name.contains("fretjaw") || name.contains("chieftain") {
         "Cantina brawl!"
-    } else if key.contains("pulse_voyager") || name.contains("captain pulse") || name.contains("pulse") {
+    } else if key.contains("pulse_voyager")
+        || name.contains("captain pulse")
+        || name.contains("pulse")
+    {
         "Red alert, traveler!"
     } else if key.contains("tech_bros") || name.contains("chadwick") || name.contains("disruptor") {
         "You just activated my pivot."
-    } else if key.contains("pirate_admiral") || name.contains("pirate admiral") || name.contains("admiral") {
+    } else if key.contains("pirate_admiral")
+        || name.contains("pirate admiral")
+        || name.contains("admiral")
+    {
         "Broadside, ye bilge rat!"
-    } else if key.contains("pirate_raider") || name.contains("pirate raider") || name.contains("raider") {
+    } else if key.contains("pirate_raider")
+        || name.contains("pirate raider")
+        || name.contains("raider")
+    {
         "Board 'em!"
-    } else if key.contains("ninja_leader") || name.contains("oni leader") || name.contains("leader") {
+    } else if key.contains("ninja_leader") || name.contains("oni leader") || name.contains("leader")
+    {
         "Silence them."
     } else if key.contains("ninja_duelist") || name.contains("duelist") {
         "Steel decides."

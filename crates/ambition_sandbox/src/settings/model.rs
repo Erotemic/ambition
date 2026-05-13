@@ -214,10 +214,16 @@ impl SettingsItem {
                 format!("Camera View: {}  < / >", settings.video.camera_zoom.label())
             }
             Self::CameraAspect => {
-                format!("Camera Aspect: {}  < / >", settings.video.camera_aspect.label())
+                format!(
+                    "Camera Aspect: {}  < / >",
+                    settings.video.camera_aspect.label()
+                )
             }
             Self::CameraFraming => {
-                format!("Camera Framing: {}  < / >", settings.video.camera_framing.label())
+                format!(
+                    "Camera Framing: {}  < / >",
+                    settings.video.camera_framing.label()
+                )
             }
             Self::Flashes => format!("Flashes: {}  < / >", settings.video.flashes.label()),
             Self::Colorblind => format!("Colorblind: {}  < / >", settings.video.colorblind.label()),
@@ -498,13 +504,17 @@ pub fn apply_action(
             }
         },
         SettingsItem::CameraAspect => match action {
-            SettingsAction::Prev => settings.video.camera_aspect = settings.video.camera_aspect.prev(),
+            SettingsAction::Prev => {
+                settings.video.camera_aspect = settings.video.camera_aspect.prev()
+            }
             SettingsAction::Next | SettingsAction::Confirm => {
                 settings.video.camera_aspect = settings.video.camera_aspect.next()
             }
         },
         SettingsItem::CameraFraming => match action {
-            SettingsAction::Prev => settings.video.camera_framing = settings.video.camera_framing.prev(),
+            SettingsAction::Prev => {
+                settings.video.camera_framing = settings.video.camera_framing.prev()
+            }
             SettingsAction::Next | SettingsAction::Confirm => {
                 settings.video.camera_framing = settings.video.camera_framing.next()
             }

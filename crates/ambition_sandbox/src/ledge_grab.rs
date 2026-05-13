@@ -105,7 +105,8 @@ pub fn update_ledge_grab(
         let input_up = controls.axis_y < -0.4 || controls.up_pressed;
         let input_down = controls.axis_y > 0.4 || controls.down_pressed;
         let input_into_platform = controls.axis_x * into_platform_axis(state.contact) > 0.4;
-        let input_away_from_platform = controls.axis_x * away_from_platform_axis(state.contact) > 0.4;
+        let input_away_from_platform =
+            controls.axis_x * away_from_platform_axis(state.contact) > 0.4;
         let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
         let want_climb = climb_unlocked
             && (input_up
@@ -320,11 +321,13 @@ mod tests {
         };
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
-        assert!(runtime.ledge_grab.is_none(), "away should release the ledge");
+        assert!(
+            runtime.ledge_grab.is_none(),
+            "away should release the ledge"
+        );
         assert!(!runtime.player.wall_clinging);
         assert!(!runtime.player.on_wall);
     }
-
 
     #[test]
     fn climb_input_waits_for_minimum_hang_time() {
@@ -342,7 +345,10 @@ mod tests {
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
         let ledge = runtime.ledge_grab.expect("ledge should remain latched");
-        assert!(!ledge.climbing, "climb should wait for the minimum hang beat");
+        assert!(
+            !ledge.climbing,
+            "climb should wait for the minimum hang beat"
+        );
         assert_eq!(runtime.player.pos, anchor);
     }
 
@@ -370,8 +376,14 @@ mod tests {
             .ledge_grab
             .expect("climb-up should start a transition before clearing");
         assert!(ledge.climbing);
-        assert_eq!(runtime.player.pos, anchor, "first climb frame stays anchored");
-        assert!(!runtime.player.on_ground, "climb transition is not grounded yet");
+        assert_eq!(
+            runtime.player.pos, anchor,
+            "first climb frame stays anchored"
+        );
+        assert!(
+            !runtime.player.on_ground,
+            "climb transition is not grounded yet"
+        );
     }
 
     #[test]
@@ -392,7 +404,10 @@ mod tests {
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
         assert!(
-            runtime.ledge_grab.expect("state should still exist").climbing,
+            runtime
+                .ledge_grab
+                .expect("state should still exist")
+                .climbing,
             "holding toward the platform should start the pull-up after the hang delay"
         );
     }
@@ -411,8 +426,14 @@ mod tests {
         }
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
-        assert!(runtime.ledge_grab.is_none(), "completed climb should clear state");
-        assert_eq!(runtime.player.pos, target, "completed climb lands at target");
+        assert!(
+            runtime.ledge_grab.is_none(),
+            "completed climb should clear state"
+        );
+        assert_eq!(
+            runtime.player.pos, target,
+            "completed climb lands at target"
+        );
         assert!(runtime.player.on_ground, "completed climb sets on_ground");
         assert!(!runtime.player.wall_clinging);
         assert!(!runtime.player.on_wall);

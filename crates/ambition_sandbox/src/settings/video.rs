@@ -164,7 +164,6 @@ impl CameraZoomPreset {
     }
 }
 
-
 /// How the fixed gameplay viewport maps onto non-16:9 windows.
 ///
 /// `FitDesign` is the default: the full authored design rectangle remains
@@ -218,7 +217,12 @@ pub enum CameraFramingPreset {
 }
 
 impl CameraFramingPreset {
-    pub const ALL: [Self; 4] = [Self::Centered, Self::Combat, Self::Forward, Self::MobileSafe];
+    pub const ALL: [Self; 4] = [
+        Self::Centered,
+        Self::Combat,
+        Self::Forward,
+        Self::MobileSafe,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {

@@ -9,7 +9,6 @@
 use ambition_engine as ae;
 use bevy::prelude::*;
 
-
 /// Coarse player-body presets for feel testing.
 ///
 /// These affect the movement collider only. The placeholder sprite is scaled
@@ -64,7 +63,12 @@ pub enum MovementProfile {
 }
 
 impl MovementProfile {
-    pub const ALL: [Self; 4] = [Self::AgileBase, Self::SandboxFast, Self::Heavy, Self::Legacy];
+    pub const ALL: [Self; 4] = [
+        Self::AgileBase,
+        Self::SandboxFast,
+        Self::Heavy,
+        Self::Legacy,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -227,7 +231,6 @@ impl Default for DeveloperTools {
 pub fn inspector_visible(tools: Res<DeveloperTools>) -> bool {
     tools.inspector_visible
 }
-
 
 /// Produce a compact normalized movement readout for the debug HUD.
 ///
@@ -507,8 +510,6 @@ impl Default for EditableMovementTuning {
         ae::MovementTuning::default().into()
     }
 }
-
-
 
 /// Keep the live player's body collider aligned with the selected development
 /// profile after resets / room loads rebuild the player from engine defaults.

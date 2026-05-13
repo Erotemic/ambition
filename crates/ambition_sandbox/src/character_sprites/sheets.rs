@@ -722,10 +722,12 @@ impl CharacterSheetSpec {
 
     pub fn resolve_anim(&self, anim: CharacterAnim) -> CharacterAnim {
         if self.row_index(anim).is_some() {
-            anim
-        } else {
-            CharacterAnim::Idle
+            return anim;
         }
+        if matches!(anim, CharacterAnim::LedgeClimb) && self.row_index(CharacterAnim::LedgeGrab).is_some() {
+            return CharacterAnim::LedgeGrab;
+        }
+        CharacterAnim::Idle
     }
 
     pub(super) fn row(&self, anim: CharacterAnim) -> AnimRow {

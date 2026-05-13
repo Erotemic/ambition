@@ -37,16 +37,18 @@ pub enum CharacterAnim {
     Taunt = 12,
     /// Held hang on a ledge — both arms gripping the ledge top with
     /// the body slumped below. Driven by `pick_player_anim` while
-    /// `SandboxRuntime::ledge_grab` is `Some`. The pull-up itself
-    /// is instantaneous in the runtime, so this row is a loop, not
-    /// a transition.
+    /// `SandboxRuntime::ledge_grab` is `Some` and not climbing.
     LedgeGrab = 13,
+    /// Pull-up transition after ledge grab. The placeholder robot sheet does
+    /// not have a dedicated row yet; `CharacterSheetSpec::resolve_anim` falls
+    /// back to `LedgeGrab` for this variant until art exists.
+    LedgeClimb = 14,
 }
 
 pub(super) fn non_looping(anim: CharacterAnim) -> bool {
     matches!(
         anim,
-        CharacterAnim::Slash | CharacterAnim::Hit | CharacterAnim::Death
+        CharacterAnim::Slash | CharacterAnim::Hit | CharacterAnim::Death | CharacterAnim::LedgeClimb
     )
 }
 
@@ -68,8 +70,12 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
     if runtime.slash_anim_timer > 0.0 {
         return CharacterAnim::Slash;
     }
-    if runtime.ledge_grab.is_some() {
-        return CharacterAnim::LedgeGrab;
+    if let Some(ledge) = runtime.ledge_grab.as_ref() {
+        return if ledge.climbing {
+            CharacterAnim::LedgeClimb
+        } else {
+            CharacterAnim::LedgeGrab
+        };
     }
     let player = &runtime.player;
     if player.fly_enabled {

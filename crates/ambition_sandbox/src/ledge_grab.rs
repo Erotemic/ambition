@@ -11,9 +11,10 @@
 //! 3. While grabbed, gravity is held to zero by the system (we just
 //!    keep snapping the player to the anchor each frame). The HUD
 //!    shows "ledge".
-//! 4. Up + Jump pulls up: snap the player to `climb_target`, clear
-//!    the state, restore normal movement.
-//! 5. Down (or letting go of the wall) drops back into wall-slide.
+//! 4. Up, Interact, Jump, or pressing into the platform starts a short
+//!    climb-up transition instead of teleporting to the top instantly.
+//! 5. Down or pressing away from the platform drops back into normal
+//!    airborne movement.
 //!
 //! This deliberately runs as a separate, narrow Bevy system so we
 //! avoid threading a new state into the dense `movement.rs` simulator.
@@ -22,6 +23,36 @@
 
 use ambition_engine as ae;
 use bevy::prelude::*;
+
+/// Duration of the ledge pull-up transition.
+///
+/// This is deliberately short: long enough to stop the climb from reading as a
+/// position snap, but not long enough to feel like a canned cutscene in a fast
+/// platformer.
+pub const LEDGE_CLIMB_TIME: f32 = 0.24;
+
+/// Require a tiny hang beat before held horizontal input into the platform
+/// auto-starts the climb. Without this, any held wall-cling input can collapse
+/// the ledge hang into an effectively invisible state on the same visual beat.
+pub const LEDGE_TOWARD_CLIMB_DELAY: f32 = 0.045;
+
+fn smoothstep(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+fn climb_position(contact: ae::LedgeContact, progress: f32) -> ae::Vec2 {
+    let t = smoothstep(progress);
+    contact.anchor + (contact.climb_target - contact.anchor) * t
+}
+
+fn into_platform_axis(contact: ae::LedgeContact) -> f32 {
+    -contact.wall_normal_x
+}
+
+fn away_from_platform_axis(contact: ae::LedgeContact) -> f32 {
+    contact.wall_normal_x
+}
 
 pub fn update_ledge_grab(
     world: Res<crate::GameWorld>,
@@ -40,28 +71,60 @@ pub fn update_ledge_grab(
         state.elapsed += dt;
         // Face into the wall so the overhead-reaching ledge-grab
         // sprite (drawn for facing-right) flips to match the cling
-        // side. wall_normal_x = -1 (wall on player's right) → face
-        // right; +1 (wall on left) → face left.
-        runtime.player.facing = -state.contact.wall_normal_x;
-        let want_climb = (controls.axis_y < -0.4 && controls.jump_pressed)
-            || (controls.axis_y < -0.4 && controls.interact_pressed);
-        let want_drop = controls.axis_y > 0.4 && !controls.jump_pressed;
-        if want_climb {
-            runtime.player.pos =
-                ae::Vec2::new(state.contact.climb_target.x, state.contact.climb_target.y);
+        // side. wall_normal_x = -1 (wall on player's right) -> face
+        // right; +1 (wall on left) -> face left.
+        runtime.player.facing = into_platform_axis(state.contact);
+
+        if state.climbing {
+            state.climb_elapsed += dt;
+            let progress = (state.climb_elapsed / LEDGE_CLIMB_TIME).clamp(0.0, 1.0);
+            runtime.player.pos = climb_position(state.contact, progress);
             runtime.player.vel = ae::Vec2::ZERO;
-            runtime.player.on_ground = true;
+            runtime.player.on_ground = false;
+            runtime.player.wall_clinging = false;
+            runtime.player.on_wall = false;
+
+            if progress >= 1.0 {
+                runtime.player.pos = state.contact.climb_target;
+                runtime.player.vel = ae::Vec2::ZERO;
+                runtime.player.on_ground = true;
+                runtime.player.wall_clinging = false;
+                runtime.player.on_wall = false;
+                runtime.ledge_grab = None;
+            } else {
+                runtime.ledge_grab = Some(state);
+            }
+            return;
+        }
+
+        let input_up = controls.axis_y < -0.4 || controls.up_pressed;
+        let input_down = controls.axis_y > 0.4 || controls.down_pressed;
+        let input_into_platform = controls.axis_x * into_platform_axis(state.contact) > 0.4;
+        let input_away_from_platform = controls.axis_x * away_from_platform_axis(state.contact) > 0.4;
+        let want_climb = input_up
+            || controls.interact_pressed
+            || controls.jump_pressed
+            || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform);
+        let want_drop = input_down || input_away_from_platform;
+
+        if want_drop && !want_climb {
             runtime.player.wall_clinging = false;
             runtime.player.on_wall = false;
             runtime.ledge_grab = None;
             return;
         }
-        if want_drop {
+        if want_climb {
+            state.climbing = true;
+            state.climb_elapsed = 0.0;
+            runtime.player.pos = state.contact.anchor;
+            runtime.player.vel = ae::Vec2::ZERO;
+            runtime.player.on_ground = false;
             runtime.player.wall_clinging = false;
             runtime.player.on_wall = false;
-            runtime.ledge_grab = None;
+            runtime.ledge_grab = Some(state);
             return;
         }
+
         // Hold position. Suppress gravity by re-anchoring each frame.
         runtime.player.pos = state.contact.anchor;
         runtime.player.vel = ae::Vec2::ZERO;
@@ -83,11 +146,12 @@ pub fn update_ledge_grab(
     };
     runtime.player.pos = contact.anchor;
     runtime.player.vel = ae::Vec2::ZERO;
-    runtime.player.facing = -contact.wall_normal_x;
+    runtime.player.facing = into_platform_axis(contact);
     runtime.ledge_grab = Some(crate::LedgeGrabState {
         contact,
         elapsed: 0.0,
         climbing: false,
+        climb_elapsed: 0.0,
     });
 }
 
@@ -105,6 +169,19 @@ mod tests {
             ae::Vec2::new(200.0, 1000.0),
             Vec::new(),
         )
+    }
+
+    fn ledge_state(wall_normal_x: f32, anchor: ae::Vec2, climb_target: ae::Vec2) -> LedgeGrabState {
+        LedgeGrabState {
+            contact: ae::LedgeContact {
+                wall_normal_x,
+                anchor,
+                climb_target,
+            },
+            elapsed: 0.0,
+            climbing: false,
+            climb_elapsed: 0.0,
+        }
     }
 
     fn ledge_app(ledge_grab_ability: bool) -> App {
@@ -142,15 +219,11 @@ mod tests {
             let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
             pos_before = runtime.player.pos;
             vel_before = runtime.player.vel;
-            runtime.ledge_grab = Some(LedgeGrabState {
-                contact: ae::LedgeContact {
-                    wall_normal_x: 1.0,
-                    anchor: ae::Vec2::new(123.0, 456.0),
-                    climb_target: ae::Vec2::new(150.0, 432.0),
-                },
-                elapsed: 0.5,
-                climbing: false,
-            });
+            runtime.ledge_grab = Some(ledge_state(
+                1.0,
+                ae::Vec2::new(123.0, 456.0),
+                ae::Vec2::new(150.0, 432.0),
+            ));
         }
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
@@ -198,15 +271,11 @@ mod tests {
         let mut app = ledge_app(true);
         {
             let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-            runtime.ledge_grab = Some(LedgeGrabState {
-                contact: ae::LedgeContact {
-                    wall_normal_x: 1.0,
-                    anchor: ae::Vec2::new(120.0, 400.0),
-                    climb_target: ae::Vec2::new(140.0, 380.0),
-                },
-                elapsed: 0.0,
-                climbing: false,
-            });
+            runtime.ledge_grab = Some(ledge_state(
+                1.0,
+                ae::Vec2::new(120.0, 400.0),
+                ae::Vec2::new(140.0, 380.0),
+            ));
             runtime.player.wall_clinging = true;
             runtime.player.on_wall = true;
         }
@@ -223,38 +292,99 @@ mod tests {
         assert!(!runtime.player.on_wall);
     }
 
-    /// With ability on and a latched ledge, Up + Jump pulls up: player
-    /// snaps to climb_target, state cleared, `on_ground` true.
     #[test]
-    fn up_jump_pulls_up_to_climb_target() {
+    fn away_input_drops_off_a_latched_ledge() {
         let mut app = ledge_app(true);
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            // wall_normal_x = -1 means the wall/platform is on the player's
+            // right; pressing left is away from it.
+            runtime.ledge_grab = Some(ledge_state(
+                -1.0,
+                ae::Vec2::new(120.0, 400.0),
+                ae::Vec2::new(140.0, 380.0),
+            ));
+            runtime.player.wall_clinging = true;
+            runtime.player.on_wall = true;
+        }
+        *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
+            axis_x: -1.0,
+            ..ControlFrame::default()
+        };
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert!(runtime.ledge_grab.is_none(), "away should release the ledge");
+        assert!(!runtime.player.wall_clinging);
+        assert!(!runtime.player.on_wall);
+    }
+
+    /// With ability on and a latched ledge, Up starts the climb-up
+    /// transition. The transition, not the initial input frame, is
+    /// responsible for placing the player at `climb_target`.
+    #[test]
+    fn up_input_starts_climb_transition() {
+        let mut app = ledge_app(true);
+        let anchor = ae::Vec2::new(120.0, 400.0);
         let target = ae::Vec2::new(150.0, 380.0);
         {
             let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-            runtime.ledge_grab = Some(LedgeGrabState {
-                contact: ae::LedgeContact {
-                    wall_normal_x: 1.0,
-                    anchor: ae::Vec2::new(120.0, 400.0),
-                    climb_target: target,
-                },
-                elapsed: 0.0,
-                climbing: false,
-            });
+            runtime.ledge_grab = Some(ledge_state(1.0, anchor, target));
         }
-        // axis_y < -0.4 is "Up", jump_pressed true.
         *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
             axis_y: -1.0,
-            jump_pressed: true,
+            ..ControlFrame::default()
+        };
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        let ledge = runtime
+            .ledge_grab
+            .expect("climb-up should start a transition before clearing");
+        assert!(ledge.climbing);
+        assert_eq!(runtime.player.pos, anchor, "first climb frame stays anchored");
+        assert!(!runtime.player.on_ground, "climb transition is not grounded yet");
+    }
+
+    #[test]
+    fn toward_platform_input_starts_climb_after_short_hang_delay() {
+        let mut app = ledge_app(true);
+        let anchor = ae::Vec2::new(120.0, 400.0);
+        let target = ae::Vec2::new(150.0, 380.0);
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            let mut state = ledge_state(-1.0, anchor, target);
+            state.elapsed = LEDGE_TOWARD_CLIMB_DELAY;
+            runtime.ledge_grab = Some(state);
+        }
+        *app.world_mut().resource_mut::<ControlFrame>() = ControlFrame {
+            axis_x: 1.0,
             ..ControlFrame::default()
         };
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
         assert!(
-            runtime.ledge_grab.is_none(),
-            "climb-up should clear ledge state"
+            runtime.ledge_grab.expect("state should still exist").climbing,
+            "holding toward the platform should start the pull-up"
         );
-        assert_eq!(runtime.player.pos, target, "snap to climb_target");
-        assert!(runtime.player.on_ground, "climb-up sets on_ground");
+    }
+
+    #[test]
+    fn climb_transition_completes_at_target() {
+        let mut app = ledge_app(true);
+        let anchor = ae::Vec2::new(120.0, 400.0);
+        let target = ae::Vec2::new(150.0, 380.0);
+        {
+            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+            let mut state = ledge_state(1.0, anchor, target);
+            state.climbing = true;
+            state.climb_elapsed = LEDGE_CLIMB_TIME;
+            runtime.ledge_grab = Some(state);
+        }
+        app.update();
+        let runtime = app.world().resource::<SandboxRuntime>();
+        assert!(runtime.ledge_grab.is_none(), "completed climb should clear state");
+        assert_eq!(runtime.player.pos, target, "completed climb lands at target");
+        assert!(runtime.player.on_ground, "completed climb sets on_ground");
         assert!(!runtime.player.wall_clinging);
+        assert!(!runtime.player.on_wall);
     }
 }

@@ -260,6 +260,24 @@ fn draw_player_debug(
         }
     }
 
+    // Ledge grab / climb debug. Reuse the combat preview toggle because this
+    // is a high-tempo traversal affordance that should be visible during feel
+    // tuning without adding another F3 row.
+    if developer_tools.show_combat_preview {
+        if let Some(ledge) = runtime.ledge_grab.as_ref() {
+            let anchor_box = ae::Aabb::new(ledge.contact.anchor, ae::Vec2::splat(5.0));
+            let target_box = ae::Aabb::new(ledge.contact.climb_target, player.size * 0.35);
+            draw_aabb(gizmos, world, anchor_box, cyan());
+            draw_aabb(gizmos, world, target_box, if ledge.climbing { green() } else { yellow() });
+            draw_arrow(
+                gizmos,
+                w2(world, ledge.contact.anchor),
+                w2(world, ledge.contact.climb_target),
+                if ledge.climbing { green() } else { yellow() },
+            );
+        }
+    }
+
     // Blink aim preview. A quick tap blinks a short distance; once the hold
     // crosses the threshold, the engine sets `blink_aiming` and the sandbox
     // enters bullet-time while previewing the longer precision destination.

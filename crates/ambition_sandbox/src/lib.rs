@@ -246,17 +246,19 @@ impl PlayerAttackState {
 }
 
 /// Sandbox-side ledge grab snapshot. Engine-pure data wrapped with
-/// the timer the climb animation drains.
+/// the timers needed for the hang and pull-up presentation.
 #[derive(Clone, Copy, Debug)]
 pub struct LedgeGrabState {
     pub contact: ae::LedgeContact,
-    /// Seconds since the cling-snap fired. Used by the climb
-    /// animation; doesn't gate anything yet.
+    /// Seconds since the cling-snap fired. Used for input affordances such as
+    /// giving held-into-wall input a tiny beat before it auto-starts the climb.
     pub elapsed: f32,
-    /// True once the climb has been requested (Up + Jump). The next
-    /// frame moves the player to `contact.climb_target` and clears
-    /// the state.
+    /// True once the climb has been requested. While true, the ledge driver
+    /// interpolates the player from `contact.anchor` to `contact.climb_target`
+    /// instead of teleporting there in one frame.
     pub climbing: bool,
+    /// Seconds spent in the pull-up transition.
+    pub climb_elapsed: f32,
 }
 
 impl SandboxRuntime {

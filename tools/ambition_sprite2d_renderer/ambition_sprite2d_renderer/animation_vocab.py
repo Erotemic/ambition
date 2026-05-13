@@ -62,10 +62,37 @@ ADVANCED_PLAYER_ANIMATION_ORDER: List[str] = [
     "stomp",
 ]
 
+# Traversal polish + directional sword attacks (Marth/Lucina shaped). These
+# rows are still review-only at the Rust level; the renderer produces them so
+# combat designers can iterate on the swing shapes before the gameplay layer
+# binds individual attacks to inputs.
+TRAVERSAL_POLISH_ANIMATION_ORDER: List[str] = [
+    "dash_startup",
+    "land_hard",
+    "land_recovery",
+    "wall_grab",
+    "ledge_climb",
+    "ledge_getup",
+    "float_glide",
+]
+
+DIRECTIONAL_ATTACK_ANIMATION_ORDER: List[str] = [
+    "attack_side",
+    "attack_up",
+    "attack_down",
+    "air_neutral",
+    "air_forward",
+    "air_back",
+    "air_down",
+    "air_up",
+]
+
 FULL_PLAYER_ANIMATION_ORDER: List[str] = (
     CORE_CHARACTER_ANIMATION_ORDER
     + EXTENDED_PLAYER_ANIMATION_ORDER
     + ADVANCED_PLAYER_ANIMATION_ORDER
+    + TRAVERSAL_POLISH_ANIMATION_ORDER
+    + DIRECTIONAL_ATTACK_ANIMATION_ORDER
 )
 
 DEFAULT_CORE_TIMINGS: AnimationMap = {
@@ -110,6 +137,27 @@ DEFAULT_ADVANCED_TIMINGS: AnimationMap = {
     "sleep": {"frames": 8, "duration_ms": 130},
     "hover": {"frames": 8, "duration_ms": 78},
     "stomp": {"frames": 6, "duration_ms": 70},
+}
+
+DEFAULT_TRAVERSAL_POLISH_TIMINGS: AnimationMap = {
+    "dash_startup": {"frames": 4, "duration_ms": 50},
+    "land_hard": {"frames": 8, "duration_ms": 95},
+    "land_recovery": {"frames": 6, "duration_ms": 75},
+    "wall_grab": {"frames": 6, "duration_ms": 110},
+    "ledge_climb": {"frames": 6, "duration_ms": 100},
+    "ledge_getup": {"frames": 8, "duration_ms": 75},
+    "float_glide": {"frames": 8, "duration_ms": 110},
+}
+
+DEFAULT_DIRECTIONAL_ATTACK_TIMINGS: AnimationMap = {
+    "attack_side": {"frames": 8, "duration_ms": 65},
+    "attack_up": {"frames": 8, "duration_ms": 65},
+    "attack_down": {"frames": 8, "duration_ms": 65},
+    "air_neutral": {"frames": 8, "duration_ms": 60},
+    "air_forward": {"frames": 7, "duration_ms": 62},
+    "air_back": {"frames": 7, "duration_ms": 62},
+    "air_down": {"frames": 7, "duration_ms": 70},
+    "air_up": {"frames": 7, "duration_ms": 62},
 }
 
 

@@ -58,6 +58,11 @@ class Pose:
     near_leg_lower: float = 85.0
     slash: float = 0.0
     slash_arc: float = 0.0
+    # Direction of the active slash arc. Drives the blade base angle and the
+    # decorative arc visuals. Values: "side" (default forward slash), "up",
+    # "down", "back", and the aerial variants "air_neutral", "air_forward",
+    # "air_back", "air_down", "air_up". "side" preserves the legacy behaviour.
+    slash_dir: str = "side"
     dash: float = 0.0
     collapse: float = 0.0
     dead: bool = False

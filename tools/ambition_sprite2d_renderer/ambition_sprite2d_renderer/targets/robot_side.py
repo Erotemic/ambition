@@ -21,7 +21,12 @@ from PIL import Image, ImageDraw
 
 from .common_draw import RESAMPLING, draw_capsule, draw_rotated_rounded_rect
 from .robot25d import BotSpec, Pose, parse_background
-from ..animation_vocab import DEFAULT_ADVANCED_TIMINGS, DEFAULT_EXTENDED_TIMINGS
+from ..animation_vocab import (
+    DEFAULT_ADVANCED_TIMINGS,
+    DEFAULT_DIRECTIONAL_ATTACK_TIMINGS,
+    DEFAULT_EXTENDED_TIMINGS,
+    DEFAULT_TRAVERSAL_POLISH_TIMINGS,
+)
 from ..rig import add, clamp, ease_in_out_sine, ease_out_cubic, lerp, smoothstep, vec
 
 Color = Tuple[int, int, int, int]
@@ -66,6 +71,8 @@ class SideRobotGenerator:
         "dash": {"frames": 6, "duration_ms": 65},
         **DEFAULT_EXTENDED_TIMINGS,
         **DEFAULT_ADVANCED_TIMINGS,
+        **DEFAULT_TRAVERSAL_POLISH_TIMINGS,
+        **DEFAULT_DIRECTIONAL_ATTACK_TIMINGS,
     }
 
     PALETTE = {
@@ -706,6 +713,308 @@ class SideRobotGenerator:
             p.collapse = fall
             p.dead = True
             p.eye_squint = 0.55
+        elif animation == "dash_startup":
+            # Very short animation-only pre-dash: torso winds back, far leg
+            # plants, near leg cocks. No actual horizontal travel here.
+            wind = smoothstep(clamp(t / 0.85, 0.0, 1.0))
+            p.root_x = -3.0 * wind
+            p.root_y = 1.5 * wind
+            p.body_tilt = -22.0 * wind
+            p.head_tilt = -6.0 * wind
+            p.far_arm_upper = 168.0 + 6.0 * wind
+            p.far_arm_lower = 152.0 + 4.0 * wind
+            p.near_arm_upper = 22.0 - 14.0 * wind
+            p.near_arm_lower = 14.0 - 10.0 * wind
+            p.far_leg_upper = 124.0 + 6.0 * wind
+            p.far_leg_lower = 78.0 + 4.0 * wind
+            p.near_leg_upper = 86.0 - 18.0 * wind
+            p.near_leg_lower = 60.0 - 12.0 * wind
+            p.eye_squint = 0.18 + 0.18 * wind
+        elif animation == "land_hard":
+            # Heavier counterpart to "land". Big squash on impact, slow rebound,
+            # arms thrown forward to brace, knees pancake.
+            impact = 1.0 - smoothstep(clamp(t / 0.42, 0.0, 1.0))
+            dust = math.sin(t * math.pi)
+            p.root_y = 11.0 * impact - 1.0 * dust
+            p.body_bob = 6.0 * impact
+            p.body_tilt = -12.0 * impact
+            p.head_tilt = -8.0 * impact
+            p.far_arm_upper = 158.0 - 22.0 * impact
+            p.far_arm_lower = 138.0 - 18.0 * impact
+            p.near_arm_upper = 12.0 + 38.0 * impact
+            p.near_arm_lower = 2.0 + 28.0 * impact
+            p.far_leg_upper = 142.0 - 4.0 * impact
+            p.far_leg_lower = 36.0
+            p.near_leg_upper = 102.0 - 6.0 * impact
+            p.near_leg_lower = 30.0
+            p.eye_squint = 0.42 * impact + 0.10
+        elif animation == "land_recovery":
+            # Rise back to neutral after a (hard) landing: legs unfold, torso
+            # straightens, arms drop. t=0 is "still crouched", t=1 is idle-ish.
+            rise = smoothstep(t)
+            p.root_y = 6.0 * (1.0 - rise)
+            p.body_bob = 3.0 * (1.0 - rise)
+            p.body_tilt = -8.0 * (1.0 - rise)
+            p.head_tilt = -4.0 * (1.0 - rise)
+            p.far_arm_upper = 158.0 + 10.0 * rise * 0.2
+            p.far_arm_lower = 142.0 + 6.0 * rise * 0.2
+            p.near_arm_upper = 26.0 - 6.0 * rise
+            p.near_arm_lower = 12.0 - 4.0 * rise
+            p.far_leg_upper = 132.0 - 22.0 * rise
+            p.far_leg_lower = 56.0 + 38.0 * rise
+            p.near_leg_upper = 96.0 - 22.0 * rise
+            p.near_leg_lower = 50.0 + 36.0 * rise
+            p.eye_squint = 0.20 * (1.0 - rise)
+        elif animation == "wall_grab":
+            # Pinned-against-wall hold. Both hands flat on the wall in front,
+            # body presses forward, legs dangle/coil with a subtle breathing
+            # micro-bob. Distinct from wall_slide (which is a downward scrape)
+            # and ledge_grab (which is overhead grip).
+            breathe = math.sin(t * math.tau)
+            p.root_x = 4.0 + breathe * 0.4
+            p.root_y = -1.0 + breathe * 0.6
+            p.body_tilt = 8.0 + breathe * 1.0
+            p.head_tilt = 4.0
+            p.far_arm_upper = 18.0 + breathe * 1.5
+            p.far_arm_lower = -6.0 + breathe * 1.5
+            p.near_arm_upper = 8.0 - breathe * 1.5
+            p.near_arm_lower = -14.0 - breathe * 1.5
+            p.far_leg_upper = 118.0 + breathe * 2.0
+            p.far_leg_lower = 96.0 - breathe * 2.0
+            p.near_leg_upper = 82.0 - breathe * 2.0
+            p.near_leg_lower = 92.0 + breathe * 2.0
+            p.eye_squint = 0.22
+        elif animation == "ledge_climb":
+            # Slow, deliberate haul-up against an overhead grip. Arms remain
+            # locked overhead; the body pulls upward in two pump phases while
+            # the legs scuff at the wall below for traction.
+            pump = math.sin(t * math.tau)
+            haul = smoothstep(clamp(t / 0.8, 0.0, 1.0))
+            p.root_x = -2.0 - 0.4 * pump
+            p.root_y = -8.0 + 5.0 * haul + 0.8 * pump
+            p.body_tilt = -9.0 + pump * 1.6
+            p.head_tilt = -5.0 + pump * 1.0
+            p.far_arm_upper = 198.0 - 6.0 * haul
+            p.far_arm_lower = 206.0 - 4.0 * haul
+            p.near_arm_upper = -54.0 + 6.0 * haul
+            p.near_arm_lower = -58.0 + 4.0 * haul
+            p.far_leg_upper = 124.0 + pump * 6.0
+            p.far_leg_lower = 88.0 - pump * 5.0
+            p.near_leg_upper = 90.0 - pump * 6.0
+            p.near_leg_lower = 78.0 + pump * 5.0
+            p.eye_squint = 0.30
+        elif animation == "float_glide":
+            # Sustained aerial float (Peach/Kirby-style). Body stays close to
+            # upright, arms held out for balance, gentle vertical bob and the
+            # legs hang relaxed below. Distinct from hover (which has rocket
+            # jets reading) and swim (water stroke loop).
+            bob = math.sin(t * math.tau)
+            drift = math.sin(t * math.tau + math.pi / 2)
+            p.root_x = drift * 0.8
+            p.root_y = -8.0 + bob * 1.8
+            p.body_bob = bob * 0.6
+            p.body_tilt = -3.0 + bob * 1.5
+            p.head_tilt = -2.0 + drift * 1.0
+            # Arms held outward like balance wings.
+            p.far_arm_upper = 218.0 + bob * 4.0
+            p.far_arm_lower = 214.0 + bob * 4.0
+            p.near_arm_upper = -38.0 - bob * 4.0
+            p.near_arm_lower = -42.0 - bob * 4.0
+            # Legs dangle softly; toes drift with the bob.
+            p.far_leg_upper = 102.0 + bob * 4.0
+            p.far_leg_lower = 96.0 - bob * 3.0
+            p.near_leg_upper = 78.0 - bob * 4.0
+            p.near_leg_lower = 86.0 + bob * 3.0
+            p.eye_squint = 0.10
+        elif animation == "ledge_getup":
+            # Mantling pop-up: arms transition from overhead grip (early) to
+            # planted push-off (mid) to standing (end). The body rises from
+            # under-the-ledge crouch to upright over the duration.
+            mantle = smoothstep(t)
+            pop = smoothstep(clamp((t - 0.45) / 0.55, 0.0, 1.0))
+            p.root_x = -2.0 + 6.0 * mantle
+            p.root_y = -8.0 + 8.0 * mantle - 2.0 * pop
+            p.body_tilt = -10.0 + 18.0 * mantle - 8.0 * pop
+            p.head_tilt = -5.0 + 9.0 * mantle - 4.0 * pop
+            p.far_arm_upper = lerp(200.0, 158.0, mantle)
+            p.far_arm_lower = lerp(208.0, 144.0, mantle)
+            p.near_arm_upper = lerp(-52.0, 28.0, mantle)
+            p.near_arm_lower = lerp(-56.0, 12.0, mantle)
+            p.far_leg_upper = lerp(122.0, 108.0, mantle)
+            p.far_leg_lower = lerp(92.0, 96.0, mantle)
+            p.near_leg_upper = lerp(92.0, 72.0, mantle)
+            p.near_leg_lower = lerp(76.0, 88.0, mantle)
+            p.eye_squint = 0.26 - 0.10 * mantle
+        elif animation == "attack_side":
+            # Marth-style forehand: short windup, fast forward slash, brief
+            # recovery. Re-uses the slash 3-phase shape but commits the body
+            # more and uses the "side" blade arc.
+            wind = 1.0 - smoothstep(clamp(t / 0.24, 0.0, 1.0))
+            strike = smoothstep(clamp((t - 0.18) / 0.34, 0.0, 1.0))
+            recover = smoothstep(clamp((t - 0.66) / 0.34, 0.0, 1.0))
+            p.root_x = -3.5 * wind + 6.0 * strike - 1.6 * recover
+            p.body_tilt = -10.0 * wind + 16.0 * strike - 4.0 * recover
+            p.head_tilt = -3.0 * wind + 6.0 * strike
+            p.far_arm_upper = 156.0
+            p.far_arm_lower = 145.0
+            p.near_arm_upper = -30.0 - 24.0 * wind + 64.0 * strike - 18.0 * recover
+            p.near_arm_lower = -18.0 - 22.0 * wind + 58.0 * strike - 20.0 * recover
+            p.far_leg_upper = 106.0 + 12.0 * strike
+            p.far_leg_lower = 92.0
+            p.near_leg_upper = 60.0 - 12.0 * wind
+            p.near_leg_lower = 80.0
+            p.slash = max(0.25, wind, strike)
+            p.slash_arc = strike
+            p.slash_dir = "side"
+            p.eye_squint = 0.22 + strike * 0.22
+        elif animation == "attack_up":
+            # Up-tilt: blade arcs from low forward up over the head to back-up.
+            # Body straightens up, near shoulder rolls back to swing overhead.
+            wind = 1.0 - smoothstep(clamp(t / 0.22, 0.0, 1.0))
+            strike = smoothstep(clamp((t - 0.18) / 0.40, 0.0, 1.0))
+            recover = smoothstep(clamp((t - 0.70) / 0.30, 0.0, 1.0))
+            p.root_y = -3.0 * strike + 1.0 * recover
+            p.body_tilt = 4.0 * wind - 8.0 * strike + 2.0 * recover
+            p.head_tilt = 4.0 * wind - 10.0 * strike + 2.0 * recover
+            p.far_arm_upper = 158.0 - 14.0 * strike
+            p.far_arm_lower = 146.0 - 12.0 * strike
+            # Near arm whips from cocked-back-low overhead to back-high.
+            p.near_arm_upper = 60.0 * wind - 70.0 * strike - 20.0 * recover
+            p.near_arm_lower = 70.0 * wind - 80.0 * strike - 24.0 * recover
+            p.far_leg_upper = 110.0 + 6.0 * strike
+            p.near_leg_upper = 72.0 - 6.0 * wind
+            p.slash = max(0.25, wind, strike)
+            p.slash_arc = strike
+            p.slash_dir = "up"
+            p.eye_squint = 0.20 + strike * 0.18
+        elif animation == "attack_down":
+            # Down-tilt: blade comes down from overhead to ground-low forward.
+            # Body bends; the near arm drops with weight.
+            wind = 1.0 - smoothstep(clamp(t / 0.22, 0.0, 1.0))
+            strike = smoothstep(clamp((t - 0.18) / 0.36, 0.0, 1.0))
+            recover = smoothstep(clamp((t - 0.68) / 0.32, 0.0, 1.0))
+            p.root_y = 3.0 * strike - 1.0 * recover
+            p.body_tilt = -14.0 * wind + 22.0 * strike - 6.0 * recover
+            p.head_tilt = -6.0 * wind + 12.0 * strike - 2.0 * recover
+            p.far_arm_upper = 162.0 + 8.0 * strike
+            p.far_arm_lower = 150.0 + 6.0 * strike
+            p.near_arm_upper = -52.0 * wind + 52.0 * strike - 12.0 * recover
+            p.near_arm_lower = -58.0 * wind + 60.0 * strike - 14.0 * recover
+            p.far_leg_upper = 118.0 + 10.0 * strike
+            p.far_leg_lower = 64.0 + 18.0 * strike
+            p.near_leg_upper = 86.0 - 6.0 * wind
+            p.near_leg_lower = 60.0 + 14.0 * strike
+            p.slash = max(0.25, wind, strike)
+            p.slash_arc = strike
+            p.slash_dir = "down"
+            p.eye_squint = 0.22 + strike * 0.20
+        elif animation == "air_neutral":
+            # Aerial neutral: short spin-slash with the blade making a near
+            # full revolution around the body. Body floats; legs tuck.
+            spin = smoothstep(clamp((t - 0.10) / 0.80, 0.0, 1.0))
+            float_t = math.sin(t * math.pi)
+            p.root_y = -6.0 + float_t * 2.0
+            p.body_tilt = -6.0 + spin * 24.0
+            p.head_tilt = -2.0 + spin * 12.0
+            p.far_arm_upper = 178.0
+            p.far_arm_lower = 168.0
+            p.near_arm_upper = -16.0 + spin * 18.0
+            p.near_arm_lower = -22.0 + spin * 18.0
+            p.far_leg_upper = 132.0 - 14.0 * float_t
+            p.far_leg_lower = 70.0 + 18.0 * float_t
+            p.near_leg_upper = 92.0 - 10.0 * float_t
+            p.near_leg_lower = 56.0 + 18.0 * float_t
+            p.slash = 0.85
+            p.slash_arc = spin
+            p.slash_dir = "air_neutral"
+            p.eye_squint = 0.24
+        elif animation == "air_forward":
+            # Fair: forward-down committed swing. Body leans into the swing,
+            # near arm whips forward, far leg trails behind for balance.
+            wind = 1.0 - smoothstep(clamp(t / 0.22, 0.0, 1.0))
+            strike = smoothstep(clamp((t - 0.18) / 0.42, 0.0, 1.0))
+            float_t = math.sin(t * math.pi)
+            p.root_x = -2.0 * wind + 5.0 * strike
+            p.root_y = -7.0 + float_t * 1.6
+            p.body_tilt = -6.0 * wind + 18.0 * strike
+            p.head_tilt = -2.0 * wind + 6.0 * strike
+            p.far_arm_upper = 188.0 - 12.0 * strike
+            p.far_arm_lower = 176.0 - 10.0 * strike
+            p.near_arm_upper = -42.0 * wind + 48.0 * strike
+            p.near_arm_lower = -48.0 * wind + 52.0 * strike
+            p.far_leg_upper = 140.0 - 12.0 * strike
+            p.far_leg_lower = 78.0 + 12.0 * strike
+            p.near_leg_upper = 102.0 - 10.0 * strike
+            p.near_leg_lower = 60.0 + 14.0 * strike
+            p.slash = max(0.25, wind, strike)
+            p.slash_arc = strike
+            p.slash_dir = "air_forward"
+            p.eye_squint = 0.24 + strike * 0.18
+        elif animation == "air_back":
+            # Bair: backward sword swing. Body turns/leans backward, near arm
+            # whips behind, blade traces back-up to back-down arc. Front shows
+            # a clear shoulder check / over-shoulder cut read.
+            wind = 1.0 - smoothstep(clamp(t / 0.22, 0.0, 1.0))
+            strike = smoothstep(clamp((t - 0.18) / 0.42, 0.0, 1.0))
+            float_t = math.sin(t * math.pi)
+            p.root_x = 2.0 * wind - 4.0 * strike
+            p.root_y = -7.0 + float_t * 1.6
+            p.body_tilt = 6.0 * wind - 14.0 * strike
+            p.head_tilt = 3.0 * wind - 6.0 * strike
+            p.far_arm_upper = 168.0 + 12.0 * strike
+            p.far_arm_lower = 156.0 + 10.0 * strike
+            # Near arm starts low-forward, whips to back-high.
+            p.near_arm_upper = 40.0 * wind + 180.0 * strike
+            p.near_arm_lower = 30.0 * wind + 188.0 * strike
+            p.far_leg_upper = 132.0 - 4.0 * strike
+            p.far_leg_lower = 96.0 - 8.0 * strike
+            p.near_leg_upper = 92.0 + 6.0 * strike
+            p.near_leg_lower = 86.0 + 10.0 * strike
+            p.slash = max(0.25, wind, strike)
+            p.slash_arc = strike
+            p.slash_dir = "air_back"
+            p.eye_squint = 0.24 + strike * 0.18
+        elif animation == "air_down":
+            # Dair: straight-down stab/spike. Body inverts slightly head-down,
+            # blade points down with a brief downward thrust pulse.
+            wind = 1.0 - smoothstep(clamp(t / 0.30, 0.0, 1.0))
+            thrust = smoothstep(clamp((t - 0.28) / 0.36, 0.0, 1.0))
+            p.root_y = -8.0 + 4.0 * thrust
+            p.body_tilt = 4.0 * wind + 12.0 * thrust
+            p.head_tilt = 2.0 * wind + 8.0 * thrust
+            p.far_arm_upper = 168.0 + 14.0 * thrust
+            p.far_arm_lower = 156.0 + 12.0 * thrust
+            p.near_arm_upper = 60.0 - 16.0 * wind + 18.0 * thrust
+            p.near_arm_lower = 78.0 - 18.0 * wind + 20.0 * thrust
+            p.far_leg_upper = 118.0 + 8.0 * thrust
+            p.far_leg_lower = 92.0
+            p.near_leg_upper = 84.0
+            p.near_leg_lower = 80.0
+            p.slash = max(0.3, thrust, wind)
+            p.slash_arc = thrust
+            p.slash_dir = "air_down"
+            p.eye_squint = 0.26 + thrust * 0.18
+        elif animation == "air_up":
+            # Uair: straight-up thrust. Body straightens, near arm reaches
+            # overhead, blade points up with a quick upward thrust pulse.
+            wind = 1.0 - smoothstep(clamp(t / 0.28, 0.0, 1.0))
+            thrust = smoothstep(clamp((t - 0.24) / 0.38, 0.0, 1.0))
+            p.root_y = -10.0 - 2.0 * thrust
+            p.body_tilt = -4.0 * wind - 10.0 * thrust
+            p.head_tilt = -3.0 * wind - 8.0 * thrust
+            p.far_arm_upper = 178.0 - 8.0 * thrust
+            p.far_arm_lower = 166.0 - 8.0 * thrust
+            # Near arm rises overhead.
+            p.near_arm_upper = -40.0 * wind - 92.0 * thrust
+            p.near_arm_lower = -34.0 * wind - 96.0 * thrust
+            p.far_leg_upper = 138.0 - 6.0 * thrust
+            p.far_leg_lower = 110.0 - 8.0 * thrust
+            p.near_leg_upper = 100.0 - 4.0 * thrust
+            p.near_leg_lower = 96.0 - 6.0 * thrust
+            p.slash = max(0.3, thrust, wind)
+            p.slash_arc = thrust
+            p.slash_dir = "air_up"
+            p.eye_squint = 0.24 + thrust * 0.18
         return p
 
 
@@ -978,20 +1287,42 @@ class SideRobotGenerator:
 
         _paste_rotated_local(img, layer, center, angle)
 
-    def _draw_robot_arm(self, img: Image.Image, d: ImageDraw.ImageDraw, shoulder: Point, a1: float, a2: float, tint: Color, spec: BotSpec, pal: Dict[str, Color], S: float, outline: float, slash: float = 0.0, slash_arc: float = 0.0) -> Point:
+    # Per-direction blade and arc-visual tuning for directional slashes.
+    # Each entry: (blade_base_deg, blade_sweep_deg, (arc_box_dx0, dy0, dx1, dy1)*S, arc_start, arc_end).
+    # blade_base + slash_arc*blade_sweep is fed to vec() for the blade tip;
+    # the arc box is relative to the hand position.
+    _SLASH_DIR_TABLE: Dict[str, Tuple[float, float, Tuple[float, float, float, float], float, float]] = {
+        "side":         (-18.0,  52.0, ( -5.0, -34.0,  42.0,  20.0),  -70.0,   42.0),
+        "up":           ( 80.0, -200.0, (-32.0, -52.0,  32.0,   8.0),  200.0,  350.0),
+        "down":         (-110.0, 200.0, (-22.0, -10.0,  42.0,  52.0),  -30.0,  130.0),
+        "back":         (162.0,  -52.0, (-42.0, -34.0,   5.0,  20.0),  138.0,  250.0),
+        "air_neutral":  ( 30.0,  340.0, (-32.0, -32.0,  32.0,  32.0),    0.0,  360.0),
+        "air_forward":  (-55.0,  130.0, ( -8.0, -30.0,  48.0,  28.0),  -90.0,   70.0),
+        "air_back":     (235.0, -130.0, (-48.0, -30.0,   8.0,  28.0),  110.0,  270.0),
+        "air_down":     ( 75.0,   30.0, (-16.0,  -4.0,  16.0,  42.0),   60.0,  120.0),
+        "air_up":       (-105.0, -30.0, (-16.0, -42.0,  16.0,   4.0), -120.0,  -60.0),
+    }
+
+    def _draw_robot_arm(self, img: Image.Image, d: ImageDraw.ImageDraw, shoulder: Point, a1: float, a2: float, tint: Color, spec: BotSpec, pal: Dict[str, Color], S: float, outline: float, slash: float = 0.0, slash_arc: float = 0.0, slash_dir: str = "side") -> Point:
         elbow = add(shoulder, vec(spec.arm_upper * S, a1))
         hand = add(elbow, vec(spec.arm_lower * S, a2))
         draw_capsule(d, shoulder, elbow, 2.7 * S, tint, pal["outline"], outline * 0.65)
         draw_capsule(d, elbow, hand, 2.5 * S, tint, pal["outline"], outline * 0.65)
         d.ellipse((hand[0] - 4 * S, hand[1] - 4 * S, hand[0] + 4 * S, hand[1] + 4 * S), fill=tint, outline=pal["outline"], width=max(1, int(outline * 0.65)))
         if slash:
-            blade_angle = -18 + slash_arc * 52
+            blade_base, blade_sweep, arc_rel, arc_start, arc_end = self._SLASH_DIR_TABLE.get(slash_dir, self._SLASH_DIR_TABLE["side"])
+            blade_angle = blade_base + slash_arc * blade_sweep
             tip = add(hand, vec(spec.blade_len * S, blade_angle))
             d.line([hand, tip], fill=pal["outline"], width=max(1, int(4.0 * S)))
             d.line([hand, tip], fill=pal["accent"], width=max(1, int(2.1 * S)))
             if slash_arc > 0.18:
-                arc_box = (hand[0] - 5 * S, hand[1] - 34 * S, hand[0] + 42 * S, hand[1] + 20 * S)
-                d.arc(arc_box, start=-70, end=42, fill=(12, 235, 255, 170), width=max(1, int(2.4 * S)))
+                arc_box = (
+                    hand[0] + arc_rel[0] * S,
+                    hand[1] + arc_rel[1] * S,
+                    hand[0] + arc_rel[2] * S,
+                    hand[1] + arc_rel[3] * S,
+                )
+                d.arc(arc_box, start=arc_start, end=arc_end, fill=(12, 235, 255, 170), width=max(1, int(2.4 * S)))
         return hand
 
     def _render_highres(self, spec: BotSpec, animation: str, frame_index: int, frame_count: int, size: Tuple[int, int], background: Optional[Color], scale: int) -> Image.Image:
@@ -1165,7 +1496,7 @@ class SideRobotGenerator:
         self._draw_archetype_accessories(character_img, character_draw, spec, pal, S, root_x, ground_y, body_center, head_center)
 
         # Near/front arm and weapon after the torso/head.
-        self._draw_robot_arm(character_img, character_draw, shoulder_near, p.near_arm_upper, p.near_arm_lower, pal["shell"], spec, pal, S, outline, p.slash, p.slash_arc)
+        self._draw_robot_arm(character_img, character_draw, shoulder_near, p.near_arm_upper, p.near_arm_lower, pal["shell"], spec, pal, S, outline, p.slash, p.slash_arc, p.slash_dir)
 
         if animation in {"blink_out", "blink_in"}:
             self._composite_teleport_actor(img, character_img, animation, frame_index, frame_count, S)

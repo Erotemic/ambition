@@ -63,7 +63,10 @@ pub use interaction::{
     Interactable, InteractionKind, Pickup, PickupKind,
 };
 pub use kinematic::{step_kinematic, KinematicBody, KinematicInputs, KinematicTuning};
-pub use ledge_grab::{probe_ledge_grab, LedgeContact};
+pub use ledge_grab::{
+    probe_ledge_grab, LedgeContact, LedgeGrabState, LEDGE_CLIMB_TIME, LEDGE_MIN_CLIMB_DELAY,
+    LEDGE_TOWARD_CLIMB_DELAY,
+};
 pub use movement::{
     blink_destination, blink_destination_to_point, default_player_body_size, update_player,
     update_player_control, update_player_control_with_tuning, update_player_simulation,

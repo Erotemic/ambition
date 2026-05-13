@@ -77,15 +77,16 @@ without each verb needing its own bespoke collision code.
 
 ### Crouch driver contract
 
-`crate::body_mode::update_body_mode` runs in the progression chain
-after `sandbox_update` (the same shelf as `ledge_grab` and `swim`).
-It is a deliberate post-update mutator on `runtime.player`; the shrink
-case is a strict subset of the previous AABB so collision repair on
-the next sim tick has nothing new to fix, and the stand-up case calls
-`fits_at` itself before mutating, so the simulator never sees a body
-penetrating a ceiling. The driver explicitly skips the resize while
-`dash_timer > 0`, `blink_aiming`, `wall_clinging`, `wall_climbing`,
-or any `water_contact` is set so those mechanics keep ownership of
+`crate::body_mode::update_body_mode` still runs in the progression chain
+after `sandbox_update`, but ledge grab and swim no longer live on that shelf:
+both are owned by `ambition_engine::movement`. Body-mode resize remains a
+sandbox-side mutator on `runtime.player`; the shrink case is a strict subset of
+the previous AABB so collision repair on the next sim tick has nothing new to
+fix, and the stand-up case calls `fits_at` itself before mutating, so the
+simulator never sees a body penetrating a ceiling. The driver explicitly skips
+the resize while `dash_timer > 0`, `blink_aiming`, `wall_clinging`,
+`wall_climbing`, `ledge_grab`, or any `water_contact` is set so those mechanics
+keep ownership of
 the player posture.
 
 Tests live in `crate::body_mode::tests` and cover: down-held-grounded

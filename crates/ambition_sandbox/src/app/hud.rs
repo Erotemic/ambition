@@ -281,12 +281,12 @@ pub(super) fn update_hud(
         })
         .unwrap_or_default();
     let ledge_line = runtime
+        .player
         .ledge_grab
         .as_ref()
         .map(|ledge| {
             if ledge.climbing {
-                let progress =
-                    (ledge.climb_elapsed / crate::ledge_grab::LEDGE_CLIMB_TIME).clamp(0.0, 1.0);
+                let progress = (ledge.climb_elapsed / ae::LEDGE_CLIMB_TIME).clamp(0.0, 1.0);
                 format!("\nLEDGE: climb {:.0}%", progress * 100.0)
             } else {
                 "\nLEDGE: hang  brief delay then up/toward=climb  down/away=drop".to_string()

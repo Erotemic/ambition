@@ -332,38 +332,24 @@ the full layout, persistence, and what is still deferred (smooth
 camera ease, switch sprite swap, multi-encounter authoring, HUD
 wave indicator).
 
-## Player-owned mechanics layered after `sandbox_update`
+## Player-owned movement mechanics
 
-The recent rapid additions — F3 stats editor (mana / slash damage
-/ invincible), ledge grab, swim — were intentionally landed as
-narrow systems running *after* `sandbox_update` so they did not
-require splitting the dense `movement.rs` simulator. The cost is a
-small split-brain in the simulation order:
+Ledge grab and swim now live in `ambition_engine::movement` instead of running
+as post-`sandbox_update` player mutators:
 
-- `crate::ledge_grab::update_ledge_grab` mutates
-  `runtime.player.pos / vel / on_ground / on_wall / wall_clinging`
-  outside the main movement step, gated on
-  `runtime.player.abilities.ledge_grab`. When the ability is off
-  the system clears `SandboxRuntime::ledge_grab` to `None` and
-  returns immediately — no movement effect.
-- `crate::swim::update_swim` reads `FeatureRuntime::water_volumes`
-  and writes `runtime.player.vel` while the player AABB is
-  submerged. Passive drag and the fall-speed cap always apply
-  (so an un-upgraded player splashes through water sluggishly);
-  the active upward swim impulse is gated on
-  `runtime.player.abilities.swim`.
-- `SandboxRuntime` now holds `mana_current` / `mana_max` /
-  `slash_damage` / `invincible` / `ledge_grab` /
-  `player_died_pending` — all conceptually per-player state, all
-  on the global SP-only resource. The architecture-targets memory
-  is explicit that this shape does not extend to multi-player or
-  per-player input feel. See the corresponding entries in
-  `docs/tech_debt_log.md` (under "Simulation-order debt").
+- `Player::ledge_grab` is engine-owned state.
+  `update_player_simulation_with_tuning` latches, holds, drops, and climbs ledges
+  in the same tick that owns gravity, wall contact, water, and collision. The
+  ledge probe accepts any standable pull-up surface (`Solid`, `BlinkWall`, or
+  `OneWay`) and rejects candidates whose pull-up body would be blocked.
+- Water/swim behavior is also engine-owned: the movement tick queries
+  `World::water_at`, drowns/reset when `!abilities.swim`, converts buffered
+  jump presses into `MovementOp::SwimStroke`, and applies buoyancy/drag/fall
+  caps while submerged.
 
-Treat these post-update systems as *transitional integration
-layers*. The migration target is to fold their state into a unified
-player component / state machine so they participate in the main
-movement / trace / state-machine pipeline, not bolt onto it.
+The remaining post-update body-mode driver still mutates `Player::body_mode`
+for crouch/morph/climbing entry/exit, but it explicitly avoids fighting active
+ledge/swim states. F3 stat edits remain sandbox-side debug tooling.
 
 ## Character AI: pure evaluator, not yet authoritative
 
@@ -491,8 +477,8 @@ engine helper `try_change_body_mode` adjusts `pos.y` to keep the
 player's feet planted, runs `BodyShape::fits_at` against the target
 shape, and rejects the transition if the new AABB would overlap any
 caller-matched block. Mid-action mechanics (dash, blink-aim,
-wall-cling/climb, in-water swim) own their own posture; the driver
-no-ops while any of them are active. `Player::reset_to` rebuilds
+wall-cling/climb, ledge hang/climb, in-water swim) own their own posture; the
+body-mode driver no-ops while any of them are active. `Player::reset_to` rebuilds
 the struct so death/respawn always restores Standing.
 
 ## Biome / room-music metadata seam

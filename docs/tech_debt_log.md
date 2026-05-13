@@ -14,57 +14,19 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Simulation-order debt
 
-- **HIGH — Player-owned mechanics run *after* `sandbox_update` and
-  bypass main movement/trace assumptions**
-  - Files: `crates/ambition_sandbox/src/ledge_grab.rs`,
-    `crates/ambition_sandbox/src/swim.rs`,
-    `crates/ambition_sandbox/src/app.rs` (progression chain after
-    `sandbox_update`).
-  - `update_ledge_grab` and `update_swim` mutate
-    `runtime.player.pos / vel / on_ground / on_wall / wall_clinging`
-    *outside* the main `movement.rs` step. Trace recording fires
-    after them so the snapshot is consistent, but any invariant
-    enforced inside `movement.rs` (collision repair, ground/wall
-    flag derivation, locomotion-state transitions) does not run a
-    second time after these systems write. Today this is benign —
-    swim only damps velocity inside water, ledge grab snaps the
-    player to a ledge anchor that the engine probe vetted — but
-    the next post-update mechanic that, say, repositions the
-    player horizontally would need to re-validate against
-    `World::blocks` itself or accept that the next frame's
-    collision step has to fix it up.
-  - Same shape covers the F3 stats editor's writes
-    (`mana_current`, `slash_damage`, `invincible`): they're a
-    sandbox-side veneer that the engine doesn't know about.
-  - **Future target**: move player-owned mechanics toward explicit
-    Player component / state-machine ownership inside the engine
-    (one unified "player mechanics" phase, not N post-update
-    bolt-ons). Until then: don't add a new post-update player
-    mutator without writing the ordering decision down here, and
-    prefer extending the engine state machine over adding another
-    system to the chain.
-  - **Multiplayer caveat**: this isn't a "make it MP-ready" item.
-    `SandboxRuntime` is a global SP-only resource by construction;
-    the per-player split is its own follow-up. This entry is
-    purely about simulation-order coherence within SP.
-
 - **MED — `SandboxRuntime` collected new per-player fields without
-  per-player ownership** (partially resolved 2026-05-07)
+  per-player ownership** (partially resolved 2026-05-13)
   - File: `crates/ambition_sandbox/src/lib.rs`
-  - Five of the six fields originally listed have now been promoted
-    to `Player` on the engine side:
+  - The original cluster of per-player fields has mostly moved out of the
+    global SP-only runtime:
     - `mana_current` / `mana_max` → `Player::mana: ResourceMeter`
     - `slash_damage` → `Player::damage_multiplier`
     - `invincible` → `Player::invincible`
-    - `player_died_pending` → `PlayerDiedMessage` (Bevy buffered
-      message, not a per-player field at all)
-  - Still on `SandboxRuntime`: `ledge_grab` (sandbox-side state
-    machine; engine promotion tracked separately under "Ledge grab
-    + climb-up promotion to engine" in TODO.md).
-  - **Rule of thumb**: if a new field is conceptually per-player,
-    open a tech-debt entry instead of treating "stick it on
-    `SandboxRuntime`" as zero-cost. The list is the budget the
-    eventual per-player split has to spend.
+    - `player_died_pending` → `PlayerDiedMessage`
+    - `ledge_grab` → `Player::ledge_grab` in `ambition_engine`
+  - Remaining global runtime state is mostly presentation/debug/room glue.
+    The eventual per-player split is still its own follow-up, but ledge/swim no
+    longer bypass the main movement tick.
 
 ### Runtime / state
 
@@ -172,15 +134,6 @@ to the bottom under "Closed" with the commit that fixed them.
     + a small `tick(snapshot) → events` API so all combatants share
     one state machine. Boss patterns then layer on top via
     `BossPatternStep`.
-
-- **MED — `SandboxRuntime::ledge_grab` shoves new player state
-  outside `Player`**
-  - File: `crates/ambition_sandbox/src/lib.rs`
-  - Done deliberately to avoid touching the dense `movement.rs`. The
-    cost is a small split-brain: gravity / wall-cling state lives on
-    `Player`, ledge-grab state on `SandboxRuntime`. When the
-    character state machine refactor lands, fold the ledge-grab state
-    into the unified player state.
 
 - **RESOLVED 2026-05-07 — `mana_current` / `mana_max` live on
   `SandboxRuntime`, not `Player`**
@@ -334,6 +287,16 @@ to the bottom under "Closed" with the commit that fixed them.
     to look noisy. Periodic cleanup.
 
 ## Closed
+- **MED — `SandboxRuntime::ledge_grab` stored player state outside `Player`** —
+  closed by the ledge/swim movement-pipeline refactor (2026-05-13).
+  `Player::ledge_grab` now lives in the engine and is ticked by
+  `update_player_simulation_with_tuning`.
+
+- **HIGH — Ledge grab / swim bypassed the main movement tick** —
+  closed by the ledge/swim movement-pipeline refactor (2026-05-13).
+  Ledge grab state now lives on `ae::Player` and is advanced by
+  `update_player_simulation_with_tuning`; water/swim was already engine-owned
+  and now emits an explicit `MovementOp::SwimStroke`.
 
 - **HIGH — Hostile NPC death wasn't persisted (respawn loop)** —
   closed by commit `75ebfcb` (2026-05-05). `apply_player_attack`

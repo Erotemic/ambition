@@ -44,6 +44,8 @@ pub enum LocomotionState {
     WallSlide,
     WallCling,
     WallClimb,
+    LedgeHang,
+    LedgeClimb,
     Dashing,
     Blinking,
     BlinkAiming,
@@ -69,6 +71,8 @@ impl LocomotionState {
             LocomotionState::WallSlide => "WallSlide",
             LocomotionState::WallCling => "WallCling",
             LocomotionState::WallClimb => "WallClimb",
+            LocomotionState::LedgeHang => "LedgeHang",
+            LocomotionState::LedgeClimb => "LedgeClimb",
             LocomotionState::Dashing => "Dashing",
             LocomotionState::Blinking => "Blinking",
             LocomotionState::BlinkAiming => "BlinkAiming",
@@ -97,6 +101,13 @@ impl LocomotionState {
         }
         if player.fly_enabled {
             return LocomotionState::Flying;
+        }
+        if let Some(ledge) = player.ledge_grab {
+            return if ledge.climbing {
+                LocomotionState::LedgeClimb
+            } else {
+                LocomotionState::LedgeHang
+            };
         }
         if player.wall_climbing {
             return LocomotionState::WallClimb;

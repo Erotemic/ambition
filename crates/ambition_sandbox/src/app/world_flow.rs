@@ -214,7 +214,28 @@ pub(super) fn handle_player_events(
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
                 sfx.push(SfxMessage::Pogo { pos });
             }
-            ae::MovementOp::WallCling | ae::MovementOp::WallClimb | ae::MovementOp::Slash => {}
+            ae::MovementOp::SwimStroke => {
+                sfx.push(SfxMessage::Jump { pos });
+                vfx.push(VfxMessage::Burst {
+                    pos,
+                    count: 8,
+                    speed: 150.0,
+                    color: [0.50, 0.85, 1.0, 0.70],
+                    kind: ParticleKind::Dust,
+                });
+            }
+            ae::MovementOp::LedgeGrab => {
+                vfx.push(VfxMessage::Dust {
+                    pos: runtime.player.pos,
+                    facing: runtime.player.facing,
+                });
+            }
+            ae::MovementOp::LedgeClimbStart
+            | ae::MovementOp::LedgeClimbFinish
+            | ae::MovementOp::LedgeDrop
+            | ae::MovementOp::WallCling
+            | ae::MovementOp::WallClimb
+            | ae::MovementOp::Slash => {}
             ae::MovementOp::Reset => {
                 sfx.push(SfxMessage::Reset { pos });
             }

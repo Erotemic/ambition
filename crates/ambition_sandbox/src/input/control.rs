@@ -211,6 +211,7 @@ impl ControlFrame {
             drop_through_pressed,
             attack_pressed: self.attack_pressed,
             pogo_pressed: self.pogo_pressed,
+            interact_pressed: self.interact_pressed,
             reset_pressed: false,
             control_dt,
         }

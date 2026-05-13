@@ -25,7 +25,7 @@ pub struct FrameEvents {
 }
 
 impl FrameEvents {
-    pub(super) fn op(&mut self, player: &mut Player, op: MovementOp) {
+    pub(crate) fn op(&mut self, player: &mut Player, op: MovementOp) {
         self.operations.push(op);
         player.record(op);
     }

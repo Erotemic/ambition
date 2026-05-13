@@ -1,20 +1,24 @@
-//! Ledge grab probe and contact data.
+//! Ledge grab probe, state, and movement-pipeline tick helpers.
 //!
-//! Pure (Bevy-free) primitives the sandbox calls each frame when the
-//! player has the `ledge_grab` ability and is wall-clinging without a
-//! ledge above. The probe answers "is there a ledge corner I can snap
-//! onto, and where is it?" — the sandbox owns the actual snap, input
-//! gating, and climb animation.
-//!
-//! Why this lives outside `movement.rs`: that module is dense and
-//! hostile to incremental changes. The ledge grab integration is
-//! deliberately layered on top via a separate sandbox-side step so
-//! fragmenting the player simulation isn't a precondition for the
-//! mechanic shipping.
+//! The probe answers: "is there a ledge corner I can snap onto, and
+//! where is the hang / pull-up path?" The state machine is engine-owned so
+//! ledge grab participates in the same movement tick as gravity, collision,
+//! water, and wall state instead of running as a post-update sandbox mutator.
 
 use crate::geometry::{Aabb, AabbExt};
+use crate::movement::{InputState, MovementOp, Player};
 use crate::world::{BlockKind, World};
 use crate::Vec2;
+
+/// Duration of the ledge pull-up transition.
+pub const LEDGE_CLIMB_TIME: f32 = 0.24;
+
+/// Require a tiny hang beat before held horizontal input into the platform
+/// auto-starts the climb.
+pub const LEDGE_TOWARD_CLIMB_DELAY: f32 = 0.045;
+
+/// Minimum hang time before any climb input can start the pull-up.
+pub const LEDGE_MIN_CLIMB_DELAY: f32 = 0.16;
 
 /// What surface, and where, does the probe accept a ledge grab?
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -32,6 +36,63 @@ pub struct LedgeContact {
     pub climb_target: Vec2,
 }
 
+/// Engine-owned ledge-grab state for the player.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LedgeGrabState {
+    pub contact: LedgeContact,
+    /// Seconds since the cling-snap fired. Used for input affordances such as
+    /// giving held-into-wall input a tiny beat before it auto-starts the climb.
+    pub elapsed: f32,
+    /// True once the climb has been requested. While true, the movement tick
+    /// interpolates the player from `contact.anchor` to `contact.climb_target`.
+    pub climbing: bool,
+    /// Seconds spent in the pull-up transition.
+    pub climb_elapsed: f32,
+}
+
+impl LedgeGrabState {
+    pub fn hanging(contact: LedgeContact) -> Self {
+        Self {
+            contact,
+            elapsed: 0.0,
+            climbing: false,
+            climb_elapsed: 0.0,
+        }
+    }
+}
+
+fn smoothstep(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+fn climb_position(contact: LedgeContact, progress: f32) -> Vec2 {
+    let t = smoothstep(progress);
+    contact.anchor + (contact.climb_target - contact.anchor) * t
+}
+
+pub fn into_platform_axis(contact: LedgeContact) -> f32 {
+    -contact.wall_normal_x
+}
+
+pub fn away_from_platform_axis(contact: LedgeContact) -> f32 {
+    contact.wall_normal_x
+}
+
+fn ledge_surface_kind(kind: BlockKind) -> bool {
+    matches!(
+        kind,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
+    )
+}
+
+fn ledge_clearance_blocker_kind(kind: BlockKind) -> bool {
+    matches!(
+        kind,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
+    )
+}
+
 /// Probe for a grabbable ledge while the player is wall-clinging.
 ///
 /// Inputs:
@@ -40,10 +101,10 @@ pub struct LedgeContact {
 /// - `wall_normal_x` — what `Player::wall_normal_x` reads (+/-1).
 /// - `world` — the active collision world.
 ///
-/// The probe scans for a Solid block whose top edge is within a
-/// shoulder-height band of the player and whose vertical face matches
-/// the wall the player is clinging to. If found, returns the snap
-/// anchor and the climb target.
+/// The probe scans for a standable ledge surface (`Solid`, `BlinkWall`, or
+/// `OneWay`) whose top edge is within a shoulder-height band of the player and
+/// whose vertical edge matches the side the player is reaching toward. If
+/// found, returns the snap anchor and the climb target.
 pub fn probe_ledge_grab(
     player_pos: Vec2,
     player_size: Vec2,
@@ -71,7 +132,7 @@ pub fn probe_ledge_grab(
     };
     let mut best: Option<LedgeContact> = None;
     for block in &world.blocks {
-        if !matches!(block.kind, BlockKind::Solid) {
+        if !ledge_surface_kind(block.kind) {
             continue;
         }
         let top = block.aabb.top();
@@ -112,7 +173,7 @@ pub fn probe_ledge_grab(
             continue;
         }
         let blocked = world.body_overlaps_any(probe_aabb, |b| {
-            matches!(b.kind, BlockKind::Solid) && !std::ptr::eq(b, block)
+            ledge_clearance_blocker_kind(b.kind) && !std::ptr::eq(b, block)
         });
         if blocked {
             continue;
@@ -151,6 +212,133 @@ pub fn probe_ledge_grab(
         }
     }
     best
+}
+
+/// If the player is currently hanging/climbing, advance that state and return
+/// true to indicate that the normal movement integrator should not run this
+/// frame.
+pub fn tick_active_ledge_grab(
+    player: &mut Player,
+    input: InputState,
+    dt: f32,
+    events: &mut crate::movement::FrameEvents,
+) -> bool {
+    let Some(mut state) = player.ledge_grab else {
+        return false;
+    };
+    if !player.abilities.ledge_grab {
+        player.ledge_grab = None;
+        return false;
+    }
+
+    state.elapsed += dt;
+    player.facing = into_platform_axis(state.contact);
+
+    if state.climbing {
+        state.climb_elapsed += dt;
+        let progress = (state.climb_elapsed / LEDGE_CLIMB_TIME).clamp(0.0, 1.0);
+        player.pos = climb_position(state.contact, progress);
+        player.vel = Vec2::ZERO;
+        player.on_ground = false;
+        player.wall_clinging = false;
+        player.wall_climbing = false;
+        player.on_wall = false;
+
+        if progress >= 1.0 {
+            player.pos = state.contact.climb_target;
+            player.vel = Vec2::ZERO;
+            player.on_ground = true;
+            player.wall_clinging = false;
+            player.wall_climbing = false;
+            player.on_wall = false;
+            player.ledge_grab = None;
+            events.op(player, MovementOp::LedgeClimbFinish);
+        } else {
+            player.ledge_grab = Some(state);
+        }
+        return true;
+    }
+
+    let input_up = input.axis_y < -0.4;
+    let input_down = input.axis_y > 0.4;
+    let input_into_platform = input.axis_x * into_platform_axis(state.contact) > 0.4;
+    let input_away_from_platform = input.axis_x * away_from_platform_axis(state.contact) > 0.4;
+    let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
+    let want_climb = climb_unlocked
+        && (input_up
+            || input.interact_pressed
+            || input.jump_pressed
+            || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform));
+    let want_drop = input_down || input_away_from_platform;
+
+    if want_drop && !want_climb {
+        player.wall_clinging = false;
+        player.wall_climbing = false;
+        player.on_wall = false;
+        player.ledge_grab = None;
+        events.op(player, MovementOp::LedgeDrop);
+        return true;
+    }
+    if want_climb {
+        state.climbing = true;
+        state.climb_elapsed = 0.0;
+        player.pos = state.contact.anchor;
+        player.vel = Vec2::ZERO;
+        player.on_ground = false;
+        player.wall_clinging = false;
+        player.wall_climbing = false;
+        player.on_wall = false;
+        player.ledge_grab = Some(state);
+        events.op(player, MovementOp::LedgeClimbStart);
+        return true;
+    }
+
+    player.pos = state.contact.anchor;
+    player.vel = Vec2::ZERO;
+    player.wall_clinging = true;
+    player.wall_climbing = false;
+    player.on_wall = true;
+    player.ledge_grab = Some(state);
+    true
+}
+
+fn requested_wall_normal(player: &Player, input: InputState) -> Option<f32> {
+    if player.wall_clinging && player.wall_normal_x.abs() >= 0.5 {
+        return Some(player.wall_normal_x);
+    }
+    if !player.on_ground && input.axis_x.abs() > 0.4 {
+        return Some(-input.axis_x.signum());
+    }
+    None
+}
+
+/// Probe for and start a new ledge grab after normal collision has established
+/// this frame's wall/airborne state. Returns true when a new grab latched.
+pub fn try_start_ledge_grab(
+    world: &World,
+    player: &mut Player,
+    input: InputState,
+    events: &mut crate::movement::FrameEvents,
+) -> bool {
+    if !player.abilities.ledge_grab || player.ledge_grab.is_some() || player.on_ground {
+        return false;
+    }
+    let Some(wall_normal) = requested_wall_normal(player, input) else {
+        return false;
+    };
+    let Some(contact) = probe_ledge_grab(player.pos, player.size, wall_normal, world) else {
+        return false;
+    };
+    player.pos = contact.anchor;
+    player.vel = Vec2::ZERO;
+    player.facing = into_platform_axis(contact);
+    player.wall_clinging = true;
+    player.wall_climbing = false;
+    player.on_wall = true;
+    player.wall_normal_x = contact.wall_normal_x;
+    player.ledge_grab = Some(LedgeGrabState::hanging(contact));
+    events.op(player, MovementOp::LedgeGrab);
+    true
 }
 
 #[cfg(test)]
@@ -272,5 +460,43 @@ mod tests {
         // Climb target is to the left of the anchor (toward the
         // block's interior on top).
         assert!(contact.climb_target.x < contact.anchor.x);
+    }
+    #[test]
+    fn finds_ledge_on_blink_wall() {
+        let world = world_with(vec![Block::blink_wall(
+            "blink_ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 200.0),
+            crate::world::BlinkWallTier::Soft,
+        )]);
+        let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world);
+        assert!(
+            contact.is_some(),
+            "blink walls are standable ledge surfaces"
+        );
+    }
+
+    #[test]
+    fn finds_ledge_on_one_way_platform_edge() {
+        let world = world_with(vec![Block::one_way(
+            "thin_ledge",
+            Vec2::new(100.0, 100.0),
+            Vec2::new(200.0, 16.0),
+        )]);
+        let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world);
+        assert!(contact.is_some(), "one-way platforms can be pulled up onto");
+    }
+
+    #[test]
+    fn rejects_when_lock_door_blocks_pull_up_space() {
+        let world = world_with(vec![
+            Block::one_way("ledge", Vec2::new(100.0, 100.0), Vec2::new(200.0, 16.0)),
+            Block::solid("lock_door", Vec2::new(104.0, 40.0), Vec2::new(48.0, 80.0)),
+        ]);
+        let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world);
+        assert!(
+            contact.is_none(),
+            "a solid lock door in the climb target must block the grab"
+        );
     }
 }

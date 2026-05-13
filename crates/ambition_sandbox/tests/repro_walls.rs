@@ -197,7 +197,7 @@ fn locate_teleport_target_block() {
 }
 
 /// Replay against the FULL square_arena world (all 15 LDtk-derived blocks
-/// + moving platform via `world_with_sandbox_solids`). Step at the
+/// + room-authored moving platforms via `world_with_sandbox_solids`). Step at the
 /// precise live `real_dt` from the trace.
 #[test]
 fn square_arena_wall_cling_full_world_does_not_teleport() {
@@ -213,9 +213,9 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
         .find(|s| s.id == "square_arena")
         .expect("arena");
     let world = arena.world.clone();
-    let platform = sb::platforms::MovingPlatformState::time_reference(&world);
+    let platforms = arena.moving_platforms.clone();
     let features = sb::features::FeatureRuntime::from_world(&world);
-    let augmented = sb::features::world_with_sandbox_solids(&world, &platform, &features);
+    let augmented = sb::features::world_with_sandbox_solids(&world, &platforms, &features);
 
     let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
     // EXACT live state from frame 1087 of trace 1777905256-095151097-000000.
@@ -280,9 +280,9 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
         .find(|s| s.id == "square_arena")
         .expect("arena");
     let world = arena.world.clone();
-    let platform = sb::platforms::MovingPlatformState::time_reference(&world);
+    let platforms = arena.moving_platforms.clone();
     let features = sb::features::FeatureRuntime::from_world(&world);
-    let augmented = sb::features::world_with_sandbox_solids(&world, &platform, &features);
+    let augmented = sb::features::world_with_sandbox_solids(&world, &platforms, &features);
 
     let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
     player.pos = ae::Vec2::new(62.0, 1567.9125);

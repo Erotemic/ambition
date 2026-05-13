@@ -151,6 +151,11 @@ pub struct Player {
     /// `AgentObservation`. Full `BodyMode::Climbing` integration is a
     /// follow-up.
     pub climbable_contact: Option<crate::world::ClimbableContact>,
+    /// Engine-owned ledge hang / pull-up state. `update_player_simulation` owns
+    /// this state so ledge grabs participate in the same collision pipeline as
+    /// wall contact, water, and gravity instead of being corrected by a later
+    /// sandbox system.
+    pub ledge_grab: Option<crate::ledge_grab::LedgeGrabState>,
 }
 
 impl Player {
@@ -209,6 +214,7 @@ impl Player {
             body_mode: crate::player_state::BodyMode::Standing,
             water_contact: None,
             climbable_contact: None,
+            ledge_grab: None,
         }
     }
 

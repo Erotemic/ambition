@@ -313,7 +313,7 @@ fn draw_player_debug(
     // is a high-tempo traversal affordance that should be visible during feel
     // tuning without adding another F3 row.
     if developer_tools.show_combat_preview {
-        if let Some(ledge) = runtime.ledge_grab.as_ref() {
+        if let Some(ledge) = runtime.player.ledge_grab.as_ref() {
             let anchor_box = ae::Aabb::new(ledge.contact.anchor, ae::Vec2::splat(5.0));
             let target_box = ae::Aabb::new(ledge.contact.climb_target, player.size * 0.35);
             draw_aabb(gizmos, world, anchor_box, cyan());

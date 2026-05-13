@@ -136,7 +136,6 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::quest::push_room_entered_quest_events,
                 crate::quest::apply_quest_advance_events,
                 crate::quest::grant_quest_completion_rewards,
-                crate::ledge_grab::update_ledge_grab,
                 crate::body_mode::update_body_mode,
                 crate::rooms::sync_active_room_metadata,
                 crate::rooms::sync_room_music_request,

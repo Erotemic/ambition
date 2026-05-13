@@ -310,32 +310,19 @@ iteration. Persistence (Cleared / Failed) survives reload. See
 items (smooth camera ease, switch sprite swap, multi-encounter
 authoring, on-screen wave indicator).
 
-## Post-`sandbox_update` mechanics (ledge grab + swim)
+## Player-owned movement mechanics
 
-`crate::ledge_grab::update_ledge_grab` and
-`crate::swim::update_swim` are sandbox-side systems that run
-*after* `sandbox_update` and mutate `runtime.player` directly.
-They were landed as narrow add-ons so the dense `movement.rs`
-simulator did not have to be reshaped to ship the mechanic. Treat
-them as transitional integration layers, not the final shape:
+Ledge grab and swim are now engine-owned movement mechanics, not
+post-`sandbox_update` sandbox mutators. `ae::Player::ledge_grab` is advanced by
+`ae::update_player_simulation_with_tuning`, and water/swim behavior is handled
+by the same simulation tick through `World::water_at`.
 
-- ledge_grab off → system clears `SandboxRuntime::ledge_grab` and
-  is a no-op on the player.
-- swim off → passive drag + fall-speed cap still apply when the
-  player is in a water volume; the active upward impulse is gated
-  on `runtime.player.abilities.swim`.
+When changing ledge behavior, update `crates/ambition_engine/src/ledge_grab.rs`
+and the movement tests. The sandbox module `crates/ambition_sandbox/src/ledge_grab.rs`
+is only a presentation/test shim that re-exports timing constants. Avoid adding
+new systems that write `runtime.player.pos` after `sandbox_update`; extend the
+engine movement state instead.
 
-Because these run outside the main movement / trace step, any new
-mechanic that *also* mutates the player after `sandbox_update`
-must explicitly think about ordering against ledge_grab / swim. If
-you need to add another such system, register it on the
-`progression` chain in `app.rs` after the existing pair, and
-prefer reading `runtime.player` rather than re-deriving collision
-state.
-
-The eventual fix is folding these into a unified player-owned
-state machine. See `docs/tech_debt_log.md` ("Simulation-order
-debt") for the migration plan.
 
 ## Character AI shared evaluator
 

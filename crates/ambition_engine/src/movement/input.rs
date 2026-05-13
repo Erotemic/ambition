@@ -31,6 +31,10 @@ pub struct InputState {
     /// Dedicated downward/pogo slash action. This is separate from
     /// `attack_pressed` so layouts can expose four main face-button verbs.
     pub pogo_pressed: bool,
+    /// Generic context/confirm input. The engine only uses this for mechanics
+    /// that are already movement-owned (currently ledge pull-up confirm); room
+    /// interactions remain sandbox-owned.
+    pub interact_pressed: bool,
     pub reset_pressed: bool,
     /// Real, unscaled frame duration supplied by the presentation layer.
     ///

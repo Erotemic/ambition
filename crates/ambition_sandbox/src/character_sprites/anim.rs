@@ -37,7 +37,7 @@ pub enum CharacterAnim {
     Taunt = 12,
     /// Held hang on a ledge — both arms gripping the ledge top with
     /// the body slumped below. Driven by `pick_player_anim` while
-    /// `SandboxRuntime::ledge_grab` is `Some` and not climbing.
+    /// `Player::ledge_grab` is `Some` and not climbing.
     LedgeGrab = 13,
     /// Slow, deliberate "haul-yourself-up" loop against an overhead grip.
     /// The new robot sheet ships a dedicated row; `pick_player_anim` does
@@ -47,7 +47,7 @@ pub enum CharacterAnim {
     LedgeClimb = 14,
     /// Mantle pop-up: arms transition from overhead grip to planted push
     /// to standing in one short burst. Driven by `pick_player_anim` when
-    /// `SandboxRuntime::ledge_grab.climbing == true`.
+    /// `Player::ledge_grab.climbing == true`.
     LedgeGetup = 15,
     /// Pinned against a wall (both hands flat). Distinct from `wall_slide`
     /// (which is the engine's downward-scrape state) — `WallGrab` plays
@@ -140,7 +140,7 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
     if runtime.player.blink_aiming || runtime.player.blink_hold_active {
         return CharacterAnim::BlinkOut;
     }
-    if let Some(ledge) = runtime.ledge_grab.as_ref() {
+    if let Some(ledge) = runtime.player.ledge_grab.as_ref() {
         return if ledge.climbing {
             CharacterAnim::LedgeGetup
         } else {

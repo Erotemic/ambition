@@ -30,12 +30,12 @@ pub fn update_player_simulation_with_tuning(
     player.water_contact = world.water_at(player.aabb());
 
     // Climbable contact: same one-query-per-tick discipline as
-    // `water_contact`. Movement does not yet consume this -- the field
-    // is populated for sandbox-side gameplay systems and the
-    // RL/headless adapter so they can read a stable answer for the
-    // current frame. Full BodyMode::Climbing integration in movement
-    // is a follow-up; the data flow is already in place.
+    // `water_contact`. Movement consumes this when BodyMode::Climbing
+    // is active, while HUD / trace / adapters can read the cached answer.
     player.climbable_contact = world.climbable_at(player.aabb());
+    if !player.abilities.ledge_grab {
+        player.ledge_grab = None;
+    }
 
     // Drowning gate: water without the swim ability is a death zone,
     // not a slow-down. Trigger the same reset path the hazard tile
@@ -49,8 +49,12 @@ pub fn update_player_simulation_with_tuning(
 
     age_player(player, dt);
     update_simulation_timers(player, dt, tuning);
+    if crate::ledge_grab::tick_active_ledge_grab(player, input, dt, &mut events) {
+        return events;
+    }
     handle_jump_buffer(world, player, input, tuning, &mut events);
     integrate_velocity(world, player, input, dt, tuning, &mut events);
+    crate::ledge_grab::try_start_ledge_grab(world, player, input, &mut events);
 
     if touching_hazard(world, player) || player.pos.y > world.size.y + 200.0 {
         player.reset_to(world.spawn);
@@ -108,7 +112,7 @@ fn handle_jump_buffer(
                 player.vel.y = (player.vel.y - impulse).min(-impulse);
                 player.jump_buffer_timer = 0.0;
                 player.coyote_timer = 0.0;
-                events.op(player, MovementOp::Jump);
+                events.op(player, MovementOp::SwimStroke);
                 return;
             }
         }

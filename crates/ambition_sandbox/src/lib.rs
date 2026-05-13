@@ -199,10 +199,6 @@ pub struct SandboxRuntime {
     /// Active player melee swing. Holds timing + one-hit-per-target state
     /// for directional attacks with startup / active / recovery phases.
     pub player_attack: Option<PlayerAttackState>,
-    /// Ledge grab state. `Some` while the player is hanging on a
-    /// ledge — gravity is suspended and Up + Jump kicks off the
-    /// climb. `None` otherwise. Only mutated by `update_ledge_grab`.
-    pub ledge_grab: Option<LedgeGrabState>,
     /// Presentation timer for the post-teleport blink-in pose. The engine
     /// commits blink position immediately; the sandbox holds this timer so
     /// the sprite/camera can ease into the destination instead of popping.
@@ -285,22 +281,6 @@ impl PlayerAttackState {
     }
 }
 
-/// Sandbox-side ledge grab snapshot. Engine-pure data wrapped with
-/// the timers needed for the hang and pull-up presentation.
-#[derive(Clone, Copy, Debug)]
-pub struct LedgeGrabState {
-    pub contact: ae::LedgeContact,
-    /// Seconds since the cling-snap fired. Used for input affordances such as
-    /// giving held-into-wall input a tiny beat before it auto-starts the climb.
-    pub elapsed: f32,
-    /// True once the climb has been requested. While true, the ledge driver
-    /// interpolates the player from `contact.anchor` to `contact.climb_target`
-    /// instead of teleporting there in one frame.
-    pub climbing: bool,
-    /// Seconds spent in the pull-up transition.
-    pub climb_elapsed: f32,
-}
-
 impl SandboxRuntime {
     pub fn new(
         world: &ae::World,
@@ -334,7 +314,6 @@ impl SandboxRuntime {
             room_transition_cooldown: 0.0,
             slash_anim_timer: 0.0,
             player_attack: None,
-            ledge_grab: None,
             blink_in_timer: 0.0,
             blink_in_duration: BLINK_IN_ANIM_TIME,
             blink_camera_from: world.spawn,
@@ -382,7 +361,6 @@ impl SandboxRuntime {
         // gameplay tunables — so testers don't lose their F3
         // settings on every respawn.
         self.player.mana.refill_full();
-        self.ledge_grab = None;
         self.land_anim_timer = 0.0;
         self.land_anim_hard = false;
         self.dash_startup_timer = 0.0;

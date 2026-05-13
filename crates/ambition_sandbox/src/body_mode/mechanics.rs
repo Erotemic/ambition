@@ -20,19 +20,18 @@
 //! - Standing/Crouching + Up/Down inside `climbable_contact` → Climbing.
 //! - Climbing + Jump → push off, exit to Standing. Climbing + losing
 //!   contact → exit to Standing automatically.
-//! - Mid-action mechanics (dash, blink-aim, wall-cling/climb, swim)
-//!   own the player shape; the driver no-ops while any of them are
+//! - Mid-action mechanics (dash, blink-aim, wall-cling/climb, ledge grab,
+//!   swim) own the player shape; the driver no-ops while any of them are
 //!   active.
 //!
-//! Runs in the progression chain after `sandbox_update` for the same
-//! reason `ledge_grab` and `swim` do: it mutates `runtime.player`
-//! outside the dense `movement.rs` simulator. The size/pos delta is
-//! constrained to the body-mode swap (no horizontal repositioning),
-//! so the next simulator tick treats it as a clean smaller AABB and
-//! collision repair runs as usual against any new geometry. The
-//! engine still gates `fast_fall_pressed` on `!on_ground`, so using
-//! the same gesture for grounded morph and airborne fast-fall has
-//! no input crosstalk.
+//! Runs in the progression chain after `sandbox_update` because body resize is
+//! still a sandbox-side affordance. Ledge grab and swim now live in the engine
+//! movement pipeline; this driver only avoids fighting their active states. The
+//! size/pos delta is constrained to the body-mode swap (no horizontal
+//! repositioning), so the next simulator tick treats it as a clean smaller AABB
+//! and collision repair runs as usual against any new geometry. The engine
+//! still gates `fast_fall_pressed` on `!on_ground`, so using the same gesture for
+//! grounded morph and airborne fast-fall has no input crosstalk.
 
 use ambition_engine as ae;
 use bevy::prelude::*;
@@ -55,7 +54,7 @@ pub fn update_body_mode(
     }
     // Wall / ledge state owns its own posture; reverting it via crouch
     // would break the ledge-grab anchor invariant.
-    if player.wall_clinging || player.wall_climbing {
+    if player.wall_clinging || player.wall_climbing || player.ledge_grab.is_some() {
         return;
     }
     // In-water posture: leave water swim mechanics alone.

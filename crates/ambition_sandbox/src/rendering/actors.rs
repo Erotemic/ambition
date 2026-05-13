@@ -146,6 +146,7 @@ pub struct BoundFeatureKind(pub FeatureVisualKind);
 pub fn upgrade_enemy_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    images: Res<Assets<Image>>,
     runtime: Res<crate::SandboxRuntime>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
 ) {
@@ -183,6 +184,14 @@ pub fn upgrade_enemy_sprites(
         let Some(character_asset) = character_asset else {
             continue;
         };
+        // Android loads assets out of the APK asynchronously, and missing or
+        // platform-rejected images still have a Handle. Do not replace the
+        // colored fallback with an atlas sprite until the texture is actually
+        // present in Assets<Image>; otherwise a failed or delayed load renders
+        // the NPC/enemy invisible.
+        if images.get(&character_asset.texture).is_none() {
+            continue;
+        }
         let collision = BVec2::new(view.size.x, view.size.y);
         let sprite = build_character_sprite(character_asset, collision);
         commands.entity(entity).insert((
@@ -207,6 +216,7 @@ pub fn upgrade_enemy_sprites(
 pub fn upgrade_npc_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    images: Res<Assets<Image>>,
     runtime: Res<crate::SandboxRuntime>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
 ) {
@@ -229,6 +239,13 @@ pub fn upgrade_npc_sprites(
         let Some(character_asset) = assets.characters.npc_asset_for_name(name) else {
             continue;
         };
+        // Keep the visible terminal/rectangle fallback until the PNG has
+        // actually loaded. This is especially important on Android, where the
+        // asset exists inside the APK but individual textures can still fail
+        // or arrive later.
+        if images.get(&character_asset.texture).is_none() {
+            continue;
+        }
         let collision = BVec2::new(view.size.x, view.size.y);
         let sprite = build_character_sprite(character_asset, collision);
         commands.entity(entity).insert((
@@ -328,6 +345,7 @@ pub fn animate_characters(
 pub fn upgrade_boss_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
+    images: Res<Assets<Image>>,
     runtime: Res<crate::SandboxRuntime>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
@@ -360,6 +378,9 @@ pub fn upgrade_boss_sprites(
         let Some(boss_asset) = boss_asset else {
             continue;
         };
+        if images.get(&boss_asset.texture).is_none() {
+            continue;
+        }
         let collision = BVec2::new(view.size.x, view.size.y);
         let mut sprite = Sprite::from_atlas_image(
             boss_asset.texture.clone(),

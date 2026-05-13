@@ -567,6 +567,13 @@ PROJECT_DIR="$ROOT/target/android/ambition_sandbox_android"
 APP_DIR="$PROJECT_DIR/app"
 JNI_OUT="$APP_DIR/src/main/jniLibs"
 ASSETS_OUT="$APP_DIR/src/main/assets"
+ANDROID_ICON_SRC="$ROOT/assets/android_icon.png"
+ANDROID_ICON_RES_DIR="$APP_DIR/src/main/res/drawable"
+ANDROID_ICON_RES_NAME="android_icon"
+ANDROID_ICON_MANIFEST_ATTR=""
+if [[ -f "$ANDROID_ICON_SRC" ]]; then
+    ANDROID_ICON_MANIFEST_ATTR=$'\n        android:icon="@drawable/android_icon"'
+fi
 
 if [[ "$CLEAN" == true ]]; then
     rm -rf "$PROJECT_DIR"
@@ -666,7 +673,7 @@ cat > "$APP_DIR/src/main/AndroidManifest.xml" <<EOF
     <application
         android:allowBackup="false"
         android:hasCode="true"
-        android:label="$APP_LABEL"
+        android:label="$APP_LABEL"${ANDROID_ICON_MANIFEST_ATTR}
         android:theme="@style/Theme.Ambition">
         <activity
             android:name=".MainActivity"
@@ -707,6 +714,13 @@ public class MainActivity extends GameActivity {
 EOF
 
 mkdir -p "$APP_DIR/src/main/res/values"
+if [[ -f "$ANDROID_ICON_SRC" ]]; then
+    mkdir -p "$ANDROID_ICON_RES_DIR"
+    cp "$ANDROID_ICON_SRC" "$ANDROID_ICON_RES_DIR/$ANDROID_ICON_RES_NAME.png"
+    log "using Android app icon: $ANDROID_ICON_SRC"
+else
+    log "Android app icon: default generated icon (no assets/android_icon.png found)"
+fi
 cat > "$APP_DIR/src/main/res/values/styles.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <resources>

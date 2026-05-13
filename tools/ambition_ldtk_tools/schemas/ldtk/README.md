@@ -6,21 +6,21 @@ Python's `jsonschema` package. We avoid Node/npm in this workflow.
 Fetch the schema when you want strict editor-format validation:
 
 ```bash
-python tools/fetch_ldtk_schema.py
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema fetch
 uv pip install jsonschema
-python tools/validate_ambition_ldtk.py \
-    --schema tools/schemas/ldtk/JSON_SCHEMA.json \
-    --require-schema \
-    crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema validate \
+    crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+    --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
+    --require-schema
 ```
 
 You can also use the round-trip checker with the schema:
 
 ```bash
-python tools/check_ldtk_editor_roundtrip.py \
-    --schema tools/schemas/ldtk/JSON_SCHEMA.json \
-    --require-schema \
-    crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
+    crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+    --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
+    --require-schema
 ```
 
 The official schema catches LDtk/editor-format drift. The Ambition validator then

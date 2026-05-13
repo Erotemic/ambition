@@ -75,11 +75,10 @@ def cmd_roundtrip(args, rest):
 
 
 def cmd_doctor(args, rest):
-    """Run roundtrip + validate sequentially."""
-    rc = _delegate("ambition_ldtk_tools.roundtrip", rest)
-    if rc != 0:
-        return rc
-    return _delegate("ambition_ldtk_tools.validate", rest)
+    """Run roundtrip + validate, reporting both diagnostics when possible."""
+    roundtrip_rc = _delegate("ambition_ldtk_tools.roundtrip", rest)
+    validate_rc = _delegate("ambition_ldtk_tools.validate", rest)
+    return roundtrip_rc or validate_rc
 
 
 def cmd_compact(args, rest):

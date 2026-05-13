@@ -31,13 +31,13 @@
 #
 # The Climbable IntGrid layer needs to be added to the LDtk project's
 # layer defs (separate from Collision and Water) before this spec can
-# be applied. Tool support: `tools/author_ldtk_area.py` currently
+# be applied. Tool support: `python -m ambition_ldtk_tools area create` currently
 # only handles the Collision IntGrid; extending it to also paint the
 # Climbable layer is in TODO.md.
 #
 # Once tooling lands:
-#   python tools/author_ldtk_area.py tools/examples/ldtk_specs/ladder_lab.yaml --dry-run
-#   python tools/author_ldtk_area.py tools/examples/ldtk_specs/ladder_lab.yaml
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create tools/ambition_ldtk_tools/specs/examples/ladder_lab.yaml --dry-run
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create tools/ambition_ldtk_tools/specs/examples/ladder_lab.yaml
 #
 # And add a corresponding LoadingZone inside central_hub_basement
 # pointing at this room (the user's instruction: "if there are new

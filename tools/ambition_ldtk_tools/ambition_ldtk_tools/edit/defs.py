@@ -6,16 +6,17 @@ a `defs.entities[]` entry with a fresh `uid`, a properly-shaped
 `fieldDefs` list (each with the right `defUid`, internal `type`
 constructor, and editor-roundtrip metadata), and a matching color so
 the LDtk editor can render the entity. Doing that by hand is the same
-class of editor-roundtrip pain that `author_ldtk_area.py` solved for
+class of editor-roundtrip pain that `ambition_ldtk_tools area create` solved for
 levels — this tool solves it for entity definitions.
 
-Pairs with `tools/author_ldtk_area.py`: register the def first, then
+Pairs with `python -m ambition_ldtk_tools area create`: register the def first, then
 author levels that place the new entity.
 
 ## Usage
 
 ```bash
-python tools/register_ldtk_entity_def.py spec.yaml --in-place
+PYTHONPATH=tools/ambition_ldtk_tools \
+python -m ambition_ldtk_tools def register-entity spec.yaml --in-place
 ```
 
 ## Spec format (YAML or JSON)
@@ -54,14 +55,14 @@ The tool:
    internal constructor, `allowedRefs`, `realEditorValues`, etc.) so
    the resulting file passes both Ambition validation and the
    official LDtk JSON schema.
-4. Adds the identifier to `validate_ambition_ldtk.py`'s
+4. Adds the identifier to `ambition_ldtk_tools validate`'s
    `KNOWN_ENTITIES` set on disk so the validator stops complaining
    about an "unsupported" identifier.
 5. Adds the identifier to `bevy_runtime.rs`'s
    `AMBITION_LDTK_ENTITY_IDENTIFIERS` so `bevy_ecs_ldtk` registers a
    marker bundle for the new entity.
-6. Runs `repair_ambition_ldtk.py --in-place` and
-   `validate_ambition_ldtk.py --schema ... --require-schema`.
+6. Runs `ambition_ldtk_tools repair --in-place` and
+   `ambition_ldtk_tools validate --schema ... --require-schema`.
 """
 from __future__ import annotations
 
@@ -132,7 +133,7 @@ def alloc_uid(project: dict) -> int:
 
 def field_def(name: str, human_type: str, default, project: dict) -> dict:
     """Build a `fieldDefs[]` entry with the editor-roundtrip metadata
-    `repair_ambition_ldtk.py` would otherwise have to fill in."""
+    `ambition_ldtk_tools repair` would otherwise have to fill in."""
     if human_type not in HUMAN_TO_INTERNAL:
         raise SystemExit(
             f"unsupported field type {human_type!r}; supported: {sorted(HUMAN_TO_INTERNAL)}"
@@ -245,7 +246,7 @@ def build_entity_def(spec: dict, project: dict) -> dict:
 
 
 def patch_validator_known_entities(identifiers: list[str]) -> list[str]:
-    """Add `identifiers` to `validate_ambition_ldtk.py`'s `KNOWN_ENTITIES` set.
+    """Add `identifiers` to `ambition_ldtk_tools validate`'s `KNOWN_ENTITIES` set.
 
     Returns the names that were actually added (sorted) so the caller
     can report.
@@ -254,7 +255,7 @@ def patch_validator_known_entities(identifiers: list[str]) -> list[str]:
     match = re.search(r"KNOWN_ENTITIES = \{\s*([^}]+?)\}", text, flags=re.DOTALL)
     if not match:
         raise SystemExit(
-            "could not find KNOWN_ENTITIES in validate_ambition_ldtk.py"
+            "could not find KNOWN_ENTITIES in ambition_ldtk_tools validate"
         )
     block = match.group(1)
     existing = set(re.findall(r'"([^"]+)"', block))

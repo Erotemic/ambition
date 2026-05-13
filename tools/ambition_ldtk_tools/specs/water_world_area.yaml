@@ -15,7 +15,7 @@
 #   divider column (so the swim-up-and-exit gesture is what carries
 #   the player from clear to murky).
 # - The Water IntGrid layer is painted in a follow-up pass by
-#   `tools/paint_water_world_pools.py` because `author_ldtk_area.py`
+#   `tools/paint_water_world_pools.py` because `ambition_ldtk_tools area create`
 #   only knows about the Collision IntGrid layer today.
 id: water_world
 level_id: water_world

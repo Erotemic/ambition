@@ -12,8 +12,8 @@ The pain of hand-authoring an LDtk level is:
 This tool takes a high-level spec (entity kind + grid/px position + named
 fields), builds a complete level dict in memory, appends it to the existing
 sandbox `.ldtk` file, then delegates the editor-roundtrip metadata fill-in
-to the existing `repair_ambition_ldtk.py` pass. The resulting file is
-guaranteed to validate cleanly with `validate_ambition_ldtk.py` (both
+to the existing `ambition_ldtk_tools repair` pass. The resulting file is
+guaranteed to validate cleanly with `ambition_ldtk_tools validate` (both
 Ambition semantic + LDtk JSON schema) before this tool exits.
 
 Spec format (YAML or JSON; YAML preferred for readability):
@@ -394,7 +394,7 @@ def coerce_field_value(human_type: str, raw):
 
 
 def make_field_instance(field_def: dict, value):
-    """Build a minimal field instance. `repair_ambition_ldtk.py` will fill
+    """Build a minimal field instance. `ambition_ldtk_tools repair` will fill
     `realEditorValues` from `__value` for common types."""
     instance = {
         "__identifier": field_def["identifier"],
@@ -422,30 +422,21 @@ def build_active_area_field(project: dict, area_id: str) -> dict:
 
 
 # Optional level-field identifiers handled by `build_level_field_instances`.
-# These map directly to `defs.levelFields` entries in the LDtk project. Specs
-# may set any subset; missing fields are simply not emitted as level field
-# instances.
-OPTIONAL_LEVEL_FIELDS = (
-    "biome",
-    "music_track",
-    "ambient_profile",
-    "visual_theme",
-    "visual_profile",
-    "parallax_theme",
-    "palette",
-    "lighting_hint",
-    "foreground_treatment",
-)
+# These map directly to `defs.levelFields` entries created by
+# `tools/add_biome_level_fields.py`. Specs may set any subset; missing
+# fields are simply not emitted as level field instances.
+OPTIONAL_LEVEL_FIELDS = ("biome", "music_track", "ambient_profile", "visual_theme")
 
 
 def build_level_field_instances(project: dict, spec: dict) -> list[dict]:
     """Build level field instances for `activeArea` plus the optional
-    biome / music / ambient / visual profile seam.
+    biome / music / ambient / visual seam.
 
-    The room metadata fields are looked up dynamically from
+    The biome seam fields are looked up dynamically from
     `defs.levelFields`. If a spec sets one of them but the project is
-    missing the corresponding level field def, the helper raises a
-    clear error instead of silently dropping the value.
+    missing the corresponding level field def (i.e. the migration
+    wasn't run), the helper raises a clear error pointing at the
+    migration script instead of silently dropping the value.
     """
     instances = [build_active_area_field(project, spec["id"])]
     level_fields = {f.get("identifier"): f for f in project["defs"].get("levelFields") or []}
@@ -626,7 +617,7 @@ def build_entity_instance(
         "fieldInstances": [],
     }
 
-    # Build field instances. The spec can omit fields — `repair_ambition_ldtk.py`
+    # Build field instances. The spec can omit fields — `ambition_ldtk_tools repair`
     # plus the Ambition validator both tolerate missing fields on most entity
     # types; we simply emit instances for the fields the spec provided.
     spec_fields = dict(ent_spec.get("fields") or {})
@@ -1567,7 +1558,7 @@ def main(argv=None) -> int:
     # `--list-free-spots` short-circuits before we touch the spec; the
     # `spec` positional is still required by argparse but its content
     # is not used in this path. Authors typically run:
-    #   python tools/author_ldtk_area.py <any-spec> --list-free-spots central_hub_basement
+    #   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools door free-spots central_hub_basement
     # to see free door slots, then edit their actual spec.
     if args.list_free_spots:
         project = load_project(args.ldtk)

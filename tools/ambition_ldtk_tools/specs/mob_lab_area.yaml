@@ -27,7 +27,7 @@
 #   so the lock wall closes BEHIND the player as the encounter starts.
 #
 # Static-collision authoring (Solid / OneWayPlatform / BlinkWall):
-# `tools/author_ldtk_area.py` automatically lowers these into the
+# `python -m ambition_ldtk_tools area create` automatically lowers these into the
 # `Collision` IntGrid layer when this spec is applied; they don't
 # appear as Ambition entity instances in the resulting LDtk file.
 # Authoring rectangles by entity type stays ergonomic, but the

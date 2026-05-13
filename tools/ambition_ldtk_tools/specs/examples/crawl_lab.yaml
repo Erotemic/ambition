@@ -25,7 +25,7 @@
 #     Standing top 306 < 320 → blocks standing. ✓
 #
 # Use this spec with:
-#   python tools/author_ldtk_area.py tools/examples/ldtk_specs/crawl_lab.yaml --dry-run
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create tools/ambition_ldtk_tools/specs/examples/crawl_lab.yaml --dry-run
 # to see the IntGrid lowering, or apply it for real to extend sandbox.ldtk.
 id: crawl_lab
 level_id: crawl_lab

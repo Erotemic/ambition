@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Add a single entity instance to an existing LDtk level.
 
-Companion to `author_ldtk_area.py` (which authors whole levels) and
-`register_ldtk_entity_def.py` (which registers new entity types). Use
+Companion to `ambition_ldtk_tools area create` (which authors whole levels) and
+`ambition_ldtk_tools def register-entity` (which registers new entity types). Use
 this when you need to surgically attach one entity — most often a
 `LoadingZone` connecting an existing level to a freshly-authored
 area.

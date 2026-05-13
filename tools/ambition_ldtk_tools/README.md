@@ -1,35 +1,91 @@
 # Ambition LDtk Tools
 
 Modal CLI for editing, validating, and repairing the Ambition
-sandbox.ldtk world. Agents should not hand-edit the LDtk JSON; use this
+`sandbox.ldtk` world. Agents should not hand-edit the LDtk JSON; use this
 package so mutations are repaired and validated before write.
 
-## CLI
+Run commands from the repository root with the package directory on
+`PYTHONPATH`:
 
-```
-python -m ambition_ldtk_tools validate                       # validate sandbox.ldtk
-python -m ambition_ldtk_tools repair  <ldtk> --in-place      # fix editor metadata
-python -m ambition_ldtk_tools roundtrip <ldtk>               # non-mutating smoke check
-python -m ambition_ldtk_tools doctor    <ldtk>               # roundtrip + validate
-
-python -m ambition_ldtk_tools schema fetch                   # pull official LDtk JSON schema
-python -m ambition_ldtk_tools schema validate <ldtk>         # schema-only validation
-
-python -m ambition_ldtk_tools area create <spec.yaml>        # author a new area / level
-python -m ambition_ldtk_tools area create <spec.yaml> --apply  # write the file (dry-run is the default for `--dry-run`)
-python -m ambition_ldtk_tools door free-spots <room>         # list free 48x96 door slots
-
-python -m ambition_ldtk_tools entity add <spec.yaml>         # add entity instance(s)
-python -m ambition_ldtk_tools def register-entity <spec.yaml>  # register an entity definition
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools <subcommand> ...
 ```
 
-`area create` defaults to applying its spec (it is the original behavior of
-`tools/author_ldtk_area.py`); pass `--dry-run` to preview without writing.
-The mutating subcommands run the full repair + validate pipeline before
-returning, so a successful invocation is always editor-safe.
+## Common commands
 
-The following subcommands are reserved (placeholders) and will land later:
-`entity set-field`, `entity move`, `entity delete`, `link {add,remove,check}`,
+```bash
+# Validate gameplay/editor contracts without mutating the file.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
+  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+
+# Check whether the package repair pass would change the file.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
+  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+
+# Run roundtrip + validate.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
+  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+
+# Repair in place, then inspect the diff before committing.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair \
+  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+  --in-place
+git diff -- crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
+
+# Schema helpers.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema fetch
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema validate \
+  crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+  --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
+  --require-schema
+
+# Authoring helpers.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
+  tools/ambition_ldtk_tools/specs/examples/crawl_lab.yaml \
+  --dry-run
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
+  tools/ambition_ldtk_tools/specs/examples/crawl_lab.yaml
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools door free-spots \
+  central_hub_basement
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
+  tools/ambition_ldtk_tools/specs/hub_lab_door.yaml \
+  --in-place
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools def register-entity \
+  tools/ambition_ldtk_tools/specs/encounter_and_switch_entities.yaml \
+  --in-place
+```
+
+`area create` applies its spec by default; pass `--dry-run` to preview without
+writing. Mutating subcommands run the repair + validate pipeline before
+returning, so a successful invocation is editor-safe. Always inspect the
+resulting `git diff` for `.ldtk` changes before committing.
+
+## CLI surface
+
+```
+validate                       Validate sandbox.ldtk
+repair  <ldtk> --in-place      Fix editor metadata / canonicalize JSON
+roundtrip <ldtk>               Non-mutating repair-needed smoke check
+doctor <ldtk>                  Roundtrip + validate
+compact <ldtk>                 Re-format JSON arrays to LDtk editor style
+list-metadata <ldtk>           Print biome/music/ambient metadata per level
+
+schema fetch                   Pull official LDtk JSON schema
+schema validate <ldtk>         Schema-aware validation
+
+area create <spec.yaml>        Author a new area / level
+door free-spots <room>         List free 48x96 door slots
+
+entity add <spec.yaml>         Add entity instance(s)
+entity set-field <spec.yaml>   Set field instances on existing entities
+entity move <spec.yaml>        Move an existing entity
+entity even-space <room>       Even-space matching entities in a level
+
+def register-entity <spec>     Register an entity definition
+```
+
+The following subcommands are reserved placeholders and will land later:
+`entity delete`, `link {add,remove,check}`, and
 `intgrid {paint,erase,summarize}`.
 
 ## Layout
@@ -39,14 +95,16 @@ ambition_ldtk_tools/
   __init__.py
   __main__.py
   cli.py
-  validate.py            # legacy validator (now `validate`)
-  repair.py              # legacy repair pass (now `repair`)
-  roundtrip.py           # non-mutating round-trip check
-  schema.py              # official LDtk JSON schema fetcher
-  area_authoring.py      # large authoring tool (now `area create`/`door free-spots`)
+  validate.py            # `validate`
+  repair.py              # `repair`
+  roundtrip.py           # `roundtrip`
+  schema.py              # `schema fetch` / schema-aware validation
+  area_authoring.py      # `area create` / `door free-spots`
   edit/
-    entities.py          # `entity add` (legacy add_ldtk_entity_to_level.py)
-    defs.py              # `def register-entity` (legacy register_ldtk_entity_def.py)
+    entities.py          # `entity add`
+    defs.py              # `def register-entity`
+    move.py              # `entity move`
+    set_field.py         # `entity set-field`
 
 specs/                   # YAML spec inputs
   examples/              # reference / lab specs
@@ -56,17 +114,12 @@ schemas/
   ldtk/JSON_SCHEMA.json  # checked-in copy of the official LDtk JSON schema
 ```
 
-## Compatibility shims
+## Retired standalone script names
 
-The old script paths still work but print a deprecation note:
-
-- `tools/validate_ambition_ldtk.py`
-- `tools/repair_ambition_ldtk.py`
-- `tools/check_ldtk_editor_roundtrip.py`
-- `tools/fetch_ldtk_schema.py`
-- `tools/author_ldtk_area.py`
-- `tools/add_ldtk_entity_to_level.py`
-- `tools/register_ldtk_entity_def.py`
-
-Each one forwards its argv to the corresponding `python -m
-ambition_ldtk_tools` subcommand.
+Older docs and failure messages may mention retired top-level scripts such as
+`tools/repair_ambition_ldtk.py`, `tools/validate_ambition_ldtk.py`,
+`tools/check_ldtk_editor_roundtrip.py`, `tools/author_ldtk_area.py`,
+`tools/add_ldtk_entity_to_level.py`, or `tools/register_ldtk_entity_def.py`.
+Those shim files are no longer present in this checkout. Use the package CLI
+shown above instead, and update stale docs/prints when you find old script
+names.

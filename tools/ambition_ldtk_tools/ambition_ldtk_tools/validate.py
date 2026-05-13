@@ -173,10 +173,10 @@ def validate_field_instance_editor_value(errors, owner, field):
     # `realEditorValues` natively for fields that inherit a `defaultOverride`
     # from the entity definition. Treating that pattern as an error means
     # flagging the editor's own output as broken, which violates the rule
-    # that a file the LDtk editor writes must run unchanged. The historical
-    # `tools/repair_ambition_ldtk.py` script is still available for anyone
-    # who wants to canonicalize JSON for diff readability, but it is not
-    # required for runtime correctness.
+    # that a file the LDtk editor writes must run unchanged. The package
+    # repair command (`python -m ambition_ldtk_tools repair`) is available
+    # for anyone who wants to canonicalize JSON for diff readability, but
+    # it is not required for runtime correctness.
     _ = errors, owner, field
 
 

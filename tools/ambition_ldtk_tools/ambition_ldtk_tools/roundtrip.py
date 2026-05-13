@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
-"""Check whether an Ambition LDtk file is ready for LDtk GUI editing.
+"""Check whether an Ambition LDtk file is ready for canonical tool edits.
 
-This is a non-mutating smoke check. It verifies that the repair tool would make
-no changes and then runs the validator. Use it before opening `sandbox.ldtk` in
-LDtk, or in CI after generated/agent-patched level edits.
+This is a non-mutating smoke check. It verifies that the package repair pass
+would make no changes and then runs the validator. Use it before opening
+`sandbox.ldtk` in LDtk, or in CI after generated/agent-patched level edits.
+
+Run from the repo root with:
+
+    PYTHONPATH=tools/ambition_ldtk_tools \
+    python -m ambition_ldtk_tools roundtrip \
+      crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 """
 from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 from pathlib import Path
 
@@ -19,8 +26,38 @@ def canonical(project: dict) -> str:
     return json.dumps(project, sort_keys=True, separators=(",", ":"))
 
 
+def cli_command(subcommand: str, path: Path, *extra: str) -> str:
+    parts = [
+        "PYTHONPATH=tools/ambition_ldtk_tools",
+        "python",
+        "-m",
+        "ambition_ldtk_tools",
+        subcommand,
+        str(path),
+        *extra,
+    ]
+    return " ".join(shlex.quote(part) for part in parts)
+
+
+def print_repair_hint(path: Path, changes: list[str]) -> None:
+    print(
+        f"error: {path} is not canonical for the Ambition LDtk tool pipeline",
+        file=sys.stderr,
+    )
+    print("repair command:", file=sys.stderr)
+    print(f"  {cli_command('repair', path, '--in-place')}", file=sys.stderr)
+    print("diagnostics:", file=sys.stderr)
+    print(f"  {cli_command('repair', path, '--check')}", file=sys.stderr)
+    print(f"  git diff -- {shlex.quote(str(path))}", file=sys.stderr)
+    print("planned repair groups:", file=sys.stderr)
+    for change in changes[:50]:
+        print(f"  - {change}", file=sys.stderr)
+    if len(changes) > 50:
+        print(f"  ... {len(changes) - 50} more", file=sys.stderr)
+
+
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", type=Path, help="Path to an Ambition-authored .ldtk file")
     parser.add_argument("--schema", type=Path, default=None, help="Optional official LDtk JSON schema path")
     parser.add_argument("--require-schema", action="store_true", help="Fail if official LDtk schema validation cannot run")
@@ -36,14 +73,7 @@ def main(argv=None) -> int:
     changes = normalize_project_for_editor(project)
     after = canonical(project)
     if before != after:
-        print(
-            f"error: {args.path} is not editor-roundtrip clean; run tools/repair_ambition_ldtk.py --in-place {args.path}",
-            file=sys.stderr,
-        )
-        for change in changes[:50]:
-            print(f"  - {change}", file=sys.stderr)
-        if len(changes) > 50:
-            print(f"  ... {len(changes) - 50} more", file=sys.stderr)
+        print_repair_hint(args.path, changes)
         return 1
 
     errors, warnings = validate(args.path, args.schema, args.require_schema)
@@ -53,7 +83,7 @@ def main(argv=None) -> int:
         print(f"error: {error}", file=sys.stderr)
     if errors:
         return 1
-    print(f"OK: {args.path} is valid and editor-roundtrip clean")
+    print(f"OK: {args.path} is valid and canonical for Ambition LDtk tools")
     return 0
 
 

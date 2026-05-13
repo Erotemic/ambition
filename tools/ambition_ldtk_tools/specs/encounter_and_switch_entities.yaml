@@ -1,8 +1,8 @@
 # Adds the EncounterTrigger + Switch entity types to sandbox.ldtk so
 # the mob-lab area can be authored. Re-runnable thanks to the tool's
 # "already exists" guard. Run via:
-#   python tools/register_ldtk_entity_def.py \
-#       tools/specs/encounter_and_switch_entities.yaml --in-place
+#   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools def register-entity \
+#       tools/ambition_ldtk_tools/specs/encounter_and_switch_entities.yaml --in-place
 entities:
   - identifier: EncounterTrigger
     color: "#FF7AB6"

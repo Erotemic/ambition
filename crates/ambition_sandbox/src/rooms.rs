@@ -146,12 +146,9 @@ pub struct RoomSpec {
     pub world: ae::World,
     pub loading_zones: Vec<LoadingZone>,
     pub metadata: RoomMetadata,
-    /// LDtk-authored moving platforms for this area.
-    ///
-    /// Empty means the sandbox runtime uses the legacy
-    /// `MovingPlatformState::time_reference` fallback for compatibility with
-    /// unauthored/debug rooms. New gameplay rooms should place explicit
-    /// `MovingPlatform` entities so the map remains the source of truth.
+    /// LDtk-authored moving platforms for this area. This is the complete
+    /// platform set for gameplay: if the vector is empty, the room has no
+    /// moving platforms.
     pub moving_platforms: Vec<crate::platforms::MovingPlatformState>,
 }
 

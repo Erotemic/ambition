@@ -205,8 +205,7 @@
   `MovingPlatform` LDtk entities now lower into `RoomSpec::moving_platforms`,
   `SandboxRuntime` stores `moving_platforms`, and collision, carrying, trace,
   HUD/debug visuals, room transitions, sandbox reset, and hot-reload paths
-  iterate the vector. `MovingPlatformState::time_reference(&world)` remains
-  only as a one-item compatibility fallback for unauthored rooms and tests.
+  iterate that vector. Empty vector means no moving platforms.
   See [docs/moving_platforms.md](docs/moving_platforms.md). Remaining future
   work: promote generic `KinematicPath` data into a typed runtime index when
   path-authored hazards/platforms need more than the current horizontal

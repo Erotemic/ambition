@@ -28,9 +28,9 @@ area into `RoomSpec::moving_platforms`. Startup, presentation spawn, room sync,
 room transition, hot reload, trace, debug overlay, and sandbox reset seed or read
 `SandboxRuntime::moving_platforms` via `platforms::moving_platforms_for_room`.
 
-`MovingPlatformState::time_reference` remains as a compatibility fallback for
-unauthored rooms and unit tests. New gameplay rooms should place LDtk
-`MovingPlatform` entities instead of relying on that fallback.
+There is no procedural compatibility fallback in gameplay code. If an active
+area has no `MovingPlatform` entities, the runtime has no moving platforms for
+that area.
 
 ## Runtime behavior
 

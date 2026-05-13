@@ -154,7 +154,7 @@ pub fn process_sandbox_reset_request(
     //    a same-room reset; we're calling it after flipping the
     //    active room so it uses the start room's spawn point.
     runtime.reset(&world.0, tuning.as_engine());
-    runtime.moving_platforms = platforms::moving_platforms_for_room(&world.0, &start_spec);
+    runtime.moving_platforms = platforms::moving_platforms_for_room(&start_spec);
 
     // 7. Respawn the static world visuals + moving platform for the
     //    start room. Without this, the despawn in step 4 leaves the

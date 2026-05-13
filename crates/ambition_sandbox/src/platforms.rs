@@ -1,4 +1,4 @@
-//! Simple moving-platform test/reference objects.
+//! LDtk-authored moving-platform runtime helpers.
 //!
 //! Moving platforms remain sandbox-side as a design experiment, but they now
 //! contribute temporary solid blocks to the engine collision world each frame.
@@ -15,7 +15,7 @@ use crate::config::{world_to_bevy, WORLD_Z_BLOCK};
 use crate::rendering::RoomVisual;
 use crate::rooms::RoomSet;
 
-/// A deterministic horizontal platform used as a visible game-time reference.
+/// Runtime state for one LDtk-authored horizontal moving platform.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MovingPlatformState {
     pub pos: ae::Vec2,
@@ -27,25 +27,6 @@ pub struct MovingPlatformState {
 }
 
 impl MovingPlatformState {
-    /// Place the reference platform high enough to be visible from spawn, but
-    /// away from the immediate combat-practice lane.
-    ///
-    /// This is a compatibility fallback only. New playable rooms should author
-    /// `MovingPlatform` entities in LDtk so the map remains the source of truth.
-    pub fn time_reference(world: &ae::World) -> Self {
-        let min_x = (world.size.x * 0.28).max(100.0);
-        let max_x = (world.size.x * 0.48).max(min_x + 180.0);
-        let y = (world.size.y * 0.60).min(world.size.y - 210.0).max(170.0);
-        Self {
-            pos: ae::Vec2::new(min_x, y),
-            size: ae::Vec2::new(155.0, 18.0),
-            min_x,
-            max_x,
-            speed: 130.0,
-            dir: 1.0,
-        }
-    }
-
     /// Build from LDtk-authored AABB + sweep range. The AABB defines the
     /// platform's starting position + size; `sweep_dx` is the horizontal
     /// travel distance (positive sweeps right then ping-pongs back, negative
@@ -127,32 +108,13 @@ impl MovingPlatformState {
     }
 }
 
-/// Return the active room's LDtk-authored moving platforms, or the legacy
-/// procedural reference platform when the room has not been authored yet.
+/// Return the active room's LDtk-authored moving platforms.
 ///
-/// This keeps old rooms playable while ensuring authored rooms are owned by
-/// LDtk placement, not by a hidden `time_reference` construction path.
-pub fn moving_platforms_for_room(
-    world: &ae::World,
-    room: &crate::rooms::RoomSpec,
-) -> Vec<MovingPlatformState> {
-    if room.moving_platforms.is_empty() {
-        vec![MovingPlatformState::time_reference(world)]
-    } else {
-        room.moving_platforms.clone()
-    }
-}
-
-/// Compatibility helper for tests or call sites that still need the first
-/// platform. Gameplay should use [`moving_platforms_for_room`].
-pub fn moving_platform_for_room(
-    world: &ae::World,
-    room: &crate::rooms::RoomSpec,
-) -> MovingPlatformState {
-    moving_platforms_for_room(world, room)
-        .into_iter()
-        .next()
-        .unwrap_or_else(|| MovingPlatformState::time_reference(world))
+/// No compatibility platform is synthesized here: if an active area has no
+/// `MovingPlatform` entities, the room has no moving platforms. That keeps LDtk
+/// as the sole gameplay source of truth for platform placement.
+pub fn moving_platforms_for_room(room: &crate::rooms::RoomSpec) -> Vec<MovingPlatformState> {
+    room.moving_platforms.clone()
 }
 
 /// Return a temporary collision world with all current moving platforms inserted.
@@ -226,7 +188,7 @@ pub fn sync_moving_platform(
     mut query: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,
 ) {
     let active_spec = room_set.active_spec();
-    let desired_start = moving_platforms_for_room(&world.0, active_spec);
+    let desired_start = moving_platforms_for_room(active_spec);
 
     // Refresh only when the authored source changes, not every time RoomSet or
     // GameWorld gets marked changed by an unrelated system. The runtime copies
@@ -275,6 +237,15 @@ mod tests {
         )
     }
 
+    fn sample_platform() -> MovingPlatformState {
+        MovingPlatformState::from_authored(
+            ae::Vec2::new(400.0, 800.0),
+            ae::Vec2::new(155.0, 18.0),
+            240.0,
+            130.0,
+        )
+    }
+
     fn test_room_with_platforms(
         world: ae::World,
         platforms: Vec<MovingPlatformState>,
@@ -289,44 +260,40 @@ mod tests {
     }
 
     #[test]
-    fn moving_platforms_for_room_prefers_authored_ldtk_platforms() {
+    fn moving_platforms_for_room_returns_authored_ldtk_platforms() {
         let world = test_world();
-        let first = MovingPlatformState::from_authored(
-            ae::Vec2::new(400.0, 800.0),
-            ae::Vec2::new(96.0, 16.0),
-            180.0,
-            90.0,
-        );
+        let first = sample_platform();
         let second = MovingPlatformState::from_authored(
             ae::Vec2::new(720.0, 640.0),
             ae::Vec2::new(64.0, 16.0),
             -96.0,
             70.0,
         );
-        let room = test_room_with_platforms(world.clone(), vec![first, second]);
-        let selected = moving_platforms_for_room(&world, &room);
+        let room = test_room_with_platforms(world, vec![first, second]);
+        let selected = moving_platforms_for_room(&room);
         assert_eq!(selected, vec![first, second]);
     }
 
     #[test]
-    fn moving_platforms_for_room_falls_back_for_unauthored_rooms() {
+    fn moving_platforms_for_room_does_not_synthesize_unauthored_platforms() {
         let world = test_world();
-        let room = test_room_with_platforms(world.clone(), Vec::new());
-        let selected = moving_platforms_for_room(&world, &room);
-        let fallback = MovingPlatformState::time_reference(&world);
-        assert_eq!(selected, vec![fallback]);
+        let room = test_room_with_platforms(world, Vec::new());
+        let selected = moving_platforms_for_room(&room);
+        assert!(
+            selected.is_empty(),
+            "rooms without LDtk MovingPlatform entities should have no moving platforms"
+        );
     }
 
     #[test]
     fn moving_platform_update_swings_between_min_and_max() {
-        let world = test_world();
-        let mut platform = MovingPlatformState::time_reference(&world);
-        let initial_x = platform.pos.x;
+        let mut platform = sample_platform();
+        let min_x = platform.pos.x;
         // Many ticks at +x direction: platform reaches max_x and flips.
         for _ in 0..600 {
             let _ = platform.update(0.05);
             // Position must always stay within [min_x, max_x].
-            assert!(platform.pos.x >= initial_x - 1.0);
+            assert!(platform.pos.x >= min_x - 1.0);
         }
         // After enough time it must have flipped at least once.
         assert!(platform.direction() == 1.0 || platform.direction() == -1.0);
@@ -334,28 +301,25 @@ mod tests {
 
     #[test]
     fn moving_platform_update_returns_displacement() {
-        let world = test_world();
-        let mut platform = MovingPlatformState::time_reference(&world);
+        let mut platform = sample_platform();
         let dt = 1.0 / 60.0;
         let delta = platform.update(dt);
         // Initial direction is +1, speed = 130 px/s, dt = 1/60.
-        // So displacement.x ≈ 130 / 60 ≈ 2.17 px.
+        // So displacement.x ~= 130 / 60 ~= 2.17 px.
         assert!((delta.x - 130.0 * dt).abs() < 1e-3);
         assert_eq!(delta.y, 0.0);
     }
 
     #[test]
     fn moving_platform_aabb_centered_on_pos() {
-        let world = test_world();
-        let platform = MovingPlatformState::time_reference(&world);
+        let platform = sample_platform();
         let aabb = platform.aabb();
         assert_eq!(aabb.center(), platform.pos);
     }
 
     #[test]
     fn moving_platform_as_collision_block_is_blink_wall_soft() {
-        let world = test_world();
-        let platform = MovingPlatformState::time_reference(&world);
+        let platform = sample_platform();
         let block = platform.as_collision_block();
         // Soft blink wall — solid for collision but blink-passable
         // when soft-blink-through is unlocked.
@@ -370,7 +334,7 @@ mod tests {
     #[test]
     fn world_with_moving_platforms_appends_all_blocks() {
         let world = test_world();
-        let first = MovingPlatformState::time_reference(&world);
+        let first = sample_platform();
         let second = MovingPlatformState::from_authored(
             ae::Vec2::new(500.0, 500.0),
             ae::Vec2::new(80.0, 12.0),

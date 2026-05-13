@@ -19,6 +19,15 @@ fn dummy_player(at: ae::Vec2) -> ae::Player {
     ae::Player::new(at)
 }
 
+fn dummy_moving_platform() -> crate::platforms::MovingPlatformState {
+    crate::platforms::MovingPlatformState::from_authored(
+        ae::Vec2::new(96.0, 80.0),
+        ae::Vec2::new(80.0, 12.0),
+        48.0,
+        30.0,
+    )
+}
+
 #[test]
 fn ring_buffer_caps_at_capacity() {
     let mut buf = GameplayTraceBuffer::with_capacity(4, 4);
@@ -172,9 +181,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
             down_tap_timer: 0.0,
             up_tap_timer: 0.0,
             interact_buffer_timer: 0.0,
-            moving_platforms: vec![crate::platforms::MovingPlatformState::time_reference(
-                &world,
-            )],
+            moving_platforms: vec![dummy_moving_platform()],
             features: crate::features::FeatureRuntime::from_world(&world),
             dialogue: crate::dialog::DialogState::default(),
             physics_settings: crate::physics::PhysicsSandboxSettings::default(),
@@ -236,9 +243,7 @@ fn write_dump_writes_two_files() {
             down_tap_timer: 0.0,
             up_tap_timer: 0.0,
             interact_buffer_timer: 0.0,
-            moving_platforms: vec![crate::platforms::MovingPlatformState::time_reference(
-                &world,
-            )],
+            moving_platforms: vec![dummy_moving_platform()],
             features: crate::features::FeatureRuntime::from_world(&world),
             dialogue: crate::dialog::DialogState::default(),
             physics_settings: crate::physics::PhysicsSandboxSettings::default(),
@@ -331,7 +336,7 @@ fn make_runtime(world: &ae::World, player: ae::Player) -> SandboxRuntime {
         down_tap_timer: 0.0,
         up_tap_timer: 0.0,
         interact_buffer_timer: 0.0,
-        moving_platforms: vec![crate::platforms::MovingPlatformState::time_reference(world)],
+        moving_platforms: vec![dummy_moving_platform()],
         features: crate::features::FeatureRuntime::from_world(world),
         dialogue: crate::dialog::DialogState::default(),
         physics_settings: crate::physics::PhysicsSandboxSettings::default(),

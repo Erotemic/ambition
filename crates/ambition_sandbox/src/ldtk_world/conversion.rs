@@ -513,9 +513,8 @@ pub(super) fn entity_to_runtime(
         "MovingPlatform" => {
             // LDtk entity bounds → starting AABB. The platform sweeps
             // horizontally by `sweep_dx` from the start position, at
-            // `speed` px/s, ping-ponging at the bounds. Defaults match
-            // the legacy `time_reference` platform so an authored
-            // entity with no overrides reproduces the previous feel.
+            // `speed` px/s, ping-ponging at the bounds. Field defaults keep
+            // hand-authored entities usable even before every knob is tuned.
             let start_pos = min + size * 0.5;
             let sweep_dx = field_f32(entity, "sweep_dx").unwrap_or(240.0);
             let speed = field_f32(entity, "speed").unwrap_or(130.0);

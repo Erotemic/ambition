@@ -327,7 +327,7 @@ impl SandboxRuntime {
             down_tap_timer: 0.0,
             up_tap_timer: 0.0,
             interact_buffer_timer: 0.0,
-            moving_platforms: vec![platforms::MovingPlatformState::time_reference(world)],
+            moving_platforms: Vec::new(),
             features: features::FeatureRuntime::from_world(world),
             dialogue: dialog::DialogState::default(),
             physics_settings,

@@ -452,13 +452,10 @@ fn embedded_ldtk_composes_central_hub_complex() {
 
 #[test]
 fn embedded_ldtk_central_hub_carries_authored_moving_platforms() {
-    // The legacy hardcoded `MovingPlatformState::time_reference` was
-    // replaced by an LDtk-authored `MovingPlatform` entity in
-    // `central_hub_basement`. This test ensures the entity reaches
-    // the RoomSpec via the parser + emission path so the runtime can
-    // override its fallback. Keeping the fallback in place means
-    // dropping the entity from the .ldtk would just silently revert
-    // to the time_reference defaults; the test catches that regression.
+    // Moving platforms are LDtk-authored gameplay objects. This test ensures
+    // the central hub basement entity reaches the RoomSpec via the parser +
+    // emission path so the runtime has no hidden procedural platform to fall
+    // back to.
     let project = LdtkProject::load_default().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let hub = room_set

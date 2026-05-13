@@ -115,7 +115,7 @@ pub(super) fn load_room(
     runtime.last_safe_player_pos = runtime.player.pos;
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
-    runtime.moving_platforms = platforms::moving_platforms_for_room(&world.0, &spec);
+    runtime.moving_platforms = platforms::moving_platforms_for_room(&spec);
     runtime.features = features::FeatureRuntime::from_world(&world.0);
     runtime.dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a

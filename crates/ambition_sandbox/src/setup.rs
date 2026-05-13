@@ -139,8 +139,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         editable_tuning.as_engine(),
         physics_settings,
     );
-    runtime.moving_platforms =
-        platforms::moving_platforms_for_room(&world.0, room_set.active_spec());
+    runtime.moving_platforms = platforms::moving_platforms_for_room(room_set.active_spec());
     commands.insert_resource(runtime);
 
     let player = commands
@@ -329,7 +328,7 @@ fn presentation_world_inner(
     platforms::spawn_moving_platforms(
         commands,
         &world.0,
-        &platforms::moving_platforms_for_room(&world.0, room_set.active_spec()),
+        &platforms::moving_platforms_for_room(room_set.active_spec()),
     );
 
     let player_collision = BVec2::new(

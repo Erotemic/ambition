@@ -101,6 +101,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::map_menu::MapMenuState::default())
         .insert_resource(crate::CameraEaseState::default())
         .insert_resource(crate::CameraEaseTuning::default())
+        .insert_resource(crate::rendering::CameraViewState::default())
         .insert_resource(crate::reset::SandboxResetRequested::default())
         .add_systems(
             Update,
@@ -359,18 +360,26 @@ pub fn add_presentation_plugins(app: &mut App) {
         )
         .add_systems(
             Update,
+            (camera_follow, debug_overlay::draw_debug_overlay)
+                .chain()
+                .after(animate_bosses),
+        )
+        .add_systems(
+            Update,
             (
-                camera_follow,
-                debug_overlay::draw_debug_overlay,
                 fx::update_particles,
                 fx::update_impacts,
                 fx::update_slash_previews,
                 windowing::window_mode_hotkeys,
-                update_hud,
-                dialog::sync_dialog_ui,
             )
                 .chain()
-                .after(animate_bosses),
+                .after(debug_overlay::draw_debug_overlay),
+        )
+        .add_systems(
+            Update,
+            (update_hud, dialog::sync_dialog_ui)
+                .chain()
+                .after(windowing::window_mode_hotkeys),
         )
         .add_systems(
             Update,
@@ -419,7 +428,7 @@ pub fn add_presentation_plugins(app: &mut App) {
         // Quest panel runs alongside the verbose HUD; placed in its
         // own `add_systems` so the main presentation tuple doesn't
         // overflow Bevy's 20-system tuple budget.
-        .add_systems(Update, update_quest_panel.after(update_hud))
+        .add_systems(Update, update_quest_panel.after(dialog::sync_dialog_ui))
         // Procedural morph-ball visual: build the texture once at
         // startup, spawn the sibling sprite as soon as the player
         // entity exists, and toggle visibility / position each frame

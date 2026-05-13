@@ -118,3 +118,19 @@ cargo check -p ambition_sandbox --lib
 ## Tags
 
 `bevy-schedule`, `rust-trait-bounds`, `tuple-arity`, `system-ordering`, `overlay-repair`
+
+
+## Follow-up variant: system arity and invalid `.after(fn)` edges
+
+A later camera/HUD refactor added one more `Res<_>` to a large HUD system and reintroduced a smaller chained presentation tuple. The next build failed in two ways:
+
+- `.chain()` failed even on an eight-system tuple because one function item in the tuple no longer implemented the system traits after its parameter list crossed Bevy's supported function-system arity.
+- `update_quest_panel.after(update_hud)` failed because `update_hud` was no longer accepted as an `IntoSystemSet` target with that oversized function signature.
+
+Expected repair:
+
+- bundle related resources into a `#[derive(SystemParam)]` struct instead of continuing to add top-level function parameters;
+- split presentation work into smaller chained groups anyway, so future edits do not immediately hit tuple limits again;
+- avoid ordering a system `.after(update_hud)` when a stable label or neighboring late-stage system is available. In this codebase, scheduling the quest panel after `dialog::sync_dialog_ui` is sufficient for late UI refresh ordering and avoids referencing the oversized HUD function as a system set.
+
+This variant tests whether the model can distinguish tuple-arity failure from system-function-arity failure when both surface as noisy Bevy trait-bound errors.

@@ -164,12 +164,111 @@ impl CameraZoomPreset {
     }
 }
 
+
+/// How the fixed gameplay viewport maps onto non-16:9 windows.
+///
+/// `FitDesign` is the default: the full authored design rectangle remains
+/// visible, and wider/taller windows may reveal a modest margin. `FixedHeight`
+/// mirrors the usual Unity orthographic policy (stable vertical world height;
+/// width follows aspect ratio). `FixedWidth` is useful for checking narrow /
+/// portrait/mobile framing where horizontal information must stay bounded.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CameraAspectPolicy {
+    #[default]
+    FitDesign,
+    FixedHeight,
+    FixedWidth,
+}
+
+impl CameraAspectPolicy {
+    pub const ALL: [Self; 3] = [Self::FitDesign, Self::FixedHeight, Self::FixedWidth];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::FitDesign => "fit design",
+            Self::FixedHeight => "fixed height",
+            Self::FixedWidth => "fixed width",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(0);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
+/// Bias applied to the camera target inside the selected viewport.
+///
+/// This is deliberately presentation-only: it does not change collision,
+/// enemy activation, or room logic. It lets a combat game show slightly more
+/// space in front/above the player while preserving the same authored viewport
+/// size across desktop and mobile.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CameraFramingPreset {
+    Centered,
+    #[default]
+    Combat,
+    Forward,
+    MobileSafe,
+}
+
+impl CameraFramingPreset {
+    pub const ALL: [Self; 4] = [Self::Centered, Self::Combat, Self::Forward, Self::MobileSafe];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Centered => "centered",
+            Self::Combat => "combat bias",
+            Self::Forward => "forward bias",
+            Self::MobileSafe => "mobile safe",
+        }
+    }
+
+    /// Return a world-space offset (Ambition coordinates: +Y is downward) from
+    /// the player center to the camera target.
+    pub fn target_offset(self, view_w: f32, view_h: f32, facing: f32) -> (f32, f32) {
+        let facing = if facing < 0.0 { -1.0 } else { 1.0 };
+        match self {
+            Self::Centered => (0.0, 0.0),
+            // More look-ahead and a little more space above the character for
+            // jumps, flying enemies, and combat reads. Negative Y means "move
+            // the camera upward" in Ambition's +Y-down coordinate frame.
+            Self::Combat => (view_w * 0.08 * facing, -view_h * 0.05),
+            Self::Forward => (view_w * 0.14 * facing, -view_h * 0.02),
+            // Thumb controls tend to occlude the bottom corners; keep the
+            // player lower on the physical screen by biasing the camera target
+            // upward, with a smaller forward lead so the character remains
+            // visible under touch controls.
+            Self::MobileSafe => (view_w * 0.05 * facing, -view_h * 0.12),
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(1);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct VideoSettings {
     #[serde(default)]
     pub display_mode: SerializableDisplayMode,
     #[serde(default)]
     pub camera_zoom: CameraZoomPreset,
+    #[serde(default)]
+    pub camera_aspect: CameraAspectPolicy,
+    #[serde(default)]
+    pub camera_framing: CameraFramingPreset,
     #[serde(default)]
     pub flashes: FlashIntensity,
     #[serde(default)]
@@ -277,6 +376,28 @@ mod tests {
             cur = cur.next();
         }
         assert_eq!(visited.len(), CameraZoomPreset::ALL.len());
+    }
+
+    #[test]
+    fn camera_aspect_policy_cycles_through_all() {
+        let mut visited: Vec<CameraAspectPolicy> = Vec::new();
+        let mut cur = CameraAspectPolicy::FitDesign;
+        for _ in 0..CameraAspectPolicy::ALL.len() {
+            if !visited.contains(&cur) {
+                visited.push(cur);
+            }
+            cur = cur.next();
+        }
+        assert_eq!(visited.len(), CameraAspectPolicy::ALL.len());
+    }
+
+    #[test]
+    fn combat_framing_biases_forward_and_up() {
+        let (dx, dy) = CameraFramingPreset::Combat.target_offset(800.0, 450.0, 1.0);
+        assert!(dx > 0.0);
+        assert!(dy < 0.0);
+        let (dx_left, _) = CameraFramingPreset::Combat.target_offset(800.0, 450.0, -1.0);
+        assert!(dx_left < 0.0);
     }
 
     #[test]

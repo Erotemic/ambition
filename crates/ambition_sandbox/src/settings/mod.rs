@@ -58,7 +58,8 @@ pub use model::{
     SettingsAction, SettingsItem, SettingsOutcome, SettingsPage,
 };
 pub use video::{
-    CameraZoomPreset, ColorblindMode, FlashIntensity, SerializableDisplayMode, VideoSettings,
+    CameraAspectPolicy, CameraFramingPreset, CameraZoomPreset, ColorblindMode, FlashIntensity,
+    SerializableDisplayMode, VideoSettings,
 };
 
 /// Aggregate user settings resource. Inserted at sandbox startup; the

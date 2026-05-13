@@ -20,6 +20,13 @@ use super::update::*;
 use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
+use bevy::ecs::system::SystemParam;
+
+#[derive(SystemParam)]
+pub(super) struct HudCameraParams<'w> {
+    user_settings: Res<'w, crate::settings::UserSettings>,
+    camera_view: Res<'w, crate::rendering::CameraViewState>,
+}
 
 pub(super) fn update_hud(
     runtime: Res<SandboxRuntime>,
@@ -28,7 +35,7 @@ pub(super) fn update_hud(
     room_set: Res<rooms::RoomSet>,
     display_mode: Res<windowing::DisplayModeState>,
     developer_tools: Res<DeveloperTools>,
-    user_settings: Res<crate::settings::UserSettings>,
+    camera_params: HudCameraParams,
     ldtk_reload: Res<ldtk_world::LdtkHotReloadState>,
     ldtk_spine: Res<ldtk_world::LdtkRuntimeSpineStats>,
     ldtk_spine_index: Res<ldtk_world::LdtkRuntimeSpineIndex>,
@@ -47,7 +54,7 @@ pub(super) fn update_hud(
     let Ok(mut text) = query.get_mut(entities.hud) else {
         return;
     };
-    if !developer_tools.show_hud || !user_settings.gameplay.debug_hud_visible {
+    if !developer_tools.show_hud || !camera_params.user_settings.gameplay.debug_hud_visible {
         **text = String::new();
         return;
     }
@@ -75,19 +82,23 @@ pub(super) fn update_hud(
     for (physical, semantic) in GAMEPAD_MAP.iter().take(6) {
         gamepad.push_str(&format!("{} = {}  ", physical, semantic));
     }
-    let (camera_base_w, camera_base_h) = user_settings.video.camera_zoom.base_view();
-    let camera_multiplier = if developer_tools.overview_camera {
-        developer_tools.overview_camera_scale.max(1.0)
-    } else {
-        encounter_registry.active_camera_zoom().max(1.0)
-    };
     let camera_view_line = format!(
-        "view: {} -> {:.0}x{:.0} body={} move={}",
-        user_settings.video.camera_zoom.label(),
-        camera_base_w * camera_multiplier,
-        camera_base_h * camera_multiplier,
+        "view: {} {} {} req {:.0}x{:.0} vis {:.0}x{:.0} z{:.2} zones={} body={} move={}",
+        camera_params.user_settings.video.camera_zoom.label(),
+        camera_params.user_settings.video.camera_aspect.label(),
+        camera_params.user_settings.video.camera_framing.label(),
+        camera_params.camera_view.requested_view.x,
+        camera_params.camera_view.requested_view.y,
+        camera_params.camera_view.visible_view.x,
+        camera_params.camera_view.visible_view.y,
+        camera_params.camera_view.zoom_multiplier,
+        camera_params.camera_view.active_camera_zones,
         developer_tools.player_body_profile.label(),
         developer_tools.movement_profile.label(),
+    );
+    let feel_line = crate::dev_tools::feel_metrics_summary(
+        &runtime.player,
+        developer_tools.movement_profile.tuning(),
     );
     let window_line = windows
         .single()
@@ -269,7 +280,7 @@ pub(super) fn update_hud(
         .unwrap_or_default();
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | feel: {} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -284,6 +295,7 @@ pub(super) fn update_hud(
             runtime.player.combo_symbols(),
             runtime.player.current_combo_hint(),
             zone_hint,
+            feel_line,
             ldtk_reload.last_status,
             ldtk_reload.auto_apply,
             ldtk_reload.pending,
@@ -327,6 +339,7 @@ pub(super) fn update_hud(
          hp {}/{}  dash {}  air_jumps {}  charges {}  combo: {}\n\
          hint: {}\n\
          preset: {}\n\
+         feel: {}\n\
          F1 debug  F2 slowmo  F3 inspector  F4 world-inspector  F5 overview={}  F8 trace dump  F11 LDtk reload  F12 LDtk auto={}  Esc mode={}  Delete reset\n\
          LDtk: {} (spine {} entities, promoted {})\n\
          {}\n\
@@ -351,6 +364,7 @@ pub(super) fn update_hud(
         runtime.player.combo_symbols(),
         runtime.player.current_combo_hint(),
         preset.name,
+        feel_line,
         developer_tools.overview_camera,
         ldtk_reload.auto_apply,
         mode.get().label(),

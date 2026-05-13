@@ -72,6 +72,8 @@ pub enum SettingsItem {
     // Video page.
     DisplayMode,
     CameraZoom,
+    CameraAspect,
+    CameraFraming,
     Flashes,
     Colorblind,
 
@@ -110,6 +112,8 @@ pub enum SettingsItem {
     Inspector,
     WorldInspector,
     OverviewCamera,
+    MicroGrid,
+    CameraFrame,
     PlayerBodyProfile,
     MovementProfile,
     LdtkAutoApply,
@@ -129,6 +133,8 @@ impl SettingsItem {
             SettingsPage::Video => &[
                 Self::DisplayMode,
                 Self::CameraZoom,
+                Self::CameraAspect,
+                Self::CameraFraming,
                 Self::Flashes,
                 Self::Colorblind,
                 Self::Back,
@@ -171,6 +177,8 @@ impl SettingsItem {
                 Self::Inspector,
                 Self::WorldInspector,
                 Self::OverviewCamera,
+                Self::MicroGrid,
+                Self::CameraFrame,
                 Self::PlayerBodyProfile,
                 Self::MovementProfile,
                 Self::LdtkAutoApply,
@@ -204,6 +212,12 @@ impl SettingsItem {
             ),
             Self::CameraZoom => {
                 format!("Camera View: {}  < / >", settings.video.camera_zoom.label())
+            }
+            Self::CameraAspect => {
+                format!("Camera Aspect: {}  < / >", settings.video.camera_aspect.label())
+            }
+            Self::CameraFraming => {
+                format!("Camera Framing: {}  < / >", settings.video.camera_framing.label())
             }
             Self::Flashes => format!("Flashes: {}  < / >", settings.video.flashes.label()),
             Self::Colorblind => format!("Colorblind: {}  < / >", settings.video.colorblind.label()),
@@ -330,6 +344,12 @@ impl SettingsItem {
             Self::OverviewCamera => {
                 format!("Overview Camera (F5): {}", on_off(dev.overview_camera))
             }
+            Self::MicroGrid => {
+                format!("Micro Grid (8px): {}", on_off(dev.micro_grid))
+            }
+            Self::CameraFrame => {
+                format!("Camera Frame: {}", on_off(dev.camera_frame))
+            }
             Self::PlayerBodyProfile => {
                 format!("Player Body: {}  < / >", dev.player_body_profile.label())
             }
@@ -362,6 +382,8 @@ pub struct DevToggleSnapshot {
     pub inspector: bool,
     pub world_inspector: bool,
     pub overview_camera: bool,
+    pub micro_grid: bool,
+    pub camera_frame: bool,
     pub player_body_profile: crate::dev_tools::PlayerBodyProfile,
     pub movement_profile: crate::dev_tools::MovementProfile,
     pub ldtk_auto_apply: bool,
@@ -379,6 +401,8 @@ impl DevToggleSnapshot {
             inspector: developer.inspector_visible,
             world_inspector: developer.world_inspector_visible,
             overview_camera: developer.overview_camera,
+            micro_grid: developer.show_micro_grid,
+            camera_frame: developer.show_camera_frame,
             player_body_profile: developer.player_body_profile,
             movement_profile: developer.movement_profile,
             ldtk_auto_apply: ldtk_reload.auto_apply,
@@ -471,6 +495,18 @@ pub fn apply_action(
             SettingsAction::Prev => settings.video.camera_zoom = settings.video.camera_zoom.prev(),
             SettingsAction::Next | SettingsAction::Confirm => {
                 settings.video.camera_zoom = settings.video.camera_zoom.next()
+            }
+        },
+        SettingsItem::CameraAspect => match action {
+            SettingsAction::Prev => settings.video.camera_aspect = settings.video.camera_aspect.prev(),
+            SettingsAction::Next | SettingsAction::Confirm => {
+                settings.video.camera_aspect = settings.video.camera_aspect.next()
+            }
+        },
+        SettingsItem::CameraFraming => match action {
+            SettingsAction::Prev => settings.video.camera_framing = settings.video.camera_framing.prev(),
+            SettingsAction::Next | SettingsAction::Confirm => {
+                settings.video.camera_framing = settings.video.camera_framing.next()
             }
         },
         SettingsItem::Flashes | SettingsItem::GameplayFlashes => match action {
@@ -683,6 +719,16 @@ pub fn apply_action(
         SettingsItem::OverviewCamera => {
             if is_toggle_action(action) {
                 developer.overview_camera = !developer.overview_camera;
+            }
+        }
+        SettingsItem::MicroGrid => {
+            if is_toggle_action(action) {
+                developer.show_micro_grid = !developer.show_micro_grid;
+            }
+        }
+        SettingsItem::CameraFrame => {
+            if is_toggle_action(action) {
+                developer.show_camera_frame = !developer.show_camera_frame;
             }
         }
         SettingsItem::PlayerBodyProfile => match action {

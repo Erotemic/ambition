@@ -511,7 +511,13 @@ pub(super) fn start_attack(
     {
         runtime.player.vel.y = -40.0;
     }
-    if matches!(intent, ae::AttackIntent::AirDown | ae::AttackIntent::Down)
+    // Do not force downward commitment for a pogo-triggered attack. The
+    // movement phase runs earlier in the frame and may have just applied the
+    // upward bounce from a pogo orb; clobbering that here makes successful
+    // pogo refreshes look like they failed. Downward attacks still get the
+    // small self_impulse from the spec, but true pogo bounce velocity wins.
+    if !controls.pogo_pressed
+        && matches!(intent, ae::AttackIntent::AirDown | ae::AttackIntent::Down)
         && runtime.player.vel.y < 80.0
     {
         runtime.player.vel.y = 80.0;

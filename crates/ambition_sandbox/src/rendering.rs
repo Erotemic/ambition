@@ -38,7 +38,7 @@ pub use actors::{
     animate_bosses, animate_characters, animate_player, sync_visuals, upgrade_boss_sprites,
     upgrade_enemy_sprites, upgrade_npc_sprites,
 };
-pub use camera::camera_follow;
+pub use camera::{camera_follow, CameraViewState};
 pub use features::spawn_dynamic_feature_visuals;
 pub use health::sync_health_overlays;
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers, ParallaxLayerVisual};

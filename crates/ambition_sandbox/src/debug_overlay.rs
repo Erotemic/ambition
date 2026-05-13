@@ -17,7 +17,7 @@ use crate::input::SandboxAction;
 use crate::platforms;
 #[cfg(feature = "input")]
 use crate::rendering::PlayerVisual;
-use crate::rendering::SceneEntities;
+use crate::rendering::{CameraViewState, SceneEntities};
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use crate::{GameMode, GameWorld, SandboxRuntime};
 #[cfg(feature = "input")]
@@ -67,6 +67,7 @@ pub fn draw_debug_overlay(
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
     ldtk_spine_index: Res<crate::ldtk_world::LdtkRuntimeSpineIndex>,
+    camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
@@ -91,6 +92,12 @@ pub fn draw_debug_overlay(
     }
     if developer_tools.show_world_blocks {
         draw_world_blocks(&mut gizmos, world);
+    }
+    if developer_tools.show_micro_grid {
+        draw_micro_grid(&mut gizmos, world, 8.0, 16.0);
+    }
+    if developer_tools.show_camera_frame {
+        draw_camera_frame(&mut gizmos, world, &camera_view);
     }
     if developer_tools.show_loading_zones {
         draw_loading_zones(&mut gizmos, world, room_set.active_loading_zones());
@@ -121,6 +128,36 @@ pub fn draw_debug_overlay(
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
     let room = ae::aabb_from_min_size(ae::Vec2::ZERO, world.size);
     draw_aabb(gizmos, world, room, white_dim());
+}
+
+
+fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major: f32) {
+    if minor <= 0.0 || major <= 0.0 {
+        return;
+    }
+    let minor_color = Color::srgba(0.45, 0.55, 0.70, 0.13);
+    let major_color = Color::srgba(0.70, 0.80, 1.00, 0.23);
+    let cols = (world.size.x / minor).ceil() as i32;
+    let rows = (world.size.y / minor).ceil() as i32;
+    for i in 0..=cols {
+        let x = (i as f32 * minor).min(world.size.x);
+        let is_major = (x / major).fract().abs() < 0.01;
+        let color = if is_major { major_color } else { minor_color };
+        gizmos.line_2d(w2(world, ae::Vec2::new(x, 0.0)), w2(world, ae::Vec2::new(x, world.size.y)), color);
+    }
+    for i in 0..=rows {
+        let y = (i as f32 * minor).min(world.size.y);
+        let is_major = (y / major).fract().abs() < 0.01;
+        let color = if is_major { major_color } else { minor_color };
+        gizmos.line_2d(w2(world, ae::Vec2::new(0.0, y)), w2(world, ae::Vec2::new(world.size.x, y)), color);
+    }
+}
+
+fn draw_camera_frame(gizmos: &mut Gizmos, world: &ae::World, view: &CameraViewState) {
+    let requested = ae::Aabb::new(view.target_world, view.requested_view * 0.5);
+    let visible = ae::Aabb::new(view.center_world, view.visible_view * 0.5);
+    draw_aabb(gizmos, world, visible, Color::srgba(0.20, 0.95, 1.00, 0.22));
+    draw_aabb(gizmos, world, requested, Color::srgba(1.00, 0.95, 0.20, 0.22));
 }
 
 fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World) {

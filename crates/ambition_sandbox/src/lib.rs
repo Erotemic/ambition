@@ -448,11 +448,19 @@ pub fn move_toward(value: f32, target: f32, delta: f32) -> f32 {
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct CameraEaseState {
     pub live_scale: f32,
+    /// Smoothed world-space camera target. Presentation-only: avoids hard
+    /// jumps when look-ahead flips with facing or when framing presets change.
+    pub live_target_world: ae::Vec2,
+    pub target_initialized: bool,
 }
 
 impl Default for CameraEaseState {
     fn default() -> Self {
-        Self { live_scale: 1.0 }
+        Self {
+            live_scale: 1.0,
+            live_target_world: ae::Vec2::ZERO,
+            target_initialized: false,
+        }
     }
 }
 

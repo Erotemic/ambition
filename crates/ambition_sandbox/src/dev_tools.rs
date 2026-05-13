@@ -168,6 +168,14 @@ pub struct DeveloperTools {
     pub show_feature_hitboxes: bool,
     pub show_health_bars: bool,
     pub show_moving_platform: bool,
+    /// Draw an 8px subdivision grid over the authored 16px tile grid.
+    /// Useful for checking whether a level needs half-tile/freeform collision
+    /// affordances without changing LDtk art scale yet.
+    pub show_micro_grid: bool,
+    /// Draw the current requested/actual camera frame rectangles. Kept separate
+    /// from player vectors because the camera rectangles are intentionally huge
+    /// and can be visually mistaken for a player-local hitbox.
+    pub show_camera_frame: bool,
     pub show_rebound_vectors: bool,
     /// Toggle a zoomed-out camera for inspecting large or stitched active areas.
     pub overview_camera: bool,
@@ -205,6 +213,8 @@ impl Default for DeveloperTools {
             show_feature_hitboxes: !phone_demo,
             show_health_bars: !phone_demo,
             show_moving_platform: !phone_demo,
+            show_micro_grid: false,
+            show_camera_frame: false,
             show_rebound_vectors: !phone_demo,
             overview_camera: false,
             overview_camera_scale: 2.35,
@@ -216,6 +226,44 @@ impl Default for DeveloperTools {
 
 pub fn inspector_visible(tools: Res<DeveloperTools>) -> bool {
     tools.inspector_visible
+}
+
+
+/// Produce a compact normalized movement readout for the debug HUD.
+///
+/// These are design-space estimates, not an engine replay. They are meant to
+/// answer questions like "how many tiles/body-heights is this jump?" while
+/// swapping chassis profiles from the F3 menu.
+pub fn feel_metrics_summary(player: &ae::Player, tuning: ae::MovementTuning) -> String {
+    const TILE: f32 = 16.0;
+    let body_w = player.base_size.x.max(1.0);
+    let body_h = player.base_size.y.max(1.0);
+    let run_tiles = tuning.max_run_speed / TILE;
+    let run_body = tuning.max_run_speed / body_w;
+    let jump_height = (tuning.jump_speed * tuning.jump_speed) / (2.0 * tuning.gravity.max(1.0));
+    let jump_tiles = jump_height / TILE;
+    let jump_body = jump_height / body_h;
+    let apex = tuning.jump_speed / tuning.gravity.max(1.0);
+    let dash_distance = tuning.dash_speed * tuning.dash_time;
+    let dash_tiles = dash_distance / TILE;
+    let dash_body = dash_distance / body_w;
+    let double_ratio = if tuning.jump_speed.abs() > 1.0 {
+        (tuning.double_jump_speed / tuning.jump_speed).powi(2) * 100.0
+    } else {
+        0.0
+    };
+    let view_note = format!(
+        "run {:.1} tiles/s {:.1} body/s | jump {:.1} tiles {:.2} body apex {:.2}s | dash {:.1} tiles {:.1} body | dj {:.0}%",
+        run_tiles,
+        run_body,
+        jump_tiles,
+        jump_body,
+        apex,
+        dash_tiles,
+        dash_body,
+        double_ratio,
+    );
+    view_note
 }
 
 pub fn world_inspector_visible(tools: Res<DeveloperTools>) -> bool {

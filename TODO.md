@@ -201,33 +201,33 @@
 
 
 
-- **Moving platforms not driven by LDtk authoring** `[V4/D4]` — Jon
-  noted 2026-05-07: "Also fix the fact that the moving platforms
-  don't seem to associated with the ldtk files. I'm not sure where
-  they are coming from, but every entity in games must be associated
-  with some ldtk placement. ldtk is the source of truth for the
-  world layout."
-  Root cause: `MovingPlatformState::time_reference(&world)` in
-  [platforms.rs:31](crates/ambition_sandbox/src/platforms.rs#L31)
-  procedurally constructs ONE platform per room based on world size
-  -- it never reads any authoring data. There's a `KinematicPath`
-  entity def in the LDtk file (see line 2012) but it's not parsed
-  into MovingPlatformState by any system; the LDtk-authored paths
-  are ignored at runtime. Fix:
-  - Parse `KinematicPath` entities in ldtk_world.rs into a
-    `KinematicPathSpec` list per room
-  - Replace `runtime.moving_platform: MovingPlatformState` (single)
-    with a `Vec<MovingPlatformState>` populated from the spec list
-  - Update every read site (world_with_moving_platform,
-    sync_moving_platform, integrate_velocity, encounter logic) to
-    iterate the Vec
-  - Add KinematicPath placements to existing rooms that already
-    have the procedural platform (square_arena, etc.) so they
-    keep working post-migration
-  - Remove the procedural `time_reference` constructor (or mark it
-    debug-only behind a `#[cfg(test)]`)
-  Construct sites today: lib.rs:234, app.rs:2154, app.rs:2260,
-  setup.rs:208 + 5 test sites. Each becomes a Vec construction.
+- **Moving platforms still single-instance at runtime** `[V4/D3]` —
+  re-audited 2026-05-13 against current code and
+  [docs/moving_platforms.md](docs/moving_platforms.md). LDtk authoring is
+  no longer missing: `MovingPlatform` entities lower through
+  `LdtkProject::to_room_set()` into `RoomSpec::moving_platform`, and
+  startup / room-load / hot-reload seed `SandboxRuntime::moving_platform`
+  from that active-room spec. `MovingPlatformState::time_reference(&world)`
+  remains only as a compatibility fallback for unauthored rooms and tests.
+  Current limitation: only the first `MovingPlatform` in an active area is
+  consumed because `RoomSpec::moving_platform` is still an `Option` and
+  `SandboxRuntime` still stores one live platform. Fix:
+  - Change `RoomSpec::moving_platform` to `Vec<MovingPlatformState>` and
+    collect every emitted LDtk `MovingPlatform` for the active area.
+  - Change `SandboxRuntime::moving_platform` to `moving_platforms` and seed
+    it from the active room spec, falling back to a one-item debug/reference
+    vec only when no authored platforms exist.
+  - Update collision, carrying, trace, HUD, visuals, room transition,
+    sandbox reset, and hot-reload paths to iterate the vector.
+  - Add an embedded-LDtk regression test that places/loads multiple
+    `MovingPlatform` entities in one active area and verifies all of them
+    reach runtime state.
+  - Keep `KinematicPath` separate for now: it is parsed as generic path data,
+    but the current playable moving-platform contract is the simpler
+    `MovingPlatform` entity bounds plus `sweep_dx`/`speed`. The accepted
+    `KinematicPath` typed-index promotion remains useful for future generic
+    path-authored hazards/platforms, but it is not the root cause of today's
+    platform authoring issue.
 
 ## Accepted / In-flight (Jon-tagged)
 

@@ -38,6 +38,13 @@ pub struct SlashPreviewVisual {
     duration: f32,
 }
 
+#[derive(Component)]
+pub struct SpeechBubbleVisual {
+    pos: ae::Vec2,
+    age: f32,
+    duration: f32,
+}
+
 /// One ember of the live blink-destination indicator. Spawned in a small
 /// rotating ring at the predicted teleport landing while the blink button is
 /// held, despawned when the player releases or the blink ability is gated.
@@ -64,7 +71,7 @@ pub enum ParticleKind {
 ///
 /// Headless builds omit the subscriber; messages accumulate and drain
 /// without entity spawns.
-#[derive(Message, Clone, Copy, Debug)]
+#[derive(Message, Clone, Debug)]
 pub enum VfxMessage {
     Burst {
         pos: ae::Vec2,
@@ -92,6 +99,10 @@ pub enum VfxMessage {
         from: ae::Vec2,
         to: ae::Vec2,
     },
+    SpeechBubble {
+        pos: ae::Vec2,
+        text: String,
+    },
 }
 
 /// Presentation-side subscriber. Reads `VfxMessage`s and spawns particle /
@@ -103,7 +114,7 @@ pub fn vfx_spawn_messages(
 ) {
     let world = &world.0;
     for message in messages.read() {
-        match *message {
+        match message.clone() {
             VfxMessage::Burst {
                 pos,
                 count,
@@ -136,7 +147,32 @@ pub fn vfx_spawn_messages(
             VfxMessage::ResetEffects { from, to } => {
                 spawn_reset_effects(&mut commands, world, from, to);
             }
+            VfxMessage::SpeechBubble { pos, text } => {
+                spawn_speech_bubble(&mut commands, world, pos, &text);
+            }
         }
+    }
+}
+
+
+pub fn update_speech_bubbles(
+    mut commands: Commands,
+    time: Res<Time>,
+    world: Res<crate::GameWorld>,
+    mut query: Query<(Entity, &mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut bubble, mut transform, mut color) in &mut query {
+        bubble.age += dt;
+        if bubble.age >= bubble.duration {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let t = (bubble.age / bubble.duration).clamp(0.0, 1.0);
+        let rise = 14.0 * t;
+        let alpha = if t < 0.75 { 1.0 } else { 1.0 - (t - 0.75) / 0.25 };
+        transform.translation = world_to_bevy(&world.0, bubble.pos + ae::Vec2::new(0.0, -rise), WORLD_Z_FX + 8.0);
+        *color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95 * alpha.clamp(0.0, 1.0)));
     }
 }
 
@@ -208,6 +244,26 @@ pub fn update_slash_previews(
         let alpha = 0.80 * (1.0 - preview.age / preview.duration);
         sprite.color = Color::srgba(1.0, 1.0, 0.35, alpha);
     }
+}
+
+
+pub fn spawn_speech_bubble(commands: &mut Commands, world: &ae::World, pos: ae::Vec2, text: &str) {
+    let bubble_text = format!("\u{201c}{text}\u{201d}");
+    commands.spawn((
+        Text2d::new(bubble_text),
+        TextFont {
+            font_size: 13.0,
+            ..default()
+        },
+        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95)),
+        Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 8.0)),
+        SpeechBubbleVisual {
+            pos,
+            age: 0.0,
+            duration: 1.35,
+        },
+        Name::new(format!("Speech bubble: {text}")),
+    ));
 }
 
 pub fn spawn_slash_preview(commands: &mut Commands, world: &ae::World, hitbox: ae::Aabb) {

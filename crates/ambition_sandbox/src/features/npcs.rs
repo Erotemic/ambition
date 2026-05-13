@@ -221,6 +221,56 @@ impl NpcRuntime {
         format!("npc_{}_hostile", self.id)
     }
 
+    pub(super) fn bark_anchor(&self) -> ae::Vec2 {
+        self.pos + ae::Vec2::new(0.0, -self.size.y * 0.72 - 16.0)
+    }
+
+    fn dialogue_key(&self) -> String {
+        match &self.interactable.kind {
+            ae::InteractionKind::Npc {
+                dialogue_id: Some(dialogue_id),
+                ..
+            } => dialogue_id.to_ascii_lowercase(),
+            _ => self.id.to_ascii_lowercase(),
+        }
+    }
+
+    pub(super) fn hit_bark(&self) -> &'static str {
+        let key = self.dialogue_key();
+        let name = self.name.to_ascii_lowercase();
+        if key.contains("admiral") || name.contains("admiral") {
+            "Mind the coat."
+        } else if key.contains("leader") || name.contains("leader") {
+            "Discipline."
+        } else if key.contains("chadwick") || name.contains("chadwick") {
+            "Rude."
+        } else if key.contains("quartermaster") || name.contains("quartermaster") {
+            "Cut it out."
+        } else if key.contains("guard") || name.contains("guard") {
+            "Hey."
+        } else {
+            "Hey."
+        }
+    }
+
+    pub(super) fn hostile_bark(&self) -> &'static str {
+        let key = self.dialogue_key();
+        let name = self.name.to_ascii_lowercase();
+        if key.contains("admiral") || name.contains("admiral") {
+            "Boarding action!"
+        } else if key.contains("leader") || name.contains("leader") {
+            "Draw."
+        } else if key.contains("chadwick") || name.contains("chadwick") {
+            "Security!"
+        } else if key.contains("quartermaster") || name.contains("quartermaster") {
+            "You owe me."
+        } else if key.contains("guard") || name.contains("guard") {
+            "That's it!"
+        } else {
+            "That's it!"
+        }
+    }
+
     pub(super) fn message(&self) -> String {
         if self.hostile {
             return format!("{} attacks!", self.name);

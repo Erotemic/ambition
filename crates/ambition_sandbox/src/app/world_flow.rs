@@ -96,6 +96,14 @@ pub(super) fn load_room(
     if edge_exit {
         runtime.player.vel = old_velocity;
     }
+    runtime.blink_in_timer = 0.0;
+    runtime.blink_camera_from = runtime.player.pos;
+    runtime.blink_camera_to = runtime.player.pos;
+    runtime.camera_snap_timer = if edge_exit {
+        0.0
+    } else {
+        crate::ROOM_DOOR_CAMERA_SNAP_TIME
+    };
     runtime.flash_timer = if edge_exit {
         feel.edge_transition_flash
     } else {
@@ -224,6 +232,10 @@ pub(super) fn handle_player_events(
             pos: blink.from,
             precision: blink.precision,
         });
+        runtime.blink_in_duration = crate::BLINK_IN_ANIM_TIME;
+        runtime.blink_in_timer = runtime.blink_in_duration;
+        runtime.blink_camera_from = blink.from;
+        runtime.blink_camera_to = blink.to;
         vfx.push(VfxMessage::BlinkEffects {
             from: blink.from,
             to: blink.to,
@@ -307,6 +319,12 @@ pub(super) fn handle_feature_events(
         sfx.push(SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_CRATE_BREAK,
             pos,
+        });
+    }
+    for bubble in &events.speech_bubbles {
+        vfx.push(VfxMessage::SpeechBubble {
+            pos: bubble.pos,
+            text: bubble.text.clone(),
         });
     }
     // Switch-toggle and standalone gameplay SFX now route through

@@ -135,6 +135,12 @@ impl GameplayEffect {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct FeatureSpeechBubble {
+    pub pos: ae::Vec2,
+    pub text: String,
+}
+
 #[derive(Default, Clone, Debug)]
 pub struct FeatureEvents {
     pub dialogue_request: Option<NpcDialogueRequest>,
@@ -162,6 +168,9 @@ pub struct FeatureEvents {
     /// to the existing `physics_bursts.Breakable` entry which already
     /// drives debris). Drives the `world.crate.break` SFX.
     pub breakables_destroyed: Vec<ae::Vec2>,
+    /// Diegetic one-line barks rendered above actors for reactions that are
+    /// lighter than full dialogue, such as NPCs objecting to being hit.
+    pub speech_bubbles: Vec<FeatureSpeechBubble>,
 }
 
 impl FeatureEvents {
@@ -182,10 +191,18 @@ impl FeatureEvents {
         self.pickups_collected.append(&mut other.pickups_collected);
         self.breakables_destroyed
             .append(&mut other.breakables_destroyed);
+        self.speech_bubbles.append(&mut other.speech_bubbles);
     }
 
     pub fn push_effect(&mut self, effect: GameplayEffect) {
         self.effects.push(effect);
+    }
+
+    pub fn speech_bubble(&mut self, pos: ae::Vec2, text: impl Into<String>) {
+        self.speech_bubbles.push(FeatureSpeechBubble {
+            pos,
+            text: text.into(),
+        });
     }
 
     pub fn set_flag(&mut self, id: impl Into<String>, on: bool) {

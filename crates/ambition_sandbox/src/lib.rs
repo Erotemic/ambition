@@ -166,6 +166,9 @@ pub struct GameWorld(pub ae::World);
 /// to multi-player. The headless binary deliberately does not install this
 /// resource — Phase 1 headless validates only the asset/world/spine pipeline,
 /// not gameplay.
+pub const BLINK_IN_ANIM_TIME: f32 = 0.22;
+pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
+
 #[derive(Resource)]
 pub struct SandboxRuntime {
     pub player: ae::Player,
@@ -200,6 +203,17 @@ pub struct SandboxRuntime {
     /// ledge — gravity is suspended and Up + Jump kicks off the
     /// climb. `None` otherwise. Only mutated by `update_ledge_grab`.
     pub ledge_grab: Option<LedgeGrabState>,
+    /// Presentation timer for the post-teleport blink-in pose. The engine
+    /// commits blink position immediately; the sandbox holds this timer so
+    /// the sprite/camera can ease into the destination instead of popping.
+    pub blink_in_timer: f32,
+    pub blink_in_duration: f32,
+    pub blink_camera_from: ae::Vec2,
+    pub blink_camera_to: ae::Vec2,
+    /// Door transitions should snap the camera to the new room immediately.
+    /// Edge exits intentionally leave this at zero so later work can do a
+    /// side-door scroll effect.
+    pub camera_snap_timer: f32,
     /// One-shot signal: set true the frame `register_down_tap` detects
     /// the second tap of a double-tap-down within
     /// `feel.down_double_tap_window`. The body-mode driver in the
@@ -299,6 +313,11 @@ impl SandboxRuntime {
             slash_anim_timer: 0.0,
             player_attack: None,
             ledge_grab: None,
+            blink_in_timer: 0.0,
+            blink_in_duration: BLINK_IN_ANIM_TIME,
+            blink_camera_from: world.spawn,
+            blink_camera_to: world.spawn,
+            camera_snap_timer: 0.0,
             double_tap_down_pending: false,
         }
     }
@@ -323,6 +342,10 @@ impl SandboxRuntime {
         self.room_transition_cooldown = 0.0;
         self.slash_anim_timer = 0.0;
         self.player_attack = None;
+        self.blink_in_timer = 0.0;
+        self.blink_camera_from = self.player.pos;
+        self.blink_camera_to = self.player.pos;
+        self.camera_snap_timer = 0.0;
         // Refill mana on reset; the editor-tuned damage_multiplier /
         // invincible flag now lives on `Player` and survives reset
         // because `reset_to` only touches movement state, not these

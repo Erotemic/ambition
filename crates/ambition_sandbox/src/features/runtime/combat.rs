@@ -191,6 +191,7 @@ impl FeatureRuntime {
             report.hit_targets.push(key);
             if npc.hostile {
                 npc.strikes = npc.strikes.saturating_add(1);
+                report.events.speech_bubble(npc.bark_anchor(), npc.hit_bark());
                 if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD * 2 {
                     report
                         .events
@@ -205,8 +206,11 @@ impl FeatureRuntime {
                         .events
                         .messages
                         .push(format!("{} turns hostile", npc.name));
+                    report.events.speech_bubble(npc.bark_anchor(), npc.hostile_bark());
                     report.events.set_flag(npc.flag_id(), true);
                     report.events.bursts.push(npc.pos);
+                } else {
+                    report.events.speech_bubble(npc.bark_anchor(), npc.hit_bark());
                 }
             }
         }

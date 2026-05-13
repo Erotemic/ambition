@@ -54,18 +54,21 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 
 /// Pick the player's animation from runtime state.
 ///
-/// Priority: hit > slash > fly > dash > airborne (jump/fall) > run/walk/idle.
+/// Priority: hit > blink-in/out > slash > fly > dash > airborne (jump/fall) > run/walk/idle.
 /// Free-flight overrides ground/airborne motion because the engine
 /// integrator already disables gravity in flight; the visual should
 /// reflect the active mode rather than whatever fall/run inertia
 /// happens to read.
 /// Death is not represented yet — the player respawns instantly today.
-/// `BlinkOut`/`BlinkIn` are not used yet because the runtime doesn't
-/// track a per-blink anim window; once a `blink_anim_timer` is added
-/// alongside `slash_anim_timer`, this function can switch on it.
+/// `BlinkOut` is used while the blink button is held/aiming, and
+/// `BlinkIn` is held briefly after a committed blink so VFX/camera have
+/// time to sell the arrival.
 pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
     if runtime.hitstun_timer > 0.05 {
         return CharacterAnim::Hit;
+    }
+    if runtime.blink_in_timer > 0.0 {
+        return CharacterAnim::BlinkIn;
     }
     if runtime.slash_anim_timer > 0.0 {
         return CharacterAnim::Slash;

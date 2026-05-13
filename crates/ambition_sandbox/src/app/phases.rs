@@ -527,4 +527,6 @@ pub(super) fn cleanup_timers_phase(runtime: &mut SandboxRuntime, frame_dt: f32) 
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
     runtime.slash_anim_timer = (runtime.slash_anim_timer - frame_dt).max(0.0);
+    runtime.blink_in_timer = (runtime.blink_in_timer - frame_dt).max(0.0);
+    runtime.camera_snap_timer = (runtime.camera_snap_timer - frame_dt).max(0.0);
 }

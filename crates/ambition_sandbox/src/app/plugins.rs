@@ -370,6 +370,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 fx::update_particles,
                 fx::update_impacts,
                 fx::update_slash_previews,
+                fx::update_speech_bubbles,
                 windowing::window_mode_hotkeys,
             )
                 .chain()

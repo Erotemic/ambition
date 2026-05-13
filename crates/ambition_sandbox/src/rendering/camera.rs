@@ -91,6 +91,7 @@ pub fn camera_follow(
     } else {
         encounter_scale.max(camera_zone_scale)
     };
+    let snap_camera = runtime.camera_snap_timer > 0.0;
 
     // Ease the live scale toward the target. Different rates for
     // zoom-in (encounter starts; tighter, faster — players want
@@ -98,7 +99,7 @@ pub fn camera_follow(
     // slower, breathy "you survived"). Overview camera snaps because
     // it's a debug tool.
     let dt = time.delta_secs().max(0.0);
-    let camera_scale = if developer_tools.overview_camera {
+    let camera_scale = if developer_tools.overview_camera || snap_camera {
         camera_state.live_scale = target_scale;
         target_scale
     } else {
@@ -165,13 +166,20 @@ pub fn camera_follow(
         desired_target_world.x += bias_x;
         desired_target_world.y += bias_y;
 
+        if runtime.blink_in_timer > 0.0 && runtime.blink_in_duration > 0.0 {
+            let raw_t = 1.0 - (runtime.blink_in_timer / runtime.blink_in_duration).clamp(0.0, 1.0);
+            let t = raw_t * raw_t * (3.0 - 2.0 * raw_t);
+            desired_target_world =
+                runtime.blink_camera_from + (desired_target_world - runtime.blink_camera_from) * t;
+        }
+
         // Smooth the target itself, not just the zoom. Phase 4 introduced
         // look-ahead framing; without a target ease, flipping facing in open
         // space teleports the camera target by 10-30% of the viewport width.
         // Room-boundary clamping hides that near walls, which made the snap
         // feel inconsistent. Keep this state presentation-only so physics and
         // hit tests remain frame-exact.
-        let target_world = if !camera_state.target_initialized {
+        let target_world = if snap_camera || !camera_state.target_initialized {
             camera_state.target_initialized = true;
             camera_state.live_target_world = desired_target_world;
             desired_target_world

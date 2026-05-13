@@ -158,7 +158,17 @@ fn handle_attacks(
     if !player.abilities.attack {
         return;
     }
-    let can_pogo = player.abilities.pogo;
+    // Pogo is an aerial verb: you bounce off something below you. On the
+    // ground, `try_pogo`'s hitbox sits just under the player's feet and
+    // any normal `Solid` floor counts as a valid target — so without
+    // this gate, pressing down+attack (or the dedicated pogo button)
+    // while grounded launches the player off the floor and flips
+    // `on_ground` false, which then makes the sandbox `start_attack`
+    // resolve the input as `AirDown` instead of the new grounded
+    // kneeling poke (`AttackIntent::Down`). Gating both branches on
+    // `!player.on_ground` keeps pogo airborne-only and lets the
+    // grounded down-tilt fire as intended.
+    let can_pogo = player.abilities.pogo && !player.on_ground;
     if input.pogo_pressed && can_pogo {
         if let Some(orb_aabb) = try_pogo(world, player, tuning) {
             events.op(player, MovementOp::Pogo);

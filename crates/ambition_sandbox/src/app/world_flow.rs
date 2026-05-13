@@ -531,13 +531,17 @@ pub(super) fn start_attack(
     {
         runtime.player.vel.y = -40.0;
     }
-    // Do not force downward commitment for a pogo-triggered attack. The
-    // movement phase runs earlier in the frame and may have just applied the
-    // upward bounce from a pogo orb; clobbering that here makes successful
-    // pogo refreshes look like they failed. Downward attacks still get the
-    // small self_impulse from the spec, but true pogo bounce velocity wins.
+    // Force downward commitment ONLY for the aerial down spike. The
+    // grounded `Down` is now a kneeling forward poke (Marth-style
+    // down-tilt) — it's rooted to the floor, so injecting downward
+    // velocity here would punch the player into the ground / through
+    // one-way platforms and make the attack feel like a glitched
+    // pogo. AirDown still wants the commit, but not when a pogo orb
+    // is involved: the movement phase ran earlier this frame and may
+    // have applied an upward bounce we need to preserve, so the
+    // clobber stays gated on `!pogo_pressed`.
     if !controls.pogo_pressed
-        && matches!(intent, ae::AttackIntent::AirDown | ae::AttackIntent::Down)
+        && intent == ae::AttackIntent::AirDown
         && runtime.player.vel.y < 80.0
     {
         runtime.player.vel.y = 80.0;

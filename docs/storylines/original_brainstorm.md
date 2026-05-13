@@ -358,3 +358,10 @@ guns on them that shoot other swords.
 
 Might be funny for the first person on the street to help the robot to be some
 a character named Erdish or Oiler, that teach the robot a math move.
+
+
+It would also be funny to have someone comment on how much power the character
+uses as they drive their car for some vain reason. The power you use should
+absolutely be a real problem too. The point is the critique is coming more
+because the character hates you and not the actual thing they are commenting
+on.

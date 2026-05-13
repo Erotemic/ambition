@@ -272,3 +272,84 @@ Other factions:
 It would be neat if we could leverage the RL agents to add legitimate AI
 enemies instead of just scripts. That would be an advanced feature though as it
 requires a lot more compute, not something enabled by default.
+
+---
+
+I want to build a basement room that goes through the real opening game
+sequence:
+
+The game opens with: "Hey you, you're finally awake". 
+
+You start off in your creator's lab, and you are the AI character the scientist
+was developing. There's an optional tutorial phase you can go through, or you
+can decide that you don't need it, and both paths lead to an event where the
+lab is attacked for reasons you don't know.
+
+I'm not sure who the right factions to attack the lab are, but there should be
+at least two of them, and the lab probably shouldn't be associated with any of
+the factions directly. Your creator was more of an independent researcher. 
+
+Let's say in the initial draft it is the Luddites and Authoritarians. They are
+both coming after the researcher, for reasons the game might expand on later.
+Depending on your choices one of the groups will kill your creator, leaving you
+without knowing or understanding your purpose.
+
+You might have the ability to temporarily ally with one of these factions here,
+but it won't have a huge impact exactly what choices you make. Gameplay wise
+you platform through the lab and fight various enemies from both sides before
+depending on which path you go down one of the factions NPCs attempts to talk
+to you. Regardless of what you do, now the other side will be the one to kill
+the creator. 
+
+Should I just go full on over-the-top and make the Authoritarians Nazis? In
+addition to them there will likely be a moderate military for some
+Oceania-invoking country and some other Eurasia, Eastasia country. Having
+country borders could be fun, and we could also explore how exploding nuclear
+weapons, bioweapons, and climate change doesn't care about borders. We could
+explore nationalism versus patriotism.
+
+Going to have to work out why the Luddites might want to work with you. Maybe
+as a faction they really don't want to, but maybe there are turnable Luddites
+who are only there because that's the community they grew up in, and there
+might be some dialog like from a kid like: "you don't seem that dangerous to
+me." so you work with them in that way but the core group still always rejects
+the AI character.
+
+Each faction will need a story line and interaction with other factions. We
+could do rolling installments of factions.
+
+
+I'm wondering if we need some more pressing existential threat for the story.
+We do want a dark world, so dimensional collapse could certainly be something.
+
+Oh, it would be so fun to have a dimensional portal that looks like a StarGate
+but is still transformative and the chevron letters spell out
+L-E-G-A-L-L-Y-D-I-S-I-N-C-T. We could even replace the L's with lambdas.
+
+The ΛEGAΛΛY-DISINCT Gate
+
+
+Some faction having that could be a pathway into the first alternate world. 
+
+
+Maybe the game rationalizes for being all over the place by having dimensional
+collapse everywhere, which is why we can have ninjas fighting Nazis and general
+Shenanigans. 
+
+
+For the N=17 dimensions or something, we probably should have most of them be
+non-populated, so dimension != associated with a faction. I do insist on a Nazi
+dimension, but the pirate and ninja dimensions could be combined.
+
+Maybe we could have a "shadow" of the real creator (i.e. me) with Claude in one
+hand and GPT in the other and a whole lot of science and Python in my head. 
+
+
+The creator will die and the last words will be:
+
+There’s a question you were made to answer: are --- you winning son?
+
+But without exploits, bugs, or mods a player will never see beyond ---.
+
+Remember: The pirates ride burning flying sharks. And have laser swords with
+guns on them that shoot other swords. 

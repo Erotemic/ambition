@@ -249,6 +249,7 @@ mod tests {
             world: world.clone(),
             loading_zones: Vec::new(),
             metadata: crate::rooms::RoomMetadata::default(),
+            camera_zones: Vec::new(),
             moving_platforms: Vec::new(),
         };
         app.insert_resource(crate::rooms::RoomSet::from_parts(

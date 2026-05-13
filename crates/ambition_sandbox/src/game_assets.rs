@@ -269,9 +269,29 @@ impl ParallaxTheme {
     }
 
     pub fn from_room_metadata(metadata: &RoomMetadata) -> Self {
-        // Strong room identity overrides. The ninja dojo currently inherits an
-        // older cove/tide metadata set, but the music / ids still carry the
-        // dojo identity. Prefer the forest art for that space.
+        // Explicit room visual profiles are the preferred authoring seam for
+        // real rooms. `visual_profile` is a stable id, while `parallax_theme`
+        // chooses the generated art stack directly.
+        if let Some(theme) = metadata
+            .visual_profile
+            .parallax_theme
+            .as_deref()
+            .and_then(Self::from_key)
+        {
+            return theme;
+        }
+        if let Some(theme) = metadata
+            .visual_profile
+            .id
+            .as_deref()
+            .and_then(Self::from_key)
+        {
+            return theme;
+        }
+
+        // Compatibility fallback for older rooms that only have loose metadata.
+        // New authored content should set visual_profile/parallax_theme instead
+        // of relying on these heuristic mappings.
         for value in [
             metadata.music_track.as_deref(),
             metadata.biome.as_deref(),
@@ -286,10 +306,6 @@ impl ParallaxTheme {
                 return Self::Forest;
             }
         }
-
-        // Prefer the semantic biome. Some existing LDtk rooms use visual_theme
-        // as a color word ("blue", "pink", "orange"), which is not specific
-        // enough to choose art motifs safely.
         if let Some(theme) = metadata.biome.as_deref().and_then(Self::from_key) {
             return theme;
         }

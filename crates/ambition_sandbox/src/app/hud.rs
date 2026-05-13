@@ -82,8 +82,13 @@ pub(super) fn update_hud(
     for (physical, semantic) in GAMEPAD_MAP.iter().take(6) {
         gamepad.push_str(&format!("{} = {}  ", physical, semantic));
     }
+    let active_camera_zone = camera_params
+        .camera_view
+        .active_camera_zone
+        .as_deref()
+        .unwrap_or("—");
     let camera_view_line = format!(
-        "view: {} {} {} req {:.0}x{:.0} vis {:.0}x{:.0} z{:.2} zones={} body={} move={}",
+        "view: {} {} {} req {:.0}x{:.0} vis {:.0}x{:.0} z{:.2} zones={} active={} body={} move={}",
         camera_params.user_settings.video.camera_zoom.label(),
         camera_params.user_settings.video.camera_aspect.label(),
         camera_params.user_settings.video.camera_framing.label(),
@@ -93,6 +98,7 @@ pub(super) fn update_hud(
         camera_params.camera_view.visible_view.y,
         camera_params.camera_view.zoom_multiplier,
         camera_params.camera_view.active_camera_zones,
+        active_camera_zone,
         developer_tools.player_body_profile.label(),
         developer_tools.movement_profile.label(),
     );
@@ -248,6 +254,12 @@ pub(super) fn update_hud(
         }
         if let Some(v) = &metadata.visual_theme {
             bits.push(format!("theme={v}"));
+        }
+        if let Some(profile) = metadata.visual_profile.label() {
+            bits.push(format!("visual={profile}"));
+        }
+        if let Some(theme) = &metadata.visual_profile.parallax_theme {
+            bits.push(format!("parallax={theme}"));
         }
         bits.join(" ")
     };

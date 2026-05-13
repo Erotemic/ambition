@@ -21,7 +21,10 @@ use super::project::{LdtkEntityInstance, LdtkLevel, LdtkProject};
 use super::surfaces::{
     compile_surface, is_surface_like_identifier, parse_surface_spec, SurfaceCompiled,
 };
-use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSpec};
+use crate::rooms::{
+    CameraClampMode, CameraZoneSpec, LoadingZone, LoadingZoneActivation, RoomLink, RoomSet,
+    RoomSpec,
+};
 
 impl LdtkProject {
     /// Build the sandbox runtime room set from LDtk.
@@ -117,6 +120,7 @@ impl LdtkProject {
         let mut water_regions = Vec::new();
         let mut climbable_regions = Vec::new();
         let mut moving_platforms: Vec<crate::platforms::MovingPlatformState> = Vec::new();
+        let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -149,6 +153,7 @@ impl LdtkProject {
                         objects.extend(emission.objects);
                         water_regions.extend(emission.water_regions);
                         moving_platforms.extend(emission.moving_platforms);
+                        camera_zones.extend(emission.camera_zones);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -213,6 +218,7 @@ impl LdtkProject {
             },
             loading_zones,
             metadata,
+            camera_zones,
             moving_platforms,
         })
     }
@@ -252,6 +258,7 @@ pub(super) struct RuntimeEntityEmission {
     /// composer concatenates these so active areas can own multiple authored
     /// moving solids.
     pub(super) moving_platforms: Vec<crate::platforms::MovingPlatformState>,
+    pub(super) camera_zones: Vec<CameraZoneSpec>,
     pub(super) ignored: bool,
 }
 
@@ -294,6 +301,13 @@ impl RuntimeEntityEmission {
     fn moving_platform(state: crate::platforms::MovingPlatformState) -> Self {
         Self {
             moving_platforms: vec![state],
+            ..Self::default()
+        }
+    }
+
+    fn camera_zone(zone: CameraZoneSpec) -> Self {
+        Self {
+            camera_zones: vec![zone],
             ..Self::default()
         }
     }
@@ -524,7 +538,25 @@ pub(super) fn entity_to_runtime(
                 ),
             ))
         }
-        "CameraZone" | "StitchedBoundary" => Ok(RuntimeEntityEmission::ignored()),
+        "CameraZone" => Ok(RuntimeEntityEmission::camera_zone(CameraZoneSpec {
+            id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+            name,
+            aabb: object_aabb(min, size),
+            priority: field_i32(entity, "priority").unwrap_or(0),
+            zoom: field_f32(entity, "zoom").or_else(|| field_f32(entity, "camera_zoom")),
+            target_offset: ae::Vec2::new(
+                field_f32(entity, "target_offset_x").unwrap_or(0.0),
+                field_f32(entity, "target_offset_y").unwrap_or(0.0),
+            ),
+            easing_hz: field_f32(entity, "easing_hz"),
+            cinematic_lock: field_bool(entity, "cinematic_lock")
+                .or_else(|| field_bool(entity, "lock_to_zone"))
+                .unwrap_or(false),
+            clamp_mode: CameraClampMode::from_author_value(
+                field_string(entity, "clamp_mode").as_deref(),
+            ),
+        })),
+        "StitchedBoundary" => Ok(RuntimeEntityEmission::ignored()),
         // EncounterTrigger entities are read by `crate::encounter::load_encounter_specs_from_ldtk`
         // directly off the `LdtkProject` because the encounter spec
         // wants level-relative coordinates and field combinations

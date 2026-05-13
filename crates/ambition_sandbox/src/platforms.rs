@@ -255,6 +255,7 @@ mod tests {
             world,
             loading_zones: Vec::new(),
             metadata: crate::rooms::RoomMetadata::default(),
+            camera_zones: Vec::new(),
             moving_platforms: platforms,
         }
     }

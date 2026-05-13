@@ -15,6 +15,7 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         world: empty_world(id),
         loading_zones: Vec::new(),
         metadata: meta,
+        camera_zones: Vec::new(),
         moving_platforms: Vec::new(),
     }
 }
@@ -26,12 +27,14 @@ fn active_metadata_returns_active_room_metadata() {
         music_track: Some("hub_loop".into()),
         ambient_profile: None,
         visual_theme: None,
+        visual_profile: Default::default(),
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
         music_track: Some("cave_loop".into()),
         ambient_profile: Some("damp".into()),
         visual_theme: None,
+        visual_profile: Default::default(),
     };
     let mut set = RoomSet::from_parts(
         "first",
@@ -55,6 +58,7 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
         music_track: Some("cave_loop".into()),
         ambient_profile: None,
         visual_theme: None,
+        visual_profile: Default::default(),
     }));
     app.insert_resource(RoomMusicRequest::default());
     app.add_systems(Update, sync_room_music_request);
@@ -85,12 +89,14 @@ fn sync_active_room_metadata_publishes_active_value() {
         music_track: Some("hub_loop".into()),
         ambient_profile: None,
         visual_theme: None,
+        visual_profile: Default::default(),
     };
     let m_lab = RoomMetadata {
         biome: Some("lab".into()),
         music_track: Some("lab_loop".into()),
         ambient_profile: None,
         visual_theme: None,
+        visual_profile: Default::default(),
     };
     let set = RoomSet::from_parts(
         "hub",
@@ -128,7 +134,12 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         music_track: Some("loop".into()),
         ambient_profile: None,
         visual_theme: None,
+        visual_profile: Default::default(),
     };
+    assert!(!m.is_empty());
+
+    let mut m = RoomMetadata::default();
+    m.visual_profile.id = Some("intro".into());
     assert!(!m.is_empty());
 }
 
@@ -139,18 +150,60 @@ fn room_metadata_merge_preserves_existing_values() {
         music_track: None,
         ambient_profile: None,
         visual_theme: Some("blue".into()),
+        visual_profile: Default::default(),
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
         music_track: Some("hub_loop".into()),  // takes effect — a.music_track was None
         ambient_profile: Some("damp".into()),  // takes effect
         visual_theme: Some("CONFLICT".into()), // ignored
+        visual_profile: Default::default(),
     };
     a.merge(b);
     assert_eq!(a.biome.as_deref(), Some("hub"));
     assert_eq!(a.music_track.as_deref(), Some("hub_loop"));
     assert_eq!(a.ambient_profile.as_deref(), Some("damp"));
     assert_eq!(a.visual_theme.as_deref(), Some("blue"));
+}
+
+#[test]
+fn room_visual_profile_merge_prefers_existing_values() {
+    let mut a = RoomVisualProfile {
+        id: Some("intro".into()),
+        parallax_theme: None,
+        palette: Some("warm".into()),
+        lighting_hint: None,
+        foreground_treatment: None,
+    };
+    let b = RoomVisualProfile {
+        id: Some("conflict".into()),
+        parallax_theme: Some("basement".into()),
+        palette: Some("cool".into()),
+        lighting_hint: Some("low_key".into()),
+        foreground_treatment: Some("dust".into()),
+    };
+    a.merge(b);
+    assert_eq!(a.id.as_deref(), Some("intro"));
+    assert_eq!(a.parallax_theme.as_deref(), Some("basement"));
+    assert_eq!(a.palette.as_deref(), Some("warm"));
+    assert_eq!(a.lighting_hint.as_deref(), Some("low_key"));
+    assert_eq!(a.foreground_treatment.as_deref(), Some("dust"));
+}
+
+#[test]
+fn camera_clamp_mode_parses_author_values() {
+    assert_eq!(
+        CameraClampMode::from_author_value(Some("zone_bounds")),
+        CameraClampMode::ZoneBounds
+    );
+    assert_eq!(
+        CameraClampMode::from_author_value(Some("free")),
+        CameraClampMode::None
+    );
+    assert_eq!(
+        CameraClampMode::from_author_value(Some("whatever")),
+        CameraClampMode::RoomBounds
+    );
 }
 
 #[test]

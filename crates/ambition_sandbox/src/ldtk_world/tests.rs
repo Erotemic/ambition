@@ -115,8 +115,8 @@ fn int_grid_hazard_value_maps_to_hazard_block() {
 #[test]
 fn level_metadata_reads_optional_biome_fields() {
     // Build a synthetic level whose fieldInstances declare every
-    // optional metadata field. The reader should pick all four up
-    // and produce a RoomMetadata with each Some(...).
+    // optional metadata + visual-profile field. The reader should pick
+    // them up and produce a RoomMetadata with each Some(...).
     use serde_json::Value;
     fn field(name: &str, value: &str) -> LdtkFieldInstance {
         LdtkFieldInstance {
@@ -138,6 +138,11 @@ fn level_metadata_reads_optional_biome_fields() {
             field("music_track", "loop_a"),
             field("ambient_profile", "damp"),
             field("visual_theme", "blue"),
+            field("visual_profile", "intro_wakeup_room"),
+            field("parallax_theme", "basement"),
+            field("palette", "warm_terminal"),
+            field("lighting_hint", "low_key"),
+            field("foreground_treatment", "dusty_edges"),
         ],
         layer_instances: Vec::new(),
     };
@@ -146,6 +151,23 @@ fn level_metadata_reads_optional_biome_fields() {
     assert_eq!(meta.music_track.as_deref(), Some("loop_a"));
     assert_eq!(meta.ambient_profile.as_deref(), Some("damp"));
     assert_eq!(meta.visual_theme.as_deref(), Some("blue"));
+    assert_eq!(meta.visual_profile.id.as_deref(), Some("intro_wakeup_room"));
+    assert_eq!(
+        meta.visual_profile.parallax_theme.as_deref(),
+        Some("basement")
+    );
+    assert_eq!(
+        meta.visual_profile.palette.as_deref(),
+        Some("warm_terminal")
+    );
+    assert_eq!(
+        meta.visual_profile.lighting_hint.as_deref(),
+        Some("low_key")
+    );
+    assert_eq!(
+        meta.visual_profile.foreground_treatment.as_deref(),
+        Some("dusty_edges")
+    );
 }
 
 #[test]
@@ -188,12 +210,14 @@ fn room_metadata_merge_first_non_empty_wins() {
         music_track: None,
         ambient_profile: None,
         visual_theme: None,
+        visual_profile: Default::default(),
     };
     let b = RoomMetadata {
         biome: Some("basement".into()),
         music_track: Some("dark_loop".into()),
         ambient_profile: Some("bass".into()),
         visual_theme: None,
+        visual_profile: Default::default(),
     };
     a.merge(b);
     assert_eq!(a.biome.as_deref(), Some("hub"), "first non-empty wins");
@@ -547,6 +571,84 @@ fn synthetic_area_collects_multiple_moving_platforms() {
     );
     assert_eq!(room.moving_platforms[0].size, ae::Vec2::new(96.0, 16.0));
     assert_eq!(room.moving_platforms[1].direction(), -1.0);
+}
+
+#[test]
+fn synthetic_camera_zone_reaches_room_spec() {
+    fn field(name: &str, value: &str) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.into(),
+            value: Value::String(value.into()),
+            real_editor_values: vec![],
+        }
+    }
+
+    let camera_zone = make_entity_at(
+        "CameraZone",
+        [128, 96],
+        [256, 160],
+        &[
+            ("id", Value::String("intro_reveal".into())),
+            ("priority", Value::Number(serde_json::Number::from(7))),
+            (
+                "zoom",
+                Value::Number(serde_json::Number::from_f64(1.35).unwrap()),
+            ),
+            (
+                "target_offset_x",
+                Value::Number(serde_json::Number::from(24)),
+            ),
+            (
+                "target_offset_y",
+                Value::Number(serde_json::Number::from(-32)),
+            ),
+            ("easing_hz", Value::Number(serde_json::Number::from(5))),
+            ("cinematic_lock", Value::Bool(true)),
+            ("clamp_mode", Value::String("zone_bounds".into())),
+        ],
+    );
+    let project = LdtkProject {
+        json_version: "1.5.3".into(),
+        levels: vec![LdtkLevel {
+            iid: "level-iid".into(),
+            identifier: "camera_lab".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 640,
+            px_hei: 480,
+            field_instances: vec![field("activeArea", "camera_lab")],
+            layer_instances: vec![LdtkLayerInstance {
+                identifier: "Ambition".into(),
+                layer_type: "Entities".into(),
+                c_wid: 40,
+                c_hei: 30,
+                grid_size: 16,
+                entity_instances: vec![
+                    make_entity_at("PlayerStart", [32, 400], [16, 32], &[]),
+                    camera_zone,
+                ],
+                int_grid_csv: Vec::new(),
+            }],
+        }],
+    };
+
+    let room_set = project
+        .to_room_set()
+        .expect("synthetic LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "camera_lab")
+        .expect("room should exist");
+    assert_eq!(room.camera_zones.len(), 1);
+    let zone = &room.camera_zones[0];
+    assert_eq!(zone.id, "intro_reveal");
+    assert_eq!(zone.priority, 7);
+    assert_eq!(zone.zoom, Some(1.35));
+    assert_eq!(zone.target_offset, ae::Vec2::new(24.0, -32.0));
+    assert_eq!(zone.easing_hz, Some(5.0));
+    assert!(zone.cinematic_lock);
+    assert_eq!(zone.clamp_mode, crate::rooms::CameraClampMode::ZoneBounds);
 }
 
 #[test]

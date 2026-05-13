@@ -422,21 +422,30 @@ def build_active_area_field(project: dict, area_id: str) -> dict:
 
 
 # Optional level-field identifiers handled by `build_level_field_instances`.
-# These map directly to `defs.levelFields` entries created by
-# `tools/add_biome_level_fields.py`. Specs may set any subset; missing
-# fields are simply not emitted as level field instances.
-OPTIONAL_LEVEL_FIELDS = ("biome", "music_track", "ambient_profile", "visual_theme")
+# These map directly to `defs.levelFields` entries in the LDtk project. Specs
+# may set any subset; missing fields are simply not emitted as level field
+# instances.
+OPTIONAL_LEVEL_FIELDS = (
+    "biome",
+    "music_track",
+    "ambient_profile",
+    "visual_theme",
+    "visual_profile",
+    "parallax_theme",
+    "palette",
+    "lighting_hint",
+    "foreground_treatment",
+)
 
 
 def build_level_field_instances(project: dict, spec: dict) -> list[dict]:
     """Build level field instances for `activeArea` plus the optional
-    biome / music / ambient / visual seam.
+    biome / music / ambient / visual profile seam.
 
-    The biome seam fields are looked up dynamically from
+    The room metadata fields are looked up dynamically from
     `defs.levelFields`. If a spec sets one of them but the project is
-    missing the corresponding level field def (i.e. the migration
-    wasn't run), the helper raises a clear error pointing at the
-    migration script instead of silently dropping the value.
+    missing the corresponding level field def, the helper raises a
+    clear error instead of silently dropping the value.
     """
     instances = [build_active_area_field(project, spec["id"])]
     level_fields = {f.get("identifier"): f for f in project["defs"].get("levelFields") or []}

@@ -117,6 +117,13 @@ impl LdtkLevel {
             music_track: take("music_track"),
             ambient_profile: take("ambient_profile"),
             visual_theme: take("visual_theme"),
+            visual_profile: crate::rooms::RoomVisualProfile {
+                id: take("visual_profile").or_else(|| take("visual_profile_id")),
+                parallax_theme: take("parallax_theme"),
+                palette: take("palette"),
+                lighting_hint: take("lighting_hint"),
+                foreground_treatment: take("foreground_treatment"),
+            },
         }
     }
 

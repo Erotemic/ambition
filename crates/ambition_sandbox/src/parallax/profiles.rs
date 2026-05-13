@@ -512,8 +512,15 @@ pub fn parallax_profile_named(name: &str) -> Option<ParallaxProfile> {
 }
 
 pub fn select_parallax_profile(metadata: &RoomMetadata) -> ParallaxProfile {
-    if let Some(theme) = metadata.visual_theme.as_deref() {
-        if let Some(profile) = parallax_profile_named(theme) {
+    for explicit in [
+        metadata.visual_profile.parallax_theme.as_deref(),
+        metadata.visual_profile.id.as_deref(),
+        metadata.visual_theme.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if let Some(profile) = parallax_profile_named(explicit) {
             return profile;
         }
     }

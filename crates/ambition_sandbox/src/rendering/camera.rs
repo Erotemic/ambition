@@ -8,6 +8,7 @@ use bevy::window::PrimaryWindow;
 
 use super::primitives::PlayerVisual;
 use crate::config::world_to_bevy;
+use crate::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
 use crate::settings::CameraAspectPolicy;
 
 /// Live camera diagnostics and feel-lab data.
@@ -16,7 +17,7 @@ use crate::settings::CameraAspectPolicy;
 /// are resolved. HUD/debug overlays read this so they can show the *actual*
 /// gameplay view, not a recomputed approximation that may drift when aspect or
 /// encounter policy changes.
-#[derive(Resource, Clone, Copy, Debug)]
+#[derive(Resource, Clone, Debug)]
 pub struct CameraViewState {
     pub base_view: ae::Vec2,
     pub requested_view: ae::Vec2,
@@ -26,6 +27,7 @@ pub struct CameraViewState {
     pub target_world: ae::Vec2,
     pub center_world: ae::Vec2,
     pub active_camera_zones: usize,
+    pub active_camera_zone: Option<String>,
 }
 
 impl Default for CameraViewState {
@@ -39,6 +41,7 @@ impl Default for CameraViewState {
             target_world: ae::Vec2::ZERO,
             center_world: ae::Vec2::ZERO,
             active_camera_zones: 0,
+            active_camera_zone: None,
         }
     }
 }
@@ -56,15 +59,16 @@ impl Default for CameraViewState {
 /// the player wait for the camera.
 pub fn camera_follow(
     world: Res<crate::GameWorld>,
+    room_set: Res<RoomSet>,
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     encounter_registry: Res<crate::encounter::EncounterRegistry>,
-    ldtk_spine_index: Res<crate::ldtk_world::LdtkRuntimeSpineIndex>,
     user_settings: Res<crate::settings::UserSettings>,
     mut camera_state: ResMut<crate::CameraEaseState>,
     mut view_state: ResMut<CameraViewState>,
     ease_tuning: Res<crate::CameraEaseTuning>,
+    mut last_camera_room: Local<Option<String>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {
@@ -74,24 +78,38 @@ pub fn camera_follow(
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
     let player_body = runtime.player.aabb();
-    let active_camera_zones = ldtk_spine_index
-        .entities
+    let active_spec = room_set.active_spec();
+    let mut active_camera_zones = 0usize;
+    let active_zone = active_spec
+        .camera_zones
         .iter()
-        .filter(|entity| entity.role == crate::ldtk_world::LdtkRuntimeRole::CameraZone)
-        .filter(|entity| player_body.strict_intersects(entity.aabb()))
-        .count();
-    // CameraZone support is intentionally conservative in this first pass:
-    // without authored fields in the runtime spine, a CameraZone just asks for
-    // a modest arena-style breath-out. EncounterTrigger.camera_zoom still owns
-    // encounter/boss-specific framing when present.
-    let camera_zone_scale = if active_camera_zones > 0 { 1.15 } else { 1.0 };
+        .filter(|zone| player_body.strict_intersects(zone.aabb))
+        .inspect(|_| active_camera_zones += 1)
+        .max_by(|a, b| {
+            a.priority
+                .cmp(&b.priority)
+                .then_with(|| zone_area(a).total_cmp(&zone_area(b)))
+        });
+    let camera_zone_scale = active_zone
+        .map(CameraZoneSpec::effective_zoom)
+        .unwrap_or(1.0);
 
     let target_scale = if developer_tools.overview_camera {
         overview_scale
     } else {
         encounter_scale.max(camera_zone_scale)
     };
-    let snap_camera = runtime.camera_snap_timer > 0.0;
+
+    let room_changed = last_camera_room.as_deref() != Some(active_spec.id.as_str());
+    if room_changed {
+        *last_camera_room = Some(active_spec.id.clone());
+        // Room transitions can connect LDtk areas that are spatially disjoint.
+        // Reset the presentation-only camera target immediately so target easing
+        // does not interpolate through unrelated world coordinates.
+        camera_state.target_initialized = false;
+        camera_state.live_scale = target_scale;
+    }
+    let snap_camera = runtime.camera_snap_timer > 0.0 || room_changed;
 
     // Ease the live scale toward the target. Different rates for
     // zoom-in (encounter starts; tighter, faster — players want
@@ -166,6 +184,13 @@ pub fn camera_follow(
         desired_target_world.x += bias_x;
         desired_target_world.y += bias_y;
 
+        if let Some(zone) = active_zone {
+            if zone.cinematic_lock {
+                desired_target_world = zone.aabb.center();
+            }
+            desired_target_world += zone.target_offset;
+        }
+
         if runtime.blink_in_timer > 0.0 && runtime.blink_in_duration > 0.0 {
             let raw_t = 1.0 - (runtime.blink_in_timer / runtime.blink_in_duration).clamp(0.0, 1.0);
             let t = raw_t * raw_t * (3.0 - 2.0 * raw_t);
@@ -184,7 +209,10 @@ pub fn camera_follow(
             camera_state.live_target_world = desired_target_world;
             desired_target_world
         } else {
-            let target_ease_hz = 8.0;
+            let target_ease_hz = active_zone
+                .and_then(|zone| zone.easing_hz)
+                .unwrap_or(8.0)
+                .max(0.0);
             let alpha = (1.0 - (-target_ease_hz * dt).exp()).clamp(0.0, 1.0);
             let previous_target_world = camera_state.live_target_world;
             let eased_target_world =
@@ -195,21 +223,17 @@ pub fn camera_follow(
         (world_to_bevy(&world.0, target_world, 0.0), target_world)
     };
 
-    let min_x = -world.0.size.x * 0.5 + half_view_w;
-    let max_x = world.0.size.x * 0.5 - half_view_w;
-    let min_y = -world.0.size.y * 0.5 + half_view_h;
-    let max_y = world.0.size.y * 0.5 - half_view_h;
-
-    let x = if min_x <= max_x {
-        target.x.clamp(min_x, max_x)
-    } else {
-        0.0
-    };
-    let y = if min_y <= max_y {
-        target.y.clamp(min_y, max_y)
-    } else {
-        0.0
-    };
+    let bounds = active_zone
+        .map(|zone| zone.clamp_mode)
+        .unwrap_or(CameraClampMode::RoomBounds);
+    let (x, y) = clamp_camera_target(
+        &world.0,
+        target,
+        half_view_w,
+        half_view_h,
+        bounds,
+        active_zone,
+    );
     let center_world = ae::Vec2::new(x + world.0.size.x * 0.5, world.0.size.y * 0.5 - y);
 
     *view_state = CameraViewState {
@@ -221,6 +245,7 @@ pub fn camera_follow(
         target_world,
         center_world,
         active_camera_zones,
+        active_camera_zone: active_zone.map(|zone| zone.id.clone()),
     };
 
     for (mut transform, mut projection) in &mut query {
@@ -229,5 +254,63 @@ pub fn camera_follow(
         }
         transform.translation.x = x;
         transform.translation.y = y;
+    }
+}
+
+fn zone_area(zone: &CameraZoneSpec) -> f32 {
+    let half = zone.aabb.half_size();
+    (half.x * 2.0).max(0.0) * (half.y * 2.0).max(0.0)
+}
+
+fn clamp_camera_target(
+    world: &ae::World,
+    target: Vec3,
+    half_view_w: f32,
+    half_view_h: f32,
+    mode: CameraClampMode,
+    zone: Option<&CameraZoneSpec>,
+) -> (f32, f32) {
+    match mode {
+        CameraClampMode::None => (target.x, target.y),
+        CameraClampMode::ZoneBounds => {
+            let Some(zone) = zone else {
+                return clamp_to_world_bounds(world, target, half_view_w, half_view_h);
+            };
+            let min_x = zone.aabb.left() + half_view_w - world.size.x * 0.5;
+            let max_x = zone.aabb.right() - half_view_w - world.size.x * 0.5;
+            let min_y = world.size.y * 0.5 - (zone.aabb.bottom() - half_view_h);
+            let max_y = world.size.y * 0.5 - (zone.aabb.top() + half_view_h);
+            (
+                clamp_or_center(target.x, min_x, max_x),
+                clamp_or_center(target.y, min_y, max_y),
+            )
+        }
+        CameraClampMode::RoomBounds => {
+            clamp_to_world_bounds(world, target, half_view_w, half_view_h)
+        }
+    }
+}
+
+fn clamp_to_world_bounds(
+    world: &ae::World,
+    target: Vec3,
+    half_view_w: f32,
+    half_view_h: f32,
+) -> (f32, f32) {
+    let min_x = -world.size.x * 0.5 + half_view_w;
+    let max_x = world.size.x * 0.5 - half_view_w;
+    let min_y = -world.size.y * 0.5 + half_view_h;
+    let max_y = world.size.y * 0.5 - half_view_h;
+    (
+        clamp_or_center(target.x, min_x, max_x),
+        clamp_or_center(target.y, min_y, max_y),
+    )
+}
+
+fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
+    if min <= max {
+        value.clamp(min, max)
+    } else {
+        (min + max) * 0.5
     }
 }

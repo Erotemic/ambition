@@ -94,8 +94,8 @@ pub struct ActiveRoomMetadata(pub RoomMetadata);
 /// Optional declarative room metadata authored on LDtk levels.
 ///
 /// LDtk level fields `biome` / `music_track` / `ambient_profile` /
-/// `visual_theme` (added by `tools/add_biome_level_fields.py`) land
-/// here. Every field is optional so existing levels keep working
+/// `visual_theme` plus explicit room-visual-profile fields land here.
+/// Every field is optional so existing levels keep working
 /// without a value. The first non-empty value among an active area's
 /// member levels wins; future systems can refine this if needed
 /// (e.g. dominant-vote, level-position weighted).
@@ -105,11 +105,62 @@ pub struct ActiveRoomMetadata(pub RoomMetadata);
 /// non-exhaustive — adding a metadata seam is cheaper than adding a
 /// new resource per consumer.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RoomVisualProfile {
+    /// Stable authored profile id (for example `intro_wakeup_room`).
+    pub id: Option<String>,
+    /// Explicit parallax/background theme. Prefer this over inferring from
+    /// biome, music, or loose color-theme strings.
+    pub parallax_theme: Option<String>,
+    /// Palette / color-grading hint for future renderer passes.
+    pub palette: Option<String>,
+    /// Lighting mood hint for future post-process / shader passes.
+    pub lighting_hint: Option<String>,
+    /// Foreground treatment hint for generated atmosphere layers.
+    pub foreground_treatment: Option<String>,
+}
+
+impl RoomVisualProfile {
+    pub fn is_empty(&self) -> bool {
+        self.id.is_none()
+            && self.parallax_theme.is_none()
+            && self.palette.is_none()
+            && self.lighting_hint.is_none()
+            && self.foreground_treatment.is_none()
+    }
+
+    pub fn merge(&mut self, other: RoomVisualProfile) {
+        if self.id.is_none() {
+            self.id = other.id;
+        }
+        if self.parallax_theme.is_none() {
+            self.parallax_theme = other.parallax_theme;
+        }
+        if self.palette.is_none() {
+            self.palette = other.palette;
+        }
+        if self.lighting_hint.is_none() {
+            self.lighting_hint = other.lighting_hint;
+        }
+        if self.foreground_treatment.is_none() {
+            self.foreground_treatment = other.foreground_treatment;
+        }
+    }
+
+    pub fn label(&self) -> Option<&str> {
+        self.id
+            .as_deref()
+            .or(self.parallax_theme.as_deref())
+            .or(self.palette.as_deref())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RoomMetadata {
     pub biome: Option<String>,
     pub music_track: Option<String>,
     pub ambient_profile: Option<String>,
     pub visual_theme: Option<String>,
+    pub visual_profile: RoomVisualProfile,
 }
 
 impl RoomMetadata {
@@ -118,6 +169,7 @@ impl RoomMetadata {
             && self.music_track.is_none()
             && self.ambient_profile.is_none()
             && self.visual_theme.is_none()
+            && self.visual_profile.is_empty()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -136,6 +188,63 @@ impl RoomMetadata {
         if self.visual_theme.is_none() {
             self.visual_theme = other.visual_theme;
         }
+        self.visual_profile.merge(other.visual_profile);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CameraClampMode {
+    #[default]
+    RoomBounds,
+    ZoneBounds,
+    None,
+}
+
+impl CameraClampMode {
+    pub fn from_author_value(value: Option<&str>) -> Self {
+        match value
+            .map(str::trim)
+            .map(|value| value.to_ascii_lowercase().replace('-', "_"))
+            .as_deref()
+        {
+            Some("zone") | Some("zone_bounds") | Some("camera_zone") => Self::ZoneBounds,
+            Some("none") | Some("unclamped") | Some("free") => Self::None,
+            _ => Self::RoomBounds,
+        }
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::RoomBounds => "room_bounds",
+            Self::ZoneBounds => "zone_bounds",
+            Self::None => "none",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CameraZoneSpec {
+    pub id: String,
+    pub name: String,
+    pub aabb: ae::Aabb,
+    pub priority: i32,
+    /// Requested zoom multiplier while the player overlaps the zone.
+    /// `None` preserves the legacy camera-zone breath-out default.
+    pub zoom: Option<f32>,
+    /// World-space target offset applied after normal look-ahead framing.
+    pub target_offset: ae::Vec2,
+    /// Optional target-easing override, in hertz.
+    pub easing_hz: Option<f32>,
+    /// When true, target the zone center instead of the player.
+    pub cinematic_lock: bool,
+    pub clamp_mode: CameraClampMode,
+}
+
+impl CameraZoneSpec {
+    pub const LEGACY_BREATH_ZOOM: f32 = 1.15;
+
+    pub fn effective_zoom(&self) -> f32 {
+        self.zoom.unwrap_or(Self::LEGACY_BREATH_ZOOM).max(1.0)
     }
 }
 
@@ -146,6 +255,7 @@ pub struct RoomSpec {
     pub world: ae::World,
     pub loading_zones: Vec<LoadingZone>,
     pub metadata: RoomMetadata,
+    pub camera_zones: Vec<CameraZoneSpec>,
     /// LDtk-authored moving platforms for this area. This is the complete
     /// platform set for gameplay: if the vector is empty, the room has no
     /// moving platforms.

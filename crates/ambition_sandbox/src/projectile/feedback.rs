@@ -52,4 +52,15 @@ pub fn forward_damage_feedback(
             kind: crate::fx::ParticleKind::Spark,
         });
     }
+    // NPC hit / hostility barks are produced for any damage source that
+    // reaches an NPC's AABB (see `apply_damage_event`). Without this loop
+    // the bubbles fire from melee but not from projectiles — fireballs
+    // would damage the NPC without the dialog read, which the player
+    // experiences as a missing reaction.
+    for bubble in &events.speech_bubbles {
+        vfx.write(VfxMessage::SpeechBubble {
+            pos: bubble.pos,
+            text: bubble.text.clone(),
+        });
+    }
 }

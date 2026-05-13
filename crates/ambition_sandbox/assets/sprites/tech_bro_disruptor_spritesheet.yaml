@@ -32,6 +32,7 @@ spec:
   visor_h: 11.921134076719467
   antenna_h: 12.647791592095011
   blade_len: 29.615293707720316
+  vertical_scale: 1.0
 crop:
   source_frame_width: 128
   source_frame_height: 128

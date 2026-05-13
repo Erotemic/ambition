@@ -37,6 +37,12 @@ class BotSpec:
     visor_h: float = 12.0
     antenna_h: float = 12.0
     blade_len: float = 31.0
+    # Multiplier applied to the side-robot renderer's hard-coded vertical
+    # silhouette offsets (body/head/hip/shoulder anchor distances from the
+    # ground line). Default 1.0 keeps every existing character unchanged.
+    # < 1.0 produces a chibi/compact silhouette: pair with shorter
+    # arm/leg lengths so the legs still reach the ground anchor.
+    vertical_scale: float = 1.0
 
 
 @dataclass

@@ -104,6 +104,20 @@ class SideRobotGenerator:
             scale = 1.01
         elif archetype in {"engineer", "field_mechanic"}:
             scale = 1.02
+        # Player-specific compact silhouette. Disproportionately shrinks
+        # limbs + lowers body anchors so the rendered character matches
+        # the gameplay collider (30×48 standing). Keep this archetype
+        # exclusive to the player sheet — other characters share the
+        # `cute_scout` proportions on the runtime robot sheet.
+        player_compact = archetype == "player_compact" or "player_compact" in key
+        limb_scale = 1.0
+        leg_scale = 1.0
+        vertical_scale = 1.0
+        if player_compact:
+            scale = 0.88
+            limb_scale = 0.82
+            leg_scale = 0.72
+            vertical_scale = 0.78
         return BotSpec(
             target=self.name,
             seed=seed,
@@ -112,15 +126,16 @@ class SideRobotGenerator:
             head_w=(41 + rng.uniform(-1.0, 1.0)) * scale,
             head_h=(34 + rng.uniform(-1.0, 1.0)) * scale,
             body_w=(26 + rng.uniform(-0.8, 0.8)) * scale,
-            body_h=(25 + rng.uniform(-0.8, 0.8)) * scale,
-            arm_upper=(13.6 + rng.uniform(-0.4, 0.7)) * scale,
-            arm_lower=(11.5 + rng.uniform(-0.4, 0.5)) * scale,
-            leg_upper=(13.4 + rng.uniform(-0.4, 0.6)) * scale,
-            leg_lower=(12.0 + rng.uniform(-0.4, 0.6)) * scale,
+            body_h=(25 + rng.uniform(-0.8, 0.8)) * scale * (0.90 if player_compact else 1.0),
+            arm_upper=(13.6 + rng.uniform(-0.4, 0.7)) * scale * limb_scale,
+            arm_lower=(11.5 + rng.uniform(-0.4, 0.5)) * scale * limb_scale,
+            leg_upper=(13.4 + rng.uniform(-0.4, 0.6)) * scale * leg_scale,
+            leg_lower=(12.0 + rng.uniform(-0.4, 0.6)) * scale * leg_scale,
             visor_w=(23.5 + rng.uniform(-0.6, 0.6)) * scale,
             visor_h=(12.0 + rng.uniform(-0.4, 0.4)) * scale,
             antenna_h=(12.0 + rng.uniform(-0.8, 0.8)) * scale,
             blade_len=(30.0 + rng.uniform(-1.0, 2.0)) * scale * (1.12 if (archetype in {"guardian", "heavy_guardian"} or any(token in key for token in ["marshal", "iron", "warden"])) else 0.94 if (archetype in {"runner", "scout_runner"} or any(token in key for token in ["pulse", "captain"])) else 1.0),
+            vertical_scale=vertical_scale,
         )
 
     def _palette_for_spec(self, spec: BotSpec) -> Dict[str, Color]:
@@ -888,26 +903,38 @@ class SideRobotGenerator:
             p.slash_dir = "up"
             p.eye_squint = 0.20 + strike * 0.18
         elif animation == "attack_down":
-            # Down-tilt: blade comes down from overhead to ground-low forward.
-            # Body bends; the near arm drops with weight.
-            wind = 1.0 - smoothstep(clamp(t / 0.22, 0.0, 1.0))
-            strike = smoothstep(clamp((t - 0.18) / 0.36, 0.0, 1.0))
-            recover = smoothstep(clamp((t - 0.68) / 0.32, 0.0, 1.0))
-            p.root_y = 3.0 * strike - 1.0 * recover
-            p.body_tilt = -14.0 * wind + 22.0 * strike - 6.0 * recover
-            p.head_tilt = -6.0 * wind + 12.0 * strike - 2.0 * recover
-            p.far_arm_upper = 162.0 + 8.0 * strike
-            p.far_arm_lower = 150.0 + 6.0 * strike
-            p.near_arm_upper = -52.0 * wind + 52.0 * strike - 12.0 * recover
-            p.near_arm_lower = -58.0 * wind + 60.0 * strike - 14.0 * recover
-            p.far_leg_upper = 118.0 + 10.0 * strike
-            p.far_leg_lower = 64.0 + 18.0 * strike
-            p.near_leg_upper = 86.0 - 6.0 * wind
-            p.near_leg_lower = 60.0 + 14.0 * strike
-            p.slash = max(0.25, wind, strike)
-            p.slash_arc = strike
-            p.slash_dir = "down"
-            p.eye_squint = 0.22 + strike * 0.20
+            # Grounded down tilt — kneeling forward poke (Marth/Lucina
+            # down-tilt). Body sinks into a deep crouch, far leg folds
+            # under as the kneeling support, near leg plants forward
+            # bent; near arm extends low and horizontal with the blade
+            # for a short thrust. Distinct from the aerial Down spike.
+            crouch = smoothstep(clamp(t / 0.30, 0.0, 1.0))
+            thrust = smoothstep(clamp((t - 0.22) / 0.36, 0.0, 1.0))
+            recover = smoothstep(clamp((t - 0.66) / 0.34, 0.0, 1.0))
+            sink = max(0.65 * crouch, thrust, 0.55 * (1.0 - recover) * crouch)
+            p.root_y = 9.0 * sink
+            p.body_bob = 3.0 * sink
+            p.body_tilt = -4.0 * crouch + 2.0 * thrust
+            p.head_tilt = -2.0 * crouch + 1.0 * thrust
+            # Far arm tucked back for balance during the kneel.
+            p.far_arm_upper = 178.0 + 6.0 * crouch
+            p.far_arm_lower = 168.0 + 6.0 * crouch
+            # Near arm whips from windup to a horizontal forward poke.
+            # 0° = blade tip pointing forward (right) when the hand is
+            # at the elbow's right; values approach 0 as the arm
+            # extends along +x.
+            p.near_arm_upper = lerp(38.0, 4.0, thrust) - 10.0 * recover
+            p.near_arm_lower = lerp(46.0, -4.0, thrust) - 12.0 * recover
+            # Kneeling support: far leg folds high knee + heel tight.
+            p.far_leg_upper = 150.0 + 6.0 * crouch
+            p.far_leg_lower = 32.0 + 4.0 * crouch
+            # Front leg planted forward, bent.
+            p.near_leg_upper = 110.0 + 6.0 * crouch
+            p.near_leg_lower = 34.0 + 6.0 * crouch
+            p.slash = max(0.25, crouch, thrust)
+            p.slash_arc = thrust
+            p.slash_dir = "low_poke"
+            p.eye_squint = 0.18 + thrust * 0.18
         elif animation == "air_neutral":
             # Aerial neutral: short spin-slash with the blade making a near
             # full revolution around the body. Body floats; legs tuck.
@@ -1301,6 +1328,10 @@ class SideRobotGenerator:
         "air_back":     (235.0, -130.0, (-48.0, -30.0,   8.0,  28.0),  110.0,  270.0),
         "air_down":     ( 75.0,   30.0, (-16.0,  -4.0,  16.0,  42.0),   60.0,  120.0),
         "air_up":       (-105.0, -30.0, (-16.0, -42.0,  16.0,   4.0), -120.0,  -60.0),
+        # Kneeling forward poke (Marth/Lucina down-tilt). Blade stays
+        # nearly horizontal, tips up slightly through the thrust as the
+        # body drops. Short, low arc visual ahead of the hand.
+        "low_poke":     ( -4.0, -16.0, ( -2.0,  -8.0,  36.0,   8.0),  -28.0,   18.0),
     }
 
     def _draw_robot_arm(self, img: Image.Image, d: ImageDraw.ImageDraw, shoulder: Point, a1: float, a2: float, tint: Color, spec: BotSpec, pal: Dict[str, Color], S: float, outline: float, slash: float = 0.0, slash_arc: float = 0.0, slash_dir: str = "side") -> Point:
@@ -1461,15 +1492,24 @@ class SideRobotGenerator:
 
         # Stable body reference. Death moves to a lying pose without scaling.
         collapse = p.collapse
-        body_center = (root_x + lerp(0, 12 * S, collapse), ground_y - lerp(39 * S, 11 * S, collapse) + p.body_bob * S)
-        head_center = (root_x + lerp(12 * S, 34 * S, collapse), ground_y - lerp(68 * S, 15 * S, collapse) + p.body_bob * S * 0.4)
+        # `vertical_scale` collapses the rendered silhouette toward the
+        # ground anchor for compact archetypes (player_compact). It
+        # multiplies every hard-coded vertical offset that places the
+        # body/head/hip/shoulder above the ground; leg/arm lengths are
+        # already squashed via the BotSpec fields so the legs still
+        # reach the ground line.
+        vscale = max(0.3, float(spec.vertical_scale))
+        body_y_offset = lerp(39 * S * vscale, 11 * S, collapse)
+        head_y_offset = lerp(68 * S * vscale, 15 * S, collapse)
+        body_center = (root_x + lerp(0, 12 * S, collapse), ground_y - body_y_offset + p.body_bob * S)
+        head_center = (root_x + lerp(12 * S, 34 * S, collapse), ground_y - head_y_offset + p.body_bob * S * 0.4)
         body_angle = p.body_tilt
         head_angle = p.head_tilt
 
-        hip_far = (body_center[0] - 6 * S, body_center[1] + 11 * S)
-        hip_near = (body_center[0] + 8 * S, body_center[1] + 10 * S)
-        shoulder_far = (body_center[0] - 8 * S, body_center[1] - 8 * S)
-        shoulder_near = (body_center[0] + 9 * S, body_center[1] - 8 * S)
+        hip_far = (body_center[0] - 6 * S, body_center[1] + 11 * S * vscale)
+        hip_near = (body_center[0] + 8 * S, body_center[1] + 10 * S * vscale)
+        shoulder_far = (body_center[0] - 8 * S, body_center[1] - 8 * S * vscale)
+        shoulder_near = (body_center[0] + 9 * S, body_center[1] - 8 * S * vscale)
 
         # Legs sit below the torso. Far/near tints preserve side-view depth.
         for hip, a1, a2, tint, foot_shift in [

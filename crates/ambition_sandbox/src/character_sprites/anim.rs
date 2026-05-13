@@ -39,16 +39,80 @@ pub enum CharacterAnim {
     /// the body slumped below. Driven by `pick_player_anim` while
     /// `SandboxRuntime::ledge_grab` is `Some` and not climbing.
     LedgeGrab = 13,
-    /// Pull-up transition after ledge grab. The placeholder robot sheet does
-    /// not have a dedicated row yet; `CharacterSheetSpec::resolve_anim` falls
-    /// back to `LedgeGrab` for this variant until art exists.
+    /// Slow, deliberate "haul-yourself-up" loop against an overhead grip.
+    /// The new robot sheet ships a dedicated row; `pick_player_anim` does
+    /// not currently auto-route to it (mantle pop-ups go through
+    /// `LedgeGetup` instead), but the variant exists so future climb
+    /// gestures can request it.
     LedgeClimb = 14,
+    /// Mantle pop-up: arms transition from overhead grip to planted push
+    /// to standing in one short burst. Driven by `pick_player_anim` when
+    /// `SandboxRuntime::ledge_grab.climbing == true`.
+    LedgeGetup = 15,
+    /// Pinned against a wall (both hands flat). Distinct from `wall_slide`
+    /// (which is the engine's downward-scrape state) — `WallGrab` plays
+    /// when the player is wall-clinging but not sliding/climbing.
+    WallGrab = 16,
+    /// Sustained held-jump glide pose (arms out as balance wings).
+    /// Driven by `player.gliding`; distinct from `Fly` (rocket jets) and
+    /// the airborne `Fall` row.
+    FloatGlide = 17,
+    /// Heavy landing — big squash, slow rebound. Triggered when the
+    /// landing transition was hit at a high downward speed; consumed by
+    /// `pick_player_anim` while `SandboxRuntime::land_anim_timer` is
+    /// positive and `land_anim_hard` is set.
+    LandHard = 18,
+    /// Rising recovery after a (hard) landing. Plays when
+    /// `land_anim_timer` is positive but `land_anim_hard` is false, or
+    /// during the tail of a hard landing.
+    LandRecovery = 19,
+    /// Brief animation-only dash pre-roll. Plays for the first ~50ms
+    /// after a dash starts so the sprite has a discrete wind-up read
+    /// before falling through to the streaking `Dash` row.
+    DashStartup = 20,
+    /// Grounded side-slash (Marth-style horizontal swing). Drives both
+    /// the `Forward` / `Neutral` / `Back` / `DashForward` / `WallOut`
+    /// engine attack intents — the four variants share one swing read
+    /// since the sprite already flips with the player's facing.
+    AttackSide = 21,
+    /// Grounded up-tilt — overhead arc.
+    AttackUp = 22,
+    /// Grounded down-tilt — sweep down to the floor.
+    AttackDown = 23,
+    /// Aerial neutral spin-slash. No `AttackIntent::AirNeutral` exists
+    /// yet, so this row is currently selected by `pick_player_anim` only
+    /// when the future intent appears; the row is on the sheet so
+    /// designers can iterate the shape regardless.
+    AirNeutral = 24,
+    /// Aerial forward swing.
+    AirForward = 25,
+    /// Aerial backward swing (no engine intent yet — placeholder row).
+    AirBack = 26,
+    /// Aerial down-thrust (spike).
+    AirDown = 27,
+    /// Aerial up-thrust.
+    AirUp = 28,
 }
 
 pub(super) fn non_looping(anim: CharacterAnim) -> bool {
     matches!(
         anim,
-        CharacterAnim::Slash | CharacterAnim::Hit | CharacterAnim::Death | CharacterAnim::LedgeClimb
+        CharacterAnim::Slash
+            | CharacterAnim::Hit
+            | CharacterAnim::Death
+            | CharacterAnim::LedgeClimb
+            | CharacterAnim::LedgeGetup
+            | CharacterAnim::LandHard
+            | CharacterAnim::LandRecovery
+            | CharacterAnim::DashStartup
+            | CharacterAnim::AttackSide
+            | CharacterAnim::AttackUp
+            | CharacterAnim::AttackDown
+            | CharacterAnim::AirNeutral
+            | CharacterAnim::AirForward
+            | CharacterAnim::AirBack
+            | CharacterAnim::AirDown
+            | CharacterAnim::AirUp
     )
 }
 
@@ -71,14 +135,14 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
         return CharacterAnim::BlinkIn;
     }
     if runtime.slash_anim_timer > 0.0 {
-        return CharacterAnim::Slash;
+        return directional_attack_anim(runtime);
     }
     if runtime.player.blink_aiming || runtime.player.blink_hold_active {
         return CharacterAnim::BlinkOut;
     }
     if let Some(ledge) = runtime.ledge_grab.as_ref() {
         return if ledge.climbing {
-            CharacterAnim::LedgeClimb
+            CharacterAnim::LedgeGetup
         } else {
             CharacterAnim::LedgeGrab
         };
@@ -87,8 +151,23 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
     if player.fly_enabled {
         return CharacterAnim::Fly;
     }
+    if runtime.dash_startup_timer > 0.0 {
+        return CharacterAnim::DashStartup;
+    }
     if player.dash_timer > 0.0 {
         return CharacterAnim::Dash;
+    }
+    // Wall pin (held against the wall, neither sliding nor climbing) reads
+    // distinct from the engine's downward `wall_slide` integration.
+    if !player.on_ground
+        && player.wall_clinging
+        && !player.wall_climbing
+        && player.vel.y.abs() < 40.0
+    {
+        return CharacterAnim::WallGrab;
+    }
+    if player.gliding {
+        return CharacterAnim::FloatGlide;
     }
     if !player.on_ground {
         // Engine uses top-left coords: vel.y < 0 = moving up.
@@ -97,6 +176,13 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
         }
         return CharacterAnim::Fall;
     }
+    if runtime.land_anim_timer > 0.0 {
+        return if runtime.land_anim_hard {
+            CharacterAnim::LandHard
+        } else {
+            CharacterAnim::LandRecovery
+        };
+    }
     let speed = player.vel.x.abs();
     if speed < 12.0 {
         CharacterAnim::Idle
@@ -104,6 +190,33 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
         CharacterAnim::Walk
     } else {
         CharacterAnim::Run
+    }
+}
+
+/// Map the active player attack intent onto the directional swing rows.
+///
+/// The engine's `AttackIntent` is finer-grained than the visible swing
+/// shapes — multiple intents share one row because the sprite already
+/// flips with the player's facing.
+fn directional_attack_anim(runtime: &SandboxRuntime) -> CharacterAnim {
+    use ae::AttackIntent;
+    let Some(attack) = runtime.player_attack.as_ref() else {
+        // Defensive fallback: slash_anim_timer is set but no attack
+        // state — keep the old side-swing read until the timer drains.
+        return CharacterAnim::AttackSide;
+    };
+    match attack.spec.intent {
+        AttackIntent::Up => CharacterAnim::AttackUp,
+        AttackIntent::Down => CharacterAnim::AttackDown,
+        AttackIntent::AirUp => CharacterAnim::AirUp,
+        AttackIntent::AirDown => CharacterAnim::AirDown,
+        AttackIntent::AirForward => CharacterAnim::AirForward,
+        AttackIntent::AirBack => CharacterAnim::AirBack,
+        AttackIntent::Neutral
+        | AttackIntent::Forward
+        | AttackIntent::Back
+        | AttackIntent::DashForward
+        | AttackIntent::WallOut => CharacterAnim::AttackSide,
     }
 }
 

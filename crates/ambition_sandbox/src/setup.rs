@@ -335,7 +335,11 @@ fn presentation_world_inner(
         ae::DEFAULT_PLAYER_BODY_WIDTH,
         ae::DEFAULT_PLAYER_BODY_HEIGHT,
     );
-    if let Some(asset) = &character_sprites.robot {
+    if let Some(asset) = character_sprites
+        .player
+        .as_ref()
+        .or(character_sprites.robot.as_ref())
+    {
         let player_render = player_placeholder_render_size(asset.spec, player_collision);
         let sprite = build_character_sprite_with_render_size(asset, player_render);
         commands.entity(player).insert((

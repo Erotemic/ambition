@@ -78,6 +78,56 @@ log() { printf '[android-build] %s\n' "$*"; }
 warn() { printf '[android-build] warning: %s\n' "$*" >&2; }
 fatal() { printf '[android-build] error: %s\n' "$*" >&2; exit 1; }
 
+
+registered_character_sprite_filenames() {
+    local registry_src="$ROOT/crates/ambition_sandbox/src/character_sprites/assets.rs"
+    if [[ ! -f "$registry_src" ]]; then
+        warn "character sprite registry source not found at $registry_src; skipping registered sprite presence check"
+        return 0
+    fi
+    # The Rust-side character sprite registry is the source of truth for
+    # animated character PNGs. Parse the filename literals here instead of
+    # maintaining a second build-script list. This is intentionally warning-only:
+    # missing art should not block Android iteration, but it should be visible.
+    grep -Eo '"[A-Za-z0-9_./-]+_spritesheet\.png"' "$registry_src" \
+        | tr -d '"' \
+        | sort -u
+}
+
+warn_missing_registered_character_sprites() {
+    local src_dir="$ROOT/crates/ambition_sandbox/assets/sprites"
+    local apk_dir="$ASSETS_OUT/sprites"
+    local -a missing_src=()
+    local -a missing_apk=()
+    local -a registered=()
+    local filename
+
+    mapfile -t registered < <(registered_character_sprite_filenames)
+    if [[ "${#registered[@]}" -eq 0 ]]; then
+        warn "no registered character sprites were discovered; Android sprite presence check could not verify animated NPC/enemy sheets"
+        return 0
+    fi
+
+    for filename in "${registered[@]}"; do
+        if [[ ! -f "$src_dir/$filename" ]]; then
+            missing_src+=("sprites/$filename")
+        fi
+        if [[ ! -f "$apk_dir/$filename" ]]; then
+            missing_apk+=("sprites/$filename")
+        fi
+    done
+
+    if [[ "${#missing_src[@]}" -gt 0 ]]; then
+        warn "registered character sprite PNGs missing from source assets (${#missing_src[@]}): ${missing_src[*]}"
+    fi
+    if [[ "${#missing_apk[@]}" -gt 0 ]]; then
+        warn "registered character sprite PNGs missing from generated APK assets (${#missing_apk[@]}): ${missing_apk[*]}"
+    fi
+    if [[ "${#missing_src[@]}" -eq 0 && "${#missing_apk[@]}" -eq 0 ]]; then
+        log "verified ${#registered[@]} registered character sprite PNGs in source assets and generated APK assets"
+    fi
+}
+
 repo_root() {
     local root
     root=$(git rev-parse --show-toplevel 2>/dev/null || true)
@@ -750,6 +800,7 @@ if [[ -d "$ASSETS_OUT/sprites" ]]; then
 else
     warn "no sprites/ asset directory copied into APK; sprite art will fall back to colored rectangles"
 fi
+warn_missing_registered_character_sprites
 if [[ -f "$ASSETS_OUT/audio/sfx.bank" ]]; then
     log "copied sfx.bank into APK assets: $(human_size "$ASSETS_OUT/audio/sfx.bank")"
 else

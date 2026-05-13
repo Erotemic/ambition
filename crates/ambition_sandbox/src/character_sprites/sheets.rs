@@ -56,9 +56,11 @@ pub struct CharacterSheetSpec {
 
 pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
-    // After the gen2d union-bbox crop the robot sheet is 120 wide x 128
-    // tall (down from 128x128). Mirror that here.
-    frame_width: 120,
+    // The new directional-attack rows extend the union-bbox crop back
+    // out to 128×128 (overhead swings + spinning aerials reach the
+    // canvas edges). Re-confirm against the regenerated manifest after
+    // any animation edit that widens the silhouette envelope.
+    frame_width: 128,
     frame_height: 128,
     rows: &[
         (
@@ -149,9 +151,7 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
                 duration_secs: 0.078,
             },
         ),
-        // Held ledge-grab dangle. Last row (index 12) on the robot
-        // sheet — the config lists `ledge_grab` after `hover` so
-        // PNG row order matches this declaration.
+        // Held ledge-grab dangle.
         (
             CharacterAnim::LedgeGrab,
             AnimRow {
@@ -159,9 +159,339 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
                 duration_secs: 0.100,
             },
         ),
+        // ── Traversal polish rows (appended; PNG row order matches
+        // `configs/robot.yaml`).
+        (
+            CharacterAnim::DashStartup,
+            AnimRow {
+                frame_count: 4,
+                duration_secs: 0.050,
+            },
+        ),
+        (
+            CharacterAnim::LandHard,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::LandRecovery,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::WallGrab,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.110,
+            },
+        ),
+        (
+            CharacterAnim::LedgeClimb,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.100,
+            },
+        ),
+        (
+            CharacterAnim::LedgeGetup,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::FloatGlide,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+        // ── Directional sword attacks (Marth/Lucina shapes).
+        (
+            CharacterAnim::AttackSide,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.065,
+            },
+        ),
+        (
+            CharacterAnim::AttackUp,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.065,
+            },
+        ),
+        (
+            CharacterAnim::AttackDown,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.065,
+            },
+        ),
+        (
+            CharacterAnim::AirNeutral,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.060,
+            },
+        ),
+        (
+            CharacterAnim::AirForward,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::AirBack,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::AirDown,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.070,
+            },
+        ),
+        (
+            CharacterAnim::AirUp,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.062,
+            },
+        ),
     ],
     collision_scale: 2.1,
     feet_anchor_y: -0.320,
+    frame_sample_inset: 1,
+};
+
+/// Player-specific compact robot sheet. Rendered from
+/// `tools/ambition_sprite2d_renderer/configs/player_robot.yaml`
+/// (`archetype: player_compact`). Shares the same row order as
+/// `ROBOT_SHEET` so animation indexing is identical — only the
+/// per-frame geometry + anchor differ to match the shrunk
+/// silhouette.
+pub const PLAYER_ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 100,
+    // Union-bbox crop of the compact player sheet (was 128×128 source).
+    // Re-confirm against the regenerated manifest after any animation
+    // edit that widens the silhouette envelope.
+    frame_width: 128,
+    frame_height: 125,
+    rows: &[
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.120,
+            },
+        ),
+        (
+            CharacterAnim::Walk,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Run,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::Jump,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Fall,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::Slash,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::Hit,
+            AnimRow {
+                frame_count: 5,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            CharacterAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+        (
+            CharacterAnim::BlinkOut,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::BlinkIn,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::Dash,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.065,
+            },
+        ),
+        (
+            CharacterAnim::Fly,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.078,
+            },
+        ),
+        (
+            CharacterAnim::LedgeGrab,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.100,
+            },
+        ),
+        (
+            CharacterAnim::DashStartup,
+            AnimRow {
+                frame_count: 4,
+                duration_secs: 0.050,
+            },
+        ),
+        (
+            CharacterAnim::LandHard,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            CharacterAnim::LandRecovery,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::WallGrab,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.110,
+            },
+        ),
+        (
+            CharacterAnim::LedgeClimb,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.100,
+            },
+        ),
+        (
+            CharacterAnim::LedgeGetup,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            CharacterAnim::FloatGlide,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+        (
+            CharacterAnim::AttackSide,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.065,
+            },
+        ),
+        (
+            CharacterAnim::AttackUp,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.065,
+            },
+        ),
+        (
+            CharacterAnim::AttackDown,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.065,
+            },
+        ),
+        (
+            CharacterAnim::AirNeutral,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.060,
+            },
+        ),
+        (
+            CharacterAnim::AirForward,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::AirBack,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.062,
+            },
+        ),
+        (
+            CharacterAnim::AirDown,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.070,
+            },
+        ),
+        (
+            CharacterAnim::AirUp,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.062,
+            },
+        ),
+    ],
+    // The compact silhouette fills more of its (smaller) frame than the
+    // base robot does, so a smaller `collision_scale` keeps the rendered
+    // sprite close in size to the 30×48 collider rather than oversizing
+    // the placeholder. Tuned against the player_robot manifest's
+    // body_pixel_bbox (≈62×89 inside the 128×125 crop).
+    collision_scale: 1.35,
+    // Manifest reports feet_anchor_norm.y = -0.340.
+    feet_anchor_y: -0.340,
     frame_sample_inset: 1,
 };
 

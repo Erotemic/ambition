@@ -102,7 +102,7 @@ def generated_dir(target_name: str) -> Path:
 def draw_all(config_dir: str | Path = DEFAULT_CONFIG_DIR, out_dir: str | Path = DEFAULT_ASSET_DIR) -> List[Path]:
     out_dir = Path(out_dir)
     config_dir_path = Path(config_dir)
-    runtime_stems = {"boss", "goblin", "ninja", "ninja_leader", "robot", "sandbag"}
+    runtime_stems = {"boss", "goblin", "ninja", "ninja_leader", "player_robot", "robot", "sandbag"}
     default_runtime_dir = config_dir_path.resolve() == Path(DEFAULT_CONFIG_DIR).resolve()
     outputs: List[Path] = []
     for path, job in load_jobs(config_dir_path):

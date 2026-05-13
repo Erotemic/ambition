@@ -39,7 +39,15 @@ fn update_facing_and_control_intent(
     input: InputState,
     tuning: MovementTuning,
 ) {
-    if input.axis_x.abs() > 0.1 {
+    // Airborne players can still influence horizontal velocity but can't
+    // turn around — the visual facing is locked at the direction they
+    // left the ground (or last set on the ground). Flight mode is the
+    // exception: in-flight movement is intentionally floaty and a free
+    // pivot, so facing flips with input. This keeps directional aerial
+    // attacks (forward / back) committed once the player leaves the
+    // ground without sacrificing fly-mode steering.
+    let can_turn = player.on_ground || player.fly_enabled;
+    if can_turn && input.axis_x.abs() > 0.1 {
         player.facing = input.axis_x.signum();
     }
 

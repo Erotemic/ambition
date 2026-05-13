@@ -529,4 +529,63 @@ pub(super) fn cleanup_timers_phase(runtime: &mut SandboxRuntime, frame_dt: f32) 
     runtime.slash_anim_timer = (runtime.slash_anim_timer - frame_dt).max(0.0);
     runtime.blink_in_timer = (runtime.blink_in_timer - frame_dt).max(0.0);
     runtime.camera_snap_timer = (runtime.camera_snap_timer - frame_dt).max(0.0);
+    update_anim_signal_timers(runtime, frame_dt);
+}
+
+/// Drive the presentation-only landing + dash-startup timers and capture
+/// the per-frame state needed for edge detection.
+///
+/// The sprite picker (`pick_player_anim`) reads these directly. Detection
+/// lives here so all presentation timers decay in one phase and so the
+/// "previous frame" snapshot is the one immediately before the next
+/// gameplay tick.
+fn update_anim_signal_timers(runtime: &mut SandboxRuntime, frame_dt: f32) {
+    // Hard-landing threshold: pre-touchdown downward speed (px/s) above
+    // which we play `LandHard` instead of `LandRecovery`. Tuned by the
+    // sandbox's terminal-fall feel; raise if normal jump landings start
+    // reading as hard impacts.
+    const HARD_LAND_SPEED: f32 = 520.0;
+    // Time the landing pose holds after touchdown.
+    const LAND_HARD_HOLD_SECS: f32 = 0.34;
+    const LAND_SOFT_HOLD_SECS: f32 = 0.16;
+    // Brief pre-roll for the dash startup pose. Falls below the dash's
+    // own duration so the streaking dash row still gets airtime.
+    const DASH_STARTUP_SECS: f32 = 0.05;
+
+    let on_ground = runtime.player.on_ground;
+    let dash_timer = runtime.player.dash_timer;
+
+    // Landing edge: airborne last frame, grounded this frame.
+    if on_ground && !runtime.anim_prev_on_ground {
+        let impact_speed = runtime.anim_prev_vel_y;
+        let hard = impact_speed >= HARD_LAND_SPEED;
+        runtime.land_anim_hard = hard;
+        runtime.land_anim_timer = if hard {
+            LAND_HARD_HOLD_SECS
+        } else {
+            LAND_SOFT_HOLD_SECS
+        };
+    } else if !on_ground {
+        // Stay airborne: the landing pose only plays on the ground.
+        runtime.land_anim_timer = 0.0;
+    } else {
+        runtime.land_anim_timer = (runtime.land_anim_timer - frame_dt).max(0.0);
+    }
+
+    // Dash rising edge: previous frame had no dash, this frame has one.
+    if dash_timer > 0.0 && runtime.anim_prev_dash_timer <= 0.0 {
+        runtime.dash_startup_timer = DASH_STARTUP_SECS;
+    } else {
+        runtime.dash_startup_timer = (runtime.dash_startup_timer - frame_dt).max(0.0);
+    }
+
+    // Snapshot for the next frame. Sample vel.y BEFORE any further
+    // physics so the landing detector sees the pre-touchdown speed
+    // (engine zeroes vertical velocity on contact); cleanup_timers_phase
+    // runs at the end of the gameplay loop, so the player state here is
+    // already post-integration but still reflects the speed that produced
+    // this frame's `on_ground`.
+    runtime.anim_prev_on_ground = on_ground;
+    runtime.anim_prev_vel_y = runtime.player.vel.y;
+    runtime.anim_prev_dash_timer = dash_timer;
 }

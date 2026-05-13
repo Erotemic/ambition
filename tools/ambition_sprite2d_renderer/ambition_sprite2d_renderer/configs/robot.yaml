@@ -2,6 +2,10 @@ target: robot
 seed: 7
 archetype: cute_scout
 animations:
+  # The order of this list is the PNG row order for the generated sheet,
+  # which is the source of truth for ROBOT_SHEET in
+  # crates/ambition_sandbox/src/character_sprites/sheets.rs. Append new
+  # rows at the end so existing flat-atlas indices stay stable.
   - idle
   - walk
   - run
@@ -15,6 +19,21 @@ animations:
   - dash
   - hover
   - ledge_grab
+  - dash_startup
+  - land_hard
+  - land_recovery
+  - wall_grab
+  - ledge_climb
+  - ledge_getup
+  - float_glide
+  - attack_side
+  - attack_up
+  - attack_down
+  - air_neutral
+  - air_forward
+  - air_back
+  - air_down
+  - air_up
 render:
   frame_width: 128
   frame_height: 128

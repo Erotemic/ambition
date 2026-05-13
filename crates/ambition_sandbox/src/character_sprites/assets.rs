@@ -13,8 +13,8 @@ use bevy::prelude::*;
 use super::sheets::{
     CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET,
     GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, NINJA_SHEET, PIRATE_SHEET,
-    PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET,
-    VAULT_KEEPER_SHEET,
+    PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+    TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::features::FeatureVisualKind;
 
@@ -30,6 +30,13 @@ pub struct CharacterSpriteAsset {
 /// rectangles.
 #[derive(Resource, Default, Clone)]
 pub struct CharacterSpriteAssets {
+    /// Player-specific compact robot sheet. Preferred for the player
+    /// entity; `setup.rs` falls back to `robot` when this is missing
+    /// so debug builds without the regenerated sheet still render.
+    pub player: Option<CharacterSpriteAsset>,
+    /// Base "cute scout" robot sheet. Kept around for future robot-target
+    /// callers that want the original proportions; the player itself now
+    /// uses `player` above.
     pub robot: Option<CharacterSpriteAsset>,
     pub goblin: Option<CharacterSpriteAsset>,
     pub sandbag: Option<CharacterSpriteAsset>,
@@ -63,6 +70,7 @@ impl CharacterSpriteAssets {
     }
 }
 
+const PLAYER_FILENAME: &str = "player_robot_spritesheet.png";
 const ROBOT_FILENAME: &str = "robot_spritesheet.png";
 const GOBLIN_FILENAME: &str = "goblin_spritesheet.png";
 const SANDBAG_FILENAME: &str = "sandbag_spritesheet.png";
@@ -149,15 +157,18 @@ pub fn load_character_sprites_in(
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
 ) -> CharacterSpriteAssets {
+    let player_rel = format!("{sprite_folder}/{PLAYER_FILENAME}");
     let robot_rel = format!("{sprite_folder}/{ROBOT_FILENAME}");
     let goblin_rel = format!("{sprite_folder}/{GOBLIN_FILENAME}");
     let sandbag_rel = format!("{sprite_folder}/{SANDBAG_FILENAME}");
 
+    let player = build_optional(asset_server, layouts, &player_rel, PLAYER_ROBOT_SHEET);
     let robot = build_optional(asset_server, layouts, &robot_rel, ROBOT_SHEET);
     let goblin = build_optional(asset_server, layouts, &goblin_rel, GOBLIN_SHEET);
     let sandbag = build_optional(asset_server, layouts, &sandbag_rel, SANDBAG_SHEET);
 
     for (label, rel, present) in [
+        ("player", &player_rel, player.is_some()),
         ("robot", &robot_rel, robot.is_some()),
         ("goblin", &goblin_rel, goblin.is_some()),
         ("sandbag", &sandbag_rel, sandbag.is_some()),
@@ -182,6 +193,7 @@ pub fn load_character_sprites_in(
     }
 
     CharacterSpriteAssets {
+        player,
         robot,
         goblin,
         sandbag,

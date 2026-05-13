@@ -353,3 +353,8 @@ But without exploits, bugs, or mods a player will never see beyond ---.
 
 Remember: The pirates ride burning flying sharks. And have laser swords with
 guns on them that shoot other swords. 
+
+
+
+Might be funny for the first person on the street to help the robot to be some
+a character named Erdish or Oiler, that teach the robot a math move.

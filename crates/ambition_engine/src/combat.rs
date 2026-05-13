@@ -142,6 +142,7 @@ pub enum AttackIntent {
     Down,
     DashForward,
     AirForward,
+    AirBack,
     AirUp,
     AirDown,
     WallOut,
@@ -157,6 +158,7 @@ impl AttackIntent {
             Self::Down => "down",
             Self::DashForward => "dash_forward",
             Self::AirForward => "air_forward",
+            Self::AirBack => "air_back",
             Self::AirUp => "air_up",
             Self::AirDown => "air_down",
             Self::WallOut => "wall_out",
@@ -250,11 +252,18 @@ pub fn resolve_attack_intent(
     if player.dash_timer > 0.0 && !back {
         return AttackIntent::DashForward;
     }
+    // Airborne: facing is locked while airborne (see
+    // `update_facing_and_control_intent`), so a back-input here means
+    // "swing behind me without turning" — a dedicated AirBack rather
+    // than reusing the grounded Back spec.
+    if !player.on_ground {
+        if back && player.abilities.directional_primary {
+            return AttackIntent::AirBack;
+        }
+        return AttackIntent::AirForward;
+    }
     if back && player.abilities.directional_primary {
         return AttackIntent::Back;
-    }
-    if !player.on_ground {
-        return AttackIntent::AirForward;
     }
     if forward {
         AttackIntent::Forward
@@ -282,7 +291,25 @@ pub fn attack_spec(player: &Player, intent: AttackIntent) -> AttackSpec {
             damage_kind: DamageKind::Slash,
             can_pogo: false,
         },
-        AttackIntent::Down | AttackIntent::AirDown => AttackSpec {
+        AttackIntent::Down => AttackSpec {
+            // Grounded down tilt — kneeling forward poke (Marth/Lucina
+            // down-tilt). Low, forward-reaching swipe rather than a
+            // downward slam: shouldn't trigger pogo and shouldn't punch
+            // a hitbox into the ground beneath the player.
+            intent,
+            startup_seconds: 0.035,
+            active_seconds: 0.090,
+            recovery_seconds: 0.180,
+            hitbox_offset: Vec2::new(facing * (half.x + 30.0), half.y - 6.0),
+            hitbox_half_size: Vec2::new(30.0, 12.0),
+            self_impulse: Vec2::new(0.0, 0.0),
+            knockback: Vec2::new(facing * 220.0, -80.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::AirDown => AttackSpec {
+            // Aerial down — straight-down spike that drives the player
+            // back into the air on contact.
             intent,
             startup_seconds: 0.035,
             active_seconds: 0.110,
@@ -327,6 +354,21 @@ pub fn attack_spec(player: &Player, intent: AttackIntent) -> AttackSpec {
             hitbox_half_size: Vec2::new(38.0, 26.0),
             self_impulse: Vec2::new(-facing * 45.0, -25.0),
             knockback: Vec2::new(facing * 320.0, -120.0),
+            damage_kind: DamageKind::Slash,
+            can_pogo: false,
+        },
+        AttackIntent::AirBack => AttackSpec {
+            // Bair: behind-facing swing. Mirrors AirForward across the
+            // facing axis. A bit snappier on startup/recovery to reward
+            // the player for committing to a fixed-facing reversal.
+            intent,
+            startup_seconds: 0.028,
+            active_seconds: 0.095,
+            recovery_seconds: 0.165,
+            hitbox_offset: Vec2::new(-facing * (half.x + 38.0), -2.0),
+            hitbox_half_size: Vec2::new(38.0, 26.0),
+            self_impulse: Vec2::new(facing * 50.0, -25.0),
+            knockback: Vec2::new(-facing * 340.0, -120.0),
             damage_kind: DamageKind::Slash,
             can_pogo: false,
         },

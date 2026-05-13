@@ -6,9 +6,7 @@
 //! as a stable place for presentation code/tests that want the public timing
 //! constants.
 
-pub use ambition_engine::{
-    LEDGE_CLIMB_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_TOWARD_CLIMB_DELAY,
-};
+pub use ambition_engine::{LEDGE_CLIMB_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_TOWARD_CLIMB_DELAY};
 
 #[cfg(test)]
 mod tests {
@@ -41,7 +39,10 @@ mod tests {
             ..Default::default()
         };
         let events = ae::update_player_simulation(&world, &mut player, input, 0.016);
-        assert!(player.ledge_grab.is_some(), "engine tick should latch ledge state");
+        assert!(
+            player.ledge_grab.is_some(),
+            "engine tick should latch ledge state"
+        );
         assert!(events.operations.contains(&ae::MovementOp::LedgeGrab));
 
         input.axis_y = -1.0;
@@ -53,18 +54,27 @@ mod tests {
                 break;
             }
         }
-        assert!(saw_start, "engine should start the climb after the hang delay");
+        assert!(
+            saw_start,
+            "engine should start the climb after the hang delay"
+        );
         assert!(player.ledge_grab.map(|s| s.climbing).unwrap_or(false));
 
         let mut saw_finish = false;
         for _ in 0..32 {
             let events = ae::update_player_simulation(&world, &mut player, input, 0.016);
-            if events.operations.contains(&ae::MovementOp::LedgeClimbFinish) {
+            if events
+                .operations
+                .contains(&ae::MovementOp::LedgeClimbFinish)
+            {
                 saw_finish = true;
                 break;
             }
         }
-        assert!(saw_finish, "engine should finish the climb inside simulation ticks");
+        assert!(
+            saw_finish,
+            "engine should finish the climb inside simulation ticks"
+        );
         assert!(player.ledge_grab.is_none());
         assert!(player.on_ground);
     }

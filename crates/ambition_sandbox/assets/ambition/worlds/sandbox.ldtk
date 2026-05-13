@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 4329,
+	"nextUid": 4341,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -2819,7 +2819,7 @@
 			"tags": [],
 			"exportToToc": false,
 			"allowOutOfBounds": false,
-			"doc": "Camera authoring zone; accepted by validator and currently ignored by runtime.",
+			"doc": "Authored camera behavior zone. Runtime parses priority, zoom, offset, easing, lock, and clamp fields into CameraZoneSpec.",
 			"width": 320,
 			"height": 180,
 			"resizableX": true,
@@ -2962,6 +2962,271 @@
 					"symmetricalRef": false,
 					"autoChainRef": true,
 					"allowOutOfLevelRef": false,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "priority",
+					"doc": "Higher-priority CameraZone wins when zones overlap.",
+					"__type": "Int",
+					"uid": 4329,
+					"type": "F_Int",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "NameAndValue",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "CurvedArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": true,
+					"editorShowInWorld": false,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": true,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": { "id": "V_Int", "params": [0] },
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "zoom",
+					"doc": "Optional camera zoom multiplier. Empty preserves the legacy 1.15 breath-out.",
+					"__type": "Float",
+					"uid": 4330,
+					"type": "F_Float",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "NameAndValue",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "CurvedArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": true,
+					"editorShowInWorld": false,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": true,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "target_offset_x",
+					"doc": "World-space camera target offset X applied while active.",
+					"__type": "Float",
+					"uid": 4331,
+					"type": "F_Float",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "NameAndValue",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "CurvedArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": false,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": true,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": { "id": "V_Float", "params": [0] },
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "target_offset_y",
+					"doc": "World-space camera target offset Y applied while active.",
+					"__type": "Float",
+					"uid": 4332,
+					"type": "F_Float",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "NameAndValue",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "CurvedArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": false,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": true,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": { "id": "V_Float", "params": [0] },
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "easing_hz",
+					"doc": "Optional camera target easing speed in hertz.",
+					"__type": "Float",
+					"uid": 4333,
+					"type": "F_Float",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "NameAndValue",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "CurvedArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": false,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": true,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "cinematic_lock",
+					"doc": "When true, target the zone center instead of the player.",
+					"__type": "Bool",
+					"uid": 4334,
+					"type": "F_Bool",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "NameAndValue",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "CurvedArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": false,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": true,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": {
+						"id": "V_Bool",
+						"params": [ false ]
+					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "clamp_mode",
+					"doc": "room_bounds, zone_bounds, or none.",
+					"__type": "String",
+					"uid": 4335,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "NameAndValue",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "CurvedArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": false,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": true,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": {
+						"id": "V_String",
+						"params": ["room_bounds"]
+					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
 					"allowedRefs": "Any",
 					"allowedRefsEntityUid": null,
 					"allowedRefTags": [],
@@ -4232,6 +4497,191 @@
 			"allowedRefsEntityUid": null,
 			"allowedRefTags": [],
 			"tilesetUid": null
+		},
+		{
+			"identifier": "visual_profile",
+			"doc": "Stable RoomVisualProfile id, e.g. intro_wakeup_room.",
+			"__type": "String",
+			"uid": 4336,
+			"type": "F_String",
+			"isArray": false,
+			"canBeNull": true,
+			"arrayMinLength": null,
+			"arrayMaxLength": null,
+			"editorDisplayMode": "NameAndValue",
+			"editorDisplayScale": 1,
+			"editorDisplayPos": "Above",
+			"editorLinkStyle": "CurvedArrow",
+			"editorDisplayColor": null,
+			"editorAlwaysShow": false,
+			"editorShowInWorld": false,
+			"editorCutLongValues": true,
+			"editorTextSuffix": null,
+			"editorTextPrefix": null,
+			"useForSmartColor": false,
+			"exportToToc": false,
+			"searchable": true,
+			"min": null,
+			"max": null,
+			"regex": null,
+			"acceptFileTypes": null,
+			"defaultOverride": null,
+			"textLanguageMode": null,
+			"symmetricalRef": false,
+			"autoChainRef": true,
+			"allowOutOfLevelRef": true,
+			"allowedRefs": "Any",
+			"allowedRefsEntityUid": null,
+			"allowedRefTags": [],
+			"tilesetUid": null
+		},
+		{
+			"identifier": "parallax_theme",
+			"doc": "Explicit generated parallax/background theme.",
+			"__type": "String",
+			"uid": 4337,
+			"type": "F_String",
+			"isArray": false,
+			"canBeNull": true,
+			"arrayMinLength": null,
+			"arrayMaxLength": null,
+			"editorDisplayMode": "NameAndValue",
+			"editorDisplayScale": 1,
+			"editorDisplayPos": "Above",
+			"editorLinkStyle": "CurvedArrow",
+			"editorDisplayColor": null,
+			"editorAlwaysShow": false,
+			"editorShowInWorld": false,
+			"editorCutLongValues": true,
+			"editorTextSuffix": null,
+			"editorTextPrefix": null,
+			"useForSmartColor": false,
+			"exportToToc": false,
+			"searchable": true,
+			"min": null,
+			"max": null,
+			"regex": null,
+			"acceptFileTypes": null,
+			"defaultOverride": null,
+			"textLanguageMode": null,
+			"symmetricalRef": false,
+			"autoChainRef": true,
+			"allowOutOfLevelRef": true,
+			"allowedRefs": "Any",
+			"allowedRefsEntityUid": null,
+			"allowedRefTags": [],
+			"tilesetUid": null
+		},
+		{
+			"identifier": "palette",
+			"doc": "Optional renderer palette/color-grading hint.",
+			"__type": "String",
+			"uid": 4338,
+			"type": "F_String",
+			"isArray": false,
+			"canBeNull": true,
+			"arrayMinLength": null,
+			"arrayMaxLength": null,
+			"editorDisplayMode": "NameAndValue",
+			"editorDisplayScale": 1,
+			"editorDisplayPos": "Above",
+			"editorLinkStyle": "CurvedArrow",
+			"editorDisplayColor": null,
+			"editorAlwaysShow": false,
+			"editorShowInWorld": false,
+			"editorCutLongValues": true,
+			"editorTextSuffix": null,
+			"editorTextPrefix": null,
+			"useForSmartColor": false,
+			"exportToToc": false,
+			"searchable": true,
+			"min": null,
+			"max": null,
+			"regex": null,
+			"acceptFileTypes": null,
+			"defaultOverride": null,
+			"textLanguageMode": null,
+			"symmetricalRef": false,
+			"autoChainRef": true,
+			"allowOutOfLevelRef": true,
+			"allowedRefs": "Any",
+			"allowedRefsEntityUid": null,
+			"allowedRefTags": [],
+			"tilesetUid": null
+		},
+		{
+			"identifier": "lighting_hint",
+			"doc": "Optional lighting mood hint.",
+			"__type": "String",
+			"uid": 4339,
+			"type": "F_String",
+			"isArray": false,
+			"canBeNull": true,
+			"arrayMinLength": null,
+			"arrayMaxLength": null,
+			"editorDisplayMode": "NameAndValue",
+			"editorDisplayScale": 1,
+			"editorDisplayPos": "Above",
+			"editorLinkStyle": "CurvedArrow",
+			"editorDisplayColor": null,
+			"editorAlwaysShow": false,
+			"editorShowInWorld": false,
+			"editorCutLongValues": true,
+			"editorTextSuffix": null,
+			"editorTextPrefix": null,
+			"useForSmartColor": false,
+			"exportToToc": false,
+			"searchable": true,
+			"min": null,
+			"max": null,
+			"regex": null,
+			"acceptFileTypes": null,
+			"defaultOverride": null,
+			"textLanguageMode": null,
+			"symmetricalRef": false,
+			"autoChainRef": true,
+			"allowOutOfLevelRef": true,
+			"allowedRefs": "Any",
+			"allowedRefsEntityUid": null,
+			"allowedRefTags": [],
+			"tilesetUid": null
+		},
+		{
+			"identifier": "foreground_treatment",
+			"doc": "Optional foreground/atmosphere treatment hint.",
+			"__type": "String",
+			"uid": 4340,
+			"type": "F_String",
+			"isArray": false,
+			"canBeNull": true,
+			"arrayMinLength": null,
+			"arrayMaxLength": null,
+			"editorDisplayMode": "NameAndValue",
+			"editorDisplayScale": 1,
+			"editorDisplayPos": "Above",
+			"editorLinkStyle": "CurvedArrow",
+			"editorDisplayColor": null,
+			"editorAlwaysShow": false,
+			"editorShowInWorld": false,
+			"editorCutLongValues": true,
+			"editorTextSuffix": null,
+			"editorTextPrefix": null,
+			"useForSmartColor": false,
+			"exportToToc": false,
+			"searchable": true,
+			"min": null,
+			"max": null,
+			"regex": null,
+			"acceptFileTypes": null,
+			"defaultOverride": null,
+			"textLanguageMode": null,
+			"symmetricalRef": false,
+			"autoChainRef": true,
+			"allowOutOfLevelRef": true,
+			"allowedRefs": "Any",
+			"allowedRefsEntityUid": null,
+			"allowedRefTags": [],
+			"tilesetUid": null
 		}
 	] },
 	"levels": [
@@ -4265,7 +4715,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -5595,7 +6050,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -5880,7 +6340,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [21,52],
+							"__grid": [23,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -5921,7 +6381,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [37,52],
+							"__grid": [39,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -5962,7 +6422,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [51,52],
+							"__grid": [54,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -6003,7 +6463,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [68,52],
+							"__grid": [70,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -6307,7 +6767,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [29,52],
+							"__grid": [31,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -6348,7 +6808,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [43,52],
+							"__grid": [46,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -6389,7 +6849,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [59,52],
+							"__grid": [62,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -6471,7 +6931,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [76,52],
+							"__grid": [77,52],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -7042,7 +7502,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -8457,7 +8922,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -9260,6 +9730,46 @@
 							],
 							"__worldX": 832,
 							"__worldY": -2000
+						},
+						{
+							"__identifier": "MovingPlatform",
+							"__grid": [6,112],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#5BA1FF",
+							"iid": "f66cf060-48b0-11f1-8de5-4f960a9048c0",
+							"width": 160,
+							"height": 18,
+							"defUid": 4251,
+							"px": [96,1792],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Moving Platform", "__tile": null, "defUid": 4248, "realEditorValues": [] },
+								{ "__identifier": "sweep_dx", "__type": "Float", "__value": 240, "__tile": null, "defUid": 4249, "realEditorValues": [] },
+								{ "__identifier": "speed", "__type": "Float", "__value": 130, "__tile": null, "defUid": 4250, "realEditorValues": [] }
+							],
+							"__worldX": 96,
+							"__worldY": -816
+						},
+						{
+							"__identifier": "MovingPlatform",
+							"__grid": [18,119],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#5BA1FF",
+							"iid": "fa90a970-48b0-11f1-8de5-29313d5cfe27",
+							"width": 160,
+							"height": 18,
+							"defUid": 4251,
+							"px": [288,1904],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Moving Platform", "__tile": null, "defUid": 4248, "realEditorValues": [] },
+								{ "__identifier": "sweep_dx", "__type": "Float", "__value": 240, "__tile": null, "defUid": 4249, "realEditorValues": [] },
+								{ "__identifier": "speed", "__type": "Float", "__value": 130, "__tile": null, "defUid": 4250, "realEditorValues": [] }
+							],
+							"__worldX": 288,
+							"__worldY": -704
 						}
 					]
 				},
@@ -9890,7 +10400,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -11296,7 +11811,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -11677,7 +12197,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -12702,7 +13227,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -13735,7 +14265,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -14622,7 +15157,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -15756,7 +16296,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -16472,7 +17017,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -16847,7 +17397,10 @@
 							"height": 22,
 							"defUid": 2009,
 							"px": [1200,688],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Hazard", "__tile": null, "defUid": 3020, "realEditorValues": [] }],
+							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "Hazard", "__tile": null, "defUid": 3020, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["Hazard"]
+							}] }],
 							"__worldX": 13200,
 							"__worldY": 1712
 						},
@@ -16864,10 +17417,16 @@
 							"defUid": 5001,
 							"px": [1232,592],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Breakable Pogo Orb", "__tile": null, "defUid": 5020, "realEditorValues": [] },
-								{ "__identifier": "max_hp", "__type": "Float", "__value": 3, "__tile": null, "defUid": 5021, "realEditorValues": [] },
-								{ "__identifier": "respawn", "__type": "String", "__value": "OnRoomReload", "__tile": null, "defUid": 5022, "realEditorValues": [] },
-								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 5023, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "Breakable Pogo Orb", "__tile": null, "defUid": 5020, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Breakable Pogo Orb"]
+								}] },
+								{ "__identifier": "max_hp", "__type": "Float", "__value": 3, "__tile": null, "defUid": 5021, "realEditorValues": [{ "id": "V_Float", "params": [3] }] },
+								{ "__identifier": "respawn", "__type": "String", "__value": "OnRoomReload", "__tile": null, "defUid": 5022, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["OnRoomReload"]
+								}] },
+								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 5023, "realEditorValues": [{ "id": "V_Float", "params": [0] }] }
 							],
 							"__worldX": 13232,
 							"__worldY": 1616
@@ -16885,10 +17444,16 @@
 							"defUid": 5001,
 							"px": [1376,592],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Breakable Pogo Orb", "__tile": null, "defUid": 5020, "realEditorValues": [] },
-								{ "__identifier": "max_hp", "__type": "Float", "__value": 3, "__tile": null, "defUid": 5021, "realEditorValues": [] },
-								{ "__identifier": "respawn", "__type": "String", "__value": "OnRoomReload", "__tile": null, "defUid": 5022, "realEditorValues": [] },
-								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 5023, "realEditorValues": [] }
+								{ "__identifier": "name", "__type": "String", "__value": "Breakable Pogo Orb", "__tile": null, "defUid": 5020, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Breakable Pogo Orb"]
+								}] },
+								{ "__identifier": "max_hp", "__type": "Float", "__value": 3, "__tile": null, "defUid": 5021, "realEditorValues": [{ "id": "V_Float", "params": [3] }] },
+								{ "__identifier": "respawn", "__type": "String", "__value": "OnRoomReload", "__tile": null, "defUid": 5022, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["OnRoomReload"]
+								}] },
+								{ "__identifier": "respawn_seconds", "__type": "Float", "__value": 0, "__tile": null, "defUid": 5023, "realEditorValues": [{ "id": "V_Float", "params": [0] }] }
 							],
 							"__worldX": 13376,
 							"__worldY": 1616
@@ -17238,7 +17803,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -17601,7 +18171,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Encounter", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Encounter"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 14704,
 							"__worldY": 1024
@@ -18030,7 +18607,12 @@
 					"params": ["pulse_drift_voyage"]
 				}] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -18994,7 +19576,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -19175,7 +19762,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 26000,
 							"__worldY": 1024
@@ -19434,7 +20028,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -19640,7 +20239,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 27200,
 							"__worldY": 1024
@@ -19849,7 +20455,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -20099,7 +20710,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 30000,
 							"__worldY": 1024
@@ -20396,7 +21014,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -20566,7 +21189,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 28400,
 							"__worldY": 1024
@@ -20753,7 +21383,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -20923,7 +21558,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 29200,
 							"__worldY": 1024
@@ -21110,7 +21752,12 @@
 				}] },
 				{ "__identifier": "music_track", "__type": "String", "__value": null, "__tile": null, "defUid": 4173, "realEditorValues": [] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4174, "realEditorValues": [] },
-				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] }
+				{ "__identifier": "visual_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4175, "realEditorValues": [] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -21317,7 +21964,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 30800,
 							"__worldY": 1024
@@ -21513,7 +22167,12 @@
 				{ "__identifier": "visual_theme", "__type": "String", "__value": "red", "__tile": null, "defUid": 4175, "realEditorValues": [{
 					"id": "V_String",
 					"params": ["red"]
-				}] }
+				}] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -21749,7 +22408,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 32000,
 							"__worldY": 1024
@@ -22017,7 +22683,12 @@
 				{ "__identifier": "visual_theme", "__type": "String", "__value": "orange", "__tile": null, "defUid": 4175, "realEditorValues": [{
 					"id": "V_String",
 					"params": ["orange"]
-				}] }
+				}] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -22227,7 +22898,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 33008,
 							"__worldY": 1024
@@ -22443,7 +23121,12 @@
 				{ "__identifier": "visual_theme", "__type": "String", "__value": "blue", "__tile": null, "defUid": 4175, "realEditorValues": [{
 					"id": "V_String",
 					"params": ["blue"]
-				}] }
+				}] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -22676,7 +23359,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 34000,
 							"__worldY": 1024
@@ -22938,7 +23628,12 @@
 				{ "__identifier": "visual_theme", "__type": "String", "__value": "pink", "__tile": null, "defUid": 4175, "realEditorValues": [{
 					"id": "V_String",
 					"params": ["pink"]
-				}] }
+				}] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -23179,7 +23874,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": 35008,
 							"__worldY": 1024
@@ -23457,7 +24159,12 @@
 				{ "__identifier": "visual_theme", "__type": "String", "__value": "blue", "__tile": null, "defUid": 4175, "realEditorValues": [{
 					"id": "V_String",
 					"params": ["blue"]
-				}] }
+				}] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -23727,7 +24434,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": -8000,
 							"__worldY": 0
@@ -24101,7 +24815,12 @@
 				{ "__identifier": "visual_theme", "__type": "String", "__value": "blue", "__tile": null, "defUid": 4175, "realEditorValues": [{
 					"id": "V_String",
 					"params": ["blue"]
-				}] }
+				}] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -24346,7 +25065,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": -10000,
 							"__worldY": 0
@@ -24387,8 +25113,6 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#6B7280",
-							"__worldX": 16,
-							"__worldY": 640,
 							"iid": "Solid-4314",
 							"width": 40,
 							"height": 96,
@@ -24397,7 +25121,9 @@
 							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "arena_lock_door", "__tile": null, "defUid": 3001, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["arena_lock_door"]
-							}] }]
+							}] }],
+							"__worldX": -9984,
+							"__worldY": 640
 						},
 						{
 							"__identifier": "LoadingZone",
@@ -24406,8 +25132,6 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 850,
-							"__worldY": 640,
 							"iid": "LoadingZone-4327",
 							"width": 48,
 							"height": 96,
@@ -24438,7 +25162,9 @@
 									"id": "V_Bool",
 									"params": [ false ]
 								}] }
-							]
+							],
+							"__worldX": -9150,
+							"__worldY": 640
 						},
 						{
 							"__identifier": "Solid",
@@ -24447,8 +25173,6 @@
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#6B7280",
-							"__worldX": 898,
-							"__worldY": 640,
 							"iid": "Solid-4328",
 							"width": 40,
 							"height": 96,
@@ -24457,7 +25181,9 @@
 							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "arena_lock_door_ninja", "__tile": null, "defUid": 3001, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["arena_lock_door_ninja"]
-							}] }]
+							}] }],
+							"__worldX": -9102,
+							"__worldY": 640
 						}
 					]
 				},
@@ -24721,7 +25447,12 @@
 				{ "__identifier": "visual_theme", "__type": "String", "__value": "blue", "__tile": null, "defUid": 4175, "realEditorValues": [{
 					"id": "V_String",
 					"params": ["blue"]
-				}] }
+				}] },
+				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },
+				{ "__identifier": "parallax_theme", "__type": "String", "__value": null, "__tile": null, "defUid": 4337, "realEditorValues": [] },
+				{ "__identifier": "palette", "__type": "String", "__value": null, "__tile": null, "defUid": 4338, "realEditorValues": [] },
+				{ "__identifier": "lighting_hint", "__type": "String", "__value": null, "__tile": null, "defUid": 4339, "realEditorValues": [] },
+				{ "__identifier": "foreground_treatment", "__type": "String", "__value": null, "__tile": null, "defUid": 4340, "realEditorValues": [] }
 			],
 			"layerInstances": [
 				{
@@ -25051,7 +25782,14 @@
 								{ "__identifier": "mode", "__type": "String", "__value": "Default", "__tile": null, "defUid": 4005, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["Default"]
-								}] }
+								}] },
+								{ "__identifier": "priority", "__type": "Int", "__value": 0, "__tile": null, "defUid": 4329, "realEditorValues": [] },
+								{ "__identifier": "zoom", "__type": "Float", "__value": null, "__tile": null, "defUid": 4330, "realEditorValues": [] },
+								{ "__identifier": "target_offset_x", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4331, "realEditorValues": [] },
+								{ "__identifier": "target_offset_y", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4332, "realEditorValues": [] },
+								{ "__identifier": "easing_hz", "__type": "Float", "__value": null, "__tile": null, "defUid": 4333, "realEditorValues": [] },
+								{ "__identifier": "cinematic_lock", "__type": "Bool", "__value": false, "__tile": null, "defUid": 4334, "realEditorValues": [] },
+								{ "__identifier": "clamp_mode", "__type": "String", "__value": "room_bounds", "__tile": null, "defUid": 4335, "realEditorValues": [] }
 							],
 							"__worldX": -8000,
 							"__worldY": -800

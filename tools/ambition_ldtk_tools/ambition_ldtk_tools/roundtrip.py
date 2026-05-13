@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Check whether an Ambition LDtk file is ready for canonical tool edits.
+"""Check whether an Ambition LDtk file is ready for safe tool edits.
 
-This is a non-mutating smoke check. It verifies that the package repair pass
-would make no changes and then runs the validator. Use it before opening
+This is a non-mutating smoke check. It verifies that the package repair pass would make no semantic editor-metadata changes
+and then runs the validator. It does not require one unique JSON formatting layout;
+an actual LDtk editor save is considered canonical. Use it before opening
 `sandbox.ldtk` in LDtk, or in CI after generated/agent-patched level edits.
 
 Run from the repo root with:
@@ -83,7 +84,7 @@ def main(argv=None) -> int:
         print(f"error: {error}", file=sys.stderr)
     if errors:
         return 1
-    print(f"OK: {args.path} is valid and canonical for Ambition LDtk tools")
+    print(f"OK: {args.path} is valid and safe for Ambition LDtk tools")
     return 0
 
 

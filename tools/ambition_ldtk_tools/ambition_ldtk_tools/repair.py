@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Repair generated/editor-saved Ambition LDtk files for safe tool/editor use.
+"""Repair generated or agent-patched Ambition LDtk files for safe tool/editor use.
 
 This tool does not invent gameplay values. It normalizes editor-facing metadata
-that can be derived from the LDtk definitions and existing parser-facing values:
+that can be derived from the LDtk definitions, level origins, and parser-facing values:
 
 - FieldDef internal `type` constructors such as `F_String`
 - required LDtk editor metadata keys on entity/field definitions
 - instance `defUid` values from definitions
-- field instance `realEditorValues` from `__value`
+- field instance `realEditorValues` when they are missing/stale for non-default values
 
 Run this before opening a heavily generated or agent-patched `.ldtk` file in the
 LDtk GUI, or after hand-patching JSON:

@@ -395,7 +395,7 @@ def coerce_field_value(human_type: str, raw):
 
 def make_field_instance(field_def: dict, value):
     """Build a minimal field instance. `ambition_ldtk_tools repair` will fill
-    `realEditorValues` from `__value` for common types."""
+    editor metadata for common types when it is missing/stale."""
     instance = {
         "__identifier": field_def["identifier"],
         "__type": field_def.get("__type"),

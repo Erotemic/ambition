@@ -277,25 +277,144 @@ def validate_official_schema(project, schema_path: Path | None, require_schema: 
 
 
 
+
+def _wrapper_payload(wrapper):
+    """Return ``(id, params)`` for an LDtk ValueWrapper dict, or ``None``.
+
+    LDtk encodes default/editor values as Haxe-enum wrapper objects such as
+    ``{"id": "V_String", "params": ["Door"]}``. The editor omits
+    ``realEditorValues`` when an instance value is exactly the field default;
+    comparing through this helper lets repair mirror that behavior instead of
+    forcing noisy non-editor metadata back into editor-saved files.
+    """
+    if not isinstance(wrapper, dict):
+        return None
+    if "id" not in wrapper or "params" not in wrapper:
+        return None
+    params = wrapper.get("params")
+    if not isinstance(params, list):
+        return None
+    return wrapper.get("id"), list(params)
+
+
+def _scalar_editor_value_id(human_type):
+    if human_type in {"String", "Text", "Color", "Path", "EntityRef", "Tile"}:
+        return "V_String"
+    if human_type == "Bool":
+        return "V_Bool"
+    if human_type == "Int":
+        return "V_Int"
+    if human_type == "Float":
+        return "V_Float"
+    return None
+
+
+def _coerce_for_editor_compare(value, human_type):
+    if value is None:
+        return None
+    if human_type == "Bool":
+        return bool(value)
+    if human_type == "Int":
+        return int(value)
+    if human_type == "Float":
+        return float(value)
+    return str(value)
+
+
+def _value_matches_default_override(value, human_type, field_def):
+    """True when LDtk would omit ``realEditorValues`` for this value.
+
+    In files saved by LDtk 1.5.3, field instances whose ``__value`` equals the
+    field definition's ``defaultOverride`` usually keep ``realEditorValues: []``.
+    Earlier Ambition tools filled every non-null instance value, so simply
+    opening and saving in LDtk produced a large "repair" diff. Treat the editor
+    as source-of-truth here: default-equal values are canonical with an empty
+    editor-value array.
+    """
+    if value is None or not field_def:
+        return value is None
+    payload = _wrapper_payload(field_def.get("defaultOverride"))
+    if payload is None:
+        return False
+    wrapper_id, params = payload
+    expected_wrapper = _scalar_editor_value_id(human_type)
+    if expected_wrapper is not None and wrapper_id != expected_wrapper:
+        return False
+    if len(params) != 1:
+        return False
+    try:
+        return _coerce_for_editor_compare(value, human_type) == _coerce_for_editor_compare(params[0], human_type)
+    except (TypeError, ValueError):
+        return value == params[0]
+
+
+def expected_real_editor_values(field, field_def=None):
+    """Return the LDtk-editor-shaped ``realEditorValues`` for a field instance.
+
+    The parser-facing value remains ``__value``. ``realEditorValues`` is editor
+    metadata: LDtk commonly stores ``[]`` for null values and default-equal
+    values, and stores a wrapper only when the user has an explicit non-default
+    value. Mirroring that rule keeps tool output compatible with an actual
+    editor save.
+    """
+    value = field.get("__value")
+    human_type = field.get("__type") or (field_def or {}).get("__type")
+    if value is None:
+        return []
+    if _value_matches_default_override(value, human_type, field_def):
+        return []
+    return editor_value_for(value, human_type)
+
+
+def real_editor_values_are_acceptable(field, field_def=None):
+    """Return true if the current editor metadata matches known LDtk output.
+
+    LDtk 1.5.3 is not perfectly uniform here. After adding new fields in the
+    editor, default-equal instance values often keep ``realEditorValues: []``;
+    older generated/defaulted fields may retain the explicit ValueWrapper. Both
+    shapes survive an editor save. Treat both as canonical so our tools do not
+    create churn against the editor.
+    """
+    actual = field.get("realEditorValues")
+    value = field.get("__value")
+    human_type = field.get("__type") or (field_def or {}).get("__type")
+    if value is None:
+        return actual == []
+    explicit = editor_value_for(value, human_type)
+    if _value_matches_default_override(value, human_type, field_def):
+        return actual in ([], explicit)
+    return actual == explicit
+
+
 def normalize_editor_values(project):
     changed = 0
+    defs = project.get("defs") or {}
+    entity_defs = {entity.get("identifier"): entity for entity in defs.get("entities") or []}
+    entity_field_defs = {
+        identifier: {field.get("identifier"): field for field in (entity.get("fieldDefs") or [])}
+        for identifier, entity in entity_defs.items()
+    }
+    level_field_defs = {field.get("identifier"): field for field in defs.get("levelFields") or []}
 
-    def normalize_fields(fields):
+    def normalize_fields(fields, field_defs):
         nonlocal changed
         for field in fields or []:
-            value = field.get("__value")
-            expected = editor_value_for(value, field.get("__type"))
-            if field.get("realEditorValues") != expected:
-                field["realEditorValues"] = expected
-                changed += 1
+            field_def = field_defs.get(field.get("__identifier")) if field_defs else None
+            if real_editor_values_are_acceptable(field, field_def):
+                continue
+            expected = expected_real_editor_values(field, field_def)
+            field["realEditorValues"] = expected
+            changed += 1
 
     for level in project.get("levels") or []:
-        normalize_fields(level.get("fieldInstances") or [])
+        normalize_fields(level.get("fieldInstances") or [], level_field_defs)
         for layer in level.get("layerInstances") or []:
             for entity in layer.get("entityInstances") or []:
-                normalize_fields(entity.get("fieldInstances") or [])
+                normalize_fields(
+                    entity.get("fieldInstances") or [],
+                    entity_field_defs.get(entity.get("__identifier"), {}),
+                )
     return changed
-
 
 def _set_if_missing(mapping, key, value):
     if key not in mapping:
@@ -432,6 +551,36 @@ def sync_instance_definition_uids(project):
     return changes
 
 
+
+def normalize_entity_world_coordinates(project):
+    """Synchronize LDtk's cached entity world coordinates.
+
+    ``px`` is level-local. LDtk also writes cached ``__worldX`` / ``__worldY``
+    equal to ``level.worldX + px[0]`` and ``level.worldY + px[1]``. Generated
+    tools used to leave those fields missing or rooted at the origin, which the
+    editor fixes on save and which can make Bevy-side LDtk consumers see stale
+    positions. The values are purely derived, so repair can update them safely.
+    """
+    changed = 0
+    for level in project.get("levels") or []:
+        world_x = int(level.get("worldX") or 0)
+        world_y = int(level.get("worldY") or 0)
+        for layer in level.get("layerInstances") or []:
+            for entity in layer.get("entityInstances") or []:
+                px = entity.get("px") or [0, 0]
+                if not isinstance(px, list) or len(px) != 2:
+                    continue
+                expected_x = world_x + int(px[0])
+                expected_y = world_y + int(px[1])
+                if entity.get("__worldX") != expected_x:
+                    entity["__worldX"] = expected_x
+                    changed += 1
+                if entity.get("__worldY") != expected_y:
+                    entity["__worldY"] = expected_y
+                    changed += 1
+    return changed
+
+
 def normalize_project_for_editor(project):
     """Normalize generated/agent-patched LDtk JSON for LDtk GUI round-trips.
 
@@ -442,6 +591,9 @@ def normalize_project_for_editor(project):
     changes = []
     changes.extend(normalize_definitions_for_editor(project))
     changes.extend(sync_instance_definition_uids(project))
+    world_coord_count = normalize_entity_world_coordinates(project)
+    if world_coord_count:
+        changes.append(f"synchronized {world_coord_count} cached entity __worldX/__worldY values")
     editor_value_count = normalize_editor_values(project)
     if editor_value_count:
         changes.append(f"normalized {editor_value_count} field instance realEditorValues records")
@@ -613,6 +765,16 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
                 errors.append(f"level {identifier!r} entity {entity_name(entity)} has non-positive dimensions")
             if len(px) != 2 or px[0] < 0 or px[1] < 0 or px[0] + width > level.get("pxWid", 0) or px[1] + height > level.get("pxHei", 0):
                 errors.append(f"level {identifier!r} entity {entity_name(entity)} is outside level bounds")
+            elif "__worldX" in entity or "__worldY" in entity:
+                expected_world_x = world_x + int(px[0])
+                expected_world_y = world_y + int(px[1])
+                if entity.get("__worldX") != expected_world_x or entity.get("__worldY") != expected_world_y:
+                    errors.append(
+                        f"level {identifier!r} entity {entity_name(entity)} has stale cached world coords "
+                        f"({entity.get('__worldX')!r}, {entity.get('__worldY')!r}); expected "
+                        f"({expected_world_x}, {expected_world_y}) from level origin ({world_x}, {world_y}) + px {px!r}. "
+                        "Run `PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair <file> --in-place`."
+                    )
             pivot = entity.get("__pivot", [0, 0])
             if len(pivot) == 2 and (abs(float(pivot[0])) > 1e-6 or abs(float(pivot[1])) > 1e-6):
                 errors.append(f"level {identifier!r} entity {entity_name(entity)} must use top-left pivot [0, 0]")

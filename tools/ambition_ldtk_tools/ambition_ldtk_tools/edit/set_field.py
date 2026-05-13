@@ -5,7 +5,7 @@ Use this instead of hand-editing the LDtk JSON when you need to flip a
 flag (e.g. `bidirectional`) or rename a target on an entity that's
 already in the project. Mutating through the tool means the file goes
 through the standard repair + validate pass on the way out, keeping
-`__smartColor`, `realEditorValues`, and the field defs aligned.
+`__smartColor`, cached `__worldX`/`__worldY`, `realEditorValues`, and the field defs aligned.
 
 Spec format (YAML or JSON):
 
@@ -126,9 +126,8 @@ def apply_field_edit(project: dict, entity: dict, field_name: str, new_value) ->
     """Set `entity[fieldInstances][field_name].__value` to `new_value`,
     coercing via the entity def's declared type so booleans /
     enumerations / numerics land in the canonical shape the LDtk editor
-    expects. The repair pass (`ambition_ldtk_tools.repair`) re-fills
-    `realEditorValues` from `__value` for common types, so we only need
-    to write the parser-facing `__value`. Adds the field instance if
+    expects. The repair pass (`ambition_ldtk_tools.repair`) keeps editor metadata aligned
+    for common types, so we only need to write the parser-facing `__value`. Adds the field instance if
     it isn't already present."""
     ent_def = find_entity_def(project, entity.get("__identifier"))
     field_defs = {f["identifier"]: f for f in ent_def.get("fieldDefs", [])}

@@ -57,12 +57,14 @@ def _grid_size(project: dict, level: dict) -> int:
     return int(project.get("defaultGridSize", 16))
 
 
-def apply_move(entity: dict, px, size, grid_size: int) -> None:
+def apply_move(entity: dict, px, size, grid_size: int, level_world_x: int = 0, level_world_y: int = 0) -> None:
     if not (isinstance(px, (list, tuple)) and len(px) == 2):
         raise SystemExit(f"`px` must be [x, y]; got {px!r}")
     nx, ny = int(px[0]), int(px[1])
     entity["px"] = [nx, ny]
     entity["__grid"] = [nx // grid_size, ny // grid_size]
+    entity["__worldX"] = level_world_x + nx
+    entity["__worldY"] = level_world_y + ny
     if size is not None:
         if not (isinstance(size, (list, tuple)) and len(size) == 2):
             raise SystemExit(f"`size` must be [w, h]; got {size!r}")
@@ -121,7 +123,14 @@ def main(argv=None) -> int:
         matched = select_entities(layer, target)
         for entity in matched:
             old_px = list(entity.get("px") or [])
-            apply_move(entity, px, size, grid_size)
+            apply_move(
+                entity,
+                px,
+                size,
+                grid_size,
+                int(level.get("worldX", 0)),
+                int(level.get("worldY", 0)),
+            )
             moves.append(
                 f"{entity.get('__identifier')} ({entity.get('iid')}): "
                 f"px {old_px} -> {entity['px']}"

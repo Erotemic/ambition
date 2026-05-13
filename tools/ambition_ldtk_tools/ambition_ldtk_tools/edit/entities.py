@@ -134,7 +134,13 @@ def main(argv=None) -> int:
                     f"entity '{ent_spec['type']}' has no field '{fname}' "
                     f"(known: {sorted(valid_fields)})"
                 )
-        instance = build_entity_instance(project, ent_spec, grid_size)
+        instance = build_entity_instance(
+            project,
+            ent_spec,
+            grid_size,
+            int(level.get("worldX", 0)),
+            int(level.get("worldY", 0)),
+        )
         layer.setdefault("entityInstances", []).append(instance)
         added.append(f"{ent_spec['type']} ({instance['iid']})")
 

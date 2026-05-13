@@ -248,6 +248,7 @@ impl RoomBuilder {
             loading_zones: self.loading_zones,
             metadata: crate::rooms::RoomMetadata::default(),
             camera_zones: Vec::new(),
+            kinematic_paths: Vec::new(),
             moving_platforms: Vec::new(),
         }
     }

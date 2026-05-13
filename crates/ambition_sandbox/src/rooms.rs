@@ -248,6 +248,40 @@ impl CameraZoneSpec {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct KinematicPathSpec {
+    /// Stable authored lookup id. LDtk may not have an explicit `id` field yet,
+    /// so conversion falls back to the entity `name` and finally the LDtk iid.
+    pub id: String,
+    pub name: String,
+    pub aabb: ae::Aabb,
+    pub path: ae::KinematicPath,
+}
+
+impl KinematicPathSpec {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        path: ae::KinematicPath,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            aabb,
+            path,
+        }
+    }
+
+    pub fn aliases(&self) -> impl Iterator<Item = &str> {
+        [self.id.as_str(), self.name.as_str()].into_iter()
+    }
+
+    pub fn matches_id(&self, query: &str) -> bool {
+        self.aliases().any(|alias| alias == query)
+    }
+}
+
 /// Complete room data used by the Bevy sandbox.
 #[derive(Clone, Debug)]
 pub struct RoomSpec {
@@ -256,6 +290,11 @@ pub struct RoomSpec {
     pub loading_zones: Vec<LoadingZone>,
     pub metadata: RoomMetadata,
     pub camera_zones: Vec<CameraZoneSpec>,
+    /// LDtk-authored path index for platforms, hazards, NPC patrols, camera
+    /// rails, and future scripted room beats. `World::objects` still mirrors
+    /// these as `RoomObjectKind::KinematicPath` for older consumers, but new
+    /// systems should use this typed area-local index.
+    pub kinematic_paths: Vec<KinematicPathSpec>,
     /// LDtk-authored moving platforms for this area. This is the complete
     /// platform set for gameplay: if the vector is empty, the room has no
     /// moving platforms.

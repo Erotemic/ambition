@@ -16,6 +16,7 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         loading_zones: Vec::new(),
         metadata: meta,
         camera_zones: Vec::new(),
+        kinematic_paths: Vec::new(),
         moving_platforms: Vec::new(),
     }
 }

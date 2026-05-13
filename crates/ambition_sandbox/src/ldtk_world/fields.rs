@@ -89,9 +89,9 @@ pub(super) fn parse_points(value: &str) -> Vec<ae::Vec2> {
 }
 
 pub(super) fn parse_path_mode(value: &str) -> ae::KinematicPathMode {
-    match value {
-        "Once" => ae::KinematicPathMode::Once,
-        "Loop" => ae::KinematicPathMode::Loop,
+    match value.trim().to_ascii_lowercase().replace('-', "_").as_str() {
+        "once" => ae::KinematicPathMode::Once,
+        "loop" => ae::KinematicPathMode::Loop,
         _ => ae::KinematicPathMode::PingPong,
     }
 }

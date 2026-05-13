@@ -3,6 +3,15 @@ use super::*;
 impl FeatureRuntime {
     pub fn from_world(world: &ae::World) -> Self {
         let paths = room_paths(world);
+        Self::from_world_with_paths(world, &paths)
+    }
+
+    pub fn from_room_spec(room: &crate::rooms::RoomSpec) -> Self {
+        let paths = room_spec_paths(room);
+        Self::from_world_with_paths(&room.world, &paths)
+    }
+
+    fn from_world_with_paths(world: &ae::World, paths: &[(String, ae::KinematicPath)]) -> Self {
         let mut runtime = Self {
             hazards: Vec::new(),
             enemies: Vec::new(),
@@ -56,7 +65,7 @@ impl FeatureRuntime {
                 ae::RoomObjectKind::EnemySpawn(brain) => {
                     runtime
                         .enemies
-                        .push(EnemyRuntime::new(object, brain.clone(), &paths));
+                        .push(EnemyRuntime::new(object, brain.clone(), paths));
                 }
                 ae::RoomObjectKind::BossSpawn(brain) => {
                     runtime.bosses.push(BossRuntime::new(object, brain.clone()));

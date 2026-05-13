@@ -652,6 +652,186 @@ fn synthetic_camera_zone_reaches_room_spec() {
 }
 
 #[test]
+fn synthetic_kinematic_path_reaches_room_spec_with_area_offset() {
+    fn field(name: &str, value: &str) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.into(),
+            value: Value::String(value.into()),
+            real_editor_values: vec![],
+        }
+    }
+
+    let path = make_entity_at(
+        "KinematicPath",
+        [16, 16],
+        [128, 12],
+        &[
+            ("name", Value::String("patrol_alpha".into())),
+            ("points", Value::String("24,40;96,40".into())),
+            ("speed", Value::Number(serde_json::Number::from(90))),
+            ("mode", Value::String("Loop".into())),
+        ],
+    );
+    let project = LdtkProject {
+        json_version: "1.5.3".into(),
+        levels: vec![
+            LdtkLevel {
+                iid: "left-level".into(),
+                identifier: "path_lab_left".into(),
+                world_x: 1000,
+                world_y: 0,
+                px_wid: 320,
+                px_hei: 240,
+                field_instances: vec![field("activeArea", "path_lab")],
+                layer_instances: vec![LdtkLayerInstance {
+                    identifier: "Ambition".into(),
+                    layer_type: "Entities".into(),
+                    c_wid: 20,
+                    c_hei: 15,
+                    grid_size: 16,
+                    entity_instances: vec![make_entity_at("PlayerStart", [32, 160], [16, 32], &[])],
+                    int_grid_csv: Vec::new(),
+                }],
+            },
+            LdtkLevel {
+                iid: "right-level".into(),
+                identifier: "path_lab_right".into(),
+                world_x: 1320,
+                world_y: 0,
+                px_wid: 320,
+                px_hei: 240,
+                field_instances: vec![field("activeArea", "path_lab")],
+                layer_instances: vec![LdtkLayerInstance {
+                    identifier: "Ambition".into(),
+                    layer_type: "Entities".into(),
+                    c_wid: 20,
+                    c_hei: 15,
+                    grid_size: 16,
+                    entity_instances: vec![path],
+                    int_grid_csv: Vec::new(),
+                }],
+            },
+        ],
+    };
+
+    let room_set = project
+        .to_room_set()
+        .expect("synthetic LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "path_lab")
+        .expect("path_lab active area exists");
+    assert_eq!(room.kinematic_paths.len(), 1);
+    let spec = &room.kinematic_paths[0];
+    assert_eq!(spec.id, "patrol_alpha");
+    assert_eq!(spec.name, "patrol_alpha");
+    assert_eq!(spec.path.mode, ae::KinematicPathMode::Loop);
+    assert_eq!(spec.path.speed, 90.0);
+    assert_eq!(
+        spec.path.points,
+        vec![ae::Vec2::new(344.0, 40.0), ae::Vec2::new(416.0, 40.0)],
+        "LDtk path points are level-local and must be converted into active-area-local coordinates"
+    );
+    assert!(room.world.objects.iter().any(|object| matches!(
+        &object.kind,
+        ae::RoomObjectKind::KinematicPath(path) if path.points == spec.path.points
+    )));
+}
+
+#[test]
+fn feature_runtime_uses_room_spec_kinematic_path_aliases() {
+    fn field(name: &str, value: &str) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.into(),
+            value: Value::String(value.into()),
+            real_editor_values: vec![],
+        }
+    }
+
+    let path = make_entity_at(
+        "KinematicPath",
+        [64, 160],
+        [128, 12],
+        &[
+            ("name", Value::String("patrol_alpha".into())),
+            ("points", Value::String("64,160;192,160".into())),
+            ("speed", Value::Number(serde_json::Number::from(90))),
+            ("mode", Value::String("PingPong".into())),
+        ],
+    );
+    let enemy = make_entity_at(
+        "EnemySpawn",
+        [80, 128],
+        [44, 58],
+        &[
+            ("name", Value::String("path follower".into())),
+            ("brain", Value::String("Patrol:patrol_alpha".into())),
+        ],
+    );
+    let project = LdtkProject {
+        json_version: "1.5.3".into(),
+        levels: vec![LdtkLevel {
+            iid: "level-iid".into(),
+            identifier: "feature_path_lab".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 320,
+            px_hei: 240,
+            field_instances: vec![field("activeArea", "feature_path_lab")],
+            layer_instances: vec![LdtkLayerInstance {
+                identifier: "Ambition".into(),
+                layer_type: "Entities".into(),
+                c_wid: 20,
+                c_hei: 15,
+                grid_size: 16,
+                entity_instances: vec![
+                    make_entity_at("PlayerStart", [32, 160], [16, 32], &[]),
+                    path,
+                    enemy,
+                ],
+                int_grid_csv: Vec::new(),
+            }],
+        }],
+    };
+
+    let room_set = project
+        .to_room_set()
+        .expect("synthetic LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "feature_path_lab")
+        .expect("room should exist");
+    let features = crate::features::FeatureRuntime::from_room_spec(room);
+    assert_eq!(features.enemies.len(), 1);
+    assert!(
+        features.enemies[0].motion.is_some(),
+        "EnemySpawn Patrol:<path id> should resolve through RoomSpec::kinematic_paths"
+    );
+}
+
+#[test]
+fn embedded_ldtk_patrol_enemy_resolves_kinematic_path_index() {
+    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let room_set = project.to_room_set().expect("embedded LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "basement_enemies")
+        .expect("basement_enemies active area exists");
+    assert!(
+        !room.kinematic_paths.is_empty(),
+        "basement_enemies should expose authored KinematicPath specs"
+    );
+    let features = crate::features::FeatureRuntime::from_room_spec(room);
+    assert!(
+        features.enemies.iter().any(|enemy| enemy.motion.is_some()),
+        "at least one authored patrol enemy should resolve through RoomSpec::kinematic_paths"
+    );
+}
+
+#[test]
 fn central_hub_collision_layer_lowers_to_engine_blocks() {
     let project = LdtkProject::load_default().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");

@@ -126,8 +126,8 @@ StitchedBoundary
 WaterVolume
 ```
 
-`CameraZone` and `StitchedBoundary` are currently accepted as editor-native
-markers but are not yet active gameplay systems.
+`CameraZone` is converted into authored `CameraZoneSpec` records consumed by
+the camera resolver. `StitchedBoundary` is still an editor-native marker.
 
 ### Static-collision entities are lowered to IntGrid
 
@@ -265,7 +265,11 @@ openings.
 
 `DebugLabel` requires `text`. `BlinkWall` uses `tier` values `Soft` or `Hard`.
 `KinematicPath` and moving `DamageVolume` path fields use semicolon-separated
-points such as `0,0;64,0`.
+level-local points such as `0,0;64,0`; the LDtk converter offsets them into
+active-area-local `RoomSpec::kinematic_paths` / `DamageVolume.motion` data when
+levels are stitched together. `KinematicPath` lookup uses an optional `id` field
+when present, then a compact normalized `name` (`enemy patrol path A` →
+`enemy_patrol_a`), then the LDtk iid.
 
 ## Do not hand-edit these unless updating tooling too
 

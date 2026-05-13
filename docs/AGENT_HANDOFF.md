@@ -251,27 +251,23 @@ projectile, parry, functional zip) are listed in
 `crate::mechanics::MechanicsRegistry` with maturity. See
 `docs/mechanics/body_modes.md`.
 
-## LDtk roadmap step 1 (Solid + OneWayPlatform + DamageVolume promoted)
+## LDtk roadmap step 1 (spine indices + room projection)
 
-Step 1 of the LDtk runtime-spine roadmap promotes collision-heavy
-entities from JSON-only adapter output to typed Ambition components
-on plugin-spawned entities. Targets in order: `Solid`,
-`OneWayPlatform`, `DamageVolume`, `KinematicPath`, `CameraZone`.
+Step 1 of the LDtk runtime-spine roadmap promotes authored LDtk data out of
+JSON-only ad hoc readers and into typed Ambition indices / room specs.
 
-`Solid`, `OneWayPlatform`, and `DamageVolume` (with the legacy
-`HazardBlock` alias) now carry typed components (`LdtkSolid` /
-`LdtkOneWayPlatform` / `LdtkDamageVolume`) plus sibling
-per-frame index resources (`LdtkRuntimeSolidIndex` /
-`LdtkRuntimeOneWayIndex` / `LdtkRuntimeDamageIndex`) rebuilt in
-active-area-local coords each frame. `LdtkRuntimeSpineParity`
-compares the index counts to the JSON-derived `ae::World::blocks`
-(`Solid` / `OneWay` / `Hazard`) and logs a single deduped warning
-whenever they diverge. The JSON adapter (`compose_runtime_area`)
-still owns runtime collision authority. Authority swap requires
-parity holding across boot + hot reload + every active area; do
-not delete JSON arms before then. Next on the list:
-`KinematicPath` and the remaining `CameraZone` work. See
-`docs/ldtk_runtime_spine.md`.
+`Solid`, `OneWayPlatform`, and `DamageVolume` (with the legacy `HazardBlock`
+alias) carry typed components plus sibling per-frame index resources rebuilt in
+active-area-local coords. `LdtkRuntimeSpineParity` compares the collision-heavy
+indices to the JSON-derived `ae::World::blocks` and logs a single deduped
+warning whenever they diverge; the JSON adapter still owns collision authority
+until parity holds across boot, hot reload, and every active area.
+
+`CameraZone` and `KinematicPath` are promoted through the room projection:
+`CameraZone` entities land in `RoomSpec::camera_zones`, and LDtk
+`KinematicPath` entities land in `RoomSpec::kinematic_paths` while also being
+mirrored through `ae::World::objects` for older feature consumers. New systems
+should prefer the typed `RoomSpec` fields. See `docs/ldtk_runtime_spine.md`.
 
 ## Settings / input architecture
 

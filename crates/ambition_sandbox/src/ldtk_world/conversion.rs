@@ -22,8 +22,8 @@ use super::surfaces::{
     compile_surface, is_surface_like_identifier, parse_surface_spec, SurfaceCompiled,
 };
 use crate::rooms::{
-    CameraClampMode, CameraZoneSpec, LoadingZone, LoadingZoneActivation, RoomLink, RoomSet,
-    RoomSpec,
+    CameraClampMode, CameraZoneSpec, KinematicPathSpec, LoadingZone, LoadingZoneActivation,
+    RoomLink, RoomSet, RoomSpec,
 };
 
 impl LdtkProject {
@@ -121,6 +121,7 @@ impl LdtkProject {
         let mut climbable_regions = Vec::new();
         let mut moving_platforms: Vec<crate::platforms::MovingPlatformState> = Vec::new();
         let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
+        let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -154,6 +155,7 @@ impl LdtkProject {
                         water_regions.extend(emission.water_regions);
                         moving_platforms.extend(emission.moving_platforms);
                         camera_zones.extend(emission.camera_zones);
+                        kinematic_paths.extend(emission.kinematic_paths);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -219,6 +221,7 @@ impl LdtkProject {
             loading_zones,
             metadata,
             camera_zones,
+            kinematic_paths,
             moving_platforms,
         })
     }
@@ -259,6 +262,7 @@ pub(super) struct RuntimeEntityEmission {
     /// moving solids.
     pub(super) moving_platforms: Vec<crate::platforms::MovingPlatformState>,
     pub(super) camera_zones: Vec<CameraZoneSpec>,
+    pub(super) kinematic_paths: Vec<KinematicPathSpec>,
     pub(super) ignored: bool,
 }
 
@@ -312,6 +316,20 @@ impl RuntimeEntityEmission {
         }
     }
 
+    fn kinematic_path(object_id: String, spec: KinematicPathSpec) -> Self {
+        let object = ae::RoomObject::new(
+            object_id,
+            spec.name.clone(),
+            spec.aabb,
+            ae::RoomObjectKind::KinematicPath(spec.path.clone()),
+        );
+        Self {
+            objects: vec![object],
+            kinematic_paths: vec![spec],
+            ..Self::default()
+        }
+    }
+
     fn from_compiled(compiled: SurfaceCompiled) -> Self {
         Self {
             blocks: compiled.blocks,
@@ -330,6 +348,40 @@ fn entity_min_size(entity: &LdtkEntityInstance, offset: ae::Vec2) -> (ae::Vec2, 
 
 fn object_aabb(min: ae::Vec2, size: ae::Vec2) -> ae::Aabb {
     ae::aabb_from_min_size(min, size)
+}
+
+fn offset_points(points: Vec<ae::Vec2>, offset: ae::Vec2) -> Vec<ae::Vec2> {
+    points.into_iter().map(|point| point + offset).collect()
+}
+
+fn path_lookup_id(entity: &LdtkEntityInstance, name: &str) -> String {
+    field_string(entity, "id")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| compact_path_name(name))
+        .unwrap_or_else(|| entity.iid.clone())
+}
+
+fn compact_path_name(name: &str) -> Option<String> {
+    let mut slug = String::new();
+    let mut previous_was_sep = false;
+    for ch in name.trim().chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            previous_was_sep = false;
+        } else if !previous_was_sep && !slug.is_empty() {
+            slug.push('_');
+            previous_was_sep = true;
+        }
+    }
+    while slug.ends_with('_') {
+        slug.pop();
+    }
+    if slug.is_empty() {
+        return None;
+    }
+    let slug = slug.replace("_path_", "_");
+    Some(slug.strip_suffix("_path").unwrap_or(&slug).to_string())
 }
 
 fn runtime_room_object(
@@ -382,7 +434,10 @@ pub(super) fn entity_to_runtime(
                 aabb,
                 field_i32(entity, "damage").unwrap_or(1),
             );
-            volume.motion = parse_optional_path(entity);
+            volume.motion = parse_optional_path(entity).map(|mut path| {
+                path.points = offset_points(path.points, offset);
+                path
+            });
             Ok(RuntimeEntityEmission::object(ae::RoomObject::new(
                 entity.iid.clone(),
                 name,
@@ -391,25 +446,37 @@ pub(super) fn entity_to_runtime(
             )))
         }
         "KinematicPath" => {
-            let points = parse_points(&field_string(entity, "points").unwrap_or_default());
+            let points = offset_points(
+                parse_points(&field_string(entity, "points").unwrap_or_default()),
+                offset,
+            );
             if points.len() < 2 {
                 return Err("KinematicPath requires at least two points".to_string());
             }
+            let speed = field_f32(entity, "speed").unwrap_or(100.0);
+            if speed <= 0.0 {
+                return Err("KinematicPath speed must be positive".to_string());
+            }
             let path = ae::KinematicPath {
                 points,
-                speed: field_f32(entity, "speed").unwrap_or(100.0),
+                speed,
                 mode: parse_path_mode(
                     &field_string(entity, "mode").unwrap_or_else(|| "PingPong".to_string()),
                 ),
-                start_offset_seconds: 0.0,
+                start_offset_seconds: field_f32(entity, "start_offset_seconds")
+                    .or_else(|| field_f32(entity, "start_offset"))
+                    .unwrap_or(0.0)
+                    .max(0.0),
             };
-            Ok(RuntimeEntityEmission::object(runtime_room_object(
-                entity,
-                name,
-                min,
-                size,
-                ae::RoomObjectKind::KinematicPath(path),
-            )))
+            Ok(RuntimeEntityEmission::kinematic_path(
+                entity.iid.clone(),
+                KinematicPathSpec::new(
+                    path_lookup_id(entity, &name),
+                    name,
+                    object_aabb(min, size),
+                    path,
+                ),
+            ))
         }
         "NpcSpawn" => {
             let interactable = ae::Interactable::new(

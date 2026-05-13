@@ -44,8 +44,8 @@ solids.
 ## Current follow-ups
 
 The current playable contract is deliberately simple: entity bounds plus
-horizontal `sweep_dx`/`speed`. `KinematicPath` remains a generic path object and
-is not the moving-platform authoring contract yet. Path-authored moving
-platforms are still a likely future shape, but that should happen by promoting
-`KinematicPath` into a typed runtime index rather than by reintroducing hidden
-procedural platform placement.
+horizontal `sweep_dx`/`speed`. `KinematicPath` is now promoted into
+`RoomSpec::kinematic_paths` as a typed active-area-local path index, but it is
+not the moving-platform authoring contract yet. Path-authored moving platforms
+should opt into that index with an explicit `path_id` field in a later patch;
+do not reintroduce hidden procedural platform placement.

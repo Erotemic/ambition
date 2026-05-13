@@ -35,6 +35,24 @@ pub(super) fn room_paths(world: &ae::World) -> Vec<(String, ae::KinematicPath)> 
         .collect()
 }
 
+pub(super) fn room_spec_paths(room: &crate::rooms::RoomSpec) -> Vec<(String, ae::KinematicPath)> {
+    let mut paths: Vec<(String, ae::KinematicPath)> = Vec::new();
+    for spec in &room.kinematic_paths {
+        paths.push((spec.id.clone(), spec.path.clone()));
+        if spec.name != spec.id {
+            paths.push((spec.name.clone(), spec.path.clone()));
+        }
+    }
+    // Compatibility fallback for hand-built test worlds or older generated
+    // rooms that still mirror paths only through World::objects.
+    for (id, path) in room_paths(&room.world) {
+        if !paths.iter().any(|(existing, _)| existing == &id) {
+            paths.push((id, path));
+        }
+    }
+    paths
+}
+
 // Note: the older `blocked` / `blocked_y` predicates lived here.
 // They were ad-hoc collision tests used by enemy / NPC sweep code,
 // and their OneWay handling did not differentiate above-vs-below

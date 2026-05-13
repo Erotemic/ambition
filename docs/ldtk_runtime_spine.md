@@ -23,7 +23,7 @@ JSON-derived `ae::World::blocks` collision authority.
 | `Solid`          | `LdtkSolid`             | `LdtkRuntimeSolidIndex`     | promoted (parity overlay live) |
 | `OneWayPlatform` | `LdtkOneWayPlatform`    | `LdtkRuntimeOneWayIndex`    | promoted (parity overlay live) |
 | `DamageVolume`   | `LdtkDamageVolume`      | `LdtkRuntimeDamageIndex`    | promoted (parity overlay live) |
-| `KinematicPath`  | —                       | —                           | next     |
+| `KinematicPath`  | JSON adapter path object | `RoomSpec::kinematic_paths` | promoted in room projection |
 | `BreakablePlatform` / `BreakablePogoOrb` | — | —                | later    |
 
 The JSON adapter still owns runtime collision authority (`ae::World::blocks`).

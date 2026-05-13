@@ -229,7 +229,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     runtime.player.refresh_movement_resources(tuning);
     runtime.last_safe_player_pos = transaction.safe_player_pos;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
-    runtime.features = features::FeatureRuntime::from_world(&world.0);
+    runtime.features = features::FeatureRuntime::from_room_spec(&transaction.next_spec);
     runtime.dialogue.close();
     runtime.hitstop_timer = 0.0;
     runtime.hitstun_timer = 0.0;

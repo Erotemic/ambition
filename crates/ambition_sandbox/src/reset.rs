@@ -154,6 +154,7 @@ pub fn process_sandbox_reset_request(
     //    a same-room reset; we're calling it after flipping the
     //    active room so it uses the start room's spawn point.
     runtime.reset(&world.0, tuning.as_engine());
+    runtime.features = crate::features::FeatureRuntime::from_room_spec(&start_spec);
     runtime.moving_platforms = platforms::moving_platforms_for_room(&start_spec);
 
     // 7. Respawn the static world visuals + moving platform for the
@@ -250,6 +251,7 @@ mod tests {
             loading_zones: Vec::new(),
             metadata: crate::rooms::RoomMetadata::default(),
             camera_zones: Vec::new(),
+            kinematic_paths: Vec::new(),
             moving_platforms: Vec::new(),
         };
         app.insert_resource(crate::rooms::RoomSet::from_parts(

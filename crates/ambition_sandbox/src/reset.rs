@@ -154,7 +154,7 @@ pub fn process_sandbox_reset_request(
     //    a same-room reset; we're calling it after flipping the
     //    active room so it uses the start room's spawn point.
     runtime.reset(&world.0, tuning.as_engine());
-    runtime.moving_platform = platforms::moving_platform_for_room(&world.0, &start_spec);
+    runtime.moving_platforms = platforms::moving_platforms_for_room(&world.0, &start_spec);
 
     // 7. Respawn the static world visuals + moving platform for the
     //    start room. Without this, the despawn in step 4 leaves the
@@ -174,7 +174,7 @@ pub fn process_sandbox_reset_request(
         runtime.physics_settings,
         assets.as_deref(),
     );
-    platforms::spawn_moving_platform(&mut commands, &world.0, runtime.moving_platform);
+    platforms::spawn_moving_platforms(&mut commands, &world.0, &runtime.moving_platforms);
 
     // 8. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used
@@ -249,7 +249,7 @@ mod tests {
             world: world.clone(),
             loading_zones: Vec::new(),
             metadata: crate::rooms::RoomMetadata::default(),
-            moving_platform: None,
+            moving_platforms: Vec::new(),
         };
         app.insert_resource(crate::rooms::RoomSet::from_parts(
             "test",
@@ -370,16 +370,16 @@ mod tests {
         );
         {
             let mut room_set = app.world_mut().resource_mut::<RoomSet>();
-            room_set.rooms[0].moving_platform = Some(authored);
+            room_set.rooms[0].moving_platforms = vec![authored];
         }
         {
             let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-            runtime.moving_platform = crate::platforms::MovingPlatformState::from_authored(
+            runtime.moving_platforms = vec![crate::platforms::MovingPlatformState::from_authored(
                 ae::Vec2::new(10.0, 20.0),
                 ae::Vec2::new(32.0, 8.0),
                 64.0,
                 10.0,
-            );
+            )];
         }
         {
             let mut req = app.world_mut().resource_mut::<SandboxResetRequested>();
@@ -387,7 +387,7 @@ mod tests {
         }
         app.update();
         let runtime = app.world().resource::<SandboxRuntime>();
-        assert_eq!(runtime.moving_platform.pos, authored.pos);
-        assert_eq!(runtime.moving_platform.size, authored.size);
+        assert_eq!(runtime.moving_platforms[0].pos, authored.pos);
+        assert_eq!(runtime.moving_platforms[0].size, authored.size);
     }
 }

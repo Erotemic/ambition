@@ -115,9 +115,7 @@ pub(super) fn load_room(
     runtime.last_safe_player_pos = runtime.player.pos;
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
-    runtime.moving_platform = spec
-        .moving_platform
-        .unwrap_or_else(|| platforms::MovingPlatformState::time_reference(&world.0));
+    runtime.moving_platforms = platforms::moving_platforms_for_room(&world.0, &spec);
     runtime.features = features::FeatureRuntime::from_world(&world.0);
     runtime.dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a
@@ -130,12 +128,7 @@ pub(super) fn load_room(
     };
     runtime.preset_flash = 1.0;
 
-    crate::rendering::spawn_parallax_layers(
-        commands,
-        &world.0,
-        &spec.metadata,
-        assets,
-    );
+    crate::rendering::spawn_parallax_layers(commands, &world.0, &spec.metadata, assets);
     spawn_room_visuals(
         commands,
         &world.0,
@@ -143,7 +136,7 @@ pub(super) fn load_room(
         physics_settings,
         assets,
     );
-    platforms::spawn_moving_platform(commands, &world.0, runtime.moving_platform);
+    platforms::spawn_moving_platforms(commands, &world.0, &runtime.moving_platforms);
     sfx.push(SfxMessage::Reset {
         pos: runtime.player.pos,
     });
@@ -540,9 +533,7 @@ pub(super) fn start_attack(
     // is involved: the movement phase ran earlier this frame and may
     // have applied an upward bounce we need to preserve, so the
     // clobber stays gated on `!pogo_pressed`.
-    if !controls.pogo_pressed
-        && intent == ae::AttackIntent::AirDown
-        && runtime.player.vel.y < 80.0
+    if !controls.pogo_pressed && intent == ae::AttackIntent::AirDown && runtime.player.vel.y < 80.0
     {
         runtime.player.vel.y = 80.0;
     }
@@ -585,13 +576,11 @@ pub(super) fn advance_attack(
 
         let player_pos = runtime.player.pos;
         let mut pogo_landed = false;
-        if runtime.player.abilities.pogo
-            && attack_state.spec.can_pogo
-            && !attack_state.pogo_applied
+        if runtime.player.abilities.pogo && attack_state.spec.can_pogo && !attack_state.pogo_applied
         {
             let attack_world = features::world_with_sandbox_solids(
                 world,
-                &runtime.moving_platform,
+                &runtime.moving_platforms,
                 &runtime.features,
             );
             if let Some(orb_aabb) = attack_world.blocks.iter().find_map(|block| {
@@ -632,7 +621,9 @@ pub(super) fn advance_attack(
             .messages
             .iter()
             .any(|message| message.contains("defeated"));
-        attack_state.hit_targets.extend(report.hit_targets.iter().cloned());
+        attack_state
+            .hit_targets
+            .extend(report.hit_targets.iter().cloned());
         handle_feature_events(sfx, vfx, debris, &report.events, player_pos);
 
         if landed || pogo_landed {

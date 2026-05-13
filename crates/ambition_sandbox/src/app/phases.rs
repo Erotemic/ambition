@@ -145,7 +145,7 @@ pub(super) fn player_control_phase(
     let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
     let control_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
+        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features);
     let control_events = ae::update_player_control_with_tuning(
         &control_world,
         &mut runtime.player,
@@ -214,32 +214,49 @@ pub(super) fn player_simulation_phase(
     runtime.update_time_scale(frame_dt, feel);
     let sim_dt = sandbox_dt(runtime, frame_dt);
 
-    let platform_delta = runtime.moving_platform.update(sim_dt);
-    let riding_now = runtime.moving_platform.is_riding(&runtime.player);
+    let player_for_platforms = &runtime.player;
+    let mut riding_platform = None;
+    for (index, platform) in runtime.moving_platforms.iter_mut().enumerate() {
+        let delta = platform.update(sim_dt);
+        if riding_platform.is_none() && platform.is_riding(player_for_platforms) {
+            riding_platform = Some((index, delta, platform.pos, platform.direction()));
+        }
+    }
+    let riding_now = riding_platform.is_some();
     let was_riding_platform = runtime.player.was_riding_platform;
     if riding_now != was_riding_platform {
-        // Diagnostic: log riding-state transitions. Useful for
-        // chasing the "intermittent glitchy platform behavior" repro
-        // (TODO S) — once a player reports a glitch, the platform
-        // contact transitions in the log immediately before are the
-        // first place to look.
-        debug!(
-            target: "ambition::platform",
-            riding = riding_now,
-            player_pos = ?runtime.player.pos,
-            player_vel = ?runtime.player.vel,
-            on_ground = runtime.player.on_ground,
-            platform_pos = ?runtime.moving_platform.pos,
-            platform_dir = runtime.moving_platform.direction(),
-            "moving-platform riding transition"
-        );
+        // Diagnostic: log riding-state transitions. Useful for chasing the
+        // "intermittent glitchy platform behavior" repro (TODO S). With
+        // multiple authored platforms, the first current rider is reported.
+        if let Some((platform_index, _, platform_pos, platform_dir)) = riding_platform {
+            debug!(
+                target: "ambition::platform",
+                riding = true,
+                platform_index,
+                player_pos = ?runtime.player.pos,
+                player_vel = ?runtime.player.vel,
+                on_ground = runtime.player.on_ground,
+                platform_pos = ?platform_pos,
+                platform_dir,
+                "moving-platform riding transition"
+            );
+        } else {
+            debug!(
+                target: "ambition::platform",
+                riding = false,
+                player_pos = ?runtime.player.pos,
+                player_vel = ?runtime.player.vel,
+                on_ground = runtime.player.on_ground,
+                "moving-platform riding transition"
+            );
+        }
     }
     runtime.player.was_riding_platform = riding_now;
-    if riding_now {
+    if let Some((_, platform_delta, _, _)) = riding_platform {
         runtime.player.pos += platform_delta;
     }
     let collision_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
+        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features);
 
     let was_grounded = runtime.player.on_ground;
     let sim_events = ae::update_player_simulation_with_tuning(
@@ -320,7 +337,7 @@ pub(super) fn feature_runtime_phase(
 ) -> features::FeatureEvents {
     let feature_dt = sandbox_dt(runtime, frame_dt);
     let feature_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
+        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features);
     let feature_player = runtime.player.clone();
     // Invincibility short-circuits at the emit site too: otherwise
     // standing in a hazard while the F3 toggle is on would re-emit a
@@ -383,8 +400,11 @@ pub(super) fn damage_heal_dialogue_phase(
         difficulty_multiplier,
     );
     {
-        let safe_world =
-            features::world_with_sandbox_solids(world, &runtime.moving_platform, &runtime.features);
+        let safe_world = features::world_with_sandbox_solids(
+            world,
+            &runtime.moving_platforms,
+            &runtime.features,
+        );
         let ctx = crate::SafePositionContext {
             damaged_this_frame: feature_damaged_player,
             in_hitstun: runtime.hitstun_timer > 0.0,

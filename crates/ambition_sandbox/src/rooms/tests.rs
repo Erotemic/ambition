@@ -15,7 +15,7 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         world: empty_world(id),
         loading_zones: Vec::new(),
         metadata: meta,
-        moving_platform: None,
+        moving_platforms: Vec::new(),
     }
 }
 

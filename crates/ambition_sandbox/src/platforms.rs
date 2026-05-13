@@ -1,7 +1,7 @@
 //! Simple moving-platform test/reference objects.
 //!
-//! The moving platform remains sandbox-side as a design experiment, but it now
-//! contributes a temporary solid block to the engine collision world each frame.
+//! Moving platforms remain sandbox-side as a design experiment, but they now
+//! contribute temporary solid blocks to the engine collision world each frame.
 //! That gives us rideable/collidable behavior without committing moving-solid
 //! semantics to `ambition_engine` before we have tests for carrying, crushing,
 //! and one-way platform interactions.
@@ -127,36 +127,66 @@ impl MovingPlatformState {
     }
 }
 
-/// Return the active room's LDtk-authored moving platform, or the legacy
+/// Return the active room's LDtk-authored moving platforms, or the legacy
 /// procedural reference platform when the room has not been authored yet.
 ///
 /// This keeps old rooms playable while ensuring authored rooms are owned by
 /// LDtk placement, not by a hidden `time_reference` construction path.
+pub fn moving_platforms_for_room(
+    world: &ae::World,
+    room: &crate::rooms::RoomSpec,
+) -> Vec<MovingPlatformState> {
+    if room.moving_platforms.is_empty() {
+        vec![MovingPlatformState::time_reference(world)]
+    } else {
+        room.moving_platforms.clone()
+    }
+}
+
+/// Compatibility helper for tests or call sites that still need the first
+/// platform. Gameplay should use [`moving_platforms_for_room`].
 pub fn moving_platform_for_room(
     world: &ae::World,
     room: &crate::rooms::RoomSpec,
 ) -> MovingPlatformState {
-    room.moving_platform
+    moving_platforms_for_room(world, room)
+        .into_iter()
+        .next()
         .unwrap_or_else(|| MovingPlatformState::time_reference(world))
 }
 
-/// Return a temporary collision world with the current moving platform inserted.
+/// Return a temporary collision world with all current moving platforms inserted.
 ///
-/// The inserted block is solid for normal collision, but blink-passable for
-/// upgraded blink pathing. This keeps the debug preview, blink destination
+/// The inserted blocks are solid for normal collision, but blink-passable for
+/// upgraded blink pathing. This keeps debug previews, blink destination
 /// resolution, and actual movement collision in agreement.
-pub fn world_with_moving_platform(world: &ae::World, platform: &MovingPlatformState) -> ae::World {
+pub fn world_with_moving_platforms(
+    world: &ae::World,
+    platforms: &[MovingPlatformState],
+) -> ae::World {
     let mut collision_world = world.clone();
-    collision_world.blocks.push(platform.as_collision_block());
+    collision_world.blocks.extend(
+        platforms
+            .iter()
+            .map(MovingPlatformState::as_collision_block),
+    );
     collision_world
 }
 
+/// Compatibility wrapper for single-platform tests.
+pub fn world_with_moving_platform(world: &ae::World, platform: &MovingPlatformState) -> ae::World {
+    world_with_moving_platforms(world, std::slice::from_ref(platform))
+}
+
 #[derive(Component)]
-pub struct MovingPlatformVisual;
+pub struct MovingPlatformVisual {
+    pub index: usize,
+}
 
 pub fn spawn_moving_platform(
     commands: &mut Commands,
     world: &ae::World,
+    index: usize,
     platform: MovingPlatformState,
 ) -> Entity {
     commands
@@ -166,48 +196,69 @@ pub fn spawn_moving_platform(
                 BVec2::new(platform.size.x, platform.size.y),
             ),
             Transform::from_translation(world_to_bevy(world, platform.pos, WORLD_Z_BLOCK + 4.0)),
-            Name::new("Moving platform"),
-            MovingPlatformVisual,
+            Name::new(format!("Moving platform {index}")),
+            MovingPlatformVisual { index },
             RoomVisual,
         ))
         .id()
 }
 
+pub fn spawn_moving_platforms(
+    commands: &mut Commands,
+    world: &ae::World,
+    platforms: &[MovingPlatformState],
+) -> Vec<Entity> {
+    platforms
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(index, platform)| spawn_moving_platform(commands, world, index, platform))
+        .collect()
+}
+
 pub fn sync_moving_platform(
+    mut commands: Commands,
     world: Res<crate::GameWorld>,
     room_set: Res<RoomSet>,
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut active_platform_room: Local<Option<String>>,
-    mut active_platform_source: Local<Option<MovingPlatformState>>,
-    mut query: Query<(&mut Transform, &mut Sprite), With<MovingPlatformVisual>>,
+    mut active_platform_source: Local<Option<Vec<MovingPlatformState>>>,
+    mut query: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,
 ) {
     let active_spec = room_set.active_spec();
-    let desired_start = moving_platform_for_room(&world.0, active_spec);
+    let desired_start = moving_platforms_for_room(&world.0, active_spec);
 
     // Refresh only when the authored source changes, not every time RoomSet or
-    // GameWorld gets marked changed by an unrelated system. The runtime copy is
-    // live state: `sandbox_update` advances it and carries the player by its
-    // frame delta. Resetting it here every frame turns the invisible collision
-    // platform into a conveyor belt while the visual stays pinned at the
-    // authored start position.
+    // GameWorld gets marked changed by an unrelated system. The runtime copies
+    // are live state: `sandbox_update` advances them and carries the player by
+    // their frame deltas. Resetting them every frame turns invisible collision
+    // platforms into conveyor belts while visuals stay pinned at authored starts.
     let source_changed = active_platform_room.as_deref() != Some(active_spec.id.as_str())
         || active_platform_source
             .as_ref()
-            .map(|source| *source != desired_start)
+            .map(|source| source != &desired_start)
             .unwrap_or(true);
     if source_changed {
-        runtime.moving_platform = desired_start;
+        runtime.moving_platforms = desired_start.clone();
         *active_platform_room = Some(active_spec.id.clone());
-        *active_platform_source = Some(desired_start);
+        *active_platform_source = Some(desired_start.clone());
+
+        let visual_count = query.iter().count();
+        if visual_count != desired_start.len() {
+            for (entity, _, _, _) in &mut query {
+                commands.entity(entity).despawn();
+            }
+            spawn_moving_platforms(&mut commands, &world.0, &runtime.moving_platforms);
+            return;
+        }
     }
 
-    for (mut transform, mut sprite) in &mut query {
-        transform.translation =
-            world_to_bevy(&world.0, runtime.moving_platform.pos, WORLD_Z_BLOCK + 4.0);
-        sprite.custom_size = Some(BVec2::new(
-            runtime.moving_platform.size.x,
-            runtime.moving_platform.size.y,
-        ));
+    for (_, visual, mut transform, mut sprite) in &mut query {
+        let Some(platform) = runtime.moving_platforms.get(visual.index) else {
+            continue;
+        };
+        transform.translation = world_to_bevy(&world.0, platform.pos, WORLD_Z_BLOCK + 4.0);
+        sprite.custom_size = Some(BVec2::new(platform.size.x, platform.size.y));
     }
 }
 
@@ -224,42 +275,46 @@ mod tests {
         )
     }
 
-    fn test_room_with_platform(
+    fn test_room_with_platforms(
         world: ae::World,
-        platform: Option<MovingPlatformState>,
+        platforms: Vec<MovingPlatformState>,
     ) -> crate::rooms::RoomSpec {
         crate::rooms::RoomSpec {
             id: "test".into(),
             world,
             loading_zones: Vec::new(),
             metadata: crate::rooms::RoomMetadata::default(),
-            moving_platform: platform,
+            moving_platforms: platforms,
         }
     }
 
     #[test]
-    fn moving_platform_for_room_prefers_authored_ldtk_platform() {
+    fn moving_platforms_for_room_prefers_authored_ldtk_platforms() {
         let world = test_world();
-        let authored = MovingPlatformState::from_authored(
+        let first = MovingPlatformState::from_authored(
             ae::Vec2::new(400.0, 800.0),
             ae::Vec2::new(96.0, 16.0),
             180.0,
             90.0,
         );
-        let room = test_room_with_platform(world.clone(), Some(authored));
-        let selected = moving_platform_for_room(&world, &room);
-        assert_eq!(selected.pos, authored.pos);
-        assert_eq!(selected.size, authored.size);
+        let second = MovingPlatformState::from_authored(
+            ae::Vec2::new(720.0, 640.0),
+            ae::Vec2::new(64.0, 16.0),
+            -96.0,
+            70.0,
+        );
+        let room = test_room_with_platforms(world.clone(), vec![first, second]);
+        let selected = moving_platforms_for_room(&world, &room);
+        assert_eq!(selected, vec![first, second]);
     }
 
     #[test]
-    fn moving_platform_for_room_falls_back_for_unauthored_rooms() {
+    fn moving_platforms_for_room_falls_back_for_unauthored_rooms() {
         let world = test_world();
-        let room = test_room_with_platform(world.clone(), None);
-        let selected = moving_platform_for_room(&world, &room);
+        let room = test_room_with_platforms(world.clone(), Vec::new());
+        let selected = moving_platforms_for_room(&world, &room);
         let fallback = MovingPlatformState::time_reference(&world);
-        assert_eq!(selected.pos, fallback.pos);
-        assert_eq!(selected.size, fallback.size);
+        assert_eq!(selected, vec![fallback]);
     }
 
     #[test]
@@ -313,10 +368,16 @@ mod tests {
     }
 
     #[test]
-    fn world_with_moving_platform_appends_one_block() {
+    fn world_with_moving_platforms_appends_all_blocks() {
         let world = test_world();
-        let platform = MovingPlatformState::time_reference(&world);
-        let extended = world_with_moving_platform(&world, &platform);
-        assert_eq!(extended.blocks.len(), world.blocks.len() + 1);
+        let first = MovingPlatformState::time_reference(&world);
+        let second = MovingPlatformState::from_authored(
+            ae::Vec2::new(500.0, 500.0),
+            ae::Vec2::new(80.0, 12.0),
+            100.0,
+            50.0,
+        );
+        let extended = world_with_moving_platforms(&world, &[first, second]);
+        assert_eq!(extended.blocks.len(), world.blocks.len() + 2);
     }
 }

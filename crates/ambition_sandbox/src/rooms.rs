@@ -146,13 +146,13 @@ pub struct RoomSpec {
     pub world: ae::World,
     pub loading_zones: Vec<LoadingZone>,
     pub metadata: RoomMetadata,
-    /// Optional LDtk-authored moving platform for this area. When
-    /// present, the sandbox runtime overrides its hardcoded
-    /// `MovingPlatformState::time_reference` fallback with this. Only
-    /// the first MovingPlatform entity in an area is used today
-    /// (sandbox runtime stores a single platform); future support for
-    /// multiple platforms per room would lift this to a Vec.
-    pub moving_platform: Option<crate::platforms::MovingPlatformState>,
+    /// LDtk-authored moving platforms for this area.
+    ///
+    /// Empty means the sandbox runtime uses the legacy
+    /// `MovingPlatformState::time_reference` fallback for compatibility with
+    /// unauthored/debug rooms. New gameplay rooms should place explicit
+    /// `MovingPlatform` entities so the map remains the source of truth.
+    pub moving_platforms: Vec<crate::platforms::MovingPlatformState>,
 }
 
 #[derive(Clone, Debug)]

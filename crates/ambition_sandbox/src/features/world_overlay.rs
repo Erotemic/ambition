@@ -2,10 +2,10 @@ use super::*;
 
 pub fn world_with_sandbox_solids(
     world: &ae::World,
-    platform: &MovingPlatformState,
+    platforms: &[MovingPlatformState],
     features: &FeatureRuntime,
 ) -> ae::World {
-    let mut collision_world = crate::platforms::world_with_moving_platform(world, platform);
+    let mut collision_world = crate::platforms::world_with_moving_platforms(world, platforms);
     for breakable in &features.breakables {
         if breakable.broken() {
             continue;

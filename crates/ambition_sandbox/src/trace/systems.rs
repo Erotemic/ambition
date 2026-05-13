@@ -104,7 +104,7 @@ pub fn record_frame_system(
 
     let augmented_world = crate::features::world_with_sandbox_solids(
         &world.0,
-        &runtime.moving_platform,
+        &runtime.moving_platforms,
         &runtime.features,
     );
 

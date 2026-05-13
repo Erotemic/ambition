@@ -7,11 +7,20 @@ use super::surfaces::*;
 use super::*;
 
 fn make_entity(identifier: &str, size: [i32; 2], fields: &[(&str, Value)]) -> LdtkEntityInstance {
+    make_entity_at(identifier, [0, 0], size, fields)
+}
+
+fn make_entity_at(
+    identifier: &str,
+    px: [i32; 2],
+    size: [i32; 2],
+    fields: &[(&str, Value)],
+) -> LdtkEntityInstance {
     LdtkEntityInstance {
-        iid: format!("{identifier}-test"),
+        iid: format!("{identifier}-test-{}-{}", px[0], px[1]),
         identifier: identifier.to_string(),
         pivot: vec![0.0, 0.0],
-        px: [0, 0],
+        px,
         width: size[0],
         height: size[1],
         field_instances: fields
@@ -442,7 +451,7 @@ fn embedded_ldtk_composes_central_hub_complex() {
 }
 
 #[test]
-fn embedded_ldtk_central_hub_carries_authored_moving_platform() {
+fn embedded_ldtk_central_hub_carries_authored_moving_platforms() {
     // The legacy hardcoded `MovingPlatformState::time_reference` was
     // replaced by an LDtk-authored `MovingPlatform` entity in
     // `central_hub_basement`. This test ensures the entity reaches
@@ -457,9 +466,11 @@ fn embedded_ldtk_central_hub_carries_authored_moving_platform() {
         .iter()
         .find(|room| room.id == "central_hub_complex")
         .expect("central hub active area exists");
-    let platform = hub
-        .moving_platform
-        .expect("central_hub_basement should author a MovingPlatform entity");
+    assert!(
+        !hub.moving_platforms.is_empty(),
+        "central_hub_basement should author at least one MovingPlatform entity"
+    );
+    let platform = hub.moving_platforms[0];
     assert!(
         platform.size.x > 100.0 && platform.size.y > 0.0,
         "platform AABB authored from LDtk size, got {:?}",
@@ -468,6 +479,77 @@ fn embedded_ldtk_central_hub_carries_authored_moving_platform() {
     // Authored sweep_dx is positive → platform starts at min_x and
     // travels right initially.
     assert_eq!(platform.direction(), 1.0);
+}
+
+#[test]
+fn synthetic_area_collects_multiple_moving_platforms() {
+    fn field(name: &str, value: &str) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.into(),
+            value: Value::String(value.into()),
+            real_editor_values: vec![],
+        }
+    }
+
+    let platform_a = make_entity_at(
+        "MovingPlatform",
+        [128, 320],
+        [96, 16],
+        &[
+            ("sweep_dx", Value::Number(serde_json::Number::from(160))),
+            ("speed", Value::Number(serde_json::Number::from(80))),
+        ],
+    );
+    let platform_b = make_entity_at(
+        "MovingPlatform",
+        [384, 256],
+        [64, 16],
+        &[
+            ("sweep_dx", Value::Number(serde_json::Number::from(-96))),
+            ("speed", Value::Number(serde_json::Number::from(70))),
+        ],
+    );
+    let project = LdtkProject {
+        json_version: "1.5.3".into(),
+        levels: vec![LdtkLevel {
+            iid: "level-iid".into(),
+            identifier: "multi_platform_lab".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 640,
+            px_hei: 480,
+            field_instances: vec![field("activeArea", "multi_platform_lab")],
+            layer_instances: vec![LdtkLayerInstance {
+                identifier: "Ambition".into(),
+                layer_type: "Entities".into(),
+                c_wid: 40,
+                c_hei: 30,
+                grid_size: 16,
+                entity_instances: vec![
+                    make_entity_at("PlayerStart", [32, 400], [16, 32], &[]),
+                    platform_a,
+                    platform_b,
+                ],
+                int_grid_csv: Vec::new(),
+            }],
+        }],
+    };
+
+    let room_set = project
+        .to_room_set()
+        .expect("synthetic LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "multi_platform_lab")
+        .expect("room should exist");
+    assert_eq!(
+        room.moving_platforms.len(),
+        2,
+        "all authored MovingPlatform entities in an active area should reach runtime state"
+    );
+    assert_eq!(room.moving_platforms[0].size, ae::Vec2::new(96.0, 16.0));
+    assert_eq!(room.moving_platforms[1].direction(), -1.0);
 }
 
 #[test]

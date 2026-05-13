@@ -154,12 +154,16 @@ pub fn vfx_spawn_messages(
     }
 }
 
-
 pub fn update_speech_bubbles(
     mut commands: Commands,
     time: Res<Time>,
     world: Res<crate::GameWorld>,
-    mut query: Query<(Entity, &mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
+    mut query: Query<(
+        Entity,
+        &mut SpeechBubbleVisual,
+        &mut Transform,
+        &mut TextColor,
+    )>,
 ) {
     let dt = time.delta_secs();
     for (entity, mut bubble, mut transform, mut color) in &mut query {
@@ -170,8 +174,16 @@ pub fn update_speech_bubbles(
         }
         let t = (bubble.age / bubble.duration).clamp(0.0, 1.0);
         let rise = 14.0 * t;
-        let alpha = if t < 0.75 { 1.0 } else { 1.0 - (t - 0.75) / 0.25 };
-        transform.translation = world_to_bevy(&world.0, bubble.pos + ae::Vec2::new(0.0, -rise), WORLD_Z_FX + 8.0);
+        let alpha = if t < 0.75 {
+            1.0
+        } else {
+            1.0 - (t - 0.75) / 0.25
+        };
+        transform.translation = world_to_bevy(
+            &world.0,
+            bubble.pos + ae::Vec2::new(0.0, -rise),
+            WORLD_Z_FX + 8.0,
+        );
         *color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95 * alpha.clamp(0.0, 1.0)));
     }
 }
@@ -245,7 +257,6 @@ pub fn update_slash_previews(
         sprite.color = Color::srgba(1.0, 1.0, 0.35, alpha);
     }
 }
-
 
 pub fn spawn_speech_bubble(commands: &mut Commands, world: &ae::World, pos: ae::Vec2, text: &str) {
     let bubble_text = format!("\u{201c}{text}\u{201d}");
@@ -483,7 +494,7 @@ pub fn update_blink_preview(
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
     let blink_world =
-        crate::platforms::world_with_moving_platform(&world.0, &runtime.moving_platform);
+        crate::platforms::world_with_moving_platforms(&world.0, &runtime.moving_platforms);
     let target = if player.blink_aiming {
         ae::blink_destination_to_point(&blink_world, player, player.pos + player.blink_aim_offset)
     } else {

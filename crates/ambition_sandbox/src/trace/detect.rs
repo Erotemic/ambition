@@ -123,23 +123,24 @@ pub fn build_frame(
     }
 }
 
-/// Snapshot the active moving platforms into trace shapes. Today the
-/// sandbox owns exactly one moving platform on `runtime.moving_platform`;
-/// the function returns a `Vec` so future patches that add more
-/// platforms (or move them onto entity components) can append entries
-/// without changing the trace schema.
+/// Snapshot all active moving platforms into trace shapes.
 fn build_moving_platform_states(runtime: &SandboxRuntime) -> Vec<MovingPlatformTraceState> {
-    let p = &runtime.moving_platform;
-    let aabb = p.aabb();
-    let player_distance = (runtime.player.pos - p.pos).length();
-    vec![MovingPlatformTraceState {
-        pos: p.pos.into(),
-        size: p.size.into(),
-        aabb: aabb.into(),
-        direction: p.direction(),
-        player_riding: p.is_riding(&runtime.player),
-        player_distance,
-    }]
+    runtime
+        .moving_platforms
+        .iter()
+        .map(|p| {
+            let aabb = p.aabb();
+            let player_distance = (runtime.player.pos - p.pos).length();
+            MovingPlatformTraceState {
+                pos: p.pos.into(),
+                size: p.size.into(),
+                aabb: aabb.into(),
+                direction: p.direction(),
+                player_riding: p.is_riding(&runtime.player),
+                player_distance,
+            }
+        })
+        .collect()
 }
 
 /// Diff the current player+control state against the previous snapshot

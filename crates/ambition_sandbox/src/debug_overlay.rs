@@ -130,7 +130,6 @@ fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
     draw_aabb(gizmos, world, room, white_dim());
 }
 
-
 fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major: f32) {
     if minor <= 0.0 || major <= 0.0 {
         return;
@@ -143,13 +142,21 @@ fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major: f3
         let x = (i as f32 * minor).min(world.size.x);
         let is_major = (x / major).fract().abs() < 0.01;
         let color = if is_major { major_color } else { minor_color };
-        gizmos.line_2d(w2(world, ae::Vec2::new(x, 0.0)), w2(world, ae::Vec2::new(x, world.size.y)), color);
+        gizmos.line_2d(
+            w2(world, ae::Vec2::new(x, 0.0)),
+            w2(world, ae::Vec2::new(x, world.size.y)),
+            color,
+        );
     }
     for i in 0..=rows {
         let y = (i as f32 * minor).min(world.size.y);
         let is_major = (y / major).fract().abs() < 0.01;
         let color = if is_major { major_color } else { minor_color };
-        gizmos.line_2d(w2(world, ae::Vec2::new(0.0, y)), w2(world, ae::Vec2::new(world.size.x, y)), color);
+        gizmos.line_2d(
+            w2(world, ae::Vec2::new(0.0, y)),
+            w2(world, ae::Vec2::new(world.size.x, y)),
+            color,
+        );
     }
 }
 
@@ -157,7 +164,12 @@ fn draw_camera_frame(gizmos: &mut Gizmos, world: &ae::World, view: &CameraViewSt
     let requested = ae::Aabb::new(view.target_world, view.requested_view * 0.5);
     let visible = ae::Aabb::new(view.center_world, view.visible_view * 0.5);
     draw_aabb(gizmos, world, visible, Color::srgba(0.20, 0.95, 1.00, 0.22));
-    draw_aabb(gizmos, world, requested, Color::srgba(1.00, 0.95, 0.20, 0.22));
+    draw_aabb(
+        gizmos,
+        world,
+        requested,
+        Color::srgba(1.00, 0.95, 0.20, 0.22),
+    );
 }
 
 fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World) {
@@ -305,7 +317,12 @@ fn draw_player_debug(
             let anchor_box = ae::Aabb::new(ledge.contact.anchor, ae::Vec2::splat(5.0));
             let target_box = ae::Aabb::new(ledge.contact.climb_target, player.size * 0.35);
             draw_aabb(gizmos, world, anchor_box, cyan());
-            draw_aabb(gizmos, world, target_box, if ledge.climbing { green() } else { yellow() });
+            draw_aabb(
+                gizmos,
+                world,
+                target_box,
+                if ledge.climbing { green() } else { yellow() },
+            );
             draw_arrow(
                 gizmos,
                 w2(world, ledge.contact.anchor),
@@ -325,7 +342,7 @@ fn draw_player_debug(
         // Use the same temporary collision world that drives player movement.
         // Otherwise the preview can claim a blink is clear while release-time
         // resolution stops on sandbox-only geometry such as the moving platform.
-        let blink_world = platforms::world_with_moving_platform(world, &runtime.moving_platform);
+        let blink_world = platforms::world_with_moving_platforms(world, &runtime.moving_platforms);
         let (desired, target) = if player.blink_aiming {
             let desired = player.pos + player.blink_aim_offset;
             let target = ae::blink_destination_to_point(&blink_world, player, desired);
@@ -388,10 +405,12 @@ fn draw_player_debug(
 }
 
 fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
-    let aabb = runtime.moving_platform.aabb();
-    draw_aabb(gizmos, world, aabb, blue());
-    let center = w2(world, aabb.center());
-    draw_arrow(gizmos, center, center + BVec2::new(44.0, 0.0), blue());
+    for platform in &runtime.moving_platforms {
+        let aabb = platform.aabb();
+        draw_aabb(gizmos, world, aabb, blue());
+        let center = w2(world, aabb.center());
+        draw_arrow(gizmos, center, center + BVec2::new(44.0, 0.0), blue());
+    }
 }
 
 fn draw_health_bars(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {

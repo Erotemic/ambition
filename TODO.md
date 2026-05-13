@@ -201,33 +201,16 @@
 
 
 
-- **Moving platforms still single-instance at runtime** `[V4/D3]` —
-  re-audited 2026-05-13 against current code and
-  [docs/moving_platforms.md](docs/moving_platforms.md). LDtk authoring is
-  no longer missing: `MovingPlatform` entities lower through
-  `LdtkProject::to_room_set()` into `RoomSpec::moving_platform`, and
-  startup / room-load / hot-reload seed `SandboxRuntime::moving_platform`
-  from that active-room spec. `MovingPlatformState::time_reference(&world)`
-  remains only as a compatibility fallback for unauthored rooms and tests.
-  Current limitation: only the first `MovingPlatform` in an active area is
-  consumed because `RoomSpec::moving_platform` is still an `Option` and
-  `SandboxRuntime` still stores one live platform. Fix:
-  - Change `RoomSpec::moving_platform` to `Vec<MovingPlatformState>` and
-    collect every emitted LDtk `MovingPlatform` for the active area.
-  - Change `SandboxRuntime::moving_platform` to `moving_platforms` and seed
-    it from the active room spec, falling back to a one-item debug/reference
-    vec only when no authored platforms exist.
-  - Update collision, carrying, trace, HUD, visuals, room transition,
-    sandbox reset, and hot-reload paths to iterate the vector.
-  - Add an embedded-LDtk regression test that places/loads multiple
-    `MovingPlatform` entities in one active area and verifies all of them
-    reach runtime state.
-  - Keep `KinematicPath` separate for now: it is parsed as generic path data,
-    but the current playable moving-platform contract is the simpler
-    `MovingPlatform` entity bounds plus `sweep_dx`/`speed`. The accepted
-    `KinematicPath` typed-index promotion remains useful for future generic
-    path-authored hazards/platforms, but it is not the root cause of today's
-    platform authoring issue.
+- **Moving platforms multi-instance runtime refactor landed 2026-05-13** —
+  `MovingPlatform` LDtk entities now lower into `RoomSpec::moving_platforms`,
+  `SandboxRuntime` stores `moving_platforms`, and collision, carrying, trace,
+  HUD/debug visuals, room transitions, sandbox reset, and hot-reload paths
+  iterate the vector. `MovingPlatformState::time_reference(&world)` remains
+  only as a one-item compatibility fallback for unauthored rooms and tests.
+  See [docs/moving_platforms.md](docs/moving_platforms.md). Remaining future
+  work: promote generic `KinematicPath` data into a typed runtime index when
+  path-authored hazards/platforms need more than the current horizontal
+  `MovingPlatform` entity contract.
 
 ## Accepted / In-flight (Jon-tagged)
 

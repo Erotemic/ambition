@@ -116,7 +116,7 @@ impl LdtkProject {
         let mut objects = Vec::new();
         let mut water_regions = Vec::new();
         let mut climbable_regions = Vec::new();
-        let mut moving_platform: Option<crate::platforms::MovingPlatformState> = None;
+        let mut moving_platforms: Vec<crate::platforms::MovingPlatformState> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -148,9 +148,7 @@ impl LdtkProject {
                         loading_zones.extend(emission.zones);
                         objects.extend(emission.objects);
                         water_regions.extend(emission.water_regions);
-                        if moving_platform.is_none() {
-                            moving_platform = emission.moving_platform;
-                        }
+                        moving_platforms.extend(emission.moving_platforms);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -215,7 +213,7 @@ impl LdtkProject {
             },
             loading_zones,
             metadata,
-            moving_platform,
+            moving_platforms,
         })
     }
 
@@ -248,10 +246,12 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) zones: Vec<LoadingZone>,
     pub(super) objects: Vec<ae::RoomObject>,
     pub(super) water_regions: Vec<ae::WaterRegion>,
-    /// LDtk-authored moving platform. Today the sandbox runtime stores
-    /// a single `MovingPlatformState`; if multiple `MovingPlatform`
-    /// entities are placed in the same area, only the first is used.
-    pub(super) moving_platform: Option<crate::platforms::MovingPlatformState>,
+    /// LDtk-authored moving platforms emitted by this entity.
+    ///
+    /// Most entities emit zero platforms; `MovingPlatform` emits one. The room
+    /// composer concatenates these so active areas can own multiple authored
+    /// moving solids.
+    pub(super) moving_platforms: Vec<crate::platforms::MovingPlatformState>,
     pub(super) ignored: bool,
 }
 
@@ -293,7 +293,7 @@ impl RuntimeEntityEmission {
 
     fn moving_platform(state: crate::platforms::MovingPlatformState) -> Self {
         Self {
-            moving_platform: Some(state),
+            moving_platforms: vec![state],
             ..Self::default()
         }
     }

@@ -67,14 +67,16 @@ pub use components::{
 pub use ecs::{
     apply_ecs_breakable_damage_queue, clear_encounter_reward_ecs, collect_ecs_pickups,
     despawn_encounter_mobs, ecs_breakable_state,
-    ecs_chest_opened, ecs_damage_event_hits_actor, ecs_damage_event_hits_breakable,
-    ecs_actor_view_compat, ecs_enemy_anim_state, ecs_enemy_sprite_override, ecs_feature_view, ecs_npc_anim_state,
-    ecs_npc_name, interact_ecs_actors_and_switches, open_ecs_chests,
+    ecs_chest_opened, ecs_damage_event_hits_actor, ecs_damage_event_hits_boss,
+    ecs_damage_event_hits_breakable, ecs_actor_view_compat, ecs_boss_anim_state,
+    ecs_boss_name, ecs_enemy_anim_state, ecs_enemy_sprite_override, ecs_feature_view,
+    ecs_npc_anim_state, ecs_npc_name, interact_ecs_actors_and_switches, open_ecs_chests,
     rebuild_feature_ecs_world_overlay, reset_ecs_room_features, spawn_encounter_mob,
     spawn_room_feature_entities, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
-    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, update_ecs_actors,
-    update_ecs_breakables, update_ecs_falling_chests,
-    ActorDisposition, ActorRuntime, FeatureEcsQueues, FeatureEcsWorldOverlay, FeatureSimEntity,
+    sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, update_ecs_actors,
+    update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
+    ActorDisposition, ActorRuntime, BossFeature, FeatureEcsQueues, FeatureEcsWorldOverlay,
+    FeatureSimEntity, HazardFeature,
 };
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{

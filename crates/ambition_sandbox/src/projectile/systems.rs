@@ -6,23 +6,21 @@ use ambition_engine::AabbExt;
 use bevy::prelude::*;
 
 use super::diagnostics::log_press_diagnostics;
-use super::feedback::forward_damage_feedback;
 use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
 use crate::features::{
-    ActorRuntime, BreakableFeature, DamageEvent, DamageSource, FeatureAabb,
-    FeatureEcsQueues, FeatureId, FeatureSimEntity, GameplayEffect,
+    ActorRuntime, BossFeature, BreakableFeature, DamageEvent, DamageSource, FeatureAabb,
+    FeatureEcsQueues, FeatureId, FeatureSimEntity,
 };
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
-use crate::physics::DebrisBurstMessage;
 use crate::trace::GameplayTraceBuffer;
 use crate::{GameWorld, SandboxRuntime};
 
 pub fn update_projectiles(
     time: Res<Time>,
     world: Res<GameWorld>,
-    mut runtime: ResMut<SandboxRuntime>,
+    runtime: Res<SandboxRuntime>,
     control_frame: Res<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
@@ -30,10 +28,9 @@ pub fn update_projectiles(
     mut feature_ecs_queues: ResMut<FeatureEcsQueues>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
     ecs_actors: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
-    mut gameplay_effects: MessageWriter<GameplayEffect>,
+    ecs_bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
     let dt = time.delta_secs();
     state.clock += dt;
@@ -77,15 +74,12 @@ pub fn update_projectiles(
             &damage_event,
             &ecs_actors,
         );
+        let ecs_boss_hit = crate::features::ecs_damage_event_hits_boss(
+            &damage_event,
+            &ecs_bosses,
+        );
         feature_ecs_queues.damage_events.push(damage_event.clone());
-        let report = runtime.features.apply_damage_event(&damage_event);
-        if report.any_actor_hit() || ecs_breakable_hit || ecs_actor_hit {
-            forward_damage_feedback(&mut vfx, &mut debris, &report.events);
-            // Forward boss-damage / quest / flag writes / NPC-struck
-            // effects so the rest of the systems (boss encounter, save
-            // flags, quest registry) react to projectile hits the same
-            // way they react to slash hits.
-            crate::features::write_feature_effects(&mut gameplay_effects, &report.events);
+        if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
             sfx.write(SfxMessage::Hit { pos: p.body.pos });
             events.push(ProjectileTraceEvent::Hit {
                 kind: p.body.kind,

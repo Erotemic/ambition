@@ -57,21 +57,22 @@ pub fn update_boss_encounters(
         Option<&crate::features::Opened>,
         Option<&crate::features::FallingChest>,
     ), With<crate::features::ChestFeature>>,
+    mut bosses: Query<(&crate::features::FeatureId, &mut crate::features::BossFeature), With<crate::features::FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
     let _active_room = room_set.active_spec().id.clone();
 
     // Build a list of boss runtime ids alive in the current room so we
     // can wake up encounters when the player walks in.
-    let bosses_in_room: Vec<(String, String, ae::Vec2, i32, i32)> = runtime
-        .features
-        .bosses
+    let bosses_in_room: Vec<(String, String, ae::Vec2, ae::Vec2, i32, i32)> = bosses
         .iter()
-        .map(|b| {
+        .map(|(_feature_id, feature)| {
+            let b = &feature.boss;
             (
                 b.id.clone(),
                 b.name.clone(),
                 b.pos,
+                b.spawn,
                 b.health.current,
                 b.health.max,
             )
@@ -85,7 +86,7 @@ pub fn update_boss_encounters(
     // right `BossRuntime`. Authored specs (registered before this
     // system runs) take precedence; only bosses without a spec fall
     // through to the auto-registered defaults.
-    for (boss_runtime_id, boss_name, _pos, _hp, max_hp) in &bosses_in_room {
+    for (boss_runtime_id, boss_name, _pos, _spawn, _hp, max_hp) in &bosses_in_room {
         let encounter_id = encounter_id_from_name(boss_name);
         registry.link_runtime(&encounter_id, boss_runtime_id);
         if !registry.encounters.contains_key(&encounter_id) {
@@ -98,7 +99,7 @@ pub fn update_boss_encounters(
     }
 
     // Wake up an encounter whose boss is now visible in the room.
-    for (_runtime_id, boss_name, _pos, _hp, _max) in &bosses_in_room {
+    for (_runtime_id, boss_name, _pos, _spawn, _hp, _max) in &bosses_in_room {
         let encounter_id = encounter_id_from_name(boss_name);
         if let Some(state) = registry.encounters.get_mut(&encounter_id) {
             if matches!(state.phase, ae::BossEncounterPhase::Dormant) && state.hp > 0 {
@@ -150,53 +151,49 @@ pub fn update_boss_encounters(
             .get(id)
             .cloned()
             .unwrap_or_else(|| id.clone());
-        let Some(boss) = runtime
-            .features
-            .bosses
-            .iter_mut()
-            .find(|b| b.id == runtime_id)
-        else {
-            continue;
-        };
-        if let Some(profile) = profile_lookup.get(id) {
-            boss.apply_behavior_profile(profile.behavior.clone());
-        }
-        // Sync max_hp on first link (the BossRuntime defaults to 18,
-        // the engine spec might say more). The engine spec wins
-        // because it carries the design intent.
-        if boss.health.max != state.spec.max_hp.max(1) {
-            boss.health = ae::Health::new(state.spec.max_hp.max(1));
-        }
-        // Mirror engine HP into the runtime so combat reads a
-        // single number.
-        if boss.health.current != state.hp && state.hp > 0 {
-            boss.health.current = state.hp;
-        }
-        // Suppress runtime-side death animation while boss is in an
-        // invulnerable phase (Intro/Transition/Stagger). We use a
-        // hack: writing damage 0 just feeds the tick. Real damage
-        // routing happens via `on_boss_damaged` below from the
-        // `apply_player_attack` site.
-        if state.phase.boss_invulnerable() && boss.alive {
-            // Reset hit flash so the arena reads "neutral" during
-            // the locked beats — small but readable presentation
-            // smoothing.
-            boss.hit_flash = 0.0;
-        }
-        // Death resolution: when engine state reports Death and the
-        // outro is over, mark the runtime dead and update the save.
-        if matches!(state.phase, ae::BossEncounterPhase::Death) && state.death_complete() {
-            if boss.alive {
+        for (feature_id, mut feature) in &mut bosses {
+            if feature_id.as_str() != runtime_id {
+                continue;
+            }
+            let boss = &mut feature.boss;
+            if let Some(profile) = profile_lookup.get(id) {
+                boss.apply_behavior_profile(profile.behavior.clone());
+            }
+            if matches!(save.data().boss(id), ae::PersistedEncounterState::Cleared) {
                 boss.alive = false;
+                boss.health.current = 0;
+                break;
             }
-            let prior = save.data().boss(id);
-            if !matches!(prior, ae::PersistedEncounterState::Cleared) {
-                save.data_mut()
-                    .set_boss(id, ae::PersistedEncounterState::Cleared);
-                // Push a quest advance event so any quest watching
-                // this boss can progress.
-                quests.push_event(ae::QuestAdvanceEvent::BossDefeated(id.clone()));
+            // Sync max_hp on first link (the BossRuntime defaults to 18,
+            // the engine spec might say more). The engine spec wins
+            // because it carries the design intent.
+            if boss.health.max != state.spec.max_hp.max(1) {
+                boss.health = ae::Health::new(state.spec.max_hp.max(1));
             }
+            // Mirror engine HP into the runtime so combat reads a
+            // single number.
+            if boss.health.current != state.hp && state.hp > 0 {
+                boss.health.current = state.hp;
+            }
+            // Suppress runtime-side death animation while boss is in an
+            // invulnerable phase (Intro/Transition/Stagger).
+            if state.phase.boss_invulnerable() && boss.alive {
+                boss.hit_flash = 0.0;
+            }
+            // Death resolution: when engine state reports Death and the
+            // outro is over, mark the runtime dead and update the save.
+            if matches!(state.phase, ae::BossEncounterPhase::Death) && state.death_complete() {
+                if boss.alive {
+                    boss.alive = false;
+                }
+                let prior = save.data().boss(id);
+                if !matches!(prior, ae::PersistedEncounterState::Cleared) {
+                    save.data_mut()
+                        .set_boss(id, ae::PersistedEncounterState::Cleared);
+                    quests.push_event(ae::QuestAdvanceEvent::BossDefeated(id.clone()));
+                }
+            }
+            break;
         }
     }
 
@@ -211,12 +208,16 @@ pub fn update_boss_encounters(
         let _ = music_request; // Already mutated in `publish_events`.
     }
 
+    let boss_anchors: Vec<(String, ae::Vec2)> = bosses_in_room
+        .iter()
+        .map(|(runtime_id, _name, _pos, spawn, _hp, _max_hp)| (runtime_id.clone(), *spawn))
+        .collect();
     crate::features::sync_boss_reward_chests_ecs(
         &mut commands,
         save.data(),
         &registry,
         &world.0,
-        &runtime.features.bosses,
+        &boss_anchors,
         &reward_chests,
     );
 }

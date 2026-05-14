@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::state::{PlayerProjectile, PlayerProjectileState};
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
-use crate::features::{FeatureEcsQueues, GameplayEffect};
+use crate::features::{ActorRuntime, FeatureEcsQueues, GameplayEffect};
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::physics::DebrisBurstMessage;
@@ -48,7 +48,10 @@ fn min_app() -> App {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_systems(Update, update_projectiles);
+    app.add_systems(
+        Update,
+        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+    );
     app
 }
 
@@ -290,22 +293,27 @@ fn out_of_resource_blocks_fire() {
 }
 
 /// Pre-spawn a fireball directly into the body list and place it
-/// just above an enemy. After one tick the fireball moves into
-/// the enemy's AABB → `apply_damage_event` does its thing → enemy
-/// loses HP and the projectile is despawned.
+/// just beside an ECS-hostile actor. After one tick the fireball
+/// overlaps the actor AABB, queues an ECS damage event, and the
+/// follow-up damage drain lowers actor HP and despawns the projectile.
 #[test]
 fn fireball_damages_enemy_on_intersect() {
     let mut app = min_app();
-    // Spawn an enemy in the runtime.
-    {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.features.spawn_enemy(
+    app.add_systems(Startup, |mut commands: Commands| {
+        crate::features::spawn_encounter_mob(
+            &mut commands,
+            "projectile_test",
             "test_enemy".into(),
             ae::EnemyBrain::Custom("medium_striker".into()),
             ae::Vec2::new(400.0, 300.0),
             ae::Vec2::new(28.0, 46.0),
         );
-    }
+    });
+    // Run startup once so the Commands-spawned ECS actor exists before
+    // the projectile tick. Encounter-spawned mobs enter the world through
+    // Commands at schedule boundaries, so a projectile should not be expected
+    // to hit an actor that has only been queued for spawning this same frame.
+    app.update();
     // Inject a fireball moving toward the enemy.
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
@@ -322,19 +330,27 @@ fn fireball_damages_enemy_on_intersect() {
         body.vel = ae::Vec2::new(50.0, 0.0);
         state.bodies.push(PlayerProjectile { body });
     }
-    let starting_health = {
-        let runtime = app.world().resource::<SandboxRuntime>();
-        runtime.features.enemies[0].health.current
-    };
     advance_time(&mut app, 0.016);
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
+
+    let (enemy_health, enemy_max) = {
+        let world = app.world_mut();
+        let mut query = world.query::<&ActorRuntime>();
+        let actor = query
+            .iter(world)
+            .find_map(|actor| match actor {
+                ActorRuntime::Hostile(enemy) if enemy.id == "test_enemy" => Some(enemy),
+                _ => None,
+            })
+            .expect("test enemy should be spawned as an ECS actor");
+        (actor.health.current, actor.health.max)
+    };
     let state = app.world().resource::<PlayerProjectileState>();
     assert!(
-        runtime.features.enemies[0].health.current < starting_health,
+        enemy_health < enemy_max,
         "enemy must lose HP from a projectile hit (was {}, now {})",
-        starting_health,
-        runtime.features.enemies[0].health.current
+        enemy_max,
+        enemy_health
     );
     assert!(
         state.bodies.is_empty(),
@@ -378,7 +394,10 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_systems(Update, update_projectiles);
+    app.add_systems(
+        Update,
+        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+    );
 
     // Spawn a fireball just above the floor moving downward.
     let starting_bounces;
@@ -450,7 +469,10 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_systems(Update, update_projectiles);
+    app.add_systems(
+        Update,
+        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+    );
 
     let starting_bounces;
     {
@@ -523,7 +545,10 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_systems(Update, update_projectiles);
+    app.add_systems(
+        Update,
+        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+    );
 
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
@@ -593,7 +618,10 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
-    app.add_systems(Update, update_projectiles);
+    app.add_systems(
+        Update,
+        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+    );
 
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();

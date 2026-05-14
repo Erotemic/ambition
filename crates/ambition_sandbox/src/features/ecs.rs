@@ -3,9 +3,9 @@
 //! This is the Phase 3/4/5 strangler path for simple feature families. Static
 //! authored pickups, chests, and breakables are spawned as Bevy entities at room
 //! load and updated by the systems in this module. `FeatureRuntime` remains the
-//! compatibility shell for hazards/bosses and a few legacy pure tests. Authored
-//! pickups, chests, breakables, switches, actor NPC/enemy features, dynamic
-//! encounter mobs, and reward chests now live as ECS entities.
+//! compatibility shell for banner/debug state and a few legacy pure tests. Authored
+//! pickups, chests, breakables, switches, hazards, bosses, actor NPC/enemy
+//! features, dynamic encounter mobs, and reward chests now live as ECS entities.
 
 use super::*;
 use crate::audio::SfxMessage;
@@ -20,6 +20,30 @@ use bevy::prelude::{Commands, Component, Entity, MessageWriter, NextState, Query
 /// state by `FeatureId`.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FeatureSimEntity;
+
+#[derive(Component, Clone, Debug)]
+pub struct HazardFeature {
+    pub hazard: HazardRuntime,
+    pub spawn: ae::Vec2,
+}
+
+impl HazardFeature {
+    pub fn new(hazard: HazardRuntime) -> Self {
+        let spawn = hazard.pos;
+        Self { hazard, spawn }
+    }
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct BossFeature {
+    pub boss: BossRuntime,
+}
+
+impl BossFeature {
+    pub fn new(boss: BossRuntime) -> Self {
+        Self { boss }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActorDisposition {
@@ -181,6 +205,30 @@ fn spawn_room_feature_entity(
 ) {
     let feature_aabb = FeatureAabb::from_aabb(object.aabb);
     match &object.kind {
+        ae::RoomObjectKind::DamageVolume(volume) => {
+            let hazard = HazardRuntime::new_with_paths(object, volume.clone(), paths);
+            commands.spawn((
+                Name::new(format!("Feature hazard: {}", object.name)),
+                FeatureSimEntity,
+                RoomVisual,
+                FeatureId::new(object.id.clone()),
+                FeatureName::new(object.name.clone()),
+                FeatureAabb::from_center_size(hazard.pos, hazard.size),
+                HazardFeature::new(hazard),
+            ));
+        }
+        ae::RoomObjectKind::BossSpawn(brain) => {
+            let boss = BossRuntime::new(object, brain.clone());
+            commands.spawn((
+                Name::new(format!("Feature boss: {}", object.name)),
+                FeatureSimEntity,
+                RoomVisual,
+                FeatureId::new(object.id.clone()),
+                FeatureName::new(object.name.clone()),
+                FeatureAabb::from_center_size(boss.pos, boss.render_size()),
+                BossFeature::new(boss),
+            ));
+        }
         ae::RoomObjectKind::Pickup(pickup) => {
             commands.spawn((
                 Name::new(format!("Feature pickup: {}", object.name)),
@@ -387,14 +435,14 @@ pub fn sync_encounter_reward_chests_ecs(
 }
 
 /// Idempotently ensure cleared boss encounters have ECS reward chests.
-/// Boss actors are still legacy `BossRuntime`s, so this ECS helper reads their
-/// spawn positions but owns the reward chest entity/state natively.
+/// Boss actors are ECS entities now; this helper receives their spawn anchors
+/// from the boss encounter system and owns the reward chest entity/state natively.
 pub fn sync_boss_reward_chests_ecs(
     commands: &mut Commands,
     save: &ae::SandboxSaveData,
     registry: &crate::boss_encounter::BossEncounterRegistry,
     world: &ae::World,
-    bosses: &[BossRuntime],
+    boss_anchors: &[(String, ae::Vec2)],
     chests: &Query<(Entity, &BossRewardChest, &FeatureId, Option<&Opened>, Option<&FallingChest>), With<ChestFeature>>,
 ) {
     for (encounter_id, profile) in &registry.profiles {
@@ -411,7 +459,7 @@ pub fn sync_boss_reward_chests_ecs(
             .get(encounter_id)
             .cloned()
             .unwrap_or_else(|| encounter_id.clone());
-        let Some(boss) = bosses.iter().find(|b| b.id == runtime_id) else {
+        let Some((_, boss_spawn)) = boss_anchors.iter().find(|(id, _)| id == &runtime_id) else {
             continue;
         };
         let chest_id = format!("encounter_chest_{encounter_id}");
@@ -434,7 +482,7 @@ pub fn sync_boss_reward_chests_ecs(
             }
             continue;
         }
-        let mut chest_pos = boss.spawn + *offset;
+        let mut chest_pos = *boss_spawn + *offset;
         if looted {
             chest_pos = settled_chest_center(world, chest_pos, *size);
         }
@@ -535,6 +583,8 @@ pub fn reset_ecs_room_features(
     mut breakables: Query<(Entity, &mut BreakableFeature, Option<&mut StandTimer>), With<FeatureSimEntity>>,
     mut actors: Query<(&mut FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
+    mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
+    mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
 ) {
     if !queues.reset_room_features {
         return;
@@ -579,6 +629,30 @@ pub fn reset_ecs_room_features(
                 enemy.attack_timer = 0.0;
                 enemy.attack_windup_timer = 0.0;
             }
+        }
+    }
+    for mut boss_feature in &mut bosses {
+        let boss = &mut boss_feature.boss;
+        boss.pos = boss.spawn;
+        boss.alive = true;
+        boss.health.reset();
+        boss.pattern_timer = 0.0;
+        boss.movement_timer = 0.0;
+        boss.attack_windup_timer = 0.0;
+        boss.attack_timer = 0.0;
+        boss.attack_cooldown = 0.35;
+        boss.hit_flash = 0.0;
+    }
+    for mut hazard_feature in &mut hazards {
+        let spawn = hazard_feature.spawn;
+        hazard_feature.hazard.pos = spawn;
+        if let Some(motion_start) = hazard_feature
+            .hazard
+            .motion
+            .as_ref()
+            .and_then(PathMotion::start_pos)
+        {
+            hazard_feature.hazard.pos = motion_start;
         }
     }
     for mut switch_on in &mut switches {
@@ -785,6 +859,7 @@ pub fn apply_ecs_breakable_damage_queue(
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut breakables: Query<(Entity, &FeatureId, &FeatureName, &FeatureAabb, &mut BreakableFeature), With<FeatureSimEntity>>,
     mut actors: Query<(&FeatureId, &FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
+    mut bosses: Query<(&FeatureId, &FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -895,7 +970,46 @@ pub fn apply_ecs_breakable_damage_queue(
                 }
             }
         }
-        if actor_hit_this_event {
+        let mut boss_hit_this_event = false;
+        for (id, aabb, mut feature) in &mut bosses {
+            let key = format!("boss:{}", id.as_str());
+            if event.ignored_targets.iter().any(|ignored| ignored == &key) {
+                continue;
+            }
+            let boss = &mut feature.boss;
+            if !boss.alive || !event.volume.strict_intersects(aabb.aabb()) {
+                continue;
+            }
+            boss.hit_flash = 0.18;
+            let amount = event.damage.max(1);
+            let killed = boss.health.damage(amount);
+            let impact = midpoint(event.volume.center(), boss.pos);
+            vfx.write(VfxMessage::Impact { pos: impact });
+            gameplay_effects.write(GameplayEffect::DamageBoss {
+                boss_id: boss.id.clone(),
+                amount,
+            });
+            boss_hit_this_event = true;
+            if killed {
+                boss.alive = false;
+                runtime.features.banner = format!("defeated boss {}", boss.name);
+                runtime.features.banner_timer = 2.6;
+                vfx.write(VfxMessage::Burst {
+                    pos: boss.pos,
+                    count: 16,
+                    speed: 230.0,
+                    color: [0.84, 0.95, 1.0, 0.82],
+                    kind: ParticleKind::Spark,
+                });
+                debris.write(DebrisBurstMessage {
+                    pos: boss.pos,
+                    cue: PhysicsDebrisCue::BossRagdoll,
+                });
+                sfx.write(SfxMessage::Death { pos: boss.pos });
+            }
+        }
+
+        if actor_hit_this_event || boss_hit_this_event {
             runtime.hitstop_timer = runtime.hitstop_timer.max(0.06);
             runtime.flash_timer = runtime.flash_timer.max(0.10);
             sfx.write(SfxMessage::Hit { pos: event.volume.center() });
@@ -941,6 +1055,92 @@ pub fn apply_ecs_breakable_damage_queue(
                 runtime.features.banner = format!("shattered {}", name.0.as_str());
                 runtime.features.banner_timer = 2.6;
                 emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
+            }
+        }
+    }
+}
+
+
+/// Tick ECS-authored hazards and queue player damage through the same feature
+/// event bridge used by the legacy runtime phase.
+pub fn update_ecs_hazards(
+    time: Res<Time>,
+    runtime: Res<crate::SandboxRuntime>,
+    mut queues: ResMut<FeatureEcsQueues>,
+    mut hazards: Query<(&FeatureName, &mut FeatureAabb, &mut HazardFeature), With<FeatureSimEntity>>,
+) {
+    let dt = time.delta_secs();
+    let player_body = runtime.player.aabb();
+    let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
+    for (name, mut aabb, mut feature) in &mut hazards {
+        let hazard = &mut feature.hazard;
+        hazard.update(dt);
+        aabb.center = hazard.pos;
+        aabb.half_size = hazard.size * 0.5;
+        if !player_vulnerable || !hazard.active() || !hazard.aabb().strict_intersects(player_body) {
+            continue;
+        }
+        let verb = match hazard.mode {
+            PlayerDamageMode::SafeRespawn => "forced a safe respawn",
+            PlayerDamageMode::Knockback => "knocked the player back",
+        };
+        queues
+            .pending_events
+            .messages
+            .push(format!("{} {}", name.0.as_str(), verb));
+        queues.pending_events.impacts.push(runtime.player.pos);
+        let knockback_dir = (runtime.player.pos.x - hazard.pos.x).signum();
+        queues.pending_events.player_damage.push(PlayerDamageEvent {
+            mode: hazard.mode,
+            source: PlayerDamageSource::Hazard,
+            source_pos: hazard.pos,
+            impact_pos: runtime.player.pos,
+            knockback_dir,
+            strength: 1.0,
+            amount: hazard.volume.damage.amount.max(1),
+        });
+        queues
+            .pending_events
+            .play_sfx(hazard_sfx_id(&hazard.name), runtime.player.pos);
+    }
+}
+
+/// Tick ECS-authored bosses and queue any player damage they produce.
+pub fn update_ecs_bosses(
+    time: Res<Time>,
+    world: Res<crate::GameWorld>,
+    runtime: Res<crate::SandboxRuntime>,
+    feel_tuning: Res<crate::feel::SandboxFeelTuning>,
+    overlay: Res<FeatureEcsWorldOverlay>,
+    mut queues: ResMut<FeatureEcsQueues>,
+    mut bosses: Query<(&mut FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
+) {
+    let dt = time.delta_secs();
+    let feature_world = world_with_sandbox_solids(
+        &world.0,
+        &runtime.moving_platforms,
+        &runtime.features,
+        &overlay,
+    );
+    let player = runtime.player.clone();
+    let player_body = player.aabb();
+    let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
+    for (mut aabb, mut feature) in &mut bosses {
+        let boss = &mut feature.boss;
+        boss.update(&feature_world, &player, feel_tuning.feature_combat_tuning(), dt);
+        aabb.center = boss.pos;
+        aabb.half_size = boss.render_size() * 0.5;
+        if player_vulnerable && boss.alive {
+            if let Some(damage) = boss.player_damage(player_body) {
+                queues
+                    .pending_events
+                    .messages
+                    .push(format!("{} pattern hit the player", boss.name));
+                queues
+                    .pending_events
+                    .play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
+                queues.pending_events.impacts.push(damage.impact_pos);
+                queues.pending_events.player_damage.push(damage);
             }
         }
     }
@@ -1099,6 +1299,25 @@ pub fn sync_ecs_actors_with_save(
     }
 }
 
+
+/// Mirror persisted boss-cleared state onto ECS-owned boss actors.
+pub fn sync_ecs_bosses_with_save(
+    save: Res<crate::save::SandboxSave>,
+    mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
+) {
+    let data = save.data();
+    for mut feature in &mut bosses {
+        let boss = &mut feature.boss;
+        let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
+        if matches!(data.boss(&encounter_id), ae::PersistedEncounterState::Cleared)
+            || matches!(data.boss(&boss.id), ae::PersistedEncounterState::Cleared)
+        {
+            boss.alive = false;
+            boss.health.current = 0;
+        }
+    }
+}
+
 /// Mirror persisted save switch state onto ECS switch components.
 ///
 /// Encounter arming now reads `EncounterSwitchIndex`, which is rebuilt from
@@ -1146,6 +1365,18 @@ pub fn ecs_damage_event_hits_actor(
     })
 }
 
+pub fn ecs_damage_event_hits_boss(
+    event: &DamageEvent,
+    bosses: &Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
+) -> bool {
+    bosses.iter().any(|(id, aabb, feature)| {
+        let key = format!("boss:{}", id.as_str());
+        !event.ignored_targets.iter().any(|ignored| ignored == &key)
+            && feature.boss.alive
+            && event.volume.strict_intersects(aabb.aabb())
+    })
+}
+
 fn begin_ecs_breakable_respawn(
     commands: &mut Commands,
     entity: Entity,
@@ -1187,6 +1418,8 @@ pub fn ecs_feature_view(
     breakables: &Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
     switches: &Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
     actors: &Query<(&FeatureId, &ActorRuntime)>,
+    hazards: &Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
+    bosses: &Query<(&FeatureId, &BossFeature)>,
 ) -> Option<FeatureView> {
     for (feature_id, aabb, collected) in pickups.iter() {
         if feature_id.as_str() == id {
@@ -1239,6 +1472,33 @@ pub fn ecs_feature_view(
     for (feature_id, actor) in actors.iter() {
         if feature_id.as_str() == id {
             return Some(actor.feature_view());
+        }
+    }
+    for (feature_id, aabb, hazard) in hazards.iter() {
+        if feature_id.as_str() == id {
+            return Some(FeatureView {
+                pos: hazard.hazard.pos,
+                size: aabb.size(),
+                kind: FeatureVisualKind::Hazard,
+                visible: hazard.hazard.active(),
+                flash: false,
+                switch_on: false,
+            });
+        }
+    }
+    for (feature_id, boss) in bosses.iter() {
+        if feature_id.as_str() == id {
+            let boss = &boss.boss;
+            return Some(FeatureView {
+                pos: boss.pos,
+                size: boss.render_size(),
+                kind: FeatureVisualKind::Boss,
+                visible: boss.alive,
+                flash: boss.hit_flash > 0.0
+                    || boss.attack_windup_timer > 0.0
+                    || boss.attack_timer > 0.0,
+                switch_on: false,
+            });
         }
     }
     None
@@ -1365,4 +1625,30 @@ mod tests {
         app.update();
         assert_eq!(app.world().resource::<FeatureEcsWorldOverlay>().blocks.len(), 1);
     }
+}
+
+
+pub fn ecs_boss_name<'a>(id: &str, bosses: &'a Query<(&FeatureId, &BossFeature)>) -> Option<&'a str> {
+    bosses.iter().find_map(|(feature_id, boss)| {
+        (feature_id.as_str() == id).then(|| boss.boss.name.as_str())
+    })
+}
+
+pub fn ecs_boss_anim_state(
+    id: &str,
+    bosses: &Query<(&FeatureId, &BossFeature)>,
+) -> Option<crate::boss_sprites::BossAnimState> {
+    bosses.iter().find_map(|(feature_id, boss)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        let boss = &boss.boss;
+        Some(crate::boss_sprites::BossAnimState {
+            alive: boss.alive,
+            attack_active: boss.attack_timer > 0.0,
+            attack_windup: boss.attack_windup_timer > 0.0,
+            hit_flash: boss.hit_flash > 0.0,
+            pattern_timer: boss.pattern_timer,
+        })
+    })
 }

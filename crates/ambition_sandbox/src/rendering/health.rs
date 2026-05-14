@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::features::{ActorRuntime, BreakableFeature, FeatureAabb, FeatureName};
+use crate::features::{ActorRuntime, BossFeature, BreakableFeature, FeatureAabb, FeatureName};
 
 pub fn sync_health_overlays(
     mut commands: Commands,
@@ -19,6 +19,7 @@ pub fn sync_health_overlays(
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     ecs_breakables: Query<(&FeatureName, &FeatureAabb, &BreakableFeature)>,
     ecs_actors: Query<(&FeatureName, &FeatureAabb, &ActorRuntime)>,
+    ecs_bosses: Query<(&FeatureName, &BossFeature)>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
@@ -80,6 +81,19 @@ pub fn sync_health_overlays(
                 &mut commands,
                 &world.0,
                 &boss.name,
+                boss.aabb(),
+                boss.health,
+                Color::srgba(1.00, 0.32, 0.92, 0.96),
+            );
+        }
+    }
+    for (name, boss) in &ecs_bosses {
+        let boss = &boss.boss;
+        if boss.alive {
+            spawn_health_overlay(
+                &mut commands,
+                &world.0,
+                name.0.as_str(),
                 boss.aabb(),
                 boss.health,
                 Color::srgba(1.00, 0.32, 0.92, 0.96),

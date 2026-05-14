@@ -576,7 +576,6 @@ pub(super) fn start_attack(
 pub(super) fn advance_attack(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
-    debris: &mut Vec<DebrisBurstMessage>,
     world: &ae::World,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
@@ -630,9 +629,7 @@ pub(super) fn advance_attack(
                 attack_state.pogo_applied = true;
                 pogo_landed = true;
                 sfx.push(SfxMessage::Pogo { pos: player_pos });
-                let feature_events = runtime.features.on_pogo_bounce(orb_aabb, 1);
                 feature_ecs_queues.pogo_bounces.push((orb_aabb, 1));
-                handle_feature_events(sfx, vfx, debris, &feature_events, player_pos);
             }
         }
         let slash_damage = runtime.player.damage_multiplier.max(1);
@@ -649,22 +646,11 @@ pub(super) fn advance_attack(
                 ignored_targets: attack_state.hit_targets.clone(),
             });
         }
-        let report = runtime.features.apply_player_attack_report(
-            attack,
-            slash_damage,
-            knock_x,
-            attack_state.hit_targets.clone(),
-        );
-        let landed = report.any_actor_hit();
-        let killed = report
-            .events
-            .messages
-            .iter()
-            .any(|message| message.contains("defeated"));
-        attack_state
-            .hit_targets
-            .extend(report.hit_targets.iter().cloned());
-        handle_feature_events(sfx, vfx, debris, &report.events, player_pos);
+        // Damage is resolved by the ECS damage queue after `sandbox_update`.
+        // Keep this phase responsible only for spawning the one-frame hitbox
+        // and for immediate pogo/world-contact feedback.
+        let landed = false;
+        let killed = false;
 
         if landed || pogo_landed {
             if landed {

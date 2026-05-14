@@ -174,15 +174,7 @@ pub(super) fn player_control_phase(
     // breakables flagged `pogo_refresh` and routes hit/break events
     // through the standard feature pipeline.
     for &orb_aabb in &control_events.pogo_hits {
-        let feature_events = runtime.features.on_pogo_bounce(orb_aabb, 1);
         feature_ecs_queues.pogo_bounces.push((orb_aabb, 1));
-        handle_feature_events(
-            &mut feedback.sfx,
-            &mut feedback.vfx,
-            &mut feedback.debris,
-            &feature_events,
-            runtime.player.pos,
-        );
     }
     handle_player_events(
         &mut feedback.sfx,
@@ -546,7 +538,6 @@ pub(super) fn attack_phase(
     advance_attack(
         &mut feedback.sfx,
         &mut feedback.vfx,
-        &mut feedback.debris,
         world,
         runtime,
         tuning,

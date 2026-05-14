@@ -15,8 +15,8 @@ use crate::boss_sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
-    ActorRuntime, BreakableFeature, ChestFeature, Collected, FeatureAabb, FeatureId,
-    FeatureVisualKind, Opened, PickupFeature, SwitchFeature, SwitchOn,
+    ActorRuntime, BossFeature, BreakableFeature, ChestFeature, Collected, FeatureAabb, FeatureId,
+    FeatureVisualKind, HazardFeature, Opened, PickupFeature, SwitchFeature, SwitchOn,
 };
 use crate::game_assets::{self, EntitySprite, GameAssets};
 
@@ -38,6 +38,8 @@ pub fn sync_visuals(
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
     ecs_switches: Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
+    ecs_hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
+    ecs_bosses: Query<(&FeatureId, &BossFeature)>,
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
@@ -86,6 +88,8 @@ pub fn sync_visuals(
                 &ecs_breakables,
                 &ecs_switches,
                 &ecs_actors,
+                &ecs_hazards,
+                &ecs_bosses,
             ))
         else {
             *visibility = Visibility::Hidden;
@@ -405,6 +409,7 @@ pub fn upgrade_boss_sprites(
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
     runtime: Res<crate::SandboxRuntime>,
+    ecs_bosses: Query<(&FeatureId, &BossFeature)>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
@@ -414,7 +419,24 @@ pub fn upgrade_boss_sprites(
         return;
     };
     for (entity, visual) in &new_bosses {
-        let Some(view) = runtime.features.view(&visual.id) else {
+        let Some(view) = runtime.features.view(&visual.id).or_else(|| {
+            ecs_bosses.iter().find_map(|(feature_id, boss)| {
+                if feature_id.as_str() != visual.id.as_str() {
+                    return None;
+                }
+                let boss = &boss.boss;
+                Some(crate::features::FeatureView {
+                    pos: boss.pos,
+                    size: boss.render_size(),
+                    kind: FeatureVisualKind::Boss,
+                    visible: boss.alive,
+                    flash: boss.hit_flash > 0.0
+                        || boss.attack_windup_timer > 0.0
+                        || boss.attack_timer > 0.0,
+                    switch_on: false,
+                })
+            })
+        }) else {
             continue;
         };
         if !matches!(view.kind, FeatureVisualKind::Boss) {
@@ -427,7 +449,11 @@ pub fn upgrade_boss_sprites(
         // ships with the main `ambition_sprite2d_renderer` package.
         // If neither is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
-        let boss_name = runtime.features.boss_name(&visual.id).unwrap_or("");
+        let boss_name = runtime
+            .features
+            .boss_name(&visual.id)
+            .or_else(|| crate::features::ecs_boss_name(&visual.id, &ecs_bosses))
+            .unwrap_or("");
         let boss_asset = if boss_name.eq_ignore_ascii_case("mockingbird") {
             assets.mockingbird.as_ref().or(assets.boss.as_ref())
         } else {
@@ -460,11 +486,15 @@ pub fn upgrade_boss_sprites(
 pub fn animate_bosses(
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
+    ecs_bosses: Query<(&FeatureId, &BossFeature)>,
     mut query: Query<(&FeatureVisual, &mut Sprite, &mut BossAnimator), Without<PlayerVisual>>,
 ) {
     let dt = time.delta_secs();
     for (visual, mut sprite, mut animator) in &mut query {
-        let Some(state): Option<BossAnimState> = runtime.features.boss_anim_state(&visual.id)
+        let Some(state): Option<BossAnimState> = runtime
+            .features
+            .boss_anim_state(&visual.id)
+            .or_else(|| crate::features::ecs_boss_anim_state(&visual.id, &ecs_bosses))
         else {
             continue;
         };

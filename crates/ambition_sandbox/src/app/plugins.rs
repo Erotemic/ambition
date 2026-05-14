@@ -116,7 +116,9 @@ pub fn add_simulation_plugins(app: &mut App) {
             (
                 ldtk_world::poll_ldtk_file_changes,
                 crate::features::rebuild_feature_ecs_world_overlay,
+                crate::features::update_ecs_hazards,
                 crate::features::update_ecs_actors,
+                crate::features::update_ecs_bosses,
                 sandbox_update,
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,
@@ -194,6 +196,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::boss_encounter::update_boss_encounters,
                 crate::features::sync_features_with_save,
                 crate::features::sync_ecs_actors_with_save,
+                crate::features::sync_ecs_bosses_with_save,
                 crate::quest::push_room_entered_quest_events,
                 crate::quest::apply_quest_advance_events,
                 crate::quest::grant_quest_completion_rewards,

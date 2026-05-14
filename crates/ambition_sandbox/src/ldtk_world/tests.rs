@@ -1056,12 +1056,20 @@ fn damage_volume_path_id_resolves_through_room_spec_kinematic_paths() {
         .iter()
         .find(|room| room.id == "hazard_path_lab")
         .expect("room should exist");
-    let mut features = crate::features::FeatureRuntime::from_room_spec(room);
-    assert_eq!(features.hazards.len(), 1);
-    assert!(features.hazards[0].motion.is_some());
-    assert_eq!(features.hazards[0].pos, ae::Vec2::new(96.0, 128.0));
-    features.hazards[0].update(0.5);
-    assert_eq!(features.hazards[0].pos, ae::Vec2::new(144.0, 128.0));
+    let room = room.clone();
+    let mut app = bevy::prelude::App::new();
+    app.add_systems(bevy::prelude::Update, move |mut commands: bevy::prelude::Commands| {
+        crate::features::spawn_room_feature_entities(&mut commands, &room);
+    });
+    app.update();
+    let world = app.world_mut();
+    let mut query = world.query::<&crate::features::HazardFeature>();
+    let mut hazards: Vec<crate::features::HazardFeature> = query.iter(world).cloned().collect();
+    assert_eq!(hazards.len(), 1);
+    assert!(hazards[0].hazard.motion.is_some());
+    assert_eq!(hazards[0].hazard.pos, ae::Vec2::new(96.0, 128.0));
+    hazards[0].hazard.update(0.5);
+    assert_eq!(hazards[0].hazard.pos, ae::Vec2::new(144.0, 128.0));
 }
 
 #[test]

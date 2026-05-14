@@ -11,7 +11,7 @@ impl FeatureRuntime {
         Self::from_world_with_paths(&room.world, &paths)
     }
 
-    fn from_world_with_paths(world: &ae::World, paths: &[(String, ae::KinematicPath)]) -> Self {
+    fn from_world_with_paths(world: &ae::World, _paths: &[(String, ae::KinematicPath)]) -> Self {
         let mut runtime = Self {
             hazards: Vec::new(),
             enemies: Vec::new(),
@@ -27,12 +27,8 @@ impl FeatureRuntime {
 
         for object in &world.objects {
             match &object.kind {
-                ae::RoomObjectKind::DamageVolume(volume) => {
-                    runtime.hazards.push(HazardRuntime::new_with_paths(
-                        object,
-                        volume.clone(),
-                        paths,
-                    ));
+                ae::RoomObjectKind::DamageVolume(_) => {
+                    // Hazards are ECS feature entities now.
                 }
                 // Phase 3/4/5 strangler: static pickups, chests, and
                 // breakables are now spawned as ECS feature entities by
@@ -55,8 +51,8 @@ impl FeatureRuntime {
                     // Authored enemies are ECS actors now. Dynamic encounter mobs
                     // still enter through `FeatureRuntime::spawn_enemy`.
                 }
-                ae::RoomObjectKind::BossSpawn(brain) => {
-                    runtime.bosses.push(BossRuntime::new(object, brain.clone()));
+                ae::RoomObjectKind::BossSpawn(_) => {
+                    // Bosses are ECS feature entities now.
                 }
                 ae::RoomObjectKind::Actor(_)
                 | ae::RoomObjectKind::KinematicPath(_)

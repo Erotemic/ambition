@@ -188,29 +188,6 @@ pub fn apply_gameplay_banner_requests(
     }
 }
 
-fn write_feature_events_if_nonempty(
-    writer: &mut MessageWriter<FeatureEventsMessage>,
-    events: FeatureEvents,
-) {
-    if events.reset_player
-        || events.consumed_interaction
-        || events.dialogue_request.is_some()
-        || !events.messages.is_empty()
-        || !events.impacts.is_empty()
-        || !events.bursts.is_empty()
-        || !events.physics_bursts.is_empty()
-        || !events.player_damage.is_empty()
-        || events.player_heal != 0
-        || !events.effects.is_empty()
-        || !events.chests_opened.is_empty()
-        || !events.pickups_collected.is_empty()
-        || !events.breakables_destroyed.is_empty()
-        || !events.speech_bubbles.is_empty()
-    {
-        writer.write(FeatureEventsMessage(events));
-    }
-}
-
 /// Spawn ECS-native feature entities for every static feature object in a room.
 pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms::RoomSpec) {
     let paths = room_spec_paths(room);
@@ -1077,13 +1054,16 @@ pub fn apply_ecs_breakable_damage_queue(
 pub fn update_ecs_hazards(
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
-    mut feature_events: MessageWriter<FeatureEventsMessage>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut vfx: MessageWriter<crate::fx::VfxMessage>,
+    mut debris: MessageWriter<DebrisBurstMessage>,
+    mut player_damage: MessageWriter<PlayerDamageEvent>,
     mut hazards: Query<(&FeatureName, &mut FeatureAabb, &mut HazardFeature), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
     let player_body = runtime.player.aabb();
     let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
-    for (name, mut aabb, mut feature) in &mut hazards {
+    for (_name, mut aabb, mut feature) in &mut hazards {
         let hazard = &mut feature.hazard;
         hazard.update(dt);
         aabb.center = hazard.pos;
@@ -1091,25 +1071,30 @@ pub fn update_ecs_hazards(
         if !player_vulnerable || !hazard.active() || !hazard.aabb().strict_intersects(player_body) {
             continue;
         }
-        let verb = match hazard.mode {
-            PlayerDamageMode::SafeRespawn => "forced a safe respawn",
-            PlayerDamageMode::Knockback => "knocked the player back",
-        };
-        let mut events = FeatureEvents::default();
-        events.messages.push(format!("{} {}", name.0.as_str(), verb));
-        events.impacts.push(runtime.player.pos);
-        let knockback_dir = (runtime.player.pos.x - hazard.pos.x).signum();
-        events.player_damage.push(PlayerDamageEvent {
+        let pos = runtime.player.pos;
+        let knockback_dir = (pos.x - hazard.pos.x).signum();
+        vfx.write(VfxMessage::Impact { pos });
+        vfx.write(VfxMessage::Burst {
+            pos,
+            count: 14,
+            speed: 300.0,
+            color: [1.0, 0.34, 0.28, 0.88],
+            kind: ParticleKind::Shard,
+        });
+        debris.write(DebrisBurstMessage { pos, cue: PhysicsDebrisCue::Impact });
+        sfx.write(crate::audio::SfxMessage::Play {
+            id: hazard_sfx_id(&hazard.name),
+            pos,
+        });
+        player_damage.write(PlayerDamageEvent {
             mode: hazard.mode,
             source: PlayerDamageSource::Hazard,
             source_pos: hazard.pos,
-            impact_pos: runtime.player.pos,
+            impact_pos: pos,
             knockback_dir,
             strength: 1.0,
             amount: hazard.volume.damage.amount.max(1),
         });
-        events.play_sfx(hazard_sfx_id(&hazard.name), runtime.player.pos);
-        write_feature_events_if_nonempty(&mut feature_events, events);
     }
 }
 
@@ -1120,7 +1105,10 @@ pub fn update_ecs_bosses(
     runtime: Res<crate::SandboxRuntime>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
-    mut feature_events: MessageWriter<FeatureEventsMessage>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut vfx: MessageWriter<crate::fx::VfxMessage>,
+    mut debris: MessageWriter<DebrisBurstMessage>,
+    mut player_damage: MessageWriter<PlayerDamageEvent>,
     mut bosses: Query<(&mut FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
@@ -1139,12 +1127,21 @@ pub fn update_ecs_bosses(
         aabb.half_size = boss.render_size() * 0.5;
         if player_vulnerable && boss.alive {
             if let Some(damage) = boss.player_damage(player_body) {
-                let mut events = FeatureEvents::default();
-                events.messages.push(format!("{} pattern hit the player", boss.name));
-                events.play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
-                events.impacts.push(damage.impact_pos);
-                events.player_damage.push(damage);
-                write_feature_events_if_nonempty(&mut feature_events, events);
+                let pos = damage.impact_pos;
+                sfx.write(crate::audio::SfxMessage::Play {
+                    id: ambition_sfx::ids::PLAYER_DAMAGE,
+                    pos,
+                });
+                vfx.write(VfxMessage::Impact { pos });
+                vfx.write(VfxMessage::Burst {
+                    pos,
+                    count: 14,
+                    speed: 300.0,
+                    color: [1.0, 0.34, 0.28, 0.88],
+                    kind: ParticleKind::Shard,
+                });
+                debris.write(DebrisBurstMessage { pos, cue: PhysicsDebrisCue::Impact });
+                player_damage.write(damage);
             }
         }
     }
@@ -1160,7 +1157,10 @@ pub fn update_ecs_actors(
     runtime: Res<crate::SandboxRuntime>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
-    mut feature_events: MessageWriter<FeatureEventsMessage>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+    mut vfx: MessageWriter<crate::fx::VfxMessage>,
+    mut debris: MessageWriter<DebrisBurstMessage>,
+    mut player_damage: MessageWriter<PlayerDamageEvent>,
     mut actors: Query<(&mut FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
@@ -1185,12 +1185,21 @@ pub fn update_ecs_actors(
                 aabb.half_size = enemy.size * 0.5;
                 if player_vulnerable && enemy.alive {
                     if let Some(damage) = enemy.player_damage(player_body) {
-                        let mut events = FeatureEvents::default();
-                        events.messages.push(format!("{} hit the player", enemy.name));
-                        events.impacts.push(damage.impact_pos);
-                        events.play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
-                        events.player_damage.push(damage);
-                        write_feature_events_if_nonempty(&mut feature_events, events);
+                        let pos = damage.impact_pos;
+                        sfx.write(crate::audio::SfxMessage::Play {
+                            id: ambition_sfx::ids::PLAYER_DAMAGE,
+                            pos,
+                        });
+                        vfx.write(VfxMessage::Impact { pos });
+                        vfx.write(VfxMessage::Burst {
+                            pos,
+                            count: 14,
+                            speed: 300.0,
+                            color: [1.0, 0.34, 0.28, 0.88],
+                            kind: ParticleKind::Shard,
+                        });
+                        debris.write(DebrisBurstMessage { pos, cue: PhysicsDebrisCue::Impact });
+                        player_damage.write(damage);
                     }
                 }
             }

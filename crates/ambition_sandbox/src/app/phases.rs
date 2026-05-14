@@ -320,32 +320,22 @@ pub(super) fn interaction_input_phase(
 
 /// Phase 8 — apply heals/damage, dialogue start, feature-driven reset.
 ///
-/// Owns: `handle_player_heal_events`, `handle_player_damage_events`,
-/// `remember_safe_player_position` when the player wasn't damaged this
-/// frame, clearing the interact buffer when a feature consumed it,
-/// starting `GameMode::Dialogue` on a feature-issued dialogue request,
-/// routing feature-driven reset through `reset_sandbox`.
+/// Owns: `handle_player_damage_events`, `remember_safe_player_position`
+/// when the player wasn't damaged this frame.
 ///
-/// Should not own: the feature tick itself (that's
-/// `feature_runtime_phase`) or attack / room-transition routing. Returns
-/// `Return` if dialogue started or the feature requested a sandbox
-/// reset.
+/// Should not own: the feature tick itself or attack / room-transition routing.
 pub(super) fn damage_heal_dialogue_phase(
     world: &ae::World,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
-    feature_events: &features::FeatureEvents,
+    player_damage_events: &[features::PlayerDamageEvent],
     banner: &mut features::GameplayBanner,
-    next_mode: &mut NextState<GameMode>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
-) -> PhaseOutcome {
-    let feature_damaged_player = !feature_events.player_damage.is_empty();
-    let feature_interaction_consumed = feature_events.consumed_interaction;
-    handle_player_heal_events(runtime, feature_events);
+) {
+    let feature_damaged_player = !player_damage_events.is_empty();
     handle_player_damage_events(
         world,
         &mut feedback.sfx,
@@ -353,51 +343,24 @@ pub(super) fn damage_heal_dialogue_phase(
         &mut feedback.died,
         runtime,
         banner,
-        feature_events,
+        player_damage_events,
         tuning,
         feel,
         difficulty_multiplier,
     );
-    {
-        let safe_world = features::world_with_sandbox_solids(
-            world,
-            &runtime.moving_platforms,
-            feature_ecs_overlay,
-        );
-        let ctx = crate::SafePositionContext {
-            damaged_this_frame: feature_damaged_player,
-            in_hitstun: runtime.hitstun_timer > 0.0,
-            feature_requested_reset: feature_events.reset_player,
-            blink_grace_active: runtime.player.blink_grace_timer > 0.0,
-            room_transitioning: runtime.room_transition_cooldown > 0.0,
-        };
-        runtime.remember_safe_player_position(&safe_world, ctx);
-    }
-    if feature_interaction_consumed {
-        runtime.clear_interact_buffer();
-    }
-    if let Some(request) = &feature_events.dialogue_request {
-        runtime
-            .dialogue
-            .start(&request.dialogue_id, &request.npc_name);
-        runtime.clear_interact_buffer();
-        runtime.hitstop_timer = 0.0;
-        next_mode.set(GameMode::Dialogue);
-        return PhaseOutcome::Return;
-    }
-    if feature_events.reset_player {
-        reset_sandbox(
-            world,
-            &mut feedback.sfx,
-            &mut feedback.vfx,
-            runtime,
-            tuning,
-            feel,
-        );
-        reset_room_features.write(features::ResetRoomFeaturesEvent);
-        return PhaseOutcome::Return;
-    }
-    PhaseOutcome::Continue
+    let safe_world = features::world_with_sandbox_solids(
+        world,
+        &runtime.moving_platforms,
+        feature_ecs_overlay,
+    );
+    let ctx = crate::SafePositionContext {
+        damaged_this_frame: feature_damaged_player,
+        in_hitstun: runtime.hitstun_timer > 0.0,
+        feature_requested_reset: false,
+        blink_grace_active: runtime.player.blink_grace_timer > 0.0,
+        room_transitioning: runtime.room_transition_cooldown > 0.0,
+    };
+    runtime.remember_safe_player_position(&safe_world, ctx);
 }
 
 /// Phase 9 — loading-zone transition + `load_room`.

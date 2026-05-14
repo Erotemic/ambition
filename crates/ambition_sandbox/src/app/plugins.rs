@@ -37,7 +37,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_message::<DebrisBurstMessage>()
         .add_message::<PlayerDiedMessage>()
         .add_message::<crate::features::GameplayEffect>()
-        .add_message::<crate::features::FeatureEventsMessage>()
+        .add_message::<crate::features::PlayerDamageEvent>()
         .add_message::<crate::features::DamageEvent>()
         .add_message::<crate::features::PogoBounceEvent>()
         .add_message::<crate::features::ResetRoomFeaturesEvent>()

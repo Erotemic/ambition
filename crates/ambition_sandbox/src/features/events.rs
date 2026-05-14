@@ -77,7 +77,7 @@ pub enum PlayerDamageSource {
     BossAttack,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct PlayerDamageEvent {
     pub mode: PlayerDamageMode,
     pub source: PlayerDamageSource,
@@ -178,14 +178,6 @@ pub struct FeatureEvents {
     pub speech_bubbles: Vec<FeatureSpeechBubble>,
 }
 
-
-/// Bevy-native transport for feature event batches produced by ECS systems.
-///
-/// This replaces the old `FeatureEcsQueues.pending_events` bridge. Systems
-/// should emit this message when they need the central sandbox damage/heal/
-/// dialogue/reset handling path to consume a `FeatureEvents` bundle.
-#[derive(Message, Clone, Debug)]
-pub struct FeatureEventsMessage(pub FeatureEvents);
 
 /// Reset request for ECS-owned room features.
 ///
@@ -324,8 +316,7 @@ impl FeatureEvents {
 
     /// Enqueue a one-shot SFX at a position. Cheap helper for sim-side
     /// code that wants to play a sound without adding a dedicated
-    /// typed presentation vector. Drained by `handle_feature_events` into
-    /// `SfxMessage::Play`.
+    /// typed presentation vector.
     pub fn play_sfx(&mut self, id: ambition_sfx::SfxId, pos: ae::Vec2) {
         self.push_effect(GameplayEffect::PlaySfx { id, pos });
     }

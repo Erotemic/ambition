@@ -55,7 +55,6 @@ pub use breakables::BreakableRuntime;
 pub use bus::{
     apply_boss_damage_effects, apply_flag_effects, apply_gameplay_sfx_effects,
     apply_npc_strike_effects, apply_quest_effects, apply_switch_effects,
-    write_feature_effects,
 };
 pub use chests::ChestRuntime;
 pub use components::{
@@ -81,7 +80,7 @@ pub use ecs::{
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{
     DamageEvent, DamageReport, DamageSource, FeatureCombatTuning, FeatureEvents,
-    FeatureEventsMessage, FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind,
+    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind,
     GameplayBanner, GameplayBannerRequested, GameplayEffect, NpcDialogueRequest, PogoBounceEvent,
     ResetRoomFeaturesEvent, PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
 };

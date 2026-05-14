@@ -8,9 +8,9 @@
 //!
 //! This module wires those primitives into the Bevy sandbox: input
 //! sampling, collision against the active world, and trace events.
-//! Damage is routed through the unified `FeatureRuntime::apply_damage_event`
-//! path — the same entry point slashes, pogo-bounces, and any future
-//! tool / hazard / spell that produces a damage volume go through.
+//! Damage is routed through `DamageEvent` messages — the same path
+//! slashes, pogo-bounces, and any future tool / hazard / spell that
+//! produces a damage volume go through.
 //!
 //! ## Submodule layout (post-2026-05-09 split)
 //!
@@ -18,8 +18,7 @@
 //!   `ProjectileUnlocks`, `ProjectileTraceEvent`.
 //! - [`systems`] — the `update_projectiles` Bevy system + private
 //!   `try_fire_projectile` helper.
-//! - [`feedback`] — `forward_damage_feedback` (FeatureEvents → VFX /
-//!   debris message writers).
+//! - [`feedback`] — (tombstone) previously `forward_damage_feedback`.
 //! - [`visuals`] — `sync_projectile_visuals` system + visual marker
 //!   components.
 //! - [`diagnostics`] — `projectile_status_summary` for the HUD plus

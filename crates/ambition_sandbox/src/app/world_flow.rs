@@ -269,93 +269,6 @@ pub(super) fn handle_player_events(
     }
 }
 
-pub(super) fn handle_feature_events(
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
-    debris: &mut Vec<DebrisBurstMessage>,
-    events: &features::FeatureEvents,
-    player_pos: ae::Vec2,
-) {
-    if events.reset_player {
-        sfx.push(SfxMessage::Reset { pos: player_pos });
-    }
-    for physics_burst in &events.physics_bursts {
-        let cue = match physics_burst.cue {
-            features::FeaturePhysicsCue::Breakable => physics::PhysicsDebrisCue::Breakable,
-            features::FeaturePhysicsCue::EnemyRagdoll => physics::PhysicsDebrisCue::EnemyRagdoll,
-            features::FeaturePhysicsCue::BossRagdoll => physics::PhysicsDebrisCue::BossRagdoll,
-        };
-        debris.push(DebrisBurstMessage {
-            pos: physics_burst.pos,
-            cue,
-        });
-    }
-    for &pos in &events.impacts {
-        vfx.push(VfxMessage::Impact { pos });
-        vfx.push(VfxMessage::Burst {
-            pos,
-            count: 14,
-            speed: 300.0,
-            color: [1.0, 0.34, 0.28, 0.88],
-            kind: ParticleKind::Shard,
-        });
-        debris.push(DebrisBurstMessage {
-            pos,
-            cue: physics::PhysicsDebrisCue::Impact,
-        });
-    }
-    for &pos in &events.bursts {
-        vfx.push(VfxMessage::Burst {
-            pos,
-            count: 16,
-            speed: 230.0,
-            color: [0.84, 0.95, 1.0, 0.82],
-            kind: ParticleKind::Spark,
-        });
-    }
-    for &pos in &events.chests_opened {
-        sfx.push(SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_TREASURE_CHEST_OPEN,
-            pos,
-        });
-    }
-    for (kind, pos) in &events.pickups_collected {
-        let id = match kind {
-            ae::PickupKind::Health { .. } => ambition_sfx::ids::WORLD_HEALTH_COLLECT,
-            ae::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
-            // Ability / StoryFlag / Custom — fall back to the generic
-            // pickup SFX until those gain dedicated sounds.
-            _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
-        };
-        sfx.push(SfxMessage::Play { id, pos: *pos });
-    }
-    for &pos in &events.breakables_destroyed {
-        sfx.push(SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_CRATE_BREAK,
-            pos,
-        });
-    }
-    for bubble in &events.speech_bubbles {
-        vfx.push(VfxMessage::SpeechBubble {
-            pos: bubble.pos,
-            text: bubble.text.clone(),
-        });
-    }
-    // Switch-toggle and standalone gameplay SFX now route through
-    // `Message<GameplayEffect>` readers after the sim tick and before audio
-    // playback. Presentation-shaped cues above stay here because they already
-    // carry concrete chest/pickup/breakable render facts.
-}
-
-pub(super) fn handle_player_heal_events(
-    runtime: &mut SandboxRuntime,
-    events: &features::FeatureEvents,
-) {
-    if events.player_heal > 0 {
-        runtime.player_health.heal(events.player_heal);
-    }
-}
-
 pub(super) fn death_respawn_player(
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
@@ -385,12 +298,12 @@ pub(super) fn handle_player_damage_events(
     died: &mut Vec<PlayerDiedMessage>,
     runtime: &mut SandboxRuntime,
     banner: &mut features::GameplayBanner,
-    events: &features::FeatureEvents,
+    damage_events: &[features::PlayerDamageEvent],
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
 ) {
-    let Some(mut damage) = events.player_damage.first().copied() else {
+    let Some(mut damage) = damage_events.first().copied() else {
         return;
     };
     // Invincibility (debug toggle): drop the damage event entirely

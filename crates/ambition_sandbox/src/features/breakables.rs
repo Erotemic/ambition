@@ -20,18 +20,4 @@ impl BreakableRuntime {
         self.breakable.state == ae::BreakableState::Broken
     }
 
-    pub(super) fn start_respawn_timer(&mut self) {
-        self.stand_timer = 0.0;
-        if let ae::RespawnPolicy::AfterSeconds(seconds) = self.breakable.respawn {
-            self.respawn_timer = seconds;
-        }
-    }
-
-    pub(super) fn breaks_on_stand(&self) -> bool {
-        self.breakable.collision.blocks_movement() && self.breakable.trigger.allows_stand()
-    }
-
-    pub(super) fn breaks_on_hit(&self) -> bool {
-        self.breakable.trigger.allows_hit()
-    }
 }

@@ -2,20 +2,6 @@ use super::*;
 use crate::features::events::GameplayEffect;
 use bevy::prelude::{MessageReader, MessageWriter, ResMut};
 
-/// Forward a legacy `FeatureEvents` batch into Bevy's typed message stream.
-///
-/// Phase-1 strangler rule: this helper is the compatibility bridge between the
-/// old phase-helper world and the new ECS message world. New Bevy-native
-/// feature systems should write `GameplayEffect` (or a more specific domain
-/// message) directly instead of routing through `FeatureEvents` or rebuilding a
-/// custom bus resource.
-pub fn write_feature_effects(
-    writer: &mut MessageWriter<GameplayEffect>,
-    events: &FeatureEvents,
-) {
-    writer.write_batch(events.effects.iter().cloned());
-}
-
 /// Save writes first so quest conditions that read flags see them this same
 /// frame. `on == true` also mirrors into `QuestAdvanceEvent::FlagSet`, matching
 /// the former monolithic router behavior.

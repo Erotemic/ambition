@@ -52,7 +52,7 @@ pub struct SandboxEventWriters<'w> {
 #[derive(SystemParam)]
 pub struct SandboxQueues<'w, 's> {
     pub gameplay_effects: MessageWriter<'w, crate::features::GameplayEffect>,
-    pub feature_events: MessageReader<'w, 's, crate::features::FeatureEventsMessage>,
+    pub player_damage_events: MessageReader<'w, 's, crate::features::PlayerDamageEvent>,
     pub damage_events: MessageWriter<'w, crate::features::DamageEvent>,
     pub pogo_bounces: MessageWriter<'w, crate::features::PogoBounceEvent>,
     pub reset_room_features: MessageWriter<'w, crate::features::ResetRoomFeaturesEvent>,

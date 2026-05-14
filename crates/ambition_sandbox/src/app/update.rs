@@ -57,7 +57,6 @@ pub fn sandbox_update(
     editable_abilities: Res<EditableAbilitySet>,
     feel_tuning: Res<SandboxFeelTuning>,
     mode: Res<State<GameMode>>,
-    mut next_mode: ResMut<NextState<GameMode>>,
     mut runtime: ResMut<SandboxRuntime>,
     mut event_writers: SandboxEventWriters,
     control_frame: Res<ControlFrame>,
@@ -171,42 +170,20 @@ pub fn sandbox_update(
         frame_dt,
     );
 
-    let mut feature_events = features::FeatureEvents::default();
-    for ecs_feature_event in queues.feature_events.read() {
-        handle_feature_events(
-            &mut feedback.sfx,
-            &mut feedback.vfx,
-            &mut feedback.debris,
-            &ecs_feature_event.0,
-            runtime.player.pos,
-        );
-        feature_events.merge(ecs_feature_event.0.clone());
-    }
+    let player_damage_events: Vec<features::PlayerDamageEvent> =
+        queues.player_damage_events.read().copied().collect();
 
-    // Forward typed gameplay effects into Bevy's message stream. Domain
-    // consumers run later in the same Update frame, before boss/quest
-    // progression systems that consume the routed queues.
-    crate::features::write_feature_effects(&mut queues.gameplay_effects, &feature_events);
-
-    if matches!(
-        damage_heal_dialogue_phase(
-            &world.0,
-            &mut runtime,
-            &mut feedback,
-            &feature_events,
-            &mut queues.banner,
-            &mut next_mode,
-            tuning,
-            feel,
-            difficulty_multiplier,
-            &queues.feature_ecs_overlay,
-            &mut queues.reset_room_features,
-        ),
-        PhaseOutcome::Return
-    ) {
-        flush_feedback(&mut feedback, &mut event_writers);
-        return;
-    }
+    damage_heal_dialogue_phase(
+        &world.0,
+        &mut runtime,
+        &mut feedback,
+        &player_damage_events,
+        &mut queues.banner,
+        tuning,
+        feel,
+        difficulty_multiplier,
+        &queues.feature_ecs_overlay,
+    );
 
     if matches!(
         room_transition_phase(

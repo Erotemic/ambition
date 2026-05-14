@@ -259,7 +259,7 @@ pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
     mut save: ResMut<crate::save::SandboxSave>,
     mut inventory: ResMut<PlayerInventory>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut banner_state: ResMut<crate::features::GameplayBanner>,
 ) {
     let Some(state) = registry.quests.get("pirate_treasure") else {
         return;
@@ -272,8 +272,7 @@ pub fn grant_quest_completion_rewards(
     }
     let banner = grant_pirate_treasure_reward(&mut inventory);
     save.data_mut().set_flag(PIRATE_TREASURE_REWARD_FLAG, true);
-    runtime.features.banner = banner;
-    runtime.features.banner_timer = 3.0;
+    banner_state.show(banner, 3.0);
 }
 
 #[cfg(test)]

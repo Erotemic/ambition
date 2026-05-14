@@ -12,7 +12,7 @@ impl FeatureRuntime {
     }
 
     fn from_world_with_paths(world: &ae::World, _paths: &[(String, ae::KinematicPath)]) -> Self {
-        let mut runtime = Self {
+        let runtime = Self {
             hazards: Vec::new(),
             enemies: Vec::new(),
             bosses: Vec::new(),

@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::state::{PlayerProjectile, PlayerProjectileState};
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
-use crate::features::{ActorRuntime, FeatureEcsQueues, GameplayEffect};
+use crate::features::{ActorRuntime, DamageEvent, GameplayBanner, GameplayEffect, PogoBounceEvent};
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::physics::DebrisBurstMessage;
@@ -41,13 +41,15 @@ fn min_app() -> App {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(FeatureEcsQueues::default());
+    app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
     // Buffered-message channels the system writes into.
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
+    app.add_message::<DamageEvent>();
+    app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
         (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
@@ -388,12 +390,14 @@ fn fireball_bounces_off_floor_in_system() {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(FeatureEcsQueues::default());
+    app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
+    app.add_message::<DamageEvent>();
+    app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
         (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
@@ -463,12 +467,14 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(FeatureEcsQueues::default());
+    app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
+    app.add_message::<DamageEvent>();
+    app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
         (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
@@ -539,12 +545,14 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(FeatureEcsQueues::default());
+    app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
+    app.add_message::<DamageEvent>();
+    app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
         (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
@@ -612,12 +620,14 @@ fn hadouken_expires_on_solid_in_system() {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
-    app.insert_resource(FeatureEcsQueues::default());
+    app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<GameplayEffect>();
+    app.add_message::<DamageEvent>();
+    app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
         (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),

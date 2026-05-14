@@ -118,7 +118,7 @@ pub fn sandbox_update(
             &mut feedback,
             tuning,
             feel,
-            &mut queues.feature_ecs,
+            &mut queues.reset_room_features,
         ),
         PhaseOutcome::Return
     ) {
@@ -136,7 +136,8 @@ pub fn sandbox_update(
             feel,
             frame_dt,
             &queues.feature_ecs_overlay,
-            &mut queues.feature_ecs,
+            &mut queues.reset_room_features,
+            &mut queues.pogo_bounces,
         ),
         PhaseOutcome::Return
     ) {
@@ -154,7 +155,7 @@ pub fn sandbox_update(
             feel,
             frame_dt,
             &queues.feature_ecs_overlay,
-            &mut queues.feature_ecs,
+            &mut queues.reset_room_features,
         ),
         PhaseOutcome::Return
     ) {
@@ -179,15 +180,16 @@ pub fn sandbox_update(
         frame_dt,
         &queues.feature_ecs_overlay,
     );
-    let ecs_feature_events = queues.feature_ecs.drain_events();
-    handle_feature_events(
-        &mut feedback.sfx,
-        &mut feedback.vfx,
-        &mut feedback.debris,
-        &ecs_feature_events,
-        runtime.player.pos,
-    );
-    feature_events.merge(ecs_feature_events);
+    for ecs_feature_event in queues.feature_events.read() {
+        handle_feature_events(
+            &mut feedback.sfx,
+            &mut feedback.vfx,
+            &mut feedback.debris,
+            &ecs_feature_event.0,
+            runtime.player.pos,
+        );
+        feature_events.merge(ecs_feature_event.0.clone());
+    }
 
     // Forward typed gameplay effects into Bevy's message stream. Domain
     // consumers run later in the same Update frame, before boss/quest
@@ -200,12 +202,13 @@ pub fn sandbox_update(
             &mut runtime,
             &mut feedback,
             &feature_events,
+            &mut queues.banner,
             &mut next_mode,
             tuning,
             feel,
             difficulty_multiplier,
             &queues.feature_ecs_overlay,
-            &mut queues.feature_ecs,
+            &mut queues.reset_room_features,
         ),
         PhaseOutcome::Return
     ) {
@@ -242,7 +245,8 @@ pub fn sandbox_update(
         feel,
         frame_dt,
         &queues.feature_ecs_overlay,
-        &mut queues.feature_ecs,
+        &mut queues.damage_events,
+        &mut queues.pogo_bounces,
     );
 
     cleanup_timers_phase(&mut runtime, frame_dt);

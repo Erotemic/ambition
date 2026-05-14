@@ -107,10 +107,11 @@ pub fn update_encounters_from_world(
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    runtime: ResMut<crate::SandboxRuntime>,
     mut world: ResMut<crate::GameWorld>,
     mut music_request: ResMut<EncounterMusicRequest>,
     mut quests: ResMut<crate::quest::QuestRegistry>,
+    mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
     room_set: Res<crate::rooms::RoomSet>,
     encounter_mobs: Query<(
         Entity,
@@ -276,8 +277,10 @@ pub fn update_encounters_from_world(
         // Polish: surface a celebration banner so the player gets
         // explicit "you cleared it" feedback (not just an ambient
         // green switch).
-        runtime.features.banner = format!("ARENA CLEAR — {encounter_id}");
-        runtime.features.banner_timer = 3.0;
+        banner_requests.write(crate::features::GameplayBannerRequested::new(
+            format!("ARENA CLEAR — {encounter_id}"),
+            3.0,
+        ));
         // Quest hook: a "clear encounter" step can advance now.
         quests.push_event(ae::QuestAdvanceEvent::EncounterCleared(
             encounter_id.clone(),

@@ -75,14 +75,15 @@ pub use ecs::{
     spawn_room_feature_entities, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
     sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, update_ecs_actors,
     update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
-    ActorDisposition, ActorRuntime, BossFeature, FeatureEcsQueues, FeatureEcsWorldOverlay,
-    FeatureSimEntity, HazardFeature,
+    ActorDisposition, ActorRuntime, BossFeature, FeatureEcsWorldOverlay,
+    FeatureSimEntity, HazardFeature, tick_gameplay_banner, apply_gameplay_banner_requests,
 };
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{
     DamageEvent, DamageReport, DamageSource, FeatureCombatTuning, FeatureEvents,
-    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind, GameplayEffect,
-    NpcDialogueRequest, PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
+    FeatureEventsMessage, FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind,
+    GameplayBanner, GameplayBannerRequested, GameplayEffect, NpcDialogueRequest, PogoBounceEvent,
+    ResetRoomFeaturesEvent, PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::NpcRuntime;

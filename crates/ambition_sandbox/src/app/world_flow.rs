@@ -363,6 +363,7 @@ pub(super) fn death_respawn_player(
     vfx: &mut Vec<VfxMessage>,
     died: &mut Vec<PlayerDiedMessage>,
     runtime: &mut SandboxRuntime,
+    banner: &mut features::GameplayBanner,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
@@ -372,8 +373,7 @@ pub(super) fn death_respawn_player(
     runtime.player_health.reset();
     runtime.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     runtime.flash_timer = feel.reset_flash_time.max(0.35);
-    runtime.features.banner = "PLAYER DOWN: respawned at room start with full HP".to_string();
-    runtime.features.banner_timer = 2.4;
+    banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
     sfx.push(SfxMessage::Death { pos: from });
     vfx.push(VfxMessage::ResetEffects { from, to });
     died.push(PlayerDiedMessage { pos: from });
@@ -385,6 +385,7 @@ pub(super) fn handle_player_damage_events(
     vfx: &mut Vec<VfxMessage>,
     died: &mut Vec<PlayerDiedMessage>,
     runtime: &mut SandboxRuntime,
+    banner: &mut features::GameplayBanner,
     events: &features::FeatureEvents,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -412,6 +413,7 @@ pub(super) fn handle_player_damage_events(
             vfx,
             died,
             runtime,
+            banner,
             tuning,
             feel,
             damage.impact_pos,
@@ -582,7 +584,8 @@ pub(super) fn advance_attack(
     feel: SandboxFeelTuning,
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-    feature_ecs_queues: &mut features::FeatureEcsQueues,
+    damage_events: &mut MessageWriter<features::DamageEvent>,
+    pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
 ) {
     let Some(mut attack_state) = runtime.player_attack.take() else {
         return;
@@ -629,7 +632,7 @@ pub(super) fn advance_attack(
                 attack_state.pogo_applied = true;
                 pogo_landed = true;
                 sfx.push(SfxMessage::Pogo { pos: player_pos });
-                feature_ecs_queues.pogo_bounces.push((orb_aabb, 1));
+                pogo_bounces.write(features::PogoBounceEvent::new(orb_aabb, 1));
             }
         }
         let slash_damage = runtime.player.damage_multiplier.max(1);
@@ -639,7 +642,7 @@ pub(super) fn advance_attack(
             runtime.player.facing * 300.0
         };
         if first_active_frame {
-            feature_ecs_queues.damage_events.push(features::DamageEvent {
+            damage_events.write(features::DamageEvent {
                 volume: attack,
                 damage: slash_damage,
                 source: features::DamageSource::PlayerSlash { knock_x },

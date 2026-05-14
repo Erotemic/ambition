@@ -12,7 +12,7 @@ use crate::audio::SfxMessage;
 use crate::fx::{ParticleKind, VfxMessage};
 use crate::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::rendering::RoomVisual;
-use bevy::prelude::{Commands, Component, Entity, MessageWriter, NextState, Query, Res, ResMut, Resource, Time, With};
+use bevy::prelude::{Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, Resource, Time, With};
 
 /// Marker for simulation-side feature entities spawned from the active room.
 /// They are deliberately separate from presentation `FeatureVisual` sprites;
@@ -165,29 +165,50 @@ impl ActorRuntime {
     }
 }
 
-/// Per-frame damage/pogo work that still originates inside the legacy
-/// `sandbox_update` loop. Systems after `sandbox_update` drain this into ECS
-/// feature components.
-#[derive(Resource, Default, Debug)]
-pub struct FeatureEcsQueues {
-    pub damage_events: Vec<DamageEvent>,
-    pub pogo_bounces: Vec<(ae::Aabb, i32)>,
-    pub pending_events: FeatureEvents,
-    pub reset_room_features: bool,
-}
-
-impl FeatureEcsQueues {
-    pub fn drain_events(&mut self) -> FeatureEvents {
-        std::mem::take(&mut self.pending_events)
-    }
-}
-
 /// Collision contribution from ECS-owned breakables. Rebuilt before the main
 /// sandbox tick and consumed by `world_with_sandbox_solids` anywhere the engine
 /// needs the augmented collision world.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct FeatureEcsWorldOverlay {
     pub blocks: Vec<ae::Block>,
+}
+
+/// Tick the gameplay banner resource once per frame.
+pub fn tick_gameplay_banner(time: Res<Time>, mut banner: ResMut<GameplayBanner>) {
+    banner.tick(time.delta_secs());
+}
+
+/// Apply deferred banner requests from high-param systems.
+pub fn apply_gameplay_banner_requests(
+    mut banner: ResMut<GameplayBanner>,
+    mut requests: MessageReader<GameplayBannerRequested>,
+) {
+    for request in requests.read() {
+        banner.show(request.text.clone(), request.duration);
+    }
+}
+
+fn write_feature_events_if_nonempty(
+    writer: &mut MessageWriter<FeatureEventsMessage>,
+    events: FeatureEvents,
+) {
+    if events.reset_player
+        || events.consumed_interaction
+        || events.dialogue_request.is_some()
+        || !events.messages.is_empty()
+        || !events.impacts.is_empty()
+        || !events.bursts.is_empty()
+        || !events.physics_bursts.is_empty()
+        || !events.player_damage.is_empty()
+        || events.player_heal != 0
+        || !events.effects.is_empty()
+        || !events.chests_opened.is_empty()
+        || !events.pickups_collected.is_empty()
+        || !events.breakables_destroyed.is_empty()
+        || !events.speech_bubbles.is_empty()
+    {
+        writer.write(FeatureEventsMessage(events));
+    }
 }
 
 /// Spawn ECS-native feature entities for every static feature object in a room.
@@ -577,7 +598,7 @@ fn settled_chest_center(world: &ae::World, start: ae::Vec2, size: ae::Vec2) -> a
 /// Reset ECS-owned static feature state after a same-room sandbox reset.
 pub fn reset_ecs_room_features(
     mut commands: Commands,
-    mut queues: ResMut<FeatureEcsQueues>,
+    mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
     collected_pickups: Query<Entity, (With<FeatureSimEntity>, With<Collected>)>,
     opened_chests: Query<Entity, (With<FeatureSimEntity>, With<Opened>)>,
     mut breakables: Query<(Entity, &mut BreakableFeature, Option<&mut StandTimer>), With<FeatureSimEntity>>,
@@ -586,13 +607,9 @@ pub fn reset_ecs_room_features(
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
     mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
 ) {
-    if !queues.reset_room_features {
+    if reset_requests.read().next().is_none() {
         return;
     }
-    queues.reset_room_features = false;
-    queues.damage_events.clear();
-    queues.pogo_bounces.clear();
-    queues.pending_events = FeatureEvents::default();
 
     for entity in &collected_pickups {
         commands.entity(entity).remove::<Collected>();
@@ -704,6 +721,7 @@ pub fn rebuild_feature_ecs_world_overlay(
 pub fn collect_ecs_pickups(
     mut commands: Commands,
     mut runtime: ResMut<crate::SandboxRuntime>,
+    mut banner: ResMut<GameplayBanner>,
     pickups: Query<(Entity, &FeatureName, &FeatureAabb, &PickupFeature, Option<&Collected>), With<FeatureSimEntity>>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -714,8 +732,7 @@ pub fn collect_ecs_pickups(
             continue;
         }
         commands.entity(entity).insert(Collected);
-        runtime.features.banner = format!("picked up {}", name.0.as_str());
-        runtime.features.banner_timer = 2.6;
+        banner.show(format!("picked up {}", name.0.as_str()), 2.6);
         if let ae::PickupKind::Health { amount } = &pickup.pickup.kind {
             runtime.player_health.heal(*amount);
         }
@@ -741,6 +758,7 @@ pub fn collect_ecs_pickups(
 pub fn open_ecs_chests(
     mut commands: Commands,
     mut runtime: ResMut<crate::SandboxRuntime>,
+    mut banner: ResMut<GameplayBanner>,
     chests: Query<(
         Entity,
         &FeatureId,
@@ -763,8 +781,7 @@ pub fn open_ecs_chests(
         }
         commands.entity(entity).insert(Opened);
         runtime.clear_interact_buffer();
-        runtime.features.banner = format!("opened {}", name.0.as_str());
-        runtime.features.banner_timer = 2.6;
+        banner.show(format!("opened {}", name.0.as_str()), 2.6);
         let pos = aabb.center;
         vfx.write(VfxMessage::Burst {
             pos,
@@ -791,7 +808,8 @@ pub fn open_ecs_chests(
 pub fn update_ecs_breakables(
     mut commands: Commands,
     time: Res<Time>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    runtime: Res<crate::SandboxRuntime>,
+    mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<(
         Entity,
         &FeatureName,
@@ -814,8 +832,7 @@ pub fn update_ecs_breakables(
                     feature.breakable.state = ae::BreakableState::Intact;
                     feature.breakable.health.reset();
                     commands.entity(entity).remove::<RespawnTimer>();
-                    runtime.features.banner = format!("{} respawned", name.0.as_str());
-                    runtime.features.banner_timer = 2.6;
+                    banner.show(format!("{} respawned", name.0.as_str()), 2.6);
                     vfx.write(VfxMessage::Burst {
                         pos: aabb.center,
                         count: 16,
@@ -841,8 +858,7 @@ pub fn update_ecs_breakables(
                 if broke {
                     begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
                     stand_timer.0 = 0.0;
-                    runtime.features.banner = format!("{} collapsed under weight", name.0.as_str());
-                    runtime.features.banner_timer = 2.6;
+                    banner.show(format!("{} collapsed under weight", name.0.as_str()), 2.6);
                     emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
                 }
             }
@@ -855,8 +871,10 @@ pub fn update_ecs_breakables(
 /// Drain queued slash/projectile/pogo damage into ECS breakables.
 pub fn apply_ecs_breakable_damage_queue(
     mut commands: Commands,
-    mut queues: ResMut<FeatureEcsQueues>,
+    mut damage_events: MessageReader<DamageEvent>,
+    mut pogo_bounces: MessageReader<PogoBounceEvent>,
     mut runtime: ResMut<crate::SandboxRuntime>,
+    mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<(Entity, &FeatureId, &FeatureName, &FeatureAabb, &mut BreakableFeature), With<FeatureSimEntity>>,
     mut actors: Query<(&FeatureId, &FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
     mut bosses: Query<(&FeatureId, &FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
@@ -865,10 +883,7 @@ pub fn apply_ecs_breakable_damage_queue(
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
-    let damage_events = std::mem::take(&mut queues.damage_events);
-    let pogo_bounces = std::mem::take(&mut queues.pogo_bounces);
-
-    for event in damage_events {
+    for event in damage_events.read().cloned() {
         let mut actor_hit_this_event = false;
         for (id, aabb, mut actor) in &mut actors {
             let key = match &*actor {
@@ -909,8 +924,7 @@ pub fn apply_ecs_breakable_damage_queue(
                             color: [0.84, 0.95, 1.0, 0.82],
                             kind: ParticleKind::Spark,
                         });
-                        runtime.features.banner = format!("{} turns hostile", npc.name);
-                        runtime.features.banner_timer = 2.6;
+                        banner.show(format!("{} turns hostile", npc.name), 2.6);
                         *actor = ActorRuntime::Hostile(hostile);
                     } else {
                         vfx.write(VfxMessage::SpeechBubble {
@@ -940,9 +954,9 @@ pub fn apply_ecs_breakable_damage_queue(
                         enemy.alive = false;
                         if enemy.archetype == EnemyArchetype::FiniteSandbag {
                             enemy.respawn_timer = 0.85;
-                            runtime.features.banner = format!("{} dropped; respawning", enemy.name);
+                            banner.show(format!("{} dropped; respawning", enemy.name), 2.6);
                         } else {
-                            runtime.features.banner = format!("defeated {}", enemy.name);
+                            banner.show(format!("defeated {}", enemy.name), 2.6);
                             if !enemy.id.starts_with("encounter:")
                                 && enemy.archetype != EnemyArchetype::InfiniteSandbag
                                 && enemy.archetype != EnemyArchetype::FiniteSandbag
@@ -953,7 +967,6 @@ pub fn apply_ecs_breakable_damage_queue(
                                 });
                             }
                         }
-                        runtime.features.banner_timer = 2.6;
                         vfx.write(VfxMessage::Burst {
                             pos: enemy.pos,
                             count: 16,
@@ -992,8 +1005,7 @@ pub fn apply_ecs_breakable_damage_queue(
             boss_hit_this_event = true;
             if killed {
                 boss.alive = false;
-                runtime.features.banner = format!("defeated boss {}", boss.name);
-                runtime.features.banner_timer = 2.6;
+                banner.show(format!("defeated boss {}", boss.name), 2.6);
                 vfx.write(VfxMessage::Burst {
                     pos: boss.pos,
                     count: 16,
@@ -1033,14 +1045,15 @@ pub fn apply_ecs_breakable_damage_queue(
             vfx.write(VfxMessage::Impact { pos: midpoint(event.volume.center(), aabb.center) });
             if broke {
                 begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
-                runtime.features.banner = format!("broke {}", name.0.as_str());
-                runtime.features.banner_timer = 2.6;
+                banner.show(format!("broke {}", name.0.as_str()), 2.6);
                 emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
             }
         }
     }
 
-    for (orb_aabb, damage) in pogo_bounces {
+    for event in pogo_bounces.read() {
+        let orb_aabb = event.orb_aabb;
+        let damage = event.damage;
         for (entity, _id, name, aabb, mut feature) in &mut breakables {
             if feature.broken() || !feature.breakable.pogo_refresh {
                 continue;
@@ -1052,8 +1065,7 @@ pub fn apply_ecs_breakable_damage_queue(
             vfx.write(VfxMessage::Impact { pos: aabb.center });
             if broke {
                 begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
-                runtime.features.banner = format!("shattered {}", name.0.as_str());
-                runtime.features.banner_timer = 2.6;
+                banner.show(format!("shattered {}", name.0.as_str()), 2.6);
                 emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
             }
         }
@@ -1061,12 +1073,11 @@ pub fn apply_ecs_breakable_damage_queue(
 }
 
 
-/// Tick ECS-authored hazards and queue player damage through the same feature
-/// event bridge used by the legacy runtime phase.
+/// Tick ECS-authored hazards and publish player damage through Bevy messages.
 pub fn update_ecs_hazards(
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
-    mut queues: ResMut<FeatureEcsQueues>,
+    mut feature_events: MessageWriter<FeatureEventsMessage>,
     mut hazards: Query<(&FeatureName, &mut FeatureAabb, &mut HazardFeature), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
@@ -1084,13 +1095,11 @@ pub fn update_ecs_hazards(
             PlayerDamageMode::SafeRespawn => "forced a safe respawn",
             PlayerDamageMode::Knockback => "knocked the player back",
         };
-        queues
-            .pending_events
-            .messages
-            .push(format!("{} {}", name.0.as_str(), verb));
-        queues.pending_events.impacts.push(runtime.player.pos);
+        let mut events = FeatureEvents::default();
+        events.messages.push(format!("{} {}", name.0.as_str(), verb));
+        events.impacts.push(runtime.player.pos);
         let knockback_dir = (runtime.player.pos.x - hazard.pos.x).signum();
-        queues.pending_events.player_damage.push(PlayerDamageEvent {
+        events.player_damage.push(PlayerDamageEvent {
             mode: hazard.mode,
             source: PlayerDamageSource::Hazard,
             source_pos: hazard.pos,
@@ -1099,20 +1108,19 @@ pub fn update_ecs_hazards(
             strength: 1.0,
             amount: hazard.volume.damage.amount.max(1),
         });
-        queues
-            .pending_events
-            .play_sfx(hazard_sfx_id(&hazard.name), runtime.player.pos);
+        events.play_sfx(hazard_sfx_id(&hazard.name), runtime.player.pos);
+        write_feature_events_if_nonempty(&mut feature_events, events);
     }
 }
 
-/// Tick ECS-authored bosses and queue any player damage they produce.
+/// Tick ECS-authored bosses and publish player damage through Bevy messages.
 pub fn update_ecs_bosses(
     time: Res<Time>,
     world: Res<crate::GameWorld>,
     runtime: Res<crate::SandboxRuntime>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
-    mut queues: ResMut<FeatureEcsQueues>,
+    mut feature_events: MessageWriter<FeatureEventsMessage>,
     mut bosses: Query<(&mut FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
@@ -1132,15 +1140,12 @@ pub fn update_ecs_bosses(
         aabb.half_size = boss.render_size() * 0.5;
         if player_vulnerable && boss.alive {
             if let Some(damage) = boss.player_damage(player_body) {
-                queues
-                    .pending_events
-                    .messages
-                    .push(format!("{} pattern hit the player", boss.name));
-                queues
-                    .pending_events
-                    .play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
-                queues.pending_events.impacts.push(damage.impact_pos);
-                queues.pending_events.player_damage.push(damage);
+                let mut events = FeatureEvents::default();
+                events.messages.push(format!("{} pattern hit the player", boss.name));
+                events.play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
+                events.impacts.push(damage.impact_pos);
+                events.player_damage.push(damage);
+                write_feature_events_if_nonempty(&mut feature_events, events);
             }
         }
     }
@@ -1156,7 +1161,7 @@ pub fn update_ecs_actors(
     runtime: Res<crate::SandboxRuntime>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
-    mut queues: ResMut<FeatureEcsQueues>,
+    mut feature_events: MessageWriter<FeatureEventsMessage>,
     mut actors: Query<(&mut FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
@@ -1182,15 +1187,12 @@ pub fn update_ecs_actors(
                 aabb.half_size = enemy.size * 0.5;
                 if player_vulnerable && enemy.alive {
                     if let Some(damage) = enemy.player_damage(player_body) {
-                        queues
-                            .pending_events
-                            .messages
-                            .push(format!("{} hit the player", enemy.name));
-                        queues.pending_events.impacts.push(damage.impact_pos);
-                        queues
-                            .pending_events
-                            .play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
-                        queues.pending_events.player_damage.push(damage);
+                        let mut events = FeatureEvents::default();
+                        events.messages.push(format!("{} hit the player", enemy.name));
+                        events.impacts.push(damage.impact_pos);
+                        events.play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
+                        events.player_damage.push(damage);
+                        write_feature_events_if_nonempty(&mut feature_events, events);
                     }
                 }
             }
@@ -1203,6 +1205,7 @@ pub fn update_ecs_actors(
 pub fn interact_ecs_actors_and_switches(
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut next_mode: ResMut<NextState<crate::GameMode>>,
+    mut banner: ResMut<GameplayBanner>,
     actors: Query<(&FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
     mut switches: Query<(&FeatureId, &FeatureName, &FeatureAabb, &SwitchFeature, &mut SwitchOn), With<FeatureSimEntity>>,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
@@ -1220,8 +1223,7 @@ pub fn interact_ecs_actors_and_switches(
             continue;
         }
         runtime.clear_interact_buffer();
-        runtime.features.banner = npc.message();
-        runtime.features.banner_timer = 2.6;
+        banner.show(npc.message(), 2.6);
         let request = npc.dialogue_request();
         runtime.dialogue.start(&request.dialogue_id, &request.npc_name);
         next_mode.set(crate::GameMode::Dialogue);
@@ -1243,8 +1245,7 @@ pub fn interact_ecs_actors_and_switches(
             continue;
         }
         runtime.clear_interact_buffer();
-        runtime.features.banner = format!("activated {}", name.0.as_str());
-        runtime.features.banner_timer = 2.6;
+        banner.show(format!("activated {}", name.0.as_str()), 2.6);
         on.0 = true;
         gameplay_effects.write(GameplayEffect::ActivateSwitch {
             payload: switch.payload.clone(),
@@ -1335,7 +1336,7 @@ pub fn sync_ecs_switches_from_save(
 
 /// Read-only hit test used by systems that need immediate projectile / attack
 /// feedback while damage application is still drained through
-/// `FeatureEcsQueues`.
+/// typed Bevy messages.
 pub fn ecs_damage_event_hits_breakable(
     event: &DamageEvent,
     breakables: &Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,

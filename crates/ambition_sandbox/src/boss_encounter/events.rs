@@ -7,7 +7,7 @@ pub(super) fn publish_events(
     events: &[ae::BossEncounterEvent],
     music_request: &mut crate::encounter::EncounterMusicRequest,
     cutscene_queue: &mut CutsceneTriggerQueue,
-    features: &mut crate::features::FeatureRuntime,
+    banner: &mut crate::features::GameplayBanner,
 ) {
     for event in events {
         match event {
@@ -15,7 +15,7 @@ pub(super) fn publish_events(
                 if matches!(to, ae::BossEncounterPhase::Intro) {
                     cutscene_queue.request(format!("boss_intro_{encounter_id}"));
                 }
-                features.banner = match to {
+                let text = match to {
                     ae::BossEncounterPhase::Intro => format!("BOSS APPROACHES — {encounter_id}"),
                     ae::BossEncounterPhase::Phase1 => "PHASE 1".to_string(),
                     ae::BossEncounterPhase::Transition => "...".to_string(),
@@ -25,7 +25,7 @@ pub(super) fn publish_events(
                     ae::BossEncounterPhase::Death => "DEFEATED".to_string(),
                     ae::BossEncounterPhase::Dormant => String::new(),
                 };
-                features.banner_timer = 1.4;
+                banner.show(text, 1.4);
             }
             ae::BossEncounterEvent::MusicRequested { track } => {
                 if !track.is_empty() {
@@ -35,8 +35,7 @@ pub(super) fn publish_events(
             ae::BossEncounterEvent::DamageApplied { .. } => {}
             ae::BossEncounterEvent::Defeated => {
                 // Death cutscene swap could go here in a richer build.
-                features.banner = format!("VICTORY: {encounter_id}");
-                features.banner_timer = 2.5;
+                banner.show(format!("VICTORY: {encounter_id}"), 2.5);
             }
         }
     }

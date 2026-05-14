@@ -43,7 +43,7 @@ pub fn update_boss_encounters(
     mut commands: Commands,
     time: Res<Time>,
     mut registry: ResMut<BossEncounterRegistry>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut banner: ResMut<crate::features::GameplayBanner>,
     mut save: ResMut<crate::save::SandboxSave>,
     mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
     mut quests: ResMut<QuestRegistry>,
@@ -109,7 +109,7 @@ pub fn update_boss_encounters(
                     &evs,
                     &mut music_request,
                     &mut cutscene_queue,
-                    &mut runtime.features,
+                    &mut banner,
                 );
             }
         }
@@ -135,7 +135,7 @@ pub fn update_boss_encounters(
             &evs,
             &mut music_request,
             &mut cutscene_queue,
-            &mut runtime.features,
+            &mut banner,
         );
     }
 

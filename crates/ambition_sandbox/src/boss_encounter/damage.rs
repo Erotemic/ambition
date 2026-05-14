@@ -8,7 +8,7 @@ pub fn record_boss_damage(
     registry: &mut BossEncounterRegistry,
     music_request: &mut crate::encounter::EncounterMusicRequest,
     cutscene_queue: &mut CutsceneTriggerQueue,
-    features: &mut crate::features::FeatureRuntime,
+    banner: &mut crate::features::GameplayBanner,
     boss_runtime_id: &str,
     damage: i32,
 ) {
@@ -24,5 +24,5 @@ pub fn record_boss_damage(
         return;
     };
     let evs = state.apply_player_damage(damage);
-    publish_events(&id, &evs, music_request, cutscene_queue, features);
+    publish_events(&id, &evs, music_request, cutscene_queue, banner);
 }

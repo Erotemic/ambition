@@ -87,10 +87,10 @@ pub fn apply_switch_effects(
 /// Boss damage routes through the boss encounter machine.
 pub fn apply_boss_damage_effects(
     mut effects: MessageReader<GameplayEffect>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
     mut boss_registry: ResMut<crate::boss_encounter::BossEncounterRegistry>,
     mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
     mut cutscene_queue: ResMut<crate::cutscene::CutsceneTriggerQueue>,
+    mut banner: ResMut<crate::features::GameplayBanner>,
 ) {
     for effect in effects.read() {
         if let GameplayEffect::DamageBoss { boss_id, amount } = effect {
@@ -98,7 +98,7 @@ pub fn apply_boss_damage_effects(
                 &mut boss_registry,
                 &mut music_request,
                 &mut cutscene_queue,
-                &mut runtime.features,
+                &mut banner,
                 boss_id,
                 *amount,
             );

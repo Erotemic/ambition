@@ -37,6 +37,11 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_message::<DebrisBurstMessage>()
         .add_message::<PlayerDiedMessage>()
         .add_message::<crate::features::GameplayEffect>()
+        .add_message::<crate::features::FeatureEventsMessage>()
+        .add_message::<crate::features::DamageEvent>()
+        .add_message::<crate::features::PogoBounceEvent>()
+        .add_message::<crate::features::ResetRoomFeaturesEvent>()
+        .add_message::<crate::features::GameplayBannerRequested>()
         .register_type::<GameMode>()
         // StartupProfiler captures wall-clock at each marked phase so a
         // PostStartup report prints "where did the first frame's
@@ -45,7 +50,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         // `docs/profiling.md` for Tracy / per-system profiling.
         .insert_resource(crate::profiling::StartupProfiler::default())
         .insert_resource(crate::trace::GameplayTraceBuffer::default())
-        .insert_resource(crate::features::FeatureEcsQueues::default())
+        .insert_resource(crate::features::GameplayBanner::default())
         .insert_resource(crate::features::FeatureEcsWorldOverlay::default())
         .insert_resource(crate::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
@@ -123,9 +128,13 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,
                 crate::features::apply_ecs_breakable_damage_queue,
-                crate::features::collect_ecs_pickups,
             )
                 .chain(),
+        )
+        .add_systems(
+            Update,
+            crate::features::collect_ecs_pickups
+                .after(crate::features::apply_ecs_breakable_damage_queue),
         )
         .add_systems(
             Update,
@@ -159,6 +168,8 @@ pub fn add_simulation_plugins(app: &mut App) {
                 platforms::sync_moving_platform,
                 crate::encounter::update_encounters_from_world,
                 crate::encounter::sync_encounter_controller_states,
+                crate::features::apply_gameplay_banner_requests,
+                crate::features::tick_gameplay_banner,
             )
                 .chain()
                 .after(ldtk_world::check_ldtk_runtime_spine_parity),

@@ -105,7 +105,7 @@ pub(super) fn reset_phase(
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
-    feature_ecs_queues: &mut features::FeatureEcsQueues,
+    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
 ) -> PhaseOutcome {
     if controls.reset_pressed {
         reset_sandbox(
@@ -116,7 +116,7 @@ pub(super) fn reset_phase(
             tuning,
             feel,
         );
-        feature_ecs_queues.reset_room_features = true;
+        reset_room_features.write(features::ResetRoomFeaturesEvent);
         return PhaseOutcome::Return;
     }
     PhaseOutcome::Continue
@@ -141,7 +141,8 @@ pub(super) fn player_control_phase(
     feel: SandboxFeelTuning,
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-    feature_ecs_queues: &mut features::FeatureEcsQueues,
+    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
+    pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
 ) -> PhaseOutcome {
     // Two-clock update:
     // - control_dt is real time for responsive inputs and precision-blink aim;
@@ -166,7 +167,7 @@ pub(super) fn player_control_phase(
             tuning,
             feel,
         );
-        feature_ecs_queues.reset_room_features = true;
+        reset_room_features.write(features::ResetRoomFeaturesEvent);
         return PhaseOutcome::Return;
     }
     // Damage breakable pogo orbs the player just bounced off. The
@@ -174,7 +175,7 @@ pub(super) fn player_control_phase(
     // breakables flagged `pogo_refresh` and routes hit/break events
     // through the standard feature pipeline.
     for &orb_aabb in &control_events.pogo_hits {
-        feature_ecs_queues.pogo_bounces.push((orb_aabb, 1));
+        pogo_bounces.write(features::PogoBounceEvent::new(orb_aabb, 1));
     }
     handle_player_events(
         &mut feedback.sfx,
@@ -206,7 +207,7 @@ pub(super) fn player_simulation_phase(
     feel: SandboxFeelTuning,
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-    feature_ecs_queues: &mut features::FeatureEcsQueues,
+    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
 ) -> PhaseOutcome {
     let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
@@ -275,7 +276,7 @@ pub(super) fn player_simulation_phase(
             tuning,
             feel,
         );
-        feature_ecs_queues.reset_room_features = true;
+        reset_room_features.write(features::ResetRoomFeaturesEvent);
         return PhaseOutcome::Return;
     }
     handle_player_events(
@@ -383,12 +384,13 @@ pub(super) fn damage_heal_dialogue_phase(
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     feature_events: &features::FeatureEvents,
+    banner: &mut features::GameplayBanner,
     next_mode: &mut NextState<GameMode>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-    feature_ecs_queues: &mut features::FeatureEcsQueues,
+    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
 ) -> PhaseOutcome {
     let feature_damaged_player = !feature_events.player_damage.is_empty();
     let feature_interaction_consumed = feature_events.consumed_interaction;
@@ -399,6 +401,7 @@ pub(super) fn damage_heal_dialogue_phase(
         &mut feedback.vfx,
         &mut feedback.died,
         runtime,
+        banner,
         feature_events,
         tuning,
         feel,
@@ -441,7 +444,7 @@ pub(super) fn damage_heal_dialogue_phase(
             tuning,
             feel,
         );
-        feature_ecs_queues.reset_room_features = true;
+        reset_room_features.write(features::ResetRoomFeaturesEvent);
         return PhaseOutcome::Return;
     }
     PhaseOutcome::Continue
@@ -530,7 +533,8 @@ pub(super) fn attack_phase(
     feel: SandboxFeelTuning,
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-    feature_ecs_queues: &mut features::FeatureEcsQueues,
+    damage_events: &mut MessageWriter<features::DamageEvent>,
+    pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
 ) {
     if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
         start_attack(&mut feedback.sfx, &mut feedback.vfx, runtime, *controls);
@@ -544,7 +548,8 @@ pub(super) fn attack_phase(
         feel,
         frame_dt,
         feature_ecs_overlay,
-        feature_ecs_queues,
+        damage_events,
+        pogo_bounces,
     );
 }
 

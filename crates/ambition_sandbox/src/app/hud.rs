@@ -132,8 +132,8 @@ pub(super) fn update_hud(
             format!("zones: {}", hints.join(" | "))
         }
     };
-    let feature_banner = if runtime.features.banner_timer > 0.0 {
-        format!("\nFEATURE: {}", runtime.features.banner)
+    let feature_banner = if progression.banner.visible() {
+        format!("\nFEATURE: {}", progression.banner.text)
     } else {
         String::new()
     };

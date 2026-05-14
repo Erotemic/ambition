@@ -50,9 +50,13 @@ pub struct SandboxEventWriters<'w> {
 /// `SandboxEventWriters`) here when they grow naturally; resist the urge to
 /// thread them through the system signature directly.
 #[derive(SystemParam)]
-pub struct SandboxQueues<'w> {
+pub struct SandboxQueues<'w, 's> {
     pub gameplay_effects: MessageWriter<'w, crate::features::GameplayEffect>,
-    pub feature_ecs: ResMut<'w, crate::features::FeatureEcsQueues>,
+    pub feature_events: MessageReader<'w, 's, crate::features::FeatureEventsMessage>,
+    pub damage_events: MessageWriter<'w, crate::features::DamageEvent>,
+    pub pogo_bounces: MessageWriter<'w, crate::features::PogoBounceEvent>,
+    pub reset_room_features: MessageWriter<'w, crate::features::ResetRoomFeaturesEvent>,
+    pub banner: ResMut<'w, crate::features::GameplayBanner>,
     pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
 }
 
@@ -74,6 +78,7 @@ pub struct ProgressionResources<'w> {
     pub bosses: Res<'w, crate::boss_encounter::BossEncounterRegistry>,
     pub encounters: Res<'w, crate::encounter::EncounterRegistry>,
     pub map: Res<'w, crate::map_menu::MapMenuState>,
+    pub banner: Res<'w, crate::features::GameplayBanner>,
 }
 
 /// Per-frame Vec collectors for the sim → presentation event channels.

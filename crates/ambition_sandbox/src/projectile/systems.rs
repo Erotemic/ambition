@@ -1,5 +1,5 @@
 //! The Bevy gameplay system that ticks projectiles, samples motion
-//! input, and routes hits through legacy `FeatureRuntime` plus ECS feature queues.
+//! input, and routes hits through ECS-native feature damage messages.
 
 use ambition_engine as ae;
 use ambition_engine::AabbExt;
@@ -10,7 +10,7 @@ use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent
 use crate::audio::SfxMessage;
 use crate::features::{
     ActorRuntime, BossFeature, BreakableFeature, DamageEvent, DamageSource, FeatureAabb,
-    FeatureEcsQueues, FeatureId, FeatureSimEntity,
+    FeatureId, FeatureSimEntity,
 };
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
@@ -25,7 +25,7 @@ pub fn update_projectiles(
     user_settings: Res<crate::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
-    mut feature_ecs_queues: ResMut<FeatureEcsQueues>,
+    mut feature_damage: MessageWriter<DamageEvent>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
     ecs_actors: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
     ecs_bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
@@ -78,7 +78,7 @@ pub fn update_projectiles(
             &damage_event,
             &ecs_bosses,
         );
-        feature_ecs_queues.damage_events.push(damage_event.clone());
+        feature_damage.write(damage_event.clone());
         if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
             sfx.write(SfxMessage::Hit { pos: p.body.pos });
             events.push(ProjectileTraceEvent::Hit {

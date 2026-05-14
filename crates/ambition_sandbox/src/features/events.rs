@@ -178,6 +178,89 @@ pub struct FeatureEvents {
     pub speech_bubbles: Vec<FeatureSpeechBubble>,
 }
 
+
+/// Bevy-native transport for feature event batches produced by ECS systems.
+///
+/// This replaces the old `FeatureEcsQueues.pending_events` bridge. Systems
+/// should emit this message when they need the central sandbox damage/heal/
+/// dialogue/reset handling path to consume a `FeatureEvents` bundle.
+#[derive(Message, Clone, Debug)]
+pub struct FeatureEventsMessage(pub FeatureEvents);
+
+/// Reset request for ECS-owned room features.
+///
+/// This replaces `FeatureEcsQueues.reset_room_features`; same-room resets and
+/// full sandbox resets emit this once, and `reset_ecs_room_features` consumes it
+/// through Bevy's message stream.
+#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ResetRoomFeaturesEvent;
+
+/// Pogo hit against an ECS-owned breakable/rebound target.
+///
+/// The engine reports the orb AABB immediately during player motion; the ECS
+/// breakable damage system resolves the actual target after the main sim tick.
+#[derive(Message, Clone, Copy, Debug, PartialEq)]
+pub struct PogoBounceEvent {
+    pub orb_aabb: ae::Aabb,
+    pub damage: i32,
+}
+
+impl PogoBounceEvent {
+    pub fn new(orb_aabb: ae::Aabb, damage: i32) -> Self {
+        Self { orb_aabb, damage }
+    }
+}
+
+/// Runtime HUD banner state.
+///
+/// This resource replaces `FeatureRuntime.banner` / `banner_timer` so transient
+/// UI feedback no longer pins the old feature runtime inside `SandboxRuntime`.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct GameplayBanner {
+    pub text: String,
+    pub timer: f32,
+}
+
+impl GameplayBanner {
+    pub fn show(&mut self, text: impl Into<String>, duration: f32) {
+        self.text = text.into();
+        self.timer = duration.max(0.0);
+    }
+
+    pub fn clear(&mut self) {
+        self.text.clear();
+        self.timer = 0.0;
+    }
+
+    pub fn visible(&self) -> bool {
+        self.timer > 0.0 && !self.text.is_empty()
+    }
+
+    pub fn tick(&mut self, dt: f32) {
+        self.timer = (self.timer - dt).max(0.0);
+        if self.timer <= 0.0 {
+            self.text.clear();
+        }
+    }
+}
+
+/// Message form for systems that cannot cheaply acquire `ResMut<GameplayBanner>`
+/// without bloating an already-large system signature.
+#[derive(Message, Clone, Debug, PartialEq)]
+pub struct GameplayBannerRequested {
+    pub text: String,
+    pub duration: f32,
+}
+
+impl GameplayBannerRequested {
+    pub fn new(text: impl Into<String>, duration: f32) -> Self {
+        Self {
+            text: text.into(),
+            duration,
+        }
+    }
+}
+
 impl FeatureEvents {
     pub fn merge(&mut self, mut other: Self) {
         self.reset_player |= other.reset_player;
@@ -295,7 +378,7 @@ pub enum DamageSource {
 /// resolves them across all target collections in a single pass and
 /// returns a `DamageReport` so the caller can decide what to do with
 /// the source (despawn projectile, reduce durability, …).
-#[derive(Clone, Debug)]
+#[derive(Message, Clone, Debug)]
 pub struct DamageEvent {
     pub volume: ae::Aabb,
     pub damage: i32,

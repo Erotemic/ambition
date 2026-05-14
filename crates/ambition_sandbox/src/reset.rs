@@ -98,6 +98,7 @@ pub fn process_sandbox_reset_request(
     tuning: Res<crate::dev_tools::EditableMovementTuning>,
     assets: Option<Res<GameAssets>>,
     mut commands: Commands,
+    mut banner: ResMut<crate::features::GameplayBanner>,
     encounter_controllers: Query<Entity, With<EncounterController>>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
 ) {
@@ -181,8 +182,7 @@ pub fn process_sandbox_reset_request(
     // 8. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used
     //    for "ARENA CLEAR" etc.
-    runtime.features.banner = "SANDBOX RESET".into();
-    runtime.features.banner_timer = 3.0;
+    banner.show("SANDBOX RESET", 3.0);
 }
 
 #[cfg(test)]
@@ -236,6 +236,7 @@ mod tests {
         app.insert_resource(BossEncounterRegistry::default());
         app.insert_resource(QuestRegistry::default());
         app.insert_resource(EncounterMusicRequest::default());
+        app.insert_resource(crate::features::GameplayBanner::default());
         let runtime = SandboxRuntime::new(
             &world,
             ae::AbilitySet::sandbox_all(),
@@ -334,8 +335,7 @@ mod tests {
         let quest = app.world().resource::<QuestRegistry>();
         assert!(!quest.initialized);
         // Banner surfaces the action so the player can see it.
-        let runtime = app.world().resource::<SandboxRuntime>();
-        assert_eq!(runtime.features.banner, "SANDBOX RESET");
+        assert_eq!(app.world().resource::<crate::features::GameplayBanner>().text, "SANDBOX RESET");
         // Request consumed.
         let req = app.world().resource::<SandboxResetRequested>();
         assert!(!req.request);

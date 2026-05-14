@@ -23,51 +23,6 @@ Use seldom_state more as the per-entity state machine wheel.
 Use bevy_ecs_ldtk more directly for authored entities/components.
 ```
 
-## Terms and mental model
-
-### Why this is called a bus
-
-A hardware bus is a shared communication path between components. A software event bus borrows that idea: instead of every system directly calling every other system, producers publish typed information to a shared channel and consumers subscribe/read from it.
-
-```text
-Hardware:
-CPU / RAM / devices -> shared electrical/protocol bus
-
-Software:
-player / enemies / rooms -> typed event/message stream -> UI / audio / quests / analytics / traces
-```
-
-The analogy is architectural, not electrical. A direct wire/direct call is usually faster and more explicit, but harder to extend when many independent systems need to react. A bus adds indirection and some real work, but reduces coupling.
-
-### Direct call vs bus/event/message
-
-Use direct calls when the relationship is simple, hot, and stable:
-
-```text
-movement system mutates player velocity
-combat system reduces health
-collision code resolves a sweep
-```
-
-Use messages/events when the relationship is semantic, fan-out oriented, and likely to grow:
-
-```text
-PlayerDied
-SfxRequested
-VfxRequested
-DoorOpened
-QuestAdvanced
-BossPhaseChanged
-RoomTransitionStarted
-```
-
-The useful rule of thumb:
-
-```text
-direct call = faster, simpler, tighter coupling
-bus/message = slightly more overhead, easier extension, looser coupling
-```
-
 ## What Rust and Bevy can optimize away
 
 Rust can usually optimize much of the wrapper/abstraction overhead:

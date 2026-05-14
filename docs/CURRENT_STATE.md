@@ -362,17 +362,17 @@ authored enemies and runtime-converted hostiles.
 
 The evaluator is *observed*, not yet *authoritative*: `EnemyRuntime`
 and `BossRuntime` build a snapshot and stash the resulting mode
-for HUD/debug, but movement / attack branches still read the old
-timer fields directly. Migrating those branches over is a
-deliberate follow-up — see `docs/character_ai_refactor.md` for the
-target shape and the two-step plan (parity-test refactor first,
-then data-table per-brain knobs).
+for HUD/debug, and sandbox enemies now consume the engine `CharacterAiOutput`
+for coarse hold / patrol / chase / attack intent. Archetype-specific speeds,
+contact damage, and collision remain sandbox-side tuning; bosses are still a
+separate follow-up. See `docs/character_ai_refactor.md` for the remaining
+data-table per-brain work.
 
 ## LDtk roadmap step 1 (Solid promotion, partial)
 
 Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities.
 
-The first runtime-spine / room-projection categories are now promoted in stages. Collision-heavy entities (`Solid`, `OneWayPlatform`, `DamageVolume`) have typed spine indices plus JSON-adapter parity checks before they become collision authority. `CameraZone` and `KinematicPath` are promoted in the room projection: authored camera zones land in `RoomSpec::camera_zones`, and LDtk `KinematicPath` entities land in `RoomSpec::kinematic_paths` while still mirroring through `ae::World::objects` for older consumers; moving platforms, NPC patrols, and enemy patrols can now consume the typed path index via `path_id`. The raw-LDtk-vs-runtime debug overlay remains the verification gate before retiring JSON adapter arms.
+The first runtime-spine / room-projection categories are now promoted in stages. Collision-heavy entities (`Solid`, `OneWayPlatform`, `DamageVolume`) have typed spine indices plus JSON-adapter parity checks before they become collision authority. `CameraZone` and `KinematicPath` are promoted in the room projection: authored camera zones land in `RoomSpec::camera_zones`, and LDtk `KinematicPath` entities land in `RoomSpec::kinematic_paths` while still mirroring through `ae::World::objects` for older consumers; moving platforms, NPC patrols, enemy patrols, and moving hazards can now consume the typed path index via `path_id`. The raw-LDtk-vs-runtime debug overlay remains the verification gate before retiring JSON adapter arms.
 
 ## Gameplay flight recorder + Tier-1 mechanic primitives
 

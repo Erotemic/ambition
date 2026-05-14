@@ -546,4 +546,77 @@ mod conversion_tests {
                 < EnemyArchetype::LargeBrute.patrol_speed()
         );
     }
+
+    fn enemy_test_world() -> ae::World {
+        ae::World::new(
+            String::from("enemy_ai_test"),
+            ae::Vec2::new(800.0, 600.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![ae::Block::solid(
+                String::from("floor"),
+                ae::Vec2::new(0.0, 560.0),
+                ae::Vec2::new(800.0, 40.0),
+            )],
+        )
+    }
+
+    fn enemy_object(id: &str, pos: ae::Vec2) -> ae::RoomObject {
+        let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
+        ae::RoomObject::new(
+            id.to_string(),
+            id.to_string(),
+            aabb,
+            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom("small_skitter".into())),
+        )
+    }
+
+    #[test]
+    fn enemy_ai_output_drives_chase_motion() {
+        let world = enemy_test_world();
+        let object = enemy_object("skitter", ae::Vec2::new(100.0, 536.0));
+        let mut enemy = EnemyRuntime::new(
+            &object,
+            ae::EnemyBrain::Custom("small_skitter".into()),
+            &[],
+        );
+        // Newly spawned enemies carry a short spawn grace cooldown.
+        // Clear it here so this test isolates the CharacterAI Chase
+        // decision rather than the recovery/spawn-grace state.
+        enemy.attack_cooldown = 0.0;
+        let mut player = ae::Player::new(ae::Vec2::new(240.0, 536.0));
+        player.size = ae::Vec2::new(28.0, 46.0);
+        enemy.update(&world, &player, FeatureCombatTuning::default(), 0.05);
+        assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Chase);
+        assert!(enemy.vel.x > 0.0, "CharacterAI Chase intent should drive rightward motion");
+    }
+
+    #[test]
+    fn path_enemy_holds_patrol_and_starts_attack_from_character_ai_output() {
+        let world = enemy_test_world();
+        let object = enemy_object("path_skitter", ae::Vec2::new(100.0, 536.0));
+        let path = ae::KinematicPath {
+            points: vec![ae::Vec2::new(100.0, 536.0), ae::Vec2::new(260.0, 536.0)],
+            speed: 120.0,
+            mode: ae::KinematicPathMode::PingPong,
+            start_offset_seconds: 0.0,
+        };
+        let paths = vec![("skitter_path".to_string(), path)];
+        let mut enemy = EnemyRuntime::new(
+            &object,
+            ae::EnemyBrain::Patrol {
+                path_id: Some("skitter_path".into()),
+            },
+            &paths,
+        );
+        // Clear the spawn grace cooldown so the path enemy can enter
+        // Telegraph immediately when the player is already in range.
+        enemy.attack_cooldown = 0.0;
+        let mut player = ae::Player::new(ae::Vec2::new(130.0, 536.0));
+        player.size = ae::Vec2::new(28.0, 46.0);
+        enemy.update(&world, &player, FeatureCombatTuning::default(), 0.10);
+        assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Telegraph);
+        assert!(enemy.attack_windup_timer > 0.0);
+        assert_eq!(enemy.pos, ae::Vec2::new(100.0, 536.0), "path patrol must hold when CharacterAI requests an attack");
+    }
+
 }

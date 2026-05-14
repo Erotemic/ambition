@@ -49,7 +49,10 @@ pub use boss_patterns::{
     ActiveBossBeat, ArenaAnchor, BossAttackKind, BossBeatPhase, BossMovementKind,
     BossPatternSchedule, BossPatternStep,
 };
-pub use character_ai::{evaluate_character_ai, CharacterAiMode, CharacterAiSnapshot};
+pub use character_ai::{
+    evaluate_character_ai, evaluate_character_ai_output, CharacterAiIntent, CharacterAiMode,
+    CharacterAiOutput, CharacterAiSnapshot,
+};
 pub use combat::{
     attack_hitbox, attack_spec, player_slash_hitbox, resolve_attack_intent, slash_hitbox,
     AttackIntent, AttackPhase, AttackSpec, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,

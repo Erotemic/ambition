@@ -267,8 +267,9 @@ until parity holds across boot, hot reload, and every active area.
 `CameraZone` entities land in `RoomSpec::camera_zones`, and LDtk
 `KinematicPath` entities land in `RoomSpec::kinematic_paths` while also being
 mirrored through `ae::World::objects` for older feature consumers. Moving
-platforms, NPC patrols, and enemy patrols can now consume the typed path index
-via `path_id`; new systems should prefer the typed `RoomSpec` fields. See
+platforms, NPC patrols, enemy patrols, and moving hazards can now consume the
+typed path index via `path_id`; new systems should prefer the typed `RoomSpec`
+fields. See
 `docs/ldtk_runtime_spine.md`.
 
 ## Settings / input architecture

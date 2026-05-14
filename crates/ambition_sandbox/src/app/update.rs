@@ -66,7 +66,6 @@ pub fn sandbox_update(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
-    let gameplay_effects = &mut queues.gameplay_effects;
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
@@ -118,7 +117,8 @@ pub fn sandbox_update(
             &mut runtime,
             &mut feedback,
             tuning,
-            feel
+            feel,
+            &mut queues.feature_ecs,
         ),
         PhaseOutcome::Return
     ) {
@@ -135,6 +135,8 @@ pub fn sandbox_update(
             tuning,
             feel,
             frame_dt,
+            &queues.feature_ecs_overlay,
+            &mut queues.feature_ecs,
         ),
         PhaseOutcome::Return
     ) {
@@ -151,6 +153,8 @@ pub fn sandbox_update(
             tuning,
             feel,
             frame_dt,
+            &queues.feature_ecs_overlay,
+            &mut queues.feature_ecs,
         ),
         PhaseOutcome::Return
     ) {
@@ -173,12 +177,13 @@ pub fn sandbox_update(
         &mut feedback,
         feel,
         frame_dt,
+        &queues.feature_ecs_overlay,
     );
 
     // Forward typed gameplay effects into Bevy's message stream. Domain
     // consumers run later in the same Update frame, before boss/quest
     // progression systems that consume the routed queues.
-    crate::features::write_feature_effects(gameplay_effects, &feature_events);
+    crate::features::write_feature_effects(&mut queues.gameplay_effects, &feature_events);
 
     if matches!(
         damage_heal_dialogue_phase(
@@ -190,6 +195,8 @@ pub fn sandbox_update(
             tuning,
             feel,
             difficulty_multiplier,
+            &queues.feature_ecs_overlay,
+            &mut queues.feature_ecs,
         ),
         PhaseOutcome::Return
     ) {
@@ -225,6 +232,8 @@ pub fn sandbox_update(
         tuning,
         feel,
         frame_dt,
+        &queues.feature_ecs_overlay,
+        &mut queues.feature_ecs,
     );
 
     cleanup_timers_phase(&mut runtime, frame_dt);

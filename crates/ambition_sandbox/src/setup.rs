@@ -141,6 +141,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     );
     runtime.moving_platforms = platforms::moving_platforms_for_room(room_set.active_spec());
     runtime.features = crate::features::FeatureRuntime::from_room_spec(room_set.active_spec());
+    crate::features::spawn_room_feature_entities(commands, &room_set.active_spec().world);
     commands.insert_resource(runtime);
 
     let player = commands

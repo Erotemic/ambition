@@ -9,6 +9,7 @@ use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
+use crate::features::{BreakableFeature, FeatureAabb, FeatureName};
 
 pub fn sync_health_overlays(
     mut commands: Commands,
@@ -16,6 +17,7 @@ pub fn sync_health_overlays(
     runtime: Res<crate::SandboxRuntime>,
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
+    ecs_breakables: Query<(&FeatureName, &FeatureAabb, &BreakableFeature)>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
@@ -70,6 +72,18 @@ pub fn sync_health_overlays(
                 &world.0,
                 &breakable.name,
                 breakable.aabb(),
+                breakable.breakable.health,
+                Color::srgba(1.00, 0.72, 0.24, 0.96),
+            );
+        }
+    }
+    for (name, aabb, breakable) in &ecs_breakables {
+        if !breakable.broken() {
+            spawn_health_overlay(
+                &mut commands,
+                &world.0,
+                name.0.as_str(),
+                aabb.aabb(),
                 breakable.breakable.health,
                 Color::srgba(1.00, 0.72, 0.24, 0.96),
             );

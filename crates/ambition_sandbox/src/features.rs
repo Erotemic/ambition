@@ -39,6 +39,7 @@ mod breakables;
 mod bus;
 mod chests;
 pub mod components;
+mod ecs;
 mod enemies;
 mod events;
 mod hazards;
@@ -61,6 +62,12 @@ pub use components::{
     BreakableFeature, ChestFeature, Collected, FallingChest, FeatureAabb, FeatureId,
     FeatureName, Opened, PersistKey, PickupFeature, PogoTargetContributor, RespawnTimer,
     SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
+};
+pub use ecs::{
+    apply_ecs_breakable_damage_queue, collect_ecs_pickups, ecs_breakable_state, ecs_chest_opened, ecs_damage_event_hits_breakable,
+    ecs_feature_view, open_ecs_chests, rebuild_feature_ecs_world_overlay, reset_ecs_room_features,
+    spawn_room_feature_entities, update_ecs_breakables, FeatureEcsQueues,
+    FeatureEcsWorldOverlay, FeatureSimEntity,
 };
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{

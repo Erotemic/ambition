@@ -14,7 +14,10 @@ use super::primitives::{
 use crate::boss_sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::features::FeatureVisualKind;
+use crate::features::{
+    BreakableFeature, ChestFeature, Collected, FeatureAabb, FeatureId, FeatureVisualKind, Opened,
+    PickupFeature,
+};
 use crate::game_assets::{self, EntitySprite, GameAssets};
 
 pub fn sync_visuals(
@@ -30,6 +33,11 @@ pub fn sync_visuals(
         (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
         Without<PlayerVisual>,
     >,
+    ecs_pickups: Query<(&FeatureId, &FeatureAabb, Option<&Collected>), With<PickupFeature>>,
+    ecs_chests: Query<(&FeatureId, &FeatureAabb, Option<&Opened>), With<ChestFeature>>,
+    ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
+    ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
+    ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
     if let Ok((mut transform, mut sprite, baseline)) = player_query.get_mut(entities.player) {
         transform.translation = world_to_bevy(&world.0, runtime.player.pos, WORLD_Z_PLAYER);
@@ -66,7 +74,11 @@ pub fn sync_visuals(
     }
 
     for (visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
-        let Some(view) = runtime.features.view(&visual.id) else {
+        let Some(view) = runtime
+            .features
+            .view(&visual.id)
+            .or_else(|| crate::features::ecs_feature_view(&visual.id, &ecs_pickups, &ecs_chests, &ecs_breakables))
+        else {
             *visibility = Visibility::Hidden;
             continue;
         };
@@ -77,7 +89,13 @@ pub fn sync_visuals(
         // through the character spritesheet path.
         if let Some(assets) = assets.as_deref() {
             if let Some(target_key) =
-                state_aware_entity_sprite(&visual.id, view.kind, &runtime.features)
+                state_aware_entity_sprite(
+                    &visual.id,
+                    view.kind,
+                    &runtime.features,
+                    &ecs_chest_states,
+                    &ecs_breakable_states,
+                )
             {
                 if let Some(handle) = assets.entities.get(target_key) {
                     if sprite.image != *handle {
@@ -116,14 +134,18 @@ pub fn sync_visuals(
 fn state_aware_entity_sprite(
     id: &str,
     kind: FeatureVisualKind,
-    features: &crate::features::FeatureRuntime,
+    runtime_features: &crate::features::FeatureRuntime,
+    ecs_chests: &Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
+    ecs_breakables: &Query<(&FeatureId, &BreakableFeature)>,
 ) -> Option<EntitySprite> {
     match kind {
-        FeatureVisualKind::Breakable => features
+        FeatureVisualKind::Breakable => runtime_features
             .breakable_state(id)
+            .or_else(|| crate::features::ecs_breakable_state(id, ecs_breakables))
             .map(game_assets::breakable_state_sprite),
-        FeatureVisualKind::Chest => features
+        FeatureVisualKind::Chest => runtime_features
             .chest_opened(id)
+            .or_else(|| crate::features::ecs_chest_opened(id, ecs_chests))
             .map(game_assets::chest_state_sprite),
         _ => None,
     }

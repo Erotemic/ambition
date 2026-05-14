@@ -11,17 +11,6 @@ pub struct PickupRuntime {
 }
 
 impl PickupRuntime {
-    pub(super) fn new(object: &ae::RoomObject, pickup: ae::Pickup) -> Self {
-        Self {
-            id: object.id.clone(),
-            name: object.name.clone(),
-            pos: object.aabb.center(),
-            size: object.aabb.half_size() * 2.0,
-            pickup,
-            visible: true,
-        }
-    }
-
     pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }

@@ -12,18 +12,6 @@ pub struct BreakableRuntime {
 }
 
 impl BreakableRuntime {
-    pub(super) fn new(object: &ae::RoomObject, breakable: ae::Breakable) -> Self {
-        Self {
-            id: object.id.clone(),
-            name: object.name.clone(),
-            pos: object.aabb.center(),
-            size: object.aabb.half_size() * 2.0,
-            breakable,
-            respawn_timer: 0.0,
-            stand_timer: 0.0,
-        }
-    }
-
     pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }

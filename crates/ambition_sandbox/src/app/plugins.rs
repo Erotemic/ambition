@@ -45,6 +45,8 @@ pub fn add_simulation_plugins(app: &mut App) {
         // `docs/profiling.md` for Tracy / per-system profiling.
         .insert_resource(crate::profiling::StartupProfiler::default())
         .insert_resource(crate::trace::GameplayTraceBuffer::default())
+        .insert_resource(crate::features::FeatureEcsQueues::default())
+        .insert_resource(crate::features::FeatureEcsWorldOverlay::default())
         .insert_resource(crate::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
         .add_plugins(ae::AmbitionStateMachinePlugin)
@@ -107,7 +109,14 @@ pub fn add_simulation_plugins(app: &mut App) {
             Update,
             (
                 ldtk_world::poll_ldtk_file_changes,
+                crate::features::rebuild_feature_ecs_world_overlay,
                 sandbox_update,
+                crate::features::reset_ecs_room_features,
+                crate::projectile::update_projectiles,
+                crate::features::apply_ecs_breakable_damage_queue,
+                crate::features::collect_ecs_pickups,
+                crate::features::open_ecs_chests,
+                crate::features::update_ecs_breakables,
                 ldtk_world::sync_plugin_spawned_ambition_entities,
                 ldtk_world::rebuild_ldtk_runtime_spine_index,
                 ldtk_world::rebuild_ldtk_runtime_solid_index,
@@ -115,7 +124,6 @@ pub fn add_simulation_plugins(app: &mut App) {
                 ldtk_world::rebuild_ldtk_runtime_damage_index,
                 ldtk_world::check_ldtk_runtime_spine_parity,
                 platforms::sync_moving_platform,
-                crate::projectile::update_projectiles,
                 crate::encounter::update_encounters_from_world,
                 crate::encounter::sync_encounter_controller_states,
             )

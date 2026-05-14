@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::state::{PlayerProjectile, PlayerProjectileState};
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
-use crate::features::GameplayEffect;
+use crate::features::{FeatureEcsQueues, GameplayEffect};
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::physics::DebrisBurstMessage;
@@ -41,6 +41,7 @@ fn min_app() -> App {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
+    app.insert_resource(FeatureEcsQueues::default());
     app.insert_resource(PlayerProjectileState::default());
     // Buffered-message channels the system writes into.
     app.add_message::<SfxMessage>();
@@ -371,6 +372,7 @@ fn fireball_bounces_off_floor_in_system() {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
+    app.insert_resource(FeatureEcsQueues::default());
     app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
@@ -442,6 +444,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
+    app.insert_resource(FeatureEcsQueues::default());
     app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
@@ -514,6 +517,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
+    app.insert_resource(FeatureEcsQueues::default());
     app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
@@ -583,6 +587,7 @@ fn hadouken_expires_on_solid_in_system() {
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
+    app.insert_resource(FeatureEcsQueues::default());
     app.insert_resource(PlayerProjectileState::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();

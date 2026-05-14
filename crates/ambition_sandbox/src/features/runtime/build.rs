@@ -34,21 +34,13 @@ impl FeatureRuntime {
                         paths,
                     ));
                 }
-                ae::RoomObjectKind::Pickup(pickup) => {
-                    runtime
-                        .pickups
-                        .push(PickupRuntime::new(object, pickup.clone()));
-                }
-                ae::RoomObjectKind::Chest(chest) => {
-                    runtime
-                        .chests
-                        .push(ChestRuntime::new(object, chest.clone()));
-                }
-                ae::RoomObjectKind::Breakable(breakable) => {
-                    runtime
-                        .breakables
-                        .push(BreakableRuntime::new(object, breakable.clone()));
-                }
+                // Phase 3/4/5 strangler: static pickups, chests, and
+                // breakables are now spawned as ECS feature entities by
+                // `spawn_room_feature_entities`. Keep these runtime vectors for
+                // legacy tests and dynamic compatibility only.
+                ae::RoomObjectKind::Pickup(_)
+                | ae::RoomObjectKind::Chest(_)
+                | ae::RoomObjectKind::Breakable(_) => {}
                 ae::RoomObjectKind::Interactable(interactable) => {
                     if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
                         runtime.npcs.push(NpcRuntime::new_with_paths(

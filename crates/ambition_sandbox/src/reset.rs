@@ -155,6 +155,7 @@ pub fn process_sandbox_reset_request(
     //    active room so it uses the start room's spawn point.
     runtime.reset(&world.0, tuning.as_engine());
     runtime.features = crate::features::FeatureRuntime::from_room_spec(&start_spec);
+    crate::features::spawn_room_feature_entities(&mut commands, &start_spec.world);
     runtime.moving_platforms = platforms::moving_platforms_for_room(&start_spec);
 
     // 7. Respawn the static world visuals + moving platform for the

@@ -117,6 +117,7 @@ pub(super) fn load_room(
     runtime.down_tap_timer = 0.0;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&spec);
     runtime.features = features::FeatureRuntime::from_room_spec(&spec);
+    features::spawn_room_feature_entities(commands, &spec.world);
     runtime.dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
@@ -581,6 +582,8 @@ pub(super) fn advance_attack(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
+    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
+    feature_ecs_queues: &mut features::FeatureEcsQueues,
 ) {
     let Some(mut attack_state) = runtime.player_attack.take() else {
         return;
@@ -607,6 +610,7 @@ pub(super) fn advance_attack(
                 world,
                 &runtime.moving_platforms,
                 &runtime.features,
+                feature_ecs_overlay,
             );
             if let Some(orb_aabb) = attack_world.blocks.iter().find_map(|block| {
                 let valid_target = matches!(
@@ -626,6 +630,7 @@ pub(super) fn advance_attack(
                 pogo_landed = true;
                 sfx.push(SfxMessage::Pogo { pos: player_pos });
                 let feature_events = runtime.features.on_pogo_bounce(orb_aabb, 1);
+                feature_ecs_queues.pogo_bounces.push((orb_aabb, 1));
                 handle_feature_events(sfx, vfx, debris, &feature_events, player_pos);
             }
         }
@@ -635,6 +640,12 @@ pub(super) fn advance_attack(
         } else {
             runtime.player.facing * 300.0
         };
+        feature_ecs_queues.damage_events.push(features::DamageEvent {
+            volume: attack,
+            damage: slash_damage,
+            source: features::DamageSource::PlayerSlash { knock_x },
+            ignored_targets: attack_state.hit_targets.clone(),
+        });
         let report = runtime.features.apply_player_attack_report(
             attack,
             slash_damage,

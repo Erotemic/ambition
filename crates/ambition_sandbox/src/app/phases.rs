@@ -105,6 +105,7 @@ pub(super) fn reset_phase(
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
+    feature_ecs_queues: &mut features::FeatureEcsQueues,
 ) -> PhaseOutcome {
     if controls.reset_pressed {
         reset_sandbox(
@@ -115,6 +116,7 @@ pub(super) fn reset_phase(
             tuning,
             feel,
         );
+        feature_ecs_queues.reset_room_features = true;
         return PhaseOutcome::Return;
     }
     PhaseOutcome::Continue
@@ -138,6 +140,8 @@ pub(super) fn player_control_phase(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
+    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
+    feature_ecs_queues: &mut features::FeatureEcsQueues,
 ) -> PhaseOutcome {
     // Two-clock update:
     // - control_dt is real time for responsive inputs and precision-blink aim;
@@ -145,7 +149,7 @@ pub(super) fn player_control_phase(
     let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
     let control_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features);
+        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features, feature_ecs_overlay);
     let control_events = ae::update_player_control_with_tuning(
         &control_world,
         &mut runtime.player,
@@ -162,6 +166,7 @@ pub(super) fn player_control_phase(
             tuning,
             feel,
         );
+        feature_ecs_queues.reset_room_features = true;
         return PhaseOutcome::Return;
     }
     // Damage breakable pogo orbs the player just bounced off. The
@@ -170,6 +175,7 @@ pub(super) fn player_control_phase(
     // through the standard feature pipeline.
     for &orb_aabb in &control_events.pogo_hits {
         let feature_events = runtime.features.on_pogo_bounce(orb_aabb, 1);
+        feature_ecs_queues.pogo_bounces.push((orb_aabb, 1));
         handle_feature_events(
             &mut feedback.sfx,
             &mut feedback.vfx,
@@ -207,6 +213,8 @@ pub(super) fn player_simulation_phase(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
+    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
+    feature_ecs_queues: &mut features::FeatureEcsQueues,
 ) -> PhaseOutcome {
     let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
@@ -256,7 +264,7 @@ pub(super) fn player_simulation_phase(
         runtime.player.pos += platform_delta;
     }
     let collision_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features);
+        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features, feature_ecs_overlay);
 
     let was_grounded = runtime.player.on_ground;
     let sim_events = ae::update_player_simulation_with_tuning(
@@ -275,6 +283,7 @@ pub(super) fn player_simulation_phase(
             tuning,
             feel,
         );
+        feature_ecs_queues.reset_room_features = true;
         return PhaseOutcome::Return;
     }
     handle_player_events(
@@ -318,9 +327,10 @@ pub(super) fn interaction_input_phase(
 
 /// Phase 7 — feature runtime tick.
 ///
-/// Owns: per-frame `runtime.features.update` call for hazards, enemies,
-/// bosses, breakables, pickups, chests, and NPCs; routing the resulting
-/// audio/vfx/debris cues through `handle_feature_events`.
+/// Owns: per-frame `runtime.features.update` call for legacy hazards, enemies,
+/// bosses, NPCs, switches, and dynamic compatibility chests; routing the
+/// resulting audio/vfx/debris cues through `handle_feature_events`. Static
+/// pickups, chests, and breakables now run in ECS systems after this phase.
 ///
 /// Should not own: applying the resulting damage / heals / dialogue /
 /// reset flags — those are intentionally split into
@@ -334,10 +344,11 @@ pub(super) fn feature_runtime_phase(
     feedback: &mut FrameFeedback,
     feel: SandboxFeelTuning,
     frame_dt: f32,
+    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
 ) -> features::FeatureEvents {
     let feature_dt = sandbox_dt(runtime, frame_dt);
     let feature_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features);
+        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features, feature_ecs_overlay);
     let feature_player = runtime.player.clone();
     // Invincibility short-circuits at the emit site too: otherwise
     // standing in a hazard while the F3 toggle is on would re-emit a
@@ -384,6 +395,8 @@ pub(super) fn damage_heal_dialogue_phase(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
+    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
+    feature_ecs_queues: &mut features::FeatureEcsQueues,
 ) -> PhaseOutcome {
     let feature_damaged_player = !feature_events.player_damage.is_empty();
     let feature_interaction_consumed = feature_events.consumed_interaction;
@@ -404,6 +417,7 @@ pub(super) fn damage_heal_dialogue_phase(
             world,
             &runtime.moving_platforms,
             &runtime.features,
+            feature_ecs_overlay,
         );
         let ctx = crate::SafePositionContext {
             damaged_this_frame: feature_damaged_player,
@@ -435,6 +449,7 @@ pub(super) fn damage_heal_dialogue_phase(
             tuning,
             feel,
         );
+        feature_ecs_queues.reset_room_features = true;
         return PhaseOutcome::Return;
     }
     PhaseOutcome::Continue
@@ -522,6 +537,8 @@ pub(super) fn attack_phase(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
+    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
+    feature_ecs_queues: &mut features::FeatureEcsQueues,
 ) {
     if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
         start_attack(&mut feedback.sfx, &mut feedback.vfx, runtime, *controls);
@@ -535,6 +552,8 @@ pub(super) fn attack_phase(
         tuning,
         feel,
         frame_dt,
+        feature_ecs_overlay,
+        feature_ecs_queues,
     );
 }
 

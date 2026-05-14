@@ -89,6 +89,7 @@ pub fn record_frame_system(
     time: Res<Time>,
     rooms: Option<Res<crate::rooms::RoomSet>>,
     mode: Res<State<crate::game_mode::GameMode>>,
+    feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
 ) {
     let real_dt = time.delta_secs();
     let sim_dt = real_dt * runtime.time_scale;
@@ -106,6 +107,7 @@ pub fn record_frame_system(
         &world.0,
         &runtime.moving_platforms,
         &runtime.features,
+        &feature_ecs_overlay,
     );
 
     // Synthesize events from the diff before pushing the frame so the

@@ -52,6 +52,8 @@ pub struct SandboxEventWriters<'w> {
 #[derive(SystemParam)]
 pub struct SandboxQueues<'w> {
     pub gameplay_effects: MessageWriter<'w, crate::features::GameplayEffect>,
+    pub feature_ecs: ResMut<'w, crate::features::FeatureEcsQueues>,
+    pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.

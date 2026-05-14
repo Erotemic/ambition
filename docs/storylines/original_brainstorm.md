@@ -365,3 +365,27 @@ uses as they drive their car for some vain reason. The power you use should
 absolutely be a real problem too. The point is the critique is coming more
 because the character hates you and not the actual thing they are commenting
 on.
+
+---
+
+
+Another neat idea would be if the game opens up into a rougelike endgame that
+can be expanded with patches. Maybe it dives deep into the different
+dimensions.
+
+
+We could do something fun with the dimensions, where the 17 is really only the
+17 dimensions that have been accessible so far, and there seems to be some
+finite horizon of them, but how far that it isn't entirely clear. One of the
+Nazi ideologies might be that there are only 17 dimensions and that is
+absolutely it, and any indication otherwise is heresy. Or maybe that isn't the
+Nazi thing, there might be some other religions zealot group.
+
+
+The other thing with the factions is that we could avoid making them so
+categorical. That's one of the social commentaries I'd like to make anyway.
+The tech bros could splinter with the sect that works with the Nazis and maybe
+there are some that defect. Similarly with the Ludites, and maybe I should
+change the name of that faction so its not punching down. If we find a way to
+make the boundaries naturally hazy that would be a big win. But we still need
+story structure so people can escape into the game. It can't be so heavy.

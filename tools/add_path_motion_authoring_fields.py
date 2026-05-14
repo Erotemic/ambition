@@ -132,6 +132,18 @@ def apply_authoring_fields(project: dict) -> list[str]:
     ):
         changed.append("added EnemySpawn.path_id")
 
+    damage = entity_def(project, "DamageVolume")
+    if add_field(
+        damage.setdefault("fieldDefs", []),
+        project,
+        "path_id",
+        "String",
+        None,
+        "Optional KinematicPath id/name. Overrides inline path_points motion.",
+        show=True,
+    ):
+        changed.append("added DamageVolume.path_id")
+
     normalize_project_for_editor(project)
     return changed
 

@@ -1,6 +1,6 @@
 # Character AI refactor
 
-Status: foundation landed, full migration pending.
+Status: enemy intent migration landed, boss/data-table migration pending.
 
 This is the companion doc referenced from
 `crates/ambition_engine/src/character_ai.rs`. It captures the current
@@ -39,10 +39,15 @@ harness can't drive any of it without spinning up the full sandbox.
   this tick (`Idle | Patrol | Chase | Telegraph | Attack | Recover
   | Stunned | Dead`), with helpers `label`, `is_dangerous`,
   `is_committed`.
-- `evaluate_character_ai(snapshot) -> mode` — a deterministic,
-  Bevy-free function with unit tests that exercise the priority
-  order (dead > stunned > active attack > windup > recover >
-  in-range > aggro > patrol > idle).
+- `CharacterAiIntent` / `CharacterAiOutput` — the coarse hold / patrol /
+  chase / attack intent paired with the mode. Sandbox code still supplies
+  speeds and collision, but this output is the authority for which coarse
+  behavior branch runs.
+- `evaluate_character_ai(snapshot) -> mode` and
+  `evaluate_character_ai_output(snapshot) -> output` — deterministic,
+  Bevy-free functions with unit tests that exercise the priority order
+  (dead > stunned > active attack > windup > recover > in-range > aggro >
+  patrol > idle).
 
 The seldom_state component vocabulary in `state_machines`
 (`EnemyIdle / EnemyPatrol / EnemyTelegraph / EnemyAttack /
@@ -52,12 +57,16 @@ already exist.
 
 ## What hasn't landed
 
-Today, `EnemyRuntime` and `BossRuntime` build a `CharacterAiSnapshot`
-each tick and stash the resulting `ai_mode` for HUD/debug, but the
-movement / attack code still branches on the old timer fields and
-per-brain match arms. The evaluator's output is observed, not
-authoritative. See the open tech-debt entry "`EnemyRuntime` and
-`BossRuntime` carry their own ad-hoc state machines".
+`EnemyRuntime` now builds a `CharacterAiSnapshot` and consumes
+`CharacterAiOutput` for its coarse hold / patrol / chase / attack branch.
+That makes the shared engine evaluator authoritative for standard enemy
+intent. Remaining enemy work is data-table cleanup: archetype-specific
+speeds, aggro ranges, attack ranges, cooldown multipliers, and damage still
+live in sandbox enum matches.
+
+`BossRuntime` still has its own pattern/state loop. See the open tech-debt
+entry "`EnemyRuntime` and `BossRuntime` carry their own ad-hoc state
+machines" for the boss half.
 
 ## Migration target
 
@@ -85,11 +94,10 @@ behavior test plus the boss encounter integration test — so it is
 intentionally not scoped to a single patch. Doing it in two steps:
 
 - Step A: route `EnemyRuntime::update` through
-  `evaluate_character_ai` and assert the resulting mode matches
-  what the existing match-on-brain produces today (a refactor
-  with parity tests).
+  `evaluate_character_ai_output` and assert the resulting intent drives
+  chase / patrol / attack behavior. **Done for standard enemies.**
 - Step B: move per-brain knobs (`chase_speed`, `attack_radius`,
-  `telegraph_seconds`, …) from the brain match arm into a small
+  `telegraph_seconds`, …) from the brain/archetype match arms into a small
   data table; delete the duplicate match arms.
 
 Step B unlocks data-driving new enemies without code changes,

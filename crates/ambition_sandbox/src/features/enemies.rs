@@ -235,6 +235,7 @@ impl EnemyRuntime {
             self.ai_mode = ae::CharacterAiMode::Dead;
             return;
         }
+
         let was_winding_up = self.attack_windup_timer > 0.0;
         self.attack_windup_timer = (self.attack_windup_timer - dt).max(0.0);
         self.attack_timer = (self.attack_timer - dt).max(0.0);
@@ -243,12 +244,7 @@ impl EnemyRuntime {
             self.attack_timer = tuning.enemy_attack_active.max(0.01);
         }
 
-        // Evaluate the AI mode FIRST so motion / trigger logic can
-        // branch on a single vocabulary. The recover_remaining
-        // surrogate (using post-attack cooldown) signals that the
-        // actor just finished an attack and shouldn't be moving
-        // until the cooldown elapses — this is what makes Recover
-        // legible to consumers.
+        let delta_to_player = player.pos - self.pos;
         let recover_remaining = if self.attack_cooldown > 0.0
             && self.attack_windup_timer <= 0.0
             && self.attack_timer <= 0.0
@@ -257,10 +253,15 @@ impl EnemyRuntime {
         } else {
             0.0
         };
-        self.ai_mode = ae::evaluate_character_ai(ae::CharacterAiSnapshot {
+        let effective_aggro_radius = match &self.brain {
+            ae::EnemyBrain::Passive => 0.0,
+            ae::EnemyBrain::Guard { leash_radius } => *leash_radius,
+            _ => self.archetype.aggro_radius(),
+        };
+        let ai = ae::evaluate_character_ai_output(ae::CharacterAiSnapshot {
             actor_pos: self.pos,
             player_pos: player.pos,
-            aggro_radius: self.archetype.aggro_radius(),
+            aggro_radius: effective_aggro_radius,
             attack_range: self.archetype.attack_range(),
             attack_windup_remaining: self.attack_windup_timer,
             attack_active_remaining: self.attack_timer,
@@ -270,74 +271,46 @@ impl EnemyRuntime {
             patrol_enabled: !self.archetype.is_sandbag()
                 && !matches!(self.brain, ae::EnemyBrain::Passive),
         });
-        // Whether the actor is committed to an attack frame this
-        // tick — Telegraph / Attack / Recover all hold position.
-        let committed = self.ai_mode.is_committed();
+        self.ai_mode = ai.mode;
 
+        // The engine CharacterAI output is now authoritative for the coarse
+        // behavior decision. Sandbox code supplies archetype speeds and
+        // collision, but no longer has a second, parallel set of
+        // Guard/Custom/Patrol/attack-range branches.
         if let Some(motion) = &mut self.motion {
-            let old = self.pos;
-            self.pos = motion.advance(self.pos, dt);
-            self.facing = (self.pos.x - old.x).signum_or(self.facing);
-        } else {
-            let delta_to_player = player.pos - self.pos;
-            let distance_to_player = delta_to_player.length();
-            // Movement now reads `ai_mode`: Stunned/committed → hold,
-            // Chase → pursue at chase_speed, Patrol → pace at
-            // patrol_speed, Idle → stand. Sandbags + Passive bypass
-            // the chase line entirely.
-            let desired_x = if matches!(
-                self.ai_mode,
-                ae::CharacterAiMode::Stunned
-                    | ae::CharacterAiMode::Telegraph
-                    | ae::CharacterAiMode::Attack
-            ) {
-                0.0
-            } else if committed {
-                // Recover: drift to a stop.
-                self.vel.x * 0.4
-            } else if self.archetype.is_sandbag() {
-                0.0
+            if matches!(ai.intent, ae::CharacterAiIntent::Patrol) {
+                let old = self.pos;
+                self.pos = motion.advance(self.pos, dt);
+                let delta = self.pos - old;
+                self.vel = if dt > 0.0 { delta / dt } else { ae::Vec2::ZERO };
+                self.facing = delta.x.signum_or(self.facing);
             } else {
-                match self.brain {
-                    ae::EnemyBrain::Guard { leash_radius }
-                        if distance_to_player <= leash_radius =>
-                    {
-                        delta_to_player.x.signum() * self.archetype.chase_speed()
+                self.vel = ae::Vec2::ZERO;
+            }
+        } else {
+            let desired_x = match ai.intent {
+                ae::CharacterAiIntent::Hold | ae::CharacterAiIntent::Attack { .. } => {
+                    if ai.committed() {
+                        self.vel.x * 0.4
+                    } else {
+                        0.0
                     }
-                    ae::EnemyBrain::Custom(_)
-                        if distance_to_player <= self.archetype.aggro_radius() =>
-                    {
-                        delta_to_player.x.signum() * self.archetype.chase_speed()
-                    }
-                    ae::EnemyBrain::Passive => 0.0,
-                    _ => match self.ai_mode {
-                        ae::CharacterAiMode::Patrol => self.facing * self.archetype.patrol_speed(),
-                        ae::CharacterAiMode::Chase => {
-                            delta_to_player.x.signum() * self.archetype.chase_speed()
-                        }
-                        _ => 0.0,
-                    },
+                }
+                ae::CharacterAiIntent::Patrol => self.facing * self.archetype.patrol_speed(),
+                ae::CharacterAiIntent::Chase { direction_x } => {
+                    direction_x * self.archetype.chase_speed()
                 }
             };
             self.vel.x = approach(self.vel.x, desired_x, 650.0 * dt);
 
-            // Chase-drop-through: when actively chasing a player who
-            // is meaningfully BELOW us, AND we're currently standing
-            // on something, suppress the OneWay vertical block this
-            // tick so we follow the player through the same platform.
-            // Threshold matches a player's standing height (~46) so
-            // we only drop when the player has crossed at least one
-            // floor below; smaller deltas would make patrolling
-            // enemies fall off platforms whenever the player is on a
-            // slightly lower surface.
-            let drop_through = matches!(self.ai_mode, ae::CharacterAiMode::Chase)
+            // Chase-drop-through: when actively chasing a player who is
+            // meaningfully BELOW us, AND we're currently standing on something,
+            // suppress the OneWay vertical block this tick so we follow the
+            // player through the same platform.
+            let drop_through = matches!(ai.intent, ae::CharacterAiIntent::Chase { .. })
                 && self.on_ground
                 && delta_to_player.y > 48.0;
 
-            // Bridge into the engine's shared kinematic sweep so
-            // enemies hit the same OneWay / Solid / BlinkWall rules
-            // the player does. Same primitive will eventually carry
-            // RL agents and remote-controlled characters.
             let mut body = ae::KinematicBody {
                 pos: self.pos,
                 vel: self.vel,
@@ -360,12 +333,7 @@ impl EnemyRuntime {
             self.vel = body.vel;
             self.on_ground = body.on_ground;
 
-            // Patrol-style facing flip when we hit a wall horizontally.
-            // `step_kinematic` zeros vel.x on a Solid/BlinkWall block,
-            // so a non-zero pre-step velocity dropping to zero post-
-            // step signals a wall. Chase-mode enemies don't flip;
-            // they keep aiming at the player.
-            if !matches!(self.ai_mode, ae::CharacterAiMode::Chase)
+            if matches!(ai.intent, ae::CharacterAiIntent::Patrol)
                 && prev_vel_x.abs() > 1.0
                 && self.vel.x.abs() < 0.01
             {
@@ -373,16 +341,18 @@ impl EnemyRuntime {
             }
         }
 
-        let to_player = player.pos - self.pos;
-        if to_player.x.abs() > 4.0 {
-            self.facing = to_player.x.signum();
+        match ai.intent {
+            ae::CharacterAiIntent::Chase { direction_x }
+            | ae::CharacterAiIntent::Attack { direction_x } => {
+                if direction_x.abs() > 0.001 {
+                    self.facing = direction_x.signum();
+                }
+            }
+            _ => {}
         }
-        // Attack trigger: only fire from Chase. Telegraph/Attack/
-        // Recover/Stunned/Idle/Patrol/Dead all skip — they each
-        // mean "not the right tick to start a swing."
-        if matches!(self.ai_mode, ae::CharacterAiMode::Chase)
+
+        if matches!(ai.intent, ae::CharacterAiIntent::Attack { .. })
             && !self.archetype.is_sandbag()
-            && to_player.length() <= self.archetype.attack_range()
             && self.attack_cooldown <= 0.0
         {
             self.attack_windup_timer = tuning.enemy_attack_windup.max(0.01);
@@ -394,8 +364,6 @@ impl EnemyRuntime {
                 } else {
                     1.0
                 };
-            // Re-evaluate so the snapshot reflects "I just started
-            // a windup" rather than holding stale Chase.
             self.ai_mode = ae::CharacterAiMode::Telegraph;
         }
     }

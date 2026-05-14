@@ -983,6 +983,79 @@ fn embedded_ldtk_patrol_enemy_resolves_kinematic_path_index() {
 }
 
 #[test]
+fn damage_volume_path_id_resolves_through_room_spec_kinematic_paths() {
+    fn field(name: &str, value: &str) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.into(),
+            value: Value::String(value.into()),
+            real_editor_values: vec![],
+        }
+    }
+
+    let path = make_entity_at(
+        "KinematicPath",
+        [0, 0],
+        [16, 16],
+        &[
+            ("id", Value::String("saw_patrol".into())),
+            ("name", Value::String("Saw Patrol".into())),
+            ("points", Value::String("96,128;192,128".into())),
+            ("speed", Value::Number(serde_json::Number::from(96))),
+        ],
+    );
+    let hazard = make_entity_at(
+        "DamageVolume",
+        [24, 64],
+        [32, 32],
+        &[
+            ("name", Value::String("path saw".into())),
+            ("damage", Value::Number(serde_json::Number::from(1))),
+            ("path_id", Value::String("saw_patrol".into())),
+        ],
+    );
+    let project = LdtkProject {
+        json_version: "1.5.3".into(),
+        levels: vec![LdtkLevel {
+            iid: "level-iid".into(),
+            identifier: "hazard_path_lab".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 320,
+            px_hei: 240,
+            field_instances: vec![field("activeArea", "hazard_path_lab")],
+            layer_instances: vec![LdtkLayerInstance {
+                identifier: "Ambition".into(),
+                layer_type: "Entities".into(),
+                c_wid: 20,
+                c_hei: 15,
+                grid_size: 16,
+                entity_instances: vec![
+                    make_entity_at("PlayerStart", [32, 160], [16, 32], &[]),
+                    path,
+                    hazard,
+                ],
+                int_grid_csv: Vec::new(),
+            }],
+        }],
+    };
+
+    let room_set = project
+        .to_room_set()
+        .expect("synthetic LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "hazard_path_lab")
+        .expect("room should exist");
+    let mut features = crate::features::FeatureRuntime::from_room_spec(room);
+    assert_eq!(features.hazards.len(), 1);
+    assert!(features.hazards[0].motion.is_some());
+    assert_eq!(features.hazards[0].pos, ae::Vec2::new(96.0, 128.0));
+    features.hazards[0].update(0.5);
+    assert_eq!(features.hazards[0].pos, ae::Vec2::new(144.0, 128.0));
+}
+
+#[test]
 fn central_hub_collision_layer_lowers_to_engine_blocks() {
     let project = LdtkProject::load_default().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");

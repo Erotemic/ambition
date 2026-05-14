@@ -67,6 +67,38 @@ impl CharacterAiMode {
     }
 }
 
+/// Coarse movement/attack intent paired with a [`CharacterAiMode`].
+///
+/// The sandbox supplies actor-specific speeds and collision rules, but this
+/// engine-owned intent is the authority for whether an actor should hold,
+/// patrol, chase, or request an attack windup this tick.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum CharacterAiIntent {
+    /// No voluntary movement.
+    #[default]
+    Hold,
+    /// Move along an authored/path-local patrol or fallback pacing lane.
+    Patrol,
+    /// Close on the player in the provided horizontal direction.
+    Chase { direction_x: f32 },
+    /// Caller should start an attack windup facing `direction_x` when its
+    /// cooldown/archetype rules allow it.
+    Attack { direction_x: f32 },
+}
+
+/// Engine-owned AI decision consumed by sandbox enemies/NPCs.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct CharacterAiOutput {
+    pub mode: CharacterAiMode,
+    pub intent: CharacterAiIntent,
+}
+
+impl CharacterAiOutput {
+    pub fn committed(self) -> bool {
+        self.mode.is_committed()
+    }
+}
+
 /// Read-only view the AI evaluator needs each tick.
 ///
 /// All input fields come from the actor's runtime. Keeping the
@@ -96,34 +128,68 @@ impl CharacterAiSnapshot {
 
 /// Pure evaluation: which mode should the actor be in this tick?
 pub fn evaluate_character_ai(snap: CharacterAiSnapshot) -> CharacterAiMode {
+    evaluate_character_ai_output(snap).mode
+}
+
+/// Pure evaluation: which mode + coarse intent should the actor run this tick?
+pub fn evaluate_character_ai_output(snap: CharacterAiSnapshot) -> CharacterAiOutput {
     if !snap.alive {
-        return CharacterAiMode::Dead;
+        return CharacterAiOutput {
+            mode: CharacterAiMode::Dead,
+            intent: CharacterAiIntent::Hold,
+        };
     }
     if snap.stun_remaining > 0.0 {
-        return CharacterAiMode::Stunned;
+        return CharacterAiOutput {
+            mode: CharacterAiMode::Stunned,
+            intent: CharacterAiIntent::Hold,
+        };
     }
     if snap.attack_active_remaining > 0.0 {
-        return CharacterAiMode::Attack;
+        return CharacterAiOutput {
+            mode: CharacterAiMode::Attack,
+            intent: CharacterAiIntent::Hold,
+        };
     }
     if snap.attack_windup_remaining > 0.0 {
-        return CharacterAiMode::Telegraph;
+        return CharacterAiOutput {
+            mode: CharacterAiMode::Telegraph,
+            intent: CharacterAiIntent::Hold,
+        };
     }
     if snap.attack_recover_remaining > 0.0 {
-        return CharacterAiMode::Recover;
+        return CharacterAiOutput {
+            mode: CharacterAiMode::Recover,
+            intent: CharacterAiIntent::Hold,
+        };
     }
-    let dist = snap.distance_to_player();
-    if dist <= snap.attack_range.max(0.0) {
-        // In strike range but not currently swinging — caller will
-        // start the attack windup; surface as Telegraph so the HUD
-        // / animation shows the wind-up frame as soon as the timer
-        // is set.
-        CharacterAiMode::Chase
-    } else if dist <= snap.aggro_radius.max(0.0) {
-        CharacterAiMode::Chase
-    } else if snap.patrol_enabled {
-        CharacterAiMode::Patrol
+    let delta = snap.player_pos - snap.actor_pos;
+    let dist = delta.length();
+    let direction_x = if delta.x.abs() <= 0.001 {
+        0.0
     } else {
-        CharacterAiMode::Idle
+        delta.x.signum()
+    };
+    if dist <= snap.attack_range.max(0.0) {
+        CharacterAiOutput {
+            mode: CharacterAiMode::Chase,
+            intent: CharacterAiIntent::Attack { direction_x },
+        }
+    } else if dist <= snap.aggro_radius.max(0.0) {
+        CharacterAiOutput {
+            mode: CharacterAiMode::Chase,
+            intent: CharacterAiIntent::Chase { direction_x },
+        }
+    } else if snap.patrol_enabled {
+        CharacterAiOutput {
+            mode: CharacterAiMode::Patrol,
+            intent: CharacterAiIntent::Patrol,
+        }
+    } else {
+        CharacterAiOutput {
+            mode: CharacterAiMode::Idle,
+            intent: CharacterAiIntent::Hold,
+        }
     }
 }
 
@@ -257,5 +323,21 @@ mod tests {
                 assert_ne!(a, b);
             }
         }
+    }
+    #[test]
+    fn output_reports_attack_intent_in_range() {
+        let s = snap_with(30.0, true);
+        let out = evaluate_character_ai_output(s);
+        assert_eq!(out.mode, CharacterAiMode::Chase);
+        assert!(matches!(out.intent, CharacterAiIntent::Attack { .. }));
+    }
+
+    #[test]
+    fn output_reports_patrol_intent_out_of_range() {
+        let mut s = snap_with(300.0, true);
+        s.patrol_enabled = true;
+        let out = evaluate_character_ai_output(s);
+        assert_eq!(out.mode, CharacterAiMode::Patrol);
+        assert_eq!(out.intent, CharacterAiIntent::Patrol);
     }
 }

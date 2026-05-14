@@ -445,6 +445,12 @@ pub(super) fn entity_to_runtime(
                 aabb,
                 field_i32(entity, "damage").unwrap_or(1),
             );
+            volume.path_id = field_string(entity, "path_id")
+                .or_else(|| field_string(entity, "patrol_path_id"))
+                .and_then(|value| {
+                    let trimmed = value.trim();
+                    (!trimmed.is_empty()).then(|| trimmed.to_string())
+                });
             volume.motion = parse_optional_path(entity).map(|mut path| {
                 path.points = offset_points(path.points, offset);
                 path

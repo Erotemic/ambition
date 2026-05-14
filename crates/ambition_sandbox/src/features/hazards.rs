@@ -30,7 +30,30 @@ impl HazardRuntime {
         }
     }
 
-    pub(super) fn update(&mut self, dt: f32) {
+    pub(super) fn new_with_paths(
+        object: &ae::RoomObject,
+        mut volume: ae::DamageVolume,
+        paths: &[(String, ae::KinematicPath)],
+    ) -> Self {
+        if let Some(path_id) = volume
+            .path_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|path_id| !path_id.is_empty())
+        {
+            if let Some((_, path)) = paths.iter().find(|(id, _)| id == path_id) {
+                volume.motion = Some(path.clone());
+            }
+        }
+
+        let mut hazard = Self::new(object, volume);
+        if let Some(start_pos) = hazard.motion.as_ref().and_then(PathMotion::start_pos) {
+            hazard.pos = start_pos;
+        }
+        hazard
+    }
+
+    pub(crate) fn update(&mut self, dt: f32) {
         if let Some(motion) = &mut self.motion {
             self.pos = motion.advance(self.pos, dt);
         }

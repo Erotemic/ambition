@@ -108,6 +108,15 @@ pub struct DamageVolume {
     pub aabb: Aabb,
     pub damage: Damage,
     pub respawn: RespawnPolicy,
+    /// Optional reference to a room-level `KinematicPath` authored in LDtk.
+    /// When present, sandbox feature runtime resolves this against
+    /// `RoomSpec::kinematic_paths` and uses it instead of the inline
+    /// `motion` path below.
+    pub path_id: Option<String>,
+    /// Legacy inline path authored directly on the damage volume. Kept for
+    /// compatibility with existing rooms/specs; new authored hazards should
+    /// prefer `path_id` so platforms, NPCs, enemies, and hazards can share
+    /// one path definition.
     pub motion: Option<KinematicPath>,
     pub enabled: bool,
 }
@@ -119,6 +128,7 @@ impl DamageVolume {
             aabb,
             damage: Damage::new(amount, DamageKind::Hazard, ActorFaction::Environment),
             respawn: RespawnPolicy::Never,
+            path_id: None,
             motion: None,
             enabled: true,
         }

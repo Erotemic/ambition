@@ -264,15 +264,16 @@ collision. Loading zones do not cut collision. Split wall solids around exit
 openings.
 
 `DebugLabel` requires `text`. `BlinkWall` uses `tier` values `Soft` or `Hard`.
-`KinematicPath` and moving `DamageVolume` path fields use semicolon-separated
-level-local points such as `0,0;64,0`; the LDtk converter offsets them into
-active-area-local `RoomSpec::kinematic_paths` / `DamageVolume.motion` data when
-levels are stitched together. `KinematicPath` lookup uses an optional `id` field
-when present, then a compact normalized `name` (`enemy patrol path A` →
-`enemy_patrol_a`), then the LDtk iid. `MovingPlatform.path_id`,
-`NpcSpawn.path_id`, and `EnemySpawn.path_id` reference that lookup index.
-Enemy `brain = Patrol:<path_id>` remains supported; the explicit `path_id` field
-is the preferred editor-friendly form.
+`KinematicPath` and legacy inline moving `DamageVolume.path_points` fields use
+semicolon-separated level-local points such as `0,0;64,0`; the LDtk converter
+offsets them into active-area-local `RoomSpec::kinematic_paths` /
+`DamageVolume.motion` data when levels are stitched together. `KinematicPath`
+lookup uses an optional `id` field when present, then a compact normalized
+`name` (`enemy patrol path A` → `enemy_patrol_a`), then the LDtk iid.
+`MovingPlatform.path_id`, `NpcSpawn.path_id`, `EnemySpawn.path_id`, and
+`DamageVolume.path_id` reference that lookup index. Enemy `brain =
+Patrol:<path_id>` and `DamageVolume.path_points` remain supported; explicit
+`path_id` fields are the preferred editor-friendly form.
 
 ## Do not hand-edit these unless updating tooling too
 

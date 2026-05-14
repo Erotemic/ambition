@@ -28,9 +28,11 @@ impl FeatureRuntime {
         for object in &world.objects {
             match &object.kind {
                 ae::RoomObjectKind::DamageVolume(volume) => {
-                    runtime
-                        .hazards
-                        .push(HazardRuntime::new(object, volume.clone()));
+                    runtime.hazards.push(HazardRuntime::new_with_paths(
+                        object,
+                        volume.clone(),
+                        paths,
+                    ));
                 }
                 ae::RoomObjectKind::Pickup(pickup) => {
                     runtime

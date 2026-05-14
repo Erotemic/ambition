@@ -89,7 +89,6 @@ pub use hazards::HazardRuntime;
 pub use npcs::NpcRuntime;
 pub use path_motion::PathMotion;
 pub use pickups::PickupRuntime;
-pub use runtime::{tick_chest_fall, FeatureRuntime, SwitchRuntime};
 pub use world_overlay::world_with_sandbox_solids;
 
 pub(super) use npcs::NPC_HOSTILE_STRIKE_THRESHOLD;

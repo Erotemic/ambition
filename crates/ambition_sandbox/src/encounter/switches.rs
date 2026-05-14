@@ -71,45 +71,6 @@ pub fn rebuild_encounter_switch_index(
     }
 }
 
-/// Compatibility helper for older unit tests that still build a small switch
-/// slice directly. Live code should use `EncounterSwitchIndex::encounter_armed`.
-pub fn encounter_armed_by_switch(
-    encounter_id: &str,
-    switches: &[crate::features::SwitchRuntime],
-) -> bool {
-    let mut found = false;
-    for sw in switches {
-        let Some(act) = SwitchActivation::parse_custom(&sw.custom_payload) else {
-            continue;
-        };
-        if act.target_encounter != encounter_id {
-            continue;
-        }
-        found = true;
-        if !sw.on {
-            return true;
-        }
-    }
-    !found
-}
-
-/// Compatibility helper for older unit tests. Live code should use
-/// `EncounterSwitchIndex::switch_id_for_encounter`.
-pub fn switch_id_for_encounter(
-    encounter_id: &str,
-    switches: &[crate::features::SwitchRuntime],
-) -> Option<String> {
-    for sw in switches {
-        let Some(act) = SwitchActivation::parse_custom(&sw.custom_payload) else {
-            continue;
-        };
-        if act.target_encounter == encounter_id {
-            return Some(act.id);
-        }
-    }
-    None
-}
-
 /// FIFO queue of switch activations produced by the feature systems each frame.
 /// The encounter system drains it and applies the matching reset.
 #[derive(Resource, Default)]

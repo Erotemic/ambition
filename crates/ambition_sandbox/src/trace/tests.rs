@@ -314,7 +314,7 @@ fn timestamp_label_with_seq_is_stable_per_seq() {
     assert_eq!(a, timestamp_label_with_seq(now, 0));
 }
 
-fn make_runtime(world: &ae::World, player: ae::Player) -> SandboxRuntime {
+fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
     SandboxRuntime {
         player,
         player_health: ae::Health::new(5),

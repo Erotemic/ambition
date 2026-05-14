@@ -2,6 +2,7 @@ use super::*;
 use crate::ae;
 use crate::ae::{AabbExt, PersistedEncounterState};
 use crate::ldtk_world::LdtkProject;
+use crate::encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 
 /// Drive an EncounterState past `Starting` into the first wave's
 /// `Active` phase. The lab_spec uses `intro_seconds: 0.0` so a
@@ -468,376 +469,76 @@ fn just_spawned_mob_survives_one_tick_before_retain() {
     );
 }
 
-// ── Switch arming gate (helpers) ───────────────────────────────
+// ── Switch arming gate ─────────────────────────────────────────
 
-fn switch_runtime(payload: &str, on: bool) -> crate::features::SwitchRuntime {
-    let id = SwitchActivation::parse_custom(payload)
-        .map(|a| a.id)
-        .unwrap_or_else(|| "x".into());
-    crate::features::SwitchRuntime {
-        id,
-        name: "test".into(),
-        pos: ae::Vec2::ZERO,
-        size: ae::Vec2::splat(16.0),
-        interactable: ae::Interactable::new(
-            "x",
-            "x",
-            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)),
-            ae::InteractionKind::Custom(payload.into()),
-        ),
-        custom_payload: payload.into(),
-        on,
+fn switch_index(links: &[(&str, &str, bool)]) -> EncounterSwitchIndex {
+    EncounterSwitchIndex {
+        links: links
+            .iter()
+            .map(|(switch_id, target, on)| EncounterSwitchLink {
+                switch_id: switch_id.to_string(),
+                target_encounter: target.to_string(),
+                on: *on,
+            })
+            .collect(),
     }
 }
 
 #[test]
 fn encounter_armed_when_no_linked_switch() {
-    // No switch in the runtime → armed by default.
-    assert!(encounter_armed_by_switch("mob_lab", &[]));
+    assert!(switch_index(&[]).encounter_armed("mob_lab"));
 }
 
 #[test]
 fn encounter_armed_when_linked_switch_off() {
-    // Switch off (red) = armed.
-    let switches = vec![switch_runtime(
-        "switch:mob_lab_reset_switch:ResetEncounter:mob_lab",
-        false,
-    )];
-    assert!(encounter_armed_by_switch("mob_lab", &switches));
+    let index = switch_index(&[("mob_lab_reset_switch", "mob_lab", false)]);
+    assert!(index.encounter_armed("mob_lab"));
 }
 
 #[test]
 fn encounter_disarmed_when_linked_switch_on() {
-    // Switch on (green) = disabled.
-    let switches = vec![switch_runtime(
-        "switch:mob_lab_reset_switch:ResetEncounter:mob_lab",
-        true,
-    )];
-    assert!(!encounter_armed_by_switch("mob_lab", &switches));
+    let index = switch_index(&[("mob_lab_reset_switch", "mob_lab", true)]);
+    assert!(!index.encounter_armed("mob_lab"));
 }
 
 #[test]
 fn unrelated_switches_dont_arm_other_encounters() {
-    // Switch targets boss_room; mob_lab has no linked switch
-    // → mob_lab is armed by default.
-    let switches = vec![switch_runtime(
-        "switch:boss_reset_switch:ResetEncounter:boss_room",
-        true,
-    )];
-    assert!(encounter_armed_by_switch("mob_lab", &switches));
-    assert!(!encounter_armed_by_switch("boss_room", &switches));
+    let index = switch_index(&[("boss_reset_switch", "boss_room", true)]);
+    assert!(index.encounter_armed("mob_lab"));
+    assert!(!index.encounter_armed("boss_room"));
 }
 
 #[test]
 fn switch_id_for_encounter_finds_linked_switch() {
-    let switches = vec![
-        switch_runtime("switch:other_switch:ResetEncounter:other_room", false),
-        switch_runtime("switch:mob_lab_reset_switch:ResetEncounter:mob_lab", false),
-    ];
+    let index = switch_index(&[
+        ("other_switch", "other_room", false),
+        ("mob_lab_reset_switch", "mob_lab", false),
+    ]);
     assert_eq!(
-        switch_id_for_encounter("mob_lab", &switches),
+        index.switch_id_for_encounter("mob_lab"),
         Some("mob_lab_reset_switch".into())
     );
-    assert_eq!(switch_id_for_encounter("nonexistent", &switches), None);
+    assert_eq!(index.switch_id_for_encounter("nonexistent"), None);
 }
 
-// ── Lock wall sync ─────────────────────────────────────────────
+// ── Chest spawn position ───────────────────────────────────────
 
-// ── Encounter reward chest cleanup ────────────────────────────
-
-fn empty_features() -> crate::features::FeatureRuntime {
-    crate::features::FeatureRuntime {
-        hazards: Vec::new(),
-        enemies: Vec::new(),
-        bosses: Vec::new(),
-        breakables: Vec::new(),
-        pickups: Vec::new(),
-        chests: Vec::new(),
-        npcs: Vec::new(),
-        switches: Vec::new(),
-        banner: String::new(),
-        banner_timer: 0.0,
-    }
-}
-
-/// `clear_encounter_reward` must drop the matching reward chest
-/// AND reset the persisted "reward dropped" flag so a re-clear
-/// pays out a fresh chest. Authored chests with unrelated ids
-/// must survive.
 #[test]
-fn clear_encounter_reward_drops_chest_and_resets_flag() {
-    let mut features = empty_features();
-    // Authored chest (different id) — must NOT be removed.
-    features.spawn_chest(
-        "authored_treasure".into(),
-        None,
-        ae::Vec2::new(50.0, 50.0),
-        ae::Vec2::new(28.0, 28.0),
-    );
-    // Reward chest from a prior clear.
-    features.spawn_chest(
-        "encounter_chest_mob_lab".into(),
-        Some(ae::PickupKind::Health { amount: 2 }),
-        ae::Vec2::new(400.0, 300.0),
-        ae::Vec2::new(28.0, 28.0),
-    );
-    let mut save = ae::SandboxSaveData::default();
-    save.set_flag("encounter_mob_lab_reward_dropped", true);
-
-    clear_encounter_reward(&mut features, &mut save, "mob_lab");
-
-    assert!(
-        features
-            .chests
-            .iter()
-            .all(|c| c.id != "encounter_chest_mob_lab"),
-        "encounter chest must be despawned"
-    );
-    assert!(
-        features.chests.iter().any(|c| c.id == "authored_treasure"),
-        "authored chest must survive"
-    );
-    assert!(
-        !save.flag("encounter_mob_lab_reward_dropped"),
-        "reward-dropped flag must be cleared"
-    );
-}
-
-/// Despawning the encounter chest is an exact-id match: chests
-/// for OTHER encounters must not be touched.
-#[test]
-fn despawn_encounter_chest_only_targets_matching_encounter() {
-    let mut features = empty_features();
-    features.spawn_chest(
-        "encounter_chest_mob_lab".into(),
-        None,
-        ae::Vec2::ZERO,
-        ae::Vec2::new(28.0, 28.0),
-    );
-    features.spawn_chest(
-        "encounter_chest_boss_room".into(),
-        None,
-        ae::Vec2::ZERO,
-        ae::Vec2::new(28.0, 28.0),
-    );
-    features.despawn_encounter_chest("mob_lab");
-    assert_eq!(features.chests.len(), 1);
-    assert_eq!(features.chests[0].id, "encounter_chest_boss_room");
-}
-
-/// The clear → reset → re-clear cycle: after the cleanup helper
-/// runs, calling `spawn_chest` with the same encounter chest id
-/// successfully creates a fresh chest (the previous one is gone
-/// AND the de-dup guard inside `spawn_chest` does not fire).
-#[test]
-fn clear_then_respawn_yields_a_fresh_chest() {
-    let mut features = empty_features();
-    let mut save = ae::SandboxSaveData::default();
-
-    // First clear: chest spawned, flag set.
-    features.spawn_chest(
-        "encounter_chest_mob_lab".into(),
-        Some(ae::PickupKind::Health { amount: 2 }),
-        ae::Vec2::new(100.0, 100.0),
-        ae::Vec2::new(28.0, 28.0),
-    );
-    save.set_flag("encounter_mob_lab_reward_dropped", true);
-    // Mark the chest as opened so we can detect "fresh" vs. "stale"
-    // after the re-spawn cycle.
-    features.chests[0].opened = true;
-
-    // Switch reset: wipe the chest + the flag.
-    clear_encounter_reward(&mut features, &mut save, "mob_lab");
-    assert!(features.chests.is_empty());
-    assert!(!save.flag("encounter_mob_lab_reward_dropped"));
-
-    // Second clear: chest re-spawns with `opened = false`.
-    features.spawn_chest(
-        "encounter_chest_mob_lab".into(),
-        Some(ae::PickupKind::Health { amount: 2 }),
-        ae::Vec2::new(100.0, 100.0),
-        ae::Vec2::new(28.0, 28.0),
-    );
-    assert_eq!(features.chests.len(), 1);
-    assert!(
-        !features.chests[0].opened,
-        "re-spawned chest must start closed (fresh state)"
-    );
-}
-
-/// Reward chests for the mob_lab encounter spawn on the floor:
-/// the chest's bottom edge sits on the trigger AABB's `max.y`
-/// (the lower edge in y-down world space), which is the arena
-/// floor surface. Walking the chest-spawn code path manually
-/// because the actual call lives inside the big Bevy system; the
-/// formula is small enough to lift here for a regression test.
-#[test]
-fn encounter_reward_chest_spawns_on_trigger_floor() {
-    let mut features = empty_features();
+fn encounter_reward_chest_pos_sits_on_trigger_floor() {
     let spec = lab_spec(); // trigger_min [0,0], trigger_size [400,200]
     let trigger = spec.trigger_aabb();
     let chest_size = ae::Vec2::new(28.0, 28.0);
     let chest_pos = encounter_reward_chest_pos(&spec, chest_size);
-    features.spawn_chest(
-        "encounter_chest_mob_lab".into(),
-        Some(ae::PickupKind::Health { amount: 2 }),
-        chest_pos,
-        chest_size,
-    );
-    let chest = &features.chests[0];
-    // Bottom edge of chest AABB = chest.pos.y + half.y == trigger.max.y.
-    let chest_bottom = chest.pos.y + chest.size.y * 0.5;
+    let chest_bottom = chest_pos.y + chest_size.y * 0.5;
     assert!(
         (chest_bottom - trigger.max.y).abs() < 1e-3,
         "chest bottom ({chest_bottom}) must rest on trigger floor ({})",
         trigger.max.y
     );
-    // Centered horizontally on the trigger.
-    assert!((chest.pos.x - trigger.center().x).abs() < 1e-3);
+    assert!((chest_pos.x - trigger.center().x).abs() < 1e-3);
 }
 
-/// `sync_encounter_reward_chests` must spawn a chest for any
-/// Cleared encounter whose spec is loaded — even if the
-/// `encounter_<id>_reward_dropped` save flag is already set
-/// (the prior bug: a stuck flag from a previous session, OR
-/// save+reload of a Cleared encounter, both prevented re-spawn).
-/// The flag now means "looted", and a stuck flag must surface
-/// the chest as already-opened, not absent.
-#[test]
-fn sync_spawns_chest_for_cleared_encounter_even_with_flag_set() {
-    let mut features = empty_features();
-    let mut registry = EncounterRegistry::default();
-    let state = registry.ensure("mob_lab");
-    state.spec = Some(lab_spec());
-    state.phase = EncounterPhase::Cleared;
-    // Simulate the stuck-flag case from a prior session.
-    let mut save = ae::SandboxSaveData::default();
-    save.set_flag(encounter_reward_looted_flag("mob_lab"), true);
-
-    sync_encounter_reward_chests(&mut features, &save, &registry);
-
-    let chest = features
-        .chests
-        .iter()
-        .find(|c| c.id == "encounter_chest_mob_lab")
-        .expect("chest must be re-spawned despite the looted flag");
-    assert!(
-        chest.opened,
-        "looted flag must surface as chest.opened on re-spawn"
-    );
-}
-
-/// On a fresh clear (no looted flag), the synced chest must
-/// start CLOSED. This is the primary "first time you beat the
-/// encounter" UX.
-#[test]
-fn sync_spawns_fresh_chest_for_first_clear() {
-    let mut features = empty_features();
-    let mut registry = EncounterRegistry::default();
-    let state = registry.ensure("mob_lab");
-    state.spec = Some(lab_spec());
-    state.phase = EncounterPhase::Cleared;
-    let save = ae::SandboxSaveData::default();
-
-    sync_encounter_reward_chests(&mut features, &save, &registry);
-
-    let chest = features
-        .chests
-        .iter()
-        .find(|c| c.id == "encounter_chest_mob_lab")
-        .expect("chest must spawn on a fresh clear");
-    assert!(!chest.opened, "first-clear chest must start closed");
-}
-
-/// Sync is a no-op for encounters that are NOT yet Cleared
-/// (Inactive / Starting / Active / Failed): no chest in any of
-/// those states.
-#[test]
-fn sync_does_not_spawn_for_uncleared_encounters() {
-    let mut features = empty_features();
-    let mut registry = EncounterRegistry::default();
-    let state = registry.ensure("mob_lab");
-    state.spec = Some(lab_spec());
-    let save = ae::SandboxSaveData::default();
-
-    for phase in [
-        EncounterPhase::Inactive,
-        EncounterPhase::Active {
-            wave_index: 0,
-            remaining_mobs: 1,
-        },
-        EncounterPhase::Failed,
-    ] {
-        features.chests.clear();
-        registry.ensure("mob_lab").phase = phase.clone();
-        sync_encounter_reward_chests(&mut features, &save, &registry);
-        assert!(
-            features.chests.is_empty(),
-            "no chest should spawn while encounter is {phase:?}"
-        );
-    }
-}
-
-/// Repeated sync calls are idempotent: the chest is spawned once
-/// and subsequent calls do not duplicate it OR perturb the
-/// persisted opened state.
-#[test]
-fn sync_is_idempotent_per_encounter() {
-    let mut features = empty_features();
-    let mut registry = EncounterRegistry::default();
-    let state = registry.ensure("mob_lab");
-    state.spec = Some(lab_spec());
-    state.phase = EncounterPhase::Cleared;
-    let save = ae::SandboxSaveData::default();
-
-    for _ in 0..5 {
-        sync_encounter_reward_chests(&mut features, &save, &registry);
-    }
-    let count = features
-        .chests
-        .iter()
-        .filter(|c| c.id == "encounter_chest_mob_lab")
-        .count();
-    assert_eq!(count, 1, "sync must not duplicate the chest");
-}
-
-/// Switch reset cycle, end-to-end via the public helpers. Clear
-/// → sync spawns chest → loot it → flag set → reset clears
-/// chest + flag → next sync spawns a fresh closed chest.
-#[test]
-fn full_cycle_clear_loot_reset_reclear() {
-    let mut features = empty_features();
-    let mut registry = EncounterRegistry::default();
-    let state = registry.ensure("mob_lab");
-    state.spec = Some(lab_spec());
-    state.phase = EncounterPhase::Cleared;
-    let mut save = ae::SandboxSaveData::default();
-
-    // Clear: sync spawns chest, closed.
-    sync_encounter_reward_chests(&mut features, &save, &registry);
-    assert!(!features.chests[0].opened);
-
-    // Loot: write the persistence flag (mirroring what
-    // `features.update`'s chest-open path does).
-    save.set_flag(encounter_reward_looted_flag("mob_lab"), true);
-    // Subsequent sync (e.g. on save+reload after looting) must
-    // see the chest as opened.
-    sync_encounter_reward_chests(&mut features, &save, &registry);
-    assert!(features.chests[0].opened);
-
-    // Reset: switch toggled red, reward cleared, encounter back
-    // to Inactive in real flow. The reward-clear helper drops
-    // the chest and clears the flag.
-    clear_encounter_reward(&mut features, &mut save, "mob_lab");
-    assert!(features.chests.is_empty());
-    assert!(!save.flag(&encounter_reward_looted_flag("mob_lab")));
-
-    // Re-clear: sync runs again, fresh chest, closed.
-    registry.ensure("mob_lab").phase = EncounterPhase::Cleared;
-    sync_encounter_reward_chests(&mut features, &save, &registry);
-    assert_eq!(features.chests.len(), 1);
-    assert!(!features.chests[0].opened);
-}
+// ── Lock wall sync ─────────────────────────────────────────────
 
 #[test]
 fn sync_lock_walls_inserts_and_removes_block() {

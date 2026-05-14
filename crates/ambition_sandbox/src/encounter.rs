@@ -27,15 +27,12 @@ pub use loading::{load_encounter_specs_from_ldtk, mob_lab_wave_specs};
 use lock_walls::sync_lock_walls;
 pub use music::EncounterMusicRequest;
 pub use registry::{EncounterController, EncounterRegistry, SwitchActivation};
-pub use rewards::{
-    clear_encounter_reward, encounter_reward_chest_pos, encounter_reward_looted_flag,
-    sync_encounter_reward_chests,
-};
+pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
 pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 pub use state::{EncounterPhase, EncounterRun, EncounterState, ENCOUNTER_INTER_WAVE_DELAY_SECONDS};
 pub use switches::{
-    encounter_armed_by_switch, rebuild_encounter_switch_index, switch_id_for_encounter,
-    EncounterSwitchIndex, SwitchActivationQueue,
+    rebuild_encounter_switch_index, EncounterSwitchIndex, EncounterSwitchLink,
+    SwitchActivationQueue,
 };
 pub use systems::{
     populate_encounter_registry, sync_encounter_controller_states, update_encounters_from_world,

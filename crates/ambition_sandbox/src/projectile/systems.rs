@@ -9,7 +9,7 @@ use super::diagnostics::log_press_diagnostics;
 use super::feedback::forward_damage_feedback;
 use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
-use crate::features::{DamageEvent, DamageSource, FeatureEventBus};
+use crate::features::{DamageEvent, DamageSource, GameplayEffect};
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::physics::DebrisBurstMessage;
@@ -24,7 +24,7 @@ pub fn update_projectiles(
     user_settings: Res<crate::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
-    mut feature_bus: ResMut<FeatureEventBus>,
+    mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -67,10 +67,10 @@ pub fn update_projectiles(
         if report.any_actor_hit() {
             forward_damage_feedback(&mut vfx, &mut debris, &report.events);
             // Forward boss-damage / quest / flag writes / NPC-struck
-            // events so the rest of the systems (boss encounter, save
+            // effects so the rest of the systems (boss encounter, save
             // flags, quest registry) react to projectile hits the same
             // way they react to slash hits.
-            feature_bus.ingest(&report.events);
+            crate::features::write_feature_effects(&mut gameplay_effects, &report.events);
             sfx.write(SfxMessage::Hit { pos: p.body.pos });
             events.push(ProjectileTraceEvent::Hit {
                 kind: p.body.kind,

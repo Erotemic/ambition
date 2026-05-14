@@ -90,11 +90,15 @@ pub struct PlayerDamageEvent {
 
 /// Typed cross-system gameplay effects emitted by feature code.
 ///
-/// `FeatureEvents` still owns presentation-facing vectors such as impacts,
-/// bursts, chest-open cues, and pickup-collected cues. Anything that changes
-/// progression state or needs to fan out to another gameplay system should go
-/// through this table instead of adding another parallel stringly typed vector.
-#[derive(Clone, Debug, PartialEq)]
+/// Phase-1 strangler rule: `GameplayEffect` is now a Bevy [`Message`], not a
+/// payload hidden behind a custom resource bus. `FeatureEvents` keeps a local
+/// batch so legacy phase helpers can stay ordinary Rust functions, but Bevy
+/// systems should forward those effects with [`MessageWriter<GameplayEffect>`]
+/// and consume them with small domain-specific readers.
+///
+/// Do not add new side-channel `Vec`s for progression/save/audio routing. Add
+/// a typed message/effect and a focused consumer system instead.
+#[derive(Message, Clone, Debug, PartialEq)]
 pub enum GameplayEffect {
     /// Set a save/quest flag. Consumers mirror `on == true` into a
     /// `QuestAdvanceEvent::FlagSet` so flag-driven quest steps advance in the
@@ -154,8 +158,9 @@ pub struct FeatureEvents {
     pub physics_bursts: Vec<FeaturePhysicsBurst>,
     pub player_damage: Vec<PlayerDamageEvent>,
     pub player_heal: i32,
-    /// Typed gameplay effects for progression, persistence, switch routing,
-    /// boss routing, and standalone audio.
+    /// Local batch of typed gameplay effects. This vector is a compatibility
+    /// collector for the legacy `FeatureRuntime` phase; the authoritative
+    /// cross-system transport is Bevy `Message<GameplayEffect>`.
     pub effects: Vec<GameplayEffect>,
     /// Position of every chest the player opened this frame. The
     /// presentation layer maps these to `world.treasure_chest.open`

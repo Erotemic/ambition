@@ -342,7 +342,7 @@ pub(super) fn handle_feature_events(
         });
     }
     // Switch-toggle and standalone gameplay SFX now route through
-    // `FeatureEventBus`, which drains after the sim tick and before audio
+    // `Message<GameplayEffect>` readers after the sim tick and before audio
     // playback. Presentation-shaped cues above stay here because they already
     // carry concrete chest/pickup/breakable render facts.
 }

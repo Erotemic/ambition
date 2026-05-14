@@ -10,6 +10,13 @@ mod views;
 
 pub use settling::tick_chest_fall;
 
+/// Legacy runtime shell for authored feature actors.
+///
+/// STRANGLER MIGRATION RULE: do not add new feature families or behavior here.
+/// New simple gameplay actors should be Bevy entities with typed components
+/// from `crate::features::components`, then owned by ECS systems and Bevy
+/// messages. Existing vectors are migration targets that should shrink over
+/// time.
 #[derive(Clone, Debug)]
 pub struct FeatureRuntime {
     pub hazards: Vec<HazardRuntime>,

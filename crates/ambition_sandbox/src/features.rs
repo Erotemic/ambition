@@ -38,6 +38,7 @@ mod bosses;
 mod breakables;
 mod bus;
 mod chests;
+pub mod components;
 mod enemies;
 mod events;
 mod hazards;
@@ -51,14 +52,21 @@ mod world_overlay;
 pub use bosses::{BossAttackProfile, BossBehaviorProfile, BossMovementProfile, BossRuntime};
 pub use breakables::BreakableRuntime;
 pub use bus::{
-    apply_save_to_features, drain_feature_event_bus, sync_features_with_save, FeatureEventBus,
+    apply_boss_damage_effects, apply_flag_effects, apply_gameplay_sfx_effects,
+    apply_npc_strike_effects, apply_quest_effects, apply_save_to_features, apply_switch_effects,
+    sync_features_with_save, write_feature_effects,
 };
 pub use chests::ChestRuntime;
+pub use components::{
+    BreakableFeature, ChestFeature, Collected, FallingChest, FeatureAabb, FeatureId,
+    FeatureName, Opened, PersistKey, PickupFeature, PogoTargetContributor, RespawnTimer,
+    SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
+};
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{
     DamageEvent, DamageReport, DamageSource, FeatureCombatTuning, FeatureEvents,
-    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind, NpcDialogueRequest,
-    PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
+    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind, GameplayEffect,
+    NpcDialogueRequest, PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::NpcRuntime;

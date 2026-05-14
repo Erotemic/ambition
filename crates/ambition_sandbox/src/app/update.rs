@@ -66,7 +66,7 @@ pub fn sandbox_update(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
 ) {
-    let feature_bus = &mut queues.feature_bus;
+    let gameplay_effects = &mut queues.gameplay_effects;
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
@@ -175,9 +175,10 @@ pub fn sandbox_update(
         frame_dt,
     );
 
-    // Forward typed gameplay events to the bus. The bus drains later in the
-    // same Update frame, before encounter/boss/quest progression systems run.
-    feature_bus.ingest(&feature_events);
+    // Forward typed gameplay effects into Bevy's message stream. Domain
+    // consumers run later in the same Update frame, before boss/quest
+    // progression systems that consume the routed queues.
+    crate::features::write_feature_effects(gameplay_effects, &feature_events);
 
     if matches!(
         damage_heal_dialogue_phase(

@@ -1,6 +1,6 @@
 use super::*;
 use crate::features::events::GameplayEffect;
-use bevy::prelude::{MessageWriter, Res, ResMut, Resource};
+use bevy::prelude::{MessageReader, MessageWriter, Res, ResMut};
 
 /// Apply save-derived state (NPC hostility, boss defeats) onto the
 /// live `FeatureRuntime`. Public free function so room-load paths
@@ -19,64 +19,29 @@ pub fn sync_features_with_save(
     apply_save_to_features(&mut runtime.features, save.data());
 }
 
-/// Cross-system bus for typed gameplay effects that need to fan out to
-/// resources outside the local feature/runtime tick.
+/// Forward a legacy `FeatureEvents` batch into Bevy's typed message stream.
 ///
-/// Producers should enqueue complete `GameplayEffect` values here rather than
-/// adding one more bespoke Vec to `FeatureEvents`. The drain system is the
-/// central routing table for progression/save/switch/boss/NPC/audio effects.
-#[derive(Resource, Default)]
-pub struct FeatureEventBus {
-    pub effects: Vec<GameplayEffect>,
+/// Phase-1 strangler rule: this helper is the compatibility bridge between the
+/// old phase-helper world and the new ECS message world. New Bevy-native
+/// feature systems should write `GameplayEffect` (or a more specific domain
+/// message) directly instead of routing through `FeatureEvents` or rebuilding a
+/// custom bus resource.
+pub fn write_feature_effects(
+    writer: &mut MessageWriter<GameplayEffect>,
+    events: &FeatureEvents,
+) {
+    writer.write_batch(events.effects.iter().cloned());
 }
 
-impl FeatureEventBus {
-    pub fn emit(&mut self, effect: GameplayEffect) {
-        self.effects.push(effect);
-    }
-
-    pub fn extend<I>(&mut self, effects: I)
-    where
-        I: IntoIterator<Item = GameplayEffect>,
-    {
-        self.effects.extend(effects);
-    }
-
-    /// Enqueue every typed gameplay effect from a feature tick.
-    ///
-    /// Filtering belongs in the drain/router, not at the ingest site, so new
-    /// variants get one obvious place to wire their downstream consumers.
-    pub fn ingest(&mut self, events: &FeatureEvents) {
-        self.effects.extend(events.effects.iter().cloned());
-    }
-
-    pub fn drain(&mut self) -> Vec<GameplayEffect> {
-        std::mem::take(&mut self.effects)
-    }
-}
-
-/// Bevy system: drain `FeatureEventBus` into downstream systems.
-///
-/// This is the typed gameplay event bus. It is intentionally scheduled after
-/// `sandbox_update` and `update_projectiles`, but before encounter/boss/quest
-/// progression consumers, so events emitted by the frame's sim tick are visible
-/// to those systems in the same Update frame.
-pub fn drain_feature_event_bus(
-    mut bus: ResMut<FeatureEventBus>,
-    mut switch_activations: ResMut<crate::encounter::SwitchActivationQueue>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
+/// Save writes first so quest conditions that read flags see them this same
+/// frame. `on == true` also mirrors into `QuestAdvanceEvent::FlagSet`, matching
+/// the former monolithic router behavior.
+pub fn apply_flag_effects(
+    mut effects: MessageReader<GameplayEffect>,
     mut save: ResMut<crate::save::SandboxSave>,
     mut quests: ResMut<crate::quest::QuestRegistry>,
-    mut boss_registry: ResMut<crate::boss_encounter::BossEncounterRegistry>,
-    mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
-    mut cutscene_queue: ResMut<crate::cutscene::CutsceneTriggerQueue>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
-    let effects = bus.drain();
-
-    // Flag writes first so quest conditions that read flags see them
-    // this same frame.
-    for effect in &effects {
+    for effect in effects.read() {
         if let GameplayEffect::SetFlag { id, on } = effect {
             if *on {
                 quests.push_event(ae::QuestAdvanceEvent::FlagSet(id.clone()));
@@ -84,18 +49,29 @@ pub fn drain_feature_event_bus(
             save.data_mut().set_flag(id.clone(), *on);
         }
     }
+}
 
-    // Quest advance events from gameplay (NPC talked, item collected, etc.).
-    for effect in &effects {
+/// Structured quest events from gameplay (NPC talked, item collected, etc.).
+pub fn apply_quest_effects(
+    mut effects: MessageReader<GameplayEffect>,
+    mut quests: ResMut<crate::quest::QuestRegistry>,
+) {
+    for effect in effects.read() {
         if let GameplayEffect::AdvanceQuest(event) = effect {
             quests.push_event(event.clone());
         }
     }
+}
 
-    // Switch activations are gameplay events too. Parse the authored payload
-    // once at the bus boundary and feed the encounter queue before the
-    // encounter sync systems run.
-    for effect in &effects {
+/// Switch activations are gameplay events too. Parse the authored payload once
+/// at the message boundary and feed the encounter queue before the encounter
+/// sync systems run.
+pub fn apply_switch_effects(
+    mut effects: MessageReader<GameplayEffect>,
+    mut switch_activations: ResMut<crate::encounter::SwitchActivationQueue>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+) {
+    for effect in effects.read() {
         if let GameplayEffect::ActivateSwitch { payload, pos } = effect {
             if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
                 switch_activations.0.push(activation);
@@ -106,9 +82,17 @@ pub fn drain_feature_event_bus(
             });
         }
     }
+}
 
-    // Boss damage routes through the boss encounter machine.
-    for effect in &effects {
+/// Boss damage routes through the boss encounter machine.
+pub fn apply_boss_damage_effects(
+    mut effects: MessageReader<GameplayEffect>,
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut boss_registry: ResMut<crate::boss_encounter::BossEncounterRegistry>,
+    mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
+    mut cutscene_queue: ResMut<crate::cutscene::CutsceneTriggerQueue>,
+) {
+    for effect in effects.read() {
         if let GameplayEffect::DamageBoss { boss_id, amount } = effect {
             crate::boss_encounter::record_boss_damage(
                 &mut boss_registry,
@@ -120,21 +104,28 @@ pub fn drain_feature_event_bus(
             );
         }
     }
+}
 
-    // NPC strikes are reportable for the trace; the actual hostility
-    // flip happens inside `apply_player_attack`. No additional action
-    // today, but retaining the typed event keeps a single path for
-    // future trace / hostility systems.
-    for effect in &effects {
+/// NPC strikes are reportable for the trace; the actual hostility flip happens
+/// inside `apply_player_attack`. No additional action today, but retaining the
+/// typed reader keeps a single scheduled hook for future trace / hostility
+/// systems without rebuilding a god-router.
+pub fn apply_npc_strike_effects(mut effects: MessageReader<GameplayEffect>) {
+    for effect in effects.read() {
         if let GameplayEffect::StrikeNpc { .. } = effect {
             // Intentionally no-op today.
         }
     }
+}
 
-    // Standalone audio-only gameplay events. Presentation-shaped cues like
-    // pickups/chests/breakables still come through `FeatureEvents` because
-    // they already include concrete render/audio facts.
-    for effect in &effects {
+/// Standalone audio-only gameplay events. Presentation-shaped cues like
+/// pickups/chests/breakables still come through `FeatureEvents` because they
+/// already include concrete render/audio facts.
+pub fn apply_gameplay_sfx_effects(
+    mut effects: MessageReader<GameplayEffect>,
+    mut sfx: MessageWriter<crate::audio::SfxMessage>,
+) {
+    for effect in effects.read() {
         if let GameplayEffect::PlaySfx { id, pos } = effect {
             sfx.write(crate::audio::SfxMessage::Play { id: *id, pos: *pos });
         }
@@ -146,7 +137,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bus_ingests_all_typed_effect_variants() {
+    fn feature_event_batches_forward_all_typed_effect_variants() {
         let mut events = FeatureEvents::default();
         events.set_flag("flag", true);
         events.advance_quest(ae::QuestAdvanceEvent::NpcTalked("guide".into()));
@@ -155,18 +146,15 @@ mod tests {
         events.strike_npc("guide", ae::Vec2::new(3.0, 4.0));
         events.play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, ae::Vec2::new(5.0, 6.0));
 
-        let mut bus = FeatureEventBus::default();
-        bus.ingest(&events);
-
-        assert_eq!(bus.effects.len(), 6);
-        assert!(matches!(bus.effects[0], GameplayEffect::SetFlag { .. }));
-        assert!(matches!(bus.effects[1], GameplayEffect::AdvanceQuest(_)));
+        assert_eq!(events.effects.len(), 6);
+        assert!(matches!(events.effects[0], GameplayEffect::SetFlag { .. }));
+        assert!(matches!(events.effects[1], GameplayEffect::AdvanceQuest(_)));
         assert!(matches!(
-            bus.effects[2],
+            events.effects[2],
             GameplayEffect::ActivateSwitch { .. }
         ));
-        assert!(matches!(bus.effects[3], GameplayEffect::DamageBoss { .. }));
-        assert!(matches!(bus.effects[4], GameplayEffect::StrikeNpc { .. }));
-        assert!(matches!(bus.effects[5], GameplayEffect::PlaySfx { .. }));
+        assert!(matches!(events.effects[3], GameplayEffect::DamageBoss { .. }));
+        assert!(matches!(events.effects[4], GameplayEffect::StrikeNpc { .. }));
+        assert!(matches!(events.effects[5], GameplayEffect::PlaySfx { .. }));
     }
 }

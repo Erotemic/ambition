@@ -74,6 +74,7 @@ pub const NPC_TALK_RADIUS: f32 = 80.0;
 pub const NPC_PATROL_SPEED: f32 = 60.0;
 
 impl NpcRuntime {
+    #[cfg(test)]
     pub(super) fn new(object: &ae::RoomObject, interactable: ae::Interactable) -> Self {
         Self::new_with_paths(object, interactable, &[])
     }

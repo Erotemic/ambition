@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::state::{PlayerProjectile, PlayerProjectileState};
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
-use crate::features::FeatureEventBus;
+use crate::features::GameplayEffect;
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::physics::DebrisBurstMessage;
@@ -42,11 +42,11 @@ fn min_app() -> App {
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(PlayerProjectileState::default());
-    app.insert_resource(FeatureEventBus::default());
     // Buffered-message channels the system writes into.
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
+    app.add_message::<GameplayEffect>();
     app.add_systems(Update, update_projectiles);
     app
 }
@@ -372,10 +372,10 @@ fn fireball_bounces_off_floor_in_system() {
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(PlayerProjectileState::default());
-    app.insert_resource(FeatureEventBus::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
+    app.add_message::<GameplayEffect>();
     app.add_systems(Update, update_projectiles);
 
     // Spawn a fireball just above the floor moving downward.
@@ -443,10 +443,10 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(PlayerProjectileState::default());
-    app.insert_resource(FeatureEventBus::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
+    app.add_message::<GameplayEffect>();
     app.add_systems(Update, update_projectiles);
 
     let starting_bounces;
@@ -515,10 +515,10 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(PlayerProjectileState::default());
-    app.insert_resource(FeatureEventBus::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
+    app.add_message::<GameplayEffect>();
     app.add_systems(Update, update_projectiles);
 
     {
@@ -584,10 +584,10 @@ fn hadouken_expires_on_solid_in_system() {
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(PlayerProjectileState::default());
-    app.insert_resource(FeatureEventBus::default());
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
+    app.add_message::<GameplayEffect>();
     app.add_systems(Update, update_projectiles);
 
     {

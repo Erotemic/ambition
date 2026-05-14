@@ -36,6 +36,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_message::<VfxMessage>()
         .add_message::<DebrisBurstMessage>()
         .add_message::<PlayerDiedMessage>()
+        .add_message::<crate::features::GameplayEffect>()
         .register_type::<GameMode>()
         // StartupProfiler captures wall-clock at each marked phase so a
         // PostStartup report prints "where did the first frame's
@@ -97,7 +98,6 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::cutscene::CutsceneAdvanceRequest::default())
         .insert_resource(crate::cutscene::RoomCutsceneBindings::defaults())
         .insert_resource(crate::boss_encounter::BossEncounterRegistry::default())
-        .insert_resource(crate::features::FeatureEventBus::default())
         .insert_resource(crate::map_menu::MapMenuState::default())
         .insert_resource(crate::CameraEaseState::default())
         .insert_resource(crate::CameraEaseTuning::default())
@@ -121,16 +121,36 @@ pub fn add_simulation_plugins(app: &mut App) {
             )
                 .chain(),
         )
-        // Progression chain: cutscenes, boss encounters, quest events,
-        // and the F3 stats editor sync. Split out from the main update
-        // tuple so each chain stays under the macro tuple-arity limit.
+        // Progression chain: cutscenes, gameplay-effect routing, boss
+        // encounters, quest events, and the F3 stats editor sync. Split into
+        // several chained groups so each tuple stays under Bevy's macro
+        // arity limit while preserving the old drain-before-progression order.
         .add_systems(
             Update,
             (
                 crate::cutscene::auto_trigger_room_cutscenes,
                 crate::cutscene::drain_cutscene_triggers,
                 crate::cutscene::tick_active_cutscene,
-                crate::features::drain_feature_event_bus,
+            )
+                .chain()
+                .after(crate::encounter::sync_encounter_controller_states),
+        )
+        .add_systems(
+            Update,
+            (
+                crate::features::apply_flag_effects,
+                crate::features::apply_quest_effects,
+                crate::features::apply_switch_effects,
+                crate::features::apply_boss_damage_effects,
+                crate::features::apply_npc_strike_effects,
+                crate::features::apply_gameplay_sfx_effects,
+            )
+                .chain()
+                .after(crate::cutscene::tick_active_cutscene),
+        )
+        .add_systems(
+            Update,
+            (
                 crate::boss_encounter::update_boss_encounters,
                 crate::features::sync_features_with_save,
                 crate::quest::push_room_entered_quest_events,
@@ -144,7 +164,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 dev_tools::sync_player_stats_with_inspector,
             )
                 .chain()
-                .after(crate::encounter::sync_encounter_controller_states),
+                .after(crate::features::apply_gameplay_sfx_effects),
         )
         // Populate the encounter / quest / boss registries from the LDtk
         // project + save. These run on Update (not Startup) with their

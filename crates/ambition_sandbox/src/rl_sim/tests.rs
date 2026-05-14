@@ -3,7 +3,7 @@ use crate::input::ControlFrame;
 
 #[test]
 fn sim_constructs_and_returns_initial_observation() {
-    let sim = SandboxSim::new().expect("sim builds");
+    let sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sim builds");
     let obs = sim.observation();
     assert_eq!(obs.tick, 0, "fresh sim is at tick 0");
     assert!(obs.alive(), "spawned player is alive");
@@ -178,7 +178,9 @@ fn unknown_start_room_does_not_panic_or_error() {
     // warning and falls back to the LDtk-authored start. The sim
     // still constructs cleanly.
     let sim = SandboxSim::new_with_options(
-        SandboxSimOptions::default().with_start_room("definitely_not_a_real_room"),
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("definitely_not_a_real_room"),
     )
     .expect("unknown start room should not error");
     assert!(!sim.observation().active_room.is_empty());

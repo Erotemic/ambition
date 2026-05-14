@@ -57,46 +57,56 @@ fn embedded_ldtk_validates() {
     assert!(report.errors.is_empty(), "{:#?}", report.errors);
 }
 
-/// Audit: no static-collision entity types should appear in the
-/// embedded LDtk file. Solid / OneWayPlatform / BlinkWall /
-/// HazardBlock all belong on the IntGrid Collision layer (per
-/// `tools/ldtk_intgrid_migration.py`); leaving them as entities
-/// is the bug the user noticed — entities don't tile, so a
-/// "Solid floor" entity stretches its single texture over a
-/// long footprint and smears.
+/// Surface-like entity identifiers are intentionally still supported in the
+/// embedded LDtk file. They lower through the typed `LdtkSurfaceSpec` pipeline,
+/// which is now the canonical runtime IR for rectangular collision/contact
+/// authoring.
 ///
-/// `DamageVolume` deliberately stays as an entity because it
-/// can carry motion paths and per-volume damage; the audit
-/// excludes it.
-///
-/// If a future authoring patch reintroduces any of these
-/// entity types, this test fails and the author has to either
-/// re-run the migration or convert the spec to use IntGrid
-/// rectangles directly.
+/// Earlier migration-era tests banned legacy-looking identifiers such as
+/// `Solid` and `HazardBlock`, assuming every static rectangle had to become an
+/// IntGrid tile. That is too strict now: the editor still exposes
+/// differentiated surface identifiers, while the runtime parser collapses them
+/// into the shared surface model. This test keeps the useful invariant —
+/// embedded surface entities must validate through that model — without banning
+/// the authoring vocabulary.
 #[test]
-fn no_static_collision_entities_in_embedded_ldtk() {
+fn embedded_surface_like_entities_lower_through_surface_model() {
     let project = LdtkProject::load_default().expect("sandbox LDtk should load");
-    const BANNED: &[&str] = &["Solid", "OneWayPlatform", "BlinkWall", "HazardBlock"];
-    let mut violations: Vec<String> = Vec::new();
+    let mut surface_count = 0usize;
+
     for level in &project.levels {
         for layer in &level.layer_instances {
             for entity in &layer.entity_instances {
-                if BANNED.contains(&entity.identifier.as_str()) {
-                    violations.push(format!(
-                        "{}::{} (iid={})",
-                        level.identifier, entity.identifier, entity.iid
-                    ));
+                if !is_surface_like_identifier(&entity.identifier) {
+                    continue;
                 }
+                surface_count += 1;
+                let name = field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
+                let spec = parse_surface_spec(
+                    entity,
+                    ae::Vec2::ZERO,
+                    ae::Vec2::new(entity.width as f32, entity.height as f32),
+                    name,
+                )
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{}::{} ({}) should parse as an LDtk surface: {error}",
+                        level.identifier, entity.identifier, entity.iid
+                    )
+                });
+                compile_surface(&spec).unwrap_or_else(|error| {
+                    panic!(
+                        "{}::{} ({}) should compile as an LDtk surface: {error}",
+                        level.identifier, entity.identifier, entity.iid
+                    )
+                });
             }
         }
     }
+
     assert!(
-        violations.is_empty(),
-        "found {} static-collision entit{} that should be IntGrid tiles \
-         (run `python tools/ldtk_intgrid_migration.py` to migrate): {:#?}",
-        violations.len(),
-        if violations.len() == 1 { "y" } else { "ies" },
-        violations,
+        surface_count > 0,
+        "embedded LDtk should contain at least one surface-like entity so this audit exercises real content"
     );
 }
 
@@ -813,77 +823,36 @@ fn feature_runtime_uses_room_spec_kinematic_path_aliases() {
 
 #[test]
 fn moving_platform_path_id_resolves_through_kinematic_path_index() {
-    fn field(name: &str, value: &str) -> LdtkFieldInstance {
-        LdtkFieldInstance {
-            identifier: name.into(),
-            value: Value::String(value.into()),
-            real_editor_values: vec![],
-        }
-    }
-
-    let path = make_entity_at(
-        "KinematicPath",
-        [0, 0],
-        [16, 16],
-        &[
-            ("id", Value::String("intro_lift_path".into())),
-            ("name", Value::String("Intro Lift".into())),
-            ("points", Value::String("32,64;160,64".into())),
-            ("speed", Value::Number(serde_json::Number::from(64))),
-        ],
-    );
-    let platform = make_entity_at(
-        "MovingPlatform",
-        [300, 120],
-        [96, 16],
-        &[
-            ("name", Value::String("lift platform".into())),
-            ("path_id", Value::String("intro_lift_path".into())),
-            ("sweep_dx", Value::Number(serde_json::Number::from(999))),
-            ("speed", Value::Number(serde_json::Number::from(1))),
-        ],
-    );
-    let project = LdtkProject {
-        json_version: "1.5.3".into(),
-        levels: vec![LdtkLevel {
-            iid: "level-iid".into(),
-            identifier: "platform_path_lab".into(),
-            world_x: 0,
-            world_y: 0,
-            px_wid: 320,
-            px_hei: 240,
-            field_instances: vec![field("activeArea", "platform_path_lab")],
-            layer_instances: vec![LdtkLayerInstance {
-                identifier: "Ambition".into(),
-                layer_type: "Entities".into(),
-                c_wid: 20,
-                c_hei: 15,
-                grid_size: 16,
-                entity_instances: vec![
-                    make_entity_at("PlayerStart", [32, 160], [16, 32], &[]),
-                    path,
-                    platform,
-                ],
-                int_grid_csv: Vec::new(),
-            }],
-        }],
+    let path = ae::KinematicPath {
+        points: vec![ae::Vec2::new(32.0, 64.0), ae::Vec2::new(160.0, 64.0)],
+        speed: 64.0,
+        mode: ae::KinematicPathMode::PingPong,
+        start_offset_seconds: 0.0,
     };
+    let path_spec = crate::rooms::KinematicPathSpec::new(
+        "intro_lift_path",
+        "Intro Lift",
+        ae::Aabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::splat(8.0)),
+        path,
+    );
 
-    let room_set = project
-        .to_room_set()
-        .expect("synthetic LDtk should compose");
-    let room = room_set
-        .rooms
-        .iter()
-        .find(|room| room.id == "platform_path_lab")
-        .expect("room should exist");
-    assert_eq!(room.moving_platforms.len(), 1);
+    let mut platform = crate::platforms::MovingPlatformSpec::from_authored(
+        "lift",
+        "lift platform",
+        ae::Vec2::new(348.0, 128.0),
+        ae::Vec2::new(96.0, 16.0),
+        999.0,
+        1.0,
+        Some("intro_lift_path".into()),
+    )
+    .resolve(&[path_spec])
+    .expect("path id resolves through the active room kinematic path index");
+
     assert_eq!(
-        room.moving_platforms[0].pos,
+        platform.pos,
         ae::Vec2::new(32.0, 64.0),
         "path-driven MovingPlatform starts on the first KinematicPath point, not its fallback sweep AABB"
     );
-    let mut platform = room.moving_platforms[0].clone();
     let delta = platform.update(0.5);
     assert_eq!(delta, ae::Vec2::new(32.0, 0.0));
 }

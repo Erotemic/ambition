@@ -37,28 +37,21 @@ pub struct SandboxEventWriters<'w> {
     pub(super) died: MessageWriter<'w, PlayerDiedMessage>,
 }
 
-/// Mutable producer queues `sandbox_update` writes into during the
-/// gameplay tick.
+/// Mutable producer streams `sandbox_update` writes into during the gameplay
+/// tick.
 ///
-/// The encounter / feature pipeline is wide — switch presses, feature
-/// events (door open, NPC death, breakable destroyed, …), and the
-/// reset-feature messages all need `ResMut` access alongside everything
-/// else `sandbox_update` already takes. Bundling them in a single
-/// `SystemParam` keeps the system signature within Bevy's
-/// 16-`SystemParam` budget (each `Res`/`ResMut` counts as one).
+/// Phase-1 strangler rule: typed gameplay effects now travel through Bevy
+/// `Message<GameplayEffect>` rather than a custom `FeatureEventBus` resource.
+/// Bundling the writer here keeps `sandbox_update` under Bevy's
+/// 16-`SystemParam` budget while making the new cross-system transport
+/// explicit.
 ///
-/// Producers (here):
-/// - `feature_bus`: aggregate of typed gameplay events produced by
-///   `crate::features::FeatureRuntime` and projectile hits. Drained by
-///   `crate::features::drain_feature_event_bus` before encounter/boss/quest
-///   progression systems consume those queues.
-///
-/// Add new sim → sim queues (NOT sim → presentation, which is
-/// `SandboxEventWriters`) here when they grow naturally; resist the
-/// urge to thread them through the system signature directly.
+/// Add new sim → sim streams (NOT sim → presentation, which is
+/// `SandboxEventWriters`) here when they grow naturally; resist the urge to
+/// thread them through the system signature directly.
 #[derive(SystemParam)]
 pub struct SandboxQueues<'w> {
-    pub feature_bus: ResMut<'w, crate::features::FeatureEventBus>,
+    pub gameplay_effects: MessageWriter<'w, crate::features::GameplayEffect>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.

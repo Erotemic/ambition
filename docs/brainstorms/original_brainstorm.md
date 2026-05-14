@@ -389,3 +389,6 @@ there are some that defect. Similarly with the Ludites, and maybe I should
 change the name of that faction so its not punching down. If we find a way to
 make the boundaries naturally hazy that would be a big win. But we still need
 story structure so people can escape into the game. It can't be so heavy.
+
+
+A boss standing on the shoulders of giants (i.e. Newton) would be fun.

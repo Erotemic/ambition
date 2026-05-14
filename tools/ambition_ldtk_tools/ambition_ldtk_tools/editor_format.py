@@ -69,10 +69,23 @@ def _inline(value) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def _render(value, depth: int, first_line_prefix_len: int) -> str:
+def _render(
+    value,
+    depth: int,
+    first_line_prefix_len: int,
+    *,
+    force_wrap: bool = False,
+) -> str:
     """Render ``value`` with ``first_line_prefix_len`` chars already
     used on its first line by the caller (parent indent + key + `: `).
     Returns text starting at column ``first_line_prefix_len``.
+
+    ``force_wrap`` is used for LDtk editor fields whose existing on-disk
+    layout is stable even when the nested object would fit inline. The
+    important case is field-definition ``defaultOverride`` values: LDtk
+    leaves long-lived definitions in a multiline form, and compacting those
+    objects causes large, unrelated schema diffs when a tool merely appends
+    a new field.
     """
     if not isinstance(value, (dict, list)) or not value:
         # Scalars and empty containers always inline.
@@ -85,12 +98,32 @@ def _render(value, depth: int, first_line_prefix_len: int) -> str:
     # the width budget). Mirror that here.
     if (
         width_ok
+        and not force_wrap
         and not (isinstance(value, list) and _is_multi_object_array(value))
+        and not _contains_forced_wrap_child(value)
     ):
         return inline
     if isinstance(value, list):
         return _render_list(value, depth)
     return _render_dict(value, depth, first_line_prefix_len)
+
+
+def _contains_forced_wrap_child(value) -> bool:
+    """Return true when inline rendering would compact a child that
+    should stay multiline for LDtk diff stability.
+
+    The important case is ``defaultOverride`` in field definitions. The
+    check is recursive so ancestors do not inline and bypass the special
+    child renderer. LDtk files are shallow enough that this small traversal is
+    cheap, and it only affects layout choices, not parsed values.
+    """
+    if isinstance(value, dict):
+        if isinstance(value.get("defaultOverride"), dict):
+            return True
+        return any(_contains_forced_wrap_child(child) for child in value.values())
+    if isinstance(value, list):
+        return any(_contains_forced_wrap_child(item) for item in value)
+    return False
 
 
 def _is_multi_object_array(value: list) -> bool:
@@ -197,7 +230,12 @@ def _render_dict(value, depth: int, first_line_prefix_len: int) -> str:
     first_key_str = json.dumps(first_key, ensure_ascii=False)
     # Try rendering the first value with a flow prefix `{ "key": `.
     flow_prefix = f'{{ {first_key_str}: '
-    first_text = _render(first_value, depth, first_line_prefix_len + len(flow_prefix))
+    first_text = _render(
+        first_value,
+        depth,
+        first_line_prefix_len + len(flow_prefix),
+        force_wrap=first_key == "defaultOverride" and isinstance(first_value, dict),
+    )
     first_wraps = "\n" in first_text
 
     # The editor only flow-packs nested dicts (depth >= 1). The
@@ -224,13 +262,20 @@ def _render_dict(value, depth: int, first_line_prefix_len: int) -> str:
             suffix = "" if i == last else ","
             # First try flow-pack: append `, "key": <opener>` onto
             # the closing-bracket line of the previous child.
-            flow_attempt = _try_flow_pack_next_key(
-                lines, key_str, child, depth, suffix
-            )
+            flow_attempt = None
+            if not (key == "defaultOverride" and isinstance(child, dict)):
+                flow_attempt = _try_flow_pack_next_key(
+                    lines, key_str, child, depth, suffix
+                )
             if flow_attempt is not None:
                 lines = flow_attempt
                 continue
-            child_text = _render(child, depth + 1, len(pad) + len(key_str) + 2)
+            child_text = _render(
+                child,
+                depth + 1,
+                len(pad) + len(key_str) + 2,
+                force_wrap=key == "defaultOverride" and isinstance(child, dict),
+            )
             lines.append(f"{pad}{key_str}: {child_text}{suffix}")
         # Close on its own line at parent depth.
         lines.append(f"{INDENT * depth}}}")
@@ -241,7 +286,12 @@ def _render_dict(value, depth: int, first_line_prefix_len: int) -> str:
     for i, (key, child) in enumerate(items):
         key_str = json.dumps(key, ensure_ascii=False)
         suffix = "" if i == last else ","
-        child_text = _render(child, depth + 1, len(pad) + len(key_str) + 2)
+        child_text = _render(
+            child,
+            depth + 1,
+            len(pad) + len(key_str) + 2,
+            force_wrap=key == "defaultOverride" and isinstance(child, dict),
+        )
         lines.append(f"{pad}{key_str}: {child_text}{suffix}")
     lines.append(f"{INDENT * depth}}}")
     return "\n".join(lines)

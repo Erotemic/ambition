@@ -128,6 +128,33 @@ def main() -> int:
         return 1
     print("  ok: top-level `{` on its own line")
 
+
+    print("== LDtk defaultOverride stability ==")
+    # Existing LDtk field definitions keep defaultOverride as a
+    # multiline object. The schema helpers rewrite the whole file, so
+    # compacting these values would cause large unrelated diffs such as:
+    #   "defaultOverride": { "id": "V_String", "params": ["Solid"] }
+    # instead of the editor-stable multiline form below.
+    field_def = {
+        "fieldDefs": [
+            {
+                "identifier": "kind",
+                "doc": "",
+                "defaultOverride": {"id": "V_String", "params": ["Solid"]},
+                "textLanguageMode": None,
+            }
+        ]
+    }
+    text = dump_editor_style(field_def)
+    if '"defaultOverride": { "id": "V_String"' in text:
+        print(f"FAIL defaultOverride compacted.\nGot:\n{text}", file=sys.stderr)
+        return 1
+    expected = '\t\t\t"defaultOverride": {\n\t\t\t\t"id": "V_String",\n\t\t\t\t"params": ["Solid"]\n\t\t\t}'
+    if expected not in text:
+        print(f"FAIL defaultOverride multiline.\nExpected substring:\n{expected}\nGot:\n{text}", file=sys.stderr)
+        return 1
+    print("  ok: defaultOverride stays multiline")
+
     print("== round-trip equivalence ==")
     # Anything we serialize should round-trip back to the same Python
     # value via json.loads.

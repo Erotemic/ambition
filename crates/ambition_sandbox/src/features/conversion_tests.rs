@@ -574,11 +574,8 @@ mod conversion_tests {
     fn enemy_ai_output_drives_chase_motion() {
         let world = enemy_test_world();
         let object = enemy_object("skitter", ae::Vec2::new(100.0, 536.0));
-        let mut enemy = EnemyRuntime::new(
-            &object,
-            ae::EnemyBrain::Custom("small_skitter".into()),
-            &[],
-        );
+        let mut enemy =
+            EnemyRuntime::new(&object, ae::EnemyBrain::Custom("small_skitter".into()), &[]);
         // Newly spawned enemies carry a short spawn grace cooldown.
         // Clear it here so this test isolates the CharacterAI Chase
         // decision rather than the recovery/spawn-grace state.
@@ -587,7 +584,10 @@ mod conversion_tests {
         player.size = ae::Vec2::new(28.0, 46.0);
         enemy.update(&world, &player, FeatureCombatTuning::default(), 0.05);
         assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Chase);
-        assert!(enemy.vel.x > 0.0, "CharacterAI Chase intent should drive rightward motion");
+        assert!(
+            enemy.vel.x > 0.0,
+            "CharacterAI Chase intent should drive rightward motion"
+        );
     }
 
     #[test]
@@ -616,7 +616,10 @@ mod conversion_tests {
         enemy.update(&world, &player, FeatureCombatTuning::default(), 0.10);
         assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Telegraph);
         assert!(enemy.attack_windup_timer > 0.0);
-        assert_eq!(enemy.pos, ae::Vec2::new(100.0, 536.0), "path patrol must hold when CharacterAI requests an attack");
+        assert_eq!(
+            enemy.pos,
+            ae::Vec2::new(100.0, 536.0),
+            "path patrol must hold when CharacterAI requests an attack"
+        );
     }
-
 }

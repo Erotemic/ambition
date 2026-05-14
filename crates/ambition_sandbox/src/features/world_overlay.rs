@@ -40,6 +40,19 @@ pub fn world_with_sandbox_solids(
             aabb: breakable.aabb(),
             kind,
         });
+        // Break-on-stand platforms are landing surfaces, so the sandbox should
+        // also allow the player to pogo from them. `BlockKind::OneWay` is not a
+        // generic pogo target in the engine because not every one-way platform
+        // should necessarily be bounceable. Adding a parallel transient
+        // `PogoOrb` target here keeps the behavior local to authored breakable
+        // platforms without changing their collision response.
+        if breakable.breaks_on_stand() {
+            collision_world.blocks.push(ae::Block {
+                name: format!("breakable-pogo-target {}", breakable.name),
+                aabb: breakable.aabb(),
+                kind: ae::BlockKind::PogoOrb,
+            });
+        }
     }
     collision_world
 }

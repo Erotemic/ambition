@@ -550,11 +550,15 @@ pub(super) fn start_attack(
     // down-tilt) — it's rooted to the floor, so injecting downward
     // velocity here would punch the player into the ground / through
     // one-way platforms and make the attack feel like a glitched
-    // pogo. AirDown still wants the commit, but not when a pogo orb
-    // is involved: the movement phase ran earlier this frame and may
-    // have applied an upward bounce we need to preserve, so the
-    // clobber stays gated on `!pogo_pressed`.
-    if !controls.pogo_pressed && intent == ae::AttackIntent::AirDown && runtime.player.vel.y < 80.0
+    // pogo. AirDown still wants the commit, but not when the control
+    // phase already applied an upward pogo bounce earlier this frame.
+    // That same-frame ordering matters for 1hp breakable pogo orbs:
+    // the bounce is real even when the orb shatters immediately, so
+    // slash startup must not overwrite the negative Y velocity.
+    if !controls.pogo_pressed
+        && intent == ae::AttackIntent::AirDown
+        && runtime.player.vel.y >= 0.0
+        && runtime.player.vel.y < 80.0
     {
         runtime.player.vel.y = 80.0;
     }
@@ -609,6 +613,7 @@ pub(super) fn advance_attack(
                     block.kind,
                     ae::BlockKind::PogoOrb
                         | ae::BlockKind::Solid
+                        | ae::BlockKind::OneWay
                         | ae::BlockKind::BlinkWall { .. }
                         | ae::BlockKind::Rebound { .. }
                 );

@@ -191,6 +191,116 @@ impl SwitchFeature {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SwitchOn(pub bool);
 
+
+/// Actor-specific authored/runtime identity.
+///
+/// `FeatureId` remains the canonical entity lookup key. This component exposes
+/// actor-facing identity directly so rendering, save sync, and debug systems do
+/// not have to pattern-match through the behavior runtime to ask who the actor
+/// is or which authored NPC sheet a hostile actor should keep using.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct ActorIdentity {
+    pub id: String,
+    pub name: String,
+    pub sprite_override_npc_name: Option<String>,
+}
+
+impl ActorIdentity {
+    pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            sprite_override_npc_name: None,
+        }
+    }
+
+    pub fn with_sprite_override(mut self, name: Option<String>) -> Self {
+        self.sprite_override_npc_name = name;
+        self
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+/// High-level actor disposition. Peaceful actors talk/patrol; hostile actors
+/// chase/attack. Hostility is data now, not an enum arm callers must discover
+/// by inspecting `ActorRuntime`.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActorDisposition {
+    Peaceful,
+    Hostile,
+}
+
+impl ActorDisposition {
+    pub fn is_hostile(self) -> bool {
+        matches!(self, Self::Hostile)
+    }
+}
+
+/// ECS-visible actor health. The behavior runtime is still the temporary home
+/// for AI details, but shared systems should read/write this component for HP.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ActorHealth {
+    pub health: ae::Health,
+}
+
+impl ActorHealth {
+    pub fn new(health: ae::Health) -> Self {
+        Self { health }
+    }
+
+    pub fn alive(self) -> bool {
+        self.health.alive()
+    }
+}
+
+/// ECS-visible combat/presentation state shared by NPCs and enemies.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ActorCombatState {
+    pub alive: bool,
+    pub hit_flash: f32,
+    pub strike_count: i32,
+    pub attack_windup_timer: f32,
+    pub attack_timer: f32,
+    pub training_dummy: bool,
+}
+
+impl ActorCombatState {
+    pub fn peaceful(strike_count: i32, hit_flash: f32) -> Self {
+        Self {
+            alive: true,
+            hit_flash,
+            strike_count,
+            attack_windup_timer: 0.0,
+            attack_timer: 0.0,
+            training_dummy: false,
+        }
+    }
+
+    pub fn hostile(
+        alive: bool,
+        hit_flash: f32,
+        attack_windup_timer: f32,
+        attack_timer: f32,
+        training_dummy: bool,
+    ) -> Self {
+        Self {
+            alive,
+            hit_flash,
+            strike_count: 0,
+            attack_windup_timer,
+            attack_timer,
+            training_dummy,
+        }
+    }
+}
+
 /// Marker for hostile actors spawned dynamically by an encounter wave.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct EncounterMob {

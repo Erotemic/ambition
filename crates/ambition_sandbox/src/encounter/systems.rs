@@ -117,7 +117,7 @@ pub fn update_encounters_from_world(
         Entity,
         &crate::features::EncounterMob,
         &crate::features::FeatureId,
-        &crate::features::ActorRuntime,
+        &crate::features::ActorCombatState,
     )>,
     reward_chests: Query<(
         Entity,
@@ -228,7 +228,7 @@ pub fn update_encounters_from_world(
             // snapshot).
             let alive_lookup: std::collections::HashSet<String> = encounter_mobs
                 .iter()
-                .filter(|(_, mob, _, actor)| mob.encounter_id == active_area && actor.visible())
+                .filter(|(_, mob, _, combat)| mob.encounter_id == active_area && combat.alive)
                 .map(|(_, _, id, _)| id.as_str().to_string())
                 .collect();
             let evs = state.tick_intro_or_wave(dt, |id| alive_lookup.contains(id));

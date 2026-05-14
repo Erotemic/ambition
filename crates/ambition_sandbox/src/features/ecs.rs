@@ -42,12 +42,6 @@ impl BossFeature {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ActorDisposition {
-    Peaceful,
-    Hostile,
-}
-
 /// Unified ECS runtime for authored NPCs and enemies.
 ///
 /// The only meaningful gameplay distinction is disposition: peaceful actors
@@ -162,6 +156,47 @@ impl ActorRuntime {
     }
 }
 
+
+fn actor_component_snapshot(
+    actor: &ActorRuntime,
+) -> (ActorIdentity, ActorDisposition, ActorHealth, ActorCombatState) {
+    match actor {
+        ActorRuntime::Peaceful(npc) => (
+            ActorIdentity::new(npc.id.clone(), npc.name.clone()),
+            ActorDisposition::Peaceful,
+            ActorHealth::new(ae::Health::new(1)),
+            ActorCombatState::peaceful(npc.strikes, npc.hit_flash),
+        ),
+        ActorRuntime::Hostile(enemy) => (
+            ActorIdentity::new(enemy.id.clone(), enemy.name.clone())
+                .with_sprite_override(enemy.sprite_override_npc_name.clone()),
+            ActorDisposition::Hostile,
+            ActorHealth::new(enemy.health),
+            ActorCombatState::hostile(
+                enemy.alive,
+                enemy.hit_flash,
+                enemy.attack_windup_timer,
+                enemy.attack_timer,
+                enemy.archetype.is_sandbag(),
+            ),
+        ),
+    }
+}
+
+fn sync_actor_components_from_runtime(
+    actor: &ActorRuntime,
+    identity: &mut ActorIdentity,
+    disposition: &mut ActorDisposition,
+    health: &mut ActorHealth,
+    combat: &mut ActorCombatState,
+) {
+    let (next_identity, next_disposition, next_health, next_combat) = actor_component_snapshot(actor);
+    *identity = next_identity;
+    *disposition = next_disposition;
+    *health = next_health;
+    *combat = next_combat;
+}
+
 /// Collision contribution from ECS-owned breakables. Rebuilt before the main
 /// sandbox tick and consumed by `world_with_sandbox_solids` anywhere the engine
 /// needs the augmented collision world.
@@ -265,6 +300,8 @@ fn spawn_room_feature_entity(
             }
         }
         ae::RoomObjectKind::EnemySpawn(brain) => {
+            let actor = ActorRuntime::Hostile(EnemyRuntime::new(object, brain.clone(), paths));
+            let (identity, disposition, health, combat) = actor_component_snapshot(&actor);
             commands.spawn((
                 Name::new(format!("Feature actor enemy: {}", object.name)),
                 FeatureSimEntity,
@@ -272,11 +309,21 @@ fn spawn_room_feature_entity(
                 FeatureId::new(object.id.clone()),
                 FeatureName::new(object.name.clone()),
                 feature_aabb,
-                ActorRuntime::Hostile(EnemyRuntime::new(object, brain.clone(), paths)),
+                identity,
+                disposition,
+                health,
+                combat,
+                actor,
             ));
         }
         ae::RoomObjectKind::Interactable(interactable) => {
             if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
+                let actor = ActorRuntime::Peaceful(NpcRuntime::new_with_paths(
+                    object,
+                    interactable.clone(),
+                    paths,
+                ));
+                let (identity, disposition, health, combat) = actor_component_snapshot(&actor);
                 commands.spawn((
                     Name::new(format!("Feature actor npc: {}", object.name)),
                     FeatureSimEntity,
@@ -284,11 +331,11 @@ fn spawn_room_feature_entity(
                     FeatureId::new(object.id.clone()),
                     FeatureName::new(object.name.clone()),
                     feature_aabb,
-                    ActorRuntime::Peaceful(NpcRuntime::new_with_paths(
-                        object,
-                        interactable.clone(),
-                        paths,
-                    )),
+                    identity,
+                    disposition,
+                    health,
+                    combat,
+                    actor,
                 ));
             } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
                 if payload.starts_with("switch:") {
@@ -336,6 +383,8 @@ pub fn spawn_encounter_mob(
     enemy.health = ae::Health::new(archetype.max_health());
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.respawn_timer = 999_999.0;
+    let actor = ActorRuntime::Hostile(enemy);
+    let (identity, disposition, health, combat) = actor_component_snapshot(&actor);
     commands.spawn((
         Name::new(format!("Encounter mob: {id}")),
         FeatureSimEntity,
@@ -343,7 +392,11 @@ pub fn spawn_encounter_mob(
         FeatureId::new(id.clone()),
         FeatureName::new(id),
         FeatureAabb::from_center_size(pos, size),
-        ActorRuntime::Hostile(enemy),
+        identity,
+        disposition,
+        health,
+        combat,
+        actor,
         EncounterMob::new(encounter_id),
     ));
 }
@@ -351,7 +404,7 @@ pub fn spawn_encounter_mob(
 /// Despawn all ECS mobs owned by an encounter attempt.
 pub fn despawn_encounter_mobs(
     commands: &mut Commands,
-    mobs: &Query<(Entity, &EncounterMob, &FeatureId, &ActorRuntime)>,
+    mobs: &Query<(Entity, &EncounterMob, &FeatureId, &ActorCombatState)>,
     encounter_id: &str,
 ) {
     for (entity, mob, _, _) in mobs.iter() {
@@ -575,7 +628,14 @@ pub fn reset_ecs_room_features(
     collected_pickups: Query<Entity, (With<FeatureSimEntity>, With<Collected>)>,
     opened_chests: Query<Entity, (With<FeatureSimEntity>, With<Opened>)>,
     mut breakables: Query<(Entity, &mut BreakableFeature, Option<&mut StandTimer>), With<FeatureSimEntity>>,
-    mut actors: Query<(&mut FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
+    mut actors: Query<(
+        &mut FeatureAabb,
+        &mut ActorRuntime,
+        &mut ActorIdentity,
+        &mut ActorDisposition,
+        &mut ActorHealth,
+        &mut ActorCombatState,
+    ), With<FeatureSimEntity>>,
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
     mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
@@ -598,7 +658,7 @@ pub fn reset_ecs_room_features(
         }
         commands.entity(entity).remove::<RespawnTimer>();
     }
-    for (mut aabb, mut actor) in &mut actors {
+    for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 npc.pos = npc.spawn;
@@ -620,6 +680,13 @@ pub fn reset_ecs_room_features(
                 enemy.attack_windup_timer = 0.0;
             }
         }
+        sync_actor_components_from_runtime(
+            &*actor,
+            &mut *identity,
+            &mut *disposition,
+            &mut *health,
+            &mut *combat,
+        );
     }
     for mut boss_feature in &mut bosses {
         let boss = &mut boss_feature.boss;
@@ -849,7 +916,15 @@ pub fn apply_feature_damage_events(
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<(Entity, &FeatureId, &FeatureName, &FeatureAabb, &mut BreakableFeature), With<FeatureSimEntity>>,
-    mut actors: Query<(&FeatureId, &FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
+    mut actors: Query<(
+        &FeatureId,
+        &FeatureAabb,
+        &mut ActorRuntime,
+        &mut ActorIdentity,
+        &mut ActorDisposition,
+        &mut ActorHealth,
+        &mut ActorCombatState,
+    ), With<FeatureSimEntity>>,
     mut bosses: Query<(&FeatureId, &FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
@@ -858,10 +933,10 @@ pub fn apply_feature_damage_events(
 ) {
     for event in damage_events.read().cloned() {
         let mut actor_hit_this_event = false;
-        for (id, aabb, mut actor) in &mut actors {
-            let key = match &*actor {
-                ActorRuntime::Peaceful(_) => format!("npc:{}", id.as_str()),
-                ActorRuntime::Hostile(_) => format!("enemy:{}", id.as_str()),
+        for (id, aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
+            let key = match *disposition {
+                ActorDisposition::Peaceful => format!("npc:{}", id.as_str()),
+                ActorDisposition::Hostile => format!("enemy:{}", id.as_str()),
             };
             if event.ignored_targets.iter().any(|ignored| ignored == &key) {
                 continue;
@@ -955,6 +1030,13 @@ pub fn apply_feature_damage_events(
                     }
                 }
             }
+            sync_actor_components_from_runtime(
+                &*actor,
+                &mut *identity,
+                &mut *disposition,
+                &mut *health,
+                &mut *combat,
+            );
         }
         let mut boss_hit_this_event = false;
         for (id, aabb, mut feature) in &mut bosses {
@@ -1157,7 +1239,14 @@ pub fn update_ecs_actors(
     mut vfx: MessageWriter<crate::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
-    mut actors: Query<(&mut FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
+    mut actors: Query<(
+        &mut FeatureAabb,
+        &mut ActorRuntime,
+        &mut ActorIdentity,
+        &mut ActorDisposition,
+        &mut ActorHealth,
+        &mut ActorCombatState,
+    ), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
     let feature_world = world_with_sandbox_solids(
@@ -1168,7 +1257,7 @@ pub fn update_ecs_actors(
     let player = runtime.player.clone();
     let player_body = player.aabb();
     let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
-    for (mut aabb, mut actor) in &mut actors {
+    for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 npc.update(&feature_world, &player, dt);
@@ -1200,6 +1289,13 @@ pub fn update_ecs_actors(
                 }
             }
         }
+        sync_actor_components_from_runtime(
+            &*actor,
+            &mut *identity,
+            &mut *disposition,
+            &mut *health,
+            &mut *combat,
+        );
     }
 }
 
@@ -1273,10 +1369,16 @@ pub fn interact_ecs_actors_and_switches(
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
     save: Res<crate::save::SandboxSave>,
-    mut actors: Query<&mut ActorRuntime, With<FeatureSimEntity>>,
+    mut actors: Query<(
+        &mut ActorRuntime,
+        &mut ActorIdentity,
+        &mut ActorDisposition,
+        &mut ActorHealth,
+        &mut ActorCombatState,
+    ), With<FeatureSimEntity>>,
 ) {
     let data = save.data();
-    for mut actor in &mut actors {
+    for (mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 if data.flag(&npc.flag_id()) {
@@ -1299,6 +1401,13 @@ pub fn sync_ecs_actors_with_save(
                 }
             }
         }
+        sync_actor_components_from_runtime(
+            &*actor,
+            &mut *identity,
+            &mut *disposition,
+            &mut *health,
+            &mut *combat,
+        );
     }
 }
 
@@ -1354,15 +1463,20 @@ pub fn ecs_damage_event_hits_breakable(
 
 pub fn ecs_damage_event_hits_actor(
     event: &DamageEvent,
-    actors: &Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
+    actors: &Query<(
+        &FeatureId,
+        &FeatureAabb,
+        &ActorDisposition,
+        &ActorCombatState,
+    ), With<FeatureSimEntity>>,
 ) -> bool {
-    actors.iter().any(|(id, aabb, actor)| {
-        let key = match actor {
-            ActorRuntime::Peaceful(_) => format!("npc:{}", id.as_str()),
-            ActorRuntime::Hostile(_) => format!("enemy:{}", id.as_str()),
+    actors.iter().any(|(id, aabb, disposition, combat)| {
+        let key = match *disposition {
+            ActorDisposition::Peaceful => format!("npc:{}", id.as_str()),
+            ActorDisposition::Hostile => format!("enemy:{}", id.as_str()),
         };
         !event.ignored_targets.iter().any(|ignored| ignored == &key)
-            && actor.visible()
+            && combat.alive
             && event.volume.strict_intersects(aabb.aabb())
     })
 }

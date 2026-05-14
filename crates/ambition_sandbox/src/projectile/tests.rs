@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use super::state::{PlayerProjectile, PlayerProjectileState};
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
-use crate::features::{ActorRuntime, DamageEvent, GameplayBanner, GameplayEffect, PogoBounceEvent};
+use crate::features::{ActorHealth, ActorIdentity, DamageEvent, GameplayBanner, GameplayEffect, PogoBounceEvent};
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::physics::DebrisBurstMessage;
@@ -337,15 +337,12 @@ fn fireball_damages_enemy_on_intersect() {
 
     let (enemy_health, enemy_max) = {
         let world = app.world_mut();
-        let mut query = world.query::<&ActorRuntime>();
-        let actor = query
+        let mut query = world.query::<(&ActorIdentity, &ActorHealth)>();
+        let (_, health) = query
             .iter(world)
-            .find_map(|actor| match actor {
-                ActorRuntime::Hostile(enemy) if enemy.id == "test_enemy" => Some(enemy),
-                _ => None,
-            })
+            .find(|(identity, _)| identity.id() == "test_enemy")
             .expect("test enemy should be spawned as an ECS actor");
-        (actor.health.current, actor.health.max)
+        (health.health.current, health.health.max)
     };
     let state = app.world().resource::<PlayerProjectileState>();
     assert!(

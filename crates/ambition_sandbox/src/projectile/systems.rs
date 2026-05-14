@@ -9,7 +9,7 @@ use super::diagnostics::log_press_diagnostics;
 use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
 use crate::features::{
-    ActorRuntime, BossFeature, BreakableFeature, DamageEvent, DamageSource, FeatureAabb,
+    ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, DamageEvent, DamageSource, FeatureAabb,
     FeatureId, FeatureSimEntity,
 };
 use crate::fx::VfxMessage;
@@ -27,7 +27,12 @@ pub fn update_projectiles(
     mut trace: ResMut<GameplayTraceBuffer>,
     mut feature_damage: MessageWriter<DamageEvent>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
-    ecs_actors: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
+    ecs_actors: Query<(
+        &FeatureId,
+        &FeatureAabb,
+        &ActorDisposition,
+        &ActorCombatState,
+    ), With<FeatureSimEntity>>,
     ecs_bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,

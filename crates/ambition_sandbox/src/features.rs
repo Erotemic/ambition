@@ -52,10 +52,11 @@ pub use bus::{
 };
 pub use chests::ChestRuntime;
 pub use components::{
-    BossRewardChest, BreakableFeature, ChestFeature, Collected, EncounterMob,
-    EncounterRewardChest, FallingChest, FeatureAabb, FeatureId, FeatureName, Opened,
-    PersistKey, PickupFeature, PogoTargetContributor, RespawnTimer, SandboxSolidContributor,
-    StandTimer, SwitchFeature, SwitchOn,
+    ActorCombatState, ActorDisposition, ActorHealth, ActorIdentity, BossRewardChest,
+    BreakableFeature, ChestFeature, Collected, EncounterMob, EncounterRewardChest, FallingChest,
+    FeatureAabb, FeatureId, FeatureName, Opened, PersistKey, PickupFeature,
+    PogoTargetContributor, RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature,
+    SwitchOn,
 };
 pub use ecs::{
     apply_feature_damage_events, clear_encounter_reward_ecs, collect_ecs_pickups,
@@ -68,7 +69,7 @@ pub use ecs::{
     spawn_room_feature_entities, sync_boss_reward_chests_ecs, sync_ecs_actors_with_save,
     sync_ecs_bosses_with_save, sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, update_ecs_actors,
     update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
-    ActorDisposition, ActorRuntime, BossFeature, FeatureEcsWorldOverlay,
+    ActorRuntime, BossFeature, FeatureEcsWorldOverlay,
     FeatureSimEntity, HazardFeature, tick_gameplay_banner, apply_gameplay_banner_requests,
 };
 pub use enemies::{EnemyArchetype, EnemyRuntime};

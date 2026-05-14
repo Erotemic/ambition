@@ -31,7 +31,9 @@ pub(super) struct HudCameraParams<'w, 's> {
         's,
         (
             &'static crate::features::FeatureName,
-            &'static crate::features::ActorRuntime,
+            &'static crate::features::ActorDisposition,
+            &'static crate::features::ActorHealth,
+            &'static crate::features::ActorCombatState,
         ),
     >,
 }
@@ -74,18 +76,16 @@ pub(super) fn update_hud(
     let enemy_health = camera_params
         .ecs_actors
         .iter()
-        .filter_map(|(name, actor)| {
-            if let crate::features::ActorRuntime::Hostile(enemy) = actor {
-                Some(format!(
+        .filter_map(|(name, disposition, health, combat)| {
+            disposition.is_hostile().then(|| {
+                format!(
                     "{} hp {}/{} alive {}",
                     name.0,
-                    enemy.health.current.max(0),
-                    enemy.health.max,
-                    enemy.alive
-                ))
-            } else {
-                None
-            }
+                    health.health.current.max(0),
+                    health.health.max,
+                    combat.alive
+                )
+            })
         })
         .collect::<Vec<_>>()
         .join(" | ");

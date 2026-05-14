@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::features::{ActorRuntime, BossFeature, BreakableFeature, FeatureAabb, FeatureName};
+use crate::features::{ActorCombatState, ActorDisposition, ActorHealth, BossFeature, BreakableFeature, FeatureAabb, FeatureName};
 
 pub fn sync_health_overlays(
     mut commands: Commands,
@@ -18,7 +18,13 @@ pub fn sync_health_overlays(
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     ecs_breakables: Query<(&FeatureName, &FeatureAabb, &BreakableFeature)>,
-    ecs_actors: Query<(&FeatureName, &FeatureAabb, &ActorRuntime)>,
+    ecs_actors: Query<(
+        &FeatureName,
+        &FeatureAabb,
+        &ActorDisposition,
+        &ActorHealth,
+        &ActorCombatState,
+    )>,
     ecs_bosses: Query<(&FeatureName, &BossFeature)>,
 ) {
     for entity in overlays.iter() {
@@ -38,23 +44,21 @@ pub fn sync_health_overlays(
         Color::srgba(0.30, 0.92, 1.00, 0.96),
     );
 
-    for (name, aabb, actor) in &ecs_actors {
-        if let ActorRuntime::Hostile(enemy) = actor {
-            if enemy.alive {
-                let color = if enemy.archetype.is_sandbag() {
-                    Color::srgba(1.00, 0.66, 0.24, 0.96)
-                } else {
-                    Color::srgba(1.00, 0.20, 0.22, 0.96)
-                };
-                spawn_health_overlay(
-                    &mut commands,
-                    &world.0,
-                    name.0.as_str(),
-                    aabb.aabb(),
-                    enemy.health,
-                    color,
-                );
-            }
+    for (name, aabb, disposition, health, combat) in &ecs_actors {
+        if disposition.is_hostile() && combat.alive {
+            let color = if combat.training_dummy {
+                Color::srgba(1.00, 0.66, 0.24, 0.96)
+            } else {
+                Color::srgba(1.00, 0.20, 0.22, 0.96)
+            };
+            spawn_health_overlay(
+                &mut commands,
+                &world.0,
+                name.0.as_str(),
+                aabb.aabb(),
+                health.health,
+                color,
+            );
         }
     }
     for (name, boss) in &ecs_bosses {

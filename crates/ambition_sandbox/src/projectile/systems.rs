@@ -10,8 +10,8 @@ use super::feedback::forward_damage_feedback;
 use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
 use crate::features::{
-    BreakableFeature, DamageEvent, DamageSource, FeatureAabb, FeatureEcsQueues, FeatureId,
-    FeatureSimEntity, GameplayEffect,
+    ActorRuntime, BreakableFeature, DamageEvent, DamageSource, FeatureAabb,
+    FeatureEcsQueues, FeatureId, FeatureSimEntity, GameplayEffect,
 };
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
@@ -29,6 +29,7 @@ pub fn update_projectiles(
     mut trace: ResMut<GameplayTraceBuffer>,
     mut feature_ecs_queues: ResMut<FeatureEcsQueues>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    ecs_actors: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -72,9 +73,13 @@ pub fn update_projectiles(
             &damage_event,
             &ecs_breakables,
         );
+        let ecs_actor_hit = crate::features::ecs_damage_event_hits_actor(
+            &damage_event,
+            &ecs_actors,
+        );
         feature_ecs_queues.damage_events.push(damage_event.clone());
         let report = runtime.features.apply_damage_event(&damage_event);
-        if report.any_actor_hit() || ecs_breakable_hit {
+        if report.any_actor_hit() || ecs_breakable_hit || ecs_actor_hit {
             forward_damage_feedback(&mut vfx, &mut debris, &report.events);
             // Forward boss-damage / quest / flag writes / NPC-struck
             // effects so the rest of the systems (boss encounter, save

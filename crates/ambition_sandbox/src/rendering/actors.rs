@@ -15,8 +15,8 @@ use crate::boss_sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
-    BreakableFeature, ChestFeature, Collected, FeatureAabb, FeatureId, FeatureVisualKind, Opened,
-    PickupFeature,
+    ActorRuntime, BreakableFeature, ChestFeature, Collected, FeatureAabb, FeatureId,
+    FeatureVisualKind, Opened, PickupFeature, SwitchFeature, SwitchOn,
 };
 use crate::game_assets::{self, EntitySprite, GameAssets};
 
@@ -36,6 +36,8 @@ pub fn sync_visuals(
     ecs_pickups: Query<(&FeatureId, &FeatureAabb, Option<&Collected>), With<PickupFeature>>,
     ecs_chests: Query<(&FeatureId, &FeatureAabb, Option<&Opened>), With<ChestFeature>>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
+    ecs_switches: Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
+    ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
@@ -77,7 +79,14 @@ pub fn sync_visuals(
         let Some(view) = runtime
             .features
             .view(&visual.id)
-            .or_else(|| crate::features::ecs_feature_view(&visual.id, &ecs_pickups, &ecs_chests, &ecs_breakables))
+            .or_else(|| crate::features::ecs_feature_view(
+                &visual.id,
+                &ecs_pickups,
+                &ecs_chests,
+                &ecs_breakables,
+                &ecs_switches,
+                &ecs_actors,
+            ))
         else {
             *visibility = Visibility::Hidden;
             continue;
@@ -171,12 +180,17 @@ pub fn upgrade_enemy_sprites(
     images: Res<Assets<Image>>,
     runtime: Res<crate::SandboxRuntime>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
+    ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
     let Some(assets) = assets else {
         return;
     };
     for (entity, visual, bound) in &features {
-        let Some(view) = runtime.features.view(&visual.id) else {
+        let Some(view) = runtime
+            .features
+            .view(&visual.id)
+            .or_else(|| crate::features::ecs_actor_view_compat(&visual.id, &ecs_actors))
+        else {
             continue;
         };
         if !matches!(
@@ -196,7 +210,11 @@ pub fn upgrade_enemy_sprites(
         // override blank, so kernel→goblin keeps its dedicated visual
         // gag while every other faction NPC stays themselves when
         // hostile.
-        let character_asset = match runtime.features.enemy_sprite_override(&visual.id) {
+        let character_asset = match runtime
+            .features
+            .enemy_sprite_override(&visual.id)
+            .or_else(|| crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors))
+        {
             Some(name) => assets
                 .characters
                 .npc_asset_for_name(name)
@@ -241,12 +259,17 @@ pub fn upgrade_npc_sprites(
     images: Res<Assets<Image>>,
     runtime: Res<crate::SandboxRuntime>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
+    ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
     let Some(assets) = assets else {
         return;
     };
     for (entity, visual, bound) in &features {
-        let Some(view) = runtime.features.view(&visual.id) else {
+        let Some(view) = runtime
+            .features
+            .view(&visual.id)
+            .or_else(|| crate::features::ecs_actor_view_compat(&visual.id, &ecs_actors))
+        else {
             continue;
         };
         if !matches!(view.kind, FeatureVisualKind::Npc) {
@@ -255,7 +278,11 @@ pub fn upgrade_npc_sprites(
         if matches!(bound, Some(BoundFeatureKind(k)) if *k == view.kind) {
             continue;
         }
-        let Some(name) = runtime.features.npc_name(&visual.id) else {
+        let Some(name) = runtime
+            .features
+            .npc_name(&visual.id)
+            .or_else(|| crate::features::ecs_npc_name(&visual.id, &ecs_actors))
+        else {
             continue;
         };
         let Some(character_asset) = assets.characters.npc_asset_for_name(name) else {
@@ -323,18 +350,27 @@ pub fn animate_characters(
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
     mut query: Query<(&FeatureVisual, &mut Sprite, &mut CharacterAnimator), Without<PlayerVisual>>,
+    ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
     let dt = time.delta_secs();
     for (visual, mut sprite, mut animator) in &mut query {
         let (anim, facing, hit_flash, attacking) =
-            if let Some(state) = runtime.features.enemy_anim_state(&visual.id) {
+            if let Some(state) = runtime
+                .features
+                .enemy_anim_state(&visual.id)
+                .or_else(|| crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors))
+            {
                 (
                     crate::character_sprites::pick_enemy_anim(state),
                     state.facing,
                     state.hit_flash,
                     state.attack_active || state.attack_windup,
                 )
-            } else if let Some(state) = runtime.features.npc_anim_state(&visual.id) {
+            } else if let Some(state) = runtime
+                .features
+                .npc_anim_state(&visual.id)
+                .or_else(|| crate::features::ecs_npc_anim_state(&visual.id, &ecs_actors))
+            {
                 (
                     crate::character_sprites::pick_npc_anim(state),
                     state.facing,

@@ -152,14 +152,9 @@ impl FeatureRuntime {
                     events.bursts.push(npc.pos);
                 }
             }
-            for switch in &mut self.switches {
-                if switch.aabb().strict_intersects(player_body) {
-                    events.consumed_interaction = true;
-                    events.messages.push(format!("activated {}", switch.name));
-                    events.activate_switch(switch.custom_payload.clone(), switch.pos);
-                    events.bursts.push(switch.pos);
-                }
-            }
+            // Switch interaction is now ECS-owned. `self.switches` remains as a
+            // compatibility mirror for encounter arming until those helpers query
+            // `SwitchFeature` components directly.
         }
 
         for enemy in &mut self.enemies {

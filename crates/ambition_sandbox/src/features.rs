@@ -64,10 +64,13 @@ pub use components::{
     SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::{
-    apply_ecs_breakable_damage_queue, collect_ecs_pickups, ecs_breakable_state, ecs_chest_opened, ecs_damage_event_hits_breakable,
-    ecs_feature_view, open_ecs_chests, rebuild_feature_ecs_world_overlay, reset_ecs_room_features,
-    spawn_room_feature_entities, update_ecs_breakables, FeatureEcsQueues,
-    FeatureEcsWorldOverlay, FeatureSimEntity,
+    apply_ecs_breakable_damage_queue, collect_ecs_pickups, ecs_breakable_state,
+    ecs_chest_opened, ecs_damage_event_hits_actor, ecs_damage_event_hits_breakable,
+    ecs_actor_view_compat, ecs_enemy_anim_state, ecs_enemy_sprite_override, ecs_feature_view, ecs_npc_anim_state,
+    ecs_npc_name, interact_ecs_actors_and_switches, open_ecs_chests,
+    rebuild_feature_ecs_world_overlay, reset_ecs_room_features, spawn_room_feature_entities,
+    sync_ecs_actors_with_save, sync_ecs_switches_from_runtime, update_ecs_actors, update_ecs_breakables,
+    ActorDisposition, ActorRuntime, FeatureEcsQueues, FeatureEcsWorldOverlay, FeatureSimEntity,
 };
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{

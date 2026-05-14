@@ -43,13 +43,11 @@ impl FeatureRuntime {
                 | ae::RoomObjectKind::Breakable(_) => {}
                 ae::RoomObjectKind::Interactable(interactable) => {
                     if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
-                        runtime.npcs.push(NpcRuntime::new_with_paths(
-                            object,
-                            interactable.clone(),
-                            paths,
-                        ));
+                        // Phase 6/7 strangler: authored NPCs are ECS actors now.
                     } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
                         if payload.starts_with("switch:") {
+                            // Keep a mirror entry for encounter arming helpers until
+                            // those helpers read ECS switch components directly.
                             runtime.switches.push(SwitchRuntime::new(
                                 object,
                                 interactable.clone(),
@@ -58,10 +56,9 @@ impl FeatureRuntime {
                         }
                     }
                 }
-                ae::RoomObjectKind::EnemySpawn(brain) => {
-                    runtime
-                        .enemies
-                        .push(EnemyRuntime::new(object, brain.clone(), paths));
+                ae::RoomObjectKind::EnemySpawn(_) => {
+                    // Authored enemies are ECS actors now. Dynamic encounter mobs
+                    // still enter through `FeatureRuntime::spawn_enemy`.
                 }
                 ae::RoomObjectKind::BossSpawn(brain) => {
                     runtime.bosses.push(BossRuntime::new(object, brain.clone()));

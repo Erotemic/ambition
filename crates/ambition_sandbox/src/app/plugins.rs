@@ -110,11 +110,13 @@ pub fn add_simulation_plugins(app: &mut App) {
             (
                 ldtk_world::poll_ldtk_file_changes,
                 crate::features::rebuild_feature_ecs_world_overlay,
+                crate::features::update_ecs_actors,
                 sandbox_update,
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,
                 crate::features::apply_ecs_breakable_damage_queue,
                 crate::features::collect_ecs_pickups,
+                crate::features::interact_ecs_actors_and_switches,
                 crate::features::open_ecs_chests,
                 crate::features::update_ecs_breakables,
                 ldtk_world::sync_plugin_spawned_ambition_entities,
@@ -161,6 +163,8 @@ pub fn add_simulation_plugins(app: &mut App) {
             (
                 crate::boss_encounter::update_boss_encounters,
                 crate::features::sync_features_with_save,
+                crate::features::sync_ecs_actors_with_save,
+                crate::features::sync_ecs_switches_from_runtime,
                 crate::quest::push_room_entered_quest_events,
                 crate::quest::apply_quest_advance_events,
                 crate::quest::grant_quest_completion_rewards,

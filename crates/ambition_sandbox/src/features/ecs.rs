@@ -3,16 +3,17 @@
 //! This is the Phase 3/4/5 strangler path for simple feature families. Static
 //! authored pickups, chests, and breakables are spawned as Bevy entities at room
 //! load and updated by the systems in this module. `FeatureRuntime` remains the
-//! compatibility shell for hazards/enemies/bosses/NPCs/switches and for a few
-//! dynamic reward-chest paths that still originate in runtime-owned encounter
-//! code.
+//! compatibility shell for hazards/bosses and for dynamic encounter
+//! enemies/reward-chest paths that still originate in runtime-owned encounter
+//! code. Authored pickups, chests, breakables, switches, and actor NPC/enemy
+//! features now live as ECS entities.
 
 use super::*;
 use crate::audio::SfxMessage;
 use crate::fx::{ParticleKind, VfxMessage};
 use crate::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::rendering::RoomVisual;
-use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, ResMut, Resource, Time, With};
+use bevy::prelude::{Commands, Component, Entity, MessageWriter, NextState, Query, Res, ResMut, Resource, Time, With};
 
 /// Marker for simulation-side feature entities spawned from the active room.
 /// They are deliberately separate from presentation `FeatureVisual` sprites;
@@ -21,6 +22,126 @@ use bevy::prelude::{Commands, Component, Entity, MessageWriter, Query, ResMut, R
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FeatureSimEntity;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActorDisposition {
+    Peaceful,
+    Hostile,
+}
+
+/// Unified ECS runtime for authored NPCs and enemies.
+///
+/// The only meaningful gameplay distinction is disposition: peaceful actors
+/// talk / patrol, hostile actors chase / attack. A peaceful NPC can flip into
+/// the hostile branch in-place after enough strikes instead of being removed
+/// from one runtime vector and reinserted into another.
+#[derive(Component, Clone, Debug)]
+pub enum ActorRuntime {
+    Peaceful(NpcRuntime),
+    Hostile(EnemyRuntime),
+}
+
+impl ActorRuntime {
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Peaceful(actor) => actor.id.as_str(),
+            Self::Hostile(actor) => actor.id.as_str(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Peaceful(actor) => actor.name.as_str(),
+            Self::Hostile(actor) => actor.name.as_str(),
+        }
+    }
+
+    pub fn aabb(&self) -> ae::Aabb {
+        match self {
+            Self::Peaceful(actor) => actor.aabb(),
+            Self::Hostile(actor) => actor.aabb(),
+        }
+    }
+
+    pub fn pos(&self) -> ae::Vec2 {
+        match self {
+            Self::Peaceful(actor) => actor.pos,
+            Self::Hostile(actor) => actor.pos,
+        }
+    }
+
+    pub fn size(&self) -> ae::Vec2 {
+        match self {
+            Self::Peaceful(actor) => actor.size,
+            Self::Hostile(actor) => actor.size,
+        }
+    }
+
+    pub fn disposition(&self) -> ActorDisposition {
+        match self {
+            Self::Peaceful(_) => ActorDisposition::Peaceful,
+            Self::Hostile(_) => ActorDisposition::Hostile,
+        }
+    }
+
+    pub fn visual_kind(&self) -> FeatureVisualKind {
+        match self {
+            Self::Peaceful(_) => FeatureVisualKind::Npc,
+            Self::Hostile(enemy) => enemy.visual_kind(),
+        }
+    }
+
+    pub fn visible(&self) -> bool {
+        match self {
+            Self::Peaceful(_) => true,
+            Self::Hostile(enemy) => enemy.alive,
+        }
+    }
+
+    pub fn flash(&self) -> bool {
+        match self {
+            Self::Peaceful(npc) => npc.hit_flash > 0.0,
+            Self::Hostile(enemy) => {
+                enemy.hit_flash > 0.0 || enemy.attack_windup_timer > 0.0 || enemy.attack_timer > 0.0
+            }
+        }
+    }
+
+    pub fn feature_view(&self) -> FeatureView {
+        FeatureView {
+            pos: self.pos(),
+            size: self.size(),
+            kind: self.visual_kind(),
+            visible: self.visible(),
+            flash: self.flash(),
+            switch_on: false,
+        }
+    }
+
+    fn hostile_from_npc(npc: &NpcRuntime) -> EnemyRuntime {
+        let object = ae::RoomObject::new(
+            npc.id.clone(),
+            npc.name.clone(),
+            npc.aabb(),
+            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom("medium_striker".into())),
+        );
+        let mut enemy = EnemyRuntime::new(
+            &object,
+            ae::EnemyBrain::Custom("medium_striker".into()),
+            &[],
+        );
+        enemy.pos = npc.pos;
+        enemy.spawn = npc.spawn;
+        enemy.size = ae::Vec2::new(npc.size.x.max(22.0), npc.size.y.max(38.0));
+        enemy.vel = npc.vel;
+        enemy.facing = npc.facing;
+        enemy.on_ground = npc.on_ground;
+        if npc.name != "Kernel Guide NPC" {
+            enemy.sprite_override_npc_name = Some(npc.name.clone());
+        }
+        enemy
+    }
+}
+
 /// Per-frame damage/pogo work that still originates inside the legacy
 /// `sandbox_update` loop. Systems after `sandbox_update` drain this into ECS
 /// feature components.
@@ -28,7 +149,14 @@ pub struct FeatureSimEntity;
 pub struct FeatureEcsQueues {
     pub damage_events: Vec<DamageEvent>,
     pub pogo_bounces: Vec<(ae::Aabb, i32)>,
+    pub pending_events: FeatureEvents,
     pub reset_room_features: bool,
+}
+
+impl FeatureEcsQueues {
+    pub fn drain_events(&mut self) -> FeatureEvents {
+        std::mem::take(&mut self.pending_events)
+    }
 }
 
 /// Collision contribution from ECS-owned breakables. Rebuilt before the main
@@ -40,13 +168,18 @@ pub struct FeatureEcsWorldOverlay {
 }
 
 /// Spawn ECS-native feature entities for every static feature object in a room.
-pub fn spawn_room_feature_entities(commands: &mut Commands, world: &ae::World) {
-    for object in &world.objects {
-        spawn_room_feature_entity(commands, object);
+pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms::RoomSpec) {
+    let paths = room_spec_paths(room);
+    for object in &room.world.objects {
+        spawn_room_feature_entity(commands, object, &paths);
     }
 }
 
-fn spawn_room_feature_entity(commands: &mut Commands, object: &ae::RoomObject) {
+fn spawn_room_feature_entity(
+    commands: &mut Commands,
+    object: &ae::RoomObject,
+    paths: &[(String, ae::KinematicPath)],
+) {
     let feature_aabb = FeatureAabb::from_aabb(object.aabb);
     match &object.kind {
         ae::RoomObjectKind::Pickup(pickup) => {
@@ -89,6 +222,47 @@ fn spawn_room_feature_entity(commands: &mut Commands, object: &ae::RoomObject) {
                 entity.insert(PogoTargetContributor);
             }
         }
+        ae::RoomObjectKind::EnemySpawn(brain) => {
+            commands.spawn((
+                Name::new(format!("Feature actor enemy: {}", object.name)),
+                FeatureSimEntity,
+                RoomVisual,
+                FeatureId::new(object.id.clone()),
+                FeatureName::new(object.name.clone()),
+                feature_aabb,
+                ActorRuntime::Hostile(EnemyRuntime::new(object, brain.clone(), paths)),
+            ));
+        }
+        ae::RoomObjectKind::Interactable(interactable) => {
+            if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
+                commands.spawn((
+                    Name::new(format!("Feature actor npc: {}", object.name)),
+                    FeatureSimEntity,
+                    RoomVisual,
+                    FeatureId::new(object.id.clone()),
+                    FeatureName::new(object.name.clone()),
+                    feature_aabb,
+                    ActorRuntime::Peaceful(NpcRuntime::new_with_paths(
+                        object,
+                        interactable.clone(),
+                        paths,
+                    )),
+                ));
+            } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
+                if payload.starts_with("switch:") {
+                    commands.spawn((
+                        Name::new(format!("Feature switch: {}", object.name)),
+                        FeatureSimEntity,
+                        RoomVisual,
+                        FeatureId::new(object.id.clone()),
+                        FeatureName::new(object.name.clone()),
+                        feature_aabb,
+                        SwitchFeature::new(payload.clone()),
+                        SwitchOn(false),
+                    ));
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -101,6 +275,8 @@ pub fn reset_ecs_room_features(
     collected_pickups: Query<Entity, (With<FeatureSimEntity>, With<Collected>)>,
     opened_chests: Query<Entity, (With<FeatureSimEntity>, With<Opened>)>,
     mut breakables: Query<(Entity, &mut BreakableFeature, Option<&mut StandTimer>), With<FeatureSimEntity>>,
+    mut actors: Query<(&mut FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
+    mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
 ) {
     if !queues.reset_room_features {
         return;
@@ -108,6 +284,7 @@ pub fn reset_ecs_room_features(
     queues.reset_room_features = false;
     queues.damage_events.clear();
     queues.pogo_bounces.clear();
+    queues.pending_events = FeatureEvents::default();
 
     for entity in &collected_pickups {
         commands.entity(entity).remove::<Collected>();
@@ -122,6 +299,32 @@ pub fn reset_ecs_room_features(
             timer.0 = 0.0;
         }
         commands.entity(entity).remove::<RespawnTimer>();
+    }
+    for (mut aabb, mut actor) in &mut actors {
+        match &mut *actor {
+            ActorRuntime::Peaceful(npc) => {
+                npc.pos = npc.spawn;
+                aabb.center = npc.spawn;
+                npc.vel = ae::Vec2::ZERO;
+                npc.on_ground = false;
+                npc.hostile = false;
+                npc.strikes = 0;
+                npc.hit_flash = 0.0;
+            }
+            ActorRuntime::Hostile(enemy) => {
+                enemy.pos = enemy.spawn;
+                aabb.center = enemy.spawn;
+                enemy.vel = ae::Vec2::ZERO;
+                enemy.alive = true;
+                enemy.health.reset();
+                enemy.hit_flash = 0.0;
+                enemy.attack_timer = 0.0;
+                enemy.attack_windup_timer = 0.0;
+            }
+        }
+    }
+    for mut switch_on in &mut switches {
+        switch_on.0 = false;
     }
 }
 
@@ -316,6 +519,8 @@ pub fn apply_ecs_breakable_damage_queue(
     mut queues: ResMut<FeatureEcsQueues>,
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut breakables: Query<(Entity, &FeatureId, &FeatureName, &FeatureAabb, &mut BreakableFeature), With<FeatureSimEntity>>,
+    mut actors: Query<(&FeatureId, &FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
+    mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -324,6 +529,113 @@ pub fn apply_ecs_breakable_damage_queue(
     let pogo_bounces = std::mem::take(&mut queues.pogo_bounces);
 
     for event in damage_events {
+        let mut actor_hit_this_event = false;
+        for (id, aabb, mut actor) in &mut actors {
+            let key = match &*actor {
+                ActorRuntime::Peaceful(_) => format!("npc:{}", id.as_str()),
+                ActorRuntime::Hostile(_) => format!("enemy:{}", id.as_str()),
+            };
+            if event.ignored_targets.iter().any(|ignored| ignored == &key) {
+                continue;
+            }
+            if !event.volume.strict_intersects(aabb.aabb()) {
+                continue;
+            }
+            match &mut *actor {
+                ActorRuntime::Peaceful(npc) => {
+                    npc.hit_flash = 0.18;
+                    npc.strikes = npc.strikes.saturating_add(1);
+                    let impact = midpoint(event.volume.center(), npc.pos);
+                    vfx.write(VfxMessage::Impact { pos: impact });
+                    gameplay_effects.write(GameplayEffect::StrikeNpc {
+                        npc_id: npc.id.clone(),
+                        pos: npc.pos,
+                    });
+                    actor_hit_this_event = true;
+                    if npc.strikes >= NPC_HOSTILE_STRIKE_THRESHOLD {
+                        let hostile = ActorRuntime::hostile_from_npc(npc);
+                        gameplay_effects.write(GameplayEffect::SetFlag {
+                            id: npc.flag_id(),
+                            on: true,
+                        });
+                        vfx.write(VfxMessage::SpeechBubble {
+                            pos: npc.bark_anchor(),
+                            text: npc.hostile_bark().to_string(),
+                        });
+                        vfx.write(VfxMessage::Burst {
+                            pos: npc.pos,
+                            count: 16,
+                            speed: 230.0,
+                            color: [0.84, 0.95, 1.0, 0.82],
+                            kind: ParticleKind::Spark,
+                        });
+                        runtime.features.banner = format!("{} turns hostile", npc.name);
+                        runtime.features.banner_timer = 2.6;
+                        *actor = ActorRuntime::Hostile(hostile);
+                    } else {
+                        vfx.write(VfxMessage::SpeechBubble {
+                            pos: npc.bark_anchor(),
+                            text: npc.hit_bark().to_string(),
+                        });
+                    }
+                }
+                ActorRuntime::Hostile(enemy) => {
+                    if !enemy.alive {
+                        continue;
+                    }
+                    enemy.hit_flash = 0.16;
+                    if let DamageSource::PlayerSlash { knock_x } = &event.source {
+                        enemy.vel.x += *knock_x;
+                        enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
+                    }
+                    let killed = if enemy.archetype == EnemyArchetype::InfiniteSandbag {
+                        false
+                    } else {
+                        enemy.health.damage(event.damage.max(1))
+                    };
+                    let impact = midpoint(event.volume.center(), enemy.pos);
+                    vfx.write(VfxMessage::Impact { pos: impact });
+                    actor_hit_this_event = true;
+                    if killed {
+                        enemy.alive = false;
+                        if enemy.archetype == EnemyArchetype::FiniteSandbag {
+                            enemy.respawn_timer = 0.85;
+                            runtime.features.banner = format!("{} dropped; respawning", enemy.name);
+                        } else {
+                            runtime.features.banner = format!("defeated {}", enemy.name);
+                            if !enemy.id.starts_with("encounter:")
+                                && enemy.archetype != EnemyArchetype::InfiniteSandbag
+                                && enemy.archetype != EnemyArchetype::FiniteSandbag
+                            {
+                                gameplay_effects.write(GameplayEffect::SetFlag {
+                                    id: format!("enemy_{}_dead", enemy.id),
+                                    on: true,
+                                });
+                            }
+                        }
+                        runtime.features.banner_timer = 2.6;
+                        vfx.write(VfxMessage::Burst {
+                            pos: enemy.pos,
+                            count: 16,
+                            speed: 230.0,
+                            color: [0.84, 0.95, 1.0, 0.82],
+                            kind: ParticleKind::Spark,
+                        });
+                        debris.write(DebrisBurstMessage {
+                            pos: enemy.pos,
+                            cue: PhysicsDebrisCue::EnemyRagdoll,
+                        });
+                        sfx.write(SfxMessage::Death { pos: enemy.pos });
+                    }
+                }
+            }
+        }
+        if actor_hit_this_event {
+            runtime.hitstop_timer = runtime.hitstop_timer.max(0.06);
+            runtime.flash_timer = runtime.flash_timer.max(0.10);
+            sfx.write(SfxMessage::Hit { pos: event.volume.center() });
+        }
+
         for (entity, id, name, aabb, mut feature) in &mut breakables {
             let key = format!("breakable:{}", id.as_str());
             if event.ignored_targets.iter().any(|ignored| ignored == &key) {
@@ -370,6 +682,174 @@ pub fn apply_ecs_breakable_damage_queue(
 }
 
 
+/// Tick authored ECS actors. Peaceful and hostile actors share the same entity
+/// identity and can switch disposition in-place; dynamic encounter-spawned mobs
+/// still live in `FeatureRuntime` until encounter spawning is migrated.
+pub fn update_ecs_actors(
+    time: Res<Time>,
+    world: Res<crate::GameWorld>,
+    runtime: Res<crate::SandboxRuntime>,
+    feel_tuning: Res<crate::feel::SandboxFeelTuning>,
+    overlay: Res<FeatureEcsWorldOverlay>,
+    mut queues: ResMut<FeatureEcsQueues>,
+    mut actors: Query<(&mut FeatureAabb, &mut ActorRuntime), With<FeatureSimEntity>>,
+) {
+    let dt = time.delta_secs();
+    let feature_world = world_with_sandbox_solids(
+        &world.0,
+        &runtime.moving_platforms,
+        &runtime.features,
+        &overlay,
+    );
+    let player = runtime.player.clone();
+    let player_body = player.aabb();
+    let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
+    for (mut aabb, mut actor) in &mut actors {
+        match &mut *actor {
+            ActorRuntime::Peaceful(npc) => {
+                npc.update(&feature_world, &player, dt);
+                aabb.center = npc.pos;
+                aabb.half_size = npc.size * 0.5;
+            }
+            ActorRuntime::Hostile(enemy) => {
+                enemy.update(&feature_world, &player, feel_tuning.feature_combat_tuning(), dt);
+                aabb.center = enemy.pos;
+                aabb.half_size = enemy.size * 0.5;
+                if player_vulnerable && enemy.alive {
+                    if let Some(damage) = enemy.player_damage(player_body) {
+                        queues
+                            .pending_events
+                            .messages
+                            .push(format!("{} hit the player", enemy.name));
+                        queues.pending_events.impacts.push(damage.impact_pos);
+                        queues
+                            .pending_events
+                            .play_sfx(ambition_sfx::ids::PLAYER_DAMAGE, damage.impact_pos);
+                        queues.pending_events.player_damage.push(damage);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
+/// `open_ecs_chests` because they have their own reward/persistence path.
+pub fn interact_ecs_actors_and_switches(
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut next_mode: ResMut<NextState<crate::GameMode>>,
+    actors: Query<(&FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
+    mut switches: Query<(&FeatureId, &FeatureName, &FeatureAabb, &SwitchFeature, &mut SwitchOn), With<FeatureSimEntity>>,
+    mut gameplay_effects: MessageWriter<GameplayEffect>,
+    mut vfx: MessageWriter<VfxMessage>,
+) {
+    if runtime.interact_buffer_timer <= 0.0 {
+        return;
+    }
+    let player_body = runtime.player.aabb();
+    for (aabb, actor) in &actors {
+        let ActorRuntime::Peaceful(npc) = actor else {
+            continue;
+        };
+        if !aabb.aabb().strict_intersects(player_body) {
+            continue;
+        }
+        runtime.clear_interact_buffer();
+        runtime.features.banner = npc.message();
+        runtime.features.banner_timer = 2.6;
+        let request = npc.dialogue_request();
+        runtime.dialogue.start(&request.dialogue_id, &request.npc_name);
+        next_mode.set(crate::GameMode::Dialogue);
+        gameplay_effects.write(GameplayEffect::AdvanceQuest(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone())));
+        gameplay_effects.write(GameplayEffect::SetFlag { id: "met_any_hub_npc".into(), on: true });
+        gameplay_effects.write(GameplayEffect::SetFlag { id: format!("npc_{}_talked", request.dialogue_id), on: true });
+        vfx.write(VfxMessage::Burst {
+            pos: npc.pos,
+            count: 16,
+            speed: 230.0,
+            color: [0.84, 0.95, 1.0, 0.82],
+            kind: ParticleKind::Spark,
+        });
+        return;
+    }
+
+    for (_id, name, aabb, switch, mut on) in &mut switches {
+        if !aabb.aabb().strict_intersects(player_body) {
+            continue;
+        }
+        runtime.clear_interact_buffer();
+        runtime.features.banner = format!("activated {}", name.0.as_str());
+        runtime.features.banner_timer = 2.6;
+        on.0 = true;
+        gameplay_effects.write(GameplayEffect::ActivateSwitch {
+            payload: switch.payload.clone(),
+            pos: aabb.center,
+        });
+        vfx.write(VfxMessage::Burst {
+            pos: aabb.center,
+            count: 16,
+            speed: 230.0,
+            color: [0.84, 0.95, 1.0, 0.82],
+            kind: ParticleKind::Spark,
+        });
+        return;
+    }
+}
+
+
+/// Mirror save-derived actor state onto ECS-owned authored NPC/enemy actors.
+///
+/// This is the ECS counterpart to `FeatureRuntime::apply_save`: provoked NPCs
+/// load as hostile actors, and persisted non-respawning enemy deaths stay dead
+/// across room reloads. Dynamic encounter mobs still live in `FeatureRuntime`
+/// and continue to use the legacy save path.
+pub fn sync_ecs_actors_with_save(
+    save: Res<crate::save::SandboxSave>,
+    mut actors: Query<&mut ActorRuntime, With<FeatureSimEntity>>,
+) {
+    let data = save.data();
+    for mut actor in &mut actors {
+        match &mut *actor {
+            ActorRuntime::Peaceful(npc) => {
+                if data.flag(&npc.flag_id()) {
+                    let mut hostile = ActorRuntime::hostile_from_npc(npc);
+                    if data.flag(&format!("enemy_{}_dead", hostile.id)) {
+                        hostile.alive = false;
+                        hostile.health.current = 0;
+                    }
+                    *actor = ActorRuntime::Hostile(hostile);
+                }
+            }
+            ActorRuntime::Hostile(enemy) => {
+                if !enemy.id.starts_with("encounter:")
+                    && enemy.archetype != EnemyArchetype::InfiniteSandbag
+                    && enemy.archetype != EnemyArchetype::FiniteSandbag
+                    && data.flag(&format!("enemy_{}_dead", enemy.id))
+                {
+                    enemy.alive = false;
+                    enemy.health.current = 0;
+                }
+            }
+        }
+    }
+}
+
+/// Mirror the remaining encounter-owned switch latch state from the legacy
+/// compatibility list onto ECS switch components. This lets encounter arming
+/// continue to use its existing switch helpers while rendering/interactions are
+/// driven by ECS entities.
+pub fn sync_ecs_switches_from_runtime(
+    runtime: Res<crate::SandboxRuntime>,
+    mut switches: Query<(&FeatureId, &mut SwitchOn), With<SwitchFeature>>,
+) {
+    for (id, mut switch_on) in &mut switches {
+        if let Some(runtime_switch) = runtime.features.switches.iter().find(|switch| switch.id == id.as_str()) {
+            switch_on.0 = runtime_switch.on;
+        }
+    }
+}
+
+
 /// Read-only hit test used by systems that need immediate projectile / attack
 /// feedback while damage application is still drained through
 /// `FeatureEcsQueues`.
@@ -383,6 +863,21 @@ pub fn ecs_damage_event_hits_breakable(
             && !feature.broken()
             && feature.breakable.trigger.allows_hit()
             && !feature.breakable.pogo_refresh
+            && event.volume.strict_intersects(aabb.aabb())
+    })
+}
+
+pub fn ecs_damage_event_hits_actor(
+    event: &DamageEvent,
+    actors: &Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
+) -> bool {
+    actors.iter().any(|(id, aabb, actor)| {
+        let key = match actor {
+            ActorRuntime::Peaceful(_) => format!("npc:{}", id.as_str()),
+            ActorRuntime::Hostile(_) => format!("enemy:{}", id.as_str()),
+        };
+        !event.ignored_targets.iter().any(|ignored| ignored == &key)
+            && actor.visible()
             && event.volume.strict_intersects(aabb.aabb())
     })
 }
@@ -426,6 +921,8 @@ pub fn ecs_feature_view(
     pickups: &Query<(&FeatureId, &FeatureAabb, Option<&Collected>), With<PickupFeature>>,
     chests: &Query<(&FeatureId, &FeatureAabb, Option<&Opened>), With<ChestFeature>>,
     breakables: &Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
+    switches: &Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
+    actors: &Query<(&FeatureId, &ActorRuntime)>,
 ) -> Option<FeatureView> {
     for (feature_id, aabb, collected) in pickups.iter() {
         if feature_id.as_str() == id {
@@ -463,7 +960,101 @@ pub fn ecs_feature_view(
             });
         }
     }
+    for (feature_id, aabb, switch_on) in switches.iter() {
+        if feature_id.as_str() == id {
+            return Some(FeatureView {
+                pos: aabb.center,
+                size: aabb.size(),
+                kind: FeatureVisualKind::Switch,
+                visible: true,
+                flash: false,
+                switch_on: switch_on.0,
+            });
+        }
+    }
+    for (feature_id, actor) in actors.iter() {
+        if feature_id.as_str() == id {
+            return Some(actor.feature_view());
+        }
+    }
     None
+}
+
+pub fn ecs_actor_view_compat(
+    id: &str,
+    actors: &Query<(&FeatureId, &ActorRuntime)>,
+) -> Option<FeatureView> {
+    actors.iter().find_map(|(feature_id, actor)| {
+        (feature_id.as_str() == id).then(|| actor.feature_view())
+    })
+}
+
+pub fn ecs_npc_name<'a>(id: &str, actors: &'a Query<(&FeatureId, &ActorRuntime)>) -> Option<&'a str> {
+    actors.iter().find_map(|(feature_id, actor)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        match actor {
+            ActorRuntime::Peaceful(npc) => Some(npc.name.as_str()),
+            ActorRuntime::Hostile(enemy) => enemy.sprite_override_npc_name.as_deref(),
+        }
+    })
+}
+
+pub fn ecs_enemy_sprite_override<'a>(
+    id: &str,
+    actors: &'a Query<(&FeatureId, &ActorRuntime)>,
+) -> Option<&'a str> {
+    actors.iter().find_map(|(feature_id, actor)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        match actor {
+            ActorRuntime::Hostile(enemy) => enemy.sprite_override_npc_name.as_deref(),
+            _ => None,
+        }
+    })
+}
+
+pub fn ecs_enemy_anim_state(
+    id: &str,
+    actors: &Query<(&FeatureId, &ActorRuntime)>,
+) -> Option<crate::character_sprites::EnemyAnimState> {
+    actors.iter().find_map(|(feature_id, actor)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        match actor {
+            ActorRuntime::Hostile(enemy) => Some(crate::character_sprites::EnemyAnimState {
+                vel: enemy.vel,
+                facing: enemy.facing,
+                alive: enemy.alive,
+                attack_active: enemy.attack_timer > 0.0,
+                attack_windup: enemy.attack_windup_timer > 0.0,
+                hit_flash: enemy.hit_flash > 0.0,
+            }),
+            _ => None,
+        }
+    })
+}
+
+pub fn ecs_npc_anim_state(
+    id: &str,
+    actors: &Query<(&FeatureId, &ActorRuntime)>,
+) -> Option<crate::character_sprites::NpcAnimState> {
+    actors.iter().find_map(|(feature_id, actor)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        match actor {
+            ActorRuntime::Peaceful(npc) => Some(crate::character_sprites::NpcAnimState {
+                vel: npc.vel,
+                facing: npc.facing,
+                hit_flash: npc.hit_flash > 0.0,
+            }),
+            _ => None,
+        }
+    })
 }
 
 /// ECS chest-opened lookup for sprite swapping.

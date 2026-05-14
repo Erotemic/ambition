@@ -750,7 +750,7 @@ fn synthetic_kinematic_path_reaches_room_spec_with_area_offset() {
 }
 
 #[test]
-fn feature_runtime_uses_room_spec_kinematic_path_aliases() {
+fn enemy_spawn_uses_room_spec_kinematic_path_aliases() {
     fn field(name: &str, value: &str) -> LdtkFieldInstance {
         LdtkFieldInstance {
             identifier: name.into(),
@@ -813,11 +813,23 @@ fn feature_runtime_uses_room_spec_kinematic_path_aliases() {
         .iter()
         .find(|room| room.id == "feature_path_lab")
         .expect("room should exist");
-    let features = crate::features::FeatureRuntime::from_room_spec(room);
-    assert_eq!(features.enemies.len(), 1);
+    let path_id = room
+        .world
+        .objects
+        .iter()
+        .find_map(|object| match &object.kind {
+            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Patrol {
+                path_id: Some(path_id),
+            }) => Some(path_id.as_str()),
+            _ => None,
+        })
+        .expect("EnemySpawn Patrol:<path id> should survive LDtk lowering");
+    assert_eq!(path_id, "patrol_alpha");
     assert!(
-        features.enemies[0].motion.is_some(),
-        "EnemySpawn Patrol:<path id> should resolve through RoomSpec::kinematic_paths"
+        room.kinematic_paths
+            .iter()
+            .any(|spec| spec.matches_id(path_id)),
+        "ECS actor spawn should resolve EnemySpawn Patrol:<path id> through RoomSpec::kinematic_paths"
     );
 }
 
@@ -923,11 +935,27 @@ fn npc_path_id_resolves_through_room_spec_kinematic_paths() {
         .iter()
         .find(|room| room.id == "npc_path_lab")
         .expect("room should exist");
-    let features = crate::features::FeatureRuntime::from_room_spec(room);
-    assert_eq!(features.npcs.len(), 1);
+    let path_id = room
+        .world
+        .objects
+        .iter()
+        .find_map(|object| match &object.kind {
+            ae::RoomObjectKind::Interactable(interactable) => match &interactable.kind {
+                ae::InteractionKind::Npc {
+                    patrol_path_id: Some(path_id),
+                    ..
+                } => Some(path_id.as_str()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .expect("NpcSpawn path_id should survive LDtk lowering");
+    assert_eq!(path_id, "guide_patrol");
     assert!(
-        features.npcs[0].motion.is_some(),
-        "NpcSpawn path_id should resolve through RoomSpec::kinematic_paths"
+        room.kinematic_paths
+            .iter()
+            .any(|spec| spec.matches_id(path_id)),
+        "ECS actor spawn should resolve NpcSpawn path_id through RoomSpec::kinematic_paths"
     );
 }
 
@@ -944,9 +972,21 @@ fn embedded_ldtk_patrol_enemy_resolves_kinematic_path_index() {
         !room.kinematic_paths.is_empty(),
         "basement_enemies should expose authored KinematicPath specs"
     );
-    let features = crate::features::FeatureRuntime::from_room_spec(room);
+    let patrol_path_id = room
+        .world
+        .objects
+        .iter()
+        .find_map(|object| match &object.kind {
+            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Patrol {
+                path_id: Some(path_id),
+            }) => Some(path_id.as_str()),
+            _ => None,
+        })
+        .expect("basement_enemies should contain an authored patrol enemy");
     assert!(
-        features.enemies.iter().any(|enemy| enemy.motion.is_some()),
+        room.kinematic_paths
+            .iter()
+            .any(|spec| spec.matches_id(patrol_path_id)),
         "at least one authored patrol enemy should resolve through RoomSpec::kinematic_paths"
     );
 }

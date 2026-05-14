@@ -117,7 +117,7 @@ pub(super) fn load_room(
     runtime.down_tap_timer = 0.0;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&spec);
     runtime.features = features::FeatureRuntime::from_room_spec(&spec);
-    features::spawn_room_feature_entities(commands, &spec.world);
+    features::spawn_room_feature_entities(commands, &spec);
     runtime.dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
@@ -597,7 +597,8 @@ pub(super) fn advance_attack(
 
     if phase == ae::AttackPhase::Active {
         let attack = ae::attack_hitbox(&runtime.player, attack_state.spec);
-        if !attack_state.active_started {
+        let first_active_frame = !attack_state.active_started;
+        if first_active_frame {
             attack_state.active_started = true;
             vfx.push(VfxMessage::SlashPreview { hitbox: attack });
         }
@@ -640,12 +641,14 @@ pub(super) fn advance_attack(
         } else {
             runtime.player.facing * 300.0
         };
-        feature_ecs_queues.damage_events.push(features::DamageEvent {
-            volume: attack,
-            damage: slash_damage,
-            source: features::DamageSource::PlayerSlash { knock_x },
-            ignored_targets: attack_state.hit_targets.clone(),
-        });
+        if first_active_frame {
+            feature_ecs_queues.damage_events.push(features::DamageEvent {
+                volume: attack,
+                damage: slash_damage,
+                source: features::DamageSource::PlayerSlash { knock_x },
+                ignored_targets: attack_state.hit_targets.clone(),
+            });
+        }
         let report = runtime.features.apply_player_attack_report(
             attack,
             slash_damage,

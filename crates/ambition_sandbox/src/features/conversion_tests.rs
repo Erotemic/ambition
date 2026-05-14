@@ -428,9 +428,10 @@ mod conversion_tests {
     }
 
     #[test]
-    fn apply_save_marks_authored_enemy_dead_when_save_says_so() {
-        // Authored enemy from a regular EnemySpawn (no encounter
-        // prefix). The save flag should mark it dead on load.
+    fn feature_runtime_skips_authored_enemy_spawns() {
+        // Authored enemies are ECS actor entities now. `FeatureRuntime` should
+        // stay empty for regular room-authored EnemySpawn objects so it does
+        // not grow back into a parallel actor ECS.
         let world = ae::World::new(
             String::from("enemy_test"),
             ae::Vec2::new(800.0, 600.0),
@@ -447,13 +448,8 @@ mod conversion_tests {
             ae::Aabb::new(ae::Vec2::new(400.0, 540.0), ae::Vec2::new(11.0, 19.0)),
             ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom(String::from("medium_striker"))),
         )]);
-        let mut features = FeatureRuntime::from_world(&world);
-        assert_eq!(features.enemies.len(), 1);
-        assert!(features.enemies[0].alive);
-        let mut save = ae::SandboxSaveData::new();
-        save.set_flag("enemy_spider_dead", true);
-        features.apply_save(&save);
-        assert!(!features.enemies[0].alive);
+        let features = FeatureRuntime::from_world(&world);
+        assert!(features.enemies.is_empty());
     }
 
     #[test]

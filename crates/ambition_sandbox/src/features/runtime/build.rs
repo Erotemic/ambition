@@ -46,13 +46,8 @@ impl FeatureRuntime {
                         // Phase 6/7 strangler: authored NPCs are ECS actors now.
                     } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
                         if payload.starts_with("switch:") {
-                            // Keep a mirror entry for encounter arming helpers until
-                            // those helpers read ECS switch components directly.
-                            runtime.switches.push(SwitchRuntime::new(
-                                object,
-                                interactable.clone(),
-                                payload.clone(),
-                            ));
+                            // Switches are ECS entities now; encounter arming reads
+                            // EncounterSwitchIndex rebuilt from SwitchFeature/SwitchOn.
                         }
                     }
                 }

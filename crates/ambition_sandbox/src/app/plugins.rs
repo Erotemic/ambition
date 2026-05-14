@@ -82,6 +82,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::encounter::EncounterState::default())
         .insert_resource(crate::encounter::EncounterRegistry::default())
         .insert_resource(crate::encounter::SwitchActivationQueue::default())
+        .insert_resource(crate::encounter::EncounterSwitchIndex::default())
         .insert_resource(crate::encounter::EncounterMusicRequest::default())
         .insert_resource(crate::rooms::RoomMusicRequest::default())
         // Sandbox save game (encounter defeat + switch state).
@@ -105,6 +106,11 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::CameraEaseTuning::default())
         .insert_resource(crate::rendering::CameraViewState::default())
         .insert_resource(crate::reset::SandboxResetRequested::default())
+        // Core simulation chain. Keep this split into small chained groups: Bevy
+        // only implements tuple system configs up to a fixed arity, and the ECS
+        // feature migration added enough systems to exceed that limit if they
+        // all live in one tuple. The `.after(...)` links preserve the previous
+        // total ordering.
         .add_systems(
             Update,
             (
@@ -116,20 +122,44 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::projectile::update_projectiles,
                 crate::features::apply_ecs_breakable_damage_queue,
                 crate::features::collect_ecs_pickups,
+            )
+                .chain(),
+        )
+        .add_systems(
+            Update,
+            (
                 crate::features::interact_ecs_actors_and_switches,
                 crate::features::open_ecs_chests,
                 crate::features::update_ecs_breakables,
+                crate::features::update_ecs_falling_chests,
+                crate::features::sync_ecs_switches_from_save,
+                crate::encounter::rebuild_encounter_switch_index,
+            )
+                .chain()
+                .after(crate::features::collect_ecs_pickups),
+        )
+        .add_systems(
+            Update,
+            (
                 ldtk_world::sync_plugin_spawned_ambition_entities,
                 ldtk_world::rebuild_ldtk_runtime_spine_index,
                 ldtk_world::rebuild_ldtk_runtime_solid_index,
                 ldtk_world::rebuild_ldtk_runtime_one_way_index,
                 ldtk_world::rebuild_ldtk_runtime_damage_index,
                 ldtk_world::check_ldtk_runtime_spine_parity,
+            )
+                .chain()
+                .after(crate::encounter::rebuild_encounter_switch_index),
+        )
+        .add_systems(
+            Update,
+            (
                 platforms::sync_moving_platform,
                 crate::encounter::update_encounters_from_world,
                 crate::encounter::sync_encounter_controller_states,
             )
-                .chain(),
+                .chain()
+                .after(ldtk_world::check_ldtk_runtime_spine_parity),
         )
         // Progression chain: cutscenes, gameplay-effect routing, boss
         // encounters, quest events, and the F3 stats editor sync. Split into
@@ -164,7 +194,6 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::boss_encounter::update_boss_encounters,
                 crate::features::sync_features_with_save,
                 crate::features::sync_ecs_actors_with_save,
-                crate::features::sync_ecs_switches_from_runtime,
                 crate::quest::push_room_entered_quest_events,
                 crate::quest::apply_quest_advance_events,
                 crate::quest::grant_quest_completion_rewards,

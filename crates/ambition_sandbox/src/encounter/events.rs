@@ -1,6 +1,6 @@
 /// Trace + side-effect events emitted by the encounter state machine.
 /// The sandbox projects these into `GameplayTraceEvent` and routes
-/// `SpawnCommand` to `FeatureRuntime::spawn_enemy`.
+/// `SpawnCommand` to ECS actor spawning.
 #[derive(Clone, Debug, PartialEq)]
 pub enum EncounterEvent {
     Started {
@@ -15,8 +15,8 @@ pub enum EncounterEvent {
     EnemySpawned {
         kind: String,
     },
-    /// Side-effect: spawn a real enemy in `FeatureRuntime` with the
-    /// given id / brain / world position / size.
+    /// Side-effect: spawn a real ECS encounter mob with the given id /
+    /// brain / world position / size.
     SpawnCommand {
         id: String,
         kind: String,

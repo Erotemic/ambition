@@ -195,6 +195,48 @@ impl SwitchFeature {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SwitchOn(pub bool);
 
+/// Marker for hostile actors spawned dynamically by an encounter wave.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct EncounterMob {
+    pub encounter_id: String,
+}
+
+impl EncounterMob {
+    pub fn new(encounter_id: impl Into<String>) -> Self {
+        Self {
+            encounter_id: encounter_id.into(),
+        }
+    }
+}
+
+/// Marker for encounter reward chests spawned after a mob encounter clears.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct EncounterRewardChest {
+    pub encounter_id: String,
+}
+
+impl EncounterRewardChest {
+    pub fn new(encounter_id: impl Into<String>) -> Self {
+        Self {
+            encounter_id: encounter_id.into(),
+        }
+    }
+}
+
+/// Marker for boss reward chests spawned after a boss encounter clears.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct BossRewardChest {
+    pub encounter_id: String,
+}
+
+impl BossRewardChest {
+    pub fn new(encounter_id: impl Into<String>) -> Self {
+        Self {
+            encounter_id: encounter_id.into(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

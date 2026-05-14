@@ -4,9 +4,8 @@ use ambition_engine as ae;
 
 use super::lock_walls::sync_lock_walls;
 use super::{
-    clear_encounter_reward, encounter_armed_by_switch, load_encounter_specs_from_ldtk,
-    switch_id_for_encounter, sync_encounter_reward_chests, EncounterController, EncounterEvent,
-    EncounterMusicRequest, EncounterPhase, EncounterRegistry, EncounterRun, SwitchActivationQueue,
+    load_encounter_specs_from_ldtk, EncounterController, EncounterEvent, EncounterMusicRequest,
+    EncounterPhase, EncounterRegistry, EncounterRun, EncounterSwitchIndex, SwitchActivationQueue,
 };
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
@@ -100,17 +99,31 @@ pub fn sync_encounter_controller_states(
 /// deliberate sandbox UX — the encounter is "in play" only while the
 /// player is actually inside the room.
 pub fn update_encounters_from_world(
+    mut commands: Commands,
     time: Res<Time>,
     mut died_messages: MessageReader<crate::PlayerDiedMessage>,
     mut registry: ResMut<EncounterRegistry>,
     mut save: ResMut<crate::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
+    switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut world: ResMut<crate::GameWorld>,
     mut music_request: ResMut<EncounterMusicRequest>,
     mut quests: ResMut<crate::quest::QuestRegistry>,
     room_set: Res<crate::rooms::RoomSet>,
+    encounter_mobs: Query<(
+        Entity,
+        &crate::features::EncounterMob,
+        &crate::features::FeatureId,
+        &crate::features::ActorRuntime,
+    )>,
+    reward_chests: Query<(
+        Entity,
+        &crate::features::EncounterRewardChest,
+        &crate::features::FeatureId,
+        Option<&crate::features::Opened>,
+    ), With<crate::features::ChestFeature>>,
 ) {
     let active_area = room_set.active_spec().id.clone();
     let player_pos = runtime.player.pos;
@@ -142,7 +155,7 @@ pub fn update_encounters_from_world(
                 state.phase = EncounterPhase::Inactive;
                 state.lock_active = false;
                 state.run = EncounterRun::default();
-                runtime.features.despawn_encounter_enemies(id);
+                crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, id);
             }
         }
     }
@@ -172,7 +185,7 @@ pub fn update_encounters_from_world(
     //    persisted state doesn't lock out re-triggering after a
     //    switch toggle. The trigger only fires when the encounter
     //    isn't currently in flight AND the linked switch is off.
-    let armed_active = encounter_armed_by_switch(&active_area, &runtime.features.switches);
+    let armed_active = switch_index.encounter_armed(&active_area);
     if let Some(state) = registry.encounters.get_mut(&active_area) {
         let in_flight = matches!(
             state.phase,
@@ -212,12 +225,10 @@ pub fn update_encounters_from_world(
             // freshly-spawned mobs in this tick aren't immediately
             // reaped (they'll be tested against the next frame's
             // snapshot).
-            let alive_lookup: std::collections::HashSet<String> = runtime
-                .features
-                .enemies
+            let alive_lookup: std::collections::HashSet<String> = encounter_mobs
                 .iter()
-                .filter(|e| e.alive)
-                .map(|e| e.id.clone())
+                .filter(|(_, mob, _, actor)| mob.encounter_id == active_area && actor.visible())
+                .map(|(_, _, id, _)| id.as_str().to_string())
                 .collect();
             let evs = state.tick_intro_or_wave(dt, |id| alive_lookup.contains(id));
             for ev in &evs {
@@ -240,9 +251,11 @@ pub fn update_encounters_from_world(
         }
     }
 
-    // 4. Apply spawn commands to FeatureRuntime.
+    // 4. Apply spawn commands to ECS actor entities.
     for (id, kind, pos, size) in spawn_commands {
-        runtime.features.spawn_enemy(
+        crate::features::spawn_encounter_mob(
+            &mut commands,
+            active_area.clone(),
             id,
             ae::EnemyBrain::Custom(kind),
             ae::Vec2::new(pos[0], pos[1]),
@@ -256,12 +269,10 @@ pub fn update_encounters_from_world(
     //    cleanup happens too so the world is clean for the next time
     //    they re-arm.
     if let Some(encounter_id) = just_cleared_id {
-        if let Some(switch_id) = switch_id_for_encounter(&encounter_id, &runtime.features.switches)
-        {
+        if let Some(switch_id) = switch_index.switch_id_for_encounter(&encounter_id) {
             save.data_mut().set_switch(&switch_id, true);
-            runtime.features.set_switch_on(&switch_id, true);
         }
-        runtime.features.despawn_encounter_enemies(&encounter_id);
+        crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &encounter_id);
         // Polish: surface a celebration banner so the player gets
         // explicit "you cleared it" feedback (not just an ambient
         // green switch).
@@ -272,19 +283,6 @@ pub fn update_encounters_from_world(
             encounter_id.clone(),
         ));
     }
-
-    // 5b. Reward chest sync: every Cleared encounter whose spec is
-    //     loaded must have its reward chest live in `features.chests`.
-    //     Runs idempotently each frame so save+reload (encounter
-    //     loaded already in `Cleared`, features rebuilt empty) drops
-    //     the chest just like the first clear does. `spawn_chest`
-    //     itself is idempotent by id, so re-running is cheap.
-    //
-    //     The `encounter_<id>_reward_dropped` save flag now means
-    //     "the chest was looted" (not "the chest was paid out"). The
-    //     spawn step applies the flag onto `chest.opened` so a
-    //     re-spawned chest shows its persisted looted state.
-    sync_encounter_reward_chests(&mut runtime.features, save.data(), &registry);
 
     // 6. Switch toggles. Just toggle the persisted switch state; the
     //    trigger gate consults `switch.on` directly. When the player
@@ -305,7 +303,7 @@ pub fn update_encounters_from_world(
         }
         let new_on = !save.data().switch(&activation.id);
         save.data_mut().set_switch(&activation.id, new_on);
-        runtime.features.set_switch_on(&activation.id, new_on);
+        // ECS switch state is mirrored from the save and indexed for the next frame.
 
         let target_id = if activation.target_encounter.is_empty() {
             active_area.clone()
@@ -326,28 +324,31 @@ pub fn update_encounters_from_world(
                     state.run = EncounterRun::default();
                 }
             }
-            runtime.features.despawn_encounter_enemies(&target_id);
+            crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &target_id);
             // Also drop any reward chest from a prior clear so the
             // next clear pays out fresh, and clear the persisted
             // "reward dropped" flag so re-clearing actually re-spawns
             // the chest. The orphaned `FeatureVisual` entity is
             // healed by `sync_visuals` on the next spawn (same id →
             // same entity, sprite restored from `chest_state_sprite`).
-            clear_encounter_reward(&mut runtime.features, save.data_mut(), &target_id);
+            crate::features::clear_encounter_reward_ecs(
+                &mut commands,
+                save.data_mut(),
+                &reward_chests,
+                &target_id,
+            );
         }
     }
 
-    // 6. Mirror persisted switch state onto the runtime each frame
-    //    (cheap; loop is bounded by switch count).
-    let switch_states: Vec<(String, bool)> = save
-        .data()
-        .switches
-        .iter()
-        .map(|s| (s.id.clone(), s.on))
-        .collect();
-    for (id, on) in switch_states {
-        runtime.features.set_switch_on(&id, on);
-    }
+    // 6b. Reward chest sync runs after switch resets so a re-arm in this
+    //     same tick cannot spawn a deferred ECS chest that the clear path
+    //     cannot see yet.
+    crate::features::sync_encounter_reward_chests_ecs(
+        &mut commands,
+        save.data(),
+        &registry,
+        &reward_chests,
+    );
 
     // 7. Lock-wall management: while any encounter is in Starting or
     //    Active, the lock wall block needs to be present in the

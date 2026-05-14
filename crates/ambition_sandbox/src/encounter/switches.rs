@@ -1,13 +1,78 @@
-use bevy::prelude::Resource;
+use bevy::prelude::{Query, ResMut, Resource};
 
 use super::SwitchActivation;
 
-/// Whether `encounter_id` is currently armed (will fire when the
-/// player crosses the trigger). Looks up linked switches in the
-/// runtime: a switch with `target_encounter == encounter_id` arms
-/// the encounter when its `on` flag is false (red). Multiple linked
-/// switches OR together (any one off → armed). No linked switches
-/// means the encounter is always armed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EncounterSwitchLink {
+    pub switch_id: String,
+    pub target_encounter: String,
+    pub on: bool,
+}
+
+/// Cached ECS switch state used by the encounter state machine.
+///
+/// Rebuilt from `SwitchFeature + SwitchOn` components, so encounter arming no
+/// longer depends on the legacy `FeatureRuntime.switches` mirror.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct EncounterSwitchIndex {
+    pub links: Vec<EncounterSwitchLink>,
+}
+
+impl EncounterSwitchIndex {
+    /// Whether `encounter_id` is armed. Off/red switches arm their target;
+    /// no linked switch means the encounter is always armed.
+    pub fn encounter_armed(&self, encounter_id: &str) -> bool {
+        let mut found = false;
+        for link in &self.links {
+            if link.target_encounter != encounter_id {
+                continue;
+            }
+            found = true;
+            if !link.on {
+                return true;
+            }
+        }
+        !found
+    }
+
+    /// First switch id linked to an encounter, used by the auto-green clear
+    /// path. Multi-switch encounters can replace this with a richer policy.
+    pub fn switch_id_for_encounter(&self, encounter_id: &str) -> Option<String> {
+        self.links
+            .iter()
+            .find(|link| link.target_encounter == encounter_id)
+            .map(|link| link.switch_id.clone())
+    }
+}
+
+pub fn rebuild_encounter_switch_index(
+    mut index: ResMut<EncounterSwitchIndex>,
+    switches: Query<(
+        &crate::features::FeatureId,
+        &crate::features::SwitchFeature,
+        &crate::features::SwitchOn,
+    )>,
+) {
+    index.links.clear();
+    for (feature_id, switch, switch_on) in &switches {
+        let Some(activation) = SwitchActivation::parse_custom(&switch.payload) else {
+            continue;
+        };
+        let switch_id = if activation.id.is_empty() {
+            feature_id.as_str().to_string()
+        } else {
+            activation.id
+        };
+        index.links.push(EncounterSwitchLink {
+            switch_id,
+            target_encounter: activation.target_encounter,
+            on: switch_on.0,
+        });
+    }
+}
+
+/// Compatibility helper for older unit tests that still build a small switch
+/// slice directly. Live code should use `EncounterSwitchIndex::encounter_armed`.
 pub fn encounter_armed_by_switch(
     encounter_id: &str,
     switches: &[crate::features::SwitchRuntime],
@@ -22,16 +87,14 @@ pub fn encounter_armed_by_switch(
         }
         found = true;
         if !sw.on {
-            // Off (red) = armed.
             return true;
         }
     }
     !found
 }
 
-/// Find the switch id (LDtk `id` field, matching the persisted save's
-/// `switches` key) that targets `encounter_id`, if any. Returns the
-/// first match — multi-switch encounters can extend this later.
+/// Compatibility helper for older unit tests. Live code should use
+/// `EncounterSwitchIndex::switch_id_for_encounter`.
 pub fn switch_id_for_encounter(
     encounter_id: &str,
     switches: &[crate::features::SwitchRuntime],
@@ -47,8 +110,7 @@ pub fn switch_id_for_encounter(
     None
 }
 
-/// FIFO queue of switch activations produced by the feature runtime
-/// each frame. The encounter system drains it and applies the
-/// matching reset.
+/// FIFO queue of switch activations produced by the feature systems each frame.
+/// The encounter system drains it and applies the matching reset.
 #[derive(Resource, Default)]
 pub struct SwitchActivationQueue(pub Vec<SwitchActivation>);

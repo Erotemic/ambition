@@ -3,10 +3,9 @@
 //! This is the Phase 3/4/5 strangler path for simple feature families. Static
 //! authored pickups, chests, and breakables are spawned as Bevy entities at room
 //! load and updated by the systems in this module. `FeatureRuntime` remains the
-//! compatibility shell for hazards/bosses and for dynamic encounter
-//! enemies/reward-chest paths that still originate in runtime-owned encounter
-//! code. Authored pickups, chests, breakables, switches, and actor NPC/enemy
-//! features now live as ECS entities.
+//! compatibility shell for hazards/bosses and a few legacy pure tests. Authored
+//! pickups, chests, breakables, switches, actor NPC/enemy features, dynamic
+//! encounter mobs, and reward chests now live as ECS entities.
 
 use super::*;
 use crate::audio::SfxMessage;
@@ -268,6 +267,265 @@ fn spawn_room_feature_entity(
 }
 
 
+/// Spawn one hostile actor for an encounter wave.
+///
+/// This is the ECS replacement for `FeatureRuntime::spawn_enemy`: the encounter
+/// system still owns wave timing, but the mob itself is now a normal feature
+/// entity queried by actor, projectile, rendering, and health systems.
+pub fn spawn_encounter_mob(
+    commands: &mut Commands,
+    encounter_id: impl Into<String>,
+    id: String,
+    brain: ae::EnemyBrain,
+    pos: ae::Vec2,
+    size: ae::Vec2,
+) {
+    let encounter_id = encounter_id.into();
+    let archetype = EnemyArchetype::from_brain(&brain);
+    let aabb = ae::Aabb::new(pos, size * 0.5);
+    let object = ae::RoomObject::new(
+        id.clone(),
+        id.clone(),
+        aabb,
+        ae::RoomObjectKind::EnemySpawn(brain.clone()),
+    );
+    let mut enemy = EnemyRuntime::new(&object, brain, &[]);
+    enemy.archetype = archetype;
+    enemy.health = ae::Health::new(archetype.max_health());
+    // Encounter mobs should not auto-respawn like training sandbags.
+    enemy.respawn_timer = 999_999.0;
+    commands.spawn((
+        Name::new(format!("Encounter mob: {id}")),
+        FeatureSimEntity,
+        RoomVisual,
+        FeatureId::new(id.clone()),
+        FeatureName::new(id),
+        FeatureAabb::from_center_size(pos, size),
+        ActorRuntime::Hostile(enemy),
+        EncounterMob::new(encounter_id),
+    ));
+}
+
+/// Despawn all ECS mobs owned by an encounter attempt.
+pub fn despawn_encounter_mobs(
+    commands: &mut Commands,
+    mobs: &Query<(Entity, &EncounterMob, &FeatureId, &ActorRuntime)>,
+    encounter_id: &str,
+) {
+    for (entity, mob, _, _) in mobs.iter() {
+        if mob.encounter_id == encounter_id {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+/// Drop the encounter's ECS reward chest, if any, and clear its looted flag.
+pub fn clear_encounter_reward_ecs(
+    commands: &mut Commands,
+    save: &mut ae::SandboxSaveData,
+    chests: &Query<(Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>), With<ChestFeature>>,
+    encounter_id: &str,
+) {
+    for (entity, reward, _, _) in chests.iter() {
+        if reward.encounter_id == encounter_id {
+            commands.entity(entity).despawn();
+        }
+    }
+    save.set_flag(crate::encounter::encounter_reward_looted_flag(encounter_id), false);
+}
+
+/// Idempotently ensure cleared mob encounters have an ECS reward chest.
+pub fn sync_encounter_reward_chests_ecs(
+    commands: &mut Commands,
+    save: &ae::SandboxSaveData,
+    registry: &crate::encounter::EncounterRegistry,
+    chests: &Query<(Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>), With<ChestFeature>>,
+) {
+    let chest_size = ae::Vec2::new(28.0, 28.0);
+    for (encounter_id, state) in registry.encounters.iter() {
+        if !matches!(state.phase, crate::encounter::EncounterPhase::Cleared) {
+            continue;
+        }
+        let Some(spec) = state.spec.as_ref() else {
+            continue;
+        };
+        let chest_id = format!("encounter_chest_{encounter_id}");
+        let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(encounter_id));
+        let existing = chests
+            .iter()
+            .find(|(_, reward, _, _)| reward.encounter_id == *encounter_id);
+        if let Some((entity, _, _, opened)) = existing {
+            match (looted, opened.is_some()) {
+                (true, false) => {
+                    commands.entity(entity).insert(Opened);
+                }
+                (false, true) => {
+                    commands.entity(entity).remove::<Opened>();
+                }
+                _ => {}
+            }
+            continue;
+        }
+        let chest_pos = crate::encounter::encounter_reward_chest_pos(spec, chest_size);
+        let mut entity = commands.spawn((
+            Name::new(format!("Encounter reward chest: {encounter_id}")),
+            FeatureSimEntity,
+            RoomVisual,
+            FeatureId::new(chest_id.clone()),
+            FeatureName::new(chest_id.clone()),
+            FeatureAabb::from_center_size(chest_pos, chest_size),
+            ChestFeature::new(ae::Chest::new(
+                chest_id,
+                Some(ae::PickupKind::Health { amount: 2 }),
+            )),
+            EncounterRewardChest::new(encounter_id.clone()),
+        ));
+        if looted {
+            entity.insert(Opened);
+        }
+    }
+}
+
+/// Idempotently ensure cleared boss encounters have ECS reward chests.
+/// Boss actors are still legacy `BossRuntime`s, so this ECS helper reads their
+/// spawn positions but owns the reward chest entity/state natively.
+pub fn sync_boss_reward_chests_ecs(
+    commands: &mut Commands,
+    save: &ae::SandboxSaveData,
+    registry: &crate::boss_encounter::BossEncounterRegistry,
+    world: &ae::World,
+    bosses: &[BossRuntime],
+    chests: &Query<(Entity, &BossRewardChest, &FeatureId, Option<&Opened>, Option<&FallingChest>), With<ChestFeature>>,
+) {
+    for (encounter_id, profile) in &registry.profiles {
+        let crate::boss_encounter::BossRewardProfile::DropChest { pickup, offset, size } =
+            &profile.reward
+        else {
+            continue;
+        };
+        if !matches!(save.boss(encounter_id), ae::PersistedEncounterState::Cleared) {
+            continue;
+        }
+        let runtime_id = registry
+            .runtime_ids
+            .get(encounter_id)
+            .cloned()
+            .unwrap_or_else(|| encounter_id.clone());
+        let Some(boss) = bosses.iter().find(|b| b.id == runtime_id) else {
+            continue;
+        };
+        let chest_id = format!("encounter_chest_{encounter_id}");
+        let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(encounter_id));
+        let existing = chests
+            .iter()
+            .find(|(_, reward, _, _, _)| reward.encounter_id == *encounter_id);
+        if let Some((entity, _, _, opened, falling)) = existing {
+            match (looted, opened.is_some()) {
+                (true, false) => {
+                    commands.entity(entity).insert(Opened);
+                }
+                (false, true) => {
+                    commands.entity(entity).remove::<Opened>();
+                }
+                _ => {}
+            }
+            if looted && falling.is_some() {
+                commands.entity(entity).remove::<FallingChest>();
+            }
+            continue;
+        }
+        let mut chest_pos = boss.spawn + *offset;
+        if looted {
+            chest_pos = settled_chest_center(world, chest_pos, *size);
+        }
+        let mut entity = commands.spawn((
+            Name::new(format!("Boss reward chest: {encounter_id}")),
+            FeatureSimEntity,
+            RoomVisual,
+            FeatureId::new(chest_id.clone()),
+            FeatureName::new(chest_id.clone()),
+            FeatureAabb::from_center_size(chest_pos, *size),
+            ChestFeature::new(ae::Chest::new(chest_id, Some(pickup.clone()))),
+            BossRewardChest::new(encounter_id.clone()),
+        ));
+        if looted {
+            entity.insert(Opened);
+        } else {
+            entity.insert(FallingChest::new(0.0));
+        }
+    }
+}
+
+/// Tick ECS reward chests that are still falling to the floor.
+pub fn update_ecs_falling_chests(
+    mut commands: Commands,
+    time: Res<Time>,
+    world: Res<crate::GameWorld>,
+    mut chests: Query<(Entity, &mut FeatureAabb, &mut FallingChest), With<ChestFeature>>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut aabb, mut falling) in &mut chests {
+        falling.vel_y = (falling.vel_y + CHEST_FALL_GRAVITY * dt).min(CHEST_FALL_MAX_SPEED);
+        let step = falling.vel_y * dt;
+        if step <= 0.0 {
+            continue;
+        }
+        let max_substep = aabb.half_size.y.max(2.0);
+        let mut remaining = step;
+        while remaining > 0.0 {
+            let advance = remaining.min(max_substep);
+            let try_center = ae::Vec2::new(aabb.center.x, aabb.center.y + advance);
+            let try_aabb = ae::Aabb::new(try_center, aabb.half_size);
+            let blocked = world.0.body_overlaps_any(try_aabb, |block| {
+                matches!(
+                    block.kind,
+                    ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
+                )
+            });
+            if blocked {
+                commands.entity(entity).remove::<FallingChest>();
+                break;
+            }
+            aabb.center = try_center;
+            remaining -= advance;
+        }
+    }
+}
+
+fn settled_chest_center(world: &ae::World, start: ae::Vec2, size: ae::Vec2) -> ae::Vec2 {
+    let mut center = start;
+    let half_size = size * 0.5;
+    let mut vel_y: f32 = 0.0;
+    let virtual_dt = 1.0 / 60.0;
+    for _ in 0..240 {
+        vel_y = (vel_y + CHEST_FALL_GRAVITY * virtual_dt).min(CHEST_FALL_MAX_SPEED);
+        let step = vel_y * virtual_dt;
+        if step <= 0.0 {
+            continue;
+        }
+        let max_substep = half_size.y.max(2.0);
+        let mut remaining = step;
+        while remaining > 0.0 {
+            let advance = remaining.min(max_substep);
+            let try_center = ae::Vec2::new(center.x, center.y + advance);
+            let try_aabb = ae::Aabb::new(try_center, half_size);
+            let blocked = world.body_overlaps_any(try_aabb, |block| {
+                matches!(
+                    block.kind,
+                    ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
+                )
+            });
+            if blocked {
+                return center;
+            }
+            center = try_center;
+            remaining -= advance;
+        }
+    }
+    center
+}
+
+
 /// Reset ECS-owned static feature state after a same-room sandbox reset.
 pub fn reset_ecs_room_features(
     mut commands: Commands,
@@ -409,7 +667,14 @@ pub fn collect_ecs_pickups(
 pub fn open_ecs_chests(
     mut commands: Commands,
     mut runtime: ResMut<crate::SandboxRuntime>,
-    chests: Query<(Entity, &FeatureId, &FeatureName, &FeatureAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
+    chests: Query<(
+        Entity,
+        &FeatureId,
+        &FeatureName,
+        &FeatureAabb,
+        Option<&Opened>,
+        Option<&FallingChest>,
+    ), (With<FeatureSimEntity>, With<ChestFeature>)>,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -418,8 +683,8 @@ pub fn open_ecs_chests(
         return;
     }
     let player_body = runtime.player.aabb();
-    for (entity, id, name, aabb, opened) in &chests {
-        if opened.is_some() || !aabb.aabb().strict_intersects(player_body) {
+    for (entity, id, name, aabb, opened, falling) in &chests {
+        if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(player_body) {
             continue;
         }
         commands.entity(entity).insert(Opened);
@@ -682,9 +947,9 @@ pub fn apply_ecs_breakable_damage_queue(
 }
 
 
-/// Tick authored ECS actors. Peaceful and hostile actors share the same entity
-/// identity and can switch disposition in-place; dynamic encounter-spawned mobs
-/// still live in `FeatureRuntime` until encounter spawning is migrated.
+/// Tick ECS actors. Peaceful and hostile actors share the same entity identity
+/// and can switch disposition in-place; dynamic encounter-spawned mobs use the
+/// same `ActorRuntime::Hostile` path with an `EncounterMob` marker.
 pub fn update_ecs_actors(
     time: Res<Time>,
     world: Res<crate::GameWorld>,
@@ -834,18 +1099,17 @@ pub fn sync_ecs_actors_with_save(
     }
 }
 
-/// Mirror the remaining encounter-owned switch latch state from the legacy
-/// compatibility list onto ECS switch components. This lets encounter arming
-/// continue to use its existing switch helpers while rendering/interactions are
-/// driven by ECS entities.
-pub fn sync_ecs_switches_from_runtime(
-    runtime: Res<crate::SandboxRuntime>,
+/// Mirror persisted save switch state onto ECS switch components.
+///
+/// Encounter arming now reads `EncounterSwitchIndex`, which is rebuilt from
+/// these ECS components instead of from the legacy `FeatureRuntime.switches`
+/// mirror.
+pub fn sync_ecs_switches_from_save(
+    save: Res<crate::save::SandboxSave>,
     mut switches: Query<(&FeatureId, &mut SwitchOn), With<SwitchFeature>>,
 ) {
     for (id, mut switch_on) in &mut switches {
-        if let Some(runtime_switch) = runtime.features.switches.iter().find(|switch| switch.id == id.as_str()) {
-            switch_on.0 = runtime_switch.on;
-        }
+        switch_on.0 = save.data().switch(id.as_str());
     }
 }
 

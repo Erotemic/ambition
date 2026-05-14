@@ -7,8 +7,8 @@ use crate::cutscene::CutsceneTriggerQueue;
 use crate::quest::QuestRegistry;
 
 use super::{
-    default_boss_profiles, encounter_id_from_name, events::publish_events, sync_boss_reward_chests,
-    BossEncounterRegistry, BossProfile,
+    default_boss_profiles, encounter_id_from_name, events::publish_events, BossEncounterRegistry,
+    BossProfile,
 };
 
 pub fn populate_boss_encounter_registry(
@@ -40,6 +40,7 @@ pub fn populate_boss_encounter_registry(
 /// system param count low so this can be called as a regular Bevy
 /// system without splitting.
 pub fn update_boss_encounters(
+    mut commands: Commands,
     time: Res<Time>,
     mut registry: ResMut<BossEncounterRegistry>,
     mut runtime: ResMut<crate::SandboxRuntime>,
@@ -49,6 +50,13 @@ pub fn update_boss_encounters(
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
     room_set: Res<crate::rooms::RoomSet>,
     world: Res<crate::GameWorld>,
+    reward_chests: Query<(
+        Entity,
+        &crate::features::BossRewardChest,
+        &crate::features::FeatureId,
+        Option<&crate::features::Opened>,
+        Option<&crate::features::FallingChest>,
+    ), With<crate::features::ChestFeature>>,
 ) {
     let dt = time.delta_secs();
     let _active_room = room_set.active_spec().id.clone();
@@ -203,5 +211,12 @@ pub fn update_boss_encounters(
         let _ = music_request; // Already mutated in `publish_events`.
     }
 
-    sync_boss_reward_chests(&mut runtime.features, save.data(), &registry, &world.0);
+    crate::features::sync_boss_reward_chests_ecs(
+        &mut commands,
+        save.data(),
+        &registry,
+        &world.0,
+        &runtime.features.bosses,
+        &reward_chests,
+    );
 }

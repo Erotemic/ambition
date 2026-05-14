@@ -33,7 +33,10 @@ pub use rewards::{
 };
 pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
 pub use state::{EncounterPhase, EncounterRun, EncounterState, ENCOUNTER_INTER_WAVE_DELAY_SECONDS};
-pub use switches::{encounter_armed_by_switch, switch_id_for_encounter, SwitchActivationQueue};
+pub use switches::{
+    encounter_armed_by_switch, rebuild_encounter_switch_index, switch_id_for_encounter,
+    EncounterSwitchIndex, SwitchActivationQueue,
+};
 pub use systems::{
     populate_encounter_registry, sync_encounter_controller_states, update_encounters_from_world,
 };

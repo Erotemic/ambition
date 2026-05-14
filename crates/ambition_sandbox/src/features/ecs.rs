@@ -1,11 +1,8 @@
-//! ECS-native feature runtime systems.
+//! ECS-native feature simulation.
 //!
-//! This is the Phase 3/4/5 strangler path for simple feature families. Static
-//! authored pickups, chests, and breakables are spawned as Bevy entities at room
-//! load and updated by the systems in this module. `FeatureRuntime` remains the
-//! compatibility shell for banner/debug state and a few legacy pure tests. Authored
-//! pickups, chests, breakables, switches, hazards, bosses, actor NPC/enemy
-//! features, dynamic encounter mobs, and reward chests now live as ECS entities.
+//! Authored and dynamic pickups, chests, breakables, switches, NPCs, enemies,
+//! hazards, and bosses are spawned as Bevy entities and updated by the systems
+//! in this module. This is the authoritative feature implementation.
 
 use super::*;
 use crate::audio::SfxMessage;
@@ -315,9 +312,8 @@ fn spawn_room_feature_entity(
 
 /// Spawn one hostile actor for an encounter wave.
 ///
-/// This is the ECS replacement for `FeatureRuntime::spawn_enemy`: the encounter
-/// system still owns wave timing, but the mob itself is now a normal feature
-/// entity queried by actor, projectile, rendering, and health systems.
+/// The encounter system still owns wave timing, but the mob itself is a normal
+/// feature entity queried by actor, projectile, rendering, and health systems.
 pub fn spawn_encounter_mob(
     commands: &mut Commands,
     encounter_id: impl Into<String>,
@@ -845,8 +841,8 @@ pub fn update_ecs_breakables(
     }
 }
 
-/// Drain queued slash/projectile/pogo damage into ECS breakables.
-pub fn apply_ecs_breakable_damage_queue(
+/// Apply typed slash/projectile/pogo damage messages to ECS feature targets.
+pub fn apply_feature_damage_events(
     mut commands: Commands,
     mut damage_events: MessageReader<DamageEvent>,
     mut pogo_bounces: MessageReader<PogoBounceEvent>,
@@ -1272,10 +1268,9 @@ pub fn interact_ecs_actors_and_switches(
 
 /// Mirror save-derived actor state onto ECS-owned authored NPC/enemy actors.
 ///
-/// This is the ECS counterpart to `FeatureRuntime::apply_save`: provoked NPCs
-/// load as hostile actors, and persisted non-respawning enemy deaths stay dead
-/// across room reloads. Dynamic encounter mobs still live in `FeatureRuntime`
-/// and continue to use the legacy save path.
+/// Provoked NPCs load as hostile actors, and persisted non-respawning enemy
+/// deaths stay dead across room reloads. Dynamic encounter mobs are ignored
+/// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
     save: Res<crate::save::SandboxSave>,
     mut actors: Query<&mut ActorRuntime, With<FeatureSimEntity>>,
@@ -1329,8 +1324,7 @@ pub fn sync_ecs_bosses_with_save(
 /// Mirror persisted save switch state onto ECS switch components.
 ///
 /// Encounter arming now reads `EncounterSwitchIndex`, which is rebuilt from
-/// these ECS components instead of from the legacy `FeatureRuntime.switches`
-/// mirror.
+/// these ECS components.
 pub fn sync_ecs_switches_from_save(
     save: Res<crate::save::SandboxSave>,
     mut switches: Query<(&FeatureId, &mut SwitchOn), With<SwitchFeature>>,

@@ -673,7 +673,7 @@ pub(super) fn entity_to_runtime(
         // LockWall is a marker for an encounter-spawned Solid; the
         // encounter system reads it off the project directly.
         "LockWall" => Ok(RuntimeEntityEmission::ignored()),
-        // Switches are interactables routed through `FeatureRuntime`.
+        // Switches are interactables routed through ECS switch components.
         // The id / target_encounter / action fields are encoded into
         // an `InteractionKind::Custom` payload so the switch handler
         // can decide what to do without growing a new `RoomObjectKind`
@@ -683,7 +683,7 @@ pub(super) fn entity_to_runtime(
             let action = field_string(entity, "action").unwrap_or_else(|| "ResetEncounter".into());
             let target = field_string(entity, "target_encounter").unwrap_or_default();
             // Custom payload format: "switch:<id>:<action>:<target>"
-            // FeatureRuntime parses it back into typed fields.
+            // ECS switch systems parse it back into typed fields.
             let custom = format!("switch:{id}:{action}:{target}");
             let interactable = ae::Interactable::new(
                 id.clone(),
@@ -695,7 +695,7 @@ pub(super) fn entity_to_runtime(
             // SwitchRuntime's id matches the SwitchActivation payload's
             // `id`. (`runtime_room_object` defaults to entity.iid like
             // "Switch-4072"; that would mismatch and
-            // `FeatureRuntime::set_switch_on` would silently no-op,
+            // switch state updates would silently no-op,
             // which is the bug that left the switch stuck red.)
             let aabb = object_aabb(min, size);
             Ok(RuntimeEntityEmission::object(ae::RoomObject::new(

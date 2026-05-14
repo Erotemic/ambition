@@ -52,7 +52,7 @@ fn min_app() -> App {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
     app
 }
@@ -400,7 +400,7 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
 
     // Spawn a fireball just above the floor moving downward.
@@ -477,7 +477,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
 
     let starting_bounces;
@@ -555,7 +555,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
 
     {
@@ -630,7 +630,7 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_ecs_breakable_damage_queue).chain(),
+        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
 
     {

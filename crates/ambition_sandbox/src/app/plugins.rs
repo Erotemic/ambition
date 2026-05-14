@@ -20,6 +20,27 @@ use super::update::*;
 use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
+use bevy::prelude::SystemSet;
+
+/// Coarse simulation ordering for sandbox gameplay systems.
+///
+/// Keep concrete systems in small chained groups labeled with these sets instead
+/// of growing one giant tuple; Bevy only implements system tuples up to a fixed
+/// arity, and named sets make the update phases reviewable. Existing `.after`
+/// constraints continue to own ordering until the schedule is fully normalized.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum SandboxSet {
+    CoreSimulation,
+    FeatureCollection,
+    FeatureInteraction,
+    LdtkRuntimeSpine,
+    EncounterSimulation,
+    Cutscene,
+    GameplayEffects,
+    Progression,
+    ResetProcessing,
+    Trace,
+}
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -127,14 +148,16 @@ pub fn add_simulation_plugins(app: &mut App) {
                 sandbox_update,
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,
-                crate::features::apply_ecs_breakable_damage_queue,
+                crate::features::apply_feature_damage_events,
             )
-                .chain(),
+                .chain()
+                .in_set(SandboxSet::CoreSimulation),
         )
         .add_systems(
             Update,
             crate::features::collect_ecs_pickups
-                .after(crate::features::apply_ecs_breakable_damage_queue),
+                .in_set(SandboxSet::FeatureCollection)
+                .after(crate::features::apply_feature_damage_events),
         )
         .add_systems(
             Update,
@@ -147,6 +170,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::encounter::rebuild_encounter_switch_index,
             )
                 .chain()
+                .in_set(SandboxSet::FeatureInteraction)
                 .after(crate::features::collect_ecs_pickups),
         )
         .add_systems(
@@ -160,6 +184,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 ldtk_world::check_ldtk_runtime_spine_parity,
             )
                 .chain()
+                .in_set(SandboxSet::LdtkRuntimeSpine)
                 .after(crate::encounter::rebuild_encounter_switch_index),
         )
         .add_systems(
@@ -172,6 +197,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::tick_gameplay_banner,
             )
                 .chain()
+                .in_set(SandboxSet::EncounterSimulation)
                 .after(ldtk_world::check_ldtk_runtime_spine_parity),
         )
         // Progression chain: cutscenes, gameplay-effect routing, boss
@@ -186,6 +212,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::cutscene::tick_active_cutscene,
             )
                 .chain()
+                .in_set(SandboxSet::Cutscene)
                 .after(crate::encounter::sync_encounter_controller_states),
         )
         .add_systems(
@@ -199,6 +226,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::apply_gameplay_sfx_effects,
             )
                 .chain()
+                .in_set(SandboxSet::GameplayEffects)
                 .after(crate::cutscene::tick_active_cutscene),
         )
         .add_systems(
@@ -218,6 +246,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 dev_tools::sync_player_stats_with_inspector,
             )
                 .chain()
+                .in_set(SandboxSet::Progression)
                 .after(crate::features::apply_gameplay_sfx_effects),
         )
         // Populate the encounter / quest / boss registries from the LDtk
@@ -238,7 +267,8 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::quest::populate_quest_registry,
                 crate::boss_encounter::populate_boss_encounter_registry,
                 crate::encounter::populate_encounter_registry,
-            ),
+            )
+                .in_set(SandboxSet::Progression),
         )
         // Sandbox reset processor: consumes pending reset requests
         // (set by the pause-menu "Reset Sandbox" item or any other
@@ -248,7 +278,9 @@ pub fn add_simulation_plugins(app: &mut App) {
         // registries when re-running.
         .add_systems(
             Update,
-            crate::reset::process_sandbox_reset_request.after(sandbox_update),
+            crate::reset::process_sandbox_reset_request
+                .in_set(SandboxSet::ResetProcessing)
+                .after(sandbox_update),
         )
         // Trace recorder lives at the simulation seam: `record_frame_system`
         // captures one frame per Update tick after `sandbox_update` has
@@ -260,7 +292,8 @@ pub fn add_simulation_plugins(app: &mut App) {
             (
                 crate::trace::record_frame_system.after(sandbox_update),
                 crate::trace::flush_pending_dump.after(crate::trace::record_frame_system),
-            ),
+            )
+                .in_set(SandboxSet::Trace),
         );
 }
 

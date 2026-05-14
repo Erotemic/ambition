@@ -134,7 +134,7 @@ pub fn update_encounters_from_world(
 
     // 0. Player death this frame? Fail any in-flight encounter,
     //    drop the lock wall, and despawn carryover encounter mobs
-    //    (`runtime.reset` already rebuilt FeatureRuntime, but the
+    //    (the player reset already rebuilt room-local state, but the
     //    encounter alive_ids still reference the old ids — clearing
     //    them here makes the next tick a clean fresh attempt). The
     //    death-respawn path already moved the player back to the

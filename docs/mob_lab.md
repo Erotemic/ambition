@@ -130,9 +130,8 @@ green = encounter Cleared / disabled). Pressing Interact:
 1. Toggles the encounter phase between `Cleared` and `Inactive`.
 2. Toggles the persisted switch on/off (so the visual color
    reads from the save unambiguously after reload).
-3. Despawns any encounter mobs spawned by previous attempts via
-   `FeatureRuntime::despawn_encounter_enemies`, so a fresh attempt
-   starts with a clean field.
+3. Despawns any encounter mob ECS entities from previous attempts, so
+   a fresh attempt starts with a clean field.
 
 Free toggle: pressing the switch never requires beating the encounter
 first, so the sandbox can swap arming on/off whenever.

@@ -18,14 +18,12 @@
 //!   `ProjectileUnlocks`, `ProjectileTraceEvent`.
 //! - [`systems`] — the `update_projectiles` Bevy system + private
 //!   `try_fire_projectile` helper.
-//! - [`feedback`] — (tombstone) previously `forward_damage_feedback`.
 //! - [`visuals`] — `sync_projectile_visuals` system + visual marker
 //!   components.
 //! - [`diagnostics`] — `projectile_status_summary` for the HUD plus
 //!   internal motion-press logging.
 
 mod diagnostics;
-mod feedback;
 mod state;
 mod systems;
 mod visuals;

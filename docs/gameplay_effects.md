@@ -1,26 +1,20 @@
-# Gameplay effects and event bus
+# Gameplay effects and ECS messages
 
-The sandbox has a typed gameplay event stream in `features::GameplayEffect` and
-one Bevy resource, `features::FeatureEventBus`, that routes those events across
-simulation systems.
+The sandbox routes cross-system gameplay side effects through typed Bevy
+messages. The main progression/save/audio effect stream is
+`features::GameplayEffect`, consumed by focused systems in `features::bus`.
+Feature-local interactions use additional typed messages such as
+`DamageEvent`, `PogoBounceEvent`, `PlayerDamageEvent`,
+`ResetRoomFeaturesEvent`, and `GameplayBannerRequested`.
 
-This is the migration path away from adding one stringly typed vector to
-`FeatureEvents` for every new cross-system side effect.
+The old `FeatureEventBus`, `FeatureEvents`, and `FeatureEcsQueues` bridge
+layers have been removed. New producers should write typed messages directly
+instead of adding ad-hoc vectors or custom resource queues.
 
 ## Current boundary
 
-`FeatureEvents` still owns presentation-shaped vectors for things that are
-already concrete visual/audio facts:
-
-- impact positions
-- burst positions
-- physics debris bursts
-- chest-open positions
-- pickup-collected positions
-- breakable-destroyed positions
-
-Anything that changes progression state, save state, or another simulation
-system should prefer `GameplayEffect` and the bus:
+Use `GameplayEffect` for effects that cross into progression, save, encounter,
+boss, quest, or standalone audio routing:
 
 - `SetFlag { id, on }`
 - `AdvanceQuest(QuestAdvanceEvent)`
@@ -29,40 +23,51 @@ system should prefer `GameplayEffect` and the bus:
 - `StrikeNpc { npc_id, pos }`
 - `PlaySfx { id, pos }` for standalone audio-only effects
 
-## Bus contract
+Use domain-specific messages when the consumer is known and the payload is more
+specific:
 
-Producers enqueue effects with `FeatureEventBus::ingest` or
-`FeatureEventBus::emit`. The `drain_feature_event_bus` system is the central
-routing table.
+- `DamageEvent` for slash/projectile damage against ECS feature targets.
+- `PogoBounceEvent` for pogo-refresh breakables.
+- `PlayerDamageEvent` for hazards, enemy attacks, and boss attacks damaging the
+  player.
+- `GameplayBannerRequested` for HUD banner text from systems whose parameter
+  list is already large.
+- `ResetRoomFeaturesEvent` for same-room feature reset.
 
-Scheduling matters:
+Presentation facts that already have a concrete presentation type should use
+the existing presentation messages directly, for example `SfxMessage`,
+`VfxMessage`, and `DebrisBurstMessage`.
 
-1. `sandbox_update` emits feature effects.
-2. `update_projectiles` emits projectile-hit effects.
-3. `drain_feature_event_bus` drains the bus.
-4. encounter, boss, quest, save, and audio consumers see those effects in the
-   same `Update` frame.
+## Scheduling contract
 
-Keep this order when adding new producers. Do not make each producer manually
-reach into save, quest, boss, switch, or audio resources unless the behavior is
-truly local to that producer.
+Producers write messages during the simulation phase. Focused readers then
+consume them before progression systems that depend on the resulting save,
+quest, encounter, boss, or presentation state. Keep this shape when adding new
+producers:
+
+1. Simulation systems emit typed messages.
+2. Feature-damage systems resolve `DamageEvent` / `PogoBounceEvent` against ECS
+   feature components.
+3. Gameplay-effect readers apply save, quest, switch, boss, NPC-strike, and SFX
+   side effects.
+4. Progression systems observe the updated state in the same `Update` frame.
+
+Do not make each producer manually reach into save, quest, boss, switch, or
+audio resources unless the behavior is truly local to that producer.
 
 ## Design intent
 
 The immediate goal is not to remove every string id. Authored content still uses
 human-readable ids, and some effects still carry authored payload strings. The
-important shift is that the *kind* of side effect is now explicit and typed.
-That gives future systems one place to inspect, route, trace, validate, or
-serialize gameplay side effects.
+important shift is that the *kind* of side effect is explicit and typed. That
+gives future systems one place to inspect, route, trace, validate, or serialize
+gameplay side effects.
 
-When adding new gameplay behavior, prefer adding a new `GameplayEffect` variant
-or a helper method on `FeatureEvents` instead of adding another parallel vector
-such as `foo_happened: Vec<(String, ...)>`.
+When adding new gameplay behavior, prefer one of these options in order:
 
-## Future direction
+1. Reuse an existing domain-specific message.
+2. Add a new domain-specific message and focused consumer.
+3. Add a new `GameplayEffect` variant for cross-domain progression/save/audio
+   routing.
 
-The next step is to move effect payloads away from raw strings when the target
-vocabulary is stable enough. For example, switch activation can eventually carry
-a parsed `SwitchActivation` or a `SwitchId`, and save flags can grow a typed
-`GameFlagId` wrapper. This patch deliberately stops short of that so existing
-authoring remains compatible while the event-routing shape improves.
+Do not add another custom bridge resource or parallel side-effect vector.

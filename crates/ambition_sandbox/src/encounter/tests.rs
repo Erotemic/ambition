@@ -251,9 +251,8 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     // Regression for the bug where the Switch RoomObject id was
     // entity.iid (e.g. "Switch-4072") but the
     // SwitchActivation payload's id was the LDtk `id` field
-    // ("mob_lab_reset_switch"). That mismatch made
-    // `FeatureRuntime::set_switch_on(activation.id)` a no-op and
-    // the switch sprite stayed stuck red.
+    // ("mob_lab_reset_switch"). That mismatch made switch state
+    // updates a no-op and the switch sprite stayed stuck red.
     let project = LdtkProject::load_default().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("mob_lab world composes");
     let mob_lab = room_set

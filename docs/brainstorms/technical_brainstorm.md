@@ -1,5 +1,10 @@
 # Technical Brainstorm: Bevy ECS, Event Buses, and Expansion Direction
 
+> Status update (2026-05-14): this document is historical. The active sandbox
+> implementation has since migrated feature families out of `FeatureRuntime`
+> and into ECS entities/components. Use it for migration context, not as a
+> description of current runtime ownership.
+
 Date: 2026-05-13
 Context: notes from a design conversation about Ambition's Bevy architecture, event/message buses, ECS/data-driven thinking, and crates that might prevent reinventing wheels.
 

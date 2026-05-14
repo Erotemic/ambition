@@ -42,11 +42,8 @@ pub struct NpcRuntime {
     pub ai_mode: ae::CharacterAiMode,
     /// Hostility flag. Becomes true after the player strikes the NPC
     /// enough times to provoke them. The save flag mirrors this so
-    /// hostility persists across rooms / saves. Once flipped, the
-    /// NPC is removed from `FeatureRuntime::npcs` and replaced by an
-    /// `EnemyRuntime` carrying the same id; this flag exists only for
-    /// the brief window between the strike that flipped hostility
-    /// and the next call to `apply_save`.
+    /// hostility persists across rooms / saves. ECS actor systems flip
+    /// peaceful NPCs into hostile enemy disposition in place.
     pub hostile: bool,
     /// Hits the NPC has taken since the last reset. Crosses
     /// `HOSTILE_THRESHOLD` to flip hostile.

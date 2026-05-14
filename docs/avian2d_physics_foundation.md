@@ -33,7 +33,7 @@ The sandbox maps Ambition's top-left +Y-down room coordinates into Bevy/Avian's 
 - It does not replace Ambition's movement/collision engine.
 - It does not give enemies fully articulated joint ragdolls yet.
 - It does not add physics-authored RON fields yet.
-- It does not make intact breakable platforms into Avian colliders yet; the player collision system already handles those via `FeatureRuntime`.
+- It does not make intact breakable platforms into Avian colliders yet; the player collision system already handles those through the ECS feature collision overlay.
 
 ## Fidelity tiers and mobile power
 

@@ -1,11 +1,7 @@
 //! ECS-native feature components.
 //!
-//! Phase-2 strangler rule: simple gameplay feature families should move toward
-//! Bevy entities/components instead of adding more state to `FeatureRuntime`.
-//! These components are intentionally small, data-first building blocks for the
-//! first vertical slices (pickups, chests, breakables, switches). Behavior can be
-//! migrated one family at a time while the legacy runtime continues to exist as
-//! a compatibility shell.
+//! Gameplay feature families are represented as normal Bevy entities/components,
+//! paired with typed messages for cross-system effects.
 
 use super::*;
 

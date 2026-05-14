@@ -52,7 +52,7 @@ fn encounter_id_from_name_drops_non_ascii() {
 }
 
 // Verify the mockingbird reward profile registers and links correctly
-// without touching FeatureRuntime — purely checking the registry shape.
+// without touching live feature entities — purely checking the registry shape.
 #[test]
 fn mockingbird_profile_registers_and_links() {
     let mut registry = BossEncounterRegistry::default();

@@ -11,8 +11,7 @@ pub struct EncounterSwitchLink {
 
 /// Cached ECS switch state used by the encounter state machine.
 ///
-/// Rebuilt from `SwitchFeature + SwitchOn` components, so encounter arming no
-/// longer depends on the legacy `FeatureRuntime.switches` mirror.
+/// Rebuilt from `SwitchFeature + SwitchOn` components each frame.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct EncounterSwitchIndex {
     pub links: Vec<EncounterSwitchLink>,

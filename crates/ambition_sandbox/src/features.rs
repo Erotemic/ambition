@@ -1,14 +1,9 @@
-//! Runtime feature probes for the basement sandbox rooms.
+//! Sandbox gameplay feature systems.
 //!
-//! The engine owns the reusable data vocabulary. This module is deliberately a
-//! sandbox-side adapter: it turns authored `World::objects` into a small playable
-//! proving ground for hazards, enemies, bosses, breakables, pickups, chests, and
-//! NPC interactions without committing final production behavior yet.
-//!
-//! Implementation is split by gameplay domain so future LLM passes can load the
-//! area they are changing without dragging the entire feature runtime into
-//! context. Keep `features.rs` as a facade: public types are re-exported here,
-//! while domain logic lives in `features/*.rs`.
+//! Authored and dynamic feature families live as Bevy entities/components. This
+//! facade re-exports the component types, messages, and systems used by the
+//! simulation, presentation, encounter, and test layers while domain logic lives
+//! in `features/*.rs`.
 
 use ambition_engine as ae;
 use ambition_engine::AabbExt;
@@ -46,7 +41,6 @@ mod hazards;
 mod npcs;
 mod path_motion;
 mod pickups;
-mod runtime;
 mod util;
 mod world_overlay;
 
@@ -64,7 +58,7 @@ pub use components::{
     StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::{
-    apply_ecs_breakable_damage_queue, clear_encounter_reward_ecs, collect_ecs_pickups,
+    apply_feature_damage_events, clear_encounter_reward_ecs, collect_ecs_pickups,
     despawn_encounter_mobs, ecs_breakable_state,
     ecs_chest_opened, ecs_damage_event_hits_actor, ecs_damage_event_hits_boss,
     ecs_damage_event_hits_breakable, ecs_actor_view_compat, ecs_boss_anim_state,
@@ -79,10 +73,9 @@ pub use ecs::{
 };
 pub use enemies::{EnemyArchetype, EnemyRuntime};
 pub use events::{
-    DamageEvent, DamageReport, DamageSource, FeatureCombatTuning, FeatureEvents,
-    FeaturePhysicsBurst, FeaturePhysicsCue, FeatureView, FeatureVisualKind,
-    GameplayBanner, GameplayBannerRequested, GameplayEffect, NpcDialogueRequest, PogoBounceEvent,
-    ResetRoomFeaturesEvent, PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource,
+    DamageEvent, DamageSource, FeatureCombatTuning, FeatureView, FeatureVisualKind,
+    GameplayBanner, GameplayBannerRequested, GameplayEffect, NpcDialogueRequest, PlayerDamageEvent,
+    PlayerDamageMode, PlayerDamageSource, PogoBounceEvent, ResetRoomFeaturesEvent,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::NpcRuntime;

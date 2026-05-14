@@ -150,7 +150,7 @@ pub(super) fn player_control_phase(
     let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
     let control_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features, feature_ecs_overlay);
+        features::world_with_sandbox_solids(world, &runtime.moving_platforms, feature_ecs_overlay);
     let control_events = ae::update_player_control_with_tuning(
         &control_world,
         &mut runtime.player,
@@ -257,7 +257,7 @@ pub(super) fn player_simulation_phase(
         runtime.player.pos += platform_delta;
     }
     let collision_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features, feature_ecs_overlay);
+        features::world_with_sandbox_solids(world, &runtime.moving_platforms, feature_ecs_overlay);
 
     let was_grounded = runtime.player.on_ground;
     let sim_events = ae::update_player_simulation_with_tuning(
@@ -318,55 +318,6 @@ pub(super) fn interaction_input_phase(
         runtime.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
 }
 
-/// Phase 7 — feature runtime tick.
-///
-/// Owns: per-frame `runtime.features.update` call for legacy hazards, enemies,
-/// bosses, NPCs, switches, and dynamic compatibility chests; routing the
-/// resulting audio/vfx/debris cues through `handle_feature_events`. Static
-/// pickups, chests, and breakables now run in ECS systems after this phase.
-///
-/// Should not own: applying the resulting damage / heals / dialogue /
-/// reset flags — those are intentionally split into
-/// `damage_heal_dialogue_phase` so the side-effect surface is grep-able
-/// in one place. Returns the raw `FeatureEvents` so the next phase can
-/// consume them.
-pub(super) fn feature_runtime_phase(
-    controls: &ControlFrame,
-    world: &ae::World,
-    runtime: &mut SandboxRuntime,
-    feedback: &mut FrameFeedback,
-    feel: SandboxFeelTuning,
-    frame_dt: f32,
-    feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
-) -> features::FeatureEvents {
-    let feature_dt = sandbox_dt(runtime, frame_dt);
-    let feature_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platforms, &runtime.features, feature_ecs_overlay);
-    let feature_player = runtime.player.clone();
-    // Invincibility short-circuits at the emit site too: otherwise
-    // standing in a hazard while the F3 toggle is on would re-emit a
-    // damage event (and its impact / message side effects) every frame
-    // — the handler drops the event, but the impacts still spawn
-    // particles and SFX.
-    let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
-    let feature_events = runtime.features.update(
-        &feature_world,
-        &feature_player,
-        controls.interact_pressed,
-        player_vulnerable,
-        feel.feature_combat_tuning(),
-        feature_dt,
-    );
-    handle_feature_events(
-        &mut feedback.sfx,
-        &mut feedback.vfx,
-        &mut feedback.debris,
-        &feature_events,
-        runtime.player.pos,
-    );
-    feature_events
-}
-
 /// Phase 8 — apply heals/damage, dialogue start, feature-driven reset.
 ///
 /// Owns: `handle_player_heal_events`, `handle_player_damage_events`,
@@ -411,7 +362,6 @@ pub(super) fn damage_heal_dialogue_phase(
         let safe_world = features::world_with_sandbox_solids(
             world,
             &runtime.moving_platforms,
-            &runtime.features,
             feature_ecs_overlay,
         );
         let ctx = crate::SafePositionContext {

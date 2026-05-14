@@ -214,12 +214,10 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
         .expect("arena");
     let world = arena.world.clone();
     let platforms = arena.moving_platforms.clone();
-    let features = sb::features::FeatureRuntime::from_world(&world);
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
     let augmented = sb::features::world_with_sandbox_solids(
         &world,
         &platforms,
-        &features,
         &ecs_overlay,
     );
 
@@ -287,12 +285,10 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
         .expect("arena");
     let world = arena.world.clone();
     let platforms = arena.moving_platforms.clone();
-    let features = sb::features::FeatureRuntime::from_world(&world);
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
     let augmented = sb::features::world_with_sandbox_solids(
         &world,
         &platforms,
-        &features,
         &ecs_overlay,
     );
 

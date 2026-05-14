@@ -41,7 +41,7 @@ use super::*;
 /// 4. `player_control_phase` — control-clock player update + pogo routing.
 /// 5. `player_simulation_phase` — sim-clock player update + landing dust.
 /// 6. `interaction_input_phase` — interact / double-tap-up + buffering.
-/// 7. `feature_runtime_phase` — `runtime.features.update` + feedback.
+/// 7. Collect ECS feature events and any damage/heals for this frame.
 /// 8. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
 /// 9. `room_transition_phase` — loading-zone transition + `load_room`.
 /// 10. `attack_phase` — slash/pogo attack triggering.
@@ -171,15 +171,7 @@ pub fn sandbox_update(
         frame_dt,
     );
 
-    let mut feature_events = feature_runtime_phase(
-        &controls,
-        &world.0,
-        &mut runtime,
-        &mut feedback,
-        feel,
-        frame_dt,
-        &queues.feature_ecs_overlay,
-    );
+    let mut feature_events = features::FeatureEvents::default();
     for ecs_feature_event in queues.feature_events.read() {
         handle_feature_events(
             &mut feedback.sfx,

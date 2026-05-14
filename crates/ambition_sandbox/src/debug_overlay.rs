@@ -120,9 +120,6 @@ pub fn draw_debug_overlay(
     if developer_tools.show_health_bars {
         draw_health_bars(&mut gizmos, world, &runtime);
     }
-    if developer_tools.show_feature_hitboxes {
-        draw_feature_combat_debug(&mut gizmos, world, &runtime);
-    }
 }
 
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
@@ -421,33 +418,9 @@ fn draw_health_bars(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRun
         runtime.player_health.ratio(),
         cyan(),
     );
-
-    for enemy in &runtime.features.enemies {
-        if enemy.alive {
-            let color = if enemy.archetype.is_sandbag() {
-                orange()
-            } else {
-                red()
-            };
-            draw_health_bar(gizmos, world, enemy.aabb(), enemy.health.ratio(), color);
-        }
-    }
-    for boss in &runtime.features.bosses {
-        if boss.alive {
-            draw_health_bar(gizmos, world, boss.aabb(), boss.health.ratio(), magenta());
-        }
-    }
-    for breakable in &runtime.features.breakables {
-        if !breakable.broken() {
-            draw_health_bar(
-                gizmos,
-                world,
-                breakable.aabb(),
-                breakable.breakable.health.ratio(),
-                orange(),
-            );
-        }
-    }
+    // Enemy / boss / breakable health bars are now drawn by
+    // `sync_health_overlays` (the Bevy sprite overlay system), which reads
+    // ECS `ActorRuntime`, `BossFeature`, and `BreakableFeature` components.
 }
 
 fn draw_health_bar(
@@ -474,88 +447,6 @@ fn draw_health_bar(
     );
 }
 
-fn draw_feature_combat_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
-    // Sandbox runtime feature volumes — drawn so that visual drift, bad
-    // authored sizes, transparent sprite regions, and attack-reach bugs
-    // are all visible under the same F1/F3 debug workflow.
-    for hazard in &runtime.features.hazards {
-        if hazard.active() {
-            draw_aabb(gizmos, world, hazard.aabb(), red());
-        }
-    }
-
-    for enemy in &runtime.features.enemies {
-        if !enemy.alive {
-            continue;
-        }
-        if let Some(body_damage) = enemy.body_damage_aabb() {
-            // Always-on hostile body contact volume. This is separate from
-            // the player-attack hurtbox used to damage the enemy.
-            draw_aabb(gizmos, world, body_damage, red());
-        } else {
-            draw_aabb(gizmos, world, enemy.aabb(), orange());
-        }
-        if enemy.attack_windup_timer > 0.0 {
-            draw_aabb(gizmos, world, enemy.attack_telegraph_aabb(), orange());
-        }
-        if enemy.attack_timer > 0.0 {
-            draw_aabb(gizmos, world, enemy.attack_aabb(), yellow());
-        }
-    }
-
-    for boss in &runtime.features.bosses {
-        if !boss.alive {
-            continue;
-        }
-        draw_aabb(gizmos, world, boss.body_damage_aabb(), magenta());
-        for volume in boss.attack_telegraph_volumes() {
-            draw_aabb(gizmos, world, volume, orange());
-        }
-        for volume in boss.attack_volumes() {
-            draw_aabb(gizmos, world, volume, yellow());
-        }
-    }
-
-    // Breakables — color-keyed by collision behavior so the player can see
-    // at a glance whether a tile actually blocks movement. Broken ones are
-    // skipped (no live volume).
-    for breakable in &runtime.features.breakables {
-        if breakable.broken() {
-            continue;
-        }
-        let color = if breakable.breakable.pogo_refresh {
-            green()
-        } else {
-            match breakable.breakable.collision {
-                ae::BreakableCollision::Solid => gray(),
-                ae::BreakableCollision::OneWayUp => blue(),
-                ae::BreakableCollision::None => yellow(),
-            }
-        };
-        draw_aabb(gizmos, world, breakable.aabb(), color);
-    }
-
-    // Chests — visible whether opened or not so players can spot interactable
-    // bounds even when the open sprite is mostly transparent.
-    for chest in &runtime.features.chests {
-        let color = if chest.opened { gray() } else { yellow() };
-        draw_aabb(gizmos, world, chest.aabb(), color);
-    }
-
-    // Pickups — show only while still pickable.
-    for pickup in &runtime.features.pickups {
-        if !pickup.visible {
-            continue;
-        }
-        draw_aabb(gizmos, world, pickup.aabb(), green());
-    }
-
-    // NPCs — interactable but non-combat; use cyan so they don't read as
-    // hostile.
-    for npc in &runtime.features.npcs {
-        draw_aabb(gizmos, world, npc.aabb(), cyan());
-    }
-}
 
 fn draw_rebound_vectors(gizmos: &mut Gizmos, world: &ae::World) {
     for block in &world.blocks {

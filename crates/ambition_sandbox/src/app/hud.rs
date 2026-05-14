@@ -23,9 +23,17 @@ use super::*;
 use bevy::ecs::system::SystemParam;
 
 #[derive(SystemParam)]
-pub(super) struct HudCameraParams<'w> {
+pub(super) struct HudCameraParams<'w, 's> {
     user_settings: Res<'w, crate::settings::UserSettings>,
     camera_view: Res<'w, crate::rendering::CameraViewState>,
+    ecs_actors: bevy::prelude::Query<
+        'w,
+        's,
+        (
+            &'static crate::features::FeatureName,
+            &'static crate::features::ActorRuntime,
+        ),
+    >,
 }
 
 pub(super) fn update_hud(
@@ -63,18 +71,21 @@ pub(super) fn update_hud(
         return;
     }
     let preset = runtime.preset();
-    let enemy_health = runtime
-        .features
-        .enemies
+    let enemy_health = camera_params
+        .ecs_actors
         .iter()
-        .map(|e| {
-            format!(
-                "{} hp {}/{} alive {}",
-                e.name,
-                e.health.current.max(0),
-                e.health.max,
-                e.alive
-            )
+        .filter_map(|(name, actor)| {
+            if let crate::features::ActorRuntime::Hostile(enemy) = actor {
+                Some(format!(
+                    "{} hp {}/{} alive {}",
+                    name.0,
+                    enemy.health.current.max(0),
+                    enemy.health.max,
+                    enemy.alive
+                ))
+            } else {
+                None
+            }
         })
         .collect::<Vec<_>>()
         .join(" | ");
@@ -295,7 +306,7 @@ pub(super) fn update_hud(
         .unwrap_or_default();
     if developer_tools.compact_hud {
         **text = format!(
-            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | feel: {} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}{}{}\n",
+            "{} | {} | room {}/{} | hp {}/{} | vel ({:+.0},{:+.0}) | grounded {} | dash {} | jumps {}\ncombo: {} | hint: {}\n{} | feel: {} | ldtk: {} auto={} pending={} spine={} rev={} promoted={} last={} | hitstun {:.2} invuln {:.2} hitstop {:.2} | preset {} | {} | F1 debug F3 inspector F4 world F5 overview={} F11 reload F12 auto\n{}{}{}{}{}{}{}{}{}\n",
             world.0.name,
             mode.get().label(),
             room_set.active + 1,
@@ -324,7 +335,7 @@ pub(super) fn update_hud(
             preset.name,
             window_line,
             developer_tools.overview_camera,
-            runtime.features.feature_summary(),
+            // Nine trailing blocks: banner, quest, cutscene, boss, encounter, map, attack, ledge, mechanics
             feature_banner,
             quest_line,
             cutscene_line,
@@ -362,7 +373,6 @@ pub(super) fn update_hud(
          {}\n\
          {}\n\
          {}\n\
-         {}\n\
          gamepad: {}{}{}\n",
         world.0.name,
         mode.get().label(),
@@ -388,7 +398,6 @@ pub(super) fn update_hud(
         ldtk_spine_index.promoted_summary(),
         window_line,
         enemy_health,
-        runtime.features.feature_summary(),
         mechanics_line,
         attack_line,
         ledge_line,

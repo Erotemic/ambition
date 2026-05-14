@@ -78,20 +78,16 @@ pub fn sync_visuals(
     }
 
     for (visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
-        let Some(view) = runtime
-            .features
-            .view(&visual.id)
-            .or_else(|| crate::features::ecs_feature_view(
-                &visual.id,
-                &ecs_pickups,
-                &ecs_chests,
-                &ecs_breakables,
-                &ecs_switches,
-                &ecs_actors,
-                &ecs_hazards,
-                &ecs_bosses,
-            ))
-        else {
+        let Some(view) = crate::features::ecs_feature_view(
+            &visual.id,
+            &ecs_pickups,
+            &ecs_chests,
+            &ecs_breakables,
+            &ecs_switches,
+            &ecs_actors,
+            &ecs_hazards,
+            &ecs_bosses,
+        ) else {
             *visibility = Visibility::Hidden;
             continue;
         };
@@ -105,7 +101,6 @@ pub fn sync_visuals(
                 state_aware_entity_sprite(
                     &visual.id,
                     view.kind,
-                    &runtime.features,
                     &ecs_chest_states,
                     &ecs_breakable_states,
                 )
@@ -147,19 +142,18 @@ pub fn sync_visuals(
 fn state_aware_entity_sprite(
     id: &str,
     kind: FeatureVisualKind,
-    runtime_features: &crate::features::FeatureRuntime,
     ecs_chests: &Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakables: &Query<(&FeatureId, &BreakableFeature)>,
 ) -> Option<EntitySprite> {
     match kind {
-        FeatureVisualKind::Breakable => runtime_features
-            .breakable_state(id)
-            .or_else(|| crate::features::ecs_breakable_state(id, ecs_breakables))
-            .map(game_assets::breakable_state_sprite),
-        FeatureVisualKind::Chest => runtime_features
-            .chest_opened(id)
-            .or_else(|| crate::features::ecs_chest_opened(id, ecs_chests))
-            .map(game_assets::chest_state_sprite),
+        FeatureVisualKind::Breakable => {
+            crate::features::ecs_breakable_state(id, ecs_breakables)
+                .map(game_assets::breakable_state_sprite)
+        }
+        FeatureVisualKind::Chest => {
+            crate::features::ecs_chest_opened(id, ecs_chests)
+                .map(game_assets::chest_state_sprite)
+        }
         _ => None,
     }
 }
@@ -182,7 +176,6 @@ pub fn upgrade_enemy_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
-    runtime: Res<crate::SandboxRuntime>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
@@ -190,11 +183,7 @@ pub fn upgrade_enemy_sprites(
         return;
     };
     for (entity, visual, bound) in &features {
-        let Some(view) = runtime
-            .features
-            .view(&visual.id)
-            .or_else(|| crate::features::ecs_actor_view_compat(&visual.id, &ecs_actors))
-        else {
+        let Some(view) = crate::features::ecs_actor_view_compat(&visual.id, &ecs_actors) else {
             continue;
         };
         if !matches!(
@@ -214,11 +203,7 @@ pub fn upgrade_enemy_sprites(
         // override blank, so kernel→goblin keeps its dedicated visual
         // gag while every other faction NPC stays themselves when
         // hostile.
-        let character_asset = match runtime
-            .features
-            .enemy_sprite_override(&visual.id)
-            .or_else(|| crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors))
-        {
+        let character_asset = match crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors) {
             Some(name) => assets
                 .characters
                 .npc_asset_for_name(name)
@@ -261,7 +246,6 @@ pub fn upgrade_npc_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
-    runtime: Res<crate::SandboxRuntime>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
@@ -269,11 +253,7 @@ pub fn upgrade_npc_sprites(
         return;
     };
     for (entity, visual, bound) in &features {
-        let Some(view) = runtime
-            .features
-            .view(&visual.id)
-            .or_else(|| crate::features::ecs_actor_view_compat(&visual.id, &ecs_actors))
-        else {
+        let Some(view) = crate::features::ecs_actor_view_compat(&visual.id, &ecs_actors) else {
             continue;
         };
         if !matches!(view.kind, FeatureVisualKind::Npc) {
@@ -282,11 +262,7 @@ pub fn upgrade_npc_sprites(
         if matches!(bound, Some(BoundFeatureKind(k)) if *k == view.kind) {
             continue;
         }
-        let Some(name) = runtime
-            .features
-            .npc_name(&visual.id)
-            .or_else(|| crate::features::ecs_npc_name(&visual.id, &ecs_actors))
-        else {
+        let Some(name) = crate::features::ecs_npc_name(&visual.id, &ecs_actors) else {
             continue;
         };
         let Some(character_asset) = assets.characters.npc_asset_for_name(name) else {
@@ -352,29 +328,20 @@ pub fn animate_player(
 /// shared `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
     time: Res<Time>,
-    runtime: Res<crate::SandboxRuntime>,
     mut query: Query<(&FeatureVisual, &mut Sprite, &mut CharacterAnimator), Without<PlayerVisual>>,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
     let dt = time.delta_secs();
     for (visual, mut sprite, mut animator) in &mut query {
         let (anim, facing, hit_flash, attacking) =
-            if let Some(state) = runtime
-                .features
-                .enemy_anim_state(&visual.id)
-                .or_else(|| crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors))
-            {
+            if let Some(state) = crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors) {
                 (
                     crate::character_sprites::pick_enemy_anim(state),
                     state.facing,
                     state.hit_flash,
                     state.attack_active || state.attack_windup,
                 )
-            } else if let Some(state) = runtime
-                .features
-                .npc_anim_state(&visual.id)
-                .or_else(|| crate::features::ecs_npc_anim_state(&visual.id, &ecs_actors))
-            {
+            } else if let Some(state) = crate::features::ecs_npc_anim_state(&visual.id, &ecs_actors) {
                 (
                     crate::character_sprites::pick_npc_anim(state),
                     state.facing,
@@ -408,7 +375,6 @@ pub fn upgrade_boss_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
-    runtime: Res<crate::SandboxRuntime>,
     ecs_bosses: Query<(&FeatureId, &BossFeature)>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
@@ -419,22 +385,20 @@ pub fn upgrade_boss_sprites(
         return;
     };
     for (entity, visual) in &new_bosses {
-        let Some(view) = runtime.features.view(&visual.id).or_else(|| {
-            ecs_bosses.iter().find_map(|(feature_id, boss)| {
-                if feature_id.as_str() != visual.id.as_str() {
-                    return None;
-                }
-                let boss = &boss.boss;
-                Some(crate::features::FeatureView {
-                    pos: boss.pos,
-                    size: boss.render_size(),
-                    kind: FeatureVisualKind::Boss,
-                    visible: boss.alive,
-                    flash: boss.hit_flash > 0.0
-                        || boss.attack_windup_timer > 0.0
-                        || boss.attack_timer > 0.0,
-                    switch_on: false,
-                })
+        let Some(view) = ecs_bosses.iter().find_map(|(feature_id, boss)| {
+            if feature_id.as_str() != visual.id.as_str() {
+                return None;
+            }
+            let boss = &boss.boss;
+            Some(crate::features::FeatureView {
+                pos: boss.pos,
+                size: boss.render_size(),
+                kind: FeatureVisualKind::Boss,
+                visible: boss.alive,
+                flash: boss.hit_flash > 0.0
+                    || boss.attack_windup_timer > 0.0
+                    || boss.attack_timer > 0.0,
+                switch_on: false,
             })
         }) else {
             continue;
@@ -449,10 +413,7 @@ pub fn upgrade_boss_sprites(
         // ships with the main `ambition_sprite2d_renderer` package.
         // If neither is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
-        let boss_name = runtime
-            .features
-            .boss_name(&visual.id)
-            .or_else(|| crate::features::ecs_boss_name(&visual.id, &ecs_bosses))
+        let boss_name = crate::features::ecs_boss_name(&visual.id, &ecs_bosses)
             .unwrap_or("");
         let boss_asset = if boss_name.eq_ignore_ascii_case("mockingbird") {
             assets.mockingbird.as_ref().or(assets.boss.as_ref())
@@ -485,16 +446,13 @@ pub fn upgrade_boss_sprites(
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
     time: Res<Time>,
-    runtime: Res<crate::SandboxRuntime>,
     ecs_bosses: Query<(&FeatureId, &BossFeature)>,
     mut query: Query<(&FeatureVisual, &mut Sprite, &mut BossAnimator), Without<PlayerVisual>>,
 ) {
     let dt = time.delta_secs();
     for (visual, mut sprite, mut animator) in &mut query {
-        let Some(state): Option<BossAnimState> = runtime
-            .features
-            .boss_anim_state(&visual.id)
-            .or_else(|| crate::features::ecs_boss_anim_state(&visual.id, &ecs_bosses))
+        let Some(state): Option<BossAnimState> =
+            crate::features::ecs_boss_anim_state(&visual.id, &ecs_bosses)
         else {
             continue;
         };

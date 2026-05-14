@@ -15,21 +15,16 @@ use crate::features::{
 };
 use crate::game_assets::{self, entity_sprite_or_color, GameAssets};
 
-/// Spawn `FeatureVisual` entities for `FeatureRuntime` features that
-/// were appended at runtime and don't have one yet. Static LDtk-
-/// derived features get their visuals from `spawn_room_visuals` at
-/// room load; runtime additions (`FeatureRuntime::spawn_enemy`,
-/// `spawn_chest`) appear after that point and need a per-frame
-/// discovery pass to attach their sprite.
+/// Spawn `FeatureVisual` entities for dynamically introduced ECS features
+/// that don't have one yet. Static LDtk-derived features get their visuals
+/// from `spawn_room_visuals` at room load; encounter mobs and reward chests
+/// are spawned after that point and need a per-frame discovery pass.
 ///
-/// Bevy automatically picks up the new sprites from then on:
 /// `sync_visuals` reads the matching `FeatureView` and
 /// `upgrade_enemy_sprites` swaps in the character spritesheet on the
-/// same frame; chests pick up their sprite via the
-/// `state_aware_entity_sprite` path in `sync_visuals`.
+/// same frame; chests pick up their sprite via `state_aware_entity_sprite`.
 pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
-    runtime: Res<crate::SandboxRuntime>,
     world: Res<crate::GameWorld>,
     assets: Option<Res<GameAssets>>,
     existing: Query<&FeatureVisual>,
@@ -89,69 +84,6 @@ pub fn spawn_dynamic_feature_visuals(
             )),
             Name::new(format!("Reward chest: {}", id.as_str())),
             FeatureVisual { id: id.as_str().to_string() },
-            RoomVisual,
-        ));
-    }
-    for enemy in &runtime.features.enemies {
-        if known.contains(enemy.id.as_str()) {
-            continue;
-        }
-        let archetype_kind = if matches!(enemy.brain, ae::EnemyBrain::Custom(ref n) if n.starts_with("sandbag_"))
-        {
-            FeatureVisualKind::Sandbag
-        } else {
-            FeatureVisualKind::Enemy
-        };
-        let render = BVec2::new(enemy.size.x, enemy.size.y);
-        let entity_kind = ae::RoomObjectKind::EnemySpawn(enemy.brain.clone());
-        let entity_key = game_assets::entity_sprite_for_room_object(&entity_kind);
-        let sprite = match assets_ref {
-            Some(a) => {
-                entity_sprite_or_color(a, entity_key, render, feature_color(archetype_kind, false))
-            }
-            None => Sprite::from_color(feature_color(archetype_kind, false), render),
-        };
-        commands.spawn((
-            sprite,
-            Transform::from_translation(world_to_bevy(
-                &world.0,
-                enemy.pos,
-                feature_z(archetype_kind),
-            )),
-            Name::new(format!("Encounter mob: {}", enemy.name)),
-            FeatureVisual {
-                id: enemy.id.clone(),
-            },
-            RoomVisual,
-        ));
-    }
-    for chest in &runtime.features.chests {
-        if known.contains(chest.id.as_str()) {
-            continue;
-        }
-        let render = BVec2::new(chest.size.x, chest.size.y);
-        let entity_kind = ae::RoomObjectKind::Chest(chest.chest.clone());
-        let entity_key = game_assets::entity_sprite_for_room_object(&entity_kind);
-        let sprite = match assets_ref {
-            Some(a) => entity_sprite_or_color(
-                a,
-                entity_key,
-                render,
-                feature_color(FeatureVisualKind::Chest, false),
-            ),
-            None => Sprite::from_color(feature_color(FeatureVisualKind::Chest, false), render),
-        };
-        commands.spawn((
-            sprite,
-            Transform::from_translation(world_to_bevy(
-                &world.0,
-                chest.pos,
-                feature_z(FeatureVisualKind::Chest),
-            )),
-            Name::new(format!("Reward chest: {}", chest.name)),
-            FeatureVisual {
-                id: chest.id.clone(),
-            },
             RoomVisual,
         ));
     }

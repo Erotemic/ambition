@@ -1127,7 +1127,6 @@ pub fn update_ecs_bosses(
     let feature_world = world_with_sandbox_solids(
         &world.0,
         &runtime.moving_platforms,
-        &runtime.features,
         &overlay,
     );
     let player = runtime.player.clone();
@@ -1168,7 +1167,6 @@ pub fn update_ecs_actors(
     let feature_world = world_with_sandbox_solids(
         &world.0,
         &runtime.moving_platforms,
-        &runtime.features,
         &overlay,
     );
     let player = runtime.player.clone();

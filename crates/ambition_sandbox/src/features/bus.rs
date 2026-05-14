@@ -1,23 +1,6 @@
 use super::*;
 use crate::features::events::GameplayEffect;
-use bevy::prelude::{MessageReader, MessageWriter, Res, ResMut};
-
-/// Apply save-derived state (NPC hostility, boss defeats) onto the
-/// live `FeatureRuntime`. Public free function so room-load paths
-/// that already hold the save can apply it inline; a Bevy system
-/// (`sync_features_with_save`) calls it each frame as a safety net.
-pub fn apply_save_to_features(features: &mut FeatureRuntime, save: &ae::SandboxSaveData) {
-    features.apply_save(save);
-}
-
-/// Bevy system: keep the feature runtime in sync with the save
-/// resource. Runs each frame; cheap idempotent linear pass.
-pub fn sync_features_with_save(
-    mut runtime: ResMut<crate::SandboxRuntime>,
-    save: Res<crate::save::SandboxSave>,
-) {
-    apply_save_to_features(&mut runtime.features, save.data());
-}
+use bevy::prelude::{MessageReader, MessageWriter, ResMut};
 
 /// Forward a legacy `FeatureEvents` batch into Bevy's typed message stream.
 ///

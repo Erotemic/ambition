@@ -116,7 +116,6 @@ pub(super) fn load_room(
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&spec);
-    runtime.features = features::FeatureRuntime::from_room_spec(&spec);
     features::spawn_room_feature_entities(commands, &spec);
     runtime.dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a
@@ -612,7 +611,6 @@ pub(super) fn advance_attack(
             let attack_world = features::world_with_sandbox_solids(
                 world,
                 &runtime.moving_platforms,
-                &runtime.features,
                 feature_ecs_overlay,
             );
             if let Some(orb_aabb) = attack_world.blocks.iter().find_map(|block| {

@@ -5,8 +5,6 @@ mod combat;
 mod save;
 mod settling;
 mod spawn;
-mod update;
-mod views;
 
 pub use settling::tick_chest_fall;
 
@@ -74,11 +72,3 @@ impl SwitchRuntime {
     }
 }
 
-impl FeatureRuntime {
-    pub(super) fn accept_events(&mut self, events: &FeatureEvents) {
-        if let Some(message) = events.messages.last() {
-            self.banner = message.clone();
-            self.banner_timer = 2.6;
-        }
-    }
-}

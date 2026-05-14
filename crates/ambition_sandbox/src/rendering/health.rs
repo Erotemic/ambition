@@ -38,24 +38,6 @@ pub fn sync_health_overlays(
         Color::srgba(0.30, 0.92, 1.00, 0.96),
     );
 
-    for enemy in &runtime.features.enemies {
-        if enemy.alive {
-            let color = if enemy.archetype.is_sandbag() {
-                Color::srgba(1.00, 0.66, 0.24, 0.96)
-            } else {
-                Color::srgba(1.00, 0.20, 0.22, 0.96)
-            };
-            spawn_health_overlay(
-                &mut commands,
-                &world.0,
-                &enemy.name,
-                enemy.aabb(),
-                enemy.health,
-                color,
-            );
-        }
-    }
-
     for (name, aabb, actor) in &ecs_actors {
         if let ActorRuntime::Hostile(enemy) = actor {
             if enemy.alive {
@@ -75,18 +57,6 @@ pub fn sync_health_overlays(
             }
         }
     }
-    for boss in &runtime.features.bosses {
-        if boss.alive {
-            spawn_health_overlay(
-                &mut commands,
-                &world.0,
-                &boss.name,
-                boss.aabb(),
-                boss.health,
-                Color::srgba(1.00, 0.32, 0.92, 0.96),
-            );
-        }
-    }
     for (name, boss) in &ecs_bosses {
         let boss = &boss.boss;
         if boss.alive {
@@ -97,18 +67,6 @@ pub fn sync_health_overlays(
                 boss.aabb(),
                 boss.health,
                 Color::srgba(1.00, 0.32, 0.92, 0.96),
-            );
-        }
-    }
-    for breakable in &runtime.features.breakables {
-        if !breakable.broken() {
-            spawn_health_overlay(
-                &mut commands,
-                &world.0,
-                &breakable.name,
-                breakable.aabb(),
-                breakable.breakable.health,
-                Color::srgba(1.00, 0.72, 0.24, 0.96),
             );
         }
     }

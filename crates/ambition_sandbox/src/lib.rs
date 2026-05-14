@@ -188,7 +188,6 @@ pub struct SandboxRuntime {
     pub up_tap_timer: f32,
     pub interact_buffer_timer: f32,
     pub moving_platforms: Vec<platforms::MovingPlatformState>,
-    pub features: features::FeatureRuntime,
     pub dialogue: dialog::DialogState,
     pub physics_settings: physics::PhysicsSandboxSettings,
     pub room_transition_cooldown: f32,
@@ -308,7 +307,6 @@ impl SandboxRuntime {
             up_tap_timer: 0.0,
             interact_buffer_timer: 0.0,
             moving_platforms: Vec::new(),
-            features: features::FeatureRuntime::from_world(world),
             dialogue: dialog::DialogState::default(),
             physics_settings,
             room_transition_cooldown: 0.0,
@@ -343,10 +341,6 @@ impl SandboxRuntime {
         self.up_tap_timer = 0.0;
         self.double_tap_down_pending = false;
         self.interact_buffer_timer = 0.0;
-        // Moving platforms are active-room authored state. Preserve the current
-        // platform list through same-room resets; room transitions, hot reload,
-        // and sandbox-wide reset explicitly re-seed it from RoomSpec.
-        self.features = features::FeatureRuntime::from_world(world);
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
         self.slash_anim_timer = 0.0;

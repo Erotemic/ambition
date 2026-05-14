@@ -205,7 +205,6 @@ pub fn add_simulation_plugins(app: &mut App) {
             Update,
             (
                 crate::boss_encounter::update_boss_encounters,
-                crate::features::sync_features_with_save,
                 crate::features::sync_ecs_actors_with_save,
                 crate::features::sync_ecs_bosses_with_save,
                 crate::quest::push_room_entered_quest_events,

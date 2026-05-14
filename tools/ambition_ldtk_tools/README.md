@@ -123,3 +123,18 @@ Older docs and failure messages may mention retired top-level scripts such as
 Those shim files are no longer present in this checkout. Use the package CLI
 shown above instead, and update stale docs/prints when you find old script
 names.
+
+## Project schema helpers
+
+The checked-in helper scripts add focused schema fields while keeping dry-run as
+the default. Use them before authoring fields that do not exist in an older
+`sandbox.ldtk` checkout:
+
+```
+PYTHONPATH=tools/ambition_ldtk_tools python tools/add_camera_visual_authoring_fields.py --dry-run
+PYTHONPATH=tools/ambition_ldtk_tools python tools/add_path_motion_authoring_fields.py --dry-run
+```
+
+Both scripts write only when passed `--in-place` or `--output`, then run the
+standard validate path. Inspect `git diff -- crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`
+after applying.

@@ -269,7 +269,10 @@ level-local points such as `0,0;64,0`; the LDtk converter offsets them into
 active-area-local `RoomSpec::kinematic_paths` / `DamageVolume.motion` data when
 levels are stitched together. `KinematicPath` lookup uses an optional `id` field
 when present, then a compact normalized `name` (`enemy patrol path A` →
-`enemy_patrol_a`), then the LDtk iid.
+`enemy_patrol_a`), then the LDtk iid. `MovingPlatform.path_id`,
+`NpcSpawn.path_id`, and `EnemySpawn.path_id` reference that lookup index.
+Enemy `brain = Patrol:<path_id>` remains supported; the explicit `path_id` field
+is the preferred editor-friendly form.
 
 ## Do not hand-edit these unless updating tooling too
 

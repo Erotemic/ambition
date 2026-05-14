@@ -20,12 +20,15 @@ pub struct NpcRuntime {
     pub facing: f32,
     pub on_ground: bool,
     pub interactable: ae::Interactable,
-    /// Half-range of the patrol pace, in world pixels. 0.0 → static;
-    /// > 0 → pace `[spawn.x - patrol_radius, spawn.x + patrol_radius]`.
-    /// > Mirror of the engine `InteractionKind::Npc::patrol_radius` —
-    /// > cached here so the per-frame movement code doesn't have to
-    /// > re-pattern-match every tick.
+    /// Half-range of the fallback patrol pace, in world pixels. 0.0 → static
+    /// unless a `motion` path was authored. > 0 → pace
+    /// `[spawn.x - patrol_radius, spawn.x + patrol_radius]`. Mirror of the
+    /// engine `InteractionKind::Npc::patrol_radius` — cached here so the
+    /// per-frame movement code doesn't have to re-pattern-match every tick.
     pub patrol_radius: f32,
+    /// Optional typed authored patrol path. When present this drives `Patrol`
+    /// movement instead of the old radius pace.
+    pub motion: Option<PathMotion>,
     /// Distance below which a patrolling NPC stops to face the
     /// player so dialog interaction is reachable. 0 disables the
     /// stop behavior. Sandbox-side default; not authored.
@@ -72,11 +75,35 @@ pub const NPC_PATROL_SPEED: f32 = 60.0;
 
 impl NpcRuntime {
     pub(super) fn new(object: &ae::RoomObject, interactable: ae::Interactable) -> Self {
-        let pos = object.aabb.center();
-        let patrol_radius = match &interactable.kind {
-            ae::InteractionKind::Npc { patrol_radius, .. } => patrol_radius.max(0.0),
-            _ => 0.0,
+        Self::new_with_paths(object, interactable, &[])
+    }
+
+    pub(super) fn new_with_paths(
+        object: &ae::RoomObject,
+        interactable: ae::Interactable,
+        paths: &[(String, ae::KinematicPath)],
+    ) -> Self {
+        let authored_pos = object.aabb.center();
+        let (patrol_radius, motion) = match &interactable.kind {
+            ae::InteractionKind::Npc {
+                patrol_radius,
+                patrol_path_id,
+                ..
+            } => {
+                let motion = patrol_path_id.as_deref().and_then(|path_id| {
+                    paths
+                        .iter()
+                        .find(|(id, _)| id == path_id)
+                        .map(|(_, path)| PathMotion::new(path.clone()))
+                });
+                (patrol_radius.max(0.0), motion)
+            }
+            _ => (0.0, None),
         };
+        let pos = motion
+            .as_ref()
+            .and_then(PathMotion::start_pos)
+            .unwrap_or(authored_pos);
         Self {
             id: object.id.clone(),
             name: object.name.clone(),
@@ -88,6 +115,7 @@ impl NpcRuntime {
             on_ground: false,
             interactable,
             patrol_radius,
+            motion,
             talk_radius: NPC_TALK_RADIUS,
             ai_mode: ae::CharacterAiMode::Idle,
             hostile: false,
@@ -134,7 +162,7 @@ impl NpcRuntime {
             attack_recover_remaining: 0.0,
             stun_remaining: 0.0,
             alive: true,
-            patrol_enabled: self.patrol_radius > 0.0,
+            patrol_enabled: self.motion.is_some() || self.patrol_radius > 0.0,
         });
 
         // Pick a horizontal target velocity from the AI mode. The
@@ -146,6 +174,7 @@ impl NpcRuntime {
             // happens after movement so the NPC reads a fresh
             // delta this frame.
             ae::CharacterAiMode::Chase => 0.0,
+            ae::CharacterAiMode::Patrol if self.motion.is_some() => 0.0,
             ae::CharacterAiMode::Patrol => {
                 // Reverse at patrol bounds.
                 let from_spawn = self.pos.x - self.spawn.x;
@@ -163,6 +192,19 @@ impl NpcRuntime {
             // match.)
             _ => 0.0,
         };
+
+        if matches!(self.ai_mode, ae::CharacterAiMode::Patrol) {
+            if let Some(motion) = &mut self.motion {
+                let old = self.pos;
+                self.pos = motion.advance(self.pos, dt);
+                let delta = self.pos - old;
+                self.vel = if dt > 0.0 { delta / dt } else { ae::Vec2::ZERO };
+                if delta.x.abs() > 0.001 {
+                    self.facing = delta.x.signum();
+                }
+                return;
+            }
+        }
 
         // Velocity smoothing — same shape as EnemyRuntime so the
         // NPC accelerates / decelerates at a similar pace and the

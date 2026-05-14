@@ -491,7 +491,7 @@ fn embedded_ldtk_central_hub_carries_authored_moving_platforms() {
         !hub.moving_platforms.is_empty(),
         "central_hub_basement should author at least one MovingPlatform entity"
     );
-    let platform = hub.moving_platforms[0];
+    let platform = &hub.moving_platforms[0];
     assert!(
         platform.size.x > 100.0 && platform.size.y > 0.0,
         "platform AABB authored from LDtk size, got {:?}",
@@ -808,6 +808,157 @@ fn feature_runtime_uses_room_spec_kinematic_path_aliases() {
     assert!(
         features.enemies[0].motion.is_some(),
         "EnemySpawn Patrol:<path id> should resolve through RoomSpec::kinematic_paths"
+    );
+}
+
+#[test]
+fn moving_platform_path_id_resolves_through_kinematic_path_index() {
+    fn field(name: &str, value: &str) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.into(),
+            value: Value::String(value.into()),
+            real_editor_values: vec![],
+        }
+    }
+
+    let path = make_entity_at(
+        "KinematicPath",
+        [0, 0],
+        [16, 16],
+        &[
+            ("id", Value::String("intro_lift_path".into())),
+            ("name", Value::String("Intro Lift".into())),
+            ("points", Value::String("32,64;160,64".into())),
+            ("speed", Value::Number(serde_json::Number::from(64))),
+        ],
+    );
+    let platform = make_entity_at(
+        "MovingPlatform",
+        [300, 120],
+        [96, 16],
+        &[
+            ("name", Value::String("lift platform".into())),
+            ("path_id", Value::String("intro_lift_path".into())),
+            ("sweep_dx", Value::Number(serde_json::Number::from(999))),
+            ("speed", Value::Number(serde_json::Number::from(1))),
+        ],
+    );
+    let project = LdtkProject {
+        json_version: "1.5.3".into(),
+        levels: vec![LdtkLevel {
+            iid: "level-iid".into(),
+            identifier: "platform_path_lab".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 320,
+            px_hei: 240,
+            field_instances: vec![field("activeArea", "platform_path_lab")],
+            layer_instances: vec![LdtkLayerInstance {
+                identifier: "Ambition".into(),
+                layer_type: "Entities".into(),
+                c_wid: 20,
+                c_hei: 15,
+                grid_size: 16,
+                entity_instances: vec![
+                    make_entity_at("PlayerStart", [32, 160], [16, 32], &[]),
+                    path,
+                    platform,
+                ],
+                int_grid_csv: Vec::new(),
+            }],
+        }],
+    };
+
+    let room_set = project
+        .to_room_set()
+        .expect("synthetic LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "platform_path_lab")
+        .expect("room should exist");
+    assert_eq!(room.moving_platforms.len(), 1);
+    assert_eq!(
+        room.moving_platforms[0].pos,
+        ae::Vec2::new(32.0, 64.0),
+        "path-driven MovingPlatform starts on the first KinematicPath point, not its fallback sweep AABB"
+    );
+    let mut platform = room.moving_platforms[0].clone();
+    let delta = platform.update(0.5);
+    assert_eq!(delta, ae::Vec2::new(32.0, 0.0));
+}
+
+#[test]
+fn npc_path_id_resolves_through_room_spec_kinematic_paths() {
+    fn field(name: &str, value: &str) -> LdtkFieldInstance {
+        LdtkFieldInstance {
+            identifier: name.into(),
+            value: Value::String(value.into()),
+            real_editor_values: vec![],
+        }
+    }
+
+    let path = make_entity_at(
+        "KinematicPath",
+        [0, 0],
+        [16, 16],
+        &[
+            ("id", Value::String("guide_patrol".into())),
+            ("name", Value::String("Guide Patrol".into())),
+            ("points", Value::String("80,160;160,160".into())),
+            ("speed", Value::Number(serde_json::Number::from(80))),
+        ],
+    );
+    let npc = make_entity_at(
+        "NpcSpawn",
+        [80, 160],
+        [28, 44],
+        &[
+            ("name", Value::String("Guide".into())),
+            ("prompt", Value::String("Talk".into())),
+            ("dialogue_id", Value::String("guide".into())),
+            ("path_id", Value::String("guide_patrol".into())),
+        ],
+    );
+    let project = LdtkProject {
+        json_version: "1.5.3".into(),
+        levels: vec![LdtkLevel {
+            iid: "level-iid".into(),
+            identifier: "npc_path_lab".into(),
+            world_x: 0,
+            world_y: 0,
+            px_wid: 320,
+            px_hei: 240,
+            field_instances: vec![field("activeArea", "npc_path_lab")],
+            layer_instances: vec![LdtkLayerInstance {
+                identifier: "Ambition".into(),
+                layer_type: "Entities".into(),
+                c_wid: 20,
+                c_hei: 15,
+                grid_size: 16,
+                entity_instances: vec![
+                    make_entity_at("PlayerStart", [32, 160], [16, 32], &[]),
+                    path,
+                    npc,
+                ],
+                int_grid_csv: Vec::new(),
+            }],
+        }],
+    };
+
+    let room_set = project
+        .to_room_set()
+        .expect("synthetic LDtk should compose");
+    let room = room_set
+        .rooms
+        .iter()
+        .find(|room| room.id == "npc_path_lab")
+        .expect("room should exist");
+    let features = crate::features::FeatureRuntime::from_room_spec(room);
+    assert_eq!(features.npcs.len(), 1);
+    assert!(
+        features.npcs[0].motion.is_some(),
+        "NpcSpawn path_id should resolve through RoomSpec::kinematic_paths"
     );
 }
 

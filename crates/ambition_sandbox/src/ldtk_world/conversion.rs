@@ -119,7 +119,7 @@ impl LdtkProject {
         let mut objects = Vec::new();
         let mut water_regions = Vec::new();
         let mut climbable_regions = Vec::new();
-        let mut moving_platforms: Vec<crate::platforms::MovingPlatformState> = Vec::new();
+        let mut moving_platforms: Vec<crate::platforms::MovingPlatformSpec> = Vec::new();
         let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
@@ -207,6 +207,17 @@ impl LdtkProject {
             return Err(errors);
         }
 
+        let mut resolved_moving_platforms = Vec::new();
+        for platform in moving_platforms {
+            match platform.resolve(&kinematic_paths) {
+                Ok(platform) => resolved_moving_platforms.push(platform),
+                Err(error) => errors.push(error),
+            }
+        }
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
         Ok(RoomSpec {
             id: area_id.to_string(),
             world: ae::World {
@@ -222,7 +233,7 @@ impl LdtkProject {
             metadata,
             camera_zones,
             kinematic_paths,
-            moving_platforms,
+            moving_platforms: resolved_moving_platforms,
         })
     }
 
@@ -260,7 +271,7 @@ pub(super) struct RuntimeEntityEmission {
     /// Most entities emit zero platforms; `MovingPlatform` emits one. The room
     /// composer concatenates these so active areas can own multiple authored
     /// moving solids.
-    pub(super) moving_platforms: Vec<crate::platforms::MovingPlatformState>,
+    pub(super) moving_platforms: Vec<crate::platforms::MovingPlatformSpec>,
     pub(super) camera_zones: Vec<CameraZoneSpec>,
     pub(super) kinematic_paths: Vec<KinematicPathSpec>,
     pub(super) ignored: bool,
@@ -302,9 +313,9 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn moving_platform(state: crate::platforms::MovingPlatformState) -> Self {
+    fn moving_platform(spec: crate::platforms::MovingPlatformSpec) -> Self {
         Self {
-            moving_platforms: vec![state],
+            moving_platforms: vec![spec],
             ..Self::default()
         }
     }
@@ -486,9 +497,10 @@ pub(super) fn entity_to_runtime(
                 ae::InteractionKind::Npc {
                     dialogue_id: field_string(entity, "dialogue_id"),
                     // Optional `patrol_radius` field on NpcSpawn. 0
-                    // (or unset) → static NPC; >0 → paces around
-                    // spawn within that half-range.
+                    // (or unset) → static NPC unless `path_id` is set.
                     patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
+                    patrol_path_id: field_string(entity, "path_id")
+                        .or_else(|| field_string(entity, "patrol_path_id")),
                 },
             );
             Ok(RuntimeEntityEmission::object(runtime_room_object(
@@ -527,15 +539,27 @@ pub(super) fn entity_to_runtime(
                 ae::RoomObjectKind::Chest(chest),
             )))
         }
-        "EnemySpawn" => Ok(RuntimeEntityEmission::object(runtime_room_object(
-            entity,
-            name,
-            min,
-            size,
-            ae::RoomObjectKind::EnemySpawn(parse_enemy_brain(
+        "EnemySpawn" => {
+            let mut brain = parse_enemy_brain(
                 &field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()),
-            )),
-        ))),
+            );
+            if let Some(path_id) =
+                field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"))
+            {
+                if !path_id.trim().is_empty() {
+                    brain = ae::EnemyBrain::Patrol {
+                        path_id: Some(path_id.trim().to_string()),
+                    };
+                }
+            }
+            Ok(RuntimeEntityEmission::object(runtime_room_object(
+                entity,
+                name,
+                min,
+                size,
+                ae::RoomObjectKind::EnemySpawn(brain),
+            )))
+        }
         "BossSpawn" => Ok(RuntimeEntityEmission::object(runtime_room_object(
             entity,
             name,
@@ -592,16 +616,25 @@ pub(super) fn entity_to_runtime(
             )))
         }
         "MovingPlatform" => {
-            // LDtk entity bounds → starting AABB. The platform sweeps
-            // horizontally by `sweep_dx` from the start position, at
-            // `speed` px/s, ping-ponging at the bounds. Field defaults keep
-            // hand-authored entities usable even before every knob is tuned.
+            // LDtk entity bounds define platform size and, for the legacy
+            // sweep mode, starting AABB. When `path_id` is authored, the
+            // platform follows the referenced active-area-local
+            // `KinematicPathSpec` instead and uses its first point as the
+            // runtime center.
             let start_pos = min + size * 0.5;
             let sweep_dx = field_f32(entity, "sweep_dx").unwrap_or(240.0);
             let speed = field_f32(entity, "speed").unwrap_or(130.0);
+            let path_id =
+                field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"));
             Ok(RuntimeEntityEmission::moving_platform(
-                crate::platforms::MovingPlatformState::from_authored(
-                    start_pos, size, sweep_dx, speed,
+                crate::platforms::MovingPlatformSpec::from_authored(
+                    entity.iid.clone(),
+                    name,
+                    start_pos,
+                    size,
+                    sweep_dx,
+                    speed,
+                    path_id,
                 ),
             ))
         }

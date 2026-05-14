@@ -44,17 +44,21 @@ pub enum InteractionKind {
     },
     Npc {
         dialogue_id: Option<String>,
-        /// Half-range of the NPC's patrol pace, in world pixels.
-        /// `0.0` (the default) means the NPC stands still; values
-        /// > 0 make the NPC pace between
-        /// > `[spawn_x - patrol_radius, spawn_x + patrol_radius]`
-        /// > at the sandbox's authored patrol speed. The NPC stops
-        /// > inside the player's `talk_radius` so the player can
-        /// > open dialog without chasing a moving target.
+        /// Half-range of the NPC's fallback patrol pace, in world pixels.
+        /// `0.0` (the default) means the NPC stands still unless
+        /// `patrol_path_id` is set. Values > 0 make the NPC pace between
+        /// `[spawn_x - patrol_radius, spawn_x + patrol_radius]` at the
+        /// sandbox's authored patrol speed. The NPC stops inside the player's
+        /// `talk_radius` so the player can open dialog without chasing a
+        /// moving target.
         ///
-        /// Engine model only — the actual movement / gravity /
-        /// collision lives in `ambition_sandbox::features::NpcRuntime`.
+        /// Engine model only — the actual movement / gravity / collision lives
+        /// in `ambition_sandbox::features::NpcRuntime`.
         patrol_radius: f32,
+        /// Optional authored `KinematicPathSpec` lookup id used by the sandbox
+        /// runtime to drive peaceful NPC patrols. When set, it takes
+        /// precedence over `patrol_radius`.
+        patrol_path_id: Option<String>,
     },
     Chest,
     Pickup,

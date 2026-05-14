@@ -49,9 +49,11 @@ impl FeatureRuntime {
                 }
                 ae::RoomObjectKind::Interactable(interactable) => {
                     if matches!(interactable.kind, ae::InteractionKind::Npc { .. }) {
-                        runtime
-                            .npcs
-                            .push(NpcRuntime::new(object, interactable.clone()));
+                        runtime.npcs.push(NpcRuntime::new_with_paths(
+                            object,
+                            interactable.clone(),
+                            paths,
+                        ));
                     } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
                         if payload.starts_with("switch:") {
                             runtime.switches.push(SwitchRuntime::new(

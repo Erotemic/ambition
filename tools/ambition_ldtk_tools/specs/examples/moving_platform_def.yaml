@@ -4,14 +4,13 @@ entities:
     width: 160
     height: 18
     docs: |
-      Author-driven horizontal moving platform. The entity's `pos` and
-      `width/height` define the platform's starting AABB; `sweep_dx`
-      controls the horizontal travel range (positive sweeps right then
-      ping-pongs back, negative sweeps left first). `speed` is in
-      world px/s. The runtime overrides the legacy hardcoded sandbox
-      time-reference platform with the first authored MovingPlatform
-      found in the active LDtk area.
+      Author-driven moving platform. If `path_id` is set, the platform follows
+      that KinematicPath using the path's points/speed/mode and this entity's
+      width/height. If `path_id` is empty, `sweep_dx` controls the horizontal
+      travel range (positive sweeps right then ping-pongs back, negative sweeps
+      left first) and `speed` is in world px/s.
     fields:
       - { name: name,     type: String, default: "Moving Platform" }
+      - { name: path_id,  type: String, default: null }
       - { name: sweep_dx, type: Float,  default: 240.0 }
       - { name: speed,    type: Float,  default: 130.0 }

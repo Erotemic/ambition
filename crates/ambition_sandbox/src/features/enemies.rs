@@ -187,11 +187,15 @@ impl EnemyRuntime {
                 .map(|(_, path)| PathMotion::new(path.clone())),
             _ => None,
         };
+        let pos = motion
+            .as_ref()
+            .and_then(PathMotion::start_pos)
+            .unwrap_or_else(|| object.aabb.center());
         Self {
             id: object.id.clone(),
             name: object.name.clone(),
-            pos: object.aabb.center(),
-            spawn: object.aabb.center(),
+            pos,
+            spawn: pos,
             size: object.aabb.half_size() * 2.0,
             vel: ae::Vec2::ZERO,
             health: ae::Health::new(archetype.max_health()),

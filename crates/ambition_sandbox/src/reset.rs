@@ -373,7 +373,7 @@ mod tests {
         );
         {
             let mut room_set = app.world_mut().resource_mut::<RoomSet>();
-            room_set.rooms[0].moving_platforms = vec![authored];
+            room_set.rooms[0].moving_platforms = vec![authored.clone()];
         }
         {
             let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();

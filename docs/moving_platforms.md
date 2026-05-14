@@ -9,17 +9,19 @@ solid semantics such as carrying, crushing, or one-way moving platforms.
 
 Use one or more `MovingPlatform` entities on the `Ambition` entity layer.
 
-Each entity rectangle is one platform's starting AABB:
+Each entity rectangle defines one platform's size and, for fallback sweep mode,
+its starting AABB:
 
-- `px` / entity position: top-left of the starting platform rectangle.
 - `width` / `height`: platform size.
-- `sweep_dx`: horizontal travel distance in world pixels.
-  - Positive values sweep right first.
-  - Negative values sweep left first.
-- `speed`: travel speed in world pixels per second.
+- `path_id`: optional `KinematicPath` id/name. When set, the platform follows
+  that path's points, speed, and mode, starting at the path's first point.
+- `sweep_dx`: horizontal travel distance in world pixels when `path_id` is
+  empty. Positive sweeps right first; negative sweeps left first.
+- `speed`: fallback sweep speed in world pixels per second when `path_id` is
+  empty.
 
-The runtime converts each entity into `MovingPlatformState::from_authored`. Each
-platform ping-pongs between its start x-position and `start_x + sweep_dx`.
+The runtime resolves each entity through `RoomSpec::kinematic_paths` when
+`path_id` is authored; otherwise it builds the simple horizontal sweep state.
 
 ## Runtime ownership
 
@@ -43,9 +45,8 @@ solids.
 
 ## Current follow-ups
 
-The current playable contract is deliberately simple: entity bounds plus
-horizontal `sweep_dx`/`speed`. `KinematicPath` is now promoted into
-`RoomSpec::kinematic_paths` as a typed active-area-local path index, but it is
-not the moving-platform authoring contract yet. Path-authored moving platforms
-should opt into that index with an explicit `path_id` field in a later patch;
-do not reintroduce hidden procedural platform placement.
+Path-authored moving platforms are now the rich movement contract. The simple
+`sweep_dx`/`speed` mode remains useful for quick horizontal platforms, but do not
+reintroduce hidden procedural platform placement. Future follow-ups can move
+continuous moving-solid semantics (carrying, crushing, one-way moving platforms)
+into `ambition_engine` once the sandbox behavior is covered by tests.

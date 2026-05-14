@@ -372,7 +372,7 @@ then data-table per-brain knobs).
 
 Step 1 of the LDtk runtime-spine roadmap is in progress: collision-heavy entities are being promoted from JSON-only adapter output to typed Ambition components on plugin-spawned entities.
 
-The first runtime-spine / room-projection categories are now promoted in stages. Collision-heavy entities (`Solid`, `OneWayPlatform`, `DamageVolume`) have typed spine indices plus JSON-adapter parity checks before they become collision authority. `CameraZone` and `KinematicPath` are promoted in the room projection: authored camera zones land in `RoomSpec::camera_zones`, and LDtk `KinematicPath` entities land in `RoomSpec::kinematic_paths` while still mirroring through `ae::World::objects` for older consumers. The raw-LDtk-vs-runtime debug overlay remains the verification gate before retiring JSON adapter arms.
+The first runtime-spine / room-projection categories are now promoted in stages. Collision-heavy entities (`Solid`, `OneWayPlatform`, `DamageVolume`) have typed spine indices plus JSON-adapter parity checks before they become collision authority. `CameraZone` and `KinematicPath` are promoted in the room projection: authored camera zones land in `RoomSpec::camera_zones`, and LDtk `KinematicPath` entities land in `RoomSpec::kinematic_paths` while still mirroring through `ae::World::objects` for older consumers; moving platforms, NPC patrols, and enemy patrols can now consume the typed path index via `path_id`. The raw-LDtk-vs-runtime debug overlay remains the verification gate before retiring JSON adapter arms.
 
 ## Gameplay flight recorder + Tier-1 mechanic primitives
 

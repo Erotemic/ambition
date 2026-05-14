@@ -27,6 +27,7 @@ mod conversion_tests {
                 ae::InteractionKind::Npc {
                     dialogue_id: Some(id.to_string()),
                     patrol_radius: 0.0,
+                    patrol_path_id: None,
                 },
             )),
         );
@@ -210,6 +211,7 @@ mod conversion_tests {
                 ae::InteractionKind::Npc {
                     dialogue_id: Some(id.clone()),
                     patrol_radius,
+                    patrol_path_id: None,
                 },
             )),
         );

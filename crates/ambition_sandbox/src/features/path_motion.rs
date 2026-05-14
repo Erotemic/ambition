@@ -16,6 +16,10 @@ impl PathMotion {
         }
     }
 
+    pub(super) fn start_pos(&self) -> Option<ae::Vec2> {
+        self.path.points.first().copied()
+    }
+
     pub(super) fn advance(&mut self, mut pos: ae::Vec2, dt: f32) -> ae::Vec2 {
         if !self.path.is_valid() || dt <= 0.0 {
             return pos;

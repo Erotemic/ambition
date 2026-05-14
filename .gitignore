@@ -75,3 +75,6 @@ tools/**/*.egg-info/
 *.mid
 *.flac
 *.mp3
+*.tar.gz
+*.AppImage
+.cargo

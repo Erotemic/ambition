@@ -1,0 +1,196 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Vanity Card Animation Config
+#
+# Edit this file to control the pipeline at each stage, then re-run the
+# relevant script:
+#   python3 extract_panels.py    — re-key / re-crop scene sheet & parts kits
+#   python3 compose.py           — re-detect poses & re-compose final panels
+#   python3 demo.py              — launch the animation (reads final/ at runtime)
+# ──────────────────────────────────────────────────────────────────────────────
+
+paths:
+  concept_art: assets/concept_art/vanity-card
+  output:      assets/vanity_card
+
+
+# ── Stage 1: Chroma-key ───────────────────────────────────────────────────────
+# Increase inner_radius if fringe pixels remain; decrease if character colour
+# is being keyed out accidentally.
+chroma_key:
+  inner_radius:    35.0   # Euclidean dist from bg → fully transparent (was 25; raised to catch dark-green shadow fringe)
+  outer_radius:    90.0   # Euclidean dist from bg → fully opaque    (was 70; raised for wider soft-edge zone)
+  spill_reduction: true
+
+
+# ── Stage 2: Pose-sheet sources ───────────────────────────────────────────────
+# After running compose.py, open:
+#   assets/vanity_card/poses/{key}/index_map.png
+# to see every detected pose numbered.  Update pose_index below accordingly.
+pose_sources:
+  robot:
+    file: "cutouts/ChatGPT Image May 13, 2026, 12_20_28 AM.png"
+    detect:
+      min_gap:          6      # px of transparent gap needed to split sprites
+      min_size:         100    # px minimum sprite dimension to keep (filters labels)
+      content_col_frac: 0.12   # column must have ≥12% non-transparent pixels
+      content_row_frac: 0.03   # row must have ≥3% non-transparent pixels
+  human:
+    file: "ChatGPT Image May 13, 2026, 12_20_36 AM (1).png"
+    detect:
+      min_gap:          15
+      min_size:         55
+      content_col_frac: 0.05
+      content_row_frac: 0.03
+
+# Canvas that each final panel is composited onto (pixels, portrait aspect)
+panel_size: [600, 700]
+# Fraction of panel height where the bottom of the character artwork lands
+ground_y: 0.90
+
+
+# ── Stage 2: 4-panel meme composition ─────────────────────────────────────────
+#
+# source options:
+#   robot_pose → single cropped robot pose (see poses/robot/index_map.png)
+#   human_pose → single cropped human pose (see poses/human/index_map.png)
+#   scene      → one of the 6 pre-extracted two-character panels
+#                (scene_col 0-2, scene_row 0-1  →  panels/panel_{col}_{row}.png)
+#
+# Override any panel completely: drop a PNG at
+#   assets/vanity_card/final/panel_{beat}_override.png
+# and compose.py will use it instead of generating one.
+panels:
+  # Beat 1: AI robot presents the game — speech bubble from the left (above robot)
+  # Robot is on the left side of this scene panel; human stands neutral on right.
+  - beat: 1
+    label:       robot_shows
+    source:      scene
+    scene_col:   0
+    scene_row:   0
+    speech_bubble: "I MADE\nTHIS"
+    bubble_side: left
+
+  # Beat 2: the handoff — no speech, just action
+  - beat: 2
+    label:       handoff
+    source:      scene
+    scene_col:   1
+    scene_row:   0
+    speech_bubble: ~
+
+  # Beat 3: human received it and is inspecting — robot gestures "see?"
+  - beat: 3
+    label:       human_inspects
+    source:      scene
+    scene_col:   2
+    scene_row:   1
+    speech_bubble: ~
+
+  # Beat 4: human looks up and claims it — solo shot, punchline
+  # Check poses/human/index_map.png and update pose_index if needed.
+  - beat: 4
+    label:       human_claims
+    source:      human_pose
+    pose_index:  3
+    speech_bubble: "I MADE\nTHIS"
+    bubble_side: right
+
+
+# ── Stage 3: Animation ────────────────────────────────────────────────────────
+animation:
+  # sequential: one panel fills the screen at a time
+  # strip:      all 4 panels side-by-side, revealing left to right
+  display_mode: sequential
+
+  # Target total runtime ≈ 3 s:
+  #   3 × hold_duration  +  1 × punchline_hold  +  4 × fade_duration  ≈ 3 s
+  hold_duration:   0.4    # seconds each panel is shown (beats 1-3)
+  punchline_hold:  1.2    # seconds for the last panel (punchline beat)
+  transition:      fade   # cut | fade
+  fade_duration:   0.08   # seconds for fade between panels (use 0 for hard cut)
+  bubble_delay:    0.05   # seconds after panel appears before bubble starts
+  bubble_fade:     0.12   # seconds for bubble fade-in
+
+  # Colours (RGB)
+  background_color:   [12,  12,  22]   # deep navy
+  panel_bg_color:     [252, 248, 238]  # warm off-white (comic paper feel)
+  panel_border_color: [18,  18,  18]
+  panel_border_width: 6
+  shadow_offset:      10
+  shadow_color:       [0, 0, 0, 180]   # RGBA
+
+  # Speech-bubble style
+  bubble_font:        ~        # null = auto-pick best available system font
+  bubble_font_size:   42
+  bubble_padding:     18       # inner padding px
+  bubble_bg:          [255, 255, 255]
+  bubble_border:      [18,  18,  18]
+  bubble_border_width: 4
+  bubble_tail_length: 30
+
+
+# ── Panel animation (frame_demo.py) ───────────────────────────────────────────
+#
+# Frames are the 6 pre-keyed PNGs in assets/vanity_card/panels/ — every frame
+# has both characters.  Edit `sequence` to reorder, add or drop panels.
+#
+# Frame index (0-based into sequence list):
+#   0  panel_0_0  robot holds game out, human neutral
+#   1  panel_1_0  both touching the device (handoff begins)
+#   2  panel_2_0  robot extends, human reaches
+#   3  panel_0_1  both gripping firmly, human pulling
+#   4  panel_1_1  human taking, robot releasing
+#   5  panel_2_1  human has game, robot open-hands  ← punchline
+#
+# Beat types:
+#   hold  — freeze on frame N, fade in speech bubble, wait for duration seconds
+#   play  — step through frames[] at fps (no bubble)
+panel_animation:
+  sequence:
+    - panel_0_0.png   # robot shows game, human neutral
+    - panel_1_0.png   # both holding
+    - panel_2_0.png   # robot extends, human reaches
+    - panel_0_1.png   # both gripping, human pulling
+    - panel_1_1.png   # human taking, robot releasing
+    - panel_2_1.png   # human has game, robot open-hands (punchline)
+
+  beats:
+    # ── Beat A: Robot presents ───────────────────────────────────────────────
+    - type:          hold
+      frame:         0
+      duration:      0.7
+      speech_bubble: "I MADE\nTHIS"
+      bubble_side:   left       # robot is on the left
+
+    # ── Handoff animation ────────────────────────────────────────────────────
+    - type:   play
+      frames: [0, 1, 2, 3, 4, 5]
+      fps:    6
+
+    # ── Beat B: Human reacts ─────────────────────────────────────────────────
+    - type:          hold
+      frame:         5
+      duration:      0.5
+      speech_bubble: "YOU MADE\nTHIS?"
+      bubble_side:   right      # human is on the right
+
+    # ── Last two frames replay (both chars in frame) ──────────────────────────
+    - type:   play
+      frames: [4, 5]
+      fps:    4
+
+    # ── Beat C: Human claims it — punchline ──────────────────────────────────
+    - type:          hold
+      frame:         5
+      duration:      1.2
+      speech_bubble: "I MADE\nTHIS"
+      bubble_side:   right
+
+
+# ── Stage 3: Demo window ──────────────────────────────────────────────────────
+demo:
+  width:      1280
+  height:     720
+  fps:        60
+  fullscreen: false
+  loop:       true

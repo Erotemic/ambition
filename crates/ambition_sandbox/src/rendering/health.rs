@@ -17,6 +17,7 @@ pub fn sync_health_overlays(
     runtime: Res<crate::SandboxRuntime>,
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
+    player: Query<(&crate::player::PlayerBody, &crate::player::PlayerHealth), With<crate::player::PlayerEntity>>,
     ecs_breakables: Query<(&FeatureName, &FeatureAabb, &BreakableFeature)>,
     ecs_actors: Query<(
         &FeatureName,
@@ -35,14 +36,16 @@ pub fn sync_health_overlays(
         return;
     }
 
-    spawn_health_overlay(
-        &mut commands,
-        &world.0,
-        "player",
-        runtime.player.aabb(),
-        runtime.player_health,
-        Color::srgba(0.30, 0.92, 1.00, 0.96),
-    );
+    if let Ok((body, health)) = player.single() {
+        spawn_health_overlay(
+            &mut commands,
+            &world.0,
+            "player",
+            body.aabb(),
+            health.health,
+            Color::srgba(0.30, 0.92, 1.00, 0.96),
+        );
+    }
 
     for (name, aabb, disposition, health, combat) in &ecs_actors {
         if disposition.is_hostile() && combat.alive {

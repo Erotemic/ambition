@@ -26,6 +26,15 @@ use bevy::ecs::system::SystemParam;
 pub(super) struct HudCameraParams<'w, 's> {
     user_settings: Res<'w, crate::settings::UserSettings>,
     camera_view: Res<'w, crate::rendering::CameraViewState>,
+    player: bevy::prelude::Query<
+        'w,
+        's,
+        (
+            &'static crate::player::PlayerBody,
+            &'static crate::player::PlayerHealth,
+        ),
+        bevy::prelude::With<crate::player::PlayerEntity>,
+    >,
     ecs_actors: bevy::prelude::Query<
         'w,
         's,
@@ -135,6 +144,31 @@ pub(super) fn update_hud(
                 camera_view_line
             )
         });
+    let (player_hp_current, player_hp_max, player_vel, player_on_ground, player_dash_charges, player_air_jumps, player_mana_current) =
+        camera_params
+            .player
+            .single()
+            .map(|(body, health)| {
+                (
+                    health.current().max(0),
+                    health.max(),
+                    body.vel,
+                    body.on_ground,
+                    body.dash_charges_available,
+                    body.air_jumps_available,
+                    body.mana_current as i32,
+                )
+            })
+            .unwrap_or((
+                runtime.player_health.current.max(0),
+                runtime.player_health.max,
+                runtime.player.vel,
+                runtime.player.on_ground,
+                runtime.player.dash_charges_available,
+                runtime.player.air_jumps_available,
+                runtime.player.mana.current as i32,
+            ));
+
     let zone_hint = {
         let hints = room_set.nearby_zone_hints(&runtime.player, runtime.player.fly_enabled);
         if hints.is_empty() {
@@ -311,13 +345,13 @@ pub(super) fn update_hud(
             mode.get().label(),
             room_set.active + 1,
             room_set.rooms.len(),
-            runtime.player_health.current.max(0),
-            runtime.player_health.max,
-            runtime.player.vel.x,
-            runtime.player.vel.y,
-            runtime.player.on_ground,
-            runtime.player.dash_charges_available,
-            runtime.player.air_jumps_available,
+            player_hp_current,
+            player_hp_max,
+            player_vel.x,
+            player_vel.y,
+            player_on_ground,
+            player_dash_charges,
+            player_air_jumps,
             runtime.player.combo_symbols(),
             runtime.player.current_combo_hint(),
             zone_hint,
@@ -381,11 +415,11 @@ pub(super) fn update_hud(
         world.0.size.x,
         world.0.size.y,
         zone_hint,
-        runtime.player_health.current.max(0),
-        runtime.player_health.max,
-        runtime.player.dash_charges_available,
-        runtime.player.air_jumps_available,
-        runtime.player.mana.current as i32,
+        player_hp_current,
+        player_hp_max,
+        player_dash_charges,
+        player_air_jumps,
+        player_mana_current,
         runtime.player.combo_symbols(),
         runtime.player.current_combo_hint(),
         preset.name,

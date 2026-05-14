@@ -41,6 +41,7 @@ pub mod music;
 pub mod parallax;
 pub mod pause_menu;
 pub mod physics;
+pub mod player;
 pub mod platform;
 pub mod platforms;
 pub mod profiling;

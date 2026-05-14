@@ -69,6 +69,7 @@ pub fn camera_follow(
     mut view_state: ResMut<CameraViewState>,
     ease_tuning: Res<crate::CameraEaseTuning>,
     mut last_camera_room: Local<Option<String>>,
+    player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {
@@ -77,13 +78,16 @@ pub fn camera_follow(
 
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
-    let player_body = runtime.player.aabb();
+    let player_body = player.single().copied().unwrap_or_else(|_| {
+        crate::player::PlayerBody::from_player(&runtime.player)
+    });
+    let player_aabb = player_body.aabb();
     let active_spec = room_set.active_spec();
     let mut active_camera_zones = 0usize;
     let active_zone = active_spec
         .camera_zones
         .iter()
-        .filter(|zone| player_body.strict_intersects(zone.aabb))
+        .filter(|zone| player_aabb.strict_intersects(zone.aabb))
         .inspect(|_| active_camera_zones += 1)
         .max_by(|a, b| {
             a.priority
@@ -173,13 +177,13 @@ pub fn camera_follow(
         // `(base_size.y - size.y) * 0.5`. Cancelling that offset here gives the
         // camera a fixed virtual point — entering a slide mid-dash no longer
         // produces a 10px vertical pop.
-        let resize_offset = (runtime.player.base_size.y - runtime.player.size.y) * 0.5;
+        let resize_offset = (player_body.base_size.y - player_body.size.y) * 0.5;
         let mut desired_target_world =
-            ae::Vec2::new(runtime.player.pos.x, runtime.player.pos.y - resize_offset);
+            ae::Vec2::new(player_body.pos.x, player_body.pos.y - resize_offset);
         let (bias_x, bias_y) = user_settings.video.camera_framing.target_offset(
             target_view_w,
             target_view_h,
-            runtime.player.facing,
+            player_body.facing,
         );
         desired_target_world.x += bias_x;
         desired_target_world.y += bias_y;

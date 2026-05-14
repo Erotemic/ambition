@@ -760,13 +760,17 @@ pub fn rebuild_feature_ecs_world_overlay(
 /// Collect ECS-owned pickups after the player simulation has advanced.
 pub fn collect_ecs_pickups(
     mut commands: Commands,
-    mut runtime: ResMut<crate::SandboxRuntime>,
     mut banner: ResMut<GameplayBanner>,
+    player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     pickups: Query<(Entity, &FeatureName, &FeatureAabb, &PickupFeature, Option<&Collected>), With<FeatureSimEntity>>,
+    mut heals: MessageWriter<crate::player::PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
-    let player_body = runtime.player.aabb();
+    let Ok(player_body) = player.single() else {
+        return;
+    };
+    let player_body = player_body.aabb();
     for (entity, name, aabb, pickup, collected) in &pickups {
         if collected.is_some() || !aabb.aabb().strict_intersects(player_body) {
             continue;
@@ -774,7 +778,7 @@ pub fn collect_ecs_pickups(
         commands.entity(entity).insert(Collected);
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
         if let ae::PickupKind::Health { amount } = &pickup.pickup.kind {
-            runtime.player_health.heal(*amount);
+            heals.write(crate::player::PlayerHealRequested::new(*amount));
         }
         let pos = aabb.center;
         vfx.write(VfxMessage::Burst {
@@ -799,6 +803,7 @@ pub fn open_ecs_chests(
     mut commands: Commands,
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut banner: ResMut<GameplayBanner>,
+    player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     chests: Query<(
         Entity,
         &FeatureId,
@@ -814,7 +819,10 @@ pub fn open_ecs_chests(
     if runtime.interact_buffer_timer <= 0.0 {
         return;
     }
-    let player_body = runtime.player.aabb();
+    let Ok(player_body) = player.single() else {
+        return;
+    };
+    let player_body = player_body.aabb();
     for (entity, id, name, aabb, opened, falling) in &chests {
         if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(player_body) {
             continue;
@@ -1305,6 +1313,7 @@ pub fn interact_ecs_actors_and_switches(
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut next_mode: ResMut<NextState<crate::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
+    player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     actors: Query<(&FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
     mut switches: Query<(&FeatureId, &FeatureName, &FeatureAabb, &SwitchFeature, &mut SwitchOn), With<FeatureSimEntity>>,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
@@ -1313,7 +1322,10 @@ pub fn interact_ecs_actors_and_switches(
     if runtime.interact_buffer_timer <= 0.0 {
         return;
     }
-    let player_body = runtime.player.aabb();
+    let Ok(player_body) = player.single() else {
+        return;
+    };
+    let player_body = player_body.aabb();
     for (aabb, actor) in &actors {
         let ActorRuntime::Peaceful(npc) = actor else {
             continue;

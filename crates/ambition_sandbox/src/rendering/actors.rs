@@ -26,7 +26,12 @@ pub fn sync_visuals(
     entities: Res<SceneEntities>,
     assets: Option<Res<GameAssets>>,
     mut player_query: Query<
-        (&mut Transform, &mut Sprite, Option<&PlayerSpriteBaseline>),
+        (
+            &mut Transform,
+            &mut Sprite,
+            Option<&PlayerSpriteBaseline>,
+            Option<&crate::player::PlayerBody>,
+        ),
         With<PlayerVisual>,
     >,
     mut feature_query: Query<
@@ -43,13 +48,16 @@ pub fn sync_visuals(
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
-    if let Ok((mut transform, mut sprite, baseline)) = player_query.get_mut(entities.player) {
-        transform.translation = world_to_bevy(&world.0, runtime.player.pos, WORLD_Z_PLAYER);
+    if let Ok((mut transform, mut sprite, baseline, player_body)) = player_query.get_mut(entities.player) {
+        let body = player_body.copied().unwrap_or_else(|| {
+            crate::player::PlayerBody::from_player(&runtime.player)
+        });
+        transform.translation = world_to_bevy(&world.0, body.pos, WORLD_Z_PLAYER);
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Colored-rectangle fallback only — stretch to the collision-box
             // size and tint by flash. Textured sprites (atlas OR plain image)
             // keep their authored size and are tinted in the animation system.
-            sprite.custom_size = Some(BVec2::new(runtime.player.size.x, runtime.player.size.y));
+            sprite.custom_size = Some(BVec2::new(body.size.x, body.size.y));
             let alpha = if runtime.flash_timer > 0.0 { 0.72 } else { 1.0 };
             sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
         } else if let Some(baseline) = baseline {
@@ -66,10 +74,10 @@ pub fn sync_visuals(
             // startup collision so body-profile experiments remain visual.
             // Replace with authored body-profile rows once the generator emits
             // them — see PlayerSpriteBaseline doc.
-            let base_y = runtime.player.base_size.y.max(1.0);
-            let stance_ratio_y = (runtime.player.size.y / base_y).clamp(0.1, 1.0);
-            let scale_x = runtime.player.base_size.x / baseline.standing_collision.x.max(1.0);
-            let scale_y = runtime.player.base_size.y / baseline.standing_collision.y.max(1.0);
+            let base_y = body.base_size.y.max(1.0);
+            let stance_ratio_y = (body.size.y / base_y).clamp(0.1, 1.0);
+            let scale_x = body.base_size.x / baseline.standing_collision.x.max(1.0);
+            let scale_y = body.base_size.y / baseline.standing_collision.y.max(1.0);
             sprite.custom_size = Some(BVec2::new(
                 baseline.standing_render.x * scale_x,
                 baseline.standing_render.y * scale_y * stance_ratio_y,
@@ -292,9 +300,9 @@ pub fn animate_player(
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
     entities: Res<SceneEntities>,
-    mut query: Query<(&mut Sprite, &mut CharacterAnimator), With<PlayerVisual>>,
+    mut query: Query<(&mut Sprite, &mut CharacterAnimator, Option<&crate::player::PlayerBody>), With<PlayerVisual>>,
 ) {
-    let Ok((mut sprite, mut animator)) = query.get_mut(entities.player) else {
+    let Ok((mut sprite, mut animator, player_body)) = query.get_mut(entities.player) else {
         return;
     };
     let anim = crate::character_sprites::pick_player_anim(&runtime);
@@ -303,7 +311,8 @@ pub fn animate_player(
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
-    sprite.flip_x = runtime.player.facing < 0.0;
+    let facing = player_body.map(|body| body.facing).unwrap_or(runtime.player.facing);
+    sprite.flip_x = facing < 0.0;
     // Keep the textured sprite at full opacity by default, with a subtle
     // red tint when invulnerable / hit so the existing flash signal still
     // reads. Tints multiply the texture color, so values below 1.0 darken

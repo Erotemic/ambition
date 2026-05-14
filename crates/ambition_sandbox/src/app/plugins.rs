@@ -63,6 +63,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_message::<crate::features::PogoBounceEvent>()
         .add_message::<crate::features::ResetRoomFeaturesEvent>()
         .add_message::<crate::features::GameplayBannerRequested>()
+        .add_message::<crate::player::PlayerHealRequested>()
         .register_type::<GameMode>()
         // StartupProfiler captures wall-clock at each marked phase so a
         // PostStartup report prints "where did the first frame's
@@ -146,6 +147,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::update_ecs_actors,
                 crate::features::update_ecs_bosses,
                 sandbox_update,
+                crate::player::sync_player_entity_from_runtime,
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,
                 crate::features::apply_feature_damage_events,
@@ -155,7 +157,11 @@ pub fn add_simulation_plugins(app: &mut App) {
         )
         .add_systems(
             Update,
-            crate::features::collect_ecs_pickups
+            (
+                crate::features::collect_ecs_pickups,
+                crate::player::apply_player_heal_requests,
+            )
+                .chain()
                 .in_set(SandboxSet::FeatureCollection)
                 .after(crate::features::apply_feature_damage_events),
         )

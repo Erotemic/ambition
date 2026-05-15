@@ -90,6 +90,10 @@ pub fn record_frame_system(
     rooms: Option<Res<crate::rooms::RoomSet>>,
     mode: Res<State<crate::game_mode::GameMode>>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
+    player_health_q: Query<
+        &crate::player::PlayerHealth,
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
     let real_dt = time.delta_secs();
     let sim_dt = real_dt * runtime.time_scale;
@@ -98,6 +102,9 @@ pub fn record_frame_system(
         .map(|r| r.active_spec().id.clone())
         .unwrap_or_else(|| "<unknown>".into());
     let mode_label = format!("{:?}", mode.get());
+    let hp_current = player_health_q
+        .single()
+        .map_or(0, |h| h.health.current);
     let locomotion_state = ae::LocomotionState::from_player(&runtime.player);
     let body_mode_state = ae::BodyMode::from_player(&runtime.player);
     let locomotion = locomotion_state.label().to_string();
@@ -114,6 +121,7 @@ pub fn record_frame_system(
     synthesize_events_from_diff(
         &mut buffer,
         &runtime,
+        hp_current,
         *control_frame,
         real_dt,
         &active_area,
@@ -142,6 +150,7 @@ pub fn record_frame_system(
     update_previous_snapshot(
         &mut buffer,
         &runtime,
+        hp_current,
         *control_frame,
         &active_area,
         locomotion_state,

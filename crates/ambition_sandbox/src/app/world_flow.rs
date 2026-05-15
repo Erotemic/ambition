@@ -344,9 +344,6 @@ pub(super) fn death_respawn_player(
     combat.reset();
     if let Some(health) = player_health.as_deref_mut() {
         health.reset();
-        runtime.player_health = health.health;
-    } else {
-        runtime.player_health.reset();
     }
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.flash_timer = feel.reset_flash_time.max(0.35);
@@ -388,11 +385,9 @@ pub(super) fn handle_player_damage_events(
     let scaled = ((damage.amount as f32) * difficulty_multiplier).round() as i32;
     damage.amount = scaled.max(1);
     let died_from_damage = if let Some(health) = player_health.as_deref_mut() {
-        let died = health.damage(damage.amount);
-        runtime.player_health = health.health;
-        died
+        health.damage(damage.amount)
     } else {
-        runtime.player_health.damage(damage.amount)
+        false
     };
     if died_from_damage {
         death_respawn_player(

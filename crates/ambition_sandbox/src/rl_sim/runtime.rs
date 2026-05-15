@@ -6,6 +6,8 @@ use bevy::time::TimeUpdateStrategy;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
+use ambition_engine as ae;
+
 use crate::app::{add_simulation_plugins, init_sandbox_resources, StartRoomOverride};
 use crate::game_mode::GameMode;
 use crate::input::ControlFrame;
@@ -179,10 +181,14 @@ impl SandboxSim {
     /// Returns the current observation without advancing the simulation.
     /// Useful for inspecting state mid-episode without burning a tick.
     pub fn observation(&mut self) -> AgentObservation {
-        // Build the combat query state first (requires &mut World, but the borrow
+        // Build per-entity queries first (requires &mut World, but the borrow
         // ends immediately so the immutable reads below compile cleanly).
         let mut combat_query = self.app.world_mut().query_filtered::<
             &crate::player::PlayerCombatState,
+            With<crate::player::PlayerEntity>,
+        >();
+        let mut health_query = self.app.world_mut().query_filtered::<
+            &crate::player::PlayerHealth,
             With<crate::player::PlayerEntity>,
         >();
 
@@ -193,7 +199,10 @@ impl SandboxSim {
         // `app.update()`, so callers that invoke `observation()` between steps see
         // a correct snapshot without needing a separate entity query here.
         let player = &runtime.player;
-        let health = &runtime.player_health;
+        let health = health_query
+            .single(world)
+            .map(|h| h.health)
+            .unwrap_or_else(|_| ae::Health::new(20));
         let room = world.resource::<RoomSet>().active_spec();
 
         // Combat timers now live on `PlayerCombatState` (authoritative ECS component).

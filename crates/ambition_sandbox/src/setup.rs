@@ -147,7 +147,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     // SandboxRuntime keeps a scratch copy while the old phase helpers remain.
     let initial_player_authority = crate::player::PlayerMovementAuthority::new(runtime.player.clone());
     let initial_player_body = initial_player_authority.body();
-    let initial_player_health = crate::player::PlayerHealth::new(runtime.player_health);
+    let initial_player_health = crate::player::PlayerHealth::new(ae::Health::new(20));
     let initial_player_combat = crate::player::PlayerCombatState::default();
     let initial_player_interaction = crate::player::PlayerInteractionState::default();
     commands.insert_resource(runtime);

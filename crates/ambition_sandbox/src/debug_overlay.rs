@@ -72,6 +72,7 @@ pub fn draw_debug_overlay(
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
+    player_health_q: Query<&crate::player::PlayerHealth, With<crate::player::PlayerEntity>>,
 ) {
     if !runtime.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -120,7 +121,7 @@ pub fn draw_debug_overlay(
         &developer_tools,
     );
     if developer_tools.show_health_bars {
-        draw_health_bars(&mut gizmos, world, &runtime);
+        draw_health_bars(&mut gizmos, world, &runtime, player_health_q.single().ok());
     }
 }
 
@@ -413,12 +414,18 @@ fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &
     }
 }
 
-fn draw_health_bars(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
+fn draw_health_bars(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    runtime: &SandboxRuntime,
+    player_health: Option<&crate::player::PlayerHealth>,
+) {
+    let ratio = player_health.map_or(1.0, |h| h.health.ratio());
     draw_health_bar(
         gizmos,
         world,
         runtime.player.aabb(),
-        runtime.player_health.ratio(),
+        ratio,
         cyan(),
     );
     // Enemy / boss / breakable health bars are now drawn by

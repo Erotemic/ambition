@@ -187,7 +187,6 @@ pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
 #[derive(Resource)]
 pub struct SandboxRuntime {
     pub player: ae::Player,
-    pub player_health: ae::Health,
     pub debug: bool,
     pub slowmo: bool,
     pub presets: Vec<KeyboardPreset>,
@@ -250,7 +249,6 @@ impl SandboxRuntime {
         player.refresh_movement_resources(tuning);
         Self {
             player,
-            player_health: ae::Health::new(20),
             debug: !cfg!(target_os = "android"),
             slowmo: false,
             presets: KeyboardPreset::presets().to_vec(),
@@ -268,11 +266,10 @@ impl SandboxRuntime {
     pub fn reset(&mut self, world: &ae::World, tuning: ae::MovementTuning) {
         self.player.reset_to(world.spawn);
         self.player.refresh_movement_resources(tuning);
-        self.player_health.reset();
         // Combat timers live on `PlayerCombatState`.
         // Interaction timers live on `PlayerInteractionState`.
         // Blink/camera presentation state lives on `PlayerBlinkCameraState`.
-        // Callers that trigger a full reset call `reset()` on those components directly.
+        // Health lives on `PlayerHealth`; callers reset it directly on the component.
         self.last_safe_player_pos = world.spawn;
         self.time_scale = 1.0;
         self.dialogue.close();

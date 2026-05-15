@@ -681,6 +681,10 @@ pub fn sync_player_stats_with_inspector(
         &mut crate::player::PlayerMovementAuthority,
         With<crate::player::PlayerEntity>,
     >,
+    mut health_q: Query<
+        &mut crate::player::PlayerHealth,
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
     if !snapshot.initialized {
         snapshot.health = stats.health;
@@ -692,20 +696,18 @@ pub fn sync_player_stats_with_inspector(
         stats.mana = stats.max_mana.max(0);
         stats.refill_now = false;
     }
-    let live_hp = runtime.player_health.current;
-    let live_max = runtime.player_health.max;
     let user_changed_max = stats.max_health != snapshot.max_health;
     let user_changed_hp = stats.health != snapshot.health;
-    if user_changed_max {
-        runtime.player_health = ae::Health::new(stats.max_health.max(1));
-        runtime.player_health.current = stats.health.clamp(0, stats.max_health.max(1));
-    } else if user_changed_hp {
-        runtime.player_health.current = stats.health.clamp(0, live_max.max(1));
-    } else {
-        // Mirror runtime back into the inspector field so HP edits
-        // happening from gameplay show up live.
-        stats.health = live_hp;
-        stats.max_health = live_max;
+    if let Ok(mut health) = health_q.single_mut() {
+        if user_changed_max {
+            health.health = ae::Health::new(stats.max_health.max(1));
+            health.health.current = stats.health.clamp(0, stats.max_health.max(1));
+        } else if user_changed_hp {
+            health.health.current = stats.health.clamp(0, health.health.max.max(1));
+        } else {
+            stats.health = health.health.current;
+            stats.max_health = health.health.max;
+        }
     }
     snapshot.health = stats.health;
     snapshot.max_health = stats.max_health;

@@ -345,19 +345,14 @@ pub fn write_player_ecs_components(
     combat.attacking = attack_res.0.is_some();
 }
 
-/// Apply heal messages to ECS health and mirror the result into the legacy
-/// runtime scratch field for remaining callers.
+/// Apply heal messages to the authoritative `PlayerHealth` ECS component.
 pub fn apply_player_heal_requests(
-    mut runtime: ResMut<crate::SandboxRuntime>,
     mut heals: MessageReader<PlayerHealRequested>,
     mut players: Query<&mut PlayerHealth, With<PlayerEntity>>,
 ) {
     let Ok(mut health) = players.single_mut() else {
-        for heal in heals.read() {
-            if heal.amount > 0 {
-                runtime.player_health.heal(heal.amount);
-            }
-        }
+        // No player entity yet (startup or headless): drain the queue.
+        for _ in heals.read() {}
         return;
     };
     for heal in heals.read() {
@@ -365,5 +360,4 @@ pub fn apply_player_heal_requests(
             health.heal(heal.amount);
         }
     }
-    runtime.player_health = health.health;
 }

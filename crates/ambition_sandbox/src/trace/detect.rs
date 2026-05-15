@@ -169,6 +169,7 @@ fn build_moving_platform_states(runtime: &SandboxRuntime) -> Vec<MovingPlatformT
 pub(crate) fn synthesize_events_from_diff(
     buffer: &mut GameplayTraceBuffer,
     runtime: &SandboxRuntime,
+    hp_current: i32,
     controls: ControlFrame,
     real_dt: f32,
     active_area: &str,
@@ -267,14 +268,14 @@ pub(crate) fn synthesize_events_from_diff(
         });
     }
 
-    if runtime.player_health.current < prev.hp_current {
-        let amount = (prev.hp_current - runtime.player_health.current).max(0);
+    if hp_current < prev.hp_current {
+        let amount = (prev.hp_current - hp_current).max(0);
         buffer.push_event(GameplayTraceEvent::Damage {
             tick,
             source: "feature".into(),
             amount,
         });
-        if runtime.player_health.current <= 0 {
+        if hp_current <= 0 {
             buffer.push_event(GameplayTraceEvent::Death { tick });
         }
     }
@@ -368,6 +369,7 @@ pub fn record_frame(
 pub(crate) fn update_previous_snapshot(
     buffer: &mut GameplayTraceBuffer,
     runtime: &SandboxRuntime,
+    hp_current: i32,
     controls: ControlFrame,
     active_area: &str,
     locomotion: ae::LocomotionState,
@@ -385,7 +387,7 @@ pub(crate) fn update_previous_snapshot(
         dash_charges_available: player.dash_charges_available,
         air_jumps_available: player.air_jumps_available,
         resets: player.resets,
-        hp_current: runtime.player_health.current,
+        hp_current,
         locomotion,
         body_mode,
         active_area: active_area.into(),

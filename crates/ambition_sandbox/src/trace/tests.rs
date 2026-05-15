@@ -166,7 +166,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let frame = build_frame(
         &SandboxRuntime {
             player: player.clone(),
-            player_health: ae::Health::new(5),
+
             debug: false,
             slowmo: false,
             presets: crate::input::KeyboardPreset::presets().to_vec(),
@@ -205,7 +205,7 @@ fn write_dump_writes_two_files() {
     let frame = build_frame(
         &SandboxRuntime {
             player: player.clone(),
-            player_health: ae::Health::new(5),
+
             debug: false,
             slowmo: false,
             presets: crate::input::KeyboardPreset::presets().to_vec(),
@@ -275,7 +275,6 @@ fn timestamp_label_with_seq_is_stable_per_seq() {
 fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
     SandboxRuntime {
         player,
-        player_health: ae::Health::new(5),
         debug: false,
         slowmo: false,
         presets: crate::input::KeyboardPreset::presets().to_vec(),
@@ -303,6 +302,7 @@ fn synthesizes_input_edge_event_on_button_press() {
     update_previous_snapshot(
         &mut buf,
         &runtime,
+        20,
         ControlFrame::default(),
         "test",
         ae::LocomotionState::Grounded,
@@ -314,6 +314,7 @@ fn synthesizes_input_edge_event_on_button_press() {
     synthesize_events_from_diff(
         &mut buf,
         &runtime,
+        20,
         controls,
         0.016,
         "test",
@@ -345,6 +346,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     update_previous_snapshot(
         &mut buf,
         &runtime_prev,
+        20,
         ControlFrame::default(),
         "square_arena",
         ae::LocomotionState::WallCling,
@@ -359,6 +361,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     synthesize_events_from_diff(
         &mut buf,
         &runtime_cur,
+        20,
         ControlFrame::default(),
         0.0069,
         "square_arena",
@@ -387,6 +390,7 @@ fn reset_emits_event_and_suppresses_teleport_event() {
     update_previous_snapshot(
         &mut buf,
         &runtime_prev,
+        20,
         ControlFrame::default(),
         "test",
         ae::LocomotionState::Grounded,
@@ -398,6 +402,7 @@ fn reset_emits_event_and_suppresses_teleport_event() {
     synthesize_events_from_diff(
         &mut buf,
         &runtime_cur,
+        20,
         ControlFrame::default(),
         0.016,
         "test",

@@ -721,6 +721,8 @@ pub fn reset_ecs_room_features(
 pub fn rebuild_feature_ecs_world_overlay(
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
     breakables: Query<(&FeatureId, &FeatureName, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    actors: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
+    bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
 ) {
     overlay.blocks.clear();
     for (id, name, aabb, feature) in &breakables {
@@ -754,6 +756,28 @@ pub fn rebuild_feature_ecs_world_overlay(
                 kind: ae::BlockKind::PogoOrb,
             });
         }
+    }
+
+    // Expose alive enemy and boss bodies as PogoOrb ghost-blocks so the
+    // pogo-attack advance code can bounce off them without requiring the
+    // damage queue to resolve first. PogoOrb blocks do not block player
+    // movement or blink traversal, so this cannot cause collision regressions.
+    for (id, aabb, actor) in &actors {
+        let ActorRuntime::Hostile(enemy) = actor else { continue; };
+        if !enemy.alive { continue; }
+        overlay.blocks.push(ae::Block {
+            name: format!("ecs-enemy-body {}", id.as_str()),
+            aabb: aabb.aabb(),
+            kind: ae::BlockKind::PogoOrb,
+        });
+    }
+    for (id, aabb, feature) in &bosses {
+        if !feature.boss.alive { continue; }
+        overlay.blocks.push(ae::Block {
+            name: format!("ecs-boss-body {}", id.as_str()),
+            aabb: aabb.aabb(),
+            kind: ae::BlockKind::PogoOrb,
+        });
     }
 }
 

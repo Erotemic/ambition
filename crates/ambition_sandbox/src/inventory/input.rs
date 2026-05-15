@@ -10,7 +10,7 @@ pub fn inventory_input(
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut inventory: ResMut<PlayerInventory>,
-    mut runtime: ResMut<SandboxRuntime>,
+    mut heals: MessageWriter<crate::player::PlayerHealRequested>,
 ) {
     // Toggle the adventure menu directly from gameplay using the semantic menu
     // frame. Keyboard/gamepad still feed this through the Inventory action;
@@ -47,7 +47,7 @@ pub fn inventory_input(
 
     match state.tab {
         InventoryTab::Items => {
-            handle_item_tab_input(&menu, &mut state, &mut inventory, &mut runtime)
+            handle_item_tab_input(&menu, &mut state, &mut inventory, &mut heals)
         }
         InventoryTab::Map | InventoryTab::Quests => handle_text_tab_input(&menu, &mut state),
     }
@@ -71,7 +71,7 @@ fn handle_item_tab_input(
     menu: &MenuControlFrame,
     state: &mut InventoryUiState,
     inventory: &mut PlayerInventory,
-    runtime: &mut SandboxRuntime,
+    heals: &mut MessageWriter<crate::player::PlayerHealRequested>,
 ) {
     let total = ItemKind::ALL.len();
     let mut cursor = ListCursor::new(state.selected, total);
@@ -89,7 +89,7 @@ fn handle_item_tab_input(
     if confirm {
         let kind = ItemKind::ALL[state.selected];
         if inventory.count(kind) > 0 {
-            apply_item_effect(kind, inventory, runtime);
+            apply_item_effect(kind, inventory, heals);
         }
     }
 }

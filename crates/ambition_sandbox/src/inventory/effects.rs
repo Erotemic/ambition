@@ -3,12 +3,12 @@ use super::*;
 pub(super) fn apply_item_effect(
     kind: ItemKind,
     inventory: &mut PlayerInventory,
-    runtime: &mut SandboxRuntime,
+    heals: &mut MessageWriter<crate::player::PlayerHealRequested>,
 ) {
     match kind {
         ItemKind::HealthPotion => {
             if inventory.remove(ItemKind::HealthPotion, 1) > 0 {
-                runtime.player_health.heal(2);
+                heals.write(crate::player::PlayerHealRequested { amount: 2 });
             }
         }
         ItemKind::SpareBattery | ItemKind::DataChip => {

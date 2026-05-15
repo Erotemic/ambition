@@ -70,6 +70,7 @@ use crate::SandboxRuntime;
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
     runtime: ResMut<'w, SandboxRuntime>,
+    sim_state: ResMut<'w, crate::SandboxSimState>,
     attack: ResMut<'w, crate::CurrentPlayerAttack>,
     physics_settings: Res<'w, crate::physics::PhysicsSandboxSettings>,
     moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
@@ -175,6 +176,9 @@ pub fn process_sandbox_reset_request(
     //    a same-room reset; we're calling it after flipping the
     //    active room so it uses the start room's spawn point.
     play_state.runtime.reset(&world.0, tuning.as_engine());
+    play_state.sim_state.last_safe_player_pos = world.0.spawn;
+    play_state.sim_state.time_scale = 1.0;
+    play_state.sim_state.room_transition_cooldown = 0.0;
     play_state.attack.0 = None;
     // Mirror the reset into the ECS authority so the next sandbox_update
     // frame starts from the spawn position rather than the pre-reset position.
@@ -277,6 +281,7 @@ mod tests {
         app.insert_resource(crate::CurrentPlayerAttack::default());
         app.insert_resource(crate::physics::PhysicsSandboxSettings::default());
         app.insert_resource(crate::MovingPlatformSet::default());
+        app.insert_resource(crate::SandboxSimState::default());
         app.insert_resource(GameWorld(world.clone()));
         // Construct a minimal RoomSet with one room so `start` and
         // `active` are both valid indices.

@@ -32,11 +32,12 @@ use super::*;
 pub(super) fn mode_gate_phase(
     mode: &GameMode,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     combat: &mut crate::player::PlayerCombatState,
     frame_dt: f32,
 ) -> PhaseOutcome {
     if matches!(mode, GameMode::Dialogue) {
-        runtime.time_scale = 0.0;
+        sim_state.time_scale = 0.0;
         combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
         runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
         return PhaseOutcome::Return;
@@ -46,7 +47,7 @@ pub(super) fn mode_gate_phase(
         // gameplay inputs or advance simulation timers. Developer hotkeys
         // and HUD sync remain responsive because those systems are outside
         // this early return.
-        runtime.time_scale = 0.0;
+        sim_state.time_scale = 0.0;
         combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
         runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
         return PhaseOutcome::Return;
@@ -67,13 +68,13 @@ pub(super) fn mode_gate_phase(
 /// fold it in alongside the explicit `Interact` action.
 pub(super) fn input_timer_phase(
     controls: &mut ControlFrame,
-    runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
     feel: SandboxFeelTuning,
     frame_dt: f32,
 ) -> bool {
-    runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
+    sim_state.room_transition_cooldown = (sim_state.room_transition_cooldown - frame_dt).max(0.0);
     combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
     combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
     let double_tap_down =
@@ -104,6 +105,7 @@ pub(super) fn reset_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
@@ -121,6 +123,7 @@ pub(super) fn reset_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            sim_state,
             attack,
             anim,
             combat,
@@ -150,6 +153,7 @@ pub(super) fn player_control_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     moving_platforms: &[crate::platforms::MovingPlatformState],
     attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
@@ -185,6 +189,7 @@ pub(super) fn player_control_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            sim_state,
             attack,
             anim,
             combat,
@@ -231,6 +236,7 @@ pub(super) fn player_simulation_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
@@ -247,8 +253,8 @@ pub(super) fn player_simulation_phase(
     let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
 
-    runtime.update_time_scale(player, combat.hitstop_timer, frame_dt, feel);
-    let sim_dt = sandbox_dt(combat.hitstop_timer, runtime, frame_dt);
+    runtime.update_time_scale(sim_state, player, combat.hitstop_timer, frame_dt, feel);
+    let sim_dt = sandbox_dt(combat.hitstop_timer, sim_state.time_scale, frame_dt);
 
     let mut riding_platform = None;
     for (index, platform) in moving_platforms.iter_mut().enumerate() {
@@ -308,6 +314,7 @@ pub(super) fn player_simulation_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            sim_state,
             attack,
             anim,
             combat,
@@ -371,6 +378,7 @@ pub(super) fn damage_heal_dialogue_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     moving_platforms: &[crate::platforms::MovingPlatformState],
     feedback: &mut FrameFeedback,
     player_health: Option<&mut crate::player::PlayerHealth>,
@@ -391,6 +399,7 @@ pub(super) fn damage_heal_dialogue_phase(
         &mut feedback.died,
         player,
         runtime,
+        sim_state,
         banner,
         player_health,
         player_damage_events,
@@ -410,9 +419,9 @@ pub(super) fn damage_heal_dialogue_phase(
         in_hitstun: combat.hitstun_timer > 0.0,
         feature_requested_reset: false,
         blink_grace_active: player.blink_grace_timer > 0.0,
-        room_transitioning: runtime.room_transition_cooldown > 0.0,
+        room_transitioning: sim_state.room_transition_cooldown > 0.0,
     };
-    runtime.remember_safe_player_position(player, &safe_world, ctx);
+    runtime.remember_safe_player_position(sim_state, player, &safe_world, ctx);
 }
 
 /// Phase 9 — loading-zone transition + `load_room`.
@@ -431,6 +440,7 @@ pub(super) fn room_transition_phase(
     room_set: &mut rooms::RoomSet,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     dialogue: &mut crate::dialog::DialogState,
     feedback: &mut FrameFeedback,
@@ -443,7 +453,7 @@ pub(super) fn room_transition_phase(
     physics_settings: physics::PhysicsSandboxSettings,
     game_assets: Option<&crate::game_assets::GameAssets>,
 ) -> PhaseOutcome {
-    if runtime.room_transition_cooldown > 0.0 {
+    if sim_state.room_transition_cooldown > 0.0 {
         return PhaseOutcome::Continue;
     }
     let Some(zone) = room_set.transition_for_player(player, controls.interact_pressed) else {
@@ -474,6 +484,7 @@ pub(super) fn room_transition_phase(
         &mut feedback.vfx,
         player,
         runtime,
+        sim_state,
         moving_platforms,
         dialogue,
         combat,

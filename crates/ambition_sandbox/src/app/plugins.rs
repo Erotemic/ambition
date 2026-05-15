@@ -75,6 +75,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::CurrentPlayerAttack::default())
         .insert_resource(crate::dialog::DialogState::default())
         .insert_resource(crate::MovingPlatformSet::default())
+        .insert_resource(crate::SandboxSimState::default())
         .insert_resource(crate::features::GameplayBanner::default())
         .insert_resource(crate::features::FeatureEcsWorldOverlay::default())
         .insert_resource(crate::mechanics::MechanicsRegistry::default())

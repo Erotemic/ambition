@@ -6,6 +6,7 @@ use super::*;
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     runtime: &SandboxRuntime,
+    sim_state: &crate::SandboxSimState,
     world: &ae::World,
     controls: ControlFrame,
     real_dt: f32,
@@ -19,6 +20,7 @@ pub fn record_simulation_frame(
     let oob = detect_oob(&runtime.player, world, OOB_MARGIN);
     let frame = build_frame(
         runtime,
+        sim_state,
         world,
         controls,
         real_dt,
@@ -86,6 +88,7 @@ pub fn handle_trace_hotkey(
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     runtime: Res<SandboxRuntime>,
+    sim_state: Res<crate::SandboxSimState>,
     platform_set: Res<crate::MovingPlatformSet>,
     world: Res<GameWorld>,
     control_frame: Res<ControlFrame>,
@@ -99,7 +102,7 @@ pub fn record_frame_system(
     >,
 ) {
     let real_dt = time.delta_secs();
-    let sim_dt = real_dt * runtime.time_scale;
+    let sim_dt = real_dt * sim_state.time_scale;
     let active_area = rooms
         .as_ref()
         .map(|r| r.active_spec().id.clone())
@@ -135,6 +138,7 @@ pub fn record_frame_system(
     record_simulation_frame(
         &mut buffer,
         &runtime,
+        &sim_state,
         &augmented_world,
         *control_frame,
         real_dt,

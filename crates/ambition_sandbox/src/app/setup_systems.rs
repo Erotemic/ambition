@@ -43,6 +43,7 @@ pub(super) fn setup_simulation_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     mut platform_set: ResMut<crate::MovingPlatformSet>,
+    mut sim_state: ResMut<crate::SandboxSimState>,
 ) {
     let _player = setup::simulation_world(
         &mut commands,
@@ -60,6 +61,7 @@ pub(super) fn setup_simulation_system(
         },
     );
     platform_set.0 = crate::platforms::moving_platforms_for_room(room_set.active_spec());
+    sim_state.last_safe_player_pos = world.0.spawn;
 }
 
 /// Presentation startup. Runs after `setup_simulation_system` so the

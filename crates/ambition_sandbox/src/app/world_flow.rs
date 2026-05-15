@@ -23,11 +23,11 @@ use super::update::*;
 #[allow(unused_imports)]
 use super::*;
 
-pub(super) fn sandbox_dt(hitstop_timer: f32, runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
+pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> f32 {
     if hitstop_timer > 0.0 {
         0.0
     } else {
-        frame_dt * runtime.time_scale
+        frame_dt * time_scale
     }
 }
 
@@ -40,6 +40,7 @@ pub(super) fn reset_sandbox(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
@@ -52,6 +53,9 @@ pub(super) fn reset_sandbox(
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
+    sim_state.last_safe_player_pos = world.spawn;
+    sim_state.time_scale = 1.0;
+    sim_state.room_transition_cooldown = 0.0;
     *attack = None;
     anim.reset();
     combat.reset();
@@ -72,6 +76,7 @@ pub(super) fn load_room(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     dialogue: &mut crate::dialog::DialogState,
     combat: &mut crate::player::PlayerCombatState,
@@ -131,8 +136,8 @@ pub(super) fn load_room(
     combat.hitstop_timer = 0.0;
     combat.damage_invuln_timer = 0.0;
     combat.hitstun_timer = 0.0;
-    runtime.last_safe_player_pos = player.pos;
-    runtime.time_scale = 1.0;
+    sim_state.last_safe_player_pos = player.pos;
+    sim_state.time_scale = 1.0;
     interaction.down_tap_timer = 0.0;
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities(commands, &spec);
@@ -140,7 +145,7 @@ pub(super) fn load_room(
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.
-    runtime.room_transition_cooldown = if edge_exit {
+    sim_state.room_transition_cooldown = if edge_exit {
         feel.edge_transition_cooldown
     } else {
         feel.door_transition_cooldown
@@ -330,6 +335,7 @@ pub(super) fn death_respawn_player(
     died: &mut Vec<PlayerDiedMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
     tuning: ae::MovementTuning,
@@ -342,6 +348,9 @@ pub(super) fn death_respawn_player(
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
+    sim_state.last_safe_player_pos = world.spawn;
+    sim_state.time_scale = 1.0;
+    sim_state.room_transition_cooldown = 0.0;
     anim.reset();
     combat.reset();
     if let Some(health) = player_health.as_deref_mut() {
@@ -362,6 +371,7 @@ pub(super) fn handle_player_damage_events(
     died: &mut Vec<PlayerDiedMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
     damage_events: &[features::PlayerDamageEvent],
@@ -399,6 +409,7 @@ pub(super) fn handle_player_damage_events(
             died,
             player,
             runtime,
+            sim_state,
             banner,
             player_health,
             tuning,
@@ -411,7 +422,7 @@ pub(super) fn handle_player_damage_events(
     }
     match damage.mode {
         features::PlayerDamageMode::SafeRespawn => {
-            safe_respawn_player(sfx, vfx, player, runtime, combat, tuning, feel, damage.impact_pos);
+            safe_respawn_player(sfx, vfx, player, sim_state, combat, tuning, feel, damage.impact_pos);
         }
         features::PlayerDamageMode::Knockback => {
             apply_player_knockback(sfx, vfx, player, runtime, combat, tuning, feel, damage);
@@ -423,20 +434,20 @@ pub(super) fn safe_respawn_player(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
 ) {
-    let to = runtime.last_safe_player_pos;
+    let to = sim_state.last_safe_player_pos;
     player.reset_to(to);
     player.refresh_movement_resources(tuning);
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hitstun_timer = 0.0;
     combat.hitstop_timer = 0.0;
     combat.flash_timer = feel.reset_flash_time;
-    runtime.time_scale = 1.0;
+    sim_state.time_scale = 1.0;
     sfx.push(SfxMessage::Reset { pos: to });
     vfx.push(VfxMessage::ResetEffects { from, to });
 }

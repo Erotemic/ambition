@@ -73,6 +73,7 @@ fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTrac
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
     runtime: &SandboxRuntime,
+    sim_state: &crate::SandboxSimState,
     world: &ae::World,
     controls: ControlFrame,
     real_dt: f32,
@@ -91,7 +92,7 @@ pub fn build_frame(
         tick,
         real_dt,
         sim_dt,
-        time_scale: runtime.time_scale,
+        time_scale: sim_state.time_scale,
         game_mode: game_mode.into(),
         active_area: active_area.into(),
         world_size: world.size.into(),
@@ -114,7 +115,7 @@ pub fn build_frame(
             blink_grace_timer: player.blink_grace_timer,
             locomotion: locomotion.into(),
             body_mode: body_mode.into(),
-            last_safe_pos: runtime.last_safe_player_pos.into(),
+            last_safe_pos: sim_state.last_safe_player_pos.into(),
             time_alive: player.time_alive,
             resets: player.resets,
         },

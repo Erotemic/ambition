@@ -194,6 +194,7 @@ impl SandboxSim {
 
         let world = self.app.world();
         let runtime = world.resource::<SandboxRuntime>();
+        let sim_state = world.resource::<crate::SandboxSimState>();
         // `runtime.player` is the shadow cache kept in sync by the frame pipeline.
         // It reflects the authoritative `PlayerMovementAuthority` state after each
         // `app.update()`, so callers that invoke `observation()` between steps see
@@ -237,8 +238,8 @@ impl SandboxSim {
             world_size: (room.world.size.x, room.world.size.y),
             world_spawn: (room.world.spawn.x, room.world.spawn.y),
             last_safe_pos: (
-                runtime.last_safe_player_pos.x,
-                runtime.last_safe_player_pos.y,
+                sim_state.last_safe_player_pos.x,
+                sim_state.last_safe_player_pos.y,
             ),
             recently_damaged,
             in_hitstun,

@@ -172,10 +172,8 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
             presets: crate::input::KeyboardPreset::presets().to_vec(),
             preset_index: 0,
             preset_flash: 0.0,
-            last_safe_player_pos: ae::Vec2::ZERO,
-            time_scale: 1.0,
-            room_transition_cooldown: 0.0,
         },
+        &crate::SandboxSimState::default(),
         &world,
         ControlFrame::default(),
         0.016,
@@ -209,10 +207,8 @@ fn write_dump_writes_two_files() {
             presets: crate::input::KeyboardPreset::presets().to_vec(),
             preset_index: 0,
             preset_flash: 0.0,
-            last_safe_player_pos: ae::Vec2::ZERO,
-            time_scale: 1.0,
-            room_transition_cooldown: 0.0,
         },
+        &crate::SandboxSimState::default(),
         &world,
         ControlFrame::default(),
         0.016,
@@ -276,9 +272,6 @@ fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
         presets: crate::input::KeyboardPreset::presets().to_vec(),
         preset_index: 0,
         preset_flash: 0.0,
-        last_safe_player_pos: ae::Vec2::ZERO,
-        time_scale: 1.0,
-        room_transition_cooldown: 0.0,
     }
 }
 
@@ -426,6 +419,7 @@ fn frame_includes_moving_platform_state() {
     let runtime = make_runtime(&world, player);
     let frame = build_frame(
         &runtime,
+        &crate::SandboxSimState::default(),
         &world,
         ControlFrame::default(),
         0.016,

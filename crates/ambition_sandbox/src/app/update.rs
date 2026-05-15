@@ -113,7 +113,7 @@ pub fn sandbox_update(
     let frame_dt = time.delta_secs();
 
     if matches!(
-        mode_gate_phase(mode.get(), &mut runtime, &mut *combat, frame_dt),
+        mode_gate_phase(mode.get(), &mut runtime, &mut queues.sim_state, &mut *combat, frame_dt),
         PhaseOutcome::Return
     ) {
         runtime.player = player.clone();
@@ -127,7 +127,7 @@ pub fn sandbox_update(
     // lives in the pause menu so it can drive a real overlay.
     let _ = controls.start_pressed;
 
-    let door_double_tap_up = input_timer_phase(&mut controls, &mut runtime, &mut *combat, &mut *interaction, feel, frame_dt);
+    let door_double_tap_up = input_timer_phase(&mut controls, &mut queues.sim_state, &mut *combat, &mut *interaction, feel, frame_dt);
 
     if matches!(
         reset_phase(
@@ -135,6 +135,7 @@ pub fn sandbox_update(
             &world.0,
             player,
             &mut runtime,
+            &mut queues.sim_state,
             &mut queues.current_attack.0,
             &mut feedback,
             tuning,
@@ -158,6 +159,7 @@ pub fn sandbox_update(
             &world.0,
             player,
             &mut runtime,
+            &mut queues.sim_state,
             &queues.moving_platforms.0,
             &mut queues.current_attack.0,
             &mut feedback,
@@ -185,6 +187,7 @@ pub fn sandbox_update(
             &world.0,
             player,
             &mut runtime,
+            &mut queues.sim_state,
             &mut queues.moving_platforms.0,
             &mut queues.current_attack.0,
             &mut feedback,
@@ -222,6 +225,7 @@ pub fn sandbox_update(
             &world.0,
             player,
             &mut runtime,
+            &mut queues.sim_state,
             &queues.moving_platforms.0,
             &mut feedback,
             Some(&mut *health),
@@ -239,6 +243,7 @@ pub fn sandbox_update(
             &world.0,
             player,
             &mut runtime,
+            &mut queues.sim_state,
             &queues.moving_platforms.0,
             &mut feedback,
             None,
@@ -261,6 +266,7 @@ pub fn sandbox_update(
             &mut room_set,
             player,
             &mut runtime,
+            &mut queues.sim_state,
             &mut queues.moving_platforms.0,
             &mut queues.dialogue,
             &mut feedback,

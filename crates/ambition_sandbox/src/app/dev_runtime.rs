@@ -94,6 +94,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut runtime: ResMut<SandboxRuntime>,
+    mut sim_state: ResMut<crate::SandboxSimState>,
     mut dialogue: ResMut<crate::dialog::DialogState>,
     mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
@@ -135,6 +136,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut room_set,
             &mut authority.player,
             &mut runtime,
+            &mut sim_state,
             &mut dialogue,
             &mut *combat,
             &mut ldtk_index,
@@ -164,6 +166,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut room_set,
             &mut tmp_player,
             &mut runtime,
+            &mut sim_state,
             &mut dialogue,
             &mut tmp_combat,
             &mut ldtk_index,
@@ -246,6 +249,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_set: &mut rooms::RoomSet,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    sim_state: &mut crate::SandboxSimState,
     dialogue: &mut crate::dialog::DialogState,
     combat: &mut crate::player::PlayerCombatState,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
@@ -279,13 +283,13 @@ pub(super) fn reload_ldtk_world_from_disk(
     player.pos = transaction.safe_player_pos;
     player.refresh_movement_resources(tuning);
     runtime.player = player.clone();
-    runtime.last_safe_player_pos = transaction.safe_player_pos;
+    sim_state.last_safe_player_pos = transaction.safe_player_pos;
     *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
     features::spawn_room_feature_entities(commands, &transaction.next_spec);
     dialogue.close();
     combat.hitstop_timer = 0.0;
     combat.hitstun_timer = 0.0;
-    runtime.room_transition_cooldown = 0.10;
+    sim_state.room_transition_cooldown = 0.10;
     runtime.preset_flash = 1.0;
 
     ldtk_index.replace_from_project(&transaction.project, active_room.clone());

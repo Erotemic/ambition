@@ -9,6 +9,7 @@
 
 use ambition_engine as ae;
 
+use crate::player::PlayerAnimState;
 use crate::SandboxRuntime;
 
 /// Animation ids that a character sheet may define.
@@ -116,7 +117,7 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
     )
 }
 
-/// Pick the player's animation from runtime state.
+/// Pick the player's animation from ECS animation state and engine state.
 ///
 /// Priority: hit > blink-in/out > slash > fly > dash > airborne (jump/fall) > run/walk/idle.
 /// Free-flight overrides ground/airborne motion because the engine
@@ -127,14 +128,23 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// `BlinkOut` is used while the blink button is held/aiming, and
 /// `BlinkIn` is held briefly after a committed blink so VFX/camera have
 /// time to sell the arrival.
-pub fn pick_player_anim(runtime: &SandboxRuntime, player: &ae::Player) -> CharacterAnim {
+///
+/// `anim` is the authoritative ECS component for presentation timers.
+/// `runtime` is still queried for non-migrated fields (hitstun, blink
+/// camera timer, player_attack) that will move to their own components
+/// in follow-up migration stages.
+pub fn pick_player_anim(
+    anim: &PlayerAnimState,
+    runtime: &SandboxRuntime,
+    player: &ae::Player,
+) -> CharacterAnim {
     if runtime.hitstun_timer > 0.05 {
         return CharacterAnim::Hit;
     }
     if runtime.blink_in_timer > 0.0 {
         return CharacterAnim::BlinkIn;
     }
-    if runtime.slash_anim_timer > 0.0 {
+    if anim.slash_anim_timer > 0.0 {
         return directional_attack_anim(runtime);
     }
     if player.blink_aiming || player.blink_hold_active {
@@ -150,7 +160,7 @@ pub fn pick_player_anim(runtime: &SandboxRuntime, player: &ae::Player) -> Charac
     if player.fly_enabled {
         return CharacterAnim::Fly;
     }
-    if runtime.dash_startup_timer > 0.0 {
+    if anim.dash_startup_timer > 0.0 {
         return CharacterAnim::DashStartup;
     }
     if player.dash_timer > 0.0 {
@@ -175,8 +185,8 @@ pub fn pick_player_anim(runtime: &SandboxRuntime, player: &ae::Player) -> Charac
         }
         return CharacterAnim::Fall;
     }
-    if runtime.land_anim_timer > 0.0 {
-        return if runtime.land_anim_hard {
+    if anim.land_anim_timer > 0.0 {
+        return if anim.land_anim_hard {
             CharacterAnim::LandHard
         } else {
             CharacterAnim::LandRecovery

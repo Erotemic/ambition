@@ -132,7 +132,6 @@ pub struct PlayerCombatState {
     pub hitstop_timer: f32,
     pub damage_invuln_timer: f32,
     pub hitstun_timer: f32,
-    pub slash_anim_timer: f32,
     pub attacking: bool,
 }
 
@@ -143,13 +142,45 @@ impl PlayerCombatState {
             hitstop_timer: runtime.hitstop_timer,
             damage_invuln_timer: runtime.damage_invuln_timer,
             hitstun_timer: runtime.hitstun_timer,
-            slash_anim_timer: runtime.slash_anim_timer,
             attacking: runtime.player_attack.is_some(),
         }
     }
 
     pub fn vulnerable(&self) -> bool {
         self.damage_invuln_timer <= 0.0
+    }
+}
+
+/// ECS-owned player animation signal timers.
+///
+/// All fields are presentation-only: they gate which sprite row plays and
+/// decay independent of gameplay timers like hitstop or invulnerability.
+/// Written directly by `cleanup_timers_phase` / `start_attack` /
+/// `advance_attack`; `animate_player` reads them via `pick_player_anim`.
+/// This is the authoritative source — `write_player_ecs_components` does
+/// not touch it.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct PlayerAnimState {
+    /// Time remaining for the slash animation row.
+    pub slash_anim_timer: f32,
+    /// Time remaining for the post-touchdown landing pose.
+    pub land_anim_timer: f32,
+    /// True when the landing was fast enough for the hard-impact row.
+    pub land_anim_hard: bool,
+    /// Time remaining for the brief dash pre-roll pose.
+    pub dash_startup_timer: f32,
+    /// Previous frame's `on_ground`; used to detect the touchdown edge.
+    pub anim_prev_on_ground: bool,
+    /// Previous frame's pre-landing downward velocity; used to grade
+    /// hard vs. soft landings.
+    pub anim_prev_vel_y: f32,
+    /// Previous frame's `dash_timer`; used to detect the dash rising edge.
+    pub anim_prev_dash_timer: f32,
+}
+
+impl PlayerAnimState {
+    pub fn reset(&mut self) {
+        *self = Self::default();
     }
 }
 

@@ -196,10 +196,6 @@ pub struct SandboxRuntime {
     pub dialogue: dialog::DialogState,
     pub physics_settings: physics::PhysicsSandboxSettings,
     pub room_transition_cooldown: f32,
-    /// Time remaining on the player's slash animation. Set when an attack is
-    /// triggered so the sprite plays the Slash row even after the brief
-    /// hitstop window ends. Decays toward 0 in the gameplay loop.
-    pub slash_anim_timer: f32,
     /// Active player melee swing. Holds timing + one-hit-per-target state
     /// for directional attacks with startup / active / recovery phases.
     pub player_attack: Option<PlayerAttackState>,
@@ -225,28 +221,6 @@ pub struct SandboxRuntime {
     /// to give post-update mutators the signal without changing
     /// `sandbox_update`'s already-saturated parameter list.
     pub double_tap_down_pending: bool,
-    /// Presentation timer for the post-touchdown landing pose. Set the
-    /// frame the player transitions from airborne to grounded; consumed
-    /// by `pick_player_anim`. Decays in `cleanup_timers_phase`.
-    pub land_anim_timer: f32,
-    /// Was the most recent landing fast enough to warrant the hard-impact
-    /// row? Sampled from the player's pre-touchdown downward velocity.
-    pub land_anim_hard: bool,
-    /// Presentation timer for the brief dash-startup pose. Set on the
-    /// rising edge of `player.dash_timer`; decays in
-    /// `cleanup_timers_phase`. Distinct from gameplay dash timing.
-    pub dash_startup_timer: f32,
-    /// Previous frame's `player.on_ground`. Used by
-    /// `cleanup_timers_phase` to detect the touchdown edge and arm
-    /// `land_anim_timer`.
-    pub anim_prev_on_ground: bool,
-    /// Previous frame's pre-landing downward velocity. Sampled before
-    /// the engine zeroes vertical speed on touchdown so we can grade
-    /// hard vs. soft landings.
-    pub anim_prev_vel_y: f32,
-    /// Previous frame's `player.dash_timer`. Used by
-    /// `cleanup_timers_phase` to detect the dash rising edge.
-    pub anim_prev_dash_timer: f32,
 }
 
 /// Sandbox-side state for one active player melee swing.
@@ -315,7 +289,6 @@ impl SandboxRuntime {
             dialogue: dialog::DialogState::default(),
             physics_settings,
             room_transition_cooldown: 0.0,
-            slash_anim_timer: 0.0,
             player_attack: None,
             blink_in_timer: 0.0,
             blink_in_duration: BLINK_IN_ANIM_TIME,
@@ -323,12 +296,6 @@ impl SandboxRuntime {
             blink_camera_to: world.spawn,
             camera_snap_timer: 0.0,
             double_tap_down_pending: false,
-            land_anim_timer: 0.0,
-            land_anim_hard: false,
-            dash_startup_timer: 0.0,
-            anim_prev_on_ground: false,
-            anim_prev_vel_y: 0.0,
-            anim_prev_dash_timer: 0.0,
         }
     }
 
@@ -348,7 +315,6 @@ impl SandboxRuntime {
         self.interact_buffer_timer = 0.0;
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
-        self.slash_anim_timer = 0.0;
         self.player_attack = None;
         self.blink_in_timer = 0.0;
         self.blink_camera_from = self.player.pos;
@@ -360,12 +326,9 @@ impl SandboxRuntime {
         // gameplay tunables — so testers don't lose their F3
         // settings on every respawn.
         self.player.mana.refill_full();
-        self.land_anim_timer = 0.0;
-        self.land_anim_hard = false;
-        self.dash_startup_timer = 0.0;
-        self.anim_prev_on_ground = false;
-        self.anim_prev_vel_y = 0.0;
-        self.anim_prev_dash_timer = 0.0;
+        // Animation signal timers live on the `PlayerAnimState` ECS component;
+        // callers that trigger a full reset (reset_sandbox, death_respawn_player)
+        // call `PlayerAnimState::reset()` on the component directly.
     }
 
     pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {

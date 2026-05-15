@@ -304,14 +304,17 @@ pub fn animate_player(
             &crate::player::PlayerBody,
             &crate::player::PlayerCombatState,
             &crate::player::PlayerMovementAuthority,
+            &crate::player::PlayerAnimState,
         ),
         With<PlayerVisual>,
     >,
 ) {
-    let Ok((mut sprite, mut animator, player_body, player_combat, authority)) = query.get_mut(entities.player) else {
+    let Ok((mut sprite, mut animator, player_body, player_combat, authority, anim_state)) =
+        query.get_mut(entities.player)
+    else {
         return;
     };
-    let anim = crate::character_sprites::pick_player_anim(&runtime, &authority.player);
+    let anim = crate::character_sprites::pick_player_anim(anim_state, &runtime, &authority.player);
     animator.request(anim);
     let index = animator.tick(time.delta_secs());
     if let Some(atlas) = sprite.texture_atlas.as_mut() {

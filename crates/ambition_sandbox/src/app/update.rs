@@ -64,7 +64,13 @@ pub fn sandbox_update(
     mut queues: SandboxQueues,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
-    mut player_q: Query<&mut crate::player::PlayerMovementAuthority, With<crate::player::PlayerEntity>>,
+    mut player_q: Query<
+        (
+            &mut crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerAnimState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
@@ -82,12 +88,14 @@ pub fn sandbox_update(
         * user_settings.gameplay.player_damage_multiplier
         * assist_factor;
 
-    // Acquire the ECS player authority for this frame. All phase helpers
-    // that touch player movement, combat, or position receive `player`
-    // directly; `runtime.player` is updated once at the end as a shadow
-    // cache for the ~20 external read-only callers (rendering, camera,
+    // Acquire the ECS player authority and animation state for this frame.
+    // Phase helpers that touch player movement, combat, or position receive
+    // `player` directly; `runtime.player` is updated once at the end as a
+    // shadow cache for the ~20 external read-only callers (rendering, camera,
     // debug overlay, etc.) that have not yet migrated to the ECS query.
-    let Ok(mut authority) = player_q.single_mut() else {
+    // `anim` is the authoritative `PlayerAnimState` component — written
+    // directly by the phase helpers that touch presentation timers.
+    let Ok((mut authority, mut anim)) = player_q.single_mut() else {
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     };
@@ -132,6 +140,7 @@ pub fn sandbox_update(
             tuning,
             feel,
             &mut queues.reset_room_features,
+            &mut *anim,
         ),
         PhaseOutcome::Return
     ) {
@@ -153,6 +162,7 @@ pub fn sandbox_update(
             &queues.feature_ecs_overlay,
             &mut queues.reset_room_features,
             &mut queues.pogo_bounces,
+            &mut *anim,
         ),
         PhaseOutcome::Return
     ) {
@@ -173,6 +183,7 @@ pub fn sandbox_update(
             frame_dt,
             &queues.feature_ecs_overlay,
             &mut queues.reset_room_features,
+            &mut *anim,
         ),
         PhaseOutcome::Return
     ) {
@@ -205,6 +216,7 @@ pub fn sandbox_update(
             feel,
             difficulty_multiplier,
             &queues.feature_ecs_overlay,
+            &mut *anim,
         );
     } else {
         damage_heal_dialogue_phase(
@@ -219,6 +231,7 @@ pub fn sandbox_update(
             feel,
             difficulty_multiplier,
             &queues.feature_ecs_overlay,
+            &mut *anim,
         );
     }
 
@@ -256,9 +269,10 @@ pub fn sandbox_update(
         &queues.feature_ecs_overlay,
         &mut queues.damage_events,
         &mut queues.pogo_bounces,
+        &mut *anim,
     );
 
-    cleanup_timers_phase(player, &mut runtime, frame_dt);
+    cleanup_timers_phase(player, &mut runtime, &mut *anim, frame_dt);
 
     // Write the shadow cache so external read-only callers (rendering,
     // camera, debug overlay, trace, encounter) see the post-frame player

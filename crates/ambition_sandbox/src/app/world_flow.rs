@@ -40,6 +40,7 @@ pub(super) fn reset_sandbox(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    anim: &mut crate::player::PlayerAnimState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
 ) {
@@ -47,6 +48,7 @@ pub(super) fn reset_sandbox(
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
+    anim.reset();
     runtime.flash_timer = feel.reset_flash_time;
     let reset_to = player.pos;
     sfx.push(SfxMessage::Reset { pos: reset_to });
@@ -319,11 +321,13 @@ pub(super) fn death_respawn_player(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
+    anim: &mut crate::player::PlayerAnimState,
 ) {
     let to = world.spawn;
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
+    anim.reset();
     if let Some(health) = player_health.as_deref_mut() {
         health.reset();
         runtime.player_health = health.health;
@@ -351,6 +355,7 @@ pub(super) fn handle_player_damage_events(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
+    anim: &mut crate::player::PlayerAnimState,
 ) {
     let Some(mut damage) = damage_events.first().copied() else {
         return;
@@ -387,6 +392,7 @@ pub(super) fn handle_player_damage_events(
             tuning,
             feel,
             damage.impact_pos,
+            anim,
         );
         return;
     }
@@ -499,6 +505,7 @@ pub(super) fn start_attack(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    anim: &mut crate::player::PlayerAnimState,
     controls: ControlFrame,
 ) {
     if !player.abilities.attack || runtime.player_attack.is_some() {
@@ -541,7 +548,7 @@ pub(super) fn start_attack(
 
     let player_pos = player.pos;
     sfx.push(SfxMessage::Slash { pos: player_pos });
-    runtime.slash_anim_timer = spec.total_seconds().max(0.20);
+    anim.slash_anim_timer = spec.total_seconds().max(0.20);
     runtime.player_attack = Some(crate::PlayerAttackState::new(spec));
     vfx.push(VfxMessage::SlashPreview {
         hitbox: ae::attack_hitbox(player, spec),
@@ -554,6 +561,7 @@ pub(super) fn advance_attack(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    anim: &mut crate::player::PlayerAnimState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -567,7 +575,7 @@ pub(super) fn advance_attack(
 
     attack_state.elapsed += frame_dt.max(0.0);
     let Some(phase) = attack_state.phase() else {
-        runtime.slash_anim_timer = 0.0;
+        anim.slash_anim_timer = 0.0;
         return;
     };
 
@@ -650,7 +658,7 @@ pub(super) fn advance_attack(
     }
 
     if attack_state.done() {
-        runtime.slash_anim_timer = 0.0;
+        anim.slash_anim_timer = 0.0;
     } else {
         runtime.player_attack = Some(attack_state);
     }

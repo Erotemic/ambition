@@ -107,6 +107,7 @@ pub(super) fn reset_phase(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
+    anim: &mut crate::player::PlayerAnimState,
 ) -> PhaseOutcome {
     if controls.reset_pressed {
         reset_sandbox(
@@ -115,6 +116,7 @@ pub(super) fn reset_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            anim,
             tuning,
             feel,
         );
@@ -146,6 +148,7 @@ pub(super) fn player_control_phase(
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
+    anim: &mut crate::player::PlayerAnimState,
 ) -> PhaseOutcome {
     // Two-clock update:
     // - control_dt is real time for responsive inputs and precision-blink aim;
@@ -168,6 +171,7 @@ pub(super) fn player_control_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            anim,
             tuning,
             feel,
         );
@@ -214,6 +218,7 @@ pub(super) fn player_simulation_phase(
     frame_dt: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
+    anim: &mut crate::player::PlayerAnimState,
 ) -> PhaseOutcome {
     let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
@@ -279,6 +284,7 @@ pub(super) fn player_simulation_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            anim,
             tuning,
             feel,
         );
@@ -343,6 +349,7 @@ pub(super) fn damage_heal_dialogue_phase(
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
+    anim: &mut crate::player::PlayerAnimState,
 ) {
     let feature_damaged_player = !player_damage_events.is_empty();
     handle_player_damage_events(
@@ -358,6 +365,7 @@ pub(super) fn damage_heal_dialogue_phase(
         tuning,
         feel,
         difficulty_multiplier,
+        anim,
     );
     let safe_world = features::world_with_sandbox_solids(
         world,
@@ -461,9 +469,10 @@ pub(super) fn attack_phase(
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     damage_events: &mut MessageWriter<features::DamageEvent>,
     pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
+    anim: &mut crate::player::PlayerAnimState,
 ) {
     if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
-        start_attack(&mut feedback.sfx, &mut feedback.vfx, player, runtime, *controls);
+        start_attack(&mut feedback.sfx, &mut feedback.vfx, player, runtime, anim, *controls);
     }
     advance_attack(
         &mut feedback.sfx,
@@ -471,6 +480,7 @@ pub(super) fn attack_phase(
         world,
         player,
         runtime,
+        anim,
         tuning,
         feel,
         frame_dt,
@@ -488,24 +498,29 @@ pub(super) fn attack_phase(
 pub(super) fn cleanup_timers_phase(
     player: &ae::Player,
     runtime: &mut SandboxRuntime,
+    anim: &mut crate::player::PlayerAnimState,
     frame_dt: f32,
 ) {
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
-    runtime.slash_anim_timer = (runtime.slash_anim_timer - frame_dt).max(0.0);
+    anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
     runtime.blink_in_timer = (runtime.blink_in_timer - frame_dt).max(0.0);
     runtime.camera_snap_timer = (runtime.camera_snap_timer - frame_dt).max(0.0);
-    update_anim_signal_timers(player, runtime, frame_dt);
+    update_anim_signal_timers(player, anim, frame_dt);
 }
 
 /// Drive the presentation-only landing + dash-startup timers and capture
 /// the per-frame state needed for edge detection.
 ///
-/// The sprite picker (`pick_player_anim`) reads these directly. Detection
-/// lives here so all presentation timers decay in one phase and so the
-/// "previous frame" snapshot is the one immediately before the next
-/// gameplay tick.
-fn update_anim_signal_timers(player: &ae::Player, runtime: &mut SandboxRuntime, frame_dt: f32) {
+/// The sprite picker (`pick_player_anim`) reads these from the
+/// `PlayerAnimState` component. Detection lives here so all presentation
+/// timers decay in one phase and so the "previous frame" snapshot is the
+/// one immediately before the next gameplay tick.
+fn update_anim_signal_timers(
+    player: &ae::Player,
+    anim: &mut crate::player::PlayerAnimState,
+    frame_dt: f32,
+) {
     // Hard-landing threshold: pre-touchdown downward speed (px/s) above
     // which we play `LandHard` instead of `LandRecovery`. Tuned by the
     // sandbox's terminal-fall feel; raise if normal jump landings start
@@ -522,27 +537,27 @@ fn update_anim_signal_timers(player: &ae::Player, runtime: &mut SandboxRuntime, 
     let dash_timer = player.dash_timer;
 
     // Landing edge: airborne last frame, grounded this frame.
-    if on_ground && !runtime.anim_prev_on_ground {
-        let impact_speed = runtime.anim_prev_vel_y;
+    if on_ground && !anim.anim_prev_on_ground {
+        let impact_speed = anim.anim_prev_vel_y;
         let hard = impact_speed >= HARD_LAND_SPEED;
-        runtime.land_anim_hard = hard;
-        runtime.land_anim_timer = if hard {
+        anim.land_anim_hard = hard;
+        anim.land_anim_timer = if hard {
             LAND_HARD_HOLD_SECS
         } else {
             LAND_SOFT_HOLD_SECS
         };
     } else if !on_ground {
         // Stay airborne: the landing pose only plays on the ground.
-        runtime.land_anim_timer = 0.0;
+        anim.land_anim_timer = 0.0;
     } else {
-        runtime.land_anim_timer = (runtime.land_anim_timer - frame_dt).max(0.0);
+        anim.land_anim_timer = (anim.land_anim_timer - frame_dt).max(0.0);
     }
 
     // Dash rising edge: previous frame had no dash, this frame has one.
-    if dash_timer > 0.0 && runtime.anim_prev_dash_timer <= 0.0 {
-        runtime.dash_startup_timer = DASH_STARTUP_SECS;
+    if dash_timer > 0.0 && anim.anim_prev_dash_timer <= 0.0 {
+        anim.dash_startup_timer = DASH_STARTUP_SECS;
     } else {
-        runtime.dash_startup_timer = (runtime.dash_startup_timer - frame_dt).max(0.0);
+        anim.dash_startup_timer = (anim.dash_startup_timer - frame_dt).max(0.0);
     }
 
     // Snapshot for the next frame. Sample vel.y BEFORE any further
@@ -551,7 +566,7 @@ fn update_anim_signal_timers(player: &ae::Player, runtime: &mut SandboxRuntime, 
     // runs at the end of the gameplay loop, so the player state here is
     // already post-integration but still reflects the speed that produced
     // this frame's `on_ground`.
-    runtime.anim_prev_on_ground = on_ground;
-    runtime.anim_prev_vel_y = player.vel.y;
-    runtime.anim_prev_dash_timer = dash_timer;
+    anim.anim_prev_on_ground = on_ground;
+    anim.anim_prev_vel_y = player.vel.y;
+    anim.anim_prev_dash_timer = dash_timer;
 }

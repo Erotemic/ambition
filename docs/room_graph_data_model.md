@@ -1,6 +1,7 @@
 # Room graph and loading-zone model
 
-This is an early code-driven room graph. The next goal is to make the same
+This is an early code-driven (NOTE: we are moving away from code-driven to ECS
+data driven) room graph. The next goal is to make the same
 structure serializable from RON/JSON/TOML or a generated DSL, but the current
 Rust structs already separate the important concepts:
 

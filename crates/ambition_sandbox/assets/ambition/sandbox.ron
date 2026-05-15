@@ -28,6 +28,8 @@
         ledge_grab: true,
         swim: true,
         glide: true,
+        dodge: true,
+        shield: true,
     ),
     tuning: (
         gravity: 2250.0,

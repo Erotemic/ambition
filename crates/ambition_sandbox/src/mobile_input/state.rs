@@ -74,6 +74,7 @@ pub struct TouchInputState {
     pub interact: TouchButton,
     pub projectile: TouchButton,
     pub fly_toggle: TouchButton,
+    pub shield: TouchButton,
     pub start: TouchButton,
     pub reset: TouchButton,
 }
@@ -152,7 +153,7 @@ pub fn fold_touch_into_control_frame(
         projectile_pressed: state.projectile.pressed_this_frame,
         projectile_held: state.projectile.held,
         projectile_released: state.projectile.released_this_frame,
-        shield_held: false,
+        shield_held: state.shield.held,
         aim_x,
         aim_y,
     }
@@ -181,6 +182,7 @@ pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
         || state.interact.held
         || state.projectile.held
         || state.fly_toggle.held
+        || state.shield.held
         || state.start.held
         || state.reset.held;
     let any_edge = state.jump.pressed_this_frame
@@ -190,6 +192,7 @@ pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
         || state.interact.pressed_this_frame
         || state.projectile.pressed_this_frame
         || state.fly_toggle.pressed_this_frame
+        || state.shield.pressed_this_frame
         || state.start.pressed_this_frame
         || state.reset.pressed_this_frame
         || state.move_y_just_crossed_up
@@ -201,6 +204,7 @@ pub(crate) fn touch_state_is_active(state: &TouchInputState) -> bool {
         || state.interact.released_this_frame
         || state.projectile.released_this_frame
         || state.fly_toggle.released_this_frame
+        || state.shield.released_this_frame
         || state.start.released_this_frame
         || state.reset.released_this_frame;
     stick_active || any_button || any_edge || any_release

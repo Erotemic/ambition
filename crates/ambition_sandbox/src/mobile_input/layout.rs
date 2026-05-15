@@ -22,6 +22,7 @@ pub enum TouchActionButton {
     Interact,
     Projectile,
     FlyToggle,
+    Shield,
     Start,
     Reset,
 }
@@ -52,7 +53,7 @@ pub struct TouchActionSpec {
 /// Canonical lower-right action layout used by both the rendered UI and
 /// raw multitouch hit testing. Keep all positions here so spacing fixes
 /// cannot drift between the visible overlay and the Android touch path.
-pub fn touch_action_layout() -> [TouchActionSpec; 7] {
+pub fn touch_action_layout() -> [TouchActionSpec; 8] {
     [
         TouchActionSpec {
             action: TouchActionButton::Blink,
@@ -101,6 +102,14 @@ pub fn touch_action_layout() -> [TouchActionSpec; 7] {
             top: 148.0,
             size: 78.0,
             font_size: 14.0,
+        },
+        TouchActionSpec {
+            action: TouchActionButton::Shield,
+            label: "Shield",
+            left: 5.0,
+            top: 222.0,
+            size: 72.0,
+            font_size: 13.0,
         },
         TouchActionSpec {
             action: TouchActionButton::Jump,

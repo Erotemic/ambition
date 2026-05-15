@@ -64,6 +64,7 @@ pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<GameWorld>,
     runtime: Res<SandboxRuntime>,
+    attack_res: Res<crate::CurrentPlayerAttack>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
     ldtk_spine_index: Res<crate::ldtk_world::LdtkRuntimeSpineIndex>,
@@ -113,6 +114,7 @@ pub fn draw_debug_overlay(
         &mut gizmos,
         world,
         &runtime,
+        attack_res.0.as_ref(),
         actions,
         gameplay_active,
         &developer_tools,
@@ -229,6 +231,7 @@ fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     runtime: &SandboxRuntime,
+    attack: Option<&crate::PlayerAttackState>,
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
@@ -285,7 +288,7 @@ fn draw_player_debug(
         .map(|actions| actions.pressed(&SandboxAction::Pogo))
         .unwrap_or(false);
     if gameplay_active && developer_tools.show_combat_preview {
-        if let Some(attack_state) = runtime.player_attack.as_ref() {
+        if let Some(attack_state) = attack {
             let hitbox = ae::attack_hitbox(player, attack_state.spec);
             let color = match attack_state.phase() {
                 Some(ae::AttackPhase::Startup) => yellow(),

@@ -40,6 +40,7 @@ pub(super) fn reset_sandbox(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
@@ -51,6 +52,7 @@ pub(super) fn reset_sandbox(
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
+    *attack = None;
     anim.reset();
     combat.reset();
     combat.flash_timer = feel.reset_flash_time;
@@ -520,11 +522,11 @@ pub(super) fn start_attack(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
+    attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
     controls: ControlFrame,
 ) {
-    if !player.abilities.attack || runtime.player_attack.is_some() {
+    if !player.abilities.attack || attack.is_some() {
         return;
     }
     let intent = ae::resolve_attack_intent(
@@ -565,7 +567,7 @@ pub(super) fn start_attack(
     let player_pos = player.pos;
     sfx.push(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
-    runtime.player_attack = Some(crate::PlayerAttackState::new(spec));
+    *attack = Some(crate::PlayerAttackState::new(spec));
     vfx.push(VfxMessage::SlashPreview {
         hitbox: ae::attack_hitbox(player, spec),
     });
@@ -575,8 +577,9 @@ pub(super) fn advance_attack(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     world: &ae::World,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
+    attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
@@ -586,7 +589,7 @@ pub(super) fn advance_attack(
     damage_events: &mut MessageWriter<features::DamageEvent>,
     pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
 ) {
-    let Some(mut attack_state) = runtime.player_attack.take() else {
+    let Some(mut attack_state) = attack.take() else {
         return;
     };
 
@@ -609,7 +612,7 @@ pub(super) fn advance_attack(
         if player.abilities.pogo && attack_state.spec.can_pogo && !attack_state.pogo_applied {
             let attack_world = features::world_with_sandbox_solids(
                 world,
-                &runtime.moving_platforms,
+                moving_platforms,
                 feature_ecs_overlay,
             );
             if let Some(orb_aabb) = attack_world.blocks.iter().find_map(|block| {
@@ -677,6 +680,6 @@ pub(super) fn advance_attack(
     if attack_state.done() {
         anim.slash_anim_timer = 0.0;
     } else {
-        runtime.player_attack = Some(attack_state);
+        *attack = Some(attack_state);
     }
 }

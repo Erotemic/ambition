@@ -302,8 +302,9 @@ pub(super) fn update_hud(
     let mechanics_line = format!(
         "\nLOCO: {locomotion}  BODY: {body_mode}  MECH: {mechanics_summary}  ROOM: {metadata_summary}  TRACE: {trace_status}"
     );
-    let attack_line = runtime
-        .player_attack
+    let attack_line = progression
+        .current_attack
+        .0
         .as_ref()
         .map(|attack| {
             let phase = attack.phase().map(|phase| phase.label()).unwrap_or("done");

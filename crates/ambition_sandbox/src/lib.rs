@@ -174,6 +174,16 @@ pub struct GameWorld(pub ae::World);
 pub const BLINK_IN_ANIM_TIME: f32 = 0.34;
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
+/// Active player melee swing, isolated in its own resource so rendering and
+/// debug systems can read it without acquiring the full `SandboxRuntime` lock.
+/// `None` when no swing is in progress.
+///
+/// Authoritative source: set/cleared by `start_attack` / `advance_attack`
+/// inside `sandbox_update`. `write_player_ecs_components` mirrors
+/// `is_some()` into `PlayerCombatState::attacking` each frame.
+#[derive(Resource, Default)]
+pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
+
 #[derive(Resource)]
 pub struct SandboxRuntime {
     pub player: ae::Player,
@@ -189,12 +199,8 @@ pub struct SandboxRuntime {
     pub dialogue: dialog::DialogState,
     pub physics_settings: physics::PhysicsSandboxSettings,
     pub room_transition_cooldown: f32,
-    /// Active player melee swing. Holds timing + one-hit-per-target state
-    /// for directional attacks with startup / active / recovery phases.
-    pub player_attack: Option<PlayerAttackState>,
-    // Blink/camera presentation state (blink_in_timer, blink_in_duration,
-    // blink_camera_from, blink_camera_to, camera_snap_timer) has moved to
-    // the `PlayerBlinkCameraState` ECS component.
+    // Active player attack state has moved to the `CurrentPlayerAttack` resource.
+    // Blink/camera presentation state has moved to `PlayerBlinkCameraState` ECS component.
 }
 
 /// Sandbox-side state for one active player melee swing.
@@ -256,7 +262,6 @@ impl SandboxRuntime {
             dialogue: dialog::DialogState::default(),
             physics_settings,
             room_transition_cooldown: 0.0,
-            player_attack: None,
         }
     }
 
@@ -272,7 +277,8 @@ impl SandboxRuntime {
         self.time_scale = 1.0;
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
-        self.player_attack = None;
+        // Active attack state lives on `CurrentPlayerAttack` resource;
+        // sandbox_update callers reset it separately.
         // Refill mana on reset; the editor-tuned damage_multiplier /
         // invincible flag now lives on `Player` and survives reset
         // because `reset_to` only touches movement state, not these

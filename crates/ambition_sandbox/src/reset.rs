@@ -49,6 +49,7 @@
 //!   accidentally enabled invincibility and wants to play "for real"
 //!   gets a clean slate.
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use ambition_engine as ae;
@@ -63,6 +64,14 @@ use crate::rendering::{spawn_room_visuals, RoomVisual};
 use crate::rooms::RoomSet;
 use crate::save::SandboxSave;
 use crate::SandboxRuntime;
+
+/// Bundles `SandboxRuntime` + `CurrentPlayerAttack` so `process_sandbox_reset_request`
+/// stays within Bevy's 16-SystemParam limit.
+#[derive(SystemParam)]
+pub struct ResetPlayState<'w> {
+    runtime: ResMut<'w, SandboxRuntime>,
+    attack: ResMut<'w, crate::CurrentPlayerAttack>,
+}
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
 /// Set `request = true` from anywhere; the next
@@ -92,7 +101,7 @@ pub fn process_sandbox_reset_request(
     mut boss_registry: ResMut<BossEncounterRegistry>,
     mut quest_registry: ResMut<QuestRegistry>,
     mut music_request: ResMut<EncounterMusicRequest>,
-    mut runtime: ResMut<SandboxRuntime>,
+    mut play_state: ResetPlayState<'_>,
     mut room_set: ResMut<RoomSet>,
     mut world: ResMut<crate::GameWorld>,
     tuning: Res<crate::dev_tools::EditableMovementTuning>,
@@ -163,20 +172,21 @@ pub fn process_sandbox_reset_request(
     //    closed). `runtime.reset` already does the right thing for
     //    a same-room reset; we're calling it after flipping the
     //    active room so it uses the start room's spawn point.
-    runtime.reset(&world.0, tuning.as_engine());
+    play_state.runtime.reset(&world.0, tuning.as_engine());
+    play_state.attack.0 = None;
     // Mirror the reset into the ECS authority so the next sandbox_update
     // frame starts from the spawn position rather than the pre-reset position.
     // Also zero the animation state so post-reset frames don't continue a
     // mid-air slash or dash-startup pose from before the reset.
     if let Ok((mut authority, mut anim, mut combat, mut blink_cam)) = player_q.single_mut() {
-        authority.player = runtime.player.clone();
+        authority.player = play_state.runtime.player.clone();
         anim.reset();
         combat.reset();
         combat.flash_timer = 0.18;
         blink_cam.reset();
     }
     crate::features::spawn_room_feature_entities(&mut commands, &start_spec);
-    runtime.moving_platforms = platforms::moving_platforms_for_room(&start_spec);
+    play_state.runtime.moving_platforms = platforms::moving_platforms_for_room(&start_spec);
 
     // 7. Respawn the static world visuals + moving platform for the
     //    start room. Without this, the despawn in step 4 leaves the
@@ -193,10 +203,10 @@ pub fn process_sandbox_reset_request(
         &mut commands,
         &world.0,
         &start_spec.loading_zones,
-        runtime.physics_settings,
+        play_state.runtime.physics_settings,
         assets.as_deref(),
     );
-    platforms::spawn_moving_platforms(&mut commands, &world.0, &runtime.moving_platforms);
+    platforms::spawn_moving_platforms(&mut commands, &world.0, &play_state.runtime.moving_platforms);
 
     // 8. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used
@@ -263,6 +273,7 @@ mod tests {
             crate::physics::PhysicsSandboxSettings::default(),
         );
         app.insert_resource(runtime);
+        app.insert_resource(crate::CurrentPlayerAttack::default());
         app.insert_resource(GameWorld(world.clone()));
         // Construct a minimal RoomSet with one room so `start` and
         // `active` are both valid indices.

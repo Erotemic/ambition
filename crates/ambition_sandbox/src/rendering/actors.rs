@@ -295,7 +295,7 @@ pub fn upgrade_npc_sprites(
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 pub fn animate_player(
     time: Res<Time>,
-    runtime: Res<crate::SandboxRuntime>,
+    attack_res: Res<crate::CurrentPlayerAttack>,
     entities: Res<SceneEntities>,
     mut query: Query<
         (
@@ -315,7 +315,7 @@ pub fn animate_player(
     else {
         return;
     };
-    let anim = crate::character_sprites::pick_player_anim(anim_state, player_combat, blink_cam, &runtime, &authority.player);
+    let anim = crate::character_sprites::pick_player_anim(anim_state, player_combat, blink_cam, attack_res.0.as_ref(), &authority.player);
     animator.request(anim);
     let index = animator.tick(time.delta_secs());
     if let Some(atlas) = sprite.texture_atlas.as_mut() {

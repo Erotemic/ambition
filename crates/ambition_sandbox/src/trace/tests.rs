@@ -178,7 +178,6 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
             dialogue: crate::dialog::DialogState::default(),
             physics_settings: crate::physics::PhysicsSandboxSettings::default(),
             room_transition_cooldown: 0.0,
-            player_attack: None,
         },
         &world,
         ControlFrame::default(),
@@ -218,7 +217,6 @@ fn write_dump_writes_two_files() {
             dialogue: crate::dialog::DialogState::default(),
             physics_settings: crate::physics::PhysicsSandboxSettings::default(),
             room_transition_cooldown: 0.0,
-            player_attack: None,
         },
         &world,
         ControlFrame::default(),
@@ -289,7 +287,6 @@ fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
         dialogue: crate::dialog::DialogState::default(),
         physics_settings: crate::physics::PhysicsSandboxSettings::default(),
         room_transition_cooldown: 0.0,
-        player_attack: None,
     }
 }
 

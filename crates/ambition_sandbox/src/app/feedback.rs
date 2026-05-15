@@ -64,6 +64,7 @@ pub struct SandboxQueues<'w, 's> {
     >,
     pub banner: ResMut<'w, crate::features::GameplayBanner>,
     pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
+    pub current_attack: ResMut<'w, crate::CurrentPlayerAttack>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.
@@ -85,6 +86,7 @@ pub struct ProgressionResources<'w> {
     pub encounters: Res<'w, crate::encounter::EncounterRegistry>,
     pub map: Res<'w, crate::map_menu::MapMenuState>,
     pub banner: Res<'w, crate::features::GameplayBanner>,
+    pub current_attack: Res<'w, crate::CurrentPlayerAttack>,
 }
 
 /// Per-frame Vec collectors for the sim → presentation event channels.

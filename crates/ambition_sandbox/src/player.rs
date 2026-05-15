@@ -129,7 +129,7 @@ impl PlayerHealth {
 /// The four timer fields are written directly by the phase helpers and
 /// `world_flow` functions that produce damage/hit/respawn events.
 /// `write_player_ecs_components` no longer touches them; it only syncs the
-/// `attacking` flag from `SandboxRuntime::player_attack` so rendering
+/// `attacking` flag from `CurrentPlayerAttack` so rendering
 /// systems can check attack state without querying the runtime.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct PlayerCombatState {
@@ -141,7 +141,7 @@ pub struct PlayerCombatState {
     pub damage_invuln_timer: f32,
     /// Partial-control penalty after knockback. Decays in `input_timer_phase`.
     pub hitstun_timer: f32,
-    /// Mirrored each frame from `runtime.player_attack.is_some()`.
+    /// Mirrored each frame from `CurrentPlayerAttack::is_some()`.
     pub attacking: bool,
 }
 
@@ -325,13 +325,10 @@ pub type PlayerDamageRequested = crate::features::PlayerDamageEvent;
 /// Write `PlayerBody` and `PlayerCombatState::attacking` from the authoritative
 /// sources each frame.
 ///
-/// Both `PlayerCombatState`'s four timer fields and `PlayerInteractionState`'s
-/// fields are authoritative on their respective components (written by the
-/// phase helpers directly). Only `attacking` is mirrored here because it is
-/// derived from `runtime.player_attack`, which is still in `SandboxRuntime`
-/// pending a later migration stage.
+/// `PlayerBody` is a snapshot of `PlayerMovementAuthority::player`.
+/// `attacking` mirrors whether `CurrentPlayerAttack` has an active swing.
 pub fn write_player_ecs_components(
-    runtime: Res<crate::SandboxRuntime>,
+    attack_res: Res<crate::CurrentPlayerAttack>,
     mut players: Query<
         (
             &PlayerMovementAuthority,
@@ -345,7 +342,7 @@ pub fn write_player_ecs_components(
         return;
     };
     *body = PlayerBody::from_player(&authority.player);
-    combat.attacking = runtime.player_attack.is_some();
+    combat.attacking = attack_res.0.is_some();
 }
 
 /// Apply heal messages to ECS health and mirror the result into the legacy

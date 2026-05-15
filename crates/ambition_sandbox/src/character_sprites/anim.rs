@@ -10,7 +10,6 @@
 use ambition_engine as ae;
 
 use crate::player::PlayerAnimState;
-use crate::SandboxRuntime;
 
 /// Animation ids that a character sheet may define.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,12 +131,12 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// `anim` is the authoritative ECS component for presentation timers.
 /// `combat` provides `hitstun_timer` (now on `PlayerCombatState`).
 /// `blink_cam` provides `blink_in_timer` (now on `PlayerBlinkCameraState`).
-/// `runtime` is still queried for `player_attack` which will move later.
+/// `attack` is the active swing from `CurrentPlayerAttack`; `None` when idle.
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
     combat: &crate::player::PlayerCombatState,
     blink_cam: &crate::player::PlayerBlinkCameraState,
-    runtime: &SandboxRuntime,
+    attack: Option<&crate::PlayerAttackState>,
     player: &ae::Player,
 ) -> CharacterAnim {
     if combat.hitstun_timer > 0.05 {
@@ -147,7 +146,7 @@ pub fn pick_player_anim(
         return CharacterAnim::BlinkIn;
     }
     if anim.slash_anim_timer > 0.0 {
-        return directional_attack_anim(runtime);
+        return directional_attack_anim(attack);
     }
     if player.blink_aiming || player.blink_hold_active {
         return CharacterAnim::BlinkOut;
@@ -209,9 +208,9 @@ pub fn pick_player_anim(
 /// The engine's `AttackIntent` is finer-grained than the visible swing
 /// shapes — multiple intents share one row because the sprite already
 /// flips with the player's facing.
-fn directional_attack_anim(runtime: &SandboxRuntime) -> CharacterAnim {
+fn directional_attack_anim(attack: Option<&crate::PlayerAttackState>) -> CharacterAnim {
     use ae::AttackIntent;
-    let Some(attack) = runtime.player_attack.as_ref() else {
+    let Some(attack) = attack else {
         // Defensive fallback: slash_anim_timer is set but no attack
         // state — keep the old side-swing read until the timer drains.
         return CharacterAnim::AttackSide;

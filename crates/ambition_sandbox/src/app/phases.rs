@@ -104,6 +104,7 @@ pub(super) fn reset_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -120,6 +121,7 @@ pub(super) fn reset_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            attack,
             anim,
             combat,
             interaction,
@@ -148,6 +150,7 @@ pub(super) fn player_control_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -181,6 +184,7 @@ pub(super) fn player_control_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            attack,
             anim,
             combat,
             interaction,
@@ -226,6 +230,7 @@ pub(super) fn player_simulation_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -301,6 +306,7 @@ pub(super) fn player_simulation_phase(
             &mut feedback.vfx,
             player,
             runtime,
+            attack,
             anim,
             combat,
             interaction,
@@ -490,8 +496,9 @@ pub(super) fn room_transition_phase(
 pub(super) fn attack_phase(
     controls: &ControlFrame,
     world: &ae::World,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
+    attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -503,14 +510,15 @@ pub(super) fn attack_phase(
     combat: &mut crate::player::PlayerCombatState,
 ) {
     if combat.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
-        start_attack(&mut feedback.sfx, &mut feedback.vfx, player, runtime, anim, *controls);
+        start_attack(&mut feedback.sfx, &mut feedback.vfx, player, attack, anim, *controls);
     }
     advance_attack(
         &mut feedback.sfx,
         &mut feedback.vfx,
         world,
+        moving_platforms,
         player,
-        runtime,
+        attack,
         anim,
         combat,
         tuning,

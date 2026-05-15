@@ -65,6 +65,7 @@ pub fn draw_debug_overlay(
     world: Res<GameWorld>,
     runtime: Res<SandboxRuntime>,
     attack_res: Res<crate::CurrentPlayerAttack>,
+    platform_set: Res<crate::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
     ldtk_spine_index: Res<crate::ldtk_world::LdtkRuntimeSpineIndex>,
@@ -109,12 +110,13 @@ pub fn draw_debug_overlay(
         draw_rebound_vectors(&mut gizmos, world);
     }
     if developer_tools.show_moving_platform {
-        draw_moving_platform_debug(&mut gizmos, world, &runtime);
+        draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
     draw_player_debug(
         &mut gizmos,
         world,
         &runtime,
+        &platform_set.0,
         attack_res.0.as_ref(),
         actions,
         gameplay_active,
@@ -232,6 +234,7 @@ fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     runtime: &SandboxRuntime,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
     attack: Option<&crate::PlayerAttackState>,
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
@@ -343,7 +346,7 @@ fn draw_player_debug(
         // Use the same temporary collision world that drives player movement.
         // Otherwise the preview can claim a blink is clear while release-time
         // resolution stops on sandbox-only geometry such as the moving platform.
-        let blink_world = platforms::world_with_moving_platforms(world, &runtime.moving_platforms);
+        let blink_world = platforms::world_with_moving_platforms(world, moving_platforms);
         let (desired, target) = if player.blink_aiming {
             let desired = player.pos + player.blink_aim_offset;
             let target = ae::blink_destination_to_point(&blink_world, player, desired);
@@ -405,8 +408,8 @@ fn draw_player_debug(
     }
 }
 
-fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, runtime: &SandboxRuntime) {
-    for platform in &runtime.moving_platforms {
+fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, moving_platforms: &[crate::platforms::MovingPlatformState]) {
+    for platform in moving_platforms {
         let aabb = platform.aabb();
         draw_aabb(gizmos, world, aabb, blue());
         let center = w2(world, aabb.center());

@@ -463,6 +463,7 @@ pub fn update_blink_preview(
     time: Res<Time>,
     world: Res<crate::GameWorld>,
     runtime: Res<crate::SandboxRuntime>,
+    platform_set: Res<crate::MovingPlatformSet>,
     mode: Res<State<crate::game_mode::GameMode>>,
     scene: Res<crate::rendering::SceneEntities>,
     action_query: Query<
@@ -502,7 +503,7 @@ pub fn update_blink_preview(
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
     let blink_world =
-        crate::platforms::world_with_moving_platforms(&world.0, &runtime.moving_platforms);
+        crate::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
     let target = if player.blink_aiming {
         ae::blink_destination_to_point(&blink_world, player, player.pos + player.blink_aim_offset)
     } else {

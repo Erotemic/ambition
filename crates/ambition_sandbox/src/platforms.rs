@@ -385,7 +385,7 @@ pub fn sync_moving_platform(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
     room_set: Res<RoomSet>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut platform_set: ResMut<crate::MovingPlatformSet>,
     mut active_platform_room: Local<Option<String>>,
     mut active_platform_source: Local<Option<Vec<MovingPlatformState>>>,
     mut query: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,
@@ -404,7 +404,7 @@ pub fn sync_moving_platform(
             .map(|source| source != &desired_start)
             .unwrap_or(true);
     if source_changed {
-        runtime.moving_platforms = desired_start.clone();
+        platform_set.0 = desired_start.clone();
         *active_platform_room = Some(active_spec.id.clone());
         *active_platform_source = Some(desired_start.clone());
 
@@ -413,13 +413,13 @@ pub fn sync_moving_platform(
             for (entity, _, _, _) in &mut query {
                 commands.entity(entity).despawn();
             }
-            spawn_moving_platforms(&mut commands, &world.0, &runtime.moving_platforms);
+            spawn_moving_platforms(&mut commands, &world.0, &platform_set.0);
             return;
         }
     }
 
     for (_, visual, mut transform, mut sprite) in &mut query {
-        let Some(platform) = runtime.moving_platforms.get(visual.index) else {
+        let Some(platform) = platform_set.0.get(visual.index) else {
             continue;
         };
         transform.translation = world_to_bevy(&world.0, platform.pos, WORLD_Z_BLOCK + 4.0);

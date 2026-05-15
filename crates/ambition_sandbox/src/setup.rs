@@ -131,12 +131,11 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     let _ = (ldtk_asset, asset_server);
     let _ = ldtk_index;
 
-    let mut runtime = SandboxRuntime::new(
+    let runtime = SandboxRuntime::new(
         &world.0,
         editable_abilities.as_engine(),
         editable_tuning.as_engine(),
     );
-    runtime.moving_platforms = platforms::moving_platforms_for_room(room_set.active_spec());
     crate::features::spawn_room_feature_entities(commands, room_set.active_spec());
 
     // Snapshot initial ECS player state before moving SandboxRuntime into

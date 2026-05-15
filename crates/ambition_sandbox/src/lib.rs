@@ -184,6 +184,16 @@ pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 #[derive(Resource, Default)]
 pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
 
+/// Live platform-simulation state for the current room.
+///
+/// Owned by the physics/rendering pipeline; `sandbox_update` advances each
+/// platform per frame and carries the player by its delta. The physics plugin
+/// registers this as a resource; the room-load path (setup, load_room,
+/// LDtk hot-reload, sandbox reset) replaces the Vec when the active room
+/// changes.
+#[derive(Resource, Default)]
+pub struct MovingPlatformSet(pub Vec<platforms::MovingPlatformState>);
+
 #[derive(Resource)]
 pub struct SandboxRuntime {
     pub player: ae::Player,
@@ -194,9 +204,9 @@ pub struct SandboxRuntime {
     pub preset_flash: f32,
     pub last_safe_player_pos: ae::Vec2,
     pub time_scale: f32,
-    pub moving_platforms: Vec<platforms::MovingPlatformState>,
     pub room_transition_cooldown: f32,
     // Active player attack state has moved to the `CurrentPlayerAttack` resource.
+    // Moving platform state has moved to the `MovingPlatformSet` standalone Resource.
     // Physics settings have moved to the `physics::PhysicsSandboxSettings` standalone Resource.
     // Dialogue state lives on the `dialog::DialogState` standalone Resource.
     // Blink/camera presentation state has moved to `PlayerBlinkCameraState` ECS component.
@@ -255,7 +265,6 @@ impl SandboxRuntime {
             preset_flash: 1.2,
             last_safe_player_pos: world.spawn,
             time_scale: 1.0,
-            moving_platforms: Vec::new(),
             room_transition_cooldown: 0.0,
         }
     }

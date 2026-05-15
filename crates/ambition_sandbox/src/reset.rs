@@ -72,6 +72,7 @@ pub struct ResetPlayState<'w> {
     runtime: ResMut<'w, SandboxRuntime>,
     attack: ResMut<'w, crate::CurrentPlayerAttack>,
     physics_settings: Res<'w, crate::physics::PhysicsSandboxSettings>,
+    moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -187,7 +188,7 @@ pub fn process_sandbox_reset_request(
         blink_cam.reset();
     }
     crate::features::spawn_room_feature_entities(&mut commands, &start_spec);
-    play_state.runtime.moving_platforms = platforms::moving_platforms_for_room(&start_spec);
+    play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);
 
     // 7. Respawn the static world visuals + moving platform for the
     //    start room. Without this, the despawn in step 4 leaves the
@@ -207,7 +208,7 @@ pub fn process_sandbox_reset_request(
         *play_state.physics_settings,
         assets.as_deref(),
     );
-    platforms::spawn_moving_platforms(&mut commands, &world.0, &play_state.runtime.moving_platforms);
+    platforms::spawn_moving_platforms(&mut commands, &world.0, &play_state.moving_platforms.0);
 
     // 8. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used
@@ -275,6 +276,7 @@ mod tests {
         app.insert_resource(runtime);
         app.insert_resource(crate::CurrentPlayerAttack::default());
         app.insert_resource(crate::physics::PhysicsSandboxSettings::default());
+        app.insert_resource(crate::MovingPlatformSet::default());
         app.insert_resource(GameWorld(world.clone()));
         // Construct a minimal RoomSet with one room so `start` and
         // `active` are both valid indices.
@@ -408,8 +410,8 @@ mod tests {
             room_set.rooms[0].moving_platforms = vec![authored.clone()];
         }
         {
-            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-            runtime.moving_platforms = vec![crate::platforms::MovingPlatformState::from_authored(
+            let mut platform_set = app.world_mut().resource_mut::<crate::MovingPlatformSet>();
+            platform_set.0 = vec![crate::platforms::MovingPlatformState::from_authored(
                 ae::Vec2::new(10.0, 20.0),
                 ae::Vec2::new(32.0, 8.0),
                 64.0,
@@ -421,8 +423,8 @@ mod tests {
             req.request();
         }
         app.update();
-        let runtime = app.world().resource::<SandboxRuntime>();
-        assert_eq!(runtime.moving_platforms[0].pos, authored.pos);
-        assert_eq!(runtime.moving_platforms[0].size, authored.size);
+        let platform_set = app.world().resource::<crate::MovingPlatformSet>();
+        assert_eq!(platform_set.0[0].pos, authored.pos);
+        assert_eq!(platform_set.0[0].size, authored.size);
     }
 }

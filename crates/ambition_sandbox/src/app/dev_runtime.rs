@@ -99,6 +99,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     editable_tuning: Res<EditableMovementTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
+    mut platform_set: ResMut<crate::MovingPlatformSet>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
     mut player_q: Query<
@@ -139,6 +140,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut ldtk_index,
             editable_tuning.as_engine(),
             *physics_settings,
+            &mut platform_set.0,
             &room_visuals,
             game_assets.as_deref(),
         ) {
@@ -167,6 +169,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut ldtk_index,
             editable_tuning.as_engine(),
             *physics_settings,
+            &mut platform_set.0,
             &room_visuals,
             game_assets.as_deref(),
         ) {
@@ -248,6 +251,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
+    moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     assets: Option<&crate::game_assets::GameAssets>,
 ) -> Result<String, Vec<String>> {
@@ -276,7 +280,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     player.refresh_movement_resources(tuning);
     runtime.player = player.clone();
     runtime.last_safe_player_pos = transaction.safe_player_pos;
-    runtime.moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
+    *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
     features::spawn_room_feature_entities(commands, &transaction.next_spec);
     dialogue.close();
     combat.hitstop_timer = 0.0;
@@ -299,7 +303,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         physics_settings,
         assets,
     );
-    platforms::spawn_moving_platforms(commands, &world.0, &runtime.moving_platforms);
+    platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
 
     Ok(active_room)
 }

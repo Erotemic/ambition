@@ -81,6 +81,7 @@ pub fn build_frame(
     active_area: &str,
     seq: u64,
     tick: u64,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
     locomotion: &str,
     body_mode: &str,
 ) -> GameplayTraceFrame {
@@ -119,24 +120,26 @@ pub fn build_frame(
         },
         controls: controls.into(),
         nearby_collision: nearby_collision(world, player),
-        moving_platforms: build_moving_platform_states(runtime),
+        moving_platforms: build_moving_platform_states(&runtime.player, moving_platforms),
     }
 }
 
 /// Snapshot all active moving platforms into trace shapes.
-fn build_moving_platform_states(runtime: &SandboxRuntime) -> Vec<MovingPlatformTraceState> {
-    runtime
-        .moving_platforms
+fn build_moving_platform_states(
+    player: &ae::Player,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
+) -> Vec<MovingPlatformTraceState> {
+    moving_platforms
         .iter()
         .map(|p| {
             let aabb = p.aabb();
-            let player_distance = (runtime.player.pos - p.pos).length();
+            let player_distance = (player.pos - p.pos).length();
             MovingPlatformTraceState {
                 pos: p.pos.into(),
                 size: p.size.into(),
                 aabb: aabb.into(),
                 direction: p.direction(),
-                player_riding: p.is_riding(&runtime.player),
+                player_riding: p.is_riding(player),
                 player_distance,
             }
         })

@@ -72,6 +72,7 @@ pub(super) fn load_room(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     dialogue: &mut crate::dialog::DialogState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
@@ -133,7 +134,7 @@ pub(super) fn load_room(
     runtime.last_safe_player_pos = player.pos;
     runtime.time_scale = 1.0;
     interaction.down_tap_timer = 0.0;
-    runtime.moving_platforms = platforms::moving_platforms_for_room(&spec);
+    *moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities(commands, &spec);
     dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a
@@ -154,7 +155,7 @@ pub(super) fn load_room(
         physics_settings,
         assets,
     );
-    platforms::spawn_moving_platforms(commands, &world.0, &runtime.moving_platforms);
+    platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
     sfx.push(SfxMessage::Reset { pos: player.pos });
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like

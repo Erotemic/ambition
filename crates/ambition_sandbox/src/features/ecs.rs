@@ -1225,7 +1225,7 @@ pub fn update_ecs_hazards(
 pub fn update_ecs_bosses(
     time: Res<Time>,
     world: Res<crate::GameWorld>,
-    runtime: Res<crate::SandboxRuntime>,
+    platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -1245,7 +1245,7 @@ pub fn update_ecs_bosses(
     let dt = time.delta_secs();
     let feature_world = world_with_sandbox_solids(
         &world.0,
-        &runtime.moving_platforms,
+        &platform_set.0,
         &overlay,
     );
     let Ok((pb, combat, authority)) = player_query.single() else { return; };
@@ -1286,7 +1286,7 @@ pub fn update_ecs_bosses(
 pub fn update_ecs_actors(
     time: Res<Time>,
     world: Res<crate::GameWorld>,
-    runtime: Res<crate::SandboxRuntime>,
+    platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
@@ -1313,7 +1313,7 @@ pub fn update_ecs_actors(
     let dt = time.delta_secs();
     let feature_world = world_with_sandbox_solids(
         &world.0,
-        &runtime.moving_platforms,
+        &platform_set.0,
         &overlay,
     );
     let Ok((pb, combat, authority)) = player_query.single() else { return; };

@@ -150,6 +150,7 @@ pub(super) fn player_control_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
     attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
@@ -169,7 +170,7 @@ pub(super) fn player_control_phase(
     let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
     let control_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platforms, feature_ecs_overlay);
+        features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
     let control_events = ae::update_player_control_with_tuning(
         &control_world,
         player,
@@ -230,6 +231,7 @@ pub(super) fn player_simulation_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
@@ -249,7 +251,7 @@ pub(super) fn player_simulation_phase(
     let sim_dt = sandbox_dt(combat.hitstop_timer, runtime, frame_dt);
 
     let mut riding_platform = None;
-    for (index, platform) in runtime.moving_platforms.iter_mut().enumerate() {
+    for (index, platform) in moving_platforms.iter_mut().enumerate() {
         let delta = platform.update(sim_dt);
         if riding_platform.is_none() && platform.is_riding(player) {
             riding_platform = Some((index, delta, platform.pos, platform.direction()));
@@ -289,7 +291,7 @@ pub(super) fn player_simulation_phase(
         player.pos += platform_delta;
     }
     let collision_world =
-        features::world_with_sandbox_solids(world, &runtime.moving_platforms, feature_ecs_overlay);
+        features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
 
     let was_grounded = player.on_ground;
     let sim_events = ae::update_player_simulation_with_tuning(
@@ -369,6 +371,7 @@ pub(super) fn damage_heal_dialogue_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
     feedback: &mut FrameFeedback,
     player_health: Option<&mut crate::player::PlayerHealth>,
     player_damage_events: &[features::PlayerDamageEvent],
@@ -399,7 +402,7 @@ pub(super) fn damage_heal_dialogue_phase(
     );
     let safe_world = features::world_with_sandbox_solids(
         world,
-        &runtime.moving_platforms,
+        moving_platforms,
         feature_ecs_overlay,
     );
     let ctx = crate::SafePositionContext {
@@ -428,6 +431,7 @@ pub(super) fn room_transition_phase(
     room_set: &mut rooms::RoomSet,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     dialogue: &mut crate::dialog::DialogState,
     feedback: &mut FrameFeedback,
     combat: &mut crate::player::PlayerCombatState,
@@ -470,6 +474,7 @@ pub(super) fn room_transition_phase(
         &mut feedback.vfx,
         player,
         runtime,
+        moving_platforms,
         dialogue,
         combat,
         interaction,

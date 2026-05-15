@@ -42,6 +42,7 @@ pub(super) fn setup_simulation_system(
     sandbox_data: Res<data::SandboxDataSpec>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
+    mut platform_set: ResMut<crate::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
         &mut commands,
@@ -58,6 +59,7 @@ pub(super) fn setup_simulation_system(
             asset_server: &asset_server,
         },
     );
+    platform_set.0 = crate::platforms::moving_platforms_for_room(room_set.active_spec());
 }
 
 /// Presentation startup. Runs after `setup_simulation_system` so the

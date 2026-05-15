@@ -174,7 +174,6 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
             preset_flash: 0.0,
             last_safe_player_pos: ae::Vec2::ZERO,
             time_scale: 1.0,
-            moving_platforms: vec![dummy_moving_platform()],
             room_transition_cooldown: 0.0,
         },
         &world,
@@ -185,6 +184,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
         "test",
         0,
         0,
+        &[],
         "Airborne",
         "Standing",
     );
@@ -211,7 +211,6 @@ fn write_dump_writes_two_files() {
             preset_flash: 0.0,
             last_safe_player_pos: ae::Vec2::ZERO,
             time_scale: 1.0,
-            moving_platforms: vec![dummy_moving_platform()],
             room_transition_cooldown: 0.0,
         },
         &world,
@@ -222,6 +221,7 @@ fn write_dump_writes_two_files() {
         "test",
         0,
         0,
+        &[],
         "Airborne",
         "Standing",
     );
@@ -278,7 +278,6 @@ fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
         preset_flash: 0.0,
         last_safe_player_pos: ae::Vec2::ZERO,
         time_scale: 1.0,
-        moving_platforms: vec![dummy_moving_platform()],
         room_transition_cooldown: 0.0,
     }
 }
@@ -435,6 +434,7 @@ fn frame_includes_moving_platform_state() {
         "test",
         0,
         0,
+        &[dummy_moving_platform()],
         "Grounded",
         "Standing",
     );

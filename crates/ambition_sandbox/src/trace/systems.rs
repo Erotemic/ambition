@@ -12,6 +12,7 @@ pub fn record_simulation_frame(
     sim_dt: f32,
     game_mode: &str,
     active_area: &str,
+    moving_platforms: &[crate::platforms::MovingPlatformState],
     locomotion: &str,
     body_mode: &str,
 ) {
@@ -26,6 +27,7 @@ pub fn record_simulation_frame(
         active_area,
         buffer.sequence,
         buffer.tick,
+        moving_platforms,
         locomotion,
         body_mode,
     );
@@ -84,6 +86,7 @@ pub fn handle_trace_hotkey(
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     runtime: Res<SandboxRuntime>,
+    platform_set: Res<crate::MovingPlatformSet>,
     world: Res<GameWorld>,
     control_frame: Res<ControlFrame>,
     time: Res<Time>,
@@ -112,7 +115,7 @@ pub fn record_frame_system(
 
     let augmented_world = crate::features::world_with_sandbox_solids(
         &world.0,
-        &runtime.moving_platforms,
+        &platform_set.0,
         &feature_ecs_overlay,
     );
 
@@ -138,6 +141,7 @@ pub fn record_frame_system(
         sim_dt,
         &mode_label,
         &active_area,
+        &platform_set.0,
         &locomotion,
         &body_mode,
     );

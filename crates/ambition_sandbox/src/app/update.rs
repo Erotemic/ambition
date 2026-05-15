@@ -70,6 +70,7 @@ pub fn sandbox_update(
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
+            &mut crate::player::PlayerBlinkCameraState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -90,11 +91,10 @@ pub fn sandbox_update(
         * user_settings.gameplay.player_damage_multiplier
         * assist_factor;
 
-    // Acquire the ECS player authority, animation state, combat state, and
-    // interaction state for this frame. Phase helpers receive these directly;
-    // `runtime.player` is updated once at the end as a shadow cache for callers
-    // not yet migrated to the ECS query.
-    let Ok((mut authority, mut anim, mut combat, mut interaction)) = player_q.single_mut() else {
+    // Acquire ECS player components for this frame. Phase helpers receive these
+    // directly; `runtime.player` is updated once at the end as a shadow cache
+    // for callers not yet migrated to the ECS query.
+    let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     };
@@ -142,6 +142,7 @@ pub fn sandbox_update(
             &mut *anim,
             &mut *combat,
             &mut *interaction,
+            &mut *blink_cam,
         ),
         PhaseOutcome::Return
     ) {
@@ -166,6 +167,7 @@ pub fn sandbox_update(
             &mut *anim,
             &mut *combat,
             &mut *interaction,
+            &mut *blink_cam,
         ),
         PhaseOutcome::Return
     ) {
@@ -189,6 +191,7 @@ pub fn sandbox_update(
             &mut *anim,
             &mut *combat,
             &mut *interaction,
+            &mut *blink_cam,
         ),
         PhaseOutcome::Return
     ) {
@@ -254,6 +257,7 @@ pub fn sandbox_update(
             &mut feedback,
             &mut *combat,
             &mut *interaction,
+            &mut *blink_cam,
             &room_visuals,
             tuning,
             feel,
@@ -283,7 +287,7 @@ pub fn sandbox_update(
         &mut *combat,
     );
 
-    cleanup_timers_phase(player, &mut runtime, &mut *anim, &mut *combat, frame_dt);
+    cleanup_timers_phase(player, &mut runtime, &mut *anim, &mut *combat, &mut *blink_cam, frame_dt);
 
     // Write the shadow cache so external read-only callers (rendering,
     // camera, debug overlay, trace, encounter) see the post-frame player

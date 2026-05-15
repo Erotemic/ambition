@@ -163,6 +163,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
             initial_player_combat,
             initial_player_interaction,
             crate::player::PlayerAnimState::default(),
+            crate::player::PlayerBlinkCameraState::default(),
             Name::new("Player"),
         ))
         .id();

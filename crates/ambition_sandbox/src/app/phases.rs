@@ -111,6 +111,7 @@ pub(super) fn reset_phase(
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
 ) -> PhaseOutcome {
     if controls.reset_pressed {
         reset_sandbox(
@@ -122,6 +123,7 @@ pub(super) fn reset_phase(
             anim,
             combat,
             interaction,
+            blink_cam,
             tuning,
             feel,
         );
@@ -156,6 +158,7 @@ pub(super) fn player_control_phase(
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
 ) -> PhaseOutcome {
     // Two-clock update:
     // - control_dt is real time for responsive inputs and precision-blink aim;
@@ -181,6 +184,7 @@ pub(super) fn player_control_phase(
             anim,
             combat,
             interaction,
+            blink_cam,
             tuning,
             feel,
         );
@@ -198,8 +202,8 @@ pub(super) fn player_control_phase(
         &mut feedback.sfx,
         &mut feedback.vfx,
         player,
-        runtime,
         combat,
+        blink_cam,
         control_events,
         None,
     );
@@ -231,6 +235,7 @@ pub(super) fn player_simulation_phase(
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
 ) -> PhaseOutcome {
     let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
@@ -299,6 +304,7 @@ pub(super) fn player_simulation_phase(
             anim,
             combat,
             interaction,
+            blink_cam,
             tuning,
             feel,
         );
@@ -309,8 +315,8 @@ pub(super) fn player_simulation_phase(
         &mut feedback.sfx,
         &mut feedback.vfx,
         player,
-        runtime,
         combat,
+        blink_cam,
         sim_events,
         Some(was_grounded),
     );
@@ -419,6 +425,7 @@ pub(super) fn room_transition_phase(
     feedback: &mut FrameFeedback,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -458,6 +465,7 @@ pub(super) fn room_transition_phase(
         runtime,
         combat,
         interaction,
+        blink_cam,
         world,
         room_set,
         room_visuals,
@@ -524,13 +532,14 @@ pub(super) fn cleanup_timers_phase(
     runtime: &mut SandboxRuntime,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
     frame_dt: f32,
 ) {
     combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
     anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
-    runtime.blink_in_timer = (runtime.blink_in_timer - frame_dt).max(0.0);
-    runtime.camera_snap_timer = (runtime.camera_snap_timer - frame_dt).max(0.0);
+    blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
+    blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
     update_anim_signal_timers(player, anim, frame_dt);
 }
 

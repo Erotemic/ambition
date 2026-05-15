@@ -192,17 +192,9 @@ pub struct SandboxRuntime {
     /// Active player melee swing. Holds timing + one-hit-per-target state
     /// for directional attacks with startup / active / recovery phases.
     pub player_attack: Option<PlayerAttackState>,
-    /// Presentation timer for the post-teleport blink-in pose. The engine
-    /// commits blink position immediately; the sandbox holds this timer so
-    /// the sprite/camera can ease into the destination instead of popping.
-    pub blink_in_timer: f32,
-    pub blink_in_duration: f32,
-    pub blink_camera_from: ae::Vec2,
-    pub blink_camera_to: ae::Vec2,
-    /// Door transitions should snap the camera to the new room immediately.
-    /// Edge exits intentionally leave this at zero so later work can do a
-    /// side-door scroll effect.
-    pub camera_snap_timer: f32,
+    // Blink/camera presentation state (blink_in_timer, blink_in_duration,
+    // blink_camera_from, blink_camera_to, camera_snap_timer) has moved to
+    // the `PlayerBlinkCameraState` ECS component.
 }
 
 /// Sandbox-side state for one active player melee swing.
@@ -265,11 +257,6 @@ impl SandboxRuntime {
             physics_settings,
             room_transition_cooldown: 0.0,
             player_attack: None,
-            blink_in_timer: 0.0,
-            blink_in_duration: BLINK_IN_ANIM_TIME,
-            blink_camera_from: world.spawn,
-            blink_camera_to: world.spawn,
-            camera_snap_timer: 0.0,
         }
     }
 
@@ -277,18 +264,15 @@ impl SandboxRuntime {
         self.player.reset_to(world.spawn);
         self.player.refresh_movement_resources(tuning);
         self.player_health.reset();
-        // Combat timers (flash/hitstop/invuln/hitstun) live on `PlayerCombatState`.
-        // Interaction timers (tap windows, interact buffer) live on `PlayerInteractionState`.
+        // Combat timers live on `PlayerCombatState`.
+        // Interaction timers live on `PlayerInteractionState`.
+        // Blink/camera presentation state lives on `PlayerBlinkCameraState`.
         // Callers that trigger a full reset call `reset()` on those components directly.
         self.last_safe_player_pos = world.spawn;
         self.time_scale = 1.0;
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
         self.player_attack = None;
-        self.blink_in_timer = 0.0;
-        self.blink_camera_from = self.player.pos;
-        self.blink_camera_to = self.player.pos;
-        self.camera_snap_timer = 0.0;
         // Refill mana on reset; the editor-tuned damage_multiplier /
         // invincible flag now lives on `Player` and survives reset
         // because `reset_to` only touches movement state, not these

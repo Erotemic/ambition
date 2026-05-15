@@ -43,6 +43,7 @@ pub(super) fn reset_sandbox(
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
 ) {
@@ -54,6 +55,7 @@ pub(super) fn reset_sandbox(
     combat.reset();
     combat.flash_timer = feel.reset_flash_time;
     interaction.reset();
+    blink_cam.reset();
     let reset_to = player.pos;
     sfx.push(SfxMessage::Reset { pos: reset_to });
     vfx.push(VfxMessage::ResetEffects {
@@ -70,6 +72,7 @@ pub(super) fn load_room(
     runtime: &mut SandboxRuntime,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
@@ -108,10 +111,10 @@ pub(super) fn load_room(
     if edge_exit {
         player.vel = old_velocity;
     }
-    runtime.blink_in_timer = 0.0;
-    runtime.blink_camera_from = player.pos;
-    runtime.blink_camera_to = player.pos;
-    runtime.camera_snap_timer = if edge_exit {
+    blink_cam.blink_in_timer = 0.0;
+    blink_cam.blink_camera_from = player.pos;
+    blink_cam.blink_camera_to = player.pos;
+    blink_cam.camera_snap_timer = if edge_exit {
         0.0
     } else {
         crate::ROOM_DOOR_CAMERA_SNAP_TIME
@@ -176,8 +179,8 @@ pub(super) fn handle_player_events(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     player: &ae::Player,
-    runtime: &mut SandboxRuntime,
     combat: &mut crate::player::PlayerCombatState,
+    blink_cam: &mut crate::player::PlayerBlinkCameraState,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
 ) {
@@ -293,10 +296,10 @@ pub(super) fn handle_player_events(
             pos: blink.from,
             precision: blink.precision,
         });
-        runtime.blink_in_duration = crate::BLINK_IN_ANIM_TIME;
-        runtime.blink_in_timer = runtime.blink_in_duration;
-        runtime.blink_camera_from = blink.from;
-        runtime.blink_camera_to = blink.to;
+        blink_cam.blink_in_duration = crate::BLINK_IN_ANIM_TIME;
+        blink_cam.blink_in_timer = blink_cam.blink_in_duration;
+        blink_cam.blink_camera_from = blink.from;
+        blink_cam.blink_camera_to = blink.to;
         vfx.push(VfxMessage::BlinkEffects {
             from: blink.from,
             to: blink.to,

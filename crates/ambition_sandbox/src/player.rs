@@ -264,6 +264,46 @@ impl PlayerInteractionState {
     }
 }
 
+/// Camera easing and blink-in presentation state. Authoritative ECS component;
+/// written by `cleanup_timers_phase`, `load_room`, and `handle_player_events`
+/// (blink path). Read by the camera follow system and the sprite animator.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PlayerBlinkCameraState {
+    /// Counts down from `blink_in_duration` to 0 after a blink; the camera
+    /// and animator use this to play the arrival ease-in.
+    pub blink_in_timer: f32,
+    /// Set to `BLINK_IN_ANIM_TIME` when a blink fires; used to normalise
+    /// `blink_in_timer` into a 0..1 progress value.
+    pub blink_in_duration: f32,
+    /// World-space camera position at the moment the blink fired; the camera
+    /// eases from here toward the new player position.
+    pub blink_camera_from: ambition_engine::Vec2,
+    /// Blink destination in world space (set alongside `blink_camera_from`
+    /// for future use; not yet consumed by the camera easing path).
+    pub blink_camera_to: ambition_engine::Vec2,
+    /// Positive while the camera should snap (not ease) to the player position.
+    /// Set on door transitions; zero on edge exits to allow scroll effects.
+    pub camera_snap_timer: f32,
+}
+
+impl Default for PlayerBlinkCameraState {
+    fn default() -> Self {
+        Self {
+            blink_in_timer: 0.0,
+            blink_in_duration: 0.0,
+            blink_camera_from: ambition_engine::Vec2::ZERO,
+            blink_camera_to: ambition_engine::Vec2::ZERO,
+            camera_snap_timer: 0.0,
+        }
+    }
+}
+
+impl PlayerBlinkCameraState {
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
 /// Typed heal request for producers that should not mutate `SandboxRuntime`
 /// directly.
 #[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]

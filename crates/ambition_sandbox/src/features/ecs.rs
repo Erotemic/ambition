@@ -1233,7 +1233,11 @@ pub fn update_ecs_bosses(
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
     player_query: Query<
-        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
+        (
+            &crate::player::PlayerBody,
+            &crate::player::PlayerCombatState,
+            &crate::player::PlayerMovementAuthority,
+        ),
         With<crate::player::PlayerEntity>,
     >,
     mut bosses: Query<(&mut FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
@@ -1244,8 +1248,8 @@ pub fn update_ecs_bosses(
         &runtime.moving_platforms,
         &overlay,
     );
-    let player = runtime.player.clone();
-    let Ok((pb, combat)) = player_query.single() else { return; };
+    let Ok((pb, combat, authority)) = player_query.single() else { return; };
+    let player = authority.player.clone();
     let player_body = pb.aabb();
     let player_vulnerable = !pb.invincible && combat.vulnerable();
     for (mut aabb, mut feature) in &mut bosses {
@@ -1290,7 +1294,11 @@ pub fn update_ecs_actors(
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
     player_query: Query<
-        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
+        (
+            &crate::player::PlayerBody,
+            &crate::player::PlayerCombatState,
+            &crate::player::PlayerMovementAuthority,
+        ),
         With<crate::player::PlayerEntity>,
     >,
     mut actors: Query<(
@@ -1308,8 +1316,8 @@ pub fn update_ecs_actors(
         &runtime.moving_platforms,
         &overlay,
     );
-    let player = runtime.player.clone();
-    let Ok((pb, combat)) = player_query.single() else { return; };
+    let Ok((pb, combat, authority)) = player_query.single() else { return; };
+    let player = authority.player.clone();
     let player_body = pb.aabb();
     let player_vulnerable = !pb.invincible && combat.vulnerable();
     for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {

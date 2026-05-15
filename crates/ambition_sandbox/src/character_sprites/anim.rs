@@ -127,7 +127,7 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// `BlinkOut` is used while the blink button is held/aiming, and
 /// `BlinkIn` is held briefly after a committed blink so VFX/camera have
 /// time to sell the arrival.
-pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
+pub fn pick_player_anim(runtime: &SandboxRuntime, player: &ae::Player) -> CharacterAnim {
     if runtime.hitstun_timer > 0.05 {
         return CharacterAnim::Hit;
     }
@@ -137,17 +137,16 @@ pub fn pick_player_anim(runtime: &SandboxRuntime) -> CharacterAnim {
     if runtime.slash_anim_timer > 0.0 {
         return directional_attack_anim(runtime);
     }
-    if runtime.player.blink_aiming || runtime.player.blink_hold_active {
+    if player.blink_aiming || player.blink_hold_active {
         return CharacterAnim::BlinkOut;
     }
-    if let Some(ledge) = runtime.player.ledge_grab.as_ref() {
+    if let Some(ledge) = player.ledge_grab.as_ref() {
         return if ledge.climbing {
             CharacterAnim::LedgeGetup
         } else {
             CharacterAnim::LedgeGrab
         };
     }
-    let player = &runtime.player;
     if player.fly_enabled {
         return CharacterAnim::Fly;
     }

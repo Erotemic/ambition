@@ -33,6 +33,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static crate::player::PlayerBody,
             &'static crate::player::PlayerHealth,
             &'static crate::player::PlayerCombatState,
+            &'static crate::player::PlayerMovementAuthority,
         ),
         bevy::prelude::With<crate::player::PlayerEntity>,
     >,
@@ -123,10 +124,6 @@ pub(super) fn update_hud(
         developer_tools.player_body_profile.label(),
         developer_tools.movement_profile.label(),
     );
-    let feel_line = crate::dev_tools::feel_metrics_summary(
-        &runtime.player,
-        developer_tools.movement_profile.tuning(),
-    );
     let window_line = windows
         .single()
         .map(|w| {
@@ -145,9 +142,13 @@ pub(super) fn update_hud(
                 camera_view_line
             )
         });
-    let Ok((hud_body, hud_health, hud_combat)) = camera_params.player.single() else {
+    let Ok((hud_body, hud_health, hud_combat, hud_authority)) = camera_params.player.single() else {
         return;
     };
+    let feel_line = crate::dev_tools::feel_metrics_summary(
+        hud_body.base_size,
+        developer_tools.movement_profile.tuning(),
+    );
     let player_hp_current = hud_health.current().max(0);
     let player_hp_max = hud_health.max();
     let player_vel = hud_body.vel;
@@ -160,7 +161,7 @@ pub(super) fn update_hud(
     let player_hitstop = hud_combat.hitstop_timer;
 
     let zone_hint = {
-        let hints = room_set.nearby_zone_hints(&runtime.player, runtime.player.fly_enabled);
+        let hints = room_set.nearby_zone_hints(hud_body.aabb(), hud_body.fly_enabled);
         if hints.is_empty() {
             "zones: none".to_string()
         } else {
@@ -257,8 +258,8 @@ pub(super) fn update_hud(
     } else {
         format!("\nMAP\n{}", map_lines.join("\n"))
     };
-    let locomotion = ae::LocomotionState::from_player(&runtime.player).label();
-    let body_mode = ae::BodyMode::from_player(&runtime.player).label();
+    let locomotion = ae::LocomotionState::from_player(&hud_authority.player).label();
+    let body_mode = hud_body.body_mode.label();
     let trace_status = match (&trace.last_dump_status, &trace.last_dump_path) {
         (Some(status), _) => status.clone(),
         (None, _) => format!(
@@ -342,8 +343,8 @@ pub(super) fn update_hud(
             player_on_ground,
             player_dash_charges,
             player_air_jumps,
-            runtime.player.combo_symbols(),
-            runtime.player.current_combo_hint(),
+            hud_authority.player.combo_symbols(),
+            hud_authority.player.current_combo_hint(),
             zone_hint,
             feel_line,
             ldtk_reload.last_status,
@@ -410,8 +411,8 @@ pub(super) fn update_hud(
         player_dash_charges,
         player_air_jumps,
         player_mana_current,
-        runtime.player.combo_symbols(),
-        runtime.player.current_combo_hint(),
+        hud_authority.player.combo_symbols(),
+        hud_authority.player.current_combo_hint(),
         preset.name,
         feel_line,
         developer_tools.overview_camera,

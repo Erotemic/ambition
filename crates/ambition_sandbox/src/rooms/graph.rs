@@ -151,11 +151,10 @@ impl RoomSet {
             .find(|zone| zone.id == id)
     }
 
-    pub fn nearby_zone_hints(&self, player: &ae::Player, flying: bool) -> Vec<String> {
-        let body = player.aabb();
+    pub fn nearby_zone_hints(&self, player_aabb: ae::Aabb, flying: bool) -> Vec<String> {
         self.active_loading_zones()
             .iter()
-            .filter(|zone| body.strict_intersects(zone.aabb))
+            .filter(|zone| player_aabb.strict_intersects(zone.aabb))
             .map(|zone| zone.hint(flying))
             .collect()
     }

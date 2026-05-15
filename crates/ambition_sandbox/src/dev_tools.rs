@@ -237,10 +237,10 @@ pub fn inspector_visible(tools: Res<DeveloperTools>) -> bool {
 /// These are design-space estimates, not an engine replay. They are meant to
 /// answer questions like "how many tiles/body-heights is this jump?" while
 /// swapping chassis profiles from the F3 menu.
-pub fn feel_metrics_summary(player: &ae::Player, tuning: ae::MovementTuning) -> String {
+pub fn feel_metrics_summary(base_size: ae::Vec2, tuning: ae::MovementTuning) -> String {
     const TILE: f32 = 16.0;
-    let body_w = player.base_size.x.max(1.0);
-    let body_h = player.base_size.y.max(1.0);
+    let body_w = base_size.x.max(1.0);
+    let body_h = base_size.y.max(1.0);
     let run_tiles = tuning.max_run_speed / TILE;
     let run_body = tuning.max_run_speed / body_w;
     let jump_height = (tuning.jump_speed * tuning.jump_speed) / (2.0 * tuning.gravity.max(1.0));

@@ -289,10 +289,11 @@ pub(super) fn death_respawn_player(
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
-    runtime.player_health.reset();
     if let Some(health) = player_health.as_deref_mut() {
         health.reset();
         runtime.player_health = health.health;
+    } else {
+        runtime.player_health.reset();
     }
     runtime.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     runtime.flash_timer = feel.reset_flash_time.max(0.35);

@@ -114,10 +114,8 @@ impl PlayerHealth {
     }
 }
 
-/// ECS-visible player combat/timer state.
-///
-/// This is authoritative for readers and mirrors back to the legacy runtime
-/// bridge while movement authority is still in `SandboxRuntime::player`.
+/// ECS-visible player combat/timer state. Written every frame by
+/// `write_player_ecs_components` from `SandboxRuntime` combat timers.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct PlayerCombatState {
     pub flash_timer: f32,
@@ -138,14 +136,6 @@ impl PlayerCombatState {
             slash_anim_timer: runtime.slash_anim_timer,
             attacking: runtime.player_attack.is_some(),
         }
-    }
-
-    pub fn apply_to_runtime(&self, runtime: &mut crate::SandboxRuntime) {
-        runtime.flash_timer = self.flash_timer;
-        runtime.hitstop_timer = self.hitstop_timer;
-        runtime.damage_invuln_timer = self.damage_invuln_timer;
-        runtime.hitstun_timer = self.hitstun_timer;
-        runtime.slash_anim_timer = self.slash_anim_timer;
     }
 
     pub fn vulnerable(&self) -> bool {

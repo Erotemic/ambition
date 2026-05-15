@@ -282,6 +282,7 @@ mod tests {
         app.insert_resource(crate::physics::PhysicsSandboxSettings::default());
         app.insert_resource(crate::MovingPlatformSet::default());
         app.insert_resource(crate::SandboxSimState::default());
+        app.insert_resource(crate::SandboxDevState::default());
         app.insert_resource(GameWorld(world.clone()));
         // Construct a minimal RoomSet with one room so `start` and
         // `active` are both valid indices.

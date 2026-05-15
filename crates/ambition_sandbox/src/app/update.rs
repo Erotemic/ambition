@@ -113,7 +113,7 @@ pub fn sandbox_update(
     let frame_dt = time.delta_secs();
 
     if matches!(
-        mode_gate_phase(mode.get(), &mut runtime, &mut queues.sim_state, &mut *combat, frame_dt),
+        mode_gate_phase(mode.get(), &mut queues.dev_state, &mut queues.sim_state, &mut *combat, frame_dt),
         PhaseOutcome::Return
     ) {
         runtime.player = player.clone();
@@ -187,6 +187,7 @@ pub fn sandbox_update(
             &world.0,
             player,
             &mut runtime,
+            &queues.dev_state,
             &mut queues.sim_state,
             &mut queues.moving_platforms.0,
             &mut queues.current_attack.0,
@@ -265,7 +266,7 @@ pub fn sandbox_update(
             &mut world,
             &mut room_set,
             player,
-            &mut runtime,
+            &mut queues.dev_state,
             &mut queues.sim_state,
             &mut queues.moving_platforms.0,
             &mut queues.dialogue,
@@ -303,7 +304,7 @@ pub fn sandbox_update(
         &mut *combat,
     );
 
-    cleanup_timers_phase(player, &mut runtime, &mut *anim, &mut *combat, &mut *blink_cam, frame_dt);
+    cleanup_timers_phase(player, &mut queues.dev_state, &mut *anim, &mut *combat, &mut *blink_cam, frame_dt);
 
     // Write the shadow cache so external read-only callers (rendering,
     // camera, debug overlay, trace, encounter) see the post-frame player

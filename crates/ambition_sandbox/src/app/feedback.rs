@@ -69,6 +69,7 @@ pub struct SandboxQueues<'w, 's> {
     pub physics_settings: Res<'w, crate::physics::PhysicsSandboxSettings>,
     pub moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
     pub sim_state: ResMut<'w, crate::SandboxSimState>,
+    pub dev_state: ResMut<'w, crate::SandboxDevState>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.

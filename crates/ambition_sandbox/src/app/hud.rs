@@ -50,7 +50,7 @@ pub(super) struct HudCameraParams<'w, 's> {
 }
 
 pub(super) fn update_hud(
-    runtime: Res<SandboxRuntime>,
+    dev_state: Res<SandboxDevState>,
     mode: Res<State<GameMode>>,
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
@@ -79,11 +79,11 @@ pub(super) fn update_hud(
         **text = String::new();
         return;
     }
-    if !runtime.debug {
+    if !dev_state.debug {
         **text = "F1 debug | F3 inspector".to_string();
         return;
     }
-    let preset = runtime.preset();
+    let preset = dev_state.preset();
     let enemy_health = camera_params
         .ecs_actors
         .iter()
@@ -317,7 +317,7 @@ pub(super) fn update_hud(
             )
         })
         .unwrap_or_default();
-    let ledge_line = runtime
+    let ledge_line = hud_authority
         .player
         .ledge_grab
         .as_ref()
@@ -374,7 +374,7 @@ pub(super) fn update_hud(
         );
         return;
     }
-    let flash_line = if runtime.preset_flash > 0.0 {
+    let flash_line = if dev_state.preset_flash > 0.0 {
         format!("\nPRESET: {}", preset.name)
     } else {
         String::new()

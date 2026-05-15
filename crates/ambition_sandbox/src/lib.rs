@@ -214,14 +214,43 @@ impl Default for SandboxSimState {
     }
 }
 
+/// Developer/debug runtime state: keyboard preset selection and debug flags.
+/// Extracted from `SandboxRuntime` (Stage 11) so presentation-only systems
+/// can depend on this resource without pulling in the player shadow cache.
 #[derive(Resource)]
-pub struct SandboxRuntime {
-    pub player: ae::Player,
+pub struct SandboxDevState {
     pub debug: bool,
     pub slowmo: bool,
     pub presets: Vec<KeyboardPreset>,
     pub preset_index: usize,
     pub preset_flash: f32,
+}
+
+impl Default for SandboxDevState {
+    fn default() -> Self {
+        Self {
+            debug: !cfg!(target_os = "android"),
+            slowmo: false,
+            presets: KeyboardPreset::presets().to_vec(),
+            preset_index: 0,
+            preset_flash: 1.2,
+        }
+    }
+}
+
+impl SandboxDevState {
+    pub fn preset(&self) -> KeyboardPreset {
+        self.presets[self.preset_index]
+    }
+
+    pub fn debug_enabled(&self) -> bool {
+        self.debug
+    }
+}
+
+#[derive(Resource)]
+pub struct SandboxRuntime {
+    pub player: ae::Player,
     // Active player attack state has moved to the `CurrentPlayerAttack` resource.
     // Moving platform state has moved to the `MovingPlatformSet` standalone Resource.
     // Physics settings have moved to the `physics::PhysicsSandboxSettings` standalone Resource.
@@ -229,6 +258,8 @@ pub struct SandboxRuntime {
     // Blink/camera presentation state has moved to `PlayerBlinkCameraState` ECS component.
     // Simulation scalars (last_safe_player_pos, time_scale, room_transition_cooldown)
     // have moved to the `SandboxSimState` standalone Resource.
+    // Developer/debug state (debug, slowmo, presets, preset_index, preset_flash)
+    // has moved to the `SandboxDevState` standalone Resource.
 }
 
 /// Sandbox-side state for one active player melee swing.
@@ -275,14 +306,7 @@ impl SandboxRuntime {
     ) -> Self {
         let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
         player.refresh_movement_resources(tuning);
-        Self {
-            player,
-            debug: !cfg!(target_os = "android"),
-            slowmo: false,
-            presets: KeyboardPreset::presets().to_vec(),
-            preset_index: 0,
-            preset_flash: 1.2,
-        }
+        Self { player }
     }
 
     pub fn reset(&mut self, world: &ae::World, tuning: ae::MovementTuning) {
@@ -342,37 +366,40 @@ impl SandboxRuntime {
         }
     }
 
-    pub fn update_time_scale(&self, sim_state: &mut SandboxSimState, player: &ae::Player, hitstop_timer: f32, frame_dt: f32, feel: SandboxFeelTuning) {
-        let target = if hitstop_timer > 0.0 {
-            0.0
-        } else if player.blink_aiming {
-            feel.bullet_time_scale
-        } else if player.blink_hold_active {
-            feel.blink_hold_slow_scale
-        } else if self.slowmo {
-            feel.debug_slowmo_scale
-        } else {
-            1.0
-        };
-        let rate = if target < sim_state.time_scale {
-            feel.time_ramp_down_rate
-        } else {
-            feel.time_ramp_up_rate
-        };
-        sim_state.time_scale = move_toward(sim_state.time_scale, target, rate * frame_dt);
-    }
+}
 
-    pub fn preset(&self) -> KeyboardPreset {
-        self.presets[self.preset_index]
-    }
-
-    pub fn debug_enabled(&self) -> bool {
-        self.debug
-    }
+/// Drive the `time_scale` ramp: hitstop → bullet-time → slowmo → normal.
+/// Extracted from `SandboxRuntime::update_time_scale` (Stage 11) so it can
+/// read `slowmo` from `SandboxDevState` without coupling the two resources.
+pub fn update_time_scale(
+    slowmo: bool,
+    sim_state: &mut SandboxSimState,
+    player: &ae::Player,
+    hitstop_timer: f32,
+    frame_dt: f32,
+    feel: SandboxFeelTuning,
+) {
+    let target = if hitstop_timer > 0.0 {
+        0.0
+    } else if player.blink_aiming {
+        feel.bullet_time_scale
+    } else if player.blink_hold_active {
+        feel.blink_hold_slow_scale
+    } else if slowmo {
+        feel.debug_slowmo_scale
+    } else {
+        1.0
+    };
+    let rate = if target < sim_state.time_scale {
+        feel.time_ramp_down_rate
+    } else {
+        feel.time_ramp_up_rate
+    };
+    sim_state.time_scale = move_toward(sim_state.time_scale, target, rate * frame_dt);
 }
 
 /// Approach `target` from `value` by at most `delta`. Used for time-scale
-/// ramping in `SandboxRuntime::update_time_scale`.
+/// ramping in `update_time_scale`.
 pub fn move_toward(value: f32, target: f32, delta: f32) -> f32 {
     if value < target {
         (value + delta).min(target)

@@ -75,7 +75,7 @@ pub(super) fn load_room(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
+    dev_state: &mut crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     dialogue: &mut crate::dialog::DialogState,
@@ -150,7 +150,7 @@ pub(super) fn load_room(
     } else {
         feel.door_transition_cooldown
     };
-    runtime.preset_flash = 1.0;
+    dev_state.preset_flash = 1.0;
 
     crate::rendering::spawn_parallax_layers(commands, &world.0, &spec.metadata, assets);
     spawn_room_visuals(
@@ -425,7 +425,7 @@ pub(super) fn handle_player_damage_events(
             safe_respawn_player(sfx, vfx, player, sim_state, combat, tuning, feel, damage.impact_pos);
         }
         features::PlayerDamageMode::Knockback => {
-            apply_player_knockback(sfx, vfx, player, runtime, combat, tuning, feel, damage);
+            apply_player_knockback(sfx, vfx, player, combat, tuning, feel, damage);
         }
     }
 }
@@ -456,7 +456,6 @@ pub(super) fn apply_player_knockback(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
-    _runtime: &mut SandboxRuntime,
     combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,

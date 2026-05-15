@@ -6,6 +6,7 @@ use super::*;
 #[derive(SystemParam)]
 pub struct DevToggleParams<'w, 's> {
     pub runtime: ResMut<'w, SandboxRuntime>,
+    pub dev_state: ResMut<'w, SandboxDevState>,
     pub developer: ResMut<'w, DeveloperTools>,
     pub editable_tuning: ResMut<'w, crate::dev_tools::EditableMovementTuning>,
     pub ldtk_reload: ResMut<'w, LdtkHotReloadState>,
@@ -16,7 +17,7 @@ pub struct DevToggleParams<'w, 's> {
 /// developer-toggle snapshot for label rendering.
 #[derive(SystemParam)]
 pub struct DevToggleView<'w> {
-    pub runtime: Res<'w, SandboxRuntime>,
+    pub dev_state: Res<'w, SandboxDevState>,
     pub developer: Res<'w, DeveloperTools>,
     pub ldtk_reload: Res<'w, LdtkHotReloadState>,
 }

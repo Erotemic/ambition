@@ -19,7 +19,7 @@ use crate::dev_tools::{
 };
 use crate::ldtk_world::LdtkHotReloadState;
 use crate::windowing::{DisplayModeKind, DisplayModeState};
-use crate::SandboxRuntime;
+use crate::{SandboxDevState, SandboxRuntime};
 
 /// Top-level settings page. The pause menu starts at `Top` (the
 /// category list) and pushes onto a small stack when the user
@@ -397,13 +397,13 @@ pub struct DevToggleSnapshot {
 
 impl DevToggleSnapshot {
     pub fn capture(
-        runtime: &SandboxRuntime,
+        dev_state: &SandboxDevState,
         developer: &DeveloperTools,
         ldtk_reload: &LdtkHotReloadState,
     ) -> Self {
         Self {
-            debug_overlay: runtime.debug_enabled(),
-            slowmo: runtime.slowmo,
+            debug_overlay: dev_state.debug_enabled(),
+            slowmo: dev_state.slowmo,
             inspector: developer.inspector_visible,
             world_inspector: developer.world_inspector_visible,
             overview_camera: developer.overview_camera,
@@ -452,6 +452,7 @@ pub fn apply_action(
     windows: &mut Query<&mut Window, With<PrimaryWindow>>,
     keyboard_preset_count: usize,
     runtime: &mut SandboxRuntime,
+    dev_state: &mut SandboxDevState,
     developer: &mut DeveloperTools,
     editable_tuning: &mut EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
@@ -709,12 +710,12 @@ pub fn apply_action(
 
         SettingsItem::DebugOverlay => {
             if is_toggle_action(action) {
-                runtime.debug = !runtime.debug;
+                dev_state.debug = !dev_state.debug;
             }
         }
         SettingsItem::SlowMotion => {
             if is_toggle_action(action) {
-                runtime.slowmo = !runtime.slowmo;
+                dev_state.slowmo = !dev_state.slowmo;
             }
         }
         SettingsItem::Inspector => {

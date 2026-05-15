@@ -11,7 +11,7 @@ use crate::input::{
 };
 #[cfg(feature = "input")]
 use crate::rendering::PlayerVisual;
-use crate::SandboxRuntime;
+use crate::SandboxDevState;
 
 /// Presentation-side companion to `setup_simulation_system`: attach
 /// leafwing's `ActionState` and the active preset's `InputMap` to the
@@ -20,10 +20,10 @@ use crate::SandboxRuntime;
 #[cfg(feature = "input")]
 pub(super) fn attach_player_input_components(
     mut commands: Commands,
-    runtime: Res<SandboxRuntime>,
+    dev_state: Res<SandboxDevState>,
     scene: Res<crate::rendering::SceneEntities>,
 ) {
-    let input_map = runtime.preset().input_map();
+    let input_map = dev_state.preset().input_map();
     commands
         .entity(scene.player)
         .insert((ActionState::<SandboxAction>::default(), input_map));

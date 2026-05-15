@@ -166,12 +166,6 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let frame = build_frame(
         &SandboxRuntime {
             player: player.clone(),
-
-            debug: false,
-            slowmo: false,
-            presets: crate::input::KeyboardPreset::presets().to_vec(),
-            preset_index: 0,
-            preset_flash: 0.0,
         },
         &crate::SandboxSimState::default(),
         &world,
@@ -201,12 +195,6 @@ fn write_dump_writes_two_files() {
     let frame = build_frame(
         &SandboxRuntime {
             player: player.clone(),
-
-            debug: false,
-            slowmo: false,
-            presets: crate::input::KeyboardPreset::presets().to_vec(),
-            preset_index: 0,
-            preset_flash: 0.0,
         },
         &crate::SandboxSimState::default(),
         &world,
@@ -265,14 +253,7 @@ fn timestamp_label_with_seq_is_stable_per_seq() {
 }
 
 fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
-    SandboxRuntime {
-        player,
-        debug: false,
-        slowmo: false,
-        presets: crate::input::KeyboardPreset::presets().to_vec(),
-        preset_index: 0,
-        preset_flash: 0.0,
-    }
+    SandboxRuntime { player }
 }
 
 /// P2 — pressing a button that wasn't pressed last frame should

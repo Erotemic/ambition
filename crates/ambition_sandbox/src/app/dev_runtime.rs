@@ -31,23 +31,23 @@ use super::*;
 /// the gameplay loop reads them this frame.
 pub(super) fn handle_debug_hotkeys(
     keys: Res<ButtonInput<KeyCode>>,
-    mut runtime: ResMut<SandboxRuntime>,
+    mut dev_state: ResMut<SandboxDevState>,
     mut tools: ResMut<DeveloperTools>,
 ) {
     if keys.just_pressed(KeyCode::F1) {
-        runtime.debug = !runtime.debug;
+        dev_state.debug = !dev_state.debug;
     }
     if keys.just_pressed(KeyCode::F9) {
-        runtime.preset_index =
-            (runtime.preset_index + runtime.presets.len() - 1) % runtime.presets.len();
-        runtime.preset_flash = 1.2;
+        dev_state.preset_index =
+            (dev_state.preset_index + dev_state.presets.len() - 1) % dev_state.presets.len();
+        dev_state.preset_flash = 1.2;
     }
     if keys.just_pressed(KeyCode::F10) {
-        runtime.preset_index = (runtime.preset_index + 1) % runtime.presets.len();
-        runtime.preset_flash = 1.2;
+        dev_state.preset_index = (dev_state.preset_index + 1) % dev_state.presets.len();
+        dev_state.preset_flash = 1.2;
     }
     if keys.just_pressed(KeyCode::F2) {
-        runtime.slowmo = !runtime.slowmo;
+        dev_state.slowmo = !dev_state.slowmo;
     }
     if keys.just_pressed(KeyCode::F3) {
         tools.inspector_visible = !tools.inspector_visible;
@@ -66,7 +66,7 @@ pub(super) fn handle_debug_hotkeys(
 /// `input` because it owns leafwing components.
 #[cfg(feature = "input")]
 pub(super) fn sync_preset_input_map(
-    runtime: Res<SandboxRuntime>,
+    dev_state: Res<SandboxDevState>,
     mut last_preset: Local<Option<usize>>,
     entities: Res<SceneEntities>,
     mut player_input: Query<
@@ -77,12 +77,12 @@ pub(super) fn sync_preset_input_map(
         With<PlayerVisual>,
     >,
 ) {
-    let current = runtime.preset_index;
+    let current = dev_state.preset_index;
     if *last_preset == Some(current) {
         return;
     }
     if let Ok((mut action_state, mut input_map)) = player_input.get_mut(entities.player) {
-        *input_map = runtime.preset().input_map();
+        *input_map = dev_state.preset().input_map();
         action_state.reset_all();
     }
     *last_preset = Some(current);
@@ -94,6 +94,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut runtime: ResMut<SandboxRuntime>,
+    mut dev_state: ResMut<SandboxDevState>,
     mut sim_state: ResMut<crate::SandboxSimState>,
     mut dialogue: ResMut<crate::dialog::DialogState>,
     mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
@@ -136,6 +137,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut room_set,
             &mut authority.player,
             &mut runtime,
+            &mut dev_state,
             &mut sim_state,
             &mut dialogue,
             &mut *combat,
@@ -166,6 +168,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut room_set,
             &mut tmp_player,
             &mut runtime,
+            &mut dev_state,
             &mut sim_state,
             &mut dialogue,
             &mut tmp_combat,
@@ -249,6 +252,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_set: &mut rooms::RoomSet,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    dev_state: &mut SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     dialogue: &mut crate::dialog::DialogState,
     combat: &mut crate::player::PlayerCombatState,
@@ -290,7 +294,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     combat.hitstop_timer = 0.0;
     combat.hitstun_timer = 0.0;
     sim_state.room_transition_cooldown = 0.10;
-    runtime.preset_flash = 1.0;
+    dev_state.preset_flash = 1.0;
 
     ldtk_index.replace_from_project(&transaction.project, active_room.clone());
 

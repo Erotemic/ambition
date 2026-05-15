@@ -14,7 +14,7 @@ use crate::features::{ActorCombatState, ActorDisposition, ActorHealth, BossFeatu
 pub fn sync_health_overlays(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
-    runtime: Res<crate::SandboxRuntime>,
+    dev_state: Res<crate::SandboxDevState>,
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     player: Query<(&crate::player::PlayerBody, &crate::player::PlayerHealth), With<crate::player::PlayerEntity>>,
@@ -32,7 +32,7 @@ pub fn sync_health_overlays(
         commands.entity(entity).despawn();
     }
 
-    if !runtime.debug_enabled() || !developer_tools.show_health_bars {
+    if !dev_state.debug_enabled() || !developer_tools.show_health_bars {
         return;
     }
 

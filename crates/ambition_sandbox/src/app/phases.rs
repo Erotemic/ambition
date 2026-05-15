@@ -31,7 +31,7 @@ use super::*;
 /// belongs here; new gameplay logic does not.
 pub(super) fn mode_gate_phase(
     mode: &GameMode,
-    runtime: &mut SandboxRuntime,
+    dev_state: &mut crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     combat: &mut crate::player::PlayerCombatState,
     frame_dt: f32,
@@ -39,7 +39,7 @@ pub(super) fn mode_gate_phase(
     if matches!(mode, GameMode::Dialogue) {
         sim_state.time_scale = 0.0;
         combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
-        runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+        dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
         return PhaseOutcome::Return;
     }
     if !mode.allows_gameplay() {
@@ -49,7 +49,7 @@ pub(super) fn mode_gate_phase(
         // this early return.
         sim_state.time_scale = 0.0;
         combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
-        runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+        dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
         return PhaseOutcome::Return;
     }
     PhaseOutcome::Continue
@@ -236,6 +236,7 @@ pub(super) fn player_simulation_phase(
     world: &ae::World,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    dev_state: &crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     attack: &mut Option<crate::PlayerAttackState>,
@@ -253,7 +254,7 @@ pub(super) fn player_simulation_phase(
     let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
 
-    runtime.update_time_scale(sim_state, player, combat.hitstop_timer, frame_dt, feel);
+    crate::update_time_scale(dev_state.slowmo, sim_state, player, combat.hitstop_timer, frame_dt, feel);
     let sim_dt = sandbox_dt(combat.hitstop_timer, sim_state.time_scale, frame_dt);
 
     let mut riding_platform = None;
@@ -439,7 +440,7 @@ pub(super) fn room_transition_phase(
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
+    dev_state: &mut crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     dialogue: &mut crate::dialog::DialogState,
@@ -483,7 +484,7 @@ pub(super) fn room_transition_phase(
         &mut feedback.sfx,
         &mut feedback.vfx,
         player,
-        runtime,
+        dev_state,
         sim_state,
         moving_platforms,
         dialogue,
@@ -555,14 +556,14 @@ pub(super) fn attack_phase(
 /// gameplay timers belong in `input_timer_phase`.
 pub(super) fn cleanup_timers_phase(
     player: &ae::Player,
-    runtime: &mut SandboxRuntime,
+    dev_state: &mut crate::SandboxDevState,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
     frame_dt: f32,
 ) {
     combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
-    runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
+    dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
     anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
     blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
     blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);

@@ -228,7 +228,7 @@ pub fn sync_pause_menu(
     } else if let PauseMenuPage::Settings(page) = state.page {
         let rows = SettingsItem::rows_for(page);
         let dev = DevToggleSnapshot::capture(
-            &dev_view.runtime,
+            &dev_view.dev_state,
             &dev_view.developer,
             &dev_view.ldtk_reload,
         );
@@ -371,7 +371,7 @@ pub fn sync_pause_menu(
     } else if let PauseMenuPage::Settings(page) = state.page {
         let rows = SettingsItem::rows_for(page);
         let dev = DevToggleSnapshot::capture(
-            &dev_view.runtime,
+            &dev_view.dev_state,
             &dev_view.developer,
             &dev_view.ldtk_reload,
         );

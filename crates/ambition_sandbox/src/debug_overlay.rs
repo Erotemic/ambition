@@ -19,7 +19,7 @@ use crate::platforms;
 use crate::rendering::PlayerVisual;
 use crate::rendering::{CameraViewState, SceneEntities};
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
-use crate::{GameMode, GameWorld, SandboxRuntime};
+use crate::{GameMode, GameWorld, SandboxDevState, SandboxRuntime};
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
@@ -64,6 +64,7 @@ pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<GameWorld>,
     runtime: Res<SandboxRuntime>,
+    dev_state: Res<SandboxDevState>,
     attack_res: Res<crate::CurrentPlayerAttack>,
     platform_set: Res<crate::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
@@ -75,7 +76,7 @@ pub fn draw_debug_overlay(
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     player_health_q: Query<&crate::player::PlayerHealth, With<crate::player::PlayerEntity>>,
 ) {
-    if !runtime.debug_enabled() || !developer_tools.gizmos_enabled {
+    if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
     }
 

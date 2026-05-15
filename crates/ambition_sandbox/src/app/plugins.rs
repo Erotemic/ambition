@@ -143,12 +143,10 @@ pub fn add_simulation_plugins(app: &mut App) {
             (
                 ldtk_world::poll_ldtk_file_changes,
                 crate::features::rebuild_feature_ecs_world_overlay,
-                crate::player::sync_runtime_from_player_entity,
                 crate::features::update_ecs_hazards,
                 crate::features::update_ecs_actors,
                 crate::features::update_ecs_bosses,
                 sandbox_update,
-                crate::player::sync_player_entity_from_runtime,
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,
                 crate::features::apply_feature_damage_events,
@@ -288,12 +286,6 @@ pub fn add_simulation_plugins(app: &mut App) {
             crate::reset::process_sandbox_reset_request
                 .in_set(SandboxSet::ResetProcessing)
                 .after(sandbox_update),
-        )
-        .add_systems(
-            Update,
-            crate::player::sync_player_entity_from_runtime
-                .in_set(SandboxSet::ResetProcessing)
-                .after(crate::reset::process_sandbox_reset_request),
         )
         // Trace recorder lives at the simulation seam: `record_frame_system`
         // captures one frame per Update tick after `sandbox_update` has

@@ -64,6 +64,7 @@ pub fn sandbox_update(
     mut queues: SandboxQueues,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
+    mut player_q: Query<&mut crate::player::PlayerMovementAuthority, With<crate::player::PlayerEntity>>,
 ) {
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
@@ -80,7 +81,18 @@ pub fn sandbox_update(
     let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
         * user_settings.gameplay.player_damage_multiplier
         * assist_factor;
-    dev_tools::sync_live_ability_edits(&mut runtime, editable_abilities.as_engine(), tuning);
+
+    // Acquire the ECS player authority for this frame. All phase helpers
+    // that touch player movement, combat, or position receive `player`
+    // directly; `runtime.player` is updated once at the end as a shadow
+    // cache for the ~20 external read-only callers (rendering, camera,
+    // debug overlay, etc.) that have not yet migrated to the ECS query.
+    let Ok(mut authority) = player_q.single_mut() else {
+        flush_feedback(&mut feedback, &mut event_writers);
+        return;
+    };
+    let player = &mut authority.player;
+    dev_tools::sync_live_ability_edits(player, editable_abilities.as_engine(), tuning);
 
     // sandbox_update no longer queries leafwing directly. Input arrives
     // through `Res<ControlFrame>` — visible builds derive it from
@@ -97,6 +109,7 @@ pub fn sandbox_update(
         mode_gate_phase(mode.get(), &mut runtime, frame_dt),
         PhaseOutcome::Return
     ) {
+        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -113,6 +126,7 @@ pub fn sandbox_update(
         reset_phase(
             &controls,
             &world.0,
+            player,
             &mut runtime,
             &mut feedback,
             tuning,
@@ -121,6 +135,7 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
+        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -129,6 +144,7 @@ pub fn sandbox_update(
         player_control_phase(
             controls,
             &world.0,
+            player,
             &mut runtime,
             &mut feedback,
             tuning,
@@ -140,6 +156,7 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
+        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -148,6 +165,7 @@ pub fn sandbox_update(
         player_simulation_phase(
             controls,
             &world.0,
+            player,
             &mut runtime,
             &mut feedback,
             tuning,
@@ -158,6 +176,7 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
+        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -176,6 +195,7 @@ pub fn sandbox_update(
     if let Ok(mut health) = queues.player_health.single_mut() {
         damage_heal_dialogue_phase(
             &world.0,
+            player,
             &mut runtime,
             &mut feedback,
             Some(&mut *health),
@@ -189,6 +209,7 @@ pub fn sandbox_update(
     } else {
         damage_heal_dialogue_phase(
             &world.0,
+            player,
             &mut runtime,
             &mut feedback,
             None,
@@ -207,6 +228,7 @@ pub fn sandbox_update(
             &controls,
             &mut world,
             &mut room_set,
+            player,
             &mut runtime,
             &mut feedback,
             &room_visuals,
@@ -217,6 +239,7 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
+        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -224,6 +247,7 @@ pub fn sandbox_update(
     attack_phase(
         &controls,
         &world.0,
+        player,
         &mut runtime,
         &mut feedback,
         tuning,
@@ -234,7 +258,12 @@ pub fn sandbox_update(
         &mut queues.pogo_bounces,
     );
 
-    cleanup_timers_phase(&mut runtime, frame_dt);
+    cleanup_timers_phase(player, &mut runtime, frame_dt);
+
+    // Write the shadow cache so external read-only callers (rendering,
+    // camera, debug overlay, trace, encounter) see the post-frame player
+    // state without needing to migrate to the ECS query.
+    runtime.player = player.clone();
 
     flush_feedback(&mut feedback, &mut event_writers);
 }

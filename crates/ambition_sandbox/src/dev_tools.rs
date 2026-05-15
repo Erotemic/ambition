@@ -516,9 +516,18 @@ impl Default for EditableMovementTuning {
 pub fn sync_developer_body_profile(
     mut runtime: ResMut<crate::SandboxRuntime>,
     developer: Res<DeveloperTools>,
+    mut player_q: Query<
+        &mut crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
     let desired = developer.player_body_profile.size();
-    if (runtime.player.base_size - desired).length_squared() > 0.01 {
+    if let Ok(mut authority) = player_q.single_mut() {
+        if (authority.player.base_size - desired).length_squared() > 0.01 {
+            apply_player_body_profile(&mut authority.player, developer.player_body_profile);
+            runtime.player = authority.player.clone();
+        }
+    } else if (runtime.player.base_size - desired).length_squared() > 0.01 {
         apply_player_body_profile(&mut runtime.player, developer.player_body_profile);
     }
 }
@@ -546,23 +555,23 @@ pub fn apply_movement_profile(
 
 /// Apply live ability-flag edits without rebuilding the player every frame.
 pub fn sync_live_ability_edits(
-    runtime: &mut crate::SandboxRuntime,
+    player: &mut ae::Player,
     desired: ae::AbilitySet,
     tuning: ae::MovementTuning,
 ) {
-    if runtime.player.abilities == desired {
+    if player.abilities == desired {
         return;
     }
-    runtime.player.abilities = desired;
+    player.abilities = desired;
     if !desired.fly {
-        runtime.player.fly_enabled = false;
+        player.fly_enabled = false;
     }
     if !desired.blink {
-        runtime.player.blink_hold_active = false;
-        runtime.player.blink_hold_timer = 0.0;
-        runtime.player.blink_aiming = false;
+        player.blink_hold_active = false;
+        player.blink_hold_timer = 0.0;
+        player.blink_aiming = false;
     }
-    runtime.player.refresh_movement_resources(tuning);
+    player.refresh_movement_resources(tuning);
 }
 
 /// Reflected, debug-editable player gameplay stats. Surfaced through the
@@ -643,6 +652,10 @@ pub fn sync_player_stats_with_inspector(
     mut stats: ResMut<EditablePlayerStats>,
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut snapshot: Local<PlayerStatsSyncSnapshot>,
+    mut player_q: Query<
+        &mut crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
     if !snapshot.initialized {
         snapshot.health = stats.health;
@@ -676,12 +689,23 @@ pub fn sync_player_stats_with_inspector(
     // and the conversion happens at this boundary. Future
     // mana-consuming abilities call `try_spend` directly on the meter.
     let max_mana = stats.max_mana.max(0);
-    runtime.player.mana.max = max_mana as f32;
-    runtime.player.mana.current = stats.mana.clamp(0, max_mana) as f32;
     // Combat tuning + invincibility now live on `Player` (engine-side)
     // so per-player state is engine state, not sandbox state.
-    runtime.player.damage_multiplier = stats.slash_damage.max(1);
-    runtime.player.invincible = stats.invincible;
+    if let Ok(mut authority) = player_q.single_mut() {
+        authority.player.mana.max = max_mana as f32;
+        authority.player.mana.current = stats.mana.clamp(0, max_mana) as f32;
+        authority.player.damage_multiplier = stats.slash_damage.max(1);
+        authority.player.invincible = stats.invincible;
+        runtime.player.mana.max = authority.player.mana.max;
+        runtime.player.mana.current = authority.player.mana.current;
+        runtime.player.damage_multiplier = authority.player.damage_multiplier;
+        runtime.player.invincible = authority.player.invincible;
+    } else {
+        runtime.player.mana.max = max_mana as f32;
+        runtime.player.mana.current = stats.mana.clamp(0, max_mana) as f32;
+        runtime.player.damage_multiplier = stats.slash_damage.max(1);
+        runtime.player.invincible = stats.invincible;
+    }
 }
 
 #[cfg(test)]

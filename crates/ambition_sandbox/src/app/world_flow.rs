@@ -38,14 +38,17 @@ pub(super) fn reset_sandbox(
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
 ) {
-    let reset_from = runtime.player.pos;
+    let reset_from = player.pos;
+    player.reset_to(world.spawn);
+    player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
     runtime.flash_timer = feel.reset_flash_time;
-    let reset_to = runtime.player.pos;
+    let reset_to = player.pos;
     sfx.push(SfxMessage::Reset { pos: reset_to });
     vfx.push(VfxMessage::ResetEffects {
         from: reset_from,
@@ -57,6 +60,7 @@ pub(super) fn load_room(
     commands: &mut Commands,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
@@ -67,9 +71,9 @@ pub(super) fn load_room(
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&crate::game_assets::GameAssets>,
 ) {
-    let old_velocity = runtime.player.vel;
-    let abilities = runtime.player.abilities;
-    let fly_enabled = runtime.player.fly_enabled;
+    let old_velocity = player.vel;
+    let abilities = player.abilities;
+    let fly_enabled = player.fly_enabled;
     let edge_exit = matches!(
         transition.zone.activation,
         rooms::LoadingZoneActivation::EdgeExit
@@ -89,16 +93,16 @@ pub(super) fn load_room(
     // state, but preserve ability progression and, for edge exits, preserve
     // velocity so side-to-side room changes feel continuous. Door transitions
     // intentionally zero velocity because they are discrete interactions.
-    let arrival = rooms::validated_spawn(&world.0, transition.arrival, runtime.player.size);
-    runtime.player = ae::Player::new_with_abilities(arrival, abilities);
-    runtime.player.refresh_movement_resources(tuning);
-    runtime.player.fly_enabled = fly_enabled && runtime.player.abilities.fly;
+    let arrival = rooms::validated_spawn(&world.0, transition.arrival, player.size);
+    *player = ae::Player::new_with_abilities(arrival, abilities);
+    player.refresh_movement_resources(tuning);
+    player.fly_enabled = fly_enabled && player.abilities.fly;
     if edge_exit {
-        runtime.player.vel = old_velocity;
+        player.vel = old_velocity;
     }
     runtime.blink_in_timer = 0.0;
-    runtime.blink_camera_from = runtime.player.pos;
-    runtime.blink_camera_to = runtime.player.pos;
+    runtime.blink_camera_from = player.pos;
+    runtime.blink_camera_to = player.pos;
     runtime.camera_snap_timer = if edge_exit {
         0.0
     } else {
@@ -112,7 +116,7 @@ pub(super) fn load_room(
     runtime.hitstop_timer = 0.0;
     runtime.damage_invuln_timer = 0.0;
     runtime.hitstun_timer = 0.0;
-    runtime.last_safe_player_pos = runtime.player.pos;
+    runtime.last_safe_player_pos = player.pos;
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&spec);
@@ -137,15 +141,13 @@ pub(super) fn load_room(
         assets,
     );
     platforms::spawn_moving_platforms(commands, &world.0, &runtime.moving_platforms);
-    sfx.push(SfxMessage::Reset {
-        pos: runtime.player.pos,
-    });
+    sfx.push(SfxMessage::Reset { pos: player.pos });
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was
         // expressed in the previous room's coordinate space.
         vfx.push(VfxMessage::Burst {
-            pos: runtime.player.pos,
+            pos: player.pos,
             count: 18,
             speed: 260.0,
             color: [0.35, 0.95, 1.0, 0.75],
@@ -156,8 +158,8 @@ pub(super) fn load_room(
         // is acceptable; use the destination for both endpoints to avoid mixing
         // coordinate systems from two rooms.
         vfx.push(VfxMessage::ResetEffects {
-            from: runtime.player.pos,
-            to: runtime.player.pos,
+            from: player.pos,
+            to: player.pos,
         });
     }
 }
@@ -165,24 +167,25 @@ pub(super) fn load_room(
 pub(super) fn handle_player_events(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    player: &ae::Player,
     runtime: &mut SandboxRuntime,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
 ) {
-    let pos = runtime.player.pos;
+    let pos = player.pos;
     for op in &events.operations {
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
                 sfx.push(SfxMessage::Jump { pos });
                 vfx.push(VfxMessage::Dust {
-                    pos: runtime.player.pos,
-                    facing: runtime.player.facing,
+                    pos: player.pos,
+                    facing: player.facing,
                 });
             }
             ae::MovementOp::DoubleJump => {
                 sfx.push(SfxMessage::DoubleJump { pos });
                 vfx.push(VfxMessage::Burst {
-                    pos: runtime.player.pos,
+                    pos: player.pos,
                     count: 14,
                     speed: 210.0,
                     color: [0.70, 1.0, 0.86, 0.82],
@@ -192,7 +195,7 @@ pub(super) fn handle_player_events(
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
                 sfx.push(SfxMessage::Dash { pos });
                 vfx.push(VfxMessage::Burst {
-                    pos: runtime.player.pos,
+                    pos: player.pos,
                     count: 10,
                     speed: 330.0,
                     color: [1.0, 0.86, 0.38, 0.90],
@@ -204,7 +207,7 @@ pub(super) fn handle_player_events(
             }
             ae::MovementOp::FlyToggle => {
                 vfx.push(VfxMessage::Burst {
-                    pos: runtime.player.pos,
+                    pos: player.pos,
                     count: 12,
                     speed: 180.0,
                     color: [0.45, 0.82, 1.0, 0.72],
@@ -226,8 +229,8 @@ pub(super) fn handle_player_events(
             }
             ae::MovementOp::LedgeGrab => {
                 vfx.push(VfxMessage::Dust {
-                    pos: runtime.player.pos,
-                    facing: runtime.player.facing,
+                    pos: player.pos,
+                    facing: player.facing,
                 });
             }
             ae::MovementOp::LedgeClimbStart
@@ -260,10 +263,10 @@ pub(super) fn handle_player_events(
         runtime.flash_timer = 0.12;
     }
     if let Some(was_grounded) = was_grounded {
-        if !was_grounded && runtime.player.on_ground {
+        if !was_grounded && player.on_ground {
             vfx.push(VfxMessage::Dust {
-                pos: runtime.player.pos + ae::Vec2::new(0.0, runtime.player.size.y * 0.5),
-                facing: runtime.player.facing,
+                pos: player.pos + ae::Vec2::new(0.0, player.size.y * 0.5),
+                facing: player.facing,
             });
         }
     }
@@ -274,6 +277,7 @@ pub(super) fn death_respawn_player(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     died: &mut Vec<PlayerDiedMessage>,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
@@ -282,6 +286,8 @@ pub(super) fn death_respawn_player(
     from: ae::Vec2,
 ) {
     let to = world.spawn;
+    player.reset_to(world.spawn);
+    player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
     runtime.player_health.reset();
     if let Some(health) = player_health.as_deref_mut() {
@@ -301,6 +307,7 @@ pub(super) fn handle_player_damage_events(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     died: &mut Vec<PlayerDiedMessage>,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
@@ -315,7 +322,7 @@ pub(super) fn handle_player_damage_events(
     // Invincibility (debug toggle): drop the damage event entirely
     // before any state mutates so testing systems that consume HP
     // (boss phases, encounter pacing, music) can run uninterrupted.
-    if runtime.player.invincible {
+    if player.invincible {
         return;
     }
     // Difficulty / assist scaling. Easy halves incoming damage, hard
@@ -337,6 +344,7 @@ pub(super) fn handle_player_damage_events(
             sfx,
             vfx,
             died,
+            player,
             runtime,
             banner,
             player_health,
@@ -348,10 +356,10 @@ pub(super) fn handle_player_damage_events(
     }
     match damage.mode {
         features::PlayerDamageMode::SafeRespawn => {
-            safe_respawn_player(sfx, vfx, runtime, tuning, feel, damage.impact_pos);
+            safe_respawn_player(sfx, vfx, player, runtime, tuning, feel, damage.impact_pos);
         }
         features::PlayerDamageMode::Knockback => {
-            apply_player_knockback(sfx, vfx, runtime, tuning, feel, damage);
+            apply_player_knockback(sfx, vfx, player, runtime, tuning, feel, damage);
         }
     }
 }
@@ -359,14 +367,15 @@ pub(super) fn handle_player_damage_events(
 pub(super) fn safe_respawn_player(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
 ) {
     let to = runtime.last_safe_player_pos;
-    runtime.player.reset_to(to);
-    runtime.player.refresh_movement_resources(tuning);
+    player.reset_to(to);
+    player.refresh_movement_resources(tuning);
     runtime.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     runtime.hitstun_timer = 0.0;
     runtime.hitstop_timer = 0.0;
@@ -379,6 +388,7 @@ pub(super) fn safe_respawn_player(
 pub(super) fn apply_player_knockback(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -390,7 +400,7 @@ pub(super) fn apply_player_knockback(
         features::PlayerDamageSource::BossBody | features::PlayerDamageSource::BossAttack
     );
     let dir = if damage.knockback_dir.abs() <= 0.001 {
-        -runtime.player.facing
+        -player.facing
     } else {
         damage.knockback_dir.signum()
     };
@@ -405,9 +415,9 @@ pub(super) fn apply_player_knockback(
     } else {
         feel.enemy_knockback_y
     };
-    runtime.player.vel.x = dir * knock_x * strength;
-    runtime.player.vel.y = -knock_y * strength;
-    runtime.player.refresh_movement_resources(tuning);
+    player.vel.x = dir * knock_x * strength;
+    player.vel.y = -knock_y * strength;
+    player.refresh_movement_resources(tuning);
     runtime.hitstun_timer = if boss_hit {
         feel.boss_hitstun_time
     } else {
@@ -451,28 +461,29 @@ pub(super) fn controls_for_hitstun(
 pub(super) fn start_attack(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     controls: ControlFrame,
 ) {
-    if !runtime.player.abilities.attack || runtime.player_attack.is_some() {
+    if !player.abilities.attack || runtime.player_attack.is_some() {
         return;
     }
     let intent = ae::resolve_attack_intent(
-        &runtime.player,
+        player,
         controls.axis_x,
         controls.axis_y,
         controls.pogo_pressed,
     );
-    let spec = ae::attack_spec(&runtime.player, intent);
+    let spec = ae::attack_spec(player, intent);
 
     // Directional attacks get small self-motion so the hitbox feels connected
     // to the controller. Keep these impulses modest; the engine control path
     // still owns the canonical slash/pogo op + recoil bookkeeping.
-    runtime.player.vel += spec.self_impulse;
+    player.vel += spec.self_impulse;
     if matches!(intent, ae::AttackIntent::AirUp | ae::AttackIntent::Up)
-        && runtime.player.vel.y > -40.0
+        && player.vel.y > -40.0
     {
-        runtime.player.vel.y = -40.0;
+        player.vel.y = -40.0;
     }
     // Force downward commitment ONLY for the aerial down spike. The
     // grounded `Down` is now a kneeling forward poke (Marth-style
@@ -486,18 +497,18 @@ pub(super) fn start_attack(
     // slash startup must not overwrite the negative Y velocity.
     if !controls.pogo_pressed
         && intent == ae::AttackIntent::AirDown
-        && runtime.player.vel.y >= 0.0
-        && runtime.player.vel.y < 80.0
+        && player.vel.y >= 0.0
+        && player.vel.y < 80.0
     {
-        runtime.player.vel.y = 80.0;
+        player.vel.y = 80.0;
     }
 
-    let player_pos = runtime.player.pos;
+    let player_pos = player.pos;
     sfx.push(SfxMessage::Slash { pos: player_pos });
     runtime.slash_anim_timer = spec.total_seconds().max(0.20);
     runtime.player_attack = Some(crate::PlayerAttackState::new(spec));
     vfx.push(VfxMessage::SlashPreview {
-        hitbox: ae::attack_hitbox(&runtime.player, spec),
+        hitbox: ae::attack_hitbox(player, spec),
     });
 }
 
@@ -505,6 +516,7 @@ pub(super) fn advance_attack(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     world: &ae::World,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -524,17 +536,16 @@ pub(super) fn advance_attack(
     };
 
     if phase == ae::AttackPhase::Active {
-        let attack = ae::attack_hitbox(&runtime.player, attack_state.spec);
+        let attack = ae::attack_hitbox(player, attack_state.spec);
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;
             vfx.push(VfxMessage::SlashPreview { hitbox: attack });
         }
 
-        let player_pos = runtime.player.pos;
+        let player_pos = player.pos;
         let mut pogo_landed = false;
-        if runtime.player.abilities.pogo && attack_state.spec.can_pogo && !attack_state.pogo_applied
-        {
+        if player.abilities.pogo && attack_state.spec.can_pogo && !attack_state.pogo_applied {
             let attack_world = features::world_with_sandbox_solids(
                 world,
                 &runtime.moving_platforms,
@@ -551,20 +562,20 @@ pub(super) fn advance_attack(
                 );
                 (valid_target && attack.strict_intersects(block.aabb)).then_some(block.aabb)
             }) {
-                runtime.player.vel.y = -tuning.pogo_speed;
-                runtime.player.refresh_movement_resources(tuning);
-                runtime.player.on_ground = false;
+                player.vel.y = -tuning.pogo_speed;
+                player.refresh_movement_resources(tuning);
+                player.on_ground = false;
                 attack_state.pogo_applied = true;
                 pogo_landed = true;
                 sfx.push(SfxMessage::Pogo { pos: player_pos });
                 pogo_bounces.write(features::PogoBounceEvent::new(orb_aabb, 1));
             }
         }
-        let slash_damage = runtime.player.damage_multiplier.max(1);
+        let slash_damage = player.damage_multiplier.max(1);
         let knock_x = if attack_state.spec.knockback.x.abs() > 0.0 {
             attack_state.spec.knockback.x
         } else {
-            runtime.player.facing * 300.0
+            player.facing * 300.0
         };
         if first_active_frame {
             damage_events.write(features::DamageEvent {
@@ -591,12 +602,12 @@ pub(super) fn advance_attack(
             sfx.push(SfxMessage::Death { pos: player_pos });
         }
         if landed
-            && runtime.player.abilities.pogo
+            && player.abilities.pogo
             && attack_state.spec.can_pogo
             && !attack_state.pogo_applied
         {
-            runtime.player.vel.y = -tuning.pogo_speed;
-            runtime.player.refresh_movement_resources(tuning);
+            player.vel.y = -tuning.pogo_speed;
+            player.refresh_movement_resources(tuning);
             attack_state.pogo_applied = true;
             sfx.push(SfxMessage::Pogo { pos: player_pos });
         }

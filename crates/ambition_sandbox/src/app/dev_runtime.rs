@@ -99,6 +99,10 @@ pub(super) fn handle_ldtk_hot_reload(
     editable_tuning: Res<EditableMovementTuning>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
+    mut player_q: Query<
+        &mut crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -118,25 +122,52 @@ pub(super) fn handle_ldtk_hot_reload(
         return;
     }
 
-    match reload_ldtk_world_from_disk(
-        &mut commands,
-        &mut world,
-        &mut room_set,
-        &mut runtime,
-        &mut ldtk_index,
-        editable_tuning.as_engine(),
-        &room_visuals,
-        game_assets.as_deref(),
-    ) {
-        Ok(active_room) => {
-            ldtk_reload.mark_applied(&active_room);
-            eprintln!("LDtk hot reload applied to active room '{active_room}'");
-        }
-        Err(errors) => {
-            for error in &errors {
-                eprintln!("LDtk hot reload rejected: {error}");
+    if let Ok(mut authority) = player_q.single_mut() {
+        match reload_ldtk_world_from_disk(
+            &mut commands,
+            &mut world,
+            &mut room_set,
+            &mut authority.player,
+            &mut runtime,
+            &mut ldtk_index,
+            editable_tuning.as_engine(),
+            &room_visuals,
+            game_assets.as_deref(),
+        ) {
+            Ok(active_room) => {
+                ldtk_reload.mark_applied(&active_room);
+                eprintln!("LDtk hot reload applied to active room '{active_room}'");
             }
-            ldtk_reload.mark_failed(errors);
+            Err(errors) => {
+                for error in &errors {
+                    eprintln!("LDtk hot reload rejected: {error}");
+                }
+                ldtk_reload.mark_failed(errors);
+            }
+        }
+    } else {
+        let mut tmp_player = runtime.player.clone();
+        match reload_ldtk_world_from_disk(
+            &mut commands,
+            &mut world,
+            &mut room_set,
+            &mut tmp_player,
+            &mut runtime,
+            &mut ldtk_index,
+            editable_tuning.as_engine(),
+            &room_visuals,
+            game_assets.as_deref(),
+        ) {
+            Ok(active_room) => {
+                ldtk_reload.mark_applied(&active_room);
+                eprintln!("LDtk hot reload applied to active room '{active_room}'");
+            }
+            Err(errors) => {
+                for error in &errors {
+                    eprintln!("LDtk hot reload rejected: {error}");
+                }
+                ldtk_reload.mark_failed(errors);
+            }
         }
     }
 }
@@ -198,6 +229,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
@@ -205,9 +237,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     assets: Option<&crate::game_assets::GameAssets>,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
-    let preserved_pos = runtime.player.pos;
+    let preserved_pos = player.pos;
     let transaction =
-        prepare_ldtk_reload_transaction(&current_room_id, preserved_pos, runtime.player.size)?;
+        prepare_ldtk_reload_transaction(&current_room_id, preserved_pos, player.size)?;
 
     // Everything above this line is non-mutating: invalid edits, deleted active
     // areas, bad graph links, and unsafe player positions are rejected before
@@ -225,8 +257,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     *room_set = transaction.next_room_set;
     world.0 = transaction.next_spec.world.clone();
 
-    runtime.player.pos = transaction.safe_player_pos;
-    runtime.player.refresh_movement_resources(tuning);
+    player.pos = transaction.safe_player_pos;
+    player.refresh_movement_resources(tuning);
+    runtime.player = player.clone();
     runtime.last_safe_player_pos = transaction.safe_player_pos;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
     features::spawn_room_feature_entities(commands, &transaction.next_spec);

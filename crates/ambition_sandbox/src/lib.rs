@@ -423,30 +423,35 @@ impl SandboxRuntime {
     /// teleported and shouldn't be remembered as safe. See
     /// `docs/lessons_learned.md` for the OOB trace where a wall-cling
     /// teleport polluted `last_safe_player_pos` with `(62, -23)`.
-    pub fn remember_safe_player_position(&mut self, world: &ae::World, ctx: SafePositionContext) {
-        if !self.player.on_ground {
+    pub fn remember_safe_player_position(
+        &mut self,
+        player: &ae::Player,
+        world: &ae::World,
+        ctx: SafePositionContext,
+    ) {
+        if !player.on_ground {
             return;
         }
         if !ctx.is_eligible() {
             return;
         }
-        let verdict = ae::classify_player_safety(&self.player, world, 0.0, |block| {
+        let verdict = ae::classify_player_safety(player, world, 0.0, |block| {
             matches!(
                 block.kind,
                 ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
             )
         });
         if verdict.is_safe() {
-            self.last_safe_player_pos = self.player.pos;
+            self.last_safe_player_pos = player.pos;
         }
     }
 
-    pub fn update_time_scale(&mut self, frame_dt: f32, feel: SandboxFeelTuning) {
+    pub fn update_time_scale(&mut self, player: &ae::Player, frame_dt: f32, feel: SandboxFeelTuning) {
         let target = if self.hitstop_timer > 0.0 {
             0.0
-        } else if self.player.blink_aiming {
+        } else if player.blink_aiming {
             feel.bullet_time_scale
-        } else if self.player.blink_hold_active {
+        } else if player.blink_hold_active {
             feel.blink_hold_slow_scale
         } else if self.slowmo {
             feel.debug_slowmo_scale
@@ -589,7 +594,8 @@ mod safe_pos_tests {
         let world = dummy_world();
         let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(62.0, -23.0));
         let initial = runtime.last_safe_player_pos;
-        runtime.remember_safe_player_position(&world, SafePositionContext::ideal());
+        let player = runtime.player.clone();
+        runtime.remember_safe_player_position(&player, &world, SafePositionContext::ideal());
         assert_eq!(
             runtime.last_safe_player_pos, initial,
             "above-world position must not become last_safe_player_pos"
@@ -602,7 +608,8 @@ mod safe_pos_tests {
     fn accepts_legitimate_grounded_position() {
         let world = dummy_world();
         let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(200.0, 900.0));
-        runtime.remember_safe_player_position(&world, SafePositionContext::ideal());
+        let player = runtime.player.clone();
+        runtime.remember_safe_player_position(&player, &world, SafePositionContext::ideal());
         assert_eq!(
             runtime.last_safe_player_pos,
             ae::Vec2::new(200.0, 900.0),
@@ -619,29 +626,31 @@ mod safe_pos_tests {
         let world = dummy_world();
         let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(200.0, 900.0));
         let initial = runtime.last_safe_player_pos;
+        let player = runtime.player.clone();
+
         let mut ctx = SafePositionContext::ideal();
         ctx.damaged_this_frame = true;
-        runtime.remember_safe_player_position(&world, ctx);
+        runtime.remember_safe_player_position(&player, &world, ctx);
         assert_eq!(runtime.last_safe_player_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.feature_requested_reset = true;
-        runtime.remember_safe_player_position(&world, ctx);
+        runtime.remember_safe_player_position(&player, &world, ctx);
         assert_eq!(runtime.last_safe_player_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.in_hitstun = true;
-        runtime.remember_safe_player_position(&world, ctx);
+        runtime.remember_safe_player_position(&player, &world, ctx);
         assert_eq!(runtime.last_safe_player_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.blink_grace_active = true;
-        runtime.remember_safe_player_position(&world, ctx);
+        runtime.remember_safe_player_position(&player, &world, ctx);
         assert_eq!(runtime.last_safe_player_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.room_transitioning = true;
-        runtime.remember_safe_player_position(&world, ctx);
+        runtime.remember_safe_player_position(&player, &world, ctx);
         assert_eq!(runtime.last_safe_player_pos, initial);
     }
 
@@ -655,7 +664,8 @@ mod safe_pos_tests {
         // the wall.
         let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(18.0, 900.0));
         let initial = runtime.last_safe_player_pos;
-        runtime.remember_safe_player_position(&world, SafePositionContext::ideal());
+        let player = runtime.player.clone();
+        runtime.remember_safe_player_position(&player, &world, SafePositionContext::ideal());
         assert_eq!(runtime.last_safe_player_pos, initial);
     }
 

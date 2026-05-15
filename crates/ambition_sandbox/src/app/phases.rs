@@ -101,6 +101,7 @@ pub(super) fn input_timer_phase(
 pub(super) fn reset_phase(
     controls: &ControlFrame,
     world: &ae::World,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
@@ -112,6 +113,7 @@ pub(super) fn reset_phase(
             world,
             &mut feedback.sfx,
             &mut feedback.vfx,
+            player,
             runtime,
             tuning,
             feel,
@@ -135,6 +137,7 @@ pub(super) fn reset_phase(
 pub(super) fn player_control_phase(
     controls: ControlFrame,
     world: &ae::World,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
@@ -153,7 +156,7 @@ pub(super) fn player_control_phase(
         features::world_with_sandbox_solids(world, &runtime.moving_platforms, feature_ecs_overlay);
     let control_events = ae::update_player_control_with_tuning(
         &control_world,
-        &mut runtime.player,
+        player,
         input,
         frame_dt,
         tuning,
@@ -163,6 +166,7 @@ pub(super) fn player_control_phase(
             world,
             &mut feedback.sfx,
             &mut feedback.vfx,
+            player,
             runtime,
             tuning,
             feel,
@@ -180,6 +184,7 @@ pub(super) fn player_control_phase(
     handle_player_events(
         &mut feedback.sfx,
         &mut feedback.vfx,
+        player,
         runtime,
         control_events,
         None,
@@ -201,6 +206,7 @@ pub(super) fn player_control_phase(
 pub(super) fn player_simulation_phase(
     controls: ControlFrame,
     world: &ae::World,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
@@ -212,19 +218,18 @@ pub(super) fn player_simulation_phase(
     let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
 
-    runtime.update_time_scale(frame_dt, feel);
+    runtime.update_time_scale(player, frame_dt, feel);
     let sim_dt = sandbox_dt(runtime, frame_dt);
 
-    let player_for_platforms = &runtime.player;
     let mut riding_platform = None;
     for (index, platform) in runtime.moving_platforms.iter_mut().enumerate() {
         let delta = platform.update(sim_dt);
-        if riding_platform.is_none() && platform.is_riding(player_for_platforms) {
+        if riding_platform.is_none() && platform.is_riding(player) {
             riding_platform = Some((index, delta, platform.pos, platform.direction()));
         }
     }
     let riding_now = riding_platform.is_some();
-    let was_riding_platform = runtime.player.was_riding_platform;
+    let was_riding_platform = player.was_riding_platform;
     if riding_now != was_riding_platform {
         // Diagnostic: log riding-state transitions. Useful for chasing the
         // "intermittent glitchy platform behavior" repro (TODO S). With
@@ -234,9 +239,9 @@ pub(super) fn player_simulation_phase(
                 target: "ambition::platform",
                 riding = true,
                 platform_index,
-                player_pos = ?runtime.player.pos,
-                player_vel = ?runtime.player.vel,
-                on_ground = runtime.player.on_ground,
+                player_pos = ?player.pos,
+                player_vel = ?player.vel,
+                on_ground = player.on_ground,
                 platform_pos = ?platform_pos,
                 platform_dir,
                 "moving-platform riding transition"
@@ -245,24 +250,24 @@ pub(super) fn player_simulation_phase(
             debug!(
                 target: "ambition::platform",
                 riding = false,
-                player_pos = ?runtime.player.pos,
-                player_vel = ?runtime.player.vel,
-                on_ground = runtime.player.on_ground,
+                player_pos = ?player.pos,
+                player_vel = ?player.vel,
+                on_ground = player.on_ground,
                 "moving-platform riding transition"
             );
         }
     }
-    runtime.player.was_riding_platform = riding_now;
+    player.was_riding_platform = riding_now;
     if let Some((_, platform_delta, _, _)) = riding_platform {
-        runtime.player.pos += platform_delta;
+        player.pos += platform_delta;
     }
     let collision_world =
         features::world_with_sandbox_solids(world, &runtime.moving_platforms, feature_ecs_overlay);
 
-    let was_grounded = runtime.player.on_ground;
+    let was_grounded = player.on_ground;
     let sim_events = ae::update_player_simulation_with_tuning(
         &collision_world,
-        &mut runtime.player,
+        player,
         input,
         sim_dt,
         tuning,
@@ -272,6 +277,7 @@ pub(super) fn player_simulation_phase(
             world,
             &mut feedback.sfx,
             &mut feedback.vfx,
+            player,
             runtime,
             tuning,
             feel,
@@ -282,6 +288,7 @@ pub(super) fn player_simulation_phase(
     handle_player_events(
         &mut feedback.sfx,
         &mut feedback.vfx,
+        player,
         runtime,
         sim_events,
         Some(was_grounded),
@@ -326,6 +333,7 @@ pub(super) fn interaction_input_phase(
 /// Should not own: the feature tick itself or attack / room-transition routing.
 pub(super) fn damage_heal_dialogue_phase(
     world: &ae::World,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     player_health: Option<&mut crate::player::PlayerHealth>,
@@ -342,6 +350,7 @@ pub(super) fn damage_heal_dialogue_phase(
         &mut feedback.sfx,
         &mut feedback.vfx,
         &mut feedback.died,
+        player,
         runtime,
         banner,
         player_health,
@@ -359,10 +368,10 @@ pub(super) fn damage_heal_dialogue_phase(
         damaged_this_frame: feature_damaged_player,
         in_hitstun: runtime.hitstun_timer > 0.0,
         feature_requested_reset: false,
-        blink_grace_active: runtime.player.blink_grace_timer > 0.0,
+        blink_grace_active: player.blink_grace_timer > 0.0,
         room_transitioning: runtime.room_transition_cooldown > 0.0,
     };
-    runtime.remember_safe_player_position(&safe_world, ctx);
+    runtime.remember_safe_player_position(player, &safe_world, ctx);
 }
 
 /// Phase 9 — loading-zone transition + `load_room`.
@@ -379,6 +388,7 @@ pub(super) fn room_transition_phase(
     controls: &ControlFrame,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
@@ -390,8 +400,7 @@ pub(super) fn room_transition_phase(
     if runtime.room_transition_cooldown > 0.0 {
         return PhaseOutcome::Continue;
     }
-    let Some(zone) = room_set.transition_for_player(&runtime.player, controls.interact_pressed)
-    else {
+    let Some(zone) = room_set.transition_for_player(player, controls.interact_pressed) else {
         return PhaseOutcome::Continue;
     };
     // Door zones get a `world.door.open` cue at the player's current
@@ -401,7 +410,7 @@ pub(super) fn room_transition_phase(
     // walking through a door. Authored content can override later
     // with a `LoadingZoneActivation` variant if heavy doors / save
     // teleports want their own clips.
-    let player_pos = runtime.player.pos;
+    let player_pos = player.pos;
     let zone_sfx = match zone.zone.activation {
         rooms::LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),
         rooms::LoadingZoneActivation::EdgeExit => Some(ambition_sfx::ids::WORLD_PORTAL_ENTER),
@@ -417,6 +426,7 @@ pub(super) fn room_transition_phase(
         commands,
         &mut feedback.sfx,
         &mut feedback.vfx,
+        player,
         runtime,
         world,
         room_set,
@@ -442,6 +452,7 @@ pub(super) fn room_transition_phase(
 pub(super) fn attack_phase(
     controls: &ControlFrame,
     world: &ae::World,
+    player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     tuning: ae::MovementTuning,
@@ -452,12 +463,13 @@ pub(super) fn attack_phase(
     pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
 ) {
     if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
-        start_attack(&mut feedback.sfx, &mut feedback.vfx, runtime, *controls);
+        start_attack(&mut feedback.sfx, &mut feedback.vfx, player, runtime, *controls);
     }
     advance_attack(
         &mut feedback.sfx,
         &mut feedback.vfx,
         world,
+        player,
         runtime,
         tuning,
         feel,
@@ -473,13 +485,17 @@ pub(super) fn attack_phase(
 /// Owns: real-time decay of `flash_timer`, `preset_flash`,
 /// `slash_anim_timer`. New presentation-flash timers belong here;
 /// gameplay timers belong in `input_timer_phase`.
-pub(super) fn cleanup_timers_phase(runtime: &mut SandboxRuntime, frame_dt: f32) {
+pub(super) fn cleanup_timers_phase(
+    player: &ae::Player,
+    runtime: &mut SandboxRuntime,
+    frame_dt: f32,
+) {
     runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
     runtime.slash_anim_timer = (runtime.slash_anim_timer - frame_dt).max(0.0);
     runtime.blink_in_timer = (runtime.blink_in_timer - frame_dt).max(0.0);
     runtime.camera_snap_timer = (runtime.camera_snap_timer - frame_dt).max(0.0);
-    update_anim_signal_timers(runtime, frame_dt);
+    update_anim_signal_timers(player, runtime, frame_dt);
 }
 
 /// Drive the presentation-only landing + dash-startup timers and capture
@@ -489,7 +505,7 @@ pub(super) fn cleanup_timers_phase(runtime: &mut SandboxRuntime, frame_dt: f32) 
 /// lives here so all presentation timers decay in one phase and so the
 /// "previous frame" snapshot is the one immediately before the next
 /// gameplay tick.
-fn update_anim_signal_timers(runtime: &mut SandboxRuntime, frame_dt: f32) {
+fn update_anim_signal_timers(player: &ae::Player, runtime: &mut SandboxRuntime, frame_dt: f32) {
     // Hard-landing threshold: pre-touchdown downward speed (px/s) above
     // which we play `LandHard` instead of `LandRecovery`. Tuned by the
     // sandbox's terminal-fall feel; raise if normal jump landings start
@@ -502,8 +518,8 @@ fn update_anim_signal_timers(runtime: &mut SandboxRuntime, frame_dt: f32) {
     // own duration so the streaking dash row still gets airtime.
     const DASH_STARTUP_SECS: f32 = 0.05;
 
-    let on_ground = runtime.player.on_ground;
-    let dash_timer = runtime.player.dash_timer;
+    let on_ground = player.on_ground;
+    let dash_timer = player.dash_timer;
 
     // Landing edge: airborne last frame, grounded this frame.
     if on_ground && !runtime.anim_prev_on_ground {
@@ -536,6 +552,6 @@ fn update_anim_signal_timers(runtime: &mut SandboxRuntime, frame_dt: f32) {
     // already post-integration but still reflects the speed that produced
     // this frame's `on_ground`.
     runtime.anim_prev_on_ground = on_ground;
-    runtime.anim_prev_vel_y = runtime.player.vel.y;
+    runtime.anim_prev_vel_y = player.vel.y;
     runtime.anim_prev_dash_timer = dash_timer;
 }

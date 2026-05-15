@@ -2,7 +2,7 @@ use super::*;
 use crate::input::ControlFrame;
 use crate::{GameWorld, SandboxRuntime};
 use ambition_engine as ae;
-use bevy::prelude::{App, Time, Update};
+use bevy::prelude::{App, Time, Update, With};
 
 fn empty_world() -> ae::World {
     ae::World::new(
@@ -36,28 +36,58 @@ fn body_app(world: ae::World) -> App {
         ae::DEFAULT_TUNING,
         crate::physics::PhysicsSandboxSettings::default(),
     );
+    let initial_player = runtime.player.clone();
     app.insert_resource(runtime);
     app.insert_resource(ControlFrame::default());
+    app.world_mut().spawn((
+        crate::player::PlayerEntity,
+        crate::player::PlayerMovementAuthority::new(initial_player),
+    ));
     app.add_systems(Update, update_body_mode);
     app
 }
 
+/// Set player state on both the ECS authority and the runtime shadow so both
+/// are consistent before the test tick runs.
 fn set_grounded_at(app: &mut App, pos: ae::Vec2) {
-    let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-    runtime.player.pos = pos;
-    runtime.player.vel = ae::Vec2::ZERO;
-    runtime.player.on_ground = true;
-    runtime.player.on_wall = false;
-    runtime.player.wall_clinging = false;
-    runtime.player.wall_climbing = false;
-    runtime.player.dash_timer = 0.0;
-    runtime.player.blink_aiming = false;
-    runtime.player.water_contact = None;
+    let new_state = {
+        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+        runtime.player.pos = pos;
+        runtime.player.vel = ae::Vec2::ZERO;
+        runtime.player.on_ground = true;
+        runtime.player.on_wall = false;
+        runtime.player.wall_clinging = false;
+        runtime.player.wall_climbing = false;
+        runtime.player.dash_timer = 0.0;
+        runtime.player.blink_aiming = false;
+        runtime.player.water_contact = None;
+        runtime.player.clone()
+    };
+    let mut q = app.world_mut().query_filtered::<
+        &mut crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >();
+    for mut authority in q.iter_mut(app.world_mut()) {
+        authority.player = new_state.clone();
+    }
 }
 
 fn set_axis_y(app: &mut App, axis_y: f32) {
     let mut controls = app.world_mut().resource_mut::<ControlFrame>();
     controls.axis_y = axis_y;
+}
+
+/// Mirror `runtime.player` into `PlayerMovementAuthority` so the ECS query
+/// in `update_body_mode` sees whatever the test wrote to the shadow.
+fn sync_authority_from_runtime(app: &mut App) {
+    let player = app.world().resource::<SandboxRuntime>().player.clone();
+    let mut q = app.world_mut().query_filtered::<
+        &mut crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >();
+    for mut authority in q.iter_mut(app.world_mut()) {
+        authority.player = player.clone();
+    }
 }
 
 /// Mark the double-tap-down edge on `SandboxRuntime` exactly as
@@ -155,6 +185,7 @@ fn airborne_down_does_not_crouch() {
         runtime.player.on_ground = false;
         runtime.player.vel = ae::Vec2::ZERO;
     }
+    sync_authority_from_runtime(&mut app);
     set_axis_y(&mut app, 1.0);
     app.update();
     let runtime = app.world().resource::<SandboxRuntime>();
@@ -170,6 +201,7 @@ fn dash_active_blocks_crouch() {
         let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
         runtime.player.dash_timer = 0.05;
     }
+    sync_authority_from_runtime(&mut app);
     set_axis_y(&mut app, 1.0);
     app.update();
     let runtime = app.world().resource::<SandboxRuntime>();
@@ -286,6 +318,7 @@ fn airborne_double_tap_down_does_not_morph() {
         runtime.player.pos = ae::Vec2::new(200.0, 200.0);
         runtime.player.on_ground = false;
     }
+    sync_authority_from_runtime(&mut app);
     arm_double_tap_down(&mut app);
     app.update();
     let runtime = app.world().resource::<SandboxRuntime>();
@@ -379,6 +412,7 @@ fn wall_clinging_blocks_crouch() {
         runtime.player.on_wall = true;
         runtime.player.on_ground = false;
     }
+    sync_authority_from_runtime(&mut app);
     set_axis_y(&mut app, 1.0);
     app.update();
     let runtime = app.world().resource::<SandboxRuntime>();
@@ -408,8 +442,12 @@ fn ladder_world() -> ae::World {
 /// progression chain runs.
 fn set_on_ladder(app: &mut App) {
     let world = app.world().resource::<GameWorld>().0.clone();
-    let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-    runtime.player.climbable_contact = world.climbable_at(runtime.player.aabb());
+    {
+        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
+        let aabb = runtime.player.aabb();
+        runtime.player.climbable_contact = world.climbable_at(aabb);
+    }
+    sync_authority_from_runtime(app);
 }
 
 #[test]
@@ -496,6 +534,7 @@ fn losing_climbable_contact_exits_climbing() {
         let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
         runtime.player.climbable_contact = None;
     }
+    sync_authority_from_runtime(&mut app);
     {
         let mut controls = app.world_mut().resource_mut::<ControlFrame>();
         controls.axis_y = 0.0;

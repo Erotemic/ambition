@@ -45,8 +45,15 @@ pub fn update_body_mode(
     world: Res<crate::GameWorld>,
     mut runtime: ResMut<crate::SandboxRuntime>,
     controls: Res<crate::input::ControlFrame>,
+    mut player_q: Query<
+        &mut crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
-    let player = &runtime.player;
+    let Ok(mut authority) = player_q.single_mut() else {
+        return;
+    };
+    let player = &mut authority.player;
 
     // Mid-action mechanics own the body shape — don't fight them.
     if player.dash_timer > 0.0 || player.blink_aiming {
@@ -84,12 +91,7 @@ pub fn update_body_mode(
         let exit_via_jump = controls.jump_pressed;
         let exit_via_lost_contact = !climbable_contact_present;
         if exit_via_jump || exit_via_lost_contact {
-            let _ = ae::try_change_body_mode(
-                &mut runtime.player,
-                ae::BodyMode::Standing,
-                &world.0,
-                solid,
-            );
+            let _ = ae::try_change_body_mode(player, ae::BodyMode::Standing, &world.0, solid);
             // Falling-through bottom of ladder gets the player a
             // small downward nudge so they don't hover at the bottom
             // edge waiting for gravity to take over. Pushing off via
@@ -97,6 +99,7 @@ pub fn update_body_mode(
             // sets vel = (0, 0) on each tick when input is zero, so
             // the integrate path on the next frame will compute a
             // proper jump impulse from `jump_pressed`).
+            runtime.player = player.clone();
             return;
         }
         // Otherwise stay Climbing — engine drives motion through
@@ -112,8 +115,8 @@ pub fn update_body_mode(
     // where ladders typically begin at floor level.
     let climb_initiator = (up_held) || (down_held && !on_ground);
     if climbable_contact_present && climb_initiator && mode != ae::BodyMode::MorphBall {
-        let _ =
-            ae::try_change_body_mode(&mut runtime.player, ae::BodyMode::Climbing, &world.0, solid);
+        let _ = ae::try_change_body_mode(player, ae::BodyMode::Climbing, &world.0, solid);
+        runtime.player = player.clone();
         return;
     }
 
@@ -127,12 +130,8 @@ pub fn update_body_mode(
     // map to the same key.
     if mode == ae::BodyMode::MorphBall {
         if controls.jump_pressed || controls.up_pressed {
-            let _ = ae::try_change_body_mode(
-                &mut runtime.player,
-                ae::BodyMode::Standing,
-                &world.0,
-                solid,
-            );
+            let _ = ae::try_change_body_mode(player, ae::BodyMode::Standing, &world.0, solid);
+            runtime.player = player.clone();
         }
         return;
     }
@@ -145,12 +144,8 @@ pub fn update_body_mode(
     // fast_fall on `!on_ground` already, so the same gesture firing
     // morph-ball when grounded has no input crosstalk.
     if on_ground && double_tap_down {
-        let _ = ae::try_change_body_mode(
-            &mut runtime.player,
-            ae::BodyMode::MorphBall,
-            &world.0,
-            solid,
-        );
+        let _ = ae::try_change_body_mode(player, ae::BodyMode::MorphBall, &world.0, solid);
+        runtime.player = player.clone();
         return;
     }
 
@@ -168,5 +163,6 @@ pub fn update_body_mode(
     // boolean result — a blocked stand-up is the desired UX (player
     // stays crouched under the ceiling) and the auto-trace diff will
     // surface a successful transition.
-    let _ = ae::try_change_body_mode(&mut runtime.player, target, &world.0, solid);
+    let _ = ae::try_change_body_mode(player, target, &world.0, solid);
+    runtime.player = player.clone();
 }

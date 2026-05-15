@@ -2,6 +2,7 @@ use ambition_engine as ae;
 use bevy::prelude::*;
 
 use super::content::DialogMode;
+use super::runtime::DialogState;
 use super::ui::DialogChoiceSlot;
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
@@ -11,19 +12,19 @@ use crate::ui_nav::apply_vertical_scroll;
 
 #[cfg(feature = "input")]
 pub fn dialog_pointer_input(
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut dialogue: ResMut<DialogState>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
 ) {
-    if !runtime.dialogue.active() {
+    if !dialogue.active() {
         return;
     }
     if !matches!(mode.get(), GameMode::Dialogue) {
         return;
     }
 
-    let option_count = runtime.dialogue.options().len();
+    let option_count = dialogue.options().len();
     for (interaction, slot) in &choices {
         let valid_slot = if option_count == 0 {
             slot.index == 0
@@ -37,34 +38,34 @@ pub fn dialog_pointer_input(
         match interaction {
             Interaction::Hovered => {
                 let index = slot.index.min(option_count.saturating_sub(1));
-                if runtime.dialogue.selected_option != index {
-                    runtime.dialogue.pointer_armed = None;
+                if dialogue.selected_option != index {
+                    dialogue.pointer_armed = None;
                 }
-                runtime.dialogue.selected_option = index;
+                dialogue.selected_option = index;
             }
             Interaction::Pressed => {
                 let index = slot.index.min(option_count.saturating_sub(1));
 
                 #[cfg(target_os = "android")]
                 {
-                    let confirm = runtime.dialogue.selected_option == index
-                        && runtime.dialogue.pointer_armed == Some(index);
-                    runtime.dialogue.selected_option = index;
+                    let confirm = dialogue.selected_option == index
+                        && dialogue.pointer_armed == Some(index);
+                    dialogue.selected_option = index;
                     if confirm {
-                        runtime.dialogue.pointer_armed = None;
-                        let closed = runtime.dialogue.confirm_or_advance();
+                        dialogue.pointer_armed = None;
+                        let closed = dialogue.confirm_or_advance();
                         if closed {
                             next_mode.set(GameMode::Playing);
                         }
                     } else {
-                        runtime.dialogue.pointer_armed = Some(index);
+                        dialogue.pointer_armed = Some(index);
                     }
                 }
 
                 #[cfg(not(target_os = "android"))]
                 {
-                    runtime.dialogue.selected_option = index;
-                    let closed = runtime.dialogue.confirm_or_advance();
+                    dialogue.selected_option = index;
+                    let closed = dialogue.confirm_or_advance();
                     if closed {
                         next_mode.set(GameMode::Playing);
                     }
@@ -82,18 +83,18 @@ pub fn dialog_pointer_input() {}
 #[cfg(feature = "input")]
 pub fn dialog_input(
     menu: Res<MenuControlFrame>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut dialogue: ResMut<DialogState>,
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
 ) {
-    if !runtime.dialogue.active() {
+    if !dialogue.active() {
         return;
     }
     if !matches!(mode.get(), GameMode::Dialogue) {
         return;
     }
     if menu.back || menu.start {
-        runtime.dialogue.close();
+        dialogue.close();
         next_mode.set(GameMode::Playing);
         return;
     }
@@ -108,13 +109,13 @@ pub fn dialog_input(
     };
     apply_vertical_scroll(&mut frame, menu.vertical_scroll_steps());
     if frame.up {
-        runtime.dialogue.select_delta(-1);
+        dialogue.select_delta(-1);
     }
     if frame.down {
-        runtime.dialogue.select_delta(1);
+        dialogue.select_delta(1);
     }
     if frame.select {
-        let closed = runtime.dialogue.confirm_or_advance();
+        let closed = dialogue.confirm_or_advance();
         if closed {
             next_mode.set(GameMode::Playing);
         }
@@ -140,10 +141,10 @@ pub fn dialog_input() {}
 /// Runs each frame `.after(sandbox_update).before(sync_dialog_ui)` so
 /// the redirected mode is the one the renderer reads.
 pub fn redirect_post_quest_dialog(
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut dialogue: ResMut<DialogState>,
     save: Res<crate::save::SandboxSave>,
 ) {
-    if !runtime.dialogue.active() {
+    if !dialogue.active() {
         return;
     }
     let bird_dead = matches!(
@@ -154,12 +155,12 @@ pub fn redirect_post_quest_dialog(
     if !bird_dead {
         return;
     }
-    let new_mode = match runtime.dialogue.mode() {
+    let new_mode = match dialogue.mode() {
         DialogMode::PirateAdmiral => Some(DialogMode::PirateAdmiralAfterTreasure),
         DialogMode::PirateRaider => Some(DialogMode::PirateRaiderAfterTreasure),
         _ => None,
     };
     if let Some(mode) = new_mode {
-        runtime.dialogue.set_mode(mode);
+        dialogue.set_mode(mode);
     }
 }

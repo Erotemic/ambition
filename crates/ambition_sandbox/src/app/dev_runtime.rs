@@ -94,6 +94,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut runtime: ResMut<SandboxRuntime>,
+    mut dialogue: ResMut<crate::dialog::DialogState>,
     mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     editable_tuning: Res<EditableMovementTuning>,
@@ -132,6 +133,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut room_set,
             &mut authority.player,
             &mut runtime,
+            &mut dialogue,
             &mut *combat,
             &mut ldtk_index,
             editable_tuning.as_engine(),
@@ -158,6 +160,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut room_set,
             &mut tmp_player,
             &mut runtime,
+            &mut dialogue,
             &mut tmp_combat,
             &mut ldtk_index,
             editable_tuning.as_engine(),
@@ -237,6 +240,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_set: &mut rooms::RoomSet,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    dialogue: &mut crate::dialog::DialogState,
     combat: &mut crate::player::PlayerCombatState,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
@@ -270,7 +274,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     runtime.last_safe_player_pos = transaction.safe_player_pos;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
     features::spawn_room_feature_entities(commands, &transaction.next_spec);
-    runtime.dialogue.close();
+    dialogue.close();
     combat.hitstop_timer = 0.0;
     combat.hitstun_timer = 0.0;
     runtime.room_transition_cooldown = 0.10;

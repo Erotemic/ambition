@@ -257,6 +257,7 @@ pub fn sandbox_update(
             &mut room_set,
             player,
             &mut runtime,
+            &mut queues.dialogue,
             &mut feedback,
             &mut *combat,
             &mut *interaction,

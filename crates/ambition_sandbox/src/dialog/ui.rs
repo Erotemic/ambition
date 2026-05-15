@@ -18,7 +18,7 @@ pub struct DialogChoiceSlot {
 
 pub fn sync_dialog_ui(
     mut commands: Commands,
-    runtime: Res<crate::SandboxRuntime>,
+    dialogue: Res<crate::dialog::DialogState>,
     overlays: Query<Entity, With<DialogOverlayRoot>>,
     ui_fonts: Option<Res<UiFonts>>,
     mut logged_font_state: Local<bool>,
@@ -26,14 +26,14 @@ pub fn sync_dialog_ui(
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
-    if !runtime.dialogue.active() {
+    if !dialogue.active() {
         return;
     }
 
-    let title = runtime.dialogue.title();
-    let body = runtime.dialogue.body();
-    let options = runtime.dialogue.options();
-    let selected = runtime.dialogue.selected_option();
+    let title = dialogue.title();
+    let body = dialogue.body();
+    let options = dialogue.options();
+    let selected = dialogue.selected_option();
 
     let selected_marker = ui_fonts
         .as_deref()

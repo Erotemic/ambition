@@ -72,6 +72,7 @@ pub(super) fn load_room(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    dialogue: &mut crate::dialog::DialogState,
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
@@ -134,7 +135,7 @@ pub(super) fn load_room(
     interaction.down_tap_timer = 0.0;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities(commands, &spec);
-    runtime.dialogue.close();
+    dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.

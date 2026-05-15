@@ -1,6 +1,8 @@
+use bevy::prelude::Resource;
+
 use super::content::{DialogChoice, DialogMode, DialogNode};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Resource)]
 pub struct DialogState {
     active: bool,
     node_id: String,

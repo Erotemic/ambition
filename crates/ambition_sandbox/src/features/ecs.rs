@@ -1365,7 +1365,7 @@ pub fn update_ecs_actors(
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.
 pub fn interact_ecs_actors_and_switches(
-    mut runtime: ResMut<crate::SandboxRuntime>,
+    mut dialogue: ResMut<crate::dialog::DialogState>,
     mut next_mode: ResMut<NextState<crate::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
     mut player: Query<
@@ -1397,7 +1397,7 @@ pub fn interact_ecs_actors_and_switches(
         interaction.clear();
         banner.show(npc.message(), 2.6);
         let request = npc.dialogue_request();
-        runtime.dialogue.start(&request.dialogue_id, &request.npc_name);
+        dialogue.start(&request.dialogue_id, &request.npc_name);
         next_mode.set(crate::GameMode::Dialogue);
         gameplay_effects.write(GameplayEffect::AdvanceQuest(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone())));
         gameplay_effects.write(GameplayEffect::SetFlag { id: "met_any_hub_npc".into(), on: true });
@@ -1979,6 +1979,7 @@ mod tests {
         app.init_state::<crate::GameMode>();
         app.insert_resource(minimal_runtime());
         app.insert_resource(GameplayBanner::default());
+        app.insert_resource(crate::dialog::DialogState::default());
         app.add_message::<GameplayEffect>();
         app.add_message::<VfxMessage>();
 
@@ -2023,9 +2024,9 @@ mod tests {
         app.add_systems(Update, interact_ecs_actors_and_switches);
         app.update();
 
-        let runtime = app.world().resource::<crate::SandboxRuntime>();
+        let dialogue = app.world().resource::<crate::dialog::DialogState>();
         assert!(
-            runtime.dialogue.active(),
+            dialogue.active(),
             "dialogue should be active after NPC interact"
         );
     }

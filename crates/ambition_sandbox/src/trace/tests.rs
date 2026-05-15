@@ -175,7 +175,6 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
             last_safe_player_pos: ae::Vec2::ZERO,
             time_scale: 1.0,
             moving_platforms: vec![dummy_moving_platform()],
-            dialogue: crate::dialog::DialogState::default(),
             physics_settings: crate::physics::PhysicsSandboxSettings::default(),
             room_transition_cooldown: 0.0,
         },
@@ -214,7 +213,6 @@ fn write_dump_writes_two_files() {
             last_safe_player_pos: ae::Vec2::ZERO,
             time_scale: 1.0,
             moving_platforms: vec![dummy_moving_platform()],
-            dialogue: crate::dialog::DialogState::default(),
             physics_settings: crate::physics::PhysicsSandboxSettings::default(),
             room_transition_cooldown: 0.0,
         },
@@ -283,7 +281,6 @@ fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
         last_safe_player_pos: ae::Vec2::ZERO,
         time_scale: 1.0,
         moving_platforms: vec![dummy_moving_platform()],
-        dialogue: crate::dialog::DialogState::default(),
         physics_settings: crate::physics::PhysicsSandboxSettings::default(),
         room_transition_cooldown: 0.0,
     }

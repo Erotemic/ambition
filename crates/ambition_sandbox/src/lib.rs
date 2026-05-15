@@ -195,7 +195,7 @@ pub struct SandboxRuntime {
     pub last_safe_player_pos: ae::Vec2,
     pub time_scale: f32,
     pub moving_platforms: Vec<platforms::MovingPlatformState>,
-    pub dialogue: dialog::DialogState,
+    // Dialogue state lives on the `dialog::DialogState` standalone Resource.
     pub physics_settings: physics::PhysicsSandboxSettings,
     pub room_transition_cooldown: f32,
     // Active player attack state has moved to the `CurrentPlayerAttack` resource.
@@ -257,7 +257,6 @@ impl SandboxRuntime {
             last_safe_player_pos: world.spawn,
             time_scale: 1.0,
             moving_platforms: Vec::new(),
-            dialogue: dialog::DialogState::default(),
             physics_settings,
             room_transition_cooldown: 0.0,
         }
@@ -272,7 +271,6 @@ impl SandboxRuntime {
         // Health lives on `PlayerHealth`; callers reset it directly on the component.
         self.last_safe_player_pos = world.spawn;
         self.time_scale = 1.0;
-        self.dialogue.close();
         self.room_transition_cooldown = 0.0;
         // Active attack state lives on `CurrentPlayerAttack` resource;
         // sandbox_update callers reset it separately.

@@ -161,6 +161,15 @@ pub struct Player {
     pub dodge_roll_timer: f32,
     /// Cooldown before the next dodge roll may begin.
     pub dodge_roll_cooldown: f32,
+    /// True while the shield button is held and the ability is active.
+    /// The sandbox reads this to render the bubble and to check parry
+    /// window status.
+    pub shield_active: bool,
+    /// Countdown from `MovementTuning::parry_window_time` to 0 while the
+    /// shield is up. > 0 means the player is in the parry window and is
+    /// fully invulnerable. Starts at `parry_window_time` on each new shield
+    /// activation; decays naturally regardless of shield state thereafter.
+    pub parry_window_timer: f32,
 }
 
 impl Player {
@@ -222,6 +231,8 @@ impl Player {
             ledge_grab: None,
             dodge_roll_timer: 0.0,
             dodge_roll_cooldown: 0.0,
+            shield_active: false,
+            parry_window_timer: 0.0,
         }
     }
 

@@ -253,6 +253,21 @@ pub(super) fn handle_player_events(
                     kind: ParticleKind::Dust,
                 });
             }
+            ae::MovementOp::ShieldUp => {
+                // Reuse the quick blink tone as a placeholder until a
+                // dedicated Shield SoundCue is added to the sfxbank.
+                sfx.push(SfxMessage::Blink {
+                    pos,
+                    precision: false,
+                });
+                vfx.push(VfxMessage::Burst {
+                    pos: player.pos,
+                    count: 12,
+                    speed: 120.0,
+                    color: [0.50, 0.80, 1.0, 0.70],
+                    kind: ParticleKind::Dust,
+                });
+            }
             ae::MovementOp::LedgeClimbStart
             | ae::MovementOp::LedgeClimbFinish
             | ae::MovementOp::LedgeDrop

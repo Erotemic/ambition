@@ -102,6 +102,14 @@ pub struct AbilitySet {
     /// the dodge roll first; air dashes still consume charges as normal.
     #[serde(default)]
     pub dodge: bool,
+    /// Bubble shield: holding the shield button deploys a protective
+    /// bubble. The first [`crate::PARRY_WINDOW_TIME`] seconds grant
+    /// full invulnerability (parry window). After that the shield
+    /// remains visible but grants no damage reduction in the current
+    /// implementation — the hook exists for future parry mechanics
+    /// (projectile reflection, counter stun).
+    #[serde(default)]
+    pub shield: bool,
 }
 
 impl AbilitySet {
@@ -133,6 +141,7 @@ impl AbilitySet {
             swim: false,
             glide: false,
             dodge: false,
+            shield: false,
         }
     }
 
@@ -164,6 +173,7 @@ impl AbilitySet {
             swim: true,
             glide: true,
             dodge: true,
+            shield: true,
         }
     }
 
@@ -196,12 +206,13 @@ impl AbilitySet {
             directional_special: true,
             rebound: true,
             reset: true,
-            // ledge grab + swim + glide + dodge are mid-game upgrades; not
-            // part of the "sane subset" early-game baseline.
+            // ledge grab + swim + glide + dodge + shield are mid-game upgrades;
+            // not part of the "sane subset" early-game baseline.
             ledge_grab: false,
             swim: false,
             glide: false,
             dodge: false,
+            shield: false,
         }
     }
 

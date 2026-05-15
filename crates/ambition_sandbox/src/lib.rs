@@ -13,6 +13,7 @@
 
 pub mod audio;
 pub mod body_mode;
+pub mod bubble_shield;
 pub mod boss_encounter;
 pub mod boss_sprites;
 pub mod character_sprites;

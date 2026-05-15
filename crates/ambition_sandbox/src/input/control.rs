@@ -46,6 +46,10 @@ pub struct ControlFrame {
     /// Player projectile button was released this frame. Triggers
     /// the actual fireball spawn when a charge was in progress.
     pub projectile_released: bool,
+    /// Shield button is currently held. Maps to `SandboxAction::QuickAction`.
+    /// While held with the `shield` ability active, the engine deploys the
+    /// bubble and tracks the parry window.
+    pub shield_held: bool,
     /// Right stick / aim vector after deadzone is applied. Blink aim and
     /// any future twin-stick aiming should consume this instead of
     /// reading raw axes — the deadzone here is what fixes Xbox 360
@@ -162,6 +166,7 @@ impl ControlFrame {
             projectile_pressed: actions.just_pressed(&SandboxAction::Projectile),
             projectile_held: actions.pressed(&SandboxAction::Projectile),
             projectile_released: actions.just_released(&SandboxAction::Projectile),
+            shield_held: actions.pressed(&SandboxAction::QuickAction),
             aim_x: aim_x_raw,
             // Match the sim's +Y-down convention.
             aim_y: -aim_y,
@@ -213,6 +218,7 @@ impl ControlFrame {
             pogo_pressed: self.pogo_pressed,
             interact_pressed: self.interact_pressed,
             reset_pressed: false,
+            shield_held: self.shield_held,
             control_dt,
         }
     }

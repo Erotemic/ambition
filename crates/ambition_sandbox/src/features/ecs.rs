@@ -1185,7 +1185,7 @@ pub fn update_ecs_hazards(
     let Ok((pb, combat)) = player.single() else { return; };
     let player_body = pb.aabb();
     let player_pos = pb.pos;
-    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && combat.vulnerable();
+    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
     for (_name, mut aabb, mut feature) in &mut hazards {
         let hazard = &mut feature.hazard;
         hazard.update(dt);
@@ -1251,7 +1251,7 @@ pub fn update_ecs_bosses(
     let Ok((pb, combat, authority)) = player_query.single() else { return; };
     let player = authority.player.clone();
     let player_body = pb.aabb();
-    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && combat.vulnerable();
+    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
     for (mut aabb, mut feature) in &mut bosses {
         let boss = &mut feature.boss;
         boss.update(&feature_world, &player, feel_tuning.feature_combat_tuning(), dt);
@@ -1319,7 +1319,7 @@ pub fn update_ecs_actors(
     let Ok((pb, combat, authority)) = player_query.single() else { return; };
     let player = authority.player.clone();
     let player_body = pb.aabb();
-    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && combat.vulnerable();
+    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
     for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
@@ -1835,6 +1835,8 @@ mod tests {
             body_mode: ambition_engine::BodyMode::Standing,
             invincible: false,
             dodge_rolling: false,
+            shielding: false,
+            parrying: false,
         };
         let interaction = crate::player::PlayerInteractionState {
             interact_buffer_timer: 0.15,

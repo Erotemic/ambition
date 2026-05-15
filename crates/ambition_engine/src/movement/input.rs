@@ -36,6 +36,11 @@ pub struct InputState {
     /// interactions remain sandbox-owned.
     pub interact_pressed: bool,
     pub reset_pressed: bool,
+    /// Shield button is currently held. When the `shield` ability is active,
+    /// holding this deploys the bubble; releasing drops it. The first
+    /// `MovementTuning::parry_window_time` seconds after activation are the
+    /// parry window (full invulnerability).
+    pub shield_held: bool,
     /// Real, unscaled frame duration supplied by the presentation layer.
     ///
     /// Most simulation uses the scaled `raw_dt`, but precision-blink aiming is

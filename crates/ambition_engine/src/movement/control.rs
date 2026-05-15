@@ -30,6 +30,7 @@ pub fn update_player_control_with_tuning(
     handle_attacks(world, player, input, tuning, &mut events);
     handle_dodge(player, input, tuning, &mut events);
     handle_dash(player, input, tuning, &mut events);
+    handle_shield(player, input, tuning, &mut events);
     handle_jump_release(player, input);
 
     events
@@ -229,6 +230,28 @@ fn handle_dodge(
         player.dash_buffer_timer = 0.0;
         events.op(player, MovementOp::DodgeRoll);
     }
+}
+
+fn handle_shield(
+    player: &mut Player,
+    input: InputState,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    if !player.abilities.shield {
+        player.shield_active = false;
+        player.parry_window_timer = 0.0;
+        return;
+    }
+    // Shield cannot be held during an active dash; the dash always wins.
+    let can_shield = player.dash_timer <= 0.0;
+    let want_shield = input.shield_held && can_shield;
+    if want_shield && !player.shield_active {
+        // Fresh activation: start the parry window and record the op.
+        player.parry_window_timer = tuning.parry_window_time;
+        events.op(player, MovementOp::ShieldUp);
+    }
+    player.shield_active = want_shield;
 }
 
 fn handle_dash(

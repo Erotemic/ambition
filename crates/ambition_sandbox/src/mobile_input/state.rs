@@ -152,6 +152,7 @@ pub fn fold_touch_into_control_frame(
         projectile_pressed: state.projectile.pressed_this_frame,
         projectile_held: state.projectile.held,
         projectile_released: state.projectile.released_this_frame,
+        shield_held: false,
         aim_x,
         aim_y,
     }

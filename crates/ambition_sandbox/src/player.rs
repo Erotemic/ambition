@@ -54,6 +54,12 @@ pub struct PlayerBody {
     pub body_mode: ae::BodyMode,
     pub invincible: bool,
     pub dodge_rolling: bool,
+    /// True while the shield ability is active (button held, not dashing).
+    /// Used by the sandbox to show the bubble visual.
+    pub shielding: bool,
+    /// True during the parry window: shield is active AND `parry_window_timer > 0`.
+    /// Damage checks gate contact damage behind `!parrying`.
+    pub parrying: bool,
 }
 
 impl PlayerBody {
@@ -72,6 +78,8 @@ impl PlayerBody {
             body_mode: player.body_mode,
             invincible: player.invincible,
             dodge_rolling: player.dodge_roll_timer > 0.0,
+            shielding: player.shield_active,
+            parrying: player.shield_active && player.parry_window_timer > 0.0,
         }
     }
 

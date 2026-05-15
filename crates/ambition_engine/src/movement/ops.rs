@@ -27,6 +27,7 @@ pub enum MovementOp {
     Rebound,
     Slash,
     Reset,
+    ShieldUp,
 }
 
 impl MovementOp {
@@ -53,6 +54,7 @@ impl MovementOp {
             MovementOp::Rebound => "R",
             MovementOp::Slash => "S",
             MovementOp::Reset => "0",
+            MovementOp::ShieldUp => "SH",
         }
     }
 
@@ -79,6 +81,7 @@ impl MovementOp {
             MovementOp::Rebound => "rebound",
             MovementOp::Slash => "slash",
             MovementOp::Reset => "reset",
+            MovementOp::ShieldUp => "shield up",
         }
     }
 }

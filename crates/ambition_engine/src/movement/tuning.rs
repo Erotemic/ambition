@@ -69,6 +69,8 @@ pub const DODGE_ROLL_TIME: f32 = 0.22;
 pub const DODGE_ROLL_SPEED: f32 = 530.0;
 /// Cooldown after a dodge roll before the next one may start.
 pub const DODGE_ROLL_COOLDOWN: f32 = 0.42;
+/// Parry window: full invulnerability during the first moments of shield activation.
+pub const PARRY_WINDOW_TIME: f32 = 0.15;
 
 /// Tunable movement parameters.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -118,6 +120,7 @@ pub struct MovementTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
+    pub parry_window_time: f32,
 }
 
 impl Default for MovementTuning {
@@ -168,4 +171,5 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     dodge_roll_time: DODGE_ROLL_TIME,
     dodge_roll_speed: DODGE_ROLL_SPEED,
     dodge_roll_cooldown: DODGE_ROLL_COOLDOWN,
+    parry_window_time: PARRY_WINDOW_TIME,
 };

@@ -302,6 +302,7 @@ pub struct EditableAbilitySet {
     pub swim: bool,
     pub glide: bool,
     pub dodge: bool,
+    pub shield: bool,
 }
 
 impl EditableAbilitySet {
@@ -332,6 +333,7 @@ impl EditableAbilitySet {
             swim: self.swim,
             glide: self.glide,
             dodge: self.dodge,
+            shield: self.shield,
         }
     }
 }
@@ -364,6 +366,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             swim: value.swim,
             glide: value.glide,
             dodge: value.dodge,
+            shield: value.shield,
         }
     }
 }
@@ -419,6 +422,7 @@ pub struct EditableMovementTuning {
     pub dodge_roll_time: f32,
     pub dodge_roll_speed: f32,
     pub dodge_roll_cooldown: f32,
+    pub parry_window_time: f32,
 }
 
 impl EditableMovementTuning {
@@ -465,6 +469,7 @@ impl EditableMovementTuning {
             dodge_roll_time: self.dodge_roll_time,
             dodge_roll_speed: self.dodge_roll_speed,
             dodge_roll_cooldown: self.dodge_roll_cooldown,
+            parry_window_time: self.parry_window_time,
         }
     }
 }
@@ -513,6 +518,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             dodge_roll_time: value.dodge_roll_time,
             dodge_roll_speed: value.dodge_roll_speed,
             dodge_roll_cooldown: value.dodge_roll_cooldown,
+            parry_window_time: value.parry_window_time,
         }
     }
 }

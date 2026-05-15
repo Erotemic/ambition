@@ -115,6 +115,7 @@ impl From<AgentAction> for ControlFrame {
             projectile_pressed: a.projectile,
             projectile_held: a.projectile_held,
             projectile_released: a.projectile_released,
+            shield_held: false,
             aim_x: a.aim_x,
             aim_y: a.aim_y,
         }

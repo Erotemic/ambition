@@ -557,6 +557,20 @@ pub fn add_presentation_plugins(app: &mut App) {
                 .chain()
                 .after(sync_visuals),
         )
+        // Bubble shield visual: similar pattern — build once, spawn
+        // lazily, toggle / tint every frame from `PlayerBody.shielding`
+        // and `PlayerBody.parrying`. Must run after
+        // `write_player_ecs_components` so `PlayerBody` is current.
+        .add_systems(Startup, crate::bubble_shield::build_bubble_shield_sprite)
+        .add_systems(
+            Update,
+            (
+                crate::bubble_shield::spawn_bubble_shield_visual,
+                crate::bubble_shield::sync_bubble_shield_visual,
+            )
+                .chain()
+                .after(sync_visuals),
+        )
         // Player projectile visuals: rebuild the sprite ring each tick
         // from `PlayerProjectileState::bodies`. Lives in its own
         // `add_systems` because the main visible-only chain is at the

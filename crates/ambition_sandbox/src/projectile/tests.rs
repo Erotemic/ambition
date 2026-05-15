@@ -41,6 +41,8 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
         body_mode: ae::BodyMode::Standing,
         invincible: false,
         dodge_rolling: false,
+        shielding: false,
+        parrying: false,
     };
     app.world_mut().spawn((crate::player::PlayerEntity, body));
 }

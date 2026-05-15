@@ -105,6 +105,7 @@ pub fn process_sandbox_reset_request(
         (
             &mut crate::player::PlayerMovementAuthority,
             &mut crate::player::PlayerAnimState,
+            &mut crate::player::PlayerCombatState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -166,9 +167,11 @@ pub fn process_sandbox_reset_request(
     // frame starts from the spawn position rather than the pre-reset position.
     // Also zero the animation state so post-reset frames don't continue a
     // mid-air slash or dash-startup pose from before the reset.
-    if let Ok((mut authority, mut anim)) = player_q.single_mut() {
+    if let Ok((mut authority, mut anim, mut combat)) = player_q.single_mut() {
         authority.player = runtime.player.clone();
         anim.reset();
+        combat.reset();
+        combat.flash_timer = 0.18;
     }
     crate::features::spawn_room_feature_entities(&mut commands, &start_spec);
     runtime.moving_platforms = platforms::moving_platforms_for_room(&start_spec);

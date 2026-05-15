@@ -3,7 +3,7 @@ use crate::input::ControlFrame;
 
 #[test]
 fn sim_constructs_and_returns_initial_observation() {
-    let sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sim builds");
+    let mut sim = SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sim builds");
     let obs = sim.observation();
     assert_eq!(obs.tick, 0, "fresh sim is at tick 0");
     assert!(obs.alive(), "spawned player is alive");
@@ -155,10 +155,10 @@ fn sim_can_start_in_a_specific_room_via_options() {
     // Build a sim explicitly starting in mob_lab. The default
     // start room is central_hub_complex, so a successful override
     // should change `active_room`.
-    let default_sim = SandboxSim::new().expect("default builds");
+    let mut default_sim = SandboxSim::new().expect("default builds");
     let default_room = default_sim.observation().active_room.clone();
 
-    let mob_lab_sim = SandboxSim::new_with_options(
+    let mut mob_lab_sim = SandboxSim::new_with_options(
         SandboxSimOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("mob_lab"),
@@ -177,7 +177,7 @@ fn unknown_start_room_does_not_panic_or_error() {
     // Per app.rs's resolution: an unknown start room id prints a
     // warning and falls back to the LDtk-authored start. The sim
     // still constructs cleanly.
-    let sim = SandboxSim::new_with_options(
+    let mut sim = SandboxSim::new_with_options(
         SandboxSimOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room("definitely_not_a_real_room"),
@@ -188,7 +188,7 @@ fn unknown_start_room_does_not_panic_or_error() {
 
 #[test]
 fn observation_reports_no_water_no_climbable_in_default_spawn() {
-    let sim = SandboxSim::new().expect("sim builds");
+    let mut sim = SandboxSim::new().expect("sim builds");
     let obs = sim.observation();
     // central_hub_complex spawn has neither water nor climbables.
     assert!(!obs.in_water, "default spawn should not be in water");

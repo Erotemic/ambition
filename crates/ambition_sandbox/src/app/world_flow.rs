@@ -23,8 +23,8 @@ use super::update::*;
 #[allow(unused_imports)]
 use super::*;
 
-pub(super) fn sandbox_dt(runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
-    if runtime.hitstop_timer > 0.0 {
+pub(super) fn sandbox_dt(hitstop_timer: f32, runtime: &SandboxRuntime, frame_dt: f32) -> f32 {
+    if hitstop_timer > 0.0 {
         0.0
     } else {
         frame_dt * runtime.time_scale
@@ -41,6 +41,7 @@ pub(super) fn reset_sandbox(
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
 ) {
@@ -49,7 +50,8 @@ pub(super) fn reset_sandbox(
     player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
     anim.reset();
-    runtime.flash_timer = feel.reset_flash_time;
+    combat.reset();
+    combat.flash_timer = feel.reset_flash_time;
     let reset_to = player.pos;
     sfx.push(SfxMessage::Reset { pos: reset_to });
     vfx.push(VfxMessage::ResetEffects {
@@ -64,6 +66,7 @@ pub(super) fn load_room(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    combat: &mut crate::player::PlayerCombatState,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
@@ -110,14 +113,14 @@ pub(super) fn load_room(
     } else {
         crate::ROOM_DOOR_CAMERA_SNAP_TIME
     };
-    runtime.flash_timer = if edge_exit {
+    combat.flash_timer = if edge_exit {
         feel.edge_transition_flash
     } else {
         feel.door_transition_flash
     };
-    runtime.hitstop_timer = 0.0;
-    runtime.damage_invuln_timer = 0.0;
-    runtime.hitstun_timer = 0.0;
+    combat.hitstop_timer = 0.0;
+    combat.damage_invuln_timer = 0.0;
+    combat.hitstun_timer = 0.0;
     runtime.last_safe_player_pos = player.pos;
     runtime.time_scale = 1.0;
     runtime.down_tap_timer = 0.0;
@@ -171,6 +174,7 @@ pub(super) fn handle_player_events(
     vfx: &mut Vec<VfxMessage>,
     player: &ae::Player,
     runtime: &mut SandboxRuntime,
+    combat: &mut crate::player::PlayerCombatState,
     events: ae::FrameEvents,
     was_grounded: Option<bool>,
 ) {
@@ -297,7 +301,7 @@ pub(super) fn handle_player_events(
         });
     }
     if events.hazard || !events.operations.is_empty() {
-        runtime.flash_timer = 0.12;
+        combat.flash_timer = 0.12;
     }
     if let Some(was_grounded) = was_grounded {
         if !was_grounded && player.on_ground {
@@ -322,20 +326,22 @@ pub(super) fn death_respawn_player(
     feel: SandboxFeelTuning,
     from: ae::Vec2,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
 ) {
     let to = world.spawn;
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     runtime.reset(world, tuning);
     anim.reset();
+    combat.reset();
     if let Some(health) = player_health.as_deref_mut() {
         health.reset();
         runtime.player_health = health.health;
     } else {
         runtime.player_health.reset();
     }
-    runtime.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
-    runtime.flash_timer = feel.reset_flash_time.max(0.35);
+    combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
+    combat.flash_timer = feel.reset_flash_time.max(0.35);
     banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
     sfx.push(SfxMessage::Death { pos: from });
     vfx.push(VfxMessage::ResetEffects { from, to });
@@ -356,6 +362,7 @@ pub(super) fn handle_player_damage_events(
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
 ) {
     let Some(mut damage) = damage_events.first().copied() else {
         return;
@@ -393,15 +400,16 @@ pub(super) fn handle_player_damage_events(
             feel,
             damage.impact_pos,
             anim,
+            combat,
         );
         return;
     }
     match damage.mode {
         features::PlayerDamageMode::SafeRespawn => {
-            safe_respawn_player(sfx, vfx, player, runtime, tuning, feel, damage.impact_pos);
+            safe_respawn_player(sfx, vfx, player, runtime, combat, tuning, feel, damage.impact_pos);
         }
         features::PlayerDamageMode::Knockback => {
-            apply_player_knockback(sfx, vfx, player, runtime, tuning, feel, damage);
+            apply_player_knockback(sfx, vfx, player, runtime, combat, tuning, feel, damage);
         }
     }
 }
@@ -411,6 +419,7 @@ pub(super) fn safe_respawn_player(
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
@@ -418,10 +427,10 @@ pub(super) fn safe_respawn_player(
     let to = runtime.last_safe_player_pos;
     player.reset_to(to);
     player.refresh_movement_resources(tuning);
-    runtime.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
-    runtime.hitstun_timer = 0.0;
-    runtime.hitstop_timer = 0.0;
-    runtime.flash_timer = feel.reset_flash_time;
+    combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
+    combat.hitstun_timer = 0.0;
+    combat.hitstop_timer = 0.0;
+    combat.flash_timer = feel.reset_flash_time;
     runtime.time_scale = 1.0;
     sfx.push(SfxMessage::Reset { pos: to });
     vfx.push(VfxMessage::ResetEffects { from, to });
@@ -431,7 +440,8 @@ pub(super) fn apply_player_knockback(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
+    _runtime: &mut SandboxRuntime,
+    combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     damage: features::PlayerDamageEvent,
@@ -460,14 +470,14 @@ pub(super) fn apply_player_knockback(
     player.vel.x = dir * knock_x * strength;
     player.vel.y = -knock_y * strength;
     player.refresh_movement_resources(tuning);
-    runtime.hitstun_timer = if boss_hit {
+    combat.hitstun_timer = if boss_hit {
         feel.boss_hitstun_time
     } else {
         feel.enemy_hitstun_time
     } * strength.max(0.35);
-    runtime.damage_invuln_timer = feel.knockback_invulnerability_time;
-    runtime.hitstop_timer = feel.player_damage_hitstop_time;
-    runtime.flash_timer = 0.20;
+    combat.damage_invuln_timer = feel.knockback_invulnerability_time;
+    combat.hitstop_timer = feel.player_damage_hitstop_time;
+    combat.flash_timer = 0.20;
     sfx.push(SfxMessage::Hit {
         pos: damage.impact_pos,
     });
@@ -562,6 +572,7 @@ pub(super) fn advance_attack(
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -639,8 +650,8 @@ pub(super) fn advance_attack(
             if landed {
                 sfx.push(SfxMessage::Hit { pos: player_pos });
             }
-            runtime.hitstop_timer = feel.attack_hitstop_time;
-            runtime.flash_timer = 0.16;
+            combat.hitstop_timer = feel.attack_hitstop_time;
+            combat.flash_timer = 0.16;
         }
         if killed {
             sfx.push(SfxMessage::Death { pos: player_pos });

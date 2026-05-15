@@ -130,15 +130,16 @@ pub(super) fn non_looping(anim: CharacterAnim) -> bool {
 /// time to sell the arrival.
 ///
 /// `anim` is the authoritative ECS component for presentation timers.
-/// `runtime` is still queried for non-migrated fields (hitstun, blink
-/// camera timer, player_attack) that will move to their own components
-/// in follow-up migration stages.
+/// `combat` provides `hitstun_timer` (now on `PlayerCombatState`).
+/// `runtime` is still queried for non-migrated fields (blink camera timer,
+/// player_attack) that will move to their own components in follow-up stages.
 pub fn pick_player_anim(
     anim: &PlayerAnimState,
+    combat: &crate::player::PlayerCombatState,
     runtime: &SandboxRuntime,
     player: &ae::Player,
 ) -> CharacterAnim {
-    if runtime.hitstun_timer > 0.05 {
+    if combat.hitstun_timer > 0.05 {
         return CharacterAnim::Hit;
     }
     if runtime.blink_in_timer > 0.0 {

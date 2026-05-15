@@ -100,7 +100,10 @@ pub(super) fn handle_ldtk_hot_reload(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
     mut player_q: Query<
-        &mut crate::player::PlayerMovementAuthority,
+        (
+            &mut crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerCombatState,
+        ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
@@ -122,13 +125,14 @@ pub(super) fn handle_ldtk_hot_reload(
         return;
     }
 
-    if let Ok(mut authority) = player_q.single_mut() {
+    if let Ok((mut authority, mut combat)) = player_q.single_mut() {
         match reload_ldtk_world_from_disk(
             &mut commands,
             &mut world,
             &mut room_set,
             &mut authority.player,
             &mut runtime,
+            &mut *combat,
             &mut ldtk_index,
             editable_tuning.as_engine(),
             &room_visuals,
@@ -147,12 +151,14 @@ pub(super) fn handle_ldtk_hot_reload(
         }
     } else {
         let mut tmp_player = runtime.player.clone();
+        let mut tmp_combat = crate::player::PlayerCombatState::default();
         match reload_ldtk_world_from_disk(
             &mut commands,
             &mut world,
             &mut room_set,
             &mut tmp_player,
             &mut runtime,
+            &mut tmp_combat,
             &mut ldtk_index,
             editable_tuning.as_engine(),
             &room_visuals,
@@ -231,6 +237,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_set: &mut rooms::RoomSet,
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
+    combat: &mut crate::player::PlayerCombatState,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
@@ -264,8 +271,8 @@ pub(super) fn reload_ldtk_world_from_disk(
     runtime.moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
     features::spawn_room_feature_entities(commands, &transaction.next_spec);
     runtime.dialogue.close();
-    runtime.hitstop_timer = 0.0;
-    runtime.hitstun_timer = 0.0;
+    combat.hitstop_timer = 0.0;
+    combat.hitstun_timer = 0.0;
     runtime.room_transition_cooldown = 0.10;
     runtime.preset_flash = 1.0;
 

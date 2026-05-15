@@ -124,30 +124,38 @@ impl PlayerHealth {
     }
 }
 
-/// ECS-visible player combat/timer state. Written every frame by
-/// `write_player_ecs_components` from `SandboxRuntime` combat timers.
-#[derive(Component, Clone, Debug, PartialEq)]
+/// ECS-authoritative player combat/timer state.
+///
+/// The four timer fields are written directly by the phase helpers and
+/// `world_flow` functions that produce damage/hit/respawn events.
+/// `write_player_ecs_components` no longer touches them; it only syncs the
+/// `attacking` flag from `SandboxRuntime::player_attack` so rendering
+/// systems can check attack state without querying the runtime.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct PlayerCombatState {
+    /// Presentation flash (damage hit-blink). Decays in `cleanup_timers_phase`.
     pub flash_timer: f32,
+    /// Hitstop: freezes `time_scale` to 0 while positive. Decays in `input_timer_phase`.
     pub hitstop_timer: f32,
+    /// Invulnerability window after taking damage. Decays in `input_timer_phase`.
     pub damage_invuln_timer: f32,
+    /// Partial-control penalty after knockback. Decays in `input_timer_phase`.
     pub hitstun_timer: f32,
+    /// Mirrored each frame from `runtime.player_attack.is_some()`.
     pub attacking: bool,
 }
 
 impl PlayerCombatState {
-    pub fn from_runtime(runtime: &crate::SandboxRuntime) -> Self {
-        Self {
-            flash_timer: runtime.flash_timer,
-            hitstop_timer: runtime.hitstop_timer,
-            damage_invuln_timer: runtime.damage_invuln_timer,
-            hitstun_timer: runtime.hitstun_timer,
-            attacking: runtime.player_attack.is_some(),
-        }
-    }
-
     pub fn vulnerable(&self) -> bool {
         self.damage_invuln_timer <= 0.0
+    }
+
+    pub fn reset(&mut self) {
+        self.flash_timer = 0.0;
+        self.hitstop_timer = 0.0;
+        self.damage_invuln_timer = 0.0;
+        self.hitstun_timer = 0.0;
+        self.attacking = false;
     }
 }
 
@@ -231,9 +239,13 @@ impl PlayerHealRequested {
 /// first player ECS migration chunk.
 pub type PlayerDamageRequested = crate::features::PlayerDamageEvent;
 
-/// Write `PlayerBody`, `PlayerCombatState`, and `PlayerInteractionState` from
-/// the authoritative sources each frame so rendering, hazard, and interaction
-/// systems see current values instead of stale spawn-time data.
+/// Write `PlayerBody`, `PlayerCombatState::attacking`, and `PlayerInteractionState`
+/// from the authoritative sources each frame.
+///
+/// `PlayerCombatState`'s four timer fields are authoritative on the component
+/// (written by the phase helpers directly). Only `attacking` is mirrored here
+/// because it is derived from `runtime.player_attack`, which is still in
+/// `SandboxRuntime` pending a later migration stage.
 pub fn write_player_ecs_components(
     runtime: Res<crate::SandboxRuntime>,
     mut players: Query<
@@ -250,7 +262,7 @@ pub fn write_player_ecs_components(
         return;
     };
     *body = PlayerBody::from_player(&authority.player);
-    *combat = PlayerCombatState::from_runtime(&runtime);
+    combat.attacking = runtime.player_attack.is_some();
     *interaction = PlayerInteractionState::from_runtime(&runtime);
 }
 

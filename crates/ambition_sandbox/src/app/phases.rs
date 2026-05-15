@@ -32,11 +32,12 @@ use super::*;
 pub(super) fn mode_gate_phase(
     mode: &GameMode,
     runtime: &mut SandboxRuntime,
+    combat: &mut crate::player::PlayerCombatState,
     frame_dt: f32,
 ) -> PhaseOutcome {
     if matches!(mode, GameMode::Dialogue) {
         runtime.time_scale = 0.0;
-        runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
+        combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
         runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
         return PhaseOutcome::Return;
     }
@@ -46,7 +47,7 @@ pub(super) fn mode_gate_phase(
         // and HUD sync remain responsive because those systems are outside
         // this early return.
         runtime.time_scale = 0.0;
-        runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
+        combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
         runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
         return PhaseOutcome::Return;
     }
@@ -67,12 +68,13 @@ pub(super) fn mode_gate_phase(
 pub(super) fn input_timer_phase(
     controls: &mut ControlFrame,
     runtime: &mut SandboxRuntime,
+    combat: &mut crate::player::PlayerCombatState,
     feel: SandboxFeelTuning,
     frame_dt: f32,
 ) -> bool {
     runtime.room_transition_cooldown = (runtime.room_transition_cooldown - frame_dt).max(0.0);
-    runtime.damage_invuln_timer = (runtime.damage_invuln_timer - frame_dt).max(0.0);
-    runtime.hitstun_timer = (runtime.hitstun_timer - frame_dt).max(0.0);
+    combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
+    combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
     let double_tap_down =
         runtime.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
     controls.fast_fall_pressed = double_tap_down;
@@ -88,7 +90,7 @@ pub(super) fn input_timer_phase(
     }
     let door_double_tap_up =
         runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
-    runtime.hitstop_timer = (runtime.hitstop_timer - frame_dt).max(0.0);
+    combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
     door_double_tap_up
 }
 
@@ -108,6 +110,7 @@ pub(super) fn reset_phase(
     feel: SandboxFeelTuning,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
 ) -> PhaseOutcome {
     if controls.reset_pressed {
         reset_sandbox(
@@ -117,6 +120,7 @@ pub(super) fn reset_phase(
             player,
             runtime,
             anim,
+            combat,
             tuning,
             feel,
         );
@@ -149,11 +153,12 @@ pub(super) fn player_control_phase(
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
 ) -> PhaseOutcome {
     // Two-clock update:
     // - control_dt is real time for responsive inputs and precision-blink aim;
     // - sim_dt is scaled game time for gravity, platforms, enemies, particles.
-    let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
+    let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
     let control_world =
         features::world_with_sandbox_solids(world, &runtime.moving_platforms, feature_ecs_overlay);
@@ -172,6 +177,7 @@ pub(super) fn player_control_phase(
             player,
             runtime,
             anim,
+            combat,
             tuning,
             feel,
         );
@@ -190,6 +196,7 @@ pub(super) fn player_control_phase(
         &mut feedback.vfx,
         player,
         runtime,
+        combat,
         control_events,
         None,
     );
@@ -219,12 +226,13 @@ pub(super) fn player_simulation_phase(
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
 ) -> PhaseOutcome {
-    let filtered = controls_for_hitstun(controls, feel, runtime.hitstun_timer);
+    let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
 
-    runtime.update_time_scale(player, frame_dt, feel);
-    let sim_dt = sandbox_dt(runtime, frame_dt);
+    runtime.update_time_scale(player, combat.hitstop_timer, frame_dt, feel);
+    let sim_dt = sandbox_dt(combat.hitstop_timer, runtime, frame_dt);
 
     let mut riding_platform = None;
     for (index, platform) in runtime.moving_platforms.iter_mut().enumerate() {
@@ -285,6 +293,7 @@ pub(super) fn player_simulation_phase(
             player,
             runtime,
             anim,
+            combat,
             tuning,
             feel,
         );
@@ -296,6 +305,7 @@ pub(super) fn player_simulation_phase(
         &mut feedback.vfx,
         player,
         runtime,
+        combat,
         sim_events,
         Some(was_grounded),
     );
@@ -318,11 +328,12 @@ pub(super) fn player_simulation_phase(
 pub(super) fn interaction_input_phase(
     controls: &mut ControlFrame,
     runtime: &mut SandboxRuntime,
+    combat: &crate::player::PlayerCombatState,
     feel: SandboxFeelTuning,
     door_double_tap_up: bool,
     frame_dt: f32,
 ) {
-    let raw_interact_pressed = if runtime.hitstun_timer > 0.0 {
+    let raw_interact_pressed = if combat.hitstun_timer > 0.0 {
         false
     } else {
         controls.interact_pressed || door_double_tap_up
@@ -350,6 +361,7 @@ pub(super) fn damage_heal_dialogue_phase(
     difficulty_multiplier: f32,
     feature_ecs_overlay: &features::FeatureEcsWorldOverlay,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
 ) {
     let feature_damaged_player = !player_damage_events.is_empty();
     handle_player_damage_events(
@@ -366,6 +378,7 @@ pub(super) fn damage_heal_dialogue_phase(
         feel,
         difficulty_multiplier,
         anim,
+        combat,
     );
     let safe_world = features::world_with_sandbox_solids(
         world,
@@ -374,7 +387,7 @@ pub(super) fn damage_heal_dialogue_phase(
     );
     let ctx = crate::SafePositionContext {
         damaged_this_frame: feature_damaged_player,
-        in_hitstun: runtime.hitstun_timer > 0.0,
+        in_hitstun: combat.hitstun_timer > 0.0,
         feature_requested_reset: false,
         blink_grace_active: player.blink_grace_timer > 0.0,
         room_transitioning: runtime.room_transition_cooldown > 0.0,
@@ -399,6 +412,7 @@ pub(super) fn room_transition_phase(
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
+    combat: &mut crate::player::PlayerCombatState,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -436,6 +450,7 @@ pub(super) fn room_transition_phase(
         &mut feedback.vfx,
         player,
         runtime,
+        combat,
         world,
         room_set,
         room_visuals,
@@ -470,8 +485,9 @@ pub(super) fn attack_phase(
     damage_events: &mut MessageWriter<features::DamageEvent>,
     pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
 ) {
-    if runtime.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
+    if combat.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
         start_attack(&mut feedback.sfx, &mut feedback.vfx, player, runtime, anim, *controls);
     }
     advance_attack(
@@ -481,6 +497,7 @@ pub(super) fn attack_phase(
         player,
         runtime,
         anim,
+        combat,
         tuning,
         feel,
         frame_dt,
@@ -499,9 +516,10 @@ pub(super) fn cleanup_timers_phase(
     player: &ae::Player,
     runtime: &mut SandboxRuntime,
     anim: &mut crate::player::PlayerAnimState,
+    combat: &mut crate::player::PlayerCombatState,
     frame_dt: f32,
 ) {
-    runtime.flash_timer = (runtime.flash_timer - frame_dt).max(0.0);
+    combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
     runtime.preset_flash = (runtime.preset_flash - frame_dt).max(0.0);
     anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
     runtime.blink_in_timer = (runtime.blink_in_timer - frame_dt).max(0.0);

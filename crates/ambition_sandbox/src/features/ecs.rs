@@ -953,7 +953,6 @@ pub fn apply_feature_damage_events(
     mut commands: Commands,
     mut damage_events: MessageReader<DamageEvent>,
     mut pogo_bounces: MessageReader<PogoBounceEvent>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<(Entity, &FeatureId, &FeatureName, &FeatureAabb, &mut BreakableFeature), With<FeatureSimEntity>>,
     mut actors: Query<(
@@ -966,6 +965,7 @@ pub fn apply_feature_damage_events(
         &mut ActorCombatState,
     ), With<FeatureSimEntity>>,
     mut bosses: Query<(&FeatureId, &FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
+    mut player_combat_q: Query<&mut crate::player::PlayerCombatState, With<crate::player::PlayerEntity>>,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -1117,8 +1117,10 @@ pub fn apply_feature_damage_events(
         }
 
         if actor_hit_this_event || boss_hit_this_event {
-            runtime.hitstop_timer = runtime.hitstop_timer.max(0.06);
-            runtime.flash_timer = runtime.flash_timer.max(0.10);
+            if let Ok(mut combat) = player_combat_q.single_mut() {
+                combat.hitstop_timer = combat.hitstop_timer.max(0.06);
+                combat.flash_timer = combat.flash_timer.max(0.10);
+            }
             sfx.write(SfxMessage::Hit { pos: event.volume.center() });
         }
 

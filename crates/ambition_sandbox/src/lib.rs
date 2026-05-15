@@ -183,10 +183,6 @@ pub struct SandboxRuntime {
     pub presets: Vec<KeyboardPreset>,
     pub preset_index: usize,
     pub preset_flash: f32,
-    pub flash_timer: f32,
-    pub hitstop_timer: f32,
-    pub damage_invuln_timer: f32,
-    pub hitstun_timer: f32,
     pub last_safe_player_pos: ae::Vec2,
     pub time_scale: f32,
     pub down_tap_timer: f32,
@@ -276,10 +272,6 @@ impl SandboxRuntime {
             presets: KeyboardPreset::presets().to_vec(),
             preset_index: 0,
             preset_flash: 1.2,
-            flash_timer: 0.0,
-            hitstop_timer: 0.0,
-            damage_invuln_timer: 0.0,
-            hitstun_timer: 0.0,
             last_safe_player_pos: world.spawn,
             time_scale: 1.0,
             down_tap_timer: 0.0,
@@ -303,10 +295,9 @@ impl SandboxRuntime {
         self.player.reset_to(world.spawn);
         self.player.refresh_movement_resources(tuning);
         self.player_health.reset();
-        self.flash_timer = 0.18;
-        self.hitstop_timer = 0.0;
-        self.damage_invuln_timer = 0.0;
-        self.hitstun_timer = 0.0;
+        // Combat timers (flash/hitstop/invuln/hitstun) live on the
+        // `PlayerCombatState` ECS component; callers that trigger a full
+        // reset call `PlayerCombatState::reset()` on the component directly.
         self.last_safe_player_pos = world.spawn;
         self.time_scale = 1.0;
         self.down_tap_timer = 0.0;
@@ -410,8 +401,8 @@ impl SandboxRuntime {
         }
     }
 
-    pub fn update_time_scale(&mut self, player: &ae::Player, frame_dt: f32, feel: SandboxFeelTuning) {
-        let target = if self.hitstop_timer > 0.0 {
+    pub fn update_time_scale(&mut self, player: &ae::Player, hitstop_timer: f32, frame_dt: f32, feel: SandboxFeelTuning) {
+        let target = if hitstop_timer > 0.0 {
             0.0
         } else if player.blink_aiming {
             feel.bullet_time_scale

@@ -314,7 +314,7 @@ pub fn animate_player(
     else {
         return;
     };
-    let anim = crate::character_sprites::pick_player_anim(anim_state, &runtime, &authority.player);
+    let anim = crate::character_sprites::pick_player_anim(anim_state, player_combat, &runtime, &authority.player);
     animator.request(anim);
     let index = animator.tick(time.delta_secs());
     if let Some(atlas) = sprite.texture_atlas.as_mut() {

@@ -69,6 +69,7 @@ pub fn sandbox_update(
             &mut crate::player::PlayerMovementAuthority,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerInteractionState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -89,11 +90,11 @@ pub fn sandbox_update(
         * user_settings.gameplay.player_damage_multiplier
         * assist_factor;
 
-    // Acquire the ECS player authority, animation state, and combat state for
-    // this frame. Phase helpers receive `player`, `anim`, and `combat` directly;
+    // Acquire the ECS player authority, animation state, combat state, and
+    // interaction state for this frame. Phase helpers receive these directly;
     // `runtime.player` is updated once at the end as a shadow cache for callers
     // not yet migrated to the ECS query.
-    let Ok((mut authority, mut anim, mut combat)) = player_q.single_mut() else {
+    let Ok((mut authority, mut anim, mut combat, mut interaction)) = player_q.single_mut() else {
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     };
@@ -126,7 +127,7 @@ pub fn sandbox_update(
     // lives in the pause menu so it can drive a real overlay.
     let _ = controls.start_pressed;
 
-    let door_double_tap_up = input_timer_phase(&mut controls, &mut runtime, &mut *combat, feel, frame_dt);
+    let door_double_tap_up = input_timer_phase(&mut controls, &mut runtime, &mut *combat, &mut *interaction, feel, frame_dt);
 
     if matches!(
         reset_phase(
@@ -140,6 +141,7 @@ pub fn sandbox_update(
             &mut queues.reset_room_features,
             &mut *anim,
             &mut *combat,
+            &mut *interaction,
         ),
         PhaseOutcome::Return
     ) {
@@ -163,6 +165,7 @@ pub fn sandbox_update(
             &mut queues.pogo_bounces,
             &mut *anim,
             &mut *combat,
+            &mut *interaction,
         ),
         PhaseOutcome::Return
     ) {
@@ -185,6 +188,7 @@ pub fn sandbox_update(
             &mut queues.reset_room_features,
             &mut *anim,
             &mut *combat,
+            &mut *interaction,
         ),
         PhaseOutcome::Return
     ) {
@@ -195,7 +199,7 @@ pub fn sandbox_update(
 
     interaction_input_phase(
         &mut controls,
-        &mut runtime,
+        &mut *interaction,
         &*combat,
         feel,
         door_double_tap_up,
@@ -249,6 +253,7 @@ pub fn sandbox_update(
             &mut runtime,
             &mut feedback,
             &mut *combat,
+            &mut *interaction,
             &room_visuals,
             tuning,
             feel,

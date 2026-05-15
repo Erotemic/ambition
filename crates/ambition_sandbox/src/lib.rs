@@ -185,9 +185,6 @@ pub struct SandboxRuntime {
     pub preset_flash: f32,
     pub last_safe_player_pos: ae::Vec2,
     pub time_scale: f32,
-    pub down_tap_timer: f32,
-    pub up_tap_timer: f32,
-    pub interact_buffer_timer: f32,
     pub moving_platforms: Vec<platforms::MovingPlatformState>,
     pub dialogue: dialog::DialogState,
     pub physics_settings: physics::PhysicsSandboxSettings,
@@ -206,17 +203,6 @@ pub struct SandboxRuntime {
     /// Edge exits intentionally leave this at zero so later work can do a
     /// side-door scroll effect.
     pub camera_snap_timer: f32,
-    /// One-shot signal: set true the frame `register_down_tap` detects
-    /// the second tap of a double-tap-down within
-    /// `feel.down_double_tap_window`. The body-mode driver in the
-    /// progression chain (after `sandbox_update`) reads this and
-    /// clears it; engine-side fast-fall consumed `controls.fast_fall_pressed`
-    /// inside `sandbox_update` already, but that mutation lives on a
-    /// local copy of `ControlFrame` that doesn't reach later systems.
-    /// Routing the edge through `SandboxRuntime` is the cheapest way
-    /// to give post-update mutators the signal without changing
-    /// `sandbox_update`'s already-saturated parameter list.
-    pub double_tap_down_pending: bool,
 }
 
 /// Sandbox-side state for one active player melee swing.
@@ -274,9 +260,6 @@ impl SandboxRuntime {
             preset_flash: 1.2,
             last_safe_player_pos: world.spawn,
             time_scale: 1.0,
-            down_tap_timer: 0.0,
-            up_tap_timer: 0.0,
-            interact_buffer_timer: 0.0,
             moving_platforms: Vec::new(),
             dialogue: dialog::DialogState::default(),
             physics_settings,
@@ -287,7 +270,6 @@ impl SandboxRuntime {
             blink_camera_from: world.spawn,
             blink_camera_to: world.spawn,
             camera_snap_timer: 0.0,
-            double_tap_down_pending: false,
         }
     }
 
@@ -295,15 +277,11 @@ impl SandboxRuntime {
         self.player.reset_to(world.spawn);
         self.player.refresh_movement_resources(tuning);
         self.player_health.reset();
-        // Combat timers (flash/hitstop/invuln/hitstun) live on the
-        // `PlayerCombatState` ECS component; callers that trigger a full
-        // reset call `PlayerCombatState::reset()` on the component directly.
+        // Combat timers (flash/hitstop/invuln/hitstun) live on `PlayerCombatState`.
+        // Interaction timers (tap windows, interact buffer) live on `PlayerInteractionState`.
+        // Callers that trigger a full reset call `reset()` on those components directly.
         self.last_safe_player_pos = world.spawn;
         self.time_scale = 1.0;
-        self.down_tap_timer = 0.0;
-        self.up_tap_timer = 0.0;
-        self.double_tap_down_pending = false;
-        self.interact_buffer_timer = 0.0;
         self.dialogue.close();
         self.room_transition_cooldown = 0.0;
         self.player_attack = None;
@@ -320,51 +298,6 @@ impl SandboxRuntime {
         // Animation signal timers live on the `PlayerAnimState` ECS component;
         // callers that trigger a full reset (reset_sandbox, death_respawn_player)
         // call `PlayerAnimState::reset()` on the component directly.
-    }
-
-    pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {
-        self.down_tap_timer = (self.down_tap_timer - frame_dt).max(0.0);
-        if !down_pressed {
-            return false;
-        }
-        if self.down_tap_timer > 0.0 {
-            self.down_tap_timer = 0.0;
-            true
-        } else {
-            self.down_tap_timer = window;
-            false
-        }
-    }
-
-    pub fn register_up_tap(&mut self, up_pressed: bool, frame_dt: f32, window: f32) -> bool {
-        self.up_tap_timer = (self.up_tap_timer - frame_dt).max(0.0);
-        if !up_pressed {
-            return false;
-        }
-        if self.up_tap_timer > 0.0 {
-            self.up_tap_timer = 0.0;
-            true
-        } else {
-            self.up_tap_timer = window;
-            false
-        }
-    }
-
-    pub fn buffered_interact(
-        &mut self,
-        interact_pressed: bool,
-        frame_dt: f32,
-        window: f32,
-    ) -> bool {
-        self.interact_buffer_timer = (self.interact_buffer_timer - frame_dt).max(0.0);
-        if interact_pressed {
-            self.interact_buffer_timer = window;
-        }
-        self.interact_buffer_timer > 0.0
-    }
-
-    pub fn clear_interact_buffer(&mut self) {
-        self.interact_buffer_timer = 0.0;
     }
 
     /// Record the current player position as "the last known safe spot"
@@ -626,55 +559,50 @@ mod safe_pos_tests {
 
     #[test]
     fn register_down_tap_returns_true_on_double_tap_within_window() {
-        let world = dummy_world();
-        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
+        let mut interaction = crate::player::PlayerInteractionState::default();
         // First tap: returns false, opens the window.
-        assert!(!runtime.register_down_tap(true, 0.0, 0.25));
+        assert!(!interaction.register_down_tap(true, 0.0, 0.25));
         // Tap again before window expires: returns true.
-        assert!(runtime.register_down_tap(true, 0.05, 0.25));
+        assert!(interaction.register_down_tap(true, 0.05, 0.25));
     }
 
     #[test]
     fn register_down_tap_window_closes_on_idle_frames() {
-        let world = dummy_world();
-        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
-        assert!(!runtime.register_down_tap(true, 0.0, 0.25));
+        let mut interaction = crate::player::PlayerInteractionState::default();
+        assert!(!interaction.register_down_tap(true, 0.0, 0.25));
         // Many idle frames — tap timer drains.
         for _ in 0..20 {
-            let _ = runtime.register_down_tap(false, 0.05, 0.25);
+            let _ = interaction.register_down_tap(false, 0.05, 0.25);
         }
         // Next tap is treated as the FIRST tap (window had closed).
-        assert!(!runtime.register_down_tap(true, 0.0, 0.25));
+        assert!(!interaction.register_down_tap(true, 0.0, 0.25));
     }
 
     #[test]
     fn register_up_tap_mirrors_down_tap_semantics() {
-        let world = dummy_world();
-        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
-        assert!(!runtime.register_up_tap(true, 0.0, 0.30));
-        assert!(runtime.register_up_tap(true, 0.05, 0.30));
+        let mut interaction = crate::player::PlayerInteractionState::default();
+        assert!(!interaction.register_up_tap(true, 0.0, 0.30));
+        assert!(interaction.register_up_tap(true, 0.05, 0.30));
     }
 
     #[test]
     fn buffered_interact_holds_for_window_seconds() {
-        let world = dummy_world();
-        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
+        let mut interaction = crate::player::PlayerInteractionState::default();
         // Press once → buffer holds for `window` seconds.
-        assert!(runtime.buffered_interact(true, 0.0, 0.12));
+        assert!(interaction.buffered_interact(true, 0.0, 0.12));
         // Subsequent frames within the window also report true.
-        assert!(runtime.buffered_interact(false, 0.05, 0.12));
-        assert!(runtime.buffered_interact(false, 0.05, 0.12));
+        assert!(interaction.buffered_interact(false, 0.05, 0.12));
+        assert!(interaction.buffered_interact(false, 0.05, 0.12));
         // After the window passes, the buffer drains.
-        assert!(!runtime.buffered_interact(false, 0.20, 0.12));
+        assert!(!interaction.buffered_interact(false, 0.20, 0.12));
     }
 
     #[test]
     fn clear_interact_buffer_drops_buffer_immediately() {
-        let world = dummy_world();
-        let mut runtime = runtime_with_player_at(&world, ae::Vec2::new(60.0, 100.0));
-        let _ = runtime.buffered_interact(true, 0.0, 1.0);
+        let mut interaction = crate::player::PlayerInteractionState::default();
+        let _ = interaction.buffered_interact(true, 0.0, 1.0);
         // Without the clear, next frame would still report true.
-        runtime.clear_interact_buffer();
-        assert!(!runtime.buffered_interact(false, 0.001, 1.0));
+        interaction.clear();
+        assert!(!interaction.buffered_interact(false, 0.001, 1.0));
     }
 }

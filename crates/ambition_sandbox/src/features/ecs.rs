@@ -825,7 +825,6 @@ pub fn collect_ecs_pickups(
 /// and legacy NPCs/switches.
 pub fn open_ecs_chests(
     mut commands: Commands,
-    mut runtime: ResMut<crate::SandboxRuntime>,
     mut banner: ResMut<GameplayBanner>,
     mut player: Query<
         (
@@ -859,7 +858,6 @@ pub fn open_ecs_chests(
         }
         commands.entity(entity).insert(Opened);
         interaction.clear();
-        interaction.apply_to_runtime(&mut runtime);
         banner.show(format!("opened {}", name.0.as_str()), 2.6);
         let pos = aabb.center;
         vfx.write(VfxMessage::Burst {
@@ -1397,7 +1395,6 @@ pub fn interact_ecs_actors_and_switches(
             continue;
         }
         interaction.clear();
-        interaction.apply_to_runtime(&mut runtime);
         banner.show(npc.message(), 2.6);
         let request = npc.dialogue_request();
         runtime.dialogue.start(&request.dialogue_id, &request.npc_name);
@@ -1420,7 +1417,6 @@ pub fn interact_ecs_actors_and_switches(
             continue;
         }
         interaction.clear();
-        interaction.apply_to_runtime(&mut runtime);
         banner.show(format!("activated {}", name.0.as_str()), 2.6);
         on.0 = true;
         gameplay_effects.write(GameplayEffect::ActivateSwitch {
@@ -1842,7 +1838,7 @@ mod tests {
         };
         let interaction = crate::player::PlayerInteractionState {
             interact_buffer_timer: 0.15,
-            double_tap_down_pending: false,
+            ..Default::default()
         };
         app.world_mut().spawn((
             crate::player::PlayerEntity,

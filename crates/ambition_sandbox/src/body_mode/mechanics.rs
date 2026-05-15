@@ -46,11 +46,14 @@ pub fn update_body_mode(
     mut runtime: ResMut<crate::SandboxRuntime>,
     controls: Res<crate::input::ControlFrame>,
     mut player_q: Query<
-        &mut crate::player::PlayerMovementAuthority,
+        (
+            &mut crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerInteractionState,
+        ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    let Ok(mut authority) = player_q.single_mut() else {
+    let Ok((mut authority, mut interaction)) = player_q.single_mut() else {
         return;
     };
     let player = &mut authority.player;
@@ -78,7 +81,7 @@ pub fn update_body_mode(
 
     // Consume the double-tap-down edge regardless of branch so we
     // don't latch a stale signal across frames or gameplay states.
-    let double_tap_down = std::mem::take(&mut runtime.double_tap_down_pending);
+    let double_tap_down = std::mem::take(&mut interaction.double_tap_down_pending);
 
     // Climbing exits: jump pushes off, losing contact drops the mode.
     // Engine's `integrate_climb` defensive-zeros velocity if contact
@@ -137,10 +140,8 @@ pub fn update_body_mode(
     }
 
     // Double-tap-down on the ground from Standing or Crouching curls
-    // into MorphBall. The signal is `runtime.double_tap_down_pending`,
-    // routed through SandboxRuntime by `input_timer_phase` because
-    // `sandbox_update` consumes its ControlFrame as a local copy that
-    // doesn't reach the progression chain. The engine gates
+    // into MorphBall. The signal is `PlayerInteractionState::double_tap_down_pending`,
+    // set by `input_timer_phase` via the ECS component. The engine gates
     // fast_fall on `!on_ground` already, so the same gesture firing
     // morph-ball when grounded has no input crosstalk.
     if on_ground && double_tap_down {

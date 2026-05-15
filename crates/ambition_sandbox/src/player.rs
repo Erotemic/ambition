@@ -193,23 +193,62 @@ impl PlayerAnimState {
 }
 
 /// ECS-visible player interaction buffer state.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlayerInteractionState {
+    /// Counts down after a double-tap-down edge; non-zero means morph-ball
+    /// entry is pending for the body-mode driver.
+    pub down_tap_timer: f32,
+    /// Counts down after a double-tap-up edge; drives door/NPC triggers.
+    pub up_tap_timer: f32,
+    /// Counts down after `interact_pressed`; keeps the interact signal alive
+    /// across frames so the player doesn't need to hold the button until the
+    /// door animation completes.
     pub interact_buffer_timer: f32,
+    /// Set true by the input-timer phase when a double-tap-down is detected;
+    /// consumed by the body-mode driver after `sandbox_update`.
     pub double_tap_down_pending: bool,
 }
 
 impl PlayerInteractionState {
-    pub fn from_runtime(runtime: &crate::SandboxRuntime) -> Self {
-        Self {
-            interact_buffer_timer: runtime.interact_buffer_timer,
-            double_tap_down_pending: runtime.double_tap_down_pending,
+    /// Advance timers and detect a double-tap-down edge. Returns `true` when
+    /// two taps arrive within `window` seconds.
+    pub fn register_down_tap(&mut self, down_pressed: bool, frame_dt: f32, window: f32) -> bool {
+        self.down_tap_timer = (self.down_tap_timer - frame_dt).max(0.0);
+        if !down_pressed {
+            return false;
+        }
+        if self.down_tap_timer > 0.0 {
+            self.down_tap_timer = 0.0;
+            true
+        } else {
+            self.down_tap_timer = window;
+            false
         }
     }
 
-    pub fn apply_to_runtime(self, runtime: &mut crate::SandboxRuntime) {
-        runtime.interact_buffer_timer = self.interact_buffer_timer;
-        runtime.double_tap_down_pending = self.double_tap_down_pending;
+    /// Advance timers and detect a double-tap-up edge. Returns `true` when
+    /// two taps arrive within `window` seconds.
+    pub fn register_up_tap(&mut self, up_pressed: bool, frame_dt: f32, window: f32) -> bool {
+        self.up_tap_timer = (self.up_tap_timer - frame_dt).max(0.0);
+        if !up_pressed {
+            return false;
+        }
+        if self.up_tap_timer > 0.0 {
+            self.up_tap_timer = 0.0;
+            true
+        } else {
+            self.up_tap_timer = window;
+            false
+        }
+    }
+
+    /// Update the interact buffer and return whether the buffer is live.
+    pub fn buffered_interact(&mut self, pressed: bool, frame_dt: f32, window: f32) -> bool {
+        self.interact_buffer_timer = (self.interact_buffer_timer - frame_dt).max(0.0);
+        if pressed {
+            self.interact_buffer_timer = window;
+        }
+        self.interact_buffer_timer > 0.0
     }
 
     pub fn buffered(self) -> bool {
@@ -218,6 +257,10 @@ impl PlayerInteractionState {
 
     pub fn clear(&mut self) {
         self.interact_buffer_timer = 0.0;
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::default();
     }
 }
 
@@ -239,13 +282,14 @@ impl PlayerHealRequested {
 /// first player ECS migration chunk.
 pub type PlayerDamageRequested = crate::features::PlayerDamageEvent;
 
-/// Write `PlayerBody`, `PlayerCombatState::attacking`, and `PlayerInteractionState`
-/// from the authoritative sources each frame.
+/// Write `PlayerBody` and `PlayerCombatState::attacking` from the authoritative
+/// sources each frame.
 ///
-/// `PlayerCombatState`'s four timer fields are authoritative on the component
-/// (written by the phase helpers directly). Only `attacking` is mirrored here
-/// because it is derived from `runtime.player_attack`, which is still in
-/// `SandboxRuntime` pending a later migration stage.
+/// Both `PlayerCombatState`'s four timer fields and `PlayerInteractionState`'s
+/// fields are authoritative on their respective components (written by the
+/// phase helpers directly). Only `attacking` is mirrored here because it is
+/// derived from `runtime.player_attack`, which is still in `SandboxRuntime`
+/// pending a later migration stage.
 pub fn write_player_ecs_components(
     runtime: Res<crate::SandboxRuntime>,
     mut players: Query<
@@ -253,17 +297,15 @@ pub fn write_player_ecs_components(
             &PlayerMovementAuthority,
             &mut PlayerBody,
             &mut PlayerCombatState,
-            &mut PlayerInteractionState,
         ),
         With<PlayerEntity>,
     >,
 ) {
-    let Ok((authority, mut body, mut combat, mut interaction)) = players.single_mut() else {
+    let Ok((authority, mut body, mut combat)) = players.single_mut() else {
         return;
     };
     *body = PlayerBody::from_player(&authority.player);
     combat.attacking = runtime.player_attack.is_some();
-    *interaction = PlayerInteractionState::from_runtime(&runtime);
 }
 
 /// Apply heal messages to ECS health and mirror the result into the legacy

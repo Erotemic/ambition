@@ -69,6 +69,7 @@ pub(super) fn input_timer_phase(
     controls: &mut ControlFrame,
     runtime: &mut SandboxRuntime,
     combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
     feel: SandboxFeelTuning,
     frame_dt: f32,
 ) -> bool {
@@ -76,20 +77,18 @@ pub(super) fn input_timer_phase(
     combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
     combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
     let double_tap_down =
-        runtime.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
+        interaction.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
     controls.fast_fall_pressed = double_tap_down;
-    // Re-route the double-tap-down edge through SandboxRuntime so the
-    // body-mode driver in the progression chain (after sandbox_update)
+    // Re-route the double-tap-down edge through PlayerInteractionState so
+    // the body-mode driver in the progression chain (after sandbox_update)
     // can read it. The local `controls` mutation here doesn't reach
-    // post-update systems because sandbox_update consumes a copy of the
-    // resource; engine-side fast-fall is consumed inline so the local
-    // copy is fine for that, but morph-ball entry needs the edge to
-    // survive past `sandbox_update`'s scope.
+    // post-update systems; engine-side fast-fall is consumed inline, but
+    // morph-ball entry needs the edge to survive past `sandbox_update`'s scope.
     if double_tap_down {
-        runtime.double_tap_down_pending = true;
+        interaction.double_tap_down_pending = true;
     }
     let door_double_tap_up =
-        runtime.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
+        interaction.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
     combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
     door_double_tap_up
 }
@@ -111,6 +110,7 @@ pub(super) fn reset_phase(
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
 ) -> PhaseOutcome {
     if controls.reset_pressed {
         reset_sandbox(
@@ -121,6 +121,7 @@ pub(super) fn reset_phase(
             runtime,
             anim,
             combat,
+            interaction,
             tuning,
             feel,
         );
@@ -154,6 +155,7 @@ pub(super) fn player_control_phase(
     pogo_bounces: &mut MessageWriter<features::PogoBounceEvent>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
 ) -> PhaseOutcome {
     // Two-clock update:
     // - control_dt is real time for responsive inputs and precision-blink aim;
@@ -178,6 +180,7 @@ pub(super) fn player_control_phase(
             runtime,
             anim,
             combat,
+            interaction,
             tuning,
             feel,
         );
@@ -227,6 +230,7 @@ pub(super) fn player_simulation_phase(
     reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
 ) -> PhaseOutcome {
     let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
@@ -294,6 +298,7 @@ pub(super) fn player_simulation_phase(
             runtime,
             anim,
             combat,
+            interaction,
             tuning,
             feel,
         );
@@ -327,7 +332,7 @@ pub(super) fn player_simulation_phase(
 /// gesture.
 pub(super) fn interaction_input_phase(
     controls: &mut ControlFrame,
-    runtime: &mut SandboxRuntime,
+    interaction: &mut crate::player::PlayerInteractionState,
     combat: &crate::player::PlayerCombatState,
     feel: SandboxFeelTuning,
     door_double_tap_up: bool,
@@ -339,7 +344,7 @@ pub(super) fn interaction_input_phase(
         controls.interact_pressed || door_double_tap_up
     };
     controls.interact_pressed =
-        runtime.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
+        interaction.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
 }
 
 /// Phase 8 — apply heals/damage, dialogue start, feature-driven reset.
@@ -413,6 +418,7 @@ pub(super) fn room_transition_phase(
     runtime: &mut SandboxRuntime,
     feedback: &mut FrameFeedback,
     combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -443,7 +449,7 @@ pub(super) fn room_transition_phase(
             pos: player_pos,
         });
     }
-    runtime.clear_interact_buffer();
+    interaction.clear();
     load_room(
         commands,
         &mut feedback.sfx,
@@ -451,6 +457,7 @@ pub(super) fn room_transition_phase(
         player,
         runtime,
         combat,
+        interaction,
         world,
         room_set,
         room_visuals,

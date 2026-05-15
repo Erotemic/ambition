@@ -42,6 +42,7 @@ pub(super) fn reset_sandbox(
     runtime: &mut SandboxRuntime,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
 ) {
@@ -52,6 +53,7 @@ pub(super) fn reset_sandbox(
     anim.reset();
     combat.reset();
     combat.flash_timer = feel.reset_flash_time;
+    interaction.reset();
     let reset_to = player.pos;
     sfx.push(SfxMessage::Reset { pos: reset_to });
     vfx.push(VfxMessage::ResetEffects {
@@ -67,6 +69,7 @@ pub(super) fn load_room(
     player: &mut ae::Player,
     runtime: &mut SandboxRuntime,
     combat: &mut crate::player::PlayerCombatState,
+    interaction: &mut crate::player::PlayerInteractionState,
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
@@ -123,7 +126,7 @@ pub(super) fn load_room(
     combat.hitstun_timer = 0.0;
     runtime.last_safe_player_pos = player.pos;
     runtime.time_scale = 1.0;
-    runtime.down_tap_timer = 0.0;
+    interaction.down_tap_timer = 0.0;
     runtime.moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities(commands, &spec);
     runtime.dialogue.close();

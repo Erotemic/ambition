@@ -42,6 +42,7 @@ fn body_app(world: ae::World) -> App {
     app.world_mut().spawn((
         crate::player::PlayerEntity,
         crate::player::PlayerMovementAuthority::new(initial_player),
+        crate::player::PlayerInteractionState::default(),
     ));
     app.add_systems(Update, update_body_mode);
     app
@@ -90,13 +91,18 @@ fn sync_authority_from_runtime(app: &mut App) {
     }
 }
 
-/// Mark the double-tap-down edge on `SandboxRuntime` exactly as
+/// Mark the double-tap-down edge on `PlayerInteractionState` exactly as
 /// `input_timer_phase` does in the live build. The driver
 /// consumes via `mem::take`, so the test only needs to arm it
 /// before the tick under test.
 fn arm_double_tap_down(app: &mut App) {
-    let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-    runtime.double_tap_down_pending = true;
+    let mut q = app.world_mut().query_filtered::<
+        &mut crate::player::PlayerInteractionState,
+        With<crate::player::PlayerEntity>,
+    >();
+    for mut interaction in q.iter_mut(app.world_mut()) {
+        interaction.double_tap_down_pending = true;
+    }
 }
 
 /// Holding Down on the ground transitions Standing → Crouching and
@@ -209,9 +215,9 @@ fn dash_active_blocks_crouch() {
 }
 
 /// Double-tap-down on the ground from Standing curls into MorphBall.
-/// The signal is `runtime.double_tap_down_pending` (routed
-/// through SandboxRuntime by `input_timer_phase` because
-/// sandbox_update consumes a local copy of ControlFrame).
+/// The signal is `PlayerInteractionState::double_tap_down_pending` (set
+/// by `input_timer_phase` because `sandbox_update` consumes a local copy
+/// of ControlFrame that doesn't reach later Bevy systems).
 #[test]
 fn double_tap_down_grounded_enters_morph_ball() {
     let mut app = body_app(empty_world());
@@ -329,8 +335,8 @@ fn airborne_double_tap_down_does_not_morph() {
 /// bug: setting `controls.fast_fall_pressed = true` directly on
 /// the resource (mimicking what `input_timer_phase` writes to its
 /// LOCAL controls copy) is NOT sufficient to enter MorphBall.
-/// The driver only reads `runtime.double_tap_down_pending`. This
-/// test pins the routing so a future refactor can't accidentally
+/// The driver reads `PlayerInteractionState::double_tap_down_pending`.
+/// This test pins the routing so a future refactor can't accidentally
 /// switch the body-mode driver back to reading ControlFrame and
 /// silently break the in-game gesture.
 #[test]
@@ -341,13 +347,13 @@ fn morph_ball_does_not_fire_from_control_frame_alone() {
         let mut controls = app.world_mut().resource_mut::<ControlFrame>();
         controls.fast_fall_pressed = true;
     }
-    // double_tap_down_pending is NOT armed.
+    // PlayerInteractionState::double_tap_down_pending is NOT armed.
     app.update();
     let runtime = app.world().resource::<SandboxRuntime>();
     assert_eq!(
         runtime.player.body_mode,
         ae::BodyMode::Standing,
-        "the body-mode driver must read runtime.double_tap_down_pending, \
+        "the body-mode driver must read PlayerInteractionState::double_tap_down_pending, \
          not controls.fast_fall_pressed (which sandbox_update consumes \
          on a local copy that doesn't reach later systems)"
     );

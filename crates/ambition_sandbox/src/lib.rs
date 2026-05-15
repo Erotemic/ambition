@@ -157,8 +157,11 @@ impl SafePositionContext {
 #[derive(Resource, Clone)]
 pub struct GameWorld(pub ae::World);
 
-/// Sandbox-side runtime state mirroring per-player gameplay timers and the
-/// tools/features it owns.
+/// Legacy sandbox scratch state used by older phase helpers.
+///
+/// Player movement/health/combat/interaction now have ECS components; the
+/// player fields here are synchronized from/to that entity while the remaining
+/// monolithic phase helpers are split apart.
 ///
 /// AMBITION_REVIEW: this is currently a global resource holding what belongs
 /// on a Player entity. Per the architecture targets memory, per-player state

@@ -1,8 +1,9 @@
 //! ECS player seam.
 //!
-//! Movement is still authored by `SandboxRuntime::player`; this module mirrors
-//! the authoritative runtime body/health onto a Player entity so readers can
-//! migrate to ECS queries before movement authority moves out of the resource.
+//! The ECS player entity is the frame-to-frame authority for player movement,
+//! health, combat timers, and interaction buffering. `SandboxRuntime` still
+//! carries a legacy player scratch copy while the old phase helpers are split
+//! into standalone ECS systems.
 
 use ambition_engine as ae;
 use bevy::prelude::*;
@@ -11,10 +12,33 @@ use bevy::prelude::*;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerEntity;
 
-/// ECS-visible player body read model.
+/// Frame-to-frame authoritative player movement state.
 ///
-/// This is intentionally a mirror for now. `SandboxRuntime::player` remains the
-/// movement authority until the movement/collision update is migrated.
+/// This intentionally wraps the engine player during the authority flip. The
+/// legacy `SandboxRuntime::player` field is synchronized from this component at
+/// the start of the gameplay chain and synchronized back after the old phase
+/// helpers run, making the runtime field a scratch adapter rather than the
+/// durable owner.
+#[derive(Component, Clone)]
+pub struct PlayerMovementAuthority {
+    pub player: ae::Player,
+}
+
+impl PlayerMovementAuthority {
+    pub fn new(player: ae::Player) -> Self {
+        Self { player }
+    }
+
+    pub fn body(&self) -> PlayerBody {
+        PlayerBody::from_player(&self.player)
+    }
+}
+
+/// ECS-visible player body.
+///
+/// The full engine `ae::Player` state lives on `PlayerMovementAuthority`; this
+/// compact component is the query-friendly body/read model for systems that do
+/// not need every movement-internal field.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct PlayerBody {
     pub pos: ae::Vec2,
@@ -177,6 +201,7 @@ pub fn sync_player_entity_from_runtime(
     runtime: Res<crate::SandboxRuntime>,
     mut players: Query<
         (
+            &mut PlayerMovementAuthority,
             &mut PlayerBody,
             &mut PlayerHealth,
             &mut PlayerCombatState,
@@ -185,17 +210,41 @@ pub fn sync_player_entity_from_runtime(
         With<PlayerEntity>,
     >,
 ) {
-    let Ok((mut body, mut health, mut combat, mut interaction)) = players.single_mut() else {
+    let Ok((mut authority, mut body, mut health, mut combat, mut interaction)) = players.single_mut() else {
         return;
     };
-    *body = PlayerBody::from_player(&runtime.player);
+    authority.player = runtime.player.clone();
+    *body = PlayerBody::from_player(&authority.player);
     *health = PlayerHealth::new(runtime.player_health);
     *combat = PlayerCombatState::from_runtime(&runtime);
     *interaction = PlayerInteractionState::from_runtime(&runtime);
 }
 
-/// Apply heal messages to the current runtime authority and immediately mirror
-/// the resulting health onto the ECS player entity.
+/// Synchronize the legacy runtime scratch fields from the ECS player authority
+/// before systems that still call old `SandboxRuntime` phase helpers.
+pub fn sync_runtime_from_player_entity(
+    mut runtime: ResMut<crate::SandboxRuntime>,
+    players: Query<
+        (
+            &PlayerMovementAuthority,
+            &PlayerHealth,
+            &PlayerCombatState,
+            &PlayerInteractionState,
+        ),
+        With<PlayerEntity>,
+    >,
+) {
+    let Ok((authority, health, combat, interaction)) = players.single() else {
+        return;
+    };
+    runtime.player = authority.player.clone();
+    runtime.player_health = health.health;
+    combat.apply_to_runtime(&mut runtime);
+    interaction.apply_to_runtime(&mut runtime);
+}
+
+/// Apply heal messages to ECS health and mirror the result into the legacy
+/// runtime scratch field for remaining callers.
 pub fn apply_player_heal_requests(
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut heals: MessageReader<PlayerHealRequested>,

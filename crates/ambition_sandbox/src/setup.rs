@@ -142,11 +142,11 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     runtime.moving_platforms = platforms::moving_platforms_for_room(room_set.active_spec());
     crate::features::spawn_room_feature_entities(commands, room_set.active_spec());
 
-    // Snapshot the initial ECS mirror state before moving SandboxRuntime into
-    // Bevy's resource storage. Movement authority still lives in
-    // SandboxRuntime for this migration step; PlayerBody/PlayerHealth are the
-    // read-path mirror used by presentation and feature systems.
-    let initial_player_body = crate::player::PlayerBody::from_player(&runtime.player);
+    // Snapshot initial ECS player state before moving SandboxRuntime into
+    // Bevy's resource storage. The player entity is the frame-to-frame owner;
+    // SandboxRuntime keeps a scratch copy while the old phase helpers remain.
+    let initial_player_authority = crate::player::PlayerMovementAuthority::new(runtime.player.clone());
+    let initial_player_body = initial_player_authority.body();
     let initial_player_health = crate::player::PlayerHealth::new(runtime.player_health);
     let initial_player_combat = crate::player::PlayerCombatState::from_runtime(&runtime);
     let initial_player_interaction = crate::player::PlayerInteractionState::from_runtime(&runtime);
@@ -157,6 +157,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
             crate::player::PlayerEntity,
+            initial_player_authority,
             initial_player_body,
             initial_player_health,
             initial_player_combat,

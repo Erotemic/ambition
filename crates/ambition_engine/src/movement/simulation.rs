@@ -49,7 +49,7 @@ pub fn update_player_simulation_with_tuning(
 
     age_player(player, dt);
     update_simulation_timers(player, dt, tuning);
-    if crate::ledge_grab::tick_active_ledge_grab(player, input, dt, &mut events) {
+    if crate::ledge_grab::tick_active_ledge_grab(player, input, dt, tuning, &mut events) {
         return events;
     }
     handle_jump_buffer(world, player, input, tuning, &mut events);

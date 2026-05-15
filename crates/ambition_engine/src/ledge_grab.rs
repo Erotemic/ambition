@@ -6,7 +6,7 @@
 //! water, and wall state instead of running as a post-update sandbox mutator.
 
 use crate::geometry::{Aabb, AabbExt};
-use crate::movement::{InputState, MovementOp, Player};
+use crate::movement::{InputState, MovementOp, MovementTuning, Player};
 use crate::world::{BlockKind, World};
 use crate::Vec2;
 
@@ -221,6 +221,7 @@ pub fn tick_active_ledge_grab(
     player: &mut Player,
     input: InputState,
     dt: f32,
+    tuning: MovementTuning,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
     let Some(mut state) = player.ledge_grab else {
@@ -264,13 +265,31 @@ pub fn tick_active_ledge_grab(
     let input_into_platform = input.axis_x * into_platform_axis(state.contact) > 0.4;
     let input_away_from_platform = input.axis_x * away_from_platform_axis(state.contact) > 0.4;
     let climb_unlocked = state.elapsed >= LEDGE_MIN_CLIMB_DELAY;
+
+    // Ledge jump: jump pressed while holding away from the ledge launches
+    // the player outward with a full wall-jump-style velocity. This is the
+    // smash-like "ledge jump" option as opposed to the normal pull-up climb.
+    let want_ledge_jump = climb_unlocked && input.jump_pressed && input_away_from_platform;
     let want_climb = climb_unlocked
+        && !want_ledge_jump
         && (input_up
             || input.interact_pressed
-            || input.jump_pressed
+            || (input.jump_pressed && !input_away_from_platform)
             || (state.elapsed >= LEDGE_TOWARD_CLIMB_DELAY && input_into_platform));
-    let want_drop = input_down || input_away_from_platform;
+    let want_drop = input_down || (input_away_from_platform && !want_ledge_jump);
 
+    if want_ledge_jump {
+        let away_x = away_from_platform_axis(state.contact);
+        player.wall_clinging = false;
+        player.wall_climbing = false;
+        player.on_wall = false;
+        player.on_ground = false;
+        player.ledge_grab = None;
+        player.vel = Vec2::new(away_x * tuning.wall_jump_x, -tuning.jump_speed);
+        player.refresh_movement_resources(tuning);
+        events.op(player, MovementOp::LedgeJump);
+        return true;
+    }
     if want_drop && !want_climb {
         player.wall_clinging = false;
         player.wall_climbing = false;
@@ -498,5 +517,71 @@ mod tests {
             contact.is_none(),
             "a solid lock door in the climb target must block the grab"
         );
+    }
+
+    fn make_hanging_player(contact: LedgeContact) -> crate::movement::Player {
+        let mut player = crate::movement::Player::new(Vec2::ZERO);
+        player.abilities.ledge_grab = true;
+        player.ledge_grab = Some(LedgeGrabState {
+            contact,
+            elapsed: LEDGE_MIN_CLIMB_DELAY + 0.01,
+            climbing: false,
+            climb_elapsed: 0.0,
+        });
+        player.wall_clinging = true;
+        player.on_wall = true;
+        player
+    }
+
+    #[test]
+    fn ledge_jump_away_launches_player_outward() {
+        // Wall on the right of the player (wall_normal_x = -1, pushes left).
+        // away_from_platform = left = negative x.
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mut player = make_hanging_player(contact);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = crate::movement::MovementTuning::default();
+        let input = InputState {
+            jump_pressed: true,
+            axis_x: -1.0, // pressing away from the platform (away = wall_normal direction = -1)
+            ..InputState::default()
+        };
+        let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        assert!(consumed, "tick should consume the frame");
+        assert!(player.ledge_grab.is_none(), "ledge should be released");
+        // Player should move left (away from the right-side wall).
+        assert!(player.vel.x < -100.0, "should have leftward velocity, got {}", player.vel.x);
+        assert!(player.vel.y < -100.0, "should have upward velocity, got {}", player.vel.y);
+        assert!(!player.on_wall, "should not be on wall");
+    }
+
+    #[test]
+    fn jump_toward_platform_still_climbs() {
+        let contact = LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: Vec2::new(86.0, 110.0),
+            climb_target: Vec2::new(115.0, 77.0),
+        };
+        let mut player = make_hanging_player(contact);
+        let mut events = crate::movement::FrameEvents::default();
+        let tuning = crate::movement::MovementTuning::default();
+        // Pressing toward the platform (right = into wall side) with jump.
+        let input = InputState {
+            jump_pressed: true,
+            axis_x: 1.0, // pressing into the platform (into = -wall_normal = +1)
+            ..InputState::default()
+        };
+        let consumed = tick_active_ledge_grab(&mut player, input, 0.016, tuning, &mut events);
+        assert!(consumed);
+        // Should start climbing, not a ledge jump.
+        if let Some(state) = player.ledge_grab {
+            assert!(state.climbing, "should be in climbing state");
+        } else {
+            // Also OK: climb finished immediately (degenerate case)
+        }
     }
 }

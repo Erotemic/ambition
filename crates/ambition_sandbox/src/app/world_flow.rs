@@ -233,6 +233,16 @@ pub(super) fn handle_player_events(
                     facing: player.facing,
                 });
             }
+            ae::MovementOp::LedgeJump => {
+                sfx.push(SfxMessage::Jump { pos });
+                vfx.push(VfxMessage::Burst {
+                    pos: player.pos,
+                    count: 8,
+                    speed: 180.0,
+                    color: [0.70, 1.0, 0.86, 0.82],
+                    kind: ParticleKind::Dust,
+                });
+            }
             ae::MovementOp::LedgeClimbStart
             | ae::MovementOp::LedgeClimbFinish
             | ae::MovementOp::LedgeDrop

@@ -305,8 +305,8 @@ pub fn animate_player(
         (
             &mut Sprite,
             &mut CharacterAnimator,
-            Option<&crate::player::PlayerBody>,
-            Option<&crate::player::PlayerCombatState>,
+            &crate::player::PlayerBody,
+            &crate::player::PlayerCombatState,
         ),
         With<PlayerVisual>,
     >,
@@ -320,13 +320,12 @@ pub fn animate_player(
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
-    let facing = player_body.map(|body| body.facing).unwrap_or(runtime.player.facing);
-    sprite.flip_x = facing < 0.0;
+    sprite.flip_x = player_body.facing < 0.0;
     // Keep the textured sprite at full opacity by default, with a subtle
     // red tint when invulnerable / hit so the existing flash signal still
     // reads. Tints multiply the texture color, so values below 1.0 darken
     // the channel.
-    let flash_timer = player_combat.map(|combat| combat.flash_timer).unwrap_or(runtime.flash_timer);
+    let flash_timer = player_combat.flash_timer;
     sprite.color = if flash_timer > 0.0 {
         Color::srgba(1.0, 0.55, 0.55, 1.0)
     } else {

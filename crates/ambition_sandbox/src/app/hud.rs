@@ -145,36 +145,19 @@ pub(super) fn update_hud(
                 camera_view_line
             )
         });
-    let (player_hp_current, player_hp_max, player_vel, player_on_ground, player_dash_charges, player_air_jumps, player_mana_current, player_hitstun, player_invuln, player_hitstop) =
-        camera_params
-            .player
-            .single()
-            .map(|(body, health, combat)| {
-                (
-                    health.current().max(0),
-                    health.max(),
-                    body.vel,
-                    body.on_ground,
-                    body.dash_charges_available,
-                    body.air_jumps_available,
-                    body.mana_current as i32,
-                    combat.hitstun_timer,
-                    combat.damage_invuln_timer,
-                    combat.hitstop_timer,
-                )
-            })
-            .unwrap_or((
-                runtime.player_health.current.max(0),
-                runtime.player_health.max,
-                runtime.player.vel,
-                runtime.player.on_ground,
-                runtime.player.dash_charges_available,
-                runtime.player.air_jumps_available,
-                runtime.player.mana.current as i32,
-                runtime.hitstun_timer,
-                runtime.damage_invuln_timer,
-                runtime.hitstop_timer,
-            ));
+    let Ok((hud_body, hud_health, hud_combat)) = camera_params.player.single() else {
+        return;
+    };
+    let player_hp_current = hud_health.current().max(0);
+    let player_hp_max = hud_health.max();
+    let player_vel = hud_body.vel;
+    let player_on_ground = hud_body.on_ground;
+    let player_dash_charges = hud_body.dash_charges_available;
+    let player_air_jumps = hud_body.air_jumps_available;
+    let player_mana_current = hud_body.mana_current as i32;
+    let player_hitstun = hud_combat.hitstun_timer;
+    let player_invuln = hud_combat.damage_invuln_timer;
+    let player_hitstop = hud_combat.hitstop_timer;
 
     let zone_hint = {
         let hints = room_set.nearby_zone_hints(&runtime.player, runtime.player.fly_enabled);

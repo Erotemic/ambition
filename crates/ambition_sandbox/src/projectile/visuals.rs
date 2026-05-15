@@ -33,9 +33,9 @@ pub struct PlayerChargeVisual;
 pub fn sync_projectile_visuals(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
-    runtime: Res<crate::SandboxRuntime>,
     state: Res<PlayerProjectileState>,
     assets: Option<Res<crate::game_assets::GameAssets>>,
+    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     existing: Query<Entity, With<PlayerProjectileVisual>>,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
 ) {
@@ -59,14 +59,15 @@ pub fn sync_projectile_visuals(
             _ => (1.5, 0.95),
         };
         let render_size = bevy::math::Vec2::new(base.x * 2.0 * size_mult, base.y * 2.0 * size_mult);
-        let facing = if runtime.player.facing.abs() < f32::EPSILON {
+        if let Ok(body) = player_body_q.single() {
+        let facing = if body.facing.abs() < f32::EPSILON {
             1.0
         } else {
-            runtime.player.facing.signum()
+            body.facing.signum()
         };
         let charge_pos = ae::Vec2::new(
-            runtime.player.pos.x + facing * (runtime.player.size.x * 0.5 + 6.0),
-            runtime.player.pos.y - runtime.player.size.y * 0.20,
+            body.pos.x + facing * (body.size.x * 0.5 + 6.0),
+            body.pos.y - body.size.y * 0.20,
         );
         commands.spawn((
             Sprite::from_color(
@@ -81,6 +82,7 @@ pub fn sync_projectile_visuals(
             PlayerChargeVisual,
             Name::new("Player projectile charge indicator"),
         ));
+        } // if let Ok(body)
     }
     let handle = assets
         .as_deref()

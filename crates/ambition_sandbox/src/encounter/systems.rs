@@ -107,8 +107,8 @@ pub fn update_encounters_from_world(
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
-    runtime: ResMut<crate::SandboxRuntime>,
     mut world: ResMut<crate::GameWorld>,
+    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     mut music_request: ResMut<EncounterMusicRequest>,
     mut quests: ResMut<crate::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
@@ -127,8 +127,9 @@ pub fn update_encounters_from_world(
     ), With<crate::features::ChestFeature>>,
 ) {
     let active_area = room_set.active_spec().id.clone();
-    let player_pos = runtime.player.pos;
-    let player_size = runtime.player.size;
+    let Ok(body) = player_body_q.single() else { return; };
+    let player_pos = body.pos;
+    let player_size = body.size;
     let dt = time.delta_secs();
     let mut events: Vec<(String, Vec<EncounterEvent>)> = Vec::new();
 

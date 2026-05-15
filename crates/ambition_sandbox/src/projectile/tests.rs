@@ -25,6 +25,25 @@ fn dummy_world() -> World {
     )
 }
 
+fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
+    let size = ae::Vec2::new(20.0, 30.0);
+    let body = crate::player::PlayerBody {
+        pos,
+        vel: ae::Vec2::ZERO,
+        size,
+        base_size: size,
+        facing,
+        on_ground: true,
+        fly_enabled: false,
+        dash_charges_available: 0,
+        air_jumps_available: 0,
+        mana_current: 0.0,
+        body_mode: ae::BodyMode::Standing,
+        invincible: false,
+    };
+    app.world_mut().spawn((crate::player::PlayerEntity, body));
+}
+
 fn min_app() -> App {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
@@ -54,6 +73,7 @@ fn min_app() -> App {
         Update,
         (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
+    spawn_player(&mut app, ae::Vec2::new(300.0, 300.0), 1.0);
     app
 }
 
@@ -399,6 +419,7 @@ fn fireball_bounces_off_floor_in_system() {
         Update,
         (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
+    spawn_player(&mut app, ae::Vec2::new(200.0, 200.0), 1.0);
 
     // Spawn a fireball just above the floor moving downward.
     let starting_bounces;
@@ -476,6 +497,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
         Update,
         (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
+    spawn_player(&mut app, ae::Vec2::new(200.0, 200.0), 1.0);
 
     let starting_bounces;
     {
@@ -554,6 +576,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
         Update,
         (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
+    spawn_player(&mut app, ae::Vec2::new(200.0, 500.0), 1.0);
 
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();
@@ -629,6 +652,7 @@ fn hadouken_expires_on_solid_in_system() {
         Update,
         (update_projectiles, crate::features::apply_feature_damage_events).chain(),
     );
+    spawn_player(&mut app, ae::Vec2::new(500.0, 300.0), 1.0);
 
     {
         let mut state = app.world_mut().resource_mut::<PlayerProjectileState>();

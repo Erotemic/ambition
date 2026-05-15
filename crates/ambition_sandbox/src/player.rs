@@ -51,6 +51,8 @@ pub struct PlayerBody {
     pub dash_charges_available: u8,
     pub air_jumps_available: u8,
     pub mana_current: f32,
+    pub body_mode: ae::BodyMode,
+    pub invincible: bool,
 }
 
 impl PlayerBody {
@@ -66,6 +68,8 @@ impl PlayerBody {
             dash_charges_available: player.dash_charges_available,
             air_jumps_available: player.air_jumps_available,
             mana_current: player.mana.current,
+            body_mode: player.body_mode,
+            invincible: player.invincible,
         }
     }
 
@@ -196,61 +200,9 @@ impl PlayerHealRequested {
 /// first player ECS migration chunk.
 pub type PlayerDamageRequested = crate::features::PlayerDamageEvent;
 
-/// Mirror authoritative runtime player state onto the ECS player entity.
-pub fn sync_player_entity_from_runtime(
-    runtime: Res<crate::SandboxRuntime>,
-    mut players: Query<
-        (
-            &mut PlayerMovementAuthority,
-            &mut PlayerBody,
-            &mut PlayerHealth,
-            &mut PlayerCombatState,
-            &mut PlayerInteractionState,
-        ),
-        With<PlayerEntity>,
-    >,
-) {
-    let Ok((mut authority, mut body, mut health, mut combat, mut interaction)) = players.single_mut() else {
-        return;
-    };
-    authority.player = runtime.player.clone();
-    *body = PlayerBody::from_player(&authority.player);
-    *health = PlayerHealth::new(runtime.player_health);
-    *combat = PlayerCombatState::from_runtime(&runtime);
-    *interaction = PlayerInteractionState::from_runtime(&runtime);
-}
-
-/// Synchronize the legacy runtime scratch fields from the ECS player authority
-/// before systems that still call old `SandboxRuntime` phase helpers.
-pub fn sync_runtime_from_player_entity(
-    mut runtime: ResMut<crate::SandboxRuntime>,
-    players: Query<
-        (
-            &PlayerMovementAuthority,
-            &PlayerHealth,
-            &PlayerCombatState,
-            &PlayerInteractionState,
-        ),
-        With<PlayerEntity>,
-    >,
-) {
-    let Ok((authority, health, combat, interaction)) = players.single() else {
-        return;
-    };
-    runtime.player = authority.player.clone();
-    runtime.player_health = health.health;
-    combat.apply_to_runtime(&mut runtime);
-    interaction.apply_to_runtime(&mut runtime);
-}
-
 /// Write `PlayerBody`, `PlayerCombatState`, and `PlayerInteractionState` from
 /// the authoritative sources each frame so rendering, hazard, and interaction
 /// systems see current values instead of stale spawn-time data.
-///
-/// Chunks B + C of the ECS player migration. The old `sync_player_entity_from_runtime`
-/// (removed in the authority flip) was the only thing updating these components;
-/// without it the camera followed the spawn position, invuln frames were absent,
-/// and chest/NPC interaction never triggered.
 pub fn write_player_ecs_components(
     runtime: Res<crate::SandboxRuntime>,
     mut players: Query<

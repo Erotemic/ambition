@@ -131,8 +131,8 @@ pub fn spawn_morph_ball_visual(
 /// the standing-rig animation doesn't show through.
 pub fn sync_morph_ball_visual(
     world: Res<crate::GameWorld>,
-    runtime: Res<crate::SandboxRuntime>,
     entities: Res<crate::rendering::SceneEntities>,
+    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     mut player_query: Query<
         &mut Visibility,
         (
@@ -145,17 +145,18 @@ pub fn sync_morph_ball_visual(
     let Ok((mut transform, mut sprite, mut ball_visibility)) = ball_query.single_mut() else {
         return;
     };
-    let in_morph = runtime.player.body_mode == ae::BodyMode::MorphBall;
+    let Ok(body) = player_body_q.single() else { return; };
+    let in_morph = body.body_mode == ae::BodyMode::MorphBall;
     if in_morph {
         transform.translation = crate::config::world_to_bevy(
             &world.0,
-            runtime.player.pos,
+            body.pos,
             crate::config::WORLD_Z_PLAYER + 0.05,
         );
         // Slightly larger than the AABB so the soft anti-aliased rim
         // reads as the ball's outline rather than as background.
         let render =
-            bevy::math::Vec2::new(runtime.player.size.x * 1.10, runtime.player.size.y * 1.10);
+            bevy::math::Vec2::new(body.size.x * 1.10, body.size.y * 1.10);
         sprite.custom_size = Some(render);
         *ball_visibility = Visibility::Visible;
         if let Ok(mut player_vis) = player_query.get_mut(entities.player) {

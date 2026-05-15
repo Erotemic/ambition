@@ -887,7 +887,7 @@ pub fn open_ecs_chests(
 pub fn update_ecs_breakables(
     mut commands: Commands,
     time: Res<Time>,
-    runtime: Res<crate::SandboxRuntime>,
+    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<(
         Entity,
@@ -902,7 +902,8 @@ pub fn update_ecs_breakables(
     mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
     let dt = time.delta_secs();
-    let player_body = runtime.player.aabb();
+    let Ok(pb) = player_body_q.single() else { return; };
+    let player_body = pb.aabb();
     for (entity, name, aabb, mut feature, respawn_timer, stand_timer) in &mut breakables {
         if feature.broken() {
             if let Some(mut timer) = respawn_timer {
@@ -1170,7 +1171,6 @@ pub fn apply_feature_damage_events(
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
 pub fn update_ecs_hazards(
     time: Res<Time>,
-    runtime: Res<crate::SandboxRuntime>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -1182,16 +1182,10 @@ pub fn update_ecs_hazards(
     mut hazards: Query<(&FeatureName, &mut FeatureAabb, &mut HazardFeature), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
-    let (player_body, player_pos, player_vulnerable) = player
-        .single()
-        .map(|(body, combat)| (body.aabb(), body.pos, !runtime.player.invincible && combat.vulnerable()))
-        .unwrap_or_else(|_| {
-            (
-                runtime.player.aabb(),
-                runtime.player.pos,
-                !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0,
-            )
-        });
+    let Ok((pb, combat)) = player.single() else { return; };
+    let player_body = pb.aabb();
+    let player_pos = pb.pos;
+    let player_vulnerable = !pb.invincible && combat.vulnerable();
     for (_name, mut aabb, mut feature) in &mut hazards {
         let hazard = &mut feature.hazard;
         hazard.update(dt);
@@ -1251,15 +1245,9 @@ pub fn update_ecs_bosses(
         &overlay,
     );
     let player = runtime.player.clone();
-    let (player_body, player_vulnerable) = player_query
-        .single()
-        .map(|(body, combat)| (body.aabb(), !runtime.player.invincible && combat.vulnerable()))
-        .unwrap_or_else(|_| {
-            (
-                player.aabb(),
-                !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0,
-            )
-        });
+    let Ok((pb, combat)) = player_query.single() else { return; };
+    let player_body = pb.aabb();
+    let player_vulnerable = !pb.invincible && combat.vulnerable();
     for (mut aabb, mut feature) in &mut bosses {
         let boss = &mut feature.boss;
         boss.update(&feature_world, &player, feel_tuning.feature_combat_tuning(), dt);
@@ -1321,15 +1309,9 @@ pub fn update_ecs_actors(
         &overlay,
     );
     let player = runtime.player.clone();
-    let (player_body, player_vulnerable) = player_query
-        .single()
-        .map(|(body, combat)| (body.aabb(), !runtime.player.invincible && combat.vulnerable()))
-        .unwrap_or_else(|_| {
-            (
-                player.aabb(),
-                !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0,
-            )
-        });
+    let Ok((pb, combat)) = player_query.single() else { return; };
+    let player_body = pb.aabb();
+    let player_vulnerable = !pb.invincible && combat.vulnerable();
     for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
@@ -1842,6 +1824,8 @@ mod tests {
             dash_charges_available: 0,
             air_jumps_available: 0,
             mana_current: 0.0,
+            body_mode: ambition_engine::BodyMode::Standing,
+            invincible: false,
         };
         let interaction = crate::player::PlayerInteractionState {
             interact_buffer_timer: 0.15,

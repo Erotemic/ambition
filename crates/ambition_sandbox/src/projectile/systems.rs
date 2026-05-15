@@ -15,13 +15,13 @@ use crate::features::{
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::trace::GameplayTraceBuffer;
-use crate::{GameWorld, SandboxRuntime};
+use crate::GameWorld;
 
 pub fn update_projectiles(
     time: Res<Time>,
     world: Res<GameWorld>,
-    runtime: Res<SandboxRuntime>,
     control_frame: Res<ControlFrame>,
+    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     user_settings: Res<crate::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
@@ -157,14 +157,15 @@ pub fn update_projectiles(
     }
     state.bodies = still_alive;
 
-    let facing = if runtime.player.facing.abs() < f32::EPSILON {
+    let Ok(body) = player_body_q.single() else { return; };
+    let facing = if body.facing.abs() < f32::EPSILON {
         1.0
     } else {
-        runtime.player.facing.signum()
+        body.facing.signum()
     };
     let origin = ae::Vec2::new(
-        runtime.player.pos.x + facing * (runtime.player.size.x * 0.5 + 4.0),
-        runtime.player.pos.y - runtime.player.size.y * 0.20,
+        body.pos.x + facing * (body.size.x * 0.5 + 4.0),
+        body.pos.y - body.size.y * 0.20,
     );
     let direction = ae::Vec2::new(facing, 0.0);
     let damage_mult = user_settings.gameplay.player_damage_multiplier;

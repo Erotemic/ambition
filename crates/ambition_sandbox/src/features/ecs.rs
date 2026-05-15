@@ -1783,7 +1783,52 @@ pub fn ecs_breakable_state(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::prelude::{App, Update};
+    use bevy::prelude::{App, Update, With};
+
+    fn minimal_runtime() -> crate::SandboxRuntime {
+        let world = ae::World::new(
+            "test",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![],
+        );
+        crate::SandboxRuntime::new(
+            &world,
+            ae::AbilitySet::sandbox_all(),
+            ae::DEFAULT_TUNING,
+            crate::physics::PhysicsSandboxSettings::default(),
+        )
+    }
+
+    /// Spawn the canonical player entity used by interaction system tests.
+    ///
+    /// `player_pos` must overlap the feature AABB under test; the interact
+    /// buffer is pre-filled so the system sees it as buffered on the first
+    /// `app.update()` call.
+    fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
+        let player_size = ae::Vec2::new(20.0, 30.0);
+        let body = crate::player::PlayerBody {
+            pos: player_pos,
+            vel: ae::Vec2::ZERO,
+            size: player_size,
+            base_size: player_size,
+            facing: 1.0,
+            on_ground: true,
+            fly_enabled: false,
+            dash_charges_available: 0,
+            air_jumps_available: 0,
+            mana_current: 0.0,
+        };
+        let interaction = crate::player::PlayerInteractionState {
+            interact_buffer_timer: 0.15,
+            double_tap_down_pending: false,
+        };
+        app.world_mut().spawn((
+            crate::player::PlayerEntity,
+            body,
+            interaction,
+        ));
+    }
 
     #[test]
     fn ecs_overlay_ignores_broken_breakables() {
@@ -1801,6 +1846,171 @@ mod tests {
         app.add_systems(Update, rebuild_feature_ecs_world_overlay);
         app.update();
         assert_eq!(app.world().resource::<FeatureEcsWorldOverlay>().blocks.len(), 1);
+    }
+
+    /// A buffered interact with the player overlapping a closed chest inserts
+    /// the `Opened` marker on the chest entity and clears the buffer.
+    #[test]
+    fn interact_buffered_opens_adjacent_chest() {
+        let center = ae::Vec2::new(100.0, 100.0);
+        let mut app = App::new();
+        app.insert_resource(minimal_runtime());
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<GameplayEffect>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+
+        spawn_interaction_player(&mut app, center);
+
+        let chest_entity = app.world_mut().spawn((
+            FeatureSimEntity,
+            ChestFeature::new(ae::Chest::new("test_chest", None)),
+            FeatureId::new("test_chest"),
+            FeatureName::new("test_chest"),
+            FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+        )).id();
+
+        app.add_systems(Update, open_ecs_chests);
+        app.update();
+
+        assert!(
+            app.world().get::<Opened>(chest_entity).is_some(),
+            "chest should have Opened marker after interact"
+        );
+        let interaction = app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerInteractionState, With<crate::player::PlayerEntity>>()
+            .single(app.world())
+            .expect("player entity must exist");
+        assert!(
+            !interaction.buffered(),
+            "interact buffer should be cleared after opening chest"
+        );
+    }
+
+    /// A chest that the player is not overlapping must not be opened even
+    /// when the interact buffer is filled.
+    #[test]
+    fn interact_buffered_does_not_open_distant_chest() {
+        let player_pos = ae::Vec2::new(100.0, 100.0);
+        let chest_pos = ae::Vec2::new(500.0, 500.0);
+        let mut app = App::new();
+        app.insert_resource(minimal_runtime());
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<GameplayEffect>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+
+        spawn_interaction_player(&mut app, player_pos);
+
+        let chest_entity = app.world_mut().spawn((
+            FeatureSimEntity,
+            ChestFeature::new(ae::Chest::new("far_chest", None)),
+            FeatureId::new("far_chest"),
+            FeatureName::new("far_chest"),
+            FeatureAabb::from_center_size(chest_pos, ae::Vec2::new(24.0, 24.0)),
+        )).id();
+
+        app.add_systems(Update, open_ecs_chests);
+        app.update();
+
+        assert!(
+            app.world().get::<Opened>(chest_entity).is_none(),
+            "distant chest must not be opened"
+        );
+    }
+
+    /// Already-opened chests are not re-opened by a second interact.
+    #[test]
+    fn interact_does_not_reopen_already_opened_chest() {
+        let center = ae::Vec2::new(100.0, 100.0);
+        let mut app = App::new();
+        app.insert_resource(minimal_runtime());
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<GameplayEffect>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+
+        spawn_interaction_player(&mut app, center);
+
+        let chest_entity = app.world_mut().spawn((
+            FeatureSimEntity,
+            ChestFeature::new(ae::Chest::new("already_open", None)),
+            FeatureId::new("already_open"),
+            FeatureName::new("already_open"),
+            FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+            Opened,
+        )).id();
+
+        app.add_systems(Update, open_ecs_chests);
+        app.update();
+
+        // The entity should still have Opened (idempotent) but we verify the
+        // system didn't panic or try to re-insert the marker.
+        assert!(app.world().get::<Opened>(chest_entity).is_some());
+    }
+
+    /// When a peaceful NPC's AABB overlaps the player and the interact buffer
+    /// is filled, `interact_ecs_actors_and_switches` starts a dialogue session.
+    #[test]
+    fn interact_buffered_starts_npc_dialogue() {
+        use bevy::state::app::StatesPlugin;
+
+        let center = ae::Vec2::new(100.0, 100.0);
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.init_state::<crate::GameMode>();
+        app.insert_resource(minimal_runtime());
+        app.insert_resource(GameplayBanner::default());
+        app.add_message::<GameplayEffect>();
+        app.add_message::<VfxMessage>();
+
+        spawn_interaction_player(&mut app, center);
+
+        let npc_object = ae::RoomObject::new(
+            "guide",
+            "Guide",
+            ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0)),
+            ae::RoomObjectKind::Interactable(ae::Interactable::new(
+                "guide",
+                "Talk",
+                ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0)),
+                ae::InteractionKind::Npc {
+                    dialogue_id: Some("hub_guide".into()),
+                    patrol_radius: 0.0,
+                    patrol_path_id: None,
+                },
+            )),
+        );
+        let npc = NpcRuntime::new(
+            &npc_object,
+            ae::Interactable::new(
+                "guide",
+                "Talk",
+                ae::Aabb::new(center, ae::Vec2::new(16.0, 24.0)),
+                ae::InteractionKind::Npc {
+                    dialogue_id: Some("hub_guide".into()),
+                    patrol_radius: 0.0,
+                    patrol_path_id: None,
+                },
+            ),
+        );
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureAabb::from_center_size(center, ae::Vec2::new(32.0, 48.0)),
+            ActorRuntime::Peaceful(npc),
+        ));
+
+        // No switches in this test — the switch query will be empty and the
+        // system will handle the NPC branch.
+        app.add_systems(Update, interact_ecs_actors_and_switches);
+        app.update();
+
+        let runtime = app.world().resource::<crate::SandboxRuntime>();
+        assert!(
+            runtime.dialogue.active(),
+            "dialogue should be active after NPC interact"
+        );
     }
 }
 

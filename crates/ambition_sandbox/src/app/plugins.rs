@@ -150,6 +150,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,
                 crate::features::apply_feature_damage_events,
+                crate::player::write_player_ecs_components,
             )
                 .chain()
                 .in_set(SandboxSet::CoreSimulation),

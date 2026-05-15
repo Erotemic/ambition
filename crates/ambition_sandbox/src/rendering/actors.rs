@@ -22,7 +22,6 @@ use crate::game_assets::{self, EntitySprite, GameAssets};
 
 pub fn sync_visuals(
     world: Res<crate::GameWorld>,
-    runtime: Res<crate::SandboxRuntime>,
     entities: Res<SceneEntities>,
     assets: Option<Res<GameAssets>>,
     mut player_query: Query<
@@ -30,8 +29,8 @@ pub fn sync_visuals(
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
-            Option<&crate::player::PlayerBody>,
-            Option<&crate::player::PlayerCombatState>,
+            &crate::player::PlayerBody,
+            &crate::player::PlayerCombatState,
         ),
         With<PlayerVisual>,
     >,
@@ -49,17 +48,14 @@ pub fn sync_visuals(
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
-    if let Ok((mut transform, mut sprite, baseline, player_body, player_combat)) = player_query.get_mut(entities.player) {
-        let body = player_body.copied().unwrap_or_else(|| {
-            crate::player::PlayerBody::from_player(&runtime.player)
-        });
+    if let Ok((mut transform, mut sprite, baseline, body, player_combat)) = player_query.get_mut(entities.player) {
         transform.translation = world_to_bevy(&world.0, body.pos, WORLD_Z_PLAYER);
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Colored-rectangle fallback only — stretch to the collision-box
             // size and tint by flash. Textured sprites (atlas OR plain image)
             // keep their authored size and are tinted in the animation system.
             sprite.custom_size = Some(BVec2::new(body.size.x, body.size.y));
-            let alpha = if player_combat.map(|combat| combat.flash_timer).unwrap_or(runtime.flash_timer) > 0.0 { 0.72 } else { 1.0 };
+            let alpha = if player_combat.flash_timer > 0.0 { 0.72 } else { 1.0 };
             sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
         } else if let Some(baseline) = baseline {
             // HACK(crouch-sprite-row): when the player crouches (or

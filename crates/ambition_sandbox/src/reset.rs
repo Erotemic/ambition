@@ -101,6 +101,7 @@ pub fn process_sandbox_reset_request(
     mut banner: ResMut<crate::features::GameplayBanner>,
     encounter_controllers: Query<Entity, With<EncounterController>>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    mut player_q: Query<&mut crate::player::PlayerMovementAuthority, With<crate::player::PlayerEntity>>,
 ) {
     if !request.request {
         return;
@@ -155,6 +156,11 @@ pub fn process_sandbox_reset_request(
     //    a same-room reset; we're calling it after flipping the
     //    active room so it uses the start room's spawn point.
     runtime.reset(&world.0, tuning.as_engine());
+    // Mirror the reset into the ECS authority so the next sandbox_update
+    // frame starts from the spawn position rather than the pre-reset position.
+    if let Ok(mut authority) = player_q.single_mut() {
+        authority.player = runtime.player.clone();
+    }
     crate::features::spawn_room_feature_entities(&mut commands, &start_spec);
     runtime.moving_platforms = platforms::moving_platforms_for_room(&start_spec);
 

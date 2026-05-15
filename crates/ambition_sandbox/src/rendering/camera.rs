@@ -78,9 +78,7 @@ pub fn camera_follow(
 
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
-    let player_body = player.single().copied().unwrap_or_else(|_| {
-        crate::player::PlayerBody::from_player(&runtime.player)
-    });
+    let Ok(player_body) = player.single().copied() else { return; };
     let player_aabb = player_body.aabb();
     let active_spec = room_set.active_spec();
     let mut active_camera_zones = 0usize;

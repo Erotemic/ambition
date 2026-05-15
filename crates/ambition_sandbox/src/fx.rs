@@ -469,11 +469,19 @@ pub fn update_blink_preview(
         &leafwing_input_manager::prelude::ActionState<crate::input::SandboxAction>,
         bevy::prelude::With<crate::rendering::PlayerVisual>,
     >,
+    player_authority: Query<
+        &crate::player::PlayerMovementAuthority,
+        bevy::prelude::With<crate::player::PlayerEntity>,
+    >,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
     use crate::input::ControlFrame;
 
-    let player = &runtime.player;
+    let player = if let Ok(auth) = player_authority.single() {
+        &auth.player
+    } else {
+        &runtime.player
+    };
     let actions = if mode.get().allows_gameplay() {
         action_query.get(scene.player).ok()
     } else {

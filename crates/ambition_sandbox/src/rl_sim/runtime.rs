@@ -181,6 +181,10 @@ impl SandboxSim {
     pub fn observation(&self) -> AgentObservation {
         let world = self.app.world();
         let runtime = world.resource::<SandboxRuntime>();
+        // `runtime.player` is the shadow cache kept in sync by the frame pipeline.
+        // It reflects the authoritative `PlayerMovementAuthority` state after each
+        // `app.update()`, so callers that invoke `observation()` between steps see
+        // a correct snapshot without needing a separate entity query here.
         let player = &runtime.player;
         let health = &runtime.player_health;
         let room = world.resource::<RoomSet>().active_spec();

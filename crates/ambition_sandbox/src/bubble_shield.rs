@@ -156,18 +156,20 @@ mod tests {
     #[test]
     fn build_bubble_shield_image_center_is_transparent() {
         let img = build_bubble_shield_image();
+        let data = img.data.as_ref().expect("image data");
         // Center pixel should be inside the hole (alpha ~ 0).
         let size = SHIELD_TEXTURE_SIZE as usize;
         let cx = size / 2;
         let cy = size / 2;
         let i = (cy * size + cx) * 4;
-        let alpha = img.data[i + 3];
+        let alpha = data[i + 3];
         assert!(alpha < 20, "center should be transparent, got alpha={alpha}");
     }
 
     #[test]
     fn build_bubble_shield_image_ring_is_opaque() {
         let img = build_bubble_shield_image();
+        let data = img.data.as_ref().expect("image data");
         // A pixel halfway between inner and outer radius should be opaque.
         let size = SHIELD_TEXTURE_SIZE as usize;
         let cx = (size as f32 - 1.0) * 0.5;
@@ -175,7 +177,7 @@ mod tests {
         let px = (cx + mid_r as f32) as usize;
         let py = cx as usize;
         let i = (py * size + px) * 4;
-        let alpha = img.data[i + 3];
+        let alpha = data[i + 3];
         assert!(alpha > 200, "ring should be opaque, got alpha={alpha}");
     }
 }

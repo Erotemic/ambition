@@ -1808,7 +1808,6 @@ mod tests {
             &world,
             ae::AbilitySet::sandbox_all(),
             ae::DEFAULT_TUNING,
-            crate::physics::PhysicsSandboxSettings::default(),
         )
     }
 

@@ -66,6 +66,7 @@ pub struct SandboxQueues<'w, 's> {
     pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
     pub current_attack: ResMut<'w, crate::CurrentPlayerAttack>,
     pub dialogue: ResMut<'w, crate::dialog::DialogState>,
+    pub physics_settings: Res<'w, crate::physics::PhysicsSandboxSettings>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.

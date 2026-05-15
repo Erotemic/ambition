@@ -195,10 +195,10 @@ pub struct SandboxRuntime {
     pub last_safe_player_pos: ae::Vec2,
     pub time_scale: f32,
     pub moving_platforms: Vec<platforms::MovingPlatformState>,
-    // Dialogue state lives on the `dialog::DialogState` standalone Resource.
-    pub physics_settings: physics::PhysicsSandboxSettings,
     pub room_transition_cooldown: f32,
     // Active player attack state has moved to the `CurrentPlayerAttack` resource.
+    // Physics settings have moved to the `physics::PhysicsSandboxSettings` standalone Resource.
+    // Dialogue state lives on the `dialog::DialogState` standalone Resource.
     // Blink/camera presentation state has moved to `PlayerBlinkCameraState` ECS component.
 }
 
@@ -243,7 +243,6 @@ impl SandboxRuntime {
         world: &ae::World,
         abilities: ae::AbilitySet,
         tuning: ae::MovementTuning,
-        physics_settings: physics::PhysicsSandboxSettings,
     ) -> Self {
         let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
         player.refresh_movement_resources(tuning);
@@ -257,7 +256,6 @@ impl SandboxRuntime {
             last_safe_player_pos: world.spawn,
             time_scale: 1.0,
             moving_platforms: Vec::new(),
-            physics_settings,
             room_transition_cooldown: 0.0,
         }
     }
@@ -449,7 +447,6 @@ mod safe_pos_tests {
             world,
             ae::AbilitySet::sandbox_all(),
             ae::DEFAULT_TUNING,
-            physics::PhysicsSandboxSettings::default(),
         );
         // Force a known starting "safe pos" we can detect changes from.
         runtime.last_safe_player_pos = ae::Vec2::new(170.0, 1695.0);

@@ -71,6 +71,7 @@ use crate::SandboxRuntime;
 pub struct ResetPlayState<'w> {
     runtime: ResMut<'w, SandboxRuntime>,
     attack: ResMut<'w, crate::CurrentPlayerAttack>,
+    physics_settings: Res<'w, crate::physics::PhysicsSandboxSettings>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -203,7 +204,7 @@ pub fn process_sandbox_reset_request(
         &mut commands,
         &world.0,
         &start_spec.loading_zones,
-        play_state.runtime.physics_settings,
+        *play_state.physics_settings,
         assets.as_deref(),
     );
     platforms::spawn_moving_platforms(&mut commands, &world.0, &play_state.runtime.moving_platforms);
@@ -270,10 +271,10 @@ mod tests {
             &world,
             ae::AbilitySet::sandbox_all(),
             ae::DEFAULT_TUNING,
-            crate::physics::PhysicsSandboxSettings::default(),
         );
         app.insert_resource(runtime);
         app.insert_resource(crate::CurrentPlayerAttack::default());
+        app.insert_resource(crate::physics::PhysicsSandboxSettings::default());
         app.insert_resource(GameWorld(world.clone()));
         // Construct a minimal RoomSet with one room so `start` and
         // `active` are both valid indices.

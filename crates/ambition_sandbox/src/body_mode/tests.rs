@@ -34,7 +34,6 @@ fn body_app(world: ae::World) -> App {
         &world,
         ae::AbilitySet::sandbox_all(),
         ae::DEFAULT_TUNING,
-        crate::physics::PhysicsSandboxSettings::default(),
     );
     let initial_player = runtime.player.clone();
     app.insert_resource(runtime);

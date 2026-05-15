@@ -98,6 +98,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     editable_tuning: Res<EditableMovementTuning>,
+    physics_settings: Res<physics::PhysicsSandboxSettings>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
     mut player_q: Query<
@@ -137,6 +138,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut *combat,
             &mut ldtk_index,
             editable_tuning.as_engine(),
+            *physics_settings,
             &room_visuals,
             game_assets.as_deref(),
         ) {
@@ -164,6 +166,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut tmp_combat,
             &mut ldtk_index,
             editable_tuning.as_engine(),
+            *physics_settings,
             &room_visuals,
             game_assets.as_deref(),
         ) {
@@ -244,6 +247,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     combat: &mut crate::player::PlayerCombatState,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
+    physics_settings: physics::PhysicsSandboxSettings,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     assets: Option<&crate::game_assets::GameAssets>,
 ) -> Result<String, Vec<String>> {
@@ -292,7 +296,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         commands,
         &world.0,
         &room_set.active_spec().loading_zones,
-        runtime.physics_settings,
+        physics_settings,
         assets,
     );
     platforms::spawn_moving_platforms(commands, &world.0, &runtime.moving_platforms);

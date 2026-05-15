@@ -55,7 +55,6 @@ fn min_app() -> App {
         &dummy_world(),
         ae::AbilitySet::sandbox_all(),
         ae::DEFAULT_TUNING,
-        crate::physics::PhysicsSandboxSettings::default(),
     );
     app.insert_resource(runtime);
     app.insert_resource(ControlFrame::default());
@@ -401,7 +400,6 @@ fn fireball_bounces_off_floor_in_system() {
         &world,
         ae::AbilitySet::sandbox_all(),
         ae::DEFAULT_TUNING,
-        crate::physics::PhysicsSandboxSettings::default(),
     );
     app.insert_resource(runtime);
     app.insert_resource(ControlFrame::default());
@@ -478,7 +476,6 @@ fn fireball_bounces_off_one_way_platform_in_system() {
         &world,
         ae::AbilitySet::sandbox_all(),
         ae::DEFAULT_TUNING,
-        crate::physics::PhysicsSandboxSettings::default(),
     );
     app.insert_resource(runtime);
     app.insert_resource(ControlFrame::default());
@@ -556,7 +553,6 @@ fn fireball_passes_through_one_way_from_below_in_system() {
         &world,
         ae::AbilitySet::sandbox_all(),
         ae::DEFAULT_TUNING,
-        crate::physics::PhysicsSandboxSettings::default(),
     );
     app.insert_resource(runtime);
     app.insert_resource(ControlFrame::default());
@@ -631,7 +627,6 @@ fn hadouken_expires_on_solid_in_system() {
         &world,
         ae::AbilitySet::sandbox_all(),
         ae::DEFAULT_TUNING,
-        crate::physics::PhysicsSandboxSettings::default(),
     );
     app.insert_resource(runtime);
     app.insert_resource(ControlFrame::default());

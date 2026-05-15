@@ -78,7 +78,7 @@ pub fn sandbox_update(
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    let physics_settings = runtime.physics_settings;
+    let physics_settings = *queues.physics_settings;
     // Compose difficulty + assist + the fine-grained menu multiplier
     // into one scalar that `handle_player_damage_events` consults.
     // Assist mode halves incoming damage on top of difficulty so a

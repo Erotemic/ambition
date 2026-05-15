@@ -58,7 +58,6 @@ pub struct SimulationSetup<'a> {
     pub sandbox_data: &'a SandboxDataSpec,
     pub editable_abilities: &'a EditableAbilitySet,
     pub editable_tuning: &'a EditableMovementTuning,
-    pub physics_settings: PhysicsSandboxSettings,
     pub sandbox_data_asset: Option<&'a SandboxDataAsset>,
     pub ldtk_asset: Option<&'a SandboxLdtkAsset>,
     pub sandbox_asset_collection: Option<&'a SandboxAssetCollection>,
@@ -106,7 +105,6 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         sandbox_data: _,
         editable_abilities,
         editable_tuning,
-        physics_settings,
         sandbox_data_asset,
         ldtk_asset,
         sandbox_asset_collection,
@@ -137,7 +135,6 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         &world.0,
         editable_abilities.as_engine(),
         editable_tuning.as_engine(),
-        physics_settings,
     );
     runtime.moving_platforms = platforms::moving_platforms_for_room(room_set.active_spec());
     crate::features::spawn_room_feature_entities(commands, room_set.active_spec());
@@ -431,7 +428,4 @@ fn presentation_world_inner(
         quest_panel,
     });
 
-    // Reserve the physics_settings binding for future presentation systems
-    // that might need it; suppress the unused-variable warning until then.
-    let _ = physics_settings;
 }

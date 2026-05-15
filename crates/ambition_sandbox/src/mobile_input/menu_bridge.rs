@@ -100,6 +100,7 @@ pub fn fold_to_control_frame(
     frame.projectile_held |= touch_frame.projectile_held;
     frame.projectile_released |= touch_frame.projectile_released;
     frame.fly_toggle_pressed |= touch_frame.fly_toggle_pressed;
+    frame.shield_held |= touch_frame.shield_held;
     frame.reset_pressed |= touch_frame.reset_pressed;
     frame.start_pressed |= touch_frame.start_pressed;
     frame.pogo_pressed |= touch_frame.pogo_pressed;

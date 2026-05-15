@@ -133,6 +133,7 @@ pub fn pause_menu_navigate(
             );
         }
         PauseMenuPage::Settings(page) => {
+            let mut authority_player = dev_toggles.player_q.single_mut().ok();
             handle_settings_page_input(
                 frame,
                 page,
@@ -145,6 +146,7 @@ pub fn pause_menu_navigate(
                 &mut dev_toggles.developer,
                 &mut dev_toggles.editable_tuning,
                 &mut dev_toggles.ldtk_reload,
+                authority_player.as_deref_mut().map(|a| &mut a.player),
             );
         }
         PauseMenuPage::Radio => {
@@ -316,6 +318,7 @@ fn handle_settings_page_input(
     developer: &mut DeveloperTools,
     editable_tuning: &mut crate::dev_tools::EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
+    authority_player: Option<&mut ambition_engine::Player>,
 ) {
     let rows = SettingsItem::rows_for(page);
     if rows.is_empty() {
@@ -347,6 +350,7 @@ fn handle_settings_page_input(
             developer,
             editable_tuning,
             ldtk_reload,
+            authority_player,
         );
         match outcome {
             SettingsOutcome::Stay => {}

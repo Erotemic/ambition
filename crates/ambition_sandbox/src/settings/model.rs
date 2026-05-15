@@ -455,6 +455,7 @@ pub fn apply_action(
     developer: &mut DeveloperTools,
     editable_tuning: &mut EditableMovementTuning,
     ldtk_reload: &mut LdtkHotReloadState,
+    authority_player: Option<&mut ambition_engine::Player>,
 ) -> SettingsOutcome {
     match item {
         SettingsItem::OpenVideo => {
@@ -744,21 +745,23 @@ pub fn apply_action(
         SettingsItem::PlayerBodyProfile => match action {
             SettingsAction::Prev => {
                 developer.player_body_profile = developer.player_body_profile.prev();
-                apply_player_body_profile(&mut runtime.player, developer.player_body_profile);
+                let player = authority_player.unwrap_or(&mut runtime.player);
+                apply_player_body_profile(player, developer.player_body_profile);
             }
             SettingsAction::Next | SettingsAction::Confirm => {
                 developer.player_body_profile = developer.player_body_profile.next();
-                apply_player_body_profile(&mut runtime.player, developer.player_body_profile);
+                let player = authority_player.unwrap_or(&mut runtime.player);
+                apply_player_body_profile(player, developer.player_body_profile);
             }
         },
         SettingsItem::MovementProfile => match action {
             SettingsAction::Prev => {
                 developer.movement_profile = developer.movement_profile.prev();
-                apply_movement_profile(runtime, editable_tuning, developer.movement_profile);
+                apply_movement_profile(runtime, editable_tuning, developer.movement_profile, authority_player);
             }
             SettingsAction::Next | SettingsAction::Confirm => {
                 developer.movement_profile = developer.movement_profile.next();
-                apply_movement_profile(runtime, editable_tuning, developer.movement_profile);
+                apply_movement_profile(runtime, editable_tuning, developer.movement_profile, authority_player);
             }
         },
         SettingsItem::LdtkAutoApply => {

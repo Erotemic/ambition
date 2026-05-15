@@ -4,11 +4,12 @@ use super::*;
 /// toggles. Packed into a single `SystemParam` so `pause_menu_navigate`
 /// stays under Bevy's 16-param budget.
 #[derive(SystemParam)]
-pub struct DevToggleParams<'w> {
+pub struct DevToggleParams<'w, 's> {
     pub runtime: ResMut<'w, SandboxRuntime>,
     pub developer: ResMut<'w, DeveloperTools>,
     pub editable_tuning: ResMut<'w, crate::dev_tools::EditableMovementTuning>,
     pub ldtk_reload: ResMut<'w, LdtkHotReloadState>,
+    pub player_q: Query<'w, 's, &'static mut crate::player::PlayerMovementAuthority, With<crate::player::PlayerEntity>>,
 }
 
 /// Read-only counterpart used by `sync_pause_menu` to sample the

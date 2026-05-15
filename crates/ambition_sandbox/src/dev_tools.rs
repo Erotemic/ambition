@@ -543,14 +543,21 @@ pub fn apply_player_body_profile(player: &mut ae::Player, profile: PlayerBodyPro
 
 /// Apply a movement profile to the reflected tuning resource and refresh live
 /// movement resources that depend on the configured number of air jumps.
+///
+/// `authority_player` is the ECS-authoritative player; when present the
+/// resource refresh is applied there so it survives the end-of-frame shadow
+/// write. Falls back to `runtime.player` when the authority entity is absent
+/// (headless / test paths).
 pub fn apply_movement_profile(
     runtime: &mut crate::SandboxRuntime,
     editable_tuning: &mut EditableMovementTuning,
     profile: MovementProfile,
+    authority_player: Option<&mut ambition_engine::Player>,
 ) {
     let tuning = profile.tuning();
     *editable_tuning = EditableMovementTuning::from(tuning);
-    runtime.player.refresh_movement_resources(tuning);
+    let player = authority_player.unwrap_or(&mut runtime.player);
+    player.refresh_movement_resources(tuning);
 }
 
 /// Apply live ability-flag edits without rebuilding the player every frame.

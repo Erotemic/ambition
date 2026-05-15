@@ -50,7 +50,11 @@ impl PlayerBody {
     }
 }
 
-/// ECS-visible player health read model.
+/// ECS-owned player health.
+///
+/// Movement still mirrors from `SandboxRuntime::player`, but health is the
+/// first player domain that can be mutated through ECS systems/messages and
+/// mirrored back into the runtime bridge for legacy callers.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlayerHealth {
     pub health: ae::Health,
@@ -67,6 +71,86 @@ impl PlayerHealth {
 
     pub fn max(self) -> i32 {
         self.health.max
+    }
+
+    pub fn heal(&mut self, amount: i32) {
+        self.health.heal(amount);
+    }
+
+    pub fn damage(&mut self, amount: i32) -> bool {
+        self.health.damage(amount)
+    }
+
+    pub fn reset(&mut self) {
+        self.health.reset();
+    }
+}
+
+/// ECS-visible player combat/timer state.
+///
+/// This is authoritative for readers and mirrors back to the legacy runtime
+/// bridge while movement authority is still in `SandboxRuntime::player`.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct PlayerCombatState {
+    pub flash_timer: f32,
+    pub hitstop_timer: f32,
+    pub damage_invuln_timer: f32,
+    pub hitstun_timer: f32,
+    pub slash_anim_timer: f32,
+    pub attacking: bool,
+}
+
+impl PlayerCombatState {
+    pub fn from_runtime(runtime: &crate::SandboxRuntime) -> Self {
+        Self {
+            flash_timer: runtime.flash_timer,
+            hitstop_timer: runtime.hitstop_timer,
+            damage_invuln_timer: runtime.damage_invuln_timer,
+            hitstun_timer: runtime.hitstun_timer,
+            slash_anim_timer: runtime.slash_anim_timer,
+            attacking: runtime.player_attack.is_some(),
+        }
+    }
+
+    pub fn apply_to_runtime(&self, runtime: &mut crate::SandboxRuntime) {
+        runtime.flash_timer = self.flash_timer;
+        runtime.hitstop_timer = self.hitstop_timer;
+        runtime.damage_invuln_timer = self.damage_invuln_timer;
+        runtime.hitstun_timer = self.hitstun_timer;
+        runtime.slash_anim_timer = self.slash_anim_timer;
+    }
+
+    pub fn vulnerable(&self) -> bool {
+        self.damage_invuln_timer <= 0.0
+    }
+}
+
+/// ECS-visible player interaction buffer state.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PlayerInteractionState {
+    pub interact_buffer_timer: f32,
+    pub double_tap_down_pending: bool,
+}
+
+impl PlayerInteractionState {
+    pub fn from_runtime(runtime: &crate::SandboxRuntime) -> Self {
+        Self {
+            interact_buffer_timer: runtime.interact_buffer_timer,
+            double_tap_down_pending: runtime.double_tap_down_pending,
+        }
+    }
+
+    pub fn apply_to_runtime(self, runtime: &mut crate::SandboxRuntime) {
+        runtime.interact_buffer_timer = self.interact_buffer_timer;
+        runtime.double_tap_down_pending = self.double_tap_down_pending;
+    }
+
+    pub fn buffered(self) -> bool {
+        self.interact_buffer_timer > 0.0
+    }
+
+    pub fn clear(&mut self) {
+        self.interact_buffer_timer = 0.0;
     }
 }
 
@@ -91,13 +175,23 @@ pub type PlayerDamageRequested = crate::features::PlayerDamageEvent;
 /// Mirror authoritative runtime player state onto the ECS player entity.
 pub fn sync_player_entity_from_runtime(
     runtime: Res<crate::SandboxRuntime>,
-    mut players: Query<(&mut PlayerBody, &mut PlayerHealth), With<PlayerEntity>>,
+    mut players: Query<
+        (
+            &mut PlayerBody,
+            &mut PlayerHealth,
+            &mut PlayerCombatState,
+            &mut PlayerInteractionState,
+        ),
+        With<PlayerEntity>,
+    >,
 ) {
-    let Ok((mut body, mut health)) = players.single_mut() else {
+    let Ok((mut body, mut health, mut combat, mut interaction)) = players.single_mut() else {
         return;
     };
     *body = PlayerBody::from_player(&runtime.player);
     *health = PlayerHealth::new(runtime.player_health);
+    *combat = PlayerCombatState::from_runtime(&runtime);
+    *interaction = PlayerInteractionState::from_runtime(&runtime);
 }
 
 /// Apply heal messages to the current runtime authority and immediately mirror
@@ -107,16 +201,18 @@ pub fn apply_player_heal_requests(
     mut heals: MessageReader<PlayerHealRequested>,
     mut players: Query<&mut PlayerHealth, With<PlayerEntity>>,
 ) {
-    let mut changed = false;
+    let Ok(mut health) = players.single_mut() else {
+        for heal in heals.read() {
+            if heal.amount > 0 {
+                runtime.player_health.heal(heal.amount);
+            }
+        }
+        return;
+    };
     for heal in heals.read() {
         if heal.amount > 0 {
-            runtime.player_health.heal(heal.amount);
-            changed = true;
+            health.heal(heal.amount);
         }
     }
-    if changed {
-        if let Ok(mut health) = players.single_mut() {
-            *health = PlayerHealth::new(runtime.player_health);
-        }
-    }
+    runtime.player_health = health.health;
 }

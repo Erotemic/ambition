@@ -31,6 +31,7 @@ pub fn sync_visuals(
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
             Option<&crate::player::PlayerBody>,
+            Option<&crate::player::PlayerCombatState>,
         ),
         With<PlayerVisual>,
     >,
@@ -48,7 +49,7 @@ pub fn sync_visuals(
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
-    if let Ok((mut transform, mut sprite, baseline, player_body)) = player_query.get_mut(entities.player) {
+    if let Ok((mut transform, mut sprite, baseline, player_body, player_combat)) = player_query.get_mut(entities.player) {
         let body = player_body.copied().unwrap_or_else(|| {
             crate::player::PlayerBody::from_player(&runtime.player)
         });
@@ -58,7 +59,7 @@ pub fn sync_visuals(
             // size and tint by flash. Textured sprites (atlas OR plain image)
             // keep their authored size and are tinted in the animation system.
             sprite.custom_size = Some(BVec2::new(body.size.x, body.size.y));
-            let alpha = if runtime.flash_timer > 0.0 { 0.72 } else { 1.0 };
+            let alpha = if player_combat.map(|combat| combat.flash_timer).unwrap_or(runtime.flash_timer) > 0.0 { 0.72 } else { 1.0 };
             sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
         } else if let Some(baseline) = baseline {
             // HACK(crouch-sprite-row): when the player crouches (or
@@ -300,9 +301,17 @@ pub fn animate_player(
     time: Res<Time>,
     runtime: Res<crate::SandboxRuntime>,
     entities: Res<SceneEntities>,
-    mut query: Query<(&mut Sprite, &mut CharacterAnimator, Option<&crate::player::PlayerBody>), With<PlayerVisual>>,
+    mut query: Query<
+        (
+            &mut Sprite,
+            &mut CharacterAnimator,
+            Option<&crate::player::PlayerBody>,
+            Option<&crate::player::PlayerCombatState>,
+        ),
+        With<PlayerVisual>,
+    >,
 ) {
-    let Ok((mut sprite, mut animator, player_body)) = query.get_mut(entities.player) else {
+    let Ok((mut sprite, mut animator, player_body, player_combat)) = query.get_mut(entities.player) else {
         return;
     };
     let anim = crate::character_sprites::pick_player_anim(&runtime);
@@ -317,7 +326,8 @@ pub fn animate_player(
     // red tint when invulnerable / hit so the existing flash signal still
     // reads. Tints multiply the texture color, so values below 1.0 darken
     // the channel.
-    sprite.color = if runtime.flash_timer > 0.0 {
+    let flash_timer = player_combat.map(|combat| combat.flash_timer).unwrap_or(runtime.flash_timer);
+    sprite.color = if flash_timer > 0.0 {
         Color::srgba(1.0, 0.55, 0.55, 1.0)
     } else {
         Color::WHITE

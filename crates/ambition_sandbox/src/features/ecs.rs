@@ -803,7 +803,13 @@ pub fn open_ecs_chests(
     mut commands: Commands,
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut banner: ResMut<GameplayBanner>,
-    player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
+    mut player: Query<
+        (
+            &crate::player::PlayerBody,
+            &mut crate::player::PlayerInteractionState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
     chests: Query<(
         Entity,
         &FeatureId,
@@ -816,19 +822,20 @@ pub fn open_ecs_chests(
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
-    if runtime.interact_buffer_timer <= 0.0 {
-        return;
-    }
-    let Ok(player_body) = player.single() else {
+    let Ok((player_body, mut interaction)) = player.single_mut() else {
         return;
     };
+    if !interaction.buffered() {
+        return;
+    }
     let player_body = player_body.aabb();
     for (entity, id, name, aabb, opened, falling) in &chests {
         if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(player_body) {
             continue;
         }
         commands.entity(entity).insert(Opened);
-        runtime.clear_interact_buffer();
+        interaction.clear();
+        interaction.apply_to_runtime(&mut runtime);
         banner.show(format!("opened {}", name.0.as_str()), 2.6);
         let pos = aabb.center;
         vfx.write(VfxMessage::Burst {
@@ -1144,11 +1151,23 @@ pub fn update_ecs_hazards(
     mut vfx: MessageWriter<crate::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
+    player: Query<
+        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
+        With<crate::player::PlayerEntity>,
+    >,
     mut hazards: Query<(&FeatureName, &mut FeatureAabb, &mut HazardFeature), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
-    let player_body = runtime.player.aabb();
-    let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
+    let (player_body, player_pos, player_vulnerable) = player
+        .single()
+        .map(|(body, combat)| (body.aabb(), body.pos, !runtime.player.invincible && combat.vulnerable()))
+        .unwrap_or_else(|_| {
+            (
+                runtime.player.aabb(),
+                runtime.player.pos,
+                !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0,
+            )
+        });
     for (_name, mut aabb, mut feature) in &mut hazards {
         let hazard = &mut feature.hazard;
         hazard.update(dt);
@@ -1157,7 +1176,7 @@ pub fn update_ecs_hazards(
         if !player_vulnerable || !hazard.active() || !hazard.aabb().strict_intersects(player_body) {
             continue;
         }
-        let pos = runtime.player.pos;
+        let pos = player_pos;
         let knockback_dir = (pos.x - hazard.pos.x).signum();
         vfx.write(VfxMessage::Impact { pos });
         vfx.write(VfxMessage::Burst {
@@ -1195,6 +1214,10 @@ pub fn update_ecs_bosses(
     mut vfx: MessageWriter<crate::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
+    player_query: Query<
+        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
+        With<crate::player::PlayerEntity>,
+    >,
     mut bosses: Query<(&mut FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
@@ -1204,8 +1227,15 @@ pub fn update_ecs_bosses(
         &overlay,
     );
     let player = runtime.player.clone();
-    let player_body = player.aabb();
-    let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
+    let (player_body, player_vulnerable) = player_query
+        .single()
+        .map(|(body, combat)| (body.aabb(), !runtime.player.invincible && combat.vulnerable()))
+        .unwrap_or_else(|_| {
+            (
+                player.aabb(),
+                !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0,
+            )
+        });
     for (mut aabb, mut feature) in &mut bosses {
         let boss = &mut feature.boss;
         boss.update(&feature_world, &player, feel_tuning.feature_combat_tuning(), dt);
@@ -1247,6 +1277,10 @@ pub fn update_ecs_actors(
     mut vfx: MessageWriter<crate::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
+    player_query: Query<
+        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
+        With<crate::player::PlayerEntity>,
+    >,
     mut actors: Query<(
         &mut FeatureAabb,
         &mut ActorRuntime,
@@ -1263,8 +1297,15 @@ pub fn update_ecs_actors(
         &overlay,
     );
     let player = runtime.player.clone();
-    let player_body = player.aabb();
-    let player_vulnerable = !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0;
+    let (player_body, player_vulnerable) = player_query
+        .single()
+        .map(|(body, combat)| (body.aabb(), !runtime.player.invincible && combat.vulnerable()))
+        .unwrap_or_else(|_| {
+            (
+                player.aabb(),
+                !runtime.player.invincible && runtime.damage_invuln_timer <= 0.0,
+            )
+        });
     for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
@@ -1313,18 +1354,24 @@ pub fn interact_ecs_actors_and_switches(
     mut runtime: ResMut<crate::SandboxRuntime>,
     mut next_mode: ResMut<NextState<crate::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
-    player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
+    mut player: Query<
+        (
+            &crate::player::PlayerBody,
+            &mut crate::player::PlayerInteractionState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
     actors: Query<(&FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
     mut switches: Query<(&FeatureId, &FeatureName, &FeatureAabb, &SwitchFeature, &mut SwitchOn), With<FeatureSimEntity>>,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
-    if runtime.interact_buffer_timer <= 0.0 {
-        return;
-    }
-    let Ok(player_body) = player.single() else {
+    let Ok((player_body, mut interaction)) = player.single_mut() else {
         return;
     };
+    if !interaction.buffered() {
+        return;
+    }
     let player_body = player_body.aabb();
     for (aabb, actor) in &actors {
         let ActorRuntime::Peaceful(npc) = actor else {
@@ -1333,7 +1380,8 @@ pub fn interact_ecs_actors_and_switches(
         if !aabb.aabb().strict_intersects(player_body) {
             continue;
         }
-        runtime.clear_interact_buffer();
+        interaction.clear();
+        interaction.apply_to_runtime(&mut runtime);
         banner.show(npc.message(), 2.6);
         let request = npc.dialogue_request();
         runtime.dialogue.start(&request.dialogue_id, &request.npc_name);
@@ -1355,7 +1403,8 @@ pub fn interact_ecs_actors_and_switches(
         if !aabb.aabb().strict_intersects(player_body) {
             continue;
         }
-        runtime.clear_interact_buffer();
+        interaction.clear();
+        interaction.apply_to_runtime(&mut runtime);
         banner.show(format!("activated {}", name.0.as_str()), 2.6);
         on.0 = true;
         gameplay_effects.write(GameplayEffect::ActivateSwitch {

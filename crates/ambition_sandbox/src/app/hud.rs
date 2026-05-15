@@ -32,6 +32,7 @@ pub(super) struct HudCameraParams<'w, 's> {
         (
             &'static crate::player::PlayerBody,
             &'static crate::player::PlayerHealth,
+            &'static crate::player::PlayerCombatState,
         ),
         bevy::prelude::With<crate::player::PlayerEntity>,
     >,
@@ -144,11 +145,11 @@ pub(super) fn update_hud(
                 camera_view_line
             )
         });
-    let (player_hp_current, player_hp_max, player_vel, player_on_ground, player_dash_charges, player_air_jumps, player_mana_current) =
+    let (player_hp_current, player_hp_max, player_vel, player_on_ground, player_dash_charges, player_air_jumps, player_mana_current, player_hitstun, player_invuln, player_hitstop) =
         camera_params
             .player
             .single()
-            .map(|(body, health)| {
+            .map(|(body, health, combat)| {
                 (
                     health.current().max(0),
                     health.max(),
@@ -157,6 +158,9 @@ pub(super) fn update_hud(
                     body.dash_charges_available,
                     body.air_jumps_available,
                     body.mana_current as i32,
+                    combat.hitstun_timer,
+                    combat.damage_invuln_timer,
+                    combat.hitstop_timer,
                 )
             })
             .unwrap_or((
@@ -167,6 +171,9 @@ pub(super) fn update_hud(
                 runtime.player.dash_charges_available,
                 runtime.player.air_jumps_available,
                 runtime.player.mana.current as i32,
+                runtime.hitstun_timer,
+                runtime.damage_invuln_timer,
+                runtime.hitstop_timer,
             ));
 
     let zone_hint = {
@@ -363,9 +370,9 @@ pub(super) fn update_hud(
             ldtk_spine_index.revision,
             ldtk_spine_index.promoted_summary(),
             if ldtk_spine.last_entity.is_empty() { "none" } else { &ldtk_spine.last_entity },
-            runtime.hitstun_timer,
-            runtime.damage_invuln_timer,
-            runtime.hitstop_timer,
+            player_hitstun,
+            player_invuln,
+            player_hitstop,
             preset.name,
             window_line,
             developer_tools.overview_camera,

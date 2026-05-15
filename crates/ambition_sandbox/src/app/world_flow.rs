@@ -276,6 +276,7 @@ pub(super) fn death_respawn_player(
     died: &mut Vec<PlayerDiedMessage>,
     runtime: &mut SandboxRuntime,
     banner: &mut features::GameplayBanner,
+    mut player_health: Option<&mut crate::player::PlayerHealth>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
@@ -283,6 +284,10 @@ pub(super) fn death_respawn_player(
     let to = world.spawn;
     runtime.reset(world, tuning);
     runtime.player_health.reset();
+    if let Some(health) = player_health.as_deref_mut() {
+        health.reset();
+        runtime.player_health = health.health;
+    }
     runtime.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     runtime.flash_timer = feel.reset_flash_time.max(0.35);
     banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
@@ -298,6 +303,7 @@ pub(super) fn handle_player_damage_events(
     died: &mut Vec<PlayerDiedMessage>,
     runtime: &mut SandboxRuntime,
     banner: &mut features::GameplayBanner,
+    mut player_health: Option<&mut crate::player::PlayerHealth>,
     damage_events: &[features::PlayerDamageEvent],
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -318,7 +324,14 @@ pub(super) fn handle_player_damage_events(
     // event always lands somewhere.
     let scaled = ((damage.amount as f32) * difficulty_multiplier).round() as i32;
     damage.amount = scaled.max(1);
-    if runtime.player_health.damage(damage.amount) {
+    let died_from_damage = if let Some(health) = player_health.as_deref_mut() {
+        let died = health.damage(damage.amount);
+        runtime.player_health = health.health;
+        died
+    } else {
+        runtime.player_health.damage(damage.amount)
+    };
+    if died_from_damage {
         death_respawn_player(
             world,
             sfx,
@@ -326,6 +339,7 @@ pub(super) fn handle_player_damage_events(
             died,
             runtime,
             banner,
+            player_health,
             tuning,
             feel,
             damage.impact_pos,

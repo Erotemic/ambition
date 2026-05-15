@@ -148,6 +148,8 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     // read-path mirror used by presentation and feature systems.
     let initial_player_body = crate::player::PlayerBody::from_player(&runtime.player);
     let initial_player_health = crate::player::PlayerHealth::new(runtime.player_health);
+    let initial_player_combat = crate::player::PlayerCombatState::from_runtime(&runtime);
+    let initial_player_interaction = crate::player::PlayerInteractionState::from_runtime(&runtime);
     commands.insert_resource(runtime);
 
     let player = commands
@@ -157,6 +159,8 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
             crate::player::PlayerEntity,
             initial_player_body,
             initial_player_health,
+            initial_player_combat,
+            initial_player_interaction,
             Name::new("Player"),
         ))
         .id();

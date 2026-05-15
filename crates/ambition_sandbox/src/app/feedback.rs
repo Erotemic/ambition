@@ -56,6 +56,12 @@ pub struct SandboxQueues<'w, 's> {
     pub damage_events: MessageWriter<'w, crate::features::DamageEvent>,
     pub pogo_bounces: MessageWriter<'w, crate::features::PogoBounceEvent>,
     pub reset_room_features: MessageWriter<'w, crate::features::ResetRoomFeaturesEvent>,
+    pub player_health: Query<
+        'w,
+        's,
+        &'static mut crate::player::PlayerHealth,
+        With<crate::player::PlayerEntity>,
+    >,
     pub banner: ResMut<'w, crate::features::GameplayBanner>,
     pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
 }

@@ -173,17 +173,33 @@ pub fn sandbox_update(
     let player_damage_events: Vec<features::PlayerDamageEvent> =
         queues.player_damage_events.read().copied().collect();
 
-    damage_heal_dialogue_phase(
-        &world.0,
-        &mut runtime,
-        &mut feedback,
-        &player_damage_events,
-        &mut queues.banner,
-        tuning,
-        feel,
-        difficulty_multiplier,
-        &queues.feature_ecs_overlay,
-    );
+    if let Ok(mut health) = queues.player_health.single_mut() {
+        damage_heal_dialogue_phase(
+            &world.0,
+            &mut runtime,
+            &mut feedback,
+            Some(&mut *health),
+            &player_damage_events,
+            &mut queues.banner,
+            tuning,
+            feel,
+            difficulty_multiplier,
+            &queues.feature_ecs_overlay,
+        );
+    } else {
+        damage_heal_dialogue_phase(
+            &world.0,
+            &mut runtime,
+            &mut feedback,
+            None,
+            &player_damage_events,
+            &mut queues.banner,
+            tuning,
+            feel,
+            difficulty_multiplier,
+            &queues.feature_ecs_overlay,
+        );
+    }
 
     if matches!(
         room_transition_phase(

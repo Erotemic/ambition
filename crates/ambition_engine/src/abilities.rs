@@ -95,6 +95,13 @@ pub struct AbilitySet {
     /// can land later as a `hover_fuel` `ResourceMeter` tap.
     #[serde(default)]
     pub glide: bool,
+    /// Ground dodge roll: pressing dash while grounded triggers a short
+    /// lateral roll with invulnerability frames. Uses its own cooldown
+    /// separate from air-dash charges so it does not compete with aerial
+    /// movement options. When enabled, ground-dash input is consumed by
+    /// the dodge roll first; air dashes still consume charges as normal.
+    #[serde(default)]
+    pub dodge: bool,
 }
 
 impl AbilitySet {
@@ -125,6 +132,7 @@ impl AbilitySet {
             ledge_grab: false,
             swim: false,
             glide: false,
+            dodge: false,
         }
     }
 
@@ -155,6 +163,7 @@ impl AbilitySet {
             ledge_grab: true,
             swim: true,
             glide: true,
+            dodge: true,
         }
     }
 
@@ -187,11 +196,12 @@ impl AbilitySet {
             directional_special: true,
             rebound: true,
             reset: true,
-            // ledge grab + swim + glide are mid-game upgrades; not
+            // ledge grab + swim + glide + dodge are mid-game upgrades; not
             // part of the "sane subset" early-game baseline.
             ledge_grab: false,
             swim: false,
             glide: false,
+            dodge: false,
         }
     }
 

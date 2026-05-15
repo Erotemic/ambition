@@ -28,6 +28,7 @@ pub fn update_player_control_with_tuning(
     handle_mode_toggles(player, input, &mut events);
     handle_blink(world, player, input, control_dt, tuning, &mut events);
     handle_attacks(world, player, input, tuning, &mut events);
+    handle_dodge(player, input, tuning, &mut events);
     handle_dash(player, input, tuning, &mut events);
     handle_jump_release(player, input);
 
@@ -202,6 +203,31 @@ fn handle_jump_release(player: &mut Player, input: InputState) {
     // during bullet-time rather than waiting for scaled simulation time.
     if player.abilities.variable_jump && input.jump_released && player.vel.y < -120.0 {
         player.vel.y *= 0.54;
+    }
+}
+
+fn handle_dodge(
+    player: &mut Player,
+    input: InputState,
+    tuning: MovementTuning,
+    events: &mut FrameEvents,
+) {
+    if player.dash_buffer_timer > 0.0
+        && player.abilities.dodge
+        && player.on_ground
+        && player.dodge_roll_cooldown <= 0.0
+    {
+        let dir = if input.axis_x.abs() > 0.1 {
+            input.axis_x.signum()
+        } else {
+            player.facing
+        };
+        player.vel.x = dir * tuning.dodge_roll_speed;
+        player.vel.y = player.vel.y.min(0.0);
+        player.dodge_roll_timer = tuning.dodge_roll_time;
+        player.dodge_roll_cooldown = tuning.dodge_roll_cooldown;
+        player.dash_buffer_timer = 0.0;
+        events.op(player, MovementOp::DodgeRoll);
     }
 }
 

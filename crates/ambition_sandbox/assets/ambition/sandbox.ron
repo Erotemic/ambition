@@ -68,6 +68,9 @@
         pogo_speed: 720.0,
         slash_recoil: 110.0,
         air_jumps: 1,
+        dodge_roll_time: 0.22,
+        dodge_roll_speed: 530.0,
+        dodge_roll_cooldown: 0.42,
     ),
     audio: (
         sample_rate: 44100,

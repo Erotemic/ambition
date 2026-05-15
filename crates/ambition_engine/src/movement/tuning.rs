@@ -63,6 +63,12 @@ pub const ONE_WAY_DROP_THROUGH_GRACE: f32 = 0.18;
 pub const POGO_SPEED: f32 = 720.0;
 pub const SLASH_RECOIL: f32 = 110.0;
 pub const AIR_JUMPS: u8 = 1;
+/// Duration of the dodge-roll invulnerability window (seconds).
+pub const DODGE_ROLL_TIME: f32 = 0.22;
+/// Dodge-roll velocity: roughly 70 % of dash speed in the facing direction.
+pub const DODGE_ROLL_SPEED: f32 = 530.0;
+/// Cooldown after a dodge roll before the next one may start.
+pub const DODGE_ROLL_COOLDOWN: f32 = 0.42;
 
 /// Tunable movement parameters.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -109,6 +115,9 @@ pub struct MovementTuning {
     pub pogo_speed: f32,
     pub slash_recoil: f32,
     pub air_jumps: u8,
+    pub dodge_roll_time: f32,
+    pub dodge_roll_speed: f32,
+    pub dodge_roll_cooldown: f32,
 }
 
 impl Default for MovementTuning {
@@ -156,4 +165,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     pogo_speed: POGO_SPEED,
     slash_recoil: SLASH_RECOIL,
     air_jumps: AIR_JUMPS,
+    dodge_roll_time: DODGE_ROLL_TIME,
+    dodge_roll_speed: DODGE_ROLL_SPEED,
+    dodge_roll_cooldown: DODGE_ROLL_COOLDOWN,
 };

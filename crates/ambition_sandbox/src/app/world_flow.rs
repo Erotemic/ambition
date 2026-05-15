@@ -202,6 +202,16 @@ pub(super) fn handle_player_events(
                     kind: ParticleKind::Spark,
                 });
             }
+            ae::MovementOp::DodgeRoll => {
+                sfx.push(SfxMessage::Dash { pos });
+                vfx.push(VfxMessage::Burst {
+                    pos: player.pos,
+                    count: 8,
+                    speed: 240.0,
+                    color: [0.60, 1.0, 0.70, 0.80],
+                    kind: ParticleKind::Dust,
+                });
+            }
             ae::MovementOp::Blink | ae::MovementOp::PrecisionBlink => {
                 // Blink visuals use the explicit `events.blinks` endpoint data below.
             }

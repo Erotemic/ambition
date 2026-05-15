@@ -40,6 +40,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
         mana_current: 0.0,
         body_mode: ae::BodyMode::Standing,
         invincible: false,
+        dodge_rolling: false,
     };
     app.world_mut().spawn((crate::player::PlayerEntity, body));
 }

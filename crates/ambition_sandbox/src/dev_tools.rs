@@ -301,6 +301,7 @@ pub struct EditableAbilitySet {
     pub ledge_grab: bool,
     pub swim: bool,
     pub glide: bool,
+    pub dodge: bool,
 }
 
 impl EditableAbilitySet {
@@ -330,6 +331,7 @@ impl EditableAbilitySet {
             ledge_grab: self.ledge_grab,
             swim: self.swim,
             glide: self.glide,
+            dodge: self.dodge,
         }
     }
 }
@@ -361,6 +363,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             ledge_grab: value.ledge_grab,
             swim: value.swim,
             glide: value.glide,
+            dodge: value.dodge,
         }
     }
 }
@@ -413,6 +416,9 @@ pub struct EditableMovementTuning {
     pub pogo_speed: f32,
     pub slash_recoil: f32,
     pub air_jumps: u8,
+    pub dodge_roll_time: f32,
+    pub dodge_roll_speed: f32,
+    pub dodge_roll_cooldown: f32,
 }
 
 impl EditableMovementTuning {
@@ -456,6 +462,9 @@ impl EditableMovementTuning {
             pogo_speed: self.pogo_speed,
             slash_recoil: self.slash_recoil,
             air_jumps: self.air_jumps,
+            dodge_roll_time: self.dodge_roll_time,
+            dodge_roll_speed: self.dodge_roll_speed,
+            dodge_roll_cooldown: self.dodge_roll_cooldown,
         }
     }
 }
@@ -501,6 +510,9 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             pogo_speed: value.pogo_speed,
             slash_recoil: value.slash_recoil,
             air_jumps: value.air_jumps,
+            dodge_roll_time: value.dodge_roll_time,
+            dodge_roll_speed: value.dodge_roll_speed,
+            dodge_roll_cooldown: value.dodge_roll_cooldown,
         }
     }
 }

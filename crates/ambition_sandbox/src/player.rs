@@ -53,6 +53,7 @@ pub struct PlayerBody {
     pub mana_current: f32,
     pub body_mode: ae::BodyMode,
     pub invincible: bool,
+    pub dodge_rolling: bool,
 }
 
 impl PlayerBody {
@@ -70,6 +71,7 @@ impl PlayerBody {
             mana_current: player.mana.current,
             body_mode: player.body_mode,
             invincible: player.invincible,
+            dodge_rolling: player.dodge_roll_timer > 0.0,
         }
     }
 

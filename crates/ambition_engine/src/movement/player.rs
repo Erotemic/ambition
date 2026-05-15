@@ -156,6 +156,11 @@ pub struct Player {
     /// wall contact, water, and gravity instead of being corrected by a later
     /// sandbox system.
     pub ledge_grab: Option<crate::ledge_grab::LedgeGrabState>,
+    /// Remaining seconds of dodge-roll invulnerability. > 0 means the
+    /// player is currently rolling and should not take contact damage.
+    pub dodge_roll_timer: f32,
+    /// Cooldown before the next dodge roll may begin.
+    pub dodge_roll_cooldown: f32,
 }
 
 impl Player {
@@ -215,6 +220,8 @@ impl Player {
             water_contact: None,
             climbable_contact: None,
             ledge_grab: None,
+            dodge_roll_timer: 0.0,
+            dodge_roll_cooldown: 0.0,
         }
     }
 

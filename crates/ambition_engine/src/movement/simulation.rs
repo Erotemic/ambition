@@ -85,6 +85,8 @@ fn update_simulation_timers(player: &mut Player, dt: f32, tuning: MovementTuning
     player.blink_cooldown = dec(player.blink_cooldown, dt);
     player.blink_grace_timer = dec(player.blink_grace_timer, dt);
     player.rebound_cooldown = dec(player.rebound_cooldown, dt);
+    player.dodge_roll_timer = dec(player.dodge_roll_timer, dt);
+    player.dodge_roll_cooldown = dec(player.dodge_roll_cooldown, dt);
 
     if player.on_ground {
         player.coyote_timer = tuning.coyote_time;

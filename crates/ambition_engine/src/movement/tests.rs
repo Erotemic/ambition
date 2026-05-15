@@ -1508,3 +1508,59 @@ fn active_ledge_grab_climb_finishes_inside_simulation_tick() {
     assert!(player.on_ground);
     assert!(events.operations.contains(&MovementOp::LedgeClimbFinish));
 }
+
+#[test]
+fn dodge_roll_triggers_on_ground_with_ability() {
+    let world = test_world();
+    let mut player = Player::new(world.spawn);
+    player.on_ground = true;
+    player.dodge_roll_cooldown = 0.0;
+    assert!(player.abilities.dodge, "sandbox_all enables dodge");
+    let events = step(
+        &world,
+        &mut player,
+        InputState { dash_pressed: true, ..Default::default() },
+    );
+    assert!(
+        events.operations.contains(&MovementOp::DodgeRoll),
+        "dash on ground with dodge ability should trigger DodgeRoll"
+    );
+    assert!(player.dodge_roll_timer > 0.0, "dodge_roll_timer should be set");
+    assert!(player.vel.x.abs() > 100.0, "should have lateral velocity from dodge");
+}
+
+#[test]
+fn dodge_roll_blocked_by_cooldown() {
+    let world = test_world();
+    let mut player = Player::new(world.spawn);
+    player.on_ground = true;
+    player.dodge_roll_cooldown = 0.3;
+    let events = step(
+        &world,
+        &mut player,
+        InputState { dash_pressed: true, ..Default::default() },
+    );
+    assert!(
+        !events.operations.contains(&MovementOp::DodgeRoll),
+        "dodge should be blocked when on cooldown"
+    );
+}
+
+#[test]
+fn dodge_roll_disabled_when_ability_off() {
+    let world = test_world();
+    let mut abilities = AbilitySet::sandbox_all();
+    abilities.dodge = false;
+    let mut player = Player::new_with_abilities(world.spawn, abilities);
+    player.on_ground = true;
+    player.dodge_roll_cooldown = 0.0;
+    let events = step(
+        &world,
+        &mut player,
+        InputState { dash_pressed: true, ..Default::default() },
+    );
+    assert!(
+        !events.operations.contains(&MovementOp::DodgeRoll),
+        "dodge should not trigger when ability is disabled"
+    );
+}

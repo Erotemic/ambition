@@ -396,3 +396,8 @@ story structure so people can escape into the game. It can't be so heavy.
 
 
 A boss standing on the shoulders of giants (i.e. Newton) would be fun.
+
+
+Oh, I think that we should also let the intro open with the character just
+leaving the lab and skipping the entire intro, when they come back the creator
+is dead. They miss the commotion.

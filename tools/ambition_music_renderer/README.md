@@ -235,6 +235,7 @@ production example.
 | `violin_boss_relentless.music.yaml` | D-minor boss battle, violin-led, 4/4 |
 | `crooked_ascent_boss.music.yaml` | A-Phrygian-Dominant boss, 5/4, klezmer flavor |
 | `military_iron_resolve.music.yaml` | G-minor military march, brass-led |
+| `fascist_enforcer_theme.music.yaml` | Fictional fascist-enforcer villain march — harsh snare, low brass, cold choir, invented minor-key hook |
 | `env_advocacy_solace.music.yaml` | G-Mixolydian pastoral, 6/8, woodwind-led |
 | `tech_bros_disruption.music.yaml` | F#-minor synthwave, electronic instruments |
 | `dinosaur_liberators.music.yaml` | Southern-rock anthem (~3 min) |

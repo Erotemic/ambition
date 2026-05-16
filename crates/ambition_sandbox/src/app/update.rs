@@ -34,32 +34,43 @@ use super::*;
 /// `&mut PlayerMovementAuthority` and `&mut FrameFeedback` so the borrow
 /// graph stays linear.
 ///
-/// Phase order (each phase comments its scope and what it should not own):
-/// 0. Gameplay-suspended modes (pause / dialogue / room transition /
-///    cutscene) are filtered out by `run_if(gameplay_allowed)`; the
-///    presentation-side `apply_suspended_time_scale_system` in
-///    `sim_systems` zeros `time_scale` for those modes instead.
-/// 1. `input_timer_system` (extracted to `sim_systems`) — gameplay timer
-///    decay + double-tap detection. Runs before `sandbox_update`.
-/// 2. `reset_phase` — explicit reset input.
-/// 3. `player_control_phase` — control-clock player update + pogo routing.
-/// 4. `player_simulation_phase` — sim-clock player update + landing dust.
-/// 5. `interaction_input_phase` — interact / double-tap-up + buffering.
-/// 6. Collect ECS feature events and any damage/heals for this frame.
-/// 7. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
-/// 8. `room_transition_phase` — loading-zone transition request emission.
-///    `apply_room_transition_system` runs after `sandbox_update` and
-///    consumes the request.
-/// 9. `attack_phase` — slash/pogo attack triggering.
-/// 10. `cleanup_timers_system` (extracted to `sim_systems`) — flash /
-///     preset / slash / blink animation timer decay. Runs after
-///     `sandbox_update` every frame unconditionally.
-/// 11. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
-///     `DebrisBurstMessage` queues into the bundled writers.
+/// Phase order (each phase comments its scope and what it should not own).
+/// Phases marked "(extracted)" are real Bevy systems in `sim_systems.rs`
+/// or `world_flow.rs`; they no longer run inline here.
+///
+/// Pre-tick (CoreSimulation, before sandbox_update):
+/// - `sync_live_player_dev_edits_system` (extracted) — F3 inspector
+///   ability/tuning edits, runs every frame including paused.
+/// - `input_timer_system` (extracted) — gameplay timer decay +
+///   double-tap detection, gated by `gameplay_allowed`.
+/// - `interaction_input_system` (extracted) — fold raw Interact +
+///   double-tap-up signal, gate by hit-stun, update
+///   `PlayerInteractionState`'s buffer.
+/// - `apply_suspended_time_scale_system` (extracted) — zeros
+///   `SandboxSimState::time_scale` when gameplay is suspended;
+///   complement of `sandbox_update`'s `gameplay_allowed` gate.
+///
+/// Inside sandbox_update (gated by `run_if(gameplay_allowed)`):
+/// 1. `reset_phase` — explicit reset input.
+/// 2. `player_control_phase` — control-clock player update + pogo routing.
+/// 3. `player_simulation_phase` — sim-clock player update + landing dust.
+/// 4. Collect ECS feature events and any damage/heals for this frame.
+/// 5. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
+/// 6. `attack_phase` — slash/pogo attack triggering.
+/// 7. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
+///    `DebrisBurstMessage` queues into the bundled writers (single
+///    drain at the bottom of the `'frame` labeled block).
+///
+/// Post-tick (CoreSimulation, after sandbox_update):
+/// - `detect_room_transition_system` (extracted) — loading-zone overlap
+///   detection; emits `RoomTransitionRequested`.
+/// - `apply_room_transition_system` (extracted) — consumes the message
+///   and runs `load_room`.
+/// - `cleanup_timers_system` (extracted) — flash / preset / slash /
+///   blink animation timer decay, runs every frame unconditionally.
 pub fn sandbox_update(
     time: Res<Time>,
     world: Res<GameWorld>,
-    room_set: Res<rooms::RoomSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut event_writers: SandboxEventWriters,
@@ -224,18 +235,12 @@ pub fn sandbox_update(
             &mut *combat,
         );
 
-        if matches!(
-            room_transition_phase(
-                &room_set,
-                player,
-                &queues.sim_state,
-                &mut queues.transition_requests,
-                &mut *interaction,
-            ),
-            PhaseOutcome::Return
-        ) {
-            break 'frame;
-        }
+        // room_transition_phase has moved to `detect_room_transition_system`
+        // (sim_systems), which runs after sandbox_update and emits a
+        // `RoomTransitionRequested` message consumed by
+        // `apply_room_transition_system`. attack_phase no longer skips on
+        // a transition frame (small semantic change; player position is
+        // still deterministic per replay_fixture_regression).
 
         attack_phase(
             &controls,

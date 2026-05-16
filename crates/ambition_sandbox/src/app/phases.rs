@@ -314,42 +314,6 @@ pub(super) fn damage_heal_dialogue_phase(
     crate::remember_safe_player_position(sim_state, player, &safe_world, ctx);
 }
 
-/// Phase 9 — loading-zone transition detection.
-///
-/// Owns: cooldown gate, `room_set.transition_for_player` query against
-/// the buffered interact signal, clearing the interact buffer on a
-/// matched transition, writing `RoomTransitionRequested` so the
-/// post-sandbox_update `apply_room_transition_system` can call `load_room`.
-///
-/// Should not own: which buttons trigger a transition (that's
-/// `interaction_input_system`) or per-zone content rebuild (that's
-/// `apply_room_transition_system` / `load_room`). Returns `Return` if a
-/// transition fired this frame so attack/cleanup phases are skipped.
-pub(super) fn room_transition_phase(
-    room_set: &rooms::RoomSet,
-    player: &ae::Player,
-    sim_state: &crate::SandboxSimState,
-    transition_writer: &mut MessageWriter<rooms::RoomTransitionRequested>,
-    interaction: &mut crate::player::PlayerInteractionState,
-) -> PhaseOutcome {
-    if sim_state.room_transition_cooldown > 0.0 {
-        return PhaseOutcome::Continue;
-    }
-    let Some(zone) = room_set.transition_for_player(player, interaction.buffered()) else {
-        return PhaseOutcome::Continue;
-    };
-    let zone_sfx = match zone.zone.activation {
-        rooms::LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),
-        rooms::LoadingZoneActivation::EdgeExit => Some(ambition_sfx::ids::WORLD_PORTAL_ENTER),
-    };
-    interaction.clear();
-    transition_writer.write(rooms::RoomTransitionRequested::new(zone, zone_sfx));
-    // Set cooldown immediately so the next frame's detection gate sees it
-    // even before `apply_room_transition_system` runs and resets it
-    // via load_room. This prevents double-trigger on consecutive frames.
-    PhaseOutcome::Return
-}
-
 /// Phase 10 — slash / pogo attack triggering.
 ///
 /// Owns: hitstun gate, attack/pogo button check, dispatching to

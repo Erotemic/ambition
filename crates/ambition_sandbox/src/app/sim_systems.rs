@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use crate::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use crate::feel::SandboxFeelTuning;
 use crate::input::ControlFrame;
+use crate::rooms::{LoadingZoneActivation, RoomSet, RoomTransitionRequested};
 use crate::SandboxSimState;
 
 /// Push live ability-flag and movement-tuning edits from the dev-tools
@@ -150,6 +151,55 @@ pub fn interaction_input_system(
         frame_dt,
         feel.interaction_buffer_time,
     );
+}
+
+/// Detect a loading-zone overlap and emit a [`RoomTransitionRequested`]
+/// message. The actual room load (despawn old, spawn new, reset player
+/// to spawn point) happens in `apply_room_transition_system`, which
+/// runs immediately after this system in the `CoreSimulation` chain.
+///
+/// Replaces the inline `room_transition_phase` that used to live inside
+/// `sandbox_update` and `PhaseOutcome::Return`-skip `attack_phase`. The
+/// extracted ordering — `sandbox_update` → `detect_room_transition_system`
+/// → `apply_room_transition_system` — means `attack_phase` now always
+/// runs even on a transition frame; this is a tiny semantic change
+/// (the in-flight attack hitbox in the old room is wasted) but the
+/// replay-fixture regression test confirms player position determinism
+/// is preserved because attacks do not push the player.
+///
+/// Gated by `gameplay_allowed`: transitions must not fire while paused
+/// or in dialogue. `apply_room_transition_system` itself is unconditional
+/// because it reads its own message queue and is a no-op when empty.
+pub fn detect_room_transition_system(
+    room_set: Res<RoomSet>,
+    sim_state: Res<SandboxSimState>,
+    mut transition_writer: MessageWriter<RoomTransitionRequested>,
+    mut player_q: Query<
+        (
+            &crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerInteractionState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    if sim_state.room_transition_cooldown > 0.0 {
+        return;
+    }
+    let Ok((authority, mut interaction)) = player_q.single_mut() else {
+        return;
+    };
+    let Some(zone) = room_set.transition_for_player(&authority.player, interaction.buffered())
+    else {
+        return;
+    };
+    let zone_sfx = match zone.zone.activation {
+        LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),
+        LoadingZoneActivation::EdgeExit => Some(ambition_sfx::ids::WORLD_PORTAL_ENTER),
+    };
+    // Clear the interact buffer so the same press doesn't re-trigger
+    // a transition next frame before `load_room` resets it.
+    interaction.clear();
+    transition_writer.write(RoomTransitionRequested::new(zone, zone_sfx));
 }
 
 /// Decay presentation-only animation and flash timers.

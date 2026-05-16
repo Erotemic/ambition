@@ -261,7 +261,7 @@ fn spawn_room_feature_entity(
         }
         ae::RoomObjectKind::BossSpawn(brain) => {
             let boss = BossRuntime::new(object, brain.clone());
-            let initial_phase = if boss.alive { BossPhase::Active } else { BossPhase::Defeated };
+            let initial_phase = BossPhase::from_alive(boss.alive);
             commands.spawn((
                 Name::new(format!("Feature boss: {}", object.name)),
                 FeatureSimEntity,
@@ -1273,7 +1273,7 @@ pub fn update_ecs_bosses(
         aabb.center = boss.pos;
         aabb.half_size = boss.render_size() * 0.5;
         pattern_timer.0 = boss.pattern_timer;
-        *phase = if !boss.alive { BossPhase::Defeated } else { BossPhase::Active };
+        *phase = BossPhase::from_alive(boss.alive);
         if player_vulnerable && boss.alive {
             if let Some(damage) = boss.player_damage(player_body) {
                 let pos = damage.impact_pos;

@@ -330,22 +330,38 @@ pub struct BossPatternTimer(pub f32);
 
 /// ECS-visible boss combat phase.
 ///
-/// `Dormant` — boss is not yet engaged (or fight has been cleared).
-/// `Active`  — boss is alive and in combat.
-/// `Defeated`— boss health reached zero this session.
+/// Synced from `BossFeature::boss.alive` each frame by `update_ecs_bosses`:
+/// - `Active`   — the boss entity exists and is still alive.
+/// - `Defeated` — the boss entity exists but health reached zero.
 ///
-/// Synced from `BossFeature::boss.alive` each frame by `update_ecs_bosses`.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// A boss entity is only ever spawned when an authored `BossSpawn` exists
+/// in the active room, so there is no separate "dormant" reading: the
+/// absence of a `BossPhase` component is itself the dormant signal.
+/// (Engine-side cinematic phasing — Intro / Phase 2 etc. — lives in the
+/// seldom_state `ae::state_machines::BossPhase` machine on the boss
+/// runtime; this read-model intentionally does not duplicate it.)
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BossPhase {
-    #[default]
-    Dormant,
     Active,
     Defeated,
 }
 
 impl BossPhase {
-    pub fn is_active(self) -> bool { matches!(self, Self::Active) }
-    pub fn is_defeated(self) -> bool { matches!(self, Self::Defeated) }
+    pub fn from_alive(alive: bool) -> Self {
+        if alive {
+            Self::Active
+        } else {
+            Self::Defeated
+        }
+    }
+
+    pub fn is_active(self) -> bool {
+        matches!(self, Self::Active)
+    }
+
+    pub fn is_defeated(self) -> bool {
+        matches!(self, Self::Defeated)
+    }
 }
 
 /// Marker for hostile actors spawned dynamically by an encounter wave.

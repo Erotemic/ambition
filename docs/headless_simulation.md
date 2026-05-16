@@ -7,7 +7,7 @@ Ambition's sandbox ships two binaries:
   simulation runner that drives the **full gameplay loop**
 
 Both depend on the `ambition_sandbox` library crate, which owns the module
-graph and the cross-cutting resources (`GameWorld`, `SandboxRuntime`). The
+graph and the cross-cutting resources (`GameWorld`, `RoomSet`). The
 visible binary's `main.rs` is the existing playable shell; the headless
 binary is a thin shim around `ambition_sandbox::run_headless`.
 
@@ -84,8 +84,8 @@ The first half of the RL adapter has landed in
 - **`SandboxSim::new()`** — builds the same App `run_headless` does
   (MinimalPlugins + AssetPlugin + ImagePlugin + TransformPlugin +
   StatesPlugin + `init_sandbox_resources` + `add_simulation_plugins`).
-  Runs the first tick so the player and `SandboxRuntime` are spawned
-  before the caller sees an observation. Returns `Err` on LDtk
+  Runs the first tick so the player entity and its ECS components are
+  spawned before the caller sees an observation. Returns `Err` on LDtk
   validation failure.
 - **`sim.step(action)`** — writes the converted `ControlFrame` into the
   resource and calls `app.update()` once. Returns `AgentObservation`.

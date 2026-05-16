@@ -1,5 +1,16 @@
 # Crate split plan: sandbox → game core + sandbox shell
 
+> **Status (2026-05-16): SUPERSEDED / ARCHIVED.**
+> The original motivation was to move code out of `SandboxRuntime` (the
+> god-object) into a shippable `ambition_game` crate. Stage 12 of the ECS
+> migration (commit `690e268`) deleted `SandboxRuntime` entirely — all player
+> state is now on ECS components (`PlayerMovementAuthority`, `PlayerCombatState`,
+> etc.) and standalone resources (`SandboxSimState`, `SandboxDevState`,
+> `MovingPlatformSet`). The mechanical motivation for this split no longer
+> exists. The crate layout remains `ambition_engine` + `ambition_sandbox` for
+> now; if a shippable game crate is ever needed the ADR process should revisit
+> with the current architecture as the baseline.
+
 ## Why
 
 `ambition_sandbox` started as a debug playground for the engine and has

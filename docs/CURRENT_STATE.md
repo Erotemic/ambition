@@ -22,6 +22,17 @@ future story/game crates
 
 The engine may depend on Bevy and Bevy-adjacent crates when useful. It should still avoid owning sandbox presentation details such as colors, HUD layout, inspector windows, and temporary visual experiments.
 
+## 2026-05-16 ECS player migration complete — SandboxRuntime deleted
+
+`SandboxRuntime` (the god-object resource that shadowed player state) has been
+deleted entirely (Stage 12, commit `690e268`). Player state is now authoritative
+on `PlayerMovementAuthority { player: ae::Player }`, an ECS component on the
+player entity. All prior shadow-write patterns (`runtime.player = player.clone()`)
+are gone. Other fields that were on `SandboxRuntime` are now standalone Bevy
+resources: `SandboxSimState`, `SandboxDevState`, `MovingPlatformSet`,
+`CurrentPlayerAttack`. The guardrail in `lib.rs`: *"Do not introduce a god-object
+runtime resource; add narrow resources or ECS components instead."*
+
 ## 2026-05-09 UI, radio, audio-generation, and module-split update
 
 Recent mobile/menu polish made dialog choices behave like menu rows: larger
@@ -464,13 +475,11 @@ after `sandbox_update` and turns the engine's existing `BodyMode` /
   rejects the transition and the player stays crouched.
 - Double-tap-down + grounded → `MorphBall`. Jump-pressed (or
   Up-pressed) inside MorphBall tries Standing; a low ceiling keeps
-  the ball curled. The signal is `runtime.double_tap_down_pending`,
-  set by `input_timer_phase` and consumed by the body-mode driver
-  via `mem::take`. The edge is routed through `SandboxRuntime`
-  (not `ControlFrame`) because `sandbox_update` consumes its
-  ControlFrame as a local copy that doesn't reach the progression
-  chain. The engine's airborne fast-fall path still uses the same
-  gesture and gates on `!on_ground` so there is no input crosstalk.
+  the ball curled. The signal is `PlayerInteractionState::double_tap_down_pending`
+  (an ECS component on the player entity), set by `input_timer_phase`
+  and consumed by the body-mode driver via `mem::take`. The engine's
+  airborne fast-fall path still uses the same gesture and gates on
+  `!on_ground` so there is no input crosstalk.
 
 `Player::base_size` is the new canonical Standing-stance size; the
 engine helper `try_change_body_mode` adjusts `pos.y` to keep the

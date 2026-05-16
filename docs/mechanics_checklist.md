@@ -102,7 +102,7 @@ This is a major missing backend category. These mechanics require alternate body
 - [x] Compact hitbox mode — per-`BodyMode` `BodyShape` resizes the kinematic body
 - [x] Collision-safe resize / unmorph validation — `BodyShape::fits_at`
 - [~] Alternate hurtbox by stance — `BodyShape` resizes; damage volume still uses player AABB
-- [x] Form switching — `BodyMode` transitions wired through `SandboxRuntime`
+- [x] Form switching — `BodyMode` transitions wired through `PlayerInteractionState` ECS component
 - [x] Size-changing traversal — `BodyMode::{Crouching, Crawling, MorphBall}` already enable narrow passages
 - [ ] Blob / liquid / squeeze-through form
 

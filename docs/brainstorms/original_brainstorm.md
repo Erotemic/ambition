@@ -328,6 +328,10 @@ L-E-G-A-L-L-Y-D-I-S-I-N-C-T. We could even replace the L's with lambdas.
 
 The ΛEGAΛΛY-DISINCT Gate
 
+or maybe
+
+ΛΕΓΑΛΛΥ ΔΙΣΤΙΝΧΤ
+
 
 Some faction having that could be a pathway into the first alternate world. 
 

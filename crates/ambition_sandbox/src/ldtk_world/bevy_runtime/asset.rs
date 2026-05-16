@@ -16,6 +16,14 @@ use super::super::{
 #[derive(Resource, Clone, Debug)]
 pub struct SandboxLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
 
+/// Bevy asset handle for the secondary intro LDtk file. Loaded
+/// alongside the main sandbox project so `bevy_ecs_ldtk` can render
+/// the intro's painted tile layers — its asset loader is independent
+/// of Ambition's merged JSON loader (`LdtkProject::load_default`),
+/// so each file needs its own bundle.
+#[derive(Resource, Clone, Debug)]
+pub struct IntroLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
+
 pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetServer>) {
     let asset_path = sandbox_ldtk_asset_path();
     if asset_path == SANDBOX_LDTK_ASSET && sandbox_ldtk_path() != default_sandbox_ldtk_path() {
@@ -28,10 +36,24 @@ pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetSer
         );
     }
     commands.insert_resource(SandboxLdtkAsset(asset_server.load(asset_path)));
+    // Secondary intro LDtk asset. Co-located in the same Bevy asset
+    // directory; bevy_ecs_ldtk loads it independently so each file's
+    // LdtkWorldBundle can render its own levels.
+    commands.insert_resource(IntroLdtkAsset(asset_server.load("ambition/worlds/intro.ldtk")));
 }
 
+/// Marker for the main sandbox LDtk world root entity. The sandbox
+/// bundle's `LevelSet` carries the iids of the active area IFF the
+/// area belongs to `sandbox.ldtk`; otherwise the set is empty and
+/// nothing renders.
 #[derive(Component)]
 pub struct SandboxLdtkWorldRoot;
+
+/// Marker for the secondary intro LDtk world root entity. Same
+/// LevelSet logic as [`SandboxLdtkWorldRoot`] — the intro bundle's
+/// set is non-empty only while the active area is in `intro.ldtk`.
+#[derive(Component)]
+pub struct IntroLdtkWorldRoot;
 
 #[derive(Clone, Copy, Debug)]
 pub struct LdtkAreaBounds {
@@ -139,7 +161,10 @@ impl LdtkRuntimeIndex {
 pub fn sync_ldtk_level_set(
     room_set: Res<crate::rooms::RoomSet>,
     mut index: ResMut<LdtkRuntimeIndex>,
-    mut ldtk_worlds: Query<&mut LevelSet, With<SandboxLdtkWorldRoot>>,
+    mut ldtk_worlds: Query<
+        &mut LevelSet,
+        bevy::prelude::Or<(With<SandboxLdtkWorldRoot>, With<IntroLdtkWorldRoot>)>,
+    >,
 ) {
     let active_area = room_set.active_spec().id.clone();
     if !index.needs_level_set_sync(&active_area) {
@@ -147,6 +172,11 @@ pub fn sync_ldtk_level_set(
     }
     let next_level_set = index.level_set_for(&active_area);
     index.set_active_area(active_area);
+    // Both bundles get the same LevelSet. bevy_ecs_ldtk only spawns
+    // levels whose iids exist in the bundle's loaded asset, so the
+    // sandbox bundle renders when the active area is in sandbox.ldtk
+    // and the intro bundle renders when the active area is in
+    // intro.ldtk — no cross-talk because iids are unique per file.
     for mut level_set in &mut ldtk_worlds {
         *level_set = next_level_set.clone();
     }
@@ -181,7 +211,10 @@ pub fn sync_ldtk_level_set(
 /// LdtkSettings::level_spawn_behavior).
 pub fn sync_ldtk_world_transform(
     room_set: Res<crate::rooms::RoomSet>,
-    mut ldtk_worlds: Query<&mut Transform, With<SandboxLdtkWorldRoot>>,
+    mut ldtk_worlds: Query<
+        &mut Transform,
+        bevy::prelude::Or<(With<SandboxLdtkWorldRoot>, With<IntroLdtkWorldRoot>)>,
+    >,
 ) {
     let active_world = room_set.active_world();
     let target = Vec3::new(

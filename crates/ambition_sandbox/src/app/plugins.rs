@@ -474,6 +474,7 @@ pub(super) fn spawn_ldtk_world_root(
     ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
     room_set: Res<rooms::RoomSet>,
     ldtk_asset: Option<Res<ldtk_world::SandboxLdtkAsset>>,
+    intro_asset: Option<Res<ldtk_world::IntroLdtkAsset>>,
     sandbox_asset_collection: Option<Res<loading::SandboxAssetCollection>>,
 ) {
     let ldtk_handle = ldtk_asset
@@ -485,16 +486,37 @@ pub(super) fn spawn_ldtk_world_root(
                 .map(|collection| collection.ldtk_project.clone())
         })
         .unwrap_or_else(|| asset_server.load(ldtk_world::sandbox_ldtk_asset_path()));
+    let initial_level_set = ldtk_index.level_set_for(&room_set.active_spec().id);
     commands.spawn((
         bevy_ecs_ldtk::prelude::LdtkWorldBundle {
             ldtk_handle: ldtk_handle.into(),
-            level_set: ldtk_index.level_set_for(&room_set.active_spec().id),
+            level_set: initial_level_set.clone(),
             // AMBITION_REVIEW(spatial): migrate each registered marker from
             // adapter-driven semantics to direct Ambition components.
             ..default()
         },
         ldtk_world::SandboxLdtkWorldRoot,
-        Name::new("LDtk Runtime Spine Root"),
+        Name::new("LDtk Runtime Spine Root (sandbox.ldtk)"),
+    ));
+    // Secondary intro LDtk bundle. bevy_ecs_ldtk's asset loader is
+    // per-file; Ambition's merged JSON loader doesn't propagate into
+    // the Bevy asset system. Each .ldtk file therefore needs its own
+    // bundle to get its painted tile layers rendered. The shared
+    // sync system writes the same LevelSet to both bundles; only the
+    // bundle whose loaded asset contains the active level iids spawns
+    // any levels.
+    let intro_handle = intro_asset
+        .as_ref()
+        .map(|asset| asset.0.clone())
+        .unwrap_or_else(|| asset_server.load("ambition/worlds/intro.ldtk"));
+    commands.spawn((
+        bevy_ecs_ldtk::prelude::LdtkWorldBundle {
+            ldtk_handle: intro_handle.into(),
+            level_set: initial_level_set,
+            ..default()
+        },
+        ldtk_world::IntroLdtkWorldRoot,
+        Name::new("LDtk Runtime Spine Root (intro.ldtk)"),
     ));
 }
 

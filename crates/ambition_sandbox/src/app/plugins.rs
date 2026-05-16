@@ -819,3 +819,44 @@ pub(super) fn add_audio_plugins(app: &mut App) {
 
 #[cfg(not(feature = "audio"))]
 pub(super) fn add_audio_plugins(_app: &mut App) {}
+
+// ── Domain plugin structs ──────────────────────────────────────────────────
+//
+// These are the public Bevy `Plugin` API for callers that just want to
+// `app.add_plugins(…)` without knowing about the internal helper functions.
+// The helper functions (`init_sandbox_resources`, `add_simulation_plugins`,
+// etc.) stay public so callers that need to inject resources between steps
+// (e.g. inserting `StartRoomOverride` before resources are consumed) can
+// still call them in sequence.
+
+/// Installs all sandbox simulation resources and systems — the subset
+/// that is safe for both visible and headless builds. Calls
+/// `init_sandbox_resources` then `add_simulation_plugins`.
+pub struct SandboxSimulationPlugin;
+
+impl Plugin for SandboxSimulationPlugin {
+    fn build(&self, app: &mut App) {
+        init_sandbox_resources(app);
+        add_simulation_plugins(app);
+    }
+}
+
+/// Installs LDtk runtime spine registrations and `LdtkPlugin`. Visible
+/// binary only — `LdtkPlugin` panics in headless (no `RenderApp`).
+pub struct SandboxLdtkPlugin;
+
+impl Plugin for SandboxLdtkPlugin {
+    fn build(&self, app: &mut App) {
+        add_ldtk_runtime_plugin(app);
+    }
+}
+
+/// Installs all presentation-side plugins: input, audio, VFX, HUD, debug
+/// overlays, and platform plugins. Visible binary only.
+pub struct SandboxPresentationPlugin;
+
+impl Plugin for SandboxPresentationPlugin {
+    fn build(&self, app: &mut App) {
+        add_presentation_plugins(app);
+    }
+}

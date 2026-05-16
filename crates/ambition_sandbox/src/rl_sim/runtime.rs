@@ -8,7 +8,7 @@ use bevy::MinimalPlugins;
 
 use ambition_engine as ae;
 
-use crate::app::{add_simulation_plugins, init_sandbox_resources, StartRoomOverride};
+use crate::app::{SandboxSimulationPlugin, StartRoomOverride};
 use crate::game_mode::GameMode;
 use crate::input::ControlFrame;
 use crate::ldtk_world;
@@ -88,14 +88,12 @@ impl SandboxSim {
         app.add_plugins(StatesPlugin);
         app.init_state::<GameMode>();
 
-        // Programmatic start-room override: must be inserted before
-        // `init_sandbox_resources` runs (which is where the override
-        // is consumed). See `app.rs::StartRoomOverride`.
+        // Programmatic start-room override: insert before SandboxSimulationPlugin
+        // builds (which calls init_sandbox_resources and consumes the override).
         if let Some(room_id) = options.start_room.clone() {
             app.insert_resource(StartRoomOverride(room_id));
         }
-        init_sandbox_resources(&mut app);
-        add_simulation_plugins(&mut app);
+        app.add_plugins(SandboxSimulationPlugin);
 
         // Bind the local in same name the rest of the function uses.
         let timestep = options.timestep;

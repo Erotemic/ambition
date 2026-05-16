@@ -1,20 +1,15 @@
 //! Headless simulation entry point.
 //!
-//! Slice 5 of ADR 0012's events refactor: `run_headless` now drives the
-//! actual gameplay loop (`sandbox_update` and friends) by calling the
-//! shared `crate::app::add_simulation_plugins`. The visible binary's
-//! `crate::app::run_visible` calls the same helper plus
-//! `add_presentation_plugins`. Headless skips the presentation half so
-//! audio, VFX, debris, HUD, and inspector plugins are absent — the
-//! sim emits messages into the queue and the queue drains harmlessly.
+//! `run_headless` drives the full gameplay loop by adding
+//! `SandboxSimulationPlugin`. The visible binary uses `run_visible` which
+//! additionally adds `SandboxLdtkPlugin` and `SandboxPresentationPlugin`.
+//! Headless skips the presentation half so audio, VFX, debris, HUD, and
+//! inspector plugins are absent — the sim emits messages into the queue
+//! and the queue drains harmlessly.
 //!
-//! Phase 1 (the original `run_headless` shape) only ticked the LDtk
-//! runtime-spine systems; this Phase 2 version runs the full gameplay
-//! loop including movement, collision, and the typed-event channels.
-//! `LdtkPlugin` is now installed by `add_simulation_plugins`; if its
-//! tile-rendering pipeline ever requires the render plugins we'll
-//! revisit by gating it or by promoting more LDtk entity categories
-//! to direct Ambition ECS spawns (per the LDtk runtime-spine roadmap).
+//! Phase 1 only ticked the LDtk runtime-spine systems; Phase 2 added the
+//! full gameplay loop including movement, collision, and typed-event
+//! channels.
 
 use std::fmt;
 
@@ -25,7 +20,7 @@ use bevy::state::app::StatesPlugin;
 use bevy::time::TimePlugin;
 use bevy::transform::TransformPlugin;
 
-use crate::app::{add_simulation_plugins, init_sandbox_resources};
+use crate::app::SandboxSimulationPlugin;
 use crate::game_mode::GameMode;
 use crate::ldtk_world;
 use crate::rooms::RoomSet;
@@ -105,8 +100,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     app.init_state::<GameMode>();
     let _ = TimePlugin; // re-export reference; MinimalPlugins already adds it.
 
-    init_sandbox_resources(&mut app);
-    add_simulation_plugins(&mut app);
+    app.add_plugins(SandboxSimulationPlugin);
 
     for _ in 0..max_ticks {
         app.update();
@@ -170,8 +164,7 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.init_state::<GameMode>();
 
-        crate::app::init_sandbox_resources(&mut app);
-        crate::app::add_simulation_plugins(&mut app);
+        app.add_plugins(crate::app::SandboxSimulationPlugin);
 
         // First tick runs Startup (spawns the player entity).
         app.update();

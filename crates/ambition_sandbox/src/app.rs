@@ -1,19 +1,23 @@
-//! Visible-binary App-builder helpers and gameplay systems shared between
-//! `src/main.rs` (visible) and `src/headless.rs` (run_headless).
+//! Sandbox app-builder: domain plugins, helpers, and gameplay systems shared
+//! between the visible binary (`src/main.rs`) and headless drivers
+//! (`src/headless.rs`, `src/rl_sim/runtime.rs`).
 //!
-//! Slice 5 of ADR 0012's events refactor moved this code out of `main.rs`
-//! into the library so the headless binary can drive the same gameplay loop
-//! (`sandbox_update` and friends) without InputPlugin / RenderPlugin /
-//! Kira audio. The visible binary's `fn main()` is now a thin shim that
-//! calls `run_visible`, which composes:
+//! ## Plugin API (preferred)
 //!
-//! * `init_sandbox_resources`: parse + validate the embedded LDtk world,
-//!   build the `RoomSet`, and insert sim resources both halves need.
-//! * `add_simulation_plugins`: register sim plugins, messages, and the
-//!   gameplay schedule. Headless calls this; visible calls this.
-//! * `add_presentation_plugins`: register DefaultPlugins-derived rendering,
-//!   inspector overlays, audio/VFX/debris subscribers, HUD, debug overlays,
-//!   and input-driven systems. Visible calls this; headless does not.
+//! * [`SandboxSimulationPlugin`] — all sim resources + systems; safe for
+//!   headless and visible builds.
+//! * [`SandboxLdtkPlugin`] — LDtk runtime spine + `LdtkPlugin`; visible only.
+//! * [`SandboxPresentationPlugin`] — input, audio, VFX, HUD, debug; visible only.
+//!
+//! ## Function API (lower-level)
+//!
+//! * [`init_sandbox_resources`] — parse + validate LDtk world, insert resources.
+//! * [`add_simulation_plugins`] — register sim plugins and update schedule.
+//! * [`add_ldtk_runtime_plugin`] — register LDtk runtime.
+//! * [`add_presentation_plugins`] — register presentation systems.
+//!
+//! Use the function API when you need to inject resources between steps
+//! (e.g. `StartRoomOverride`); use the plugin API otherwise.
 
 #![allow(unused_imports)]
 
@@ -101,6 +105,9 @@ pub use input_systems::{
     apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
     populate_menu_control_frame_from_actions,
 };
-pub use plugins::{add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins};
+pub use plugins::{
+    add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins,
+    SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin,
+};
 pub use resources::{init_sandbox_resources, StartRoomOverride};
 pub use update::sandbox_update;

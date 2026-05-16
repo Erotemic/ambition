@@ -92,188 +92,173 @@ pub fn sandbox_update(
         * user_settings.gameplay.player_damage_multiplier
         * assist_factor;
 
-    // Acquire ECS player components for this frame.
-    let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
-        flush_feedback(&mut feedback, &mut event_writers);
-        return;
-    };
-    let player = &mut authority.player;
-    // Note: `sync_live_player_dev_edits_system` (in sim_systems) runs
-    // unconditionally before sandbox_update so dev-tool ability /
-    // tuning edits land even while the sim is paused.
+    // Each phase appends to `feedback` (sfx/vfx/debris/died); the labeled
+    // block below lets any phase short-circuit the tick via `break` while
+    // keeping the single `flush_feedback` drain at the bottom. This also
+    // guarantees feedback is drained on the "no player entity yet" path,
+    // since that's modeled as `break` here.
+    'frame: {
+        // Acquire ECS player components for this frame.
+        let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
+            break 'frame;
+        };
+        let player = &mut authority.player;
+        // Note: `sync_live_player_dev_edits_system` (in sim_systems) runs
+        // unconditionally before sandbox_update so dev-tool ability /
+        // tuning edits land even while the sim is paused.
 
-    // sandbox_update no longer queries leafwing directly. Input arrives
-    // through `Res<ControlFrame>` — visible builds derive it from
-    // ActionState in `populate_control_frame_from_actions` (runs
-    // `.before(sandbox_update)`); headless / RL drivers can write the
-    // resource directly. Debug hotkeys live in their own presentation-side
-    // system, also `.before(sandbox_update)`. Local copy is read-only
-    // for the rest of this function; `interaction_input_system`
-    // already wrote the buffered interact result into
-    // `PlayerInteractionState` before sandbox_update started, so
-    // `controls.interact_pressed` is just the raw frame input.
-    let controls = *control_frame;
-    let frame_dt = time.delta_secs();
+        // sandbox_update no longer queries leafwing directly. Input arrives
+        // through `Res<ControlFrame>` — visible builds derive it from
+        // ActionState in `populate_control_frame_from_actions` (runs
+        // `.before(sandbox_update)`); headless / RL drivers can write the
+        // resource directly. Debug hotkeys live in their own presentation-
+        // side system, also `.before(sandbox_update)`. The local copy is
+        // read-only for the rest of this function; `interaction_input_system`
+        // already wrote the buffered interact result into
+        // `PlayerInteractionState` before sandbox_update started, so
+        // `controls.interact_pressed` is just the raw frame input.
+        let controls = *control_frame;
+        let frame_dt = time.delta_secs();
 
-    // Pause/resume toggling has moved to `pause_menu::pause_menu_toggle`,
-    // which runs `.before(SandboxSet::CoreSimulation)`. The `start_pressed`
-    // flag is still read here for compile-completeness; the pause logic
-    // lives in the pause menu so it can drive a real overlay.
-    let _ = controls.start_pressed;
+        // Pause/resume toggling has moved to `pause_menu::pause_menu_toggle`,
+        // which runs `.before(SandboxSet::CoreSimulation)`. The
+        // `start_pressed` flag is still read here for compile-completeness;
+        // the pause logic lives in the pause menu so it can drive a real
+        // overlay.
+        let _ = controls.start_pressed;
 
-    if matches!(
-        reset_phase(
-            &controls,
-            &world.0,
-            player,
-            &mut queues.sim_state,
-            &mut queues.current_attack.0,
-            &mut feedback,
-            tuning,
-            feel,
-            &mut queues.reset_room_features,
-            &mut *anim,
-            &mut *combat,
-            &mut *interaction,
-            &mut *blink_cam,
-        ),
-        PhaseOutcome::Return
-    ) {
-        flush_feedback(&mut feedback, &mut event_writers);
-        return;
-    }
+        if matches!(
+            reset_phase(
+                &controls,
+                &world.0,
+                player,
+                &mut queues.sim_state,
+                &mut queues.current_attack.0,
+                &mut feedback,
+                tuning,
+                feel,
+                &mut queues.reset_room_features,
+                &mut *anim,
+                &mut *combat,
+                &mut *interaction,
+                &mut *blink_cam,
+            ),
+            PhaseOutcome::Return
+        ) {
+            break 'frame;
+        }
 
-    if matches!(
-        player_control_phase(
-            controls,
+        if matches!(
+            player_control_phase(
+                controls,
+                &world.0,
+                player,
+                &mut queues.sim_state,
+                &queues.moving_platforms.0,
+                &mut queues.current_attack.0,
+                &mut feedback,
+                tuning,
+                feel,
+                frame_dt,
+                &queues.feature_ecs_overlay,
+                &mut queues.reset_room_features,
+                &mut queues.pogo_bounces,
+                &mut *anim,
+                &mut *combat,
+                &mut *interaction,
+                &mut *blink_cam,
+            ),
+            PhaseOutcome::Return
+        ) {
+            break 'frame;
+        }
+
+        if matches!(
+            player_simulation_phase(
+                controls,
+                &world.0,
+                player,
+                &queues.dev_state,
+                &mut queues.sim_state,
+                &mut queues.moving_platforms.0,
+                &mut queues.current_attack.0,
+                &mut feedback,
+                tuning,
+                feel,
+                frame_dt,
+                &queues.feature_ecs_overlay,
+                &mut queues.reset_room_features,
+                &mut *anim,
+                &mut *combat,
+                &mut *interaction,
+                &mut *blink_cam,
+            ),
+            PhaseOutcome::Return
+        ) {
+            break 'frame;
+        }
+
+        // interaction_input_phase has moved to `interaction_input_system`
+        // (sim_systems), which runs after input_timer_system and before
+        // sandbox_update. It updates `PlayerInteractionState`'s buffer in
+        // place; downstream code reads `interaction.buffered()` directly.
+
+        let player_damage_events: Vec<features::PlayerDamageEvent> =
+            queues.player_damage_events.read().copied().collect();
+
+        let player_health = queues.player_health.single_mut().ok();
+        damage_heal_dialogue_phase(
             &world.0,
             player,
             &mut queues.sim_state,
             &queues.moving_platforms.0,
+            &mut feedback,
+            player_health.map(|h| h.into_inner()),
+            &player_damage_events,
+            &mut queues.banner,
+            tuning,
+            feel,
+            difficulty_multiplier,
+            &queues.feature_ecs_overlay,
+            &mut *anim,
+            &mut *combat,
+        );
+
+        if matches!(
+            room_transition_phase(
+                &room_set,
+                player,
+                &queues.sim_state,
+                &mut queues.transition_requests,
+                &mut *interaction,
+            ),
+            PhaseOutcome::Return
+        ) {
+            break 'frame;
+        }
+
+        attack_phase(
+            &controls,
+            &world.0,
+            &queues.moving_platforms.0,
+            player,
             &mut queues.current_attack.0,
             &mut feedback,
             tuning,
             feel,
             frame_dt,
             &queues.feature_ecs_overlay,
-            &mut queues.reset_room_features,
+            &mut queues.damage_events,
             &mut queues.pogo_bounces,
             &mut *anim,
             &mut *combat,
-            &mut *interaction,
-            &mut *blink_cam,
-        ),
-        PhaseOutcome::Return
-    ) {
-        flush_feedback(&mut feedback, &mut event_writers);
-        return;
-    }
-
-    if matches!(
-        player_simulation_phase(
-            controls,
-            &world.0,
-            player,
-            &queues.dev_state,
-            &mut queues.sim_state,
-            &mut queues.moving_platforms.0,
-            &mut queues.current_attack.0,
-            &mut feedback,
-            tuning,
-            feel,
-            frame_dt,
-            &queues.feature_ecs_overlay,
-            &mut queues.reset_room_features,
-            &mut *anim,
-            &mut *combat,
-            &mut *interaction,
-            &mut *blink_cam,
-        ),
-        PhaseOutcome::Return
-    ) {
-        flush_feedback(&mut feedback, &mut event_writers);
-        return;
-    }
-
-    // interaction_input_phase has moved to `interaction_input_system`
-    // (sim_systems), which runs after input_timer_system and before
-    // sandbox_update. It updates `PlayerInteractionState`'s buffer in
-    // place; downstream code reads `interaction.buffered()` directly.
-
-    let player_damage_events: Vec<features::PlayerDamageEvent> =
-        queues.player_damage_events.read().copied().collect();
-
-    if let Ok(mut health) = queues.player_health.single_mut() {
-        damage_heal_dialogue_phase(
-            &world.0,
-            player,
-            &mut queues.sim_state,
-            &queues.moving_platforms.0,
-            &mut feedback,
-            Some(&mut *health),
-            &player_damage_events,
-            &mut queues.banner,
-            tuning,
-            feel,
-            difficulty_multiplier,
-            &queues.feature_ecs_overlay,
-            &mut *anim,
-            &mut *combat,
         );
-    } else {
-        damage_heal_dialogue_phase(
-            &world.0,
-            player,
-            &mut queues.sim_state,
-            &queues.moving_platforms.0,
-            &mut feedback,
-            None,
-            &player_damage_events,
-            &mut queues.banner,
-            tuning,
-            feel,
-            difficulty_multiplier,
-            &queues.feature_ecs_overlay,
-            &mut *anim,
-            &mut *combat,
-        );
+
+        // cleanup_timers_system runs after write_player_ecs_components in
+        // the CoreSimulation chain every frame unconditionally (it lives
+        // outside sandbox_update so paused/dialogue modes still wind down
+        // flash and landing-pose timers).
     }
-
-    if matches!(
-        room_transition_phase(
-            &room_set,
-            player,
-            &queues.sim_state,
-            &mut queues.transition_requests,
-            &mut *interaction,
-        ),
-        PhaseOutcome::Return
-    ) {
-        flush_feedback(&mut feedback, &mut event_writers);
-        return;
-    }
-
-    attack_phase(
-        &controls,
-        &world.0,
-        &queues.moving_platforms.0,
-        player,
-        &mut queues.current_attack.0,
-        &mut feedback,
-        tuning,
-        feel,
-        frame_dt,
-        &queues.feature_ecs_overlay,
-        &mut queues.damage_events,
-        &mut queues.pogo_bounces,
-        &mut *anim,
-        &mut *combat,
-    );
-
-    // cleanup_timers_system runs after write_player_ecs_components in the
-    // CoreSimulation chain every frame unconditionally (it lives outside
-    // sandbox_update so paused/dialogue modes still wind down flash and
-    // landing-pose timers).
 
     flush_feedback(&mut feedback, &mut event_writers);
 }

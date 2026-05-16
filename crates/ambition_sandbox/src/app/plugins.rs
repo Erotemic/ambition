@@ -53,6 +53,47 @@ pub fn add_simulation_plugins(app: &mut App) {
     // role is migrated to presentation events end-to-end (or Avian gains
     // a headless-friendly init path), it lives in
     // `add_presentation_plugins`.
+
+    // Declare the canonical simulation-phase ordering once, as a set
+    // chain. Individual system registrations below only need `.in_set(X)`;
+    // they no longer need to reference specific cross-set systems in
+    // `.after(...)`. Intra-set `.chain()` ordering is still expressed
+    // per-system as before.
+    //
+    // Order:
+    //   CoreSimulation  — LDtk polling, feature world rebuild, player loop
+    //   FeatureCollection — pickup collection, heal requests
+    //   FeatureInteraction — actor/switch/chest/breakable interactions
+    //   LdtkRuntimeSpine  — LDtk entity index rebuild + parity check
+    //   EncounterSimulation — platform tick, encounter state, banners
+    //   Cutscene          — auto-trigger, drain, tick cutscenes
+    //   GameplayEffects   — flag/quest/switch/boss/NPC/sfx effect routing
+    //   Progression       — boss/actor save sync, quest, body-mode, room, map
+    //
+    // ResetProcessing and Trace run after CoreSimulation (not in the main
+    // chain) because they are tail consumers, not simulation producers.
+    app.configure_sets(
+        Update,
+        (
+            SandboxSet::CoreSimulation,
+            SandboxSet::FeatureCollection,
+            SandboxSet::FeatureInteraction,
+            SandboxSet::LdtkRuntimeSpine,
+            SandboxSet::EncounterSimulation,
+            SandboxSet::Cutscene,
+            SandboxSet::GameplayEffects,
+            SandboxSet::Progression,
+        )
+            .chain(),
+    )
+    .configure_sets(
+        Update,
+        (
+            SandboxSet::ResetProcessing.after(SandboxSet::CoreSimulation),
+            SandboxSet::Trace.after(SandboxSet::CoreSimulation),
+        ),
+    );
+
     app.add_message::<SfxMessage>()
         .add_message::<VfxMessage>()
         .add_message::<DebrisBurstMessage>()
@@ -167,8 +208,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::player::apply_player_heal_requests,
             )
                 .chain()
-                .in_set(SandboxSet::FeatureCollection)
-                .after(crate::features::apply_feature_damage_events),
+                .in_set(SandboxSet::FeatureCollection),
         )
         .add_systems(
             Update,
@@ -181,8 +221,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::encounter::rebuild_encounter_switch_index,
             )
                 .chain()
-                .in_set(SandboxSet::FeatureInteraction)
-                .after(crate::features::collect_ecs_pickups),
+                .in_set(SandboxSet::FeatureInteraction),
         )
         .add_systems(
             Update,
@@ -195,8 +234,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 ldtk_world::check_ldtk_runtime_spine_parity,
             )
                 .chain()
-                .in_set(SandboxSet::LdtkRuntimeSpine)
-                .after(crate::encounter::rebuild_encounter_switch_index),
+                .in_set(SandboxSet::LdtkRuntimeSpine),
         )
         .add_systems(
             Update,
@@ -208,8 +246,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::tick_gameplay_banner,
             )
                 .chain()
-                .in_set(SandboxSet::EncounterSimulation)
-                .after(ldtk_world::check_ldtk_runtime_spine_parity),
+                .in_set(SandboxSet::EncounterSimulation),
         )
         // Progression chain: cutscenes, gameplay-effect routing, boss
         // encounters, quest events, and the F3 stats editor sync. Split into
@@ -223,8 +260,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::cutscene::tick_active_cutscene,
             )
                 .chain()
-                .in_set(SandboxSet::Cutscene)
-                .after(crate::encounter::sync_encounter_controller_states),
+                .in_set(SandboxSet::Cutscene),
         )
         .add_systems(
             Update,
@@ -237,8 +273,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::apply_gameplay_sfx_effects,
             )
                 .chain()
-                .in_set(SandboxSet::GameplayEffects)
-                .after(crate::cutscene::tick_active_cutscene),
+                .in_set(SandboxSet::GameplayEffects),
         )
         .add_systems(
             Update,
@@ -257,8 +292,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 dev_tools::sync_player_stats_with_inspector,
             )
                 .chain()
-                .in_set(SandboxSet::Progression)
-                .after(crate::features::apply_gameplay_sfx_effects),
+                .in_set(SandboxSet::Progression),
         )
         // Populate the encounter / quest / boss registries from the LDtk
         // project + save. These run on Update (not Startup) with their
@@ -283,25 +317,24 @@ pub fn add_simulation_plugins(app: &mut App) {
         )
         // Sandbox reset processor: consumes pending reset requests
         // (set by the pause-menu "Reset Sandbox" item or any other
-        // caller). Runs after `sandbox_update` so it can't race with
-        // in-flight gameplay mutations, and before the populate
-        // systems on the next frame so they see the cleared
+        // caller). In set ResetProcessing (configured after CoreSimulation)
+        // so it can't race with in-flight gameplay mutations, and before
+        // the populate systems on the next frame so they see the cleared
         // registries when re-running.
         .add_systems(
             Update,
             crate::reset::process_sandbox_reset_request
-                .in_set(SandboxSet::ResetProcessing)
-                .after(sandbox_update),
+                .in_set(SandboxSet::ResetProcessing),
         )
         // Trace recorder lives at the simulation seam: `record_frame_system`
-        // captures one frame per Update tick after `sandbox_update` has
+        // captures one frame per Update tick after CoreSimulation has
         // resolved player state; `flush_pending_dump` writes any pending
         // dump to disk on the same tick. Both run on the simulation half
         // so headless and visible builds share trace output.
         .add_systems(
             Update,
             (
-                crate::trace::record_frame_system.after(sandbox_update),
+                crate::trace::record_frame_system,
                 crate::trace::flush_pending_dump.after(crate::trace::record_frame_system),
             )
                 .in_set(SandboxSet::Trace),
@@ -430,7 +463,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 inventory::sync_inventory_panel,
                 crate::map_menu::sync_map_menu,
             )
-                .after(sandbox_update),
+                .after(SandboxSet::CoreSimulation),
         )
         .add_systems(
             Startup,
@@ -457,7 +490,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 crate::map_menu::handle_map_menu_hotkeys,
             )
                 .chain()
-                .after(sandbox_update),
+                .after(SandboxSet::CoreSimulation),
         )
         .add_systems(
             Update,
@@ -510,13 +543,13 @@ pub fn add_presentation_plugins(app: &mut App) {
         // Quest-state-driven dialog redirect: flips the live dialog
         // branch the moment the underlying world state advances past
         // the conversation's prompt (e.g. mockingbird is now dead).
-        // Must run AFTER `sandbox_update` (which is where dialog
-        // start happens) and BEFORE `sync_dialog_ui` (which renders
-        // the chosen branch) so the redirected mode is the one drawn.
+        // Must run after CoreSimulation (which is where dialog start
+        // happens) and before `sync_dialog_ui` (which renders the
+        // chosen branch) so the redirected mode is the one drawn.
         .add_systems(
             Update,
             dialog::redirect_post_quest_dialog
-                .after(sandbox_update)
+                .after(SandboxSet::CoreSimulation)
                 .before(dialog::sync_dialog_ui),
         )
         // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
@@ -592,12 +625,12 @@ pub fn add_presentation_plugins(app: &mut App) {
         // chain stays behind the `audio` feature. Headless builds omit
         // these so the message queues drain without entity spawns or
         // audio playback.
-        .add_systems(Update, vfx_spawn_messages.after(sandbox_update));
+        .add_systems(Update, vfx_spawn_messages.after(SandboxSet::CoreSimulation));
     // Live blink-destination preview ring. Reads leafwing action state to
     // know when the blink button is held, so it lives behind the `input`
     // feature alongside the other gameplay-input-driven presentation.
     #[cfg(feature = "input")]
-    app.add_systems(Update, fx::update_blink_preview.after(sandbox_update));
+    app.add_systems(Update, fx::update_blink_preview.after(SandboxSet::CoreSimulation));
 }
 
 /// Install the egui inspector plugins. Gated by the `dev_tools` feature so
@@ -641,7 +674,7 @@ pub(super) fn add_dev_tools_plugins(_app: &mut App) {}
 #[cfg(feature = "physics_debris")]
 pub(super) fn add_physics_debris_plugins(app: &mut App) {
     app.add_plugins(physics::AmbitionPhysicsPlugin)
-        .add_systems(Update, physics_spawn_debris_messages.after(sandbox_update));
+        .add_systems(Update, physics_spawn_debris_messages.after(SandboxSet::CoreSimulation));
 }
 
 #[cfg(not(feature = "physics_debris"))]
@@ -706,9 +739,9 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 pause_menu::pause_menu_navigate,
             )
                 .chain()
-                .before(sandbox_update),
+                .before(SandboxSet::CoreSimulation),
         )
-        .add_systems(Update, sync_preset_input_map.before(sandbox_update));
+        .add_systems(Update, sync_preset_input_map.before(SandboxSet::CoreSimulation));
 }
 
 #[cfg(not(feature = "input"))]
@@ -771,16 +804,16 @@ pub(super) fn add_audio_plugins(app: &mut App) {
                 .chain()
                 .after(setup_presentation_system),
         )
-        .add_systems(Update, audio_play_sfx_messages.after(sandbox_update))
+        .add_systems(Update, audio_play_sfx_messages.after(SandboxSet::CoreSimulation))
         // Push UserSettings.audio (master/music/sfx/mute) into the
         // Kira channels whenever the user changes the menu sliders.
         // Cheap; the system early-returns when settings are unchanged.
-        .add_systems(Update, apply_audio_settings.after(sandbox_update))
+        .add_systems(Update, apply_audio_settings.after(SandboxSet::CoreSimulation))
         // Unified director: resolves room/encounter simple tracks and
         // adaptive cue states behind one music intent layer.
         .add_systems(
             Update,
-            crate::music::drive_music_director.after(sandbox_update),
+            crate::music::drive_music_director.after(SandboxSet::CoreSimulation),
         );
 }
 

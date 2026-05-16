@@ -14,8 +14,8 @@
 //! rectangles per the existing contract.
 
 use crate::character_sprites::{
-    CharacterSheetSpec, ARCHITECT_SHEET, CREATOR_SHEET, ERDISH_SHEET, FASCIST_ENFORCER_SHEET,
-    KERNEL_GUIDE_SHEET, OILER_SHEET,
+    CharacterSheetSpec, ARCHITECT_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
+    FASCIST_ENFORCER_SHEET, KERNEL_GUIDE_SHEET, OILER_SHEET,
 };
 
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
@@ -23,6 +23,12 @@ use crate::character_sprites::{
 /// `assets/<sprite_folder>/` directory — same convention as
 /// `crate::character_sprites::assets::NPC_SPRITE_REGISTRY`.
 pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
+    // Diagnostic Cart — the prop the player wakes on. Authored as an
+    // NpcSpawn purely so the existing sprite-loader picks it up; the
+    // generic_npc dialogue fallback means an Interact press shows a
+    // harmless "this NPC has no Yarn node yet" line until a real Prop
+    // entity type lands (see docs/intro_followup_roadmap.md §3).
+    ("Diagnostic Cart", "intro_cart_spritesheet.png", CART_SHEET),
     // Wake-room creator. Dedicated creator tack-on sheet — 160×192 with
     // a 108px label column, four authored rows (idle/speak/gesture/walk).
     ("Creator", "creator_spritesheet.png", CREATOR_SHEET),

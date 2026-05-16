@@ -1,0 +1,32 @@
+# Test-access door: central_hub_main upper platform → intro_wake_room.
+#
+# Replaces the old central_hub_basement door (deleted 2026-05-16):
+# the user feedback was that the intro entry should sit on the
+# platform above where the player normally arrives, not buried in
+# the basement.
+#
+# Placement: upper-platform row at y=348. `door free-spots` reported
+# a 906 px gap from x=994..1900; px=[1423, 348] sits mid-gap with
+# enough clearance from both `upper_door` and the right wall.
+#
+# Target: intro_wake_room/wake_room_arrival — the new entry zone
+# placed on top of the diagnostic cart in the wake room, so the
+# player visually arrives ON the cart.
+#
+# Run:
+#   python -m ambition_ldtk_tools entity add \
+#     tools/ambition_ldtk_tools/specs/intro_entry_door_in_central_hub_main.yaml \
+#     --ldtk crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk \
+#     --in-place
+level_id: central_hub_main
+entities:
+  - type: LoadingZone
+    px: [1423, 348]
+    size: [48, 96]
+    fields:
+      id: intro_wake_door
+      name: intro_wake_door
+      activation: Door
+      target_room: intro_wake_room
+      target_zone: wake_room_arrival
+      bidirectional: true

@@ -753,6 +753,34 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
+/// Diagnostic Cart — the rail / gurney the player wakes on. Rendered
+/// by the dedicated `intro_cart` tack-on target. 3 rows ship on disk
+/// (idle / roll / jolt); only Idle wires here today. Frame size is
+/// 192×128 (wider than tall — the cart is a prop, not a humanoid).
+/// The cart authors as an NpcSpawn with `name: "Diagnostic Cart"` so
+/// it picks up its sprite from `INTRO_NPC_SPRITE_REGISTRY` — same
+/// path the other intro characters use. A dedicated `Prop` entity
+/// type lands in a follow-up; for the v1 slice the NpcSpawn slot is
+/// the lightest way to get a visible cart without engine churn.
+pub const CART_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 112,
+    frame_width: 192,
+    frame_height: 128,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.145,
+        },
+    )],
+    collision_scale: 1.00,
+    // The cart's bottom sits flush at y=128 (no overshoot from a
+    // walking silhouette). Feet anchor at the bottom row, slight
+    // upward bias so the player visually stands ON the cart top.
+    feet_anchor_y: -0.500,
+    frame_sample_inset: 2,
+};
+
 /// Creator — the researcher who wakes the player. Rendered by the
 /// dedicated `creator` tack-on target (not the toon-side adapter), so
 /// the sheet is wider (160×192) and starts after a 108px label column.

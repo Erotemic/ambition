@@ -1,30 +1,30 @@
 # intro_escape_shaft — third room of the intro sequence.
 #
-# Beat: Movement-focused exit. A vertical shaft with one-way platforms
-# the player drops down (or climbs up if they're speedrunning). The
-# shaft leads from the raid corridor / skill ledge down into the
-# drain alley behind the gate-stack market.
+# Beat: Movement-focused escape from the lab. Reworked as a wide
+# horizontal corridor (was a vertical shaft in v1) so the EdgeExit
+# walk-through pattern works the same here as everywhere else in
+# the intro: walk off the right edge → drain alley.
 #
-# Layout (768x768):
+# Transitions:
+# - Left-edge EdgeExit `escape_from_raid` ← raid_corridor
+# - Right-edge EdgeExit `escape_to_drain` → drain_alley
 #
-#   +---------------------------------+
-#   | ▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ |
-#   | [skill entry]                  |
-#   | ▒▒▒▒▒▒▒▒                       |  ← rope/ladder placeholder
-#   |              ▒▒▒▒▒▒▒▒          |
-#   |        ▒▒▒▒▒▒▒                 |  ← drop platforms
-#   |  [raid entry]                  |
-#   |        ▒▒▒▒▒▒▒                 |
-#   |                                |
-#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  | ← floor
-#   |             [exit]              |
-#   +---------------------------------+
+# Layout (1280×512):
+#
+#   +---------------------------------------------------------+
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
+#   |                                                         |
+#   |        ▒▒▒▒▒▒▒                ▒▒▒▒▒▒▒                   |
+#   |                 ▒▒▒▒▒▒▒                                 |
+#   | ←                                                     → |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
+#   +---------------------------------------------------------+
 id: intro_escape_shaft
 level_id: intro_escape_shaft
 world_x: 104000
 world_y: 0
-px_wid: 768
-px_hei: 768
+px_wid: 1280
+px_hei: 512
 fill_collision: empty
 bg_color: "#0A0E14"
 biome: lab
@@ -32,101 +32,76 @@ biome: lab
 entities:
   # --- Outer geometry.
   - type: Solid
-    px: [0, 736]
-    size: [768, 32]
+    px: [0, 480]
+    size: [1280, 32]
     fields: { name: floor }
   - type: Solid
-    px: [0, 0]
-    size: [16, 736]
-    fields: { name: left_wall }
-  - type: Solid
-    px: [752, 0]
-    size: [16, 736]
-    fields: { name: right_wall }
-  - type: Solid
     px: [16, 0]
-    size: [736, 32]
+    size: [1248, 32]
     fields: { name: ceiling }
 
-  # --- One-way drop platforms staggered down the shaft.
+  # --- Two one-way platforms staggered for a quick movement gauntlet.
   - type: OneWayPlatform
-    px: [16, 192]
+    px: [256, 320]
     size: [256, 16]
-    fields: { name: shaft_ledge_top }
+    fields: { name: escape_platform_left }
   - type: OneWayPlatform
-    px: [496, 320]
+    px: [768, 320]
     size: [256, 16]
-    fields: { name: shaft_ledge_mid_right }
+    fields: { name: escape_platform_right }
   - type: OneWayPlatform
-    px: [128, 448]
+    px: [512, 192]
     size: [256, 16]
-    fields: { name: shaft_ledge_mid_left }
-  - type: OneWayPlatform
-    px: [400, 576]
-    size: [256, 16]
-    fields: { name: shaft_ledge_bottom }
+    fields: { name: escape_platform_top }
 
-  # --- Normal entry from the raid corridor (mid-height on the left wall).
+  # --- Left-edge EdgeExit back to the raid corridor.
   - type: LoadingZone
-    px: [16, 384]
-    size: [48, 96]
+    px: [0, 0]
+    size: [16, 480]
     fields:
-      id: escape_shaft_entry
-      name: escape_shaft_entry
-      activation: Door
+      id: escape_from_raid
+      name: escape_from_raid
+      activation: EdgeExit
       target_room: intro_raid_corridor
-      target_zone: raid_corridor_escape
+      target_zone: raid_to_escape
       bidirectional: true
 
-  # --- Skill-route entry (from the wake-room ledge). One-way: arrives
-  # near the top of the shaft, so the player still has the full drop.
-  - type: LoadingZone
-    px: [16, 32]
-    size: [48, 96]
-    fields:
-      id: escape_shaft_skill_entry
-      name: escape_shaft_skill_entry
-      activation: walk
-      target_room: intro_wake_room
-      target_zone: intro_wake_skill_hatch
-      bidirectional: false
-
-  # --- Player spawn (only used if the level is jumped to directly).
+  # --- PlayerStart (cold-launch only).
   - type: PlayerStart
-    px: [80, 690]
+    px: [110, 434]
     size: [28, 46]
     fields: { name: escape_shaft_spawn }
 
-  # --- Exit at the bottom: into the drain alley.
+  # --- Right-edge EdgeExit to drain alley.
   - type: LoadingZone
-    px: [360, 640]
-    size: [48, 96]
+    px: [1264, 0]
+    size: [16, 480]
     fields:
-      id: escape_shaft_exit
-      name: escape_shaft_exit
-      activation: walk
+      id: escape_to_drain
+      name: escape_to_drain
+      activation: EdgeExit
       target_room: drain_alley
-      target_zone: drain_alley_entry
+      target_zone: drain_from_escape
       bidirectional: true
 
   # --- Camera zone.
   - type: CameraZone
     px: [0, 0]
-    size: [768, 768]
+    size: [1280, 512]
     fields: { id: escape_shaft_camera, name: escape_shaft_camera, mode: Default }
 
-  # --- Diegetic labels for orientation.
+  # --- Diegetic labels.
   - type: DebugLabel
     px: [40, 80]
-    size: [200, 24]
+    size: [240, 24]
     fields:
       name: shaft_top_label
-      text: "// vent shaft — DOWN"
+      text: "// service corridor"
       category: Custom
   - type: DebugLabel
-    px: [320, 704]
+    px: [1040, 320]
     size: [200, 24]
     fields:
       name: shaft_exit_label
-      text: "↓ drain alley"
+      text: "→ drain alley"
       category: Custom

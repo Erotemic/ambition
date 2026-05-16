@@ -1,24 +1,16 @@
 # gate_stack_lower — fifth room of the intro sequence: hub reveal.
 #
-# Beat: Stable-gate infrastructure becomes visible. Signage establishes
-# that gates are bureaucratic transit, not mythical doorways. The
-# player can see (but not enter) the future routes: pirate, ninja,
-# Nazi fortress, manifest office, return-to-lab. A Gate Janitor NPC
-# reacts to the player using a tiny ripple humans cannot.
+# Beat: Stable-gate infrastructure visible. Signage establishes that
+# gates are bureaucratic transit, not mythical doorways. Future
+# routes are SIGNPOSTED with DebugLabels — no actual doors, since
+# the routes don't exist yet and dead-end LoadingZones (the v1
+# placeholder) confused playtesting.
 #
-# Layout (1600x768):
-#
-#   +-----------------------------------------------------------------+
-#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ |
-#   | [pirate route - blocked]                  [ninja shadow]        |
-#   |                                                                 |
-#   | ▒▒▒▒▒▒▒▒▒▒▒▒                          ▒▒▒▒▒▒▒▒▒▒▒▒              |
-#   |                                                                 |
-#   | [drain]   [Gate         [ripple]      [Manifest]   [Nazi]       |
-#   |  alley]    Janitor]      (placeholder)  Office]    Fortress]    |
-#   |                                                                 |
-#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
-#   +-----------------------------------------------------------------+
+# Transitions:
+# - Left-edge EdgeExit `gate_stack_from_drain` ← drain_alley
+# - (No right-side exit yet; the player explores then backtracks.
+#   When the real Manifest Office / pirate / ninja zones land,
+#   replace the appropriate DebugLabel with a LoadingZone.)
 id: gate_stack_lower
 level_id: gate_stack_lower
 world_x: 108000
@@ -30,25 +22,15 @@ bg_color: "#161D29"
 biome: lab
 
 entities:
-  # --- Outer geometry.
   - type: Solid
     px: [0, 736]
     size: [1600, 32]
     fields: { name: floor }
   - type: Solid
-    px: [0, 0]
-    size: [16, 736]
-    fields: { name: left_wall }
-  - type: Solid
-    px: [1584, 0]
-    size: [16, 736]
-    fields: { name: right_wall }
-  - type: Solid
     px: [16, 0]
     size: [1568, 32]
     fields: { name: ceiling }
 
-  # --- Upper-deck ledges for vertical traversal demonstrations.
   - type: OneWayPlatform
     px: [128, 320]
     size: [256, 16]
@@ -58,25 +40,24 @@ entities:
     size: [256, 16]
     fields: { name: gate_stack_right_balcony }
 
-  # --- Drain alley back-door (left wall).
+  # Left-edge EdgeExit back to drain alley.
   - type: LoadingZone
-    px: [16, 640]
-    size: [48, 96]
+    px: [0, 0]
+    size: [16, 736]
     fields:
-      id: gate_stack_drain_entry
-      name: gate_stack_drain_entry
-      activation: Door
+      id: gate_stack_from_drain
+      name: gate_stack_from_drain
+      activation: EdgeExit
       target_room: drain_alley
-      target_zone: drain_alley_exit
+      target_zone: drain_to_gate_stack
       bidirectional: true
 
-  # --- Player spawn (direct jump only).
   - type: PlayerStart
     px: [120, 690]
     size: [28, 46]
     fields: { name: gate_stack_spawn }
 
-  # --- Gate Janitor: explains stable-gates-vs-ripples.
+  # Gate Janitor: explains stable-gates-vs-ripples.
   - type: NpcSpawn
     px: [400, 688]
     size: [32, 48]
@@ -85,18 +66,7 @@ entities:
       prompt: "Talk to the Gate Janitor"
       dialogue_id: gate_janitor_ripple
 
-  # --- Ripple "interactive": placeholder DebugLabel until a real
-  # ripple entity / sprite lands. Position chosen so the player walks
-  # past it on the natural left-to-right path through the hub.
-  - type: DebugLabel
-    px: [680, 640]
-    size: [120, 32]
-    fields:
-      name: gate_stack_ripple_placeholder
-      text: "[tiny ripple]"
-      category: Custom
-
-  # --- Manifest Office door (placeholder; future route).
+  # Manifest Clerk: confirms the wrong-list mystery.
   - type: NpcSpawn
     px: [960, 688]
     size: [32, 48]
@@ -105,39 +75,14 @@ entities:
       prompt: "Approach the manifest kiosk"
       dialogue_id: manifest_kiosk_wrong_list
 
-  # --- Future-route doors. Each is currently a NON-functional
-  # placeholder: a LoadingZone pointing back into the same hub so the
-  # player can see + interact with a door without leaving the slice.
-  # When the actual zones land, swap target_room/target_zone to the
-  # real zone identifiers — the IDs stay stable.
-  - type: LoadingZone
-    px: [1280, 640]
-    size: [48, 96]
-    fields:
-      id: gate_stack_to_manifest_office
-      name: gate_stack_to_manifest_office
-      activation: Door
-      target_room: gate_stack_lower
-      target_zone: gate_stack_drain_entry
-      bidirectional: false
-  - type: LoadingZone
-    px: [1440, 640]
-    size: [48, 96]
-    fields:
-      id: gate_stack_to_nazi_fortress
-      name: gate_stack_to_nazi_fortress
-      activation: Door
-      target_room: gate_stack_lower
-      target_zone: gate_stack_drain_entry
-      bidirectional: false
-
-  # --- Camera zone over the whole hub.
   - type: CameraZone
     px: [0, 0]
     size: [1600, 768]
     fields: { id: gate_stack_camera, name: gate_stack_camera, mode: Default }
 
-  # --- Signage establishing tone + future routes.
+  # Signage. Future-route doors are intentionally NOT LoadingZones in
+  # v1 (no destination yet); they're DebugLabels so the player can
+  # read what's coming without bumping into broken transitions.
   - type: DebugLabel
     px: [40, 64]
     size: [320, 24]
@@ -173,19 +118,22 @@ entities:
       name: gate_stack_sign_unauthorized
       text: "Unauthorized arrival is still arrival"
       category: Custom
+
+  # Future-route markers. Plain signs for now; promote to
+  # LoadingZones when the destinations exist.
   - type: DebugLabel
-    px: [1240, 624]
+    px: [1260, 640]
     size: [180, 24]
     fields:
       name: gate_stack_manifest_label
-      text: "→ Manifest Office"
+      text: "→ Manifest Office (TBD)"
       category: Custom
   - type: DebugLabel
-    px: [1400, 624]
+    px: [1420, 640]
     size: [180, 24]
     fields:
       name: gate_stack_nazi_label
-      text: "→ Nazi Fortress (compliance)"
+      text: "→ Nazi Fortress (TBD)"
       category: Custom
   - type: DebugLabel
     px: [128, 280]
@@ -202,7 +150,7 @@ entities:
       text: "[ninja shadow — vanishes]"
       category: Custom
   - type: DebugLabel
-    px: [40, 624]
+    px: [40, 640]
     size: [180, 24]
     fields:
       name: gate_stack_lab_return_label

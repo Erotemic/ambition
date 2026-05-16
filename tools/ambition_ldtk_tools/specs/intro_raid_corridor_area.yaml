@@ -1,24 +1,26 @@
 # intro_raid_corridor — second room of the intro sequence.
 #
 # Beat: Raid pressure begins. Two hostile factions enter from opposite
-# sides while the creator is dying mid-sentence. The player escapes
-# through a maintenance shaft on the far side. Wrong-list realization
+# sides while the creator is dying mid-sentence. Wrong-list realization
 # lines plant the mystery (target was ${BIG_AI_NAME}, not the creator).
 #
-# Layout (1600x512):
+# Transitions:
+# - Left-edge EdgeExit `raid_from_wake` ← intro_wake_room/wake_to_raid
+# - Right-edge EdgeExit `raid_to_escape` → intro_escape_shaft/escape_from_raid
+#
+# Walk-through both directions; no door prompts. The cutscene
+# `intro_raid` still fires on entry so the wrong-list lines land
+# before combat engages.
+#
+# Layout (1600×512):
 #
 #   +-----------------------------------------------------------------+
 #   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
 #   |                                                                 |
-#   | [back     [Framebreaker]      [Creator   [Nazi Salvage] [escape |
-#   |  door]                         dying]      Guard]        shaft] |
-#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   | ←  [Framebreaker]      [Creator   [Nazi Salvage]              → |
+#   |                         dying]      Guard]                      |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│
 #   +-----------------------------------------------------------------+
-#
-# The wake-room return door stays open in v1 (no LockWall) because the
-# raid-trapped feel is carried by the dialogue cutscene rather than
-# physical traversal blocks. Backtracking to the wake room shows the
-# creator's body and an "approximately sealed" debug label.
 id: intro_raid_corridor
 level_id: intro_raid_corridor
 world_x: 102000
@@ -30,49 +32,36 @@ bg_color: "#1A0F0F"
 biome: lab
 
 entities:
-  # --- Outer geometry.
+  # --- Outer geometry. Left + right walls have gaps for EdgeExit.
   - type: Solid
     px: [0, 480]
     size: [1600, 32]
     fields: { name: floor }
   - type: Solid
-    px: [0, 0]
-    size: [16, 480]
-    fields: { name: left_wall }
-  - type: Solid
-    px: [1584, 0]
-    size: [16, 480]
-    fields: { name: right_wall }
-  - type: Solid
     px: [16, 0]
     size: [1568, 32]
     fields: { name: ceiling }
 
-  # --- Player enters from the left (wake-room hatch).
+  # --- PlayerStart (cold-launch only; live entries arrive via the
+  # EdgeExit zone target spawn logic).
   - type: PlayerStart
-    px: [80, 434]
+    px: [110, 434]
     size: [28, 46]
-    fields: { name: raid_corridor_entry_spawn }
+    fields: { name: raid_corridor_spawn }
 
-  # --- Back door to the wake room (left wall).
+  # --- Left-edge EdgeExit back to wake room.
   - type: LoadingZone
-    px: [16, 384]
-    size: [48, 96]
+    px: [0, 0]
+    size: [16, 480]
     fields:
-      id: raid_corridor_entry
-      name: raid_corridor_entry
-      activation: Door
+      id: raid_from_wake
+      name: raid_from_wake
+      activation: EdgeExit
       target_room: intro_wake_room
-      target_zone: intro_wake_hatch
+      target_zone: wake_to_raid
       bidirectional: true
 
-  # --- Framebreaker (anti-machine hardliner) blocking the middle-left.
-  # Faction: "Framebreakers / Broken Frame / Handwright splinter" per
-  # the design doc. Authored as a hostile EnemySpawn — the wrong-list
-  # narrative beats fire via the intro_raid cutscene (which pauses
-  # gameplay), so the line ("Kill the Clanker before it learns our
-  # names") still lands before combat starts. Combat-banter from
-  # combat hits can fire via VfxMessage::SpeechBubble in a follow-up.
+  # --- Framebreaker (anti-machine hardliner) — hostile.
   - type: EnemySpawn
     px: [400, 432]
     size: [32, 48]
@@ -80,10 +69,7 @@ entities:
       name: Framebreaker
       brain: medium_striker
 
-  # --- Creator: dying mid-sentence, between the two factions.
-  # Stays as NpcSpawn — the creator is a talking-head NPC, not an
-  # attacker. The wrong-list-realization fragment is delivered via
-  # the intro_raid cutscene + this NPC's dialogue node.
+  # --- Creator: dying mid-sentence between the two factions.
   - type: NpcSpawn
     px: [780, 432]
     size: [32, 48]
@@ -92,10 +78,7 @@ entities:
       prompt: "Hear the Creator's last words"
       dialogue_id: creator_final_normal
 
-  # --- Nazi salvage guard from the right. Also EnemySpawn so the
-  # player feels squeezed between two hostiles instead of two
-  # talking heads. Faster brain (gradient_seeker) plays the
-  # "aggressively-funded squad" read.
+  # --- Nazi salvage guard from the right — hostile.
   - type: EnemySpawn
     px: [1200, 432]
     size: [32, 48]
@@ -103,25 +86,25 @@ entities:
       name: Nazi Salvage Guard
       brain: gradient_seeker
 
-  # --- Escape shaft door on the far right.
+  # --- Right-edge EdgeExit into the escape shaft.
   - type: LoadingZone
-    px: [1536, 384]
-    size: [48, 96]
+    px: [1584, 0]
+    size: [16, 480]
     fields:
-      id: raid_corridor_escape
-      name: raid_corridor_escape
-      activation: walk
+      id: raid_to_escape
+      name: raid_to_escape
+      activation: EdgeExit
       target_room: intro_escape_shaft
-      target_zone: escape_shaft_entry
+      target_zone: escape_from_raid
       bidirectional: true
 
-  # --- Camera zone over the whole corridor.
+  # --- Camera zone.
   - type: CameraZone
     px: [0, 0]
     size: [1600, 512]
     fields: { id: raid_corridor_camera, name: raid_corridor_camera, mode: Default }
 
-  # --- Banners / placeholder signage for the raid feel.
+  # --- Banners.
   - type: DebugLabel
     px: [240, 64]
     size: [320, 24]
@@ -135,11 +118,4 @@ entities:
     fields:
       name: raid_wrong_list_banner
       text: "// 'this one isn't on the manifest'"
-      category: Custom
-  - type: DebugLabel
-    px: [1320, 96]
-    size: [240, 24]
-    fields:
-      name: raid_escape_arrow
-      text: "→ service shaft"
       category: Custom

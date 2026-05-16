@@ -1,21 +1,9 @@
 # drain_alley — fourth room of the intro sequence.
 #
-# Beat: First post-lab decompression. Player lands behind the gate
-# stack in a maintenance alley. Oiler — a street mechanic, not a
-# mentor — finds them and offers a repair / movement tip. Signage
-# starts shifting tone from "horror basement" to "annoyed
-# infrastructure city."
+# Beat: First post-lab decompression. Oiler finds the player; signage
+# shifts tone from horror-basement to annoyed-infrastructure-city.
 #
-# Layout (1024x512):
-#
-#   +---------------------------------------------------+
-#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ |
-#   | [vent in]                                          |
-#   |                                                    |
-#   |                                                    |
-#   |       [Oiler]   [news board]      [→ gate stack]   |
-#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
-#   +---------------------------------------------------+
+# Transitions: both EdgeExits at the side walls (walk-through).
 id: drain_alley
 level_id: drain_alley
 world_x: 106000
@@ -27,43 +15,32 @@ bg_color: "#1B201A"
 biome: cave
 
 entities:
-  # --- Outer geometry.
   - type: Solid
     px: [0, 480]
     size: [1024, 32]
     fields: { name: floor }
   - type: Solid
-    px: [0, 0]
-    size: [16, 480]
-    fields: { name: left_wall }
-  - type: Solid
-    px: [1008, 0]
-    size: [16, 480]
-    fields: { name: right_wall }
-  - type: Solid
     px: [16, 0]
     size: [992, 32]
     fields: { name: ceiling }
 
-  # --- Vent-in from the escape shaft (top-left).
+  # Left-edge EdgeExit (from escape shaft).
   - type: LoadingZone
-    px: [16, 384]
-    size: [48, 96]
+    px: [0, 0]
+    size: [16, 480]
     fields:
-      id: drain_alley_entry
-      name: drain_alley_entry
-      activation: walk
+      id: drain_from_escape
+      name: drain_from_escape
+      activation: EdgeExit
       target_room: intro_escape_shaft
-      target_zone: escape_shaft_exit
+      target_zone: escape_to_drain
       bidirectional: true
 
-  # --- Player spawn (only used on direct jump).
   - type: PlayerStart
-    px: [96, 434]
+    px: [120, 434]
     size: [28, 46]
     fields: { name: drain_alley_spawn }
 
-  # --- Oiler: the first post-lab helper. Practical street mechanic.
   - type: NpcSpawn
     px: [320, 432]
     size: [32, 48]
@@ -72,7 +49,6 @@ entities:
       prompt: "Talk to Oiler"
       dialogue_id: oiler_intro
 
-  # --- News board: implicit lying-headline reveal about the lab incident.
   - type: NpcSpawn
     px: [560, 432]
     size: [32, 48]
@@ -81,25 +57,23 @@ entities:
       prompt: "Read the news board"
       dialogue_id: news_board_lab_incident
 
-  # --- Exit to the gate stack hub on the right.
+  # Right-edge EdgeExit (to gate stack).
   - type: LoadingZone
-    px: [960, 384]
-    size: [48, 96]
+    px: [1008, 0]
+    size: [16, 480]
     fields:
-      id: drain_alley_exit
-      name: drain_alley_exit
-      activation: Door
+      id: drain_to_gate_stack
+      name: drain_to_gate_stack
+      activation: EdgeExit
       target_room: gate_stack_lower
-      target_zone: gate_stack_drain_entry
+      target_zone: gate_stack_from_drain
       bidirectional: true
 
-  # --- Camera zone.
   - type: CameraZone
     px: [0, 0]
     size: [1024, 512]
     fields: { id: drain_alley_camera, name: drain_alley_camera, mode: Default }
 
-  # --- Diegetic labels for tone shift.
   - type: DebugLabel
     px: [40, 64]
     size: [320, 24]
@@ -122,8 +96,8 @@ entities:
       text: "Report unstable ripples to platform staff"
       category: Custom
   - type: DebugLabel
-    px: [880, 416]
-    size: [120, 24]
+    px: [840, 320]
+    size: [160, 24]
     fields:
       name: drain_alley_exit_arrow
       text: "→ Gate Stack"

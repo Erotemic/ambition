@@ -177,6 +177,18 @@ to the bottom under "Closed" with the commit that fixed them.
     phase at a time, gated by integration tests, when the borrow
     graph allows.
 
+- **LOW — `RoomVisual` is a dual-purpose marker**
+  - File: `crates/ambition_sandbox/src/rendering/primitives.rs`
+  - `RoomVisual` is both the rendering tag and the "lifetime scoped
+    to current room" lifecycle marker. The room-load + reset paths
+    despawn every `RoomVisual`, and rendering systems query it to
+    filter to the active room. Works today because every sim feature
+    entity also renders, but a headless-only feature or a lazy
+    "presentation observer" pattern would need a separate
+    `RoomScopedEntity` lifecycle marker. Split when the second use
+    case lands; document both markers and update
+    `FeatureBaseBundle` accordingly.
+
 - **RESOLVED 2026-05-16 — Two parallel chains in the Update schedule**
   — closed by introducing `SandboxSet` in
   `crates/ambition_sandbox/src/app/schedule.rs`. The schedule is now

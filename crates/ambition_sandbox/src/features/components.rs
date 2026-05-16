@@ -416,6 +416,14 @@ impl BossRewardChest {
 /// Shared base for every feature simulation entity (pickup, chest, hazard,
 /// actor, breakable …). Combines the marker, visual tag, and authored identity
 /// components that appear on every feature spawn.
+///
+/// Includes [`crate::rendering::RoomVisual`] because every authored feature
+/// today both *is* a simulation entity and *renders*; the rendering systems
+/// query `With<RoomVisual>` and the room-load / reset path despawns the same
+/// marker to wipe the previous room. See the doc comment on `RoomVisual` for
+/// the dual-role rationale and the planned split into a separate
+/// `RoomScopedEntity` lifecycle marker once a presentation observer makes the
+/// visual lazy.
 #[derive(Bundle)]
 pub struct FeatureBaseBundle {
     pub sim_entity: FeatureSimEntity,

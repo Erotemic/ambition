@@ -45,6 +45,23 @@ pub struct HudText;
 #[derive(Component)]
 pub struct QuestPanelText;
 
+/// Dual-purpose marker: tags an entity as "rendered as part of the
+/// current room" AND "lifetime is scoped to the current room."
+///
+/// Rendering systems (`sync_visuals`, `sync_health_overlays`, etc.)
+/// query `With<RoomVisual>` to filter to the active room's entities.
+/// `process_sandbox_reset_request` and the room-load path despawn
+/// every `RoomVisual` to clear the previous room before swapping in
+/// the new one.
+///
+/// The dual role is intentional today: feature sim entities currently
+/// always have a visual, and the room-load path despawns the
+/// sim+visual together via this single marker. When a separate
+/// sim-only lifecycle marker becomes useful (e.g. headless-only
+/// features, or a presentation system that observes feature spawns
+/// and adds the visual lazily), split this into `RoomScopedEntity`
+/// (sim/lifecycle) and `RoomVisual` (rendering only). Track the split
+/// in `docs/tech_debt_log.md`.
 #[derive(Component)]
 pub struct RoomVisual;
 

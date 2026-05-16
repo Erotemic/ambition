@@ -550,7 +550,11 @@ pub fn add_presentation_plugins(app: &mut App) {
         )
         .add_systems(
             Update,
-            (update_hud, dialog::sync_dialog_ui)
+            (
+                update_hud,
+                dialog::sync_dialog_ui,
+                crate::cutscene::sync_cutscene_ui,
+            )
                 .chain()
                 .after(windowing::window_mode_hotkeys),
         )

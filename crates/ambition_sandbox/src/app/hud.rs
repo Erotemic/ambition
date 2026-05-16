@@ -188,30 +188,21 @@ pub(super) fn update_hud(
     } else {
         format!("\nQUESTS: {}", quest_lines.join("  ::  "))
     };
+    // Cutscene UI lives in the dedicated overlay
+    // (`crate::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
+    // with speaker / body / continue prompt and a skip-hold progress
+    // bar. The debug HUD just notes that one is active so testers
+    // can correlate skip-hold state with the floating overlay; the
+    // detailed beat content stays out of the debug text line.
     let cutscene_line = if let Some(rt) = cutscene.runtime.as_ref() {
-        let beat = match cutscene.current_dialogue.as_ref() {
-            Some((speaker, text)) => format!("[{speaker}]  {text}  (E to continue)"),
+        let beat_label = match cutscene.current_dialogue.as_ref() {
+            Some((speaker, _)) => format!("dialogue @ {speaker}"),
             None => match cutscene.current_banner.as_ref() {
-                Some((banner, _)) => format!("// {banner}"),
-                None => format!("cutscene: beat {}", rt.beat_index),
+                Some((_, remaining)) => format!("banner ({remaining:.1}s)"),
+                None => format!("beat {}", rt.beat_index),
             },
         };
-        // Skip-hold progress: only render the bar while a hold is in
-        // progress, so an idle cutscene doesn't show a clutter prompt.
-        let skip_progress = progression.cutscene_request.skip_progress();
-        let skip_hint = if skip_progress > 0.01 {
-            let filled = (skip_progress * 12.0).round().clamp(0.0, 12.0) as usize;
-            let empty = 12usize.saturating_sub(filled);
-            format!(
-                "  hold Backspace/Select to skip [{}{}] {:.0}%",
-                "=".repeat(filled),
-                "-".repeat(empty),
-                skip_progress * 100.0,
-            )
-        } else {
-            "  (Backspace/Select held = skip)".to_string()
-        };
-        format!("\nCUTSCENE: {beat}{skip_hint}")
+        format!("\nCUTSCENE: {beat_label}")
     } else {
         String::new()
     };

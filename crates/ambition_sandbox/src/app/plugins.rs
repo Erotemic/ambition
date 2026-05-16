@@ -129,30 +129,16 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::CameraEaseTuning::default())
         .insert_resource(crate::rendering::CameraViewState::default())
         .insert_resource(crate::reset::SandboxResetRequested::default())
-        // Core simulation chain. Bevy only implements tuple system configs
-        // up to a fixed arity, so keep groups small and chained.
+        // Core simulation, split into 6 finer-grained sub-sets that are
+        // chained inside `SandboxSet::CoreSimulation`. See
+        // `schedule.rs::configure_sandbox_sets` for the sub-set ordering.
+        // External presentation/audio/HUD systems still pin against
+        // `SandboxSet::CoreSimulation`; that constraint covers all six
+        // sub-sets transitively.
         //
-        // Chain order (see `sandbox_update` doc for the full phase map):
-        //   LDtk polling
-        //   → feature world rebuild + feature ticks (hazards/actors/bosses)
-        //   → sync_live_player_dev_edits_system  (unconditional dev sync)
-        //   → apply_player_reset_input_system     (gameplay; input-driven
-        //       reset, clears controls.reset_pressed afterwards)
-        //   → input_timer_system                  (gameplay)
-        //   → interaction_input_system            (gameplay)
-        //   → apply_suspended_time_scale_system   (paused / dialogue)
-        //   → sandbox_update                      (gameplay; remaining
-        //       inline phases: control, simulation. engine-driven reset
-        //       paths still run inline.)
-        //   → apply_player_damage_system          (gameplay)
-        //   → detect_room_transition_system       (gameplay)
-        //   → attack_advance_system               (gameplay; writes
-        //       sfx/vfx/damage/pogo directly via MessageWriters)
-        //   → apply_room_transition_system        (consumes
-        //       RoomTransitionRequested)
-        //   → feature cleanup / projectile tick / damage apply / player
-        //       ECS write-back
-        //   → cleanup_timers_system               (unconditional)
+        // SandboxSet::WorldPrep — LDtk hot-reload + feature world overlay
+        // + feature ticks. Sets up the collision world that PlayerInput +
+        // PlayerSimulation read.
         .add_systems(
             Update,
             (
@@ -161,24 +147,74 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::update_ecs_hazards,
                 crate::features::update_ecs_actors,
                 crate::features::update_ecs_bosses,
+            )
+                .chain()
+                .in_set(SandboxSet::WorldPrep),
+        )
+        // SandboxSet::PlayerInput — dev-edit sync + input-driven reset +
+        // gameplay timer decay + interact buffer + suspended-time
+        // fallback. Each subsequent system depends on the previous one's
+        // ControlFrame / component mutation, so they stay chained.
+        .add_systems(
+            Update,
+            (
                 sync_live_player_dev_edits_system,
                 apply_player_reset_input_system.run_if(gameplay_allowed),
                 input_timer_system.run_if(gameplay_allowed),
                 interaction_input_system.run_if(gameplay_allowed),
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),
+            )
+                .chain()
+                .in_set(SandboxSet::PlayerInput),
+        )
+        // SandboxSet::PlayerSimulation — main player tick (two-clock
+        // control + simulation) plus post-sim damage / safe-respawn.
+        .add_systems(
+            Update,
+            (
                 sandbox_update.run_if(gameplay_allowed),
                 apply_player_damage_system.run_if(gameplay_allowed),
+            )
+                .chain()
+                .in_set(SandboxSet::PlayerSimulation),
+        )
+        // SandboxSet::RoomTransition — detection emits the
+        // `RoomTransitionRequested` message; apply consumes it and runs
+        // `load_room`; the feature-side `reset_ecs_room_features` system
+        // tears down per-room ECS state.
+        .add_systems(
+            Update,
+            (
                 detect_room_transition_system.run_if(gameplay_allowed),
-                attack_advance_system.run_if(gameplay_allowed),
                 apply_room_transition_system,
                 crate::features::reset_ecs_room_features,
+            )
+                .chain()
+                .in_set(SandboxSet::RoomTransition),
+        )
+        // SandboxSet::Combat — slash/pogo attack lifecycle, projectile
+        // tick, and the feature-side damage event apply.
+        .add_systems(
+            Update,
+            (
+                attack_advance_system.run_if(gameplay_allowed),
                 crate::projectile::update_projectiles,
                 crate::features::apply_feature_damage_events,
+            )
+                .chain()
+                .in_set(SandboxSet::Combat),
+        )
+        // SandboxSet::PresentationSync — player ECS body write-back +
+        // presentation timer decays. Runs unconditionally so paused /
+        // dialogue modes still wind down flash and landing-pose timers.
+        .add_systems(
+            Update,
+            (
                 crate::player::write_player_ecs_components,
                 cleanup_timers_system,
             )
                 .chain()
-                .in_set(SandboxSet::CoreSimulation),
+                .in_set(SandboxSet::PresentationSync),
         )
         .add_systems(
             Update,

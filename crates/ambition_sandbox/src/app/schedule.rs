@@ -9,14 +9,44 @@ use bevy::prelude::*;
 
 /// Coarse simulation ordering for sandbox gameplay systems.
 ///
-/// Each set groups one phase of the sim tick. The chained ordering between
-/// sets is configured by [`configure_sandbox_sets`]. Tail sets that run
-/// *after* the main chain (reset processing, trace recording) are also
-/// configured there.
+/// The 6 sub-sets `WorldPrep` → `PlayerInput` → `PlayerSimulation` →
+/// `RoomTransition` → `Combat` → `PresentationSync` are nested inside
+/// `CoreSimulation`, ordered by [`configure_sandbox_sets`]. External
+/// systems can still pin against `SandboxSet::CoreSimulation` (e.g.
+/// `.after(CoreSimulation)`) and that constraint covers all six
+/// sub-phases.
+///
+/// The remaining variants (`FeatureCollection`, `FeatureInteraction`,
+/// …) are top-level sets that run after `CoreSimulation` in their own
+/// chain. `ResetProcessing` and `Trace` are tail consumers configured
+/// `.after(CoreSimulation)` without joining the main chain.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum SandboxSet {
-    /// LDtk polling, feature world rebuild, player loop, room-transition apply.
+    /// Top-level set that contains the six sub-sets below. Kept as a
+    /// distinct label so existing `.before/.after(CoreSimulation)`
+    /// constraints from presentation/audio/HUD systems continue to
+    /// cover the full main chain after this finer-grained split.
     CoreSimulation,
+
+    /// Pre-player-tick world prep: LDtk hot-reload polling, feature
+    /// ECS world overlay rebuild, feature ticks (hazards / actors /
+    /// bosses). Feeds the collision world that the player simulation
+    /// consults.
+    WorldPrep,
+    /// Pre-player-tick input pipeline: dev-edit sync, input-driven
+    /// reset, gameplay timer decay, interaction buffer update, and
+    /// the suspended-time fallback.
+    PlayerInput,
+    /// Main player tick: `sandbox_update` (control + simulation) plus
+    /// the post-sim damage / safe-respawn resolver.
+    PlayerSimulation,
+    /// Room transition detection + apply + per-room feature reset.
+    RoomTransition,
+    /// Attack lifecycle, projectile updates, and feature damage apply.
+    Combat,
+    /// Player ECS write-back + presentation timer decays.
+    PresentationSync,
+
     /// Pickup collection and player heal request consumption.
     FeatureCollection,
     /// Actor/switch/chest/breakable interaction systems.
@@ -39,15 +69,36 @@ pub enum SandboxSet {
 
 /// Configure the chained ordering between [`SandboxSet`] variants.
 ///
-/// The main chain runs:
-/// `CoreSimulation → FeatureCollection → FeatureInteraction →
-/// LdtkRuntimeSpine → EncounterSimulation → Cutscene → GameplayEffects →
-/// Progression`.
+/// Within `CoreSimulation`:
+/// `WorldPrep → PlayerInput → PlayerSimulation → RoomTransition →
+/// Combat → PresentationSync`. The six sub-sets are nested in
+/// `CoreSimulation` so `.before/.after(CoreSimulation)` covers them
+/// transitively.
 ///
-/// `ResetProcessing` and `Trace` are tail consumers — they only need to
-/// observe state after the main sim has resolved, so they're each
-/// configured `.after(CoreSimulation)` without joining the chain.
+/// Top-level chain after `CoreSimulation`:
+/// `FeatureCollection → FeatureInteraction → LdtkRuntimeSpine →
+/// EncounterSimulation → Cutscene → GameplayEffects → Progression`.
+///
+/// `ResetProcessing` and `Trace` are tail consumers — they observe
+/// state after the main sim has resolved, so they're each configured
+/// `.after(CoreSimulation)` without joining the chain.
 pub fn configure_sandbox_sets(app: &mut App) {
+    // Sub-sets inside CoreSimulation, ordered.
+    app.configure_sets(
+        Update,
+        (
+            SandboxSet::WorldPrep,
+            SandboxSet::PlayerInput,
+            SandboxSet::PlayerSimulation,
+            SandboxSet::RoomTransition,
+            SandboxSet::Combat,
+            SandboxSet::PresentationSync,
+        )
+            .chain()
+            .in_set(SandboxSet::CoreSimulation),
+    );
+
+    // Top-level chain.
     app.configure_sets(
         Update,
         (

@@ -290,6 +290,22 @@ impl WorldTime {
             ClockDomain::WallClock => self.wall_dt(),
         }
     }
+
+    /// Per-entity proper-time dt (ADR 0011). Multiplies [`Self::sim_dt`]
+    /// by the entity's [`crate::time_control::ProperTimeScale`] —
+    /// `1.0` by default, so callers that pass
+    /// [`crate::time_control::ProperTimeScale::ONE`] (the missing-
+    /// component case) get the same `sim_dt` value as before.
+    ///
+    /// Pattern: animator + AI systems query `Option<&ProperTimeScale>`
+    /// alongside the entity's other components and feed the result
+    /// through [`crate::time_control::ProperTimeScale::or_default`]
+    /// before calling `entity_dt`. SP gameplay is unchanged because no
+    /// entity sets the component today.
+    #[inline]
+    pub fn entity_dt(&self, scale: crate::time_control::ProperTimeScale) -> f32 {
+        self.sim_dt() * scale.value()
+    }
 }
 
 /// Refresh [`WorldTime`] from `Time × SandboxSimState::time_scale`.
@@ -749,5 +765,23 @@ mod world_time_clock_tests {
         let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.004 };
         assert_eq!(wt.raw_dt, wt.wall_dt());
         assert_eq!(wt.scaled_dt, wt.sim_dt());
+    }
+
+    /// ADR 0011 — per-entity proper time. The default scale 1.0
+    /// collapses entity_dt to sim_dt; non-1.0 scales independently
+    /// stretch or shrink the entity's tick. SP today doesn't set
+    /// the component, so every entity tickts at sim_dt — Galilean
+    /// behavior unchanged.
+    #[test]
+    fn entity_dt_default_one_equals_sim_dt() {
+        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.008 };
+        assert_eq!(wt.entity_dt(crate::time_control::ProperTimeScale::ONE), wt.sim_dt());
+    }
+
+    #[test]
+    fn entity_dt_scales_sim_dt_by_proper_time() {
+        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.008 };
+        assert!((wt.entity_dt(crate::time_control::ProperTimeScale(2.0)) - 0.016).abs() < 1e-7);
+        assert!((wt.entity_dt(crate::time_control::ProperTimeScale(0.5)) - 0.004).abs() < 1e-7);
     }
 }

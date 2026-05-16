@@ -307,22 +307,27 @@ pub fn animate_player(
             &crate::player::PlayerMovementAuthority,
             &crate::player::PlayerAnimState,
             &crate::player::PlayerBlinkCameraState,
+            Option<&crate::time_control::ProperTimeScale>,
         ),
         With<PlayerVisual>,
     >,
 ) {
-    let Ok((mut sprite, mut animator, player_body, player_combat, authority, anim_state, blink_cam)) =
+    let Ok((mut sprite, mut animator, player_body, player_combat, authority, anim_state, blink_cam, scale)) =
         query.get_mut(entities.player)
     else {
         return;
     };
     let anim = crate::character_sprites::pick_player_anim(anim_state, player_combat, blink_cam, attack_res.0.as_ref(), &authority.player);
     animator.request(anim);
-    // WorldTime::scaled_dt so bullet-time / hitstop / pause slow
-    // the animation playback in lockstep with everything else.
-    // Raw `time.delta_secs()` here would let the sprite keep
-    // animating at wall-clock during slowmo.
-    let index = animator.tick(world_time.scaled_dt);
+    // ADR 0011 — `entity_dt` collapses to `sim_dt` when no
+    // ProperTimeScale is set (SP default), so bullet-time /
+    // hitstop / pause still slow the animation in lockstep. Step 4
+    // wires the player ProperTimeScale path so future MP regimes
+    // can boost the player's cognitive rate without slowing the
+    // world for other observers.
+    let index = animator.tick(
+        world_time.entity_dt(crate::time_control::ProperTimeScale::or_default(scale)),
+    );
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
@@ -353,7 +358,12 @@ pub fn animate_player(
 pub fn animate_characters(
     world_time: Res<crate::WorldTime>,
     mut query: Query<
-        (&FeatureVisual, &mut Sprite, &mut CharacterAnimator),
+        (
+            &FeatureVisual,
+            &mut Sprite,
+            &mut CharacterAnimator,
+            Option<&crate::time_control::ProperTimeScale>,
+        ),
         (
             Without<PlayerVisual>,
             Without<crate::rooms::PortalSprite>,
@@ -362,10 +372,13 @@ pub fn animate_characters(
     >,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
-    // Scaled dt — bullet-time / pause / hitstop slow NPC + enemy
-    // animation playback. See `crate::WorldTime` rationale.
-    let dt = world_time.scaled_dt;
-    for (visual, mut sprite, mut animator) in &mut query {
+    // ADR 0011 — per-entity proper time. SP today: no entity carries
+    // ProperTimeScale, so `entity_dt` collapses to `sim_dt` and
+    // every actor ticks at the world rate. The seam matters once a
+    // boss freezes the world but leaves the player un-frozen, or
+    // future MP boosts one player's proper time.
+    for (visual, mut sprite, mut animator, scale) in &mut query {
+        let dt = world_time.entity_dt(crate::time_control::ProperTimeScale::or_default(scale));
         let (anim, facing, hit_flash, attacking) =
             if let Some(state) = crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors) {
                 (
@@ -412,12 +425,19 @@ pub fn animate_characters(
 pub fn animate_props(
     world_time: Res<crate::WorldTime>,
     mut query: Query<
-        (&mut Sprite, &mut CharacterAnimator),
+        (
+            &mut Sprite,
+            &mut CharacterAnimator,
+            Option<&crate::time_control::ProperTimeScale>,
+        ),
         (With<PropVisual>, Without<crate::rooms::PortalSprite>),
     >,
 ) {
-    let dt = world_time.scaled_dt;
-    for (mut sprite, mut animator) in &mut query {
+    // ADR 0011 — per-entity proper time. Props that need to keep
+    // ticking when the world freezes (a clock prop in a frozen
+    // boss arena, say) get a non-1.0 ProperTimeScale.
+    for (mut sprite, mut animator, scale) in &mut query {
+        let dt = world_time.entity_dt(crate::time_control::ProperTimeScale::or_default(scale));
         animator.request(crate::character_sprites::CharacterAnim::Idle);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
@@ -506,12 +526,23 @@ pub fn upgrade_boss_sprites(
 pub fn animate_bosses(
     world_time: Res<crate::WorldTime>,
     ecs_bosses: Query<(&FeatureId, &BossFeature)>,
-    mut query: Query<(&FeatureVisual, &mut Sprite, &mut BossAnimator), Without<PlayerVisual>>,
+    mut query: Query<
+        (
+            &FeatureVisual,
+            &mut Sprite,
+            &mut BossAnimator,
+            Option<&crate::time_control::ProperTimeScale>,
+        ),
+        Without<PlayerVisual>,
+    >,
 ) {
-    // Scaled dt — bullet-time / pause / hitstop slow boss
-    // animation playback. See `crate::WorldTime` rationale.
-    let dt = world_time.scaled_dt;
-    for (visual, mut sprite, mut animator) in &mut query {
+    // ADR 0011 — per-entity proper time. The "boss got root on the
+    // simulator" pattern (ADR 0010 §Narrative authority) plays out
+    // here: a boss with ProperTimeScale > 1.0 keeps tickling its
+    // own animation while the world is frozen by its SimClock
+    // request.
+    for (visual, mut sprite, mut animator, scale) in &mut query {
+        let dt = world_time.entity_dt(crate::time_control::ProperTimeScale::or_default(scale));
         let Some(state): Option<BossAnimState> =
             crate::features::ecs_boss_anim_state(&visual.id, &ecs_bosses)
         else {

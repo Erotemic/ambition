@@ -33,11 +33,6 @@ use super::*;
 pub struct SandboxEventWriters<'w> {
     pub(super) sfx: MessageWriter<'w, SfxMessage>,
     pub(super) vfx: MessageWriter<'w, VfxMessage>,
-    /// Single-producer channel for player-death messages. Currently
-    /// written only by `damage_heal_dialogue_phase` → `death_respawn_player`
-    /// — passed directly into those helpers rather than via a Vec
-    /// collector, so `FrameFeedback` no longer carries `died`.
-    pub(super) died: MessageWriter<'w, PlayerDiedMessage>,
 }
 
 /// Mutable producer streams `sandbox_update` writes into during the gameplay
@@ -53,18 +48,10 @@ pub struct SandboxEventWriters<'w> {
 /// `SandboxEventWriters`) here when they grow naturally; resist the urge to
 /// thread them through the system signature directly.
 #[derive(SystemParam)]
-pub struct SandboxQueues<'w, 's> {
+pub struct SandboxQueues<'w> {
     pub gameplay_effects: MessageWriter<'w, crate::features::GameplayEffect>,
-    pub player_damage_events: MessageReader<'w, 's, crate::features::PlayerDamageEvent>,
     pub pogo_bounces: MessageWriter<'w, crate::features::PogoBounceEvent>,
     pub reset_room_features: MessageWriter<'w, crate::features::ResetRoomFeaturesEvent>,
-    pub player_health: Query<
-        'w,
-        's,
-        &'static mut crate::player::PlayerHealth,
-        With<crate::player::PlayerEntity>,
-    >,
-    pub banner: ResMut<'w, crate::features::GameplayBanner>,
     pub feature_ecs_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
     pub current_attack: ResMut<'w, crate::CurrentPlayerAttack>,
     pub dialogue: ResMut<'w, crate::dialog::DialogState>,

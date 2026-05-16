@@ -140,7 +140,8 @@ pub fn add_simulation_plugins(app: &mut App) {
         //   → interaction_input_system            (gameplay)
         //   → apply_suspended_time_scale_system   (paused / dialogue)
         //   → sandbox_update                      (gameplay; remaining
-        //       inline phases: reset, control, simulation, damage_heal)
+        //       inline phases: reset, control, simulation)
+        //   → apply_player_damage_system          (gameplay)
         //   → detect_room_transition_system       (gameplay)
         //   → attack_advance_system               (gameplay; writes
         //       sfx/vfx/damage/pogo directly via MessageWriters)
@@ -162,6 +163,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 interaction_input_system.run_if(gameplay_allowed),
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),
                 sandbox_update.run_if(gameplay_allowed),
+                apply_player_damage_system.run_if(gameplay_allowed),
                 detect_room_transition_system.run_if(gameplay_allowed),
                 attack_advance_system.run_if(gameplay_allowed),
                 apply_room_transition_system,

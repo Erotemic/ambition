@@ -12,13 +12,17 @@ use bevy::prelude::*;
 use crate::audio::SfxMessage;
 use crate::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use crate::features::{
-    DamageEvent as FeatureDamageEvent, FeatureEcsWorldOverlay, PogoBounceEvent,
+    self, DamageEvent as FeatureDamageEvent, FeatureEcsWorldOverlay, GameplayBanner,
+    PlayerDamageEvent, PogoBounceEvent,
 };
 use crate::feel::SandboxFeelTuning;
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::rooms::{LoadingZoneActivation, RoomSet, RoomTransitionRequested};
-use crate::{CurrentPlayerAttack, GameWorld, MovingPlatformSet, SandboxSimState};
+use crate::{
+    CurrentPlayerAttack, GameWorld, MovingPlatformSet, PlayerDiedMessage, SandboxSimState,
+    SafePositionContext,
+};
 
 /// Push live ability-flag and movement-tuning edits from the dev-tools
 /// inspector resources onto the authoritative player. Runs every
@@ -284,6 +288,106 @@ pub fn attack_advance_system(
         &mut damage_events,
         &mut pogo_bounces,
     );
+
+    if !sfx_buf.is_empty() {
+        sfx_writer.write_batch(sfx_buf);
+    }
+    if !vfx_buf.is_empty() {
+        vfx_writer.write_batch(vfx_buf);
+    }
+}
+
+/// Resolve this tick's `PlayerDamageEvent`s + remember the last
+/// safe-spawn position. Replaces the inline `damage_heal_dialogue_phase`
+/// that used to run inside `sandbox_update`.
+///
+/// Reads `MessageReader<PlayerDamageEvent>` (no intermediate Vec
+/// needed), routes the first event through `handle_player_damage_events`
+/// — which can knock back, hitstun, hazard-respawn, or fully kill the
+/// player — and writes resulting sfx / vfx / died messages directly to
+/// their `MessageWriter`s. Then runs `remember_safe_player_position`
+/// to update `sim_state.last_safe_player_pos` when the player wasn't
+/// damaged this frame, isn't blinking, isn't in hitstun, and isn't
+/// mid-room-transition.
+///
+/// Ordering: must run after `sandbox_update` (whose
+/// `player_simulation_phase` is the canonical producer of player state
+/// for this frame) and before `attack_advance_system` /
+/// `detect_room_transition_system` (which both read post-damage player
+/// state). Gated by `gameplay_allowed`.
+pub fn apply_player_damage_system(
+    world: Res<GameWorld>,
+    moving_platforms: Res<MovingPlatformSet>,
+    editable_tuning: Res<EditableMovementTuning>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    user_settings: Res<crate::settings::UserSettings>,
+    feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
+    mut sim_state: ResMut<SandboxSimState>,
+    mut banner: ResMut<GameplayBanner>,
+    mut damage_events: MessageReader<PlayerDamageEvent>,
+    mut died_writer: MessageWriter<PlayerDiedMessage>,
+    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut vfx_writer: MessageWriter<VfxMessage>,
+    mut player_q: Query<
+        (
+            &mut crate::player::PlayerMovementAuthority,
+            Option<&mut crate::player::PlayerHealth>,
+            &mut crate::player::PlayerAnimState,
+            &mut crate::player::PlayerCombatState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    let Ok((mut authority, player_health, mut anim, mut combat)) = player_q.single_mut() else {
+        return;
+    };
+    let player = &mut authority.player;
+    let player_damage_events: Vec<PlayerDamageEvent> = damage_events.read().copied().collect();
+    let feature_damaged_player = !player_damage_events.is_empty();
+
+    let assist_factor = match user_settings.gameplay.assist {
+        crate::settings::AssistMode::Off => 1.0,
+        crate::settings::AssistMode::On => 0.5,
+    };
+    let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
+        * user_settings.gameplay.player_damage_multiplier
+        * assist_factor;
+    let tuning = editable_tuning.as_engine();
+    let feel = *feel_tuning;
+
+    let mut sfx_buf: Vec<SfxMessage> = Vec::new();
+    let mut vfx_buf: Vec<VfxMessage> = Vec::new();
+
+    super::world_flow::handle_player_damage_events(
+        &world.0,
+        &mut sfx_buf,
+        &mut vfx_buf,
+        &mut died_writer,
+        player,
+        &mut sim_state,
+        &mut banner,
+        player_health.map(|h| h.into_inner()),
+        &player_damage_events,
+        tuning,
+        feel,
+        difficulty_multiplier,
+        &mut anim,
+        &mut combat,
+    );
+
+    let safe_world = features::world_with_sandbox_solids(
+        &world.0,
+        &moving_platforms.0,
+        &feature_ecs_overlay,
+    );
+    let ctx = SafePositionContext {
+        damaged_this_frame: feature_damaged_player,
+        in_hitstun: combat.hitstun_timer > 0.0,
+        feature_requested_reset: false,
+        blink_grace_active: player.blink_grace_timer > 0.0,
+        room_transitioning: sim_state.room_transition_cooldown > 0.0,
+    };
+    crate::remember_safe_player_position(&mut sim_state, player, &safe_world, ctx);
 
     if !sfx_buf.is_empty() {
         sfx_writer.write_batch(sfx_buf);

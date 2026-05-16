@@ -54,22 +54,19 @@ use super::*;
 /// 1. `reset_phase` — explicit reset input.
 /// 2. `player_control_phase` — control-clock player update + pogo routing.
 /// 3. `player_simulation_phase` — sim-clock player update + landing dust.
-/// 4. Collect ECS feature events and any damage/heals for this frame.
-/// 5. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
-/// 6. `flush_feedback` — drains the two remaining Vec collectors
+/// 4. `flush_feedback` — drains the two remaining Vec collectors
 ///    (`SfxMessage`, `VfxMessage`) into the bundled writers, once, at
-///    the bottom of the `'frame` labeled block. `PlayerDiedMessage`
-///    and `DebrisBurstMessage` no longer go through `FrameFeedback`:
-///    `damage_heal_dialogue_phase` writes deaths directly to its
-///    `MessageWriter<PlayerDiedMessage>` parameter, and debris bursts
-///    travel through the feature ECS systems and `attack_advance_system`.
+///    the bottom of the `'frame` labeled block.
 ///
 /// Post-tick (CoreSimulation, after sandbox_update):
+/// - `apply_player_damage_system` (extracted) — drains
+///   `MessageReader<PlayerDamageEvent>`, runs
+///   `handle_player_damage_events` + `remember_safe_player_position`.
+///   Writes sfx / vfx / died directly via `MessageWriter`s.
 /// - `detect_room_transition_system` (extracted) — loading-zone overlap
 ///   detection; emits `RoomTransitionRequested`.
 /// - `attack_advance_system` (extracted) — slash / pogo attack lifecycle;
-///   writes sfx/vfx/damage/pogo channels directly via `MessageWriter`s,
-///   no longer through `FrameFeedback`.
+///   writes sfx/vfx/damage/pogo channels directly via `MessageWriter`s.
 /// - `apply_room_transition_system` (extracted) — consumes the message
 ///   and runs `load_room`.
 /// - `cleanup_timers_system` (extracted) — flash / preset / slash /
@@ -81,7 +78,6 @@ pub fn sandbox_update(
     feel_tuning: Res<SandboxFeelTuning>,
     mut event_writers: SandboxEventWriters,
     control_frame: Res<ControlFrame>,
-    user_settings: Res<crate::settings::UserSettings>,
     mut queues: SandboxQueues,
     mut player_q: Query<
         (
@@ -98,23 +94,12 @@ pub fn sandbox_update(
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    // Compose difficulty + assist + the fine-grained menu multiplier
-    // into one scalar that `handle_player_damage_events` consults.
-    // Assist mode halves incoming damage on top of difficulty so a
-    // user who needs the extra help can stack the two.
-    let assist_factor = match user_settings.gameplay.assist {
-        crate::settings::AssistMode::Off => 1.0,
-        crate::settings::AssistMode::On => 0.5,
-    };
-    let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
-        * user_settings.gameplay.player_damage_multiplier
-        * assist_factor;
 
-    // Each phase appends to `feedback` (sfx/vfx/debris/died); the labeled
-    // block below lets any phase short-circuit the tick via `break` while
-    // keeping the single `flush_feedback` drain at the bottom. This also
-    // guarantees feedback is drained on the "no player entity yet" path,
-    // since that's modeled as `break` here.
+    // Each surviving inline phase appends sfx/vfx to `feedback`; the
+    // labeled block below lets any phase short-circuit the tick via
+    // `break` while keeping the single `flush_feedback` drain at the
+    // bottom. Also guarantees feedback is drained on the "no player
+    // entity yet" path, since that's modeled as `break` here.
     'frame: {
         // Acquire ECS player components for this frame.
         let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam, mut ride)) = player_q.single_mut() else {
@@ -217,39 +202,11 @@ pub fn sandbox_update(
             break 'frame;
         }
 
-        // interaction_input_phase has moved to `interaction_input_system`
-        // (sim_systems), which runs after input_timer_system and before
-        // sandbox_update. It updates `PlayerInteractionState`'s buffer in
-        // place; downstream code reads `interaction.buffered()` directly.
-
-        let player_damage_events: Vec<features::PlayerDamageEvent> =
-            queues.player_damage_events.read().copied().collect();
-
-        let player_health = queues.player_health.single_mut().ok();
-        damage_heal_dialogue_phase(
-            &world.0,
-            player,
-            &mut queues.sim_state,
-            &queues.moving_platforms.0,
-            &mut feedback,
-            &mut event_writers.died,
-            player_health.map(|h| h.into_inner()),
-            &player_damage_events,
-            &mut queues.banner,
-            tuning,
-            feel,
-            difficulty_multiplier,
-            &queues.feature_ecs_overlay,
-            &mut *anim,
-            &mut *combat,
-        );
-
-        // room_transition_phase and attack_phase have both moved to
-        // post-tick Bevy systems (`detect_room_transition_system` and
-        // `attack_advance_system`, both in sim_systems). They run after
-        // sandbox_update in the CoreSimulation chain and write directly
-        // to their MessageWriter outputs rather than threading through
-        // FrameFeedback.
+        // interaction_input_phase, damage_heal_dialogue_phase,
+        // room_transition_phase, and attack_phase have all moved to
+        // Bevy systems in `sim_systems`. They run before or after
+        // sandbox_update in the CoreSimulation chain and write
+        // directly to their `MessageWriter` outputs.
         //
         // cleanup_timers_system runs after write_player_ecs_components in
         // the CoreSimulation chain every frame unconditionally (it lives

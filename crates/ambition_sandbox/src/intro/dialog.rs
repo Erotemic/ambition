@@ -27,6 +27,16 @@ pub enum IntroDialog {
     /// Interrupted mid-sentence; the player can almost-but-not-quite
     /// get the full question depending on speed.
     CreatorFinalNormal,
+    /// Skill-route variant: the player reached the creator quickly
+    /// enough to hear one more clause before the corridor takes him.
+    /// Selected when `intro_raid` cutscene observes a fast clear.
+    CreatorFinalFast,
+    /// Impossible-route variant: the player reached the creator
+    /// before the raid was meant to start. He has the full question
+    /// time to land, but never names the target. The cutscene picks
+    /// this only when the player crosses the raid trigger inside a
+    /// pre-raid window. Mostly for speedrun visibility.
+    CreatorFinalImpossible,
     /// Oiler — first post-lab helper, street mechanic vibe.
     OilerIntro,
     /// Gate Janitor — establishes stable-gates-vs-ripples.
@@ -49,6 +59,8 @@ pub enum IntroDialog {
 pub const INTRO_DIALOGUE_IDS: &[&str] = &[
     "creator_intro",
     "creator_final_normal",
+    "creator_final_fast",
+    "creator_final_impossible",
     "oiler_intro",
     "gate_janitor_ripple",
     "framebreaker_hardliner",
@@ -66,6 +78,8 @@ impl IntroDialog {
         Some(match dialogue_id {
             "creator_intro" => Self::CreatorIntro,
             "creator_final_normal" => Self::CreatorFinalNormal,
+            "creator_final_fast" => Self::CreatorFinalFast,
+            "creator_final_impossible" => Self::CreatorFinalImpossible,
             "oiler_intro" => Self::OilerIntro,
             "gate_janitor_ripple" => Self::GateJanitorRipple,
             "framebreaker_hardliner" => Self::FramebreakerHardliner,
@@ -80,6 +94,8 @@ impl IntroDialog {
         match self {
             Self::CreatorIntro => "creator wake intro",
             Self::CreatorFinalNormal => "creator final fragment",
+            Self::CreatorFinalFast => "creator final fragment (fast route)",
+            Self::CreatorFinalImpossible => "creator final fragment (impossible route)",
             Self::OilerIntro => "oiler intro",
             Self::GateJanitorRipple => "gate janitor (ripple)",
             Self::FramebreakerHardliner => "framebreaker hardliner",
@@ -93,6 +109,8 @@ impl IntroDialog {
         match self {
             Self::CreatorIntro => CREATOR_INTRO_NODES,
             Self::CreatorFinalNormal => CREATOR_FINAL_NORMAL_NODES,
+            Self::CreatorFinalFast => CREATOR_FINAL_FAST_NODES,
+            Self::CreatorFinalImpossible => CREATOR_FINAL_IMPOSSIBLE_NODES,
             Self::OilerIntro => OILER_INTRO_NODES,
             Self::GateJanitorRipple => GATE_JANITOR_RIPPLE_NODES,
             Self::FramebreakerHardliner => FRAMEBREAKER_NODES,
@@ -199,6 +217,71 @@ const CREATOR_FINAL_NORMAL_NODES: &[DialogNode] = &[
             label: "[escape]",
             next_node: None,
             note: Some("The corridor lights stutter. The creator does not."),
+            close_after: true,
+        }],
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// CreatorFinalFast — skill-route variant. Player reached the creator
+// quickly enough to hear one more clause. The interrupt still lands
+// but he gets to name the *shape* of what was wanted, not the name.
+// ─────────────────────────────────────────────────────────────────
+
+const CREATOR_FINAL_FAST_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Creator",
+        line: "Faster than I told them you'd be. Good. Listen — they came for the wrong—",
+        options: CREATOR_FINAL_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Creator",
+        line: "Question. Not a name. The shape of a thing big enough that asking it is the answer—",
+        options: &[DialogChoice {
+            label: "[escape]",
+            next_node: None,
+            note: Some("Pick a direction. Both go forward."),
+            close_after: true,
+        }],
+        default_next: None,
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// CreatorFinalImpossible — pre-raid route. Player reached the
+// creator before the raid was meant to start. He has the full
+// question time to land but never names the target.
+// ─────────────────────────────────────────────────────────────────
+
+const CREATOR_FINAL_IMPOSSIBLE_NODES: &[DialogNode] = &[
+    DialogNode {
+        speaker: "Creator",
+        line: "You shouldn't be here yet. They aren't either, but they will be. Listen carefully.",
+        options: CREATOR_FINAL_OPTIONS,
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Creator",
+        line: "You were built to ask one question. I am not going to tell you which one. \
+                Telling you which one is the failure mode of every previous attempt.",
+        options: &[DialogChoice {
+            label: "Then how do I find it?",
+            next_node: Some(2),
+            note: None,
+            close_after: false,
+        }],
+        default_next: None,
+    },
+    DialogNode {
+        speaker: "Creator",
+        line: "By being wrong on purpose. Move. They're a minute behind you, and a minute \
+                is everything I have left.",
+        options: &[DialogChoice {
+            label: "[escape]",
+            next_node: None,
+            note: Some("The corridor lights are unaltered. He timed this exactly."),
             close_after: true,
         }],
         default_next: None,

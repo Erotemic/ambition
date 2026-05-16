@@ -1,0 +1,116 @@
+target: intro_cart
+image: intro_cart_spritesheet.png
+label_width: 112
+frame_width: 192
+frame_height: 128
+rows:
+- animation: idle
+  row_index: 0
+  frame_count: 6
+  duration_ms: 145
+  duration_secs: 0.145
+  rects:
+  - x: 112
+    y: 0
+    w: 192
+    h: 128
+  - x: 304
+    y: 0
+    w: 192
+    h: 128
+  - x: 496
+    y: 0
+    w: 192
+    h: 128
+  - x: 688
+    y: 0
+    w: 192
+    h: 128
+  - x: 880
+    y: 0
+    w: 192
+    h: 128
+  - x: 1072
+    y: 0
+    w: 192
+    h: 128
+- animation: roll
+  row_index: 1
+  frame_count: 8
+  duration_ms: 95
+  duration_secs: 0.095
+  rects:
+  - x: 112
+    y: 128
+    w: 192
+    h: 128
+  - x: 304
+    y: 128
+    w: 192
+    h: 128
+  - x: 496
+    y: 128
+    w: 192
+    h: 128
+  - x: 688
+    y: 128
+    w: 192
+    h: 128
+  - x: 880
+    y: 128
+    w: 192
+    h: 128
+  - x: 1072
+    y: 128
+    w: 192
+    h: 128
+  - x: 1264
+    y: 128
+    w: 192
+    h: 128
+  - x: 1456
+    y: 128
+    w: 192
+    h: 128
+- animation: jolt
+  row_index: 2
+  frame_count: 6
+  duration_ms: 85
+  duration_secs: 0.085
+  rects:
+  - x: 112
+    y: 256
+    w: 192
+    h: 128
+  - x: 304
+    y: 256
+    w: 192
+    h: 128
+  - x: 496
+    y: 256
+    w: 192
+    h: 128
+  - x: 688
+    y: 256
+    w: 192
+    h: 128
+  - x: 880
+    y: 256
+    w: 192
+    h: 128
+  - x: 1072
+    y: 256
+    w: 192
+    h: 128
+body_metrics:
+  body_pixel_bbox:
+    x: 20
+    y: 27
+    w: 148
+    h: 84
+  feet_pixel:
+    x: 94.0
+    y: 111.0
+  feet_anchor_norm:
+    x: -0.010417
+    y: -0.367188

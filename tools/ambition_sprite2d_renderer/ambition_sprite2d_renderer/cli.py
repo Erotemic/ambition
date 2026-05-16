@@ -77,6 +77,8 @@ DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 _TACKON_TARGETS: dict[str, str] = {
     "creator_lab_props": "ambition_sprite2d_renderer.targets.creator_lab_props",
     "town_tileset": "ambition_sprite2d_renderer.targets.town_tileset",
+    "intro_cart": "ambition_sprite2d_renderer.targets.intro_cart",
+    "intro_lab_tileset": "ambition_sprite2d_renderer.targets.intro_lab_tileset",
     "sandbag": "ambition_sprite2d_renderer.targets.sandbag",
 }
 

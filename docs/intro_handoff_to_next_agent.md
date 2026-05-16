@@ -49,6 +49,86 @@
   intro.ldtk levels packed edge-adjacent starting at (0,0); 55
   entity __worldX/__worldY fields updated. Final intro span =
   6528px wide.
+- `8e0efb6` — playtest pass: fascist sprite fallback by enemy
+  name; `tech_bros_disruption` set on every intro level;
+  `animate_props` holds `intro_cart` at frame 0 (static-until-
+  moving); cart top painted as OneWayUp so the player can stand
+  on the cart in the wake room.
+
+## Playtest follow-ups (from 2026-05-16 review)
+
+These items came out of a manual intro playthrough; the easy fixes
+landed in `8e0efb6`, the rest are documented here so they can be
+picked up without re-deriving them.
+
+### Cart visual sits "on/in the ground" — needs art-side review
+
+After `8e0efb6` the wake-room cart has a OneWayUp surface at its
+top edge (cells 8..18, row 14) and sits with its AABB bottom at
+y=352 — exactly the room's authored floor top. The sprite renders
+at `feet_anchor_y = -0.500` so its bottom edge aligns with the
+AABB bottom, i.e. the floor.
+
+If the cart STILL reads as floating after the tile commits land
+(`22447cd` / `3d54368` paint the floor as `wall_plain` tiles
+behind the cart), the likely causes are:
+
+- The cart sprite has transparent padding at the bottom of its
+  frame. Fix: bump `CART_SHEET.feet_anchor_y` (less negative,
+  e.g. -0.45) so the sprite drops further into the AABB.
+- The floor's tile sprite has internal padding above its actual
+  pixel content. Re-check `intro_lab_tileset.png` tile 0
+  (`wall_plain`).
+
+Re-verify in a visible build before tuning.
+
+### Wake-room arrival door spawns in mid-air (intentional)
+
+`wake_room_arrival` is the LoadingZone that links the creator's
+basement back from `central_hub_complex`. Per the design, the
+door should appear suspended in the lab — it's the "you cracked
+back through the wall" exit, not a flush ground-level door.
+Document for the next door-pass: this is a deliberate exception
+to the "doors snap to a Solid surface" convention; new doors
+elsewhere should keep snapping.
+
+### Cart should be its own visual category, not piggyback NPC sprite anim
+
+The cart's `CART_SHEET` reuses `CharacterAnim::Idle` for what is
+really a wheel-roll loop. The `static-until-moving` list in
+`animate_props` is the v1 patch; the proper fix is a per-prop
+animation enum (`PropAnim::Static`, `PropAnim::Rolling`) keyed
+off a `PropMotionState` component the gameplay layer writes when
+the cart actually moves. Filed as P7 tech-debt §5 in the
+original backlog ("Replace overloaded CharacterAnim variants").
+
+### Cart collision — needs a proper Prop-with-collision concept
+
+The OneWayUp band painted in `8e0efb6` works for the wake-room
+cart specifically, but every cart-shaped prop the design adds
+later (lab benches that block movement, crates that the player
+pushes) would need its own hand-painted IntGrid patch. The
+proper fix is:
+
+- Extend `PropSpec` with an optional `collision_kind` field
+  (`Solid | OneWayUp | None`).
+- Have the prop-spawn path emit the IntGrid/Block alongside the
+  visual.
+
+This is a small additive engine change but spans
+`ldtk_world/conversion.rs`, the Prop entity def, and
+`rendering/world.rs::spawn_room_prop`. Defer to the next
+authoring batch when a second prop needs collision.
+
+### Compose a dedicated intro music track
+
+`tech_bros_disruption` is a placeholder that landed in `8e0efb6`.
+The design calls for an original "creator's basement, raid is
+moments away" cue — propulsive, anxious, low-end heavy. Until
+that lands, the placeholder track will play across all 5 intro
+levels (including the drain alley + gate stack which probably
+want a different mood). Filed as a follow-up for the music
+composer pass.
 
 ## Open questions for next agent
 

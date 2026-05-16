@@ -159,13 +159,15 @@ impl ActorRuntime {
 
 fn actor_component_snapshot(
     actor: &ActorRuntime,
-) -> (ActorIdentity, ActorDisposition, ActorHealth, ActorCombatState) {
+) -> (ActorIdentity, ActorDisposition, ActorHealth, ActorCombatState, ActorIntent, ActorCooldowns) {
     match actor {
         ActorRuntime::Peaceful(npc) => (
             ActorIdentity::new(npc.id.clone(), npc.name.clone()),
             ActorDisposition::Peaceful,
             ActorHealth::new(ae::Health::new(1)),
             ActorCombatState::peaceful(npc.strikes, npc.hit_flash),
+            ActorIntent::new(ae::CharacterAiMode::Idle),
+            ActorCooldowns::default(),
         ),
         ActorRuntime::Hostile(enemy) => (
             ActorIdentity::new(enemy.id.clone(), enemy.name.clone())
@@ -179,6 +181,11 @@ fn actor_component_snapshot(
                 enemy.attack_timer,
                 enemy.archetype.is_sandbag(),
             ),
+            ActorIntent::new(enemy.ai_mode),
+            ActorCooldowns {
+                attack_cooldown: enemy.attack_cooldown,
+                respawn_timer: enemy.respawn_timer,
+            },
         ),
     }
 }
@@ -189,12 +196,17 @@ fn sync_actor_components_from_runtime(
     disposition: &mut ActorDisposition,
     health: &mut ActorHealth,
     combat: &mut ActorCombatState,
+    intent: &mut ActorIntent,
+    cooldowns: &mut ActorCooldowns,
 ) {
-    let (next_identity, next_disposition, next_health, next_combat) = actor_component_snapshot(actor);
+    let (next_identity, next_disposition, next_health, next_combat, next_intent, next_cooldowns) =
+        actor_component_snapshot(actor);
     *identity = next_identity;
     *disposition = next_disposition;
     *health = next_health;
     *combat = next_combat;
+    *intent = next_intent;
+    *cooldowns = next_cooldowns;
 }
 
 /// Collision contribution from ECS-owned breakables. Rebuilt before the main
@@ -249,6 +261,7 @@ fn spawn_room_feature_entity(
         }
         ae::RoomObjectKind::BossSpawn(brain) => {
             let boss = BossRuntime::new(object, brain.clone());
+            let initial_phase = if boss.alive { BossPhase::Active } else { BossPhase::Defeated };
             commands.spawn((
                 Name::new(format!("Feature boss: {}", object.name)),
                 FeatureSimEntity,
@@ -256,6 +269,8 @@ fn spawn_room_feature_entity(
                 FeatureId::new(object.id.clone()),
                 FeatureName::new(object.name.clone()),
                 FeatureAabb::from_center_size(boss.pos, boss.render_size()),
+                BossPatternTimer(boss.pattern_timer),
+                initial_phase,
                 BossFeature::new(boss),
             ));
         }
@@ -291,7 +306,7 @@ fn spawn_room_feature_entity(
         }
         ae::RoomObjectKind::EnemySpawn(brain) => {
             let actor = ActorRuntime::Hostile(EnemyRuntime::new(object, brain.clone(), paths));
-            let (identity, disposition, health, combat) = actor_component_snapshot(&actor);
+            let (identity, disposition, health, combat, intent, cooldowns) = actor_component_snapshot(&actor);
             commands.spawn((
                 Name::new(format!("Feature actor enemy: {}", object.name)),
                 EnemyActorBundle {
@@ -300,6 +315,8 @@ fn spawn_room_feature_entity(
                     disposition,
                     health,
                     combat,
+                    intent,
+                    cooldowns,
                 },
                 actor,
             ));
@@ -311,7 +328,7 @@ fn spawn_room_feature_entity(
                     interactable.clone(),
                     paths,
                 ));
-                let (identity, disposition, health, combat) = actor_component_snapshot(&actor);
+                let (identity, disposition, health, combat, intent, cooldowns) = actor_component_snapshot(&actor);
                 commands.spawn((
                     Name::new(format!("Feature actor npc: {}", object.name)),
                     EnemyActorBundle {
@@ -320,6 +337,8 @@ fn spawn_room_feature_entity(
                         disposition,
                         health,
                         combat,
+                        intent,
+                        cooldowns,
                     },
                     actor,
                 ));
@@ -370,7 +389,7 @@ pub fn spawn_encounter_mob(
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.respawn_timer = 999_999.0;
     let actor = ActorRuntime::Hostile(enemy);
-    let (identity, disposition, health, combat) = actor_component_snapshot(&actor);
+    let (identity, disposition, health, combat, intent, cooldowns) = actor_component_snapshot(&actor);
     commands.spawn((
         Name::new(format!("Encounter mob: {id}")),
         FeatureSimEntity,
@@ -382,6 +401,8 @@ pub fn spawn_encounter_mob(
         disposition,
         health,
         combat,
+        intent,
+        cooldowns,
         actor,
         EncounterMob::new(encounter_id),
     ));
@@ -621,6 +642,8 @@ pub fn reset_ecs_room_features(
         &mut ActorDisposition,
         &mut ActorHealth,
         &mut ActorCombatState,
+        &mut ActorIntent,
+        &mut ActorCooldowns,
     ), With<FeatureSimEntity>>,
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
@@ -644,7 +667,7 @@ pub fn reset_ecs_room_features(
         }
         commands.entity(entity).remove::<RespawnTimer>();
     }
-    for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
+    for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat, mut intent, mut cooldowns) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 npc.pos = npc.spawn;
@@ -672,6 +695,8 @@ pub fn reset_ecs_room_features(
             &mut *disposition,
             &mut *health,
             &mut *combat,
+            &mut *intent,
+            &mut *cooldowns,
         );
     }
     for mut boss_feature in &mut bosses {
@@ -947,6 +972,8 @@ pub fn apply_feature_damage_events(
         &mut ActorDisposition,
         &mut ActorHealth,
         &mut ActorCombatState,
+        &mut ActorIntent,
+        &mut ActorCooldowns,
     ), With<FeatureSimEntity>>,
     mut bosses: Query<(&FeatureId, &FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
     mut player_combat_q: Query<&mut crate::player::PlayerCombatState, With<crate::player::PlayerEntity>>,
@@ -957,7 +984,7 @@ pub fn apply_feature_damage_events(
 ) {
     for event in damage_events.read().cloned() {
         let mut actor_hit_this_event = false;
-        for (id, aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
+        for (id, aabb, mut actor, mut identity, mut disposition, mut health, mut combat, mut intent, mut cooldowns) in &mut actors {
             let key = match *disposition {
                 ActorDisposition::Peaceful => format!("npc:{}", id.as_str()),
                 ActorDisposition::Hostile => format!("enemy:{}", id.as_str()),
@@ -1060,6 +1087,8 @@ pub fn apply_feature_damage_events(
                 &mut *disposition,
                 &mut *health,
                 &mut *combat,
+                &mut *intent,
+                &mut *cooldowns,
             );
         }
         let mut boss_hit_this_event = false;
@@ -1226,7 +1255,7 @@ pub fn update_ecs_bosses(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    mut bosses: Query<(&mut FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
+    mut bosses: Query<(&mut FeatureAabb, &mut BossFeature, &mut BossPatternTimer, &mut BossPhase), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
     let feature_world = world_with_sandbox_solids(
@@ -1238,11 +1267,13 @@ pub fn update_ecs_bosses(
     let player = authority.player.clone();
     let player_body = pb.aabb();
     let player_vulnerable = !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut feature) in &mut bosses {
+    for (mut aabb, mut feature, mut pattern_timer, mut phase) in &mut bosses {
         let boss = &mut feature.boss;
         boss.update(&feature_world, &player, feel_tuning.feature_combat_tuning(), dt);
         aabb.center = boss.pos;
         aabb.half_size = boss.render_size() * 0.5;
+        pattern_timer.0 = boss.pattern_timer;
+        *phase = if !boss.alive { BossPhase::Defeated } else { BossPhase::Active };
         if player_vulnerable && boss.alive {
             if let Some(damage) = boss.player_damage(player_body) {
                 let pos = damage.impact_pos;
@@ -1294,6 +1325,8 @@ pub fn update_ecs_actors(
         &mut ActorDisposition,
         &mut ActorHealth,
         &mut ActorCombatState,
+        &mut ActorIntent,
+        &mut ActorCooldowns,
     ), With<FeatureSimEntity>>,
 ) {
     let dt = time.delta_secs();
@@ -1306,7 +1339,7 @@ pub fn update_ecs_actors(
     let player = authority.player.clone();
     let player_body = pb.aabb();
     let player_vulnerable = !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
+    for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat, mut intent, mut cooldowns) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 npc.update(&feature_world, &player, dt);
@@ -1344,6 +1377,8 @@ pub fn update_ecs_actors(
             &mut *disposition,
             &mut *health,
             &mut *combat,
+            &mut *intent,
+            &mut *cooldowns,
         );
     }
 }
@@ -1434,10 +1469,12 @@ pub fn sync_ecs_actors_with_save(
         &mut ActorDisposition,
         &mut ActorHealth,
         &mut ActorCombatState,
+        &mut ActorIntent,
+        &mut ActorCooldowns,
     ), With<FeatureSimEntity>>,
 ) {
     let data = save.data();
-    for (mut actor, mut identity, mut disposition, mut health, mut combat) in &mut actors {
+    for (mut actor, mut identity, mut disposition, mut health, mut combat, mut intent, mut cooldowns) in &mut actors {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 if data.flag(&npc.flag_id()) {
@@ -1466,6 +1503,8 @@ pub fn sync_ecs_actors_with_save(
             &mut *disposition,
             &mut *health,
             &mut *combat,
+            &mut *intent,
+            &mut *cooldowns,
         );
     }
 }

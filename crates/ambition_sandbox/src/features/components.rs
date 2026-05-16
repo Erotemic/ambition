@@ -301,6 +301,53 @@ impl ActorCombatState {
     }
 }
 
+/// ECS-visible actor AI intent. Mirrors `ae::CharacterAiMode` so rendering and
+/// HUD systems can branch on actor state without pattern-matching `ActorRuntime`.
+/// Synced from the runtime each frame by `update_ecs_actors`.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ActorIntent(pub ae::CharacterAiMode);
+
+impl ActorIntent {
+    pub fn new(mode: ae::CharacterAiMode) -> Self { Self(mode) }
+    pub fn mode(self) -> ae::CharacterAiMode { self.0 }
+    pub fn is_dangerous(self) -> bool { self.0.is_dangerous() }
+}
+
+/// ECS-visible actor cooldown timers. Exposes timing state that rendering and
+/// encounter systems need without reaching into `ActorRuntime`.
+/// Synced from the runtime each frame by `update_ecs_actors`.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct ActorCooldowns {
+    pub attack_cooldown: f32,
+    pub respawn_timer: f32,
+}
+
+/// ECS-visible boss pattern timer. Mirrors `BossRuntime::pattern_timer`
+/// so sprite animation systems can read it without accessing `BossFeature`.
+/// Synced from the runtime each frame by `update_ecs_bosses`.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct BossPatternTimer(pub f32);
+
+/// ECS-visible boss combat phase.
+///
+/// `Dormant` — boss is not yet engaged (or fight has been cleared).
+/// `Active`  — boss is alive and in combat.
+/// `Defeated`— boss health reached zero this session.
+///
+/// Synced from `BossFeature::boss.alive` each frame by `update_ecs_bosses`.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum BossPhase {
+    #[default]
+    Dormant,
+    Active,
+    Defeated,
+}
+
+impl BossPhase {
+    pub fn is_active(self) -> bool { matches!(self, Self::Active) }
+    pub fn is_defeated(self) -> bool { matches!(self, Self::Defeated) }
+}
+
 /// Marker for hostile actors spawned dynamically by an encounter wave.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct EncounterMob {
@@ -416,6 +463,8 @@ pub struct EnemyActorBundle {
     pub disposition: ActorDisposition,
     pub health: ActorHealth,
     pub combat: ActorCombatState,
+    pub intent: ActorIntent,
+    pub cooldowns: ActorCooldowns,
 }
 
 #[cfg(test)]

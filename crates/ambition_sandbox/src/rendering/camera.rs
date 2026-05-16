@@ -57,6 +57,13 @@ impl Default for CameraViewState {
 /// ends. A snap was distracting; the eased path preserves "I crossed
 /// a threshold and the world breathed out" pacing without making
 /// the player wait for the camera.
+///
+/// **Multiplayer caveat (primary-player-only):** the camera follows
+/// the lone player today. A future co-op build needs to follow the
+/// player with `PrimaryPlayer` (or compute a midpoint between local
+/// players); the query should switch to
+/// `With<crate::player::PrimaryPlayer>` once a second player can
+/// exist. See [`crate::player::queries::PrimaryPlayerOnly`].
 pub fn camera_follow(
     world: Res<crate::GameWorld>,
     room_set: Res<RoomSet>,

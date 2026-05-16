@@ -169,6 +169,14 @@ pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 /// Authoritative source: set/cleared by `start_attack` / `advance_attack`
 /// inside `sandbox_update`. `write_player_ecs_components` mirrors
 /// `is_some()` into `PlayerCombatState::attacking` each frame.
+///
+/// **Multiplayer caveat (primary-player-only):** this is a global
+/// `Resource` and therefore implicitly the primary player's attack.
+/// Future co-op / split-screen will need per-player attack state —
+/// likely a `PlayerAttackState` component on the player entity rather
+/// than a `Resource`. Until then, treat any new reads/writes as
+/// "primary player only" and avoid adding additional one-player
+/// scalars here.
 #[derive(Resource, Default)]
 pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
 
@@ -185,6 +193,17 @@ pub struct MovingPlatformSet(pub Vec<platforms::MovingPlatformState>);
 /// Pure simulation scalars for the running sandbox session.
 /// Holds values that belong to the simulation, not to
 /// developer/debug tools or presentation state.
+///
+/// **Multiplayer caveat:** each field has different per-player vs.
+/// shared semantics for a future co-op build:
+/// - `last_safe_player_pos` — currently **primary-player-only**;
+///   needs to become a per-`PlayerSlot` map.
+/// - `time_scale` — **global shared-world** (hitstop / bullet-time /
+///   pause should affect everyone). Stays on the resource.
+/// - `room_transition_cooldown` — **global shared-world** today
+///   because the whole party shares one active room. If a future
+///   build splits rooms per-player this would need to move per-room
+///   or per-player.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct SandboxSimState {
     pub last_safe_player_pos: ae::Vec2,

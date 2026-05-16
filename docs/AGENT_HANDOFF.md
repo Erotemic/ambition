@@ -368,3 +368,57 @@ Do NOT re-introduce `SandboxRuntime` / `FeatureRuntime`. The
 if those identifiers reappear; the `plugin_minimal_app` test
 asserts the deleted resources are not silently inserted at startup.
 
+## Multiplayer-readiness policy (single player today, but…)
+
+The game currently spawns exactly one local player. The architecture
+intentionally avoids hard-coding "one player" as a permanent
+assumption. Identity components on every player entity:
+
+- `PlayerEntity` — *any* player entity. Use this when a system wants
+  every player regardless of locality or slot.
+- `PlayerSlot(u8)` — per-player slot id. `PlayerSlot::PRIMARY` (= 0)
+  is the local primary player today.
+- `PrimaryPlayer` — the player the camera, HUD, and dev tools follow
+  by default. Exactly one entity carries this; today every player is
+  also primary.
+- `LocalPlayer` — input comes from this machine. Today every player
+  is also local; future remote-network players would not be.
+
+`PlayerSimulationBundle::new(player, health)` spawns the
+single-player default with all four tags set. The
+`PlayerIdentityBundle` is the smaller "just the tags" bundle for
+tests that want to spawn a second player without the simulation
+chain.
+
+Helper queries live in `crate::player::queries`:
+[`PrimaryPlayerOnly`](crates/ambition_sandbox/src/player/queries.rs)
+filter, [`primary_player_entity`], and
+[`sort_players_by_slot`]. Use these in new systems instead of
+`single_mut::<…, With<PlayerEntity>>` whenever the singleton intent
+matters.
+
+Working rules:
+
+1. **New player-bearing messages MUST include identity.** Either
+   `Entity` or `PlayerSlot` — never a bare `PlayerHealRequested`
+   that silently means "the player." Old messages like
+   `PlayerHealRequested` and `PlayerDamageEvent` are grandfathered
+   until they touch this rule.
+2. **New systems that operate on the camera / HUD / dev-tool target
+   should filter on `PrimaryPlayer`** (or use
+   `crate::player::queries::PrimaryPlayerOnly`), not on
+   `PlayerEntity` alone.
+3. **Avoid adding new singleton "player" resources.** Prefer
+   per-player components. `ControlFrame`, `CurrentPlayerAttack`,
+   and `SandboxSimState::last_safe_player_pos` are documented
+   singleton-for-now resources; expand them only as a last resort.
+4. **The `second_player_entity_spawns_with_unique_slot_and_no_extra_primary`
+   test in `plugin_minimal_app.rs` is a canary.** If you break it,
+   you have likely deepened a singleton assumption — fix the new
+   code, don't relax the test.
+
+What we explicitly are NOT doing yet: networking, split-screen
+rendering, per-player input devices, per-player room simulation, or
+camera/HUD rework. The pass above is *readiness*, not
+implementation.
+

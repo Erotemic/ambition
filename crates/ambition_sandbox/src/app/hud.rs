@@ -49,6 +49,10 @@ pub(super) struct HudCameraParams<'w, 's> {
     >,
 }
 
+/// **Multiplayer caveat (primary-player-only):** the HUD reads stats
+/// from `HudCameraParams` (which filters on `PlayerEntity`) and assumes
+/// exactly one player exists. A future co-op build needs to either
+/// scope the HUD to `PrimaryPlayer` or render per-`PlayerSlot` panels.
 pub(super) fn update_hud(
     dev_state: Res<SandboxDevState>,
     mode: Res<State<GameMode>>,

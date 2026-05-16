@@ -7,6 +7,15 @@ use super::*;
 /// pre-populate it directly without an InputPlugin in scope. The
 /// simulation reads `Res<ControlFrame>`; it never touches leafwing types
 /// — that's the ADR 0012 sim/presentation seam for the input channel.
+///
+/// **Multiplayer caveat (primary-player-only):** there is exactly one
+/// `ControlFrame` resource and it represents the local primary
+/// player's input. Co-op / split-screen / network play will need
+/// per-`PlayerSlot` input — likely an `InputFrame` *component* on the
+/// player entity, with the visible binary writing per-device and
+/// remote-player frames being driven by a netcode adapter. Until then,
+/// do not add new "per-player" fields to this struct; instead expand
+/// `PlayerInteractionState` or another per-player component.
 #[derive(Resource, Clone, Copy, Debug, Default)]
 pub struct ControlFrame {
     pub axis_x: f32,

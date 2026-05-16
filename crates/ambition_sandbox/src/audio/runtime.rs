@@ -265,11 +265,23 @@ impl RadioStationState {
 
 #[cfg(feature = "audio")]
 impl AudioLibrary {
+    /// Build the audio library + music track table.
+    ///
+    /// `catalog` (when `Some`) resolves each music track id through
+    /// [`crate::sandbox_assets::ids::music_track`] so the runtime
+    /// stores the catalog-blessed path instead of the raw
+    /// `MusicTrackSpec::asset_path`. Procedural tracks (no
+    /// `asset_path` in the spec) keep their procedural source.
+    ///
+    /// `catalog = None` is the test-fixture / pre-catalog seam: the
+    /// library reads paths directly from `spec.music_tracks` —
+    /// equivalent to the legacy behavior.
     pub fn new(
         audio_sources: &mut Assets<KiraAudioSource>,
         spec: &AudioSpec,
         asset_server: Option<&AssetServer>,
         sfx_provider: Option<&dyn SfxProvider>,
+        catalog: Option<&crate::sandbox_assets::SandboxAssetCatalog>,
     ) -> Self {
         if let Err(error) = spec.validate() {
             warn!("invalid audio spec: {error}");
@@ -309,13 +321,18 @@ impl AudioLibrary {
             .music_tracks
             .iter()
             .map(|track| {
-                // Lazy path: file-backed track + an asset server. Store the
-                // path; defer `asset_server.load(...)` to first resolve. Falls
-                // through to the procedural branch when no asset server is
-                // available (tests, headless mode without IO).
-                let source = match (&track.asset_path, asset_server) {
+                // Prefer the catalog-resolved path under the active
+                // profile (the `music.track.<id>` entry exists when
+                // `track.asset_path` is set). Fall back to the raw
+                // `track.asset_path` only when the caller passed no
+                // catalog — that's the test/pre-migration seam.
+                let catalog_path = catalog.and_then(|catalog| {
+                    catalog.path_for(&crate::sandbox_assets::ids::music_track(&track.id))
+                });
+                let effective_path = catalog_path.or_else(|| track.asset_path.clone());
+                let source = match (effective_path, asset_server) {
                     (Some(path), Some(_)) => TrackSource::Lazy {
-                        asset_path: path.clone(),
+                        asset_path: path,
                         handle: None,
                     },
                     _ => TrackSource::Procedural(add_rendered_audio(

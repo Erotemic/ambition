@@ -74,6 +74,7 @@ pub(super) fn setup_presentation_system(
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data: Res<data::SandboxDataSpec>,
+    sandbox_catalog: Res<crate::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
@@ -85,7 +86,7 @@ pub(super) fn setup_presentation_system(
 ) {
     let t0 = std::time::Instant::now();
     let game_assets =
-        game_assets::load_game_assets(&asset_config, &asset_server, &mut atlas_layouts);
+        game_assets::load_game_assets(&asset_config, &sandbox_catalog, &asset_server, &mut atlas_layouts);
     let t_assets = t0.elapsed().as_secs_f32() * 1000.0;
     profiler.marks.push((
         "setup_presentation::load_game_assets",
@@ -96,6 +97,7 @@ pub(super) fn setup_presentation_system(
         &mut commands,
         &mut audio_sources,
         &asset_server,
+        &sandbox_catalog,
         setup::PresentationSetup {
             world: &world,
             room_set: &room_set,
@@ -123,6 +125,7 @@ pub(super) fn setup_presentation_system(
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     sandbox_data: Res<data::SandboxDataSpec>,
+    sandbox_catalog: Res<crate::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -130,7 +133,7 @@ pub(super) fn setup_presentation_system(
     scene_entities: Res<SceneEntities>,
 ) {
     let game_assets =
-        game_assets::load_game_assets(&asset_config, &asset_server, &mut atlas_layouts);
+        game_assets::load_game_assets(&asset_config, &sandbox_catalog, &asset_server, &mut atlas_layouts);
     setup::presentation_world(
         &mut commands,
         setup::PresentationSetup {

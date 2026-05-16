@@ -173,6 +173,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
+    catalog: Option<Res<crate::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     if installed.0 {
         return;
@@ -184,7 +185,8 @@ pub(crate) fn load_intro_npc_sprites_system(
         Some(asset_server),
         Some(mut layouts),
         Some(mut game_assets),
-    ) = (config, asset_server, layouts, game_assets)
+        Some(catalog),
+    ) = (config, asset_server, layouts, game_assets, catalog)
     else {
         return;
     };
@@ -199,6 +201,7 @@ pub(crate) fn load_intro_npc_sprites_system(
             continue;
         }
         if let Some(asset) = build_npc_sprite_asset(
+            &catalog,
             &asset_server,
             &mut layouts,
             &config.sprite_folder,
@@ -225,12 +228,18 @@ pub(crate) fn load_intro_prop_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
+    catalog: Option<Res<crate::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     if installed.0 {
         return;
     }
-    let (Some(config), Some(asset_server), Some(mut layouts), Some(mut game_assets)) =
-        (config, asset_server, layouts, game_assets)
+    let (
+        Some(config),
+        Some(asset_server),
+        Some(mut layouts),
+        Some(mut game_assets),
+        Some(catalog),
+    ) = (config, asset_server, layouts, game_assets, catalog)
     else {
         return;
     };
@@ -243,6 +252,7 @@ pub(crate) fn load_intro_prop_sprites_system(
             continue;
         }
         if let Some(asset) = build_prop_sprite_asset(
+            &catalog,
             &asset_server,
             &mut layouts,
             &config.sprite_folder,

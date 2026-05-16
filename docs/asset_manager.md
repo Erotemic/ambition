@@ -72,23 +72,24 @@ AssetId
         └── nothing matched      -> Disabled (consult MissingAssetPolicy)
 ```
 
-### Profile contract
+### Profile contract — live behavior matrix
 
-| Profile                    | Preferred sources                                | Hot reload | Notes |
-| -------------------------- | ------------------------------------------------ | ---------- | ----- |
-| `DesktopDevLoose`          | LooseFilesystem → EmbeddedBinary → HttpRemote    | ✅         | `cargo run` from the workspace; LDtk file watcher armed here. |
-| `DesktopInstalled`         | InstalledFilesystem → EmbeddedBinary → HttpRemote | ❌         | Asset tree next to the binary, no `CARGO_MANIFEST_DIR`. |
-| `SteamDeckInstalled`       | InstalledFilesystem → EmbeddedBinary → HttpRemote | ❌         | Same shape as `DesktopInstalled`; kept distinct for future Deck-specific policy. |
-| `AndroidBundle`            | AndroidApk → EmbeddedBinary                      | ❌         | Bevy Android `AssetReader` resolves through APK assets. |
-| `IosBundle`                | IosBundle → EmbeddedBinary                       | ❌         | No iOS build yet; here so the schema is forward-compatible. |
-| `WebHttp`                  | HttpRemote → EmbeddedBinary                      | ❌¹        | Bevy `http` / `https` `AssetSource` features. |
-| `WebStatic`                | EmbeddedBinary → HttpRemote                      | ❌         | Today's wasm first-pass build; LDtk via `static_map`. |
-| `BundledStatic`            | EmbeddedBinary                                   | ❌         | Single-binary cross-platform demo build. |
-| `NoAssets`                 | (none)                                           | ❌         | `--no-assets`; everything resolves to `Disabled`. |
-| `Headless`                 | (none)                                           | ❌         | Same as `NoAssets`; tolerates missing required assets. |
-| `IpfsGatewayPlaceholder`   | IpfsGateway → HttpRemote → EmbeddedBinary        | ❌         | Builds `https://<gateway>/ipfs/<cid>/<path>` URLs; no native IPFS dependency. |
+| Profile                    | Preferred sources                                | Hot reload | LDtk | Sprites | Fonts | SFX bank | Music tracks | Notes |
+| -------------------------- | ------------------------------------------------ | ---------- | ---- | ------- | ----- | -------- | ------------ | ----- |
+| `DesktopDevLoose`          | LooseFilesystem → EmbeddedBinary → HttpRemote    | ✅         | ✅   | ✅      | ✅    | ✅       | ✅           | `cargo run` from the workspace; LDtk file watcher armed via `SandboxAssetCatalog::hot_reload_local_path`. |
+| `DesktopInstalled`         | InstalledFilesystem → EmbeddedBinary → HttpRemote | ❌         | ✅   | ✅      | ✅    | ✅       | ✅           | Bevy `AssetReader` reads next to the binary; pre-check via `desktop_loose_file_exists`. |
+| `SteamDeckInstalled`       | InstalledFilesystem → EmbeddedBinary → HttpRemote | ❌         | ✅   | ✅      | ✅    | ✅       | ✅           | Same shape as `DesktopInstalled`; kept distinct for future Deck-specific policy. |
+| `AndroidBundle`            | AndroidApk → EmbeddedBinary                      | ❌         | ✅¹  | ✅²     | ✅²   | ✅¹      | ✅²          | Bevy Android `AssetReader` resolves through APK assets. ¹ LDtk via `static_map` embedded; SFX bank requires `static_sfx_bank`. ² Loaded if packaged. |
+| `IosBundle`                | IosBundle → EmbeddedBinary                       | ❌         | ⚠️   | ⚠️      | ⚠️    | ⚠️       | ⚠️           | Profile modeled but no iOS build target yet — every loader honors the profile, packaging story is TBD. |
+| `WebHttp`                  | HttpRemote → EmbeddedBinary                      | ❌³        | ⚠️   | ❌      | ❌    | ❌       | ❌           | Catalog produces `https://...` URLs when explicit candidates exist; today's sandbox has none, so optional assets resolve to `Disabled` for `should_attempt_optional_load`. ³ HTTP polling / ETag reload future. |
+| `WebStatic`                | EmbeddedBinary → HttpRemote                      | ❌         | ✅¹  | ❌      | ❌    | ❌       | ❌           | Today's wasm first-pass build — LDtk via `static_map`; optional sprites / fonts / SFX / music are explicitly skipped (`should_attempt_optional_load` returns false). Renderer falls back to colored rectangles + Bevy default font. Wires up via `bevy_embedded_assets` in slice 9. |
+| `BundledStatic`            | EmbeddedBinary                                   | ❌         | ✅¹  | ❌      | ❌    | ❌       | ❌           | Single-binary cross-platform demo build. Same status as `WebStatic` for optional assets — packaging is TBD. |
+| `NoAssets`                 | (none)                                           | ❌         | 💀   | ❌      | ❌    | ❌       | ❌           | `--no-assets`; every entry resolves to `Disabled`. LDtk is `MissingAssetPolicy::Error` so `load_default` returns Err. |
+| `Headless`                 | (none)                                           | ❌         | 💀   | ❌      | ❌    | ❌       | ❌           | Same as `NoAssets`; profile is marked `tolerates_missing_required` so callers can choose to keep going. |
+| `IpfsGatewayPlaceholder`   | IpfsGateway → HttpRemote → EmbeddedBinary        | ❌         | ⚠️   | ⚠️      | ⚠️    | ⚠️       | ⚠️           | Builds `https://<gateway>/ipfs/<cid>/<path>` URLs from authored `IpfsGateway` candidates; no native IPFS client. No live assets carry CIDs today. |
 
-¹ HTTP polling / ETag-based reload is a future addition.
+Legend: ✅ working / ❌ explicitly skipped (placeholder/fallback) /
+⚠️ profile modeled but no live build target / 💀 fatal (required asset).
 
 ### Hot reload preservation
 
@@ -160,13 +161,15 @@ simply tells the SFX system *where* the bank bytes come from.
 
 | # | Slice | Status |
 | - | ----- | ------ |
-| 1 | Bootstrap entries (LDtk, default font) | TODO |
+| 1 | Bootstrap entries (LDtk, sandbox RON) | **DONE** (2026-05-16) |
 | 2 | Entity sprite + parallax layer loading | **DONE** (2026-05-16) |
-| 3 | Character / boss spritesheet loading | TODO |
-| 4 | SFX bank bytes (catalog-routed `BankProvider`) | TODO |
-| 5 | LDtk hot-reload watcher consults `supports_hot_reload()` | TODO |
-| 6 | UI fonts | TODO |
-| 7 | Music | TODO |
+| 3 | Character / boss spritesheet loading | **DONE** (2026-05-16) |
+| 4 | SFX bank bytes (catalog-routed `BankProvider`) | **DONE** (2026-05-16) |
+| 5 | LDtk hot-reload watcher consults `supports_hot_reload()` | **DONE** (2026-05-16) |
+| 6 | UI fonts | **DONE** (2026-05-16) |
+| 7 | Music tracks (asset path lookup) | **DONE** (2026-05-16) |
+| 8 | Music cue layers (file-backed cues under `MusicCueCatalog`) | TODO |
+| 9 | Bevy-native `AssetSource` for `embedded://` web bundle | TODO |
 
 ### Slice 2 — entity sprites + parallax layers (current)
 
@@ -217,24 +220,55 @@ Behavior preserved (verified by tests in `game_assets.rs::tests`):
 - Bevy `AssetServer` is still the actual loader.
 - Desktop optional-image fallback to colored rectangles is unchanged.
 
-### Other slices (deferred)
+### Slice 3 — full port (2026-05-16)
 
-1. **Bootstrap entries** (LDtk, default font) — author manifest entries
-   with `MissingAssetPolicy::Error`, switch the sandbox loader to ask
-   the catalog for paths.
-3. **Character / boss spritesheets** — same pattern as slice 2 but
-   touches atlas layouts; deferred to avoid bundling layout changes
-   with the catalog migration.
-4. **SFX bank** — replace the current `static_sfx_bank` feature wiring
-   with a catalog entry per-platform; the web build's static-bytes
-   path resolves through `build_provider_from_resolved`.
-5. **LDtk hot reload** — the watcher consults
-   `ResolvedAsset::supports_hot_reload()` for the path to watch instead
-   of hard-coded `CARGO_MANIFEST_DIR` walks.
-6. **UI fonts** — `crates/ambition_sandbox/src/ui_fonts.rs` still has
-   its own `asset_exists`; migrate behind a `font.<name>` namespace.
-7. **Music** — manifest entries per track id, then route through
-   catalog under the active profile.
+This slice flips every remaining live loader through the catalog and
+deletes the legacy `asset_exists` / `desktop_asset_exists` copies that
+were scattered across the sandbox.
+
+- **`SandboxAssetCatalog`** (`crates/ambition_sandbox/src/sandbox_assets.rs`)
+  is the single Bevy `Resource` that aggregates every asset id:
+  - bootstrap (LDtk world, sandbox RON)
+  - SFX bank
+  - UI fonts (canonical + legacy fallbacks)
+  - entity sprites + parallax layers
+  - character spritesheets (player / robot / goblin / sandbag + every
+    NPC sheet in `NPC_SPRITE_REGISTRY`)
+  - boss spritesheets (gradient sentinel + mockingbird)
+  - music tracks (one per `MusicTrackSpec` with an `asset_path`)
+- Built once in `crate::app::init_sandbox_resources` from the live
+  `GameAssetConfig` + the embedded `SandboxDataSpec`.
+- `ambition_asset_manager::AssetProfile` selection now flows through
+  `GameAssetConfig::asset_profile` (cfg-driven default + `--no-assets`
+  override).
+- Live loaders that asked for paths (entity sprites, parallax layers,
+  character/boss sheets, fonts, SFX bank, LDtk world, sandbox RON,
+  music tracks) all go through `SandboxAssetCatalog::path_for(...)` or
+  `SandboxAssetCatalog::resolve(...)`.
+- The **only** host-filesystem probe in the sandbox lives at
+  `crate::sandbox_assets::desktop_loose_file_exists` (marked
+  `[ambition_asset_manager_transition]`). Every other loader calls
+  `catalog.should_attempt_optional_load(...)` or
+  `catalog.should_attempt_required_load(...)`.
+- LDtk hot reload preserved: `LdtkHotReloadState::from_catalog(...)`
+  asks the catalog for a `LocalPath` via
+  `SandboxAssetCatalog::hot_reload_local_path`; the watcher polls only
+  that. On `WebStatic` / `AndroidBundle` / `BundledStatic` the
+  `watch_path` is `None` and the watcher idles.
+- `LdtkProject::load_default(&catalog)` is the production entry point;
+  `LdtkProject::load_default_for_dev()` is the test/headless shortcut
+  that builds a default desktop catalog internally.
+
+### Remaining work (slices 8+)
+
+8. **Music cue layers** — `MusicCueCatalog` cues
+   (`crates/ambition_sandbox/src/music/director/loader.rs`) still build
+   paths as `{cue.asset_root}/{source.path}`. Per-section/per-layer
+   catalog ids would unify with the music-track path.
+9. **Bevy-native `AssetSource` for `embedded://` web bundle** — once
+   `bevy_embedded_assets` is wired into the wasm build,
+   `should_attempt_optional_load` for `WebStatic` can flip to true for
+   sprites/fonts known to be embedded.
 
 ## IPFS posture
 
@@ -244,6 +278,45 @@ content-routing, no pinning. The
 canonical HTTPS URL via `ipfs_gateway_url`; consumers fetch through
 Bevy's `https` `AssetSource` like any other HTTP asset. A future slice
 can grow this into native IPFS support behind a separate feature.
+
+## How to add a new asset
+
+1. **Pick an `AssetId`.** Stable, lowercase, dotted. Follow the existing
+   prefix convention:
+   - `sprite.entity.<name>`
+   - `sprite.character.<name>`
+   - `sprite.boss.<name>`
+   - `background.parallax.<theme>.<layer>`
+   - `font.<name>` (and optionally `font.<name>.legacy`)
+   - `audio.<name>` (single clip) or `audio.<name>_bank` (packed bank)
+   - `music.track.<id>`
+   - `world.<name>` (LDtk)
+   - `data.<name>` (RON)
+2. **Add a builder for the id.** If the id is dynamic (e.g. derived
+   from an enum / RON spec), add a `pub fn foo_asset_id(...) -> AssetId`
+   next to the source enum. Otherwise add the constructor under
+   `crate::sandbox_assets::ids`.
+3. **Add a manifest entry.** Extend the right `extend_with_*` helper
+   in `crate::sandbox_assets`. Pick:
+   - `AssetKind` — Image / AudioClip / AudioBank / LdtkProject / RonData / Font / ...
+   - `MissingAssetPolicy` — `Error` for required boot assets, `WarnAndPlaceholder`
+     when the user should hear about it, `SilentPlaceholder` for fully optional art.
+   - `PreloadGroup` — `Bootstrap` (boot blockers), `SandboxCore`
+     (always-useful), `Zone` (per-room), `Hud`, `Cutscene`, `DevTools`.
+   - `with_location(source, AssetLocation::*)` — only when a specific
+     source needs an override; otherwise the synthesized default from
+     the entry's `logical_path` is enough.
+4. **Ask the catalog from the loader.** `catalog.path_for(&id)` returns
+   `Option<String>` (the Bevy `AssetPath` string) or `None` when the
+   profile disabled the asset. Then call `asset_server.load(path)` for
+   Bevy-native kinds, or pull bytes via
+   `ambition_asset_manager::build_provider_from_resolved` for the SFX
+   bank. Gate optional images on
+   `catalog.should_attempt_optional_load(&path)`.
+5. **Test it.** The `sandbox_assets::tests` module already locks in
+   uniqueness + required-policy contracts; add a per-domain test if the
+   new asset has interesting per-profile behavior (HTTP-only,
+   IPFS-only, etc.).
 
 ## Where things live
 

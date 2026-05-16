@@ -67,7 +67,7 @@ impl SandboxSim {
     /// via this entry point with a `start_room` override. The override matches
     /// the visible binary's `--start-room` flag semantics.
     pub fn new_with_options(options: SandboxSimOptions) -> Result<Self, String> {
-        let project = ldtk_world::LdtkProject::load_default()?;
+        let project = ldtk_world::LdtkProject::load_default_for_dev()?;
         let report = project.validate();
         if !report.is_ok() {
             report.print_to_stderr();

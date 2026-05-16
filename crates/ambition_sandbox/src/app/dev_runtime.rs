@@ -129,6 +129,19 @@ pub(super) fn handle_ldtk_hot_reload(
         return;
     }
 
+    // Hot reload reads the same `watch_path` the file-change poller
+    // armed at startup (per the catalog's
+    // `SandboxAssetCatalog::hot_reload_local_path`). If the active
+    // asset profile doesn't support filesystem watching the
+    // `watch_path` is `None` and the reload is silently skipped.
+    let Some(watch_path) = ldtk_reload.watch_path.clone() else {
+        eprintln!(
+            "LDtk hot reload pressed but watch_path is unset; the active asset profile \
+             does not support filesystem watching"
+        );
+        ldtk_reload.pending = false;
+        return;
+    };
     if let Ok((mut authority, mut combat)) = player_q.single_mut() {
         match reload_ldtk_world_from_disk(
             &mut commands,
@@ -145,6 +158,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut platform_set.0,
             &room_visuals,
             game_assets.as_deref(),
+            &watch_path,
         ) {
             Ok(active_room) => {
                 ldtk_reload.mark_applied(&active_room);
@@ -171,11 +185,13 @@ pub(super) struct LdtkReloadTransaction {
 }
 
 pub(super) fn prepare_ldtk_reload_transaction(
+    watch_path: &std::path::Path,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
 ) -> Result<LdtkReloadTransaction, Vec<String>> {
-    let project = ldtk_world::LdtkProject::load_from_disk().map_err(|error| vec![error])?;
+    let project =
+        ldtk_world::LdtkProject::load_from_disk_at(watch_path).map_err(|error| vec![error])?;
     let report = project.validate();
     report.print_to_stderr();
     if !report.is_ok() {
@@ -231,11 +247,16 @@ pub(super) fn reload_ldtk_world_from_disk(
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     assets: Option<&crate::game_assets::GameAssets>,
+    watch_path: &std::path::Path,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = player.pos;
-    let transaction =
-        prepare_ldtk_reload_transaction(&current_room_id, preserved_pos, player.size)?;
+    let transaction = prepare_ldtk_reload_transaction(
+        watch_path,
+        &current_room_id,
+        preserved_pos,
+        player.size,
+    )?;
 
     // Everything above this line is non-mutating: invalid edits, deleted active
     // areas, bad graph links, and unsafe player positions are rejected before

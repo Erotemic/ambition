@@ -59,6 +59,7 @@ pub mod rendering;
 pub mod reset;
 pub mod room_builder;
 pub mod rooms;
+pub mod sandbox_assets;
 pub mod save;
 pub mod settings;
 pub mod swim;

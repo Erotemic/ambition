@@ -1,14 +1,17 @@
 //! Spritesheet asset bundle + on-disk loading.
 //!
-//! Each character target has its own PNG; missing files are not
-//! errors — callers fall back to colored rectangles (the game must
-//! always run regardless of asset state). Android assets live inside
-//! the APK; desktop probes the runtime asset root first and falls back
-//! to the Cargo manifest asset directory for local development.
+//! Each character target has its own PNG; missing files are not errors
+//! — callers fall back to colored rectangles (the game must always run
+//! regardless of asset state). All path/existence policy goes through
+//! [`crate::sandbox_assets::SandboxAssetCatalog`]; this module no
+//! longer owns any `target_os = "android"` cfg branches or
+//! `BEVY_ASSET_ROOT` probes.
 
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+
+use ambition_asset_manager::AssetId;
 
 use super::sheets::{
     CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET,
@@ -17,6 +20,7 @@ use super::sheets::{
     TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::features::FeatureVisualKind;
+use crate::sandbox_assets::{ids, SandboxAssetCatalog};
 
 #[derive(Clone)]
 pub struct CharacterSpriteAsset {
@@ -85,10 +89,22 @@ impl CharacterSpriteAssets {
     }
 }
 
-const PLAYER_FILENAME: &str = "player_robot_spritesheet.png";
-const ROBOT_FILENAME: &str = "robot_spritesheet.png";
-const GOBLIN_FILENAME: &str = "goblin_spritesheet.png";
-const SANDBAG_FILENAME: &str = "sandbag_spritesheet.png";
+pub(crate) const PLAYER_FILENAME: &str = "player_robot_spritesheet.png";
+pub(crate) const ROBOT_FILENAME: &str = "robot_spritesheet.png";
+pub(crate) const GOBLIN_FILENAME: &str = "goblin_spritesheet.png";
+pub(crate) const SANDBAG_FILENAME: &str = "sandbag_spritesheet.png";
+
+/// Sandbox-side label used in `sprite.character.<label>` catalog ids,
+/// paired with the on-disk filename relative to the sprite folder.
+/// The catalog aggregator (`crate::sandbox_assets`) walks this list
+/// and the [`NPC_SPRITE_REGISTRY`] below to register one
+/// `AssetEntry` per spritesheet.
+const BASE_CHARACTER_FILENAMES: &[(&str, &str)] = &[
+    ("player", PLAYER_FILENAME),
+    ("robot", ROBOT_FILENAME),
+    ("goblin", GOBLIN_FILENAME),
+    ("sandbag", SANDBAG_FILENAME),
+];
 
 /// Source-of-truth registry mapping `(LDtk NpcSpawn.name → asset
 /// filename, sheet spec)`. Add a row here to wire a new NPC sprite;
@@ -165,45 +181,100 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     ),
 ];
 
+/// Sandbox-side label + filename for every character spritesheet the
+/// sandbox knows about — base (player / robot / goblin / sandbag) +
+/// every NPC sheet in [`NPC_SPRITE_REGISTRY`]. The sandbox-assets
+/// aggregator walks this so adding a new character row in either
+/// table auto-registers its catalog id.
+pub fn all_character_sprite_filenames() -> Vec<(&'static str, &'static str)> {
+    let mut out: Vec<(&'static str, &'static str)> = BASE_CHARACTER_FILENAMES.to_vec();
+    for (name, filename, _spec) in NPC_SPRITE_REGISTRY {
+        out.push((npc_sprite_label(name), *filename));
+    }
+    out
+}
+
+/// Convert an LDtk NPC name (e.g. `"Pirate Raider"`) into a stable
+/// `sprite.character.<lower_snake>` label. The mapping is reversible
+/// for the current NPC roster — the caller passes the same name when
+/// resolving via the catalog at load time.
+pub fn npc_sprite_label(npc_name: &str) -> &'static str {
+    // Static lookup table so we hand back `&'static str` values that
+    // can be stored in the catalog id without allocations. Adding a
+    // new NPC entails one row here AND one row in [`NPC_SPRITE_REGISTRY`].
+    match npc_name {
+        "General" => "npc_general",
+        "Fretjaw, Cantina Chieftain" => "npc_goblin_cantina_chieftain",
+        "Captain Pulse" => "npc_pulse_voyager_captain",
+        "Chadwick Disruptor III" => "npc_tech_bro_disruptor",
+        "Pirate Admiral" => "npc_pirate_admiral",
+        "Pirate Raider" => "npc_pirate_raider",
+        "Shadow Oni Leader" => "npc_ninja_shadow_oni_leader",
+        "Shadow Duelist" => "npc_ninja_shadow_duelist",
+        "Architect NPC" => "npc_architect",
+        "Kernel Guide NPC" => "npc_kernel_guide",
+        "Vault Keeper NPC" => "npc_vault_keeper",
+        "Merchant Prototype NPC" => "npc_merchant_prototype",
+        // Story-content plugins (e.g. intro) author their own NPC
+        // sprites by calling [`build_npc_sprite_asset`] directly; the
+        // generic-id branch is only reached when the catalog doesn't
+        // have a label registered for `npc_name`.
+        _ => "npc_unregistered",
+    }
+}
+
 /// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
-/// Missing files are not an error — callers fall back to colored rectangles.
+///
+/// Resolves each filename through [`SandboxAssetCatalog::path_for`] and
+/// gates the load on
+/// [`SandboxAssetCatalog::should_attempt_optional_load`]. Missing files
+/// produce `None` — callers fall back to colored rectangles.
 pub fn load_character_sprites_in(
+    catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    sprite_folder: &str,
 ) -> CharacterSpriteAssets {
-    let player_rel = format!("{sprite_folder}/{PLAYER_FILENAME}");
-    let robot_rel = format!("{sprite_folder}/{ROBOT_FILENAME}");
-    let goblin_rel = format!("{sprite_folder}/{GOBLIN_FILENAME}");
-    let sandbag_rel = format!("{sprite_folder}/{SANDBAG_FILENAME}");
-
-    let player = build_optional(asset_server, layouts, &player_rel, PLAYER_ROBOT_SHEET);
-    let robot = build_optional(asset_server, layouts, &robot_rel, ROBOT_SHEET);
-    let goblin = build_optional(asset_server, layouts, &goblin_rel, GOBLIN_SHEET);
-    let sandbag = build_optional(asset_server, layouts, &sandbag_rel, SANDBAG_SHEET);
-
-    for (label, rel, present) in [
-        ("player", &player_rel, player.is_some()),
-        ("robot", &robot_rel, robot.is_some()),
-        ("goblin", &goblin_rel, goblin.is_some()),
-        ("sandbag", &sandbag_rel, sandbag.is_some()),
-    ] {
-        if !present {
-            eprintln!(
-                "[character_sprites] {label} spritesheet not found at assets/{rel} — falling back to colored rectangle"
-            );
-        }
-    }
+    let player = build_optional_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        &ids::character_sprite("player"),
+        PLAYER_ROBOT_SHEET,
+        Some("player"),
+    );
+    let robot = build_optional_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        &ids::character_sprite("robot"),
+        ROBOT_SHEET,
+        Some("robot"),
+    );
+    let goblin = build_optional_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        &ids::character_sprite("goblin"),
+        GOBLIN_SHEET,
+        Some("goblin"),
+    );
+    let sandbag = build_optional_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        &ids::character_sprite("sandbag"),
+        SANDBAG_SHEET,
+        Some("sandbag"),
+    );
 
     let mut npcs: HashMap<&'static str, CharacterSpriteAsset> = HashMap::new();
-    for (name, filename, spec) in NPC_SPRITE_REGISTRY {
-        let rel = format!("{sprite_folder}/{filename}");
-        if let Some(asset) = build_optional(asset_server, layouts, &rel, *spec) {
+    for (name, _filename, spec) in NPC_SPRITE_REGISTRY {
+        let label = npc_sprite_label(name);
+        let id = ids::character_sprite(label);
+        if let Some(asset) =
+            build_optional_via_catalog(catalog, asset_server, layouts, &id, *spec, Some(name))
+        {
             npcs.insert(*name, asset);
-        } else {
-            eprintln!(
-                "[character_sprites] NPC sheet '{name}' not found at assets/{rel} — falling back to colored rectangle"
-            );
         }
     }
 
@@ -217,31 +288,49 @@ pub fn load_character_sprites_in(
     }
 }
 
-fn build_optional(
+/// Resolve the catalog id, gate on profile policy, and call
+/// `asset_server.load(...)` if the gate passes. Logs a single line to
+/// `stderr` when a labeled sprite is missing under a desktop profile
+/// (matches the prior loader's noise level).
+fn build_optional_via_catalog(
+    catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    rel_path: &str,
+    id: &AssetId,
     spec: CharacterSheetSpec,
+    log_label: Option<&str>,
 ) -> Option<CharacterSpriteAsset> {
-    if !asset_exists(rel_path) {
+    let Some(path) = catalog.path_for(id) else {
+        return None;
+    };
+    if !catalog.should_attempt_optional_load(&path) {
+        if let Some(label) = log_label {
+            eprintln!(
+                "[character_sprites] {label} spritesheet not found at assets/{path} — falling back to colored rectangle"
+            );
+        }
         return None;
     }
     let layout = layouts.add(spec.build_atlas());
     Some(CharacterSpriteAsset {
-        texture: asset_server.load(rel_path.to_string()),
+        texture: asset_server.load(path),
         layout,
         spec,
     })
 }
 
-/// Build a single NPC sprite asset from a filename + sheet spec, using
-/// the same path-resolution + missing-PNG fallback as
-/// [`load_character_sprites_in`]. Story-content plugins (e.g.
-/// `crate::intro::sprites`) call this in a startup system after
-/// `GameAssets` is inserted, so they can extend
-/// `CharacterSpriteAssets::npcs` without touching the sandbox sprite
-/// registry constant.
+/// Build a single NPC sprite asset from a filename + sheet spec.
+/// Story-content plugins (e.g. `crate::intro::sprites`) call this in a
+/// startup system after `GameAssets` is inserted, so they can extend
+/// `CharacterSpriteAssets::npcs` for sheets that aren't registered in
+/// `NPC_SPRITE_REGISTRY` above.
+///
+/// The plugin path stays *outside* the prebuilt catalog: the catalog
+/// holds the sandbox's authored NPC set, and story plugins add their
+/// own sheets dynamically. The fallback gate uses the same per-profile
+/// existence rules via [`SandboxAssetCatalog::should_attempt_optional_load`].
 pub fn build_npc_sprite_asset(
+    catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
@@ -249,7 +338,7 @@ pub fn build_npc_sprite_asset(
     spec: CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
     let rel = format!("{sprite_folder}/{filename}");
-    build_optional(asset_server, layouts, &rel, spec)
+    build_optional_plugin_relative(catalog, asset_server, layouts, &rel, spec)
 }
 
 /// Build a single Prop sprite asset. Same shape as
@@ -258,6 +347,7 @@ pub fn build_npc_sprite_asset(
 /// equivalents) clearly distinguish prop-table inserts from NPC-table
 /// inserts.
 pub fn build_prop_sprite_asset(
+    catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,
@@ -265,55 +355,28 @@ pub fn build_prop_sprite_asset(
     spec: CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
     let rel = format!("{sprite_folder}/{filename}");
-    build_optional(asset_server, layouts, &rel, spec)
+    build_optional_plugin_relative(catalog, asset_server, layouts, &rel, spec)
 }
 
-fn asset_exists(rel_path: &str) -> bool {
-    // Android assets live inside the APK, not under the host-side
-    // CARGO_MANIFEST_DIR. Let Bevy's Android asset reader try the load.
-    #[cfg(target_os = "android")]
-    {
-        let _ = rel_path;
-        true
+/// Shared core for story-plugin-side dynamic sprite loads (NPCs +
+/// props that aren't in the prebuilt catalog). Uses the catalog only
+/// for the per-profile load gate; the path is built from the
+/// caller-supplied `sprite_folder/filename` because the plugin owns
+/// its own filenames.
+fn build_optional_plugin_relative(
+    catalog: &SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    rel_path: &str,
+    spec: CharacterSheetSpec,
+) -> Option<CharacterSpriteAsset> {
+    if !catalog.should_attempt_optional_load(rel_path) {
+        return None;
     }
-
-    // Desktop / Steam Deck bundles can run from a different path than the
-    // Linux machine that built them. Check the same app-root layout Bevy uses
-    // first, but tolerate both BEVY_ASSET_ROOT=<app> and
-    // BEVY_ASSET_ROOT=<app>/assets while preserving local cargo-run fallback.
-    #[cfg(not(target_os = "android"))]
-    {
-        desktop_asset_exists(rel_path)
-    }
-}
-
-#[cfg(not(target_os = "android"))]
-fn desktop_asset_exists(rel_path: &str) -> bool {
-    let rel = std::path::Path::new(rel_path);
-    let mut candidates = Vec::new();
-
-    if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
-        let root = std::path::PathBuf::from(root);
-        // Preferred form: BEVY_ASSET_ROOT points at the app/project root,
-        // and Bevy's file asset reader loads from root/assets/<rel>.
-        candidates.push(root.join("assets").join(rel));
-        // Tolerate launchers that set BEVY_ASSET_ROOT to the assets dir.
-        candidates.push(root.join(rel));
-    }
-
-    if let Ok(cwd) = std::env::current_dir() {
-        // Direct binary launches from the app dir.
-        candidates.push(cwd.join("assets").join(rel));
-        // Tolerate launches from the assets dir or compatibility symlinks.
-        candidates.push(cwd.join(rel));
-    }
-
-    // Local cargo run / tests fallback.
-    candidates.push(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("assets")
-            .join(rel),
-    );
-
-    candidates.into_iter().any(|path| path.exists())
+    let layout = layouts.add(spec.build_atlas());
+    Some(CharacterSpriteAsset {
+        texture: asset_server.load(rel_path.to_string()),
+        layout,
+        spec,
+    })
 }

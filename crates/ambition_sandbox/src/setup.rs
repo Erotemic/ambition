@@ -23,6 +23,8 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 #[cfg(feature = "audio")]
 use crate::audio::{AudioLibrary, MusicPlaybackState};
+#[cfg(feature = "audio")]
+use crate::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
@@ -167,12 +169,13 @@ pub fn presentation_world(
     commands: &mut Commands,
     audio_sources: &mut Assets<KiraAudioSource>,
     asset_server: &AssetServer,
+    catalog: &SandboxAssetCatalog,
     params: PresentationSetup<'_>,
     player: Entity,
 ) {
     let sandbox_data = params.sandbox_data;
     presentation_world_inner(commands, params, player);
-    let bank_provider = try_load_sfx_bank();
+    let bank_provider = try_load_sfx_bank_via_catalog(catalog);
     let audio_library = AudioLibrary::new(
         audio_sources,
         &sandbox_data.audio,
@@ -180,6 +183,7 @@ pub fn presentation_world(
         bank_provider
             .as_ref()
             .map(|provider| provider as &dyn ambition_sfx::SfxProvider),
+        Some(catalog),
     );
     let music_state = MusicPlaybackState::from_audio_spec(&sandbox_data.audio, &audio_library);
     commands.insert_resource(audio_library);
@@ -230,57 +234,96 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
     }
 }
 
-/// Best-effort sync load of `assets/audio/sfx.bank`. Returns `None`
-/// (with a single info log) if the file isn't present anywhere we
-/// know to look. Tries:
-///   1) statically packed bank when `static_sfx_bank` is enabled
-///   2) `$AMBITION_SFX_BANK_PATH` env var
-///   3) `<cwd>/assets/audio/sfx.bank`
-///   4) `<cwd>/crates/ambition_sandbox/assets/audio/sfx.bank`
-///   5) `<CARGO_MANIFEST_DIR>/assets/audio/sfx.bank` (dev fallback)
+/// Resolve the SFX bank through the
+/// [`crate::sandbox_assets::SandboxAssetCatalog`] and synchronously
+/// load its bytes into a [`BankProvider`]. Falls through to:
+///
+/// 1. the statically packed bank (`static_sfx_bank` feature),
+/// 2. the catalog's resolved path (today: relative `audio/sfx.bank`,
+///    which the per-profile gate then locates via `BEVY_ASSET_ROOT` /
+///    `CWD` / `CARGO_MANIFEST_DIR` candidate roots),
+/// 3. `None` + a single info log → the SFX system falls back to
+///    `SilentProvider` / procedural fundsp via [`AudioLibrary`].
+///
+/// All path-source policy now lives in
+/// [`SandboxAssetCatalog::should_attempt_optional_load`] and the
+/// underlying [`crate::sandbox_assets::desktop_loose_file_exists`];
+/// this function does not own any per-target probing.
 #[cfg(feature = "audio")]
-fn try_load_sfx_bank() -> Option<BankProvider> {
+fn try_load_sfx_bank_via_catalog(catalog: &SandboxAssetCatalog) -> Option<BankProvider> {
     #[cfg(feature = "static_sfx_bank")]
     if let Some(provider) = try_load_static_sfx_bank() {
         return Some(provider);
     }
 
-    use std::path::PathBuf;
-    let mut candidates: Vec<PathBuf> = Vec::new();
-    if let Ok(env_path) = std::env::var("AMBITION_SFX_BANK_PATH") {
-        candidates.push(PathBuf::from(env_path));
+    let id = ids::sfx_bank();
+    let Some(rel_path) = catalog.path_for(&id) else {
+        info!("sfx bank disabled under {} profile; falling back to fundsp synthesis",
+            catalog.profile().label());
+        return None;
+    };
+    if !catalog.should_attempt_optional_load(&rel_path) {
+        info!(
+            "sfx bank not present under {} profile (path {rel_path}); falling back to fundsp synthesis",
+            catalog.profile().label(),
+        );
+        return None;
     }
-    if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("assets/audio/sfx.bank"));
-        candidates.push(cwd.join("crates/ambition_sandbox/assets/audio/sfx.bank"));
-    }
-    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/audio/sfx.bank"));
-
-    for path in &candidates {
-        if path.is_file() {
-            match BankProvider::from_path(path) {
-                Ok(provider) => {
-                    debug!("sfx bank loaded from {}", path.display());
-                    return Some(provider);
-                }
-                Err(error) => {
-                    warn!(
-                        "found sfx bank at {} but failed to parse: {error}",
-                        path.display()
-                    );
-                }
-            }
+    // Resolve the catalog-relative path against the same desktop
+    // candidate roots Bevy's file `AssetReader` uses, then load.
+    // `desktop_loose_file_exists` already proved one candidate matches;
+    // re-walk the roots here so `BankProvider::from_path` gets an
+    // absolute path it can `std::fs::read`.
+    let path = resolve_to_disk_path(&rel_path)?;
+    match BankProvider::from_path(&path) {
+        Ok(provider) => {
+            debug!("sfx bank loaded from {}", path.display());
+            Some(provider)
+        }
+        Err(error) => {
+            warn!(
+                "sfx bank at {} failed to parse: {error}; falling back to fundsp synthesis",
+                path.display()
+            );
+            None
         }
     }
-    info!(
-        "no sfx bank found (looked in: {}); falling back to fundsp synthesis for SFX",
-        candidates
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
+}
+
+/// `[ambition_asset_manager_transition]` Locate the absolute on-disk
+/// path for a catalog-relative asset under the desktop profiles. The
+/// catalog's per-profile gate already returned true (file is present)
+/// so this just walks the same candidate roots and returns the first
+/// hit. When `ambition_asset_manager` grows native Bevy `AssetSource`
+/// registration, the SFX adapter
+/// (`ambition_asset_manager::sfx_integration`) can read bytes
+/// directly and this helper goes away.
+#[cfg(feature = "audio")]
+fn resolve_to_disk_path(rel: &str) -> Option<std::path::PathBuf> {
+    use std::path::PathBuf;
+    let rel_path = std::path::Path::new(rel);
+    let mut candidates = Vec::<PathBuf>::new();
+    if let Ok(env_path) = std::env::var("AMBITION_SFX_BANK_PATH") {
+        // Back-compat shim: explicit env-var override wins over the
+        // catalog-resolved relative path. Slated for removal once
+        // catalog-managed mods land.
+        candidates.push(PathBuf::from(env_path));
+    }
+    if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
+        let root = PathBuf::from(root);
+        candidates.push(root.join("assets").join(rel_path));
+        candidates.push(root.join(rel_path));
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("assets").join(rel_path));
+        candidates.push(cwd.join(rel_path));
+    }
+    candidates.push(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("assets")
+            .join(rel_path),
     );
-    None
+    candidates.into_iter().find(|p| p.is_file())
 }
 
 fn presentation_world_inner(

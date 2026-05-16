@@ -37,8 +37,27 @@ impl SandboxDataSpec {
 #[derive(Resource, Clone, Debug)]
 pub struct SandboxDataAsset(pub Handle<SandboxDataSpec>);
 
-pub fn load_data_asset_handle(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(SandboxDataAsset(asset_server.load(SANDBOX_DATA_ASSET)));
+/// Bevy startup system: register a `Handle<SandboxDataSpec>` so the
+/// asset server keeps the underlying `.ron` alive (and emits hot
+/// reload events under `bevy_dev_hot_reload`).
+///
+/// Resolves the path through the active
+/// [`crate::sandbox_assets::SandboxAssetCatalog`] when one is
+/// installed. The catalog entry
+/// [`crate::sandbox_assets::ids::sandbox_data`] is required, so the
+/// catalog never returns `Disabled` outside of `NoAssets`/`Headless`.
+/// Falls back to the raw asset-path constant when no catalog resource
+/// is present (visible-only init order / tests).
+pub fn load_data_asset_handle(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    catalog: Option<Res<crate::sandbox_assets::SandboxAssetCatalog>>,
+) {
+    let path = catalog
+        .as_ref()
+        .and_then(|c| c.path_for(&crate::sandbox_assets::ids::sandbox_data()))
+        .unwrap_or_else(|| SANDBOX_DATA_ASSET.to_string());
+    commands.insert_resource(SandboxDataAsset(asset_server.load(path)));
 }
 
 // Spatial/world authoring moved to LDtk. This module intentionally contains

@@ -31,7 +31,21 @@ pub struct StartRoomOverride(pub String);
 
 pub fn init_sandbox_resources(app: &mut App) {
     let sandbox_data = data::SandboxDataSpec::load_embedded();
-    let ldtk_project = match ldtk_world::LdtkProject::load_default() {
+
+    // Build the singleton SandboxAssetCatalog before anything else asks
+    // it for a path. Every asset path/source policy in the visible
+    // sandbox flows through this — LDtk, SFX bank, fonts, sprites,
+    // music. Consumes the already-parsed sandbox_data so music-track
+    // ids land in the catalog.
+    let asset_config = app
+        .world()
+        .get_resource::<crate::game_assets::GameAssetConfig>()
+        .cloned()
+        .unwrap_or_default();
+    let sandbox_catalog =
+        crate::sandbox_assets::build_sandbox_catalog(&asset_config, &sandbox_data.audio);
+
+    let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
         Ok(project) => project,
         Err(error) => {
             eprintln!("failed to load sandbox LDtk map: {error}");
@@ -91,7 +105,9 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(rooms::ActiveRoomMetadata::default())
         .insert_resource(room_set)
         .insert_resource(ldtk_index)
-        .insert_resource(ldtk_world::LdtkHotReloadState::from_current_file())
+        .insert_resource(ldtk_world::LdtkHotReloadState::from_catalog(
+            &sandbox_catalog,
+        ))
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
         .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())
@@ -125,6 +141,7 @@ pub fn init_sandbox_resources(app: &mut App) {
             ..default()
         })
         .insert_resource(sandbox_data)
+        .insert_resource(sandbox_catalog)
         .insert_resource(DeveloperTools::default())
         .insert_resource(EditablePlayerStats::default())
         .insert_resource(SandboxFeelTuning::default())

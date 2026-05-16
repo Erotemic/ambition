@@ -11,8 +11,9 @@
 //!   [`LdtkLevel`], [`LdtkLayerInstance`], [`LdtkEntityInstance`],
 //!   [`LdtkFieldInstance`], [`SandboxLdtkProject`]).
 //! - [`loading`] — file-loading policy
-//!   ([`LdtkProject::load_default`], `load_static_map`,
-//!   `load_from_disk`, `load_from_path`).
+//!   ([`LdtkProject::load_default`] (catalog-aware),
+//!   [`LdtkProject::load_default_for_dev`] (no-catalog test/headless
+//!   helper), `load_static_map`, `load_from_disk_at`, `load_from_path`).
 //! - [`conversion`] — LDtk → Ambition runtime conversion
 //!   ([`LdtkProject::to_room_set`], `entity_to_runtime`).
 //! - [`bevy_runtime`] — bevy_ecs_ldtk plugin glue + runtime-spine
@@ -39,9 +40,7 @@ mod tests;
 
 pub use bevy_runtime::*;
 pub use hot_reload::{
-    configured_ldtk_path, default_sandbox_ldtk_path, poll_ldtk_file_changes,
-    sandbox_ldtk_asset_path, sandbox_ldtk_modified_time, sandbox_ldtk_path, LdtkHotReloadState,
-    AMBITION_LDTK_ENV, SANDBOX_LDTK_ASSET,
+    poll_ldtk_file_changes, sandbox_ldtk_asset_path, LdtkHotReloadState, SANDBOX_LDTK_ASSET,
 };
 pub use project::{
     LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,

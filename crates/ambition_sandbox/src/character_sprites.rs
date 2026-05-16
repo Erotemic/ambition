@@ -31,8 +31,8 @@ pub use anim::{
 };
 pub use animator::CharacterAnimator;
 pub use assets::{
-    build_npc_sprite_asset, build_prop_sprite_asset, load_character_sprites_in,
-    CharacterSpriteAsset, CharacterSpriteAssets,
+    all_character_sprite_filenames, build_npc_sprite_asset, build_prop_sprite_asset,
+    load_character_sprites_in, npc_sprite_label, CharacterSpriteAsset, CharacterSpriteAssets,
 };
 pub use sheets::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,

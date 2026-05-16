@@ -52,7 +52,7 @@ fn compile_identifier(
 
 #[test]
 fn embedded_ldtk_validates() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let report = project.validate();
     assert!(report.errors.is_empty(), "{:#?}", report.errors);
 }
@@ -71,7 +71,7 @@ fn embedded_ldtk_validates() {
 /// the authoring vocabulary.
 #[test]
 fn embedded_surface_like_entities_lower_through_surface_model() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let mut surface_count = 0usize;
 
     for level in &project.levels {
@@ -249,7 +249,7 @@ fn room_metadata_merge_first_non_empty_wins() {
 /// value.
 #[test]
 fn embedded_ldtk_active_areas_have_biome_metadata() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let mut missing: Vec<&str> = Vec::new();
     for room in &room_set.rooms {
@@ -271,7 +271,7 @@ fn embedded_ldtk_active_areas_have_biome_metadata() {
 /// applies in 2026-05-07.
 #[test]
 fn embedded_ldtk_includes_basement_reachable_body_mode_rooms() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let room_ids: Vec<&str> = room_set.rooms.iter().map(|r| r.id.as_str()).collect();
     for required in ["crawl_lab", "morph_lab", "ladder_lab"] {
@@ -330,7 +330,7 @@ fn embedded_ldtk_includes_basement_reachable_body_mode_rooms() {
 /// test immediately.
 #[test]
 fn embedded_ldtk_ladder_lab_has_a_ladder_climbable_region() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let ladder_lab = room_set
         .rooms
@@ -365,7 +365,7 @@ fn embedded_ldtk_ladder_lab_has_a_ladder_climbable_region() {
 /// the door opens.
 #[test]
 fn embedded_ldtk_water_world_carries_music_track() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let water = room_set
         .rooms
@@ -386,7 +386,7 @@ fn embedded_ldtk_water_world_carries_music_track() {
 /// catches both directions of typo (LDtk-side and audio-catalog-side).
 #[test]
 fn music_track_warnings_flag_unknown_ids() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     // No tracks valid → every level that declares a music_track
     // produces one warning.
     let no_tracks = project.music_track_warnings(std::iter::empty::<&str>());
@@ -416,7 +416,7 @@ fn music_track_warnings_flag_unknown_ids() {
 /// future LDtk edit introduces an unknown music_track id.
 #[test]
 fn embedded_ldtk_music_tracks_match_audio_catalog() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let data = crate::data::SandboxDataSpec::load_embedded();
     let valid = data.audio.music_tracks.iter().map(|t| t.id.as_str());
     let warnings = project.music_track_warnings(valid);
@@ -432,7 +432,7 @@ fn embedded_ldtk_music_tracks_match_audio_catalog() {
 /// hub default plays while the room is unarmed.
 #[test]
 fn embedded_ldtk_mob_lab_does_not_carry_music_track() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let mob = room_set
         .rooms
@@ -448,7 +448,7 @@ fn embedded_ldtk_mob_lab_does_not_carry_music_track() {
 
 #[test]
 fn embedded_ldtk_composes_central_hub_complex() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     assert!(
         room_set.rooms.len() > 1,
@@ -490,7 +490,7 @@ fn embedded_ldtk_central_hub_carries_authored_moving_platforms() {
     // the central hub basement entity reaches the RoomSpec via the parser +
     // emission path so the runtime has no hidden procedural platform to fall
     // back to.
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let hub = room_set
         .rooms
@@ -967,7 +967,7 @@ fn npc_path_id_resolves_through_room_spec_kinematic_paths() {
 
 #[test]
 fn embedded_ldtk_patrol_enemy_resolves_kinematic_path_index() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let room = room_set
         .rooms
@@ -1081,7 +1081,7 @@ fn damage_volume_path_id_resolves_through_room_spec_kinematic_paths() {
 
 #[test]
 fn central_hub_collision_layer_lowers_to_engine_blocks() {
-    let project = LdtkProject::load_default().expect("sandbox LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let room_set = project.to_room_set().expect("embedded LDtk should compose");
     let hub = room_set
         .rooms
@@ -1629,7 +1629,7 @@ fn climbable_intgrid_rejects_unknown_value() {
 /// regenerable from the Collision IntGrid via `tileset paint`.
 #[test]
 fn intro_levels_carry_painted_tileset_layers() {
-    let project = LdtkProject::load_default().expect("sandbox + intro LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
 
     // The intro tileset and its Tiles layer were registered in
     // commit 66e62ad / the autonomous follow-up session.
@@ -1692,7 +1692,7 @@ fn climbable_intgrid_returns_empty_for_all_zero_layer() {
 ///    elsewhere).
 #[test]
 fn intro_props_do_not_grow_interactables() {
-    let project = LdtkProject::load_default().expect("sandbox + intro LDtk should load");
+    let project = LdtkProject::load_default_for_dev().expect("sandbox + intro LDtk should load");
     let room_set = project.to_room_set().expect("LDtk should compose");
 
     // The 6 prop kinds the v1 hack migrated. (PropSpec.kind values

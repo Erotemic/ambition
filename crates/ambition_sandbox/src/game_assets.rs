@@ -563,13 +563,17 @@ pub struct GameAssets {
     pub parallax_layers: ParallaxLayerSet,
 }
 
-/// Build a fresh `GameAssets` from disk, honoring `config`.
+/// Build a fresh `GameAssets`, honoring `config` + the shared
+/// [`SandboxAssetCatalog`] resource.
 ///
-/// Always returns successfully — missing files fall through to `None`
-/// handles. `config.no_assets == true` short-circuits to an empty
-/// `GameAssets` so the visible sandbox always boots.
+/// All path/existence/profile policy goes through `catalog`; this
+/// function only assembles the `GameAssets` struct from the catalog's
+/// resolutions + a few Bevy `AssetServer::load` calls. `config.no_assets
+/// == true` (and the equivalent `AssetProfile::NoAssets`) short-circuits
+/// to an empty `GameAssets` so the visible sandbox always boots.
 pub fn load_game_assets(
     config: &GameAssetConfig,
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> GameAssets {
@@ -578,16 +582,11 @@ pub fn load_game_assets(
         return GameAssets::default();
     }
 
-    let catalog = build_sandbox_image_catalog(&config.sprite_folder);
-    let profile = config.asset_profile;
-
-    let characters =
-        character_sprites::load_character_sprites_in(asset_server, layouts, &config.sprite_folder);
-    let entities = load_entity_sprites(&catalog, asset_server, profile);
-    let boss = boss_sprites::load_boss_sprite_in(asset_server, layouts, &config.sprite_folder);
-    let mockingbird =
-        boss_sprites::load_mockingbird_sprite_in(asset_server, layouts, &config.sprite_folder);
-    let parallax_layers = load_parallax_layers(&catalog, asset_server, profile);
+    let characters = character_sprites::load_character_sprites_in(catalog, asset_server, layouts);
+    let entities = load_entity_sprites(catalog, asset_server);
+    let boss = boss_sprites::load_boss_sprite_in(catalog, asset_server, layouts);
+    let mockingbird = boss_sprites::load_mockingbird_sprite_in(catalog, asset_server, layouts);
+    let parallax_layers = load_parallax_layers(catalog, asset_server);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {
@@ -608,17 +607,16 @@ pub fn load_game_assets(
 }
 
 fn load_entity_sprites(
-    catalog: &AmbitionAssetCatalog,
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
-    profile: AssetProfile,
 ) -> EntitySpriteSet {
     let mut handles = HashMap::with_capacity(EntitySprite::ALL.len());
     for &key in EntitySprite::ALL {
         let id = entity_sprite_asset_id(key);
-        let Some(path) = catalog.path_for(&id, profile) else {
+        let Some(path) = catalog.path_for(&id) else {
             continue;
         };
-        if !should_attempt_optional_image_load(profile, &path) {
+        if !catalog.should_attempt_optional_load(&path) {
             continue;
         }
         handles.insert(key, asset_server.load(path));
@@ -627,18 +625,17 @@ fn load_entity_sprites(
 }
 
 fn load_parallax_layers(
-    catalog: &AmbitionAssetCatalog,
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
-    profile: AssetProfile,
 ) -> ParallaxLayerSet {
     let mut handles = HashMap::new();
     for &theme in ParallaxTheme::ALL {
         for &layer in ParallaxLayerAsset::ALL {
             let id = parallax_layer_asset_id(theme, layer);
-            let Some(path) = catalog.path_for(&id, profile) else {
+            let Some(path) = catalog.path_for(&id) else {
                 continue;
             };
-            if !should_attempt_optional_image_load(profile, &path) {
+            if !catalog.should_attempt_optional_load(&path) {
                 continue;
             }
             handles.insert((theme, layer), asset_server.load(path));
@@ -658,6 +655,11 @@ fn load_parallax_layers(
 /// for an *optional* image (entity sprites, parallax layers). Decides
 /// per-[`AssetProfile`] without any `target_os` cfg branches.
 ///
+/// Forwards to [`crate::sandbox_assets::SandboxAssetCatalog::should_attempt_optional_load`]
+/// for the live decision; kept as a thin wrapper for the existing test
+/// surface in this module. New code should call the catalog method
+/// directly.
+///
 /// - Desktop profiles (DevLoose / Installed / SteamDeck): pre-check the
 ///   host filesystem so missing optional art falls back to colored
 ///   rectangles before Bevy logs a load failure.
@@ -671,64 +673,10 @@ fn load_parallax_layers(
 ///   once packaging lands.
 /// - NoAssets / Headless: the catalog already returned `None` upstream;
 ///   the arms are here only for match exhaustiveness.
-fn should_attempt_optional_image_load(profile: AssetProfile, path: &str) -> bool {
-    match profile {
-        AssetProfile::DesktopDevLoose
-        | AssetProfile::DesktopInstalled
-        | AssetProfile::SteamDeckInstalled => desktop_loose_file_exists(path),
-        AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
-        AssetProfile::WebStatic
-        | AssetProfile::WebHttp
-        | AssetProfile::BundledStatic
-        | AssetProfile::IpfsGatewayPlaceholder => false,
-        AssetProfile::NoAssets | AssetProfile::Headless => false,
-    }
-}
-
-/// Walk the same desktop candidate roots `Bevy`'s file `AssetReader`
-/// would, return true if any of them holds `rel_path`. Used by
-/// [`should_attempt_optional_image_load`] for the desktop profiles
-/// (DevLoose / Installed / SteamDeck) so optional art that isn't on
-/// disk doesn't get a Bevy handle that the renderer would then paint
-/// as a load failure.
-///
-/// Roots, in order:
-/// 1. `$BEVY_ASSET_ROOT/assets/<rel>` (preferred form).
-/// 2. `$BEVY_ASSET_ROOT/<rel>` (tolerate `BEVY_ASSET_ROOT` aimed at
-///    the assets dir).
-/// 3. `$CWD/assets/<rel>` (direct binary launches from app dir).
-/// 4. `$CWD/<rel>` (launches from the assets dir / symlinks).
-/// 5. `$CARGO_MANIFEST_DIR/assets/<rel>` (workspace `cargo run` /
-///    `cargo test` fallback).
-fn desktop_loose_file_exists(rel_path: &str) -> bool {
-    let rel = std::path::Path::new(rel_path);
-    let mut candidates = Vec::new();
-
-    if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
-        let root = std::path::PathBuf::from(root);
-        // Preferred form: BEVY_ASSET_ROOT points at the app/project root,
-        // and Bevy's file asset reader loads from root/assets/<rel>.
-        candidates.push(root.join("assets").join(rel));
-        // Tolerate launchers that set BEVY_ASSET_ROOT to the assets dir.
-        candidates.push(root.join(rel));
-    }
-
-    if let Ok(cwd) = std::env::current_dir() {
-        // Direct binary launches from the app dir.
-        candidates.push(cwd.join("assets").join(rel));
-        // Tolerate launches from the assets dir or compatibility symlinks.
-        candidates.push(cwd.join(rel));
-    }
-
-    // Local cargo run / tests fallback.
-    candidates.push(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("assets")
-            .join(rel),
-    );
-
-    candidates.into_iter().any(|path| path.exists())
-}
+// `should_attempt_optional_image_load` and `desktop_loose_file_exists`
+// moved to `crate::sandbox_assets` so the SandboxAssetCatalog owns the
+// only per-profile load gate + the only host-filesystem probe. See
+// `SandboxAssetCatalog::should_attempt_optional_load`.
 
 /// Build a `Sprite` for the given entity-sprite key, falling back to the
 /// supplied colored-rectangle if the handle is missing. Render size always
@@ -1117,15 +1065,18 @@ mod tests {
         }
     }
 
-    /// WebStatic synthesizes `embedded://` URLs for every entry.
-    /// `should_attempt_optional_image_load` then skips them on web
-    /// (optional sprites aren't packaged into the wasm bundle yet),
-    /// preserving the colored-rectangle fallback.
+    /// WebStatic synthesizes `embedded://` URLs for every entry;
+    /// `SandboxAssetCatalog::should_attempt_optional_load` then skips
+    /// them today (optional sprites aren't packaged into the wasm
+    /// bundle yet), preserving the colored-rectangle fallback.
     #[test]
     fn web_static_synthesizes_embedded_scheme_but_loader_skips_today() {
-        let catalog = build_sandbox_image_catalog("sprites");
+        use crate::sandbox_assets::SandboxAssetCatalog;
+
+        let inner = build_sandbox_image_catalog("sprites");
+        let catalog = SandboxAssetCatalog::new(inner, AssetProfile::WebStatic);
         let id = entity_sprite_asset_id(EntitySprite::ChestClosed);
-        let path = catalog.path_for(&id, AssetProfile::WebStatic).unwrap();
+        let path = catalog.path_for(&id).unwrap();
         assert_eq!(
             path,
             format!(
@@ -1134,19 +1085,23 @@ mod tests {
             ),
         );
         assert!(
-            !should_attempt_optional_image_load(AssetProfile::WebStatic, &path),
+            !catalog.should_attempt_optional_load(&path),
             "WebStatic optional images must skip the load until packaging lands",
         );
     }
 
     /// The per-profile load gate matches the legacy desktop / android
     /// behavior exactly. Locks in the migration contract documented in
-    /// `should_attempt_optional_image_load`.
+    /// `SandboxAssetCatalog::should_attempt_optional_load`.
     #[test]
-    fn should_attempt_optional_image_load_matches_legacy_per_profile_behavior() {
+    fn should_attempt_optional_load_matches_legacy_per_profile_behavior() {
+        use crate::sandbox_assets::SandboxAssetCatalog;
+        let inner = build_sandbox_image_catalog("sprites");
+
         // Android / iOS bundles trust the packager — always attempt.
         for profile in [AssetProfile::AndroidBundle, AssetProfile::IosBundle] {
-            assert!(should_attempt_optional_image_load(profile, "sprites/x.png"));
+            let catalog = SandboxAssetCatalog::new(inner.clone(), profile);
+            assert!(catalog.should_attempt_optional_load("sprites/x.png"));
         }
         // Web / bundled / IPFS skip optional images entirely today.
         for profile in [
@@ -1155,29 +1110,30 @@ mod tests {
             AssetProfile::BundledStatic,
             AssetProfile::IpfsGatewayPlaceholder,
         ] {
-            assert!(!should_attempt_optional_image_load(profile, "sprites/x.png"));
+            let catalog = SandboxAssetCatalog::new(inner.clone(), profile);
+            assert!(!catalog.should_attempt_optional_load("sprites/x.png"));
         }
         // NoAssets / Headless never attempt.
         for profile in [AssetProfile::NoAssets, AssetProfile::Headless] {
-            assert!(!should_attempt_optional_image_load(profile, "sprites/x.png"));
+            let catalog = SandboxAssetCatalog::new(inner.clone(), profile);
+            assert!(!catalog.should_attempt_optional_load("sprites/x.png"));
         }
         // Desktop profiles pre-check; pass a path that definitely
-        // doesn't exist under any of the desktop_loose_file_exists
-        // candidate roots.
+        // doesn't exist under any of the candidate roots.
         for profile in [
             AssetProfile::DesktopDevLoose,
             AssetProfile::DesktopInstalled,
             AssetProfile::SteamDeckInstalled,
         ] {
-            assert!(!should_attempt_optional_image_load(
-                profile,
-                "sprites/__nonexistent_test_asset_for_load_gate__.png",
-            ));
+            let catalog = SandboxAssetCatalog::new(inner.clone(), profile);
+            assert!(!catalog
+                .should_attempt_optional_load("sprites/__nonexistent_test_asset_for_load_gate__.png"));
         }
         // Conversely, an asset that DOES exist under CARGO_MANIFEST_DIR/assets/
-        // (the workspace cargo-test fallback) should pass. Use the
-        // sandbox.ron data file the test crate always ships.
-        assert!(desktop_loose_file_exists("ambition/sandbox.ron"));
+        // (the workspace cargo-test fallback) should pass the desktop
+        // gate. Use the sandbox.ron data file the test crate always ships.
+        let catalog = SandboxAssetCatalog::new(inner, AssetProfile::DesktopDevLoose);
+        assert!(catalog.should_attempt_optional_load("ambition/sandbox.ron"));
     }
 
     #[test]

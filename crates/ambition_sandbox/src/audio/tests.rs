@@ -96,7 +96,7 @@ fn audio_library_loads_every_cue_from_real_bank() {
 
     let spec = SandboxDataSpec::load_embedded();
     let mut assets = Assets::<KiraAudioSource>::default();
-    let library = AudioLibrary::new(&mut assets, &spec.audio, None, Some(&provider));
+    let library = AudioLibrary::new(&mut assets, &spec.audio, None, Some(&provider), None);
 
     for cue in SoundCue::ALL {
         let handle = library.sfx_handle(cue);
@@ -150,7 +150,7 @@ fn long_track_authors_full_chord_and_bass_phrase() {
 fn music_track_order_cycles() {
     let spec = SandboxDataSpec::load_embedded();
     let mut assets = Assets::<KiraAudioSource>::default();
-    let library = AudioLibrary::new(&mut assets, &spec.audio, None, None);
+    let library = AudioLibrary::new(&mut assets, &spec.audio, None, None, None);
     let ids: Vec<&str> = spec
         .audio
         .music_tracks

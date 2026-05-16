@@ -332,23 +332,36 @@ pub struct BossSpriteAsset {
     pub spec: BossSheetSpec,
 }
 
-const BOSS_FILENAME: &str = "boss_spritesheet.png";
-const MOCKINGBIRD_FILENAME: &str = "mockingbird_boss/mockingbird_boss_spritesheet.png";
+pub(crate) const BOSS_FILENAME: &str = "boss_spritesheet.png";
+pub(crate) const MOCKINGBIRD_FILENAME: &str =
+    "mockingbird_boss/mockingbird_boss_spritesheet.png";
+
+/// Sandbox-side `(label, filename)` rows for every boss spritesheet
+/// the sandbox knows about. The aggregator in
+/// [`crate::sandbox_assets`] registers one catalog entry per row;
+/// loaders here read the catalog by label.
+pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("gradient_sentinel", BOSS_FILENAME),
+        ("mockingbird", MOCKINGBIRD_FILENAME),
+    ]
+}
 
 /// Build the boss sprite asset for the gradient sentinel sheet.
-/// Returns `None` if the PNG isn't on disk — callers fall back to the
-/// static `EntitySprite::BossCore` image, which in turn falls back to
-/// the colored rectangle.
+/// Returns `None` if the catalog reports the asset disabled or the
+/// active profile's optional-image gate skips it — callers fall back
+/// to the static `EntitySprite::BossCore` image, which in turn falls
+/// back to the colored rectangle.
 pub fn load_boss_sprite_in(
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    sprite_folder: &str,
 ) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_in(
+    load_named_boss_sprite_via_catalog(
+        catalog,
         asset_server,
         layouts,
-        sprite_folder,
-        BOSS_FILENAME,
+        "gradient_sentinel",
         BOSS_SHEET,
     )
 }
@@ -358,78 +371,40 @@ pub fn load_boss_sprite_in(
 /// Returns `None` if the PNG is missing — the rendering layer keeps
 /// the colored-rectangle fallback for that boss.
 pub fn load_mockingbird_sprite_in(
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    sprite_folder: &str,
 ) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_in(
+    load_named_boss_sprite_via_catalog(
+        catalog,
         asset_server,
         layouts,
-        sprite_folder,
-        MOCKINGBIRD_FILENAME,
+        "mockingbird",
         MOCKINGBIRD_SHEET,
     )
 }
 
-fn load_named_boss_sprite_in(
+fn load_named_boss_sprite_via_catalog(
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    sprite_folder: &str,
-    filename: &str,
+    label: &str,
     spec: BossSheetSpec,
 ) -> Option<BossSpriteAsset> {
-    let rel = format!("{sprite_folder}/{filename}");
-    #[cfg(not(target_os = "android"))]
-    {
-        if !asset_exists(&rel) {
-            eprintln!(
-                "[boss_sprites] boss spritesheet not found at assets/{rel} — falling back to entity sprite"
-            );
-            return None;
-        }
+    let id = crate::sandbox_assets::ids::boss_sprite(label);
+    let path = catalog.path_for(&id)?;
+    if !catalog.should_attempt_optional_load(&path) {
+        eprintln!(
+            "[boss_sprites] {label} spritesheet not found at assets/{path} — falling back to entity sprite"
+        );
+        return None;
     }
     let layout = layouts.add(spec.build_atlas());
     Some(BossSpriteAsset {
-        texture: asset_server.load(rel),
+        texture: asset_server.load(path),
         layout,
         spec,
     })
-}
-
-#[cfg(not(target_os = "android"))]
-fn asset_exists(rel_path: &str) -> bool {
-    desktop_asset_exists(rel_path)
-}
-
-#[cfg(not(target_os = "android"))]
-fn desktop_asset_exists(rel_path: &str) -> bool {
-    let rel = std::path::Path::new(rel_path);
-    let mut candidates = Vec::new();
-
-    if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
-        let root = std::path::PathBuf::from(root);
-        // Preferred form: BEVY_ASSET_ROOT points at the app/project root,
-        // and Bevy's file asset reader loads from root/assets/<rel>.
-        candidates.push(root.join("assets").join(rel));
-        // Tolerate launchers that set BEVY_ASSET_ROOT to the assets dir.
-        candidates.push(root.join(rel));
-    }
-
-    if let Ok(cwd) = std::env::current_dir() {
-        // Direct binary launches from the app dir.
-        candidates.push(cwd.join("assets").join(rel));
-        // Tolerate launches from the assets dir or compatibility symlinks.
-        candidates.push(cwd.join(rel));
-    }
-
-    // Local cargo run / tests fallback.
-    candidates.push(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("assets")
-            .join(rel),
-    );
-
-    candidates.into_iter().any(|path| path.exists())
 }
 
 /// Per-entity boss animation cursor. Same shape as `CharacterAnimator` but

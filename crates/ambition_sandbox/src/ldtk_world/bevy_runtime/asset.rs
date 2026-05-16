@@ -8,10 +8,7 @@ use bevy_ecs_ldtk::prelude::LevelSet;
 
 use crate::config::WORLD_Z_BLOCK;
 
-use super::super::{
-    default_sandbox_ldtk_path, sandbox_ldtk_asset_path, sandbox_ldtk_path, LdtkLevel, LdtkProject,
-    SANDBOX_LDTK_ASSET,
-};
+use super::super::{sandbox_ldtk_asset_path, LdtkLevel, LdtkProject};
 
 #[derive(Resource, Clone, Debug)]
 pub struct SandboxLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
@@ -25,16 +22,11 @@ pub struct SandboxLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
 pub struct IntroLdtkAsset(pub Handle<bevy_ecs_ldtk::assets::LdtkProject>);
 
 pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // `bevy_ecs_ldtk`'s asset loader is always rooted at the default
+    // Bevy asset source — modded LDtk paths still feed Ambition's JSON
+    // loader (via the SandboxAssetCatalog), but the `LdtkWorldBundle`
+    // handle here is fixed to the canonical asset-path constant.
     let asset_path = sandbox_ldtk_asset_path();
-    if asset_path == SANDBOX_LDTK_ASSET && sandbox_ldtk_path() != default_sandbox_ldtk_path() {
-        eprintln!(
-            "LDtk warning: configured map {} is outside the Bevy asset root; \
-             Ambition's JSON loader will use it, but the bevy_ecs_ldtk runtime-spine handle \
-             falls back to {}",
-            sandbox_ldtk_path().display(),
-            SANDBOX_LDTK_ASSET
-        );
-    }
     commands.insert_resource(SandboxLdtkAsset(asset_server.load(asset_path)));
     // Secondary intro LDtk asset. Co-located in the same Bevy asset
     // directory; bevy_ecs_ldtk loads it independently so each file's

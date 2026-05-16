@@ -1,100 +1,20 @@
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use bevy::prelude::{Res, ResMut, Resource, Time};
 
+use crate::sandbox_assets::{ids, SandboxAssetCatalog};
+
 pub const SANDBOX_LDTK_ASSET: &str = "ambition/worlds/sandbox.ldtk";
-pub const AMBITION_LDTK_ENV: &str = "AMBITION_LDTK";
 
-/// Return the default checked-in sandbox LDtk path on disk.
-///
-/// Normal sandbox builds load this external file at runtime so LDtk edits and
-/// modded maps do not require recompiling Rust. Build with `--features
-/// static_map` to also embed a fallback copy in the binary.
-pub fn default_sandbox_ldtk_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("assets")
-        .join(SANDBOX_LDTK_ASSET)
-}
-
-fn absolute_user_path(path: PathBuf) -> PathBuf {
-    if path.is_absolute() {
-        path
-    } else {
-        env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join(path)
-    }
-}
-
-fn cli_ldtk_arg() -> Option<PathBuf> {
-    let mut args = env::args().skip(1);
-    while let Some(arg) = args.next() {
-        if arg == "--ldtk" || arg == "--map" {
-            return args.next().map(PathBuf::from).map(absolute_user_path);
-        }
-        if let Some(raw) = arg.strip_prefix("--ldtk=") {
-            return Some(absolute_user_path(PathBuf::from(raw)));
-        }
-        if let Some(raw) = arg.strip_prefix("--map=") {
-            return Some(absolute_user_path(PathBuf::from(raw)));
-        }
-    }
-    None
-}
-
-/// User-selected LDtk file, if one was provided on the command line or in the
-/// environment.
-///
-/// Command-line flags win over `AMBITION_LDTK`:
-///
-/// ```text
-/// ambition_sandbox --ldtk mods/my_world.ldtk
-/// AMBITION_LDTK=mods/my_world.ldtk ambition_sandbox
-/// ```
-pub fn configured_ldtk_path() -> Option<PathBuf> {
-    cli_ldtk_arg().or_else(|| {
-        env::var_os(AMBITION_LDTK_ENV)
-            .map(PathBuf::from)
-            .map(absolute_user_path)
-    })
-}
-
-pub fn sandbox_ldtk_path() -> PathBuf {
-    configured_ldtk_path().unwrap_or_else(default_sandbox_ldtk_path)
-}
-
-/// Convert a filesystem LDtk path into a Bevy asset path when the file lives
-/// under the sandbox asset root. The LDtk runtime-spine asset loader can only
-/// load files from Bevy asset sources; arbitrary external mod paths are still
-/// parsed by Ambition's direct JSON loader, but cannot currently be mirrored
-/// through `bevy_ecs_ldtk` unless they are placed under `assets/`.
-pub fn ldtk_asset_path_for(path: &Path) -> Option<String> {
-    let asset_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
-    let relative = path.strip_prefix(&asset_root).ok()?;
-    let mut parts = Vec::new();
-    for component in relative.components() {
-        parts.push(component.as_os_str().to_string_lossy().to_string());
-    }
-    Some(parts.join("/"))
-}
-
+/// `[ambition_asset_manager_transition]` Bevy `AssetPath` string for the
+/// sandbox LDtk world. Used by the `bevy_ecs_ldtk` runtime spine to
+/// spawn `LdtkWorldBundle`s. The catalog will eventually own this — for
+/// now the path is the SANDBOX_LDTK_ASSET constant since
+/// `bevy_ecs_ldtk` always loads via the default asset source.
 pub fn sandbox_ldtk_asset_path() -> String {
-    ldtk_asset_path_for(&sandbox_ldtk_path()).unwrap_or_else(|| SANDBOX_LDTK_ASSET.to_string())
-}
-
-pub fn sandbox_ldtk_modified_time() -> Result<SystemTime, String> {
-    let path = sandbox_ldtk_path();
-    fs::metadata(&path)
-        .and_then(|metadata| metadata.modified())
-        .map_err(|error| {
-            format!(
-                "could not read LDtk modified time for {}: {error}",
-                path.display()
-            )
-        })
+    SANDBOX_LDTK_ASSET.to_string()
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -106,6 +26,13 @@ pub struct LdtkHotReloadState {
     pub last_status: String,
     pub last_errors: Vec<String>,
     pub applied_count: u32,
+    /// Local filesystem path the watcher polls, when both the active
+    /// asset profile and the resolved LDtk location support filesystem
+    /// hot reload (see
+    /// [`crate::sandbox_assets::SandboxAssetCatalog::hot_reload_local_path`]).
+    /// `None` for bundled / web / embedded profiles — the watcher is
+    /// effectively disabled there.
+    pub watch_path: Option<PathBuf>,
 }
 
 impl Default for LdtkHotReloadState {
@@ -118,14 +45,27 @@ impl Default for LdtkHotReloadState {
             last_status: "LDtk hot reload idle".to_string(),
             last_errors: Vec::new(),
             applied_count: 0,
+            watch_path: None,
         }
     }
 }
 
 impl LdtkHotReloadState {
-    pub fn from_current_file() -> Self {
+    /// Build the hot-reload state from the active catalog. Arms the
+    /// watcher if and only if the profile + resolved LDtk location
+    /// both report `supports_hot_reload`. Otherwise the state stays
+    /// idle and `poll_ldtk_file_changes` short-circuits.
+    pub fn from_catalog(catalog: &SandboxAssetCatalog) -> Self {
         let mut state = Self::default();
-        match sandbox_ldtk_modified_time() {
+        let watch_path = catalog.hot_reload_local_path(&ids::sandbox_ldtk());
+        let Some(path) = watch_path else {
+            state.last_status = format!(
+                "LDtk hot reload inactive: profile {} does not support filesystem watching",
+                catalog.profile().label(),
+            );
+            return state;
+        };
+        match modified_time_for(&path) {
             Ok(modified) => {
                 state.last_modified = Some(modified);
                 state.last_status = if cfg!(feature = "dev_hot_reload") {
@@ -139,6 +79,7 @@ impl LdtkHotReloadState {
                 state.last_status = error;
             }
         }
+        state.watch_path = Some(path);
         state
     }
 
@@ -168,13 +109,27 @@ impl LdtkHotReloadState {
     }
 }
 
+fn modified_time_for(path: &Path) -> Result<SystemTime, String> {
+    fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .map_err(|error| {
+            format!(
+                "could not read LDtk modified time for {}: {error}",
+                path.display()
+            )
+        })
+}
+
 pub fn poll_ldtk_file_changes(time: Res<Time>, mut state: ResMut<LdtkHotReloadState>) {
     state.poll_timer -= time.delta_secs();
     if state.poll_timer > 0.0 {
         return;
     }
     state.poll_timer = 0.35;
-    let Ok(modified) = sandbox_ldtk_modified_time() else {
+    let Some(path) = state.watch_path.clone() else {
+        return; // Profile doesn't support watching — stay idle.
+    };
+    let Ok(modified) = modified_time_for(&path) else {
         return;
     };
     let changed = state

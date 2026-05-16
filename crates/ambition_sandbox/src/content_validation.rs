@@ -56,7 +56,7 @@ impl ContentValidationReport {
 /// Validate the checked-in sandbox content graph.
 pub fn validate_embedded_content_graph() -> ContentValidationReport {
     let data = SandboxDataSpec::load_embedded();
-    let project = match LdtkProject::load_default() {
+    let project = match LdtkProject::load_default_for_dev() {
         Ok(project) => project,
         Err(error) => {
             let mut report = ContentValidationReport::default();
@@ -485,7 +485,7 @@ mod tests {
     #[test]
     fn validates_ldtk_loading_zone_targets() {
         let data = SandboxDataSpec::load_embedded();
-        let project = LdtkProject::load_default().expect("embedded LDtk loads");
+        let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
         let report = validate_content_graph(&data, &project);
         assert!(
             report
@@ -499,7 +499,7 @@ mod tests {
 
     #[test]
     fn quest_boss_conditions_point_at_authored_bosses() {
-        let project = LdtkProject::load_default().expect("embedded LDtk loads");
+        let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
         let boss_ids = authored_boss_encounter_ids(&project);
         assert!(boss_ids.contains("clockwork_warden"));
         for spec in crate::quest::default_quest_specs() {

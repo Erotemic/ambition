@@ -114,6 +114,10 @@ def cmd_area(args, rest):
 def cmd_world(args, rest):
     if args.world_action == "init":
         return _delegate("ambition_ldtk_tools.world_init", rest)
+    if args.world_action == "repack":
+        return _delegate(
+            "ambition_ldtk_tools.edit.world_repack", [args.world_action, *rest]
+        )
     return _todo(f"world {args.world_action}")
 
 
@@ -246,6 +250,15 @@ def build_parser() -> argparse.ArgumentParser:
     world_sub.add_parser(
         "init",
         help="Scaffold a new .ldtk file by cloning sandbox.ldtk defs",
+    )
+    world_sub.add_parser(
+        "repack",
+        help=(
+            "Re-pack levels into an edge-adjacent horizontal chain "
+            "(GridVania-friendly). Usage: world repack <ldtk> "
+            "[--start-x N] [--start-y N] [--order L1,L2,...] "
+            "(--in-place | --output PATH)"
+        ),
     )
     sp_world.set_defaults(func=cmd_world)
 

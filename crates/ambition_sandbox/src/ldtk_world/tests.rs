@@ -1614,3 +1614,81 @@ fn climbable_intgrid_returns_empty_for_all_zero_layer() {
     let regions = emit_climbable_regions_from_intgrid(&layer, ae::Vec2::ZERO).unwrap();
     assert!(regions.is_empty());
 }
+
+/// Regression for the §1.3 portal bug fixed in commit 195b5ce. The
+/// gate ring, gate portal, lab props, and intro cart used to be
+/// authored as `NpcSpawn` entities with `prompt: ""` and
+/// `dialogue_id: generic_npc` (the v1 hack), which leaked an
+/// "Interact" prompt onto decorative props. The dedicated `Prop`
+/// LDtk entity type replaces that — Props never grow an
+/// Interactable, so the player walks past silently.
+///
+/// This test pins both halves of the invariant:
+/// 1. Every expected prop kind shows up as a `PropSpec` on its
+///    room's `RoomSpec.props`.
+/// 2. No `RoomObject` with `InteractionKind::Npc` matches any of
+///    those prop kinds' positions (a stronger check than just
+///    counting NPCs, because story-content NPCs *do* still spawn
+///    elsewhere).
+#[test]
+fn intro_props_do_not_grow_interactables() {
+    let project = LdtkProject::load_default().expect("sandbox + intro LDtk should load");
+    let room_set = project.to_room_set().expect("LDtk should compose");
+
+    // The 6 prop kinds the v1 hack migrated. (PropSpec.kind values
+    // straight out of intro.ldtk.)
+    let expected_kinds = [
+        "intro_cart",
+        "lab_neural_console",
+        "lab_genesis_vat",
+        "lab_power_core",
+        "gate_ring",
+        "gate_portal",
+    ];
+
+    let mut seen_kinds: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut prop_positions: Vec<(String, ae::Vec2)> = Vec::new();
+    for room in &room_set.rooms {
+        for prop in &room.props {
+            if let Some(kind) = expected_kinds.iter().find(|k| ***k == prop.kind) {
+                seen_kinds.insert(*kind);
+                prop_positions.push((prop.kind.clone(), prop.pos));
+            }
+        }
+    }
+
+    for kind in &expected_kinds {
+        assert!(
+            seen_kinds.contains(*kind),
+            "expected Prop kind '{kind}' missing from intro.ldtk room set; \
+             did a refactor drop the migrated Prop entity?"
+        );
+    }
+
+    // No RoomObject with an interactable matches a prop's position.
+    // The prop center must not also be the interactable center.
+    for room in &room_set.rooms {
+        for obj in &room.world.objects {
+            let ae::RoomObjectKind::Interactable(it) = &obj.kind else {
+                continue;
+            };
+            if !matches!(it.kind, ae::InteractionKind::Npc { .. }) {
+                continue;
+            }
+            use ae::AabbExt as _;
+            let it_center = it.aabb.center();
+            for (kind, prop_pos) in &prop_positions {
+                let dx = (it_center.x - prop_pos.x).abs();
+                let dy = (it_center.y - prop_pos.y).abs();
+                assert!(
+                    dx > 1.0 || dy > 1.0,
+                    "RoomObject Interactable (Npc) overlaps prop '{kind}' at \
+                     ({:.1}, {:.1}); the dedicated Prop entity should NOT emit \
+                     an Interactable. Either the migration regressed, or a new \
+                     NPC was placed exactly on top of a prop.",
+                    prop_pos.x, prop_pos.y,
+                );
+            }
+        }
+    }
+}

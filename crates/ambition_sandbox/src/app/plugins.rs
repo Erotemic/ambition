@@ -58,11 +58,15 @@ pub fn add_simulation_plugins(app: &mut App) {
         // ADR 0010 — time-control vocabulary. Gameplay code writes
         // ClockScaleRequest instead of mutating SandboxSimState::
         // time_scale directly; apply_clock_scale_requests consults
-        // RegimePolicy (default: Solo, grant-all) and either applies
-        // or drops the request. See `crate::time_control` for the
-        // policy + dispatch and ADR 0010 §Vocabulary for the model.
+        // RegimePolicy (default: Solo, grant-all), records the
+        // granted target in RequestedClockScale, and
+        // smooth_sim_clock_toward_target_system ramps the live
+        // time_scale toward the target at feel-tuned rates. See
+        // `crate::time_control` for the policy + dispatch and ADR
+        // 0010 §Vocabulary for the model.
         .add_message::<crate::time_control::ClockScaleRequest>()
         .insert_resource(crate::time_control::RegimePolicy::default())
+        .insert_resource(crate::time_control::RequestedClockScale::default())
         .register_type::<GameMode>()
         // StartupProfiler captures wall-clock at each marked phase so a
         // PostStartup report prints "where did the first frame's
@@ -203,12 +207,18 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_systems(
             Update,
             (
-                // ADR 0010 — drain pending ClockScaleRequest messages
-                // before refresh_world_time so the resulting sim_dt
-                // reflects this frame's policy decisions. Step 4
-                // wires bullet-time through this seam; today only
-                // ad-hoc test paths emit requests.
+                // ADR 0010 — time-control pipeline. Emit reads the
+                // player's bullet-time / blink-hold / dev-slowmo
+                // intent and fires one ClockScaleRequest; Apply
+                // runs the request through the regime policy and
+                // writes the granted target into RequestedClockScale;
+                // Smooth ramps SandboxSimState::time_scale toward
+                // that target at feel-tuned rates. refresh_world_time
+                // then snapshots the smoothed scale into WorldTime
+                // for the rest of the frame.
+                crate::time_control::emit_player_time_intent_system,
                 crate::time_control::apply_clock_scale_requests,
+                crate::time_control::smooth_sim_clock_toward_target_system,
                 crate::refresh_world_time,
                 sync_live_player_dev_edits_system,
                 apply_player_reset_input_system.run_if(gameplay_allowed),

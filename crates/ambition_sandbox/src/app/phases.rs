@@ -104,15 +104,20 @@ pub(super) fn player_control_phase(
 
 /// Phase 5 — sim-clock half of the two-clock player update.
 ///
-/// Owns: `update_time_scale` (hitstop / bullet-time / slowmo ramp),
-/// scaled `sim_dt`, moving-platform tick + ride-along, sandbox-side
-/// solid rebuild, `update_player_simulation_with_tuning`, landing-dust
-/// feedback through `handle_player_events`.
+/// Owns: scaled `sim_dt`, moving-platform tick + ride-along,
+/// sandbox-side solid rebuild, `update_player_simulation_with_tuning`,
+/// landing-dust feedback through `handle_player_events`.
 ///
 /// Should not own: feature-runtime ticks or interact-buffering. New
 /// game-time-affected motion (gravity tweaks, platform AI, knockback
 /// resolution) belongs here. Returns `Return` if simulation asked for a
 /// sandbox reset.
+///
+/// Time-scale authority moved out of this phase in ADR 0010 step 4
+/// — see `crate::time_control::{emit_player_time_intent_system,
+/// apply_clock_scale_requests, smooth_sim_clock_toward_target_system}`.
+/// This phase observes the smoothed `sim_state.time_scale` set by
+/// the PlayerInput pipeline.
 pub(super) fn player_simulation_phase(
     controls: ControlFrame,
     world: &ae::World,
@@ -134,10 +139,15 @@ pub(super) fn player_simulation_phase(
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
     ride: &mut crate::player::PlayerPlatformRideState,
 ) -> PhaseOutcome {
-    let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
+    let filtered = controls_for_hitstun(controls, feel, combat.hitstop_timer);
     let input = filtered.engine_input(frame_dt);
 
-    crate::update_time_scale(dev_state.slowmo, sim_state, player, combat.hitstop_timer, frame_dt, feel);
+    // sim_state.time_scale was set this frame by the time-control
+    // pipeline in SandboxSet::PlayerInput (emit → apply → smooth).
+    // The local `dev_state` reference + `feel` parameter are kept so
+    // tests + tuning hooks still compile, even though the smoothing
+    // is no longer driven from here.
+    let _ = dev_state; // intentional: the dev slowmo intent is consumed by the time-control pipeline.
     let sim_dt = sandbox_dt(combat.hitstop_timer, sim_state.time_scale, frame_dt);
 
     let mut riding_platform = None;

@@ -455,6 +455,20 @@ pub fn remember_safe_player_position(
 }
 
 /// Drive the `time_scale` ramp: hitstop → bullet-time → slowmo → normal.
+///
+/// **Deprecated** as of ADR 0010 step 4. The hitstop / bullet-time /
+/// slowmo intent is now emitted via [`time_control::ClockScaleRequest`]
+/// by [`time_control::emit_player_time_intent_system`] and smoothed
+/// by [`time_control::smooth_sim_clock_toward_target_system`]. No
+/// runtime caller remains; kept in source for one release so any
+/// downstream test / experimental binary still links. To be removed
+/// next cleanup.
+#[deprecated(
+    since = "0.2.0",
+    note = "Replaced by `time_control::emit_player_time_intent_system` + \
+           `apply_clock_scale_requests` + `smooth_sim_clock_toward_target_system`. \
+           Wire your intent through `ClockScaleRequest` instead."
+)]
 pub fn update_time_scale(
     slowmo: bool,
     sim_state: &mut SandboxSimState,

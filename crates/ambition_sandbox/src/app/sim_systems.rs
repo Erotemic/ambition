@@ -50,19 +50,28 @@ pub fn sync_live_player_dev_edits_system(
 }
 
 /// While gameplay is suspended (paused, dialogue, room transition,
-/// cutscene), force `SandboxSimState::time_scale` to 0 so any
+/// cutscene), force `SandboxSimState::time_scale` AND the
+/// [`crate::time_control::RequestedClockScale`] target to 0 so any
 /// presentation system that scales an animation by `time_scale * dt`
-/// freezes. The previous `mode_gate_phase` did the same thing at the
-/// top of `sandbox_update`; now that `sandbox_update` is gated by
+/// freezes — and so the smoother doesn't ramp back up on the very
+/// next frame.
+///
+/// The previous `mode_gate_phase` did the same thing at the top of
+/// `sandbox_update`; now that `sandbox_update` is gated by
 /// `run_if(gameplay_allowed)`, this needs to live in its own system
 /// that runs only when gameplay is *not* allowed.
 ///
-/// In gameplay mode `update_time_scale` (inside `sandbox_update`'s
-/// `player_simulation_phase`) drives `time_scale` from hitstop /
-/// slowmo / dev settings, so this system intentionally does nothing
-/// when gameplay is allowed.
-pub fn apply_suspended_time_scale_system(mut sim_state: ResMut<SandboxSimState>) {
+/// In gameplay mode the time-control pipeline
+/// (`emit_player_time_intent_system` → `apply_clock_scale_requests` →
+/// `smooth_sim_clock_toward_target_system`) drives time_scale from
+/// hitstop / bullet-time / blink-hold / dev slowmo intent, so this
+/// system intentionally does nothing when gameplay is allowed.
+pub fn apply_suspended_time_scale_system(
+    mut sim_state: ResMut<SandboxSimState>,
+    mut target: ResMut<crate::time_control::RequestedClockScale>,
+) {
     sim_state.time_scale = 0.0;
+    target.sim_clock = 0.0;
 }
 
 /// Tick per-frame gameplay timers and detect double-tap gestures.

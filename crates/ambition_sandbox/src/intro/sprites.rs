@@ -15,7 +15,8 @@
 
 use crate::character_sprites::{
     CharacterSheetSpec, ARCHITECT_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
-    FASCIST_ENFORCER_SHEET, KERNEL_GUIDE_SHEET, OILER_SHEET,
+    FASCIST_ENFORCER_SHEET, KERNEL_GUIDE_SHEET, LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE,
+    LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE, LAB_PROP_RESONANCE_COIL, OILER_SHEET,
 };
 
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
@@ -67,6 +68,15 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     // sandbox treats every `NpcSpawn` the same way. Architect sheet
     // is a placeholder; a static kiosk sprite will replace this.
     ("News Board", "architect_spritesheet.png", ARCHITECT_SHEET),
+    // Lab props — share `creator_lab_props_spritesheet.png`; each
+    // pulls a different row via the y_offset field on its
+    // CharacterSheetSpec. Authored as NpcSpawn with `prompt: ""`
+    // for v1 (the dedicated Prop entity type is the v1.x cleanup).
+    ("Genesis Vat", "creator_lab_props_spritesheet.png", LAB_PROP_GENESIS_VAT),
+    ("Neural Console", "creator_lab_props_spritesheet.png", LAB_PROP_NEURAL_CONSOLE),
+    ("Power Core", "creator_lab_props_spritesheet.png", LAB_PROP_POWER_CORE),
+    ("Repair Cradle", "creator_lab_props_spritesheet.png", LAB_PROP_REPAIR_CRADLE),
+    ("Resonance Coil", "creator_lab_props_spritesheet.png", LAB_PROP_RESONANCE_COIL),
 ];
 
 pub fn intro_npc_sprite_rows() -> &'static [(&'static str, &'static str, CharacterSheetSpec)] {

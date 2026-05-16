@@ -80,6 +80,34 @@ entities:
       prompt: "Talk to the Creator"
       dialogue_id: creator_intro
 
+  # --- Lab props. NpcSpawn-as-prop pattern (same as the Diagnostic
+  # Cart above) — empty prompt + generic_npc fallback so interact
+  # doesn't open a meaningful dialog. All three share the
+  # creator_lab_props spritesheet via per-prop CharacterSheetSpec
+  # `y_offset` (LAB_PROP_* consts in character_sprites/sheets.rs).
+  # Bottom-aligned to the floor (y=352): prop size=128 → top y=224.
+  - type: NpcSpawn
+    px: [336, 224]
+    size: [128, 128]
+    fields:
+      name: Neural Console
+      prompt: ""
+      dialogue_id: generic_npc
+  - type: NpcSpawn
+    px: [560, 224]
+    size: [128, 128]
+    fields:
+      name: Genesis Vat
+      prompt: ""
+      dialogue_id: generic_npc
+  - type: NpcSpawn
+    px: [744, 224]
+    size: [128, 128]
+    fields:
+      name: Power Core
+      prompt: ""
+      dialogue_id: generic_npc
+
   # --- Hub-door arrival zone. Sits on top of the cart so any sandbox
   # door pointing at `wake_room_arrival` lands the player visually on
   # the prop. Door activation — the sandbox-side door is a real

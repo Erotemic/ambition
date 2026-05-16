@@ -36,6 +36,13 @@ pub struct AnimRow {
 #[derive(Clone, Copy, Debug)]
 pub struct CharacterSheetSpec {
     pub label_width: u32,
+    /// Pixel offset from the top of the sheet PNG before the first row.
+    /// Used to share one PNG across multiple sprite specs that each take
+    /// a different row block — e.g. the lab-props sheet has 8 props
+    /// stacked vertically, each addressed by its own const with
+    /// `y_offset = N * frame_height`. Defaults to 0 for sheets whose
+    /// row 0 starts at the top of the image.
+    pub y_offset: u32,
     /// Per-frame width in source-image pixels. The generator now crops
     /// each sheet to the union of opaque-pixel bboxes across every frame,
     /// so this is *not* always 128 anymore — robot is 120, goblin 121.
@@ -56,6 +63,7 @@ pub struct CharacterSheetSpec {
 
 pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
+    y_offset: 0,
     // The new directional-attack rows extend the union-bbox crop back
     // out to 128×128 (overhead swings + spinning aerials reach the
     // canvas edges). Re-confirm against the regenerated manifest after
@@ -281,6 +289,7 @@ pub const ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// silhouette.
 pub const PLAYER_ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
+    y_offset: 0,
     // Union-bbox crop of the compact player sheet (was 128×128 source).
     // Re-confirm against the regenerated manifest after any animation
     // edit that widens the silhouette envelope.
@@ -497,6 +506,7 @@ pub const PLAYER_ROBOT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 
 pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
+    y_offset: 0,
     // After the gen2d union-bbox crop the goblin sheet is 121x127.
     frame_width: 121,
     frame_height: 127,
@@ -597,6 +607,7 @@ pub const GOBLIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// atlas y-stride stays aligned with the generator output.
 pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 116,
+    y_offset: 0,
     // Pitch values: each frame's content is 120×116, but the
     // generator reserves 4 extra pixels on the right and bottom
     // edges for inter-frame padding. Sampling at the pitch with
@@ -644,6 +655,7 @@ pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// differs. Two filenames; one indexing contract.
 pub const PIRATE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
+    y_offset: 0,
     frame_width: 128,
     frame_height: 128,
     rows: &[
@@ -702,6 +714,7 @@ pub const PIRATE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// Architect — hub research / ADR-explainer NPC.
 pub const ARCHITECT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 116,
+    y_offset: 0,
     // body_metrics frame=97×114, +4px padding both axes → 101×118.
     frame_width: 101,
     frame_height: 118,
@@ -720,6 +733,7 @@ pub const ARCHITECT_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// Kernel Guide — onboarding NPC at the hub spawn area.
 pub const KERNEL_GUIDE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 116,
+    y_offset: 0,
     // body_metrics frame=89×97, +4px padding → 93×101.
     frame_width: 93,
     frame_height: 101,
@@ -738,6 +752,7 @@ pub const KERNEL_GUIDE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// Vault Keeper — persistence / save-seed NPC in the basement.
 pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 116,
+    y_offset: 0,
     // body_metrics frame=99×116, +4px padding → 103×120.
     frame_width: 103,
     frame_height: 120,
@@ -753,6 +768,52 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
+// ───────────────────────────────────────────────────────────────────
+// Lab props — shared `creator_lab_props_spritesheet.png`.
+//
+// One 128×128 frame per prop; 4 frames per row (subtle idle anim).
+// 8 props stacked vertically; each spec below picks its row by
+// setting `y_offset = row_index * 128`. The label column on the
+// left is 160 px wide. See `assets/sprites/creator_lab_props_spritesheet.yaml`
+// for the canonical frame coordinates this matches.
+//
+// All 8 are pre-registered so authors can drop any of them into a
+// scene without touching this file. Place via `NpcSpawn` with
+// `name: "Genesis Vat"` (etc.) + `prompt: ""` so the prop renders
+// but never opens a dialogue panel.
+// ───────────────────────────────────────────────────────────────────
+
+const LAB_PROP_ROWS: &[(CharacterAnim, AnimRow)] = &[(
+    CharacterAnim::Idle,
+    AnimRow {
+        frame_count: 4,
+        duration_secs: 0.140,
+    },
+)];
+
+const fn lab_prop_sheet(y_offset: u32) -> CharacterSheetSpec {
+    CharacterSheetSpec {
+        label_width: 160,
+        y_offset,
+        frame_width: 128,
+        frame_height: 128,
+        rows: LAB_PROP_ROWS,
+        collision_scale: 1.00,
+        // Props sit on the floor by their bottom edge.
+        feet_anchor_y: -0.500,
+        frame_sample_inset: 2,
+    }
+}
+
+pub const LAB_PROP_GENESIS_VAT: CharacterSheetSpec = lab_prop_sheet(0);
+pub const LAB_PROP_SPECIMEN_JAR: CharacterSheetSpec = lab_prop_sheet(128);
+pub const LAB_PROP_NEURAL_CONSOLE: CharacterSheetSpec = lab_prop_sheet(256);
+pub const LAB_PROP_RESONANCE_COIL: CharacterSheetSpec = lab_prop_sheet(384);
+pub const LAB_PROP_POWER_CORE: CharacterSheetSpec = lab_prop_sheet(512);
+pub const LAB_PROP_REPAIR_CRADLE: CharacterSheetSpec = lab_prop_sheet(640);
+pub const LAB_PROP_DRONE_CRADLE: CharacterSheetSpec = lab_prop_sheet(768);
+pub const LAB_PROP_PORTAL_CALIBRATOR: CharacterSheetSpec = lab_prop_sheet(896);
+
 /// Diagnostic Cart — the rail / gurney the player wakes on. Rendered
 /// by the dedicated `intro_cart` tack-on target. 3 rows ship on disk
 /// (idle / roll / jolt); only Idle wires here today. Frame size is
@@ -764,6 +825,7 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// the lightest way to get a visible cart without engine churn.
 pub const CART_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 112,
+    y_offset: 0,
     frame_width: 192,
     frame_height: 128,
     rows: &[(
@@ -790,6 +852,7 @@ pub const CART_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// looks the row up by enum discriminant.
 pub const CREATOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 108,
+    y_offset: 0,
     frame_width: 160,
     frame_height: 192,
     rows: &[(
@@ -811,6 +874,7 @@ pub const CREATOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// placeholder was a satirical hub NPC, not a raid trooper).
 pub const FASCIST_ENFORCER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 112,
+    y_offset: 0,
     // body_metrics frame=124×118, +4px padding → 128×122.
     frame_width: 128,
     frame_height: 122,
@@ -831,6 +895,7 @@ pub const FASCIST_ENFORCER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// review config (configs/review/oiler.yaml).
 pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 112,
+    y_offset: 0,
     // body_metrics frame=79×100, +4px padding → 83×104.
     frame_width: 83,
     frame_height: 104,
@@ -850,6 +915,7 @@ pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// matches the Erdish review config (configs/review/erdish.yaml).
 pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 112,
+    y_offset: 0,
     // body_metrics frame=87×112, +4px padding → 91×116.
     frame_width: 91,
     frame_height: 116,
@@ -868,6 +934,7 @@ pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// Merchant Prototype — placeholder shopkeeper NPC.
 pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 116,
+    y_offset: 0,
     // body_metrics frame=83×98, +4px padding → 87×102.
     frame_width: 87,
     frame_height: 102,
@@ -895,6 +962,7 @@ pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// 128-tall row.
 pub const GOBLIN_CANTINA_CHIEFTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 120,
+    y_offset: 0,
     frame_width: 114,
     frame_height: 128,
     rows: &[(
@@ -912,6 +980,7 @@ pub const GOBLIN_CANTINA_CHIEFTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpe
 /// Captain Pulse — Pulse Voyagers faction leader.
 pub const PULSE_VOYAGER_CAPTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 120,
+    y_offset: 0,
     frame_width: 110,
     frame_height: 128,
     rows: &[(
@@ -929,6 +998,7 @@ pub const PULSE_VOYAGER_CAPTAIN_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// Chadwick Disruptor III — Tech-Bros Basement faction leader.
 pub const TECH_BRO_DISRUPTOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 120,
+    y_offset: 0,
     frame_width: 111,
     frame_height: 128,
     rows: &[(
@@ -945,6 +1015,7 @@ pub const TECH_BRO_DISRUPTOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 
 pub const SANDBAG_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
+    y_offset: 0,
     frame_width: 128,
     frame_height: 128,
     rows: &[
@@ -983,6 +1054,7 @@ pub const SANDBAG_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// report `feet_anchor_norm.y = -0.4921875`.
 pub const NINJA_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 100,
+    y_offset: 0,
     frame_width: 128,
     frame_height: 128,
     rows: &[
@@ -1181,6 +1253,9 @@ impl CharacterSheetSpec {
         self.rows[idx].1
     }
 
+    /// Build the atlas layout for this sheet. Accounts for `y_offset`
+    /// so multiple specs can share one PNG (e.g. lab-props), each
+    /// addressing its own row block.
     pub fn build_atlas(&self) -> TextureAtlasLayout {
         let max_frames = self
             .rows
@@ -1189,7 +1264,11 @@ impl CharacterSheetSpec {
             .max()
             .unwrap_or(0) as u32;
         let total_w = self.label_width + max_frames * self.frame_width;
-        let total_h = self.rows.len() as u32 * self.frame_height;
+        // `total_h` includes `y_offset` so the atlas image-size matches
+        // the underlying PNG when this spec is for a sub-block of a
+        // larger sheet (lab props use this — each prop spec y_offsets
+        // into one shared PNG).
+        let total_h = self.y_offset + self.rows.len() as u32 * self.frame_height;
         let mut layout = TextureAtlasLayout::new_empty(UVec2::new(total_w, total_h));
         let inset = self
             .frame_sample_inset
@@ -1197,7 +1276,7 @@ impl CharacterSheetSpec {
         for (row_idx, (_, row)) in self.rows.iter().enumerate() {
             for col in 0..row.frame_count {
                 let x = self.label_width + col as u32 * self.frame_width;
-                let y = row_idx as u32 * self.frame_height;
+                let y = self.y_offset + row_idx as u32 * self.frame_height;
                 // Inset on every side so bilinear filtering at the frame
                 // boundary cannot pull pixels from the next cell.
                 let min = UVec2::new(x + inset, y + inset);

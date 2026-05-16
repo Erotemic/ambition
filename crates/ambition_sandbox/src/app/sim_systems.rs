@@ -18,7 +18,7 @@ use crate::features::{
 use crate::feel::SandboxFeelTuning;
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
-use crate::rooms::{GatedZoneRegistry, LoadingZoneActivation, RoomSet, RoomTransitionRequested};
+use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
 use crate::{
     CurrentPlayerAttack, GameWorld, MovingPlatformSet, PlayerDiedMessage, SandboxSimState,
     SafePositionContext,
@@ -254,8 +254,7 @@ pub fn apply_player_reset_input_system(
 pub fn detect_room_transition_system(
     room_set: Res<RoomSet>,
     sim_state: Res<SandboxSimState>,
-    gated_zones: Res<GatedZoneRegistry>,
-    save: Res<crate::save::SandboxSave>,
+    portals: Res<PortalRegistry>,
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
     mut player_q: Query<
         (
@@ -275,13 +274,13 @@ pub fn detect_room_transition_system(
     else {
         return;
     };
-    // Gate check: if this zone's id is in the registry, the named
-    // switch must be on (toggled to `true` in the save) before the
-    // transition fires. Empty registry / unknown zone id → no gate.
-    if let Some(switch_id) = gated_zones.switch_for(&zone.zone.id) {
-        if !save.data().switch(switch_id) {
-            return;
-        }
+    // Portal check: if this zone is registered as a portal, the
+    // portal's own phase must be `On` for traversal to be allowed.
+    // The switch only commands the boot/shutdown sequence — the
+    // portal itself runs the state machine. Non-portal zones pass
+    // through unchanged.
+    if portals.is_portal(&zone.zone.id) && !portals.allows_traversal(&zone.zone.id) {
+        return;
     }
     let zone_sfx = match zone.zone.activation {
         LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),

@@ -192,6 +192,50 @@ pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
 #[derive(Resource, Default)]
 pub struct MovingPlatformSet(pub Vec<platforms::MovingPlatformState>);
 
+/// Time-scaled delta-time for gameplay / presentation systems that
+/// must honor bullet time, hitstop, and pause without each system
+/// re-reading `SandboxSimState::time_scale` and remembering to
+/// multiply.
+///
+/// **Use `Res<WorldTime>::scaled_dt` instead of `Res<Time>::delta_secs()`**
+/// for any new timer that:
+/// - drives a per-frame countdown on a gameplay state machine
+///   (encounter beats, portal phases, attack windows),
+/// - advances a presentation animation tied to world events (the
+///   gate ring spin during a boot sequence, a ramp-up effect),
+/// - generally needs to slow / freeze when the world slows / freezes.
+///
+/// `raw_dt` is still available for true wall-clock things (UI fade
+/// timers, debug overlays, hot-reload polling) that should *not*
+/// react to bullet time. Pick deliberately.
+///
+/// Refreshed once per Update via [`refresh_world_time`] before
+/// every system that reads it; the resource is always one frame
+/// fresh by construction.
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct WorldTime {
+    /// Wall-clock dt from Bevy's `Time` resource. Unscaled — for
+    /// UI / debug only.
+    pub raw_dt: f32,
+    /// `raw_dt * SandboxSimState::time_scale`. The canonical
+    /// dt for gameplay + world-anchored animation timers. Zero
+    /// while paused (`time_scale == 0`).
+    pub scaled_dt: f32,
+}
+
+/// Refresh [`WorldTime`] from `Time × SandboxSimState::time_scale`.
+/// Registered early in the Update schedule so every downstream
+/// system sees a current value.
+pub fn refresh_world_time(
+    time: bevy::prelude::Res<bevy::prelude::Time>,
+    sim_state: bevy::prelude::Res<SandboxSimState>,
+    mut world_time: bevy::prelude::ResMut<WorldTime>,
+) {
+    let raw = time.delta_secs();
+    world_time.raw_dt = raw;
+    world_time.scaled_dt = raw * sim_state.time_scale;
+}
+
 /// Pure simulation scalars for the running sandbox session.
 /// Holds values that belong to the simulation, not to
 /// developer/debug tools or presentation state.

@@ -113,13 +113,19 @@ entities:
       name: Interdimensional Gate Portal
       prompt: ""
       dialogue_id: generic_npc
+  # Activation = Door (Interact-press) because this is a mid-room
+  # cross-map transition, not a side-scroll edge or a scripted
+  # walk-into trigger. See feedback_loading_zone_activation memory.
+  # The portal's *own* phase (PortalRegistry: Off/Opening/On/Closing)
+  # determines whether the Interact actually fires the transition —
+  # not the switch state directly. Switch only commands open/close.
   - type: LoadingZone
     px: [668, 544]
     size: [96, 192]
     fields:
       id: intro_portal_zone
       name: intro_portal_zone
-      activation: Walk
+      activation: Door
       target_room: central_hub_complex
       target_zone: intro_wake_door
       bidirectional: false

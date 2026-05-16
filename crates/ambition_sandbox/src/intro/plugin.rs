@@ -22,21 +22,29 @@ use crate::banter::CombatBanterRegistry;
 use crate::character_sprites::build_npc_sprite_asset;
 use crate::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use crate::game_assets::{GameAssetConfig, GameAssets};
-use crate::rooms::GatedZoneRegistry;
+use crate::rooms::PortalRegistry;
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::sprites::intro_npc_sprite_rows;
 
-/// Intro portal-gate wiring: zone id ↔ switch id. The gate stack room
-/// places a `LoadingZone` (id `intro_portal_zone`) back to the
-/// sandbox hub, paired with a `Switch` (id `intro_portal_switch`)
-/// next to the gate ring. Walking into the zone only fires the
-/// transition while the switch is toggled on; when it's off the
-/// player can stand inside the portal frame without anything
-/// happening.
+/// Intro portal IDs. The gate stack room places:
+/// - `LoadingZone` id `intro_portal_zone` (activation: Door) at
+///   the portal frame. Targets `central_hub_complex/intro_wake_door`.
+/// - `Switch` id `intro_portal_switch` next to the gate. Toggles
+///   the portal's boot/shutdown sequence.
+/// - `NpcSpawn` "Interdimensional Gate Portal" — the portal sprite
+///   (hidden while phase == Off).
+/// - `NpcSpawn` "Interdimensional Gate Ring" — the ring sprite
+///   (always visible; rotates during phase == Opening).
+///
+/// The portal's *own* phase (Off / Opening / On / Closing) decides
+/// whether Interact actually fires the transition. The switch only
+/// commands open vs close.
 pub const INTRO_PORTAL_ZONE_ID: &str = "intro_portal_zone";
 pub const INTRO_PORTAL_SWITCH_ID: &str = "intro_portal_switch";
+pub const INTRO_PORTAL_SPRITE_NAME: &str = "Interdimensional Gate Portal";
+pub const INTRO_PORTAL_RING_NAME: &str = "Interdimensional Gate Ring";
 
 /// Marker zero-sized resource — flips `true` once
 /// [`load_intro_npc_sprites_system`] has run. Keeps the system idempotent
@@ -126,12 +134,12 @@ pub(crate) fn install_intro_banter_system(
     installed.0 = true;
 }
 
-/// Register the intro portal-gate's zone → switch mapping so the
-/// runtime transition system gates the LoadingZone behind the
-/// switch state. Runs once — guarded by [`IntroGatedZonesInstalled`].
+/// Register the intro portal in [`PortalRegistry`] so its lifecycle
+/// runs every frame and traversal is gated on `phase == On`. Runs
+/// once — guarded by [`IntroGatedZonesInstalled`].
 pub(crate) fn install_intro_gated_zones_system(
     mut installed: ResMut<IntroGatedZonesInstalled>,
-    registry: Option<ResMut<GatedZoneRegistry>>,
+    registry: Option<ResMut<PortalRegistry>>,
 ) {
     if installed.0 {
         return;
@@ -139,7 +147,12 @@ pub(crate) fn install_intro_gated_zones_system(
     let Some(mut registry) = registry else {
         return;
     };
-    registry.set_gate(INTRO_PORTAL_ZONE_ID, INTRO_PORTAL_SWITCH_ID);
+    registry.register(
+        INTRO_PORTAL_ZONE_ID,
+        INTRO_PORTAL_SWITCH_ID,
+        INTRO_PORTAL_SPRITE_NAME,
+        INTRO_PORTAL_RING_NAME,
+    );
     installed.0 = true;
 }
 

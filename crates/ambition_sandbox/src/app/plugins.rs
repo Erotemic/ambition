@@ -128,12 +128,25 @@ pub fn add_simulation_plugins(app: &mut App) {
         // IntroPlugin contributes the intro raiders' lines via a
         // startup system.
         .insert_resource(crate::banter::CombatBanterRegistry::default())
-        // Gated-zone registry — maps `LoadingZone.id` → required
-        // `Switch.id`. `detect_room_transition_system` skips the
-        // transition unless the named switch is on. IntroPlugin
-        // contributes the portal-gate mapping (intro_portal_zone →
-        // intro_portal_switch). Empty by default.
-        .insert_resource(crate::rooms::GatedZoneRegistry::default())
+        // World-clock dt mirror — `WorldTime::scaled_dt` is the
+        // bullet-time-respecting delta for gameplay timers and
+        // world-anchored animation timers. `WorldTime::raw_dt`
+        // stays the wall-clock dt for UI / debug. Refreshed each
+        // frame by `refresh_world_time` registered below; new code
+        // should reach for `Res<WorldTime>::scaled_dt` instead of
+        // `Res<Time>::delta_secs()` for anything that should slow
+        // / freeze when the world slows / freezes.
+        .insert_resource(crate::WorldTime::default())
+        // Portal registry — per-portal lifecycle state machine
+        // (Off / Opening / On / Closing). The portal itself owns
+        // traversal readiness; the switch only commands the
+        // boot/shutdown sequence. `detect_room_transition_system`
+        // blocks the transition unless the named portal's phase is
+        // `On`. `tick_portal_phases_system` advances phase from the
+        // switch state each frame. Empty by default; IntroPlugin
+        // registers the intro_portal_zone → intro_portal_switch
+        // hookup.
+        .insert_resource(crate::rooms::PortalRegistry::default())
         // Intro story content plugin. Extends CutsceneLibrary +
         // RoomCutsceneBindings (always) and GameAssets.characters.npcs
         // (visible builds only — the sprite installer is a no-op in
@@ -173,9 +186,16 @@ pub fn add_simulation_plugins(app: &mut App) {
         // gameplay timer decay + interact buffer + suspended-time
         // fallback. Each subsequent system depends on the previous one's
         // ControlFrame / component mutation, so they stay chained.
+        //
+        // `refresh_world_time` leads the chain so every downstream
+        // system can read `Res<WorldTime>::scaled_dt` (bullet-time
+        // adjusted) without re-doing the multiplication. Runs
+        // unconditionally so even suspended-time / pause frames get
+        // an accurate (zero) scaled_dt.
         .add_systems(
             Update,
             (
+                crate::refresh_world_time,
                 sync_live_player_dev_edits_system,
                 apply_player_reset_input_system.run_if(gameplay_allowed),
                 input_timer_system.run_if(gameplay_allowed),
@@ -320,6 +340,14 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::body_mode::update_body_mode,
                 crate::rooms::sync_active_room_metadata,
                 crate::rooms::sync_room_music_request,
+                // Portal lifecycle: advance every registered portal's
+                // phase from its switch state + per-phase timers.
+                // Pure state update; the visibility + ring-spin
+                // systems below consume the phase. Lives in the
+                // Progression set so the portal state is current
+                // before `detect_room_transition_system` runs (which
+                // is in CoreSimulation, ordered after Progression).
+                crate::rooms::tick_portal_phases_system,
                 crate::map_menu::track_room_visits,
                 crate::map_menu::sync_map_from_save,
                 dev_tools::sync_player_stats_with_inspector,
@@ -572,6 +600,20 @@ pub fn add_presentation_plugins(app: &mut App) {
         .add_systems(
             Update,
             crate::rendering::sync_health_overlays.after(sync_visuals),
+        )
+        // Portal presentation: read PortalRegistry.phase + apply
+        // visibility / animation row / ring-spin to the matching
+        // FeatureName-tagged sprites. Visible-only; headless has no
+        // FeatureName ↔ Bevy-entity binding anyway. Runs after
+        // sync_visuals so the sprite entities exist this frame.
+        .add_systems(
+            Update,
+            (
+                crate::rooms::sync_portal_sprite_visibility,
+                crate::rooms::sync_portal_sprite_animation,
+                crate::rooms::sync_portal_ring_rotation_system,
+            )
+                .after(sync_visuals),
         )
         .add_systems(
             Update,

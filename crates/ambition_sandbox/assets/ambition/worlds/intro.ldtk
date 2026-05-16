@@ -6984,7 +6984,7 @@
 							"fieldInstances": [
 								{ "__identifier": "id", "__type": "String", "__value": "intro_portal_zone", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["intro_portal_zone"] } ] },
 								{ "__identifier": "name", "__type": "String", "__value": "intro_portal_zone", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["intro_portal_zone"] } ] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Walk", "__tile": null, "defUid": 3004, "realEditorValues": [ { "id": "V_String", "params": ["Walk"] } ] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [] },
 								{ "__identifier": "target_room", "__type": "String", "__value": "central_hub_complex", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["central_hub_complex"] } ] },
 								{ "__identifier": "target_zone", "__type": "String", "__value": "intro_wake_door", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["intro_wake_door"] } ] },
 								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [ { "id": "V_Bool", "params": [false] } ] }

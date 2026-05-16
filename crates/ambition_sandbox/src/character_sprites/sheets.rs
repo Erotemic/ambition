@@ -791,22 +791,49 @@ pub const GATE_RING_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 };
 
 /// Interdimensional gate portal — the shimmering surface inside the
-/// ring. Sheet's authored animation is `opening` (8 frames); we map
-/// it to `Idle` in the runtime spec so the existing
-/// CharacterAnim::Idle pipeline picks it up. Placed at the same
-/// position as a `GATE_RING_SHEET` to compose the visual.
+/// ring. Three rows authored in the source PNG
+/// (`interdimensional_gate_portal_spritesheet.yaml`): `opening`
+/// (8 frames × 80ms = 640ms one-shot), `stable` (8 × 110ms looping),
+/// `closing` (8 × 80ms one-shot). The portal's [`crate::rooms::PortalPhase`]
+/// state machine drives which row to play; this spec borrows
+/// existing `CharacterAnim` variants as semantic slots
+/// (Idle=opening so the default boot is visible, Walk=stable for
+/// the steady "ready" loop, Run=closing for the shutdown
+/// one-shot). The runtime's
+/// [`crate::rooms::sync_portal_sprite_animation`] system calls
+/// `CharacterAnimator::request(...)` with the right variant on
+/// phase change.
 pub const GATE_PORTAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 128,
     y_offset: 0,
     frame_width: 192,
     frame_height: 192,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.080,
-        },
-    )],
+    rows: &[
+        // Row 0 = opening (one-shot, 640ms).
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.080,
+            },
+        ),
+        // Row 1 = stable (looping, 880ms per loop).
+        (
+            CharacterAnim::Walk,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+        // Row 2 = closing (one-shot, 640ms).
+        (
+            CharacterAnim::Run,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.080,
+            },
+        ),
+    ],
     collision_scale: 1.00,
     feet_anchor_y: -0.500,
     frame_sample_inset: 2,

@@ -1,6 +1,9 @@
 # Rust build output
 /target/
 
+# Generated browser bundle (wasm-bindgen output from ./build_for_web.sh).
+crates/ambition_sandbox/web/pkg/
+
 # proptest writes regression seeds when a property fails. Useful
 # locally to reproduce a flake but shouldn't go to git.
 **/*.proptest-regressions

@@ -33,14 +33,23 @@ are unchanged.
 
 ## One-time setup
 
-```sh
-# Rust toolchain target.
-rustup target add wasm32-unknown-unknown
+Use the helper script — it installs the `wasm32-unknown-unknown` rustup
+target and a `wasm-bindgen-cli` pinned to the exact `wasm-bindgen` crate
+version in `Cargo.lock` (mismatched versions are the most common cause
+of a runtime "version mismatch" error in the browser):
 
-# wasm-bindgen CLI for the JS bootstrap files (`pkg/`).
-# Pin the version to match the `wasm-bindgen` crate version in Cargo.lock
-# to avoid the "wasm-bindgen CLI version mismatch" runtime error.
-cargo install wasm-bindgen-cli --locked
+```sh
+./scripts/setup_web_prereq.sh
+./scripts/setup_web_prereq.sh --doctor      # re-check
+./scripts/setup_web_prereq.sh --with-server # also install basic-http-server
+```
+
+Or run the equivalent commands by hand:
+
+```sh
+rustup target add wasm32-unknown-unknown
+# Read the wasm-bindgen version your Cargo.lock pins, then:
+cargo install --locked --version <X.Y.Z> wasm-bindgen-cli
 ```
 
 ## Compile-check only (fast feedback)
@@ -57,6 +66,19 @@ This is the equivalent of the desktop
 that touches the sandbox crate to keep the web build honest.
 
 ## Build + serve
+
+Use the helper script — it runs `cargo build`, `wasm-bindgen`, and
+optionally a static file server in one shot:
+
+```sh
+./build_for_web.sh                 # build only
+./build_for_web.sh --serve         # build + serve at http://localhost:8000/
+./build_for_web.sh --serve 9000 --open
+./build_for_web.sh --debug         # dev profile (much larger, faster compile)
+./build_for_web.sh --doctor        # verify tools + report what would run
+```
+
+Or the equivalent commands by hand:
 
 ```sh
 # 1. Compile the wasm artifact (release recommended — debug wasm is huge).
@@ -104,3 +126,5 @@ desktop binary does (`SandboxSimulationPlugin` + `SandboxLdtkPlugin` +
 - `crates/ambition_sandbox/src/lib.rs` — `web_start` `#[wasm_bindgen(start)]` entry.
 - `crates/ambition_sandbox/src/app/cli.rs` — `run_web()` app builder.
 - `crates/ambition_sandbox/Cargo.toml` — `web`, `visible_web`, `web_platform` features.
+- `scripts/setup_web_prereq.sh` — installs the wasm rustup target + version-matched `wasm-bindgen-cli`.
+- `build_for_web.sh` — runs `cargo build` + `wasm-bindgen` + optional `--serve`.

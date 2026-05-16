@@ -562,6 +562,7 @@ fn synthetic_area_collects_multiple_moving_platforms() {
                     platform_b,
                 ],
                 int_grid_csv: Vec::new(),
+                grid_tiles: Vec::new(),
             }],
         }],
     };
@@ -638,6 +639,7 @@ fn synthetic_camera_zone_reaches_room_spec() {
                     camera_zone,
                 ],
                 int_grid_csv: Vec::new(),
+                grid_tiles: Vec::new(),
             }],
         }],
     };
@@ -701,6 +703,7 @@ fn synthetic_kinematic_path_reaches_room_spec_with_area_offset() {
                     grid_size: 16,
                     entity_instances: vec![make_entity_at("PlayerStart", [32, 160], [16, 32], &[])],
                     int_grid_csv: Vec::new(),
+                    grid_tiles: Vec::new(),
                 }],
             },
             LdtkLevel {
@@ -719,6 +722,7 @@ fn synthetic_kinematic_path_reaches_room_spec_with_area_offset() {
                     grid_size: 16,
                     entity_instances: vec![path],
                     int_grid_csv: Vec::new(),
+                    grid_tiles: Vec::new(),
                 }],
             },
         ],
@@ -801,6 +805,7 @@ fn enemy_spawn_uses_room_spec_kinematic_path_aliases() {
                     enemy,
                 ],
                 int_grid_csv: Vec::new(),
+                grid_tiles: Vec::new(),
             }],
         }],
     };
@@ -923,6 +928,7 @@ fn npc_path_id_resolves_through_room_spec_kinematic_paths() {
                     npc,
                 ],
                 int_grid_csv: Vec::new(),
+                grid_tiles: Vec::new(),
             }],
         }],
     };
@@ -1044,6 +1050,7 @@ fn damage_volume_path_id_resolves_through_room_spec_kinematic_paths() {
                     hazard,
                 ],
                 int_grid_csv: Vec::new(),
+                grid_tiles: Vec::new(),
             }],
         }],
     };
@@ -1138,6 +1145,7 @@ fn intgrid_rect_merge_collapses_a_horizontal_run() {
         grid_size: 16,
         entity_instances: Vec::new(),
         int_grid_csv: vec![1; 5],
+        grid_tiles: Vec::new(),
     };
     let blocks =
         emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
@@ -1173,6 +1181,7 @@ fn intgrid_rect_merge_does_not_collapse_columns_into_vertical_bars() {
             0, 1, 1, // row 1
             1, 1, 1, // row 2
         ],
+        grid_tiles: Vec::new(),
     };
     let blocks =
         emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
@@ -1205,6 +1214,7 @@ fn intgrid_rect_merge_separates_distinct_values() {
             INT_GRID_ONE_WAY,
             INT_GRID_SOLID,
         ],
+        grid_tiles: Vec::new(),
     };
     let blocks =
         emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
@@ -1553,6 +1563,7 @@ fn intgrid_layer(identifier: &str, c_wid: i32, c_hei: i32, csv: Vec<i32>) -> Ldt
         grid_size: GRID,
         entity_instances: Vec::new(),
         int_grid_csv: csv,
+        grid_tiles: Vec::new(),
     }
 }
 
@@ -1606,6 +1617,55 @@ fn climbable_intgrid_rejects_unknown_value() {
         err.contains("unknown Climbable IntGrid value 99"),
         "expected error to mention the bad value, got: {err}"
     );
+}
+
+/// Regression for ADR 0015 Step 2. Every intro level must carry a
+/// painted IntroLabTiles layer instance; without painted tiles the
+/// renderer wiring (`sync_ldtk_world_transform`) would draw nothing
+/// over the blank LdtkWorldBundle.
+///
+/// The test counts non-empty `gridTiles` arrays per level rather
+/// than asserting an exact pixel match — the tile content is
+/// regenerable from the Collision IntGrid via `tileset paint`.
+#[test]
+fn intro_levels_carry_painted_tileset_layers() {
+    let project = LdtkProject::load_default().expect("sandbox + intro LDtk should load");
+
+    // The intro tileset and its Tiles layer were registered in
+    // commit 66e62ad / the autonomous follow-up session.
+    let tiles_layer_id = "IntroLabTiles";
+
+    let intro_levels = [
+        "intro_wake_room",
+        "intro_raid_corridor",
+        "intro_escape_shaft",
+        "drain_alley",
+        "gate_stack_lower",
+    ];
+
+    for level_id in &intro_levels {
+        let level = project
+            .levels
+            .iter()
+            .find(|l| l.identifier == *level_id)
+            .unwrap_or_else(|| panic!("intro.ldtk must contain level '{level_id}'"));
+        let tiles_layer = level
+            .layer_instances
+            .iter()
+            .find(|l| l.identifier == tiles_layer_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "level '{level_id}' must carry a '{tiles_layer_id}' Tiles layer; \
+                     re-run `tileset add-layer` if a layer schema regression dropped it."
+                )
+            });
+        assert!(
+            !tiles_layer.grid_tiles.is_empty(),
+            "level '{level_id}' / '{tiles_layer_id}' has 0 painted tiles; \
+             re-run `tileset paint <ldtk> {level_id} {tiles_layer_id} \
+             --from-intgrid Collision --map 1=0 --map 2=28 --in-place`"
+        );
+    }
 }
 
 #[test]

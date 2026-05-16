@@ -61,6 +61,12 @@ pub struct LdtkLayerInstance {
     /// Only populated for layers whose `__type == "IntGrid"`.
     #[serde(default, rename = "intGridCsv")]
     pub int_grid_csv: Vec<i32>,
+    /// Hand-painted tile placements. Only populated for layers
+    /// whose `__type == "Tiles"`. We don't yet decode each tile's
+    /// individual fields here — the test/validator surface only
+    /// needs to know that a layer has SOME tiles.
+    #[serde(default, rename = "gridTiles")]
+    pub grid_tiles: Vec<serde_json::Value>,
 }
 
 fn default_grid_size() -> i32 {

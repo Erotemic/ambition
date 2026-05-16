@@ -452,7 +452,17 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
                 spawn_ldtk_world_root.after(setup_simulation_system),
             ),
         )
-        .add_systems(Update, ldtk_world::sync_ldtk_level_set);
+        .add_systems(
+            Update,
+            (
+                ldtk_world::sync_ldtk_level_set,
+                // ADR 0015 §Coordinate-frame reconciliation — keep the
+                // LdtkWorldBundle's root transform aligned with the
+                // current active area's centered frame. Runs every
+                // frame; cheap and idempotent.
+                ldtk_world::sync_ldtk_world_transform,
+            ),
+        );
 }
 
 /// Spawn the `LdtkWorldBundle` entity. Runs in `add_ldtk_runtime_plugin`

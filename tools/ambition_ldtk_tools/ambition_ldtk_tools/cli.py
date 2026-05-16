@@ -169,6 +169,14 @@ def cmd_tileset(args, rest):
         # action verb so the existing per-tool parser sees it
         # positionally (matches the `intgrid summarize/erase` pattern).
         return _delegate("ambition_ldtk_tools.edit.tilesets", [args.tileset_action, *rest])
+    if args.tileset_action == "add-layer":
+        return _delegate(
+            "ambition_ldtk_tools.edit.tile_layers", [args.tileset_action, *rest]
+        )
+    if args.tileset_action == "paint":
+        return _delegate(
+            "ambition_ldtk_tools.edit.tile_paint", [args.tileset_action, *rest]
+        )
     return _todo(f"tileset {args.tileset_action}")
 
 
@@ -311,6 +319,24 @@ def build_parser() -> argparse.ArgumentParser:
             "Usage: tileset add <ldtk> <png> <grid_size> "
             "[--identifier NAME] [--padding N] [--spacing N] "
             "(--in-place | --output PATH)"
+        ),
+    )
+    tileset_sub.add_parser(
+        "add-layer",
+        help=(
+            "Add a Tiles layer def + empty per-level instances. "
+            "Usage: tileset add-layer <ldtk> <tileset_identifier> "
+            "[--layer-identifier NAME] [--display-opacity F] "
+            "(--in-place | --output PATH)"
+        ),
+    )
+    tileset_sub.add_parser(
+        "paint",
+        help=(
+            "Paint tiles into a Tiles layer instance from an IntGrid "
+            "source layer or a recipe. Usage: tileset paint <ldtk> "
+            "<level> <layer> --from-intgrid SRC --map VALUE=TILE "
+            "[--map VALUE=TILE ...] (--in-place | --output PATH)"
         ),
     )
     sp_tileset.set_defaults(func=cmd_tileset)

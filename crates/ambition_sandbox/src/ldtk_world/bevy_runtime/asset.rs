@@ -1,8 +1,12 @@
 use std::collections::BTreeMap;
 
 use bevy::asset::{AssetServer, Handle};
-use bevy::prelude::{Commands, Component, Query, Res, ResMut, Resource, With};
+use bevy::prelude::{
+    Commands, Component, Query, Res, ResMut, Resource, Transform, Vec3, With,
+};
 use bevy_ecs_ldtk::prelude::LevelSet;
+
+use crate::config::WORLD_Z_BLOCK;
 
 use super::super::{
     default_sandbox_ldtk_path, sandbox_ldtk_asset_path, sandbox_ldtk_path, LdtkLevel, LdtkProject,
@@ -147,4 +151,52 @@ pub fn sync_ldtk_level_set(
         *level_set = next_level_set.clone();
     }
     index.mark_level_set_synced();
+}
+
+/// Position the `LdtkWorldBundle` root entity so the rendered LDtk
+/// Tiles layer aligns with Ambition's centered active-area frame.
+///
+/// **Coordinate reconciliation, ADR 0015 §Coordinate-frame
+/// reconciliation:** `bevy_ecs_ldtk` renders Tiles in raw LDtk
+/// world-pixel space — each level sits at its own world origin and
+/// every tile inside is at level-local px coords. With
+/// `LevelSpawnBehavior::UseZeroTranslation` (the default + our
+/// setting) the active level sits at the bundle's origin and tiles
+/// render upward + rightward from (0,0) in Bevy's Y-up.
+///
+/// Ambition's renderer (`world_to_bevy`) centers each active area
+/// at the Bevy camera origin: an `ae::Vec2(0,0)` (engine top-left)
+/// becomes `(-world.size.x/2, +world.size.y/2)`. The bottom-left
+/// of the room becomes `(-world.size.x/2, -world.size.y/2)`.
+///
+/// To make bevy_ecs_ldtk's tile origin (the level's bottom-left)
+/// match Ambition's bottom-left, translate the entire
+/// `LdtkWorldBundle` root by that offset. Z is set just behind
+/// `WORLD_Z_BLOCK` so Ambition's existing block visuals draw on
+/// top of (or alongside) the tile background.
+///
+/// AMBITION_REVIEW(spatial): this is the single seam where LDtk
+/// world coords meet Ambition's centered frame. Re-check any time
+/// the level layout changes (room dimensions, `world_to_bevy`,
+/// LdtkSettings::level_spawn_behavior).
+pub fn sync_ldtk_world_transform(
+    room_set: Res<crate::rooms::RoomSet>,
+    mut ldtk_worlds: Query<&mut Transform, With<SandboxLdtkWorldRoot>>,
+) {
+    let active_world = room_set.active_world();
+    let target = Vec3::new(
+        -active_world.size.x * 0.5,
+        -active_world.size.y * 0.5,
+        // Render tile background slightly in FRONT of Ambition's
+        // colored block quads (WORLD_Z_BLOCK = 0.0) so the painted
+        // tileset visual hides the debug rectangles where it has
+        // content. Stay well behind WORLD_Z_PLAYER (20.0) so the
+        // player sprite stays on top.
+        WORLD_Z_BLOCK + 0.5,
+    );
+    for mut tf in &mut ldtk_worlds {
+        if (tf.translation - target).length_squared() > 1e-6 {
+            tf.translation = target;
+        }
+    }
 }

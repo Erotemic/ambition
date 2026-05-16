@@ -19,7 +19,8 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     entity add <spec.yaml>         Add entity instance(s) into a level.
     entity set-field <spec.yaml>   Set field instances on existing entities.
     entity move      <spec.yaml>   Move an existing entity to new px/size.
-    entity delete    [TODO]        Delete an entity instance.
+    entity delete    <spec.yaml>   Delete entity instance(s) from a level.
+    entity query     [filters]     Read-only: list/query entities by level/type/field.
 
     def register-entity <spec>     Register a new entity definition.
 
@@ -129,6 +130,10 @@ def cmd_entity(args, rest):
         return _delegate("ambition_ldtk_tools.edit.set_field", rest)
     if args.entity_action == "move":
         return _delegate("ambition_ldtk_tools.edit.move", rest)
+    if args.entity_action == "delete":
+        return _delegate("ambition_ldtk_tools.edit.delete", rest)
+    if args.entity_action == "query":
+        return _delegate("ambition_ldtk_tools.edit.query", rest)
     if args.entity_action == "even-space":
         # area_authoring exposes --even-space-entities; forward through.
         return _delegate(
@@ -223,7 +228,15 @@ def build_parser() -> argparse.ArgumentParser:
     entity_sub.add_parser("add", help="Add entity instance(s)")
     entity_sub.add_parser("set-field", help="Set field instances on existing entities")
     entity_sub.add_parser("move", help="Move an existing entity")
-    entity_sub.add_parser("delete", help="[TODO] Delete an entity instance")
+    entity_sub.add_parser("delete", help="Delete entity instance(s) from a level")
+    entity_sub.add_parser(
+        "query",
+        help=(
+            "Read-only listing of entities by level/type/field. "
+            "Use --level, --identifier, --field NAME=VALUE, --iid. "
+            "Default output is a table; --format json for structured."
+        ),
+    )
     entity_sub.add_parser(
         "even-space",
         help="Even-space entities of one type along x in a level. "

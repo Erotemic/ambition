@@ -13,12 +13,14 @@
 pub mod bundles;
 pub mod components;
 pub mod events;
+pub mod queries;
 pub mod systems;
 
-pub use bundles::PlayerSimulationBundle;
+pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use components::{
-    PlayerAnimState, PlayerBlinkCameraState, PlayerBody, PlayerCombatState, PlayerEntity,
-    PlayerHealth, PlayerInteractionState, PlayerMovementAuthority, PlayerPlatformRideState,
+    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody, PlayerCombatState,
+    PlayerEntity, PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
+    PlayerPlatformRideState, PlayerSlot, PrimaryPlayer,
 };
 pub use events::{PlayerDamageRequested, PlayerHealRequested};
 pub use systems::{apply_player_heal_requests, write_player_ecs_components};

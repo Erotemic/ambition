@@ -7,9 +7,59 @@
 use ambition_engine as ae;
 use bevy::prelude::*;
 
-/// Marker for the single local player entity.
+/// Marker for **a player entity** — there may eventually be more than
+/// one. Use this when a query wants every player regardless of locality
+/// or which slot they occupy.
+///
+/// The game currently spawns exactly one player, with `PlayerSlot(0)`,
+/// [`PrimaryPlayer`], and [`LocalPlayer`] all attached. Systems that
+/// want the camera/HUD/dev-tool target should filter on `PrimaryPlayer`
+/// (or use the helpers in [`crate::player::queries`]) rather than
+/// assuming the only `PlayerEntity` is *the* player.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerEntity;
+
+/// Per-player slot identifier. Slot `0` is the local primary player;
+/// future co-op / split-screen / network players will use slots
+/// `1..=N`. Stored as a `u8` so it can fit comfortably in a HUD
+/// label, a save key, or a debug overlay glyph.
+///
+/// `PlayerSlot` is the canonical "which player?" handle for new
+/// player-bearing messages and resources. New player-domain message
+/// types (heal, damage, respawn, cosmetic, …) SHOULD carry either an
+/// `Entity` or a `PlayerSlot` so they don't silently assume the
+/// primary player.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PlayerSlot(pub u8);
+
+impl PlayerSlot {
+    /// Slot reserved for the local primary player in single-player
+    /// builds and for player 1 in future local-multiplayer modes.
+    pub const PRIMARY: PlayerSlot = PlayerSlot(0);
+
+    pub fn index(self) -> u8 {
+        self.0
+    }
+}
+
+/// Marks the player that the camera, HUD, dev tools, and pause menu
+/// follow by default. Exactly one entity in the world should carry
+/// this component; today every spawned player is also primary.
+///
+/// Distinct from [`LocalPlayer`] because in a future split-screen
+/// build the local players would each be `LocalPlayer` but only one
+/// would be `PrimaryPlayer` (e.g. the host's view in a guest-joined
+/// session).
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PrimaryPlayer;
+
+/// Marks a player whose input comes from this machine's input devices
+/// (keyboard / gamepad / touch). In single-player today the local
+/// player is also the primary player. In a future networked build,
+/// remote players would have `PlayerEntity` (+ `PlayerSlot`) but not
+/// `LocalPlayer`.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LocalPlayer;
 
 /// Frame-to-frame authoritative player movement state.
 ///

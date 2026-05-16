@@ -22,8 +22,9 @@
 
 use ambition_sandbox::input::ControlFrame;
 use ambition_sandbox::player::{
-    PlayerAnimState, PlayerBlinkCameraState, PlayerBody, PlayerCombatState, PlayerEntity,
-    PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
+    LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody, PlayerCombatState,
+    PlayerEntity, PlayerHealth, PlayerIdentityBundle, PlayerInteractionState,
+    PlayerMovementAuthority, PlayerSlot, PrimaryPlayer,
 };
 use ambition_sandbox::rooms::RoomSet;
 use ambition_sandbox::{GameMode, GameWorld, MovingPlatformSet, SandboxSimState};
@@ -126,6 +127,73 @@ fn player_entity_carries_canonical_sim_components() {
         body.size.x > 0.0 && body.size.y > 0.0,
         "PlayerBody size should be non-degenerate, got {:?}",
         body.size
+    );
+}
+
+/// Multiplayer-readiness canary: the default player must spawn with
+/// `PlayerSlot::PRIMARY` + `PrimaryPlayer` + `LocalPlayer` so that
+/// future code which filters on those identity components doesn't
+/// silently miss the lone player. Pins the identity-tag contract on
+/// `PlayerSimulationBundle::new`.
+#[test]
+fn default_player_carries_identity_components() {
+    let mut app = minimal_sim_app();
+    let mut q = app.world_mut().query_filtered::<
+        (&PlayerSlot, Option<&PrimaryPlayer>, Option<&LocalPlayer>),
+        With<PlayerEntity>,
+    >();
+    let (slot, primary, local) = q
+        .single(app.world())
+        .expect("the single default player should exist");
+    assert_eq!(*slot, PlayerSlot::PRIMARY);
+    assert!(primary.is_some(), "default player must be PrimaryPlayer");
+    assert!(local.is_some(), "default player must be LocalPlayer");
+
+    let mut primary_q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
+    assert_eq!(
+        primary_q.iter(app.world()).count(),
+        1,
+        "exactly one entity should carry PrimaryPlayer",
+    );
+}
+
+/// Multiplayer-readiness canary: spawning a second player entity with
+/// `PlayerSlot(1)` (but without `PrimaryPlayer` / `LocalPlayer`) must
+/// coexist with the default player without panicking and without
+/// breaking the "exactly one PrimaryPlayer" invariant.
+///
+/// This test is a deliberate canary. It does not assert that the
+/// second player can move, attack, or be camera-followed — most of
+/// the gameplay chain still calls `single_mut::<…, With<PlayerEntity>>`
+/// and would panic if more than one player tries to act. The canary's
+/// job is to catch *additional* singleton assumptions sneaking in
+/// (e.g. a future spawn-time system that blows up when a second
+/// `PlayerEntity` already exists).
+#[test]
+fn second_player_entity_spawns_with_unique_slot_and_no_extra_primary() {
+    let mut app = minimal_sim_app();
+
+    // Spawn a "guest" player with just the identity tags. No
+    // PrimaryPlayer, no LocalPlayer, no simulation components — those
+    // are deliberately omitted because the full chain still assumes
+    // exactly one moving player.
+    app.world_mut()
+        .spawn(PlayerIdentityBundle::new(PlayerSlot(1)));
+
+    // Two PlayerEntity entities now exist; they must have distinct slots.
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&PlayerSlot, With<PlayerEntity>>();
+    let mut slots: Vec<u8> = q.iter(app.world()).map(|s| s.index()).collect();
+    slots.sort();
+    assert_eq!(slots, vec![0, 1], "expected slots [0, 1], got {slots:?}");
+
+    // Exactly one PrimaryPlayer must remain.
+    let mut primary_q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
+    assert_eq!(
+        primary_q.iter(app.world()).count(),
+        1,
+        "adding a non-primary second player should not change PrimaryPlayer count",
     );
 }
 

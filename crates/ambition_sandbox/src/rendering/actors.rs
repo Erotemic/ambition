@@ -209,12 +209,25 @@ pub fn upgrade_enemy_sprites(
         // override blank, so kernel→goblin keeps its dedicated visual
         // gag while every other faction NPC stays themselves when
         // hostile.
+        //
+        // Fallback for direct EnemySpawn entities (no NPC migration
+        // history): try the enemy's display name against the same
+        // NPC sprite registry. "Framebreaker" + "Nazi Salvage Guard"
+        // resolve to fascist_enforcer_spritesheet this way without
+        // authors having to duplicate the registry entry on an
+        // enemy-side table.
         let character_asset = match crate::features::ecs_enemy_sprite_override(&visual.id, &ecs_actors) {
             Some(name) => assets
                 .characters
                 .npc_asset_for_name(name)
+                .or_else(|| {
+                    crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
+                        .and_then(|n| assets.characters.npc_asset_for_name(n))
+                })
                 .or_else(|| assets.characters.enemy_asset(view.kind)),
-            None => assets.characters.enemy_asset(view.kind),
+            None => crate::features::ecs_enemy_name(&visual.id, &ecs_actors)
+                .and_then(|n| assets.characters.npc_asset_for_name(n))
+                .or_else(|| assets.characters.enemy_asset(view.kind)),
         };
         let Some(character_asset) = character_asset else {
             continue;
@@ -413,6 +426,13 @@ pub fn animate_characters(
     }
 }
 
+/// Prop kinds whose authored "Idle" row depicts motion (e.g. rolling
+/// wheels). These props stay pinned at frame 0 in [`animate_props`]
+/// until a `PropMotionState` component lands to gate their tick by
+/// real motion. Add a kind here when its sprite's idle frame reads
+/// as "this prop is moving" — the cart is the v1 case.
+pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
+
 /// Tick the idle animation row for every `PropVisual` sprite that
 /// owns a `CharacterAnimator`. Props have no ECS actor entity, so
 /// the regular `animate_characters` lookup would skip them — without
@@ -422,21 +442,43 @@ pub fn animate_characters(
 /// ring + gate portal stay owned by the portal-presentation systems
 /// (which drive the animator from `PortalPhase` instead of a flat
 /// Idle row tick).
+///
+/// Motion-gated props: a kind listed in [`PROP_KINDS_STATIC_UNTIL_MOVING`]
+/// stays pinned at frame 0. The intro cart's authored "idle" row is a
+/// wheel-rolling cycle that reads as "the cart is moving"; without a
+/// real motion source today (no scripted push), looping it makes the
+/// cart look like it's drifting in place. Until a `PropMotionState`
+/// component lands, hold these kinds at rest.
 pub fn animate_props(
     world_time: Res<crate::WorldTime>,
     mut query: Query<
         (
             &mut Sprite,
             &mut CharacterAnimator,
+            &PropVisual,
             Option<&crate::time_control::ProperTimeScale>,
         ),
-        (With<PropVisual>, Without<crate::rooms::PortalSprite>),
+        Without<crate::rooms::PortalSprite>,
     >,
 ) {
     // ADR 0011 — per-entity proper time. Props that need to keep
     // ticking when the world freezes (a clock prop in a frozen
     // boss arena, say) get a non-1.0 ProperTimeScale.
-    for (mut sprite, mut animator, scale) in &mut query {
+    for (mut sprite, mut animator, prop, scale) in &mut query {
+        if PROP_KINDS_STATIC_UNTIL_MOVING
+            .iter()
+            .any(|k| *k == prop.kind.as_str())
+        {
+            // Force-rest at frame 0 of the Idle row. `request` selects
+            // the row; ticking with dt=0 holds the row's current frame
+            // and matches the asset's first frame on entry.
+            animator.request(crate::character_sprites::CharacterAnim::Idle);
+            let index = animator.tick(0.0);
+            if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                atlas.index = index;
+            }
+            continue;
+        }
         let dt = world_time.entity_dt(crate::time_control::ProperTimeScale::or_default(scale));
         animator.request(crate::character_sprites::CharacterAnim::Idle);
         let index = animator.tick(dt);

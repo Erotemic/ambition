@@ -1776,6 +1776,28 @@ pub fn ecs_enemy_sprite_override<'a>(
     })
 }
 
+/// Per-enemy display name, used by `upgrade_enemy_sprites` as a
+/// fallback sprite-lookup key when no explicit `sprite_override` is
+/// set. Lets direct `EnemySpawn` entities (no NPC migration history)
+/// pick up a faction sheet by name — e.g. "Framebreaker" or
+/// "Nazi Salvage Guard" both resolve to `fascist_enforcer_spritesheet`
+/// via the intro NPC sprite registry without authors having to
+/// double-register them as an `enemy_sprite_registry`.
+pub fn ecs_enemy_name<'a>(
+    id: &str,
+    actors: &'a Query<(&FeatureId, &ActorRuntime)>,
+) -> Option<&'a str> {
+    actors.iter().find_map(|(feature_id, actor)| {
+        if feature_id.as_str() != id {
+            return None;
+        }
+        match actor {
+            ActorRuntime::Hostile(enemy) => Some(enemy.name.as_str()),
+            _ => None,
+        }
+    })
+}
+
 pub fn ecs_enemy_anim_state(
     id: &str,
     actors: &Query<(&FeatureId, &ActorRuntime)>,

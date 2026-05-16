@@ -5157,7 +5157,8 @@
 			"externalRelPath": null,
 			"fieldInstances": [
 				{ "__identifier": "activeArea", "__type": "String", "__value": "intro_wake_room", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["intro_wake_room"] } ] },
-				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["lab"] } ] }
+				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["lab"] } ] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "tech_bros_disruption", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": ["tech_bros_disruption"] } ] }
 			],
 			"layerInstances": [
 				{
@@ -5191,8 +5192,8 @@
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,2,2,2,2,2,2,
+						2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -5606,6 +5607,12 @@
 						{ "a": 1, "f": 0, "px": [0,160], "src": [0,0], "t": 0, "d": [160] },
 						{ "a": 1, "f": 0, "px": [0,192], "src": [0,0], "t": 0, "d": [192] },
 						{ "a": 1, "f": 0, "px": [0,224], "src": [0,0], "t": 0, "d": [224] },
+						{ "a": 1, "f": 0, "px": [128,224], "src": [384,32], "t": 28, "d": [228] },
+						{ "a": 1, "f": 0, "px": [160,224], "src": [384,32], "t": 28, "d": [229] },
+						{ "a": 1, "f": 0, "px": [192,224], "src": [384,32], "t": 28, "d": [230] },
+						{ "a": 1, "f": 0, "px": [224,224], "src": [384,32], "t": 28, "d": [231] },
+						{ "a": 1, "f": 0, "px": [256,224], "src": [384,32], "t": 28, "d": [232] },
+						{ "a": 1, "f": 0, "px": [288,224], "src": [384,32], "t": 28, "d": [233] },
 						{ "a": 1, "f": 0, "px": [0,256], "src": [0,0], "t": 0, "d": [256] },
 						{ "a": 1, "f": 0, "px": [0,288], "src": [0,0], "t": 0, "d": [288] },
 						{ "a": 1, "f": 0, "px": [0,320], "src": [0,0], "t": 0, "d": [320] },
@@ -5668,7 +5675,8 @@
 			"externalRelPath": null,
 			"fieldInstances": [
 				{ "__identifier": "activeArea", "__type": "String", "__value": "intro_raid_corridor", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["intro_raid_corridor"] } ] },
-				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["lab"] } ] }
+				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["lab"] } ] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "tech_bros_disruption", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": ["tech_bros_disruption"] } ] }
 			],
 			"layerInstances": [
 				{
@@ -6263,7 +6271,8 @@
 			"externalRelPath": null,
 			"fieldInstances": [
 				{ "__identifier": "activeArea", "__type": "String", "__value": "intro_escape_shaft", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["intro_escape_shaft"] } ] },
-				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["lab"] } ] }
+				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["lab"] } ] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "tech_bros_disruption", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": ["tech_bros_disruption"] } ] }
 			],
 			"layerInstances": [
 				{
@@ -6768,7 +6777,8 @@
 			"externalRelPath": null,
 			"fieldInstances": [
 				{ "__identifier": "activeArea", "__type": "String", "__value": "drain_alley", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["drain_alley"] } ] },
-				{ "__identifier": "biome", "__type": "String", "__value": "cave", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["cave"] } ] }
+				{ "__identifier": "biome", "__type": "String", "__value": "cave", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["cave"] } ] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "tech_bros_disruption", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": ["tech_bros_disruption"] } ] }
 			],
 			"layerInstances": [
 				{
@@ -7290,7 +7300,8 @@
 			"externalRelPath": null,
 			"fieldInstances": [
 				{ "__identifier": "activeArea", "__type": "String", "__value": "gate_stack_lower", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["gate_stack_lower"] } ] },
-				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["lab"] } ] }
+				{ "__identifier": "biome", "__type": "String", "__value": "lab", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["lab"] } ] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "tech_bros_disruption", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": ["tech_bros_disruption"] } ] }
 			],
 			"layerInstances": [
 				{

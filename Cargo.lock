@@ -136,6 +136,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_asset_manager"
+version = "0.1.0"
+dependencies = [
+ "ambition_sfx",
+ "bevy",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "ambition_engine"
 version = "0.1.0"
 dependencies = [
@@ -153,6 +164,7 @@ dependencies = [
 name = "ambition_sandbox"
 version = "0.2.0"
 dependencies = [
+ "ambition_asset_manager",
  "ambition_engine",
  "ambition_sfx",
  "avian2d",

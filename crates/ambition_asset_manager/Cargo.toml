@@ -1,0 +1,46 @@
+[package]
+name = "ambition_asset_manager"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ambition logical asset catalog + source/profile policy + Bevy integration. See docs/asset_manager.md."
+
+[lib]
+# Stays an rlib only — the crate is a library consumed by other crates,
+# not a shared/native artifact. Web/Android packaging is the consuming
+# binary's responsibility (sandbox).
+crate-type = ["rlib"]
+
+[features]
+# Default keeps the crate Bevy-free so headless / CLI tooling can use the
+# core resolver layer (id/manifest/profile/policy) with zero Bevy deps.
+# Sandbox / visible builds opt into `bevy` from their Cargo.toml.
+default = []
+
+# Bevy integration: AmbitionAssetManagerPlugin, AmbitionAssetCatalog
+# resource, AssetServer load helpers, and AssetPath generation.
+bevy = ["dep:bevy"]
+
+# Optional small adapter that resolves `audio.sfx_bank` through the
+# manifest and hands the bytes (when available) to
+# `ambition_sfx::BankProvider::from_bytes`. Has no audio backend deps.
+sfx = ["dep:ambition_sfx"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"
+# Only the asset subset is needed — the catalog/plugin uses
+# `AssetServer`, `Handle`, `App`, `Plugin`, `Resource`. Consumers
+# already pull the larger Bevy feature set; we don't double-include
+# rendering / audio just to expose a plugin trait.
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_state",
+], optional = true }
+ambition_sfx = { path = "../ambition_sfx", optional = true }
+
+[dev-dependencies]
+# Tests exercise the core layer without Bevy by default; a small set
+# behind `#[cfg(feature = "bevy")]` covers the Bevy adapter.
+serde_json = "1"

@@ -205,6 +205,82 @@ impl EntitySprite {
     ];
 }
 
+/// Stable `AssetId` for an `EntitySprite`, for use with
+/// [`ambition_asset_manager`]. First slice: this is a parallel lookup
+/// used by a documented demonstration (see [`demo_asset_catalog`]); the
+/// live `load_entity_sprites` path still uses raw paths via
+/// `asset_server.load(...)`. Migrating call sites is a follow-up.
+///
+/// Ids match the recommended `sprite.entity.<lower_snake>` scheme so
+/// future authored manifests can drop in without renaming.
+pub fn entity_sprite_asset_id(key: EntitySprite) -> ambition_asset_manager::AssetId {
+    let suffix = match key {
+        EntitySprite::ChestClosed => "chest_closed",
+        EntitySprite::ChestOpen => "chest_open",
+        EntitySprite::BreakableIntact => "breakable_intact",
+        EntitySprite::BreakableCracked => "breakable_cracked",
+        EntitySprite::BreakableBroken => "breakable_broken",
+        EntitySprite::PickupHealth => "pickup_health",
+        EntitySprite::PickupCurrency => "pickup_currency",
+        EntitySprite::PickupAbility => "pickup_ability",
+        EntitySprite::HazardSpikes => "hazard_spikes",
+        EntitySprite::NpcTerminal => "npc_terminal",
+        EntitySprite::BossCore => "boss_core",
+        EntitySprite::SandbagDummy => "sandbag_dummy",
+        EntitySprite::SolidBlock => "solid_block",
+        EntitySprite::OneWayPlatform => "one_way_platform",
+        EntitySprite::SoftBlinkWall => "soft_blink_wall",
+        EntitySprite::HardBlinkWall => "hard_blink_wall",
+        EntitySprite::PogoOrb => "pogo_orb",
+        EntitySprite::ReboundPad => "rebound_pad",
+        EntitySprite::MovingPlatform => "moving_platform",
+        EntitySprite::DoorZone => "door_zone",
+        EntitySprite::EdgeExit => "edge_exit",
+        EntitySprite::ProjectileEnergy => "projectile_energy",
+        EntitySprite::SolidTile => "solid_tile",
+        EntitySprite::OneWayTile => "one_way_tile",
+        EntitySprite::HazardTile => "hazard_tile",
+        EntitySprite::SoftBlinkTile => "soft_blink_tile",
+        EntitySprite::HardBlinkTile => "hard_blink_tile",
+        EntitySprite::LockWallTile => "lock_wall_tile",
+    };
+    ambition_asset_manager::AssetId::new(format!("sprite.entity.{suffix}"))
+}
+
+/// Demonstration manifest: registers the chest entity sprites with the
+/// asset catalog so the resolver can produce Bevy `AssetPath` strings
+/// matching what `load_entity_sprites` would synthesize by hand.
+///
+/// This is intentionally a tiny slice (two entries). It exists so a
+/// covering unit test can prove the catalog wiring is functional
+/// without rewriting the live `load_game_assets` path. The full
+/// migration of every sprite/font/parallax asset to catalog ids is a
+/// follow-up; see `docs/asset_manager.md` §"Migration plan".
+///
+/// The `sprite_folder` arg mirrors the live `GameAssetConfig` knob so
+/// the catalog-driven path follows `--sprite-folder` overrides; the
+/// live load path stays the source of truth until the migration lands.
+pub fn demo_asset_catalog(
+    sprite_folder: &str,
+) -> ambition_asset_manager::AmbitionAssetCatalog {
+    use ambition_asset_manager::{
+        AmbitionAssetCatalog, AssetEntry, AssetKind, AssetManifest, MissingAssetPolicy,
+        PreloadGroup,
+    };
+
+    let mut manifest = AssetManifest::new();
+    for &sprite in &[EntitySprite::ChestClosed, EntitySprite::ChestOpen] {
+        let id = entity_sprite_asset_id(sprite);
+        let logical_path = format!("{sprite_folder}/{}", sprite.relative_path());
+        manifest.insert(
+            AssetEntry::new(id, AssetKind::Image, logical_path)
+                .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+                .with_preload_group(PreloadGroup::SandboxCore),
+        );
+    }
+    AmbitionAssetCatalog::new(manifest)
+}
+
 /// Map from `EntitySprite` to its loaded `Handle<Image>`. Missing handles
 /// (file absent on disk OR no-asset mode) simply aren't keyed, so callers
 /// just consult `get(...) -> Option<&Handle<Image>>`.
@@ -756,6 +832,65 @@ mod tests {
         // Trailing flag with no folder argument: keep the default.
         let c = GameAssetConfig::from_arg_slice(&args(&["--sprite-folder"]));
         assert_eq!(c.sprite_folder, "sprites");
+    }
+
+    /// Demonstration: resolving `sprite.entity.chest_closed` through
+    /// the catalog yields the exact same path string `load_entity_sprites`
+    /// would synthesize from the live loader. Locks in the contract that
+    /// the catalog is path-compatible with the existing loader so a future
+    /// migration can swap them one-for-one without changing on-disk asset
+    /// layouts.
+    #[test]
+    fn demo_asset_catalog_resolves_chest_paths_matching_loader() {
+        use ambition_asset_manager::AssetProfile;
+
+        let catalog = demo_asset_catalog("sprites");
+        let chest_id = entity_sprite_asset_id(EntitySprite::ChestClosed);
+        let path = catalog
+            .path_for(&chest_id, AssetProfile::DesktopDevLoose)
+            .expect("ChestClosed must resolve under DesktopDevLoose");
+        assert_eq!(
+            path,
+            format!("sprites/{}", EntitySprite::ChestClosed.relative_path()),
+            "catalog path must match what load_entity_sprites builds",
+        );
+
+        // Honors `--sprite-folder`.
+        let catalog_exp = demo_asset_catalog("experimental");
+        let path_exp = catalog_exp
+            .path_for(&chest_id, AssetProfile::DesktopDevLoose)
+            .unwrap();
+        assert_eq!(
+            path_exp,
+            format!("experimental/{}", EntitySprite::ChestClosed.relative_path()),
+        );
+
+        // WebStatic synthesizes the embedded:// scheme from the same logical path.
+        let path_web = catalog
+            .path_for(&chest_id, AssetProfile::WebStatic)
+            .unwrap();
+        assert_eq!(
+            path_web,
+            format!(
+                "embedded://sprites/{}",
+                EntitySprite::ChestClosed.relative_path()
+            ),
+        );
+
+        // NoAssets disables every entry; the catalog returns None and
+        // the existing colored-rectangle fallback in `entity_sprite_or_color`
+        // covers the call site.
+        assert!(catalog
+            .path_for(&chest_id, AssetProfile::NoAssets)
+            .is_none());
+    }
+
+    #[test]
+    fn entity_sprite_asset_id_follows_sprite_entity_namespace() {
+        // The id scheme is part of the public asset catalog contract;
+        // changing it silently would invalidate authored manifests.
+        let id = entity_sprite_asset_id(EntitySprite::ChestClosed);
+        assert_eq!(id.as_str(), "sprite.entity.chest_closed");
     }
 
     #[test]

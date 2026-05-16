@@ -220,7 +220,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::update_ecs_hazards,
                 crate::features::update_ecs_actors,
                 crate::features::update_ecs_bosses,
-                input_timer_system,
+                input_timer_system.run_if(gameplay_allowed),
                 sandbox_update,
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,

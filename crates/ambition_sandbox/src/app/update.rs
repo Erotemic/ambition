@@ -22,19 +22,18 @@ use super::world_flow::*;
 use super::*;
 
 /// Phase 2 extracted: tick per-frame gameplay timers and detect double-tap
-/// gestures. Runs unconditionally every frame so wall-time timers always
-/// decay, but gate-checks the gameplay mode before touching gameplay state.
+/// gestures.
 ///
-/// Writes `fast_fall_pressed` back to `ControlFrame` (the resource) so
-/// `sandbox_update` sees the updated flag in its local copy.
-/// Sets `PlayerInteractionState::double_tap_up_pending` so the subsequent
-/// interaction phase can activate doors/NPCs without a shared return value.
+/// Registered with `run_if(gameplay_allowed)` so it only runs in
+/// `GameMode::Playing`. Writes `fast_fall_pressed` back to `ControlFrame`
+/// (the resource) so `sandbox_update` sees the updated flag in its local
+/// copy. Sets `PlayerInteractionState::double_tap_up_pending` so the
+/// subsequent interaction phase can activate doors/NPCs.
 pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<crate::SandboxSimState>,
     mut control_frame: ResMut<ControlFrame>,
-    mode: Res<State<GameMode>>,
     mut player_q: Query<
         (
             &mut crate::player::PlayerCombatState,
@@ -43,9 +42,6 @@ pub fn input_timer_system(
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    if !mode.get().allows_gameplay() {
-        return;
-    }
     let frame_dt = time.delta_secs();
     let feel = *feel_tuning;
     let Ok((mut combat, mut interaction)) = player_q.single_mut() else {

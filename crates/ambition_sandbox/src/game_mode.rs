@@ -7,6 +7,17 @@
 
 use bevy::prelude::*;
 
+/// Bevy run condition: returns `true` only in `GameMode::Playing`.
+/// Use this to gate simulation systems that must not run while paused,
+/// in dialogue, in a room transition, or in a cutscene.
+///
+/// ```
+/// app.add_systems(Update, my_system.run_if(gameplay_allowed));
+/// ```
+pub fn gameplay_allowed(mode: Res<State<GameMode>>) -> bool {
+    mode.get().allows_gameplay()
+}
+
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect)]
 pub enum GameMode {
     /// Normal gameplay: player, enemies, hazards, room triggers, and pickups

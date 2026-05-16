@@ -85,7 +85,7 @@ fn main() {
     app::run_visible();
 }
 
-pub use game_mode::GameMode;
+pub use game_mode::{gameplay_allowed, GameMode};
 pub use headless::{run_headless, HeadlessReport};
 #[cfg(feature = "rl_sim")]
 pub use rl_sim::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};

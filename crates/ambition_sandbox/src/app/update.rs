@@ -35,23 +35,26 @@ use super::*;
 /// graph stays linear.
 ///
 /// Phase order (each phase comments its scope and what it should not own):
-/// 1. `mode_gate_phase` — dialogue / pause / non-gameplay early returns.
-/// 2. `input_timer_system` (extracted to `sim_systems`) — gameplay timer
+/// 0. Gameplay-suspended modes (pause / dialogue / room transition /
+///    cutscene) are filtered out by `run_if(gameplay_allowed)`; the
+///    presentation-side `apply_suspended_time_scale_system` in
+///    `sim_systems` zeros `time_scale` for those modes instead.
+/// 1. `input_timer_system` (extracted to `sim_systems`) — gameplay timer
 ///    decay + double-tap detection. Runs before `sandbox_update`.
-/// 3. `reset_phase` — explicit reset input.
-/// 4. `player_control_phase` — control-clock player update + pogo routing.
-/// 5. `player_simulation_phase` — sim-clock player update + landing dust.
-/// 6. `interaction_input_phase` — interact / double-tap-up + buffering.
-/// 7. Collect ECS feature events and any damage/heals for this frame.
-/// 8. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
-/// 9. `room_transition_phase` — loading-zone transition request emission.
+/// 2. `reset_phase` — explicit reset input.
+/// 3. `player_control_phase` — control-clock player update + pogo routing.
+/// 4. `player_simulation_phase` — sim-clock player update + landing dust.
+/// 5. `interaction_input_phase` — interact / double-tap-up + buffering.
+/// 6. Collect ECS feature events and any damage/heals for this frame.
+/// 7. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
+/// 8. `room_transition_phase` — loading-zone transition request emission.
 ///    `apply_room_transition_system` runs after `sandbox_update` and
 ///    consumes the request.
-/// 10. `attack_phase` — slash/pogo attack triggering.
-/// 11. `cleanup_timers_system` (extracted to `sim_systems`) — flash /
+/// 9. `attack_phase` — slash/pogo attack triggering.
+/// 10. `cleanup_timers_system` (extracted to `sim_systems`) — flash /
 ///     preset / slash / blink animation timer decay. Runs after
 ///     `sandbox_update` every frame unconditionally.
-/// 12. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
+/// 11. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
 ///     `DebrisBurstMessage` queues into the bundled writers.
 pub fn sandbox_update(
     time: Res<Time>,
@@ -60,7 +63,6 @@ pub fn sandbox_update(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     feel_tuning: Res<SandboxFeelTuning>,
-    mode: Res<State<GameMode>>,
     mut event_writers: SandboxEventWriters,
     control_frame: Res<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
@@ -109,14 +111,6 @@ pub fn sandbox_update(
     // the input buffer (runtime state, not raw input).
     let mut controls = *control_frame;
     let frame_dt = time.delta_secs();
-
-    if matches!(
-        mode_gate_phase(mode.get(), &mut queues.dev_state, &mut queues.sim_state, &mut *combat, frame_dt),
-        PhaseOutcome::Return
-    ) {
-        flush_feedback(&mut feedback, &mut event_writers);
-        return;
-    }
 
     // Pause/resume toggling has moved to `pause_menu::pause_menu_toggle`,
     // which runs `.before(SandboxSet::CoreSimulation)`. The `start_pressed`

@@ -60,7 +60,7 @@ use crate::features;
 use crate::feel::SandboxFeelTuning;
 use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::game_assets::{self, GameAssetConfig};
-use crate::game_mode::{gameplay_allowed, GameMode};
+use crate::game_mode::{gameplay_allowed, gameplay_suspended, GameMode};
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
 use crate::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};

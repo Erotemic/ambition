@@ -11,6 +11,23 @@ use bevy::prelude::*;
 
 use crate::feel::SandboxFeelTuning;
 use crate::input::ControlFrame;
+use crate::SandboxSimState;
+
+/// While gameplay is suspended (paused, dialogue, room transition,
+/// cutscene), force `SandboxSimState::time_scale` to 0 so any
+/// presentation system that scales an animation by `time_scale * dt`
+/// freezes. The previous `mode_gate_phase` did the same thing at the
+/// top of `sandbox_update`; now that `sandbox_update` is gated by
+/// `run_if(gameplay_allowed)`, this needs to live in its own system
+/// that runs only when gameplay is *not* allowed.
+///
+/// In gameplay mode `update_time_scale` (inside `sandbox_update`'s
+/// `player_simulation_phase`) drives `time_scale` from hitstop /
+/// slowmo / dev settings, so this system intentionally does nothing
+/// when gameplay is allowed.
+pub fn apply_suspended_time_scale_system(mut sim_state: ResMut<SandboxSimState>) {
+    sim_state.time_scale = 0.0;
+}
 
 /// Tick per-frame gameplay timers and detect double-tap gestures.
 ///

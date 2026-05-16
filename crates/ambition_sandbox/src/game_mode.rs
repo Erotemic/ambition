@@ -18,6 +18,14 @@ pub fn gameplay_allowed(mode: Res<State<GameMode>>) -> bool {
     mode.get().allows_gameplay()
 }
 
+/// Bevy run condition: complement of [`gameplay_allowed`]. True in any
+/// mode that suspends gameplay (paused, dialogue, room transition,
+/// cutscene). Use to gate the small set of systems that should ONLY
+/// run while gameplay is suspended (e.g. forcing `time_scale = 0`).
+pub fn gameplay_suspended(mode: Res<State<GameMode>>) -> bool {
+    !mode.get().allows_gameplay()
+}
+
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect)]
 pub enum GameMode {
     /// Normal gameplay: player, enemies, hazards, room triggers, and pickups
@@ -68,6 +76,19 @@ mod tests {
     #[test]
     fn default_is_playing() {
         assert_eq!(GameMode::default(), GameMode::Playing);
+    }
+
+    #[test]
+    fn gameplay_suspended_is_complement_of_allowed() {
+        for mode in [
+            GameMode::Playing,
+            GameMode::Paused,
+            GameMode::Dialogue,
+            GameMode::RoomTransition,
+            GameMode::Cutscene,
+        ] {
+            assert_eq!(mode.allows_gameplay(), !(!mode.allows_gameplay()));
+        }
     }
 
     #[test]

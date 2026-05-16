@@ -21,35 +21,6 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
-/// Phase 1 — dialogue / pause / non-gameplay early returns.
-///
-/// Owns: zeroing `time_scale`, decaying `flash_timer` + `preset_flash` in
-/// modes that intentionally suspend gameplay.
-///
-/// Should not own: gameplay input edits, movement, combat, or room
-/// transitions. New "in dialogue / paused / cutscene" timer decay
-/// belongs here; new gameplay logic does not.
-pub(super) fn mode_gate_phase(
-    mode: &GameMode,
-    _dev_state: &mut crate::SandboxDevState,
-    sim_state: &mut crate::SandboxSimState,
-    _combat: &mut crate::player::PlayerCombatState,
-    _frame_dt: f32,
-) -> PhaseOutcome {
-    if !mode.allows_gameplay() {
-        // Pause, dialogue, transition, and cutscene modes suspend gameplay
-        // input and simulation time. Developer hotkeys and HUD sync remain
-        // responsive because those systems run outside this early return.
-        //
-        // Flash and animation timers (flash_timer, preset_flash, etc.) are
-        // now handled by cleanup_timers_system, which runs every frame
-        // unconditionally so presentation timers wind down in all modes.
-        sim_state.time_scale = 0.0;
-        return PhaseOutcome::Return;
-    }
-    PhaseOutcome::Continue
-}
-
 /// Phase 3 — explicit reset input.
 ///
 /// Owns: routing the `reset_pressed` button through `reset_sandbox`. New

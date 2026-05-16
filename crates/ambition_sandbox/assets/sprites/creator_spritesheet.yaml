@@ -1,0 +1,146 @@
+target: creator
+image: creator_spritesheet.png
+label_width: 108
+frame_width: 160
+frame_height: 192
+rows:
+- animation: idle
+  row_index: 0
+  frame_count: 6
+  duration_ms: 145
+  duration_secs: 0.145
+  rects:
+  - x: 108
+    y: 0
+    w: 160
+    h: 192
+  - x: 268
+    y: 0
+    w: 160
+    h: 192
+  - x: 428
+    y: 0
+    w: 160
+    h: 192
+  - x: 588
+    y: 0
+    w: 160
+    h: 192
+  - x: 748
+    y: 0
+    w: 160
+    h: 192
+  - x: 908
+    y: 0
+    w: 160
+    h: 192
+- animation: speak
+  row_index: 1
+  frame_count: 6
+  duration_ms: 110
+  duration_secs: 0.11
+  rects:
+  - x: 108
+    y: 192
+    w: 160
+    h: 192
+  - x: 268
+    y: 192
+    w: 160
+    h: 192
+  - x: 428
+    y: 192
+    w: 160
+    h: 192
+  - x: 588
+    y: 192
+    w: 160
+    h: 192
+  - x: 748
+    y: 192
+    w: 160
+    h: 192
+  - x: 908
+    y: 192
+    w: 160
+    h: 192
+- animation: gesture
+  row_index: 2
+  frame_count: 6
+  duration_ms: 100
+  duration_secs: 0.1
+  rects:
+  - x: 108
+    y: 384
+    w: 160
+    h: 192
+  - x: 268
+    y: 384
+    w: 160
+    h: 192
+  - x: 428
+    y: 384
+    w: 160
+    h: 192
+  - x: 588
+    y: 384
+    w: 160
+    h: 192
+  - x: 748
+    y: 384
+    w: 160
+    h: 192
+  - x: 908
+    y: 384
+    w: 160
+    h: 192
+- animation: walk
+  row_index: 3
+  frame_count: 8
+  duration_ms: 95
+  duration_secs: 0.095
+  rects:
+  - x: 108
+    y: 576
+    w: 160
+    h: 192
+  - x: 268
+    y: 576
+    w: 160
+    h: 192
+  - x: 428
+    y: 576
+    w: 160
+    h: 192
+  - x: 588
+    y: 576
+    w: 160
+    h: 192
+  - x: 748
+    y: 576
+    w: 160
+    h: 192
+  - x: 908
+    y: 576
+    w: 160
+    h: 192
+  - x: 1068
+    y: 576
+    w: 160
+    h: 192
+  - x: 1228
+    y: 576
+    w: 160
+    h: 192
+body_metrics:
+  body_pixel_bbox:
+    x: 42
+    y: 36
+    w: 93
+    h: 147
+  feet_pixel:
+    x: 88.5
+    y: 183.0
+  feet_anchor_norm:
+    x: 0.053125
+    y: -0.453125

@@ -1,8 +1,8 @@
 target: interdimensional_gate_ring
 image: interdimensional_gate_ring_spritesheet.png
-label_width: 110
-frame_width: 128
-frame_height: 128
+label_width: 128
+frame_width: 192
+frame_height: 192
 rows:
 - animation: idle
   row_index: 0
@@ -10,101 +10,101 @@ rows:
   duration_ms: 140
   duration_secs: 0.14
   rects:
-  - x: 110
+  - x: 128
     y: 0
-    w: 128
-    h: 128
-  - x: 238
+    w: 192
+    h: 192
+  - x: 320
     y: 0
-    w: 128
-    h: 128
-  - x: 366
+    w: 192
+    h: 192
+  - x: 512
     y: 0
-    w: 128
-    h: 128
-  - x: 494
+    w: 192
+    h: 192
+  - x: 704
     y: 0
-    w: 128
-    h: 128
-  - x: 622
+    w: 192
+    h: 192
+  - x: 896
     y: 0
-    w: 128
-    h: 128
-  - x: 750
+    w: 192
+    h: 192
+  - x: 1088
     y: 0
-    w: 128
-    h: 128
-  - x: 878
+    w: 192
+    h: 192
+  - x: 1280
     y: 0
-    w: 128
-    h: 128
-  - x: 1006
+    w: 192
+    h: 192
+  - x: 1472
     y: 0
-    w: 128
-    h: 128
+    w: 192
+    h: 192
 - animation: spin
   row_index: 1
   frame_count: 12
   duration_ms: 85
   duration_secs: 0.085
   rects:
-  - x: 110
-    y: 128
-    w: 128
-    h: 128
-  - x: 238
-    y: 128
-    w: 128
-    h: 128
-  - x: 366
-    y: 128
-    w: 128
-    h: 128
-  - x: 494
-    y: 128
-    w: 128
-    h: 128
-  - x: 622
-    y: 128
-    w: 128
-    h: 128
-  - x: 750
-    y: 128
-    w: 128
-    h: 128
-  - x: 878
-    y: 128
-    w: 128
-    h: 128
-  - x: 1006
-    y: 128
-    w: 128
-    h: 128
-  - x: 1134
-    y: 128
-    w: 128
-    h: 128
-  - x: 1262
-    y: 128
-    w: 128
-    h: 128
-  - x: 1390
-    y: 128
-    w: 128
-    h: 128
-  - x: 1518
-    y: 128
-    w: 128
-    h: 128
+  - x: 128
+    y: 192
+    w: 192
+    h: 192
+  - x: 320
+    y: 192
+    w: 192
+    h: 192
+  - x: 512
+    y: 192
+    w: 192
+    h: 192
+  - x: 704
+    y: 192
+    w: 192
+    h: 192
+  - x: 896
+    y: 192
+    w: 192
+    h: 192
+  - x: 1088
+    y: 192
+    w: 192
+    h: 192
+  - x: 1280
+    y: 192
+    w: 192
+    h: 192
+  - x: 1472
+    y: 192
+    w: 192
+    h: 192
+  - x: 1664
+    y: 192
+    w: 192
+    h: 192
+  - x: 1856
+    y: 192
+    w: 192
+    h: 192
+  - x: 2048
+    y: 192
+    w: 192
+    h: 192
+  - x: 2240
+    y: 192
+    w: 192
+    h: 192
 body_metrics:
   body_pixel_bbox:
-    x: 7
-    y: 7
-    w: 114
-    h: 108
+    x: 21
+    y: 16
+    w: 150
+    h: 152
   feet_pixel:
-    x: 64.0
-    y: 115.0
+    x: 96.0
+    y: 168.0
   feet_anchor_norm:
     x: 0.0
-    y: -0.398438
+    y: -0.375

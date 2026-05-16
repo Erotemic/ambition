@@ -14,8 +14,8 @@
 //! rectangles per the existing contract.
 
 use crate::character_sprites::{
-    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET,
-    MERCHANT_PROTOTYPE_SHEET, VAULT_KEEPER_SHEET,
+    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, ERDISH_SHEET, GOBLIN_SHEET,
+    KERNEL_GUIDE_SHEET, OILER_SHEET,
 };
 
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
@@ -29,13 +29,20 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     // Same creator, raid-corridor variant. Re-uses the same sheet so
     // the player recognizes the silhouette dying mid-sentence.
     ("Creator Final", "kernel_guide_spritesheet.png", KERNEL_GUIDE_SHEET),
-    // Oiler: street mechanic. Merchant prototype reads as practical,
-    // utility-belt-ish; fits Oiler's "tools and poor boundaries" beat.
-    ("Oiler", "merchant_prototype_spritesheet.png", MERCHANT_PROTOTYPE_SHEET),
-    // Gate Janitor: utility staff under the gate stack. Vault Keeper
-    // reads as "vested, bureaucratic, slightly tired", which is close
-    // enough until a dedicated janitor sheet lands.
-    ("Gate Janitor", "vault_keeper_spritesheet.png", VAULT_KEEPER_SHEET),
+    // Oiler: street mechanic. Dedicated toon-adapter sheet (rendered
+    // from configs/review/oiler.yaml + the `oiler` PRESETS entry in
+    // targets/toon_side.py).
+    ("Oiler", "oiler_spritesheet.png", OILER_SHEET),
+    // Gate Janitor: utility staff under the gate stack. Kernel Guide
+    // is the placeholder until a dedicated janitor sheet lands —
+    // poncho + slightly weary silhouette reads closer than the
+    // vested Vault Keeper at this size.
+    ("Gate Janitor", "kernel_guide_spritesheet.png", KERNEL_GUIDE_SHEET),
+    // Erdish: optional recurring graph-theory eccentric. Not spawned
+    // in the v1 intro slice yet (he lands when a `NpcSpawn` with
+    // `name: Erdish` is authored in a later room), but pre-registered
+    // so the sprite is ready the moment LDtk authoring catches up.
+    ("Erdish", "erdish_spritesheet.png", ERDISH_SHEET),
     // Framebreaker (anti-machine hardliner). Goblin sheet is a
     // deliberate placeholder — the doc calls it out as "Goblin or
     // generic enemy placeholder, but rename in dialogue."

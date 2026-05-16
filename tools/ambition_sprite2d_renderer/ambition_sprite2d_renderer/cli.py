@@ -75,12 +75,42 @@ DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 # `list-targets` works even without Pillow installed.
 
 _TACKON_TARGETS: dict[str, str] = {
+    # Lab + town environment sheets.
     "creator_lab_props": "ambition_sprite2d_renderer.targets.creator_lab_props",
     "town_tileset": "ambition_sprite2d_renderer.targets.town_tileset",
+    # Intro-sequence sheets (wake room cart + lab tileset).
     "intro_cart": "ambition_sprite2d_renderer.targets.intro_cart",
     "intro_lab_tileset": "ambition_sprite2d_renderer.targets.intro_lab_tileset",
+    # Characters / NPCs that don't fit the standard adapter rig and
+    # have their own per-target render module instead. These were
+    # dropped from the registry during a refactor (see commit a0d8b15
+    # "Sprites") and restored 2026-05-16 so `render-publish-all` and
+    # `list-targets` see them again.
+    "creator": "ambition_sprite2d_renderer.targets.creator",
+    "mockingbird_boss": "ambition_sprite2d_renderer.targets.mockingbird_boss",
+    "pirate_admiral": "ambition_sprite2d_renderer.targets.pirate_admiral",
+    "pirate_raider": "ambition_sprite2d_renderer.targets.pirate_raider",
+    "interdimensional_gate": "ambition_sprite2d_renderer.targets.interdimensional_gate",
+    "burning_flying_shark": "ambition_sprite2d_renderer.targets.burning_flying_shark",
+    # Sandbag stays last for parity with the pre-refactor ordering.
     "sandbag": "ambition_sprite2d_renderer.targets.sandbag",
 }
+
+# Review configs whose generated spritesheets are loaded at runtime via
+# the sandbox NPC sprite registry. `draw-all` skips `configs/review/`
+# by design (those are art-iteration review jobs), but these specific
+# ones produce assets the game needs. `draw-runtime-npcs` renders +
+# installs them in one shot so a fresh checkout can boot with full
+# NPC art without invoking `draw-character` ten times.
+RUNTIME_REVIEW_NPCS: tuple[str, ...] = (
+    "absurd_general",
+    "architect",
+    "erdish",
+    "kernel_guide",
+    "merchant_prototype",
+    "oiler",
+    "vault_keeper",
+)
 
 
 def _get_tackon_target(name: str):
@@ -258,6 +288,16 @@ def _render_tackon(target_name: str, *, legacy_aliases: bool = False) -> List[Pa
 def _install_tackon(target_name: str, dest_root: Path) -> List[Path]:
     target = _get_tackon_target(target_name)
     out_dir = generated_dir(target_name)
+    # Targets that need to install into a subdirectory (e.g. the
+    # mockingbird boss, which ships a `mockingbird_boss/` folder with
+    # a manifest + per-part frames) expose a custom `install(render_dir,
+    # dest_root)` function. Falling back to the default SHEET_FILES
+    # copy when absent matches the pre-refactor behavior.
+    if hasattr(target, "install"):
+        copied = list(target.install(out_dir, dest_root))
+        print_paths(copied)
+        return copied
+
     dest_root.mkdir(parents=True, exist_ok=True)
     copied: List[Path] = []
     missing: List[str] = []
@@ -301,6 +341,126 @@ def _cmd_render_publish(args: argparse.Namespace) -> int:
     _render_tackon(args.target, legacy_aliases=args.legacy_aliases)
     copied = _install_tackon(args.target, args.dest_root)
     return 0 if copied else 1
+
+
+def _cmd_render_publish_all(args: argparse.Namespace) -> int:
+    """Render + install every tack-on target. Used to bring a fresh
+    checkout up to date in one command after a renderer change touches
+    multiple targets. Each target's errors are reported but don't abort
+    the rest of the run."""
+    failures: list[str] = []
+    for target_name in sorted(_TACKON_TARGETS):
+        print(f"\n# {target_name}")
+        try:
+            _render_tackon(target_name, legacy_aliases=args.legacy_aliases)
+            if not _install_tackon(target_name, args.dest_root):
+                failures.append(target_name)
+        except Exception as ex:  # noqa: BLE001 - report and continue
+            print(
+                f"error: tack-on target {target_name!r} failed: {ex}",
+                file=sys.stderr,
+            )
+            failures.append(target_name)
+    if failures:
+        print(
+            f"\nrender-publish-all completed with {len(failures)} failure(s): "
+            + ", ".join(failures),
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
+def _cmd_regenerate_all(args: argparse.Namespace) -> int:
+    """Single-button regen: render + install every sprite the sandbox
+    runtime can consume.
+
+    Composes three existing convenience commands so a fresh checkout
+    only needs one invocation to be art-current:
+
+    1. `draw-all --out-dir <sandbox assets>` — adapter-driven sheets
+       (player_robot, robot, goblin, ninja, ninja_leader, sandbag,
+       boss, fascist_enforcer).
+    2. `render-publish-all` — every tack-on target (intro_cart,
+       intro_lab_tileset, creator, creator_lab_props, town_tileset,
+       mockingbird_boss, pirate_admiral, pirate_raider,
+       interdimensional_gate, burning_flying_shark, sandbag).
+    3. `draw-runtime-npcs` — review-config toon NPCs that the runtime
+       sprite registry expects (architect, kernel_guide, vault_keeper,
+       merchant_prototype, absurd_general, oiler, erdish).
+
+    Errors in any sub-step are reported but don't abort the others.
+    """
+    dest = Path(args.dest_root)
+    print("# step 1/3: draw-all (adapter sheets) -> sandbox assets")
+    failures: list[str] = []
+    try:
+        outputs = draw_all(DEFAULT_CONFIG_DIR, dest)
+        print_paths(outputs)
+    except Exception as ex:  # noqa: BLE001
+        print(f"error: draw-all failed: {ex}", file=sys.stderr)
+        failures.append("draw-all")
+
+    print("\n# step 2/3: render-publish-all (tack-on targets)")
+    publish_args = argparse.Namespace(legacy_aliases=False, dest_root=dest)
+    rc = _cmd_render_publish_all(publish_args)
+    if rc != 0:
+        failures.append("render-publish-all")
+
+    print("\n# step 3/3: draw-runtime-npcs (review-config NPCs)")
+    npc_args = argparse.Namespace(
+        review_dir=str(DEFAULT_REVIEW_CONFIG_DIR), out_dir=str(dest)
+    )
+    rc = _cmd_draw_runtime_npcs(npc_args)
+    if rc != 0:
+        failures.append("draw-runtime-npcs")
+
+    if failures:
+        print(
+            f"\nregenerate-all completed with failure(s): {', '.join(failures)}",
+            file=sys.stderr,
+        )
+        return 1
+    print("\nregenerate-all OK")
+    return 0
+
+
+def _cmd_draw_runtime_npcs(args: argparse.Namespace) -> int:
+    """Render + install every review-config NPC that the runtime sprite
+    registry expects at boot. These configs live under `configs/review/`
+    so `draw-all` skips them by default; this one walks the
+    [`RUNTIME_REVIEW_NPCS`] tuple and runs `draw-character` for each."""
+    review_dir = Path(args.review_dir)
+    out_dir = Path(args.out_dir)
+    failures: list[str] = []
+    all_outputs: List[Path] = []
+    for stem in RUNTIME_REVIEW_NPCS:
+        cfg = review_dir / f"{stem}.yaml"
+        if not cfg.exists():
+            print(
+                f"error: missing review config for runtime NPC {stem!r}: {cfg}",
+                file=sys.stderr,
+            )
+            failures.append(stem)
+            continue
+        try:
+            paths = draw_character(cfg, out_dir)
+            all_outputs.extend(paths)
+        except Exception as ex:  # noqa: BLE001
+            print(
+                f"error: rendering runtime NPC {stem!r} failed: {ex}",
+                file=sys.stderr,
+            )
+            failures.append(stem)
+    print_paths(all_outputs)
+    if failures:
+        print(
+            f"\ndraw-runtime-npcs completed with {len(failures)} failure(s): "
+            + ", ".join(failures),
+            file=sys.stderr,
+        )
+        return 1
+    return 0
 
 
 def _add_tackon_render_args(p: argparse.ArgumentParser) -> None:
@@ -402,6 +562,60 @@ def build_parser() -> argparse.ArgumentParser:
         default=sandbox_sprites_dir(),
     )
     p.set_defaults(func=_cmd_render_publish)
+
+    p = sub.add_parser(
+        "render-publish-all",
+        help="Render + install every registered tack-on target in one shot",
+    )
+    p.add_argument(
+        "--dest-root",
+        type=Path,
+        default=sandbox_sprites_dir(),
+        help="install destination (default: crates/ambition_sandbox/assets/sprites)",
+    )
+    p.add_argument(
+        "--legacy-aliases",
+        action="store_true",
+        help="also emit any legacy compatibility sheets the targets support",
+    )
+    p.set_defaults(func=_cmd_render_publish_all)
+
+    p = sub.add_parser(
+        "draw-runtime-npcs",
+        help=(
+            "Render + install every review-config NPC that the runtime "
+            "sprite registry expects at boot (architect, kernel_guide, "
+            "vault_keeper, merchant_prototype, absurd_general, oiler, "
+            "erdish). These live under configs/review/ so draw-all skips "
+            "them by default."
+        ),
+    )
+    p.add_argument(
+        "--review-dir",
+        default=str(DEFAULT_REVIEW_CONFIG_DIR),
+    )
+    p.add_argument(
+        "--out-dir",
+        default=str(sandbox_sprites_dir()),
+        help="install destination (default: crates/ambition_sandbox/assets/sprites)",
+    )
+    p.set_defaults(func=_cmd_draw_runtime_npcs)
+
+    p = sub.add_parser(
+        "regenerate-all",
+        help=(
+            "One-shot: draw-all + render-publish-all + draw-runtime-npcs, "
+            "all installed into sandbox assets. Brings a fresh checkout's "
+            "sprite directory up to date in one command."
+        ),
+    )
+    p.add_argument(
+        "--dest-root",
+        type=Path,
+        default=sandbox_sprites_dir(),
+        help="install destination (default: crates/ambition_sandbox/assets/sprites)",
+    )
+    p.set_defaults(func=_cmd_regenerate_all)
 
     return parser
 

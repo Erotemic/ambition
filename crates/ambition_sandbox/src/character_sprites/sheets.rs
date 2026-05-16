@@ -753,6 +753,45 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
+/// Oiler — street mechanic NPC who finds the player in the drain alley
+/// after the intro escape. Toon-side adapter render; matches the Oiler
+/// review config (configs/review/oiler.yaml).
+pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 112,
+    // body_metrics frame=79×100, +4px padding → 83×104.
+    frame_width: 83,
+    frame_height: 104,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.470,
+    frame_sample_inset: 2,
+};
+
+/// Erdish — wandering graph-theory eccentric. Toon-side adapter render;
+/// matches the Erdish review config (configs/review/erdish.yaml).
+pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 112,
+    // body_metrics frame=87×112, +4px padding → 91×116.
+    frame_width: 91,
+    frame_height: 116,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.474,
+    frame_sample_inset: 2,
+};
+
 /// Merchant Prototype — placeholder shopkeeper NPC.
 pub const MERCHANT_PROTOTYPE_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 116,

@@ -6,9 +6,8 @@ use super::*;
 ///
 /// The world envelope / inside-solid check is delegated to
 /// `ae::classify_player_safety` so the trace recorder and
-/// `SandboxRuntime::remember_safe_player_position` use the same
-/// definition. The recorder layers the trace-only "absurd velocity"
-/// rule on top.
+/// `crate::remember_safe_player_position` use the same definition.
+/// The recorder layers the trace-only "absurd velocity" rule on top.
 pub fn detect_oob(player: &ae::Player, world: &ae::World, margin: f32) -> Option<OobReason> {
     let speed = player.vel.length();
     if speed.is_finite() && speed > ABSURD_VELOCITY_MAGNITUDE {
@@ -72,7 +71,7 @@ fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTrac
 /// can call it once per `sandbox_update` tick.
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
-    runtime: &SandboxRuntime,
+    player: &ae::Player,
     sim_state: &crate::SandboxSimState,
     world: &ae::World,
     controls: ControlFrame,
@@ -86,7 +85,6 @@ pub fn build_frame(
     locomotion: &str,
     body_mode: &str,
 ) -> GameplayTraceFrame {
-    let player = &runtime.player;
     GameplayTraceFrame {
         seq,
         tick,
@@ -121,7 +119,7 @@ pub fn build_frame(
         },
         controls: controls.into(),
         nearby_collision: nearby_collision(world, player),
-        moving_platforms: build_moving_platform_states(&runtime.player, moving_platforms),
+        moving_platforms: build_moving_platform_states(player, moving_platforms),
     }
 }
 
@@ -172,7 +170,7 @@ fn build_moving_platform_states(
 /// timeline without touching every phase helper.
 pub(crate) fn synthesize_events_from_diff(
     buffer: &mut GameplayTraceBuffer,
-    runtime: &SandboxRuntime,
+    player: &ae::Player,
     hp_current: i32,
     controls: ControlFrame,
     real_dt: f32,
@@ -184,7 +182,6 @@ pub(crate) fn synthesize_events_from_diff(
         return;
     };
     let tick = buffer.tick;
-    let player = &runtime.player;
     let cur_pos = player.pos;
     let cur_vel = player.vel;
 
@@ -372,14 +369,13 @@ pub fn record_frame(
 /// tick's `synthesize_events_from_diff` sees an up-to-date baseline.
 pub(crate) fn update_previous_snapshot(
     buffer: &mut GameplayTraceBuffer,
-    runtime: &SandboxRuntime,
+    player: &ae::Player,
     hp_current: i32,
     controls: ControlFrame,
     active_area: &str,
     locomotion: ae::LocomotionState,
     body_mode: ae::BodyMode,
 ) {
-    let player = &runtime.player;
     buffer.previous = Some(PreviousFrameSnapshot {
         pos: player.pos,
         vel: player.vel,

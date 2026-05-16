@@ -104,7 +104,6 @@ pub(super) fn reset_phase(
     controls: &ControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
     sim_state: &mut crate::SandboxSimState,
     attack: &mut Option<crate::PlayerAttackState>,
     feedback: &mut FrameFeedback,
@@ -122,7 +121,6 @@ pub(super) fn reset_phase(
             &mut feedback.sfx,
             &mut feedback.vfx,
             player,
-            runtime,
             sim_state,
             attack,
             anim,
@@ -152,7 +150,6 @@ pub(super) fn player_control_phase(
     controls: ControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &[crate::platforms::MovingPlatformState],
     attack: &mut Option<crate::PlayerAttackState>,
@@ -188,7 +185,6 @@ pub(super) fn player_control_phase(
             &mut feedback.sfx,
             &mut feedback.vfx,
             player,
-            runtime,
             sim_state,
             attack,
             anim,
@@ -235,7 +231,6 @@ pub(super) fn player_simulation_phase(
     controls: ControlFrame,
     world: &ae::World,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
     dev_state: &crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
@@ -314,7 +309,6 @@ pub(super) fn player_simulation_phase(
             &mut feedback.sfx,
             &mut feedback.vfx,
             player,
-            runtime,
             sim_state,
             attack,
             anim,
@@ -369,6 +363,7 @@ pub(super) fn interaction_input_phase(
         interaction.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
 }
 
+
 /// Phase 8 — apply heals/damage, dialogue start, feature-driven reset.
 ///
 /// Owns: `handle_player_damage_events`, `remember_safe_player_position`
@@ -378,7 +373,6 @@ pub(super) fn interaction_input_phase(
 pub(super) fn damage_heal_dialogue_phase(
     world: &ae::World,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &[crate::platforms::MovingPlatformState],
     feedback: &mut FrameFeedback,
@@ -399,7 +393,6 @@ pub(super) fn damage_heal_dialogue_phase(
         &mut feedback.vfx,
         &mut feedback.died,
         player,
-        runtime,
         sim_state,
         banner,
         player_health,
@@ -422,7 +415,7 @@ pub(super) fn damage_heal_dialogue_phase(
         blink_grace_active: player.blink_grace_timer > 0.0,
         room_transitioning: sim_state.room_transition_cooldown > 0.0,
     };
-    runtime.remember_safe_player_position(sim_state, player, &safe_world, ctx);
+    crate::remember_safe_player_position(sim_state, player, &safe_world, ctx);
 }
 
 /// Phase 9 — loading-zone transition + `load_room`.

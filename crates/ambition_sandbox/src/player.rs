@@ -1,9 +1,8 @@
-//! ECS player seam.
+//! ECS player components.
 //!
 //! The ECS player entity is the frame-to-frame authority for player movement,
-//! health, combat timers, and interaction buffering. `SandboxRuntime` still
-//! carries a legacy player scratch copy while the old phase helpers are split
-//! into standalone ECS systems.
+//! health, combat timers, and interaction buffering. All player state lives on
+//! ECS components; do not reintroduce a god-object runtime resource.
 
 use ambition_engine as ae;
 use bevy::prelude::*;
@@ -14,11 +13,9 @@ pub struct PlayerEntity;
 
 /// Frame-to-frame authoritative player movement state.
 ///
-/// This intentionally wraps the engine player during the authority flip. The
-/// legacy `SandboxRuntime::player` field is synchronized from this component at
-/// the start of the gameplay chain and synchronized back after the old phase
-/// helpers run, making the runtime field a scratch adapter rather than the
-/// durable owner.
+/// This is the single source of truth for `ae::Player` within the Bevy world.
+/// All sandbox systems that read or write player movement/ability state must
+/// go through this component.
 #[derive(Component, Clone)]
 pub struct PlayerMovementAuthority {
     pub player: ae::Player,
@@ -89,10 +86,6 @@ impl PlayerBody {
 }
 
 /// ECS-owned player health.
-///
-/// Movement still mirrors from `SandboxRuntime::player`, but health is the
-/// first player domain that can be mutated through ECS systems/messages and
-/// mirrored back into the runtime bridge for legacy callers.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlayerHealth {
     pub health: ae::Health,
@@ -304,8 +297,7 @@ impl PlayerBlinkCameraState {
     }
 }
 
-/// Typed heal request for producers that should not mutate `SandboxRuntime`
-/// directly.
+/// Typed heal request message for gameplay heal events.
 #[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlayerHealRequested {
     pub amount: i32,

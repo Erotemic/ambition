@@ -462,7 +462,6 @@ pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
     world: Res<crate::GameWorld>,
-    runtime: Res<crate::SandboxRuntime>,
     platform_set: Res<crate::MovingPlatformSet>,
     mode: Res<State<crate::game_mode::GameMode>>,
     scene: Res<crate::rendering::SceneEntities>,
@@ -478,11 +477,13 @@ pub fn update_blink_preview(
 ) {
     use crate::input::ControlFrame;
 
-    let player = if let Ok(auth) = player_authority.single() {
-        &auth.player
-    } else {
-        &runtime.player
+    let Ok(auth) = player_authority.single() else {
+        for (entity, _, _, _) in &existing {
+            commands.entity(entity).despawn();
+        }
+        return;
     };
+    let player = &auth.player;
     let actions = if mode.get().allows_gameplay() {
         action_query.get(scene.player).ok()
     } else {

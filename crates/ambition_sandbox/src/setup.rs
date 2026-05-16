@@ -2,10 +2,10 @@
 //!
 //! Slice 4 of ADR 0012's events refactor: the previous monolithic `setup`
 //! system in `main.rs` mixed simulation-only world construction
-//! (`SandboxRuntime`, `LdtkWorldBundle`, the player entity's gameplay
-//! components) with presentation-only spawns (Camera2d, sprites, HUD text,
-//! and generated audio library setup). This module factors that into two
-//! reusable helpers so the visible binary can call both, the future Slice 5
+//! (`LdtkWorldBundle`, the player entity's gameplay components) with
+//! presentation-only spawns (Camera2d, sprites, HUD text, and generated
+//! audio library setup). This module factors that into two reusable helpers
+//! so the visible binary can call both, the future Slice 5
 //! `add_simulation_plugins` / `add_presentation_plugins` split has a clean
 //! seam, and the headless binary can call `simulation_world` standalone
 //! once the LdtkPlugin-headless question is resolved.
@@ -41,7 +41,7 @@ use crate::rendering::{
 };
 use crate::rooms::RoomSet;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
-use crate::{GameWorld, SandboxRuntime};
+use crate::GameWorld;
 #[cfg(feature = "audio")]
 use ambition_sfx::BankProvider;
 
@@ -85,12 +85,11 @@ pub struct PresentationSetup<'a> {
 /// * logging room layout warnings
 /// * spawning the `LdtkWorldBundle` so `bevy_ecs_ldtk` can own LDtk entity
 ///   lifecycle and the runtime-spine systems have something to query
-/// * constructing `SandboxRuntime` and inserting it as a resource
-/// * spawning the player entity with the gameplay-essential components
-///   (`Transform`, `PlayerVisual`). Leafwing's `ActionState` and
-///   `InputMap` get attached by the presentation-side
-///   `attach_player_input_components` startup system; sim-only builds
-///   stay leafwing-free per the ADR 0012 input seam.
+/// * spawning the player entity with gameplay-essential ECS components
+///   (`Transform`, `PlayerVisual`, `PlayerMovementAuthority`, etc.).
+///   Leafwing's `ActionState` and `InputMap` get attached by the
+///   presentation-side `attach_player_input_components` startup system;
+///   sim-only builds stay leafwing-free per the ADR 0012 input seam.
 /// * inserting a `SceneEntities` resource with `hud: Entity::PLACEHOLDER`
 ///   that `presentation_world` overwrites once the HUD entity exists
 pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) -> Entity {
@@ -131,22 +130,15 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     let _ = (ldtk_asset, asset_server);
     let _ = ldtk_index;
 
-    let runtime = SandboxRuntime::new(
-        &world.0,
-        editable_abilities.as_engine(),
-        editable_tuning.as_engine(),
-    );
     crate::features::spawn_room_feature_entities(commands, room_set.active_spec());
 
-    // Snapshot initial ECS player state before moving SandboxRuntime into
-    // Bevy's resource storage. The player entity is the frame-to-frame owner;
-    // SandboxRuntime keeps a scratch copy while the old phase helpers remain.
-    let initial_player_authority = crate::player::PlayerMovementAuthority::new(runtime.player.clone());
+    let mut initial_player = ae::Player::new_with_abilities(world.0.spawn, editable_abilities.as_engine());
+    initial_player.refresh_movement_resources(editable_tuning.as_engine());
+    let initial_player_authority = crate::player::PlayerMovementAuthority::new(initial_player);
     let initial_player_body = initial_player_authority.body();
     let initial_player_health = crate::player::PlayerHealth::new(ae::Health::new(20));
     let initial_player_combat = crate::player::PlayerCombatState::default();
     let initial_player_interaction = crate::player::PlayerInteractionState::default();
-    commands.insert_resource(runtime);
 
     let player = commands
         .spawn((

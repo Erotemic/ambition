@@ -21,15 +21,14 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
-// `GameWorld`, `SandboxRuntime`, and the time-scale ramp helper `move_toward`
-// have moved to `crate::lib` (`ambition_sandbox`) so both binaries can share
-// them. They are re-imported above through `use ambition_sandbox::*;`.
+// `GameWorld` and the time-scale ramp helper `move_toward` live in
+// `crate::lib` (`ambition_sandbox`) and are re-imported above through
+// `use ambition_sandbox::*;`.
 
 /// Sim-only startup. Calls `crate::setup::simulation_world` to spawn the
-/// LdtkWorldBundle, build the SandboxRuntime resource, and spawn the player
-/// entity (with gameplay-essential components but no Sprite). Inserts
-/// SceneEntities with `hud: Entity::PLACEHOLDER`; the presentation startup
-/// system later overwrites that with the real HUD entity.
+/// LdtkWorldBundle and the player entity (with gameplay-essential components
+/// but no Sprite). Inserts SceneEntities with `hud: Entity::PLACEHOLDER`;
+/// the presentation startup system later overwrites that with the real HUD entity.
 pub(super) fn setup_simulation_system(
     mut commands: Commands,
     world: Res<GameWorld>,

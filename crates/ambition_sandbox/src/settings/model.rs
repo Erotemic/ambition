@@ -19,7 +19,7 @@ use crate::dev_tools::{
 };
 use crate::ldtk_world::LdtkHotReloadState;
 use crate::windowing::{DisplayModeKind, DisplayModeState};
-use crate::{SandboxDevState, SandboxRuntime};
+use crate::SandboxDevState;
 
 /// Top-level settings page. The pause menu starts at `Top` (the
 /// category list) and pushes onto a small stack when the user
@@ -378,7 +378,7 @@ fn on_off(value: bool) -> &'static str {
 }
 
 /// Snapshot of the developer-page toggles, sampled from the live
-/// resources (`SandboxRuntime`, `DeveloperTools`, `LdtkHotReloadState`)
+/// resources (`DeveloperTools`, `LdtkHotReloadState`)
 /// so the pause-menu renderer can label rows without holding `Res`
 /// handles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -451,7 +451,6 @@ pub fn apply_action(
     display_state: &mut DisplayModeState,
     windows: &mut Query<&mut Window, With<PrimaryWindow>>,
     keyboard_preset_count: usize,
-    runtime: &mut SandboxRuntime,
     dev_state: &mut SandboxDevState,
     developer: &mut DeveloperTools,
     editable_tuning: &mut EditableMovementTuning,
@@ -746,23 +745,25 @@ pub fn apply_action(
         SettingsItem::PlayerBodyProfile => match action {
             SettingsAction::Prev => {
                 developer.player_body_profile = developer.player_body_profile.prev();
-                let player = authority_player.unwrap_or(&mut runtime.player);
-                apply_player_body_profile(player, developer.player_body_profile);
+                if let Some(player) = authority_player {
+                    apply_player_body_profile(player, developer.player_body_profile);
+                }
             }
             SettingsAction::Next | SettingsAction::Confirm => {
                 developer.player_body_profile = developer.player_body_profile.next();
-                let player = authority_player.unwrap_or(&mut runtime.player);
-                apply_player_body_profile(player, developer.player_body_profile);
+                if let Some(player) = authority_player {
+                    apply_player_body_profile(player, developer.player_body_profile);
+                }
             }
         },
         SettingsItem::MovementProfile => match action {
             SettingsAction::Prev => {
                 developer.movement_profile = developer.movement_profile.prev();
-                apply_movement_profile(runtime, editable_tuning, developer.movement_profile, authority_player);
+                apply_movement_profile(editable_tuning, developer.movement_profile, authority_player);
             }
             SettingsAction::Next | SettingsAction::Confirm => {
                 developer.movement_profile = developer.movement_profile.next();
-                apply_movement_profile(runtime, editable_tuning, developer.movement_profile, authority_player);
+                apply_movement_profile(editable_tuning, developer.movement_profile, authority_player);
             }
         },
         SettingsItem::LdtkAutoApply => {

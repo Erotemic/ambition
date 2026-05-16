@@ -1,8 +1,7 @@
 //! Bevy visual synchronization for engine state.
 //!
-//! Render-only component tags and visual sync systems. Gameplay code
-//! should mutate `SandboxRuntime`; this module mirrors that state
-//! into Bevy transforms / sprites.
+//! Render-only component tags and visual sync systems. This module mirrors
+//! player and world state from ECS components into Bevy transforms / sprites.
 //!
 //! ## Submodule layout (post-2026-05-09 split)
 //!

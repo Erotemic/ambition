@@ -59,7 +59,7 @@ pub enum CharacterAnim {
     FloatGlide = 17,
     /// Heavy landing — big squash, slow rebound. Triggered when the
     /// landing transition was hit at a high downward speed; consumed by
-    /// `pick_player_anim` while `SandboxRuntime::land_anim_timer` is
+    /// `pick_player_anim` while `PlayerAnimState::land_anim_timer` is
     /// positive and `land_anim_hard` is set.
     LandHard = 18,
     /// Rising recovery after a (hard) landing. Plays when

@@ -31,15 +31,12 @@ pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> 
     }
 }
 
-// `move_toward` has moved to `crate::lib` (`ambition_sandbox`) so the
-// `SandboxRuntime` impl can use it; it is re-imported via the wildcard above.
 
 pub(super) fn reset_sandbox(
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
     sim_state: &mut crate::SandboxSimState,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
@@ -52,7 +49,7 @@ pub(super) fn reset_sandbox(
     let reset_from = player.pos;
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
-    runtime.reset(world, tuning);
+    player.mana.refill_full();
     sim_state.last_safe_player_pos = world.spawn;
     sim_state.time_scale = 1.0;
     sim_state.room_transition_cooldown = 0.0;
@@ -334,7 +331,6 @@ pub(super) fn death_respawn_player(
     vfx: &mut Vec<VfxMessage>,
     died: &mut Vec<PlayerDiedMessage>,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
     sim_state: &mut crate::SandboxSimState,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
@@ -347,7 +343,7 @@ pub(super) fn death_respawn_player(
     let to = world.spawn;
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
-    runtime.reset(world, tuning);
+    player.mana.refill_full();
     sim_state.last_safe_player_pos = world.spawn;
     sim_state.time_scale = 1.0;
     sim_state.room_transition_cooldown = 0.0;
@@ -370,7 +366,6 @@ pub(super) fn handle_player_damage_events(
     vfx: &mut Vec<VfxMessage>,
     died: &mut Vec<PlayerDiedMessage>,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
     sim_state: &mut crate::SandboxSimState,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
@@ -408,7 +403,6 @@ pub(super) fn handle_player_damage_events(
             vfx,
             died,
             player,
-            runtime,
             sim_state,
             banner,
             player_health,

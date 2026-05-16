@@ -38,7 +38,7 @@ use crate::ui_nav::visible_row_index;
 #[cfg(feature = "input")]
 use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction, RowPointerOutcome};
 use crate::windowing::DisplayModeState;
-use crate::{SandboxDevState, SandboxRuntime};
+use crate::SandboxDevState;
 
 /// Re-export the settings-row component so other modules that want to
 /// query menu rows by tag don't need to remember which module owns it.

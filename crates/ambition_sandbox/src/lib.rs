@@ -4,7 +4,12 @@
 //! headless simulation entry point (`run_headless`, used by `bin/headless.rs`
 //! and tests/CI on machines without a display). Both binaries depend on this
 //! library; the library owns the module graph and the cross-cutting types
-//! (`GameWorld`, `SandboxRuntime`) that submodules reference via `crate::*`.
+//! (`GameWorld`, `SandboxSimState`, `SandboxDevState`) that submodules reference
+//! via `crate::*`.
+//!
+//! Player state is authoritative on the `PlayerMovementAuthority` ECS component.
+//! Do not introduce a god-object runtime resource; add narrow resources or ECS
+//! components instead.
 //!
 //! See `docs/headless_simulation.md` for the sim/presentation contract this
 //! library is being shaped toward, and `docs/architecture_targets.md` for the
@@ -100,17 +105,15 @@ use input::KeyboardPreset;
 /// `pos` carries the impact location for downstream consumers (vfx,
 /// future death-replay tooling). Today the encounter system ignores it.
 ///
-/// Replaces the previous `SandboxRuntime::player_died_pending` bool —
-/// the Vec-collector → `MessageWriter` pattern matches the rest of the
-/// sim → presentation seam (`SfxMessage` / `VfxMessage` /
-/// `DebrisBurstMessage`) and keeps the runtime resource a pure state
-/// store rather than a half-event-channel.
+/// Replaces the previous `player_died_pending` bool — the Vec-collector →
+/// `MessageWriter` pattern matches the rest of the sim → presentation seam
+/// (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`).
 #[derive(Message, Clone, Copy, Debug)]
 pub struct PlayerDiedMessage {
     pub pos: ae::Vec2,
 }
 
-/// Per-frame conditions that gate writes to `SandboxRuntime::last_safe_player_pos`.
+/// Per-frame conditions that gate writes to `SandboxSimState::last_safe_player_pos`.
 /// We refuse to record a position as "safe" while any of these flags are
 /// set so an in-flight reset / hazard respawn / room transition cannot
 /// pollute the safe spawn point. Construct with [`SafePositionContext::frame`].
@@ -158,25 +161,10 @@ impl SafePositionContext {
 #[derive(Resource, Clone)]
 pub struct GameWorld(pub ae::World);
 
-/// Legacy sandbox scratch state used by older phase helpers.
-///
-/// Player movement/health/combat/interaction now have ECS components; the
-/// player fields here are synchronized from/to that entity while the remaining
-/// monolithic phase helpers are split apart.
-///
-/// AMBITION_REVIEW: this is currently a global resource holding what belongs
-/// on a Player entity. Per the architecture targets memory, per-player state
-/// should migrate onto a Player component / entity once the events refactor
-/// lands; a global `SandboxRuntime` is the SP-only shape that does not extend
-/// to multi-player. The headless binary deliberately does not install this
-/// resource — Phase 1 headless validates only the asset/world/spine pipeline,
-/// not gameplay.
 pub const BLINK_IN_ANIM_TIME: f32 = 0.34;
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 
-/// Active player melee swing, isolated in its own resource so rendering and
-/// debug systems can read it without acquiring the full `SandboxRuntime` lock.
-/// `None` when no swing is in progress.
+/// Active player melee swing. `None` when no swing is in progress.
 ///
 /// Authoritative source: set/cleared by `start_attack` / `advance_attack`
 /// inside `sandbox_update`. `write_player_ecs_components` mirrors
@@ -194,9 +182,9 @@ pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
 #[derive(Resource, Default)]
 pub struct MovingPlatformSet(pub Vec<platforms::MovingPlatformState>);
 
-/// Pure simulation scalars extracted from `SandboxRuntime`.
-/// Holds only values that belong to the running simulation,
-/// not to developer/debug tools or the player shadow cache.
+/// Pure simulation scalars for the running sandbox session.
+/// Holds values that belong to the simulation, not to
+/// developer/debug tools or presentation state.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct SandboxSimState {
     pub last_safe_player_pos: ae::Vec2,
@@ -214,9 +202,7 @@ impl Default for SandboxSimState {
     }
 }
 
-/// Developer/debug runtime state: keyboard preset selection and debug flags.
-/// Extracted from `SandboxRuntime` (Stage 11) so presentation-only systems
-/// can depend on this resource without pulling in the player shadow cache.
+/// Developer/debug state: keyboard preset selection and debug flags.
 #[derive(Resource)]
 pub struct SandboxDevState {
     pub debug: bool,
@@ -246,20 +232,6 @@ impl SandboxDevState {
     pub fn debug_enabled(&self) -> bool {
         self.debug
     }
-}
-
-#[derive(Resource)]
-pub struct SandboxRuntime {
-    pub player: ae::Player,
-    // Active player attack state has moved to the `CurrentPlayerAttack` resource.
-    // Moving platform state has moved to the `MovingPlatformSet` standalone Resource.
-    // Physics settings have moved to the `physics::PhysicsSandboxSettings` standalone Resource.
-    // Dialogue state lives on the `dialog::DialogState` standalone Resource.
-    // Blink/camera presentation state has moved to `PlayerBlinkCameraState` ECS component.
-    // Simulation scalars (last_safe_player_pos, time_scale, room_transition_cooldown)
-    // have moved to the `SandboxSimState` standalone Resource.
-    // Developer/debug state (debug, slowmo, presets, preset_index, preset_flash)
-    // has moved to the `SandboxDevState` standalone Resource.
 }
 
 /// Sandbox-side state for one active player melee swing.
@@ -298,79 +270,41 @@ impl PlayerAttackState {
     }
 }
 
-impl SandboxRuntime {
-    pub fn new(
-        world: &ae::World,
-        abilities: ae::AbilitySet,
-        tuning: ae::MovementTuning,
-    ) -> Self {
-        let mut player = ae::Player::new_with_abilities(world.spawn, abilities);
-        player.refresh_movement_resources(tuning);
-        Self { player }
+/// Record the current player position as "the last known safe spot"
+/// when (and only when) every predicate of safety holds. Call sites pass
+/// the same augmented collision world the engine simulated against this
+/// frame so the gate matches reality.
+///
+/// The flags allow the caller to suppress this write during damage
+/// resolution, hazard respawn, hitstun, post-blink grace, or room
+/// transitions where the player position is intentionally being
+/// teleported and shouldn't be remembered as safe. See
+/// `docs/lessons_learned.md` for the OOB trace where a wall-cling
+/// teleport polluted `last_safe_player_pos` with `(62, -23)`.
+pub fn remember_safe_player_position(
+    sim_state: &mut SandboxSimState,
+    player: &ae::Player,
+    world: &ae::World,
+    ctx: SafePositionContext,
+) {
+    if !player.on_ground {
+        return;
     }
-
-    pub fn reset(&mut self, world: &ae::World, tuning: ae::MovementTuning) {
-        self.player.reset_to(world.spawn);
-        self.player.refresh_movement_resources(tuning);
-        // Combat timers live on `PlayerCombatState`.
-        // Interaction timers live on `PlayerInteractionState`.
-        // Blink/camera presentation state lives on `PlayerBlinkCameraState`.
-        // Health lives on `PlayerHealth`; callers reset it directly on the component.
-        // Simulation scalars (last_safe_player_pos, time_scale, room_transition_cooldown)
-        // live on `SandboxSimState`; callers reset those separately.
-        // Active attack state lives on `CurrentPlayerAttack` resource;
-        // sandbox_update callers reset it separately.
-        // Refill mana on reset; the editor-tuned damage_multiplier /
-        // invincible flag now lives on `Player` and survives reset
-        // because `reset_to` only touches movement state, not these
-        // gameplay tunables — so testers don't lose their F3
-        // settings on every respawn.
-        self.player.mana.refill_full();
-        // Animation signal timers live on the `PlayerAnimState` ECS component;
-        // callers that trigger a full reset (reset_sandbox, death_respawn_player)
-        // call `PlayerAnimState::reset()` on the component directly.
+    if !ctx.is_eligible() {
+        return;
     }
-
-    /// Record the current player position as "the last known safe spot"
-    /// when (and only when) every predicate of safety holds. Call sites
-    /// pass the same augmented collision world the engine simulated
-    /// against this frame so the gate matches reality.
-    ///
-    /// The flags allow the caller to suppress this write during damage
-    /// resolution, hazard respawn, hitstun, post-blink grace, or room
-    /// transitions where the player position is intentionally being
-    /// teleported and shouldn't be remembered as safe. See
-    /// `docs/lessons_learned.md` for the OOB trace where a wall-cling
-    /// teleport polluted `last_safe_player_pos` with `(62, -23)`.
-    pub fn remember_safe_player_position(
-        &self,
-        sim_state: &mut SandboxSimState,
-        player: &ae::Player,
-        world: &ae::World,
-        ctx: SafePositionContext,
-    ) {
-        if !player.on_ground {
-            return;
-        }
-        if !ctx.is_eligible() {
-            return;
-        }
-        let verdict = ae::classify_player_safety(player, world, 0.0, |block| {
-            matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            )
-        });
-        if verdict.is_safe() {
-            sim_state.last_safe_player_pos = player.pos;
-        }
+    let verdict = ae::classify_player_safety(player, world, 0.0, |block| {
+        matches!(
+            block.kind,
+            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+        )
+    });
+    if verdict.is_safe() {
+        sim_state.last_safe_player_pos = player.pos;
     }
-
 }
 
 /// Drive the `time_scale` ramp: hitstop → bullet-time → slowmo → normal.
-/// Extracted from `SandboxRuntime::update_time_scale` (Stage 11) so it can
-/// read `slowmo` from `SandboxDevState` without coupling the two resources.
 pub fn update_time_scale(
     slowmo: bool,
     sim_state: &mut SandboxSimState,
@@ -494,18 +428,15 @@ mod safe_pos_tests {
         )
     }
 
-    fn runtime_with_player_at(world: &ae::World, pos: ae::Vec2) -> (SandboxRuntime, SandboxSimState) {
-        let mut runtime = SandboxRuntime::new(
-            world,
-            ae::AbilitySet::sandbox_all(),
-            ae::DEFAULT_TUNING,
-        );
-        runtime.player.pos = pos;
-        runtime.player.on_ground = true;
+    fn player_with_sim_at(world: &ae::World, pos: ae::Vec2) -> (ae::Player, SandboxSimState) {
+        let mut player = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
+        player.refresh_movement_resources(ae::DEFAULT_TUNING);
+        player.pos = pos;
+        player.on_ground = true;
         // Force a known starting "safe pos" we can detect changes from.
         let mut sim = SandboxSimState::default();
         sim.last_safe_player_pos = ae::Vec2::new(170.0, 1695.0);
-        (runtime, sim)
+        (player, sim)
     }
 
     /// The OOB y=-23 position (above the world envelope) must NOT be
@@ -515,10 +446,9 @@ mod safe_pos_tests {
     #[test]
     fn rejects_position_above_world_envelope() {
         let world = dummy_world();
-        let (runtime, mut sim) = runtime_with_player_at(&world, ae::Vec2::new(62.0, -23.0));
+        let (player, mut sim) = player_with_sim_at(&world, ae::Vec2::new(62.0, -23.0));
         let initial = sim.last_safe_player_pos;
-        let player = runtime.player.clone();
-        runtime.remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
+        remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
         assert_eq!(
             sim.last_safe_player_pos, initial,
             "above-world position must not become last_safe_player_pos"
@@ -530,9 +460,8 @@ mod safe_pos_tests {
     #[test]
     fn accepts_legitimate_grounded_position() {
         let world = dummy_world();
-        let (runtime, mut sim) = runtime_with_player_at(&world, ae::Vec2::new(200.0, 900.0));
-        let player = runtime.player.clone();
-        runtime.remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
+        let (player, mut sim) = player_with_sim_at(&world, ae::Vec2::new(200.0, 900.0));
+        remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
         assert_eq!(
             sim.last_safe_player_pos,
             ae::Vec2::new(200.0, 900.0),
@@ -547,33 +476,32 @@ mod safe_pos_tests {
     #[test]
     fn vetoes_write_during_damage_or_reset() {
         let world = dummy_world();
-        let (runtime, mut sim) = runtime_with_player_at(&world, ae::Vec2::new(200.0, 900.0));
+        let (player, mut sim) = player_with_sim_at(&world, ae::Vec2::new(200.0, 900.0));
         let initial = sim.last_safe_player_pos;
-        let player = runtime.player.clone();
 
         let mut ctx = SafePositionContext::ideal();
         ctx.damaged_this_frame = true;
-        runtime.remember_safe_player_position(&mut sim, &player, &world, ctx);
+        remember_safe_player_position(&mut sim, &player, &world, ctx);
         assert_eq!(sim.last_safe_player_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.feature_requested_reset = true;
-        runtime.remember_safe_player_position(&mut sim, &player, &world, ctx);
+        remember_safe_player_position(&mut sim, &player, &world, ctx);
         assert_eq!(sim.last_safe_player_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.in_hitstun = true;
-        runtime.remember_safe_player_position(&mut sim, &player, &world, ctx);
+        remember_safe_player_position(&mut sim, &player, &world, ctx);
         assert_eq!(sim.last_safe_player_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.blink_grace_active = true;
-        runtime.remember_safe_player_position(&mut sim, &player, &world, ctx);
+        remember_safe_player_position(&mut sim, &player, &world, ctx);
         assert_eq!(sim.last_safe_player_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.room_transitioning = true;
-        runtime.remember_safe_player_position(&mut sim, &player, &world, ctx);
+        remember_safe_player_position(&mut sim, &player, &world, ctx);
         assert_eq!(sim.last_safe_player_pos, initial);
     }
 
@@ -585,10 +513,9 @@ mod safe_pos_tests {
         // The left wall's right edge is at x=36; place the player center
         // at x=18 with half-width 14, body covers x=4..32 — fully inside
         // the wall.
-        let (runtime, mut sim) = runtime_with_player_at(&world, ae::Vec2::new(18.0, 900.0));
+        let (player, mut sim) = player_with_sim_at(&world, ae::Vec2::new(18.0, 900.0));
         let initial = sim.last_safe_player_pos;
-        let player = runtime.player.clone();
-        runtime.remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
+        remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
         assert_eq!(sim.last_safe_player_pos, initial);
     }
 

@@ -173,7 +173,7 @@ mod tests {
         crate::app::init_sandbox_resources(&mut app);
         crate::app::add_simulation_plugins(&mut app);
 
-        // First tick runs Startup (spawns the player + SandboxRuntime).
+        // First tick runs Startup (spawns the player entity).
         app.update();
 
         // Inject a "press reset" frame on the sim/presentation input seam.

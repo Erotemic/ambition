@@ -20,7 +20,7 @@ use bevy::prelude::*;
 use serde::Serialize;
 
 use crate::input::ControlFrame;
-use crate::{GameWorld, SandboxRuntime};
+use crate::GameWorld;
 
 const DEFAULT_FRAME_CAPACITY: usize = 240;
 const DEFAULT_EVENT_CAPACITY: usize = 240;

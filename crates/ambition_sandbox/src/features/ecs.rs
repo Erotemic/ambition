@@ -1797,20 +1797,6 @@ mod tests {
     use super::*;
     use bevy::prelude::{App, Update, With};
 
-    fn minimal_runtime() -> crate::SandboxRuntime {
-        let world = ae::World::new(
-            "test",
-            ae::Vec2::new(2000.0, 2000.0),
-            ae::Vec2::new(100.0, 100.0),
-            vec![],
-        );
-        crate::SandboxRuntime::new(
-            &world,
-            ae::AbilitySet::sandbox_all(),
-            ae::DEFAULT_TUNING,
-        )
-    }
-
     /// Spawn the canonical player entity used by interaction system tests.
     ///
     /// `player_pos` must overlap the feature AABB under test; the interact
@@ -1870,7 +1856,7 @@ mod tests {
     fn interact_buffered_opens_adjacent_chest() {
         let center = ae::Vec2::new(100.0, 100.0);
         let mut app = App::new();
-        app.insert_resource(minimal_runtime());
+
         app.insert_resource(GameplayBanner::default());
         app.add_message::<GameplayEffect>();
         app.add_message::<SfxMessage>();
@@ -1911,7 +1897,7 @@ mod tests {
         let player_pos = ae::Vec2::new(100.0, 100.0);
         let chest_pos = ae::Vec2::new(500.0, 500.0);
         let mut app = App::new();
-        app.insert_resource(minimal_runtime());
+
         app.insert_resource(GameplayBanner::default());
         app.add_message::<GameplayEffect>();
         app.add_message::<SfxMessage>();
@@ -1941,7 +1927,7 @@ mod tests {
     fn interact_does_not_reopen_already_opened_chest() {
         let center = ae::Vec2::new(100.0, 100.0);
         let mut app = App::new();
-        app.insert_resource(minimal_runtime());
+
         app.insert_resource(GameplayBanner::default());
         app.add_message::<GameplayEffect>();
         app.add_message::<SfxMessage>();
@@ -1976,7 +1962,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(StatesPlugin);
         app.init_state::<crate::GameMode>();
-        app.insert_resource(minimal_runtime());
+
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(crate::dialog::DialogState::default());
         app.add_message::<GameplayEffect>();

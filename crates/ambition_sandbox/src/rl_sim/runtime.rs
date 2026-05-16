@@ -13,7 +13,6 @@ use crate::game_mode::GameMode;
 use crate::input::ControlFrame;
 use crate::ldtk_world;
 use crate::rooms::RoomSet;
-use crate::SandboxRuntime;
 
 use super::action::AgentAction;
 use super::observation::AgentObservation;
@@ -53,9 +52,9 @@ impl SandboxSim {
     /// pins each step to exactly `dt` seconds for deterministic
     /// trajectories.
     ///
-    /// The first `app.update()` is run inside `new()` so the player and
-    /// `SandboxRuntime` are spawned before the caller sees an
-    /// observation. This makes `sim.observation()` immediately valid.
+    /// The first `app.update()` is run inside `new()` so the player entity
+    /// is spawned before the caller sees an observation. This makes
+    /// `sim.observation()` immediately valid.
     pub fn new_with_timestep(timestep: TimestepMode) -> Result<Self, String> {
         Self::new_with_options(SandboxSimOptions {
             timestep,
@@ -63,12 +62,10 @@ impl SandboxSim {
         })
     }
 
-    /// Build a new simulation with full options control. RL training
-    /// loops that want to focus on a specific room (e.g. only train on
-    /// `mob_lab`) construct via this entry point with a `start_room`
-    /// override. The override matches the visible binary's
-    /// `--start-room` flag semantics: any room id from the LDtk
-    /// project's `activeArea` field can be used.
+    /// Build a new simulation with full options control. RL training loops that
+    /// want to focus on a specific room (e.g. only train on `mob_lab`) construct
+    /// via this entry point with a `start_room` override. The override matches
+    /// the visible binary's `--start-room` flag semantics.
     pub fn new_with_options(options: SandboxSimOptions) -> Result<Self, String> {
         let project = ldtk_world::LdtkProject::load_default()?;
         let report = project.validate();
@@ -117,8 +114,8 @@ impl SandboxSim {
                 std::time::Duration::from_secs_f32(dt),
             ));
         }
-        // First tick runs Startup and primes SandboxRuntime so the
-        // caller's first `observation()` returns a populated snapshot.
+        // First tick runs Startup so the player entity exists before
+        // the caller's first `observation()` reads it.
         app.update();
 
         Ok(Self {
@@ -181,6 +178,18 @@ impl SandboxSim {
     /// Returns the current observation without advancing the simulation.
     /// Useful for inspecting state mid-episode without burning a tick.
     pub fn observation(&mut self) -> AgentObservation {
+        // Clone the authoritative player state. The query requires &mut World for
+        // cache setup only; the actual data read is immutable through single().
+        let player = {
+            let mut q = self.app.world_mut().query_filtered::<
+                &crate::player::PlayerMovementAuthority,
+                With<crate::player::PlayerEntity>,
+            >();
+            q.single(self.app.world())
+                .map(|a| a.player.clone())
+                .unwrap_or_else(|_| ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default()))
+        };
+
         // Build per-entity queries first (requires &mut World, but the borrow
         // ends immediately so the immutable reads below compile cleanly).
         let mut combat_query = self.app.world_mut().query_filtered::<
@@ -193,13 +202,7 @@ impl SandboxSim {
         >();
 
         let world = self.app.world();
-        let runtime = world.resource::<SandboxRuntime>();
         let sim_state = world.resource::<crate::SandboxSimState>();
-        // `runtime.player` is the shadow cache kept in sync by the frame pipeline.
-        // It reflects the authoritative `PlayerMovementAuthority` state after each
-        // `app.update()`, so callers that invoke `observation()` between steps see
-        // a correct snapshot without needing a separate entity query here.
-        let player = &runtime.player;
         let health = health_query
             .single(world)
             .map(|h| h.health)

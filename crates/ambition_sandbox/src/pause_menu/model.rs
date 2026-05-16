@@ -1,11 +1,10 @@
 use super::*;
 
-/// Mutable bundle of the runtime resources the Developer settings page
-/// toggles. Packed into a single `SystemParam` so `pause_menu_navigate`
-/// stays under Bevy's 16-param budget.
+/// Mutable bundle of the resources the Developer settings page toggles.
+/// Packed into a single `SystemParam` so `pause_menu_navigate` stays
+/// under Bevy's 16-param budget.
 #[derive(SystemParam)]
 pub struct DevToggleParams<'w, 's> {
-    pub runtime: ResMut<'w, SandboxRuntime>,
     pub dev_state: ResMut<'w, SandboxDevState>,
     pub developer: ResMut<'w, DeveloperTools>,
     pub editable_tuning: ResMut<'w, crate::dev_tools::EditableMovementTuning>,

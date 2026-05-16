@@ -30,8 +30,8 @@ use super::*;
 ///
 /// The next likely refactor is promoting these phase helpers into
 /// individually ordered Bevy systems / `SimSet`s once their behavior is
-/// covered by tests. Until then, keep them as plain functions on a
-/// shared `&mut SandboxRuntime` + `&mut FrameFeedback` so the borrow
+/// covered by tests. Until then, keep them as plain functions sharing
+/// `&mut PlayerMovementAuthority` and `&mut FrameFeedback` so the borrow
 /// graph stays linear.
 ///
 /// Phase order (each phase comments its scope and what it should not own):
@@ -57,7 +57,6 @@ pub fn sandbox_update(
     editable_abilities: Res<EditableAbilitySet>,
     feel_tuning: Res<SandboxFeelTuning>,
     mode: Res<State<GameMode>>,
-    mut runtime: ResMut<SandboxRuntime>,
     mut event_writers: SandboxEventWriters,
     control_frame: Res<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
@@ -91,9 +90,7 @@ pub fn sandbox_update(
         * user_settings.gameplay.player_damage_multiplier
         * assist_factor;
 
-    // Acquire ECS player components for this frame. Phase helpers receive these
-    // directly; `runtime.player` is updated once at the end as a shadow cache
-    // for callers not yet migrated to the ECS query.
+    // Acquire ECS player components for this frame.
     let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
         flush_feedback(&mut feedback, &mut event_writers);
         return;
@@ -116,7 +113,6 @@ pub fn sandbox_update(
         mode_gate_phase(mode.get(), &mut queues.dev_state, &mut queues.sim_state, &mut *combat, frame_dt),
         PhaseOutcome::Return
     ) {
-        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -134,7 +130,6 @@ pub fn sandbox_update(
             &controls,
             &world.0,
             player,
-            &mut runtime,
             &mut queues.sim_state,
             &mut queues.current_attack.0,
             &mut feedback,
@@ -148,7 +143,6 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
-        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -158,7 +152,6 @@ pub fn sandbox_update(
             controls,
             &world.0,
             player,
-            &mut runtime,
             &mut queues.sim_state,
             &queues.moving_platforms.0,
             &mut queues.current_attack.0,
@@ -176,7 +169,6 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
-        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -186,7 +178,6 @@ pub fn sandbox_update(
             controls,
             &world.0,
             player,
-            &mut runtime,
             &queues.dev_state,
             &mut queues.sim_state,
             &mut queues.moving_platforms.0,
@@ -204,7 +195,6 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
-        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -225,7 +215,6 @@ pub fn sandbox_update(
         damage_heal_dialogue_phase(
             &world.0,
             player,
-            &mut runtime,
             &mut queues.sim_state,
             &queues.moving_platforms.0,
             &mut feedback,
@@ -243,7 +232,6 @@ pub fn sandbox_update(
         damage_heal_dialogue_phase(
             &world.0,
             player,
-            &mut runtime,
             &mut queues.sim_state,
             &queues.moving_platforms.0,
             &mut feedback,
@@ -282,7 +270,6 @@ pub fn sandbox_update(
         ),
         PhaseOutcome::Return
     ) {
-        runtime.player = player.clone();
         flush_feedback(&mut feedback, &mut event_writers);
         return;
     }
@@ -305,11 +292,6 @@ pub fn sandbox_update(
     );
 
     cleanup_timers_phase(player, &mut queues.dev_state, &mut *anim, &mut *combat, &mut *blink_cam, frame_dt);
-
-    // Write the shadow cache so external read-only callers (rendering,
-    // camera, debug overlay, trace, encounter) see the post-frame player
-    // state without needing to migrate to the ECS query.
-    runtime.player = player.clone();
 
     flush_feedback(&mut feedback, &mut event_writers);
 }

@@ -10,7 +10,7 @@ use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::physics::DebrisBurstMessage;
 use crate::trace::GameplayTraceBuffer;
-use crate::{GameWorld, SandboxRuntime};
+use crate::GameWorld;
 
 fn dummy_world() -> World {
     World::new(
@@ -51,12 +51,6 @@ fn min_app() -> App {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
     app.insert_resource(GameWorld(dummy_world()));
-    let runtime = SandboxRuntime::new(
-        &dummy_world(),
-        ae::AbilitySet::sandbox_all(),
-        ae::DEFAULT_TUNING,
-    );
-    app.insert_resource(runtime);
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
@@ -396,12 +390,6 @@ fn fireball_bounces_off_floor_in_system() {
         )],
     );
     app.insert_resource(GameWorld(world.clone()));
-    let runtime = SandboxRuntime::new(
-        &world,
-        ae::AbilitySet::sandbox_all(),
-        ae::DEFAULT_TUNING,
-    );
-    app.insert_resource(runtime);
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
@@ -472,12 +460,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
         )],
     );
     app.insert_resource(GameWorld(world.clone()));
-    let runtime = SandboxRuntime::new(
-        &world,
-        ae::AbilitySet::sandbox_all(),
-        ae::DEFAULT_TUNING,
-    );
-    app.insert_resource(runtime);
+
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
@@ -549,12 +532,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
         )],
     );
     app.insert_resource(GameWorld(world.clone()));
-    let runtime = SandboxRuntime::new(
-        &world,
-        ae::AbilitySet::sandbox_all(),
-        ae::DEFAULT_TUNING,
-    );
-    app.insert_resource(runtime);
+
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
@@ -623,12 +601,7 @@ fn hadouken_expires_on_solid_in_system() {
         )],
     );
     app.insert_resource(GameWorld(world.clone()));
-    let runtime = SandboxRuntime::new(
-        &world,
-        ae::AbilitySet::sandbox_all(),
-        ae::DEFAULT_TUNING,
-    );
-    app.insert_resource(runtime);
+
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());

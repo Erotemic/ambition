@@ -28,7 +28,7 @@
 //! `ControlFrame` and engine `Player` aggregate so the conversion is
 //! lossless and the seam stays narrow. Adding a new action knob means
 //! adding a `ControlFrame` field; adding a new observation field means
-//! reading another piece of `SandboxRuntime` / engine state out.
+//! reading another piece of engine / ECS state out.
 
 mod action;
 mod observation;

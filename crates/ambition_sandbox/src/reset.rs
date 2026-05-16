@@ -24,14 +24,12 @@
 //!   The next populate spawns fresh ones.
 //! - **`RoomVisual` entities**: despawned. The room-visual respawn
 //!   path runs after the active room flips back to the start.
-//! - **`SandboxRuntime`**: warped to the start room's spawn via
-//!   `runtime.reset(world, tuning)` — this rebuilds `features` from
-//!   the world (so all NPCs are alive and peaceful again, all
-//!   breakables intact, all chests closed). Immediately afterward,
-//!   the moving-platform runtime state is re-seeded from the start
-//!   room's LDtk-authored `MovingPlatform`, falling back to the legacy
-//!   test/reference platform only for rooms that have no authored
-//!   platform yet.
+//! - **Player entity**: warped to the start room's spawn via
+//!   `player.reset_to(world.spawn)` — restores movement resources and
+//!   refills mana. Immediately afterward, the moving-platform state
+//!   is re-seeded from the start room's LDtk-authored `MovingPlatform`,
+//!   falling back to the legacy test/reference platform only for rooms
+//!   that have no authored platform yet.
 //! - **Active room**: `room_set.active` resets to `room_set.start`
 //!   (captured at `RoomSet::from_parts` time) so the player ends up
 //!   wherever a fresh game would start, not wherever they happened
@@ -44,10 +42,10 @@
 //!   of the sandbox state. Reset is about gameplay progress only.
 //! - Keyboard preset selection.
 //! - Dev-tool toggles (the F3 stats editor's invincible flag etc.)
-//!   live in `SandboxRuntime` and ARE reset, because `runtime.reset`
-//!   refills them — that's actually a feature: a player who
-//!   accidentally enabled invincibility and wants to play "for real"
-//!   gets a clean slate.
+//!   live on `ae::Player` and ARE reset via `reset_to`, because the
+//!   caller also runs `mana.refill_full()` — that's actually a feature:
+//!   a player who accidentally enabled invincibility and wants to play
+//!   "for real" gets a clean slate.
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -63,13 +61,11 @@ use crate::quest::QuestRegistry;
 use crate::rendering::{spawn_room_visuals, RoomVisual};
 use crate::rooms::RoomSet;
 use crate::save::SandboxSave;
-use crate::SandboxRuntime;
 
-/// Bundles `SandboxRuntime` + `CurrentPlayerAttack` so `process_sandbox_reset_request`
+/// Bundles sim-state resources so `process_sandbox_reset_request`
 /// stays within Bevy's 16-SystemParam limit.
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
-    runtime: ResMut<'w, SandboxRuntime>,
     sim_state: ResMut<'w, crate::SandboxSimState>,
     attack: ResMut<'w, crate::CurrentPlayerAttack>,
     physics_settings: Res<'w, crate::physics::PhysicsSandboxSettings>,
@@ -170,22 +166,18 @@ pub fn process_sandbox_reset_request(
     let start_spec = room_set.set_active(start_index).clone();
     world.0 = start_spec.world.clone();
 
-    // 6. Reset the runtime: player back to spawn, features rebuilt
-    //    from the world (NPCs alive again, breakables intact, chests
-    //    closed). `runtime.reset` already does the right thing for
-    //    a same-room reset; we're calling it after flipping the
-    //    active room so it uses the start room's spawn point.
-    play_state.runtime.reset(&world.0, tuning.as_engine());
+    // 6. Reset the player to the start room's spawn point.
     play_state.sim_state.last_safe_player_pos = world.0.spawn;
     play_state.sim_state.time_scale = 1.0;
     play_state.sim_state.room_transition_cooldown = 0.0;
     play_state.attack.0 = None;
-    // Mirror the reset into the ECS authority so the next sandbox_update
-    // frame starts from the spawn position rather than the pre-reset position.
-    // Also zero the animation state so post-reset frames don't continue a
-    // mid-air slash or dash-startup pose from before the reset.
+    // Reset the ECS authority directly so the next sandbox_update frame
+    // starts from the spawn position. Also zero animation state so post-reset
+    // frames don't continue a mid-air slash or dash-startup pose.
     if let Ok((mut authority, mut anim, mut combat, mut blink_cam)) = player_q.single_mut() {
-        authority.player = play_state.runtime.player.clone();
+        authority.player.reset_to(world.0.spawn);
+        authority.player.refresh_movement_resources(tuning.as_engine());
+        authority.player.mana.refill_full();
         anim.reset();
         combat.reset();
         combat.flash_timer = 0.18;
@@ -224,6 +216,7 @@ pub fn process_sandbox_reset_request(
 mod tests {
     use super::*;
     use crate::dev_tools::EditableMovementTuning;
+    use crate::player::{PlayerBlinkCameraState, PlayerMovementAuthority};
     use crate::GameWorld;
 
     /// Pin the request resource's defaults: a fresh app starts with
@@ -272,12 +265,18 @@ mod tests {
         app.insert_resource(QuestRegistry::default());
         app.insert_resource(EncounterMusicRequest::default());
         app.insert_resource(crate::features::GameplayBanner::default());
-        let runtime = SandboxRuntime::new(
-            &world,
-            ae::AbilitySet::sandbox_all(),
-            ae::DEFAULT_TUNING,
-        );
-        app.insert_resource(runtime);
+        // Spawn the player entity so process_sandbox_reset_request can query it.
+        {
+            let mut initial = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
+            initial.refresh_movement_resources(ae::DEFAULT_TUNING);
+            app.world_mut().spawn((
+                crate::player::PlayerEntity,
+                PlayerMovementAuthority::new(initial),
+                crate::player::PlayerAnimState::default(),
+                crate::player::PlayerCombatState::default(),
+                PlayerBlinkCameraState::default(),
+            ));
+        }
         app.insert_resource(crate::CurrentPlayerAttack::default());
         app.insert_resource(crate::physics::PhysicsSandboxSettings::default());
         app.insert_resource(crate::MovingPlatformSet::default());
@@ -387,17 +386,27 @@ mod tests {
     fn processor_warps_player_to_start_spawn() {
         let mut app = min_app();
         {
-            let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-            runtime.player.pos = ae::Vec2::new(1234.0, 1234.0);
+            let mut q = app.world_mut().query_filtered::<
+                &mut PlayerMovementAuthority,
+                With<crate::player::PlayerEntity>,
+            >();
+            if let Ok(mut authority) = q.single_mut(app.world_mut()) {
+                authority.player.pos = ae::Vec2::new(1234.0, 1234.0);
+            }
         }
         {
             let mut req = app.world_mut().resource_mut::<SandboxResetRequested>();
             req.request();
         }
         app.update();
-        let runtime = app.world().resource::<SandboxRuntime>();
         let world = app.world().resource::<GameWorld>();
-        assert_eq!(runtime.player.pos, world.0.spawn);
+        let expected_spawn = world.0.spawn;
+        let mut q = app.world_mut().query_filtered::<
+            &PlayerMovementAuthority,
+            With<crate::player::PlayerEntity>,
+        >();
+        let player_pos = q.single(app.world()).map(|a| a.player.pos).unwrap();
+        assert_eq!(player_pos, expected_spawn);
     }
 
     /// Reset must restore the moving platform from the start room's

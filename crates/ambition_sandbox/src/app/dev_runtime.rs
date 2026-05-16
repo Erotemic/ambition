@@ -93,7 +93,6 @@ pub(super) fn handle_ldtk_hot_reload(
     keys: Res<ButtonInput<KeyCode>>,
     mut world: ResMut<GameWorld>,
     mut room_set: ResMut<rooms::RoomSet>,
-    mut runtime: ResMut<SandboxRuntime>,
     mut dev_state: ResMut<SandboxDevState>,
     mut sim_state: ResMut<crate::SandboxSimState>,
     mut dialogue: ResMut<crate::dialog::DialogState>,
@@ -136,7 +135,6 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut world,
             &mut room_set,
             &mut authority.player,
-            &mut runtime,
             &mut dev_state,
             &mut sim_state,
             &mut dialogue,
@@ -159,38 +157,10 @@ pub(super) fn handle_ldtk_hot_reload(
                 ldtk_reload.mark_failed(errors);
             }
         }
-    } else {
-        let mut tmp_player = runtime.player.clone();
-        let mut tmp_combat = crate::player::PlayerCombatState::default();
-        match reload_ldtk_world_from_disk(
-            &mut commands,
-            &mut world,
-            &mut room_set,
-            &mut tmp_player,
-            &mut runtime,
-            &mut dev_state,
-            &mut sim_state,
-            &mut dialogue,
-            &mut tmp_combat,
-            &mut ldtk_index,
-            editable_tuning.as_engine(),
-            *physics_settings,
-            &mut platform_set.0,
-            &room_visuals,
-            game_assets.as_deref(),
-        ) {
-            Ok(active_room) => {
-                ldtk_reload.mark_applied(&active_room);
-                eprintln!("LDtk hot reload applied to active room '{active_room}'");
-            }
-            Err(errors) => {
-                for error in &errors {
-                    eprintln!("LDtk hot reload rejected: {error}");
-                }
-                ldtk_reload.mark_failed(errors);
-            }
-        }
     }
+    // When no player entity exists, hot-reload is silently skipped.
+    // The game always has a player entity during normal play; this
+    // branch only fires in unusual teardown states.
 }
 
 pub(super) struct LdtkReloadTransaction {
@@ -251,7 +221,6 @@ pub(super) fn reload_ldtk_world_from_disk(
     world: &mut GameWorld,
     room_set: &mut rooms::RoomSet,
     player: &mut ae::Player,
-    runtime: &mut SandboxRuntime,
     dev_state: &mut SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
     dialogue: &mut crate::dialog::DialogState,
@@ -286,7 +255,6 @@ pub(super) fn reload_ldtk_world_from_disk(
 
     player.pos = transaction.safe_player_pos;
     player.refresh_movement_resources(tuning);
-    runtime.player = player.clone();
     sim_state.last_safe_player_pos = transaction.safe_player_pos;
     *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
     features::spawn_room_feature_entities(commands, &transaction.next_spec);

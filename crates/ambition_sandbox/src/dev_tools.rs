@@ -532,7 +532,6 @@ impl Default for EditableMovementTuning {
 /// Keep the live player's body collider aligned with the selected development
 /// profile after resets / room loads rebuild the player from engine defaults.
 pub fn sync_developer_body_profile(
-    mut runtime: ResMut<crate::SandboxRuntime>,
     developer: Res<DeveloperTools>,
     mut player_q: Query<
         &mut crate::player::PlayerMovementAuthority,
@@ -543,10 +542,7 @@ pub fn sync_developer_body_profile(
     if let Ok(mut authority) = player_q.single_mut() {
         if (authority.player.base_size - desired).length_squared() > 0.01 {
             apply_player_body_profile(&mut authority.player, developer.player_body_profile);
-            runtime.player = authority.player.clone();
         }
-    } else if (runtime.player.base_size - desired).length_squared() > 0.01 {
-        apply_player_body_profile(&mut runtime.player, developer.player_body_profile);
     }
 }
 
@@ -561,21 +557,16 @@ pub fn apply_player_body_profile(player: &mut ae::Player, profile: PlayerBodyPro
 
 /// Apply a movement profile to the reflected tuning resource and refresh live
 /// movement resources that depend on the configured number of air jumps.
-///
-/// `authority_player` is the ECS-authoritative player; when present the
-/// resource refresh is applied there so it survives the end-of-frame shadow
-/// write. Falls back to `runtime.player` when the authority entity is absent
-/// (headless / test paths).
 pub fn apply_movement_profile(
-    runtime: &mut crate::SandboxRuntime,
     editable_tuning: &mut EditableMovementTuning,
     profile: MovementProfile,
     authority_player: Option<&mut ambition_engine::Player>,
 ) {
     let tuning = profile.tuning();
     *editable_tuning = EditableMovementTuning::from(tuning);
-    let player = authority_player.unwrap_or(&mut runtime.player);
-    player.refresh_movement_resources(tuning);
+    if let Some(player) = authority_player {
+        player.refresh_movement_resources(tuning);
+    }
 }
 
 /// Apply live ability-flag edits without rebuilding the player every frame.
@@ -658,24 +649,18 @@ pub struct PlayerStatsSyncSnapshot {
     max_health: i32,
 }
 
-/// Bevy system: keep `EditablePlayerStats` and `SandboxRuntime`
-/// player health in sync, in both directions.
+/// Bevy system: keep `EditablePlayerStats` and the live player health
+/// in sync, in both directions.
 ///
 /// - When the inspector mutates a stat field, the new value is written
-///   onto the runtime.
-/// - When gameplay mutates the runtime (combat damage, pickup heal),
+///   onto the ECS player authority.
+/// - When gameplay mutates the player (combat damage, pickup heal),
 ///   the new value is mirrored back to the inspector resource so the
 ///   field reads the live HP without manual refresh.
 /// - `refill_now` is a one-shot button: setting it to true topples HP
 ///   and mana to max on the next sync, then clears the flag.
-///
-/// Mana isn't yet a real engine resource (the player sim doesn't
-/// consume it). It is intentionally on the inspector now so future
-/// abilities (precision blink cost, special attack) can read from
-/// `SandboxRuntime` without adding a new editor.
 pub fn sync_player_stats_with_inspector(
     mut stats: ResMut<EditablePlayerStats>,
-    mut runtime: ResMut<crate::SandboxRuntime>,
     mut snapshot: Local<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
         &mut crate::player::PlayerMovementAuthority,
@@ -723,15 +708,6 @@ pub fn sync_player_stats_with_inspector(
         authority.player.mana.current = stats.mana.clamp(0, max_mana) as f32;
         authority.player.damage_multiplier = stats.slash_damage.max(1);
         authority.player.invincible = stats.invincible;
-        runtime.player.mana.max = authority.player.mana.max;
-        runtime.player.mana.current = authority.player.mana.current;
-        runtime.player.damage_multiplier = authority.player.damage_multiplier;
-        runtime.player.invincible = authority.player.invincible;
-    } else {
-        runtime.player.mana.max = max_mana as f32;
-        runtime.player.mana.current = stats.mana.clamp(0, max_mana) as f32;
-        runtime.player.damage_multiplier = stats.slash_damage.max(1);
-        runtime.player.invincible = stats.invincible;
     }
 }
 

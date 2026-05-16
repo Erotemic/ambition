@@ -79,7 +79,7 @@ use crate::rooms;
 use crate::setup;
 use crate::ui_fonts;
 use crate::windowing;
-use crate::{GameWorld, PlayerDiedMessage, SandboxDevState, SandboxRuntime};
+use crate::{GameWorld, PlayerDiedMessage, SandboxDevState};
 
 mod cli;
 mod dev_runtime;

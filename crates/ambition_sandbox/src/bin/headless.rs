@@ -75,9 +75,10 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     // baseline; agents that want a richer trace can replay this binary
     // pattern from their own scripted policy.
     use ambition_sandbox::game_mode::GameMode as GameModeState;
+    use ambition_sandbox::player::{PlayerEntity, PlayerMovementAuthority};
     use ambition_sandbox::rooms::RoomSet;
     use ambition_sandbox::GameWorld;
-    use ambition_sandbox::SandboxRuntime;
+    use bevy::prelude::With;
     use bevy::state::state::State;
 
     for _ in 0..max_ticks {
@@ -85,24 +86,41 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
 
         // Manually invoke the trace capture against the sim's world.
         let world_ref = sim.world();
-        let runtime = world_ref.resource::<SandboxRuntime>();
+        // Read the authoritative player state from the ECS component.
+        let player = {
+            let mut q = sim.world_mut().query_filtered::<
+                &PlayerMovementAuthority,
+                With<PlayerEntity>,
+            >();
+            q.single(sim.world())
+                .map(|a| a.player.clone())
+                .unwrap_or_else(|_| ambition_engine::Player::new_with_abilities(
+                    ambition_engine::Vec2::ZERO,
+                    ambition_engine::AbilitySet::default(),
+                ))
+        };
+        let world_ref = sim.world();
         let game_world = world_ref.resource::<GameWorld>();
         let control_frame = world_ref.resource::<ControlFrame>();
         let room_set = world_ref.resource::<RoomSet>();
         let game_mode = world_ref.resource::<State<GameModeState>>();
+        let sim_state = world_ref.resource::<ambition_sandbox::SandboxSimState>();
+        let moving_platforms = world_ref.resource::<ambition_sandbox::MovingPlatformSet>();
         let active_area = room_set.active_spec().id.clone();
         let mode_label = format!("{:?}", game_mode.get());
-        let locomotion_state = ambition_engine::LocomotionState::from_player(&runtime.player);
-        let body_mode_state = ambition_engine::BodyMode::from_player(&runtime.player);
+        let locomotion_state = ambition_engine::LocomotionState::from_player(&player);
+        let body_mode_state = ambition_engine::BodyMode::from_player(&player);
         record_simulation_frame(
             &mut buffer,
-            runtime,
+            &player,
+            sim_state,
             &game_world.0,
             *control_frame,
             1.0 / 60.0,
             1.0 / 60.0,
             &mode_label,
             &active_area,
+            &moving_platforms.0,
             locomotion_state.label(),
             body_mode_state.label(),
         );

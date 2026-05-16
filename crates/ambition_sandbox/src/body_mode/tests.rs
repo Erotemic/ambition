@@ -1,6 +1,6 @@
 use super::*;
 use crate::input::ControlFrame;
-use crate::{GameWorld, SandboxRuntime};
+use crate::GameWorld;
 use ambition_engine as ae;
 use bevy::prelude::{App, Time, Update, With};
 
@@ -30,13 +30,9 @@ fn body_app(world: ae::World) -> App {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
     app.insert_resource(GameWorld(world.clone()));
-    let runtime = SandboxRuntime::new(
-        &world,
-        ae::AbilitySet::sandbox_all(),
-        ae::DEFAULT_TUNING,
-    );
-    let initial_player = runtime.player.clone();
-    app.insert_resource(runtime);
+    let mut initial_player =
+        ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
+    initial_player.refresh_movement_resources(ae::DEFAULT_TUNING);
     app.insert_resource(ControlFrame::default());
     app.world_mut().spawn((
         crate::player::PlayerEntity,
@@ -47,47 +43,39 @@ fn body_app(world: ae::World) -> App {
     app
 }
 
-/// Set player state on both the ECS authority and the runtime shadow so both
-/// are consistent before the test tick runs.
+/// Clone the player from the authoritative ECS component for assertions.
+fn player(app: &mut App) -> ae::Player {
+    let mut q = app.world_mut().query_filtered::<
+        &crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >();
+    q.single(app.world())
+        .map(|a| a.player.clone())
+        .expect("no PlayerMovementAuthority")
+}
+
+/// Set player state directly on `PlayerMovementAuthority`.
 fn set_grounded_at(app: &mut App, pos: ae::Vec2) {
-    let new_state = {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.player.pos = pos;
-        runtime.player.vel = ae::Vec2::ZERO;
-        runtime.player.on_ground = true;
-        runtime.player.on_wall = false;
-        runtime.player.wall_clinging = false;
-        runtime.player.wall_climbing = false;
-        runtime.player.dash_timer = 0.0;
-        runtime.player.blink_aiming = false;
-        runtime.player.water_contact = None;
-        runtime.player.clone()
-    };
     let mut q = app.world_mut().query_filtered::<
         &mut crate::player::PlayerMovementAuthority,
         With<crate::player::PlayerEntity>,
     >();
     for mut authority in q.iter_mut(app.world_mut()) {
-        authority.player = new_state.clone();
+        authority.player.pos = pos;
+        authority.player.vel = ae::Vec2::ZERO;
+        authority.player.on_ground = true;
+        authority.player.on_wall = false;
+        authority.player.wall_clinging = false;
+        authority.player.wall_climbing = false;
+        authority.player.dash_timer = 0.0;
+        authority.player.blink_aiming = false;
+        authority.player.water_contact = None;
     }
 }
 
 fn set_axis_y(app: &mut App, axis_y: f32) {
     let mut controls = app.world_mut().resource_mut::<ControlFrame>();
     controls.axis_y = axis_y;
-}
-
-/// Mirror `runtime.player` into `PlayerMovementAuthority` so the ECS query
-/// in `update_body_mode` sees whatever the test wrote to the shadow.
-fn sync_authority_from_runtime(app: &mut App) {
-    let player = app.world().resource::<SandboxRuntime>().player.clone();
-    let mut q = app.world_mut().query_filtered::<
-        &mut crate::player::PlayerMovementAuthority,
-        With<crate::player::PlayerEntity>,
-    >();
-    for mut authority in q.iter_mut(app.world_mut()) {
-        authority.player = player.clone();
-    }
 }
 
 /// Mark the double-tap-down edge on `PlayerInteractionState` exactly as
@@ -114,9 +102,9 @@ fn down_held_grounded_enters_crouch() {
 
     app.update();
 
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Crouching);
-    assert!(runtime.player.size.y < runtime.player.base_size.y);
+    let p = player(&mut app);
+    assert_eq!(p.body_mode, ae::BodyMode::Crouching);
+    assert!(p.size.y < p.base_size.y);
 }
 
 /// Releasing Down with overhead clearance returns to Standing.
@@ -128,18 +116,15 @@ fn down_released_returns_to_standing_when_clear() {
     // Crouch first.
     set_axis_y(&mut app, 1.0);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::Crouching
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Crouching);
 
     // Release down.
     set_axis_y(&mut app, 0.0);
     app.update();
 
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
-    assert_eq!(runtime.player.size, runtime.player.base_size);
+    let p = player(&mut app);
+    assert_eq!(p.body_mode, ae::BodyMode::Standing);
+    assert_eq!(p.size, p.base_size);
 }
 
 /// A low ceiling above the crouched body must reject the stand-up
@@ -167,17 +152,14 @@ fn stand_up_blocked_under_low_ceiling() {
     // Crouch.
     set_axis_y(&mut app, 1.0);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::Crouching
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Crouching);
 
     // Release down — stand-up should be blocked.
     set_axis_y(&mut app, 0.0);
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Crouching);
-    assert!(runtime.player.size.y < runtime.player.base_size.y);
+    let p = player(&mut app);
+    assert_eq!(p.body_mode, ae::BodyMode::Crouching);
+    assert!(p.size.y < p.base_size.y);
 }
 
 /// In the air, holding Down does not crouch (crouch is grounded only).
@@ -185,16 +167,19 @@ fn stand_up_blocked_under_low_ceiling() {
 fn airborne_down_does_not_crouch() {
     let mut app = body_app(empty_world());
     {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.player.pos = ae::Vec2::new(200.0, 200.0);
-        runtime.player.on_ground = false;
-        runtime.player.vel = ae::Vec2::ZERO;
+        let mut q = app.world_mut().query_filtered::<
+            &mut crate::player::PlayerMovementAuthority,
+            With<crate::player::PlayerEntity>,
+        >();
+        for mut authority in q.iter_mut(app.world_mut()) {
+            authority.player.pos = ae::Vec2::new(200.0, 200.0);
+            authority.player.on_ground = false;
+            authority.player.vel = ae::Vec2::ZERO;
+        }
     }
-    sync_authority_from_runtime(&mut app);
     set_axis_y(&mut app, 1.0);
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Standing);
 }
 
 /// Mid-dash holding Down does not crouch — dash owns the body shape.
@@ -203,14 +188,17 @@ fn dash_active_blocks_crouch() {
     let mut app = body_app(empty_world());
     set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
     {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.player.dash_timer = 0.05;
+        let mut q = app.world_mut().query_filtered::<
+            &mut crate::player::PlayerMovementAuthority,
+            With<crate::player::PlayerEntity>,
+        >();
+        for mut authority in q.iter_mut(app.world_mut()) {
+            authority.player.dash_timer = 0.05;
+        }
     }
-    sync_authority_from_runtime(&mut app);
     set_axis_y(&mut app, 1.0);
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Standing);
 }
 
 /// Double-tap-down on the ground from Standing curls into MorphBall.
@@ -223,11 +211,11 @@ fn double_tap_down_grounded_enters_morph_ball() {
     set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
     arm_double_tap_down(&mut app);
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::MorphBall);
+    let p = player(&mut app);
+    assert_eq!(p.body_mode, ae::BodyMode::MorphBall);
     // MorphBall is smaller than Standing on both axes.
-    assert!(runtime.player.size.x < runtime.player.base_size.x);
-    assert!(runtime.player.size.y < runtime.player.base_size.y);
+    assert!(p.size.x < p.base_size.x);
+    assert!(p.size.y < p.base_size.y);
 }
 
 /// Crouching + double-tap-down also curls into MorphBall (reachable
@@ -241,17 +229,11 @@ fn double_tap_down_from_crouch_enters_morph_ball() {
     // Crouch first.
     set_axis_y(&mut app, 1.0);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::Crouching
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Crouching);
     // Then double-tap-down.
     arm_double_tap_down(&mut app);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::MorphBall
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::MorphBall);
 }
 
 /// Jump-pressed inside MorphBall unmorphs to Standing when there's
@@ -266,19 +248,16 @@ fn jump_press_in_morph_ball_unmorphs_to_standing() {
     // resource borrow).
     arm_double_tap_down(&mut app);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::MorphBall
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::MorphBall);
 
     {
         let mut controls = app.world_mut().resource_mut::<ControlFrame>();
         controls.jump_pressed = true;
     }
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
-    assert_eq!(runtime.player.size, runtime.player.base_size);
+    let p = player(&mut app);
+    assert_eq!(p.body_mode, ae::BodyMode::Standing);
+    assert_eq!(p.size, p.base_size);
 }
 
 /// Jump-pressed inside MorphBall under a low ceiling stays curled —
@@ -299,10 +278,7 @@ fn jump_press_in_morph_ball_under_low_ceiling_stays_curled() {
     // Morph via gesture.
     arm_double_tap_down(&mut app);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::MorphBall
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::MorphBall);
 
     // Try to unmorph.
     {
@@ -310,8 +286,7 @@ fn jump_press_in_morph_ball_under_low_ceiling_stays_curled() {
         controls.jump_pressed = true;
     }
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::MorphBall);
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::MorphBall);
 }
 
 /// Airborne double-tap-down does NOT curl (morph is grounded only).
@@ -319,15 +294,18 @@ fn jump_press_in_morph_ball_under_low_ceiling_stays_curled() {
 fn airborne_double_tap_down_does_not_morph() {
     let mut app = body_app(empty_world());
     {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.player.pos = ae::Vec2::new(200.0, 200.0);
-        runtime.player.on_ground = false;
+        let mut q = app.world_mut().query_filtered::<
+            &mut crate::player::PlayerMovementAuthority,
+            With<crate::player::PlayerEntity>,
+        >();
+        for mut authority in q.iter_mut(app.world_mut()) {
+            authority.player.pos = ae::Vec2::new(200.0, 200.0);
+            authority.player.on_ground = false;
+        }
     }
-    sync_authority_from_runtime(&mut app);
     arm_double_tap_down(&mut app);
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Standing);
 }
 
 /// Repro for the ControlFrame-not-flowing-through-sandbox_update
@@ -348,9 +326,8 @@ fn morph_ball_does_not_fire_from_control_frame_alone() {
     }
     // PlayerInteractionState::double_tap_down_pending is NOT armed.
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
     assert_eq!(
-        runtime.player.body_mode,
+        player(&mut app).body_mode,
         ae::BodyMode::Standing,
         "the body-mode driver must read PlayerInteractionState::double_tap_down_pending, \
          not controls.fast_fall_pressed (which sandbox_update consumes \
@@ -358,31 +335,34 @@ fn morph_ball_does_not_fire_from_control_frame_alone() {
     );
 }
 
-/// `SandboxRuntime::reset` (called by death/respawn) must restore
-/// the player to Standing with the canonical base size, even if
-/// the player was mid-Crouch or mid-MorphBall when they died.
-/// Otherwise a respawn could land in a smaller body and the engine
-/// would compute collision against the shrunk AABB until the next
-/// crouch input.
+/// Death/respawn reset must restore the player to Standing with the
+/// canonical base size, even if they were mid-Crouch or mid-MorphBall
+/// when they died. Otherwise a respawn could land in a smaller body
+/// and the engine would compute collision against the shrunk AABB
+/// until the next crouch input.
 #[test]
 fn reset_restores_standing_from_crouch() {
     let mut app = body_app(empty_world());
     set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
     set_axis_y(&mut app, 1.0);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::Crouching
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Crouching);
 
     let world = empty_world();
     {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.reset(&world, ae::DEFAULT_TUNING);
+        let mut q = app.world_mut().query_filtered::<
+            &mut crate::player::PlayerMovementAuthority,
+            With<crate::player::PlayerEntity>,
+        >();
+        for mut authority in q.iter_mut(app.world_mut()) {
+            authority.player.reset_to(world.spawn);
+            authority.player.refresh_movement_resources(ae::DEFAULT_TUNING);
+            authority.player.mana.refill_full();
+        }
     }
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
-    assert_eq!(runtime.player.size, runtime.player.base_size);
+    let p = player(&mut app);
+    assert_eq!(p.body_mode, ae::BodyMode::Standing);
+    assert_eq!(p.size, p.base_size);
 }
 
 #[test]
@@ -391,19 +371,23 @@ fn reset_restores_standing_from_morph_ball() {
     set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
     arm_double_tap_down(&mut app);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::MorphBall
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::MorphBall);
 
     let world = empty_world();
     {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.reset(&world, ae::DEFAULT_TUNING);
+        let mut q = app.world_mut().query_filtered::<
+            &mut crate::player::PlayerMovementAuthority,
+            With<crate::player::PlayerEntity>,
+        >();
+        for mut authority in q.iter_mut(app.world_mut()) {
+            authority.player.reset_to(world.spawn);
+            authority.player.refresh_movement_resources(ae::DEFAULT_TUNING);
+            authority.player.mana.refill_full();
+        }
     }
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
-    assert_eq!(runtime.player.size, runtime.player.base_size);
+    let p = player(&mut app);
+    assert_eq!(p.body_mode, ae::BodyMode::Standing);
+    assert_eq!(p.size, p.base_size);
 }
 
 /// Wall-cling state owns the player posture; do not crouch from it.
@@ -412,16 +396,19 @@ fn wall_clinging_blocks_crouch() {
     let mut app = body_app(empty_world());
     set_grounded_at(&mut app, ae::Vec2::new(200.0, 500.0));
     {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.player.wall_clinging = true;
-        runtime.player.on_wall = true;
-        runtime.player.on_ground = false;
+        let mut q = app.world_mut().query_filtered::<
+            &mut crate::player::PlayerMovementAuthority,
+            With<crate::player::PlayerEntity>,
+        >();
+        for mut authority in q.iter_mut(app.world_mut()) {
+            authority.player.wall_clinging = true;
+            authority.player.on_wall = true;
+            authority.player.on_ground = false;
+        }
     }
-    sync_authority_from_runtime(&mut app);
     set_axis_y(&mut app, 1.0);
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
-    assert_eq!(runtime.player.body_mode, ae::BodyMode::Standing);
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Standing);
 }
 
 /// Build a test world with a single ladder region centered at the
@@ -447,12 +434,14 @@ fn ladder_world() -> ae::World {
 /// progression chain runs.
 fn set_on_ladder(app: &mut App) {
     let world = app.world().resource::<GameWorld>().0.clone();
-    {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        let aabb = runtime.player.aabb();
-        runtime.player.climbable_contact = world.climbable_at(aabb);
+    let mut q = app.world_mut().query_filtered::<
+        &mut crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >();
+    for mut authority in q.iter_mut(app.world_mut()) {
+        let aabb = authority.player.aabb();
+        authority.player.climbable_contact = world.climbable_at(aabb);
     }
-    sync_authority_from_runtime(app);
 }
 
 #[test]
@@ -464,9 +453,8 @@ fn up_input_inside_ladder_enters_climbing() {
     set_axis_y(&mut app, -1.0);
 
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
     assert_eq!(
-        runtime.player.body_mode,
+        player(&mut app).body_mode,
         ae::BodyMode::Climbing,
         "up-input inside a climbable contact should enter Climbing"
     );
@@ -484,9 +472,8 @@ fn down_input_grounded_inside_ladder_stays_crouching_not_climbing() {
     set_axis_y(&mut app, 1.0); // down
 
     app.update();
-    let runtime = app.world().resource::<SandboxRuntime>();
     assert_eq!(
-        runtime.player.body_mode,
+        player(&mut app).body_mode,
         ae::BodyMode::Crouching,
         "Down + grounded should crouch, not climb"
     );
@@ -499,10 +486,7 @@ fn jump_press_while_climbing_exits_to_standing() {
     set_on_ladder(&mut app);
     set_axis_y(&mut app, -1.0);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::Climbing
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Climbing);
 
     // Now press jump on the next tick.
     {
@@ -515,7 +499,7 @@ fn jump_press_while_climbing_exits_to_standing() {
     set_on_ladder(&mut app);
     app.update();
     assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
+        player(&mut app).body_mode,
         ae::BodyMode::Standing,
         "jump press during climb should release back to standing"
     );
@@ -528,18 +512,19 @@ fn losing_climbable_contact_exits_climbing() {
     set_on_ladder(&mut app);
     set_axis_y(&mut app, -1.0);
     app.update();
-    assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
-        ae::BodyMode::Climbing
-    );
+    assert_eq!(player(&mut app).body_mode, ae::BodyMode::Climbing);
 
     // Drop the contact (simulating "moved off the ladder
     // horizontally"). No jump press.
     {
-        let mut runtime = app.world_mut().resource_mut::<SandboxRuntime>();
-        runtime.player.climbable_contact = None;
+        let mut q = app.world_mut().query_filtered::<
+            &mut crate::player::PlayerMovementAuthority,
+            With<crate::player::PlayerEntity>,
+        >();
+        for mut authority in q.iter_mut(app.world_mut()) {
+            authority.player.climbable_contact = None;
+        }
     }
-    sync_authority_from_runtime(&mut app);
     {
         let mut controls = app.world_mut().resource_mut::<ControlFrame>();
         controls.axis_y = 0.0;
@@ -547,7 +532,7 @@ fn losing_climbable_contact_exits_climbing() {
     }
     app.update();
     assert_eq!(
-        app.world().resource::<SandboxRuntime>().player.body_mode,
+        player(&mut app).body_mode,
         ae::BodyMode::Standing,
         "losing climbable contact should drop the climb mode"
     );

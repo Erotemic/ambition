@@ -5,7 +5,7 @@ use super::*;
 #[allow(clippy::too_many_arguments)]
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
-    runtime: &SandboxRuntime,
+    player: &ae::Player,
     sim_state: &crate::SandboxSimState,
     world: &ae::World,
     controls: ControlFrame,
@@ -17,9 +17,9 @@ pub fn record_simulation_frame(
     locomotion: &str,
     body_mode: &str,
 ) {
-    let oob = detect_oob(&runtime.player, world, OOB_MARGIN);
+    let oob = detect_oob(player, world, OOB_MARGIN);
     let frame = build_frame(
-        runtime,
+        player,
         sim_state,
         world,
         controls,
@@ -87,7 +87,6 @@ pub fn handle_trace_hotkey(
 /// was clinging to a wall.
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
-    runtime: Res<SandboxRuntime>,
     sim_state: Res<crate::SandboxSimState>,
     platform_set: Res<crate::MovingPlatformSet>,
     world: Res<GameWorld>,
@@ -96,11 +95,18 @@ pub fn record_frame_system(
     rooms: Option<Res<crate::rooms::RoomSet>>,
     mode: Res<State<crate::game_mode::GameMode>>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
-    player_health_q: Query<
-        &crate::player::PlayerHealth,
+    player_q: Query<
+        (
+            &crate::player::PlayerMovementAuthority,
+            Option<&crate::player::PlayerHealth>,
+        ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
+    let Ok((authority, player_health)) = player_q.single() else {
+        return;
+    };
+    let player = &authority.player;
     let real_dt = time.delta_secs();
     let sim_dt = real_dt * sim_state.time_scale;
     let active_area = rooms
@@ -108,11 +114,9 @@ pub fn record_frame_system(
         .map(|r| r.active_spec().id.clone())
         .unwrap_or_else(|| "<unknown>".into());
     let mode_label = format!("{:?}", mode.get());
-    let hp_current = player_health_q
-        .single()
-        .map_or(0, |h| h.health.current);
-    let locomotion_state = ae::LocomotionState::from_player(&runtime.player);
-    let body_mode_state = ae::BodyMode::from_player(&runtime.player);
+    let hp_current = player_health.map_or(0, |h| h.health.current);
+    let locomotion_state = ae::LocomotionState::from_player(player);
+    let body_mode_state = ae::BodyMode::from_player(player);
     let locomotion = locomotion_state.label().to_string();
     let body_mode = body_mode_state.label().to_string();
 
@@ -126,7 +130,7 @@ pub fn record_frame_system(
     // event tick aligns with the frame the user will see in the dump.
     synthesize_events_from_diff(
         &mut buffer,
-        &runtime,
+        player,
         hp_current,
         *control_frame,
         real_dt,
@@ -137,7 +141,7 @@ pub fn record_frame_system(
 
     record_simulation_frame(
         &mut buffer,
-        &runtime,
+        player,
         &sim_state,
         &augmented_world,
         *control_frame,
@@ -157,7 +161,7 @@ pub fn record_frame_system(
     // place rather than corrupting the timeline.
     update_previous_snapshot(
         &mut buffer,
-        &runtime,
+        player,
         hp_current,
         *control_frame,
         &active_area,

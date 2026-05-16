@@ -19,7 +19,7 @@ use crate::platforms;
 use crate::rendering::PlayerVisual;
 use crate::rendering::{CameraViewState, SceneEntities};
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
-use crate::{GameMode, GameWorld, SandboxDevState, SandboxRuntime};
+use crate::{GameMode, GameWorld, SandboxDevState};
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
@@ -63,7 +63,6 @@ pub fn draw_debug_overlay() {}
 pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<GameWorld>,
-    runtime: Res<SandboxRuntime>,
     dev_state: Res<SandboxDevState>,
     attack_res: Res<crate::CurrentPlayerAttack>,
     platform_set: Res<crate::MovingPlatformSet>,
@@ -74,7 +73,10 @@ pub fn draw_debug_overlay(
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
     action_query: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
-    player_health_q: Query<&crate::player::PlayerHealth, With<crate::player::PlayerEntity>>,
+    player_q: Query<
+        (&crate::player::PlayerMovementAuthority, Option<&crate::player::PlayerHealth>),
+        With<crate::player::PlayerEntity>,
+    >,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -90,6 +92,9 @@ pub fn draw_debug_overlay(
         action_query.get(entities.player).ok()
     } else {
         None
+    };
+    let Ok((authority, player_health)) = player_q.single() else {
+        return;
     };
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
@@ -116,7 +121,7 @@ pub fn draw_debug_overlay(
     draw_player_debug(
         &mut gizmos,
         world,
-        &runtime,
+        &authority.player,
         &platform_set.0,
         attack_res.0.as_ref(),
         actions,
@@ -124,7 +129,7 @@ pub fn draw_debug_overlay(
         &developer_tools,
     );
     if developer_tools.show_health_bars {
-        draw_health_bars(&mut gizmos, world, &runtime, player_health_q.single().ok());
+        draw_health_bars(&mut gizmos, world, &authority.player, player_health);
     }
 }
 
@@ -234,14 +239,13 @@ fn draw_ldtk_runtime_spine(
 fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    runtime: &SandboxRuntime,
+    player: &ae::Player,
     moving_platforms: &[crate::platforms::MovingPlatformState],
     attack: Option<&crate::PlayerAttackState>,
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
 ) {
-    let player = &runtime.player;
     let body = player.aabb();
     if developer_tools.show_player_hitbox {
         draw_aabb(gizmos, world, body, cyan());
@@ -318,7 +322,7 @@ fn draw_player_debug(
     // is a high-tempo traversal affordance that should be visible during feel
     // tuning without adding another F3 row.
     if developer_tools.show_combat_preview {
-        if let Some(ledge) = runtime.player.ledge_grab.as_ref() {
+        if let Some(ledge) = player.ledge_grab.as_ref() {
             let anchor_box = ae::Aabb::new(ledge.contact.anchor, ae::Vec2::splat(5.0));
             let target_box = ae::Aabb::new(ledge.contact.climb_target, player.size * 0.35);
             draw_aabb(gizmos, world, anchor_box, cyan());
@@ -421,14 +425,14 @@ fn draw_moving_platform_debug(gizmos: &mut Gizmos, world: &ae::World, moving_pla
 fn draw_health_bars(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    runtime: &SandboxRuntime,
+    player: &ae::Player,
     player_health: Option<&crate::player::PlayerHealth>,
 ) {
     let ratio = player_health.map_or(1.0, |h| h.health.ratio());
     draw_health_bar(
         gizmos,
         world,
-        runtime.player.aabb(),
+        player.aabb(),
         ratio,
         cyan(),
     );

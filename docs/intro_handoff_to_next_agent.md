@@ -5,6 +5,107 @@
 (Started 2026-05-16; agent committed to working until backlog is zero per
 `docs/intro_autonomous_followup_prompt_v3.md`.)
 
+- `7a8a677` — P0 step 1 — ClockDomain enum + sim/player/wall dt accessors on
+  WorldTime; legacy raw_dt/scaled_dt kept as aliases; SP behavior unchanged.
+- `44e028a` — P0 step 2 — ClockScaleRequest message + RegimePolicy resource
+  (Solo / RL / Cinematic); apply_clock_scale_requests system wired into the
+  schedule before refresh_world_time; existing mutations untouched.
+- `18c0419` — P0 step 3 — ProperTimeScale component (default 1.0) +
+  WorldTime::entity_dt accessor; animate_player / animate_characters /
+  animate_props / animate_bosses migrated; SP behavior unchanged because
+  no entity carries the component yet.
+- `390cb7b` — P0 step 4 — bullet-time wired through emit→apply→smooth
+  via ClockScaleRequest + RequestedClockScale; legacy update_time_scale
+  removed from phases.rs (now #[deprecated]); apply_suspended also
+  zeroes the requested target.
+- `ddbad80` — P1 §1.3 — regression test asserts Prop entities never
+  grow Interactables and no NPC Interactable overlaps a prop position
+  in intro.ldtk (pins 195b5ce structurally).
+- `66e62ad` — P2 step 1 (ADR 0015) — intro_lab + town tileset defs
+  registered in intro.ldtk via `tileset add`; additive only, no
+  Tiles layer instances or Bevy runtime changes yet.
+- `f7618df` — P5 — creator_final_fast + creator_final_impossible
+  dialogue variants registered (nodes + INTRO_DIALOGUE_IDS); intro
+  cutscene variant-selection logic still TODO.
+- `b7bdcc0` — P6 — `def update-entity` python subcommand. Adds
+  fields to an existing entity def via `--add-field name:type:default`.
+  Unblocks ADR 0016 Actor unification (adding aggression /
+  dialogue_id / brain / path_id to a baseline Actor entity).
+- `16a8e4f` — P4 step 1 — intro.ldtk flipped to GridVania layout
+  with 16px grid (existing 2000-px-spaced level positions align
+  cleanly). Re-packing levels to be edge-adjacent is deferred —
+  requires walking every authored entity to update its __worldX.
+
+## Open questions for next agent
+
+### P2 — LDtk tileset rendering (remaining work)
+
+The tileset DEFS are now in intro.ldtk (commit `66e62ad`), but
+no Tiles layer instances exist and the Bevy runtime hasn't been
+flipped on yet. Remaining work, in dependency order:
+
+1. **`tileset add-layer-def` python subcommand** — add a Tiles
+   layer def to `defs.layers[]` pointing at a registered
+   tileset uid. Mirror `area_authoring::ensure_climbable_layer_def`
+   for shape; new layer type is `"Tiles"` with `tilesetDefUid` set.
+2. **Add Tiles layer defs** — one for `intro_lab` (uid 104433) and
+   one for `town` (uid 104434). Use the tool from step 1.
+3. **Empty Tiles layer instances on every level** — same pattern
+   as `ensure_climbable_layer_def` adds empty Climbable instances
+   to all levels for schema consistency. Empty `gridTiles: []` is
+   valid.
+4. **`tileset paint` subcommand** *or* hand-author in LDtk editor —
+   actually place tiles. Without this, the runtime change in step 5
+   shows nothing.
+5. **Rust runtime — `level_background: LevelBackground::Translucent`**
+   in `app/resources.rs::LdtkSettings`. Changes the per-level
+   background quad from "skipped" to "rendered behind tiles." Low-
+   risk if no tiles are authored; needed before tiles can render.
+6. **Rust runtime — per-room `LdtkWorldBundle` transform sync** —
+   this is the hard part the ADR calls out. `bevy_ecs_ldtk` renders
+   tiles in raw LDtk world-pixel space; Ambition's renderer centers
+   each active area at the origin via `world_to_bevy`. The seam is
+   in `ldtk_world/bevy_runtime/asset.rs`. The fix: a per-room
+   transform on the single `SandboxLdtkWorldRoot` entity that
+   piggybacks on the active-area change events. Pseudocode:
+   ```rust
+   ldtk_world_transform.translation =
+       world_to_bevy_origin(active_area_min, WORLD_Z_BLOCK - 1.0);
+   ```
+   The `active_area_min` is already tracked in `LdtkRuntimeIndex::
+   area_bounds`. The risk is in the *interaction* with hot-reload
+   and room transitions — those swap `LevelSet`, and the transform
+   must move on the same frame.
+
+**Decision deferred:** whether to ship Tiles + tilesets alongside
+Ambition's existing colored-block renderer (two-pass, debug-toggle
+the blocks) or fully replace blocks with tile visuals (more work,
+cleaner shipping look). ADR 0015 leans toward two-pass; the
+`RenderDebugBlocks` boolean is the seam.
+
+**Recommended next-session entry point:** start with the python
+`tileset add-layer-def` tool. Steps 1-4 are author-side only and
+can be committed independently without touching Rust. Step 5 is
+trivial. Step 6 is the spike — do it after authoring real content
+so you can see whether the transform aligns.
+
+### P3 — Actor unification (remaining work)
+
+ADR 0016 lists a 6-commit sequence. Step 1 (`feat(actor): introduce
+Aggression + unified ActorRuntime`) was not landed in this session
+because the scope is wide (combat, AI, dialogue, save format,
+content_validation, conversion_tests, ecs_actor_view_compat all
+touch `ActorRuntime`). The ADR's recommended order stands.
+
+**Decision deferred:** whether to start Actor unification BEFORE or
+AFTER tileset rendering. ADR 0016 itself recommends Actor first
+because it doesn't touch the renderer; ADR 0015's recommended
+order has them as independent.
+
+### P4, P5, P6, P7
+
+Not started in this session — see the original backlog above.
+
 Status as of commit `195b5ce`: the intro is playable end-to-end
 (spawn on cart → wake → raid (with hostile enemies + combat barks)
 → escape shaft → drain alley → gate stack → portal back to sandbox

@@ -29,9 +29,9 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     link remove      [TODO]
     link check       [TODO]
 
-    intgrid paint    [TODO]
-    intgrid erase    [TODO]
-    intgrid summarize [TODO]
+    intgrid summarize <level>     Print per-value cell counts + bboxes for a layer.
+    intgrid erase     <rect>      Zero out cells overlapping a px/size rect.
+    intgrid paint    [TODO]       (reserved — add when a real authoring need lands)
 
 The TODO subcommands are placeholders — the package was migrated from
 several standalone scripts and these slots are reserved so the surface
@@ -157,6 +157,14 @@ def cmd_link(args, rest):
 
 
 def cmd_intgrid(args, rest):
+    if args.intgrid_action in {"summarize", "erase"}:
+        # Forward the action + leftover argv (the --layer / --level /
+        # --px / --size flags) to the dedicated module so its own
+        # argparse owns the surface.
+        return _delegate(
+            "ambition_ldtk_tools.edit.intgrid",
+            [args.intgrid_action, *rest],
+        )
     return _todo(f"intgrid {args.intgrid_action}")
 
 
@@ -272,12 +280,18 @@ def build_parser() -> argparse.ArgumentParser:
     link_sub.add_parser("check")
     sp_link.set_defaults(func=cmd_link)
 
-    # intgrid {paint,erase,summarize}
-    sp_intgrid = sub.add_parser("intgrid", help="[TODO] IntGrid edits")
+    # intgrid {summarize,erase,paint}
+    sp_intgrid = sub.add_parser("intgrid", help="IntGrid layer edits")
     intgrid_sub = sp_intgrid.add_subparsers(dest="intgrid_action", required=True)
-    intgrid_sub.add_parser("paint")
-    intgrid_sub.add_parser("erase")
-    intgrid_sub.add_parser("summarize")
+    intgrid_sub.add_parser(
+        "summarize",
+        help="Print per-value cell counts + bboxes for an IntGrid layer",
+    )
+    intgrid_sub.add_parser(
+        "erase",
+        help="Zero out every IntGrid cell overlapping a given px/size rect",
+    )
+    intgrid_sub.add_parser("paint", help="[TODO] reserved")
     sp_intgrid.set_defaults(func=cmd_intgrid)
 
     return ap

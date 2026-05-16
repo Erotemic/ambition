@@ -34,7 +34,11 @@ bg_color: "#0F1218"
 biome: lab
 
 entities:
-  # --- Outer geometry.
+  # --- Outer geometry. Right wall intentionally omitted so the
+  # right-edge EdgeExit `wake_to_raid` (x=1008..1024) is walkable.
+  # If a future room needs a wall on a side that has an EdgeExit,
+  # use `intgrid erase --level X --px X,Y --size W,H` to clear the
+  # overlap cells AFTER `area create` lowers the Solid into IntGrid.
   - type: Solid
     px: [0, 352]
     size: [1024, 32]
@@ -43,13 +47,6 @@ entities:
     px: [0, 0]
     size: [16, 352]
     fields: { name: left_wall }
-  - type: Solid
-    px: [1008, 0]
-    size: [16, 352]
-    fields: { name: right_wall_lower }
-  # Right wall has a gap at the EdgeExit slot so the player can
-  # actually walk into it. The top + bottom slivers keep ceiling
-  # collision honest.
   - type: Solid
     px: [16, 0]
     size: [992, 32]

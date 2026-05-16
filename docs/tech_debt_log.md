@@ -165,17 +165,24 @@ to the bottom under "Closed" with the commit that fixed them.
   named `*_phase` helpers**
   - File: `crates/ambition_sandbox/src/app/update.rs`,
     `crates/ambition_sandbox/src/app/phases.rs`
-  - Two phase helpers (`input_timer_*` and `cleanup_timers_*`) have
-    been promoted to real Bevy systems in
-    `crates/ambition_sandbox/src/app/sim_systems.rs`. The remaining
-    phases (`mode_gate_phase`, `reset_phase`, `player_control_phase`,
+  - Promoted to real Bevy systems in
+    `crates/ambition_sandbox/src/app/sim_systems.rs` (and gated by
+    run-conditions where appropriate):
+    - `input_timer_system` (was `input_timer_phase`),
+    - `cleanup_timers_system` (was `cleanup_timers_phase`),
+    - `apply_suspended_time_scale_system` (was `mode_gate_phase`),
+    - `sync_live_player_dev_edits_system` (was a direct call to
+      `dev_tools::sync_live_ability_edits` at the top of
+      `sandbox_update`).
+    `sandbox_update` itself now runs only in `GameMode::Playing`.
+    The remaining phases (`reset_phase`, `player_control_phase`,
     `player_simulation_phase`, `interaction_input_phase`,
     `damage_heal_dialogue_phase`, `room_transition_phase`,
     `attack_phase`) still run inline because each takes `&mut
-    ae::Player` and `&mut FrameFeedback` and removing the shared
-    borrow needs the engine player borrow to split. Promote one
-    phase at a time, gated by integration tests, when the borrow
-    graph allows.
+    ae::Player` and `&mut FrameFeedback`. Promote one phase at a
+    time, gated by integration tests, when the borrow graph allows.
+    See `feedback.rs` for the parallel `FrameFeedback` Vec-collector
+    retirement plan.
 
 - **LOW — `RoomVisual` is a dual-purpose marker**
   - File: `crates/ambition_sandbox/src/rendering/primitives.rs`

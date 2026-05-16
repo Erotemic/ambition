@@ -9,9 +9,35 @@
 use ambition_engine as ae;
 use bevy::prelude::*;
 
+use crate::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
 use crate::feel::SandboxFeelTuning;
 use crate::input::ControlFrame;
 use crate::SandboxSimState;
+
+/// Push live ability-flag and movement-tuning edits from the dev-tools
+/// inspector resources onto the authoritative player. Runs every
+/// frame, including paused / dialogue / cutscene, so the F3 inspector
+/// keeps working when the sim is suspended — the previous procedural
+/// `sandbox_update` called this *before* its mode-gate early-return,
+/// so the same "always-on" behavior must be preserved now that
+/// `sandbox_update` itself only runs in `GameMode::Playing`.
+pub fn sync_live_player_dev_edits_system(
+    editable_tuning: Res<EditableMovementTuning>,
+    editable_abilities: Res<EditableAbilitySet>,
+    mut player_q: Query<
+        &mut crate::player::PlayerMovementAuthority,
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    let Ok(mut authority) = player_q.single_mut() else {
+        return;
+    };
+    dev_tools::sync_live_ability_edits(
+        &mut authority.player,
+        editable_abilities.as_engine(),
+        editable_tuning.as_engine(),
+    );
+}
 
 /// While gameplay is suspended (paused, dialogue, room transition,
 /// cutscene), force `SandboxSimState::time_scale` to 0 so any

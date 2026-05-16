@@ -61,7 +61,6 @@ pub fn sandbox_update(
     world: Res<GameWorld>,
     room_set: Res<rooms::RoomSet>,
     editable_tuning: Res<EditableMovementTuning>,
-    editable_abilities: Res<EditableAbilitySet>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut event_writers: SandboxEventWriters,
     control_frame: Res<ControlFrame>,
@@ -99,7 +98,9 @@ pub fn sandbox_update(
         return;
     };
     let player = &mut authority.player;
-    dev_tools::sync_live_ability_edits(player, editable_abilities.as_engine(), tuning);
+    // Note: `sync_live_player_dev_edits_system` (in sim_systems) runs
+    // unconditionally before sandbox_update so dev-tool ability /
+    // tuning edits land even while the sim is paused.
 
     // sandbox_update no longer queries leafwing directly. Input arrives
     // through `Res<ControlFrame>` — visible builds derive it from

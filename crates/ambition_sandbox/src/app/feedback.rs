@@ -101,6 +101,23 @@ pub struct ProgressionResources<'w> {
 /// the gameplay loop runs and `flush_feedback` drains them into the
 /// `MessageWriter`s at every return point. Keeping the collectors on a
 /// single struct lets phase helpers take one parameter instead of three.
+///
+/// ## Migration plan
+///
+/// `FrameFeedback` exists because the procedural `sandbox_update`
+/// can't pass live `MessageWriter`s into its phase helpers (the
+/// writers are `SystemParam`s, not pluggable refs). The Vec collector
+/// + `flush_feedback` drain is a workaround.
+///
+/// As individual `*_phase` helpers get promoted to real Bevy systems
+/// (see `sim_systems.rs` for the pattern), each newly-extracted
+/// system should take the relevant `MessageWriter<…>` directly and
+/// drop its corresponding `FrameFeedback` channel. Once a channel
+/// has no remaining intra-`sandbox_update` producer, delete the
+/// field from `FrameFeedback`, drop the matching writer from
+/// `SandboxEventWriters`, and shrink `flush_feedback`. The eventual
+/// goal is for `FrameFeedback` to disappear entirely, leaving each
+/// extracted phase to write to its own narrow set of `MessageWriter`s.
 pub(super) struct FrameFeedback {
     pub(super) sfx: Vec<SfxMessage>,
     pub(super) vfx: Vec<VfxMessage>,

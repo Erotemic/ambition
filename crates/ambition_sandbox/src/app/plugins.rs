@@ -13,60 +13,17 @@ use super::phases::*;
 #[allow(unused_imports)]
 use super::resources::*;
 #[allow(unused_imports)]
+use super::schedule::*;
+#[allow(unused_imports)]
 use super::setup_systems::*;
+#[allow(unused_imports)]
+use super::sim_systems::*;
 #[allow(unused_imports)]
 use super::update::*;
 #[allow(unused_imports)]
 use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
-use bevy::prelude::SystemSet;
-
-/// Coarse simulation ordering for sandbox gameplay systems.
-///
-/// Keep concrete systems in small chained groups labeled with these sets instead
-/// of growing one giant tuple; Bevy only implements system tuples up to a fixed
-/// arity, and named sets make the update phases reviewable. Existing `.after`
-/// constraints continue to own ordering until the schedule is fully normalized.
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum SandboxSet {
-    CoreSimulation,
-    FeatureCollection,
-    FeatureInteraction,
-    LdtkRuntimeSpine,
-    EncounterSimulation,
-    Cutscene,
-    GameplayEffects,
-    Progression,
-    ResetProcessing,
-    Trace,
-}
-
-/// Fine-grained ordering within `SandboxSet::CoreSimulation`.
-///
-/// As sandbox_update's phase helpers are promoted to individual Bevy systems,
-/// each one goes into the corresponding `SimPhase` variant. Systems that have
-/// been extracted carry their `SimPhase` label; those still inside
-/// `sandbox_update` are listed here as documentation of intended order.
-///
-/// Current extraction status:
-/// - `InputTimer`      — extracted → `input_timer_system`
-/// - `RoomTransition`  — detection in `sandbox_update`; apply extracted →
-///                       `apply_room_transition_system` (runs after sandbox_update)
-/// - `CleanupTimers`   — extracted → `cleanup_timers_system`
-/// - Others (ModeGate, PlayerControl, PlayerSim, InteractionInput,
-///   DamageHeal, Attack) — still inside `sandbox_update`.
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum SimPhase {
-    /// Phase 2: per-frame timer decays + double-tap edge detection.
-    InputTimer,
-    /// Phase 9 apply: room transition detected by sandbox_update, applied here.
-    RoomTransitionApply,
-    /// Phase 11: flash/preset/slash/blink animation timer decay.
-    /// Runs every frame (including paused/dialogue) so presentation timers
-    /// wind down correctly without being gated by gameplay mode.
-    CleanupTimers,
-}
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -80,45 +37,11 @@ pub fn add_simulation_plugins(app: &mut App) {
     // a headless-friendly init path), it lives in
     // `add_presentation_plugins`.
 
-    // Declare the canonical simulation-phase ordering once, as a set
-    // chain. Individual system registrations below only need `.in_set(X)`;
-    // they no longer need to reference specific cross-set systems in
-    // `.after(...)`. Intra-set `.chain()` ordering is still expressed
-    // per-system as before.
-    //
-    // Order:
-    //   CoreSimulation  — LDtk polling, feature world rebuild, player loop
-    //   FeatureCollection — pickup collection, heal requests
-    //   FeatureInteraction — actor/switch/chest/breakable interactions
-    //   LdtkRuntimeSpine  — LDtk entity index rebuild + parity check
-    //   EncounterSimulation — platform tick, encounter state, banners
-    //   Cutscene          — auto-trigger, drain, tick cutscenes
-    //   GameplayEffects   — flag/quest/switch/boss/NPC/sfx effect routing
-    //   Progression       — boss/actor save sync, quest, body-mode, room, map
-    //
-    // ResetProcessing and Trace run after CoreSimulation (not in the main
-    // chain) because they are tail consumers, not simulation producers.
-    app.configure_sets(
-        Update,
-        (
-            SandboxSet::CoreSimulation,
-            SandboxSet::FeatureCollection,
-            SandboxSet::FeatureInteraction,
-            SandboxSet::LdtkRuntimeSpine,
-            SandboxSet::EncounterSimulation,
-            SandboxSet::Cutscene,
-            SandboxSet::GameplayEffects,
-            SandboxSet::Progression,
-        )
-            .chain(),
-    )
-    .configure_sets(
-        Update,
-        (
-            SandboxSet::ResetProcessing.after(SandboxSet::CoreSimulation),
-            SandboxSet::Trace.after(SandboxSet::CoreSimulation),
-        ),
-    );
+    // Declare the canonical simulation-phase ordering. Individual system
+    // registrations below only need `.in_set(SandboxSet::X)`; they no longer
+    // need to pin a cross-set system via `.after(other_system)`. Intra-set
+    // `.chain()` ordering is still expressed per-system.
+    configure_sandbox_sets(app);
 
     app.add_message::<SfxMessage>()
         .add_message::<VfxMessage>()
@@ -206,18 +129,18 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::CameraEaseTuning::default())
         .insert_resource(crate::rendering::CameraViewState::default())
         .insert_resource(crate::reset::SandboxResetRequested::default())
-        // Core simulation chain. Bevy only implements tuple system configs up
-        // to a fixed arity, so keep groups small and chained. SimPhase labels
-        // track which extracted Bevy systems occupy each phase slot.
+        // Core simulation chain. Bevy only implements tuple system configs
+        // up to a fixed arity, so keep groups small and chained.
         //
         // Chain order:
         //   LDtk polling → feature world rebuild → feature ticks →
-        //   [SimPhase::InputTimer] input_timer_system →
-        //   sandbox_update (phases 1,3–8,10 still inside; phase 9 detection only) →
-        //   [SimPhase::RoomTransitionApply] apply_room_transition_system →
+        //   input_timer_system →
+        //   sandbox_update (phases 1, 3–8, 10 still inside; phase 9
+        //     detection only) →
+        //   apply_room_transition_system (phase 9 apply) →
         //   feature cleanup → projectile tick → damage events →
         //   player ECS write-back →
-        //   [SimPhase::CleanupTimers] cleanup_timers_system
+        //   cleanup_timers_system (phase 11 — runs unconditionally)
         .add_systems(
             Update,
             (

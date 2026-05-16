@@ -293,13 +293,13 @@ pub(super) fn player_simulation_phase(
 ///
 /// Owns: hitstun gating of interaction, folding the explicit `Interact`
 /// action together with the `door_double_tap_up` signal from
-/// `input_timer_phase`, writing the buffered result back into
-/// `controls.interact_pressed` via `runtime.buffered_interact`.
+/// `input_timer_system`, writing the buffered result back into
+/// `controls.interact_pressed` via `PlayerInteractionState::buffered_interact`.
 ///
 /// Should not own: actually triggering doors, NPCs, chests, or pickups —
-/// `feature_runtime_phase` and `room_transition_phase` consume the
-/// buffered signal. Up is too valuable for platforming/flight/aiming to
-/// double as a one-tap door or NPC trigger, so doors/NPCs/chests accept
+/// the feature ECS interaction systems and `room_transition_phase` consume
+/// the buffered signal. Up is too valuable for platforming/flight/aiming
+/// to double as a one-tap door or NPC trigger, so doors/NPCs/chests accept
 /// either the dedicated `Interact` action or a deliberate double-tap-up
 /// gesture.
 pub(super) fn interaction_input_phase(
@@ -457,85 +457,3 @@ pub(super) fn attack_phase(
     );
 }
 
-/// Phase 11 — flash / preset / slash animation timer decay.
-///
-/// Owns: real-time decay of `flash_timer`, `preset_flash`,
-/// `slash_anim_timer`. New presentation-flash timers belong here;
-/// gameplay timers belong in `input_timer_phase`.
-pub(super) fn cleanup_timers_phase(
-    player: &ae::Player,
-    dev_state: &mut crate::SandboxDevState,
-    anim: &mut crate::player::PlayerAnimState,
-    combat: &mut crate::player::PlayerCombatState,
-    blink_cam: &mut crate::player::PlayerBlinkCameraState,
-    frame_dt: f32,
-) {
-    combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
-    dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
-    anim.slash_anim_timer = (anim.slash_anim_timer - frame_dt).max(0.0);
-    blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
-    blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
-    update_anim_signal_timers(player, anim, frame_dt);
-}
-
-/// Drive the presentation-only landing + dash-startup timers and capture
-/// the per-frame state needed for edge detection.
-///
-/// The sprite picker (`pick_player_anim`) reads these from the
-/// `PlayerAnimState` component. Detection lives here so all presentation
-/// timers decay in one phase and so the "previous frame" snapshot is the
-/// one immediately before the next gameplay tick.
-fn update_anim_signal_timers(
-    player: &ae::Player,
-    anim: &mut crate::player::PlayerAnimState,
-    frame_dt: f32,
-) {
-    // Hard-landing threshold: pre-touchdown downward speed (px/s) above
-    // which we play `LandHard` instead of `LandRecovery`. Tuned by the
-    // sandbox's terminal-fall feel; raise if normal jump landings start
-    // reading as hard impacts.
-    const HARD_LAND_SPEED: f32 = 520.0;
-    // Time the landing pose holds after touchdown.
-    const LAND_HARD_HOLD_SECS: f32 = 0.34;
-    const LAND_SOFT_HOLD_SECS: f32 = 0.16;
-    // Brief pre-roll for the dash startup pose. Falls below the dash's
-    // own duration so the streaking dash row still gets airtime.
-    const DASH_STARTUP_SECS: f32 = 0.05;
-
-    let on_ground = player.on_ground;
-    let dash_timer = player.dash_timer;
-
-    // Landing edge: airborne last frame, grounded this frame.
-    if on_ground && !anim.anim_prev_on_ground {
-        let impact_speed = anim.anim_prev_vel_y;
-        let hard = impact_speed >= HARD_LAND_SPEED;
-        anim.land_anim_hard = hard;
-        anim.land_anim_timer = if hard {
-            LAND_HARD_HOLD_SECS
-        } else {
-            LAND_SOFT_HOLD_SECS
-        };
-    } else if !on_ground {
-        // Stay airborne: the landing pose only plays on the ground.
-        anim.land_anim_timer = 0.0;
-    } else {
-        anim.land_anim_timer = (anim.land_anim_timer - frame_dt).max(0.0);
-    }
-
-    // Dash rising edge: previous frame had no dash, this frame has one.
-    if dash_timer > 0.0 && anim.anim_prev_dash_timer <= 0.0 {
-        anim.dash_startup_timer = DASH_STARTUP_SECS;
-    } else {
-        anim.dash_startup_timer = (anim.dash_startup_timer - frame_dt).max(0.0);
-    }
-
-    // Snapshot for the next frame. Sample vel.y BEFORE any further
-    // physics so the landing detector sees the pre-touchdown speed
-    // (engine zeroes vertical velocity on contact); cleanup_timers_phase
-    // runs at the end of the gameplay loop, so the player state here is
-    // already post-integration but still reflects the speed that produced
-    // this frame's `on_ground`.
-    anim.anim_prev_on_ground = on_ground;
-    anim.anim_prev_vel_y = player.vel.y;
-    anim.anim_prev_dash_timer = dash_timer;
-}

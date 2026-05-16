@@ -149,10 +149,11 @@ pub fn run_visible() {
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     app.init_state::<GameMode>();
     app.insert_resource(asset_config);
-    init_sandbox_resources(&mut app);
-    add_simulation_plugins(&mut app);
-    add_ldtk_runtime_plugin(&mut app);
-    add_presentation_plugins(&mut app);
+    app.add_plugins((
+        SandboxSimulationPlugin,
+        SandboxLdtkPlugin,
+        SandboxPresentationPlugin,
+    ));
     app.run();
 }
 

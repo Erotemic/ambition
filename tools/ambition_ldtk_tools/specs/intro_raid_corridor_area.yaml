@@ -68,16 +68,22 @@ entities:
 
   # --- Framebreaker (anti-machine hardliner) blocking the middle-left.
   # Faction: "Framebreakers / Broken Frame / Handwright splinter" per
-  # the design doc. The exact name lands when art does.
-  - type: NpcSpawn
+  # the design doc. Authored as a hostile EnemySpawn — the wrong-list
+  # narrative beats fire via the intro_raid cutscene (which pauses
+  # gameplay), so the line ("Kill the Clanker before it learns our
+  # names") still lands before combat starts. Combat-banter from
+  # combat hits can fire via VfxMessage::SpeechBubble in a follow-up.
+  - type: EnemySpawn
     px: [400, 432]
     size: [32, 48]
     fields:
       name: Framebreaker
-      prompt: "Listen to the Framebreaker"
-      dialogue_id: framebreaker_hardliner
+      brain: medium_striker
 
   # --- Creator: dying mid-sentence, between the two factions.
+  # Stays as NpcSpawn — the creator is a talking-head NPC, not an
+  # attacker. The wrong-list-realization fragment is delivered via
+  # the intro_raid cutscene + this NPC's dialogue node.
   - type: NpcSpawn
     px: [780, 432]
     size: [32, 48]
@@ -86,14 +92,16 @@ entities:
       prompt: "Hear the Creator's last words"
       dialogue_id: creator_final_normal
 
-  # --- Nazi salvage guard from the right.
-  - type: NpcSpawn
+  # --- Nazi salvage guard from the right. Also EnemySpawn so the
+  # player feels squeezed between two hostiles instead of two
+  # talking heads. Faster brain (gradient_seeker) plays the
+  # "aggressively-funded squad" read.
+  - type: EnemySpawn
     px: [1200, 432]
     size: [32, 48]
     fields:
       name: Nazi Salvage Guard
-      prompt: "Overhear the raid leader"
-      dialogue_id: nazi_salvage_guard
+      brain: gradient_seeker
 
   # --- Escape shaft door on the far right.
   - type: LoadingZone

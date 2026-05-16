@@ -60,9 +60,13 @@ entities:
     size: [192, 16]
     fields: { name: skill_ledge }
 
-  # --- Player spawn: on top of the cart, near the left wall.
+  # --- Player spawn: standing ON the diagnostic cart so the wake
+  # beat reads as "you were already on the cart when the door opened."
+  # The cart is the DebugLabel placeholder at px=[96, 320] size=[120,
+  # 24]; the spawn sits inset 24px and lifted 46px so the player
+  # silhouette stands on top of the label rect instead of overlapping it.
   - type: PlayerStart
-    px: [120, 306]
+    px: [136, 274]
     size: [28, 46]
     fields: { name: wake_room_spawn }
 

@@ -11,7 +11,7 @@
 	"iid": "ambition-intro-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 104433,
+	"nextUid": 104435,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -4671,7 +4671,46 @@
 				}
 			]
 		}
-	], "tilesets": [], "enums": [
+	], "tilesets": [
+		{
+			"__cHei": 12,
+			"__cWid": 32,
+			"cachedPixelData": null,
+			"customData": [],
+			"embedAtlas": null,
+			"enumTags": [],
+			"identifier": "intro_lab",
+			"padding": 0,
+			"pxHei": 192,
+			"pxWid": 512,
+			"relPath": "../../sprites/intro_lab_tileset.png",
+			"savedSelections": [],
+			"spacing": 0,
+			"tags": [],
+			"tagsSourceEnumUid": null,
+			"tileGridSize": 16,
+			"uid": 104433
+		},
+		{
+			"__cHei": 48,
+			"__cWid": 32,
+			"cachedPixelData": null,
+			"customData": [],
+			"embedAtlas": null,
+			"enumTags": [],
+			"identifier": "town",
+			"padding": 0,
+			"pxHei": 768,
+			"pxWid": 512,
+			"relPath": "../../sprites/town_tileset.png",
+			"savedSelections": [],
+			"spacing": 0,
+			"tags": [],
+			"tagsSourceEnumUid": null,
+			"tileGridSize": 16,
+			"uid": 104434
+		}
+	], "enums": [
 		{
 			"identifier": "BreakablePlatformCollision",
 			"uid": 5002,

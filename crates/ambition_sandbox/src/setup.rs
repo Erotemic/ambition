@@ -134,25 +134,12 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
 
     let mut initial_player = ae::Player::new_with_abilities(world.0.spawn, editable_abilities.as_engine());
     initial_player.refresh_movement_resources(editable_tuning.as_engine());
-    let initial_player_authority = crate::player::PlayerMovementAuthority::new(initial_player);
-    let initial_player_body = initial_player_authority.body();
-    let initial_player_health = crate::player::PlayerHealth::new(ae::Health::new(20));
-    let initial_player_combat = crate::player::PlayerCombatState::default();
-    let initial_player_interaction = crate::player::PlayerInteractionState::default();
 
     let player = commands
         .spawn((
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
-            crate::player::PlayerEntity,
-            initial_player_authority,
-            initial_player_body,
-            initial_player_health,
-            initial_player_combat,
-            initial_player_interaction,
-            crate::player::PlayerAnimState::default(),
-            crate::player::PlayerBlinkCameraState::default(),
-            Name::new("Player"),
+            crate::player::PlayerSimulationBundle::new(initial_player, ae::Health::new(20)),
         ))
         .id();
 

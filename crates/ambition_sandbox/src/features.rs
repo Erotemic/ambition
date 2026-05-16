@@ -53,10 +53,10 @@ pub use bus::{
 pub use chests::ChestRuntime;
 pub use components::{
     ActorCombatState, ActorDisposition, ActorHealth, ActorIdentity, BossRewardChest,
-    BreakableFeature, ChestFeature, Collected, EncounterMob, EncounterRewardChest, FallingChest,
-    FeatureAabb, FeatureId, FeatureName, Opened, PersistKey, PickupFeature,
-    PogoTargetContributor, RespawnTimer, SandboxSolidContributor, StandTimer, SwitchFeature,
-    SwitchOn,
+    BreakableFeature, ChestBundle, ChestFeature, Collected, EncounterMob, EncounterRewardChest,
+    EnemyActorBundle, FallingChest, FeatureAabb, FeatureBaseBundle, FeatureId, FeatureName,
+    Opened, PersistKey, PickupBundle, PickupFeature, PogoTargetContributor, RespawnTimer,
+    SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
 };
 pub use ecs::{
     apply_feature_damage_events, clear_encounter_reward_ecs, collect_ecs_pickups,

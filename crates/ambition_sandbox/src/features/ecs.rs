@@ -262,23 +262,13 @@ fn spawn_room_feature_entity(
         ae::RoomObjectKind::Pickup(pickup) => {
             commands.spawn((
                 Name::new(format!("Feature pickup: {}", object.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
-                feature_aabb,
-                PickupFeature::new(pickup.clone()),
+                PickupBundle::new(&object.id, &object.name, feature_aabb, pickup.clone()),
             ));
         }
         ae::RoomObjectKind::Chest(chest) => {
             commands.spawn((
                 Name::new(format!("Feature chest: {}", object.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
-                feature_aabb,
-                ChestFeature::new(chest.clone()),
+                ChestBundle::new(&object.id, &object.name, feature_aabb, chest.clone()),
             ));
         }
         ae::RoomObjectKind::Breakable(breakable) => {
@@ -304,15 +294,13 @@ fn spawn_room_feature_entity(
             let (identity, disposition, health, combat) = actor_component_snapshot(&actor);
             commands.spawn((
                 Name::new(format!("Feature actor enemy: {}", object.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(object.id.clone()),
-                FeatureName::new(object.name.clone()),
-                feature_aabb,
-                identity,
-                disposition,
-                health,
-                combat,
+                EnemyActorBundle {
+                    base: FeatureBaseBundle::new(&object.id, &object.name, feature_aabb),
+                    identity,
+                    disposition,
+                    health,
+                    combat,
+                },
                 actor,
             ));
         }
@@ -326,15 +314,13 @@ fn spawn_room_feature_entity(
                 let (identity, disposition, health, combat) = actor_component_snapshot(&actor);
                 commands.spawn((
                     Name::new(format!("Feature actor npc: {}", object.name)),
-                    FeatureSimEntity,
-                    RoomVisual,
-                    FeatureId::new(object.id.clone()),
-                    FeatureName::new(object.name.clone()),
-                    feature_aabb,
-                    identity,
-                    disposition,
-                    health,
-                    combat,
+                    EnemyActorBundle {
+                        base: FeatureBaseBundle::new(&object.id, &object.name, feature_aabb),
+                        identity,
+                        disposition,
+                        health,
+                        combat,
+                    },
                     actor,
                 ));
             } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {

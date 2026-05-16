@@ -343,6 +343,81 @@ impl BossRewardChest {
     }
 }
 
+// ── Bundles ───────────────────────────────────────────────────────────────
+//
+// Each bundle groups the components that always appear together when a feature
+// entity is spawned. Spawn calls in features/ecs.rs use these bundles so the
+// required components are expressed in one place and tests/editors can match
+// the exact shape without rediscovering the tuple.
+
+/// Shared base for every feature simulation entity (pickup, chest, hazard,
+/// actor, breakable …). Combines the marker, visual tag, and authored identity
+/// components that appear on every feature spawn.
+#[derive(Bundle)]
+pub struct FeatureBaseBundle {
+    pub sim_entity: FeatureSimEntity,
+    pub room_visual: crate::rendering::RoomVisual,
+    pub id: FeatureId,
+    pub name: FeatureName,
+    pub aabb: FeatureAabb,
+}
+
+impl FeatureBaseBundle {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
+        Self {
+            sim_entity: FeatureSimEntity,
+            room_visual: crate::rendering::RoomVisual,
+            id: FeatureId(id.into()),
+            name: FeatureName(name.into()),
+            aabb,
+        }
+    }
+}
+
+/// Bundle for pickup feature entities.
+#[derive(Bundle)]
+pub struct PickupBundle {
+    pub base: FeatureBaseBundle,
+    pub pickup: PickupFeature,
+}
+
+impl PickupBundle {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb, pickup: ae::Pickup) -> Self {
+        Self {
+            base: FeatureBaseBundle::new(id, name, aabb),
+            pickup: PickupFeature::new(pickup),
+        }
+    }
+}
+
+/// Bundle for chest feature entities.
+#[derive(Bundle)]
+pub struct ChestBundle {
+    pub base: FeatureBaseBundle,
+    pub chest: ChestFeature,
+}
+
+impl ChestBundle {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb, chest: ae::Chest) -> Self {
+        Self {
+            base: FeatureBaseBundle::new(id, name, aabb),
+            chest: ChestFeature::new(chest),
+        }
+    }
+}
+
+/// Bundle for enemy actor entities. Presentation rendering and behavior
+/// runtime (ActorRuntime) are added separately so headless builds can omit
+/// the visual components.
+#[derive(Bundle)]
+pub struct EnemyActorBundle {
+    pub base: FeatureBaseBundle,
+    pub identity: ActorIdentity,
+    pub disposition: ActorDisposition,
+    pub health: ActorHealth,
+    pub combat: ActorCombatState,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

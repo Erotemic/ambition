@@ -18,10 +18,12 @@
 
 use bevy::prelude::*;
 
+use crate::banter::CombatBanterRegistry;
 use crate::character_sprites::build_npc_sprite_asset;
 use crate::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use crate::game_assets::{GameAssetConfig, GameAssets};
 
+use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::sprites::intro_npc_sprite_rows;
 
@@ -35,22 +37,31 @@ pub(crate) struct IntroSpritesInstalled(bool);
 #[derive(Resource, Default, Debug)]
 pub(crate) struct IntroCutscenesInstalled(bool);
 
+/// Marker zero-sized resource for the banter installer.
+#[derive(Resource, Default, Debug)]
+pub(crate) struct IntroBanterInstalled(bool);
+
 pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<IntroSpritesInstalled>()
             .init_resource::<IntroCutscenesInstalled>()
-            // Both systems must wait for the sandbox's own startup
-            // resources, but the sandbox inserts those via `Startup`
-            // schedule and via per-frame Commands. Running the
-            // installers in `Update` with a "first chance" guard
-            // (`if !installed`) is the simplest pattern that survives
-            // Bevy's deferred command application without us having to
-            // wire explicit system ordering.
+            .init_resource::<IntroBanterInstalled>()
+            // All three contributor systems must wait for the
+            // sandbox's own startup resources, but the sandbox inserts
+            // those via `Startup` schedule and per-frame Commands.
+            // Running the installers in `Update` with a "first chance"
+            // guard (`if !installed`) is the simplest pattern that
+            // survives Bevy's deferred command application without us
+            // having to wire explicit system ordering.
             .add_systems(
                 Update,
-                (install_intro_cutscenes_system, load_intro_npc_sprites_system),
+                (
+                    install_intro_cutscenes_system,
+                    load_intro_npc_sprites_system,
+                    install_intro_banter_system,
+                ),
             );
     }
 }
@@ -79,6 +90,22 @@ pub(crate) fn install_intro_cutscenes_system(
             .bindings
             .push(((*room_id).to_string(), (*cutscene_id).to_string()));
     }
+    installed.0 = true;
+}
+
+/// Extend [`CombatBanterRegistry`] with the intro raiders' hit-bark
+/// lines. Runs once — guarded by [`IntroBanterInstalled`].
+pub(crate) fn install_intro_banter_system(
+    mut installed: ResMut<IntroBanterInstalled>,
+    registry: Option<ResMut<CombatBanterRegistry>>,
+) {
+    if installed.0 {
+        return;
+    }
+    let Some(mut registry) = registry else {
+        return;
+    };
+    install_intro_banter(&mut registry);
     installed.0 = true;
 }
 

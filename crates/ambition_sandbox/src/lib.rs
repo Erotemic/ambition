@@ -17,6 +17,7 @@
 //! headless.
 
 pub mod audio;
+pub mod banter;
 pub mod body_mode;
 pub mod bubble_shield;
 pub mod boss_encounter;

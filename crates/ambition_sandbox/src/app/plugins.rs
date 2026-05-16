@@ -123,6 +123,11 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::cutscene::CutsceneTriggerQueue::default())
         .insert_resource(crate::cutscene::CutsceneAdvanceRequest::default())
         .insert_resource(crate::cutscene::RoomCutsceneBindings::defaults())
+        // Combat-banter registry — story-content lines for the
+        // `apply_feature_damage_events` hit handler. Starts empty;
+        // IntroPlugin contributes the intro raiders' lines via a
+        // startup system.
+        .insert_resource(crate::banter::CombatBanterRegistry::default())
         // Intro story content plugin. Extends CutsceneLibrary +
         // RoomCutsceneBindings (always) and GameAssets.characters.npcs
         // (visible builds only — the sprite installer is a no-op in

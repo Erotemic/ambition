@@ -215,6 +215,13 @@ impl EnemyRuntime {
         }
     }
 
+    /// World-space anchor for a combat-banter speech bubble. Sits
+    /// just above the enemy's sprite top so the bubble doesn't
+    /// occlude their silhouette. Mirrors `NpcRuntime::bark_anchor`.
+    pub fn bark_anchor(&self) -> ae::Vec2 {
+        self.pos + ae::Vec2::new(0.0, -self.size.y * 0.72 - 16.0)
+    }
+
     pub(super) fn update(
         &mut self,
         world: &ae::World,

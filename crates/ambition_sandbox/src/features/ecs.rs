@@ -963,6 +963,7 @@ pub fn apply_feature_damage_events(
     mut damage_events: MessageReader<DamageEvent>,
     mut pogo_bounces: MessageReader<PogoBounceEvent>,
     mut banner: ResMut<GameplayBanner>,
+    combat_banter: Option<Res<crate::banter::CombatBanterRegistry>>,
     mut breakables: Query<(Entity, &FeatureId, &FeatureName, &FeatureAabb, &mut BreakableFeature), With<FeatureSimEntity>>,
     mut actors: Query<(
         &FeatureId,
@@ -1036,7 +1037,28 @@ pub fn apply_feature_damage_events(
                     if !enemy.alive {
                         continue;
                     }
+                    // Combat banter — fire a speech bubble only on
+                    // the first non-overlapping hit (hit_flash near
+                    // zero before we re-set it below). The line
+                    // rotates per hit so repeated strikes don't loop
+                    // the same line. Skipped silently if no registry
+                    // is loaded (e.g. headless / sandbox-only build)
+                    // or this enemy name has no authored lines.
+                    let should_bark = enemy.hit_flash < 0.05;
                     enemy.hit_flash = 0.16;
+                    if should_bark {
+                        if let Some(reg) = combat_banter.as_deref() {
+                            let strikes = enemy.health.max - enemy.health.current;
+                            if let Some(line) =
+                                reg.pick_hit_bark(&enemy.name, strikes.max(0) as u32)
+                            {
+                                vfx.write(VfxMessage::SpeechBubble {
+                                    pos: enemy.bark_anchor(),
+                                    text: line.to_string(),
+                                });
+                            }
+                        }
+                    }
                     if let DamageSource::PlayerSlash { knock_x } = &event.source {
                         enemy.vel.x += *knock_x;
                         enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);

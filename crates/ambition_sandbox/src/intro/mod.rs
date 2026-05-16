@@ -29,6 +29,7 @@
 //! sandbox stays a generic engine demo; the game wraps it with
 //! narrative content like this module.
 
+pub mod banter;
 pub mod cutscene;
 pub mod dialog;
 pub mod plugin;

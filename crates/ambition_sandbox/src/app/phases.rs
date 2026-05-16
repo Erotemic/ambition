@@ -260,37 +260,6 @@ pub(super) fn player_simulation_phase(
     PhaseOutcome::Continue
 }
 
-/// Phase 6 — interact / double-tap-up + buffering.
-///
-/// Owns: hitstun gating of interaction, folding the explicit `Interact`
-/// action together with the `door_double_tap_up` signal from
-/// `input_timer_system`, writing the buffered result back into
-/// `controls.interact_pressed` via `PlayerInteractionState::buffered_interact`.
-///
-/// Should not own: actually triggering doors, NPCs, chests, or pickups —
-/// the feature ECS interaction systems and `room_transition_phase` consume
-/// the buffered signal. Up is too valuable for platforming/flight/aiming
-/// to double as a one-tap door or NPC trigger, so doors/NPCs/chests accept
-/// either the dedicated `Interact` action or a deliberate double-tap-up
-/// gesture.
-pub(super) fn interaction_input_phase(
-    controls: &mut ControlFrame,
-    interaction: &mut crate::player::PlayerInteractionState,
-    combat: &crate::player::PlayerCombatState,
-    feel: SandboxFeelTuning,
-    door_double_tap_up: bool,
-    frame_dt: f32,
-) {
-    let raw_interact_pressed = if combat.hitstun_timer > 0.0 {
-        false
-    } else {
-        controls.interact_pressed || door_double_tap_up
-    };
-    controls.interact_pressed =
-        interaction.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
-}
-
-
 /// Phase 8 — apply heals/damage, dialogue start, feature-driven reset.
 ///
 /// Owns: `handle_player_damage_events`, `remember_safe_player_position`
@@ -353,11 +322,10 @@ pub(super) fn damage_heal_dialogue_phase(
 /// post-sandbox_update `apply_room_transition_system` can call `load_room`.
 ///
 /// Should not own: which buttons trigger a transition (that's
-/// `interaction_input_phase`) or per-zone content rebuild (that's
+/// `interaction_input_system`) or per-zone content rebuild (that's
 /// `apply_room_transition_system` / `load_room`). Returns `Return` if a
 /// transition fired this frame so attack/cleanup phases are skipped.
 pub(super) fn room_transition_phase(
-    controls: &ControlFrame,
     room_set: &rooms::RoomSet,
     player: &ae::Player,
     sim_state: &crate::SandboxSimState,
@@ -367,7 +335,7 @@ pub(super) fn room_transition_phase(
     if sim_state.room_transition_cooldown > 0.0 {
         return PhaseOutcome::Continue;
     }
-    let Some(zone) = room_set.transition_for_player(player, controls.interact_pressed) else {
+    let Some(zone) = room_set.transition_for_player(player, interaction.buffered()) else {
         return PhaseOutcome::Continue;
     };
     let zone_sfx = match zone.zone.activation {

@@ -151,6 +151,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::update_ecs_bosses,
                 sync_live_player_dev_edits_system,
                 input_timer_system.run_if(gameplay_allowed),
+                interaction_input_system.run_if(gameplay_allowed),
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),
                 sandbox_update.run_if(gameplay_allowed),
                 apply_room_transition_system,

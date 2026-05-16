@@ -104,6 +104,54 @@ pub fn input_timer_system(
     combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
 }
 
+/// Fold the explicit `Interact` action together with the
+/// `double_tap_up_pending` gesture, gate the result on hit-stun, and
+/// advance the per-frame interact buffer on
+/// [`crate::player::PlayerInteractionState`].
+///
+/// Replaces the inline `interaction_input_phase` that ran inside
+/// `sandbox_update`. Downstream code (notably `room_transition_phase`)
+/// no longer reads the buffered signal off `ControlFrame`; it reads
+/// `PlayerInteractionState::buffered()` directly off the component.
+///
+/// Gated by `gameplay_allowed`: the buffer must not tick down while
+/// paused / in dialogue / mid-cutscene — the previous procedural
+/// version was protected by `mode_gate_phase`'s early-return.
+///
+/// Ordering: must run after `input_timer_system` (which decrements
+/// `combat.hitstun_timer` and sets `double_tap_up_pending` from
+/// `register_up_tap`) and before `sandbox_update` (whose
+/// `room_transition_phase` consumes the buffered signal).
+pub fn interaction_input_system(
+    time: Res<Time>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    control_frame: Res<ControlFrame>,
+    mut player_q: Query<
+        (
+            &crate::player::PlayerCombatState,
+            &mut crate::player::PlayerInteractionState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    let frame_dt = time.delta_secs();
+    let feel = *feel_tuning;
+    let Ok((combat, mut interaction)) = player_q.single_mut() else {
+        return;
+    };
+    let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
+    let raw_interact_pressed = if combat.hitstun_timer > 0.0 {
+        false
+    } else {
+        control_frame.interact_pressed || door_double_tap_up
+    };
+    let _live = interaction.buffered_interact(
+        raw_interact_pressed,
+        frame_dt,
+        feel.interaction_buffer_time,
+    );
+}
+
 /// Decay presentation-only animation and flash timers.
 ///
 /// Runs every frame (including paused/dialogue) so visual flash and

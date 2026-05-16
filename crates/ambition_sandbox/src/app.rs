@@ -113,6 +113,9 @@ pub use plugins::{
 };
 pub use resources::{init_sandbox_resources, StartRoomOverride};
 pub use schedule::{configure_sandbox_sets, SandboxSet};
-pub use sim_systems::{cleanup_timers_system, input_timer_system};
+pub use sim_systems::{
+    apply_suspended_time_scale_system, cleanup_timers_system, input_timer_system,
+    interaction_input_system, sync_live_player_dev_edits_system,
+};
 pub use update::sandbox_update;
 pub use world_flow::apply_room_transition_system;

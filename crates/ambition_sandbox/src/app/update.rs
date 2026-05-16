@@ -107,10 +107,12 @@ pub fn sandbox_update(
     // ActionState in `populate_control_frame_from_actions` (runs
     // `.before(sandbox_update)`); headless / RL drivers can write the
     // resource directly. Debug hotkeys live in their own presentation-side
-    // system, also `.before(sandbox_update)`. Local mutable copy because
-    // `interaction_input_phase` rewrites `controls.interact_pressed` via
-    // the input buffer (runtime state, not raw input).
-    let mut controls = *control_frame;
+    // system, also `.before(sandbox_update)`. Local copy is read-only
+    // for the rest of this function; `interaction_input_system`
+    // already wrote the buffered interact result into
+    // `PlayerInteractionState` before sandbox_update started, so
+    // `controls.interact_pressed` is just the raw frame input.
+    let controls = *control_frame;
     let frame_dt = time.delta_secs();
 
     // Pause/resume toggling has moved to `pause_menu::pause_menu_toggle`,
@@ -118,14 +120,6 @@ pub fn sandbox_update(
     // flag is still read here for compile-completeness; the pause logic
     // lives in the pause menu so it can drive a real overlay.
     let _ = controls.start_pressed;
-
-    // `input_timer_system` ran earlier in the CoreSimulation chain:
-    // it ticked gameplay timers, detected double-tap gestures, and stored
-    // the door-double-tap-up result in the ECS component. Read and clear
-    // it here so interaction_input_phase can consume the value exactly
-    // once per frame.
-    let door_double_tap_up = interaction.double_tap_up_pending;
-    interaction.double_tap_up_pending = false;
 
     if matches!(
         reset_phase(
@@ -201,14 +195,10 @@ pub fn sandbox_update(
         return;
     }
 
-    interaction_input_phase(
-        &mut controls,
-        &mut *interaction,
-        &*combat,
-        feel,
-        door_double_tap_up,
-        frame_dt,
-    );
+    // interaction_input_phase has moved to `interaction_input_system`
+    // (sim_systems), which runs after input_timer_system and before
+    // sandbox_update. It updates `PlayerInteractionState`'s buffer in
+    // place; downstream code reads `interaction.buffered()` directly.
 
     let player_damage_events: Vec<features::PlayerDamageEvent> =
         queues.player_damage_events.read().copied().collect();
@@ -251,7 +241,6 @@ pub fn sandbox_update(
 
     if matches!(
         room_transition_phase(
-            &controls,
             &room_set,
             player,
             &queues.sim_state,

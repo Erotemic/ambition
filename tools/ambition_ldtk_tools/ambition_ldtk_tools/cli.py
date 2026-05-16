@@ -24,6 +24,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     entity check     [rect]        Read-only: report overlaps + nearest neighbor for a placement.
 
     def register-entity <spec>     Register a new entity definition.
+    def update-entity <id> <ldtk>  Add new fields to an existing entity def.
 
     tileset add <ldtk> <png> <grid> Register a tileset def from a PNG.
 
@@ -151,6 +152,14 @@ def cmd_entity(args, rest):
 def cmd_def(args, rest):
     if args.def_action == "register-entity":
         return _delegate("ambition_ldtk_tools.edit.defs", rest)
+    if args.def_action == "update-entity":
+        # update_entity's argparse owns its surface; prepend the
+        # action verb so the existing per-tool parser sees it
+        # positionally (same pattern as `tileset add`).
+        return _delegate(
+            "ambition_ldtk_tools.edit.update_entity",
+            [args.def_action, *rest],
+        )
     return _todo(f"def {args.def_action}")
 
 
@@ -277,10 +286,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp_entity.set_defaults(func=cmd_entity)
 
-    # def register-entity
+    # def {register-entity, update-entity}
     sp_def = sub.add_parser("def", help="Definition edits")
     def_sub = sp_def.add_subparsers(dest="def_action", required=True)
     def_sub.add_parser("register-entity", help="Register a new entity definition")
+    def_sub.add_parser(
+        "update-entity",
+        help=(
+            "Add fields to an existing entity def. "
+            "Usage: def update-entity <identifier> <ldtk> "
+            "--add-field name:type[:default] [--add-field ...] "
+            "(--in-place | --output PATH)"
+        ),
+    )
     sp_def.set_defaults(func=cmd_def)
 
     # tileset add

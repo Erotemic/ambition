@@ -217,12 +217,10 @@ pub fn apply_player_reset_input_system(
     // followed by another sandbox-side reset later this frame.
     control_frame.reset_pressed = false;
 
-    let mut sfx_buf: Vec<SfxMessage> = Vec::new();
-    let mut vfx_buf: Vec<VfxMessage> = Vec::new();
     super::world_flow::reset_sandbox(
         &world.0,
-        &mut sfx_buf,
-        &mut vfx_buf,
+        &mut sfx_writer,
+        &mut vfx_writer,
         &mut authority.player,
         &mut sim_state,
         &mut attack_state.0,
@@ -234,12 +232,6 @@ pub fn apply_player_reset_input_system(
         *feel_tuning,
     );
     reset_room_features.write(features::ResetRoomFeaturesEvent);
-    if !sfx_buf.is_empty() {
-        sfx_writer.write_batch(sfx_buf);
-    }
-    if !vfx_buf.is_empty() {
-        vfx_writer.write_batch(vfx_buf);
-    }
 }
 
 /// Detect a loading-zone overlap and emit a [`RoomTransitionRequested`]
@@ -338,13 +330,10 @@ pub fn attack_advance_system(
     let feel = *feel_tuning;
     let frame_dt = time.delta_secs();
 
-    let mut sfx_buf: Vec<SfxMessage> = Vec::new();
-    let mut vfx_buf: Vec<VfxMessage> = Vec::new();
-
     if combat.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
         super::world_flow::start_attack(
-            &mut sfx_buf,
-            &mut vfx_buf,
+            &mut sfx_writer,
+            &mut vfx_writer,
             player,
             &mut attack_state.0,
             &mut anim,
@@ -352,8 +341,8 @@ pub fn attack_advance_system(
         );
     }
     super::world_flow::advance_attack(
-        &mut sfx_buf,
-        &mut vfx_buf,
+        &mut sfx_writer,
+        &mut vfx_writer,
         &world.0,
         &moving_platforms.0,
         player,
@@ -367,13 +356,6 @@ pub fn attack_advance_system(
         &mut damage_events,
         &mut pogo_bounces,
     );
-
-    if !sfx_buf.is_empty() {
-        sfx_writer.write_batch(sfx_buf);
-    }
-    if !vfx_buf.is_empty() {
-        vfx_writer.write_batch(vfx_buf);
-    }
 }
 
 /// Resolve this tick's `PlayerDamageEvent`s + remember the last
@@ -434,13 +416,10 @@ pub fn apply_player_damage_system(
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
 
-    let mut sfx_buf: Vec<SfxMessage> = Vec::new();
-    let mut vfx_buf: Vec<VfxMessage> = Vec::new();
-
     super::world_flow::handle_player_damage_events(
         &world.0,
-        &mut sfx_buf,
-        &mut vfx_buf,
+        &mut sfx_writer,
+        &mut vfx_writer,
         &mut died_writer,
         player,
         &mut sim_state,
@@ -467,13 +446,6 @@ pub fn apply_player_damage_system(
         room_transitioning: sim_state.room_transition_cooldown > 0.0,
     };
     crate::remember_safe_player_position(&mut sim_state, player, &safe_world, ctx);
-
-    if !sfx_buf.is_empty() {
-        sfx_writer.write_batch(sfx_buf);
-    }
-    if !vfx_buf.is_empty() {
-        vfx_writer.write_batch(vfx_buf);
-    }
 }
 
 /// Decay presentation-only animation and flash timers.

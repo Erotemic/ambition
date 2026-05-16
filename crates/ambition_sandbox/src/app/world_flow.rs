@@ -34,8 +34,8 @@ pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> 
 
 pub(super) fn reset_sandbox(
     world: &ae::World,
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
     attack: &mut Option<crate::PlayerAttackState>,
@@ -60,8 +60,8 @@ pub(super) fn reset_sandbox(
     interaction.reset();
     blink_cam.reset();
     let reset_to = player.pos;
-    sfx.push(SfxMessage::Reset { pos: reset_to });
-    vfx.push(VfxMessage::ResetEffects {
+    sfx.write(SfxMessage::Reset { pos: reset_to });
+    vfx.write(VfxMessage::ResetEffects {
         from: reset_from,
         to: reset_to,
     });
@@ -69,8 +69,8 @@ pub(super) fn reset_sandbox(
 
 pub(super) fn load_room(
     commands: &mut Commands,
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     player: &mut ae::Player,
     dev_state: &mut crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
@@ -158,12 +158,12 @@ pub(super) fn load_room(
         assets,
     );
     platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
-    sfx.push(SfxMessage::Reset { pos: player.pos });
+    sfx.write(SfxMessage::Reset { pos: player.pos });
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was
         // expressed in the previous room's coordinate space.
-        vfx.push(VfxMessage::Burst {
+        vfx.write(VfxMessage::Burst {
             pos: player.pos,
             count: 18,
             speed: 260.0,
@@ -174,7 +174,7 @@ pub(super) fn load_room(
         // Door transitions are discrete interactions, so a teleport-like effect
         // is acceptable; use the destination for both endpoints to avoid mixing
         // coordinate systems from two rooms.
-        vfx.push(VfxMessage::ResetEffects {
+        vfx.write(VfxMessage::ResetEffects {
             from: player.pos,
             to: player.pos,
         });
@@ -225,12 +225,10 @@ pub fn apply_room_transition_system(
                 pos: player_pos_before,
             });
         }
-        let mut sfx_buf: Vec<SfxMessage> = Vec::new();
-        let mut vfx_buf: Vec<VfxMessage> = Vec::new();
         load_room(
             &mut commands,
-            &mut sfx_buf,
-            &mut vfx_buf,
+            &mut event_writers.sfx,
+            &mut event_writers.vfx,
             &mut authority.player,
             &mut dev_state,
             &mut sim_state,
@@ -248,18 +246,12 @@ pub fn apply_room_transition_system(
             *physics_settings,
             game_assets.as_deref(),
         );
-        for msg in sfx_buf {
-            event_writers.sfx.write(msg);
-        }
-        for msg in vfx_buf {
-            event_writers.vfx.write(msg);
-        }
     }
 }
 
 pub(super) fn handle_player_events(
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     player: &ae::Player,
     combat: &mut crate::player::PlayerCombatState,
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
@@ -270,15 +262,15 @@ pub(super) fn handle_player_events(
     for op in &events.operations {
         match op {
             ae::MovementOp::Jump | ae::MovementOp::WallJump => {
-                sfx.push(SfxMessage::Jump { pos });
-                vfx.push(VfxMessage::Dust {
+                sfx.write(SfxMessage::Jump { pos });
+                vfx.write(VfxMessage::Dust {
                     pos: player.pos,
                     facing: player.facing,
                 });
             }
             ae::MovementOp::DoubleJump => {
-                sfx.push(SfxMessage::DoubleJump { pos });
-                vfx.push(VfxMessage::Burst {
+                sfx.write(SfxMessage::DoubleJump { pos });
+                vfx.write(VfxMessage::Burst {
                     pos: player.pos,
                     count: 14,
                     speed: 210.0,
@@ -287,8 +279,8 @@ pub(super) fn handle_player_events(
                 });
             }
             ae::MovementOp::Dash | ae::MovementOp::DoubleDash => {
-                sfx.push(SfxMessage::Dash { pos });
-                vfx.push(VfxMessage::Burst {
+                sfx.write(SfxMessage::Dash { pos });
+                vfx.write(VfxMessage::Burst {
                     pos: player.pos,
                     count: 10,
                     speed: 330.0,
@@ -297,8 +289,8 @@ pub(super) fn handle_player_events(
                 });
             }
             ae::MovementOp::DodgeRoll => {
-                sfx.push(SfxMessage::Dash { pos });
-                vfx.push(VfxMessage::Burst {
+                sfx.write(SfxMessage::Dash { pos });
+                vfx.write(VfxMessage::Burst {
                     pos: player.pos,
                     count: 8,
                     speed: 240.0,
@@ -310,7 +302,7 @@ pub(super) fn handle_player_events(
                 // Blink visuals use the explicit `events.blinks` endpoint data below.
             }
             ae::MovementOp::FlyToggle => {
-                vfx.push(VfxMessage::Burst {
+                vfx.write(VfxMessage::Burst {
                     pos: player.pos,
                     count: 12,
                     speed: 180.0,
@@ -319,11 +311,11 @@ pub(super) fn handle_player_events(
                 });
             }
             ae::MovementOp::Pogo | ae::MovementOp::Rebound => {
-                sfx.push(SfxMessage::Pogo { pos });
+                sfx.write(SfxMessage::Pogo { pos });
             }
             ae::MovementOp::SwimStroke => {
-                sfx.push(SfxMessage::Jump { pos });
-                vfx.push(VfxMessage::Burst {
+                sfx.write(SfxMessage::Jump { pos });
+                vfx.write(VfxMessage::Burst {
                     pos,
                     count: 8,
                     speed: 150.0,
@@ -332,14 +324,14 @@ pub(super) fn handle_player_events(
                 });
             }
             ae::MovementOp::LedgeGrab => {
-                vfx.push(VfxMessage::Dust {
+                vfx.write(VfxMessage::Dust {
                     pos: player.pos,
                     facing: player.facing,
                 });
             }
             ae::MovementOp::LedgeJump => {
-                sfx.push(SfxMessage::Jump { pos });
-                vfx.push(VfxMessage::Burst {
+                sfx.write(SfxMessage::Jump { pos });
+                vfx.write(VfxMessage::Burst {
                     pos: player.pos,
                     count: 8,
                     speed: 180.0,
@@ -350,11 +342,11 @@ pub(super) fn handle_player_events(
             ae::MovementOp::ShieldUp => {
                 // Reuse the quick blink tone as a placeholder until a
                 // dedicated Shield SoundCue is added to the sfxbank.
-                sfx.push(SfxMessage::Blink {
+                sfx.write(SfxMessage::Blink {
                     pos,
                     precision: false,
                 });
-                vfx.push(VfxMessage::Burst {
+                vfx.write(VfxMessage::Burst {
                     pos: player.pos,
                     count: 12,
                     speed: 120.0,
@@ -369,12 +361,12 @@ pub(super) fn handle_player_events(
             | ae::MovementOp::WallClimb
             | ae::MovementOp::Slash => {}
             ae::MovementOp::Reset => {
-                sfx.push(SfxMessage::Reset { pos });
+                sfx.write(SfxMessage::Reset { pos });
             }
         }
     }
     for blink in &events.blinks {
-        sfx.push(SfxMessage::Blink {
+        sfx.write(SfxMessage::Blink {
             pos: blink.from,
             precision: blink.precision,
         });
@@ -382,7 +374,7 @@ pub(super) fn handle_player_events(
         blink_cam.blink_in_timer = blink_cam.blink_in_duration;
         blink_cam.blink_camera_from = blink.from;
         blink_cam.blink_camera_to = blink.to;
-        vfx.push(VfxMessage::BlinkEffects {
+        vfx.write(VfxMessage::BlinkEffects {
             from: blink.from,
             to: blink.to,
             precision: blink.precision,
@@ -393,7 +385,7 @@ pub(super) fn handle_player_events(
     }
     if let Some(was_grounded) = was_grounded {
         if !was_grounded && player.on_ground {
-            vfx.push(VfxMessage::Dust {
+            vfx.write(VfxMessage::Dust {
                 pos: player.pos + ae::Vec2::new(0.0, player.size.y * 0.5),
                 facing: player.facing,
             });
@@ -403,8 +395,8 @@ pub(super) fn handle_player_events(
 
 pub(super) fn death_respawn_player(
     world: &ae::World,
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<PlayerDiedMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
@@ -431,15 +423,15 @@ pub(super) fn death_respawn_player(
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.flash_timer = feel.reset_flash_time.max(0.35);
     banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
-    sfx.push(SfxMessage::Death { pos: from });
-    vfx.push(VfxMessage::ResetEffects { from, to });
+    sfx.write(SfxMessage::Death { pos: from });
+    vfx.write(VfxMessage::ResetEffects { from, to });
     died.write(PlayerDiedMessage { pos: from });
 }
 
 pub(super) fn handle_player_damage_events(
     world: &ae::World,
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<PlayerDiedMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
@@ -501,8 +493,8 @@ pub(super) fn handle_player_damage_events(
 }
 
 pub(super) fn safe_respawn_player(
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
     combat: &mut crate::player::PlayerCombatState,
@@ -518,13 +510,13 @@ pub(super) fn safe_respawn_player(
     combat.hitstop_timer = 0.0;
     combat.flash_timer = feel.reset_flash_time;
     sim_state.time_scale = 1.0;
-    sfx.push(SfxMessage::Reset { pos: to });
-    vfx.push(VfxMessage::ResetEffects { from, to });
+    sfx.write(SfxMessage::Reset { pos: to });
+    vfx.write(VfxMessage::ResetEffects { from, to });
 }
 
 pub(super) fn apply_player_knockback(
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     player: &mut ae::Player,
     combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
@@ -563,10 +555,10 @@ pub(super) fn apply_player_knockback(
     combat.damage_invuln_timer = feel.knockback_invulnerability_time;
     combat.hitstop_timer = feel.player_damage_hitstop_time;
     combat.flash_timer = 0.20;
-    sfx.push(SfxMessage::Hit {
+    sfx.write(SfxMessage::Hit {
         pos: damage.impact_pos,
     });
-    vfx.push(VfxMessage::Impact {
+    vfx.write(VfxMessage::Impact {
         pos: damage.impact_pos,
     });
 }
@@ -596,8 +588,8 @@ pub(super) fn controls_for_hitstun(
 }
 
 pub(super) fn start_attack(
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     player: &mut ae::Player,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
@@ -642,17 +634,17 @@ pub(super) fn start_attack(
     }
 
     let player_pos = player.pos;
-    sfx.push(SfxMessage::Slash { pos: player_pos });
+    sfx.write(SfxMessage::Slash { pos: player_pos });
     anim.slash_anim_timer = spec.total_seconds().max(0.20);
     *attack = Some(crate::PlayerAttackState::new(spec));
-    vfx.push(VfxMessage::SlashPreview {
+    vfx.write(VfxMessage::SlashPreview {
         hitbox: ae::attack_hitbox(player, spec),
     });
 }
 
 pub(super) fn advance_attack(
-    sfx: &mut Vec<SfxMessage>,
-    vfx: &mut Vec<VfxMessage>,
+    sfx: &mut MessageWriter<SfxMessage>,
+    vfx: &mut MessageWriter<VfxMessage>,
     world: &ae::World,
     moving_platforms: &[crate::platforms::MovingPlatformState],
     player: &mut ae::Player,
@@ -681,7 +673,7 @@ pub(super) fn advance_attack(
         let first_active_frame = !attack_state.active_started;
         if first_active_frame {
             attack_state.active_started = true;
-            vfx.push(VfxMessage::SlashPreview { hitbox: attack });
+            vfx.write(VfxMessage::SlashPreview { hitbox: attack });
         }
 
         let player_pos = player.pos;
@@ -708,7 +700,7 @@ pub(super) fn advance_attack(
                 player.on_ground = false;
                 attack_state.pogo_applied = true;
                 pogo_landed = true;
-                sfx.push(SfxMessage::Pogo { pos: player_pos });
+                sfx.write(SfxMessage::Pogo { pos: player_pos });
                 pogo_bounces.write(features::PogoBounceEvent::new(orb_aabb, 1));
             }
         }
@@ -734,13 +726,13 @@ pub(super) fn advance_attack(
 
         if landed || pogo_landed {
             if landed {
-                sfx.push(SfxMessage::Hit { pos: player_pos });
+                sfx.write(SfxMessage::Hit { pos: player_pos });
             }
             combat.hitstop_timer = feel.attack_hitstop_time;
             combat.flash_timer = 0.16;
         }
         if killed {
-            sfx.push(SfxMessage::Death { pos: player_pos });
+            sfx.write(SfxMessage::Death { pos: player_pos });
         }
         if landed
             && player.abilities.pogo
@@ -750,7 +742,7 @@ pub(super) fn advance_attack(
             player.vel.y = -tuning.pogo_speed;
             player.refresh_movement_resources(tuning);
             attack_state.pogo_applied = true;
-            sfx.push(SfxMessage::Pogo { pos: player_pos });
+            sfx.write(SfxMessage::Pogo { pos: player_pos });
         }
     }
 

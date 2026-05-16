@@ -38,7 +38,8 @@ pub(super) fn player_control_phase(
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &[crate::platforms::MovingPlatformState],
     attack: &mut Option<crate::PlayerAttackState>,
-    feedback: &mut FrameFeedback,
+    sfx_writer: &mut MessageWriter<SfxMessage>,
+    vfx_writer: &mut MessageWriter<VfxMessage>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -67,8 +68,8 @@ pub(super) fn player_control_phase(
     if control_events.reset {
         reset_sandbox(
             world,
-            &mut feedback.sfx,
-            &mut feedback.vfx,
+            sfx_writer,
+            vfx_writer,
             player,
             sim_state,
             attack,
@@ -90,8 +91,8 @@ pub(super) fn player_control_phase(
         pogo_bounces.write(features::PogoBounceEvent::new(orb_aabb, 1));
     }
     handle_player_events(
-        &mut feedback.sfx,
-        &mut feedback.vfx,
+        sfx_writer,
+        vfx_writer,
         player,
         combat,
         blink_cam,
@@ -120,7 +121,8 @@ pub(super) fn player_simulation_phase(
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
     attack: &mut Option<crate::PlayerAttackState>,
-    feedback: &mut FrameFeedback,
+    sfx_writer: &mut MessageWriter<SfxMessage>,
+    vfx_writer: &mut MessageWriter<VfxMessage>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -191,8 +193,8 @@ pub(super) fn player_simulation_phase(
     if sim_events.reset {
         reset_sandbox(
             world,
-            &mut feedback.sfx,
-            &mut feedback.vfx,
+            sfx_writer,
+            vfx_writer,
             player,
             sim_state,
             attack,
@@ -207,8 +209,8 @@ pub(super) fn player_simulation_phase(
         return PhaseOutcome::Return;
     }
     handle_player_events(
-        &mut feedback.sfx,
-        &mut feedback.vfx,
+        sfx_writer,
+        vfx_writer,
         player,
         combat,
         blink_cam,

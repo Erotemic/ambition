@@ -25,6 +25,8 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
 
     def register-entity <spec>     Register a new entity definition.
 
+    tileset add <ldtk> <png> <grid> Register a tileset def from a PNG.
+
     link add         [TODO]
     link remove      [TODO]
     link check       [TODO]
@@ -152,6 +154,15 @@ def cmd_def(args, rest):
     return _todo(f"def {args.def_action}")
 
 
+def cmd_tileset(args, rest):
+    if args.tileset_action == "add":
+        # The tileset module's argparse owns its surface; prepend the
+        # action verb so the existing per-tool parser sees it
+        # positionally (matches the `intgrid summarize/erase` pattern).
+        return _delegate("ambition_ldtk_tools.edit.tilesets", [args.tileset_action, *rest])
+    return _todo(f"tileset {args.tileset_action}")
+
+
 def cmd_link(args, rest):
     return _todo(f"link {args.link_action}")
 
@@ -271,6 +282,20 @@ def build_parser() -> argparse.ArgumentParser:
     def_sub = sp_def.add_subparsers(dest="def_action", required=True)
     def_sub.add_parser("register-entity", help="Register a new entity definition")
     sp_def.set_defaults(func=cmd_def)
+
+    # tileset add
+    sp_tileset = sub.add_parser("tileset", help="Tileset definition edits")
+    tileset_sub = sp_tileset.add_subparsers(dest="tileset_action", required=True)
+    tileset_sub.add_parser(
+        "add",
+        help=(
+            "Register a tileset def from a PNG. "
+            "Usage: tileset add <ldtk> <png> <grid_size> "
+            "[--identifier NAME] [--padding N] [--spacing N] "
+            "(--in-place | --output PATH)"
+        ),
+    )
+    sp_tileset.set_defaults(func=cmd_tileset)
 
     # link {add,remove,check}
     sp_link = sub.add_parser("link", help="[TODO] Entity link helpers")

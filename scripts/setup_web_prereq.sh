@@ -167,26 +167,64 @@ run_doctor() {
     return "$missing"
 }
 
-install_host_packages() {
-    if [[ "$SKIP_APT" == true ]]; then
-        log "skipping apt host package install"
+# Idempotent apt installer. Skips sudo + `apt update` + `apt install`
+# entirely when every requested package is already installed, so a
+# re-run of this script on a setup machine is a fast no-op.
+#
+# Environment:
+#   UPDATE   non-empty value runs `apt update` before installing any
+#            missing packages. Skipped when nothing is missing.
+apt_ensure() {
+    if ! command -v dpkg-query >/dev/null 2>&1; then
+        warn "dpkg-query not found; skipping host package install ($*)"
         return 0
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
-        warn "apt-get not found; assuming curl/pkg-config are already installed"
+        warn "apt-get not found; skipping host package install ($*)"
+        return 0
+    fi
+    local args=("$@")
+    local miss_pkgs=()
+    local hit_pkgs=()
+    local _sudo=""
+    if [[ "$(whoami)" != "root" ]]; then
+        _sudo="sudo "
+    fi
+    local pkg
+    for pkg in "${args[@]}"; do
+        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
+            hit_pkgs+=("$pkg")
+        else
+            miss_pkgs+=("$pkg")
+        fi
+    done
+
+    if [[ "${#hit_pkgs[@]}" -gt 0 ]]; then
+        log "apt: already installed: ${hit_pkgs[*]}"
+    fi
+    if [[ "${#miss_pkgs[@]}" -eq 0 ]]; then
+        log "apt: no missing packages; skipping sudo apt-get"
+        return 0
+    fi
+    log "apt: installing missing packages: ${miss_pkgs[*]}"
+    if [[ -n "${UPDATE:-}" ]]; then
+        ${_sudo}apt-get update -y
+    fi
+    DEBIAN_FRONTEND=noninteractive ${_sudo}apt-get install -y "${miss_pkgs[@]}"
+}
+
+install_host_packages() {
+    if [[ "$SKIP_APT" == true ]]; then
+        log "skipping apt host package install"
         return 0
     fi
     # Minimal host bits: curl for the rustup bootstrap (if rustup itself is
     # missing) and pkg-config for crates that probe the host C ABI during
     # build.rs even on wasm. Do NOT install python3 here; most distros
     # already ship it and the user's filesystem feedback rule says to avoid
-    # `sudo apt-get` cascades.
-    log "installing host packages via apt"
-    sudo apt-get update
-    sudo apt-get install -y \
-        curl \
-        ca-certificates \
-        pkg-config
+    # `sudo apt-get` cascades — `apt_ensure` already skips sudo entirely
+    # when every package is present.
+    apt_ensure curl ca-certificates pkg-config
 }
 
 install_rust_target() {

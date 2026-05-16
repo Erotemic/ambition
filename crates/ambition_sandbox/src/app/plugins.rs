@@ -603,15 +603,18 @@ pub fn add_presentation_plugins(app: &mut App) {
         )
         // Portal presentation: read PortalRegistry.phase + apply
         // visibility / animation row / ring-spin to the matching
-        // FeatureName-tagged sprites. Visible-only; headless has no
-        // FeatureName ↔ Bevy-entity binding anyway. Runs after
-        // sync_visuals so the sprite entities exist this frame.
+        // FeatureName-tagged sprites + hide the redundant debug
+        // door-zone visual for portal-mode LoadingZones. Visible-
+        // only; headless has no FeatureName ↔ Bevy-entity binding
+        // anyway. Runs after sync_visuals so the sprite entities
+        // exist this frame.
         .add_systems(
             Update,
             (
                 crate::rooms::sync_portal_sprite_visibility,
                 crate::rooms::sync_portal_sprite_animation,
                 crate::rooms::sync_portal_ring_rotation_system,
+                crate::rooms::hide_portal_loading_zone_visuals,
             )
                 .after(sync_visuals),
         )

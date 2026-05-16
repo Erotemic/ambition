@@ -294,7 +294,7 @@ pub fn upgrade_npc_sprites(
 /// Drive the player sprite's animation state, atlas index, and facing flip.
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 pub fn animate_player(
-    time: Res<Time>,
+    world_time: Res<crate::WorldTime>,
     attack_res: Res<crate::CurrentPlayerAttack>,
     entities: Res<SceneEntities>,
     mut query: Query<
@@ -317,7 +317,11 @@ pub fn animate_player(
     };
     let anim = crate::character_sprites::pick_player_anim(anim_state, player_combat, blink_cam, attack_res.0.as_ref(), &authority.player);
     animator.request(anim);
-    let index = animator.tick(time.delta_secs());
+    // WorldTime::scaled_dt so bullet-time / hitstop / pause slow
+    // the animation playback in lockstep with everything else.
+    // Raw `time.delta_secs()` here would let the sprite keep
+    // animating at wall-clock during slowmo.
+    let index = animator.tick(world_time.scaled_dt);
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
@@ -346,11 +350,13 @@ pub fn animate_player(
 /// One system instead of two avoids the borrow conflict on the
 /// shared `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
-    time: Res<Time>,
+    world_time: Res<crate::WorldTime>,
     mut query: Query<(&FeatureVisual, &mut Sprite, &mut CharacterAnimator), Without<PlayerVisual>>,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
-    let dt = time.delta_secs();
+    // Scaled dt — bullet-time / pause / hitstop slow NPC + enemy
+    // animation playback. See `crate::WorldTime` rationale.
+    let dt = world_time.scaled_dt;
     for (visual, mut sprite, mut animator) in &mut query {
         let (anim, facing, hit_flash, attacking) =
             if let Some(state) = crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors) {
@@ -464,11 +470,13 @@ pub fn upgrade_boss_sprites(
 
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
-    time: Res<Time>,
+    world_time: Res<crate::WorldTime>,
     ecs_bosses: Query<(&FeatureId, &BossFeature)>,
     mut query: Query<(&FeatureVisual, &mut Sprite, &mut BossAnimator), Without<PlayerVisual>>,
 ) {
-    let dt = time.delta_secs();
+    // Scaled dt — bullet-time / pause / hitstop slow boss
+    // animation playback. See `crate::WorldTime` rationale.
+    let dt = world_time.scaled_dt;
     for (visual, mut sprite, mut animator) in &mut query {
         let Some(state): Option<BossAnimState> =
             crate::features::ecs_boss_anim_state(&visual.id, &ecs_bosses)

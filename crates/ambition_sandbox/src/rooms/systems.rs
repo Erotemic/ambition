@@ -59,6 +59,24 @@ pub fn tick_portal_phases_system(
     }
 }
 
+/// Hide the debug door-zone visual that `spawn_loading_zone`
+/// spawns for any LoadingZone that's registered as a portal — the
+/// portal's gate sprites ARE the visual, the door box behind them
+/// is redundant.
+///
+/// Runs each frame so re-spawned visuals (after a room reload)
+/// also get hidden.
+pub fn hide_portal_loading_zone_visuals(
+    portals: Res<PortalRegistry>,
+    mut visuals: Query<(&crate::rendering::LoadingZoneVisual, &mut Visibility)>,
+) {
+    for (visual, mut vis) in &mut visuals {
+        if portals.is_portal(&visual.id) && *vis != Visibility::Hidden {
+            *vis = Visibility::Hidden;
+        }
+    }
+}
+
 /// Hide the portal sprite while its phase is `Off`; show it
 /// otherwise. Matches entity by `FeatureName` against
 /// `PortalConfig::portal_sprite_name`.

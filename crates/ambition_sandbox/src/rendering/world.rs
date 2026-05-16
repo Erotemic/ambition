@@ -268,6 +268,13 @@ pub fn spawn_loading_zone(
             WORLD_Z_BLOCK + 6.0,
         )),
         Name::new(format!("Loading zone: {}", zone.name)),
+        // Marker carrying the zone id so portal-aware systems can
+        // hide the debug door visual for portal-mode LoadingZones
+        // (the portal sprite IS the door visual; the DoorZone box
+        // behind it reads as a second door).
+        crate::rendering::primitives::LoadingZoneVisual {
+            id: zone.id.clone(),
+        },
         RoomVisual,
     ));
     let label_pos = zone.aabb.center() + ae::Vec2::new(0.0, -zone.aabb.half_size().y - 18.0);
@@ -299,6 +306,11 @@ pub fn spawn_room_object(
             FeatureVisual {
                 id: object.id.clone(),
             },
+            // FeatureName on the VISUAL entity (in addition to the
+            // sim entity) so per-name presentation systems (portal
+            // visibility / ring rotation / portal-anim swap) can
+            // locate the right sprite without a sim↔visual hop.
+            crate::features::FeatureName::new(object.name.clone()),
             RoomVisual,
         ));
         if matches!(kind, FeatureVisualKind::Npc | FeatureVisualKind::Chest) {

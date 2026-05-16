@@ -173,16 +173,20 @@ to the bottom under "Closed" with the commit that fixed them.
     - `apply_suspended_time_scale_system` (was `mode_gate_phase`),
     - `sync_live_player_dev_edits_system` (was a direct call to
       `dev_tools::sync_live_ability_edits` at the top of
-      `sandbox_update`).
-    `sandbox_update` itself now runs only in `GameMode::Playing`.
-    The remaining phases (`reset_phase`, `player_control_phase`,
-    `player_simulation_phase`, `interaction_input_phase`,
-    `damage_heal_dialogue_phase`, `room_transition_phase`,
-    `attack_phase`) still run inline because each takes `&mut
-    ae::Player` and `&mut FrameFeedback`. Promote one phase at a
-    time, gated by integration tests, when the borrow graph allows.
+      `sandbox_update`),
+    - `interaction_input_system` (was `interaction_input_phase`),
+    - `detect_room_transition_system` (was `room_transition_phase`,
+      runs post-`sandbox_update`),
+    - `attack_advance_system` (was `attack_phase`, post-tick; writes
+      sfx / vfx / damage / pogo directly via `MessageWriter`s).
+    `sandbox_update` itself now runs only in `GameMode::Playing`. The
+    remaining inline phases — `reset_phase`, `player_control_phase`,
+    `player_simulation_phase`, the inline `player_damage_events`
+    collect, and `damage_heal_dialogue_phase` — still share
+    `&mut ae::Player` and `&mut FrameFeedback`. Promote one phase at
+    a time, gated by integration tests, when the borrow graph allows.
     See `feedback.rs` for the parallel `FrameFeedback` Vec-collector
-    retirement plan.
+    retirement plan (down to two channels: `sfx` and `vfx`).
 
 - **LOW — `RoomVisual` is a dual-purpose marker**
   - File: `crates/ambition_sandbox/src/rendering/primitives.rs`

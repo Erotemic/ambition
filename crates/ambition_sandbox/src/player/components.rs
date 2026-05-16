@@ -201,8 +201,9 @@ pub struct PlayerInteractionState {
     /// consumed by the body-mode driver after `sandbox_update`.
     pub double_tap_down_pending: bool,
     /// Set true by `input_timer_system` when a double-tap-up gesture is
-    /// detected; consumed by `interaction_input_phase` to activate door /
-    /// NPC triggers. Cleared after use.
+    /// detected; consumed (via `mem::take`) by `interaction_input_system`
+    /// the same frame to fold it into the hit-stun-gated interact buffer
+    /// that drives door / NPC / chest activation.
     pub double_tap_up_pending: bool,
 }
 

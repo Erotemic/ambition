@@ -115,19 +115,20 @@ pub fn input_timer_system(
 /// advance the per-frame interact buffer on
 /// [`crate::player::PlayerInteractionState`].
 ///
-/// Replaces the inline `interaction_input_phase` that ran inside
-/// `sandbox_update`. Downstream code (notably `room_transition_phase`)
-/// no longer reads the buffered signal off `ControlFrame`; it reads
-/// `PlayerInteractionState::buffered()` directly off the component.
+/// Replaces the historical inline `interaction_input_phase` that ran
+/// inside `sandbox_update`. Downstream code (notably
+/// `detect_room_transition_system`) no longer reads the buffered
+/// signal off `ControlFrame`; it reads `PlayerInteractionState::
+/// buffered()` directly off the component.
 ///
 /// Gated by `gameplay_allowed`: the buffer must not tick down while
 /// paused / in dialogue / mid-cutscene — the previous procedural
-/// version was protected by `mode_gate_phase`'s early-return.
+/// version was protected by the now-extracted mode-gate early-return.
 ///
 /// Ordering: must run after `input_timer_system` (which decrements
 /// `combat.hitstun_timer` and sets `double_tap_up_pending` from
-/// `register_up_tap`) and before `sandbox_update` (whose
-/// `room_transition_phase` consumes the buffered signal).
+/// `register_up_tap`) and before `detect_room_transition_system`
+/// (which consumes the buffered signal post-`sandbox_update`).
 pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<SandboxFeelTuning>,

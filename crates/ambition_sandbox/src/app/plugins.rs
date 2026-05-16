@@ -132,15 +132,23 @@ pub fn add_simulation_plugins(app: &mut App) {
         // Core simulation chain. Bevy only implements tuple system configs
         // up to a fixed arity, so keep groups small and chained.
         //
-        // Chain order:
-        //   LDtk polling → feature world rebuild → feature ticks →
-        //   input_timer_system →
-        //   sandbox_update (phases 1, 3–8, 10 still inside; phase 9
-        //     detection only) →
-        //   apply_room_transition_system (phase 9 apply) →
-        //   feature cleanup → projectile tick → damage events →
-        //   player ECS write-back →
-        //   cleanup_timers_system (phase 11 — runs unconditionally)
+        // Chain order (see `sandbox_update` doc for the full phase map):
+        //   LDtk polling
+        //   → feature world rebuild + feature ticks (hazards/actors/bosses)
+        //   → sync_live_player_dev_edits_system  (unconditional dev sync)
+        //   → input_timer_system                  (gameplay)
+        //   → interaction_input_system            (gameplay)
+        //   → apply_suspended_time_scale_system   (paused / dialogue)
+        //   → sandbox_update                      (gameplay; remaining
+        //       inline phases: reset, control, simulation, damage_heal)
+        //   → detect_room_transition_system       (gameplay)
+        //   → attack_advance_system               (gameplay; writes
+        //       sfx/vfx/damage/pogo directly via MessageWriters)
+        //   → apply_room_transition_system        (consumes
+        //       RoomTransitionRequested)
+        //   → feature cleanup / projectile tick / damage apply / player
+        //       ECS write-back
+        //   → cleanup_timers_system               (unconditional)
         .add_systems(
             Update,
             (

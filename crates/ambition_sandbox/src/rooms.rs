@@ -7,7 +7,7 @@
 //! requires brittle hand-written spawn coordinates.
 
 use ambition_engine as ae;
-use bevy::prelude::Resource;
+use bevy::prelude::{Message, Resource};
 use petgraph::graph::{Graph, NodeIndex};
 
 mod graph;
@@ -327,6 +327,27 @@ pub struct RoomTransition {
     pub zone: LoadingZone,
     pub target_room: usize,
     pub arrival: ae::Vec2,
+}
+
+/// Bevy message emitted when a room transition is triggered (player walks through
+/// a loading zone or door). The actual `load_room` call happens in
+/// `apply_room_transition_system`, which runs after `sandbox_update` in the
+/// `CoreSimulation` chain.
+///
+/// Carries the resolved `RoomTransition` payload and the optional SFX id for the
+/// zone type so the apply system can emit the sound at the correct player position
+/// after repositioning.
+#[derive(Message, Clone, Debug)]
+pub struct RoomTransitionRequested {
+    pub transition: RoomTransition,
+    /// SFX id to play at the new player position after the room loads.
+    pub zone_sfx: Option<ambition_sfx::SfxId>,
+}
+
+impl RoomTransitionRequested {
+    pub fn new(transition: RoomTransition, zone_sfx: Option<ambition_sfx::SfxId>) -> Self {
+        Self { transition, zone_sfx }
+    }
 }
 
 /// Small room graph for early loading-zone tests.

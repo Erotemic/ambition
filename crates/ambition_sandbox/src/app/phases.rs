@@ -50,45 +50,6 @@ pub(super) fn mode_gate_phase(
     PhaseOutcome::Continue
 }
 
-/// Phase 2 — gameplay timer decay + semantic input tweaks.
-///
-/// Owns: per-frame decay of `room_transition_cooldown`,
-/// `damage_invuln_timer`, `hitstun_timer`, `hitstop_timer`; rewriting
-/// `controls.fast_fall_pressed` from a down double-tap; producing the
-/// `door_double_tap_up` signal returned to the caller.
-///
-/// Should not own: movement, combat, feature runtime updates. New
-/// gameplay-only timers and new input-edge gestures belong here. Returns
-/// the door / NPC double-tap-up signal so `interaction_input_phase` can
-/// fold it in alongside the explicit `Interact` action.
-pub(super) fn input_timer_phase(
-    controls: &mut ControlFrame,
-    sim_state: &mut crate::SandboxSimState,
-    combat: &mut crate::player::PlayerCombatState,
-    interaction: &mut crate::player::PlayerInteractionState,
-    feel: SandboxFeelTuning,
-    frame_dt: f32,
-) -> bool {
-    sim_state.room_transition_cooldown = (sim_state.room_transition_cooldown - frame_dt).max(0.0);
-    combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
-    combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
-    let double_tap_down =
-        interaction.register_down_tap(controls.down_pressed, frame_dt, feel.down_double_tap_window);
-    controls.fast_fall_pressed = double_tap_down;
-    // Re-route the double-tap-down edge through PlayerInteractionState so
-    // the body-mode driver in the progression chain (after sandbox_update)
-    // can read it. The local `controls` mutation here doesn't reach
-    // post-update systems; engine-side fast-fall is consumed inline, but
-    // morph-ball entry needs the edge to survive past `sandbox_update`'s scope.
-    if double_tap_down {
-        interaction.double_tap_down_pending = true;
-    }
-    let door_double_tap_up =
-        interaction.register_up_tap(controls.up_pressed, frame_dt, feel.up_double_tap_window);
-    combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
-    door_double_tap_up
-}
-
 /// Phase 3 — explicit reset input.
 ///
 /// Owns: routing the `reset_pressed` button through `reset_sandbox`. New
@@ -413,34 +374,24 @@ pub(super) fn damage_heal_dialogue_phase(
     crate::remember_safe_player_position(sim_state, player, &safe_world, ctx);
 }
 
-/// Phase 9 — loading-zone transition + `load_room`.
+/// Phase 9 — loading-zone transition detection.
 ///
 /// Owns: cooldown gate, `room_set.transition_for_player` query against
 /// the buffered interact signal, clearing the interact buffer on a
-/// matched transition, calling `load_room` for the actual swap.
+/// matched transition, writing `RoomTransitionRequested` so the
+/// post-sandbox_update `apply_room_transition_system` can call `load_room`.
 ///
 /// Should not own: which buttons trigger a transition (that's
 /// `interaction_input_phase`) or per-zone content rebuild (that's
-/// `load_room`). Returns `Return` if a transition fired this frame.
+/// `apply_room_transition_system` / `load_room`). Returns `Return` if a
+/// transition fired this frame so attack/cleanup phases are skipped.
 pub(super) fn room_transition_phase(
-    commands: &mut Commands,
     controls: &ControlFrame,
-    world: &mut GameWorld,
-    room_set: &mut rooms::RoomSet,
-    player: &mut ae::Player,
-    dev_state: &mut crate::SandboxDevState,
-    sim_state: &mut crate::SandboxSimState,
-    moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
-    dialogue: &mut crate::dialog::DialogState,
-    feedback: &mut FrameFeedback,
-    combat: &mut crate::player::PlayerCombatState,
+    room_set: &rooms::RoomSet,
+    player: &ae::Player,
+    sim_state: &crate::SandboxSimState,
+    transition_writer: &mut MessageWriter<rooms::RoomTransitionRequested>,
     interaction: &mut crate::player::PlayerInteractionState,
-    blink_cam: &mut crate::player::PlayerBlinkCameraState,
-    room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
-    tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
-    physics_settings: physics::PhysicsSandboxSettings,
-    game_assets: Option<&crate::game_assets::GameAssets>,
 ) -> PhaseOutcome {
     if sim_state.room_transition_cooldown > 0.0 {
         return PhaseOutcome::Continue;
@@ -448,46 +399,15 @@ pub(super) fn room_transition_phase(
     let Some(zone) = room_set.transition_for_player(player, controls.interact_pressed) else {
         return PhaseOutcome::Continue;
     };
-    // Door zones get a `world.door.open` cue at the player's current
-    // position (the zone's own AABB is the threshold, but we want the
-    // sound at the listener). EdgeExits get `world.portal.enter` —
-    // they're conceptually a screen-edge teleport, distinct from
-    // walking through a door. Authored content can override later
-    // with a `LoadingZoneActivation` variant if heavy doors / save
-    // teleports want their own clips.
-    let player_pos = player.pos;
     let zone_sfx = match zone.zone.activation {
         rooms::LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),
         rooms::LoadingZoneActivation::EdgeExit => Some(ambition_sfx::ids::WORLD_PORTAL_ENTER),
     };
-    if let Some(id) = zone_sfx {
-        feedback.sfx.push(SfxMessage::Play {
-            id,
-            pos: player_pos,
-        });
-    }
     interaction.clear();
-    load_room(
-        commands,
-        &mut feedback.sfx,
-        &mut feedback.vfx,
-        player,
-        dev_state,
-        sim_state,
-        moving_platforms,
-        dialogue,
-        combat,
-        interaction,
-        blink_cam,
-        world,
-        room_set,
-        room_visuals,
-        zone,
-        tuning,
-        feel,
-        physics_settings,
-        game_assets,
-    );
+    transition_writer.write(rooms::RoomTransitionRequested::new(zone, zone_sfx));
+    // Set cooldown immediately so the next frame's detection gate sees it
+    // even before `apply_room_transition_system` runs and resets it
+    // via load_room. This prevents double-trigger on consecutive frames.
     PhaseOutcome::Return
 }
 

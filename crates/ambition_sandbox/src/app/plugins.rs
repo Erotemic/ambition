@@ -50,14 +50,18 @@ pub enum SandboxSet {
 /// `sandbox_update` are listed here as documentation of intended order.
 ///
 /// Current extraction status:
-/// - `InputTimer`   — extracted → `input_timer_system`
-/// - `CleanupTimers`— extracted → `cleanup_timers_system`
+/// - `InputTimer`      — extracted → `input_timer_system`
+/// - `RoomTransition`  — detection in `sandbox_update`; apply extracted →
+///                       `apply_room_transition_system` (runs after sandbox_update)
+/// - `CleanupTimers`   — extracted → `cleanup_timers_system`
 /// - Others (ModeGate, PlayerControl, PlayerSim, InteractionInput,
-///   DamageHeal, RoomTransition, Attack) — still inside `sandbox_update`.
+///   DamageHeal, Attack) — still inside `sandbox_update`.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum SimPhase {
     /// Phase 2: per-frame timer decays + double-tap edge detection.
     InputTimer,
+    /// Phase 9 apply: room transition detected by sandbox_update, applied here.
+    RoomTransitionApply,
     /// Phase 11: flash/preset/slash/blink animation timer decay.
     /// Runs every frame (including paused/dialogue) so presentation timers
     /// wind down correctly without being gated by gameplay mode.
@@ -127,6 +131,7 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_message::<crate::features::ResetRoomFeaturesEvent>()
         .add_message::<crate::features::GameplayBannerRequested>()
         .add_message::<crate::player::PlayerHealRequested>()
+        .add_message::<crate::rooms::RoomTransitionRequested>()
         .register_type::<GameMode>()
         // StartupProfiler captures wall-clock at each marked phase so a
         // PostStartup report prints "where did the first frame's
@@ -208,7 +213,8 @@ pub fn add_simulation_plugins(app: &mut App) {
         // Chain order:
         //   LDtk polling → feature world rebuild → feature ticks →
         //   [SimPhase::InputTimer] input_timer_system →
-        //   sandbox_update (phases 1,3–10 still inside) →
+        //   sandbox_update (phases 1,3–8,10 still inside; phase 9 detection only) →
+        //   [SimPhase::RoomTransitionApply] apply_room_transition_system →
         //   feature cleanup → projectile tick → damage events →
         //   player ECS write-back →
         //   [SimPhase::CleanupTimers] cleanup_timers_system
@@ -222,6 +228,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::update_ecs_bosses,
                 input_timer_system.run_if(gameplay_allowed),
                 sandbox_update,
+                apply_room_transition_system,
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,
                 crate::features::apply_feature_damage_events,

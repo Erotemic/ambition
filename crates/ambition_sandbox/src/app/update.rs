@@ -116,10 +116,9 @@ pub fn cleanup_timers_system(
 /// 12. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
 ///     `DebrisBurstMessage` queues into the bundled writers.
 pub fn sandbox_update(
-    mut commands: Commands,
     time: Res<Time>,
-    mut world: ResMut<GameWorld>,
-    mut room_set: ResMut<rooms::RoomSet>,
+    world: Res<GameWorld>,
+    room_set: Res<rooms::RoomSet>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -128,8 +127,6 @@ pub fn sandbox_update(
     control_frame: Res<ControlFrame>,
     user_settings: Res<crate::settings::UserSettings>,
     mut queues: SandboxQueues,
-    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
-    game_assets: Option<Res<crate::game_assets::GameAssets>>,
     mut player_q: Query<
         (
             &mut crate::player::PlayerMovementAuthority,
@@ -144,7 +141,6 @@ pub fn sandbox_update(
     let mut feedback = FrameFeedback::new();
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    let physics_settings = *queues.physics_settings;
     // Compose difficulty + assist + the fine-grained menu multiplier
     // into one scalar that `handle_player_damage_events` consults.
     // Assist mode halves incoming damage on top of difficulty so a
@@ -322,24 +318,12 @@ pub fn sandbox_update(
 
     if matches!(
         room_transition_phase(
-            &mut commands,
             &controls,
-            &mut world,
-            &mut room_set,
+            &room_set,
             player,
-            &mut queues.dev_state,
-            &mut queues.sim_state,
-            &mut queues.moving_platforms.0,
-            &mut queues.dialogue,
-            &mut feedback,
-            &mut *combat,
+            &queues.sim_state,
+            &mut queues.transition_requests,
             &mut *interaction,
-            &mut *blink_cam,
-            &room_visuals,
-            tuning,
-            feel,
-            physics_settings,
-            game_assets.as_deref(),
         ),
         PhaseOutcome::Return
     ) {

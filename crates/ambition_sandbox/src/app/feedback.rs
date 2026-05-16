@@ -56,6 +56,7 @@ pub struct SandboxQueues<'w, 's> {
     pub damage_events: MessageWriter<'w, crate::features::DamageEvent>,
     pub pogo_bounces: MessageWriter<'w, crate::features::PogoBounceEvent>,
     pub reset_room_features: MessageWriter<'w, crate::features::ResetRoomFeaturesEvent>,
+    pub transition_requests: MessageWriter<'w, crate::rooms::RoomTransitionRequested>,
     pub player_health: Query<
         'w,
         's,

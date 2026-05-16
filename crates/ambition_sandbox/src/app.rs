@@ -111,3 +111,4 @@ pub use plugins::{
 };
 pub use resources::{init_sandbox_resources, StartRoomOverride};
 pub use update::{cleanup_timers_system, input_timer_system, sandbox_update};
+pub use world_flow::apply_room_transition_system;

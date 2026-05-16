@@ -181,6 +181,82 @@ pub(super) fn load_room(
     }
 }
 
+/// Bevy system: reads `RoomTransitionRequested` messages written by
+/// `sandbox_update` / `room_transition_phase` and applies the room load.
+///
+/// Runs immediately after `sandbox_update` in the `CoreSimulation` chain so
+/// the player position, world, and room_set are updated before any other
+/// post-sim systems run in the same frame.
+pub fn apply_room_transition_system(
+    mut commands: Commands,
+    mut requests: MessageReader<rooms::RoomTransitionRequested>,
+    mut event_writers: SandboxEventWriters,
+    mut player_q: Query<
+        (
+            &mut crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerInteractionState,
+            &mut crate::player::PlayerBlinkCameraState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+    mut world: ResMut<GameWorld>,
+    mut room_set: ResMut<rooms::RoomSet>,
+    mut dev_state: ResMut<crate::SandboxDevState>,
+    mut sim_state: ResMut<crate::SandboxSimState>,
+    mut moving_platforms: ResMut<crate::MovingPlatformSet>,
+    mut dialogue: ResMut<crate::dialog::DialogState>,
+    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    editable_tuning: Res<EditableMovementTuning>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    physics_settings: Res<physics::PhysicsSandboxSettings>,
+    game_assets: Option<Res<crate::game_assets::GameAssets>>,
+) {
+    for request in requests.read() {
+        let Ok((mut authority, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
+            continue;
+        };
+        // Play the zone-entry SFX at the pre-load player position so it sounds
+        // like it originates from the door/edge the player walked through.
+        let player_pos_before = authority.player.pos;
+        if let Some(sfx_id) = request.zone_sfx {
+            event_writers.sfx.write(SfxMessage::Play {
+                id: sfx_id,
+                pos: player_pos_before,
+            });
+        }
+        let mut sfx_buf: Vec<SfxMessage> = Vec::new();
+        let mut vfx_buf: Vec<VfxMessage> = Vec::new();
+        load_room(
+            &mut commands,
+            &mut sfx_buf,
+            &mut vfx_buf,
+            &mut authority.player,
+            &mut dev_state,
+            &mut sim_state,
+            &mut moving_platforms.0,
+            &mut dialogue,
+            &mut combat,
+            &mut interaction,
+            &mut blink_cam,
+            &mut world,
+            &mut room_set,
+            &room_visuals,
+            request.transition.clone(),
+            editable_tuning.as_engine(),
+            *feel_tuning,
+            *physics_settings,
+            game_assets.as_deref(),
+        );
+        for msg in sfx_buf {
+            event_writers.sfx.write(msg);
+        }
+        for msg in vfx_buf {
+            event_writers.vfx.write(msg);
+        }
+    }
+}
+
 pub(super) fn handle_player_events(
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,

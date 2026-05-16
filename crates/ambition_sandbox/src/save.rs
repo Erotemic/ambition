@@ -90,6 +90,7 @@ pub fn write_save(path: &Path, save: &SandboxSaveData) -> std::io::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_save_at_startup(mut save: ResMut<SandboxSave>) {
     let path = save_path();
     if !path.exists() {
@@ -106,6 +107,7 @@ pub fn load_save_at_startup(mut save: ResMut<SandboxSave>) {
 /// Bevy update system: when the save resource changes, write to disk.
 /// `Res::is_changed` is the throttle — change-detection only fires on
 /// the frame the resource was mutated, not every frame.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn autosave_sandbox_save(save: Res<SandboxSave>) {
     if !save.is_changed() {
         return;
@@ -119,6 +121,17 @@ pub fn autosave_sandbox_save(save: Res<SandboxSave>) {
         );
     }
 }
+
+/// Wasm (browser) no-op for save loading. First-pass web build does not
+/// persist the sandbox save; the in-memory `Res<SandboxSave>` still
+/// works for the session. Browser persistence (IndexedDB / LocalStorage
+/// behind `web-sys`) is a follow-up.
+#[cfg(target_arch = "wasm32")]
+pub fn load_save_at_startup(_save: ResMut<SandboxSave>) {}
+
+/// Wasm (browser) no-op for save writing. See [`load_save_at_startup`].
+#[cfg(target_arch = "wasm32")]
+pub fn autosave_sandbox_save(_save: Res<SandboxSave>) {}
 
 #[cfg(test)]
 mod tests {

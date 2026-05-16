@@ -99,7 +99,10 @@ mod sim_systems;
 mod update;
 mod world_flow;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use cli::run_visible;
+#[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
+pub use cli::run_web;
 pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
 pub use hud::update_quest_panel;
 #[cfg(feature = "input")]

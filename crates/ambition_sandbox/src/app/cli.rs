@@ -27,6 +27,10 @@ use super::*;
 /// `WAYLAND_DISPLAY`, or `WAYLAND_SOCKET` being set means we attempt the
 /// visible path. If `--headless` was passed on the CLI, the caller has
 /// already chosen the headless path and this check doesn't run.
+///
+/// The check intentionally skips wasm32 — the browser build has no env
+/// vars to consult and would always trip the headless fallback otherwise.
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn no_display_server_available() -> bool {
     if cfg!(not(target_os = "linux")) {
         return false;
@@ -36,15 +40,18 @@ pub(super) fn no_display_server_available() -> bool {
         && std::env::var_os("WAYLAND_SOCKET").is_none()
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn cli_force_headless() -> bool {
     std::env::args().any(|arg| arg == "--headless")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn cli_headless_ticks() -> u32 {
     let args: Vec<String> = std::env::args().collect();
     parse_headless_ticks(&args).unwrap_or(120)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn parse_headless_ticks(args: &[String]) -> Option<u32> {
     let mut i = 0;
     while i < args.len() {
@@ -108,6 +115,7 @@ mod headless_arg_tests {
 /// short diagnostic so users on a headless VM get a working
 /// `cargo run` instead of a `bevy_winit` event-loop panic. Override the
 /// number of ticks with `--headless-ticks N` (default 120).
+#[cfg(not(target_arch = "wasm32"))]
 pub fn run_visible() {
     if cli_force_headless() || no_display_server_available() {
         let max_ticks = cli_headless_ticks();
@@ -149,6 +157,61 @@ pub fn run_visible() {
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     app.init_state::<GameMode>();
     app.insert_resource(asset_config);
+    app.add_plugins((
+        SandboxSimulationPlugin,
+        SandboxLdtkPlugin,
+        SandboxPresentationPlugin,
+    ));
+    app.run();
+}
+
+/// Build + run the visible Bevy app for a browser (wasm32) target.
+///
+/// Bypasses every desktop-only branch in [`run_visible`]: no CLI parsing
+/// (`std::env::args` is empty in the browser), no `DISPLAY` / Wayland probe,
+/// and no headless fallback (the browser has no terminal to print to and
+/// `process::exit` traps). The window is attached to the `#bevy` canvas
+/// from `web/index.html` and uses the same sandbox plugin trio the desktop
+/// build composes.
+///
+/// First-pass: audio, dev tools, file watcher, mobile touch, and physics
+/// debris are intentionally OFF (controlled by the Cargo feature set —
+/// build with `--no-default-features --features web`). LDtk loads via the
+/// embedded `static_map` fallback because the wasm build has no working
+/// synchronous filesystem reader for `sandbox.ldtk` in this pass.
+///
+/// The `#[wasm_bindgen(start)]` shim that calls this lives in
+/// `crate::lib`'s root, behind the same `cfg(target_arch = "wasm32")` +
+/// `feature = "web_platform"` gate.
+#[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
+pub fn run_web() {
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Ambition - Tangent Space Sandbox (Web)".into(),
+            // The canvas selector matches `<canvas id="bevy">` in
+            // `crates/ambition_sandbox/web/index.html`. Without this Bevy
+            // would mint its own canvas and append it to <body>; pinning
+            // the selector lets the page own layout / sizing / focus.
+            canvas: Some("#bevy".to_string()),
+            // Resize the canvas to follow its CSS-styled parent. The
+            // template wraps the canvas in a full-viewport flexbox parent
+            // so this fills the page without needing a JS resize observer.
+            fit_canvas_to_parent: true,
+            // Don't let the canvas swallow the browser's own keyboard
+            // shortcuts; first-pass build wants the user to be able to
+            // refresh / open devtools without leaving the page.
+            prevent_default_event_handling: false,
+            ..default()
+        }),
+        ..default()
+    }));
+    // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
+    app.init_state::<GameMode>();
+    // GameAssetConfig defaults match the no-args desktop path — no
+    // `std::env::args` parsing on the web because the browser provides
+    // none and the helper hits stdlib paths that don't exist on wasm.
+    app.insert_resource(GameAssetConfig::default());
     app.add_plugins((
         SandboxSimulationPlugin,
         SandboxLdtkPlugin,

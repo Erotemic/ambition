@@ -164,6 +164,7 @@ dependencies = [
  "bevy_kira_audio",
  "bevy_material_ui",
  "bevy_yarnspinner",
+ "console_error_panic_hook",
  "fundsp",
  "leafwing-input-manager",
  "petgraph",
@@ -171,6 +172,7 @@ dependencies = [
  "serde",
  "serde_json",
  "virtual_joystick",
+ "wasm-bindgen",
 ]
 
 [[package]]

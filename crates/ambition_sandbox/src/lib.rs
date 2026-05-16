@@ -88,6 +88,28 @@ fn main() {
     app::run_visible();
 }
 
+/// Browser (`wasm32-unknown-unknown`) entry point.
+///
+/// The wasm module exports this as its `start` function via
+/// `wasm-bindgen`, so the JS in `crates/ambition_sandbox/web/index.html`
+/// gets to call `init()` (the generated JS shim) and the browser fires
+/// `web_start` on its own as soon as the module finishes instantiating —
+/// no manual wiring on the page.
+///
+/// This is the analog of the Android `#[bevy_main]` shim above: the
+/// platform supplies the entry-point convention, and we hand off to the
+/// browser-flavored Bevy app builder. Desktop builds compile this away
+/// entirely.
+#[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
+pub fn web_start() {
+    // Forward panics to `console.error` instead of the default `abort`
+    // so a first-pass crash is debuggable from devtools without a
+    // separate wasm symbol pass. Cheap; `set_once` is idempotent.
+    console_error_panic_hook::set_once();
+    app::run_web();
+}
+
 pub use game_mode::{gameplay_allowed, GameMode};
 pub use headless::{run_headless, HeadlessReport};
 #[cfg(feature = "rl_sim")]

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Ambition — Web (first-pass)</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #05060a;
+            color: #d6d8e6;
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            overflow: hidden;
+        }
+        #stage {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: stretch;
+            justify-content: stretch;
+        }
+        /*
+         * `fit_canvas_to_parent: true` in run_web() resizes the canvas to
+         * track this parent's size, so the canvas fills the viewport
+         * without a JS resize observer.
+         */
+        canvas#bevy {
+            width: 100%;
+            height: 100%;
+            display: block;
+            outline: none;
+            background: #0a0c14;
+        }
+        #status {
+            position: fixed;
+            left: 12px;
+            bottom: 10px;
+            font-size: 12px;
+            opacity: 0.65;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="stage">
+        <canvas id="bevy" tabindex="0"></canvas>
+    </div>
+    <div id="status">Ambition · wasm32 first pass · click the canvas to capture keyboard</div>
+
+    <!--
+        First-pass JS bootstrap. The wasm-bindgen `--target web` pipeline
+        emits `pkg/ambition_sandbox.js` (the JS shim) and
+        `pkg/ambition_sandbox_bg.wasm` (the module) next to this HTML file.
+        `init()` instantiates the module; the `#[wasm_bindgen(start)]`
+        hook in `lib.rs` (`web_start`) then fires on its own and boots
+        `app::run_web()`.
+
+        See `docs/web_build.md` for the build command that produces `pkg/`.
+    -->
+    <script type="module">
+        import init from "./pkg/ambition_sandbox.js";
+
+        const status = document.getElementById("status");
+        const canvas = document.getElementById("bevy");
+
+        try {
+            await init();
+            status.textContent = "Ambition · loaded · click the canvas to capture keyboard";
+            canvas.focus();
+        } catch (err) {
+            console.error(err);
+            status.textContent = "Ambition · failed to load wasm (see console)";
+        }
+    </script>
+</body>
+</html>

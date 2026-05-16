@@ -85,6 +85,7 @@ pub fn save_settings(path: &Path, settings: &UserSettings) -> std::io::Result<()
 /// disk if a file exists. The default `UserSettings` is already
 /// inserted in `init_sandbox_resources`, so this only overrides when
 /// a file is found.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_settings_at_startup(mut settings: ResMut<UserSettings>) {
     let path = settings_path();
     if !path.exists() {
@@ -101,6 +102,7 @@ pub fn load_settings_at_startup(mut settings: ResMut<UserSettings>) {
 /// Bevy update system: when `UserSettings` changes (via the pause
 /// menu), write the new state to disk. Throttled by checking
 /// `Res::is_changed` so we don't write every frame.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn save_settings_on_change(settings: Res<UserSettings>) {
     if !settings.is_changed() {
         return;
@@ -114,6 +116,16 @@ pub fn save_settings_on_change(settings: Res<UserSettings>) {
         );
     }
 }
+
+/// Wasm (browser) no-op for settings loading. First-pass web build does
+/// not persist user settings; the in-memory `Res<UserSettings>` keeps
+/// the defaults for the session. Browser persistence is a follow-up.
+#[cfg(target_arch = "wasm32")]
+pub fn load_settings_at_startup(_settings: ResMut<UserSettings>) {}
+
+/// Wasm (browser) no-op for settings writing. See [`load_settings_at_startup`].
+#[cfg(target_arch = "wasm32")]
+pub fn save_settings_on_change(_settings: Res<UserSettings>) {}
 
 #[cfg(test)]
 mod tests {

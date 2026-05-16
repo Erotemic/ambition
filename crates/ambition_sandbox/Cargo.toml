@@ -40,8 +40,38 @@ android_platform = [
     "bevy/multi_threaded",
 ]
 
+# Web/browser platform support. First-pass wasm32 build: bevy's canvas-backed
+# winit, default font, and WebGL2 renderer plus the `bevy/web` glue. Excludes
+# `bevy_gilrs`, x11/wayland, sysinfo_plugin, and `multi_threaded` (the latter
+# needs wasm atomics + nightly). `console_error_panic_hook` and `wasm-bindgen`
+# wire the JS bootstrap that loads the wasm module from `web/index.html` and
+# routes panics to the browser console.
+web_platform = [
+    "bevy/std",
+    "bevy/bevy_winit",
+    "bevy/default_font",
+    "bevy/web",
+    "bevy/webgl2",
+    "dep:console_error_panic_hook",
+    "dep:wasm-bindgen",
+]
+
 # Composite for the playable Bevy app. Desktop and Android both build on this.
 visible = ["ldtk_runtime", "input", "audio", "ui", "physics_debris"]
+
+# Composite for the first-pass browser build. Mirrors `visible` but drops the
+# subsystems that don't yet have a wasm story: audio (kira/fundsp), UI polish
+# (yarnspinner/material_ui), physics debris (avian2d), file watcher, mobile
+# touch (virtual_joystick), and dev tools (egui inspector). `static_map` is
+# mandatory because the wasm build has no synchronous filesystem reader for
+# `sandbox.ldtk`. Pair with `--no-default-features` and the `web_platform`
+# feature; see `crates/ambition_sandbox/web/index.html` for the JS bootstrap
+# and `docs/web_build.md` for the build/check commands.
+visible_web = ["ldtk_runtime", "input", "static_map"]
+
+# Browser persona. The composite a `wasm-pack build` /
+# `wasm-bindgen --target web` step builds against; see `docs/web_build.md`.
+web = ["visible_web", "web_platform"]
 
 # RL / programmatic-input adapter. The `rl_sim` module + `SandboxSim`
 # stepping API + `AgentAction` / `AgentObservation` shapes. Enabled
@@ -143,6 +173,12 @@ bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav
 fundsp = { version = "0.23", optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
 virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
+# Browser bootstrap deps. Pulled in only by the `web_platform` feature.
+# `wasm-bindgen` exposes the `#[wasm_bindgen(start)]` entry point that
+# `web/index.html` loads; `console_error_panic_hook` forwards panics to the
+# browser console so a first-pass crash is debuggable.
+console_error_panic_hook = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 petgraph = "0.8"
 ron = "0.11"
 serde = { version = "1", features = ["derive"] }

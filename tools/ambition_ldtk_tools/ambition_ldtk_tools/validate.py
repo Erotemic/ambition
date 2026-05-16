@@ -599,13 +599,61 @@ def normalize_project_for_editor(project):
         changes.append(f"normalized {editor_value_count} field instance realEditorValues records")
     return changes
 
-def validate(path: Path, schema_path: Path | None = None, require_schema: bool = False):
+def validate(
+    path: Path,
+    schema_path: Path | None = None,
+    require_schema: bool = False,
+    secondary_worlds: list[Path] | None = None,
+):
     errors = []
     warnings = []
     try:
         project = json.loads(path.read_text())
     except Exception as ex:  # noqa: BLE001 - command line validator should print parser details
         return [f"failed to parse JSON: {ex}"], []
+
+    # Build a `(activeArea, zone_id)` index over secondary world files so
+    # cross-file `LoadingZone.target_room` references don't false-positive.
+    # See `crates/ambition_sandbox/src/ldtk_world/loading.rs::merge_secondary_worlds`
+    # for the runtime side — it merges these files into the live
+    # `LdtkProject` at load time, so target_room lookups succeed there.
+    # The strict arrival-rect / solid-overlap checks are skipped for
+    # secondary targets (would require importing the full per-level
+    # bounds + solid set from the secondary file); secondary-bound
+    # zones get a single existence check instead.
+    secondary_index: dict[str, set[str]] = defaultdict(set)
+    for secondary_path in secondary_worlds or []:
+        if not secondary_path.exists():
+            warnings.append(
+                f"secondary world {secondary_path} does not exist; skipping"
+            )
+            continue
+        try:
+            secondary_project = json.loads(secondary_path.read_text())
+        except Exception as ex:  # noqa: BLE001
+            warnings.append(
+                f"failed to parse secondary world {secondary_path}: {ex}"
+            )
+            continue
+        for sec_level in secondary_project.get("levels") or []:
+            sec_area = field_value(sec_level.get("fieldInstances") or [], "activeArea")
+            sec_area = str(sec_area).strip() if sec_area is not None else ""
+            if not sec_area:
+                sec_area = sec_level.get("identifier", "")
+            sec_amb_layer = None
+            for sec_layer in sec_level.get("layerInstances") or []:
+                if sec_layer.get("__identifier") == AMBITION_LAYER:
+                    sec_amb_layer = sec_layer
+                    break
+            if sec_amb_layer is None:
+                continue
+            for sec_entity in sec_amb_layer.get("entityInstances") or []:
+                if sec_entity.get("__identifier") != "LoadingZone":
+                    continue
+                sec_zone_id = field_value(sec_entity.get("fieldInstances") or [], "id")
+                if sec_zone_id is None:
+                    continue
+                secondary_index[sec_area].add(str(sec_zone_id))
 
     schema_errors, schema_warnings = validate_official_schema(project, schema_path, require_schema)
     errors.extend(schema_errors)
@@ -905,6 +953,15 @@ def validate(path: Path, schema_path: Path | None = None, require_schema: bool =
 
     for source_level, area, zone_id, target_room, target_zone in requested_links:
         if target_room not in levels_by_area:
+            if target_room in secondary_index:
+                if target_zone not in secondary_index[target_room]:
+                    errors.append(
+                        f"LoadingZone {zone_id!r} in {source_level!r} targets missing zone "
+                        f"{target_zone!r} in secondary-world area {target_room!r}"
+                    )
+                # Strict arrival-rect / solid-overlap checks skipped for
+                # secondary targets; the runtime merge handles them.
+                continue
             errors.append(f"LoadingZone {zone_id!r} in {source_level!r} targets unknown room/activeArea {target_room!r}")
             continue
         if target_zone not in zones_by_area[target_room]:
@@ -975,6 +1032,19 @@ def main(argv=None):
         action="store_true",
         help="Alias for --normalize-editor-values; kept for level-design workflow readability",
     )
+    parser.add_argument(
+        "--secondary-world",
+        action="append",
+        type=Path,
+        default=[],
+        metavar="PATH",
+        help=(
+            "Additional .ldtk source files whose levels the runtime merges on top of `path` "
+            "(see ldtk_world/loading.rs::SECONDARY_WORLD_FILES). The validator uses these to "
+            "resolve cross-file LoadingZone target_room references without false-positiving. "
+            "May be passed multiple times."
+        ),
+    )
     args = parser.parse_args(argv)
     if args.normalize_editor_values or args.repair_editor_roundtrip:
         try:
@@ -992,7 +1062,12 @@ def main(argv=None):
         except Exception as ex:  # noqa: BLE001
             print(f"error: failed to repair editor-roundtrip values: {ex}", file=sys.stderr)
             return 1
-    errors, warnings = validate(args.path, args.schema, args.require_schema)
+    errors, warnings = validate(
+        args.path,
+        args.schema,
+        args.require_schema,
+        secondary_worlds=args.secondary_world,
+    )
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)
     for error in errors:

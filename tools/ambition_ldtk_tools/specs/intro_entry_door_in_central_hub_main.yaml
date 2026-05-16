@@ -1,17 +1,22 @@
-# Test-access door: central_hub_main upper platform → intro_wake_room.
+# Test-access door: central_hub_main → intro_wake_room.
 #
-# Replaces the old central_hub_basement door (deleted 2026-05-16):
-# the user feedback was that the intro entry should sit on the
-# platform above where the player normally arrives, not buried in
-# the basement.
+# Placement: on the one-way platform mid-room, directly under the
+# `hub routing note` PogoOrb. Coordinates picked via:
 #
-# Placement: upper-platform row at y=348. `door free-spots` reported
-# a 906 px gap from x=994..1900; px=[1423, 348] sits mid-gap with
-# enough clearance from both `upper_door` and the right wall.
+#   python -m ambition_ldtk_tools door snap central_hub_main \
+#     --x 908 --door-w 48 --door-h 96 --prefer-y 522
+#   → snap x=908 y=624 surface=OneWayUp
 #
-# Target: intro_wake_room/wake_room_arrival — the new entry zone
-# placed on top of the diagnostic cart in the wake room, so the
-# player visually arrives ON the cart.
+# Verified via:
+#
+#   python -m ambition_ldtk_tools entity check --level central_hub_main \
+#     --px 908,624 --size 48,96 --ignore CameraZone
+#   → no overlap; nearest neighbor = PogoOrb at 74.2px center
+#     (intentional — the door sits directly below the orb).
+#
+# This door is the only way into the intro for now. Move it again
+# with `entity delete` + this spec re-edited rather than hand-
+# editing the LDtk JSON.
 #
 # Run:
 #   python -m ambition_ldtk_tools entity add \
@@ -21,7 +26,7 @@
 level_id: central_hub_main
 entities:
   - type: LoadingZone
-    px: [1423, 348]
+    px: [908, 624]
     size: [48, 96]
     fields:
       id: intro_wake_door

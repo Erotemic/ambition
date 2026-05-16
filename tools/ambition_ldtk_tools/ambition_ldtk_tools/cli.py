@@ -21,6 +21,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     entity move      <spec.yaml>   Move an existing entity to new px/size.
     entity delete    <spec.yaml>   Delete entity instance(s) from a level.
     entity query     [filters]     Read-only: list/query entities by level/type/field.
+    entity check     [rect]        Read-only: report overlaps + nearest neighbor for a placement.
 
     def register-entity <spec>     Register a new entity definition.
 
@@ -134,6 +135,8 @@ def cmd_entity(args, rest):
         return _delegate("ambition_ldtk_tools.edit.delete", rest)
     if args.entity_action == "query":
         return _delegate("ambition_ldtk_tools.edit.query", rest)
+    if args.entity_action == "check":
+        return _delegate("ambition_ldtk_tools.edit.check", rest)
     if args.entity_action == "even-space":
         # area_authoring exposes --even-space-entities; forward through.
         return _delegate(
@@ -235,6 +238,16 @@ def build_parser() -> argparse.ArgumentParser:
             "Read-only listing of entities by level/type/field. "
             "Use --level, --identifier, --field NAME=VALUE, --iid. "
             "Default output is a table; --format json for structured."
+        ),
+    )
+    entity_sub.add_parser(
+        "check",
+        help=(
+            "Read-only: report overlaps and nearest-neighbor distance for "
+            "a hypothetical placement. Pair with `door snap` to verify a "
+            "slot is safe before `entity add`. Use --level, --px X,Y, "
+            "--size W,H, optionally --against / --ignore / --ignore-iid "
+            "/ --min-spacing. Exits non-zero on overlap or under-spaced."
         ),
     )
     entity_sub.add_parser(

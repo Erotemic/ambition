@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import runpy
-import sys
-from pathlib import Path
+from ambition_sprite2d_renderer.pirates.publish import main
 
-script = Path(__file__).resolve().parent / "render_pirate_spritesheets.py"
-sys.argv = [str(script), "--publish", *sys.argv[1:]]
-runpy.run_path(str(script), run_name="__main__")
+
+if __name__ == "__main__":
+    raise SystemExit(main())

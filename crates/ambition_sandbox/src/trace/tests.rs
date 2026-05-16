@@ -164,9 +164,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let mut player = dummy_player(ae::Vec2::new(50.0, 50.0));
     player.pos = ae::Vec2::new(2000.0, 50.0); // outside envelope.x
     let frame = build_frame(
-        &SandboxRuntime {
-            player: player.clone(),
-        },
+        &player,
         &crate::SandboxSimState::default(),
         &world,
         ControlFrame::default(),
@@ -193,9 +191,7 @@ fn write_dump_writes_two_files() {
     let world = dummy_world();
     let player = dummy_player(ae::Vec2::new(50.0, 50.0));
     let frame = build_frame(
-        &SandboxRuntime {
-            player: player.clone(),
-        },
+        &player,
         &crate::SandboxSimState::default(),
         &world,
         ControlFrame::default(),
@@ -252,10 +248,6 @@ fn timestamp_label_with_seq_is_stable_per_seq() {
     assert_eq!(a, timestamp_label_with_seq(now, 0));
 }
 
-fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
-    SandboxRuntime { player }
-}
-
 /// P2 — pressing a button that wasn't pressed last frame should
 /// emit an `InputEdge` event. We seed the buffer with an initial
 /// snapshot, then call `synthesize_events_from_diff` directly so
@@ -264,11 +256,11 @@ fn make_runtime(_world: &ae::World, player: ae::Player) -> SandboxRuntime {
 fn synthesizes_input_edge_event_on_button_press() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
     let world = dummy_world();
-    let runtime = make_runtime(&world, dummy_player(ae::Vec2::new(50.0, 50.0)));
+    let player = dummy_player(ae::Vec2::new(50.0, 50.0));
     // Seed previous snapshot with no buttons pressed.
     update_previous_snapshot(
         &mut buf,
-        &runtime,
+        &player,
         20,
         ControlFrame::default(),
         "test",
@@ -280,7 +272,7 @@ fn synthesizes_input_edge_event_on_button_press() {
     controls.jump_pressed = true;
     synthesize_events_from_diff(
         &mut buf,
-        &runtime,
+        &player,
         20,
         controls,
         0.016,
@@ -309,10 +301,10 @@ fn synthesizes_input_edge_event_on_button_press() {
 fn synthesizes_collision_correction_on_unexplained_teleport() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
     let world = dummy_world();
-    let runtime_prev = make_runtime(&world, dummy_player(ae::Vec2::new(62.0, 1564.0)));
+    let player_prev = dummy_player(ae::Vec2::new(62.0, 1564.0));
     update_previous_snapshot(
         &mut buf,
-        &runtime_prev,
+        &player_prev,
         20,
         ControlFrame::default(),
         "square_arena",
@@ -322,12 +314,11 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     // Now jump to a wildly different position with no plausible
     // velocity to explain it. Same active area + same `resets` so
     // the teleport detector isn't suppressed by Reset/RoomTransition.
-    let mut player2 = dummy_player(ae::Vec2::new(62.0, -23.0));
-    player2.vel = ae::Vec2::ZERO;
-    let runtime_cur = make_runtime(&world, player2);
+    let mut player_cur = dummy_player(ae::Vec2::new(62.0, -23.0));
+    player_cur.vel = ae::Vec2::ZERO;
     synthesize_events_from_diff(
         &mut buf,
-        &runtime_cur,
+        &player_cur,
         20,
         ControlFrame::default(),
         0.0069,
@@ -353,22 +344,21 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
 fn reset_emits_event_and_suppresses_teleport_event() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
     let world = dummy_world();
-    let runtime_prev = make_runtime(&world, dummy_player(ae::Vec2::new(50.0, 50.0)));
+    let player_prev = dummy_player(ae::Vec2::new(50.0, 50.0));
     update_previous_snapshot(
         &mut buf,
-        &runtime_prev,
+        &player_prev,
         20,
         ControlFrame::default(),
         "test",
         ae::LocomotionState::Grounded,
         ae::BodyMode::Standing,
     );
-    let mut player2 = dummy_player(ae::Vec2::new(150.0, 150.0));
-    player2.resets = runtime_prev.player.resets + 1;
-    let runtime_cur = make_runtime(&world, player2);
+    let mut player_cur = dummy_player(ae::Vec2::new(150.0, 150.0));
+    player_cur.resets = player_prev.resets + 1;
     synthesize_events_from_diff(
         &mut buf,
-        &runtime_cur,
+        &player_cur,
         20,
         ControlFrame::default(),
         0.016,
@@ -397,9 +387,8 @@ fn reset_emits_event_and_suppresses_teleport_event() {
 fn frame_includes_moving_platform_state() {
     let world = dummy_world();
     let player = dummy_player(ae::Vec2::new(50.0, 50.0));
-    let runtime = make_runtime(&world, player);
     let frame = build_frame(
-        &runtime,
+        &player,
         &crate::SandboxSimState::default(),
         &world,
         ControlFrame::default(),

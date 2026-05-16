@@ -24,6 +24,8 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from PIL import Image, ImageColor, ImageDraw, ImageFilter, ImageFont
 
+from ambition_sprite2d_renderer.console import print_path
+
 try:
     RESAMPLING = Image.Resampling
 except AttributeError:  # pragma: no cover
@@ -1131,7 +1133,7 @@ def cmd_single(args: argparse.Namespace) -> None:
     ensure_parent(args.out)
     img.save(args.out)
     print(json.dumps(asdict(spec), indent=2))
-    print(f"Wrote {args.out}")
+    print_path(args.out, prefix="Wrote ")
 
 
 def cmd_sheet(args: argparse.Namespace) -> None:
@@ -1163,7 +1165,7 @@ def cmd_sheet(args: argparse.Namespace) -> None:
         draw.text((x0 + 8, y0 + cell_h - label_h + 6), label, fill=rgb("#E8EEF7"), font=font)
     ensure_parent(args.out)
     sheet.save(args.out)
-    print(f"Wrote {args.out}")
+    print_path(args.out, prefix="Wrote ")
 
 
 def cmd_spec(args: argparse.Namespace) -> None:
@@ -1231,12 +1233,12 @@ def cmd_spritesheet(args: argparse.Namespace) -> None:
         manifest["animations"][anim] = {"frames": anim_names, "frame_count": frame_count, "duration_ms": duration_ms, "row": row}
     ensure_parent(args.out)
     sheet.save(args.out)
-    print(f"Wrote {args.out}")
+    print_path(args.out, prefix="Wrote ")
     if args.manifest_out:
         ensure_parent(args.manifest_out)
         with open(args.manifest_out, "w", encoding="utf-8") as file:
             json.dump(manifest, file, indent=2)
-        print(f"Wrote {args.manifest_out}")
+        print_path(args.manifest_out, prefix="Wrote ")
 
 
 def main(argv=None) -> None:

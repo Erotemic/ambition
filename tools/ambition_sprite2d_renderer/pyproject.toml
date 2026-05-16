@@ -11,7 +11,16 @@ dependencies = [
 
 [project.scripts]
 ambition-sprite2d-renderer = "ambition_sprite2d_renderer.cli:main"
+ambition-pirate-spritesheets = "ambition_sprite2d_renderer.pirates.render:main"
+ambition-mockingbird-boss = "ambition_sprite2d_renderer.mockingbird.sprite_generator:cli"
 
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["ambition_sprite2d_renderer*"]
+
+[tool.setuptools.package-data]
+ambition_sprite2d_renderer = ["configs/**/*.yaml", "mockingbird/*.yaml"]

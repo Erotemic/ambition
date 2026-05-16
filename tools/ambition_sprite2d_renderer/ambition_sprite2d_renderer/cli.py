@@ -40,21 +40,13 @@ from typing import List
 
 from .adapters import TARGETS, get_adapter
 from .canonical import render_canonical, write_canonicals
-from .console import print_canonical_outputs, print_paths
+from .console import print_canonical_outputs, print_path, print_paths
 from .config import CharacterJob, load_jobs
 from .entities import write_entity_sprites
 from .item_icons import write_item_icons
 from .faction_lineup import write_faction_lineup
 from .sheet import write_spritesheet
-
-
-def package_dir() -> Path:
-    return Path(__file__).resolve().parent.parent
-
-
-def repo_root() -> Path:
-    # tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/cli.py -> repo root.
-    return Path(__file__).resolve().parents[3]
+from .paths import generated_root, sandbox_sprites_dir
 
 
 # Defaults are computed against the package, not the cwd, so the CLI works
@@ -63,9 +55,7 @@ DEFAULT_CONFIG_DIR = (
     Path(__file__).resolve().parent / "configs"
 )
 DEFAULT_REVIEW_CONFIG_DIR = DEFAULT_CONFIG_DIR / "review"
-DEFAULT_ASSET_DIR = (
-    package_dir() / "generated"
-)
+DEFAULT_ASSET_DIR = generated_root()
 DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 
 
@@ -75,6 +65,9 @@ DEFAULT_FACTION_CONFIG = DEFAULT_CONFIG_DIR / "factions" / "music_factions.yaml"
 # `list-targets` works even without Pillow installed.
 
 _TACKON_TARGETS: dict[str, str] = {
+    "mockingbird_boss": "ambition_sprite2d_renderer.targets.mockingbird_boss",
+    "pirate_admiral": "ambition_sprite2d_renderer.targets.pirate_admiral",
+    "pirate_raider": "ambition_sprite2d_renderer.targets.pirate_raider",
     "sandbag": "ambition_sprite2d_renderer.targets.sandbag",
 }
 
@@ -85,12 +78,6 @@ def _get_tackon_target(name: str):
     except KeyError as ex:
         raise KeyError(f"unknown tack-on target: {name}") from ex
     return import_module(mod_path)
-
-
-def sandbox_sprites_dir() -> Path:
-    return (
-        repo_root() / "crates" / "ambition_sandbox" / "assets" / "sprites"
-    )
 
 
 def generated_dir(target_name: str) -> Path:
@@ -247,14 +234,18 @@ def _render_tackon(target_name: str, *, legacy_aliases: bool = False) -> List[Pa
     target = _get_tackon_target(target_name)
     out_dir = generated_dir(target_name)
     paths = target.render(out_dir, legacy_aliases=legacy_aliases)
-    for p in paths:
-        print(p)
+    print_paths(paths)
     return paths
 
 
 def _install_tackon(target_name: str, dest_root: Path) -> List[Path]:
     target = _get_tackon_target(target_name)
     out_dir = generated_dir(target_name)
+    if hasattr(target, "install"):
+        copied = list(target.install(out_dir, dest_root))
+        print_paths(copied)
+        return copied
+
     dest_root.mkdir(parents=True, exist_ok=True)
     copied: List[Path] = []
     missing: List[str] = []
@@ -271,8 +262,7 @@ def _install_tackon(target_name: str, dest_root: Path) -> List[Path]:
             f"warning: {target_name} files not yet rendered: {', '.join(missing)}",
             file=sys.stderr,
         )
-    for p in copied:
-        print(p)
+    print_paths(copied)
     return copied
 
 
@@ -283,7 +273,10 @@ def _cmd_render(args: argparse.Namespace) -> int:
 
 def _cmd_preview(args: argparse.Namespace) -> int:
     paths = _render_tackon(args.target, legacy_aliases=args.legacy_aliases)
-    print(f"\npreview written: {paths[0] if paths else '<none>'}")
+    if paths:
+        print_path(paths[0], prefix="\npreview written: ")
+    else:
+        print("\npreview written: <none>")
     return 0
 
 

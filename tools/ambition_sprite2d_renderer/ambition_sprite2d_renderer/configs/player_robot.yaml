@@ -1,0 +1,53 @@
+target: robot
+# Player-specific compact robot. Shares the robot adapter (and the full
+# directional-attack animation set) with `robot.yaml` but uses the
+# `player_compact` archetype to shorten the limbs and lower the body
+# anchors so the rendered silhouette fits the player's 30×48 collider.
+# Other robot-target characters keep the regular `cute_scout` build by
+# sticking with `robot.yaml`.
+name: player_robot
+output_name: player_robot
+seed: 7
+archetype: player_compact
+animations:
+  # Order matches robot.yaml so the PNG row indices line up; sheets.rs
+  # mirrors this order in `PLAYER_ROBOT_SHEET`.
+  - idle
+  - walk
+  - run
+  - jump
+  - fall
+  - slash
+  - hit
+  - death
+  - blink_out
+  - blink_in
+  - dash
+  - hover
+  - ledge_grab
+  - dash_startup
+  - land_hard
+  - land_recovery
+  - wall_grab
+  - ledge_climb
+  - ledge_getup
+  - float_glide
+  - attack_side
+  - attack_up
+  - attack_down
+  - air_neutral
+  - air_forward
+  - air_back
+  - air_down
+  - air_up
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 128
+  single_height: 128
+  supersample: 3
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 0
+  label_width: 100

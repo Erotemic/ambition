@@ -76,7 +76,7 @@ fn random_action(rng: &mut Lcg, sticky_axis_x: &mut f32) -> AgentAction {
 }
 
 fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String> {
-    let sim = SandboxSim::new_with_options(
+    let mut sim = SandboxSim::new_with_options(
         SandboxSimOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_start_room(room_id),
@@ -94,8 +94,6 @@ fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String
             initial.active_room
         );
     }
-
-    let mut sim = sim;
     let mut rng = Lcg::new(seed.wrapping_add(hash_room_id(room_id)));
     let mut sticky = 0.0_f32;
     let mut max_dist: f32 = 0.0;

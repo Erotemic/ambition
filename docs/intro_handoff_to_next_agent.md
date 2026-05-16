@@ -1,5 +1,10 @@
 # Intro vertical slice — handoff to the next agent
 
+## Completed by autonomous follow-up
+
+(Started 2026-05-16; agent committed to working until backlog is zero per
+`docs/intro_autonomous_followup_prompt_v3.md`.)
+
 Status as of commit `195b5ce`: the intro is playable end-to-end
 (spawn on cart → wake → raid (with hostile enemies + combat barks)
 → escape shaft → drain alley → gate stack → portal back to sandbox

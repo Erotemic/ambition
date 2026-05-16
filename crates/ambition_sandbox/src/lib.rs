@@ -97,6 +97,7 @@ use bevy::prelude::{Message, Resource};
 
 use feel::SandboxFeelTuning;
 use input::KeyboardPreset;
+use player::components::PlayerSlot;
 
 /// Sandbox-side death notification. Emitted from `death_respawn_player`
 /// the frame the player's HP drops to zero and they respawn at the room
@@ -192,22 +193,44 @@ pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
 #[derive(Resource, Default)]
 pub struct MovingPlatformSet(pub Vec<platforms::MovingPlatformState>);
 
-/// Time-scaled delta-time for gameplay / presentation systems that
-/// must honor bullet time, hitstop, and pause without each system
-/// re-reading `SandboxSimState::time_scale` and remembering to
-/// multiply.
+/// ADR 0010 vocabulary — the named clocks gameplay code can read.
 ///
-/// **Use `Res<WorldTime>::scaled_dt` instead of `Res<Time>::delta_secs()`**
-/// for any new timer that:
-/// - drives a per-frame countdown on a gameplay state machine
-///   (encounter beats, portal phases, attack windows),
-/// - advances a presentation animation tied to world events (the
-///   gate ring spin during a boot sequence, a ramp-up effect),
-/// - generally needs to slow / freeze when the world slows / freezes.
+/// `SimClock` ticks at the gameplay rate; bullet-time / hitstop /
+/// pause scale this. `PlayerClock(slot)` is a per-player cognitive
+/// rate (ADR 0011) and is what multiplayer-coherent time abilities
+/// rebind. `WallClock` is the host's real time, never scaled —
+/// used by UI fades, hot-reload polling, audio.
 ///
-/// `raw_dt` is still available for true wall-clock things (UI fade
-/// timers, debug overlays, hot-reload polling) that should *not*
-/// react to bullet time. Pick deliberately.
+/// In single-player today every PlayerClock equals SimClock, so
+/// the operationally-equivalent SP path "slow sim" and MP-correct
+/// path "boost player proper time" are observationally identical.
+/// See ADR 0011 §"Two time-control operations".
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ClockDomain {
+    SimClock,
+    PlayerClock(PlayerSlot),
+    WallClock,
+}
+
+/// Per-frame dt snapshots keyed by [`ClockDomain`].
+///
+/// Use the typed accessors instead of `Res<Time>::delta_secs()`:
+///
+/// - [`WorldTime::sim_dt`] — gameplay state machines + world-anchored
+///   animation. Scales with bullet-time / hitstop / pause.
+/// - [`WorldTime::player_dt`] — per-player cognitive rate. In SP this
+///   equals `sim_dt`; in future MP it's the seam where one player's
+///   bullet-time doesn't slow the other's world.
+/// - [`WorldTime::wall_dt`] — real time. UI fades, hot-reload polling,
+///   debug overlays — anything that must NOT freeze with the world.
+///
+/// Default `sim_dt` for new code; reach for the others only when you
+/// can articulate why ([feedback-time-domains]).
+///
+/// The legacy fields [`WorldTime::raw_dt`] / [`WorldTime::scaled_dt`]
+/// remain as aliases (`raw_dt == wall_dt`, `scaled_dt == sim_dt`) so
+/// existing callers keep compiling. Migrate to the accessors at
+/// touch time; the fields are slated for removal in a follow-up.
 ///
 /// Refreshed once per Update via [`refresh_world_time`] before
 /// every system that reads it; the resource is always one frame
@@ -215,12 +238,57 @@ pub struct MovingPlatformSet(pub Vec<platforms::MovingPlatformState>);
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct WorldTime {
     /// Wall-clock dt from Bevy's `Time` resource. Unscaled — for
-    /// UI / debug only.
+    /// UI / debug only. Legacy alias for [`WorldTime::wall_dt`].
     pub raw_dt: f32,
     /// `raw_dt * SandboxSimState::time_scale`. The canonical
     /// dt for gameplay + world-anchored animation timers. Zero
-    /// while paused (`time_scale == 0`).
+    /// while paused (`time_scale == 0`). Legacy alias for
+    /// [`WorldTime::sim_dt`].
     pub scaled_dt: f32,
+}
+
+impl WorldTime {
+    /// Dt for the gameplay sim clock — bullet-time / hitstop / pause
+    /// scale this. Canonical choice for world-anchored timers,
+    /// animation, AI ticks, and any gameplay state machine.
+    #[inline]
+    pub fn sim_dt(&self) -> f32 {
+        self.scaled_dt
+    }
+
+    /// Dt for the host's wall clock — never scaled. Use for UI
+    /// fades, hot-reload polling, debug overlays, audio buses;
+    /// anything that must keep ticking when the world freezes.
+    #[inline]
+    pub fn wall_dt(&self) -> f32 {
+        self.raw_dt
+    }
+
+    /// Dt for player `slot`'s cognitive clock (ADR 0011). In the
+    /// single-player Solo regime every `PlayerClock` equals
+    /// `SimClock`, so this is observationally identical to
+    /// [`Self::sim_dt`] today. The accessor is the seam where a
+    /// future CoopConsensual / Competitive regime can give each
+    /// player a distinct rate without the call sites changing.
+    #[inline]
+    pub fn player_dt(&self, _slot: PlayerSlot) -> f32 {
+        // SP regime: every PlayerClock == SimClock.
+        // ADR 0010 §Regimes — Solo is permissive; multi-observer
+        // regimes (future) will diverge here.
+        self.sim_dt()
+    }
+
+    /// Dt for an arbitrary [`ClockDomain`]. Prefer the typed
+    /// accessors above for known domains; this exists for systems
+    /// that take a domain as data (the regime-policy dispatch).
+    #[inline]
+    pub fn dt_for(&self, domain: ClockDomain) -> f32 {
+        match domain {
+            ClockDomain::SimClock => self.sim_dt(),
+            ClockDomain::PlayerClock(slot) => self.player_dt(slot),
+            ClockDomain::WallClock => self.wall_dt(),
+        }
+    }
 }
 
 /// Refresh [`WorldTime`] from `Time × SandboxSimState::time_scale`.
@@ -631,5 +699,54 @@ mod safe_pos_tests {
         // Without the clear, next frame would still report true.
         interaction.clear();
         assert!(!interaction.buffered_interact(false, 0.001, 1.0));
+    }
+}
+
+#[cfg(test)]
+mod world_time_clock_tests {
+    use super::*;
+    use crate::player::components::PlayerSlot;
+
+    /// Sim regime: SP grants every PlayerClock the SimClock rate, so
+    /// player_dt(slot) is observationally identical to sim_dt(). This
+    /// is the seam where future MP / RL regimes diverge — until they
+    /// do, the SP path stays one-line.
+    #[test]
+    fn sp_player_clock_equals_sim_clock() {
+        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 240.0 };
+        assert_eq!(wt.sim_dt(), 1.0 / 240.0);
+        assert_eq!(wt.player_dt(PlayerSlot::PRIMARY), wt.sim_dt());
+        assert_eq!(wt.player_dt(PlayerSlot(7)), wt.sim_dt());
+    }
+
+    /// Wall clock is never scaled. UI fades / hot-reload polling must
+    /// keep ticking when the world freezes.
+    #[test]
+    fn wall_dt_ignores_sim_scale() {
+        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 0.0 };
+        assert_eq!(wt.wall_dt(), 1.0 / 60.0);
+        assert_eq!(wt.sim_dt(), 0.0);
+    }
+
+    /// `dt_for(ClockDomain)` is the data-driven dispatch used by the
+    /// regime policy. Each domain routes to its typed accessor.
+    #[test]
+    fn dt_for_dispatches_by_domain() {
+        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 480.0 };
+        assert_eq!(wt.dt_for(ClockDomain::SimClock), wt.sim_dt());
+        assert_eq!(wt.dt_for(ClockDomain::WallClock), wt.wall_dt());
+        assert_eq!(
+            wt.dt_for(ClockDomain::PlayerClock(PlayerSlot::PRIMARY)),
+            wt.player_dt(PlayerSlot::PRIMARY),
+        );
+    }
+
+    /// Legacy fields remain as aliases — `raw_dt == wall_dt` and
+    /// `scaled_dt == sim_dt`. Existing call sites keep compiling.
+    #[test]
+    fn legacy_fields_alias_new_accessors() {
+        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.004 };
+        assert_eq!(wt.raw_dt, wt.wall_dt());
+        assert_eq!(wt.scaled_dt, wt.sim_dt());
     }
 }

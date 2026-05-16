@@ -14,6 +14,8 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     area create <spec.yaml>        Author a new area / level from a YAML spec.
     door free-spots <room>         List free 48x96 door slots in a level.
 
+    world init <target.ldtk>       Scaffold a new .ldtk file by cloning sandbox.ldtk defs.
+
     entity add <spec.yaml>         Add entity instance(s) into a level.
     entity set-field <spec.yaml>   Set field instances on existing entities.
     entity move      <spec.yaml>   Move an existing entity to new px/size.
@@ -104,6 +106,12 @@ def cmd_area(args, rest):
     return _todo(f"area {args.area_action}")
 
 
+def cmd_world(args, rest):
+    if args.world_action == "init":
+        return _delegate("ambition_ldtk_tools.world_init", rest)
+    return _todo(f"world {args.world_action}")
+
+
 def cmd_door(args, rest):
     if args.door_action == "free-spots":
         # area_authoring exposes --list-free-spots <room>; forward through.
@@ -187,6 +195,15 @@ def build_parser() -> argparse.ArgumentParser:
     area_sub = sp_area.add_subparsers(dest="area_action", required=True)
     area_sub.add_parser("create", help="Create an area/level from a spec")
     sp_area.set_defaults(func=cmd_area)
+
+    # world init
+    sp_world = sub.add_parser("world", help="Multi-file world helpers")
+    world_sub = sp_world.add_subparsers(dest="world_action", required=True)
+    world_sub.add_parser(
+        "init",
+        help="Scaffold a new .ldtk file by cloning sandbox.ldtk defs",
+    )
+    sp_world.set_defaults(func=cmd_world)
 
     # door free-spots / door snap
     sp_door = sub.add_parser("door", help="Door helpers")

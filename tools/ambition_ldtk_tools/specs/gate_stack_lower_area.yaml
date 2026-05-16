@@ -1,0 +1,210 @@
+# gate_stack_lower — fifth room of the intro sequence: hub reveal.
+#
+# Beat: Stable-gate infrastructure becomes visible. Signage establishes
+# that gates are bureaucratic transit, not mythical doorways. The
+# player can see (but not enter) the future routes: pirate, ninja,
+# Nazi fortress, manifest office, return-to-lab. A Gate Janitor NPC
+# reacts to the player using a tiny ripple humans cannot.
+#
+# Layout (1600x768):
+#
+#   +-----------------------------------------------------------------+
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ |
+#   | [pirate route - blocked]                  [ninja shadow]        |
+#   |                                                                 |
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒                          ▒▒▒▒▒▒▒▒▒▒▒▒              |
+#   |                                                                 |
+#   | [drain]   [Gate         [ripple]      [Manifest]   [Nazi]       |
+#   |  alley]    Janitor]      (placeholder)  Office]    Fortress]    |
+#   |                                                                 |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +-----------------------------------------------------------------+
+id: gate_stack_lower
+level_id: gate_stack_lower
+world_x: 108000
+world_y: 0
+px_wid: 1600
+px_hei: 768
+fill_collision: empty
+bg_color: "#161D29"
+biome: lab
+
+entities:
+  # --- Outer geometry.
+  - type: Solid
+    px: [0, 736]
+    size: [1600, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [16, 736]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [1584, 0]
+    size: [16, 736]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [1568, 32]
+    fields: { name: ceiling }
+
+  # --- Upper-deck ledges for vertical traversal demonstrations.
+  - type: OneWayPlatform
+    px: [128, 320]
+    size: [256, 16]
+    fields: { name: gate_stack_left_balcony }
+  - type: OneWayPlatform
+    px: [1216, 320]
+    size: [256, 16]
+    fields: { name: gate_stack_right_balcony }
+
+  # --- Drain alley back-door (left wall).
+  - type: LoadingZone
+    px: [16, 640]
+    size: [48, 96]
+    fields:
+      id: gate_stack_drain_entry
+      name: gate_stack_drain_entry
+      activation: Door
+      target_room: drain_alley
+      target_zone: drain_alley_exit
+      bidirectional: true
+
+  # --- Player spawn (direct jump only).
+  - type: PlayerStart
+    px: [120, 690]
+    size: [28, 46]
+    fields: { name: gate_stack_spawn }
+
+  # --- Gate Janitor: explains stable-gates-vs-ripples.
+  - type: NpcSpawn
+    px: [400, 688]
+    size: [32, 48]
+    fields:
+      name: Gate Janitor
+      prompt: "Talk to the Gate Janitor"
+      dialogue_id: gate_janitor_ripple
+
+  # --- Ripple "interactive": placeholder DebugLabel until a real
+  # ripple entity / sprite lands. Position chosen so the player walks
+  # past it on the natural left-to-right path through the hub.
+  - type: DebugLabel
+    px: [680, 640]
+    size: [120, 32]
+    fields:
+      name: gate_stack_ripple_placeholder
+      text: "[tiny ripple]"
+      category: Custom
+
+  # --- Manifest Office door (placeholder; future route).
+  - type: NpcSpawn
+    px: [960, 688]
+    size: [32, 48]
+    fields:
+      name: Manifest Clerk
+      prompt: "Approach the manifest kiosk"
+      dialogue_id: manifest_kiosk_wrong_list
+
+  # --- Future-route doors. Each is currently a NON-functional
+  # placeholder: a LoadingZone pointing back into the same hub so the
+  # player can see + interact with a door without leaving the slice.
+  # When the actual zones land, swap target_room/target_zone to the
+  # real zone identifiers — the IDs stay stable.
+  - type: LoadingZone
+    px: [1280, 640]
+    size: [48, 96]
+    fields:
+      id: gate_stack_to_manifest_office
+      name: gate_stack_to_manifest_office
+      activation: Door
+      target_room: gate_stack_lower
+      target_zone: gate_stack_drain_entry
+      bidirectional: false
+  - type: LoadingZone
+    px: [1440, 640]
+    size: [48, 96]
+    fields:
+      id: gate_stack_to_nazi_fortress
+      name: gate_stack_to_nazi_fortress
+      activation: Door
+      target_room: gate_stack_lower
+      target_zone: gate_stack_drain_entry
+      bidirectional: false
+
+  # --- Camera zone over the whole hub.
+  - type: CameraZone
+    px: [0, 0]
+    size: [1600, 768]
+    fields: { id: gate_stack_camera, name: gate_stack_camera, mode: Default }
+
+  # --- Signage establishing tone + future routes.
+  - type: DebugLabel
+    px: [40, 64]
+    size: [320, 24]
+    fields:
+      name: gate_stack_sign_delayed
+      text: "GATE 6 DELAYED: SHARK TRAFFIC"
+      category: Custom
+  - type: DebugLabel
+    px: [40, 96]
+    size: [320, 24]
+    fields:
+      name: gate_stack_sign_nazi_suspended
+      text: "Nazi Dimension passenger service remains suspended"
+      category: Custom
+  - type: DebugLabel
+    px: [40, 128]
+    size: [320, 24]
+    fields:
+      name: gate_stack_sign_tolls
+      text: "Stable gate tolls increased by 3%"
+      category: Custom
+  - type: DebugLabel
+    px: [40, 160]
+    size: [320, 24]
+    fields:
+      name: gate_stack_sign_impossible_luggage
+      text: "Please declare all impossible luggage"
+      category: Custom
+  - type: DebugLabel
+    px: [40, 192]
+    size: [320, 24]
+    fields:
+      name: gate_stack_sign_unauthorized
+      text: "Unauthorized arrival is still arrival"
+      category: Custom
+  - type: DebugLabel
+    px: [1240, 624]
+    size: [180, 24]
+    fields:
+      name: gate_stack_manifest_label
+      text: "→ Manifest Office"
+      category: Custom
+  - type: DebugLabel
+    px: [1400, 624]
+    size: [180, 24]
+    fields:
+      name: gate_stack_nazi_label
+      text: "→ Nazi Fortress (compliance)"
+      category: Custom
+  - type: DebugLabel
+    px: [128, 280]
+    size: [256, 24]
+    fields:
+      name: gate_stack_pirate_label
+      text: "[pirate sky route — blocked]"
+      category: Custom
+  - type: DebugLabel
+    px: [1216, 280]
+    size: [256, 24]
+    fields:
+      name: gate_stack_ninja_label
+      text: "[ninja shadow — vanishes]"
+      category: Custom
+  - type: DebugLabel
+    px: [40, 624]
+    size: [180, 24]
+    fields:
+      name: gate_stack_lab_return_label
+      text: "[lab ruins — collapsed]"
+      category: Custom

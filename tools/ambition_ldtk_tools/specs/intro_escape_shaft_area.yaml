@@ -1,0 +1,132 @@
+# intro_escape_shaft — third room of the intro sequence.
+#
+# Beat: Movement-focused exit. A vertical shaft with one-way platforms
+# the player drops down (or climbs up if they're speedrunning). The
+# shaft leads from the raid corridor / skill ledge down into the
+# drain alley behind the gate-stack market.
+#
+# Layout (768x768):
+#
+#   +---------------------------------+
+#   | ▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ |
+#   | [skill entry]                  |
+#   | ▒▒▒▒▒▒▒▒                       |  ← rope/ladder placeholder
+#   |              ▒▒▒▒▒▒▒▒          |
+#   |        ▒▒▒▒▒▒▒                 |  ← drop platforms
+#   |  [raid entry]                  |
+#   |        ▒▒▒▒▒▒▒                 |
+#   |                                |
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  | ← floor
+#   |             [exit]              |
+#   +---------------------------------+
+id: intro_escape_shaft
+level_id: intro_escape_shaft
+world_x: 104000
+world_y: 0
+px_wid: 768
+px_hei: 768
+fill_collision: empty
+bg_color: "#0A0E14"
+biome: lab
+
+entities:
+  # --- Outer geometry.
+  - type: Solid
+    px: [0, 736]
+    size: [768, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [16, 736]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [752, 0]
+    size: [16, 736]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [736, 32]
+    fields: { name: ceiling }
+
+  # --- One-way drop platforms staggered down the shaft.
+  - type: OneWayPlatform
+    px: [16, 192]
+    size: [256, 16]
+    fields: { name: shaft_ledge_top }
+  - type: OneWayPlatform
+    px: [496, 320]
+    size: [256, 16]
+    fields: { name: shaft_ledge_mid_right }
+  - type: OneWayPlatform
+    px: [128, 448]
+    size: [256, 16]
+    fields: { name: shaft_ledge_mid_left }
+  - type: OneWayPlatform
+    px: [400, 576]
+    size: [256, 16]
+    fields: { name: shaft_ledge_bottom }
+
+  # --- Normal entry from the raid corridor (mid-height on the left wall).
+  - type: LoadingZone
+    px: [16, 384]
+    size: [48, 96]
+    fields:
+      id: escape_shaft_entry
+      name: escape_shaft_entry
+      activation: Door
+      target_room: intro_raid_corridor
+      target_zone: raid_corridor_escape
+      bidirectional: true
+
+  # --- Skill-route entry (from the wake-room ledge). One-way: arrives
+  # near the top of the shaft, so the player still has the full drop.
+  - type: LoadingZone
+    px: [16, 32]
+    size: [48, 96]
+    fields:
+      id: escape_shaft_skill_entry
+      name: escape_shaft_skill_entry
+      activation: walk
+      target_room: intro_wake_room
+      target_zone: intro_wake_skill_hatch
+      bidirectional: false
+
+  # --- Player spawn (only used if the level is jumped to directly).
+  - type: PlayerStart
+    px: [80, 690]
+    size: [28, 46]
+    fields: { name: escape_shaft_spawn }
+
+  # --- Exit at the bottom: into the drain alley.
+  - type: LoadingZone
+    px: [360, 640]
+    size: [48, 96]
+    fields:
+      id: escape_shaft_exit
+      name: escape_shaft_exit
+      activation: walk
+      target_room: drain_alley
+      target_zone: drain_alley_entry
+      bidirectional: true
+
+  # --- Camera zone.
+  - type: CameraZone
+    px: [0, 0]
+    size: [768, 768]
+    fields: { id: escape_shaft_camera, name: escape_shaft_camera, mode: Default }
+
+  # --- Diegetic labels for orientation.
+  - type: DebugLabel
+    px: [40, 80]
+    size: [200, 24]
+    fields:
+      name: shaft_top_label
+      text: "// vent shaft — DOWN"
+      category: Custom
+  - type: DebugLabel
+    px: [320, 704]
+    size: [200, 24]
+    fields:
+      name: shaft_exit_label
+      text: "↓ drain alley"
+      category: Custom

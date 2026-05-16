@@ -1,0 +1,129 @@
+# intro_wake_room — first room of the intro sequence.
+#
+# Beat: Wake / control handoff. Player wakes on a diagnostic cart in the
+# creator's basement lab. Creator says "Hey you, you're finally awake."
+# Movement basics are taught diegetically: walk to the service hatch.
+# A high ledge offers an optional skill-route off-ramp; the normal exit
+# is the LoadingZone to intro_raid_corridor.
+#
+# Layout (1024x384):
+#
+#   +-------------------------------------------------+
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒ |
+#   |                                                 |
+#   |              [hi ledge]                         |
+#   |              ▒▒▒▒▒▒▒▒▒                          |
+#   |                                                 |
+#   |  [cart label]                                   |
+#   |   [player]  [Creator]                  [hatch]  |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒│ ← floor
+#   +-------------------------------------------------+
+#
+# The "cart" is a DebugLabel placeholder; once the intro_cart spritesheet
+# is wired through an EntitySprite kind it becomes a real prop. The
+# normal exit (right hatch) leads to the raid; the high-ledge route is
+# intentionally undocumented so speedrunners discover it.
+id: intro_wake_room
+level_id: intro_wake_room
+world_x: 100000
+world_y: 0
+px_wid: 1024
+px_hei: 384
+fill_collision: empty
+bg_color: "#0F1218"
+biome: lab
+
+entities:
+  # --- Outer geometry.
+  - type: Solid
+    px: [0, 352]
+    size: [1024, 32]
+    fields: { name: floor }
+  - type: Solid
+    px: [0, 0]
+    size: [16, 352]
+    fields: { name: left_wall }
+  - type: Solid
+    px: [1008, 0]
+    size: [16, 352]
+    fields: { name: right_wall }
+  - type: Solid
+    px: [16, 0]
+    size: [992, 32]
+    fields: { name: ceiling }
+
+  # --- High ledge for the skill off-ramp. Reachable by a precise jump
+  # from the cart; rewards platformer-literate players with an alternate
+  # exit (and, later, an extra creator fragment).
+  - type: OneWayPlatform
+    px: [560, 192]
+    size: [192, 16]
+    fields: { name: skill_ledge }
+
+  # --- Player spawn: on top of the cart, near the left wall.
+  - type: PlayerStart
+    px: [120, 306]
+    size: [28, 46]
+    fields: { name: wake_room_spawn }
+
+  # --- Creator NPC standing between the cart and the hatch.
+  - type: NpcSpawn
+    px: [344, 304]
+    size: [32, 48]
+    fields:
+      name: Creator
+      prompt: "Talk to the Creator"
+      dialogue_id: creator_intro
+
+  # --- Service hatch: the normal exit, on the right wall.
+  - type: LoadingZone
+    px: [960, 256]
+    size: [48, 96]
+    fields:
+      id: intro_wake_hatch
+      name: intro_wake_hatch
+      activation: Door
+      target_room: intro_raid_corridor
+      target_zone: raid_corridor_entry
+      bidirectional: true
+
+  # --- Skill off-ramp: hidden ledge route → escape shaft, bypassing the raid.
+  - type: LoadingZone
+    px: [720, 144]
+    size: [32, 48]
+    fields:
+      id: intro_wake_skill_hatch
+      name: intro_wake_skill_hatch
+      activation: walk
+      target_room: intro_escape_shaft
+      target_zone: escape_shaft_skill_entry
+      bidirectional: false
+
+  # --- Camera zone over the whole room.
+  - type: CameraZone
+    px: [0, 0]
+    size: [1024, 384]
+    fields: { id: intro_wake_camera, name: intro_wake_camera, mode: Default }
+
+  # --- Diegetic labels. These are placeholders for proper props/sprites.
+  - type: DebugLabel
+    px: [96, 320]
+    size: [120, 24]
+    fields:
+      name: wake_room_cart_label
+      text: "[diagnostic cart]"
+      category: Custom
+  - type: DebugLabel
+    px: [16, 64]
+    size: [320, 24]
+    fields:
+      name: wake_room_creator_lab_label
+      text: "creator's basement lab"
+      category: Custom
+  - type: DebugLabel
+    px: [640, 224]
+    size: [180, 24]
+    fields:
+      name: wake_room_ledge_hint
+      text: "service hatch?"
+      category: Custom

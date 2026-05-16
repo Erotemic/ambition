@@ -768,6 +768,50 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
+/// Interdimensional gate ring — the standing stone arch that frames
+/// a portal. Renders the always-on ring animation; portal effect is
+/// a separate sheet ([`GATE_PORTAL_SHEET`]). Authored as an
+/// NpcSpawn-as-prop in the LDtk (empty prompt + generic_npc
+/// fallback) so it shows up as a static lab prop.
+pub const GATE_RING_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 128,
+    y_offset: 0,
+    frame_width: 192,
+    frame_height: 192,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.140,
+        },
+    )],
+    collision_scale: 1.00,
+    feet_anchor_y: -0.500,
+    frame_sample_inset: 2,
+};
+
+/// Interdimensional gate portal — the shimmering surface inside the
+/// ring. Sheet's authored animation is `opening` (8 frames); we map
+/// it to `Idle` in the runtime spec so the existing
+/// CharacterAnim::Idle pipeline picks it up. Placed at the same
+/// position as a `GATE_RING_SHEET` to compose the visual.
+pub const GATE_PORTAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 128,
+    y_offset: 0,
+    frame_width: 192,
+    frame_height: 192,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.080,
+        },
+    )],
+    collision_scale: 1.00,
+    feet_anchor_y: -0.500,
+    frame_sample_inset: 2,
+};
+
 // ───────────────────────────────────────────────────────────────────
 // Lab props — shared `creator_lab_props_spritesheet.png`.
 //

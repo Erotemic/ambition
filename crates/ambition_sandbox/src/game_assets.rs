@@ -685,6 +685,11 @@ pub fn loading_zone_sprite(activation: LoadingZoneActivation) -> EntitySprite {
     match activation {
         LoadingZoneActivation::Door => EntitySprite::DoorZone,
         LoadingZoneActivation::EdgeExit => EntitySprite::EdgeExit,
+        // `Walk` zones (mid-room walk-through portals) reuse the
+        // EdgeExit sprite for now — both are overlap-triggered, no
+        // interact prompt. A dedicated portal-glow sprite can land
+        // when art does.
+        LoadingZoneActivation::Walk => EntitySprite::EdgeExit,
     }
 }
 

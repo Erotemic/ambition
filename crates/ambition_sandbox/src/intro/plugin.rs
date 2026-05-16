@@ -22,10 +22,21 @@ use crate::banter::CombatBanterRegistry;
 use crate::character_sprites::build_npc_sprite_asset;
 use crate::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use crate::game_assets::{GameAssetConfig, GameAssets};
+use crate::rooms::GatedZoneRegistry;
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::sprites::intro_npc_sprite_rows;
+
+/// Intro portal-gate wiring: zone id ↔ switch id. The gate stack room
+/// places a `LoadingZone` (id `intro_portal_zone`) back to the
+/// sandbox hub, paired with a `Switch` (id `intro_portal_switch`)
+/// next to the gate ring. Walking into the zone only fires the
+/// transition while the switch is toggled on; when it's off the
+/// player can stand inside the portal frame without anything
+/// happening.
+pub const INTRO_PORTAL_ZONE_ID: &str = "intro_portal_zone";
+pub const INTRO_PORTAL_SWITCH_ID: &str = "intro_portal_switch";
 
 /// Marker zero-sized resource — flips `true` once
 /// [`load_intro_npc_sprites_system`] has run. Keeps the system idempotent
@@ -41,6 +52,10 @@ pub(crate) struct IntroCutscenesInstalled(bool);
 #[derive(Resource, Default, Debug)]
 pub(crate) struct IntroBanterInstalled(bool);
 
+/// Marker zero-sized resource for the gated-zone installer.
+#[derive(Resource, Default, Debug)]
+pub(crate) struct IntroGatedZonesInstalled(bool);
+
 pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
@@ -48,19 +63,21 @@ impl Plugin for IntroPlugin {
         app.init_resource::<IntroSpritesInstalled>()
             .init_resource::<IntroCutscenesInstalled>()
             .init_resource::<IntroBanterInstalled>()
-            // All three contributor systems must wait for the
-            // sandbox's own startup resources, but the sandbox inserts
-            // those via `Startup` schedule and per-frame Commands.
-            // Running the installers in `Update` with a "first chance"
-            // guard (`if !installed`) is the simplest pattern that
-            // survives Bevy's deferred command application without us
-            // having to wire explicit system ordering.
+            .init_resource::<IntroGatedZonesInstalled>()
+            // All contributor systems must wait for the sandbox's own
+            // startup resources, but the sandbox inserts those via
+            // `Startup` schedule and per-frame Commands. Running the
+            // installers in `Update` with a "first chance" guard
+            // (`if !installed`) is the simplest pattern that survives
+            // Bevy's deferred command application without us having
+            // to wire explicit system ordering.
             .add_systems(
                 Update,
                 (
                     install_intro_cutscenes_system,
                     load_intro_npc_sprites_system,
                     install_intro_banter_system,
+                    install_intro_gated_zones_system,
                 ),
             );
     }
@@ -106,6 +123,23 @@ pub(crate) fn install_intro_banter_system(
         return;
     };
     install_intro_banter(&mut registry);
+    installed.0 = true;
+}
+
+/// Register the intro portal-gate's zone → switch mapping so the
+/// runtime transition system gates the LoadingZone behind the
+/// switch state. Runs once — guarded by [`IntroGatedZonesInstalled`].
+pub(crate) fn install_intro_gated_zones_system(
+    mut installed: ResMut<IntroGatedZonesInstalled>,
+    registry: Option<ResMut<GatedZoneRegistry>>,
+) {
+    if installed.0 {
+        return;
+    }
+    let Some(mut registry) = registry else {
+        return;
+    };
+    registry.set_gate(INTRO_PORTAL_ZONE_ID, INTRO_PORTAL_SWITCH_ID);
     installed.0 = true;
 }
 

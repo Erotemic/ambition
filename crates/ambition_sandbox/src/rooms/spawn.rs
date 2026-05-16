@@ -21,7 +21,11 @@ pub(super) const SPAWN_MARGIN: f32 = 3.0;
 
 pub(super) fn arrival_from_target_zone(world: &ae::World, zone: &LoadingZone) -> ae::Vec2 {
     match zone.activation {
-        LoadingZoneActivation::Door => door_arrival(zone.aabb),
+        // `Walk` uses the same arrival rule as `Door` — the target
+        // zone defines where the player lands, not an edge inset —
+        // since `Walk` zones are placed anywhere in the room (not
+        // bound to edges).
+        LoadingZoneActivation::Door | LoadingZoneActivation::Walk => door_arrival(zone.aabb),
         LoadingZoneActivation::EdgeExit => edge_arrival(world, zone.aabb),
     }
 }

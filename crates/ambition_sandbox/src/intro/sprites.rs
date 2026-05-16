@@ -15,8 +15,9 @@
 
 use crate::character_sprites::{
     CharacterSheetSpec, ARCHITECT_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
-    FASCIST_ENFORCER_SHEET, KERNEL_GUIDE_SHEET, LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE,
-    LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE, LAB_PROP_RESONANCE_COIL, OILER_SHEET,
+    FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
+    LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
+    LAB_PROP_RESONANCE_COIL, OILER_SHEET,
 };
 
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
@@ -77,6 +78,22 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     ("Power Core", "creator_lab_props_spritesheet.png", LAB_PROP_POWER_CORE),
     ("Repair Cradle", "creator_lab_props_spritesheet.png", LAB_PROP_REPAIR_CRADLE),
     ("Resonance Coil", "creator_lab_props_spritesheet.png", LAB_PROP_RESONANCE_COIL),
+    // Interdimensional gate (legally distinct stargate). The ring is
+    // the always-on structural arch; the portal renders the
+    // shimmering surface inside it. Both placed at the same px in
+    // gate_stack_lower; the runtime gate-check via
+    // `GatedZoneRegistry` keeps the LoadingZone behind them inert
+    // until the player toggles `intro_portal_switch`.
+    (
+        "Interdimensional Gate Ring",
+        "interdimensional_gate_ring_spritesheet.png",
+        GATE_RING_SHEET,
+    ),
+    (
+        "Interdimensional Gate Portal",
+        "interdimensional_gate_portal_spritesheet.png",
+        GATE_PORTAL_SHEET,
+    ),
 ];
 
 pub fn intro_npc_sprite_rows() -> &'static [(&'static str, &'static str, CharacterSheetSpec)] {

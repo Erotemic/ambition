@@ -434,6 +434,7 @@ pub(super) fn entity_to_runtime(
                 .as_str()
             {
                 "EdgeExit" => LoadingZoneActivation::EdgeExit,
+                "Walk" | "walk" => LoadingZoneActivation::Walk,
                 _ => LoadingZoneActivation::Door,
             },
             aabb: object_aabb(min, size),

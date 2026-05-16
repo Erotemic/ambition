@@ -18,7 +18,7 @@ use crate::features::{
 use crate::feel::SandboxFeelTuning;
 use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
-use crate::rooms::{LoadingZoneActivation, RoomSet, RoomTransitionRequested};
+use crate::rooms::{GatedZoneRegistry, LoadingZoneActivation, RoomSet, RoomTransitionRequested};
 use crate::{
     CurrentPlayerAttack, GameWorld, MovingPlatformSet, PlayerDiedMessage, SandboxSimState,
     SafePositionContext,
@@ -254,6 +254,8 @@ pub fn apply_player_reset_input_system(
 pub fn detect_room_transition_system(
     room_set: Res<RoomSet>,
     sim_state: Res<SandboxSimState>,
+    gated_zones: Res<GatedZoneRegistry>,
+    save: Res<crate::save::SandboxSave>,
     mut transition_writer: MessageWriter<RoomTransitionRequested>,
     mut player_q: Query<
         (
@@ -273,9 +275,22 @@ pub fn detect_room_transition_system(
     else {
         return;
     };
+    // Gate check: if this zone's id is in the registry, the named
+    // switch must be on (toggled to `true` in the save) before the
+    // transition fires. Empty registry / unknown zone id → no gate.
+    if let Some(switch_id) = gated_zones.switch_for(&zone.zone.id) {
+        if !save.data().switch(switch_id) {
+            return;
+        }
+    }
     let zone_sfx = match zone.zone.activation {
         LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),
-        LoadingZoneActivation::EdgeExit => Some(ambition_sfx::ids::WORLD_PORTAL_ENTER),
+        // Walk-through zones (mid-room portals and side-edge exits)
+        // both use the portal-enter sfx — the door-open sound only
+        // fits the discrete interact door beat.
+        LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => {
+            Some(ambition_sfx::ids::WORLD_PORTAL_ENTER)
+        }
     };
     // Clear the interact buffer so the same press doesn't re-trigger
     // a transition next frame before `load_room` resets it.

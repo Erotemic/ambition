@@ -75,6 +75,64 @@ entities:
       prompt: "Approach the manifest kiosk"
       dialogue_id: manifest_kiosk_wrong_list
 
+  # --- Legally distinct interdimensional gate (the "portal" mechanic
+  # for returning to the sandbox while v1 lacks real destination
+  # zones). Three colocated entities + a switch:
+  #
+  #   - Gate Ring: structural arch. Always visible, animates idle.
+  #   - Gate Portal: shimmering surface inside the ring. Always
+  #     visible too in v1 (no on/off visual yet — the runtime gate
+  #     is what blocks traversal). When the visual on/off lands,
+  #     a `kind: gate_portal_off` Prop sheet can replace this entry.
+  #   - LoadingZone (id `intro_portal_zone`): walks the player back
+  #     to `central_hub_main/intro_wake_door` ONLY when
+  #     `intro_portal_switch` is toggled on. The gating is enforced
+  #     in `detect_room_transition_system` via the runtime
+  #     `GatedZoneRegistry` (see crate::intro::plugin —
+  #     INTRO_PORTAL_ZONE_ID / INTRO_PORTAL_SWITCH_ID).
+  #   - Switch (id `intro_portal_switch`): toggle, no encounter
+  #     target. `action: ResetEncounter` + empty `target_encounter`
+  #     is the existing pattern that triggers a pure switch toggle
+  #     via `save.data_mut().set_switch(id, !old)` without firing
+  #     encounter side-effects.
+  #
+  # Geometry: gate ring is 192×192, sitting on the floor (y=736)
+  # so top y = 544. Centered between Gate Janitor (x=400) and
+  # Manifest Clerk (x=960) at x=620.
+  - type: NpcSpawn
+    px: [620, 544]
+    size: [192, 192]
+    fields:
+      name: Interdimensional Gate Ring
+      prompt: ""
+      dialogue_id: generic_npc
+  - type: NpcSpawn
+    px: [620, 544]
+    size: [192, 192]
+    fields:
+      name: Interdimensional Gate Portal
+      prompt: ""
+      dialogue_id: generic_npc
+  - type: LoadingZone
+    px: [668, 544]
+    size: [96, 192]
+    fields:
+      id: intro_portal_zone
+      name: intro_portal_zone
+      activation: Walk
+      target_room: central_hub_complex
+      target_zone: intro_wake_door
+      bidirectional: false
+  - type: Switch
+    px: [560, 704]
+    size: [24, 32]
+    fields:
+      id: intro_portal_switch
+      name: intro_portal_switch
+      prompt: "Toggle gate power"
+      target_encounter: ""
+      action: ResetEncounter
+
   - type: CameraZone
     px: [0, 0]
     size: [1600, 768]

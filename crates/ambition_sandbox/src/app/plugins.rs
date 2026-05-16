@@ -128,6 +128,12 @@ pub fn add_simulation_plugins(app: &mut App) {
         // IntroPlugin contributes the intro raiders' lines via a
         // startup system.
         .insert_resource(crate::banter::CombatBanterRegistry::default())
+        // Gated-zone registry — maps `LoadingZone.id` → required
+        // `Switch.id`. `detect_room_transition_system` skips the
+        // transition unless the named switch is on. IntroPlugin
+        // contributes the portal-gate mapping (intro_portal_zone →
+        // intro_portal_switch). Empty by default.
+        .insert_resource(crate::rooms::GatedZoneRegistry::default())
         // Intro story content plugin. Extends CutsceneLibrary +
         // RoomCutsceneBindings (always) and GameAssets.characters.npcs
         // (visible builds only — the sprite installer is a no-op in

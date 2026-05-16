@@ -22,8 +22,22 @@ pub use systems::{sync_active_room_metadata, sync_room_music_request};
 /// How a loading zone should be activated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LoadingZoneActivation {
+    /// Walk-off-the-edge transition. Validator requires the zone to
+    /// touch a level edge so the player physically walks off the
+    /// screen into it. Arrival on the target side is 92px inset
+    /// from the matching edge.
     EdgeExit,
+    /// Interact-to-enter door. Doesn't require an edge; the player
+    /// presses Interact while overlapping the zone to fire the
+    /// transition. Arrival on the target side is centered on the
+    /// target zone, bottom-26px.
     Door,
+    /// Walk-into-the-zone trigger. Like `EdgeExit` (overlap = fire)
+    /// but NOT required to touch a level edge — used for portals
+    /// and other mid-room walk-through transitions where the
+    /// player just steps inside the rectangle and the transition
+    /// fires. Arrival uses the same centered-bottom rule as `Door`.
+    Walk,
 }
 
 impl LoadingZoneActivation {
@@ -31,6 +45,7 @@ impl LoadingZoneActivation {
         match self {
             Self::EdgeExit => "edge exit",
             Self::Door => "door",
+            Self::Walk => "walk",
         }
     }
 }
@@ -47,14 +62,14 @@ pub struct LoadingZone {
 impl LoadingZone {
     pub fn is_ready(&self, wants_interact: bool) -> bool {
         match self.activation {
-            LoadingZoneActivation::EdgeExit => true,
+            LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => true,
             LoadingZoneActivation::Door => wants_interact,
         }
     }
 
     pub fn hint(&self, _flying: bool) -> String {
         match self.activation {
-            LoadingZoneActivation::EdgeExit => {
+            LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => {
                 format!("{}: {}", self.activation.label(), self.name)
             }
             LoadingZoneActivation::Door => {
@@ -65,6 +80,36 @@ impl LoadingZone {
                 )
             }
         }
+    }
+}
+
+/// Maps `LoadingZone.id` → required `Switch.id` for zones whose
+/// transition only fires while the referenced switch is on (toggled
+/// to `true` in the save). Empty by default — populated by
+/// story-content plugins (e.g. the intro's portal-gate hook).
+///
+/// `detect_room_transition_system` consults this resource before
+/// writing a `RoomTransitionRequested` message: when a zone's id is
+/// present in the map, the system reads `save.data().switch(switch_id)`
+/// and skips the transition unless the switch is on. This is the
+/// minimum extra plumbing required to let a `Switch` control a
+/// portal-style LoadingZone without adding a new field to the
+/// LoadingZone LDtk def + propagating it through conversion. When
+/// the gating story content stabilizes, promote this to a real
+/// LoadingZone field via `def update-entity` (TODO) and remove the
+/// registry.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct GatedZoneRegistry {
+    pub by_zone_id: std::collections::HashMap<String, String>,
+}
+
+impl GatedZoneRegistry {
+    pub fn switch_for(&self, zone_id: &str) -> Option<&str> {
+        self.by_zone_id.get(zone_id).map(String::as_str)
+    }
+
+    pub fn set_gate(&mut self, zone_id: impl Into<String>, switch_id: impl Into<String>) {
+        self.by_zone_id.insert(zone_id.into(), switch_id.into());
     }
 }
 

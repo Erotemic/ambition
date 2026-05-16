@@ -204,6 +204,10 @@ fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: &[LoadingZo
         let color = match zone.activation {
             LoadingZoneActivation::EdgeExit => cyan(),
             LoadingZoneActivation::Door => yellow(),
+            // `Walk` zones — mid-room walk-through portals.
+            // Distinct green so they don't read as either an edge
+            // exit (cyan) or an interact door (yellow).
+            LoadingZoneActivation::Walk => Color::srgba(0.40, 1.00, 0.55, 0.85),
         };
         draw_aabb(gizmos, world, zone.aabb, color);
     }

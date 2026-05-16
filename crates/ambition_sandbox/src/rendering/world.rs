@@ -246,6 +246,9 @@ pub fn spawn_loading_zone(
     let fallback_color = match zone.activation {
         LoadingZoneActivation::EdgeExit => Color::srgba(0.20, 0.95, 1.0, 0.22),
         LoadingZoneActivation::Door => Color::srgba(1.0, 0.72, 0.18, 0.46),
+        // Walk-through portal: green tint to distinguish from edge
+        // exits while still reading as "step in and go."
+        LoadingZoneActivation::Walk => Color::srgba(0.40, 1.00, 0.55, 0.30),
     };
     let render = BVec2::new(size.x, size.y);
     let sprite = match assets {

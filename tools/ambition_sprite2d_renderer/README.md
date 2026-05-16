@@ -11,17 +11,8 @@ Procedural 2D sprite renderer for Ambition. Two surfaces share the package:
    that exposes `TARGET_NAME`, `SHEET_FILES`, and a
    `render(out_dir, **opts) -> list[Path]` function. Used for one-off
    sheets that do not yet plug into the adapter system. Currently:
-   `sandbag`, `pirate_admiral`, `pirate_raider`, `mockingbird_boss`, and `interdimensional_gate`.
-   See the `TODO(integrate-sandbag-into-adapters)` note in
+   `sandbag`. See the `TODO(integrate-sandbag-into-adapters)` note in
    `targets/sandbag.py` for the path to fold it in.
-
-
-## Legacy files
-
-Legacy standalone scripts, old Mockingbird/Pirate README files, and historical
-YAML copies have been moved under `old/`. New code should use package modules
-under `ambition_sprite2d_renderer/` and the `python -m ambition_sprite2d_renderer`
-CLI. The `old/` scripts are compatibility/reference entrypoints only.
 
 ## Modal CLI
 
@@ -60,7 +51,7 @@ canonical sheet files into `crates/ambition_sandbox/assets/sprites/`.
 |---|---|---|
 | `robot` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/robot.yaml` |
 | `ninja` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/ninja.yaml`, `configs/ninja_leader.yaml` |
-| `toon` | idle, walk, run, jump, fall, talk, interact, slash, dash, celebrate, hit, death | `configs/review/*.yaml` |
+| `toon` | idle, walk, run, jump, fall, talk, interact, slash, dash, celebrate, hit, death | `configs/review/*.yaml`, `configs/fascist_enforcer.yaml` |
 | `goblin` | idle, walk, run, jump, fall, slash, hit, death, blink_out, blink_in, dash | `configs/goblin.yaml` |
 | `boss` | rest, floor_slam, side_sweep, spike_halo, dash_echo, hit, death | `configs/boss.yaml` |
 | `robot25d` | (legacy 2.5D experiment) | — |
@@ -95,24 +86,6 @@ python -m ambition_sprite2d_renderer spritesheet ambition_sprite2d_renderer/conf
 
 ### Tack-on targets
 
-#### pirate_admiral / pirate_raider
-
-Legacy pirate sheets now render through package modules:
-
-```bash
-python -m ambition_sprite2d_renderer render pirate_admiral
-python -m ambition_sprite2d_renderer render pirate_raider
-```
-
-#### mockingbird_boss
-
-Legacy Mockingbird boss scenegraph renderer now lives under
-`ambition_sprite2d_renderer.mockingbird` and participates in the package CLI:
-
-```bash
-python -m ambition_sprite2d_renderer render mockingbird_boss
-```
-
 #### sandbag
 
 Procedural pale cloth sandbag character. Sparse output (only `idle`, `hit`,
@@ -125,25 +98,6 @@ Procedural pale cloth sandbag character. Sparse output (only `idle`, `hit`,
 python -m ambition_sprite2d_renderer render sandbag
 python -m ambition_sprite2d_renderer render-publish sandbag
 ```
-
-#### interdimensional_gate
-
-A two-layer travel gate target: a heavy inscribed ring plus a separate
-interdimensional wormhole overlay sheet. The ring rows are `idle` (faint rune
-glow) and `spin`; the overlay rows are `opening`, `stable`, and `closing` so
-runtime code can composite the membrane over the ring only when the gate is
-active.
-
-```bash
-python -m ambition_sprite2d_renderer render interdimensional_gate
-python -m ambition_sprite2d_renderer install interdimensional_gate
-```
-
-This emits the runtime files
-`interdimensional_gate_ring_spritesheet.(png|yaml)` and
-`interdimensional_gate_portal_spritesheet.(png|yaml)`, plus canonical / preview
-artifacts for review.
-
 
 
 ## Character specs and review casts
@@ -167,8 +121,12 @@ spec:
 The curated review pass lives in `ambition_sprite2d_renderer/configs/review/`
 and is meant to answer the question, “do these feel like different characters?”
 Use `draw-review` to regenerate the current cast (`general_hero`,
-`absurd_general`, `kernel_guide`, `merchant_prototype`, `vault_keeper`,
-`architect`) along with a canonical contact sheet.
+`absurd_general`, `fascist_enforcer`, `kernel_guide`, `merchant_prototype`,
+`vault_keeper`, `architect`) along with a canonical contact sheet. The
+`fascist_enforcer` preset is a fictional fascist enemy pass: severe cap,
+charcoal tunic, red armband with an invented black sigil, collar skull tabs,
+and a long rifle so it reads as a distinct villain rather than a variant of
+`absurd_general`.
 
 ## Adding a new target
 

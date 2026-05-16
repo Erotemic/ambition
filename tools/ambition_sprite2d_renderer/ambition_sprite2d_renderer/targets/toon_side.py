@@ -235,34 +235,6 @@ class ToonSideGenerator:
             "shadow": rgba("#000000", 42),
             "white": rgba("#FFF6E8"),
         },
-        "oiler": {
-            "skin": rgba("#C99B77"),
-            "skin_shadow": rgba("#946F56"),
-            "hair": rgba("#332A24"),
-            "hair_shine": rgba("#7B7770"),
-            "outfit": rgba("#354546"),
-            "outfit_dark": rgba("#1E2628"),
-            "accent": rgba("#B84831"),
-            "accent_dark": rgba("#704226"),
-            "shoe": rgba("#26201A"),
-            "outline": rgba("#171412"),
-            "shadow": rgba("#000000", 48),
-            "white": rgba("#F2E7CF"),
-        },
-        "erdish": {
-            "skin": rgba("#D8B88B"),
-            "skin_shadow": rgba("#A98362"),
-            "hair": rgba("#3C3340"),
-            "hair_shine": rgba("#70617A"),
-            "outfit": rgba("#67507E"),
-            "outfit_dark": rgba("#334D43"),
-            "accent": rgba("#E6D8A7"),
-            "accent_dark": rgba("#7D9CC8"),
-            "shoe": rgba("#3A2E29"),
-            "outline": rgba("#191621"),
-            "shadow": rgba("#000000", 42),
-            "white": rgba("#FFF7D9"),
-        },
         "absurd_general": {
             "skin": rgba("#E0A27F"),
             "skin_shadow": rgba("#B8725F"),
@@ -276,6 +248,20 @@ class ToonSideGenerator:
             "outline": rgba("#181512"),
             "shadow": rgba("#000000", 46),
             "white": rgba("#FFF0DB"),
+        },
+        "fascist": {
+            "skin": rgba("#D9C1AF"),
+            "skin_shadow": rgba("#B99683"),
+            "hair": rgba("#D6D0C2"),
+            "hair_shine": rgba("#F1EBDD"),
+            "outfit": rgba("#383B42"),
+            "outfit_dark": rgba("#17191E"),
+            "accent": rgba("#C02632"),
+            "accent_dark": rgba("#78141D"),
+            "shoe": rgba("#101114"),
+            "outline": rgba("#0A0B0E"),
+            "shadow": rgba("#000000", 52),
+            "white": rgba("#F1ECE2"),
         },
     }
 
@@ -345,6 +331,38 @@ class ToonSideGenerator:
             "satchel_size": 0.0,
             "hat_brim_offset_x": 0.0,
             "hat_brim_offset_y": -2.0,
+        },
+        "fascist_enforcer": {
+            "name": "Fascist Enforcer",
+            "role": "enemy",
+            "palette_name": "fascist",
+            "body_plan": "rigid",
+            "outfit": "storm_uniform",
+            "hair_style": "officer_cap",
+            "prop": "rifle",
+            "accessory": "none",
+            "head_w": 28.5,
+            "head_h": 29.0,
+            "chin_h": 7.2,
+            "neck_h": 3.6,
+            "shoulder_w": 34.5,
+            "torso_w": 27.5,
+            "torso_h": 31.5,
+            "hip_w": 22.0,
+            "arm_upper": 13.0,
+            "arm_lower": 12.0,
+            "arm_radius": 3.2,
+            "leg_upper": 15.0,
+            "leg_lower": 14.0,
+            "leg_radius": 3.1,
+            "hand_r": 3.2,
+            "foot_w": 12.5,
+            "foot_h": 4.9,
+            "coat_len": 14.0,
+            "cape_len": 0.0,
+            "hair_volume": 2.6,
+            "nose_len": 3.8,
+            "satchel_size": 0.0,
         },
         "kernel_guide": {
             "name": "Kernel Guide",
@@ -473,70 +491,6 @@ class ToonSideGenerator:
             "hair_volume": 6.6,
             "nose_len": 3.2,
             "satchel_size": 3.0,
-        },
-        "oiler": {
-            "name": "Oiler",
-            "role": "npc",
-            "palette_name": "oiler",
-            "body_plan": "broad",
-            "outfit": "mechanic_coat",
-            "hair_style": "goggles",
-            "prop": "wrench",
-            "accessory": "tool_harness",
-            "head_w": 25.0,
-            "head_h": 27.5,
-            "chin_h": 6.8,
-            "neck_h": 3.2,
-            "shoulder_w": 34.0,
-            "torso_w": 31.0,
-            "torso_h": 29.0,
-            "hip_w": 28.0,
-            "arm_upper": 12.6,
-            "arm_lower": 12.8,
-            "arm_radius": 3.75,
-            "leg_upper": 13.4,
-            "leg_lower": 12.5,
-            "leg_radius": 3.65,
-            "hand_r": 3.8,
-            "foot_w": 15.0,
-            "foot_h": 5.6,
-            "coat_len": 16.0,
-            "cape_len": 0.0,
-            "hair_volume": 6.6,
-            "nose_len": 4.0,
-            "satchel_size": 9.0,
-        },
-        "erdish": {
-            "name": "Erdish",
-            "role": "npc",
-            "palette_name": "erdish",
-            "body_plan": "tall",
-            "outfit": "theorem_coat",
-            "hair_style": "wrong_hat",
-            "prop": "notebook",
-            "accessory": "problem_satchels",
-            "head_w": 22.5,
-            "head_h": 29.5,
-            "chin_h": 6.2,
-            "neck_h": 4.7,
-            "shoulder_w": 21.0,
-            "torso_w": 17.2,
-            "torso_h": 32.0,
-            "hip_w": 15.5,
-            "arm_upper": 15.2,
-            "arm_lower": 15.0,
-            "arm_radius": 2.35,
-            "leg_upper": 19.4,
-            "leg_lower": 18.5,
-            "leg_radius": 2.45,
-            "hand_r": 2.8,
-            "foot_w": 12.2,
-            "foot_h": 4.3,
-            "coat_len": 24.0,
-            "cape_len": 0.0,
-            "hair_volume": 7.8,
-            "nose_len": 4.8,
-            "satchel_size": 7.5,
         },
     }
 
@@ -716,6 +670,40 @@ class ToonSideGenerator:
             p.near_leg_lower = 72.0 - 8.0 * collapse
             p.collapse = collapse
             p.dead = collapse > 0.75
+        if spec.archetype == "fascist_enforcer":
+            if animation == "idle":
+                p.body_bob *= 0.25
+                p.torso_tilt -= 1.2
+                p.head_tilt += 0.4
+                p.eye_squint = max(p.eye_squint, 0.18)
+            elif animation in {"walk", "run"}:
+                p.torso_tilt -= 1.8
+                p.head_tilt -= 0.6
+                p.eye_squint = max(p.eye_squint, 0.16)
+                p.far_arm_lower -= 3.0
+                p.near_arm_lower += 3.0
+            elif animation == "talk":
+                p.torso_tilt -= 0.8
+                p.head_tilt += 0.3
+                p.eye_squint = max(p.eye_squint, 0.14)
+                p.mouth_open = max(p.mouth_open, 0.25)
+            elif animation == "interact":
+                p.torso_tilt -= 2.0
+                p.head_tilt -= 0.5
+                p.gesture = max(p.gesture, 0.4)
+            elif animation == "slash":
+                p.root_x += 1.5
+                p.torso_tilt -= 3.5
+                p.head_tilt -= 1.5
+                p.prop_swing = max(p.prop_swing, 0.75)
+            elif animation == "dash":
+                p.torso_tilt -= 2.0
+                p.head_tilt -= 0.5
+            elif animation == "hit":
+                p.head_tilt += 1.4
+            elif animation == "death":
+                p.torso_tilt += 8.0 * p.collapse
+                p.head_tilt += 6.0 * p.collapse
         return p
 
     # --- render helpers --------------------------------------------------------
@@ -730,6 +718,7 @@ class ToonSideGenerator:
             "round": {"shoulder_y": 1.0, "hip_y": 2.2, "head_y": 0.0},
             "broad": {"shoulder_y": -1.0, "hip_y": 1.0, "head_y": -1.2},
             "tall": {"shoulder_y": -2.8, "hip_y": -1.0, "head_y": -2.4},
+            "rigid": {"shoulder_y": -1.6, "hip_y": 0.6, "head_y": -1.4},
         }.get(spec.body_plan, {"shoulder_y": 0.0, "hip_y": 0.0, "head_y": 0.0})
 
     def _draw_shadow(self, draw: ImageDraw.ImageDraw, center: Point, width: float, S: float, alpha: int) -> None:
@@ -744,7 +733,7 @@ class ToonSideGenerator:
         # Hood / back hair mass first.
         if spec.hair_style == "hood":
             d.ellipse(_bbox((c[0] - 2 * S, c[1] - 1 * S), (spec.head_w + 8.0) * S, (spec.head_h + 8.0) * S), fill=pal["outfit_dark"], outline=outline, width=max(1, int(1.2 * S)))
-        elif spec.hair_style in {"bob", "crest", "swoop", "cap", "general_hat", "goggles", "wrong_hat"}:
+        elif spec.hair_style in {"bob", "crest", "swoop", "cap", "general_hat", "officer_cap"}:
             d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.78 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
         # Face.
         d.ellipse(_bbox(c, spec.head_w * S, spec.head_h * S), fill=pal["skin"], outline=outline, width=max(1, int(1.2 * S)))
@@ -771,25 +760,6 @@ class ToonSideGenerator:
         elif spec.hair_style == "cap":
             d.pieslice(_bbox((c[0] - 1.5 * S, c[1] - spec.head_h * 0.28 * S), (spec.head_w + 4.0) * S, (spec.head_h * 0.72) * S), start=180, end=15, fill=pal["outfit_dark"], outline=outline)
             d.polygon([(c[0] + 2 * S, c[1] - 1 * S), (c[0] + 12 * S, c[1] + 1 * S), (c[0] + 1 * S, c[1] + 4 * S)], fill=pal["outfit_dark"], outline=outline)
-        elif spec.hair_style == "goggles":
-            # Messy graying mechanic hair plus old safety goggles pushed up on
-            # the forehead. This keeps Oiler practical rather than mystical.
-            d.pieslice(_bbox((c[0] - 1.0 * S, c[1] - spec.head_h * 0.33 * S), (spec.head_w + 5.5) * S, (spec.head_h * 0.72) * S), start=185, end=15, fill=pal["hair"], outline=outline)
-            for off in (-7.0, -1.5, 4.0):
-                d.line([(c[0] + off * S, c[1] - 18.0 * S), (c[0] + (off + 4.0) * S, c[1] - 12.0 * S)], fill=pal["hair_shine"], width=max(1, int(1.3 * S)))
-            strap_y = c[1] - 12.5 * S
-            d.line([(c[0] - 12.5 * S, strap_y), (c[0] + 12.0 * S, strap_y + 1.0 * S)], fill=outline, width=max(1, int(1.3 * S)))
-            for gx in (-4.8, 4.8):
-                d.rounded_rectangle((c[0] + gx * S - 4.2 * S, strap_y - 3.0 * S, c[0] + gx * S + 4.2 * S, strap_y + 3.4 * S), radius=2.4 * S, fill=pal["white"], outline=outline, width=max(1, int(1.0 * S)))
-                d.ellipse(_bbox((c[0] + gx * S, strap_y), 4.2 * S, 3.0 * S), fill=with_alpha(pal["accent"], 110), outline=None)
-        elif spec.hair_style == "wrong_hat":
-            # Lopsided scholar/bowler silhouette: almost normal, just wrong.
-            d.pieslice(_bbox((c[0] - 0.5 * S, c[1] - spec.head_h * 0.42 * S), (spec.head_w + 5.0) * S, (spec.head_h * 0.70) * S), start=190, end=12, fill=pal["hair"], outline=outline)
-            brim = [(c[0] - 15.5 * S, c[1] - 14.5 * S), (c[0] + 13.5 * S, c[1] - 17.8 * S), (c[0] + 17.0 * S, c[1] - 13.5 * S), (c[0] - 12.0 * S, c[1] - 10.0 * S)]
-            crown = [(c[0] - 8.5 * S, c[1] - 17.5 * S), (c[0] + 7.5 * S, c[1] - 19.8 * S), (c[0] + 6.5 * S, c[1] - 30.0 * S), (c[0] - 7.0 * S, c[1] - 27.5 * S)]
-            d.polygon(brim, fill=pal["outfit_dark"], outline=outline)
-            d.polygon(crown, fill=pal["outfit"], outline=outline)
-            d.line([(c[0] - 7.0 * S, c[1] - 21.0 * S), (c[0] + 7.5 * S, c[1] - 23.0 * S)], fill=pal["accent"], width=max(1, int(1.2 * S)))
         elif spec.hair_style == "general_hat":
             # An intentionally over-loud peaked cap: huge crown, gold band,
             # forward brim, and a centered star so the silhouette reads as a
@@ -831,6 +801,35 @@ class ToonSideGenerator:
                 a = -math.pi / 2 + i * math.tau / 10
                 star.append((star_c[0] + math.cos(a) * r, star_c[1] + math.sin(a) * r))
             d.polygon(star, fill=pal["accent"], outline=outline)
+        elif spec.hair_style == "officer_cap":
+            crown = [
+                (c[0] - 16.5 * S, c[1] - 19.0 * S),
+                (c[0] - 10.0 * S, c[1] - 28.5 * S),
+                (c[0] + 10.8 * S, c[1] - 29.5 * S),
+                (c[0] + 16.0 * S, c[1] - 18.5 * S),
+                (c[0] + 10.5 * S, c[1] - 13.0 * S),
+                (c[0] - 13.0 * S, c[1] - 13.5 * S),
+            ]
+            d.polygon(crown, fill=pal["outfit"], outline=outline)
+            d.rounded_rectangle((c[0] - 15.0 * S, c[1] - 18.0 * S, c[0] + 14.0 * S, c[1] - 12.0 * S), radius=1.8 * S, fill=pal["accent_dark"], outline=outline, width=max(1, int(1.0 * S)))
+            visor = [
+                (c[0] - 13.0 * S, c[1] - 10.7 * S),
+                (c[0] + 8.0 * S, c[1] - 9.8 * S),
+                (c[0] + 17.5 * S, c[1] - 6.0 * S),
+                (c[0] + 4.8 * S, c[1] - 2.8 * S),
+                (c[0] - 10.8 * S, c[1] - 5.5 * S),
+            ]
+            d.polygon(visor, fill=pal["outfit_dark"], outline=outline)
+            badge_c = (c[0] + 0.8 * S, c[1] - 23.2 * S)
+            d.ellipse(_bbox(badge_c, 8.2 * S, 8.2 * S), fill=pal["white"], outline=outline, width=max(1, int(0.9 * S)))
+            d.polygon([
+                (badge_c[0] - 2.4 * S, badge_c[1] - 0.8 * S),
+                (badge_c[0] + 2.2 * S, badge_c[1] - 0.8 * S),
+                (badge_c[0] + 3.0 * S, badge_c[1] + 1.8 * S),
+                (badge_c[0] - 3.0 * S, badge_c[1] + 1.8 * S),
+            ], fill=outline, outline=outline)
+            d.ellipse(_bbox((badge_c[0] - 1.6 * S, badge_c[1] - 2.0 * S), 2.0 * S, 2.0 * S), fill=outline)
+            d.ellipse(_bbox((badge_c[0] + 1.6 * S, badge_c[1] - 2.0 * S), 2.0 * S, 2.0 * S), fill=outline)
         if spec.hair_style == "general_hat":
             # Draw the eyes clearly below the brim. Earlier versions put the
             # angry brow and brim on the same dark band, which read like a mask.
@@ -844,6 +843,16 @@ class ToonSideGenerator:
             # Permanent angry brow shape; separate strokes, not a continuous visor.
             d.line([(eye_x - 6.0 * S, eye_y - 4.1 * S), (eye_x + 1.4 * S, eye_y - 1.6 * S)], fill=outline, width=max(1, int(1.45 * S)))
             d.line([(eye_x + 3.1 * S, eye_y - 1.5 * S), (eye_x + 8.2 * S, eye_y - 3.9 * S)], fill=outline, width=max(1, int(1.3 * S)))
+        elif spec.hair_style == "officer_cap":
+            eye_y = c[1] + 0.4 * S
+            eye_x = c[0] + 4.5 * S
+            eye_back = rgba("#EEE6D8")
+            d.ellipse(_bbox((eye_x - 2.0 * S, eye_y), 4.0 * S, 2.2 * S), fill=eye_back, outline=outline, width=max(1, int(0.85 * S)))
+            d.ellipse(_bbox((eye_x + 5.0 * S, eye_y + 0.1 * S), 3.2 * S, 2.0 * S), fill=eye_back, outline=outline, width=max(1, int(0.8 * S)))
+            d.ellipse(_bbox((eye_x - 1.0 * S, eye_y + 0.2 * S), 1.3 * S, 1.4 * S), fill=outline)
+            d.ellipse(_bbox((eye_x + 5.6 * S, eye_y + 0.3 * S), 1.0 * S, 1.2 * S), fill=outline)
+            d.line([(eye_x - 5.5 * S, eye_y - 2.4 * S), (eye_x + 0.6 * S, eye_y - 0.8 * S)], fill=outline, width=max(1, int(1.2 * S)))
+            d.line([(eye_x + 3.0 * S, eye_y - 0.9 * S), (eye_x + 7.2 * S, eye_y - 2.8 * S)], fill=outline, width=max(1, int(1.1 * S)))
         else:
             eye_y = c[1] - 1.8 * S
             eye_x = c[0] + 4.4 * S
@@ -869,21 +878,15 @@ class ToonSideGenerator:
             d.ellipse(_bbox((c[0] + 5.2 * S, mouth_y + 2.1 * S), 9.0 * S, 10.2 * S), fill=rgba("#2A1110"), outline=outline, width=max(1, int(1.1 * S)))
             d.rectangle((c[0] + 1.5 * S, mouth_y - 0.9 * S, c[0] + 8.4 * S, mouth_y + 1.0 * S), fill=pal["white"], outline=None)
             d.rectangle((c[0] + 3.0 * S, mouth_y + 5.0 * S, c[0] + 7.4 * S, mouth_y + 6.0 * S), fill=with_alpha(pal["white"], 205), outline=None)
+        elif spec.hair_style == "officer_cap":
+            d.line([(c[0] + 1.0 * S, mouth_y + 1.2 * S), (c[0] + 7.0 * S, mouth_y + 0.3 * S)], fill=outline, width=max(1, int(1.2 * S)))
+            d.line([(c[0] + 2.6 * S, mouth_y - 1.4 * S), (c[0] + 5.8 * S, mouth_y - 1.8 * S)], fill=pal["hair"], width=max(1, int(1.1 * S)))
+            if pose.mouth_open > 0.18:
+                d.ellipse(_bbox((c[0] + 4.6 * S, mouth_y + 1.6 * S), 5.0 * S, 4.0 * S), fill=rgba("#30100F"), outline=outline, width=max(1, int(0.95 * S)))
         elif pose.mouth_open > 0.2:
             d.ellipse(_bbox((c[0] + 4.2 * S, mouth_y), 4.8 * S, (1.6 + pose.mouth_open * 1.8) * S), fill=_scale_color(outline, 0.9), outline=outline)
         else:
             d.arc((c[0] + 0.4 * S, mouth_y - 2 * S, c[0] + 8.2 * S, mouth_y + 2.5 * S), start=8, end=140, fill=outline, width=max(1, int(1.1 * S)))
-        if spec.hair_style == "goggles":
-            # Stubble, heavy brows, and grime marks.
-            d.line([(c[0] - 1.5 * S, c[1] - 5.0 * S), (c[0] + 4.0 * S, c[1] - 4.2 * S)], fill=outline, width=max(1, int(1.5 * S)))
-            d.arc((c[0] - 4.0 * S, c[1] + 7.5 * S, c[0] + 10.0 * S, c[1] + 14.5 * S), start=195, end=345, fill=pal["hair"], width=max(1, int(1.2 * S)))
-            d.line([(c[0] - 8.0 * S, c[1] - 1.0 * S), (c[0] - 2.5 * S, c[1] + 1.0 * S)], fill=with_alpha(outline, 150), width=max(1, int(1.0 * S)))
-            d.line([(c[0] + 1.0 * S, c[1] - 8.0 * S), (c[0] + 7.5 * S, c[1] - 7.0 * S)], fill=with_alpha(outline, 120), width=max(1, int(0.9 * S)))
-        elif spec.hair_style == "wrong_hat":
-            # Intrusive eyes and wild brows; more nuisance than sage.
-            d.line([(c[0] - 4.5 * S, c[1] - 6.2 * S), (c[0] + 2.0 * S, c[1] - 2.5 * S)], fill=outline, width=max(1, int(1.2 * S)))
-            d.line([(c[0] + 3.5 * S, c[1] - 2.7 * S), (c[0] + 9.5 * S, c[1] - 5.5 * S)], fill=outline, width=max(1, int(1.15 * S)))
-            d.arc((c[0] + 0.0 * S, c[1] + 5.0 * S, c[0] + 10.0 * S, c[1] + 11.5 * S), start=15, end=160, fill=outline, width=max(1, int(1.0 * S)))
         _paste_rotated_local(base, layer, center, pose.head_tilt)
 
     def _draw_torso(self, base: Image.Image, center: Point, spec: ToonSpec, pal: Dict[str, Color], S: float, pose: ToonPose) -> None:
@@ -954,6 +957,45 @@ class ToonSideGenerator:
                 y = center[1] + 8.5 * S
                 d.rectangle((x, y, x + 3.2 * S, y + 5.0 * S), fill=color, outline=outline, width=max(1, int(0.8 * S)))
                 d.ellipse(_bbox((x + 1.6 * S, y + 6.3 * S), 3.2 * S, 3.2 * S), fill=pal["accent"], outline=outline, width=max(1, int(0.8 * S)))
+        elif spec.outfit == "storm_uniform":
+            d = ImageDraw.Draw(base)
+            tunic = [
+                (center[0] - spec.shoulder_w * 0.58 * S, center[1] - spec.torso_h * 0.48 * S),
+                (center[0] + spec.shoulder_w * 0.48 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + spec.torso_w * 0.42 * S, center[1] + spec.torso_h * 0.08 * S),
+                (center[0] + spec.hip_w * 0.38 * S, center[1] + spec.torso_h * 0.46 * S + spec.coat_len * 0.30 * S),
+                (center[0] - spec.hip_w * 0.42 * S, center[1] + spec.torso_h * 0.42 * S + spec.coat_len * 0.24 * S),
+                (center[0] - spec.torso_w * 0.42 * S, center[1] + spec.torso_h * 0.02 * S),
+            ]
+            d.polygon(tunic, fill=pal["outfit"], outline=outline)
+            d.polygon([
+                (center[0] - 5.5 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + 1.0 * S, center[1] - 1.0 * S),
+                (center[0] - 3.5 * S, center[1] + spec.torso_h * 0.28 * S),
+                (center[0] - 7.2 * S, center[1] + spec.torso_h * 0.24 * S),
+            ], fill=pal["outfit_dark"], outline=outline)
+            d.rounded_rectangle((center[0] - 13.0 * S, center[1] - 4.0 * S, center[0] + 10.0 * S, center[1] + 1.8 * S), radius=2.0 * S, fill=pal["outfit_dark"], outline=outline, width=max(1, int(0.9 * S)))
+            d.rounded_rectangle((center[0] - 11.0 * S, center[1] - 2.8 * S, center[0] - 3.5 * S, center[1] + 8.8 * S), radius=2.0 * S, fill=_scale_color(pal["outfit"], 1.06), outline=outline, width=max(1, int(0.9 * S)))
+            d.rounded_rectangle((center[0] + 1.0 * S, center[1] - 1.9 * S, center[0] + 8.0 * S, center[1] + 9.2 * S), radius=2.0 * S, fill=_scale_color(pal["outfit"], 1.06), outline=outline, width=max(1, int(0.9 * S)))
+            d.line([(center[0] - 2.0 * S, center[1] - spec.torso_h * 0.46 * S), (center[0] - 2.0 * S, center[1] + spec.torso_h * 0.48 * S)], fill=with_alpha(pal["white"], 210), width=max(1, int(0.9 * S)))
+            d.polygon([
+                (center[0] - 11.5 * S, center[1] - spec.torso_h * 0.50 * S),
+                (center[0] - 3.8 * S, center[1] - spec.torso_h * 0.38 * S),
+                (center[0] - 8.3 * S, center[1] - spec.torso_h * 0.16 * S),
+            ], fill=pal["outfit_dark"], outline=outline)
+            d.polygon([
+                (center[0] - 3.0 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + 5.8 * S, center[1] - spec.torso_h * 0.34 * S),
+                (center[0] + 1.5 * S, center[1] - spec.torso_h * 0.14 * S),
+            ], fill=pal["outfit_dark"], outline=outline)
+            d.ellipse(_bbox((center[0] - 7.9 * S, center[1] - spec.torso_h * 0.30 * S), 3.0 * S, 3.0 * S), fill=pal["white"], outline=outline, width=max(1, int(0.8 * S)))
+            d.ellipse(_bbox((center[0] + 0.9 * S, center[1] - spec.torso_h * 0.26 * S), 3.0 * S, 3.0 * S), fill=pal["white"], outline=outline, width=max(1, int(0.8 * S)))
+            d.ellipse(_bbox((center[0] - 8.4 * S, center[1] - spec.torso_h * 0.31 * S), 0.8 * S, 0.8 * S), fill=outline)
+            d.ellipse(_bbox((center[0] - 7.3 * S, center[1] - spec.torso_h * 0.31 * S), 0.8 * S, 0.8 * S), fill=outline)
+            d.rectangle((center[0] - 8.8 * S, center[1] - spec.torso_h * 0.28 * S, center[0] - 6.8 * S, center[1] - spec.torso_h * 0.10 * S), fill=outline)
+            d.ellipse(_bbox((center[0] + 0.4 * S, center[1] - spec.torso_h * 0.27 * S), 0.8 * S, 0.8 * S), fill=outline)
+            d.ellipse(_bbox((center[0] + 1.5 * S, center[1] - spec.torso_h * 0.27 * S), 0.8 * S, 0.8 * S), fill=outline)
+            d.rectangle((center[0] - 0.1 * S, center[1] - spec.torso_h * 0.24 * S, center[0] + 1.9 * S, center[1] - spec.torso_h * 0.06 * S), fill=outline)
         elif spec.outfit == "poncho":
             d = ImageDraw.Draw(base)
             shawl = [
@@ -1009,52 +1051,6 @@ class ToonSideGenerator:
                 (center[0] - 2.0 * S, center[1] + spec.torso_h * 0.50 * S),
                 (center[0] - 7.4 * S, center[1] + spec.torso_h * 0.46 * S),
             ], fill=pal["outfit_dark"], outline=outline)
-        elif spec.outfit == "mechanic_coat":
-            d = ImageDraw.Draw(base)
-            coat = [
-                (center[0] - spec.shoulder_w * 0.62 * S, center[1] - spec.torso_h * 0.52 * S),
-                (center[0] + spec.shoulder_w * 0.43 * S, center[1] - spec.torso_h * 0.45 * S),
-                (center[0] + spec.torso_w * 0.58 * S, center[1] + spec.torso_h * 0.22 * S),
-                (center[0] + spec.hip_w * 0.44 * S, center[1] + spec.torso_h * 0.50 * S + spec.coat_len * 0.22 * S),
-                (center[0] - spec.hip_w * 0.55 * S, center[1] + spec.torso_h * 0.50 * S + spec.coat_len * 0.14 * S),
-                (center[0] - spec.torso_w * 0.66 * S, center[1] + spec.torso_h * 0.12 * S),
-            ]
-            d.polygon(coat, fill=pal["outfit"], outline=outline)
-            d.polygon([
-                (center[0] - 9.0 * S, center[1] - spec.torso_h * 0.46 * S),
-                (center[0] + 2.0 * S, center[1] - spec.torso_h * 0.30 * S),
-                (center[0] - 2.5 * S, center[1] + spec.torso_h * 0.46 * S),
-                (center[0] - 12.0 * S, center[1] + spec.torso_h * 0.36 * S),
-            ], fill=pal["outfit_dark"], outline=outline)
-            # Apron / tool harness pockets and scratched maintenance patch.
-            d.rounded_rectangle((center[0] - 2.0 * S, center[1] - 3.5 * S, center[0] + 11.0 * S, center[1] + spec.torso_h * 0.52 * S), radius=2.5 * S, fill=_scale_color(pal["outfit_dark"], 1.22), outline=outline, width=max(1, int(1.0 * S)))
-            for k in range(3):
-                x = center[0] + (1.0 + k * 3.4) * S
-                d.line([(x, center[1] + 6.0 * S), (x + 1.5 * S, center[1] + 12.0 * S)], fill=pal["accent_dark"], width=max(1, int(0.8 * S)))
-            d.rectangle((center[0] - 14.0 * S, center[1] - 4.0 * S, center[0] - 7.0 * S, center[1] + 1.5 * S), fill=pal["accent_dark"], outline=outline, width=max(1, int(0.7 * S)))
-        elif spec.outfit == "theorem_coat":
-            d = ImageDraw.Draw(base)
-            coat = [
-                (center[0] - spec.shoulder_w * 0.48 * S, center[1] - spec.torso_h * 0.50 * S),
-                (center[0] + spec.shoulder_w * 0.34 * S, center[1] - spec.torso_h * 0.45 * S),
-                (center[0] + spec.torso_w * 0.58 * S, center[1] + spec.torso_h * 0.16 * S),
-                (center[0] + spec.hip_w * 0.36 * S, center[1] + spec.torso_h * 0.54 * S + spec.coat_len * 0.48 * S),
-                (center[0] - 0.5 * S, center[1] + spec.torso_h * 0.32 * S + spec.coat_len * 0.20 * S),
-                (center[0] - spec.hip_w * 0.54 * S, center[1] + spec.torso_h * 0.54 * S + spec.coat_len * 0.55 * S),
-                (center[0] - spec.torso_w * 0.50 * S, center[1] + spec.torso_h * 0.04 * S),
-            ]
-            d.polygon(coat, fill=pal["outfit"], outline=outline)
-            d.polygon([
-                (center[0] - 4.0 * S, center[1] - spec.torso_h * 0.44 * S),
-                (center[0] + 5.0 * S, center[1] - spec.torso_h * 0.24 * S),
-                (center[0] - 1.0 * S, center[1] + spec.torso_h * 0.50 * S),
-                (center[0] - 7.0 * S, center[1] + spec.torso_h * 0.45 * S),
-            ], fill=pal["outfit_dark"], outline=outline)
-            # Chalk diagrams and paper scraps.
-            for k, (xoff, yoff) in enumerate([(-8, -2), (5, 3), (-4, 12)]):
-                d.rectangle((center[0] + xoff * S, center[1] + yoff * S, center[0] + (xoff + 4) * S, center[1] + (yoff + 5) * S), fill=pal["white"], outline=outline, width=max(1, int(0.65 * S)))
-            d.arc((center[0] - 12*S, center[1] - 9*S, center[0] - 2*S, center[1] + 1*S), 15, 320, fill=pal["accent"], width=max(1, int(0.8*S)))
-            d.line([(center[0] + 4*S, center[1] - 8*S), (center[0] + 9*S, center[1] - 4*S), (center[0] + 5*S, center[1] - 1*S)], fill=pal["white"], width=max(1, int(0.8*S)))
         # accessory overlays that belong to the silhouette, not random doodads.
         d = ImageDraw.Draw(base)
         if spec.accessory == "scarf":
@@ -1087,20 +1083,6 @@ class ToonSideGenerator:
                     ribbon = pal["accent_dark"] if (row + col) % 2 else pal["accent"]
                     d.rectangle((x - 1.1 * S, y - 4.0 * S, x + 1.1 * S, y), fill=ribbon, outline=outline, width=max(1, int(0.65 * S)))
                     d.ellipse(_bbox((x, y + 2.0 * S), 3.2 * S, 3.2 * S), fill=pal["accent"], outline=outline, width=max(1, int(0.75 * S)))
-        elif spec.accessory == "tool_harness":
-            # Shoulder cable spool / harness, rag, and small warm repair charm.
-            d.line([(center[0] - 12.0 * S, center[1] - 13.0 * S), (center[0] + 10.0 * S, center[1] + 17.0 * S)], fill=outline, width=max(1, int(1.6 * S)))
-            spool_c = (center[0] - 16.5 * S, center[1] + 3.0 * S)
-            d.ellipse(_bbox(spool_c, 8.0 * S, 8.0 * S), fill=pal["outfit_dark"], outline=outline, width=max(1, int(1.0 * S)))
-            d.arc((spool_c[0] - 5*S, spool_c[1] - 5*S, spool_c[0] + 5*S, spool_c[1] + 5*S), 30, 330, fill=pal["accent_dark"], width=max(1, int(1.0*S)))
-            d.polygon([(center[0] + 6*S, center[1] - 16*S), (center[0] + 13*S, center[1] - 8*S), (center[0] + 9*S, center[1] + 4*S), (center[0] + 3*S, center[1] - 6*S)], fill=pal["accent"], outline=outline)
-            d.ellipse(_bbox((center[0] + 4*S, center[1] + 14*S), 3.6*S, 3.6*S), fill=pal["accent"], outline=outline, width=max(1, int(0.7*S)))
-        elif spec.accessory == "problem_satchels":
-            # Mismatched little bags for PROBLEMS and SOLUTIONS?.
-            for sign, fill in [(-1, pal["outfit_dark"]), (1, pal["accent_dark"])]:
-                bag_c = (center[0] + sign * 12.0 * S, center[1] + 12.0 * S)
-                draw_rotated_rounded_rect(base, bag_c, (8.0 * S, 9.0 * S), -sign * 8.0, 1.8 * S, fill, outline, 0.8 * S)
-                d.line([(bag_c[0] - sign * 2.0*S, bag_c[1] - 2.0*S), (bag_c[0] + sign * 2.5*S, bag_c[1] + 2.5*S)], fill=pal["white"], width=max(1, int(0.7*S)))
 
     def _draw_prop(self, base: Image.Image, hand: Point, spec: ToonSpec, pal: Dict[str, Color], S: float, angle: float) -> None:
         outline = pal["outline"]
@@ -1124,6 +1106,25 @@ class ToonSideGenerator:
             d.line([grip, add(grip, vec(7.0 * S, baton_angle))], fill=pal["hair"], width=max(1, int(2.6 * S)))
             d.ellipse(_bbox(tip, 5.2 * S, 5.2 * S), fill=pal["accent"], outline=outline, width=max(1, int(1.0 * S)))
             d.ellipse(_bbox(base_pt, 3.5 * S, 3.5 * S), fill=pal["accent"], outline=outline, width=max(1, int(0.9 * S)))
+        elif prop == "rifle":
+            d = ImageDraw.Draw(base)
+            rifle_angle = angle - 6.0
+            butt = add(hand, vec(5.0 * S, rifle_angle + 180.0))
+            muzzle = add(hand, vec(34.0 * S, rifle_angle))
+            d.line([butt, muzzle], fill=outline, width=max(1, int(4.4 * S)))
+            d.line([butt, muzzle], fill=pal["outfit_dark"], width=max(1, int(2.6 * S)))
+            stock_back = add(butt, vec(7.0 * S, rifle_angle + 150.0))
+            stock_low = add(butt, vec(5.0 * S, rifle_angle + 218.0))
+            d.polygon([stock_back, butt, stock_low], fill=pal["outfit"], outline=outline)
+            mag_a = add(hand, vec(6.0 * S, rifle_angle + 90.0))
+            mag_b = add(hand, vec(10.0 * S, rifle_angle + 90.0))
+            mag_c = add(hand, vec(11.0 * S, rifle_angle + 148.0))
+            mag_d = add(hand, vec(7.0 * S, rifle_angle + 148.0))
+            d.polygon([mag_a, mag_b, mag_c, mag_d], fill=pal["accent_dark"], outline=outline)
+            bayonet_base = add(muzzle, vec(0.0 * S, rifle_angle + 90.0))
+            bayonet_tip = add(muzzle, vec(7.0 * S, rifle_angle - 4.0))
+            bayonet_low = add(muzzle, vec(1.2 * S, rifle_angle - 74.0))
+            d.polygon([bayonet_base, bayonet_tip, bayonet_low], fill=pal["white"], outline=outline)
         elif prop == "tablet":
             draw_rotated_rounded_rect(base, add(hand, vec(8.0 * S, angle - 10.0)), (10.0 * S, 14.0 * S), angle - 12.0, 2.0 * S, pal["outfit_dark"], outline, 1.0 * S)
             d = ImageDraw.Draw(base)
@@ -1140,26 +1141,6 @@ class ToonSideGenerator:
         elif prop == "blueprint":
             draw_rotated_rounded_rect(base, add(hand, vec(10.0 * S, angle - 4.0)), (15.0 * S, 5.0 * S), angle - 4.0, 2.0 * S, pal["white"], outline, 1.0 * S)
             ImageDraw.Draw(base).line([add(hand, vec(4 * S, angle - 20)), add(hand, vec(12 * S, angle - 20))], fill=pal["accent_dark"], width=max(1, int(1.0 * S)))
-        elif prop == "wrench":
-            d = ImageDraw.Draw(base)
-            shaft_angle = angle - 12.0
-            base_pt = add(hand, vec(3.0 * S, shaft_angle + 180.0))
-            head_pt = add(hand, vec(30.0 * S, shaft_angle))
-            d.line([base_pt, head_pt], fill=outline, width=max(1, int(4.2 * S)))
-            d.line([base_pt, head_pt], fill=pal["accent_dark"], width=max(1, int(2.2 * S)))
-            jaw_c = add(head_pt, vec(3.0 * S, shaft_angle))
-            d.arc((jaw_c[0] - 7*S, jaw_c[1] - 7*S, jaw_c[0] + 7*S, jaw_c[1] + 7*S), start=40 + shaft_angle, end=300 + shaft_angle, fill=outline, width=max(1, int(3.0*S)))
-            d.ellipse(_bbox(base_pt, 4.2*S, 4.2*S), fill=pal["outfit_dark"], outline=outline, width=max(1, int(0.9*S)))
-        elif prop == "notebook":
-            d = ImageDraw.Draw(base)
-            book_c = add(hand, vec(8.0 * S, angle - 8.0))
-            draw_rotated_rounded_rect(base, book_c, (12.0 * S, 15.0 * S), angle - 8.0, 1.8 * S, pal["white"], outline, 1.0 * S)
-            # Tiny graph / impossible path marks.
-            for offs in [(-3, -4), (-1, -1), (2, 2)]:
-                a = add(book_c, vec(offs[0]*S, angle + 80))
-                b = add(a, vec((3 + offs[1]) * S, angle + 8))
-                d.line([a, b], fill=pal["outfit_dark"], width=max(1, int(0.7*S)))
-            d.line([add(book_c, vec(0*S, angle - 90)), add(book_c, vec(0*S, angle + 90))], fill=pal["accent_dark"], width=max(1, int(0.8*S)))
 
     def render_animation_frame(
         self,
@@ -1201,7 +1182,7 @@ class ToonSideGenerator:
             sign = 1.0 if is_near else -1.0
             upper = p.near_leg_upper if is_near else p.far_leg_upper
             lower = p.near_leg_lower if is_near else p.far_leg_lower
-            hip_spread = (spec.hip_w * 0.26 if spec.outfit == "general_uniform" else 2.2) * S
+            hip_spread = (spec.hip_w * 0.26 if spec.outfit in {"general_uniform", "storm_uniform"} else 2.2) * S
             hip = (hip_center[0] + sign * hip_spread, hip_center[1] + 3.0 * S)
             knee = add(hip, vec(spec.leg_upper * S, upper + p.torso_tilt * 0.08))
             ankle = add(knee, vec(spec.leg_lower * S, lower + p.torso_tilt * 0.08))
@@ -1264,6 +1245,58 @@ class ToonSideGenerator:
                 width=max(1, int(outline_width * S)),
             )
 
+        def draw_armband(shoulder: Point, elbow: Point, *, scale: float = 1.0, include_insignia: bool = True) -> None:
+            if spec.outfit != "storm_uniform":
+                return
+            angle = math.degrees(math.atan2(elbow[1] - shoulder[1], elbow[0] - shoulder[0]))
+            band_center = (
+                shoulder[0] + (elbow[0] - shoulder[0]) * 0.42,
+                shoulder[1] + (elbow[1] - shoulder[1]) * 0.42,
+            )
+            band_w = 7.8 * scale * S
+            band_h = spec.arm_radius * 2.45 * scale * S
+            draw_rotated_rounded_rect(
+                img,
+                band_center,
+                (band_w, band_h),
+                angle,
+                1.2 * scale * S,
+                pal["accent"],
+                pal["outline"],
+                0.9 * scale * S,
+            )
+            if not include_insignia:
+                return
+            disc_center = band_center
+            draw_rotated_ellipse(
+                img,
+                disc_center,
+                (4.0 * scale * S, 4.0 * scale * S),
+                angle,
+                pal["white"],
+                pal["outline"],
+                0.8 * scale * S,
+            )
+            layer_w = max(8, int(10.0 * scale * S))
+            layer_h = max(8, int(10.0 * scale * S))
+            layer = Image.new("RGBA", (layer_w, layer_h), (0, 0, 0, 0))
+            ld = ImageDraw.Draw(layer)
+            cx = layer_w / 2.0
+            cy = layer_h / 2.0
+            ld.polygon([
+                (cx - 2.0 * scale * S, cy - 2.0 * scale * S),
+                (cx + 0.3 * scale * S, cy - 0.2 * scale * S),
+                (cx - 0.8 * scale * S, cy + 2.0 * scale * S),
+                (cx - 2.8 * scale * S, cy + 0.4 * scale * S),
+            ], fill=pal["outline"])
+            ld.polygon([
+                (cx + 0.2 * scale * S, cy - 2.0 * scale * S),
+                (cx + 2.6 * scale * S, cy - 0.4 * scale * S),
+                (cx + 0.9 * scale * S, cy + 2.2 * scale * S),
+                (cx - 0.4 * scale * S, cy + 0.2 * scale * S),
+            ], fill=pal["outline"])
+            _paste_rotated_local(img, layer, disc_center, angle)
+
         # far limbs first
         far_hip, far_knee, far_ankle = leg_points(False)
         far_tint = _scale_color(pal["outfit_dark"], 0.93)
@@ -1273,6 +1306,7 @@ class ToonSideGenerator:
         far_shoulder, far_elbow, far_hand = arm_points(False)
         draw_capsule(d, far_shoulder, far_elbow, spec.arm_radius * 0.92 * S, far_tint, pal["outline"], 1.1 * S)
         draw_capsule(d, far_elbow, far_hand, spec.arm_radius * 0.88 * S, far_tint, pal["outline"], 1.1 * S)
+        draw_armband(far_shoulder, far_elbow, scale=0.88, include_insignia=False)
         draw_uniform_cuff(far_elbow, far_hand, scale=0.88)
         # Keep sleeves uniform-colored, but hands skin-toned. The far hand is
         # drawn before the torso so it still sits behind the body volume.
@@ -1289,9 +1323,10 @@ class ToonSideGenerator:
         draw_capsule(d, near_knee, near_ankle, spec.leg_radius * 0.96 * S, near_tint, pal["outline"], 1.15 * S)
         draw_rotated_rounded_rect(img, (near_ankle[0] + spec.foot_w * 0.28 * S, near_ankle[1] + 2.0 * S), (spec.foot_w * S, spec.foot_h * S), 2.0 + p.torso_tilt * 0.10, spec.foot_h * 0.48 * S, pal["shoe"], pal["outline"], 1.0 * S)
         near_shoulder, near_elbow, near_hand = arm_points(True)
-        sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform"} else pal["skin"]
+        sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform", "storm_uniform"} else pal["skin"]
         draw_capsule(d, near_shoulder, near_elbow, spec.arm_radius * S, sleeve_fill, pal["outline"], 1.1 * S)
         draw_capsule(d, near_elbow, near_hand, spec.arm_radius * 0.95 * S, sleeve_fill, pal["outline"], 1.1 * S)
+        draw_armband(near_shoulder, near_elbow, scale=1.0, include_insignia=True)
         draw_uniform_cuff(near_elbow, near_hand, scale=1.0)
 
         prop_angle = p.near_arm_lower + p.torso_tilt * 0.10 + (14.0 if p.prop_swing > 0 else 0.0)

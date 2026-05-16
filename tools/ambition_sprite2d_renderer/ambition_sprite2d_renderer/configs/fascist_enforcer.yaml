@@ -1,0 +1,27 @@
+target: toon
+name: Fascist Enforcer
+output_name: fascist_enforcer
+seed: 667
+archetype: fascist_enforcer
+role: enemy
+animations:
+  - idle
+  - walk
+  - run
+  - talk
+  - interact
+  - slash
+  - dash
+  - hit
+  - death
+render:
+  frame_width: 128
+  frame_height: 128
+  single_width: 160
+  single_height: 160
+  supersample: 4
+  downsample: lanczos
+  background: transparent
+  sheet_background: transparent
+  border: 4
+  label_width: 112

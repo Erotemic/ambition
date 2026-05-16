@@ -163,6 +163,85 @@ pub fn interaction_input_system(
     );
 }
 
+/// Detect a player-pressed reset (the Reset button / `controls.reset_pressed`)
+/// and execute the full sandbox reset before the rest of the gameplay
+/// chain runs.
+///
+/// Replaces the inline input-driven half of `reset_phase`. The
+/// engine-driven half (a reset surfaced by `update_player_control_with_tuning`
+/// or `update_player_simulation_with_tuning` returning `events.reset = true`)
+/// still runs inline inside `sandbox_update`'s `player_control_phase`
+/// / `player_simulation_phase` — those paths know the engine has
+/// already mutated the player and need to finish the sandbox-side
+/// cleanup in the same call.
+///
+/// This system clears `ControlFrame::reset_pressed` after handling it so
+/// the engine path inside `update_player_control_with_tuning` does not
+/// re-trigger a reset on the same frame. Writes sfx/vfx directly to
+/// `MessageWriter`s via local Vec buffers (the engine helper
+/// `reset_sandbox` still uses Vec push semantics).
+///
+/// Gated by `gameplay_allowed`: paused / dialogue modes don't process
+/// reset input.
+pub fn apply_player_reset_input_system(
+    mut control_frame: ResMut<ControlFrame>,
+    world: Res<GameWorld>,
+    editable_tuning: Res<EditableMovementTuning>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    mut sim_state: ResMut<SandboxSimState>,
+    mut attack_state: ResMut<CurrentPlayerAttack>,
+    mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
+    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut vfx_writer: MessageWriter<VfxMessage>,
+    mut player_q: Query<
+        (
+            &mut crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerAnimState,
+            &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerInteractionState,
+            &mut crate::player::PlayerBlinkCameraState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    if !control_frame.reset_pressed {
+        return;
+    }
+    let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam)) =
+        player_q.single_mut()
+    else {
+        return;
+    };
+    // Clear the press immediately so the inline engine update in
+    // `player_control_phase` doesn't trigger a redundant `player.reset_to`
+    // followed by another sandbox-side reset later this frame.
+    control_frame.reset_pressed = false;
+
+    let mut sfx_buf: Vec<SfxMessage> = Vec::new();
+    let mut vfx_buf: Vec<VfxMessage> = Vec::new();
+    super::world_flow::reset_sandbox(
+        &world.0,
+        &mut sfx_buf,
+        &mut vfx_buf,
+        &mut authority.player,
+        &mut sim_state,
+        &mut attack_state.0,
+        &mut anim,
+        &mut combat,
+        &mut interaction,
+        &mut blink_cam,
+        editable_tuning.as_engine(),
+        *feel_tuning,
+    );
+    reset_room_features.write(features::ResetRoomFeaturesEvent);
+    if !sfx_buf.is_empty() {
+        sfx_writer.write_batch(sfx_buf);
+    }
+    if !vfx_buf.is_empty() {
+        vfx_writer.write_batch(vfx_buf);
+    }
+}
+
 /// Detect a loading-zone overlap and emit a [`RoomTransitionRequested`]
 /// message. The actual room load (despawn old, spawn new, reset player
 /// to spawn point) happens in `apply_room_transition_system`, which

@@ -136,11 +136,14 @@ pub fn add_simulation_plugins(app: &mut App) {
         //   LDtk polling
         //   → feature world rebuild + feature ticks (hazards/actors/bosses)
         //   → sync_live_player_dev_edits_system  (unconditional dev sync)
+        //   → apply_player_reset_input_system     (gameplay; input-driven
+        //       reset, clears controls.reset_pressed afterwards)
         //   → input_timer_system                  (gameplay)
         //   → interaction_input_system            (gameplay)
         //   → apply_suspended_time_scale_system   (paused / dialogue)
         //   → sandbox_update                      (gameplay; remaining
-        //       inline phases: reset, control, simulation)
+        //       inline phases: control, simulation. engine-driven reset
+        //       paths still run inline.)
         //   → apply_player_damage_system          (gameplay)
         //   → detect_room_transition_system       (gameplay)
         //   → attack_advance_system               (gameplay; writes
@@ -159,6 +162,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 crate::features::update_ecs_actors,
                 crate::features::update_ecs_bosses,
                 sync_live_player_dev_edits_system,
+                apply_player_reset_input_system.run_if(gameplay_allowed),
                 input_timer_system.run_if(gameplay_allowed),
                 interaction_input_system.run_if(gameplay_allowed),
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),

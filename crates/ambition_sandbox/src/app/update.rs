@@ -41,6 +41,10 @@ use super::*;
 /// Pre-tick (CoreSimulation, before sandbox_update):
 /// - `sync_live_player_dev_edits_system` (extracted) — F3 inspector
 ///   ability/tuning edits, runs every frame including paused.
+/// - `apply_player_reset_input_system` (extracted) — input-driven
+///   reset (`controls.reset_pressed`); runs `reset_sandbox` and
+///   clears the press so the engine path inside
+///   `player_control_phase` doesn't double-fire.
 /// - `input_timer_system` (extracted) — gameplay timer decay +
 ///   double-tap detection, gated by `gameplay_allowed`.
 /// - `interaction_input_system` (extracted) — fold raw Interact +
@@ -51,10 +55,14 @@ use super::*;
 ///   complement of `sandbox_update`'s `gameplay_allowed` gate.
 ///
 /// Inside sandbox_update (gated by `run_if(gameplay_allowed)`):
-/// 1. `reset_phase` — explicit reset input.
-/// 2. `player_control_phase` — control-clock player update + pogo routing.
-/// 3. `player_simulation_phase` — sim-clock player update + landing dust.
-/// 4. `flush_feedback` — drains the two remaining Vec collectors
+/// 1. `player_control_phase` — control-clock player update + pogo
+///    routing. Still inline because `update_player_control_with_tuning`
+///    may return `events.reset = true` (engine-driven respawn), which
+///    needs immediate sandbox-side cleanup. Also handles
+///    `handle_player_events` for sfx/vfx that still flow through
+///    `FrameFeedback`.
+/// 2. `player_simulation_phase` — sim-clock player update + landing dust.
+/// 3. `flush_feedback` — drains the two remaining Vec collectors
 ///    (`SfxMessage`, `VfxMessage`) into the bundled writers, once, at
 ///    the bottom of the `'frame` labeled block.
 ///
@@ -130,26 +138,12 @@ pub fn sandbox_update(
         // overlay.
         let _ = controls.start_pressed;
 
-        if matches!(
-            reset_phase(
-                &controls,
-                &world.0,
-                player,
-                &mut queues.sim_state,
-                &mut queues.current_attack.0,
-                &mut feedback,
-                tuning,
-                feel,
-                &mut queues.reset_room_features,
-                &mut *anim,
-                &mut *combat,
-                &mut *interaction,
-                &mut *blink_cam,
-            ),
-            PhaseOutcome::Return
-        ) {
-            break 'frame;
-        }
+        // Input-driven reset (controls.reset_pressed) was extracted to
+        // `apply_player_reset_input_system` in sim_systems, which runs
+        // pre-tick and clears `controls.reset_pressed` so the engine
+        // path inside player_control_phase doesn't double-trigger.
+        // Engine-driven resets (control_events.reset / sim_events.reset)
+        // still run inline below.
 
         if matches!(
             player_control_phase(

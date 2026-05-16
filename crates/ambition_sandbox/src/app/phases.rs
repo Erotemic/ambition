@@ -21,48 +21,6 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
-/// Phase 3 — explicit reset input.
-///
-/// Owns: routing the `reset_pressed` button through `reset_sandbox`. New
-/// "the player asked for a reset / restart" branches belong here; engine
-/// or feature-driven resets stay in `player_control_phase`,
-/// `player_simulation_phase`, or `damage_heal_dialogue_phase`.
-pub(super) fn reset_phase(
-    controls: &ControlFrame,
-    world: &ae::World,
-    player: &mut ae::Player,
-    sim_state: &mut crate::SandboxSimState,
-    attack: &mut Option<crate::PlayerAttackState>,
-    feedback: &mut FrameFeedback,
-    tuning: ae::MovementTuning,
-    feel: SandboxFeelTuning,
-    reset_room_features: &mut MessageWriter<features::ResetRoomFeaturesEvent>,
-    anim: &mut crate::player::PlayerAnimState,
-    combat: &mut crate::player::PlayerCombatState,
-    interaction: &mut crate::player::PlayerInteractionState,
-    blink_cam: &mut crate::player::PlayerBlinkCameraState,
-) -> PhaseOutcome {
-    if controls.reset_pressed {
-        reset_sandbox(
-            world,
-            &mut feedback.sfx,
-            &mut feedback.vfx,
-            player,
-            sim_state,
-            attack,
-            anim,
-            combat,
-            interaction,
-            blink_cam,
-            tuning,
-            feel,
-        );
-        reset_room_features.write(features::ResetRoomFeaturesEvent);
-        return PhaseOutcome::Return;
-    }
-    PhaseOutcome::Continue
-}
-
 /// Phase 4 — control-clock half of the two-clock player update.
 ///
 /// Owns: hitstun-filtered control snapshot, real-time `frame_dt`

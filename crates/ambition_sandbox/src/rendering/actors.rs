@@ -351,7 +351,10 @@ pub fn animate_player(
 /// shared `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
     world_time: Res<crate::WorldTime>,
-    mut query: Query<(&FeatureVisual, &mut Sprite, &mut CharacterAnimator), Without<PlayerVisual>>,
+    mut query: Query<
+        (&FeatureVisual, &mut Sprite, &mut CharacterAnimator),
+        (Without<PlayerVisual>, Without<crate::rooms::PortalSprite>),
+    >,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
     // Scaled dt — bullet-time / pause / hitstop slow NPC + enemy

@@ -1,10 +1,21 @@
-use bevy::prelude::{Query, Res, ResMut, Transform, Visibility};
+use bevy::prelude::{
+    Commands, Component, Entity, Query, Res, ResMut, Sprite, Transform, Visibility,
+};
 
 use super::{
     tick_portal_phase, ActiveRoomMetadata, PortalPhase, PortalRegistry, RoomMusicRequest, RoomSet,
 };
 use crate::character_sprites::{CharacterAnim, CharacterAnimator};
 use crate::WorldTime;
+
+/// Tag on the portal + gate-ring visual entities so the generic
+/// `animate_characters` system skips them. Without this filter the
+/// generic NPC animator re-pins them to `Idle` every frame and
+/// clobbers the row that the portal-presentation systems request
+/// based on `PortalPhase`. The portal/ring systems own these
+/// entities' animator request, frame tick, and atlas index.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalSprite;
 
 /// Mirror `RoomSet::active_metadata()` into the `ActiveRoomMetadata`
 /// resource, but only when the metadata actually changes. The
@@ -85,8 +96,14 @@ pub fn hide_portal_loading_zone_visuals(
 /// the Bevy plugin registration in `app/plugins.rs`. Headless skips
 /// the registration entirely.
 pub fn sync_portal_sprite_visibility(
+    mut commands: Commands,
     portals: Res<PortalRegistry>,
-    mut sprites: Query<(&crate::features::FeatureName, &mut Visibility)>,
+    mut sprites: Query<(
+        Entity,
+        &crate::features::FeatureName,
+        &mut Visibility,
+        Option<&PortalSprite>,
+    )>,
 ) {
     for config in portals.portals.values() {
         let target_visibility = if config.phase.portal_sprite_visible() {
@@ -94,8 +111,14 @@ pub fn sync_portal_sprite_visibility(
         } else {
             Visibility::Hidden
         };
-        for (name, mut vis) in &mut sprites {
-            if name.0 == config.portal_sprite_name && *vis != target_visibility {
+        for (entity, name, mut vis, marker) in &mut sprites {
+            if name.0 != config.portal_sprite_name {
+                continue;
+            }
+            if marker.is_none() {
+                commands.entity(entity).insert(PortalSprite);
+            }
+            if *vis != target_visibility {
                 *vis = target_visibility;
             }
         }
@@ -118,14 +141,24 @@ const RING_OPENING_SPIN_RAD_PER_SEC: f32 = 8.0;
 /// - Phase::Opening → request(Idle)  [row 0 = opening one-shot]
 /// - Phase::On      → request(Walk)  [row 1 = stable loop]
 /// - Phase::Closing → request(Run)   [row 2 = closing one-shot]
-/// - Phase::Off     → no request (sprite is hidden)
+/// - Phase::Off     → sprite is hidden; no work to do
 ///
-/// Matches the portal sprite entity by `FeatureName`. Presentation-
-/// only — no animator means headless skips this work.
+/// Matches the portal sprite entity by `FeatureName`. The portal's
+/// `PortalSprite` marker excludes it from `animate_characters`, so
+/// this system is the sole owner of the portal entity's animator
+/// state — it also ticks the animator and writes the resulting
+/// frame into the sprite atlas, matching what `animate_characters`
+/// does for non-portal sprites.
 pub fn sync_portal_sprite_animation(
+    world_time: Res<WorldTime>,
     portals: Res<PortalRegistry>,
-    mut sprites: Query<(&crate::features::FeatureName, &mut CharacterAnimator)>,
+    mut sprites: Query<(
+        &crate::features::FeatureName,
+        &mut Sprite,
+        &mut CharacterAnimator,
+    )>,
 ) {
+    let dt = world_time.scaled_dt;
     for config in portals.portals.values() {
         let target_anim = match config.phase {
             PortalPhase::Off => continue,
@@ -133,27 +166,56 @@ pub fn sync_portal_sprite_animation(
             PortalPhase::On => CharacterAnim::Walk,
             PortalPhase::Closing { .. } => CharacterAnim::Run,
         };
-        for (name, mut animator) in &mut sprites {
-            if name.0 == config.portal_sprite_name {
-                animator.request(target_anim);
+        for (name, mut sprite, mut animator) in &mut sprites {
+            if name.0 != config.portal_sprite_name {
+                continue;
+            }
+            animator.request(target_anim);
+            let index = animator.tick(dt);
+            if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                atlas.index = index;
             }
         }
     }
 }
 
 pub fn sync_portal_ring_rotation_system(
+    mut commands: Commands,
     world_time: Res<WorldTime>,
     portals: Res<PortalRegistry>,
-    mut rings: Query<(&crate::features::FeatureName, &mut Transform)>,
+    mut rings: Query<(
+        Entity,
+        &crate::features::FeatureName,
+        &mut Transform,
+        &mut Sprite,
+        &mut CharacterAnimator,
+        Option<&PortalSprite>,
+    )>,
 ) {
     // Use scaled dt so the boot-spin slows during bullet time and
     // freezes during pause — same world-clock the phase timer reads.
     let dt = world_time.scaled_dt;
     for config in portals.portals.values() {
         let spinning = matches!(config.phase, PortalPhase::Opening { .. });
-        for (name, mut tf) in &mut rings {
+        // Sheet mapping (see GATE_RING_SHEET):
+        // - Idle = the slow always-on row (8f × 140ms)
+        // - Walk = the fast `spin` row used during Opening (12f × 85ms)
+        let target_anim = if spinning {
+            CharacterAnim::Walk
+        } else {
+            CharacterAnim::Idle
+        };
+        for (entity, name, mut tf, mut sprite, mut animator, marker) in &mut rings {
             if name.0 != config.ring_sprite_name {
                 continue;
+            }
+            if marker.is_none() {
+                commands.entity(entity).insert(PortalSprite);
+            }
+            animator.request(target_anim);
+            let index = animator.tick(dt);
+            if let Some(atlas) = sprite.texture_atlas.as_mut() {
+                atlas.index = index;
             }
             if spinning {
                 tf.rotate_local_z(RING_OPENING_SPIN_RAD_PER_SEC * dt);

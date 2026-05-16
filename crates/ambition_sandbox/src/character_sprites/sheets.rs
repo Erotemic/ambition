@@ -769,22 +769,37 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 };
 
 /// Interdimensional gate ring — the standing stone arch that frames
-/// a portal. Renders the always-on ring animation; portal effect is
-/// a separate sheet ([`GATE_PORTAL_SHEET`]). Authored as an
-/// NpcSpawn-as-prop in the LDtk (empty prompt + generic_npc
-/// fallback) so it shows up as a static lab prop.
+/// a portal. Two authored rows in
+/// `interdimensional_gate_ring_spritesheet.yaml`:
+/// - Row 0 = `idle` (8 frames × 140ms) — the always-on slow rotation
+/// - Row 1 = `spin` (12 frames × 85ms) — the faster boot-spin
+///
+/// We borrow `CharacterAnim::Walk` as the semantic slot for the
+/// `spin` row (same pattern as [`GATE_PORTAL_SHEET`]). The
+/// [`crate::rooms::sync_portal_ring_rotation_system`] requests
+/// `Walk` while `PortalPhase::Opening` is active and falls back to
+/// `Idle` otherwise.
 pub const GATE_RING_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     label_width: 128,
     y_offset: 0,
     frame_width: 192,
     frame_height: 192,
-    rows: &[(
-        CharacterAnim::Idle,
-        AnimRow {
-            frame_count: 8,
-            duration_secs: 0.140,
-        },
-    )],
+    rows: &[
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.140,
+            },
+        ),
+        (
+            CharacterAnim::Walk,
+            AnimRow {
+                frame_count: 12,
+                duration_secs: 0.085,
+            },
+        ),
+    ],
     collision_scale: 1.00,
     feet_anchor_y: -0.500,
     frame_sample_inset: 2,

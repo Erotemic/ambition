@@ -14,19 +14,14 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Simulation-order debt
 
-- **MED — `SandboxRuntime` collected new per-player fields without
-  per-player ownership** (partially resolved 2026-05-13)
-  - File: `crates/ambition_sandbox/src/lib.rs`
-  - The original cluster of per-player fields has mostly moved out of the
-    global SP-only runtime:
-    - `mana_current` / `mana_max` → `Player::mana: ResourceMeter`
-    - `slash_damage` → `Player::damage_multiplier`
-    - `invincible` → `Player::invincible`
-    - `player_died_pending` → `PlayerDiedMessage`
-    - `ledge_grab` → `Player::ledge_grab` in `ambition_engine`
-  - Remaining global runtime state is mostly presentation/debug/room glue.
-    The eventual per-player split is still its own follow-up, but ledge/swim no
-    longer bypass the main movement tick.
+- **RESOLVED 2026-05-16 — `SandboxRuntime` collected per-player fields
+  without per-player ownership** — closed by the full ECS player
+  migration. All movement, health, combat timers, anim state, blink
+  camera state, and interaction state live on dedicated ECS components
+  on the player entity (`PlayerMovementAuthority` and friends in
+  `crates/ambition_sandbox/src/player/`). The god-object resource is
+  gone; the `legacy_runtime_guardrail` integration test prevents
+  re-introduction.
 
 ### Runtime / state
 
@@ -101,17 +96,14 @@ to the bottom under "Closed" with the commit that fixed them.
     — it's a meaningful surgery on a tested system, schedule a
     dedicated pass.
 
-- **HIGH — `SandboxRuntime` is one global god-resource**
-  - File: `crates/ambition_sandbox/src/lib.rs`
-  - Holds player state, feature runtimes, dialogue, physics tuning,
-    timers, mana, slash damage, invincible flag, ledge-grab state.
-    Per the architecture targets memory, per-player state should live
-    on a Player entity / component. The architecture-targets doc is
-    explicit that the global-resource shape doesn't extend to
-    multi-player or per-player input feel.
-  - The crate split (`docs/crate_split_plan.md`) renames it but keeps
-    the global shape; the per-player split is a separate later
-    refactor.
+- **RESOLVED 2026-05-16 — `SandboxRuntime` god-resource** — closed by
+  the full ECS player migration. Player state, feature runtimes,
+  dialogue, physics tuning, timers, mana, damage multiplier,
+  invincible flag, and ledge-grab state are now ECS components on
+  the player entity or narrow Bevy resources
+  (`SandboxSimState`, `SandboxDevState`, `MovingPlatformSet`,
+  `CurrentPlayerAttack`). Multi-player / per-player input feel is
+  unblocked.
 
 - **MED — Hostile NPC conversion is one-way; conversion path now
   tested but the race-with-other-mutators invariant isn't enforced**
@@ -169,25 +161,31 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Architecture
 
-- **MED — `feature_runtime_phase` runs every system in `sandbox_update`
-  inline**
-  - File: `crates/ambition_sandbox/src/app.rs`
-  - The system has 16+ params and we already had to bundle them in
-    `SandboxQueues` once. Each new feature pushes the limit. Splitting
-    into multiple smaller systems with `apply_deferred` between them
-    would be cleaner, but sequencing is tricky because phase helpers
-    mutate `runtime.player` in series and rely on contiguous control
-    flow. Plan: when the `Player`-as-entity refactor lands, those
-    phase helpers become per-entity systems and the giant
-    `sandbox_update` evaporates.
+- **MED — `sandbox_update` is still a procedural orchestrator over
+  named `*_phase` helpers**
+  - File: `crates/ambition_sandbox/src/app/update.rs`,
+    `crates/ambition_sandbox/src/app/phases.rs`
+  - Two phase helpers (`input_timer_*` and `cleanup_timers_*`) have
+    been promoted to real Bevy systems in
+    `crates/ambition_sandbox/src/app/sim_systems.rs`. The remaining
+    phases (`mode_gate_phase`, `reset_phase`, `player_control_phase`,
+    `player_simulation_phase`, `interaction_input_phase`,
+    `damage_heal_dialogue_phase`, `room_transition_phase`,
+    `attack_phase`) still run inline because each takes `&mut
+    ae::Player` and `&mut FrameFeedback` and removing the shared
+    borrow needs the engine player borrow to split. Promote one
+    phase at a time, gated by integration tests, when the borrow
+    graph allows.
 
-- **MED — Two parallel chains in the Update schedule**
-  - File: `crates/ambition_sandbox/src/app.rs`
-  - The sim chain is split into "main" and "progression" because the
-    macro tuple-arity caps out around 20. The split is mechanical
-    rather than meaningful; consumers shouldn't care. Long-term this
-    goes away with explicit `SystemSet`s and proper ordering between
-    them.
+- **RESOLVED 2026-05-16 — Two parallel chains in the Update schedule**
+  — closed by introducing `SandboxSet` in
+  `crates/ambition_sandbox/src/app/schedule.rs`. The schedule is now
+  expressed as named system sets (`CoreSimulation`,
+  `FeatureCollection`, `FeatureInteraction`, `LdtkRuntimeSpine`,
+  `EncounterSimulation`, `Cutscene`, `GameplayEffects`, `Progression`,
+  `ResetProcessing`, `Trace`) with `configure_sandbox_sets` chaining
+  the main set order. Individual `add_systems` tuples stay under the
+  20-system arity cap.
 
 - **MED — `FeatureEventBus` is a workaround for the param-count cap**
   - File: `crates/ambition_sandbox/src/features.rs`

@@ -77,11 +77,11 @@ pub struct Player {
     pub gliding: bool,
     /// Sandbox-side scratch flag: was the player riding the
     /// moving-platform last frame? Used by the diagnostic log in
-    /// `app.rs` that prints riding-state transitions for chasing the
-    /// "glitchy platform behavior" repro. Engine itself doesn't read
-    /// or write this; it lives on `Player` so it survives the
-    /// `runtime.reset` field-by-field copy without needing a parallel
-    /// store on `SandboxRuntime`.
+    /// `player_simulation_phase` that prints riding-state transitions
+    /// for chasing the "glitchy platform behavior" repro. Engine
+    /// itself doesn't read or write this; it lives on `Player` so
+    /// `reset_to` copies it field-by-field along with the rest of
+    /// the player state.
     pub was_riding_platform: bool,
     pub wall_clinging: bool,
     pub wall_climbing: bool,
@@ -108,17 +108,15 @@ pub struct Player {
     /// callers that want a "no zero-damage hits" floor.
     ///
     /// Lives on `Player` (not `Health`) because it scales the player's
-    /// outgoing damage, not their incoming damage. Promoted from
-    /// `SandboxRuntime::slash_damage` so per-player tuning is engine
-    /// state, not sandbox-only state.
+    /// outgoing damage, not their incoming damage — so per-player
+    /// tuning is engine state, not sandbox-only state.
     pub damage_multiplier: i32,
     /// Generic resource meter the player spends on charge attacks /
     /// special abilities. Defaults to a full 100/100 meter with no
     /// regen / decay. Surfaced through `crate::ResourceMeter` so any
-    /// future ability can wire `try_spend` / `tick_regen`. Promoted
-    /// from `SandboxRuntime::mana_current` / `mana_max` (kept as i32
-    /// in the sandbox for the F3 inspector — this struct's f32
-    /// internals are converted at the editor boundary).
+    /// future ability can wire `try_spend` / `tick_regen`. The
+    /// sandbox F3 inspector reads/writes i32 facades; this struct's
+    /// f32 internals are converted at the editor boundary.
     pub mana: crate::ResourceMeter,
     /// True → all incoming damage to this player is dropped before HP
     /// math runs. Used by the F3 stats editor's "invincible" toggle and
@@ -126,8 +124,7 @@ pub struct Player {
     ///
     /// Lives on `Player` (not `Health`) so the Player aggregate carries
     /// both gameplay flags AND health together for save/load and
-    /// per-player multiplayer state. Promoted from
-    /// `SandboxRuntime::invincible`.
+    /// per-player multiplayer state.
     pub invincible: bool,
     /// Authoritative body-shape stance. Default is `Standing`. Sandbox
     /// systems writing crouch / morph / slide should set this directly,

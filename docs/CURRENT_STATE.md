@@ -476,7 +476,7 @@ after `sandbox_update` and turns the engine's existing `BodyMode` /
 - Double-tap-down + grounded → `MorphBall`. Jump-pressed (or
   Up-pressed) inside MorphBall tries Standing; a low ceiling keeps
   the ball curled. The signal is `PlayerInteractionState::double_tap_down_pending`
-  (an ECS component on the player entity), set by `input_timer_phase`
+  (an ECS component on the player entity), set by `input_timer_system`
   and consumed by the body-mode driver via `mem::take`. The engine's
   airborne fast-fall path still uses the same gesture and gates on
   `!on_ground` so there is no input crosstalk.

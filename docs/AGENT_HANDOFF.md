@@ -336,15 +336,35 @@ routes through `EnemyRuntime` so a single AI loop covers authored
 enemies and runtime-converted hostiles, but bosses and per-brain
 knobs are still parallel implementations.
 
-## SandboxRuntime is SP-only
+## Player state is ECS-authoritative — no god-object resource
 
-`SandboxRuntime` is a global Bevy resource that holds player
-position / velocity / abilities, feature runtimes, dialogue,
-physics tuning, and per-player gameplay timers (mana, slash
-damage, invincible, ledge grab, player_died_pending). The
-architecture-targets memory is explicit: this shape does not
-extend to multi-player or per-player input feel. Don't add new
-"per-player" data to `SandboxRuntime` without writing it down in
-`docs/tech_debt_log.md` — the longer the list grows, the more
-work the eventual per-player split has to do.
+The `SandboxRuntime` god-resource was deleted by the 2026-05-16 ECS
+player migration. Player state now lives on a single Bevy entity
+marked with `PlayerEntity`, carrying these canonical components
+(see `crates/ambition_sandbox/src/player/components.rs`):
+
+- `PlayerMovementAuthority { player: ae::Player }` — authoritative
+  movement, abilities, body shape, fly, dash, mana, etc.
+- `PlayerBody` — compact read-model snapshot for queries that don't
+  need every movement-internal field. Rewritten each frame by
+  `write_player_ecs_components`.
+- `PlayerHealth` — HP.
+- `PlayerCombatState` — flash / hitstop / hitstun / damage-invuln
+  timers + the mirrored `attacking` flag.
+- `PlayerAnimState` — presentation-only animation timers.
+- `PlayerInteractionState` — interact buffer, double-tap-up/down
+  pending edges.
+- `PlayerBlinkCameraState` — blink-in + camera-snap timers.
+
+Spawn this set with `PlayerSimulationBundle::new(player, health)`
+(in `crates/ambition_sandbox/src/player/bundles.rs`). Headless
+drivers and tests can build the same shape without any presentation
+plugin in scope. Standalone Bevy resources cover what isn't truly
+per-player: `SandboxSimState`, `SandboxDevState`,
+`MovingPlatformSet`, `CurrentPlayerAttack`.
+
+Do NOT re-introduce `SandboxRuntime` / `FeatureRuntime`. The
+`legacy_runtime_guardrail` integration test scans `src/` and fails
+if those identifiers reappear; the `plugin_minimal_app` test
+asserts the deleted resources are not silently inserted at startup.
 

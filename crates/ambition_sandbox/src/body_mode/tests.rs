@@ -79,9 +79,9 @@ fn set_axis_y(app: &mut App, axis_y: f32) {
 }
 
 /// Mark the double-tap-down edge on `PlayerInteractionState` exactly as
-/// `input_timer_phase` does in the live build. The driver
-/// consumes via `mem::take`, so the test only needs to arm it
-/// before the tick under test.
+/// `input_timer_system` does in the live build. The driver consumes
+/// via `mem::take`, so the test only needs to arm it before the tick
+/// under test.
 fn arm_double_tap_down(app: &mut App) {
     let mut q = app.world_mut().query_filtered::<
         &mut crate::player::PlayerInteractionState,
@@ -203,7 +203,7 @@ fn dash_active_blocks_crouch() {
 
 /// Double-tap-down on the ground from Standing curls into MorphBall.
 /// The signal is `PlayerInteractionState::double_tap_down_pending` (set
-/// by `input_timer_phase` because `sandbox_update` consumes a local copy
+/// by `input_timer_system` because `sandbox_update` consumes a local copy
 /// of ControlFrame that doesn't reach later Bevy systems).
 #[test]
 fn double_tap_down_grounded_enters_morph_ball() {
@@ -310,8 +310,8 @@ fn airborne_double_tap_down_does_not_morph() {
 
 /// Repro for the ControlFrame-not-flowing-through-sandbox_update
 /// bug: setting `controls.fast_fall_pressed = true` directly on
-/// the resource (mimicking what `input_timer_phase` writes to its
-/// LOCAL controls copy) is NOT sufficient to enter MorphBall.
+/// the resource (mimicking what `input_timer_system` writes back to
+/// the resource) is NOT sufficient to enter MorphBall.
 /// The driver reads `PlayerInteractionState::double_tap_down_pending`.
 /// This test pins the routing so a future refactor can't accidentally
 /// switch the body-mode driver back to reading ControlFrame and

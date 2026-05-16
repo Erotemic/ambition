@@ -168,16 +168,15 @@ foundation entirely.
   binary's `main.rs` is now ~10 lines (it just calls
   `ambition_sandbox::run_app`); systems and resources live in the
   library.
-- `SandboxRuntime` and `GameWorld` moved to the library so submodules'
-  `crate::` paths continue to resolve. They are still the SP-only shape
-  per the architecture targets memory; future patches should migrate
-  per-player state onto a Player entity.
-- `SandboxRuntime` fields are `pub` (not `pub(crate)`) because the
-  separate binary crates (`main`, `headless`, scripted gameplay tests
-  in `tests/`) need access for HUD reads, scripted-input writes, and
-  assertions. This is a structural consequence of the split, not a
-  design preference; once HUD wiring fully moves to event subscribers
-  these fields could tighten again.
+- Player state is ECS-authoritative as of 2026-05-16 (see
+  `crates/ambition_sandbox/src/player/`). Headless drivers and the
+  scripted-gameplay integration tests query / mutate the player via
+  ECS components (`PlayerMovementAuthority`, `PlayerBody`, etc.)
+  rather than reading any global resource. `GameWorld` and the small
+  set of narrow Bevy resources (`SandboxSimState`, `SandboxDevState`,
+  `MovingPlatformSet`, `CurrentPlayerAttack`) cover what is genuinely
+  global. There is no longer a god-resource that callers reach into
+  for player position / abilities / timers.
 
 ## Verification
 

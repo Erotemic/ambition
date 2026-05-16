@@ -137,7 +137,7 @@ pub fn update_body_mode(
 
     // Double-tap-down on the ground from Standing or Crouching curls
     // into MorphBall. The signal is `PlayerInteractionState::double_tap_down_pending`,
-    // set by `input_timer_phase` via the ECS component. The engine gates
+    // set by `input_timer_system` on the ECS component. The engine gates
     // fast_fall on `!on_ground` already, so the same gesture firing
     // morph-ball when grounded has no input crosstalk.
     if on_ground && double_tap_down {

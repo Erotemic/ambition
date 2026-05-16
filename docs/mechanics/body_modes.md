@@ -57,20 +57,19 @@ This is enough to build, in this order:
 3. **Morph ball** *(Prototype — landed)* — same `crate::body_mode`
    driver. Double-tap-down on the ground curls the player into
    `BodyMode::MorphBall`. The signal is
-   `runtime.double_tap_down_pending`, set by `input_timer_phase`
-   when `register_down_tap` fires the second tap of a double-tap
-   inside `feel.down_double_tap_window`; the body-mode driver in
-   the progression chain consumes it via `mem::take`. Routing the
-   edge through `SandboxRuntime` (rather than `ControlFrame`) is
-   necessary because `sandbox_update` consumes its `ControlFrame`
-   as a local copy that doesn't reach later systems — engine-side
-   fast-fall sees the local-copy edge inline, but post-update
-   mutators need a separate channel. Jump-pressed (or Up-pressed)
-   inside the morph ball calls `try_change_body_mode` to try
-   Standing; a low ceiling rejects the transition and the ball
-   stays curled. The MorphBall AABB is smaller than Crouching on
-   both axes (~55% of base on x and y) so it fits through tighter
-   gaps.
+   `PlayerInteractionState::double_tap_down_pending`, set by
+   `input_timer_system` when `register_down_tap` fires the second tap
+   of a double-tap inside `feel.down_double_tap_window`; the body-mode
+   driver in the progression chain consumes it via `mem::take`. Routing
+   the edge through the `PlayerInteractionState` ECS component (rather
+   than `ControlFrame`) is necessary because `sandbox_update` consumes
+   its `ControlFrame` as a local copy that doesn't reach later systems
+   — engine-side fast-fall sees the local-copy edge inline, but
+   post-update mutators need a separate channel. Jump-pressed (or
+   Up-pressed) inside the morph ball calls `try_change_body_mode` to
+   try Standing; a low ceiling rejects the transition and the ball
+   stays curled. The MorphBall AABB is smaller than Crouching on both
+   axes (~55% of base on x and y) so it fits through tighter gaps.
 
 Each of those becomes a sandbox proof for the underlying primitive
 without each verb needing its own bespoke collision code.

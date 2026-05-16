@@ -11,7 +11,7 @@
 	"iid": "ambition-intro-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 104424,
+	"nextUid": 104433,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -4553,6 +4553,123 @@
 					"searchable": true
 				}
 			]
+		},
+		{
+			"identifier": "Prop",
+			"uid": 104426,
+			"tags": [],
+			"exportToToc": false,
+			"allowOutOfBounds": true,
+			"doc": "Static decorative prop. Renders a sprite via PropRegistry keyed by `kind`; never grows an Interactable or RoomObject, so the player walks past with no dialogue prompt.",
+			"tileOpacity": 1.0,
+			"lineOpacity": 1.0,
+			"fillOpacity": 0.08,
+			"hollow": false,
+			"color": "#9966CC",
+			"renderMode": "Rectangle",
+			"showName": true,
+			"tilesetId": null,
+			"tileRenderMode": "FitInside",
+			"tileRect": null,
+			"uiTileRect": null,
+			"nineSliceBorders": [],
+			"maxCount": 0,
+			"limitScope": "PerLevel",
+			"limitBehavior": "MoveLastOne",
+			"pivotX": 0,
+			"pivotY": 0,
+			"tileId": null,
+			"width": 32,
+			"height": 32,
+			"resizableX": true,
+			"resizableY": true,
+			"minWidth": null,
+			"maxWidth": null,
+			"minHeight": null,
+			"maxHeight": null,
+			"keepAspectRatio": false,
+			"fieldDefs": [
+				{
+					"identifier": "name",
+					"doc": null,
+					"__type": "String",
+					"uid": 104424,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayPos": "Above",
+					"editorDisplayScale": 1.0,
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"editorShowInWorld": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"editorLinkStyle": "CurvedArrow",
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"tilesetUid": null,
+					"defaultOverride": {
+						"id": "V_String",
+						"params": [""]
+					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"exportToToc": false,
+					"searchable": true
+				},
+				{
+					"identifier": "kind",
+					"doc": null,
+					"__type": "String",
+					"uid": 104425,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayPos": "Above",
+					"editorDisplayScale": 1.0,
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"editorShowInWorld": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"editorLinkStyle": "CurvedArrow",
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"tilesetUid": null,
+					"defaultOverride": {
+						"id": "V_String",
+						"params": [""]
+					},
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"exportToToc": false,
+					"searchable": true
+				}
+			]
 		}
 	], "tilesets": [], "enums": [
 		{
@@ -5064,26 +5181,6 @@
 					"gridTiles": [],
 					"entityInstances": [
 						{
-							"__identifier": "NpcSpawn",
-							"__grid": [7,14],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FF9EEA",
-							"__worldX": 100120,
-							"__worldY": 224,
-							"iid": "NpcSpawn-104352",
-							"width": 192,
-							"height": 128,
-							"defUid": 2006,
-							"px": [120,224],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Diagnostic Cart", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Diagnostic Cart"] } ] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": [""] } ] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "generic_npc", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["generic_npc"] } ] }
-							]
-						},
-						{
 							"__identifier": "PlayerStart",
 							"__grid": [12,11],
 							"__pivot": [0,0],
@@ -5117,66 +5214,6 @@
 								{ "__identifier": "name", "__type": "String", "__value": "Creator", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Creator"] } ] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Talk to the Creator", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": ["Talk to the Creator"] } ] },
 								{ "__identifier": "dialogue_id", "__type": "String", "__value": "creator_intro", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["creator_intro"] } ] }
-							]
-						},
-						{
-							"__identifier": "NpcSpawn",
-							"__grid": [21,14],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FF9EEA",
-							"__worldX": 100336,
-							"__worldY": 224,
-							"iid": "NpcSpawn-104355",
-							"width": 128,
-							"height": 128,
-							"defUid": 2006,
-							"px": [336,224],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Neural Console", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Neural Console"] } ] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": [""] } ] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "generic_npc", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["generic_npc"] } ] }
-							]
-						},
-						{
-							"__identifier": "NpcSpawn",
-							"__grid": [35,14],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FF9EEA",
-							"__worldX": 100560,
-							"__worldY": 224,
-							"iid": "NpcSpawn-104356",
-							"width": 128,
-							"height": 128,
-							"defUid": 2006,
-							"px": [560,224],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Genesis Vat", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Genesis Vat"] } ] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": [""] } ] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "generic_npc", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["generic_npc"] } ] }
-							]
-						},
-						{
-							"__identifier": "NpcSpawn",
-							"__grid": [46,14],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FF9EEA",
-							"__worldX": 100744,
-							"__worldY": 224,
-							"iid": "NpcSpawn-104357",
-							"width": 128,
-							"height": 128,
-							"defUid": 2006,
-							"px": [744,224],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Power Core", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Power Core"] } ] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": [""] } ] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "generic_npc", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["generic_npc"] } ] }
 							]
 						},
 						{
@@ -5283,6 +5320,82 @@
 								{ "__identifier": "name", "__type": "String", "__value": "wake_room_exit_arrow", "__tile": null, "defUid": 3015, "realEditorValues": [ { "id": "V_String", "params": ["wake_room_exit_arrow"] } ] },
 								{ "__identifier": "text", "__type": "String", "__value": "→ corridor", "__tile": null, "defUid": 3016, "realEditorValues": [ { "id": "V_String", "params": ["→ corridor"] } ] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "Prop",
+							"__grid": [7,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#9966CC",
+							"__worldX": 100120,
+							"__worldY": 224,
+							"iid": "Prop-104427",
+							"width": 192,
+							"height": 128,
+							"defUid": 104426,
+							"px": [120,224],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Diagnostic Cart", "__tile": null, "defUid": 104424, "realEditorValues": [ { "id": "V_String", "params": ["Diagnostic Cart"] } ] },
+								{ "__identifier": "kind", "__type": "String", "__value": "intro_cart", "__tile": null, "defUid": 104425, "realEditorValues": [ { "id": "V_String", "params": ["intro_cart"] } ] }
+							]
+						},
+						{
+							"__identifier": "Prop",
+							"__grid": [21,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#9966CC",
+							"__worldX": 100336,
+							"__worldY": 224,
+							"iid": "Prop-104428",
+							"width": 128,
+							"height": 128,
+							"defUid": 104426,
+							"px": [336,224],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Neural Console", "__tile": null, "defUid": 104424, "realEditorValues": [ { "id": "V_String", "params": ["Neural Console"] } ] },
+								{ "__identifier": "kind", "__type": "String", "__value": "lab_neural_console", "__tile": null, "defUid": 104425, "realEditorValues": [ { "id": "V_String", "params": ["lab_neural_console"] } ] }
+							]
+						},
+						{
+							"__identifier": "Prop",
+							"__grid": [35,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#9966CC",
+							"__worldX": 100560,
+							"__worldY": 224,
+							"iid": "Prop-104429",
+							"width": 128,
+							"height": 128,
+							"defUid": 104426,
+							"px": [560,224],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Genesis Vat", "__tile": null, "defUid": 104424, "realEditorValues": [ { "id": "V_String", "params": ["Genesis Vat"] } ] },
+								{ "__identifier": "kind", "__type": "String", "__value": "lab_genesis_vat", "__tile": null, "defUid": 104425, "realEditorValues": [ { "id": "V_String", "params": ["lab_genesis_vat"] } ] }
+							]
+						},
+						{
+							"__identifier": "Prop",
+							"__grid": [46,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#9966CC",
+							"__worldX": 100744,
+							"__worldY": 224,
+							"iid": "Prop-104430",
+							"width": 128,
+							"height": 128,
+							"defUid": 104426,
+							"px": [744,224],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Power Core", "__tile": null, "defUid": 104424, "realEditorValues": [ { "id": "V_String", "params": ["Power Core"] } ] },
+								{ "__identifier": "kind", "__type": "String", "__value": "lab_power_core", "__tile": null, "defUid": 104425, "realEditorValues": [ { "id": "V_String", "params": ["lab_power_core"] } ] }
 							]
 						}
 					]
@@ -6928,46 +7041,6 @@
 							]
 						},
 						{
-							"__identifier": "NpcSpawn",
-							"__grid": [38,34],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FF9EEA",
-							"__worldX": 108620,
-							"__worldY": 544,
-							"iid": "NpcSpawn-104408",
-							"width": 192,
-							"height": 192,
-							"defUid": 2006,
-							"px": [620,544],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Interdimensional Gate Ring", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Interdimensional Gate Ring"] } ] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": [""] } ] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "generic_npc", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["generic_npc"] } ] }
-							]
-						},
-						{
-							"__identifier": "NpcSpawn",
-							"__grid": [38,34],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FF9EEA",
-							"__worldX": 108620,
-							"__worldY": 544,
-							"iid": "NpcSpawn-104409",
-							"width": 192,
-							"height": 192,
-							"defUid": 2006,
-							"px": [620,544],
-							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Interdimensional Gate Portal", "__tile": null, "defUid": 3012, "realEditorValues": [ { "id": "V_String", "params": ["Interdimensional Gate Portal"] } ] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "", "__tile": null, "defUid": 3013, "realEditorValues": [ { "id": "V_String", "params": [""] } ] },
-								{ "__identifier": "dialogue_id", "__type": "String", "__value": "generic_npc", "__tile": null, "defUid": 3014, "realEditorValues": [ { "id": "V_String", "params": ["generic_npc"] } ] }
-							]
-						},
-						{
 							"__identifier": "LoadingZone",
 							"__grid": [41,34],
 							"__pivot": [0,0],
@@ -7237,6 +7310,44 @@
 								{ "__identifier": "name", "__type": "String", "__value": "gate_stack_lab_return_label", "__tile": null, "defUid": 3015, "realEditorValues": [ { "id": "V_String", "params": ["gate_stack_lab_return_label"] } ] },
 								{ "__identifier": "text", "__type": "String", "__value": "[lab ruins — collapsed]", "__tile": null, "defUid": 3016, "realEditorValues": [ { "id": "V_String", "params": ["[lab ruins — collapsed]"] } ] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "Prop",
+							"__grid": [38,34],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#9966CC",
+							"__worldX": 108620,
+							"__worldY": 544,
+							"iid": "Prop-104431",
+							"width": 192,
+							"height": 192,
+							"defUid": 104426,
+							"px": [620,544],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Interdimensional Gate Ring", "__tile": null, "defUid": 104424, "realEditorValues": [ { "id": "V_String", "params": ["Interdimensional Gate Ring"] } ] },
+								{ "__identifier": "kind", "__type": "String", "__value": "gate_ring", "__tile": null, "defUid": 104425, "realEditorValues": [ { "id": "V_String", "params": ["gate_ring"] } ] }
+							]
+						},
+						{
+							"__identifier": "Prop",
+							"__grid": [38,34],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#9966CC",
+							"__worldX": 108620,
+							"__worldY": 544,
+							"iid": "Prop-104432",
+							"width": 192,
+							"height": 192,
+							"defUid": 104426,
+							"px": [620,544],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Interdimensional Gate Portal", "__tile": null, "defUid": 104424, "realEditorValues": [ { "id": "V_String", "params": ["Interdimensional Gate Portal"] } ] },
+								{ "__identifier": "kind", "__type": "String", "__value": "gate_portal", "__tile": null, "defUid": 104425, "realEditorValues": [ { "id": "V_String", "params": ["gate_portal"] } ] }
 							]
 						}
 					]

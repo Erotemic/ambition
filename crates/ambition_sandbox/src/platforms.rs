@@ -461,6 +461,7 @@ mod tests {
             camera_zones: Vec::new(),
             kinematic_paths: Vec::new(),
             moving_platforms: platforms,
+            props: Vec::new(),
         }
     }
 

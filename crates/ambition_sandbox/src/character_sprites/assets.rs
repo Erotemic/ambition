@@ -46,6 +46,14 @@ pub struct CharacterSpriteAssets {
     /// dispatcher match-arm needed. Once LDtk grows a `category`
     /// field on `NpcSpawn`, the key swaps from name to category.
     pub npcs: HashMap<&'static str, CharacterSpriteAsset>,
+    /// Per-prop sprite sheets keyed by the LDtk `Prop.kind` field
+    /// (e.g. `intro_cart`, `lab_genesis_vat`, `gate_ring`,
+    /// `gate_portal`). Story-content plugins extend this via
+    /// `build_prop_sprite_asset` — the sandbox itself doesn't ship
+    /// any props in its base registry. Keying by `kind` (rather than
+    /// display `name`) means an author can rename a prop in LDtk
+    /// without re-pointing the sprite registry.
+    pub props: HashMap<String, CharacterSpriteAsset>,
     // The boss uses the entity-sprite path (`EntitySprite::BossCore`) rather
     // than the character-spritesheet path: its generator emits non-standard
     // animation rows (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/
@@ -67,6 +75,13 @@ impl CharacterSpriteAssets {
     /// those keep the default `EntitySprite::NpcTerminal` rectangle.
     pub fn npc_asset_for_name(&self, name: &str) -> Option<&CharacterSpriteAsset> {
         self.npcs.get(name)
+    }
+
+    /// Pick a prop spritesheet by its `Prop.kind` registry key.
+    /// Returns `None` for kinds that have no registered sheet — the
+    /// prop renderer falls back to a colored placeholder rectangle.
+    pub fn prop_asset_for_kind(&self, kind: &str) -> Option<&CharacterSpriteAsset> {
+        self.props.get(kind)
     }
 }
 
@@ -198,6 +213,7 @@ pub fn load_character_sprites_in(
         goblin,
         sandbag,
         npcs,
+        props: HashMap::new(),
     }
 }
 
@@ -226,6 +242,22 @@ fn build_optional(
 /// `CharacterSpriteAssets::npcs` without touching the sandbox sprite
 /// registry constant.
 pub fn build_npc_sprite_asset(
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    sprite_folder: &str,
+    filename: &str,
+    spec: CharacterSheetSpec,
+) -> Option<CharacterSpriteAsset> {
+    let rel = format!("{sprite_folder}/{filename}");
+    build_optional(asset_server, layouts, &rel, spec)
+}
+
+/// Build a single Prop sprite asset. Same shape as
+/// [`build_npc_sprite_asset`] — kept as a separate name so story-
+/// content plugins reading from `INTRO_PROP_REGISTRY` (or future
+/// equivalents) clearly distinguish prop-table inserts from NPC-table
+/// inserts.
+pub fn build_prop_sprite_asset(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     sprite_folder: &str,

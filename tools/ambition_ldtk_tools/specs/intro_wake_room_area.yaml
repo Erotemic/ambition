@@ -52,16 +52,17 @@ entities:
     size: [992, 32]
     fields: { name: ceiling }
 
-  # --- Diagnostic Cart prop. Rendered via CART_SHEET (toon-side NPC
-  # sprite path). Frame is 192×128; the cart sits on the floor with
-  # its left edge at x=120 so its visual center lands near x=216.
-  - type: NpcSpawn
+  # --- Diagnostic Cart prop. Rendered via CART_SHEET (registered in
+  # INTRO_PROP_REGISTRY under kind `intro_cart`). Frame is 192×128;
+  # the cart sits on the floor with its left edge at x=120 so its
+  # visual center lands near x=216. `type: Prop` (NOT NpcSpawn) so
+  # Interact does NOT pop a dialogue prompt — the cart is decorative.
+  - type: Prop
     px: [120, 224]
     size: [192, 128]
     fields:
       name: Diagnostic Cart
-      prompt: ""
-      dialogue_id: generic_npc
+      kind: intro_cart
 
   # --- Player spawn: standing on the cart. PlayerStart is the cold
   # start (e.g. headless dev launch); the sandbox door entry uses
@@ -80,33 +81,30 @@ entities:
       prompt: "Talk to the Creator"
       dialogue_id: creator_intro
 
-  # --- Lab props. NpcSpawn-as-prop pattern (same as the Diagnostic
-  # Cart above) — empty prompt + generic_npc fallback so interact
-  # doesn't open a meaningful dialog. All three share the
+  # --- Lab props. Use the dedicated `Prop` entity (no Interactable,
+  # no dialogue prompt) keyed off `kind` against
+  # `INTRO_PROP_REGISTRY` (intro/sprites.rs). All three share the
   # creator_lab_props spritesheet via per-prop CharacterSheetSpec
   # `y_offset` (LAB_PROP_* consts in character_sprites/sheets.rs).
   # Bottom-aligned to the floor (y=352): prop size=128 → top y=224.
-  - type: NpcSpawn
+  - type: Prop
     px: [336, 224]
     size: [128, 128]
     fields:
       name: Neural Console
-      prompt: ""
-      dialogue_id: generic_npc
-  - type: NpcSpawn
+      kind: lab_neural_console
+  - type: Prop
     px: [560, 224]
     size: [128, 128]
     fields:
       name: Genesis Vat
-      prompt: ""
-      dialogue_id: generic_npc
-  - type: NpcSpawn
+      kind: lab_genesis_vat
+  - type: Prop
     px: [744, 224]
     size: [128, 128]
     fields:
       name: Power Core
-      prompt: ""
-      dialogue_id: generic_npc
+      kind: lab_power_core
 
   # --- Hub-door arrival zone. Sits on top of the cart so any sandbox
   # door pointing at `wake_room_arrival` lands the player visually on

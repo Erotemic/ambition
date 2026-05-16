@@ -19,14 +19,14 @@
 use bevy::prelude::*;
 
 use crate::banter::CombatBanterRegistry;
-use crate::character_sprites::build_npc_sprite_asset;
+use crate::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
 use crate::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use crate::game_assets::{GameAssetConfig, GameAssets};
 use crate::rooms::PortalRegistry;
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
-use super::sprites::intro_npc_sprite_rows;
+use super::sprites::{intro_npc_sprite_rows, intro_prop_sprite_rows};
 
 /// Intro portal IDs. The gate stack room places:
 /// - `LoadingZone` id `intro_portal_zone` (activation: Door) at
@@ -52,6 +52,13 @@ pub const INTRO_PORTAL_RING_NAME: &str = "Interdimensional Gate Ring";
 #[derive(Resource, Default, Debug)]
 pub(crate) struct IntroSpritesInstalled(bool);
 
+/// Marker zero-sized resource — guards
+/// [`load_intro_prop_sprites_system`] (the prop equivalent of
+/// [`IntroSpritesInstalled`]). Separate flag so the two loaders can
+/// install independently if one of them needs to wait for assets.
+#[derive(Resource, Default, Debug)]
+pub(crate) struct IntroPropSpritesInstalled(bool);
+
 /// Marker zero-sized resource for the cutscene installer.
 #[derive(Resource, Default, Debug)]
 pub(crate) struct IntroCutscenesInstalled(bool);
@@ -69,6 +76,7 @@ pub struct IntroPlugin;
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<IntroSpritesInstalled>()
+            .init_resource::<IntroPropSpritesInstalled>()
             .init_resource::<IntroCutscenesInstalled>()
             .init_resource::<IntroBanterInstalled>()
             .init_resource::<IntroGatedZonesInstalled>()
@@ -84,6 +92,7 @@ impl Plugin for IntroPlugin {
                 (
                     install_intro_cutscenes_system,
                     load_intro_npc_sprites_system,
+                    load_intro_prop_sprites_system,
                     install_intro_banter_system,
                     install_intro_gated_zones_system,
                 ),
@@ -200,6 +209,50 @@ pub(crate) fn load_intro_npc_sprites_system(
         } else {
             eprintln!(
                 "[intro] NPC sheet '{name}' not found at assets/{}/{} — falling back to colored rectangle",
+                config.sprite_folder, filename
+            );
+        }
+    }
+    installed.0 = true;
+}
+
+/// Extend `GameAssets.characters.props` with intro prop sheets keyed
+/// by `Prop.kind`. Runs once — guarded by
+/// [`IntroPropSpritesInstalled`].
+pub(crate) fn load_intro_prop_sprites_system(
+    mut installed: ResMut<IntroPropSpritesInstalled>,
+    config: Option<Res<GameAssetConfig>>,
+    asset_server: Option<Res<AssetServer>>,
+    layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
+    game_assets: Option<ResMut<GameAssets>>,
+) {
+    if installed.0 {
+        return;
+    }
+    let (Some(config), Some(asset_server), Some(mut layouts), Some(mut game_assets)) =
+        (config, asset_server, layouts, game_assets)
+    else {
+        return;
+    };
+    if config.no_assets {
+        installed.0 = true;
+        return;
+    }
+    for (kind, filename, spec) in intro_prop_sprite_rows() {
+        if game_assets.characters.props.contains_key(*kind) {
+            continue;
+        }
+        if let Some(asset) = build_prop_sprite_asset(
+            &asset_server,
+            &mut layouts,
+            &config.sprite_folder,
+            filename,
+            *spec,
+        ) {
+            game_assets.characters.props.insert((*kind).to_string(), asset);
+        } else {
+            eprintln!(
+                "[intro] Prop sheet '{kind}' not found at assets/{}/{} — falling back to colored rectangle",
                 config.sprite_folder, filename
             );
         }

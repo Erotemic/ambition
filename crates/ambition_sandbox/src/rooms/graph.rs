@@ -101,6 +101,10 @@ impl RoomSet {
         &self.active_spec().loading_zones
     }
 
+    pub fn active_props(&self) -> &[PropSpec] {
+        &self.active_spec().props
+    }
+
     pub fn active_metadata(&self) -> &RoomMetadata {
         &self.active_spec().metadata
     }

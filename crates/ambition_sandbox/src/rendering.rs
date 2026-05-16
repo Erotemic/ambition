@@ -34,8 +34,8 @@ mod primitives;
 mod world;
 
 pub use actors::{
-    animate_bosses, animate_characters, animate_player, sync_visuals, upgrade_boss_sprites,
-    upgrade_enemy_sprites, upgrade_npc_sprites,
+    animate_bosses, animate_characters, animate_player, animate_props, sync_visuals,
+    upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites,
 };
 pub use camera::{camera_follow, CameraViewState};
 pub use features::spawn_dynamic_feature_visuals;
@@ -43,10 +43,10 @@ pub use health::sync_health_overlays;
 pub use parallax::{spawn_parallax_layers, sync_parallax_layers, ParallaxLayerVisual};
 pub use primitives::{
     block_color, switch_on_color, FeatureVisual, HealthOverlayVisual, HudText,
-    LoadingZoneVisual, LockWallVisual, PlayerSpriteBaseline, PlayerVisual, QuestPanelText,
-    RoomVisual, SceneEntities,
+    LoadingZoneVisual, LockWallVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual,
+    QuestPanelText, RoomVisual, SceneEntities,
 };
 pub use world::{
-    spawn_block, spawn_grid, spawn_loading_zone, spawn_room_object, spawn_room_visuals,
-    sync_lock_wall_visuals,
+    spawn_block, spawn_grid, spawn_loading_zone, spawn_room_object, spawn_room_prop,
+    spawn_room_visuals, sync_lock_wall_visuals,
 };

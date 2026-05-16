@@ -564,6 +564,7 @@ pub fn add_presentation_plugins(app: &mut App) {
                 upgrade_boss_sprites,
                 animate_player,
                 animate_characters,
+                crate::rendering::animate_props,
                 animate_bosses,
             )
                 .chain()

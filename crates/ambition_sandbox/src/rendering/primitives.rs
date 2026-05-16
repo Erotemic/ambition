@@ -83,6 +83,19 @@ pub struct FeatureVisual {
     pub id: String,
 }
 
+/// Marker for sprites spawned from `RoomSpec.props`. Generic prop
+/// animation (idle row tick) runs against `With<PropVisual>` so the
+/// sprite stays alive without the engine ever seeing a feature
+/// entity for the prop. Filtered with `Without<PortalSprite>` so
+/// the gate ring + gate portal stay owned by the portal systems.
+#[derive(Component, Clone, Debug)]
+pub struct PropVisual {
+    /// LDtk iid — for debug overlay + future save-key joins.
+    pub id: String,
+    /// Registry key the sprite was looked up under.
+    pub kind: String,
+}
+
 /// Marker for the sprite + label spawned by `spawn_loading_zone`.
 /// Stores the LoadingZone's `id` so portal-aware systems can
 /// suppress the debug door visual for zones whose actual gate is

@@ -23,7 +23,7 @@ use super::surfaces::{
 };
 use crate::rooms::{
     CameraClampMode, CameraZoneSpec, KinematicPathSpec, LoadingZone, LoadingZoneActivation,
-    RoomLink, RoomSet, RoomSpec,
+    PropSpec, RoomLink, RoomSet, RoomSpec,
 };
 
 impl LdtkProject {
@@ -122,6 +122,7 @@ impl LdtkProject {
         let mut moving_platforms: Vec<crate::platforms::MovingPlatformSpec> = Vec::new();
         let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
+        let mut props: Vec<PropSpec> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -156,6 +157,7 @@ impl LdtkProject {
                         moving_platforms.extend(emission.moving_platforms);
                         camera_zones.extend(emission.camera_zones);
                         kinematic_paths.extend(emission.kinematic_paths);
+                        props.extend(emission.props);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -234,6 +236,7 @@ impl LdtkProject {
             camera_zones,
             kinematic_paths,
             moving_platforms: resolved_moving_platforms,
+            props,
         })
     }
 
@@ -274,6 +277,10 @@ pub(super) struct RuntimeEntityEmission {
     pub(super) moving_platforms: Vec<crate::platforms::MovingPlatformSpec>,
     pub(super) camera_zones: Vec<CameraZoneSpec>,
     pub(super) kinematic_paths: Vec<KinematicPathSpec>,
+    /// LDtk-authored decorative props emitted by this entity. Most
+    /// entities emit zero; `Prop` emits one. Stays off `objects` so
+    /// the engine never sees them.
+    pub(super) props: Vec<PropSpec>,
     pub(super) ignored: bool,
 }
 
@@ -323,6 +330,13 @@ impl RuntimeEntityEmission {
     fn camera_zone(zone: CameraZoneSpec) -> Self {
         Self {
             camera_zones: vec![zone],
+            ..Self::default()
+        }
+    }
+
+    fn prop(spec: PropSpec) -> Self {
+        Self {
+            props: vec![spec],
             ..Self::default()
         }
     }
@@ -495,6 +509,23 @@ pub(super) fn entity_to_runtime(
                     path,
                 ),
             ))
+        }
+        "Prop" => {
+            // Decorative-only entity. Renders a sprite via
+            // `PropRegistry`, but never grows an `Interactable` or
+            // a `RoomObject` — so the player can walk past with no
+            // dialogue prompt and the engine never sees it.
+            let kind = field_string(entity, "kind").unwrap_or_default();
+            if kind.trim().is_empty() {
+                return Err("Prop requires non-empty `kind` field".to_string());
+            }
+            Ok(RuntimeEntityEmission::prop(PropSpec {
+                id: entity.iid.clone(),
+                name,
+                kind: kind.trim().to_string(),
+                pos: min + size * 0.5,
+                size,
+            }))
         }
         "NpcSpawn" => {
             let interactable = ae::Interactable::new(

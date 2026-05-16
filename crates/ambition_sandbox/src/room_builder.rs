@@ -251,6 +251,7 @@ impl RoomBuilder {
             camera_zones: Vec::new(),
             kinematic_paths: Vec::new(),
             moving_platforms: Vec::new(),
+            props: Vec::new(),
         }
     }
 

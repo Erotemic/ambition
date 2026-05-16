@@ -311,6 +311,7 @@ fn presentation_world_inner(
         commands,
         &world.0,
         room_set.active_loading_zones(),
+        room_set.active_props(),
         physics_settings,
         Some(game_assets),
     );

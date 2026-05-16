@@ -25,12 +25,6 @@ use crate::character_sprites::{
 /// `assets/<sprite_folder>/` directory — same convention as
 /// `crate::character_sprites::assets::NPC_SPRITE_REGISTRY`.
 pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
-    // Diagnostic Cart — the prop the player wakes on. Authored as an
-    // NpcSpawn purely so the existing sprite-loader picks it up; the
-    // generic_npc dialogue fallback means an Interact press shows a
-    // harmless "this NPC has no Yarn node yet" line until a real Prop
-    // entity type lands (see docs/intro_followup_roadmap.md §3).
-    ("Diagnostic Cart", "intro_cart_spritesheet.png", CART_SHEET),
     // Wake-room creator. Dedicated creator tack-on sheet — 160×192 with
     // a 108px label column, four authored rows (idle/speak/gesture/walk).
     ("Creator", "creator_spritesheet.png", CREATOR_SHEET),
@@ -69,33 +63,67 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     // sandbox treats every `NpcSpawn` the same way. Architect sheet
     // is a placeholder; a static kiosk sprite will replace this.
     ("News Board", "architect_spritesheet.png", ARCHITECT_SHEET),
-    // Lab props — share `creator_lab_props_spritesheet.png`; each
-    // pulls a different row via the y_offset field on its
-    // CharacterSheetSpec. Authored as NpcSpawn with `prompt: ""`
-    // for v1 (the dedicated Prop entity type is the v1.x cleanup).
-    ("Genesis Vat", "creator_lab_props_spritesheet.png", LAB_PROP_GENESIS_VAT),
-    ("Neural Console", "creator_lab_props_spritesheet.png", LAB_PROP_NEURAL_CONSOLE),
-    ("Power Core", "creator_lab_props_spritesheet.png", LAB_PROP_POWER_CORE),
-    ("Repair Cradle", "creator_lab_props_spritesheet.png", LAB_PROP_REPAIR_CRADLE),
-    ("Resonance Coil", "creator_lab_props_spritesheet.png", LAB_PROP_RESONANCE_COIL),
-    // Interdimensional gate (legally distinct stargate). The ring is
-    // the always-on structural arch; the portal renders the
-    // shimmering surface inside it. Both placed at the same px in
-    // gate_stack_lower; the runtime gate-check via
-    // `GatedZoneRegistry` keeps the LoadingZone behind them inert
-    // until the player toggles `intro_portal_switch`.
+    // Cart, lab props, and gate sprites are now Prop entities (see
+    // INTRO_PROP_REGISTRY below) and live in
+    // `GameAssets.characters.props` instead of `npcs`.
+];
+
+pub fn intro_npc_sprite_rows() -> &'static [(&'static str, &'static str, CharacterSheetSpec)] {
+    INTRO_NPC_SPRITE_REGISTRY
+}
+
+/// `(Prop.kind, asset filename, sheet spec)` rows for intro props.
+///
+/// Keyed by `Prop.kind` (NOT display name) so authors can rename a
+/// prop in LDtk without re-pointing the sprite registry. Loaded into
+/// `GameAssets.characters.props` by
+/// [`crate::intro::plugin::load_intro_prop_sprites_system`].
+pub const INTRO_PROP_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
+    // Diagnostic cart the player wakes on.
+    ("intro_cart", "intro_cart_spritesheet.png", CART_SHEET),
+    // Creator lab props — each pulls a different row from the shared
+    // `creator_lab_props_spritesheet.png` via its `y_offset`.
     (
-        "Interdimensional Gate Ring",
+        "lab_genesis_vat",
+        "creator_lab_props_spritesheet.png",
+        LAB_PROP_GENESIS_VAT,
+    ),
+    (
+        "lab_neural_console",
+        "creator_lab_props_spritesheet.png",
+        LAB_PROP_NEURAL_CONSOLE,
+    ),
+    (
+        "lab_power_core",
+        "creator_lab_props_spritesheet.png",
+        LAB_PROP_POWER_CORE,
+    ),
+    (
+        "lab_repair_cradle",
+        "creator_lab_props_spritesheet.png",
+        LAB_PROP_REPAIR_CRADLE,
+    ),
+    (
+        "lab_resonance_coil",
+        "creator_lab_props_spritesheet.png",
+        LAB_PROP_RESONANCE_COIL,
+    ),
+    // Interdimensional gate (legally distinct stargate). Ring is the
+    // always-on structural arch; portal renders the shimmering
+    // surface inside it. Both keyed as props so the gate stack scene
+    // never grows an interact prompt on them.
+    (
+        "gate_ring",
         "interdimensional_gate_ring_spritesheet.png",
         GATE_RING_SHEET,
     ),
     (
-        "Interdimensional Gate Portal",
+        "gate_portal",
         "interdimensional_gate_portal_spritesheet.png",
         GATE_PORTAL_SHEET,
     ),
 ];
 
-pub fn intro_npc_sprite_rows() -> &'static [(&'static str, &'static str, CharacterSheetSpec)] {
-    INTRO_NPC_SPRITE_REGISTRY
+pub fn intro_prop_sprite_rows() -> &'static [(&'static str, &'static str, CharacterSheetSpec)] {
+    INTRO_PROP_REGISTRY
 }

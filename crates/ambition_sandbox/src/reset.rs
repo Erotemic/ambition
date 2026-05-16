@@ -201,6 +201,7 @@ pub fn process_sandbox_reset_request(
         &mut commands,
         &world.0,
         &start_spec.loading_zones,
+        &start_spec.props,
         *play_state.physics_settings,
         assets.as_deref(),
     );
@@ -293,6 +294,7 @@ mod tests {
             camera_zones: Vec::new(),
             kinematic_paths: Vec::new(),
             moving_platforms: Vec::new(),
+            props: Vec::new(),
         };
         app.insert_resource(crate::rooms::RoomSet::from_parts(
             "test",

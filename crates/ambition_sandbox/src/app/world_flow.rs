@@ -154,6 +154,7 @@ pub(super) fn load_room(
         commands,
         &world.0,
         &spec.loading_zones,
+        &spec.props,
         physics_settings,
         assets,
     );

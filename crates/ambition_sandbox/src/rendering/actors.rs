@@ -9,6 +9,7 @@ use bevy::prelude::*;
 
 use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
+    PropVisual,
     SceneEntities,
 };
 use crate::boss_sprites::{self, BossAnimState, BossAnimator};
@@ -353,7 +354,11 @@ pub fn animate_characters(
     world_time: Res<crate::WorldTime>,
     mut query: Query<
         (&FeatureVisual, &mut Sprite, &mut CharacterAnimator),
-        (Without<PlayerVisual>, Without<crate::rooms::PortalSprite>),
+        (
+            Without<PlayerVisual>,
+            Without<crate::rooms::PortalSprite>,
+            Without<PropVisual>,
+        ),
     >,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
@@ -392,6 +397,32 @@ pub fn animate_characters(
         } else {
             Color::WHITE
         };
+    }
+}
+
+/// Tick the idle animation row for every `PropVisual` sprite that
+/// owns a `CharacterAnimator`. Props have no ECS actor entity, so
+/// the regular `animate_characters` lookup would skip them — without
+/// this system the sprite stays pinned to frame 0 forever.
+///
+/// Filtered with `Without<crate::rooms::PortalSprite>` so the gate
+/// ring + gate portal stay owned by the portal-presentation systems
+/// (which drive the animator from `PortalPhase` instead of a flat
+/// Idle row tick).
+pub fn animate_props(
+    world_time: Res<crate::WorldTime>,
+    mut query: Query<
+        (&mut Sprite, &mut CharacterAnimator),
+        (With<PropVisual>, Without<crate::rooms::PortalSprite>),
+    >,
+) {
+    let dt = world_time.scaled_dt;
+    for (mut sprite, mut animator) in &mut query {
+        animator.request(crate::character_sprites::CharacterAnim::Idle);
+        let index = animator.tick(dt);
+        if let Some(atlas) = sprite.texture_atlas.as_mut() {
+            atlas.index = index;
+        }
     }
 }
 

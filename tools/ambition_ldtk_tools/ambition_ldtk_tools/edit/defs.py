@@ -93,7 +93,8 @@ RUNTIME_RS = (
     / "ambition_sandbox"
     / "src"
     / "ldtk_world"
-    / "bevy_runtime.rs"
+    / "bevy_runtime"
+    / "plugin.rs"
 )
 
 HUMAN_TO_INTERNAL = {

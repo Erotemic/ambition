@@ -102,4 +102,5 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "LockWall",
     "WaterVolume",
     "MovingPlatform",
+    "Prop",
 ];

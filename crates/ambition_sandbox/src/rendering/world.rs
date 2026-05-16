@@ -10,19 +10,20 @@ use bevy::prelude::*;
 
 use super::primitives::{
     block_color, feature_color, feature_z, object_visual_kind, spawn_world_label, FeatureVisual,
-    LockWallVisual, RoomVisual,
+    LockWallVisual, PropVisual, RoomVisual,
 };
-use crate::character_sprites::sprite_render_size;
+use crate::character_sprites::{build_character_sprite, feet_anchor_for, sprite_render_size, CharacterAnimator};
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
 use crate::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
 use crate::physics;
-use crate::rooms::{LoadingZone, LoadingZoneActivation};
+use crate::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 
 pub fn spawn_room_visuals(
     commands: &mut Commands,
     world: &ae::World,
     loading_zones: &[LoadingZone],
+    props: &[PropSpec],
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
@@ -41,6 +42,62 @@ pub fn spawn_room_visuals(
     }
     for object in &world.objects {
         spawn_room_object(commands, world, object, assets);
+    }
+    for prop in props {
+        spawn_room_prop(commands, world, prop, assets);
+    }
+}
+
+/// Spawn the visual entity for one [`PropSpec`]. Falls back to a
+/// colored rectangle when the prop's `kind` is unknown or its asset
+/// hasn't loaded yet.
+///
+/// Always inserts:
+/// - `RoomVisual` so the room-swap path despawns the prop with the
+///   rest of the room's presentation.
+/// - `PropVisual { id, kind }` so the generic prop-anim tick can
+///   find it and so debug overlays can label it.
+/// - `crate::features::FeatureName(prop.name)` so per-name systems
+///   (portal visibility / ring rotation / portal anim) keep finding
+///   the gate ring + gate portal entities after the migration from
+///   NpcSpawn-as-prop.
+pub fn spawn_room_prop(
+    commands: &mut Commands,
+    world: &ae::World,
+    prop: &PropSpec,
+    assets: Option<&GameAssets>,
+) {
+    let kind = FeatureVisualKind::Npc;
+    let z = feature_z(kind);
+    let translation = world_to_bevy(world, prop.pos, z);
+    let collision = BVec2::new(prop.size.x, prop.size.y);
+
+    let mut entity = commands.spawn((
+        Transform::from_translation(translation),
+        Name::new(format!("Prop: {}", prop.name)),
+        RoomVisual,
+        PropVisual {
+            id: prop.id.clone(),
+            kind: prop.kind.clone(),
+        },
+        crate::features::FeatureName::new(prop.name.clone()),
+    ));
+
+    if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
+        let sprite = build_character_sprite(asset, collision);
+        entity.insert((
+            sprite,
+            feet_anchor_for(asset.spec, collision),
+            CharacterAnimator::new(asset.spec),
+        ));
+    } else {
+        // Fallback: a translucent placeholder rectangle so authors
+        // see a visible marker for unregistered prop kinds. Same
+        // pattern as other "asset missing" fallbacks in the renderer.
+        entity.insert(Sprite::from_color(
+            Color::srgba(0.55, 0.45, 0.85, 0.55),
+            collision,
+        ));
     }
 }
 

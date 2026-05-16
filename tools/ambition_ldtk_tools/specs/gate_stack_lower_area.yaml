@@ -99,20 +99,18 @@ entities:
   # Geometry: gate ring is 192×192, sitting on the floor (y=736)
   # so top y = 544. Centered between Gate Janitor (x=400) and
   # Manifest Clerk (x=960) at x=620.
-  - type: NpcSpawn
+  - type: Prop
     px: [620, 544]
     size: [192, 192]
     fields:
       name: Interdimensional Gate Ring
-      prompt: ""
-      dialogue_id: generic_npc
-  - type: NpcSpawn
+      kind: gate_ring
+  - type: Prop
     px: [620, 544]
     size: [192, 192]
     fields:
       name: Interdimensional Gate Portal
-      prompt: ""
-      dialogue_id: generic_npc
+      kind: gate_portal
   # Activation = Door (Interact-press) because this is a mid-room
   # cross-map transition, not a side-scroll edge or a scripted
   # walk-into trigger. See feedback_loading_zone_activation memory.

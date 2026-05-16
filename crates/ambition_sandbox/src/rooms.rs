@@ -468,6 +468,37 @@ impl KinematicPathSpec {
     }
 }
 
+/// Static decorative prop authored as the `Prop` LDtk entity.
+///
+/// Props render a sprite at a fixed location with no Interactable
+/// (so an Interact press near a prop does NOT pop a dialogue) and
+/// no AI / combat / save state. Sheet lookup goes through
+/// [`crate::character_sprites::PropRegistry`] keyed by `kind`.
+///
+/// Props are kept off `World::objects` (which is the engine-side
+/// authored-object list — every entry there grows runtime behavior).
+/// They live on `RoomSpec.props` instead so the sandbox can iterate
+/// them once at room load to spawn presentation entities without
+/// the engine ever seeing them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PropSpec {
+    /// LDtk iid — stable across rebuilds for save/debug joins.
+    pub id: String,
+    /// LDtk display name. Authors edit this; the renderer uses it
+    /// only for entity naming / debug overlay.
+    pub name: String,
+    /// Registry key for sprite lookup, e.g. `intro_cart`,
+    /// `lab_genesis_vat`, `gate_ring`, `gate_portal`. Story-content
+    /// plugins populate `PropRegistry` with the corresponding sheet.
+    pub kind: String,
+    /// World-space center of the prop's bounding box.
+    pub pos: ae::Vec2,
+    /// Authored bounding-box size. The renderer treats this as the
+    /// nominal collision footprint when computing render size from
+    /// the sheet's `collision_scale`.
+    pub size: ae::Vec2,
+}
+
 /// Complete room data used by the Bevy sandbox.
 #[derive(Clone, Debug)]
 pub struct RoomSpec {
@@ -485,6 +516,8 @@ pub struct RoomSpec {
     /// platform set for gameplay: if the vector is empty, the room has no
     /// moving platforms.
     pub moving_platforms: Vec<crate::platforms::MovingPlatformState>,
+    /// LDtk-authored decorative props. Render-only — see [`PropSpec`].
+    pub props: Vec<PropSpec>,
 }
 
 #[derive(Clone, Debug)]

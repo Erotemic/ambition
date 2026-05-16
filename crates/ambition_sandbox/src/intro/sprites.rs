@@ -14,7 +14,7 @@
 //! rectangles per the existing contract.
 
 use crate::character_sprites::{
-    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, ERDISH_SHEET, GOBLIN_SHEET,
+    CharacterSheetSpec, ARCHITECT_SHEET, CREATOR_SHEET, ERDISH_SHEET, FASCIST_ENFORCER_SHEET,
     KERNEL_GUIDE_SHEET, OILER_SHEET,
 };
 
@@ -23,12 +23,12 @@ use crate::character_sprites::{
 /// `assets/<sprite_folder>/` directory — same convention as
 /// `crate::character_sprites::assets::NPC_SPRITE_REGISTRY`.
 pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
-    // Wake-room creator. Kernel Guide reads as "thoughtful, talking";
-    // swap to a dedicated Creator sheet when it lands.
-    ("Creator", "kernel_guide_spritesheet.png", KERNEL_GUIDE_SHEET),
-    // Same creator, raid-corridor variant. Re-uses the same sheet so
-    // the player recognizes the silhouette dying mid-sentence.
-    ("Creator Final", "kernel_guide_spritesheet.png", KERNEL_GUIDE_SHEET),
+    // Wake-room creator. Dedicated creator tack-on sheet — 160×192 with
+    // a 108px label column, four authored rows (idle/speak/gesture/walk).
+    ("Creator", "creator_spritesheet.png", CREATOR_SHEET),
+    // Same creator, raid-corridor variant. Same sheet so the player
+    // recognizes the silhouette dying mid-sentence.
+    ("Creator Final", "creator_spritesheet.png", CREATOR_SHEET),
     // Oiler: street mechanic. Dedicated toon-adapter sheet (rendered
     // from configs/review/oiler.yaml + the `oiler` PRESETS entry in
     // targets/toon_side.py).
@@ -43,13 +43,17 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     // `name: Erdish` is authored in a later room), but pre-registered
     // so the sprite is ready the moment LDtk authoring catches up.
     ("Erdish", "erdish_spritesheet.png", ERDISH_SHEET),
-    // Framebreaker (anti-machine hardliner). Goblin sheet is a
-    // deliberate placeholder — the doc calls it out as "Goblin or
-    // generic enemy placeholder, but rename in dialogue."
-    ("Framebreaker", "goblin_spritesheet.png", GOBLIN_SHEET),
-    // Nazi salvage guard. Absurd General is the military-uniform
-    // placeholder per the doc.
-    ("Nazi Salvage Guard", "absurd_general_spritesheet.png", ABSURD_GENERAL_SHEET),
+    // Framebreaker (anti-machine hardliner). Fascist enforcer reads
+    // as "uniformed raid grunt" which fits this role better than the
+    // earlier goblin placeholder — both intro raid factions wear
+    // uniforms; the Framebreaker palette is just a different colorway.
+    // TODO(sprites): dedicated framebreaker sheet when art lands.
+    ("Framebreaker", "fascist_enforcer_spritesheet.png", FASCIST_ENFORCER_SHEET),
+    // Nazi salvage guard. Fascist Enforcer is the correct raid-trooper
+    // sheet — the previous Absurd General was a satirical hub NPC, not
+    // a uniformed dimension trooper. Officer cap + storm uniform +
+    // rifle reads correctly for the basement raid.
+    ("Nazi Salvage Guard", "fascist_enforcer_spritesheet.png", FASCIST_ENFORCER_SHEET),
     // Manifest clerk: bureaucratic kiosk operator. Architect sheet
     // reads as "person at a podium pointing at things."
     ("Manifest Clerk", "architect_spritesheet.png", ARCHITECT_SHEET),

@@ -753,6 +753,51 @@ pub const VAULT_KEEPER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
+/// Creator — the researcher who wakes the player. Rendered by the
+/// dedicated `creator` tack-on target (not the toon-side adapter), so
+/// the sheet is wider (160×192) and starts after a 108px label column.
+/// 4 animation rows ship on disk (idle/speak/gesture/walk); only Idle
+/// is wired here today — when CharacterAnim grows a Talk variant,
+/// the speak row at index 1 lands automatically because the renderer
+/// looks the row up by enum discriminant.
+pub const CREATOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 108,
+    frame_width: 160,
+    frame_height: 192,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 6,
+            duration_secs: 0.145,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.453,
+    frame_sample_inset: 2,
+};
+
+/// Fascist Enforcer — uniformed Nazi-dimension raid grunt. Toon-side
+/// adapter render; the dedicated `fascist_enforcer` archetype reads
+/// as "officer cap + storm uniform + rifle" so it's the correct
+/// silhouette for the intro Nazi salvage guard (the Absurd General
+/// placeholder was a satirical hub NPC, not a raid trooper).
+pub const FASCIST_ENFORCER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 112,
+    // body_metrics frame=124×118, +4px padding → 128×122.
+    frame_width: 128,
+    frame_height: 122,
+    rows: &[(
+        CharacterAnim::Idle,
+        AnimRow {
+            frame_count: 8,
+            duration_secs: 0.120,
+        },
+    )],
+    collision_scale: 1.10,
+    feet_anchor_y: -0.474,
+    frame_sample_inset: 2,
+};
+
 /// Oiler — street mechanic NPC who finds the player in the drain alley
 /// after the intro escape. Toon-side adapter render; matches the Oiler
 /// review config (configs/review/oiler.yaml).

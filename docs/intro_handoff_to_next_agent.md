@@ -35,6 +35,20 @@
   with 16px grid (existing 2000-px-spaced level positions align
   cleanly). Re-packing levels to be edge-adjacent is deferred —
   requires walking every authored entity to update its __worldX.
+- `22447cd` — P2 end-to-end (ADR 0015) — `tileset add-layer` +
+  `tileset paint` python subcommands; intro_lab tileset grid sizes
+  fixed (32/64); IntroLabTiles layer def + per-level instance on
+  all 5 intro levels; 458 tiles painted from Collision IntGrid;
+  `sync_ldtk_world_transform` Bevy system aligns LdtkWorldBundle
+  with Ambition's centered active-area frame.
+- `3d54368` — P2 follow-up — spawn second LdtkWorldBundle for
+  intro.ldtk (`IntroLdtkWorldRoot`) so bevy_ecs_ldtk can render
+  the intro's painted tile layers; sync systems updated to
+  Or<sandbox, intro>.
+- `9af4d2f` — P4 step 2 — `world repack` python subcommand;
+  intro.ldtk levels packed edge-adjacent starting at (0,0); 55
+  entity __worldX/__worldY fields updated. Final intro span =
+  6528px wide.
 
 ## Open questions for next agent
 

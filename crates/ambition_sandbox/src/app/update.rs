@@ -21,6 +21,77 @@ use super::world_flow::*;
 #[allow(unused_imports)]
 use super::*;
 
+/// Phase 2 extracted: tick per-frame gameplay timers and detect double-tap
+/// gestures. Runs unconditionally every frame so wall-time timers always
+/// decay, but gate-checks the gameplay mode before touching gameplay state.
+///
+/// Writes `fast_fall_pressed` back to `ControlFrame` (the resource) so
+/// `sandbox_update` sees the updated flag in its local copy.
+/// Sets `PlayerInteractionState::double_tap_up_pending` so the subsequent
+/// interaction phase can activate doors/NPCs without a shared return value.
+pub fn input_timer_system(
+    time: Res<Time>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    mut sim_state: ResMut<crate::SandboxSimState>,
+    mut control_frame: ResMut<ControlFrame>,
+    mode: Res<State<GameMode>>,
+    mut player_q: Query<
+        (
+            &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerInteractionState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    if !mode.get().allows_gameplay() {
+        return;
+    }
+    let frame_dt = time.delta_secs();
+    let feel = *feel_tuning;
+    let Ok((mut combat, mut interaction)) = player_q.single_mut() else {
+        return;
+    };
+    sim_state.room_transition_cooldown = (sim_state.room_transition_cooldown - frame_dt).max(0.0);
+    combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
+    combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
+    let double_tap_down =
+        interaction.register_down_tap(control_frame.down_pressed, frame_dt, feel.down_double_tap_window);
+    control_frame.fast_fall_pressed = double_tap_down;
+    if double_tap_down {
+        interaction.double_tap_down_pending = true;
+    }
+    let door_double_tap_up =
+        interaction.register_up_tap(control_frame.up_pressed, frame_dt, feel.up_double_tap_window);
+    if door_double_tap_up {
+        interaction.double_tap_up_pending = true;
+    }
+    combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
+}
+
+/// Phase 11 extracted: decay presentation-only animation and flash timers.
+/// Runs every frame (including paused/dialogue) so visual flash and
+/// animation pose timers wind down continuously, not just during gameplay.
+pub fn cleanup_timers_system(
+    time: Res<Time>,
+    mut dev_state: ResMut<crate::SandboxDevState>,
+    mut player_q: Query<
+        (
+            &crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerAnimState,
+            &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerBlinkCameraState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+) {
+    let frame_dt = time.delta_secs();
+    let Ok((authority, mut anim, mut combat, mut blink_cam)) = player_q.single_mut() else {
+        return;
+    };
+    let player = &authority.player;
+    cleanup_timers_phase(player, &mut dev_state, &mut anim, &mut combat, &mut blink_cam, frame_dt);
+}
+
 /// Bevy gameplay system that drives the sandbox simulation.
 ///
 /// This is intentionally a thin orchestrator around named `*_phase`
@@ -118,12 +189,18 @@ pub fn sandbox_update(
     }
 
     // Pause/resume toggling has moved to `pause_menu::pause_menu_toggle`,
-    // which runs `.before(sandbox_update)`. The `start_pressed` flag is
-    // still read here for compile-completeness; the pause logic itself
+    // which runs `.before(SandboxSet::CoreSimulation)`. The `start_pressed`
+    // flag is still read here for compile-completeness; the pause logic
     // lives in the pause menu so it can drive a real overlay.
     let _ = controls.start_pressed;
 
-    let door_double_tap_up = input_timer_phase(&mut controls, &mut queues.sim_state, &mut *combat, &mut *interaction, feel, frame_dt);
+    // `input_timer_system` (SimPhase::InputTimer) ran earlier in the
+    // CoreSimulation chain: it ticked gameplay timers, detected double-tap
+    // gestures, and stored the door-double-tap-up result in the ECS
+    // component. Read and clear it here so interaction_input_phase can
+    // consume the value exactly once per frame.
+    let door_double_tap_up = interaction.double_tap_up_pending;
+    interaction.double_tap_up_pending = false;
 
     if matches!(
         reset_phase(
@@ -291,7 +368,9 @@ pub fn sandbox_update(
         &mut *combat,
     );
 
-    cleanup_timers_phase(player, &mut queues.dev_state, &mut *anim, &mut *combat, &mut *blink_cam, frame_dt);
+    // cleanup_timers_phase has moved to cleanup_timers_system
+    // (SimPhase::CleanupTimers), which runs after write_player_ecs_components
+    // in the CoreSimulation chain every frame unconditionally.
 
     flush_feedback(&mut feedback, &mut event_writers);
 }

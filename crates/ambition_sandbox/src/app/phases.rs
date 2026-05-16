@@ -31,25 +31,20 @@ use super::*;
 /// belongs here; new gameplay logic does not.
 pub(super) fn mode_gate_phase(
     mode: &GameMode,
-    dev_state: &mut crate::SandboxDevState,
+    _dev_state: &mut crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
-    combat: &mut crate::player::PlayerCombatState,
-    frame_dt: f32,
+    _combat: &mut crate::player::PlayerCombatState,
+    _frame_dt: f32,
 ) -> PhaseOutcome {
-    if matches!(mode, GameMode::Dialogue) {
-        sim_state.time_scale = 0.0;
-        combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
-        dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
-        return PhaseOutcome::Return;
-    }
     if !mode.allows_gameplay() {
-        // Pause, dialogue, and transition modes intentionally do not consume
-        // gameplay inputs or advance simulation timers. Developer hotkeys
-        // and HUD sync remain responsive because those systems are outside
-        // this early return.
+        // Pause, dialogue, transition, and cutscene modes suspend gameplay
+        // input and simulation time. Developer hotkeys and HUD sync remain
+        // responsive because those systems run outside this early return.
+        //
+        // Flash and animation timers (flash_timer, preset_flash, etc.) are
+        // now handled by cleanup_timers_system, which runs every frame
+        // unconditionally so presentation timers wind down in all modes.
         sim_state.time_scale = 0.0;
-        combat.flash_timer = (combat.flash_timer - frame_dt).max(0.0);
-        dev_state.preset_flash = (dev_state.preset_flash - frame_dt).max(0.0);
         return PhaseOutcome::Return;
     }
     PhaseOutcome::Continue

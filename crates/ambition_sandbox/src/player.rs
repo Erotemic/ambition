@@ -200,6 +200,10 @@ pub struct PlayerInteractionState {
     /// Set true by the input-timer phase when a double-tap-down is detected;
     /// consumed by the body-mode driver after `sandbox_update`.
     pub double_tap_down_pending: bool,
+    /// Set true by `input_timer_system` when a double-tap-up gesture is
+    /// detected; consumed by `interaction_input_phase` (or its future
+    /// extracted system) to activate door/NPC triggers. Cleared after use.
+    pub double_tap_up_pending: bool,
 }
 
 impl PlayerInteractionState {

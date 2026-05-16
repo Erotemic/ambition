@@ -158,23 +158,83 @@ simply tells the SFX system *where* the bank bytes come from.
 
 ## Migration plan
 
-The first slice does not migrate sandbox loaders. The intent is:
+| # | Slice | Status |
+| - | ----- | ------ |
+| 1 | Bootstrap entries (LDtk, default font) | TODO |
+| 2 | Entity sprite + parallax layer loading | **DONE** (2026-05-16) |
+| 3 | Character / boss spritesheet loading | TODO |
+| 4 | SFX bank bytes (catalog-routed `BankProvider`) | TODO |
+| 5 | LDtk hot-reload watcher consults `supports_hot_reload()` | TODO |
+| 6 | UI fonts | TODO |
+| 7 | Music | TODO |
+
+### Slice 2 — entity sprites + parallax layers (current)
+
+Live entity-sprite loading and parallax-layer loading both run through
+`ambition_asset_manager` as of 2026-05-16. The slice covers:
+
+- **Stable logical ids** (`crates/ambition_sandbox/src/game_assets.rs`):
+  - `entity_sprite_asset_id(EntitySprite) -> AssetId` →
+    `sprite.entity.<lower_snake>`
+  - `parallax_layer_asset_id(ParallaxTheme, ParallaxLayerAsset) -> AssetId` →
+    `background.parallax.<theme>.<layer>`
+- **Full manifest**: `sandbox_image_manifest(sprite_folder)` registers
+  every `EntitySprite::ALL` variant + every
+  `ParallaxTheme × ParallaxLayerAsset` pair as
+  `MissingAssetPolicy::SilentPlaceholder` with preload groups
+  `SandboxCore` (entity sprites) and `Zone` (parallax).
+- **Active profile selection**: `GameAssetConfig::asset_profile` defaults
+  via `default_asset_profile()` (cfg-driven: `WebStatic` on wasm,
+  `AndroidBundle` on Android, `DesktopDevLoose` everywhere else). The
+  `--no-assets` flag flips the profile to `NoAssets` so catalog
+  resolution returns `Disabled` for every entry.
+- **Loader rewrite**: `load_entity_sprites` and `load_parallax_layers`
+  call `catalog.path_for(id, profile)` (Bevy `AssetServer` does the
+  actual load). Both honor a single profile-gated
+  `should_attempt_optional_image_load` helper that:
+  - Pre-checks the host filesystem for `DesktopDevLoose` /
+    `DesktopInstalled` / `SteamDeckInstalled` (preserves the
+    colored-rectangle fallback for missing optional art).
+  - Trusts the packager for `AndroidBundle` / `IosBundle`.
+  - Skips the load on `WebStatic` / `WebHttp` / `BundledStatic` /
+    `IpfsGatewayPlaceholder` (optional sprites aren't bundled yet —
+    explicit `LocationCandidate`s will opt back in per asset once
+    packaging lands).
+- **`asset_exists` removed** from `game_assets.rs` (replaced by
+  `desktop_loose_file_exists` consulted only when the active profile is
+  desktop). No more `#[cfg(target_os = "android")]` branches in image
+  loading. The standalone copies of `asset_exists` /
+  `desktop_asset_exists` in `boss_sprites.rs` and `ui_fonts.rs` remain
+  for now — those subsystems migrate in their own slices (3 and 6).
+
+Behavior preserved (verified by tests in `game_assets.rs::tests`):
+
+- `--sprite-folder custom` still rewrites every entity-sprite path; the
+  catalog re-builds when `load_game_assets` runs.
+- `--no-assets` still short-circuits with the existing log line; the
+  catalog independently reports `Disabled` so any future catalog-only
+  call site behaves consistently.
+- Bevy `AssetServer` is still the actual loader.
+- Desktop optional-image fallback to colored rectangles is unchanged.
+
+### Other slices (deferred)
 
 1. **Bootstrap entries** (LDtk, default font) — author manifest entries
    with `MissingAssetPolicy::Error`, switch the sandbox loader to ask
    the catalog for paths.
-2. **Sprite folder** — every `EntitySprite` already has a stable
-   `AssetId` via `entity_sprite_asset_id(...)` (see
-   `crates/ambition_sandbox/src/game_assets.rs`). The
-   `demo_asset_catalog` function shows the resolver producing the
-   exact paths the live loader synthesizes. Next: author the full
-   sprite manifest and have `load_entity_sprites` consult the catalog.
-3. **SFX bank** — replace the current `static_sfx_bank` feature wiring
+3. **Character / boss spritesheets** — same pattern as slice 2 but
+   touches atlas layouts; deferred to avoid bundling layout changes
+   with the catalog migration.
+4. **SFX bank** — replace the current `static_sfx_bank` feature wiring
    with a catalog entry per-platform; the web build's static-bytes
    path resolves through `build_provider_from_resolved`.
-4. **LDtk hot reload** — the watcher consults
+5. **LDtk hot reload** — the watcher consults
    `ResolvedAsset::supports_hot_reload()` for the path to watch instead
    of hard-coded `CARGO_MANIFEST_DIR` walks.
+6. **UI fonts** — `crates/ambition_sandbox/src/ui_fonts.rs` still has
+   its own `asset_exists`; migrate behind a `font.<name>` namespace.
+7. **Music** — manifest entries per track id, then route through
+   catalog under the active profile.
 
 ## IPFS posture
 
@@ -198,4 +258,5 @@ can grow this into native IPFS support behind a separate feature.
 - `crates/ambition_asset_manager/src/bevy_integration.rs` — Bevy plugin/resource/helpers
 - `crates/ambition_asset_manager/src/sfx_integration.rs` — `BankProvider` adapter
 - `crates/ambition_asset_manager/tests/end_to_end.rs` — cross-module integration tests
-- `crates/ambition_sandbox/src/game_assets.rs::demo_asset_catalog` — first demonstration wiring
+- `crates/ambition_sandbox/src/game_assets.rs::sandbox_image_manifest` — live entity-sprite + parallax-layer catalog
+- `crates/ambition_sandbox/src/game_assets.rs::should_attempt_optional_image_load` — per-profile load gate (replaces the old `asset_exists`)

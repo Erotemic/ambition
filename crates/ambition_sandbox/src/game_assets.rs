@@ -32,10 +32,39 @@ use ambition_engine as ae;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+use ambition_asset_manager::{
+    AmbitionAssetCatalog, AssetEntry, AssetId, AssetKind, AssetManifest, AssetProfile,
+    MissingAssetPolicy, PreloadGroup,
+};
+
 use crate::boss_sprites::{self, BossSpriteAsset};
 use crate::character_sprites::{self, CharacterSpriteAssets};
 use crate::features::FeatureVisualKind;
 use crate::rooms::{LoadingZoneActivation, RoomMetadata};
+
+/// Pick a sensible default [`AssetProfile`] for the current build target.
+///
+/// - wasm32 → [`AssetProfile::WebStatic`] (today's first-pass browser
+///   build embeds the LDtk bootstrap; optional sprite/parallax PNGs
+///   aren't packaged yet, so the catalog skips them and the rendering
+///   layer paints colored rectangles).
+/// - Android → [`AssetProfile::AndroidBundle`] (Bevy's Android
+///   AssetReader pulls from the APK).
+/// - everything else → [`AssetProfile::DesktopDevLoose`] (assumes a
+///   workspace-relative `assets/` directory; supports hot reload via
+///   the loose-filesystem source).
+///
+/// `cargo run --bin sandbox -- --no-assets` overrides to [`AssetProfile::NoAssets`]
+/// via [`GameAssetConfig::from_arg_slice`].
+pub fn default_asset_profile() -> AssetProfile {
+    if cfg!(target_arch = "wasm32") {
+        AssetProfile::WebStatic
+    } else if cfg!(target_os = "android") {
+        AssetProfile::AndroidBundle
+    } else {
+        AssetProfile::DesktopDevLoose
+    }
+}
 
 /// CLI/runtime configuration for asset loading. Inserted as a Bevy resource
 /// before the presentation startup system runs.
@@ -43,11 +72,18 @@ use crate::rooms::{LoadingZoneActivation, RoomMetadata};
 pub struct GameAssetConfig {
     /// When true, skip every disk asset load and force colored-rectangle
     /// placeholders everywhere. Set via the `--no-assets` CLI flag.
+    /// Equivalent to setting `asset_profile = AssetProfile::NoAssets`;
+    /// kept as a separate flag so the existing "rendering with
+    /// placeholders only" log line is preserved.
     pub no_assets: bool,
     /// Directory under `assets/` that holds character + entity sprites.
     /// Default `"sprites"`. Lets designers point at experimental sets
     /// without recompiling.
     pub sprite_folder: String,
+    /// Active [`AssetProfile`] for catalog resolution. Defaults from
+    /// [`default_asset_profile`] (per-target cfg). `--no-assets` flips
+    /// it to [`AssetProfile::NoAssets`].
+    pub asset_profile: AssetProfile,
 }
 
 impl Default for GameAssetConfig {
@@ -55,6 +91,7 @@ impl Default for GameAssetConfig {
         Self {
             no_assets: false,
             sprite_folder: "sprites".into(),
+            asset_profile: default_asset_profile(),
         }
     }
 }
@@ -74,7 +111,12 @@ impl GameAssetConfig {
         let mut i = 0;
         while i < args.len() {
             match args[i].as_str() {
-                "--no-assets" => config.no_assets = true,
+                "--no-assets" => {
+                    config.no_assets = true;
+                    // Keep the asset profile in sync so the catalog
+                    // resolver reports every entry as Disabled too.
+                    config.asset_profile = AssetProfile::NoAssets;
+                }
                 "--sprite-folder" => {
                     if let Some(folder) = args.get(i + 1) {
                         config.sprite_folder = folder.clone();
@@ -205,15 +247,14 @@ impl EntitySprite {
     ];
 }
 
-/// Stable `AssetId` for an `EntitySprite`, for use with
-/// [`ambition_asset_manager`]. First slice: this is a parallel lookup
-/// used by a documented demonstration (see [`demo_asset_catalog`]); the
-/// live `load_entity_sprites` path still uses raw paths via
-/// `asset_server.load(...)`. Migrating call sites is a follow-up.
+/// Stable [`AssetId`] for an [`EntitySprite`].
 ///
-/// Ids match the recommended `sprite.entity.<lower_snake>` scheme so
-/// future authored manifests can drop in without renaming.
-pub fn entity_sprite_asset_id(key: EntitySprite) -> ambition_asset_manager::AssetId {
+/// The id namespace is `sprite.entity.<lower_snake>` — part of the
+/// public asset-catalog contract. Changing the format silently would
+/// invalidate authored manifests, so the per-variant suffix mapping is
+/// pinned by the test
+/// [`tests::every_entity_sprite_has_a_unique_asset_id_in_sprite_entity_namespace`].
+pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
     let suffix = match key {
         EntitySprite::ChestClosed => "chest_closed",
         EntitySprite::ChestOpen => "chest_open",
@@ -244,32 +285,41 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> ambition_asset_manager::Asse
         EntitySprite::HardBlinkTile => "hard_blink_tile",
         EntitySprite::LockWallTile => "lock_wall_tile",
     };
-    ambition_asset_manager::AssetId::new(format!("sprite.entity.{suffix}"))
+    AssetId::new(format!("sprite.entity.{suffix}"))
 }
 
-/// Demonstration manifest: registers the chest entity sprites with the
-/// asset catalog so the resolver can produce Bevy `AssetPath` strings
-/// matching what `load_entity_sprites` would synthesize by hand.
+/// Stable [`AssetId`] for a parallax background layer.
 ///
-/// This is intentionally a tiny slice (two entries). It exists so a
-/// covering unit test can prove the catalog wiring is functional
-/// without rewriting the live `load_game_assets` path. The full
-/// migration of every sprite/font/parallax asset to catalog ids is a
-/// follow-up; see `docs/asset_manager.md` §"Migration plan".
-///
-/// The `sprite_folder` arg mirrors the live `GameAssetConfig` knob so
-/// the catalog-driven path follows `--sprite-folder` overrides; the
-/// live load path stays the source of truth until the migration lands.
-pub fn demo_asset_catalog(
-    sprite_folder: &str,
-) -> ambition_asset_manager::AmbitionAssetCatalog {
-    use ambition_asset_manager::{
-        AmbitionAssetCatalog, AssetEntry, AssetKind, AssetManifest, MissingAssetPolicy,
-        PreloadGroup,
-    };
+/// Namespace: `background.parallax.<theme>.<layer>` — same shape as
+/// the existing relative path `backgrounds/parallax_layers/{theme}_{layer}.png`
+/// but flattened into a dotted logical id.
+pub fn parallax_layer_asset_id(theme: ParallaxTheme, layer: ParallaxLayerAsset) -> AssetId {
+    AssetId::new(format!(
+        "background.parallax.{}.{}",
+        theme.key(),
+        layer.key(),
+    ))
+}
 
+/// Build the sandbox's optional-image manifest: every [`EntitySprite`]
+/// plus every `(ParallaxTheme, ParallaxLayerAsset)` pair, keyed by
+/// stable logical ids and pointed at the configured `sprite_folder` /
+/// the canonical `backgrounds/parallax_layers/` tree.
+///
+/// All entries are optional — [`MissingAssetPolicy::SilentPlaceholder`]
+/// so the rendering layer's colored-rectangle fallback fires for any
+/// asset Bevy fails to locate. Preload groups:
+///
+/// - Entity sprites → [`PreloadGroup::SandboxCore`] (used everywhere)
+/// - Parallax layers → [`PreloadGroup::Zone`] (per-room art)
+///
+/// The function is `pub` so tests + future tools (e.g. a content
+/// validator) can introspect the registered ids without going through
+/// Bevy. Live image loading consumes it through
+/// [`load_game_assets`] / [`load_entity_sprites`] / [`load_parallax_layers`].
+pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
     let mut manifest = AssetManifest::new();
-    for &sprite in &[EntitySprite::ChestClosed, EntitySprite::ChestOpen] {
+    for &sprite in EntitySprite::ALL {
         let id = entity_sprite_asset_id(sprite);
         let logical_path = format!("{sprite_folder}/{}", sprite.relative_path());
         manifest.insert(
@@ -278,7 +328,25 @@ pub fn demo_asset_catalog(
                 .with_preload_group(PreloadGroup::SandboxCore),
         );
     }
-    AmbitionAssetCatalog::new(manifest)
+    for &theme in ParallaxTheme::ALL {
+        for &layer in ParallaxLayerAsset::ALL {
+            let id = parallax_layer_asset_id(theme, layer);
+            let logical_path = layer.relative_path(theme);
+            manifest.insert(
+                AssetEntry::new(id, AssetKind::Image, logical_path)
+                    .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+                    .with_preload_group(PreloadGroup::Zone),
+            );
+        }
+    }
+    manifest
+}
+
+/// Convenience: wrap [`sandbox_image_manifest`] in a Bevy-side catalog
+/// resource. Constructed per [`load_game_assets`] call so a future
+/// `--sprite-folder` toggle re-resolves cleanly.
+pub fn build_sandbox_image_catalog(sprite_folder: &str) -> AmbitionAssetCatalog {
+    AmbitionAssetCatalog::new(sandbox_image_manifest(sprite_folder))
 }
 
 /// Map from `EntitySprite` to its loaded `Handle<Image>`. Missing handles
@@ -510,13 +578,16 @@ pub fn load_game_assets(
         return GameAssets::default();
     }
 
+    let catalog = build_sandbox_image_catalog(&config.sprite_folder);
+    let profile = config.asset_profile;
+
     let characters =
         character_sprites::load_character_sprites_in(asset_server, layouts, &config.sprite_folder);
-    let entities = load_entity_sprites(asset_server, &config.sprite_folder);
+    let entities = load_entity_sprites(&catalog, asset_server, profile);
     let boss = boss_sprites::load_boss_sprite_in(asset_server, layouts, &config.sprite_folder);
     let mockingbird =
         boss_sprites::load_mockingbird_sprite_in(asset_server, layouts, &config.sprite_folder);
-    let parallax_layers = load_parallax_layers(asset_server);
+    let parallax_layers = load_parallax_layers(&catalog, asset_server, profile);
 
     let missing = EntitySprite::ALL.len() - entities.len();
     if missing > 0 {
@@ -536,25 +607,41 @@ pub fn load_game_assets(
     }
 }
 
-fn load_entity_sprites(asset_server: &AssetServer, sprite_folder: &str) -> EntitySpriteSet {
+fn load_entity_sprites(
+    catalog: &AmbitionAssetCatalog,
+    asset_server: &AssetServer,
+    profile: AssetProfile,
+) -> EntitySpriteSet {
     let mut handles = HashMap::with_capacity(EntitySprite::ALL.len());
     for &key in EntitySprite::ALL {
-        let rel = format!("{sprite_folder}/{}", key.relative_path());
-        if asset_exists(&rel) {
-            handles.insert(key, asset_server.load(rel));
+        let id = entity_sprite_asset_id(key);
+        let Some(path) = catalog.path_for(&id, profile) else {
+            continue;
+        };
+        if !should_attempt_optional_image_load(profile, &path) {
+            continue;
         }
+        handles.insert(key, asset_server.load(path));
     }
     EntitySpriteSet { handles }
 }
 
-fn load_parallax_layers(asset_server: &AssetServer) -> ParallaxLayerSet {
+fn load_parallax_layers(
+    catalog: &AmbitionAssetCatalog,
+    asset_server: &AssetServer,
+    profile: AssetProfile,
+) -> ParallaxLayerSet {
     let mut handles = HashMap::new();
     for &theme in ParallaxTheme::ALL {
         for &layer in ParallaxLayerAsset::ALL {
-            let rel = layer.relative_path(theme);
-            if asset_exists(&rel) {
-                handles.insert((theme, layer), asset_server.load(rel));
+            let id = parallax_layer_asset_id(theme, layer);
+            let Some(path) = catalog.path_for(&id, profile) else {
+                continue;
+            };
+            if !should_attempt_optional_image_load(profile, &path) {
+                continue;
             }
+            handles.insert((theme, layer), asset_server.load(path));
         }
     }
     if !handles.is_empty() {
@@ -567,27 +654,53 @@ fn load_parallax_layers(asset_server: &AssetServer) -> ParallaxLayerSet {
     ParallaxLayerSet { handles }
 }
 
-fn asset_exists(rel_path: &str) -> bool {
-    // Android assets live inside the APK, not under the host-side
-    // CARGO_MANIFEST_DIR. Let Bevy's Android asset reader try the load.
-    #[cfg(target_os = "android")]
-    {
-        let _ = rel_path;
-        true
-    }
-
-    // Desktop / Steam Deck bundles can run from a different path than the
-    // Linux machine that built them. Check the same app-root layout Bevy uses
-    // first, but tolerate both BEVY_ASSET_ROOT=<app> and
-    // BEVY_ASSET_ROOT=<app>/assets while preserving local cargo-run fallback.
-    #[cfg(not(target_os = "android"))]
-    {
-        desktop_asset_exists(rel_path)
+/// Whether the loader should hand `path` to Bevy's `AssetServer::load`
+/// for an *optional* image (entity sprites, parallax layers). Decides
+/// per-[`AssetProfile`] without any `target_os` cfg branches.
+///
+/// - Desktop profiles (DevLoose / Installed / SteamDeck): pre-check the
+///   host filesystem so missing optional art falls back to colored
+///   rectangles before Bevy logs a load failure.
+/// - Bundled / mobile profiles (Android / iOS): trust the packager and
+///   let Bevy's platform `AssetReader` try the load. A missing asset
+///   here is a packaging mistake, not a content-author concern.
+/// - Web / bundled-static / IPFS profiles: optional sprite/parallax
+///   PNGs aren't packaged with these builds today, so skip the load
+///   entirely. The rendering layer paints colored rectangles. A future
+///   slice can author per-asset explicit candidates to opt back in
+///   once packaging lands.
+/// - NoAssets / Headless: the catalog already returned `None` upstream;
+///   the arms are here only for match exhaustiveness.
+fn should_attempt_optional_image_load(profile: AssetProfile, path: &str) -> bool {
+    match profile {
+        AssetProfile::DesktopDevLoose
+        | AssetProfile::DesktopInstalled
+        | AssetProfile::SteamDeckInstalled => desktop_loose_file_exists(path),
+        AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
+        AssetProfile::WebStatic
+        | AssetProfile::WebHttp
+        | AssetProfile::BundledStatic
+        | AssetProfile::IpfsGatewayPlaceholder => false,
+        AssetProfile::NoAssets | AssetProfile::Headless => false,
     }
 }
 
-#[cfg(not(target_os = "android"))]
-fn desktop_asset_exists(rel_path: &str) -> bool {
+/// Walk the same desktop candidate roots `Bevy`'s file `AssetReader`
+/// would, return true if any of them holds `rel_path`. Used by
+/// [`should_attempt_optional_image_load`] for the desktop profiles
+/// (DevLoose / Installed / SteamDeck) so optional art that isn't on
+/// disk doesn't get a Bevy handle that the renderer would then paint
+/// as a load failure.
+///
+/// Roots, in order:
+/// 1. `$BEVY_ASSET_ROOT/assets/<rel>` (preferred form).
+/// 2. `$BEVY_ASSET_ROOT/<rel>` (tolerate `BEVY_ASSET_ROOT` aimed at
+///    the assets dir).
+/// 3. `$CWD/assets/<rel>` (direct binary launches from app dir).
+/// 4. `$CWD/<rel>` (launches from the assets dir / symlinks).
+/// 5. `$CARGO_MANIFEST_DIR/assets/<rel>` (workspace `cargo run` /
+///    `cargo test` fallback).
+fn desktop_loose_file_exists(rel_path: &str) -> bool {
     let rel = std::path::Path::new(rel_path);
     let mut candidates = Vec::new();
 
@@ -811,6 +924,20 @@ mod tests {
         let c = GameAssetConfig::from_arg_slice(&args(&["--no-assets"]));
         assert!(c.no_assets);
         assert_eq!(c.sprite_folder, "sprites", "folder unaffected");
+        // --no-assets must also flip the catalog profile so the resolver
+        // returns Disabled for every entry. Otherwise a future call site
+        // that consults the catalog (without the no_assets early-return)
+        // would still get a Bevy path.
+        assert_eq!(c.asset_profile, AssetProfile::NoAssets);
+    }
+
+    #[test]
+    fn default_config_uses_target_cfg_asset_profile() {
+        // The default profile is cfg-driven (Desktop on dev hosts).
+        // Tests run on the host architecture; assert against the same
+        // expression to lock in the wiring.
+        let c = GameAssetConfig::default();
+        assert_eq!(c.asset_profile, default_asset_profile());
     }
 
     #[test]
@@ -834,63 +961,223 @@ mod tests {
         assert_eq!(c.sprite_folder, "sprites");
     }
 
-    /// Demonstration: resolving `sprite.entity.chest_closed` through
-    /// the catalog yields the exact same path string `load_entity_sprites`
-    /// would synthesize from the live loader. Locks in the contract that
-    /// the catalog is path-compatible with the existing loader so a future
-    /// migration can swap them one-for-one without changing on-disk asset
-    /// layouts.
+    /// Every `EntitySprite::ALL` variant has a stable, unique `AssetId`
+    /// in the `sprite.entity.*` namespace. Catches accidental id
+    /// collisions and namespace drift.
     #[test]
-    fn demo_asset_catalog_resolves_chest_paths_matching_loader() {
-        use ambition_asset_manager::AssetProfile;
+    fn every_entity_sprite_has_a_unique_asset_id_in_sprite_entity_namespace() {
+        let mut seen = std::collections::HashSet::new();
+        for &sprite in EntitySprite::ALL {
+            let id = entity_sprite_asset_id(sprite);
+            assert!(
+                id.as_str().starts_with("sprite.entity."),
+                "{sprite:?} id `{id}` not in sprite.entity.* namespace",
+            );
+            assert!(seen.insert(id.clone()), "duplicate asset id for {sprite:?}: `{id}`");
+        }
+        // Lock the chest_closed variant by name so refactors that
+        // change the snake_case scheme don't go unnoticed.
+        assert_eq!(
+            entity_sprite_asset_id(EntitySprite::ChestClosed).as_str(),
+            "sprite.entity.chest_closed",
+        );
+    }
 
-        let catalog = demo_asset_catalog("sprites");
-        let chest_id = entity_sprite_asset_id(EntitySprite::ChestClosed);
+    /// Every parallax `(theme, layer)` pair has a stable, unique id in
+    /// the `background.parallax.<theme>.<layer>` namespace.
+    #[test]
+    fn every_parallax_layer_has_a_unique_asset_id() {
+        let mut seen = std::collections::HashSet::new();
+        for &theme in ParallaxTheme::ALL {
+            for &layer in ParallaxLayerAsset::ALL {
+                let id = parallax_layer_asset_id(theme, layer);
+                assert!(
+                    id.as_str().starts_with("background.parallax."),
+                    "{:?}/{:?} id `{id}` not in background.parallax.* namespace",
+                    theme,
+                    layer,
+                );
+                assert!(seen.insert(id.clone()), "duplicate parallax id: `{id}`");
+            }
+        }
+    }
+
+    /// The full sandbox image manifest has exactly one entry per
+    /// `EntitySprite::ALL` variant + one per `(theme, layer)`, no
+    /// duplicates, and every entry has the `Image` kind.
+    #[test]
+    fn sandbox_image_manifest_registers_every_entity_and_parallax_entry() {
+        let manifest = sandbox_image_manifest("sprites");
+        let expected =
+            EntitySprite::ALL.len() + ParallaxTheme::ALL.len() * ParallaxLayerAsset::ALL.len();
+        assert_eq!(
+            manifest.len(),
+            expected,
+            "manifest len mismatch (entity={} parallax={}x{}={})",
+            EntitySprite::ALL.len(),
+            ParallaxTheme::ALL.len(),
+            ParallaxLayerAsset::ALL.len(),
+            ParallaxTheme::ALL.len() * ParallaxLayerAsset::ALL.len(),
+        );
+        for &sprite in EntitySprite::ALL {
+            let id = entity_sprite_asset_id(sprite);
+            let entry = manifest
+                .get(&id)
+                .unwrap_or_else(|| panic!("manifest missing {sprite:?}"));
+            assert!(matches!(entry.kind, ambition_asset_manager::AssetKind::Image));
+        }
+        for &theme in ParallaxTheme::ALL {
+            for &layer in ParallaxLayerAsset::ALL {
+                let id = parallax_layer_asset_id(theme, layer);
+                let entry = manifest
+                    .get(&id)
+                    .unwrap_or_else(|| panic!("manifest missing {theme:?}/{layer:?}"));
+                assert!(matches!(entry.kind, ambition_asset_manager::AssetKind::Image));
+            }
+        }
+    }
+
+    /// The catalog under `DesktopDevLoose` produces the exact path
+    /// strings the prior raw-path loader would have built. Locks in
+    /// migration parity for every entity sprite + every parallax layer.
+    #[test]
+    fn catalog_paths_match_legacy_loader_paths_under_desktop_dev_loose() {
+        let catalog = build_sandbox_image_catalog("sprites");
+        let profile = AssetProfile::DesktopDevLoose;
+
+        for &sprite in EntitySprite::ALL {
+            let id = entity_sprite_asset_id(sprite);
+            let path = catalog
+                .path_for(&id, profile)
+                .unwrap_or_else(|| panic!("desktop catalog missing path for {sprite:?}"));
+            assert_eq!(
+                path,
+                format!("sprites/{}", sprite.relative_path()),
+                "{sprite:?} path drift",
+            );
+        }
+        for &theme in ParallaxTheme::ALL {
+            for &layer in ParallaxLayerAsset::ALL {
+                let id = parallax_layer_asset_id(theme, layer);
+                let path = catalog
+                    .path_for(&id, profile)
+                    .unwrap_or_else(|| panic!("desktop catalog missing {theme:?}/{layer:?}"));
+                assert_eq!(path, layer.relative_path(theme), "{theme:?}/{layer:?} path drift");
+            }
+        }
+    }
+
+    /// `--sprite-folder custom_sprites` propagates through the catalog
+    /// so the resolved entity-sprite paths point at the override
+    /// directory. Parallax layers live under a fixed `backgrounds/`
+    /// path independent of `--sprite-folder` and must not move.
+    #[test]
+    fn sprite_folder_flag_propagates_through_catalog() {
+        let catalog = build_sandbox_image_catalog("custom_sprites");
+        let id = entity_sprite_asset_id(EntitySprite::ChestClosed);
         let path = catalog
-            .path_for(&chest_id, AssetProfile::DesktopDevLoose)
-            .expect("ChestClosed must resolve under DesktopDevLoose");
+            .path_for(&id, AssetProfile::DesktopDevLoose)
+            .unwrap();
         assert_eq!(
             path,
-            format!("sprites/{}", EntitySprite::ChestClosed.relative_path()),
-            "catalog path must match what load_entity_sprites builds",
+            format!("custom_sprites/{}", EntitySprite::ChestClosed.relative_path()),
         );
-
-        // Honors `--sprite-folder`.
-        let catalog_exp = demo_asset_catalog("experimental");
-        let path_exp = catalog_exp
-            .path_for(&chest_id, AssetProfile::DesktopDevLoose)
-            .unwrap();
+        // Parallax layers don't follow --sprite-folder; verify the
+        // override doesn't accidentally remap their path.
+        let parallax_id = parallax_layer_asset_id(ParallaxTheme::Hub, ParallaxLayerAsset::Sky);
         assert_eq!(
-            path_exp,
-            format!("experimental/{}", EntitySprite::ChestClosed.relative_path()),
+            catalog
+                .path_for(&parallax_id, AssetProfile::DesktopDevLoose)
+                .unwrap(),
+            ParallaxLayerAsset::Sky.relative_path(ParallaxTheme::Hub),
         );
+    }
 
-        // WebStatic synthesizes the embedded:// scheme from the same logical path.
-        let path_web = catalog
-            .path_for(&chest_id, AssetProfile::WebStatic)
-            .unwrap();
+    /// `NoAssets` profile reports every entry as Disabled, so
+    /// `path_for` returns `None` and the loaders insert no handles —
+    /// the same outcome the `--no-assets` early-return produces.
+    #[test]
+    fn no_assets_profile_disables_every_image_in_the_manifest() {
+        let catalog = build_sandbox_image_catalog("sprites");
+        for &sprite in EntitySprite::ALL {
+            let id = entity_sprite_asset_id(sprite);
+            assert!(
+                catalog.path_for(&id, AssetProfile::NoAssets).is_none(),
+                "{sprite:?} not disabled under NoAssets",
+            );
+        }
+        for &theme in ParallaxTheme::ALL {
+            for &layer in ParallaxLayerAsset::ALL {
+                let id = parallax_layer_asset_id(theme, layer);
+                assert!(
+                    catalog.path_for(&id, AssetProfile::NoAssets).is_none(),
+                    "{theme:?}/{layer:?} not disabled under NoAssets",
+                );
+            }
+        }
+    }
+
+    /// WebStatic synthesizes `embedded://` URLs for every entry.
+    /// `should_attempt_optional_image_load` then skips them on web
+    /// (optional sprites aren't packaged into the wasm bundle yet),
+    /// preserving the colored-rectangle fallback.
+    #[test]
+    fn web_static_synthesizes_embedded_scheme_but_loader_skips_today() {
+        let catalog = build_sandbox_image_catalog("sprites");
+        let id = entity_sprite_asset_id(EntitySprite::ChestClosed);
+        let path = catalog.path_for(&id, AssetProfile::WebStatic).unwrap();
         assert_eq!(
-            path_web,
+            path,
             format!(
                 "embedded://sprites/{}",
                 EntitySprite::ChestClosed.relative_path()
             ),
         );
-
-        // NoAssets disables every entry; the catalog returns None and
-        // the existing colored-rectangle fallback in `entity_sprite_or_color`
-        // covers the call site.
-        assert!(catalog
-            .path_for(&chest_id, AssetProfile::NoAssets)
-            .is_none());
+        assert!(
+            !should_attempt_optional_image_load(AssetProfile::WebStatic, &path),
+            "WebStatic optional images must skip the load until packaging lands",
+        );
     }
 
+    /// The per-profile load gate matches the legacy desktop / android
+    /// behavior exactly. Locks in the migration contract documented in
+    /// `should_attempt_optional_image_load`.
     #[test]
-    fn entity_sprite_asset_id_follows_sprite_entity_namespace() {
-        // The id scheme is part of the public asset catalog contract;
-        // changing it silently would invalidate authored manifests.
-        let id = entity_sprite_asset_id(EntitySprite::ChestClosed);
-        assert_eq!(id.as_str(), "sprite.entity.chest_closed");
+    fn should_attempt_optional_image_load_matches_legacy_per_profile_behavior() {
+        // Android / iOS bundles trust the packager — always attempt.
+        for profile in [AssetProfile::AndroidBundle, AssetProfile::IosBundle] {
+            assert!(should_attempt_optional_image_load(profile, "sprites/x.png"));
+        }
+        // Web / bundled / IPFS skip optional images entirely today.
+        for profile in [
+            AssetProfile::WebStatic,
+            AssetProfile::WebHttp,
+            AssetProfile::BundledStatic,
+            AssetProfile::IpfsGatewayPlaceholder,
+        ] {
+            assert!(!should_attempt_optional_image_load(profile, "sprites/x.png"));
+        }
+        // NoAssets / Headless never attempt.
+        for profile in [AssetProfile::NoAssets, AssetProfile::Headless] {
+            assert!(!should_attempt_optional_image_load(profile, "sprites/x.png"));
+        }
+        // Desktop profiles pre-check; pass a path that definitely
+        // doesn't exist under any of the desktop_loose_file_exists
+        // candidate roots.
+        for profile in [
+            AssetProfile::DesktopDevLoose,
+            AssetProfile::DesktopInstalled,
+            AssetProfile::SteamDeckInstalled,
+        ] {
+            assert!(!should_attempt_optional_image_load(
+                profile,
+                "sprites/__nonexistent_test_asset_for_load_gate__.png",
+            ));
+        }
+        // Conversely, an asset that DOES exist under CARGO_MANIFEST_DIR/assets/
+        // (the workspace cargo-test fallback) should pass. Use the
+        // sandbox.ron data file the test crate always ships.
+        assert!(desktop_loose_file_exists("ambition/sandbox.ron"));
     }
 
     #[test]

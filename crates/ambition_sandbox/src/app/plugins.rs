@@ -55,6 +55,14 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_message::<crate::features::GameplayBannerRequested>()
         .add_message::<crate::player::PlayerHealRequested>()
         .add_message::<crate::rooms::RoomTransitionRequested>()
+        // ADR 0010 — time-control vocabulary. Gameplay code writes
+        // ClockScaleRequest instead of mutating SandboxSimState::
+        // time_scale directly; apply_clock_scale_requests consults
+        // RegimePolicy (default: Solo, grant-all) and either applies
+        // or drops the request. See `crate::time_control` for the
+        // policy + dispatch and ADR 0010 §Vocabulary for the model.
+        .add_message::<crate::time_control::ClockScaleRequest>()
+        .insert_resource(crate::time_control::RegimePolicy::default())
         .register_type::<GameMode>()
         // StartupProfiler captures wall-clock at each marked phase so a
         // PostStartup report prints "where did the first frame's
@@ -195,6 +203,12 @@ pub fn add_simulation_plugins(app: &mut App) {
         .add_systems(
             Update,
             (
+                // ADR 0010 — drain pending ClockScaleRequest messages
+                // before refresh_world_time so the resulting sim_dt
+                // reflects this frame's policy decisions. Step 4
+                // wires bullet-time through this seam; today only
+                // ad-hoc test paths emit requests.
+                crate::time_control::apply_clock_scale_requests,
                 crate::refresh_world_time,
                 sync_live_player_dev_edits_system,
                 apply_player_reset_input_system.run_if(gameplay_allowed),

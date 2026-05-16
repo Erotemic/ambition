@@ -62,6 +62,7 @@ pub mod rooms;
 pub mod save;
 pub mod settings;
 pub mod swim;
+pub mod time_control;
 pub mod trace;
 pub mod ui_fonts;
 pub mod ui_nav;

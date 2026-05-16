@@ -29,6 +29,11 @@ pub enum DialogMode {
     /// Ninja-faction grunt. Trash-talks the pirates, then grudgingly
     /// admits the bird is the bigger problem.
     NinjaDuelist,
+    /// Intro story content (Creator wake / final, Oiler, Gate Janitor,
+    /// Framebreaker, Nazi salvage guard, news board, manifest kiosk).
+    /// The wrapped enum lives in `crate::intro::dialog` so adding a
+    /// new intro NPC doesn't churn this file.
+    Intro(crate::intro::dialog::IntroDialog),
     Generic,
 }
 
@@ -48,12 +53,29 @@ pub(crate) const KNOWN_DIALOGUE_IDS: &[&str] = &[
     "generic_npc",
 ];
 
-pub(crate) fn known_dialogue_ids() -> &'static [&'static str] {
-    KNOWN_DIALOGUE_IDS
+/// Aggregate of sandbox sandbox-owned dialogue ids plus story-content
+/// ids contributed by sibling submodules (currently
+/// [`crate::intro::dialog::intro_dialogue_ids`]). The validator
+/// (`content_validation::validate_npc_dialogue_ids`) walks this list to
+/// approve `NpcSpawn.dialogue_id` fields, so a content-only crate split
+/// can keep ids local to its module while staying validation-clean.
+pub(crate) fn known_dialogue_ids() -> Vec<&'static str> {
+    let mut all = Vec::with_capacity(
+        KNOWN_DIALOGUE_IDS.len() + crate::intro::dialog::intro_dialogue_ids().len(),
+    );
+    all.extend(KNOWN_DIALOGUE_IDS.iter().copied());
+    all.extend(crate::intro::dialog::intro_dialogue_ids().iter().copied());
+    all
 }
 
 impl DialogMode {
-    pub(in crate::dialog) fn from_dialogue_id(dialogue_id: &str) -> Self {
+    pub(crate) fn from_dialogue_id(dialogue_id: &str) -> Self {
+        // Intro story dialogue dispatches first so adding intro ids
+        // doesn't require touching this match. Sandbox-owned ids
+        // remain authoritative; the Generic fallback stays last.
+        if let Some(intro) = crate::intro::dialog::IntroDialog::from_dialogue_id(dialogue_id) {
+            return Self::Intro(intro);
+        }
         match dialogue_id {
             "architect_intro" => Self::Architect,
             "vault_keeper" => Self::VaultKeeper,
@@ -86,6 +108,7 @@ impl DialogMode {
             Self::PirateRaider | Self::PirateRaiderAfterTreasure => "pirate raider",
             Self::NinjaLeader => "ninja shadow oni leader",
             Self::NinjaDuelist => "ninja shadow duelist",
+            Self::Intro(intro) => intro.label(),
             Self::Generic => "sandbox dialogue",
         }
     }
@@ -106,6 +129,7 @@ impl DialogMode {
             Self::PirateRaiderAfterTreasure => PIRATE_RAIDER_AFTER_TREASURE_NODES,
             Self::NinjaLeader => NINJA_LEADER_NODES,
             Self::NinjaDuelist => NINJA_DUELIST_NODES,
+            Self::Intro(intro) => intro.nodes(),
             Self::Generic => GENERIC_NODES,
         }
     }

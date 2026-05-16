@@ -123,6 +123,13 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::cutscene::CutsceneTriggerQueue::default())
         .insert_resource(crate::cutscene::CutsceneAdvanceRequest::default())
         .insert_resource(crate::cutscene::RoomCutsceneBindings::defaults())
+        // Intro story content plugin. Extends CutsceneLibrary +
+        // RoomCutsceneBindings (always) and GameAssets.characters.npcs
+        // (visible builds only — the sprite installer is a no-op in
+        // headless where GameAssets is absent). Keeps story content out
+        // of sandbox-owned files in preparation for a future
+        // sandbox / game crate split.
+        .add_plugins(crate::intro::IntroPlugin)
         .insert_resource(crate::boss_encounter::BossEncounterRegistry::default())
         .insert_resource(crate::map_menu::MapMenuState::default())
         .insert_resource(crate::CameraEaseState::default())

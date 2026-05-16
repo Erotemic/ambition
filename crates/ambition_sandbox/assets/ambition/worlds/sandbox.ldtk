@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 4346,
+	"nextUid": 4347,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -6778,6 +6778,29 @@
 							],
 							"__worldX": 454,
 							"__worldY": 1208
+						},
+						{
+							"__identifier": "LoadingZone",
+							"__grid": [113,52],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FFD166",
+							"__worldX": 1822,
+							"__worldY": 1856,
+							"iid": "LoadingZone-4346",
+							"width": 48,
+							"height": 96,
+							"defUid": 2002,
+							"px": [1822,832],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "intro_wake_door", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["intro_wake_door"] } ] },
+								{ "__identifier": "name", "__type": "String", "__value": "intro_wake_door", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["intro_wake_door"] } ] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "intro_wake_room", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["intro_wake_room"] } ] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "intro_wake_hatch", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["intro_wake_hatch"] } ] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+							]
 						}
 					]
 				},

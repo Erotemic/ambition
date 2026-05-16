@@ -30,9 +30,12 @@ pub use anim::{
     pick_enemy_anim, pick_npc_anim, pick_player_anim, CharacterAnim, EnemyAnimState, NpcAnimState,
 };
 pub use animator::CharacterAnimator;
-pub use assets::{load_character_sprites_in, CharacterSpriteAsset, CharacterSpriteAssets};
+pub use assets::{
+    build_npc_sprite_asset, load_character_sprites_in, CharacterSpriteAsset, CharacterSpriteAssets,
+};
 pub use sheets::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
     feet_anchor_for_render_size, player_placeholder_render_size, sprite_render_size, AnimRow,
-    CharacterSheetSpec, GOBLIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
+    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET,
+    MERCHANT_PROTOTYPE_SHEET, ROBOT_SHEET, SANDBAG_SHEET, VAULT_KEEPER_SHEET,
 };

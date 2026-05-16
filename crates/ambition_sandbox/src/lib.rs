@@ -36,6 +36,7 @@ pub mod fx;
 pub mod game_assets;
 pub mod game_mode;
 pub mod input;
+pub mod intro;
 pub mod inventory;
 pub mod ldtk_world;
 pub mod ledge_grab;

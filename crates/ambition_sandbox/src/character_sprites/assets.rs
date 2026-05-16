@@ -218,6 +218,24 @@ fn build_optional(
     })
 }
 
+/// Build a single NPC sprite asset from a filename + sheet spec, using
+/// the same path-resolution + missing-PNG fallback as
+/// [`load_character_sprites_in`]. Story-content plugins (e.g.
+/// `crate::intro::sprites`) call this in a startup system after
+/// `GameAssets` is inserted, so they can extend
+/// `CharacterSpriteAssets::npcs` without touching the sandbox sprite
+/// registry constant.
+pub fn build_npc_sprite_asset(
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+    sprite_folder: &str,
+    filename: &str,
+    spec: CharacterSheetSpec,
+) -> Option<CharacterSpriteAsset> {
+    let rel = format!("{sprite_folder}/{filename}");
+    build_optional(asset_server, layouts, &rel, spec)
+}
+
 fn asset_exists(rel_path: &str) -> bool {
     // Android assets live inside the APK, not under the host-side
     // CARGO_MANIFEST_DIR. Let Bevy's Android asset reader try the load.

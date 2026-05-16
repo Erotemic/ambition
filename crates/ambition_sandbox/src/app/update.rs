@@ -56,14 +56,17 @@ use super::*;
 /// 3. `player_simulation_phase` — sim-clock player update + landing dust.
 /// 4. Collect ECS feature events and any damage/heals for this frame.
 /// 5. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
-/// 6. `attack_phase` — slash/pogo attack triggering.
-/// 7. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
-///    `DebrisBurstMessage` queues into the bundled writers (single
-///    drain at the bottom of the `'frame` labeled block).
+/// 6. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
+///    `DebrisBurstMessage` / `PlayerDiedMessage` queues into the
+///    bundled writers (single drain at the bottom of the `'frame`
+///    labeled block).
 ///
 /// Post-tick (CoreSimulation, after sandbox_update):
 /// - `detect_room_transition_system` (extracted) — loading-zone overlap
 ///   detection; emits `RoomTransitionRequested`.
+/// - `attack_advance_system` (extracted) — slash / pogo attack lifecycle;
+///   writes sfx/vfx/damage/pogo channels directly via `MessageWriter`s,
+///   no longer through `FrameFeedback`.
 /// - `apply_room_transition_system` (extracted) — consumes the message
 ///   and runs `load_room`.
 /// - `cleanup_timers_system` (extracted) — flash / preset / slash /
@@ -235,30 +238,13 @@ pub fn sandbox_update(
             &mut *combat,
         );
 
-        // room_transition_phase has moved to `detect_room_transition_system`
-        // (sim_systems), which runs after sandbox_update and emits a
-        // `RoomTransitionRequested` message consumed by
-        // `apply_room_transition_system`. attack_phase no longer skips on
-        // a transition frame (small semantic change; player position is
-        // still deterministic per replay_fixture_regression).
-
-        attack_phase(
-            &controls,
-            &world.0,
-            &queues.moving_platforms.0,
-            player,
-            &mut queues.current_attack.0,
-            &mut feedback,
-            tuning,
-            feel,
-            frame_dt,
-            &queues.feature_ecs_overlay,
-            &mut queues.damage_events,
-            &mut queues.pogo_bounces,
-            &mut *anim,
-            &mut *combat,
-        );
-
+        // room_transition_phase and attack_phase have both moved to
+        // post-tick Bevy systems (`detect_room_transition_system` and
+        // `attack_advance_system`, both in sim_systems). They run after
+        // sandbox_update in the CoreSimulation chain and write directly
+        // to their MessageWriter outputs rather than threading through
+        // FrameFeedback.
+        //
         // cleanup_timers_system runs after write_player_ecs_components in
         // the CoreSimulation chain every frame unconditionally (it lives
         // outside sandbox_update so paused/dialogue modes still wind down

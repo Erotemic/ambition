@@ -155,6 +155,7 @@ pub fn add_simulation_plugins(app: &mut App) {
                 apply_suspended_time_scale_system.run_if(gameplay_suspended),
                 sandbox_update.run_if(gameplay_allowed),
                 detect_room_transition_system.run_if(gameplay_allowed),
+                attack_advance_system.run_if(gameplay_allowed),
                 apply_room_transition_system,
                 crate::features::reset_ecs_room_features,
                 crate::projectile::update_projectiles,

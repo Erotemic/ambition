@@ -9,11 +9,16 @@
 use ambition_engine as ae;
 use bevy::prelude::*;
 
+use crate::audio::SfxMessage;
 use crate::dev_tools::{self, EditableAbilitySet, EditableMovementTuning};
+use crate::features::{
+    DamageEvent as FeatureDamageEvent, FeatureEcsWorldOverlay, PogoBounceEvent,
+};
 use crate::feel::SandboxFeelTuning;
+use crate::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::rooms::{LoadingZoneActivation, RoomSet, RoomTransitionRequested};
-use crate::SandboxSimState;
+use crate::{CurrentPlayerAttack, GameWorld, MovingPlatformSet, SandboxSimState};
 
 /// Push live ability-flag and movement-tuning edits from the dev-tools
 /// inspector resources onto the authoritative player. Runs every
@@ -200,6 +205,91 @@ pub fn detect_room_transition_system(
     // a transition next frame before `load_room` resets it.
     interaction.clear();
     transition_writer.write(RoomTransitionRequested::new(zone, zone_sfx));
+}
+
+/// Drive the player's slash / pogo attack lifecycle: start a new
+/// swing on rising-edge input (gated by hit-stun), then advance any
+/// in-flight attack — applying hits, debris, and recoil through the
+/// damage / pogo / sfx / vfx message channels.
+///
+/// Replaces the inline `attack_phase` that used to run last inside
+/// `sandbox_update`. Runs after `detect_room_transition_system` in the
+/// `CoreSimulation` chain so its sequencing relative to room transitions
+/// matches the prior ordering (detect first, then attack, then apply).
+///
+/// The two engine-side helpers (`start_attack`, `advance_attack`) still
+/// accept `&mut Vec<…>` collectors for sfx and vfx. The extracted system
+/// drains those local Vecs to the real `MessageWriter`s at the bottom,
+/// which is the same pattern the procedural `FrameFeedback` used to
+/// implement — but the channels are no longer threaded through the
+/// `sandbox_update` orchestrator.
+pub fn attack_advance_system(
+    time: Res<Time>,
+    world: Res<GameWorld>,
+    moving_platforms: Res<MovingPlatformSet>,
+    editable_tuning: Res<EditableMovementTuning>,
+    feel_tuning: Res<SandboxFeelTuning>,
+    control_frame: Res<ControlFrame>,
+    feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
+    mut attack_state: ResMut<CurrentPlayerAttack>,
+    mut player_q: Query<
+        (
+            &mut crate::player::PlayerMovementAuthority,
+            &mut crate::player::PlayerAnimState,
+            &mut crate::player::PlayerCombatState,
+        ),
+        With<crate::player::PlayerEntity>,
+    >,
+    mut damage_events: MessageWriter<FeatureDamageEvent>,
+    mut pogo_bounces: MessageWriter<PogoBounceEvent>,
+    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut vfx_writer: MessageWriter<VfxMessage>,
+) {
+    let Ok((mut authority, mut anim, mut combat)) = player_q.single_mut() else {
+        return;
+    };
+    let player = &mut authority.player;
+    let controls = *control_frame;
+    let tuning = editable_tuning.as_engine();
+    let feel = *feel_tuning;
+    let frame_dt = time.delta_secs();
+
+    let mut sfx_buf: Vec<SfxMessage> = Vec::new();
+    let mut vfx_buf: Vec<VfxMessage> = Vec::new();
+
+    if combat.hitstun_timer <= 0.0 && (controls.attack_pressed || controls.pogo_pressed) {
+        super::world_flow::start_attack(
+            &mut sfx_buf,
+            &mut vfx_buf,
+            player,
+            &mut attack_state.0,
+            &mut anim,
+            controls,
+        );
+    }
+    super::world_flow::advance_attack(
+        &mut sfx_buf,
+        &mut vfx_buf,
+        &world.0,
+        &moving_platforms.0,
+        player,
+        &mut attack_state.0,
+        &mut anim,
+        &mut combat,
+        tuning,
+        feel,
+        frame_dt,
+        &feature_ecs_overlay,
+        &mut damage_events,
+        &mut pogo_bounces,
+    );
+
+    if !sfx_buf.is_empty() {
+        sfx_writer.write_batch(sfx_buf);
+    }
+    if !vfx_buf.is_empty() {
+        vfx_writer.write_batch(vfx_buf);
+    }
 }
 
 /// Decay presentation-only animation and flash timers.

@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use super::components::{
     PlayerAnimState, PlayerBlinkCameraState, PlayerBody, PlayerCombatState, PlayerEntity,
-    PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
+    PlayerHealth, PlayerInteractionState, PlayerMovementAuthority, PlayerPlatformRideState,
 };
 
 /// All simulation components required on the player entity.
@@ -24,6 +24,7 @@ pub struct PlayerSimulationBundle {
     pub interaction: PlayerInteractionState,
     pub anim: PlayerAnimState,
     pub blink_cam: PlayerBlinkCameraState,
+    pub ride: PlayerPlatformRideState,
     pub name: Name,
 }
 
@@ -41,6 +42,7 @@ impl PlayerSimulationBundle {
             interaction: PlayerInteractionState::default(),
             anim: PlayerAnimState::default(),
             blink_cam: PlayerBlinkCameraState::default(),
+            ride: PlayerPlatformRideState::default(),
             name: Name::new("Player"),
         }
     }

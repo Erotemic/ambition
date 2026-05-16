@@ -33,7 +33,10 @@ use super::*;
 pub struct SandboxEventWriters<'w> {
     pub(super) sfx: MessageWriter<'w, SfxMessage>,
     pub(super) vfx: MessageWriter<'w, VfxMessage>,
-    pub(super) debris: MessageWriter<'w, DebrisBurstMessage>,
+    /// Single-producer channel for player-death messages. Currently
+    /// written only by `damage_heal_dialogue_phase` → `death_respawn_player`
+    /// — passed directly into those helpers rather than via a Vec
+    /// collector, so `FrameFeedback` no longer carries `died`.
     pub(super) died: MessageWriter<'w, PlayerDiedMessage>,
 }
 
@@ -93,34 +96,37 @@ pub struct ProgressionResources<'w> {
     pub current_attack: Res<'w, crate::CurrentPlayerAttack>,
 }
 
-/// Per-frame Vec collectors for the sim → presentation event channels.
+/// Per-frame Vec collectors for the remaining sim → presentation event
+/// channels still threaded through the procedural `sandbox_update`.
 ///
-/// `sandbox_update` is the only producer; phase helpers append messages as
-/// the gameplay loop runs and `flush_feedback` drains them into the
-/// `MessageWriter`s at every return point. Keeping the collectors on a
-/// single struct lets phase helpers take one parameter instead of three.
+/// The four original channels have been narrowed to two:
+/// - `sfx` and `vfx` still go through Vec collectors because the
+///   surviving inline phases (`reset_phase`, `player_control_phase`,
+///   `player_simulation_phase`, `damage_heal_dialogue_phase`) each
+///   take `&mut FrameFeedback` and call helpers like
+///   `handle_player_events` that append messages mid-phase.
+/// - `debris` was retired when `attack_phase` extracted out — it had
+///   no remaining producer.
+/// - `died` was retired by passing `MessageWriter<PlayerDiedMessage>`
+///   directly through `damage_heal_dialogue_phase` → `handle_player_damage_events`
+///   → `death_respawn_player` (single producer chain).
 ///
-/// ## Migration plan
+/// ## Migration plan (continued)
 ///
-/// `FrameFeedback` exists because the procedural `sandbox_update`
-/// can't pass live `MessageWriter`s into its phase helpers (the
-/// writers are `SystemParam`s, not pluggable refs). The Vec collector
-/// + `flush_feedback` drain is a workaround.
+/// The remaining two channels will retire as each remaining inline
+/// phase becomes a Bevy system in `sim_systems.rs`. The extracted
+/// systems take their own narrow `MessageWriter<…>` params; the
+/// helper functions they call (`start_attack`, `handle_player_events`,
+/// `reset_sandbox`, etc.) still take `&mut Vec<…>` collectors for now,
+/// so each extracted system drains a local Vec to the writer at the
+/// bottom — same shape `attack_advance_system` uses today.
 ///
-/// As individual `*_phase` helpers get promoted to real Bevy systems
-/// (see `sim_systems.rs` for the pattern), each newly-extracted
-/// system should take the relevant `MessageWriter<…>` directly and
-/// drop its corresponding `FrameFeedback` channel. Once a channel
-/// has no remaining intra-`sandbox_update` producer, delete the
-/// field from `FrameFeedback`, drop the matching writer from
-/// `SandboxEventWriters`, and shrink `flush_feedback`. The eventual
-/// goal is for `FrameFeedback` to disappear entirely, leaving each
-/// extracted phase to write to its own narrow set of `MessageWriter`s.
+/// The eventual goal is for `FrameFeedback` to disappear entirely,
+/// leaving each extracted phase to write to its own narrow set of
+/// `MessageWriter`s.
 pub(super) struct FrameFeedback {
     pub(super) sfx: Vec<SfxMessage>,
     pub(super) vfx: Vec<VfxMessage>,
-    pub(super) debris: Vec<DebrisBurstMessage>,
-    pub(super) died: Vec<PlayerDiedMessage>,
 }
 
 impl FrameFeedback {
@@ -128,8 +134,6 @@ impl FrameFeedback {
         Self {
             sfx: Vec::new(),
             vfx: Vec::new(),
-            debris: Vec::new(),
-            died: Vec::new(),
         }
     }
 }
@@ -144,11 +148,9 @@ pub(super) enum PhaseOutcome {
 }
 
 /// Drain the per-frame `FrameFeedback` into the bundled `MessageWriter`s.
-/// Call at every `sandbox_update` return point so audio/fx/debris
-/// subscribers see the messages this frame.
+/// Called once at the bottom of the `'frame` labeled block in
+/// `sandbox_update`, regardless of which phase short-circuited.
 pub(super) fn flush_feedback(feedback: &mut FrameFeedback, writers: &mut SandboxEventWriters) {
     writers.sfx.write_batch(feedback.sfx.drain(..));
     writers.vfx.write_batch(feedback.vfx.drain(..));
-    writers.debris.write_batch(feedback.debris.drain(..));
-    writers.died.write_batch(feedback.died.drain(..));
 }

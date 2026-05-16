@@ -172,6 +172,7 @@ pub(super) fn player_simulation_phase(
     combat: &mut crate::player::PlayerCombatState,
     interaction: &mut crate::player::PlayerInteractionState,
     blink_cam: &mut crate::player::PlayerBlinkCameraState,
+    ride: &mut crate::player::PlayerPlatformRideState,
 ) -> PhaseOutcome {
     let filtered = controls_for_hitstun(controls, feel, combat.hitstun_timer);
     let input = filtered.engine_input(frame_dt);
@@ -187,8 +188,7 @@ pub(super) fn player_simulation_phase(
         }
     }
     let riding_now = riding_platform.is_some();
-    let was_riding_platform = player.was_riding_platform;
-    if riding_now != was_riding_platform {
+    if riding_now != ride.was_riding {
         // Diagnostic: log riding-state transitions. Useful for chasing the
         // "intermittent glitchy platform behavior" repro (TODO S). With
         // multiple authored platforms, the first current rider is reported.
@@ -215,7 +215,7 @@ pub(super) fn player_simulation_phase(
             );
         }
     }
-    player.was_riding_platform = riding_now;
+    ride.was_riding = riding_now;
     if let Some((_, platform_delta, _, _)) = riding_platform {
         player.pos += platform_delta;
     }
@@ -272,6 +272,7 @@ pub(super) fn damage_heal_dialogue_phase(
     sim_state: &mut crate::SandboxSimState,
     moving_platforms: &[crate::platforms::MovingPlatformState],
     feedback: &mut FrameFeedback,
+    died: &mut MessageWriter<PlayerDiedMessage>,
     player_health: Option<&mut crate::player::PlayerHealth>,
     player_damage_events: &[features::PlayerDamageEvent],
     banner: &mut features::GameplayBanner,
@@ -287,7 +288,7 @@ pub(super) fn damage_heal_dialogue_phase(
         world,
         &mut feedback.sfx,
         &mut feedback.vfx,
-        &mut feedback.died,
+        died,
         player,
         sim_state,
         banner,

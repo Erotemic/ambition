@@ -66,3 +66,24 @@ def test_absurd_general_has_shouting_trope_spec(tmp_path):
     img.save(out)
     assert out.exists()
     assert img.getchannel("A").getbbox() is not None
+
+
+def test_oiler_and_erdish_review_specs_render(tmp_path):
+    adapter = get_adapter("toon")
+    checks = {
+        "oiler.yaml": ("Oiler", "mechanic_coat", "goggles", "wrench", "tool_harness"),
+        "erdish.yaml": ("Erdish", "theorem_coat", "wrong_hat", "notebook", "problem_satchels"),
+    }
+    for filename, (name, outfit, hair_style, prop, accessory) in checks.items():
+        job = CharacterJob.load(REVIEW_DIR / filename)
+        spec = adapter.sample_spec(job)
+        assert spec.name == name
+        assert spec.outfit == outfit
+        assert spec.hair_style == hair_style
+        assert spec.prop == prop
+        assert spec.accessory == accessory
+        img = adapter.render_single(spec, "idle", 1, job)
+        out = tmp_path / f"{job.output_name}.png"
+        img.save(out)
+        assert out.exists()
+        assert img.getchannel("A").getbbox() is not None

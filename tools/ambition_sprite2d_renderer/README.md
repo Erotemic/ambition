@@ -11,8 +11,17 @@ Procedural 2D sprite renderer for Ambition. Two surfaces share the package:
    that exposes `TARGET_NAME`, `SHEET_FILES`, and a
    `render(out_dir, **opts) -> list[Path]` function. Used for one-off
    sheets that do not yet plug into the adapter system. Currently:
-   `sandbag`. See the `TODO(integrate-sandbag-into-adapters)` note in
+   `sandbag`, `pirate_admiral`, `pirate_raider`, `mockingbird_boss`, and `interdimensional_gate`.
+   See the `TODO(integrate-sandbag-into-adapters)` note in
    `targets/sandbag.py` for the path to fold it in.
+
+
+## Legacy files
+
+Legacy standalone scripts, old Mockingbird/Pirate README files, and historical
+YAML copies have been moved under `old/`. New code should use package modules
+under `ambition_sprite2d_renderer/` and the `python -m ambition_sprite2d_renderer`
+CLI. The `old/` scripts are compatibility/reference entrypoints only.
 
 ## Modal CLI
 
@@ -86,6 +95,24 @@ python -m ambition_sprite2d_renderer spritesheet ambition_sprite2d_renderer/conf
 
 ### Tack-on targets
 
+#### pirate_admiral / pirate_raider
+
+Legacy pirate sheets now render through package modules:
+
+```bash
+python -m ambition_sprite2d_renderer render pirate_admiral
+python -m ambition_sprite2d_renderer render pirate_raider
+```
+
+#### mockingbird_boss
+
+Legacy Mockingbird boss scenegraph renderer now lives under
+`ambition_sprite2d_renderer.mockingbird` and participates in the package CLI:
+
+```bash
+python -m ambition_sprite2d_renderer render mockingbird_boss
+```
+
 #### sandbag
 
 Procedural pale cloth sandbag character. Sparse output (only `idle`, `hit`,
@@ -98,6 +125,25 @@ Procedural pale cloth sandbag character. Sparse output (only `idle`, `hit`,
 python -m ambition_sprite2d_renderer render sandbag
 python -m ambition_sprite2d_renderer render-publish sandbag
 ```
+
+#### interdimensional_gate
+
+A two-layer travel gate target: a heavy inscribed ring plus a separate
+interdimensional wormhole overlay sheet. The ring rows are `idle` (faint rune
+glow) and `spin`; the overlay rows are `opening`, `stable`, and `closing` so
+runtime code can composite the membrane over the ring only when the gate is
+active.
+
+```bash
+python -m ambition_sprite2d_renderer render interdimensional_gate
+python -m ambition_sprite2d_renderer install interdimensional_gate
+```
+
+This emits the runtime files
+`interdimensional_gate_ring_spritesheet.(png|yaml)` and
+`interdimensional_gate_portal_spritesheet.(png|yaml)`, plus canonical / preview
+artifacts for review.
+
 
 
 ## Character specs and review casts

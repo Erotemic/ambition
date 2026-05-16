@@ -69,6 +69,7 @@ _TACKON_TARGETS: dict[str, str] = {
     "pirate_admiral": "ambition_sprite2d_renderer.targets.pirate_admiral",
     "pirate_raider": "ambition_sprite2d_renderer.targets.pirate_raider",
     "sandbag": "ambition_sprite2d_renderer.targets.sandbag",
+    "interdimensional_gate": "ambition_sprite2d_renderer.targets.interdimensional_gate",
 }
 
 

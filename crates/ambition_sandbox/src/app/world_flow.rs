@@ -405,7 +405,7 @@ pub(super) fn death_respawn_player(
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
-    died: &mut Vec<PlayerDiedMessage>,
+    died: &mut MessageWriter<PlayerDiedMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
     banner: &mut features::GameplayBanner,
@@ -433,14 +433,14 @@ pub(super) fn death_respawn_player(
     banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
     sfx.push(SfxMessage::Death { pos: from });
     vfx.push(VfxMessage::ResetEffects { from, to });
-    died.push(PlayerDiedMessage { pos: from });
+    died.write(PlayerDiedMessage { pos: from });
 }
 
 pub(super) fn handle_player_damage_events(
     world: &ae::World,
     sfx: &mut Vec<SfxMessage>,
     vfx: &mut Vec<VfxMessage>,
-    died: &mut Vec<PlayerDiedMessage>,
+    died: &mut MessageWriter<PlayerDiedMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
     banner: &mut features::GameplayBanner,

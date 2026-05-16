@@ -56,10 +56,13 @@ use super::*;
 /// 3. `player_simulation_phase` — sim-clock player update + landing dust.
 /// 4. Collect ECS feature events and any damage/heals for this frame.
 /// 5. `damage_heal_dialogue_phase` — heals/damage/dialogue/feature reset.
-/// 6. `flush_feedback` — drains `SfxMessage` / `VfxMessage` /
-///    `DebrisBurstMessage` / `PlayerDiedMessage` queues into the
-///    bundled writers (single drain at the bottom of the `'frame`
-///    labeled block).
+/// 6. `flush_feedback` — drains the two remaining Vec collectors
+///    (`SfxMessage`, `VfxMessage`) into the bundled writers, once, at
+///    the bottom of the `'frame` labeled block. `PlayerDiedMessage`
+///    and `DebrisBurstMessage` no longer go through `FrameFeedback`:
+///    `damage_heal_dialogue_phase` writes deaths directly to its
+///    `MessageWriter<PlayerDiedMessage>` parameter, and debris bursts
+///    travel through the feature ECS systems and `attack_advance_system`.
 ///
 /// Post-tick (CoreSimulation, after sandbox_update):
 /// - `detect_room_transition_system` (extracted) — loading-zone overlap
@@ -87,6 +90,7 @@ pub fn sandbox_update(
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerBlinkCameraState,
+            &mut crate::player::PlayerPlatformRideState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -113,7 +117,7 @@ pub fn sandbox_update(
     // since that's modeled as `break` here.
     'frame: {
         // Acquire ECS player components for this frame.
-        let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
+        let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam, mut ride)) = player_q.single_mut() else {
             break 'frame;
         };
         let player = &mut authority.player;
@@ -206,6 +210,7 @@ pub fn sandbox_update(
                 &mut *combat,
                 &mut *interaction,
                 &mut *blink_cam,
+                &mut *ride,
             ),
             PhaseOutcome::Return
         ) {
@@ -227,6 +232,7 @@ pub fn sandbox_update(
             &mut queues.sim_state,
             &queues.moving_platforms.0,
             &mut feedback,
+            &mut event_writers.died,
             player_health.map(|h| h.into_inner()),
             &player_damage_events,
             &mut queues.banner,

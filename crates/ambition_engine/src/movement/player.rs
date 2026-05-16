@@ -75,14 +75,6 @@ pub struct Player {
     /// dash start, blink, fly toggle, water contact, fast-fall.
     /// Sandbox / sprite / sfx hooks read this for glide cape vfx.
     pub gliding: bool,
-    /// Sandbox-side scratch flag: was the player riding the
-    /// moving-platform last frame? Used by the diagnostic log in
-    /// `player_simulation_phase` that prints riding-state transitions
-    /// for chasing the "glitchy platform behavior" repro. Engine
-    /// itself doesn't read or write this; it lives on `Player` so
-    /// `reset_to` copies it field-by-field along with the rest of
-    /// the player state.
-    pub was_riding_platform: bool,
     pub wall_clinging: bool,
     pub wall_climbing: bool,
     pub dash_timer: f32,
@@ -205,7 +197,6 @@ impl Player {
             blink_grace_timer: 0.0,
             fast_falling: false,
             gliding: false,
-            was_riding_platform: false,
             wall_clinging: false,
             wall_climbing: false,
             dash_timer: 0.0,

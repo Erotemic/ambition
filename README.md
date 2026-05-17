@@ -10,13 +10,16 @@ The stable design law is:
 
 The README is intentionally high-level. It should not try to track every transient patch or experimental room. Use these documents for current details:
 
-- [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) — current architecture, active systems, experimental areas, and known limitations.
+- [`AGENTS.md`](AGENTS.md) — short operating guide for coding agents.
+- [`docs/README.md`](docs/README.md) — documentation map and reading router.
+- [`docs/current/state.md`](docs/current/state.md) — current architecture and active implementation state.
+- [`docs/current/risks.md`](docs/current/risks.md) — high-risk systems and review rules.
+- [`docs/current/next.md`](docs/current/next.md) — current next good moves.
 - [`docs/GOAL_STATE.md`](docs/GOAL_STATE.md) — long-term product/engine vision.
-- [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md) — instructions for future agents and contributors.
-- [`docs/PROGRESSION_LOG.md`](docs/PROGRESSION_LOG.md) — compact chronology of major patch waves.
+- [`dev/README.md`](dev/README.md) — engineering memory: journals and benchmark candidates from real mistakes.
 - [`docs/adr/README.md`](docs/adr/README.md) — architectural decision records. ADRs are the durable source of truth for decisions that supersede older notes.
 
-Historical notes under `docs/` are preserved because they explain why the project moved in certain directions, but some are intentionally older than the current design. When a decision conflicts with an ADR or `CURRENT_STATE.md`, prefer the ADR/current-state document and update the stale note or add a supersession pointer.
+Historical notes under `docs/` are preserved because they explain why the project moved in certain directions, but some are intentionally older than the current design. When a decision conflicts with an ADR or `docs/current/`, prefer the ADR/current-state document and update the stale note or add a supersession pointer.
 
 ## Project shape
 
@@ -78,10 +81,10 @@ The longer-term ambition is larger: movement/combat mastery, mathematical spaces
 ## Documentation rules
 
 - Keep the README stable and short.
-- Put volatile state in `CURRENT_STATE.md`.
+- Put volatile state in `docs/current/`.
 - Put long-term vision in `GOAL_STATE.md`.
 - Put decisions in ADRs.
-- Put implementation notes near the system they describe.
+- Put implementation notes near the system they describe, and promote durable cross-cutting rules into `docs/concepts/`.
 - Preserve history, but clearly mark superseded guidance.
 
 

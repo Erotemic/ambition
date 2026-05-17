@@ -7,10 +7,13 @@ lives here. The contents are deliberately agent-readable: an agent
 arriving cold should be able to read this folder, understand the
 project's pattern of past mistakes, and take fewer of them.
 
+The search entry point is [`SEARCH.md`](SEARCH.md). It gives grep patterns and routing rules so agents search this memory instead of reading it all.
+
 The two subtrees today:
 
 ```text
 dev/
+  SEARCH.md               # How to search engineering memory
   benchmark-candidates/   # Distilled hard questions from real refactor mistakes
   journals/               # >1hr-debug-time bug postmortems
 ```
@@ -74,7 +77,8 @@ component questions can't measure on their own.
 spells out the workflow (write the failure evidence first, then
 distil; pick the right Level A/B/C prompt; tag by failure-class
 invariant rather than by surface technology) and is required
-reading before adding a new question.
+reading before adding a new question. [`benchmark-candidates/index.md`](benchmark-candidates/index.md)
+routes by invariant/failure class.
 
 ---
 
@@ -102,11 +106,11 @@ language matches what a future debugger would search for.
 
 ```text
 journals/
-  lessons_learned.md   # All entries, newest first
+  index.md             # Symptom router
+  lessons_learned.md   # Aggregate entries, newest first
 ```
 
-(Plus eventually per-area journals if the file grows past
-~50 entries.)
+Standalone per-incident files are preferred when a lesson has a focused symptom. Add rows to `journals/index.md` so future agents can find them by symptom language.
 
 ---
 

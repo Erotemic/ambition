@@ -18,7 +18,7 @@ The README is intentionally high-level. It should not try to track every transie
 - [`docs/GOAL_STATE.md`](docs/GOAL_STATE.md) — long-term product/engine vision.
 - [`docs/concepts/index.md`](docs/concepts/index.md) — durable concept pages: invariants, aliases, edit protocols, validation paths.
 - [`docs/systems/index.md`](docs/systems/index.md) — focused subsystem documentation.
-- [`docs/recipes/index.md`](docs/recipes/index.md) — procedural workflows for builds, tests, refactors, profiling, packaging, and content authoring.
+- [`docs/recipes/index.md, docs/vision/index.md, docs/planning/index.md`](docs/recipes/index.md, docs/vision/index.md, docs/planning/index.md) — procedural workflows for builds, tests, refactors, profiling, packaging, and content authoring.
 - [`dev/README.md`](dev/README.md) — engineering memory: journals and benchmark candidates from real mistakes.
 - [`.agent/manifest.yaml`](.agent/manifest.yaml) — generated indexes for file/symbol/test localization.
 - [`docs/adr/README.md`](docs/adr/README.md) — architectural decision records. ADRs are the durable source of truth for decisions that supersede older notes.
@@ -94,5 +94,3 @@ The longer-term ambition is larger: movement/combat mastery, mathematical spaces
 - Keep hard-won debugging memories and benchmark traps in `dev/`.
 - Keep generated navigation aids in `.agent/` and verify them with `python scripts/check_agent_kb.py`.
 - Preserve history, but clearly mark superseded guidance.
-
-

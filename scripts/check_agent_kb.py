@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,12 +17,16 @@ REQUIRED_FILES = [
     "AGENTS.md",
     "README.md",
     "docs/README.md",
+    "docs/redirects.md",
     "docs/current/state.md",
     "docs/current/risks.md",
     "docs/current/next.md",
     "docs/concepts/index.md",
     "docs/systems/index.md",
     "docs/recipes/index.md",
+    "docs/vision/index.md",
+    "docs/planning/index.md",
+    "docs/history/index.md",
     "dev/README.md",
     "dev/SEARCH.md",
     "dev/journals/index.md",
@@ -33,7 +37,17 @@ REQUIRED_FILES = [
     ".agent/index/symbol_index.json",
     ".agent/index/test_map.json",
     ".agent/index/concept_index.json",
+    "scripts/generate_agent_index.py",
 ]
+
+ALLOWED_TOP_LEVEL_DOCS = {
+    "AGENT_HANDOFF.md",
+    "CURRENT_STATE.md",
+    "GOAL_STATE.md",
+    "README.md",
+    "lessons_learned.md",
+    "redirects.md",
+}
 
 CONCEPT_REQUIRED_KEYS = {"id", "aliases", "last_verified"}
 AGENTS_MAX_LINES = 170
@@ -84,6 +98,13 @@ def check_required_files(errors: list[str]) -> None:
             fail(errors, f"missing required KB file: {item}")
 
 
+def check_top_level_docs(errors: list[str]) -> None:
+    docs = ROOT / "docs"
+    for path in sorted(docs.glob("*.md")):
+        if path.name not in ALLOWED_TOP_LEVEL_DOCS:
+            fail(errors, f"unexpected top-level docs stub or doc: {rel(path)}; move it under a routed folder or add it to docs/redirects.md")
+
+
 def check_agents_size(errors: list[str]) -> None:
     path = ROOT / "AGENTS.md"
     if not path.exists():
@@ -94,12 +115,13 @@ def check_agents_size(errors: list[str]) -> None:
 
 
 def check_json_indexes(errors: list[str]) -> None:
-    for relpath in [
-        ".agent/index/file_summaries.json",
-        ".agent/index/symbol_index.json",
-        ".agent/index/test_map.json",
-        ".agent/index/concept_index.json",
-    ]:
+    required_keys = {
+        ".agent/index/file_summaries.json": "files",
+        ".agent/index/symbol_index.json": "symbols",
+        ".agent/index/test_map.json": "tests",
+        ".agent/index/concept_index.json": "concepts",
+    }
+    for relpath, payload_key in required_keys.items():
         path = ROOT / relpath
         if not path.exists():
             continue
@@ -110,6 +132,10 @@ def check_json_indexes(errors: list[str]) -> None:
             continue
         if "generated_from_commit" not in data or "generated_at" not in data:
             fail(errors, f"{relpath} missing generated_from_commit/generated_at provenance")
+        if payload_key not in data:
+            fail(errors, f"{relpath} missing payload key: {payload_key}")
+        elif not isinstance(data[payload_key], list):
+            fail(errors, f"{relpath} payload key is not a list: {payload_key}")
 
 
 def check_concepts(errors: list[str]) -> None:
@@ -162,7 +188,7 @@ def check_markdown_links(errors: list[str]) -> None:
             target = match.group(1).strip()
             if not target or target.startswith(("http://", "https://", "mailto:", "#")):
                 continue
-            if target.startswith("<") or " " in target and not target.startswith("../"):
+            if target.startswith("<") or (" " in target and not target.startswith("../")):
                 continue
             base_target = target.split("#", 1)[0]
             if not base_target:
@@ -171,7 +197,6 @@ def check_markdown_links(errors: list[str]) -> None:
             try:
                 resolved.relative_to(ROOT)
             except ValueError:
-                # Links into parent dirs outside repo are suspicious.
                 fail(errors, f"{rel(path)} links outside repo: {target}")
                 continue
             if not resolved.exists():
@@ -184,8 +209,8 @@ def check_retrieval_evals(errors: list[str]) -> None:
         return
     text = path.read_text(encoding="utf-8", errors="replace")
     eval_count = len(re.findall(r"^\s*- id:\s*", text, flags=re.MULTILINE))
-    if eval_count < 6:
-        fail(errors, f".agent/retrieval_evals.yaml has only {eval_count} evals; expected at least 6")
+    if eval_count < 8:
+        fail(errors, f".agent/retrieval_evals.yaml has only {eval_count} evals; expected at least 8")
     for relpath in re.findall(r"(?:dev|docs|crates)/[^\s\]]+\.md", text):
         relpath = relpath.rstrip(",")
         if relpath.startswith("crates/"):
@@ -197,6 +222,7 @@ def check_retrieval_evals(errors: list[str]) -> None:
 def main() -> int:
     errors: list[str] = []
     check_required_files(errors)
+    check_top_level_docs(errors)
     check_agents_size(errors)
     check_json_indexes(errors)
     check_concepts(errors)

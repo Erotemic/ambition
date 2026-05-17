@@ -20,19 +20,21 @@ Use this file to choose what to read. Do not load the entire documentation tree 
 - [`recipes/index.md`](recipes/index.md) — procedural docs for builds, tests, refactors, content authoring, profiling, and packaging.
 - [`adr/`](adr/) — decisions that supersede older plans.
 
+## Direction, planning, and history
+
+- [`brainstorms/`](brainstorms/) — active design incubation. This is alive, not archive.
+- [`vision/index.md`](vision/index.md) — distilled product direction and long-range design goals.
+- [`planning/index.md`](planning/index.md) — active sequencing and debt management.
+- [`history/index.md`](history/index.md) — compact project chronology.
+- [`redirects.md`](redirects.md) — old flat `docs/*.md` path map.
+
 ## Generated agent indexes
 
 - [`../.agent/manifest.yaml`](../.agent/manifest.yaml) — generated-index manifest and provenance.
 - [`../.agent/retrieval_evals.yaml`](../.agent/retrieval_evals.yaml) — repository-specific retrieval/localization evals.
-- [`../.agent/index/`](../.agent/index/) — generated file, symbol, and test maps.
+- [`../.agent/index/`](../.agent/index/) — generated file, symbol, concept, and test maps.
 
 Generated indexes are navigation aids. They do not override code, ADRs, current docs, or concept pages.
-
-## Active design incubation
-
-- [`brainstorms/`](brainstorms/) is alive. It is where project ideas are worked out before they become current implementation docs, ADRs, features, or TODOs.
-- Do not move brainstorms to an archive just because they are exploratory.
-- When implementing code, prefer current docs and ADRs for present behavior; use brainstorms for intent, direction, and possibility space.
 
 ## Engineering memory lives outside docs
 

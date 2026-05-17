@@ -11,9 +11,9 @@ the source-of-truth pact:
 - [ ] Added matching `FEATURES.md` entry (status badge + brief
       description + file:line links)
 - [ ] If any `docs/*.md` source doc tracked the same item (e.g.
-      `mechanics_checklist.md`, `path_forward.md`, `tech_debt_log.md`,
-      `crate_split_plan.md`, `events_refactor_plan.md`,
-      `character_ai_refactor.md`), updated it too
+      `docs/recipes/mechanics-checklist.md`, `docs/planning/path-forward.md`,
+      `docs/planning/tech-debt-log.md`, `docs/recipes/crate-split-plan.md`,
+      `docs/recipes/events-refactor-plan.md`, `docs/systems/character-ai-refactor.md`), updated it too
 
 If this PR is purely a refactor / bug fix that does not close a
 `TODO.md` item, leave the checklist unchecked.

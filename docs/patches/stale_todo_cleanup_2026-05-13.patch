@@ -1,0 +1,80 @@
+diff --git a/TODO.md b/TODO.md
+index f89bd015..00000000 100644
+--- a/TODO.md
++++ b/TODO.md
+@@ -12,6 +12,7 @@
+ > Jon moves Proposed items into `## Accepted` (with a tier letter) or `## Rejected`.
+ >
+ > Last full re-audit: 2026-05-07 (against `git log --all`).
++> Targeted stale-doc cleanup: 2026-05-13 (moving platform authoring status re-checked against HEAD).
+ > Test count: 628+ across `cargo test --workspace` (210 engine + 386 sandbox lib + integration suites; +crouch_stability +replay_fixture +mobile_input + …).
+ 
+ ## Status legend
+@@ -180,7 +181,7 @@ mixes per section. Source: deferred from commit `b8c0f84`.
+ 
+ - [x] Split `features.rs` into `features/` domain modules `[V4/D4]` — landed 2026-05-08. The old mega-file is now a facade plus `runtime`, `bus`, `events`, `hazards`, `enemies`, `bosses`, `breakables`, `pickups`, `chests`, `npcs`, `path_motion`, `world_overlay`, and focused tests.
+ - [~] Split `ldtk_world.rs` into modules per `path_forward.md` step C `[V3/D4]` — in progress. Extracted `bevy_runtime`, `hot_reload`, `intgrid`, `surfaces`, `fields`, and LDtk tests; remaining follow-up is to split the facade body into schema/validation/room-compiler modules.
+-- [ ] Promote `KinematicPath` to typed components + index `[V2/D3]`
++- [ ] Promote `KinematicPath` to typed components + index `[V2/D3]` — current parser already emits `RoomObjectKind::KinematicPath`; remaining work is promotion into the runtime spine/index so generic path consumers can query authored paths without walking room objects. This is separate from today's `MovingPlatform` contract, which uses a dedicated LDtk `MovingPlatform` entity.
+ - [ ] **Extract `ambition_game` crate** `[V4/D5]` — engine / game / sandbox 3-crate layout. Holds encounter, boss_encounter, quest, cutscene, save, ledge_grab, swim, map_menu, NPC AI, audio, rendering primitives. Source: `crate_split_plan.md`.
+@@ -258,31 +259,25 @@ mixes per section. Source: deferred from commit `b8c0f84`.
+   transition. Quick partial
+   workaround in place: drop intro/outro full to 0.40 to reduce the
+   loudness drop. Real fix is the architecture change.
+ 
+-
+-
+-- **Moving platforms not driven by LDtk authoring** `[V4/D4]` — Jon
+-  noted 2026-05-07: "Also fix the fact that the moving platforms
+-  don't seem to associated with the ldtk files. I'm not sure where
+-  they are coming from, but every entity in games must be associated
+-  with some ldtk placement. ldtk is the source of truth for the
+-  world layout."
+-  Root cause: `MovingPlatformState::time_reference(&world)` in
+-  [platforms.rs:31](crates/ambition_sandbox/src/platforms.rs#L31)
+-  procedurally constructs ONE platform per room based on world size
+-  -- it never reads any authoring data. There's a `KinematicPath`
+-  entity def in the LDtk file (see line 2012) but it's not parsed
+-  into MovingPlatformState by any system; the LDtk-authored paths
+-  are ignored at runtime. Fix:
+-  - Parse `KinematicPath` entities in ldtk_world.rs into a
+-    `KinematicPathSpec` list per room
+-  - Replace `runtime.moving_platform: MovingPlatformState` (single)
+-    with a `Vec<MovingPlatformState>` populated from the spec list
+-  - Update every read site (world_with_moving_platform,
+-    sync_moving_platform, integrate_velocity, encounter logic) to
+-    iterate the Vec
+-  - Add KinematicPath placements to existing rooms that already
+-    have the procedural platform (square_arena, etc.) so they
+-    keep working post-migration
+-  - Remove the procedural `time_reference` constructor (or mark it
+-    debug-only behind a `#[cfg(test)]`)
+-  Construct sites today: lib.rs:234, app.rs:2154, app.rs:2260,
+-  setup.rs:208 + 5 test sites. Each becomes a Vec construction.
++- **Moving platforms are LDtk-authored, but still single-instance** `[V4/D3]`
++  — 2026-05-13 re-audit: the old "not driven by LDtk" diagnosis is
++  stale. `MovingPlatform` entities are parsed by
++  `ldtk_world/conversion.rs` into `MovingPlatformState::from_authored`,
++  `RoomSpec::moving_platform` stores the first platform for the active area,
++  startup/room-transition/hot-reload seed `SandboxRuntime::moving_platform`
++  from that spec, and `docs/moving_platforms.md` describes the current
++  authoring contract. `MovingPlatformState::time_reference` is now a
++  compatibility fallback for unauthored rooms/tests, not the primary source
++  for new gameplay rooms.
++
++  Real remaining limitation: the runtime stores only one platform per active
++  area. If multiple LDtk `MovingPlatform` entities are placed, composition keeps
++  the first and drops the rest because both `RuntimeEntityEmission` and
++  `RoomSpec` carry `Option<MovingPlatformState>`, and `SandboxRuntime` carries a
++  single `moving_platform`. Fix:
++  - Change `RuntimeEntityEmission::moving_platform` / `RoomSpec::moving_platform`
++    to `Vec<MovingPlatformState>`.
++  - Change `SandboxRuntime::moving_platform` to `moving_platforms`.
++  - Update collision insertion, carrying, trace/HUD, hot reload, room transition,
++    reset, and visuals to iterate all active platforms.
++  - Keep `time_reference` as an explicit test/dev fallback only; new gameplay
++    rooms should author LDtk `MovingPlatform` entities.
++  - Keep `KinematicPath` promotion as a separate generic path-index task rather
++    than treating it as the current moving-platform parser bug.
+ 
+ ## Accepted / In-flight (Jon-tagged)

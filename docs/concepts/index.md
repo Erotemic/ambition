@@ -22,3 +22,11 @@ They are not tutorials and they are not a replacement for code search. Use them 
 ## Concept page maintenance
 
 When a durable invariant changes, update the concept page in the same patch as the code. If the change is a durable architectural decision, add or update an ADR too.
+
+
+## Related routing layers
+
+- [`../vision/index.md`](../vision/index.md) — distilled product direction.
+- [`../planning/index.md`](../planning/index.md) — sequencing and debt management.
+- [`../history/index.md`](../history/index.md) — compact chronology.
+- [`../redirects.md`](../redirects.md) — old flat doc path map.

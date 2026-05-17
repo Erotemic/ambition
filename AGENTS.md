@@ -11,7 +11,7 @@ For non-trivial work, read in this order:
 3. `dev/README.md`
 4. `docs/README.md`
 5. `docs/current/state.md`
-6. One focused concept, system doc, or recipe for the task
+6. One focused concept, system doc, recipe, planning doc, or vision doc for the task
 
 Do not read all of `docs/` or `dev/` by default.
 
@@ -22,8 +22,9 @@ Do not read all of `docs/` or `dev/` by default.
 3. Current state under `docs/current/`.
 4. Concept pages under `docs/concepts/`.
 5. Focused system docs under `docs/systems/` and recipes under `docs/recipes/`.
-6. Engineering memory under `dev/`.
-7. Generated navigation indexes under `.agent/`.
+6. Planning/vision/history under `docs/planning/`, `docs/vision/`, and `docs/history/`.
+7. Engineering memory under `dev/`.
+8. Generated navigation indexes under `.agent/`.
 
 Historical notes are useful evidence, but they do not override current docs or ADRs. Generated indexes aid localization but do not override source files.
 
@@ -47,11 +48,12 @@ Benchmark questions are distilled from real Ambition mistakes. Treat them as pre
 
 ## Generated indexes
 
-Use `.agent/manifest.yaml` to find generated repository maps. Use `.agent/index/` for quick file, symbol, and test localization. Regenerate or update indexes when the touched code makes them stale.
+Use `.agent/manifest.yaml` to find generated repository maps. Use `.agent/index/` for quick file, symbol, concept, and test localization.
 
-Run the knowledge-base check before handing off docs or KB changes:
+Regenerate indexes after moving docs, tests, or code symbols:
 
 ```bash
+python scripts/generate_agent_index.py
 python scripts/check_agent_kb.py
 ```
 
@@ -66,6 +68,7 @@ python scripts/check_agent_kb.py
 - Do not hand-edit `sandbox.ldtk`; use Ambition LDtk tooling.
 - Preserve Android/web/platform entrypoints when replacing shared files.
 - Update docs/concepts, recipes, ADRs, or dev memory when a durable invariant changes.
+- Use `docs/redirects.md` for old documentation paths instead of recreating top-level stubs.
 
 ## Common validation commands
 

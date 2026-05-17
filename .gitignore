@@ -3,6 +3,9 @@
 
 # Generated browser bundle (wasm-bindgen output from ./build_for_web.sh).
 crates/ambition_sandbox/web/pkg/
+# Symlink (or rsync copy) created by `./build_for_web.sh --served` so
+# the served browser persona can fetch `/assets/...` over HTTP.
+crates/ambition_sandbox/web/assets
 
 # proptest writes regression seeds when a property fails. Useful
 # locally to reproduce a flake but shouldn't go to git.

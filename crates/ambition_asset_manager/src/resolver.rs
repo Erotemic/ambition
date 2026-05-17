@@ -132,23 +132,43 @@ pub fn resolve(
     let mut authored_candidate = false;
 
     if !profile.preferred_sources().is_empty() {
-        for &source in profile.preferred_sources() {
-            // 1. Explicit per-source override on the entry takes priority.
+        // Two-pass resolution so authored candidates always beat
+        // synthesized defaults, regardless of source order. Otherwise
+        // an entry with no authored EmbeddedBinary candidate would
+        // synthesize an `embedded://...` URL from `logical_path` and
+        // shadow a perfectly good InstalledFilesystem BevyPath later
+        // in the source list — that breaks `WebServedAssets`, where
+        // we want the synthesized BevyPath (HTTP-fetched) for
+        // out-of-set art.
+        //
+        // Pass 1: pick the first authored candidate whose source is
+        // in the profile's preferred order. Walk preferred_sources to
+        // preserve the priority between authored candidates (e.g.
+        // `[HttpRemote, EmbeddedBinary]` should prefer an authored
+        // HttpRemote when both exist).
+        'outer: for &source in profile.preferred_sources() {
             if let Some(candidate) = entry.locations.iter().find(|c| c.source == source) {
                 if !candidate.location.is_disabled() {
                     chosen_location = candidate.location.clone();
                     chosen_source = Some(source);
                     authored_candidate = true;
-                    break;
+                    break 'outer;
                 }
             }
-            // 2. Synthesize a default for filesystem / embedded sources
-            //    from the entry's logical path. NOT authored.
-            if let Some(loc) = synthesize_default_location(source, &entry.logical_path) {
-                chosen_location = loc;
-                chosen_source = Some(source);
-                authored_candidate = false;
-                break;
+        }
+        // Pass 2: nothing authored matched — synthesize a default in
+        // preferred-source order. Synthesized defaults are flagged
+        // `authored_candidate = false` so the per-profile load gate
+        // can choose to skip them (e.g. WebStatic skips speculative
+        // embedded URLs whose bytes aren't actually packaged).
+        if chosen_source.is_none() {
+            for &source in profile.preferred_sources() {
+                if let Some(loc) = synthesize_default_location(source, &entry.logical_path) {
+                    chosen_location = loc;
+                    chosen_source = Some(source);
+                    authored_candidate = false;
+                    break;
+                }
             }
         }
     }

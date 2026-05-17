@@ -540,6 +540,9 @@ pub fn add_presentation_plugins(app: &mut App) {
     add_input_plugins(app);
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
+    // Lightweight FPS / frame-time overlay. ON by default on wasm,
+    // OFF on desktop; F3 toggles. See `crate::fps_overlay`.
+    app.add_plugins(crate::fps_overlay::FpsOverlayPlugin);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
 

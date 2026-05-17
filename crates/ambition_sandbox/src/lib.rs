@@ -33,6 +33,7 @@ pub mod dialog;
 pub mod encounter;
 pub mod features;
 pub mod feel;
+pub mod fps_overlay;
 pub mod fx;
 pub mod game_assets;
 pub mod game_mode;

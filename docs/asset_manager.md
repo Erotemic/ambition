@@ -82,7 +82,8 @@ AssetId
 | `AndroidBundle`            | AndroidApk → EmbeddedBinary                      | ❌         | ✅¹  | ✅²     | ✅²   | ✅¹      | ✅²          | Bevy Android `AssetReader` resolves through APK assets. ¹ LDtk via `static_map` embedded; SFX bank requires `static_sfx_bank`. ² Loaded if packaged. |
 | `IosBundle`                | IosBundle → EmbeddedBinary                       | ❌         | ⚠️   | ⚠️      | ⚠️    | ⚠️       | ⚠️           | Profile modeled but no iOS build target yet — every loader honors the profile, packaging story is TBD. |
 | `WebHttp`                  | HttpRemote → EmbeddedBinary                      | ❌³        | ⚠️   | ❌      | ❌    | ❌       | ❌           | Catalog produces `https://...` URLs when explicit candidates exist; today's sandbox authors none, so optional assets `try_path_for_load` returns `None`. The `http`/`https` `AssetSource` registration is the missing wiring (slice 18). ³ HTTP polling / ETag reload future. |
-| `WebStatic`                | EmbeddedBinary → HttpRemote                      | ❌         | ✅   | ✅²    | ✅²    | ⚠️       | ❌           | wasm build. LDtk, UI fonts, and a core sprite subset (player/robot/goblin/sandbag + chests/pickups/doors/projectile/tiles) are embedded under `static_core_assets` (default for `--features web`). Parallax, optional NPCs, and music still fall back. SFX via `static_sfx_bank` when enabled. ² Embedded via `AmbitionAssetSourcePlugin`. |
+| `WebStatic`                | EmbeddedBinary → HttpRemote                      | ❌         | ✅   | ✅²    | ✅²    | ⚠️       | ❌           | wasm build under `--features web`. LDtk, UI fonts, and a core sprite subset (player/robot/goblin/sandbag + chests/pickups/doors/projectile/tiles) are embedded under `static_core_assets`. Parallax, optional NPCs, and music still fall back. SFX via `static_sfx_bank` when enabled. ² Embedded via `AmbitionAssetSourcePlugin`. |
+| `WebServedAssets`          | InstalledFilesystem → EmbeddedBinary             | ❌         | ✅⁴  | ✅⁵   | ✅⁵   | ✅⁵     | ✅⁵         | wasm build under `--features web_served_assets`. The "same game in the browser." `./build_for_web.sh --served` symlinks `crates/ambition_sandbox/assets/` into `web/assets/`; Bevy's wasm `HttpAssetReader` fetches `/assets/<path>` for every catalog entry that doesn't author an explicit Embedded candidate. ⁴ LDtk still uses the authored Embedded candidate (kept in-binary via `static_map`). ⁵ Path resolves; playback / display depends on the asset being served from `/assets/`. Audio playback also requires the `audio` feature (not in `visible_web_served` today). |
 | `BundledStatic`            | EmbeddedBinary                                   | ❌         | ✅¹  | ❌      | ❌    | ❌       | ❌           | Single-binary cross-platform demo build. Same status as `WebStatic` for optional assets — packaging is TBD. |
 | `NoAssets`                 | (none)                                           | ❌         | 💀   | ❌      | ❌    | ❌       | ❌           | `--no-assets`; every entry resolves to `Disabled`. LDtk is `MissingAssetPolicy::Error` so `load_default` returns Err. |
 | `Headless`                 | (none)                                           | ❌         | 💀   | ❌      | ❌    | ❌       | ❌           | Same as `NoAssets`; profile is marked `tolerates_missing_required` so callers can choose to keep going. |
@@ -195,10 +196,11 @@ simply tells the SFX system *where* the bank bytes come from.
 | 13 | Embedded core fonts + primary character sheets + core entity sprites for `WebStatic`/`BundledStatic` (`static_core_assets`) | **DONE** (2026-05-17) |
 | 14 | Intro plugin sprites flow through catalog ids (`sprite.character.intro_*` namespace) | **DONE** (2026-05-17) |
 | 15 | Delete `should_attempt_optional_load(&str)` | **DONE** (2026-05-17) |
-| 16 | Out-of-set sprites (breakable variants, soft/hard blink walls, lock-wall tile) embedded under `static_core_assets` | TODO |
-| 17 | Parallax layer embedding | TODO |
-| 18 | HTTP/HTTPS `AssetSource` registration for `WebHttp` | TODO |
-| 19 | Music cue layers (file-backed cues under `MusicCueCatalog`) | TODO |
+| 16 | `WebServedAssets` profile + `web_served_assets` Cargo feature + `./build_for_web.sh --served`. Two-pass resolver so authored Embedded candidates beat synthesized defaults. | **DONE** (2026-05-17) |
+| 17 | FPS / frame-time overlay (`crate::fps_overlay`, default-on for wasm, F3 toggles) | **DONE** (2026-05-17) |
+| 18 | `audio` for `WebServedAssets` (compile + browser autoplay handshake) | TODO |
+| 19 | Out-of-set sprites (breakable variants, soft/hard blink walls, lock-wall tile) embedded under `static_core_assets` — needed only if pure WebStatic is the target | TODO |
+| 20 | Music cue layers (file-backed cues under `MusicCueCatalog`) | TODO |
 
 ### Slice 2 — entity sprites + parallax layers (current)
 

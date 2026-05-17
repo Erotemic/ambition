@@ -23,7 +23,7 @@ Usage: ./build_for_web.sh [options]
 Options:
   --release             Build the wasm artifact with Cargo --release (default).
   --debug               Build the wasm artifact with the dev profile (much larger, faster compile).
-  --features LIST       Cargo features to enable. Default: web
+  --features LIST       Cargo features to enable. Default: web (or web_served_assets when --served is passed)
   --use-default-features  Also enable ambition_sandbox default features. Off by default for web.
   --no-default-features Disable default features (default for web builds).
   --bindgen-target T    Pass-through to wasm-bindgen --target. Default: web
@@ -32,6 +32,13 @@ Options:
                         Default: crates/ambition_sandbox/web/pkg
   --skip-bindgen        Compile the wasm but skip the wasm-bindgen step.
   --skip-build          Skip the cargo build (re-run wasm-bindgen against an existing artifact).
+  --served              Build the served-assets browser persona:
+                        switches the default feature to `web_served_assets`,
+                        symlinks crates/ambition_sandbox/assets into
+                        crates/ambition_sandbox/web/assets/ so the page-served
+                        `/assets/...` URLs Bevy's wasm HTTP reader fetches
+                        actually resolve. Selects `AssetProfile::WebServedAssets`
+                        at runtime via the `web_served` feature.
   --serve [PORT]        After building, serve `crates/ambition_sandbox/web/` on PORT (default 8000).
   --open                Open the served URL in the default browser. Implies --serve.
   --clean               Delete the wasm-bindgen output dir before building.
@@ -44,8 +51,9 @@ Environment overrides:
   AMBITION_WEB_PORT     Default port for --serve. Default: 8000
 
 Examples:
-  ./build_for_web.sh
+  ./build_for_web.sh                          # WebStatic (embedded core assets)
   ./build_for_web.sh --serve
+  ./build_for_web.sh --served --serve         # WebServedAssets (full game via served /assets/)
   ./build_for_web.sh --serve 9000 --open
   ./build_for_web.sh --debug --serve
   ./build_for_web.sh --doctor
@@ -99,7 +107,8 @@ detect_wasm_bindgen_version() {
 }
 
 PROFILE="release"
-FEATURES="web"
+FEATURES=""
+FEATURES_EXPLICIT=false
 USE_DEFAULT_FEATURES=false
 BINDGEN_TARGET="web"
 OUT_DIR=""
@@ -110,18 +119,20 @@ SERVE_PORT=""
 OPEN_BROWSER=false
 CLEAN=false
 DOCTOR=false
+SERVED_MODE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --release) PROFILE="release" ;;
         --debug) PROFILE="debug" ;;
-        --features) shift; [[ $# -gt 0 ]] || fatal "--features needs a value"; FEATURES=$1 ;;
+        --features) shift; [[ $# -gt 0 ]] || fatal "--features needs a value"; FEATURES=$1; FEATURES_EXPLICIT=true ;;
         --use-default-features) USE_DEFAULT_FEATURES=true ;;
         --no-default-features) USE_DEFAULT_FEATURES=false ;;
         --bindgen-target) shift; [[ $# -gt 0 ]] || fatal "--bindgen-target needs a value"; BINDGEN_TARGET=$1 ;;
         --out-dir) shift; [[ $# -gt 0 ]] || fatal "--out-dir needs a path"; OUT_DIR=$1 ;;
         --skip-bindgen) SKIP_BINDGEN=true ;;
         --skip-build) SKIP_BUILD=true ;;
+        --served) SERVED_MODE=true ;;
         --serve)
             SERVE=true
             # --serve optionally takes a numeric port; only consume the next
@@ -139,6 +150,17 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# --served picks the right Cargo feature when one wasn't passed
+# explicitly. Specifying --features ... wins so callers can compose
+# with other features.
+if [[ "$FEATURES_EXPLICIT" != true ]]; then
+    if [[ "$SERVED_MODE" == true ]]; then
+        FEATURES="web_served_assets"
+    else
+        FEATURES="web"
+    fi
+fi
 
 ROOT=$(repo_root)
 cd "$ROOT"
@@ -236,6 +258,40 @@ if [[ "$SKIP_BINDGEN" != true ]]; then
         log "wasm-bindgen output: $(human_size "$OUT_WASM") wasm, $(human_size "$OUT_JS") js"
     else
         warn "wasm-bindgen finished but expected $OUT_WASM was not produced"
+    fi
+fi
+
+# --served packages the browser persona that fetches assets over HTTP
+# from the served `/assets/` path. The build itself doesn't need the
+# asset tree; the running page does. Symlink (or copy on filesystems
+# without symlink support) the sandbox `assets/` directory into
+# `web/assets/` so `python3 -m http.server` exposes it at
+# `http://localhost:<port>/assets/...`.
+SANDBOX_ASSETS="$ROOT/crates/ambition_sandbox/assets"
+SERVED_ASSETS_LINK="$WEB_DIR/assets"
+if [[ "$SERVED_MODE" == true ]]; then
+    [[ -d "$SANDBOX_ASSETS" ]] || fatal "$SANDBOX_ASSETS not found; cannot wire --served"
+    # Re-create the link so a previous --served run with a moved
+    # workspace doesn't leave a dangling pointer.
+    if [[ -L "$SERVED_ASSETS_LINK" ]]; then
+        rm "$SERVED_ASSETS_LINK"
+    elif [[ -e "$SERVED_ASSETS_LINK" ]]; then
+        fatal "$SERVED_ASSETS_LINK exists and is not a symlink; refusing to clobber. Move it out of the way."
+    fi
+    if ln -s "$SANDBOX_ASSETS" "$SERVED_ASSETS_LINK" 2>/dev/null; then
+        log "served assets: symlinked $SERVED_ASSETS_LINK → $SANDBOX_ASSETS"
+    else
+        warn "symlink failed; falling back to rsync copy. This will duplicate $(human_size "$SANDBOX_ASSETS") of assets."
+        if command -v rsync >/dev/null 2>&1; then
+            mkdir -p "$SERVED_ASSETS_LINK"
+            rsync -a --delete \
+                --exclude '.git/' \
+                --exclude '.DS_Store' \
+                "$SANDBOX_ASSETS"/ "$SERVED_ASSETS_LINK"/
+            log "served assets: copied $SANDBOX_ASSETS → $SERVED_ASSETS_LINK"
+        else
+            fatal "neither symlink nor rsync available; cannot package served assets"
+        fi
     fi
 fi
 

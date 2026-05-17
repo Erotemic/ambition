@@ -1,35 +1,56 @@
 # Ambition Sandbox — Web (wasm32) build
 
 Browser build for `ambition_sandbox`. Targets `wasm32-unknown-unknown`
-and boots the visible Bevy app inside a `<canvas>` with embedded
-core visual + LDtk assets and keyboard input.
+and boots the visible Bevy app inside a `<canvas>` with keyboard input.
 
-The `web` Cargo feature composes:
-- `visible_web` — gameplay subsystems that work in a browser (LDtk
-  runtime, leafwing input, the catalog-driven loaders, `static_map`,
-  `static_core_assets`).
+There are **two browser personas**, selected by Cargo feature:
+
+| Persona | Cargo feature | `AssetProfile` | Asset source | Use case |
+| ------- | ------------- | -------------- | ------------ | -------- |
+| **WebStatic** (embedded core) | `--features web` | `WebStatic` | LDtk + a bounded set of UI fonts + primary character sheets + core entity sprites embedded via `include_bytes!`. Out-of-set art falls back to colored rectangles. | Smoke build, single-file demo (~86 MB bg.wasm). |
+| **WebServedAssets** (served full game) | `--features web_served_assets` | `WebServedAssets` | LDtk embedded; everything else fetched over HTTP from `/assets/...` served alongside `index.html` via the symlink `crates/ambition_sandbox/web/assets/`. | "Same game in the browser." Smaller wasm (~81 MB bg.wasm); art served separately. |
+
+Common to both:
 - `web_platform` — Bevy's `bevy/web` + `bevy/webgl2` + canvas-backed
   winit, plus `wasm-bindgen` / `console_error_panic_hook` for the JS
   bootstrap.
+- `static_map` — LDtk JSON `include_bytes!`'d so the LDtk loader
+  doesn't need an async fetch.
+- `visible_web_base` — `ldtk_runtime`, `input`, `static_map`.
 
-## Scope (current as of slice 15)
+## Subsystem matrix
 
-| Subsystem | Status | Notes |
-| --------- | ------ | ----- |
-| LDtk world rendering | ✅ | `sandbox.ldtk` + `intro.ldtk` embedded via `AmbitionAssetSourcePlugin` under `static_map`. |
-| Keyboard input | ✅ | `leafwing-input-manager`. Click the canvas to capture focus. |
-| Player + base enemy sprites | ✅ | `player_robot`, `robot`, `goblin`, `sandbag` spritesheets embedded under `static_core_assets`. |
-| Core entity sprites | ✅ | Chests, pickups, doors, projectile, solid / one-way / hazard tiles, boss core embedded under `static_core_assets`. |
-| UI fonts | ✅ | Dialog regular/semibold + debug mono embedded under `static_core_assets`. |
-| LDtk tiles | ✅ | `bevy_ecs_ldtk` loads via the embedded source. |
-| Out-of-set sprites (breakables, NPCs, parallax, blink walls, etc.) | ❌ | No `EmbeddedBinary` candidate yet → renderer paints colored rectangles. Slice 16/17 work. |
-| Audio (music + SFX) | ❌ | `kira` / `fundsp` are not in the wasm dep graph; the music director falls back to procedural synth when the catalog returns `None`. |
-| Dev tools (egui inspector, file watcher) | ❌ | Excluded from `visible_web`. |
-| Mobile touch | ❌ | `virtual_joystick` excluded. |
-| Physics debris | ❌ | `avian2d` excluded. |
-| Save / settings persistence | ❌ | No-op on wasm32; in-memory only. |
+| Subsystem | WebStatic | WebServedAssets | Notes |
+| --------- | --------- | --------------- | ----- |
+| LDtk world rendering | ✅ | ✅ | `sandbox.ldtk` + `intro.ldtk` embedded via `AmbitionAssetSourcePlugin` under `static_map`. |
+| Keyboard input | ✅ | ✅ | `leafwing-input-manager`. Click the canvas to capture focus. |
+| Player + base enemy sprites | ✅ embedded | ✅ served | WebServedAssets fetches `/assets/sprites/player_robot_spritesheet.png` etc. |
+| Core entity sprites | ✅ embedded | ✅ served | Same. |
+| Out-of-set sprites (breakables, NPCs, parallax, blink walls, ...) | ❌ placeholder | ✅ served | WebServedAssets resolves every entity sprite to a synthesized `BevyPath`; Bevy's wasm HTTP reader fetches it from `/assets/...`. Missing files surface as Bevy load warnings + transparent quads. |
+| Parallax layers | ❌ placeholder | ✅ served | WebServedAssets fetches `/assets/backgrounds/parallax_layers/...`. |
+| UI fonts | ✅ embedded | ✅ served | InterDisplay + JetBrainsMono. |
+| LDtk tiles | ✅ | ✅ | `bevy_ecs_ldtk` loads via the embedded source. |
+| Music tracks (`music.track.*`) | ❌ procedural fallback | ⚠️ served path resolves; **playback requires `audio` feature, not yet in `visible_web`** | Catalog hands Bevy a path; the music director silently drops requests because `bevy_kira_audio` isn't compiled into the wasm. See "Audio status" below. |
+| SFX bank (`audio.sfx_bank`) | ⚠️ `static_sfx_bank` only | ⚠️ served path resolves; same `audio`-feature caveat | Same. |
+| Dev tools (egui inspector, file watcher) | ❌ | ❌ | Excluded from `visible_web_base`. |
+| Mobile touch | ❌ | ❌ | `virtual_joystick` excluded. |
+| Physics debris | ❌ | ❌ | `avian2d` excluded. |
+| Save / settings persistence | ❌ | ❌ | No-op on wasm32; in-memory only. |
+| FPS overlay | ✅ default-on | ✅ default-on | Bottom-right Text node. F3 toggles. |
 
 `docs/asset_manager.md` has the full per-asset / per-profile matrix.
+
+## Audio status
+
+Audio (`bevy_kira_audio` + `fundsp` procedural synthesis) is intentionally
+excluded from `visible_web` and `visible_web_served` today because the
+sandbox-side `audio` feature also pulls a procedural fundsp music
+fallback path that costs binary size without playing audibly in the
+browser. The catalog already produces correct `/assets/music/...` paths
+under `WebServedAssets` — adding `audio` to `visible_web_served` and
+verifying browser playback is a follow-up task. Known browser-side
+hurdle: Chrome blocks autoplay until a user gesture; the bootstrap
+must defer `AudioContext.resume()` until the canvas-click handler.
 
 ## One-time setup
 
@@ -55,7 +76,7 @@ cargo check -p ambition_sandbox \
 Run after any change that touches the sandbox crate. Pairs with the
 desktop `cargo check -p ambition_sandbox` smoke.
 
-## Browser smoke (build + serve + open)
+## Browser smoke — WebStatic (embedded core)
 
 ```sh
 ./build_for_web.sh --serve          # build + serve at http://localhost:8000/
@@ -64,13 +85,56 @@ desktop `cargo check -p ambition_sandbox` smoke.
 ./build_for_web.sh --doctor         # verify tools + report what would run
 ```
 
-`build_for_web.sh` runs:
+`build_for_web.sh` (default) runs:
 1. `cargo build --release --target wasm32-unknown-unknown --no-default-features --features web`
 2. `wasm-bindgen` → `crates/ambition_sandbox/web/pkg/{ambition_sandbox.js, ambition_sandbox_bg.wasm}`
 3. `python3 -m http.server -d crates/ambition_sandbox/web 8000` (or
    `basic-http-server` if Python is missing).
 
+## Browser smoke — WebServedAssets (full game, served `/assets/`)
+
+```sh
+./build_for_web.sh --served --serve         # build, symlink assets/, serve
+./build_for_web.sh --served --debug --serve
+```
+
+The `--served` flag flips three things:
+- Cargo features: `--features web_served_assets` (drops `static_core_assets`
+  to keep the wasm small; selects `AssetProfile::WebServedAssets` at runtime
+  via the `web_served` marker).
+- Symlinks `crates/ambition_sandbox/assets` into
+  `crates/ambition_sandbox/web/assets` so `/assets/...` URLs the page
+  fetches actually resolve (falls back to `rsync -a` if symlinks aren't
+  available on the filesystem).
+- Boot banner reads `AssetProfile = web_served_assets` instead of `web_static`.
+
 Hand-running the equivalent:
+
+```sh
+# 1. Build wasm with the served-assets persona.
+cargo build -p ambition_sandbox --lib \
+    --target wasm32-unknown-unknown \
+    --no-default-features --features web_served_assets \
+    --release
+
+# 2. Wrap it for the browser.
+wasm-bindgen \
+    target/wasm32-unknown-unknown/release/ambition_sandbox.wasm \
+    --out-dir crates/ambition_sandbox/web/pkg \
+    --target web --no-typescript
+
+# 3. Make the page-served `/assets/` URL reachable.
+ln -sfn $PWD/crates/ambition_sandbox/assets \
+        $PWD/crates/ambition_sandbox/web/assets
+
+# 4. Serve.
+python3 -m http.server -d crates/ambition_sandbox/web 8000
+```
+
+The same `python3 -m http.server` serves `/`, `/pkg/...`, and
+`/assets/...` from one directory.
+
+## WebStatic hand-build (without the helper script)
 
 ```sh
 cargo build -p ambition_sandbox --lib \
@@ -93,36 +157,53 @@ canvas to capture keyboard focus, and look for:
    ```
    web start: AssetProfile = web_static | static_map = true | static_core_assets = true | static_sfx_bank = false
    ```
-   This is the boot banner from `run_web`. If `static_map = false` or
-   `static_core_assets = false`, the build was compiled with the
-   wrong feature set — the visible art will be missing.
-2. **LDtk tiles render** — the active sandbox area paints its tile
+   …on a `--features web` build, or:
+   ```
+   web start: AssetProfile = web_served_assets | static_map = true | static_core_assets = false | static_sfx_bank = false
+   ```
+   …on a `--features web_served_assets` build. This is the boot
+   banner from `run_web`. If `AssetProfile = web_static` and you see
+   colored rectangles for chests/players, the build was compiled
+   with the wrong feature set.
+2. **FPS overlay**, bottom-right corner: `FPS 60  |  frame 16.6ms`
+   (rolling average). Press **F3** to hide. Toggle is per-session;
+   `FpsOverlayState::visible` defaults to true on wasm.
+3. **LDtk tiles render** — the active sandbox area paints its tile
    layers (not just background color).
-3. **Player spawns** — the bipedal player sprite is visible at the
+4. **Player spawns** — the bipedal player sprite is visible at the
    authored spawn point (not a magenta rectangle).
-4. **Goblin / sandbag spawns** — the goblin enemy + sandbag dummies
+5. **Goblin / sandbag spawns** — the goblin enemy + sandbag dummies
    render with their spritesheets.
-5. **Core entities render** — chests / pickups / doors / projectiles /
+6. **Core entities render** — chests / pickups / doors / projectiles /
    tiles use real PNGs, not colored rectangles.
-6. **UI fonts are real** — the HUD text uses InterDisplay, not the
+7. **UI fonts are real** — the HUD text uses InterDisplay, not the
    Bevy default sans. (Compare against a stock Bevy `Text2d` look.)
-7. **Keyboard moves the player** — arrow keys / WASD / jump bindings
+8. **Keyboard moves the player** — arrow keys / WASD / jump bindings
    advance the player like the desktop build.
-8. **Out-of-set art still falls back** — breakables, parallax skyboxes,
-   NPC sprites paint as colored rectangles. This is by design until
-   their `EmbeddedBinary` candidates land.
+9. **On WebServedAssets**: parallax skyboxes, breakables, NPC sprites,
+   etc., should also render — the wasm HTTP reader fetches them from
+   `/assets/...`. Watch the Network panel: you'll see GETs like
+   `GET /assets/sprites/entities/breakable_intact.png` and the
+   request should return 200 (the symlinked `assets/` tree). Missing
+   files surface as 404 + a Bevy load warning in the console.
+10. **On WebStatic**: out-of-set art (breakables, parallax, NPC
+    sheets) still paints as colored rectangles. This is by design;
+    only the bounded `static_core_assets` set has authored embedded
+    candidates.
 
 ### Known browser-side gaps
 
-- **No audio.** The wasm dep graph drops `bevy_kira_audio`, so the SFX
-  director and music director run in silent fallback mode. The
-  catalog still reports the music track and SFX bank entries; they
-  just don't load through `AssetServer`.
+- **No audio.** Both web personas drop `bevy_kira_audio` from the
+  wasm dep graph. Under `WebServedAssets` the catalog still resolves
+  `music.track.<id>` and `audio.sfx_bank` to real `/assets/...`
+  paths, but the music director skips playback because the audio
+  subsystem isn't installed. Enabling `audio` for the web personas
+  is a follow-up.
 - **No saves.** Settings / sandbox-save persistence is cfg-gated to
   no-op on `wasm32`. Pause-menu toggles work for the session.
 - **No hot reload.** `LdtkHotReloadState::from_catalog` reports
-  `watch_path = None` under `WebStatic`. Editing `sandbox.ldtk` on
-  disk requires a fresh `./build_for_web.sh --serve`.
+  `watch_path = None` under both web personas. Editing
+  `sandbox.ldtk` on disk requires a fresh `./build_for_web.sh`.
 
 ## How the embedded source plugin works
 

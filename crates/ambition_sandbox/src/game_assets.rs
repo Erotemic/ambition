@@ -58,7 +58,15 @@ use crate::rooms::{LoadingZoneActivation, RoomMetadata};
 /// via [`GameAssetConfig::from_arg_slice`].
 pub fn default_asset_profile() -> AssetProfile {
     if cfg!(target_arch = "wasm32") {
-        AssetProfile::WebStatic
+        if cfg!(feature = "web_served") {
+            // Build composed `--features web_served_assets` →
+            // browser fetches `/assets/*` over HTTP.
+            AssetProfile::WebServedAssets
+        } else {
+            // Build composed `--features web` → only assets with an
+            // authored `EmbeddedBinary` candidate are attempted.
+            AssetProfile::WebStatic
+        }
     } else if cfg!(target_os = "android") {
         AssetProfile::AndroidBundle
     } else {

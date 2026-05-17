@@ -361,6 +361,22 @@ impl SandboxAssetCatalog {
                 resolved.authored_candidate
                     && matches!(resolved.source_used, Some(AssetSourceProfile::EmbeddedBinary))
             }
+            // WebServedAssets attempts every resolution that produces
+            // a Bevy-pathable URL: either an authored `Embedded`
+            // candidate (delivered from `EmbeddedAssetRegistry`) or
+            // the synthesized `BevyPath` from `logical_path` (which
+            // Bevy's wasm HTTP reader fetches from `/assets/<path>`).
+            // Missing files surface as Bevy load-failure logs + the
+            // renderer's existing placeholder fallbacks; we cannot
+            // pre-check the host filesystem from the browser, so the
+            // "trust Bevy to fetch" stance matches Android/iOS.
+            AssetProfile::WebServedAssets => {
+                matches!(
+                    resolved.source_used,
+                    Some(AssetSourceProfile::EmbeddedBinary)
+                        | Some(AssetSourceProfile::InstalledFilesystem)
+                )
+            }
             AssetProfile::WebHttp => {
                 resolved.authored_candidate
                     && matches!(resolved.source_used, Some(AssetSourceProfile::HttpRemote))
@@ -1134,6 +1150,7 @@ mod tests {
             AssetProfile::IosBundle,
             AssetProfile::WebHttp,
             AssetProfile::WebStatic,
+            AssetProfile::WebServedAssets,
             AssetProfile::BundledStatic,
         ];
         for profile in real_profiles {
@@ -1187,6 +1204,7 @@ mod tests {
             (AssetProfile::IosBundle, false),
             (AssetProfile::WebHttp, false),
             (AssetProfile::WebStatic, false),
+            (AssetProfile::WebServedAssets, false),
             (AssetProfile::BundledStatic, false),
             (AssetProfile::NoAssets, false),
             (AssetProfile::Headless, false),
@@ -1563,6 +1581,7 @@ mod tests {
             (AssetProfile::DesktopInstalled, true),
             (AssetProfile::AndroidBundle, true),
             (AssetProfile::WebStatic, true),
+            (AssetProfile::WebServedAssets, true),
             (AssetProfile::BundledStatic, true),
             (AssetProfile::IpfsGatewayPlaceholder, true),
             (AssetProfile::NoAssets, false),
@@ -1579,5 +1598,83 @@ mod tests {
                 profile.label(),
             );
         }
+    }
+
+    /// `WebServedAssets` is the "same game in the browser" profile.
+    /// Catalog entries with no authored Embedded candidate must
+    /// still produce a Bevy `AssetPath` (so the wasm HTTP reader
+    /// fetches `/assets/<path>`), and `try_path_for_load` must
+    /// return `Some(...)` for those entries — the gate is permissive
+    /// because we cannot pre-check the host filesystem from the
+    /// browser. Locks in the contract that lets optional sprites /
+    /// fonts / music load over HTTP without per-asset packaging.
+    #[test]
+    fn web_served_assets_attempts_optional_sprites_via_bevy_path() {
+        let mut config = GameAssetConfig::default();
+        config.asset_profile = AssetProfile::WebServedAssets;
+        let spec = SandboxDataSpec::load_embedded();
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+
+        // An out-of-set entity sprite (no Embedded candidate). Under
+        // `WebStatic` this returns None; under `WebServedAssets` it
+        // should produce a synthesized BevyPath the wasm HTTP reader
+        // fetches from `/assets/sprites/entities/breakable_intact.png`.
+        let id = crate::game_assets::entity_sprite_asset_id(
+            crate::game_assets::EntitySprite::BreakableIntact,
+        );
+        let path = catalog
+            .try_path_for_load(&id)
+            .expect("WebServedAssets must attempt out-of-set sprites via synthesized BevyPath");
+        assert!(
+            !path.starts_with("embedded://"),
+            "WebServedAssets should NOT route out-of-set sprites through embedded:// (path = {path})",
+        );
+        assert!(
+            path.contains("breakable_intact.png"),
+            "synthesized path missing filename: {path}",
+        );
+
+        // Parallax layers also resolve to BevyPath under WebServedAssets.
+        let parallax_id = crate::game_assets::parallax_layer_asset_id(
+            crate::game_assets::ParallaxTheme::Hub,
+            crate::game_assets::ParallaxLayerAsset::Sky,
+        );
+        let parallax_path = catalog.try_path_for_load(&parallax_id).expect(
+            "WebServedAssets must attempt parallax layers via synthesized BevyPath",
+        );
+        assert!(parallax_path.contains("backgrounds/parallax_layers/hub_sky.png"));
+
+        // Authored Embedded candidates still take priority on WebServedAssets
+        // (sandbox.ldtk is required + embedded).
+        let ldtk_path = catalog.try_path_for_load(&ids::sandbox_ldtk()).unwrap();
+        assert!(ldtk_path.starts_with("embedded://"));
+    }
+
+    /// `WebServedAssets` resolves every music track that has an
+    /// `asset_path` in `sandbox.ron` to a `music.track.<id>` BevyPath
+    /// — Bevy's wasm HTTP reader can fetch the OGGs from the served
+    /// `/assets/` tree. Catches a regression where music tracks stop
+    /// being added to the catalog or the WebServedAssets gate
+    /// excludes them.
+    #[test]
+    fn web_served_assets_resolves_music_track_paths_via_bevy_path() {
+        let mut config = GameAssetConfig::default();
+        config.asset_profile = AssetProfile::WebServedAssets;
+        let spec = SandboxDataSpec::load_embedded();
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+
+        let mut attempted = 0;
+        for track in &spec.audio.music_tracks {
+            if track.asset_path.is_none() {
+                continue;
+            }
+            let id = ids::music_track(&track.id);
+            let path = catalog.try_path_for_load(&id).unwrap_or_else(|| {
+                panic!("music track `{}` (id {id}) missing under WebServedAssets", track.id)
+            });
+            assert!(!path.starts_with("embedded://"));
+            attempted += 1;
+        }
+        assert!(attempted > 0, "expected at least one music track with asset_path");
     }
 }

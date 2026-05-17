@@ -217,7 +217,22 @@ pub fn run_web() {
     // GameAssetConfig defaults match the no-args desktop path — no
     // `std::env::args` parsing on the web because the browser provides
     // none and the helper hits stdlib paths that don't exist on wasm.
-    app.insert_resource(GameAssetConfig::default());
+    let asset_config = GameAssetConfig::default();
+    let active_profile = asset_config.asset_profile;
+    // One-line boot banner so anyone opening browser devtools can see
+    // which asset profile + feature bundle this wasm artifact was
+    // built with. Particularly useful when diagnosing
+    // "why is everything a colored rectangle?" — the answer is almost
+    // always "the build does not have `static_core_assets`."
+    bevy::log::info!(
+        target: "ambition::sandbox_assets",
+        "web start: AssetProfile = {} | static_map = {} | static_core_assets = {} | static_sfx_bank = {}",
+        active_profile.label(),
+        cfg!(feature = "static_map"),
+        cfg!(feature = "static_core_assets"),
+        cfg!(feature = "static_sfx_bank"),
+    );
+    app.insert_resource(asset_config);
     app.add_plugins((
         SandboxSimulationPlugin,
         SandboxLdtkPlugin,
@@ -226,9 +241,7 @@ pub fn run_web() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        crate::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
-            crate::game_assets::default_asset_profile(),
-        ),
+        crate::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(active_profile),
     );
     app.run();
 }

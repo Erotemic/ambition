@@ -81,7 +81,7 @@ AssetId
 | `SteamDeckInstalled`       | InstalledFilesystem → EmbeddedBinary → HttpRemote | ❌         | ✅   | ✅      | ✅    | ✅       | ✅           | Same shape as `DesktopInstalled`; kept distinct for future Deck-specific policy. |
 | `AndroidBundle`            | AndroidApk → EmbeddedBinary                      | ❌         | ✅¹  | ✅²     | ✅²   | ✅¹      | ✅²          | Bevy Android `AssetReader` resolves through APK assets. ¹ LDtk via `static_map` embedded; SFX bank requires `static_sfx_bank`. ² Loaded if packaged. |
 | `IosBundle`                | IosBundle → EmbeddedBinary                       | ❌         | ⚠️   | ⚠️      | ⚠️    | ⚠️       | ⚠️           | Profile modeled but no iOS build target yet — every loader honors the profile, packaging story is TBD. |
-| `WebHttp`                  | HttpRemote → EmbeddedBinary                      | ❌³        | ⚠️   | ❌      | ❌    | ❌       | ❌           | Catalog produces `https://...` URLs when explicit candidates exist; today's sandbox has none, so optional assets resolve to `Disabled` for `should_attempt_optional_load`. ³ HTTP polling / ETag reload future. |
+| `WebHttp`                  | HttpRemote → EmbeddedBinary                      | ❌³        | ⚠️   | ❌      | ❌    | ❌       | ❌           | Catalog produces `https://...` URLs when explicit candidates exist; today's sandbox authors none, so optional assets `try_path_for_load` returns `None`. The `http`/`https` `AssetSource` registration is the missing wiring (slice 18). ³ HTTP polling / ETag reload future. |
 | `WebStatic`                | EmbeddedBinary → HttpRemote                      | ❌         | ✅   | ✅²    | ✅²    | ⚠️       | ❌           | wasm build. LDtk, UI fonts, and a core sprite subset (player/robot/goblin/sandbag + chests/pickups/doors/projectile/tiles) are embedded under `static_core_assets` (default for `--features web`). Parallax, optional NPCs, and music still fall back. SFX via `static_sfx_bank` when enabled. ² Embedded via `AmbitionAssetSourcePlugin`. |
 | `BundledStatic`            | EmbeddedBinary                                   | ❌         | ✅¹  | ❌      | ❌    | ❌       | ❌           | Single-binary cross-platform demo build. Same status as `WebStatic` for optional assets — packaging is TBD. |
 | `NoAssets`                 | (none)                                           | ❌         | 💀   | ❌      | ❌    | ❌       | ❌           | `--no-assets`; every entry resolves to `Disabled`. LDtk is `MissingAssetPolicy::Error` so `load_default` returns Err. |
@@ -97,44 +97,63 @@ Legend: ✅ working / ❌ explicitly skipped (placeholder/fallback) /
 active profile and the resolved location report support. Today that
 means: `DesktopDevLoose` + filesystem-backed location.
 
-The sandbox's existing LDtk hot-reload path
-(`crates/ambition_sandbox/src/ldtk_world/hot_reload.rs`) continues to
-poll the filesystem. When the LDtk asset is migrated to the catalog,
-the watcher will consult `ResolvedAsset::supports_hot_reload()` (and
-`AssetLocation::as_local_path()` for the path to watch) instead of
-hard-coding the desktop-only path resolver. Until then, the live
-behavior is unchanged.
+The LDtk hot-reload watcher
+(`crates/ambition_sandbox/src/ldtk_world/hot_reload.rs::LdtkHotReloadState::from_catalog`)
+asks `SandboxAssetCatalog::hot_reload_local_path(world.sandbox_ldtk)`
+at startup. If the catalog hands back a `PathBuf` (DesktopDevLoose
+profile with a real on-disk file), the watcher polls it. Every other
+profile gets `None` and the watcher idles. Hot-reload re-parses go
+through `LdtkProject::load_from_disk_at(&path, &catalog)` so secondary
+worlds (`world.intro_ldtk`) re-merge against the same catalog.
 
 ## Bevy integration
 
-`AmbitionAssetManagerPlugin` inserts two resources:
+The sandbox installs two paired pieces during `init_sandbox_resources` /
+`run_visible` / `run_web`:
 
-- `AmbitionAssetCatalog(AssetManifest)` — the catalog.
-- `AmbitionAssetProfile(AssetProfile)` — the active profile.
+- **`SandboxAssetCatalog`** Bevy `Resource` — the catalog itself, plus
+  the active `AssetProfile`. Built once via
+  `crate::sandbox_assets::build_sandbox_catalog(&config, &audio)`.
+  Inserted before any loader runs.
+- **`AmbitionAssetSourcePlugin::for_profile(profile)`** — installed
+  AFTER `DefaultPlugins` so `EmbeddedAssetRegistry` (set up by
+  `AssetPlugin`) is already present. Registers the embedded asset
+  bytes the catalog's authored `EmbeddedBinary` candidates point at.
 
-Helpers:
+The canonical loader API is **`SandboxAssetCatalog::try_path_for_load(&id)
+-> Option<String>`**. Returns the Bevy `AssetPath` string when the
+loader should hand it to `AssetServer::load`; returns `None` when the
+loader should fall back (colored rectangle, silent SFX, Bevy default
+font). Every visible loader in the sandbox is a one-liner:
 
-- `catalog.path_for(id, profile) -> Option<String>` — Bevy `AssetPath`
-  string form, or `None` if disabled / non-Bevy-pathable.
-- `catalog.load_optional::<T>(asset_server, id, profile) -> Option<Handle<T>>`
-- `catalog.load_with_default::<T>(...) -> Handle<T>` — falls back to
-  `Handle::default()` when disabled.
+```rust
+if let Some(path) = catalog.try_path_for_load(&id) {
+    handles.insert(key, asset_server.load(path));
+}
+```
 
-Source registrations (`embedded`, `http`, `https`, custom IPFS) are the
-**consumer's responsibility**. Bevy's `AssetPlugin::source` is the
-canonical hook. The crate intentionally doesn't auto-register sources
-because the consumer knows which features it compiled with.
+Byte-only consumers (the SFX bank loader, the LDtk hot-reload watcher)
+go through `SandboxAssetCatalog::resolve_local_file_path(rel) ->
+Option<PathBuf>` for the host on-disk path — the only candidate-roots
+walker in the sandbox.
 
-Recommended integrations:
+`ambition_asset_manager::AmbitionAssetManagerPlugin` is the *generic*
+Bevy plugin shipped by the asset-manager crate; the sandbox doesn't
+use it directly because `SandboxAssetCatalog` owns extra per-sandbox
+policy (the local-file probe + per-profile load gate). Third-party
+crates that just want the resolver layer can install the generic
+plugin instead.
 
-- `BundledStatic` / `WebStatic` — `bevy_embedded_assets` with
-  `ReplaceAndFallback` mode if a loose-fs fallback is wanted.
-- `WebHttp` — enable Bevy's `http` and `https` features and the matching
-  `AssetSource` registrations.
-- `DesktopDevLoose` — default Bevy file `AssetSource` + `bevy/file_watcher`
-  for hot reload.
-- `bevy_asset_loader` — wrap preload groups with its
-  `AssetCollection` / loading-state APIs.
+### Where each profile pulls its bytes from
+
+| Profile | Embedded source | Filesystem source | HTTP source |
+| ------- | --------------- | ----------------- | ----------- |
+| `DesktopDevLoose` | `AmbitionAssetSourcePlugin` (only LDtk under `static_map`) | Bevy default file `AssetReader` + `bevy/file_watcher` for hot reload | not registered |
+| `DesktopInstalled` / `SteamDeckInstalled` | `AmbitionAssetSourcePlugin` | Bevy default file `AssetReader` (no watcher) | not registered |
+| `AndroidBundle` / `IosBundle` | `AmbitionAssetSourcePlugin` | Bevy platform `AssetReader` (APK / .app) | not registered |
+| `WebStatic` / `BundledStatic` | `AmbitionAssetSourcePlugin` under `static_map` + `static_core_assets` | n/a (no host filesystem) | not registered |
+| `WebHttp` | `AmbitionAssetSourcePlugin` (fallback) | n/a | future: `add_http_asset_source(app)` (currently a documented stub) |
+| `NoAssets` / `Headless` | `AmbitionAssetSourcePlugin` still installs (cheap) | n/a | not registered |
 
 ## SFX integration
 
@@ -472,17 +491,26 @@ The `embedded_core_urls_have_authored_catalog_candidates` test fails if any of t
    - `with_location(source, AssetLocation::*)` — only when a specific
      source needs an override; otherwise the synthesized default from
      the entry's `logical_path` is enough.
-4. **Ask the catalog from the loader.** `catalog.path_for(&id)` returns
-   `Option<String>` (the Bevy `AssetPath` string) or `None` when the
-   profile disabled the asset. Then call `asset_server.load(path)` for
-   Bevy-native kinds, or pull bytes via
-   `ambition_asset_manager::build_provider_from_resolved` for the SFX
-   bank. Gate optional images on
-   `catalog.should_attempt_optional_load(&path)`.
-5. **Test it.** The `sandbox_assets::tests` module already locks in
-   uniqueness + required-policy contracts; add a per-domain test if the
-   new asset has interesting per-profile behavior (HTTP-only,
-   IPFS-only, etc.).
+4. **Ask the catalog from the loader.** Call
+   `catalog.try_path_for_load(&id) -> Option<String>` from the loader.
+   `Some(path)` means hand it to `asset_server.load(path)`. `None`
+   means the profile disabled the asset OR the per-profile load gate
+   says skip (out-of-set on WebStatic, missing on DesktopDevLoose, etc.) —
+   fall back to placeholders. For non-Bevy byte adapters (the SFX bank
+   loader), pull the resolved local path via
+   `catalog.resolve_local_file_path(rel)` and feed it to
+   `ambition_asset_manager::build_provider_from_resolved`.
+5. **If the asset is embedded under `static_core_assets`**, add an
+   `EmbeddedBinary` `LocationCandidate` to the entry AND an
+   `EmbeddedAssetRegistry::insert_asset(...)` call in
+   `crate::sandbox_assets::register_embedded_core_assets`. The
+   declarative `embed_core_assets!` table in `sandbox_assets.rs`
+   wraps both — add one row to the table and both pieces fall into
+   place.
+6. **Test it.** The `sandbox_assets::tests` module already locks in
+   uniqueness + required-policy + embedded-pairing contracts; add a
+   per-domain test if the new asset has interesting per-profile
+   behavior (HTTP-only, IPFS-only, etc.).
 
 ## Where things live
 

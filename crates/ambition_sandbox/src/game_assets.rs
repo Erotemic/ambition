@@ -318,13 +318,11 @@ pub fn parallax_layer_asset_id(theme: ParallaxTheme, layer: ParallaxLayerAsset) 
 /// Bevy. Live image loading consumes it through
 /// [`load_game_assets`] / [`load_entity_sprites`] / [`load_parallax_layers`].
 pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
-    use ambition_asset_manager::AssetSourceProfile;
-
     let mut manifest = AssetManifest::new();
     for &sprite in EntitySprite::ALL {
         let id = entity_sprite_asset_id(sprite);
         let logical_path = format!("{sprite_folder}/{}", sprite.relative_path());
-        let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)
+        let entry = AssetEntry::new(id, AssetKind::Image, logical_path)
             .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
             .with_preload_group(PreloadGroup::SandboxCore);
         // Only author the Embedded candidate when the
@@ -332,12 +330,14 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
         // `AmbitionAssetSourcePlugin` doesn't insert the bytes — the
         // candidate would resolve to a 404 on WebStatic.
         #[cfg(feature = "static_core_assets")]
-        if let Some(embedded_url) = entity_sprite_embedded_core_url(sprite) {
-            entry = entry.with_location(
-                AssetSourceProfile::EmbeddedBinary,
+        let entry = if let Some(embedded_url) = entity_sprite_embedded_core_url(sprite) {
+            entry.with_location(
+                ambition_asset_manager::AssetSourceProfile::EmbeddedBinary,
                 ambition_asset_manager::AssetLocation::embedded(embedded_url.to_string()),
-            );
-        }
+            )
+        } else {
+            entry
+        };
         manifest.insert(entry);
     }
     for &theme in ParallaxTheme::ALL {

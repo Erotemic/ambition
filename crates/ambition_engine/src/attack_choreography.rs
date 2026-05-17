@@ -324,15 +324,31 @@ fn evaluate_aerial_orbit(
     projectile_speed: f32,
 ) -> ChoreographyTick {
     state.orbit_phase = (state.orbit_phase + orbit_speed * dt) % std::f32::consts::TAU;
-    // Orbit point: circle the target at `radius` horizontally and
-    // `altitude` vertically above (smaller Y in sandbox world).
+    // Spatial anchor is the slot-board-assigned position, NOT the
+    // player. The slot board has already spread aerial actors across
+    // a wide arc above the target, so anchoring here is what keeps
+    // sharks from clumping at a single orbit point. The choreography
+    // adds a small per-actor wobble around its slot anchor so the
+    // sprite still reads as "hovering / circling" rather than static.
+    //
+    // `altitude` and `radius` from the enum no longer set the absolute
+    // standoff (the slot board owns that). They now scale the wobble
+    // ellipse so aggressive aerial archetypes can still feel jittery
+    // while tank-flyers feel anchored. The horizontal wobble caps at
+    // a fraction of `radius` so neighboring slots don't overlap.
+    let wobble_x = (radius * 0.18).min(60.0);
+    let wobble_y = (altitude * 0.10).min(28.0).max(8.0);
     let engage_pos = Vec2::new(
-        input.target_pos.x + state.orbit_phase.cos() * radius,
-        input.target_pos.y - altitude + state.orbit_phase.sin() * (radius * 0.2),
+        input.assigned_slot_pos.x + state.orbit_phase.cos() * wobble_x,
+        input.assigned_slot_pos.y + state.orbit_phase.sin() * wobble_y,
     );
     let face_x = face_toward(input.actor_pos, input.target_pos);
     let dist_to_engage = (engage_pos - input.actor_pos).length();
-    let in_position = dist_to_engage <= AERIAL_ENGAGE_DISTANCE;
+    // Wider engage threshold for aerial actors: they're flying, not
+    // settling on a tile, and the wobble keeps the target moving
+    // ±wobble_x px every tick — a tight threshold would have the
+    // shark forever "approaching" and never firing.
+    let in_position = dist_to_engage <= (AERIAL_ENGAGE_DISTANCE + wobble_x);
 
     let mut action = None;
     if in_position && state.has_slot {

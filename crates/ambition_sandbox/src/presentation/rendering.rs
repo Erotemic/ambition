@@ -30,6 +30,7 @@ mod camera;
 mod features;
 mod health;
 mod parallax;
+mod pirate_rider;
 mod primitives;
 mod world;
 
@@ -37,6 +38,7 @@ pub use actors::{
     animate_bosses, animate_characters, animate_player, animate_props, sync_visuals,
     upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites,
 };
+pub use pirate_rider::{sync_pirate_rider_visuals, PirateRiderVisual};
 pub use camera::{camera_follow, CameraViewState};
 pub use features::spawn_dynamic_feature_visuals;
 pub use health::sync_health_overlays;

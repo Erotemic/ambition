@@ -920,6 +920,12 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
             crate::projectile::sync_projectile_visuals.after(crate::projectile::update_projectiles),
             crate::enemy_projectile::sync_enemy_projectile_visuals
                 .after(crate::enemy_projectile::update_enemy_projectiles),
+            // Pirate rider composite — runs in the same Update batch
+            // as enemy projectile visuals because both are per-frame
+            // despawn-and-respawn passes that read the live actor
+            // list. Position tracking lives inside this system; no
+            // parent-child plumbing.
+            crate::rendering::sync_pirate_rider_visuals,
         ),
     )
     // VFX + debris subscribe on the visible binary only. Audio's

@@ -27,6 +27,11 @@ use super::*;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
+///
+/// The body is split into per-set helpers below so each section is short
+/// enough to read in one screen and stays under Bevy's 20-system tuple
+/// arity limit. New simulation systems should go into the matching
+/// `register_*_systems` helper rather than back into this orchestrator.
 pub fn add_simulation_plugins(app: &mut App) {
     // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per
     // ADR 0007 Avian is secondary physics for debris/ragdoll visuals;
@@ -43,6 +48,30 @@ pub fn add_simulation_plugins(app: &mut App) {
     // `.chain()` ordering is still expressed per-system.
     configure_sandbox_sets(app);
 
+    install_simulation_messages_and_resources(app);
+
+    register_world_prep_systems(app);
+    register_player_input_systems(app);
+    register_player_simulation_systems(app);
+    register_room_transition_systems(app);
+    register_combat_systems(app);
+    register_presentation_sync_systems(app);
+    register_feature_collection_systems(app);
+    register_feature_interaction_systems(app);
+    register_ldtk_runtime_spine_systems(app);
+    register_encounter_simulation_systems(app);
+    register_cutscene_systems(app);
+    register_gameplay_effects_systems(app);
+    register_progression_chain_systems(app);
+    register_progression_populate_systems(app);
+    register_reset_processing_systems(app);
+    register_trace_systems(app);
+}
+
+/// Install the simulation-side messages, resources, registered types,
+/// Startup / PostStartup systems, and child plugins that the rest of
+/// `add_simulation_plugins` depends on.
+fn install_simulation_messages_and_resources(app: &mut App) {
     app.add_message::<SfxMessage>()
         .add_message::<VfxMessage>()
         .add_message::<DebrisBurstMessage>()
@@ -171,259 +200,304 @@ pub fn add_simulation_plugins(app: &mut App) {
         .insert_resource(crate::CameraEaseState::default())
         .insert_resource(crate::CameraEaseTuning::default())
         .insert_resource(crate::rendering::CameraViewState::default())
-        .insert_resource(crate::reset::SandboxResetRequested::default())
-        // Core simulation, split into 6 finer-grained sub-sets that are
-        // chained inside `SandboxSet::CoreSimulation`. See
-        // `schedule.rs::configure_sandbox_sets` for the sub-set ordering.
-        // External presentation/audio/HUD systems still pin against
-        // `SandboxSet::CoreSimulation`; that constraint covers all six
-        // sub-sets transitively.
-        //
-        // SandboxSet::WorldPrep — LDtk hot-reload + feature world overlay
-        // + feature ticks. Sets up the collision world that PlayerInput +
-        // PlayerSimulation read.
-        .add_systems(
-            Update,
-            (
-                ldtk_world::poll_ldtk_file_changes,
-                crate::features::rebuild_feature_ecs_world_overlay,
-                crate::features::update_ecs_hazards,
-                crate::features::update_ecs_actors,
-                crate::features::update_ecs_bosses,
-            )
-                .chain()
-                .in_set(SandboxSet::WorldPrep),
+        .insert_resource(crate::reset::SandboxResetRequested::default());
+}
+
+// Core simulation, split into 6 finer-grained sub-sets that are
+// chained inside `SandboxSet::CoreSimulation`. See
+// `schedule.rs::configure_sandbox_sets` for the sub-set ordering.
+// External presentation/audio/HUD systems still pin against
+// `SandboxSet::CoreSimulation`; that constraint covers all six
+// sub-sets transitively.
+
+/// LDtk hot-reload + feature world overlay + feature ticks. Sets up the
+/// collision world that PlayerInput + PlayerSimulation read.
+fn register_world_prep_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            ldtk_world::poll_ldtk_file_changes,
+            crate::features::rebuild_feature_ecs_world_overlay,
+            crate::features::update_ecs_hazards,
+            crate::features::update_ecs_actors,
+            crate::features::update_ecs_bosses,
         )
-        // SandboxSet::PlayerInput — dev-edit sync + input-driven reset +
-        // gameplay timer decay + interact buffer + suspended-time
-        // fallback. Each subsequent system depends on the previous one's
-        // ControlFrame / component mutation, so they stay chained.
-        //
-        // `refresh_world_time` leads the chain so every downstream
-        // system can read `Res<WorldTime>::scaled_dt` (bullet-time
-        // adjusted) without re-doing the multiplication. Runs
-        // unconditionally so even suspended-time / pause frames get
-        // an accurate (zero) scaled_dt.
-        .add_systems(
-            Update,
-            (
-                // ADR 0010 — time-control pipeline. Emit reads the
-                // player's bullet-time / blink-hold / dev-slowmo
-                // intent and fires one ClockScaleRequest; Apply
-                // runs the request through the regime policy and
-                // writes the granted target into RequestedClockScale;
-                // Smooth ramps SandboxSimState::time_scale toward
-                // that target at feel-tuned rates. refresh_world_time
-                // then snapshots the smoothed scale into WorldTime
-                // for the rest of the frame.
-                crate::time_control::emit_player_time_intent_system,
-                crate::time_control::apply_clock_scale_requests,
-                crate::time_control::smooth_sim_clock_toward_target_system,
-                crate::refresh_world_time,
-                sync_live_player_dev_edits_system,
-                apply_player_reset_input_system.run_if(gameplay_allowed),
-                input_timer_system.run_if(gameplay_allowed),
-                interaction_input_system.run_if(gameplay_allowed),
-                apply_suspended_time_scale_system.run_if(gameplay_suspended),
-            )
-                .chain()
-                .in_set(SandboxSet::PlayerInput),
+            .chain()
+            .in_set(SandboxSet::WorldPrep),
+    );
+}
+
+/// Dev-edit sync + input-driven reset + gameplay timer decay + interact
+/// buffer + suspended-time fallback. Each subsequent system depends on
+/// the previous one's ControlFrame / component mutation, so they stay
+/// chained.
+///
+/// `refresh_world_time` leads the chain so every downstream system can
+/// read `Res<WorldTime>::scaled_dt` (bullet-time adjusted) without
+/// re-doing the multiplication. Runs unconditionally so even
+/// suspended-time / pause frames get an accurate (zero) scaled_dt.
+fn register_player_input_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            // ADR 0010 — time-control pipeline. Emit reads the
+            // player's bullet-time / blink-hold / dev-slowmo
+            // intent and fires one ClockScaleRequest; Apply
+            // runs the request through the regime policy and
+            // writes the granted target into RequestedClockScale;
+            // Smooth ramps SandboxSimState::time_scale toward
+            // that target at feel-tuned rates. refresh_world_time
+            // then snapshots the smoothed scale into WorldTime
+            // for the rest of the frame.
+            crate::time_control::emit_player_time_intent_system,
+            crate::time_control::apply_clock_scale_requests,
+            crate::time_control::smooth_sim_clock_toward_target_system,
+            crate::refresh_world_time,
+            sync_live_player_dev_edits_system,
+            apply_player_reset_input_system.run_if(gameplay_allowed),
+            input_timer_system.run_if(gameplay_allowed),
+            interaction_input_system.run_if(gameplay_allowed),
+            apply_suspended_time_scale_system.run_if(gameplay_suspended),
         )
-        // SandboxSet::PlayerSimulation — main player tick (two-clock
-        // control + simulation) plus post-sim damage / safe-respawn.
-        .add_systems(
-            Update,
-            (
-                sandbox_update.run_if(gameplay_allowed),
-                apply_player_damage_system.run_if(gameplay_allowed),
-            )
-                .chain()
-                .in_set(SandboxSet::PlayerSimulation),
+            .chain()
+            .in_set(SandboxSet::PlayerInput),
+    );
+}
+
+/// Main player tick (two-clock control + simulation) plus post-sim
+/// damage / safe-respawn.
+fn register_player_simulation_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            sandbox_update.run_if(gameplay_allowed),
+            apply_player_damage_system.run_if(gameplay_allowed),
         )
-        // SandboxSet::RoomTransition — detection emits the
-        // `RoomTransitionRequested` message; apply consumes it and runs
-        // `load_room`; the feature-side `reset_ecs_room_features` system
-        // tears down per-room ECS state.
-        .add_systems(
-            Update,
-            (
-                detect_room_transition_system.run_if(gameplay_allowed),
-                apply_room_transition_system,
-                crate::features::reset_ecs_room_features,
-            )
-                .chain()
-                .in_set(SandboxSet::RoomTransition),
+            .chain()
+            .in_set(SandboxSet::PlayerSimulation),
+    );
+}
+
+/// Detection emits `RoomTransitionRequested`; apply consumes it and runs
+/// `load_room`; the feature-side `reset_ecs_room_features` system tears
+/// down per-room ECS state.
+fn register_room_transition_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            detect_room_transition_system.run_if(gameplay_allowed),
+            apply_room_transition_system,
+            crate::features::reset_ecs_room_features,
         )
-        // SandboxSet::Combat — slash/pogo attack lifecycle, projectile
-        // tick, and the feature-side damage event apply.
-        .add_systems(
-            Update,
-            (
-                attack_advance_system.run_if(gameplay_allowed),
-                crate::projectile::update_projectiles,
-                crate::features::apply_feature_damage_events,
-            )
-                .chain()
-                .in_set(SandboxSet::Combat),
+            .chain()
+            .in_set(SandboxSet::RoomTransition),
+    );
+}
+
+/// Slash/pogo attack lifecycle, projectile tick, and the feature-side
+/// damage event apply.
+fn register_combat_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            attack_advance_system.run_if(gameplay_allowed),
+            crate::projectile::update_projectiles,
+            crate::features::apply_feature_damage_events,
         )
-        // SandboxSet::PresentationSync — player ECS body write-back +
-        // presentation timer decays. Runs unconditionally so paused /
-        // dialogue modes still wind down flash and landing-pose timers.
-        .add_systems(
-            Update,
-            (
-                crate::player::write_player_ecs_components,
-                cleanup_timers_system,
-            )
-                .chain()
-                .in_set(SandboxSet::PresentationSync),
+            .chain()
+            .in_set(SandboxSet::Combat),
+    );
+}
+
+/// Player ECS body write-back + presentation timer decays. Runs
+/// unconditionally so paused / dialogue modes still wind down flash and
+/// landing-pose timers.
+fn register_presentation_sync_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::player::write_player_ecs_components,
+            cleanup_timers_system,
         )
-        .add_systems(
-            Update,
-            (
-                crate::features::collect_ecs_pickups,
-                crate::player::apply_player_heal_requests,
-            )
-                .chain()
-                .in_set(SandboxSet::FeatureCollection),
+            .chain()
+            .in_set(SandboxSet::PresentationSync),
+    );
+}
+
+fn register_feature_collection_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::features::collect_ecs_pickups,
+            crate::player::apply_player_heal_requests,
         )
-        .add_systems(
-            Update,
-            (
-                crate::features::interact_ecs_actors_and_switches,
-                crate::features::open_ecs_chests,
-                crate::features::update_ecs_breakables,
-                crate::features::update_ecs_falling_chests,
-                crate::features::sync_ecs_switches_from_save,
-                crate::encounter::rebuild_encounter_switch_index,
-            )
-                .chain()
-                .in_set(SandboxSet::FeatureInteraction),
+            .chain()
+            .in_set(SandboxSet::FeatureCollection),
+    );
+}
+
+fn register_feature_interaction_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::features::interact_ecs_actors_and_switches,
+            crate::features::open_ecs_chests,
+            crate::features::update_ecs_breakables,
+            crate::features::update_ecs_falling_chests,
+            crate::features::sync_ecs_switches_from_save,
+            crate::encounter::rebuild_encounter_switch_index,
         )
-        .add_systems(
-            Update,
-            (
-                ldtk_world::sync_plugin_spawned_ambition_entities,
-                ldtk_world::rebuild_ldtk_runtime_spine_index,
-                ldtk_world::rebuild_ldtk_runtime_solid_index,
-                ldtk_world::rebuild_ldtk_runtime_one_way_index,
-                ldtk_world::rebuild_ldtk_runtime_damage_index,
-                ldtk_world::check_ldtk_runtime_spine_parity,
-            )
-                .chain()
-                .in_set(SandboxSet::LdtkRuntimeSpine),
+            .chain()
+            .in_set(SandboxSet::FeatureInteraction),
+    );
+}
+
+fn register_ldtk_runtime_spine_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            ldtk_world::sync_plugin_spawned_ambition_entities,
+            ldtk_world::rebuild_ldtk_runtime_spine_index,
+            ldtk_world::rebuild_ldtk_runtime_solid_index,
+            ldtk_world::rebuild_ldtk_runtime_one_way_index,
+            ldtk_world::rebuild_ldtk_runtime_damage_index,
+            ldtk_world::check_ldtk_runtime_spine_parity,
         )
-        .add_systems(
-            Update,
-            (
-                platforms::sync_moving_platform,
-                crate::encounter::update_encounters_from_world,
-                crate::encounter::sync_encounter_controller_states,
-                crate::features::apply_gameplay_banner_requests,
-                crate::features::tick_gameplay_banner,
-            )
-                .chain()
-                .in_set(SandboxSet::EncounterSimulation),
+            .chain()
+            .in_set(SandboxSet::LdtkRuntimeSpine),
+    );
+}
+
+fn register_encounter_simulation_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            platforms::sync_moving_platform,
+            crate::encounter::update_encounters_from_world,
+            crate::encounter::sync_encounter_controller_states,
+            crate::features::apply_gameplay_banner_requests,
+            crate::features::tick_gameplay_banner,
         )
-        // Progression chain: cutscenes, gameplay-effect routing, boss
-        // encounters, quest events, and the F3 stats editor sync. Split into
-        // several chained groups so each tuple stays under Bevy's macro
-        // arity limit while preserving the old drain-before-progression order.
-        .add_systems(
-            Update,
-            (
-                crate::cutscene::auto_trigger_room_cutscenes,
-                crate::cutscene::drain_cutscene_triggers,
-                crate::cutscene::tick_active_cutscene,
-            )
-                .chain()
-                .in_set(SandboxSet::Cutscene),
+            .chain()
+            .in_set(SandboxSet::EncounterSimulation),
+    );
+}
+
+// Progression chain: cutscenes, gameplay-effect routing, boss encounters,
+// quest events, and the F3 stats editor sync. Split into several chained
+// groups so each tuple stays under Bevy's macro arity limit while
+// preserving the old drain-before-progression order.
+
+fn register_cutscene_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::cutscene::auto_trigger_room_cutscenes,
+            crate::cutscene::drain_cutscene_triggers,
+            crate::cutscene::tick_active_cutscene,
         )
-        .add_systems(
-            Update,
-            (
-                crate::features::apply_flag_effects,
-                crate::features::apply_quest_effects,
-                crate::features::apply_switch_effects,
-                crate::features::apply_boss_damage_effects,
-                crate::features::apply_npc_strike_effects,
-                crate::features::apply_gameplay_sfx_effects,
-            )
-                .chain()
-                .in_set(SandboxSet::GameplayEffects),
+            .chain()
+            .in_set(SandboxSet::Cutscene),
+    );
+}
+
+fn register_gameplay_effects_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::features::apply_flag_effects,
+            crate::features::apply_quest_effects,
+            crate::features::apply_switch_effects,
+            crate::features::apply_boss_damage_effects,
+            crate::features::apply_npc_strike_effects,
+            crate::features::apply_gameplay_sfx_effects,
         )
-        .add_systems(
-            Update,
-            (
-                crate::boss_encounter::update_boss_encounters,
-                crate::features::sync_ecs_actors_with_save,
-                crate::features::sync_ecs_bosses_with_save,
-                crate::quest::push_room_entered_quest_events,
-                crate::quest::apply_quest_advance_events,
-                crate::quest::grant_quest_completion_rewards,
-                crate::body_mode::update_body_mode,
-                crate::rooms::sync_active_room_metadata,
-                crate::rooms::sync_room_music_request,
-                // Portal lifecycle: advance every registered portal's
-                // phase from its switch state + per-phase timers.
-                // Pure state update; the visibility + ring-spin
-                // systems below consume the phase. Lives in the
-                // Progression set so the portal state is current
-                // before `detect_room_transition_system` runs (which
-                // is in CoreSimulation, ordered after Progression).
-                crate::rooms::tick_portal_phases_system,
-                crate::map_menu::track_room_visits,
-                crate::map_menu::sync_map_from_save,
-                dev_tools::sync_player_stats_with_inspector,
-            )
-                .chain()
-                .in_set(SandboxSet::Progression),
+            .chain()
+            .in_set(SandboxSet::GameplayEffects),
+    );
+}
+
+fn register_progression_chain_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::boss_encounter::update_boss_encounters,
+            crate::features::sync_ecs_actors_with_save,
+            crate::features::sync_ecs_bosses_with_save,
+            crate::quest::push_room_entered_quest_events,
+            crate::quest::apply_quest_advance_events,
+            crate::quest::grant_quest_completion_rewards,
+            crate::body_mode::update_body_mode,
+            crate::rooms::sync_active_room_metadata,
+            crate::rooms::sync_room_music_request,
+            // Portal lifecycle: advance every registered portal's
+            // phase from its switch state + per-phase timers.
+            // Pure state update; the visibility + ring-spin
+            // systems below consume the phase. Lives in the
+            // Progression set so the portal state is current
+            // before `detect_room_transition_system` runs (which
+            // is in CoreSimulation, ordered after Progression).
+            crate::rooms::tick_portal_phases_system,
+            crate::map_menu::track_room_visits,
+            crate::map_menu::sync_map_from_save,
+            dev_tools::sync_player_stats_with_inspector,
         )
-        // Populate the encounter / quest / boss registries from the LDtk
-        // project + save. These run on Update (not Startup) with their
-        // existing `specs_loaded` / `initialized` short-circuits so:
-        //   1. The first Update tick populates them (Startup is done by
-        //      the time any Update fires, so SandboxLdtkProject + save
-        //      are ready).
-        //   2. The "reset sandbox" flow (`process_sandbox_reset_request`)
-        //      can flip those flags back to false and the next tick
-        //      repopulates from the freshly-cleared save — without us
-        //      having to inline the populate logic in two places.
-        // The cost when already loaded is one ResMut acquisition + one
-        // bool check per registry per frame: negligible.
-        .add_systems(
-            Update,
-            (
-                crate::quest::populate_quest_registry,
-                crate::boss_encounter::populate_boss_encounter_registry,
-                crate::encounter::populate_encounter_registry,
-            )
-                .in_set(SandboxSet::Progression),
+            .chain()
+            .in_set(SandboxSet::Progression),
+    );
+}
+
+/// Populate the encounter / quest / boss registries from the LDtk
+/// project + save. These run on Update (not Startup) with their
+/// existing `specs_loaded` / `initialized` short-circuits so:
+///   1. The first Update tick populates them (Startup is done by
+///      the time any Update fires, so SandboxLdtkProject + save
+///      are ready).
+///   2. The "reset sandbox" flow (`process_sandbox_reset_request`)
+///      can flip those flags back to false and the next tick
+///      repopulates from the freshly-cleared save — without us
+///      having to inline the populate logic in two places.
+/// The cost when already loaded is one ResMut acquisition + one
+/// bool check per registry per frame: negligible.
+fn register_progression_populate_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::quest::populate_quest_registry,
+            crate::boss_encounter::populate_boss_encounter_registry,
+            crate::encounter::populate_encounter_registry,
         )
-        // Sandbox reset processor: consumes pending reset requests
-        // (set by the pause-menu "Reset Sandbox" item or any other
-        // caller). In set ResetProcessing (configured after CoreSimulation)
-        // so it can't race with in-flight gameplay mutations, and before
-        // the populate systems on the next frame so they see the cleared
-        // registries when re-running.
-        .add_systems(
-            Update,
-            crate::reset::process_sandbox_reset_request
-                .in_set(SandboxSet::ResetProcessing),
+            .in_set(SandboxSet::Progression),
+    );
+}
+
+/// Sandbox reset processor: consumes pending reset requests (set by the
+/// pause-menu "Reset Sandbox" item or any other caller). In set
+/// ResetProcessing (configured after CoreSimulation) so it can't race
+/// with in-flight gameplay mutations, and before the populate systems on
+/// the next frame so they see the cleared registries when re-running.
+fn register_reset_processing_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        crate::reset::process_sandbox_reset_request
+            .in_set(SandboxSet::ResetProcessing),
+    );
+}
+
+/// Trace recorder lives at the simulation seam: `record_frame_system`
+/// captures one frame per Update tick after CoreSimulation has resolved
+/// player state; `flush_pending_dump` writes any pending dump to disk on
+/// the same tick. Both run on the simulation half so headless and
+/// visible builds share trace output.
+fn register_trace_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            crate::trace::record_frame_system,
+            crate::trace::flush_pending_dump.after(crate::trace::record_frame_system),
         )
-        // Trace recorder lives at the simulation seam: `record_frame_system`
-        // captures one frame per Update tick after CoreSimulation has
-        // resolved player state; `flush_pending_dump` writes any pending
-        // dump to disk on the same tick. Both run on the simulation half
-        // so headless and visible builds share trace output.
-        .add_systems(
-            Update,
-            (
-                crate::trace::record_frame_system,
-                crate::trace::flush_pending_dump.after(crate::trace::record_frame_system),
-            )
-                .in_set(SandboxSet::Trace),
-        );
+            .in_set(SandboxSet::Trace),
+    );
 }
 
 /// Register Bevy's `LdtkPlugin` plus the supporting Ambition glue

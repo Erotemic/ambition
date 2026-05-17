@@ -234,32 +234,42 @@ fn register_world_prep_systems(app: &mut App) {
 /// the previous one's ControlFrame / component mutation, so they stay
 /// chained.
 ///
-/// `refresh_world_time` leads the chain so every downstream system can
-/// read `Res<WorldTime>::scaled_dt` (bullet-time adjusted) without
-/// re-doing the multiplication. Runs unconditionally so even
-/// suspended-time / pause frames get an accurate (zero) scaled_dt.
+/// Ordering subtleties (ADR 0010 §"Suspended time"):
+/// * `apply_suspended_time_scale_system` runs FIRST so when gameplay
+///   is suspended (pause / dialogue / cutscene / room transition) the
+///   sim_clock target and `SandboxSimState::time_scale` are zeroed
+///   BEFORE `refresh_world_time` snapshots them. Previously this
+///   system ran last in the chain, so `WorldTime::scaled_dt` could
+///   be non-zero on the very first suspended frame and presentation
+///   systems scaling animations by `time_scale * dt` would tick once
+///   after pause landed.
+/// * The emit → apply → smooth trio is gated to `gameplay_allowed`
+///   so it doesn't immediately re-populate `RequestedClockScale` /
+///   `time_scale` back from the zero the suspended fallback just
+///   wrote. On the first re-resumed frame they run again and the
+///   smoother ramps back up from 0 to 1.0 at the authored rate.
+/// * `refresh_world_time` then snapshots whichever path won this
+///   frame, so downstream systems always see a coherent `scaled_dt`.
 fn register_player_input_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            // ADR 0010 — time-control pipeline. Emit reads the
-            // player's bullet-time / blink-hold / dev-slowmo
-            // intent and fires one ClockScaleRequest; Apply
-            // runs the request through the regime policy and
-            // writes the granted target into RequestedClockScale;
-            // Smooth ramps SandboxSimState::time_scale toward
-            // that target at feel-tuned rates. refresh_world_time
-            // then snapshots the smoothed scale into WorldTime
-            // for the rest of the frame.
-            crate::time_control::emit_player_time_intent_system,
-            crate::time_control::apply_clock_scale_requests,
-            crate::time_control::smooth_sim_clock_toward_target_system,
+            apply_suspended_time_scale_system.run_if(gameplay_suspended),
+            // ADR 0010 — time-control pipeline. Gated to
+            // `gameplay_allowed` so suspended frames don't re-emit a
+            // default 1.0 request that would compete with the
+            // suspended fallback above.
+            crate::time_control::emit_player_time_intent_system.run_if(gameplay_allowed),
+            crate::time_control::apply_clock_scale_requests.run_if(gameplay_allowed),
+            crate::time_control::smooth_sim_clock_toward_target_system.run_if(gameplay_allowed),
+            // Unconditional: snapshot whichever path (suspended-zero
+            // or gameplay-smoothed) wrote `SandboxSimState::time_scale`
+            // this frame into `WorldTime` for downstream readers.
             crate::refresh_world_time,
             sync_live_player_dev_edits_system,
             apply_player_reset_input_system.run_if(gameplay_allowed),
             input_timer_system.run_if(gameplay_allowed),
             interaction_input_system.run_if(gameplay_allowed),
-            apply_suspended_time_scale_system.run_if(gameplay_suspended),
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),

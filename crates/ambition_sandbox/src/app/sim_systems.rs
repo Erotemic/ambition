@@ -566,3 +566,113 @@ fn update_anim_signal_timers(
     anim.anim_prev_vel_y = player.vel.y;
     anim.anim_prev_dash_timer = dash_timer;
 }
+
+#[cfg(test)]
+mod suspended_time_tests {
+    use super::*;
+    use crate::game_mode::{gameplay_suspended, GameMode};
+    use crate::time_control::RequestedClockScale;
+    use crate::WorldTime;
+    use bevy::state::app::StatesPlugin;
+
+    /// Regression: when gameplay is suspended (pause / dialogue /
+    /// cutscene / room transition), `apply_suspended_time_scale_system`
+    /// must zero both `SandboxSimState::time_scale` AND
+    /// `RequestedClockScale::sim_clock` BEFORE `refresh_world_time`
+    /// snapshots them — otherwise `WorldTime::scaled_dt` stays
+    /// non-zero on the first suspended frame and any presentation
+    /// system multiplying by it ticks one extra frame after pause
+    /// lands.
+    #[test]
+    fn suspended_frame_zeros_world_time_scaled_dt() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.insert_state(GameMode::Paused);
+        app.insert_resource(SandboxSimState {
+            time_scale: 1.0,
+            ..Default::default()
+        });
+        app.insert_resource(RequestedClockScale {
+            sim_clock: 1.0,
+            ..Default::default()
+        });
+        app.insert_resource(WorldTime {
+            raw_dt: 0.016,
+            scaled_dt: 0.016,
+        });
+        app.insert_resource(Time::<()>::default());
+
+        // Mirror the new ordering from `register_player_input_systems`:
+        // suspended-zero FIRST, then refresh.
+        app.add_systems(
+            Update,
+            (
+                apply_suspended_time_scale_system.run_if(gameplay_suspended),
+                crate::refresh_world_time,
+            )
+                .chain(),
+        );
+
+        // Pump one wall-clock tick so refresh_world_time has a real dt.
+        let frame = std::time::Duration::from_millis(16);
+        app.world_mut().resource_mut::<Time>().advance_by(frame);
+        app.update();
+
+        let sim = app.world().resource::<SandboxSimState>();
+        let target = app.world().resource::<RequestedClockScale>();
+        let wt = app.world().resource::<WorldTime>();
+        assert_eq!(
+            sim.time_scale, 0.0,
+            "suspended frame must zero sim_state.time_scale"
+        );
+        assert_eq!(
+            target.sim_clock, 0.0,
+            "suspended frame must zero RequestedClockScale.sim_clock"
+        );
+        assert_eq!(
+            wt.scaled_dt, 0.0,
+            "suspended frame must zero WorldTime.scaled_dt (refresh_world_time \
+             must see the zeroed time_scale, not last frame's 1.0)"
+        );
+        // wall_dt keeps ticking through pause — that's the contract.
+        assert!(
+            (wt.wall_dt() - 0.016).abs() < 1e-6,
+            "wall clock must keep ticking through pause"
+        );
+    }
+
+    /// Gameplay-allowed frames take the regular emit → apply → smooth
+    /// path; the suspended fallback is short-circuited by `run_if`.
+    /// `refresh_world_time` then sees `sim_state.time_scale = 1.0`
+    /// (the default) and reports a non-zero `scaled_dt`.
+    #[test]
+    fn gameplay_frame_preserves_world_time_scaled_dt() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.insert_state(GameMode::Playing);
+        app.insert_resource(SandboxSimState::default());
+        app.insert_resource(RequestedClockScale::default());
+        app.insert_resource(WorldTime::default());
+        app.insert_resource(Time::<()>::default());
+
+        app.add_systems(
+            Update,
+            (
+                apply_suspended_time_scale_system.run_if(gameplay_suspended),
+                crate::refresh_world_time,
+            )
+                .chain(),
+        );
+
+        let frame = std::time::Duration::from_millis(16);
+        app.world_mut().resource_mut::<Time>().advance_by(frame);
+        app.update();
+
+        let wt = app.world().resource::<WorldTime>();
+        assert!(
+            wt.scaled_dt > 0.0,
+            "gameplay frame must produce a non-zero scaled_dt; got {}",
+            wt.scaled_dt
+        );
+    }
+}

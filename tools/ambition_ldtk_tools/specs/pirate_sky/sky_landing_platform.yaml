@@ -1,0 +1,16 @@
+# Catch the player after they arrive in pirate_sky_arena via the
+# bottom-edge sky_arrival EdgeExit. The cloud_floor will have a
+# gap punched at x=144..272 (so the player can re-overlap the
+# EdgeExit on the way back out); without a landing pad here, the
+# player would arrive in mid-air and fall straight back through.
+#
+# A OneWayPlatform (not Solid) so the player can drop *through*
+# it when leaving — walks off the side or fast-falls down,
+# overlaps the EdgeExit zone underneath, exits to gate_stack_lower.
+
+level_id: pirate_sky_arena
+entities:
+  - type: OneWayPlatform
+    px: [144, 976]
+    size: [128, 16]
+    fields: { name: sky_arrival_landing_pad }

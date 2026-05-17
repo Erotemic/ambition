@@ -1,0 +1,12 @@
+# Delete the old mid-room Door LoadingZones for the pirate sky
+# route. We're converting them to EdgeExit pairs at the top edge of
+# gate_stack_lower / bottom edge of pirate_sky_arena per the
+# `feedback_loading_zone_activation` rule: gridvania up-seams use
+# EdgeExit, not Door.
+
+level_id: gate_stack_lower
+deletes:
+  - target:
+      identifier: LoadingZone
+      match:
+        id: pirate_sky_door

@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 4352,
+	"nextUid": 4353,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -5631,7 +5631,7 @@
 						},
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [96,55],
+							"__grid": [4,55],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
@@ -5640,7 +5640,7 @@
 							"width": 48,
 							"height": 96,
 							"defUid": 2002,
-							"px": [1538,880],
+							"px": [77,880],
 							"fieldInstances": [
 								{ "__identifier": "id", "__type": "String", "__value": "tech_bros_door", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["tech_bros_door"] } ] },
 								{ "__identifier": "name", "__type": "String", "__value": "tech_bros_door", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["tech_bros_door"] } ] },
@@ -5649,7 +5649,7 @@
 								{ "__identifier": "target_zone", "__type": "String", "__value": "tech_bros_entry", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["tech_bros_entry"] } ] },
 								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [ { "id": "V_Bool", "params": [true] } ] }
 							],
-							"__worldX": 1538,
+							"__worldX": 77,
 							"__worldY": 880
 						},
 						{
@@ -5719,6 +5719,29 @@
 								{ "__identifier": "target_room", "__type": "String", "__value": "intro_wake_room", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["intro_wake_room"] } ] },
 								{ "__identifier": "target_zone", "__type": "String", "__value": "wake_room_arrival", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["wake_room_arrival"] } ] },
 								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [] }
+							]
+						},
+						{
+							"__identifier": "LoadingZone",
+							"__grid": [96,55],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FFD166",
+							"__worldX": 1538,
+							"__worldY": 880,
+							"iid": "LoadingZone-4352",
+							"width": 48,
+							"height": 96,
+							"defUid": 2002,
+							"px": [1538,880],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "gate_stack_portal", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["gate_stack_portal"] } ] },
+								{ "__identifier": "name", "__type": "String", "__value": "gate_stack_portal", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["gate_stack_portal"] } ] },
+								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [] },
+								{ "__identifier": "target_room", "__type": "String", "__value": "gate_stack_lower", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["gate_stack_lower"] } ] },
+								{ "__identifier": "target_zone", "__type": "String", "__value": "intro_portal_zone", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["intro_portal_zone"] } ] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [ { "id": "V_Bool", "params": [false] } ] }
 							]
 						}
 					]

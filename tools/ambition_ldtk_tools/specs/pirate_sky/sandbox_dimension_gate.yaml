@@ -1,0 +1,33 @@
+# Add a sandbox-side fast-travel dimension gate to gate_stack_lower
+# (the intro's dimension-gate area). Lets the player skip the wake
+# → raid → escape → drain → gate sequence when iterating on
+# pirate-sky / future routes branching off the gate stack.
+#
+# Placement note: the existing tech_bros_door at px=[1538, 880]
+# is being moved to px=[77, 880] (leftmost gap on the same row) by
+# the companion `move_tech_bros_door.yaml` spec to free this slot.
+#
+# Activation: Door — this is the dimension-gate-portal case where
+# the destination is not 2D-adjacent on the world grid (gate_stack_lower
+# is on a separate world-grid location). Per the
+# `feedback_loading_zone_activation` rule, EdgeExit is the default
+# for gridvania adjacency; Door is reserved for non-adjacent portals
+# like this one.
+#
+# `bidirectional: false` — the return path from gate_stack_lower is
+# the existing `intro_portal_zone` (which already returns the player
+# to central_hub_main/intro_wake_door). Setting `false` here keeps
+# that round-trip explicit and avoids a phantom reciprocal write.
+
+level_id: central_hub_main
+entities:
+  - type: LoadingZone
+    px: [1538, 880]
+    size: [48, 96]
+    fields:
+      id: gate_stack_portal
+      name: gate_stack_portal
+      activation: Door
+      target_room: gate_stack_lower
+      target_zone: intro_portal_zone
+      bidirectional: false

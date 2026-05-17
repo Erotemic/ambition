@@ -11,7 +11,7 @@
 	"iid": "ambition-intro-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 104453,
+	"nextUid": 104457,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "GridVania",
@@ -7310,10 +7310,10 @@
 					"iid": "Collision-104402",
 					"layerDefUid": 5024,
 					"intGridCsv": [
-						0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+						0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,
-						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+						1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -7882,26 +7882,58 @@
 							]
 						},
 						{
+							"__identifier": "OneWayPlatform",
+							"__grid": [9,12],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#A4D65E",
+							"__worldX": 5072,
+							"__worldY": 192,
+							"iid": "OneWayPlatform-104453",
+							"width": 128,
+							"height": 16,
+							"defUid": 2003,
+							"px": [144,192],
+							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "gate_stack_pirate_step_low", "__tile": null, "defUid": 3008, "realEditorValues": [ { "id": "V_String", "params": ["gate_stack_pirate_step_low"] } ] } ]
+						},
+						{
+							"__identifier": "OneWayPlatform",
+							"__grid": [10,5],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#A4D65E",
+							"__worldX": 5088,
+							"__worldY": 80,
+							"iid": "OneWayPlatform-104454",
+							"width": 96,
+							"height": 16,
+							"defUid": 2003,
+							"px": [160,80],
+							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "gate_stack_pirate_step_high", "__tile": null, "defUid": 3008, "realEditorValues": [ { "id": "V_String", "params": ["gate_stack_pirate_step_high"] } ] } ]
+						},
+						{
 							"__identifier": "LoadingZone",
-							"__grid": [10,14],
+							"__grid": [10,0],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
 							"__worldX": 5088,
-							"__worldY": 224,
-							"iid": "LoadingZone-104452",
+							"__worldY": 0,
+							"iid": "LoadingZone-104455",
 							"width": 96,
-							"height": 96,
+							"height": 16,
 							"defUid": 2002,
-							"px": [160,224],
+							"px": [160,0],
 							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "pirate_sky_door", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_door"] } ] },
-								{ "__identifier": "name", "__type": "String", "__value": "pirate_sky_door", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_door"] } ] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [] },
+								{ "__identifier": "id", "__type": "String", "__value": "pirate_sky_up", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_up"] } ] },
+								{ "__identifier": "name", "__type": "String", "__value": "pirate_sky_up", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_up"] } ] },
+								{ "__identifier": "activation", "__type": "String", "__value": "EdgeExit", "__tile": null, "defUid": 3004, "realEditorValues": [ { "id": "V_String", "params": ["EdgeExit"] } ] },
 								{ "__identifier": "target_room", "__type": "String", "__value": "pirate_sky_arena", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_arena"] } ] },
 								{ "__identifier": "target_zone", "__type": "String", "__value": "sky_arrival", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["sky_arrival"] } ] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [ { "id": "V_Bool", "params": [false] } ] }
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [] }
 							]
 						}
 					]
@@ -8510,12 +8542,12 @@
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,
+						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,
+						0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+						1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 						1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -8566,25 +8598,25 @@
 					"entityInstances": [
 						{
 							"__identifier": "LoadingZone",
-							"__grid": [70,57],
+							"__grid": [10,63],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FFD166",
-							"__worldX": 109120,
-							"__worldY": -104,
+							"__worldX": 108160,
+							"__worldY": -16,
 							"iid": "LoadingZone-104444",
-							"width": 160,
-							"height": 80,
+							"width": 96,
+							"height": 16,
 							"defUid": 2002,
-							"px": [1120,920],
+							"px": [160,1008],
 							"fieldInstances": [
 								{ "__identifier": "id", "__type": "String", "__value": "sky_arrival", "__tile": null, "defUid": 3002, "realEditorValues": [ { "id": "V_String", "params": ["sky_arrival"] } ] },
 								{ "__identifier": "name", "__type": "String", "__value": "sky_arrival", "__tile": null, "defUid": 3003, "realEditorValues": [ { "id": "V_String", "params": ["sky_arrival"] } ] },
-								{ "__identifier": "activation", "__type": "String", "__value": "Door", "__tile": null, "defUid": 3004, "realEditorValues": [] },
+								{ "__identifier": "activation", "__type": "String", "__value": "EdgeExit", "__tile": null, "defUid": 3004, "realEditorValues": [ { "id": "V_String", "params": ["EdgeExit"] } ] },
 								{ "__identifier": "target_room", "__type": "String", "__value": "gate_stack_lower", "__tile": null, "defUid": 3005, "realEditorValues": [ { "id": "V_String", "params": ["gate_stack_lower"] } ] },
-								{ "__identifier": "target_zone", "__type": "String", "__value": "pirate_sky_door", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_door"] } ] },
-								{ "__identifier": "bidirectional", "__type": "Bool", "__value": false, "__tile": null, "defUid": 3007, "realEditorValues": [ { "id": "V_Bool", "params": [false] } ] }
+								{ "__identifier": "target_zone", "__type": "String", "__value": "pirate_sky_up", "__tile": null, "defUid": 3006, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_up"] } ] },
+								{ "__identifier": "bidirectional", "__type": "Bool", "__value": true, "__tile": null, "defUid": 3007, "realEditorValues": [] }
 							]
 						},
 						{
@@ -8699,6 +8731,22 @@
 								{ "__identifier": "text", "__type": "String", "__value": "OPEN SKY — TRESPASSERS WILL BE FED", "__tile": null, "defUid": 3016, "realEditorValues": [ { "id": "V_String", "params": ["OPEN SKY — TRESPASSERS WILL BE FED"] } ] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							]
+						},
+						{
+							"__identifier": "OneWayPlatform",
+							"__grid": [9,61],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#A4D65E",
+							"__worldX": 108144,
+							"__worldY": -48,
+							"iid": "OneWayPlatform-104456",
+							"width": 128,
+							"height": 16,
+							"defUid": 2003,
+							"px": [144,976],
+							"fieldInstances": [ { "__identifier": "name", "__type": "String", "__value": "sky_arrival_landing_pad", "__tile": null, "defUid": 3008, "realEditorValues": [ { "id": "V_String", "params": ["sky_arrival_landing_pad"] } ] } ]
 						}
 					]
 				},

@@ -1,0 +1,31 @@
+# Add the up-edge LoadingZone + supporting platforming for the
+# pirate sky route. Puts the EdgeExit zone touching the top edge
+# (y=0) of gate_stack_lower so the seam to pirate_sky_arena (above)
+# is a proper gridvania up-seam, not a mid-room Door.
+#
+# Also adds two OneWayPlatforms ascending from the left balcony
+# (existing OneWayPlatform at y=320) to the ceiling so the player
+# has something to platform up through. The ceiling itself has
+# cells erased separately via `intgrid erase` to open the hole the
+# EdgeExit zone occupies.
+
+level_id: gate_stack_lower
+entities:
+  - type: OneWayPlatform
+    px: [144, 192]
+    size: [128, 16]
+    fields: { name: gate_stack_pirate_step_low }
+  - type: OneWayPlatform
+    px: [160, 80]
+    size: [96, 16]
+    fields: { name: gate_stack_pirate_step_high }
+  - type: LoadingZone
+    px: [160, 0]
+    size: [96, 16]
+    fields:
+      id: pirate_sky_up
+      name: pirate_sky_up
+      activation: EdgeExit
+      target_room: pirate_sky_arena
+      target_zone: sky_arrival
+      bidirectional: true

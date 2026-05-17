@@ -977,12 +977,29 @@ def validate(
         local_zone = (zx - bx0, zy - by0, zw, zh)
         cx, cy = center(local_zone)
         if target["activation"] == "EdgeExit":
-            if local_zone[0] <= 37.0:
-                arrival = (92.0, cy)
-            elif local_zone[0] + local_zone[2] >= width - 37.0:
-                arrival = (width - 92.0, cy)
+            # Classify by shape: wider-than-tall = top/bottom seam
+            # (inset Y), taller-than-wide = left/right seam (inset X).
+            # Must mirror `edge_arrival` in
+            # crates/ambition_sandbox/src/world/rooms/spawn.rs so
+            # the validator's arrival math matches what the runtime
+            # actually computes.
+            zw, zh = local_zone[2], local_zone[3]
+            if zw >= zh:
+                # Top/bottom seam.
+                if local_zone[1] <= 37.0:
+                    arrival = (cx, 92.0)
+                elif local_zone[1] + local_zone[3] >= height - 37.0:
+                    arrival = (cx, height - 92.0)
+                else:
+                    arrival = (cx, cy)
             else:
-                arrival = (cx, cy)
+                # Left/right seam.
+                if local_zone[0] <= 37.0:
+                    arrival = (92.0, cy)
+                elif local_zone[0] + local_zone[2] >= width - 37.0:
+                    arrival = (width - 92.0, cy)
+                else:
+                    arrival = (cx, cy)
         else:
             arrival = (cx, local_zone[1] + local_zone[3] - 26.0)
         spawn = player_spawn_rect(arrival)

@@ -31,14 +31,36 @@ pub(super) fn arrival_from_target_zone(world: &ae::World, zone: &LoadingZone) ->
 }
 
 fn edge_arrival(world: &ae::World, zone: ae::Aabb) -> ae::Vec2 {
-    let x = if zone.left() <= WALL + 1.0 {
-        EDGE_ARRIVAL_INSET
-    } else if zone.right() >= world.size.x - WALL - 1.0 {
-        world.size.x - EDGE_ARRIVAL_INSET
+    // Classify by shape: a tall narrow zone is a side seam
+    // (left/right edge); a wide short zone is a top/bottom seam.
+    // This is how a top-edge zone (player jumps UP through the
+    // ceiling and pops into the bottom of the room above) and a
+    // bottom-edge zone are distinguished from the historical
+    // side-scroll left/right exits without requiring the author to
+    // declare the edge explicitly.
+    let zone_w = zone.right() - zone.left();
+    let zone_h = zone.bottom() - zone.top();
+    if zone_w >= zone_h {
+        // Top/bottom edge: inset Y, center X over the zone.
+        let y = if zone.top() <= WALL + 1.0 {
+            EDGE_ARRIVAL_INSET
+        } else if zone.bottom() >= world.size.y - WALL - 1.0 {
+            world.size.y - EDGE_ARRIVAL_INSET
+        } else {
+            zone.center().y
+        };
+        ae::Vec2::new(zone.center().x, y)
     } else {
-        zone.center().x
-    };
-    ae::Vec2::new(x, zone.center().y)
+        // Left/right edge: inset X, center Y over the zone.
+        let x = if zone.left() <= WALL + 1.0 {
+            EDGE_ARRIVAL_INSET
+        } else if zone.right() >= world.size.x - WALL - 1.0 {
+            world.size.x - EDGE_ARRIVAL_INSET
+        } else {
+            zone.center().x
+        };
+        ae::Vec2::new(x, zone.center().y)
+    }
 }
 
 fn door_arrival(zone: ae::Aabb) -> ae::Vec2 {

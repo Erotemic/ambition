@@ -1,0 +1,13 @@
+# Move `sky_arrival` to the bottom edge of pirate_sky_arena so the
+# EdgeExit pair (with gate_stack_lower/pirate_sky_up) sits at the
+# same level-local x range (160..256) — keeps the gridvania up-seam
+# spatially coherent.
+
+level_id: pirate_sky_arena
+moves:
+  - target:
+      identifier: LoadingZone
+      match:
+        id: sky_arrival
+    px: [160, 1008]
+    size: [96, 16]

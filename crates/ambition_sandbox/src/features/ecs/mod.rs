@@ -2002,6 +2002,75 @@ mod tests {
              rebuild must run AFTER ResetProcessing, not in parallel with it"
         );
     }
+
+    /// Regression for the presentation-reader ordering bug:
+    /// presentation systems that read `FeatureViewIndex` were
+    /// previously pinned only to `.after(SandboxSet::CoreSimulation)`,
+    /// which is satisfied whether `FeatureViewSync` runs before OR
+    /// after the reader — because `FeatureViewSync` is downstream of
+    /// `CoreSimulation`, the constraint imposed no relative order
+    /// between rebuild and readers. The fix pins the visual chain in
+    /// `install_visual_animation_systems` to
+    /// `.after(SandboxSet::FeatureViewSync)`. This test stands in a
+    /// minimal reader that copies the index size into a sentinel
+    /// resource and proves the same-frame ordering contract.
+    #[test]
+    fn presentation_reader_sees_feature_view_index_built_this_frame() {
+        use crate::app::{configure_sandbox_sets, SandboxSet};
+        use bevy::prelude::Resource;
+
+        #[derive(Resource, Default)]
+        struct ReaderSnapshot {
+            index_len_seen: usize,
+            pickup_present: bool,
+        }
+
+        fn fake_presentation_reader(
+            views: Res<FeatureViewIndex>,
+            mut snapshot: ResMut<ReaderSnapshot>,
+        ) {
+            snapshot.index_len_seen = views.len();
+            snapshot.pickup_present = views.get("hp_pickup").is_some();
+        }
+
+        let mut app = App::new();
+        app.insert_resource(FeatureViewIndex::default());
+        app.insert_resource(ReaderSnapshot::default());
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("hp_pickup"),
+            FeatureName::new("Health"),
+            FeatureAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
+            PickupFeature::new(ae::Pickup::new(
+                "hp_pickup",
+                ae::PickupKind::Health { amount: 1 },
+            )),
+        ));
+        configure_sandbox_sets(&mut app);
+        app.add_systems(
+            Update,
+            (
+                rebuild_feature_view_index.in_set(SandboxSet::FeatureViewSync),
+                // The load-bearing constraint: presentation readers
+                // must observe the rebuild that ran in the same tick.
+                fake_presentation_reader.after(SandboxSet::FeatureViewSync),
+            ),
+        );
+
+        app.update();
+
+        let snapshot = app.world().resource::<ReaderSnapshot>();
+        assert_eq!(
+            snapshot.index_len_seen, 1,
+            "presentation reader must observe the FeatureViewSync rebuild from \
+             the same tick — saw {} entries, expected 1",
+            snapshot.index_len_seen
+        );
+        assert!(
+            snapshot.pickup_present,
+            "presentation reader must see the pickup id rebuilt this tick"
+        );
+    }
 }
 
 

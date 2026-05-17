@@ -740,6 +740,16 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 /// Visual entity spawn for dynamic features + sprite/animation pipelines.
 /// Chained after `handle_map_menu_hotkeys` (the last input system in the
 /// presentation half) and feeds the camera + overlay chain that follows.
+///
+/// The explicit `.after(SandboxSet::FeatureViewSync)` is load-bearing:
+/// `sync_visuals` reads `FeatureViewIndex` and `upgrade_enemy_sprites`
+/// + `upgrade_npc_sprites` (chained later via `.after(sync_visuals)`)
+/// read it too. A bare `.after(CoreSimulation)` is satisfied by
+/// `FeatureViewSync` running EITHER before OR after the presentation
+/// chain, so without this pin the cache rebuild can race the readers
+/// — they'd consume the previous frame's index on any tick where the
+/// scheduler interleaves things unfavorably (post-reset, post-
+/// progression, post-encounter spawn).
 fn install_visual_animation_systems(app: &mut App) {
     app.add_systems(
         Update,
@@ -756,6 +766,7 @@ fn install_visual_animation_systems(app: &mut App) {
             animate_bosses,
         )
             .chain()
+            .after(SandboxSet::FeatureViewSync)
             .after(crate::map_menu::handle_map_menu_hotkeys),
     );
 }

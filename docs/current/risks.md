@@ -1,6 +1,6 @@
 # Current risks
 
-This file is the extracted risk register from `docs/CURRENT_STATE.md` plus the current review protocol for high-risk Ambition systems.
+This file is the current risk register and review protocol for high-risk Ambition systems.
 
 Related split:
 
@@ -22,7 +22,7 @@ Spatial reasoning and geometry code need extra review. In particular:
 - moving hazards/platforms,
 - non-Euclidean seams or chart transforms.
 
-When touching these systems, add an `AMBITION_REVIEW:` comment if the logic is easy to get subtly wrong, and add tests or debug visualization when practical. See `docs/AGENT_HANDOFF.md`.
+When touching these systems, add an `AMBITION_REVIEW:` comment if the logic is easy to get subtly wrong, and add tests or debug visualization when practical. See `AGENTS.md`.
 
 ## Spatial review rule
 

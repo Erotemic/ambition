@@ -4,7 +4,7 @@
 //! gameplay systems, helpers, and App-builder logic moved to the library
 //! crate (`crates/ambition_sandbox/src/app.rs`) in Slice 5 of ADR 0012's
 //! events refactor so the headless binary can drive the same simulation
-//! loop. See `docs/events_refactor_plan.md`.
+//! loop. See `docs/archive/historical-roadmaps/events-refactor-plan.md`.
 //!
 //! Web (`wasm32-unknown-unknown`) builds skip this `fn main()` entirely.
 //! The browser entry point is the `#[wasm_bindgen(start)]` shim exported

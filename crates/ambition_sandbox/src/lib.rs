@@ -11,7 +11,7 @@
 //! Do not introduce a god-object runtime resource; add narrow resources or ECS
 //! components instead.
 //!
-//! See `docs/headless_simulation.md` for the sim/presentation contract this
+//! See `docs/systems/headless-simulation.md` for the sim/presentation contract this
 //! library is being shaped toward, and `docs/architecture_targets.md` for the
 //! longer-term events refactor that will let `sandbox_update` itself run
 //! headless.
@@ -353,7 +353,7 @@ impl PlayerAttackState {
 /// resolution, hazard respawn, hitstun, post-blink grace, or room
 /// transitions where the player position is intentionally being
 /// teleported and shouldn't be remembered as safe. See
-/// `docs/lessons_learned.md` for the OOB trace where a wall-cling
+/// `dev/journals/lessons_learned.md` for the OOB trace where a wall-cling
 /// teleport polluted `last_safe_player_pos` with `(62, -23)`.
 pub fn remember_safe_player_position(
     sim_state: &mut SandboxSimState,

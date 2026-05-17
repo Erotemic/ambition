@@ -68,7 +68,7 @@ python scripts/check_agent_kb.py
 - Do not hand-edit `sandbox.ldtk`; use Ambition LDtk tooling.
 - Preserve Android/web/platform entrypoints when replacing shared files.
 - Update docs/concepts, recipes, ADRs, or dev memory when a durable invariant changes.
-- Use `docs/redirects.md` for old documentation paths instead of recreating top-level stubs.
+- Do not create redirect-only documentation stubs. Update real links or move stale material into `docs/archive/`.
 
 ## Common validation commands
 

@@ -16,7 +16,7 @@
 //!
 //! Today the sandbox `EnemyRuntime` and `BossRuntime` carry their own
 //! ad-hoc AI logic. The path forward (documented in
-//! `docs/character_ai_refactor.md`) is to make those runtimes consume
+//! `docs/systems/character-ai-refactor.md`) is to make those runtimes consume
 //! `CharacterAiSnapshot` + `CharacterAiOutput` and let this module be
 //! the single source of truth.
 

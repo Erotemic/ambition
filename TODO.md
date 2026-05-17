@@ -46,7 +46,7 @@
 
 ## S — Active sandbox blockers (do first)
 
-- [~] **Wall-cling teleport on mob_lab lock wall** `[V5/D3]` — currently mitigated by `body_is_side_contact` predicate; pinned by `mob_lab_lock_wall_cling_does_not_teleport` regression test in `repro_walls.rs` AND by the new proptest fuzz in `wall_cling_fuzz.rs` (random positions across two scenarios). The historical y=434 → y=-23 snap is closed; the parry contact-normal fix (path_forward step D1) is the proper cleanup but no longer urgent. Source: `docs/tech_debt_log.md` (HIGH).
+- [~] **Wall-cling teleport on mob_lab lock wall** `[V5/D3]` — currently mitigated by `body_is_side_contact` predicate; pinned by `mob_lab_lock_wall_cling_does_not_teleport` regression test in `repro_walls.rs` AND by the new proptest fuzz in `wall_cling_fuzz.rs` (random positions across two scenarios). The historical y=434 → y=-23 snap is closed; the parry contact-normal fix (path_forward step D1) is the proper cleanup but no longer urgent. Source: `docs/planning/tech-debt-log.md` (HIGH).
 - [~] **Parry contact-normal in `sweep_player_x` / `sweep_player_y` (path_forward step D1)** `[V5/D3]` — Parry `ShapeCastHit::normal1` is now plumbed through `geometry`/`world`, but direct snap-direction consumption was reverted after full-world wall-cling repros teleported to `y=-23`. Keep the existing overlap/approach guards in `movement/collision.rs` until D1 has a targeted semantic test for side-wall vs floor/ceiling contacts.
   - Local validation gate: `cargo fmt --all`, `cargo test -p ambition_engine --lib`, `cargo test -p ambition_sandbox --test repro_walls`, and `cargo test -p ambition_sandbox --test fuzz_random_walker`.
   - Benchmark/lesson notes for this failed refactor live under `dev/benchmark-candidates/` and `dev/journals/` as additive files.
@@ -252,5 +252,5 @@
 ## Notes
 - **Verify before claiming done.** Many "TODO" items in past lists turned out to already be shipped — re-grep + check `git log --all` before assuming.
 - This file supersedes `tmp-todo-notes.txt` (now removed; all items folded into the tiers above).
-- Source docs: `docs/path_forward.md`, `docs/tech_debt_log.md`, `docs/character_ai_refactor.md`, `docs/crate_split_plan.md`, `docs/events_refactor_plan.md`, `docs/mechanics_checklist.md`, `docs/progression_systems_2026-05-05.md`, `docs/mob_lab.md`. When closing an item, update the source doc too if it tracks the same state.
+- Source docs: `docs/planning/path-forward.md`, `docs/planning/tech-debt-log.md`, `docs/systems/character-ai-refactor.md`, `docs/archive/historical-roadmaps/crate-split-plan.md`, `docs/archive/historical-roadmaps/events-refactor-plan.md`, `docs/vision/mechanics-expressibility-checklist.md`, `docs/systems/progression-systems.md`, `docs/recipes/mob-lab.md`. When closing an item, update the source doc too if it tracks the same state.
 - Trim "Recently completed" entries here once they have an entry in `FEATURES.md`.

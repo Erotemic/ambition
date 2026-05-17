@@ -1,7 +1,7 @@
 //! Reusable player-state vocabulary.
 //!
 //! Adds three high-leverage primitives identified in
-//! `docs/mechanics_checklist.md` Tier 1:
+//! `docs/vision/mechanics-expressibility-checklist.md` Tier 1:
 //!
 //! * `LocomotionState` — explicit player movement mode, derived from the
 //!   existing `Player` struct so older code that still reads booleans /

@@ -25,7 +25,7 @@ Engineering memory is Ambition's long-running record of hard-won lessons. It liv
 - `dev/benchmark-candidates/` is for invariant traps and hard questions distilled from real mistakes.
 - Agents should search `dev/` before non-trivial code changes.
 - Durable rules discovered in `dev/` should be promoted into concept pages, recipes, or ADRs.
-- Do not duplicate canonical lessons between `docs/lessons_learned.md` and `dev/journals/lessons_learned.md`.
+- Do not duplicate canonical lessons between `dev/journals/lessons_learned.md` and `dev/journals/lessons_learned.md`.
 
 ## Edit protocol
 

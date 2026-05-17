@@ -61,7 +61,7 @@ pub struct QuestPanelText;
 /// features, or a presentation system that observes feature spawns
 /// and adds the visual lazily), split this into `RoomScopedEntity`
 /// (sim/lifecycle) and `RoomVisual` (rendering only). Track the split
-/// in `docs/tech_debt_log.md`.
+/// in `docs/planning/tech-debt-log.md`.
 #[derive(Component)]
 pub struct RoomVisual;
 

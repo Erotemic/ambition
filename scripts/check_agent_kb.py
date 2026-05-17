@@ -17,7 +17,6 @@ REQUIRED_FILES = [
     "AGENTS.md",
     "README.md",
     "docs/README.md",
-    "docs/redirects.md",
     "docs/current/state.md",
     "docs/current/risks.md",
     "docs/current/next.md",
@@ -40,13 +39,30 @@ REQUIRED_FILES = [
     "scripts/generate_agent_index.py",
 ]
 
-ALLOWED_TOP_LEVEL_DOCS = {
-    "AGENT_HANDOFF.md",
-    "CURRENT_STATE.md",
-    "GOAL_STATE.md",
-    "README.md",
-    "lessons_learned.md",
-    "redirects.md",
+ALLOWED_TOP_LEVEL_DOCS = {"README.md"}
+
+REMOVED_DOC_PATHS = {
+    "docs/AGENT_HANDOFF.md",
+    "docs/CURRENT_STATE.md",
+    "docs/GOAL_STATE.md",
+    "docs/lessons_learned.md",
+    "docs/redirects.md",
+    "docs/agent_states",
+    "docs/recipes/glam-migration.md",
+    "docs/recipes/bevy-math-engine-refactor.md",
+    "docs/recipes/crate-foundation-seldom-state-assets-tests.md",
+    "docs/recipes/crate-split-plan.md",
+    "docs/recipes/crate-strategy.md",
+    "docs/recipes/events-refactor-plan.md",
+    "docs/recipes/feature-basement-wave.md",
+    "docs/recipes/fly-and-room-hub.md",
+    "docs/recipes/flying-door-activation.md",
+    "docs/recipes/input-buffering-feel.md",
+    "docs/recipes/intro-followup-roadmap.md",
+    "docs/recipes/mechanics-checklist.md",
+    "docs/recipes/room-layout-refactor.md",
+    "docs/systems/room-graph-data-model.md",
+    "docs/systems/rooms-and-camera.md",
 }
 
 CONCEPT_REQUIRED_KEYS = {"id", "aliases", "last_verified"}
@@ -102,7 +118,14 @@ def check_top_level_docs(errors: list[str]) -> None:
     docs = ROOT / "docs"
     for path in sorted(docs.glob("*.md")):
         if path.name not in ALLOWED_TOP_LEVEL_DOCS:
-            fail(errors, f"unexpected top-level docs stub or doc: {rel(path)}; move it under a routed folder or add it to docs/redirects.md")
+            fail(errors, f"unexpected top-level docs file: {rel(path)}; move it under a routed folder instead of adding redirect stubs")
+
+
+
+def check_removed_doc_cruft(errors: list[str]) -> None:
+    for item in sorted(REMOVED_DOC_PATHS):
+        if (ROOT / item).exists():
+            fail(errors, f"removed documentation cruft still exists: {item}")
 
 
 def check_agents_size(errors: list[str]) -> None:
@@ -223,6 +246,7 @@ def main() -> int:
     errors: list[str] = []
     check_required_files(errors)
     check_top_level_docs(errors)
+    check_removed_doc_cruft(errors)
     check_agents_size(errors)
     check_json_indexes(errors)
     check_concepts(errors)

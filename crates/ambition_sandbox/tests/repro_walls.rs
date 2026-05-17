@@ -333,7 +333,7 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
 }
 
 /// Regression guard for the mob_lab lock-wall teleport documented in
-/// `docs/tech_debt_log.md` (HIGH).
+/// `docs/planning/tech-debt-log.md` (HIGH).
 ///
 /// Geometry mirrors the runtime: the runtime-inserted
 /// `lockwall:mob_lab` block sits at LDtk px (480, 400) size (224, 208),

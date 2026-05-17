@@ -41,7 +41,7 @@ to the bottom under "Closed" with the commit that fixed them.
     world envelope is within `OOB_MARGIN = 96.0`.
   - Same *shape* as the resolved "Wall-cling y-sweep teleports
     player to wall's far edge" lesson in
-    `docs/lessons_learned.md`: an unconditional
+    `dev/journals/lessons_learned.md`: an unconditional
     `pos.y += hit.block.aabb.top() - body.bottom()` snap when the
     swept hit returns `time_of_impact = 0`. The `body_is_side_contact`
     predicate added by that fix correctly skips the LOCK WALL (body
@@ -299,7 +299,7 @@ to the bottom under "Closed" with the commit that fixed them.
     doesn't fully cfg-out the LDtk plugin yet. The default visible
     build is fine; `cargo check --features headless` errors on
     `register_ldtk_entity` / `init_collection`. Tracked separately in
-    `docs/headless_simulation.md`.
+    `docs/systems/headless-simulation.md`.
 
 - **LOW — Stale tools directory + AppImage at repo root**
   - Files: `LDtk 1.5.3 installer.AppImage`, `tmp-config`, `todo.txt`,

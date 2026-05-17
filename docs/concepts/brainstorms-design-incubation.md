@@ -9,7 +9,7 @@ implemented_by:
   - docs/brainstorms/
 related_docs:
   - docs/brainstorms/README.md
-  - docs/GOAL_STATE.md
+  - docs/vision/goal-state.md
 last_verified: 2026-05-17
 ---
 

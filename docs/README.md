@@ -26,7 +26,6 @@ Use this file to choose what to read. Do not load the entire documentation tree 
 - [`vision/index.md`](vision/index.md) — distilled product direction and long-range design goals.
 - [`planning/index.md`](planning/index.md) — active sequencing and debt management.
 - [`history/index.md`](history/index.md) — compact project chronology.
-- [`redirects.md`](redirects.md) — old flat `docs/*.md` path map.
 
 ## Generated agent indexes
 
@@ -47,9 +46,13 @@ When a lesson becomes a durable rule for the codebase, promote the rule into a c
 
 ## Archive
 
-- [`archive/README.md`](archive/README.md) preserves retired notes, stale handoffs, old agent prompts, port notes, and overlay records.
+- [`archive/README.md`](archive/README.md) preserves retired notes, stale handoffs, old agent prompts, port notes, historical roadmaps, stale system notes, and overlay records.
 - Archive files are useful context, but they are not current authority.
 - `docs/brainstorms/` is explicitly excluded from archive status.
+
+## Top-level docs rule
+
+`docs/README.md` is the only current top-level Markdown file in `docs/`. Avoid adding redirect-only stubs; route new material into `current/`, `concepts/`, `systems/`, `recipes/`, `vision/`, `planning/`, `history/`, `brainstorms/`, or `archive/`.
 
 ## Reading rule
 

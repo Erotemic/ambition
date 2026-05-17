@@ -29,4 +29,3 @@ When a durable invariant changes, update the concept page in the same patch as t
 - [`../vision/index.md`](../vision/index.md) — distilled product direction.
 - [`../planning/index.md`](../planning/index.md) — sequencing and debt management.
 - [`../history/index.md`](../history/index.md) — compact chronology.
-- [`../redirects.md`](../redirects.md) — old flat doc path map.

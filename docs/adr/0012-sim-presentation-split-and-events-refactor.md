@@ -231,7 +231,7 @@ Followups:
 - Cross-references: ADR 0010 (regime policies — events flow through the
   policy machinery), ADR 0011 (per-entity proper time — sim systems
   consuming proper time read it like any other component), and the
-  headless-simulation doc (`docs/headless_simulation.md`) which already
+  headless-simulation doc (`docs/systems/headless-simulation.md`) which already
   describes Phase 2 informally.
 - Use `AMBITION_REVIEW(spatial)` near any event whose payload encodes
   positions/velocities — these are easy to get wrong relative to the

@@ -13,8 +13,8 @@ Ambition has accumulated many focused patch docs and historical design notes. Th
 Use a documentation hierarchy:
 
 1. README as a stable project portal.
-2. `docs/CURRENT_STATE.md` for active state and transient areas.
-3. `docs/GOAL_STATE.md` for long-term direction.
+2. `docs/current/` for active state, risks, and next steps.
+3. `docs/vision/` for distilled long-term direction.
 4. ADRs for durable decisions and supersessions.
 5. Focused subsystem docs for implementation details.
 6. Historical docs preserved with supersession pointers when needed.

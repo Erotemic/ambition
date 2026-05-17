@@ -113,7 +113,7 @@ rl_sim = []
 
 # Composite for the headless simulation binary. Intentionally enables
 # nothing: this is the lever that strips heavy deps from the dep graph
-# once subsystem code-side gates land. See docs/path_forward.md step A.
+# once subsystem code-side gates land. See docs/planning/path-forward.md step A.
 # As of this commit only `dev_tools` has a code gate; building headless
 # fully (without dragging Kira/Avian/inspector/bevy_ecs_ldtk) needs the
 # remaining subsystem gates.

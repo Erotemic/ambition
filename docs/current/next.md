@@ -1,6 +1,6 @@
 # Current next good moves
 
-This file is the extracted current-priority list from `docs/CURRENT_STATE.md`. Keep it short and actionable.
+Keep this file short and actionable.
 
 Related split:
 

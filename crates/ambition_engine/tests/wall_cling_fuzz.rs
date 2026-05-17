@@ -4,7 +4,7 @@
 //! state* over a single frame and asserts no teleport, no through-wall
 //! penetration, no >100 px y-snap.
 //!
-//! The historical wall-cling teleport bug (`docs/tech_debt_log.md`
+//! The historical wall-cling teleport bug (`docs/planning/tech-debt-log.md`
 //! HIGH) snapped the player from y=434 to y=-23 (clamped to the
 //! ceiling) in one frame on the mob_lab lock wall. Commit 4002b4d's
 //! `body_is_side_contact` predicate closes that case in the existing

@@ -1,6 +1,6 @@
 # Current state
 
-This is the active implementation-state portion of the former `docs/CURRENT_STATE.md`. It omits the extracted risk register and next-move list, which now live in `risks.md` and `next.md`. Update this when current architecture or active design direction changes.
+Update this when current architecture or active design direction changes.
 
 Related split:
 
@@ -259,7 +259,7 @@ The sandbox crate is a library + multi-binary package. The visible binary (`carg
 
 ADR 0012's Phase 2 events refactor (commits c49c1e5–81900dd) routed every sim-emitted side-effect through typed buffered messages: `SfxMessage` (audio.rs), `VfxMessage` (fx.rs), `DebrisBurstMessage` (physics.rs). The simulation pushes into per-frame `Vec` collectors and `sandbox_update` drains via `MessageWriter::write_batch` at every return point. Presentation-side subscribers (`audio_play_sfx_messages`, `vfx_spawn_messages`, `physics_spawn_debris_messages`) consume the messages and perform the actual playback / particle spawn / debris burst. Headless omits the subscribers; queues drain harmlessly.
 
-Library structure: `lib.rs` declares `pub mod app;`. The public App-builder surface remains `app::run_visible`, `init_sandbox_resources`, `add_simulation_plugins`, `add_ldtk_runtime_plugin`, `add_presentation_plugins`, and `sandbox_update`, but the implementation is now split under `crates/ambition_sandbox/src/app/` by responsibility: CLI/runtime entry, resource bootstrapping, plugin/schedule wiring, setup systems, the `sandbox_update` orchestrator, phase helpers, hot-reload/dev runtime, room/world flow, HUD, and feedback queues. `bevy_ecs_ldtk::LdtkPlugin` and Avian2D `AmbitionPhysicsPlugin` live in the visible-only halves because they need `RenderApp` / `SceneSpawner` respectively; headless still has the JSON-derived `RoomSet` for collision and runs the runtime-spine systems as no-ops without LDtk-spawned entities. `handle_debug_hotkeys` remains a presentation-side Bevy system so `sandbox_update` does not read `Res<ButtonInput<KeyCode>>`. See `docs/headless_simulation.md` and `docs/events_refactor_plan.md`.
+Library structure: `lib.rs` declares `pub mod app;`. The public App-builder surface remains `app::run_visible`, `init_sandbox_resources`, `add_simulation_plugins`, `add_ldtk_runtime_plugin`, `add_presentation_plugins`, and `sandbox_update`, but the implementation is now split under `crates/ambition_sandbox/src/app/` by responsibility: CLI/runtime entry, resource bootstrapping, plugin/schedule wiring, setup systems, the `sandbox_update` orchestrator, phase helpers, hot-reload/dev runtime, room/world flow, HUD, and feedback queues. `bevy_ecs_ldtk::LdtkPlugin` and Avian2D `AmbitionPhysicsPlugin` live in the visible-only halves because they need `RenderApp` / `SceneSpawner` respectively; headless still has the JSON-derived `RoomSet` for collision and runs the runtime-spine systems as no-ops without LDtk-spawned entities. `handle_debug_hotkeys` remains a presentation-side Bevy system so `sandbox_update` does not read `Res<ButtonInput<KeyCode>>`. See `docs/systems/headless-simulation.md` and `docs/archive/historical-roadmaps/events-refactor-plan.md`.
 
 ## Menu input + controller deadzone / trigger fixes
 
@@ -319,7 +319,7 @@ materializes through `sync_lock_walls`, and the hard-coded wave
 script in `mob_lab_wave_specs` drives spawning. Death-during-active
 fails the encounter; the `Switch` in the hallway free-toggles
 between `Cleared` and `Inactive`. Persistence (Cleared / Failed)
-survives reload via `sandbox_save.ron`. See `docs/mob_lab.md` for
+survives reload via `sandbox_save.ron`. See `docs/recipes/mob-lab.md` for
 the full layout, persistence, and what is still deferred (smooth
 camera ease, switch sprite swap, multi-encounter authoring, HUD
 wave indicator).
@@ -357,7 +357,7 @@ and `BossRuntime` build a snapshot and stash the resulting mode
 for HUD/debug, and sandbox enemies now consume the engine `CharacterAiOutput`
 for coarse hold / patrol / chase / attack intent. Archetype-specific speeds,
 contact damage, and collision remain sandbox-side tuning; bosses are still a
-separate follow-up. See `docs/character_ai_refactor.md` for the remaining
+separate follow-up. See `docs/systems/character-ai-refactor.md` for the remaining
 data-table per-brain work.
 
 ## LDtk roadmap step 1 (Solid promotion, partial)

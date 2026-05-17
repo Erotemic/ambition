@@ -17,7 +17,7 @@ Current guidance lives in:
 
 | Archived doc | Previous path |
 |---|---|
-| [`Agent handoff guide`](agent-handoffs/agent-handoff-guide.md) | `docs/AGENT_HANDOFF.md` |
+| [`Agent handoff guide`](agent-handoffs/agent-handoff-guide.md) | `AGENTS.md` |
 | [`Autonomous follow-up prompt v3 — no-stop discipline + bullet-time elevation`](agent-handoffs/intro-autonomous-followup-prompt-v3.md) | `docs/intro_autonomous_followup_prompt_v3.md` |
 | [`Autonomous follow-up prompt — intro vertical slice continuation`](agent-handoffs/intro-autonomous-followup-prompt.md) | `docs/intro_autonomous_followup_prompt.md` |
 | [`Intro vertical slice — handoff to the next agent`](agent-handoffs/intro-handoff-to-next-agent.md) | `docs/intro_handoff_to_next_agent.md` |
@@ -26,3 +26,10 @@ Current guidance lives in:
 | [`1. **Core objective**`](agent-states/gpt_5_5_20260501-v2.md) | `docs/agent_states/gpt_5_5_20260501-v2.md` |
 | [`FunDSP audio rendering — RETIRED`](retired/fundsp-audio.md) | `docs/fundsp_audio.md` |
 | [`Procedural Lo-Fi Music — RETIRED`](retired/procedural-ambience.md) | `docs/procedural_ambience.md` |
+
+## Historical cleanup buckets
+
+- [`historical-roadmaps/`](historical-roadmaps/index.md) — landed migration plans, old implementation waves, and superseded procedural docs.
+- [`old-system-notes/`](old-system-notes/index.md) — stale system descriptions kept only for archaeology.
+
+Redirect-only compatibility stubs were removed in doc KB chunk 4. Do not recreate them; update real links instead.

@@ -164,7 +164,7 @@ collision-correction events) is a matter of:
   audio/VFX/HUD subscribers, and floating-point reductions across
   multiple Bevy systems mean two replays of the same `ControlFrame`
   sequence can drift. A future RL/replay layer (per
-  `docs/headless_simulation.md` Phase 3) will need a fixed timestep
+  `docs/systems/headless-simulation.md` Phase 3) will need a fixed timestep
   and seeded RNG before the trace becomes a reproducer.
 - **Not** an enemy/projectile timeline. Frame snapshots only carry
   the player view. Enemy and feature events are visible through
@@ -173,7 +173,7 @@ collision-correction events) is a matter of:
 - **Not** a video recorder. Visual state is implied by gameplay data;
   for a visual baseline, see the planned
   `bevy_dev_tools::EasyScreenshotPlugin` integration noted in
-  `docs/events_refactor_plan.md`.
+  `docs/archive/historical-roadmaps/events-refactor-plan.md`.
 
 ## Attaching a trace to a bug report
 
@@ -213,11 +213,11 @@ cargo test -p ambition_sandbox trace::
 
 ## Related docs
 
-- `docs/mechanics_checklist.md` — `LocomotionState`, `BodyMode`,
+- `docs/vision/mechanics-expressibility-checklist.md` — `LocomotionState`, `BodyMode`,
   `ResourceMeter` Tier 1 backends used by the trace.
-- `docs/headless_simulation.md` — the simulation half the recorder
+- `docs/systems/headless-simulation.md` — the simulation half the recorder
   attaches to.
-- `docs/events_refactor_plan.md` — the per-frame `Vec` collector
+- `docs/archive/historical-roadmaps/events-refactor-plan.md` — the per-frame `Vec` collector
   pattern the trace's event channel mirrors.
 
 

@@ -15,10 +15,11 @@ The README is intentionally high-level. It should not try to track every transie
 - [`docs/current/state.md`](docs/current/state.md) — current architecture and active implementation state.
 - [`docs/current/risks.md`](docs/current/risks.md) — high-risk systems and review rules.
 - [`docs/current/next.md`](docs/current/next.md) — current next good moves.
-- [`docs/GOAL_STATE.md`](docs/GOAL_STATE.md) — long-term product/engine vision.
+- [`docs/vision/goal-state.md`](docs/vision/goal-state.md) — long-term product/engine vision.
 - [`docs/concepts/index.md`](docs/concepts/index.md) — durable concept pages: invariants, aliases, edit protocols, validation paths.
 - [`docs/systems/index.md`](docs/systems/index.md) — focused subsystem documentation.
-- [`docs/recipes/index.md, docs/vision/index.md, docs/planning/index.md`](docs/recipes/index.md, docs/vision/index.md, docs/planning/index.md) — procedural workflows for builds, tests, refactors, profiling, packaging, and content authoring.
+- [`docs/recipes/index.md`](docs/recipes/index.md) — procedural workflows for builds, tests, refactors, profiling, packaging, and content authoring.
+- [`docs/vision/index.md`](docs/vision/index.md) and [`docs/planning/index.md`](docs/planning/index.md) — distilled direction and sequencing.
 - [`dev/README.md`](dev/README.md) — engineering memory: journals and benchmark candidates from real mistakes.
 - [`.agent/manifest.yaml`](.agent/manifest.yaml) — generated indexes for file/symbol/test localization.
 - [`docs/adr/README.md`](docs/adr/README.md) — architectural decision records. ADRs are the durable source of truth for decisions that supersede older notes.

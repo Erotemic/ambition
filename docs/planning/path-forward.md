@@ -2,7 +2,7 @@
 
 > Status: **draft strategy** synthesizing `crate-remap-idea.md` and
 > `candidate-optimization-ideas.md` with the active threads as of this
-> commit. Read with `docs/AGENT_HANDOFF.md`, `docs/CURRENT_STATE.md`,
+> commit. Read with `AGENTS.md`, `docs/current/state.md`,
 > ADR 0012 (events refactor), and ADR 0013 (compile-time hygiene).
 
 ## What this document is

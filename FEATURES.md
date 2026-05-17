@@ -1,7 +1,7 @@
 # Ambition FEATURES
 
 > Catalog of landed gameplay/system features. Pair with `TODO.md` (what's
-> outstanding) and `docs/CURRENT_STATE.md` (architectural snapshot).
+> outstanding) and `docs/current/state.md` (architectural snapshot).
 >
 > Source of truth: working tree + git history. When a feature lands, add it
 > here in the same commit as its docs.
@@ -19,9 +19,9 @@ Status badges:
 
 ## Sim → presentation message channels
 
-- **ADR 0012 events refactor — Slices 1-5** `[stable]` — `sandbox_update` and helpers contain ZERO direct `play_sound` / `spawn_burst` / `spawn_dust` / `spawn_impact` / `spawn_blink_effects` / `spawn_slash_preview` / `spawn_reset_effects` / `physics::spawn_debris_burst` calls. They emit typed messages (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`) which presentation-side systems (`audio_play_sfx_messages`, `vfx_spawn_messages`, `physics_spawn_debris_messages`) consume. `bin/headless` runs `sandbox_update` end-to-end via `run_headless`. Multi-frame `tests/scripted_gameplay.rs` integration test pins the seam under MinimalPlugins. See `docs/events_refactor_plan.md`.
+- **ADR 0012 events refactor — Slices 1-5** `[stable]` — `sandbox_update` and helpers contain ZERO direct `play_sound` / `spawn_burst` / `spawn_dust` / `spawn_impact` / `spawn_blink_effects` / `spawn_slash_preview` / `spawn_reset_effects` / `physics::spawn_debris_burst` calls. They emit typed messages (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`) which presentation-side systems (`audio_play_sfx_messages`, `vfx_spawn_messages`, `physics_spawn_debris_messages`) consume. `bin/headless` runs `sandbox_update` end-to-end via `run_headless`. Multi-frame `tests/scripted_gameplay.rs` integration test pins the seam under MinimalPlugins. See `docs/archive/historical-roadmaps/events-refactor-plan.md`.
 - **`PlayerDiedMessage` (Bevy 0.18 Message API)** `[stable]` — replaces the previous `SandboxRuntime::player_died_pending` bool. `death_respawn_player` pushes into `FrameFeedback.died`; `flush_feedback` drains into `MessageWriter`; `update_encounters_from_world` reads `MessageReader<PlayerDiedMessage>`. Keeps the runtime resource a pure state store. [lib.rs:67](crates/ambition_sandbox/src/lib.rs#L67), [app.rs:2172](crates/ambition_sandbox/src/app.rs#L2172).
-- **`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`** `[stable]` — Vec-collector → MessageWriter pattern documented in `docs/events_refactor_plan.md`. [audio.rs:53](crates/ambition_sandbox/src/audio.rs#L53), [fx.rs](crates/ambition_sandbox/src/fx.rs).
+- **`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`** `[stable]` — Vec-collector → MessageWriter pattern documented in `docs/archive/historical-roadmaps/events-refactor-plan.md`. [audio.rs:53](crates/ambition_sandbox/src/audio.rs#L53), [fx.rs](crates/ambition_sandbox/src/fx.rs).
 
 ## Engine primitives (source-agnostic)
 
@@ -217,7 +217,7 @@ door corridor and demonstrate one mechanic each.
 - **Wall-jump start-position fuzz** `[stable]` — proptest randomizes (x_offset, y_in_wall, vel_y) along the square_arena left wall and asserts no >100 px y-snap and no out-of-world / through-wall teleport on a single wall-jump frame. Regression guard around the `body_is_side_contact` predicate that closes the historical OOB-teleport bug class. [wall_jump_fuzz.rs](crates/ambition_engine/tests/wall_jump_fuzz.rs).
 - **Wall-cling start-position fuzz** `[stable]` — proptest companion to wall-jump fuzz: covers the cling-steady-state path against two scenarios (square arena + the historical mob_lab lock-wall layout). Random (x_offset, y_in_wall, vel_y) + cling input must not produce a >100 px y-snap, through-wall x penetration, or out-of-world position. The lock-wall scenario adds a stronger assertion that y never snaps below 100 (the historical bug clamped to the arena ceiling at y≈23). [wall_cling_fuzz.rs](crates/ambition_engine/tests/wall_cling_fuzz.rs).
 - **`ResourceMeter` envelope proptest** `[stable]` — five property tests pin meter-current ∈ [0, max] under random spend/refill/tick sequences, `try_spend` exact-success-iff-enough behavior, refill_full reaches max, regen monotonic up, decay monotonic down. [resource_meter_props.rs](crates/ambition_engine/tests/resource_meter_props.rs).
-- **mob_lab lock-wall teleport regression** `[stable]` — pins the geometry from `docs/tech_debt_log.md` HIGH. Currently passes thanks to the `body_is_side_contact` predicate. [repro_walls.rs](crates/ambition_sandbox/tests/repro_walls.rs).
+- **mob_lab lock-wall teleport regression** `[stable]` — pins the geometry from `docs/planning/tech-debt-log.md` HIGH. Currently passes thanks to the `body_is_side_contact` predicate. [repro_walls.rs](crates/ambition_sandbox/tests/repro_walls.rs).
 - **`scripted_gameplay` multi-frame integration test** `[stable]` — three scenarios under MinimalPlugins: 30 idle frames emit no lifecycle events; Reset press emits Reset message; heterogeneous Reset/Jump/move sequence runs to completion. Pins the sim → presentation message seam end-to-end. [scripted_gameplay.rs](crates/ambition_sandbox/tests/scripted_gameplay.rs).
 - **`fuzz_random_walker` integration test** `[stable]` — five LCG-seeded `SandboxSim` random-walk runs (200 steps each, fixed-60Hz) assert no panic, finite player position, HP within `[0, hp_max]`. Catches "this random input combination panics" regressions in pure Rust. Stable seeds (1, 42, 99, 2026, 31337) make any failure reproducible via `cargo run --bin rl_random_walker -- <STEPS> <SEED>`. [fuzz_random_walker.rs](crates/ambition_sandbox/tests/fuzz_random_walker.rs).
 - **Audio validation tests** `[stable]`.

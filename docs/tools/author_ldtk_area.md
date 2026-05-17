@@ -6,7 +6,7 @@ JSON spec. Hides the LDtk JSON minutiae (`defUid` sync,
 field shape, world-frame overlap checks) behind a high-level entity
 list so an agent (or human) can ship a new level in seconds without
 re-learning the editor-roundtrip discipline that
-`docs/lessons_learned.md` enumerates.
+`dev/journals/lessons_learned.md` enumerates.
 
 This used to live at `tools/author_ldtk_area.py` (a deprecation shim
 still works); it now ships as `python -m ambition_ldtk_tools area
@@ -155,5 +155,5 @@ area is fundamentally a new level in the existing file, and the only
 real pain was the JSON minutiae — exactly what this tool removes.
 Splitting the project across multiple `.ldtk` files would require
 reworking `RoomSet::from_parts`, hot reload, and the asset
-collection for marginal benefit; see `docs/AGENT_HANDOFF.md` for the
+collection for marginal benefit; see `AGENTS.md` for the
 LDtk runtime spine roadmap.

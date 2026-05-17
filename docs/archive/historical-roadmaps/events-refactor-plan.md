@@ -11,7 +11,7 @@
 
 This document is the implementation roadmap for the events refactor. ADR
 0012 is the durable decision; this plan can evolve as we learn. It is the
-companion to `docs/headless_simulation.md` (which describes Phase 1 and the
+companion to `docs/systems/headless-simulation.md` (which describes Phase 1 and the
 Phase 2/3 target shape) and ADR 0012 (which records the architectural
 commitment).
 
@@ -303,7 +303,7 @@ entities if tile layers exist in the LDtk file.
    keeps them for editor authoring but they're not loaded as Bevy
    Image assets).
 
-Whichever works: document in `docs/headless_simulation.md` and add the
+Whichever works: document in `docs/systems/headless-simulation.md` and add the
 config tweak to `add_simulation_plugins`. The investigation is bounded
 to an afternoon.
 
@@ -349,7 +349,7 @@ events refactor. Worth doing once Slice 5 is in.
 ## Cross-references
 
 - ADR 0012 — the durable decision behind this plan.
-- `docs/headless_simulation.md` — Phase 1 (landed) and the Phase 2/3
+- `docs/systems/headless-simulation.md` — Phase 1 (landed) and the Phase 2/3
   target shape.
 - ADR 0010, 0011 — events flow alongside the time-domain vocabulary;
   no conflicts.

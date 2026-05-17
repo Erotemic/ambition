@@ -1,6 +1,6 @@
-schema_version: 2
-generated_from_commit: 32ef582
-generated_at: 2026-05-17T18:38:02Z
+schema_version: 3
+generated_from_commit: 911d784
+generated_at: 2026-05-17T19:00:00Z
 
 generator: scripts/generate_agent_index.py
 lint: scripts/check_agent_kb.py
@@ -15,6 +15,7 @@ policy:
     - docs/history
     - docs/adr
     - docs/brainstorms
+    - docs/archive
     - dev/journals
     - dev/benchmark-candidates
   generated:
@@ -30,10 +31,10 @@ indexes:
   concept_index: .agent/index/concept_index.json
 
 evals: .agent/retrieval_evals.yaml
-redirects: docs/redirects.md
 
 notes:
   - Generated indexes are navigation aids, not authority.
   - Regenerate when files, symbols, tests, or concept pages move.
   - Keep AGENTS.md small; route to docs/dev/.agent instead of dumping knowledge there.
   - Brainstorms are active design incubation, not archive.
+  - Do not recreate redirect-only top-level docs stubs.

@@ -61,20 +61,27 @@ pub enum SandboxSet {
     GameplayEffects,
     /// Boss save sync, quest events, body-mode, room metadata, map sync.
     Progression,
+    /// Sandbox reset request processor. Joined into the main post-core
+    /// chain (between `Progression` and `FeatureViewSync`) because the
+    /// reset path despawns every `RoomVisual` + every feature sim
+    /// entity, flips the active room, and re-spawns the start room's
+    /// feature set via `spawn_room_feature_entities` — all mutations
+    /// the cache must observe before presentation reads it.
+    ResetProcessing,
     /// Rebuild the [`crate::features::FeatureViewIndex`] cache after
     /// every same-frame mutation to feature state.
     ///
-    /// Runs after `Progression` (and therefore after `FeatureCollection`,
-    /// `FeatureInteraction`, `EncounterSimulation`, `GameplayEffects`,
-    /// `Progression`) so the cache reflects this frame's pickup
-    /// collections, chest opens, switch toggles, encounter mob spawns,
-    /// reward-chest drops, and save-driven actor/boss sync. Presentation
-    /// systems that read the cache (`sync_visuals`,
-    /// `upgrade_enemy_sprites`, `upgrade_npc_sprites`) chain on the
-    /// presentation half and therefore see a fully-current snapshot.
+    /// Runs at the tail of the post-core chain — after
+    /// `FeatureCollection`, `FeatureInteraction`, `EncounterSimulation`,
+    /// `GameplayEffects`, `Progression`, AND `ResetProcessing` — so
+    /// the cache reflects this frame's pickup collections, chest
+    /// opens, switch toggles, encounter mob spawns, reward-chest
+    /// drops, save-driven actor/boss sync, and any post-reset
+    /// re-spawn. Presentation systems that read the cache
+    /// (`sync_visuals`, `upgrade_enemy_sprites`,
+    /// `upgrade_npc_sprites`) chain on the presentation half and
+    /// therefore see a fully-current snapshot.
     FeatureViewSync,
-    /// Sandbox reset request processor. Runs after CoreSimulation.
-    ResetProcessing,
     /// Trace recording + dump flush. Runs after CoreSimulation.
     Trace,
 }
@@ -110,7 +117,14 @@ pub fn configure_sandbox_sets(app: &mut App) {
             .in_set(SandboxSet::CoreSimulation),
     );
 
-    // Top-level chain.
+    // Top-level chain. ResetProcessing joins the main chain (rather
+    // than floating off as a `.after(CoreSimulation)` tail) because
+    // its work — despawn every RoomVisual + feature sim entity, flip
+    // the active room, re-spawn the start room — is exactly the kind
+    // of feature-state mutation FeatureViewSync exists to observe.
+    // Placing it BEFORE FeatureViewSync guarantees the cache reflects
+    // the post-reset feature set on the reset frame, not one frame
+    // later.
     app.configure_sets(
         Update,
         (
@@ -122,17 +136,13 @@ pub fn configure_sandbox_sets(app: &mut App) {
             SandboxSet::Cutscene,
             SandboxSet::GameplayEffects,
             SandboxSet::Progression,
+            SandboxSet::ResetProcessing,
             // FeatureViewSync is the final sim-side tail; everything
-            // that mutates ECS feature state has already run.
+            // that mutates ECS feature state — including
+            // ResetProcessing — has already run.
             SandboxSet::FeatureViewSync,
         )
             .chain(),
     )
-    .configure_sets(
-        Update,
-        (
-            SandboxSet::ResetProcessing.after(SandboxSet::CoreSimulation),
-            SandboxSet::Trace.after(SandboxSet::CoreSimulation),
-        ),
-    );
+    .configure_sets(Update, SandboxSet::Trace.after(SandboxSet::CoreSimulation));
 }

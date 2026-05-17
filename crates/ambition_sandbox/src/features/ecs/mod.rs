@@ -1924,6 +1924,84 @@ mod tests {
             "first-write-wins priority must keep the pickup view (not the chest)"
         );
     }
+
+    /// Regression for the `ResetProcessing` ordering bug:
+    /// `process_sandbox_reset_request` despawns every feature entity
+    /// and spawns the start room's feature set. If `ResetProcessing`
+    /// runs unordered relative to `FeatureViewSync`, the cache on the
+    /// reset frame can either still hold the pre-reset id (stale) or
+    /// miss the post-reset id entirely (empty). Joining
+    /// `ResetProcessing` into the chain BEFORE `FeatureViewSync`
+    /// guarantees same-frame consistency.
+    ///
+    /// The test stands in a minimal reset-shaped system that despawns
+    /// the pre-reset pickup and spawns a new one, then asserts the
+    /// FeatureViewIndex reflects the new id after `app.update()`. The
+    /// real `process_sandbox_reset_request` runs in
+    /// `SandboxSet::ResetProcessing`; we use the same `.in_set` to
+    /// pin the ordering.
+    #[test]
+    fn feature_view_index_reflects_same_frame_reset_spawn() {
+        use crate::app::{configure_sandbox_sets, SandboxSet};
+
+        fn fake_reset_system(
+            mut commands: Commands,
+            existing: Query<Entity, With<FeatureSimEntity>>,
+        ) {
+            for entity in &existing {
+                commands.entity(entity).despawn();
+            }
+            commands.spawn((
+                FeatureSimEntity,
+                FeatureId::new("post_reset_pickup"),
+                FeatureName::new("Post-Reset Health"),
+                FeatureAabb::from_center_size(
+                    ae::Vec2::new(20.0, 20.0),
+                    ae::Vec2::new(12.0, 12.0),
+                ),
+                PickupFeature::new(ae::Pickup::new(
+                    "post_reset_pickup",
+                    ae::PickupKind::Health { amount: 1 },
+                )),
+            ));
+        }
+
+        let mut app = App::new();
+        app.insert_resource(FeatureViewIndex::default());
+        // Pre-reset pickup with a different id — must be gone from
+        // the index after the reset+rebuild on the same tick.
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("pre_reset_pickup"),
+            FeatureName::new("Pre-Reset Health"),
+            FeatureAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
+            PickupFeature::new(ae::Pickup::new(
+                "pre_reset_pickup",
+                ae::PickupKind::Health { amount: 1 },
+            )),
+        ));
+        configure_sandbox_sets(&mut app);
+        app.add_systems(
+            Update,
+            (
+                fake_reset_system.in_set(SandboxSet::ResetProcessing),
+                rebuild_feature_view_index.in_set(SandboxSet::FeatureViewSync),
+            ),
+        );
+
+        app.update();
+
+        let index = app.world().resource::<FeatureViewIndex>();
+        assert!(
+            index.get("pre_reset_pickup").is_none(),
+            "pre-reset feature must be gone from the index on the reset frame"
+        );
+        assert!(
+            index.get("post_reset_pickup").is_some(),
+            "post-reset feature must be present on the reset frame — the cache \
+             rebuild must run AFTER ResetProcessing, not in parallel with it"
+        );
+    }
 }
 
 

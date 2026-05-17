@@ -70,8 +70,8 @@ pub(crate) const EMBEDDED_INTRO_LDTK_ASSET_PATH: &str =
 /// (the third pairing, on the catalog-entry side).
 ///
 /// `<include_bytes_path>` is interpreted relative to *this* source
-/// file (`sandbox_assets.rs`), so `"../assets/foo.png"` resolves to
-/// `crates/ambition_sandbox/assets/foo.png`.
+/// file (`assets/sandbox_assets.rs`), so `"../../assets/foo.png"` resolves
+/// to `crates/ambition_sandbox/assets/foo.png`.
 macro_rules! embed_core_assets {
     (
         $( $name:ident => $url:literal @ $rel_path:literal ),* $(,)?
@@ -117,65 +117,65 @@ embed_core_assets! {
     // ── UI fonts ────────────────────────────────────────────────────
     FONT_DIALOG_REGULAR_URL =>
         "ambition_sandbox/fonts/bundled/InterDisplay-Regular.otf"
-        @ "../assets/fonts/bundled/InterDisplay-Regular.otf",
+        @ "../../assets/fonts/bundled/InterDisplay-Regular.otf",
     FONT_DIALOG_SEMIBOLD_URL =>
         "ambition_sandbox/fonts/bundled/InterDisplay-SemiBold.otf"
-        @ "../assets/fonts/bundled/InterDisplay-SemiBold.otf",
+        @ "../../assets/fonts/bundled/InterDisplay-SemiBold.otf",
     FONT_DEBUG_MONO_URL =>
         "ambition_sandbox/fonts/bundled/JetBrainsMono-Regular.ttf"
-        @ "../assets/fonts/bundled/JetBrainsMono-Regular.ttf",
+        @ "../../assets/fonts/bundled/JetBrainsMono-Regular.ttf",
 
     // ── Primary character spritesheets ──────────────────────────────
     SPRITE_PLAYER_URL =>
         "ambition_sandbox/sprites/player_robot_spritesheet.png"
-        @ "../assets/sprites/player_robot_spritesheet.png",
+        @ "../../assets/sprites/player_robot_spritesheet.png",
     SPRITE_ROBOT_URL =>
         "ambition_sandbox/sprites/robot_spritesheet.png"
-        @ "../assets/sprites/robot_spritesheet.png",
+        @ "../../assets/sprites/robot_spritesheet.png",
     SPRITE_GOBLIN_URL =>
         "ambition_sandbox/sprites/goblin_spritesheet.png"
-        @ "../assets/sprites/goblin_spritesheet.png",
+        @ "../../assets/sprites/goblin_spritesheet.png",
     SPRITE_SANDBAG_URL =>
         "ambition_sandbox/sprites/sandbag_spritesheet.png"
-        @ "../assets/sprites/sandbag_spritesheet.png",
+        @ "../../assets/sprites/sandbag_spritesheet.png",
 
     // ── Core entity sprites ─────────────────────────────────────────
     SPRITE_CHEST_CLOSED_URL =>
         "ambition_sandbox/sprites/entities/chest_closed.png"
-        @ "../assets/sprites/entities/chest_closed.png",
+        @ "../../assets/sprites/entities/chest_closed.png",
     SPRITE_CHEST_OPEN_URL =>
         "ambition_sandbox/sprites/entities/chest_open.png"
-        @ "../assets/sprites/entities/chest_open.png",
+        @ "../../assets/sprites/entities/chest_open.png",
     SPRITE_PICKUP_HEALTH_URL =>
         "ambition_sandbox/sprites/entities/pickup_health.png"
-        @ "../assets/sprites/entities/pickup_health.png",
+        @ "../../assets/sprites/entities/pickup_health.png",
     SPRITE_PICKUP_CURRENCY_URL =>
         "ambition_sandbox/sprites/entities/pickup_currency.png"
-        @ "../assets/sprites/entities/pickup_currency.png",
+        @ "../../assets/sprites/entities/pickup_currency.png",
     SPRITE_PICKUP_ABILITY_URL =>
         "ambition_sandbox/sprites/entities/pickup_ability.png"
-        @ "../assets/sprites/entities/pickup_ability.png",
+        @ "../../assets/sprites/entities/pickup_ability.png",
     SPRITE_DOOR_ZONE_URL =>
         "ambition_sandbox/sprites/entities/door_zone.png"
-        @ "../assets/sprites/entities/door_zone.png",
+        @ "../../assets/sprites/entities/door_zone.png",
     SPRITE_EDGE_EXIT_URL =>
         "ambition_sandbox/sprites/entities/edge_exit.png"
-        @ "../assets/sprites/entities/edge_exit.png",
+        @ "../../assets/sprites/entities/edge_exit.png",
     SPRITE_PROJECTILE_ENERGY_URL =>
         "ambition_sandbox/sprites/entities/projectile_energy.png"
-        @ "../assets/sprites/entities/projectile_energy.png",
+        @ "../../assets/sprites/entities/projectile_energy.png",
     SPRITE_SOLID_TILE_URL =>
         "ambition_sandbox/sprites/entities/solid_tile.png"
-        @ "../assets/sprites/entities/solid_tile.png",
+        @ "../../assets/sprites/entities/solid_tile.png",
     SPRITE_ONE_WAY_TILE_URL =>
         "ambition_sandbox/sprites/entities/one_way_tile.png"
-        @ "../assets/sprites/entities/one_way_tile.png",
+        @ "../../assets/sprites/entities/one_way_tile.png",
     SPRITE_HAZARD_TILE_URL =>
         "ambition_sandbox/sprites/entities/hazard_tile.png"
-        @ "../assets/sprites/entities/hazard_tile.png",
+        @ "../../assets/sprites/entities/hazard_tile.png",
     SPRITE_BOSS_CORE_URL =>
         "ambition_sandbox/sprites/entities/boss_core.png"
-        @ "../assets/sprites/entities/boss_core.png",
+        @ "../../assets/sprites/entities/boss_core.png",
 }
 
 use crate::data::AudioSpec;

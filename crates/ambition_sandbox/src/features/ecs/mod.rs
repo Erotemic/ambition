@@ -1345,86 +1345,133 @@ pub fn sync_ecs_switches_from_save(
 }
 
 
-/// ECS view lookup for migrated feature visual sync.
-pub fn ecs_feature_view(
-    id: &str,
-    pickups: &Query<(&FeatureId, &FeatureAabb, Option<&Collected>), With<PickupFeature>>,
-    chests: &Query<(&FeatureId, &FeatureAabb, Option<&Opened>), With<ChestFeature>>,
-    breakables: &Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
-    switches: &Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
-    actors: &Query<(&FeatureId, &ActorRuntime)>,
-    hazards: &Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
-    bosses: &Query<(&FeatureId, &BossFeature)>,
-) -> Option<FeatureView> {
-    for (feature_id, aabb, collected) in pickups.iter() {
-        if feature_id.as_str() == id {
-            return Some(FeatureView {
+/// Per-frame snapshot of every ECS-owned feature's `FeatureView`, keyed
+/// by [`FeatureId`].
+///
+/// Rebuilt once per frame by [`rebuild_feature_view_index`] from the
+/// pickup / chest / breakable / switch / actor / hazard / boss queries.
+/// Presentation code (`sync_visuals`, `upgrade_enemy_sprites`,
+/// `upgrade_npc_sprites`) used to call into per-id helpers that
+/// re-scanned every one of those queries on every visual every frame —
+/// quadratic in the number of features. With the index, each scan is
+/// O(features) once per frame and per-id lookup is O(1).
+#[derive(Resource, Default, Clone, Debug)]
+pub struct FeatureViewIndex {
+    views: std::collections::HashMap<String, FeatureView>,
+}
+
+impl FeatureViewIndex {
+    pub fn get(&self, id: &str) -> Option<&FeatureView> {
+        self.views.get(id)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.views.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.views.len()
+    }
+
+    fn clear(&mut self) {
+        self.views.clear();
+    }
+
+    fn insert(&mut self, id: &str, view: FeatureView) {
+        self.views.insert(id.to_string(), view);
+    }
+}
+
+/// Rebuild [`FeatureViewIndex`] from the current ECS feature state.
+///
+/// One linear pass per feature family per frame, populating the cache
+/// presentation systems then read by id. Replaces the
+/// per-FeatureVisual × seven-family linear scan the old
+/// `ecs_feature_view` performed.
+pub fn rebuild_feature_view_index(
+    mut index: ResMut<FeatureViewIndex>,
+    pickups: Query<(&FeatureId, &FeatureAabb, Option<&Collected>), With<PickupFeature>>,
+    chests: Query<(&FeatureId, &FeatureAabb, Option<&Opened>), With<ChestFeature>>,
+    breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
+    switches: Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
+    actors: Query<(&FeatureId, &ActorRuntime)>,
+    hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
+    bosses: Query<(&FeatureId, &BossFeature)>,
+) {
+    index.clear();
+    for (id, aabb, collected) in &pickups {
+        index.insert(
+            id.as_str(),
+            FeatureView {
                 pos: aabb.center,
                 size: aabb.size(),
                 kind: FeatureVisualKind::Pickup,
                 visible: collected.is_none(),
                 flash: false,
                 switch_on: false,
-            });
-        }
+            },
+        );
     }
-    for (feature_id, aabb, opened) in chests.iter() {
-        if feature_id.as_str() == id {
-            return Some(FeatureView {
+    for (id, aabb, opened) in &chests {
+        index.insert(
+            id.as_str(),
+            FeatureView {
                 pos: aabb.center,
                 size: aabb.size(),
                 kind: FeatureVisualKind::Chest,
                 visible: true,
                 flash: opened.is_some(),
                 switch_on: false,
-            });
-        }
+            },
+        );
     }
-    for (feature_id, aabb, breakable) in breakables.iter() {
-        if feature_id.as_str() == id {
-            return Some(FeatureView {
+    for (id, aabb, breakable) in &breakables {
+        index.insert(
+            id.as_str(),
+            FeatureView {
                 pos: aabb.center,
                 size: aabb.size(),
                 kind: FeatureVisualKind::Breakable,
                 visible: !breakable.broken(),
                 flash: breakable.breakable.state == ae::BreakableState::Cracking,
                 switch_on: false,
-            });
-        }
+            },
+        );
     }
-    for (feature_id, aabb, switch_on) in switches.iter() {
-        if feature_id.as_str() == id {
-            return Some(FeatureView {
+    for (id, aabb, switch_on) in &switches {
+        index.insert(
+            id.as_str(),
+            FeatureView {
                 pos: aabb.center,
                 size: aabb.size(),
                 kind: FeatureVisualKind::Switch,
                 visible: true,
                 flash: false,
                 switch_on: switch_on.0,
-            });
-        }
+            },
+        );
     }
-    for (feature_id, actor) in actors.iter() {
-        if feature_id.as_str() == id {
-            return Some(actor.feature_view());
-        }
+    for (id, actor) in &actors {
+        index.insert(id.as_str(), actor.feature_view());
     }
-    for (feature_id, aabb, hazard) in hazards.iter() {
-        if feature_id.as_str() == id {
-            return Some(FeatureView {
+    for (id, aabb, hazard) in &hazards {
+        index.insert(
+            id.as_str(),
+            FeatureView {
                 pos: hazard.hazard.pos,
                 size: aabb.size(),
                 kind: FeatureVisualKind::Hazard,
                 visible: hazard.hazard.active(),
                 flash: false,
                 switch_on: false,
-            });
-        }
+            },
+        );
     }
-    for (feature_id, boss) in bosses.iter() {
-        if feature_id.as_str() == id {
-            let boss = &boss.boss;
-            return Some(FeatureView {
+    for (id, feature) in &bosses {
+        let boss = &feature.boss;
+        index.insert(
+            id.as_str(),
+            FeatureView {
                 pos: boss.pos,
                 size: boss.render_size(),
                 kind: FeatureVisualKind::Boss,
@@ -1433,19 +1480,9 @@ pub fn ecs_feature_view(
                     || boss.attack_windup_timer > 0.0
                     || boss.attack_timer > 0.0,
                 switch_on: false,
-            });
-        }
+            },
+        );
     }
-    None
-}
-
-pub fn ecs_actor_view_compat(
-    id: &str,
-    actors: &Query<(&FeatureId, &ActorRuntime)>,
-) -> Option<FeatureView> {
-    actors.iter().find_map(|(feature_id, actor)| {
-        (feature_id.as_str() == id).then(|| actor.feature_view())
-    })
 }
 
 pub fn ecs_npc_name<'a>(id: &str, actors: &'a Query<(&FeatureId, &ActorRuntime)>) -> Option<&'a str> {

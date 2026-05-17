@@ -111,6 +111,7 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         .insert_resource(crate::SandboxDevState::default())
         .insert_resource(crate::features::GameplayBanner::default())
         .insert_resource(crate::features::FeatureEcsWorldOverlay::default())
+        .insert_resource(crate::features::FeatureViewIndex::default())
         .insert_resource(crate::mechanics::MechanicsRegistry::default())
         .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
         .add_plugins(ae::AmbitionStateMachinePlugin)
@@ -309,15 +310,18 @@ fn register_combat_systems(app: &mut App) {
     );
 }
 
-/// Player ECS body write-back + presentation timer decays. Runs
-/// unconditionally so paused / dialogue modes still wind down flash and
-/// landing-pose timers.
+/// Player ECS body write-back + presentation timer decays + the
+/// per-frame [`FeatureViewIndex`] rebuild. Runs unconditionally so
+/// paused / dialogue modes still wind down flash and landing-pose
+/// timers, and so the visual-side cache is always current when
+/// `sync_visuals` runs in the presentation half.
 fn register_presentation_sync_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
             crate::player::write_player_ecs_components,
             cleanup_timers_system,
+            crate::features::rebuild_feature_view_index,
         )
             .chain()
             .in_set(SandboxSet::PresentationSync),

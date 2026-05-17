@@ -16,8 +16,8 @@ use crate::boss_sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
-    ActorRuntime, BossFeature, BreakableFeature, ChestFeature, Collected, FeatureAabb, FeatureId,
-    FeatureVisualKind, HazardFeature, Opened, PickupFeature, SwitchFeature, SwitchOn,
+    ActorRuntime, BossFeature, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
+    FeatureVisualKind, Opened,
 };
 use crate::game_assets::{self, EntitySprite, GameAssets};
 
@@ -25,6 +25,7 @@ pub fn sync_visuals(
     world: Res<crate::GameWorld>,
     entities: Res<SceneEntities>,
     assets: Option<Res<GameAssets>>,
+    feature_views: Res<FeatureViewIndex>,
     mut player_query: Query<
         (
             &mut Transform,
@@ -39,13 +40,6 @@ pub fn sync_visuals(
         (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
         Without<PlayerVisual>,
     >,
-    ecs_pickups: Query<(&FeatureId, &FeatureAabb, Option<&Collected>), With<PickupFeature>>,
-    ecs_chests: Query<(&FeatureId, &FeatureAabb, Option<&Opened>), With<ChestFeature>>,
-    ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature)>,
-    ecs_switches: Query<(&FeatureId, &FeatureAabb, &SwitchOn), With<SwitchFeature>>,
-    ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
-    ecs_hazards: Query<(&FeatureId, &FeatureAabb, &HazardFeature)>,
-    ecs_bosses: Query<(&FeatureId, &BossFeature)>,
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
@@ -84,16 +78,7 @@ pub fn sync_visuals(
     }
 
     for (visual, mut transform, mut sprite, mut visibility) in &mut feature_query {
-        let Some(view) = crate::features::ecs_feature_view(
-            &visual.id,
-            &ecs_pickups,
-            &ecs_chests,
-            &ecs_breakables,
-            &ecs_switches,
-            &ecs_actors,
-            &ecs_hazards,
-            &ecs_bosses,
-        ) else {
+        let Some(view) = feature_views.get(&visual.id) else {
             *visibility = Visibility::Hidden;
             continue;
         };
@@ -182,6 +167,7 @@ pub fn upgrade_enemy_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
+    feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
@@ -189,7 +175,7 @@ pub fn upgrade_enemy_sprites(
         return;
     };
     for (entity, visual, bound) in &features {
-        let Some(view) = crate::features::ecs_actor_view_compat(&visual.id, &ecs_actors) else {
+        let Some(view) = feature_views.get(&visual.id) else {
             continue;
         };
         if !matches!(
@@ -265,6 +251,7 @@ pub fn upgrade_npc_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     images: Res<Assets<Image>>,
+    feature_views: Res<FeatureViewIndex>,
     features: Query<(Entity, &FeatureVisual, Option<&BoundFeatureKind>)>,
     ecs_actors: Query<(&FeatureId, &ActorRuntime)>,
 ) {
@@ -272,7 +259,7 @@ pub fn upgrade_npc_sprites(
         return;
     };
     for (entity, visual, bound) in &features {
-        let Some(view) = crate::features::ecs_actor_view_compat(&visual.id, &ecs_actors) else {
+        let Some(view) = feature_views.get(&visual.id) else {
             continue;
         };
         if !matches!(view.kind, FeatureVisualKind::Npc) {

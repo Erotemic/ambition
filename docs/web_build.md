@@ -36,7 +36,7 @@ Common to both:
 | Mobile touch | ❌ | ❌ | `virtual_joystick` excluded. |
 | Physics debris | ❌ | ❌ | `avian2d` excluded. |
 | Save / settings persistence | ❌ | ❌ | No-op on wasm32; in-memory only. |
-| FPS overlay | ✅ default-on | ✅ default-on | Bottom-right Text node. F3 toggles. |
+| FPS overlay | ✅ default-on | ✅ default-on | Bottom-right Text node, default-on across desktop/web/Android. Toggle from the **Video settings page → "FPS Overlay"** row (persisted in `settings.ron`), or press **F3** for an in-session keyboard toggle that writes the same setting. |
 
 `docs/asset_manager.md` has the full per-asset / per-profile matrix.
 
@@ -166,8 +166,10 @@ canvas to capture keyboard focus, and look for:
    colored rectangles for chests/players, the build was compiled
    with the wrong feature set.
 2. **FPS overlay**, bottom-right corner: `FPS 60  |  frame 16.6ms`
-   (rolling average). Press **F3** to hide. Toggle is per-session;
-   `FpsOverlayState::visible` defaults to true on wasm.
+   (rolling average). Default-on across every platform. Hide via
+   the Video settings page → "FPS Overlay" row (persisted), or
+   press **F3** for an in-session keyboard toggle that writes the
+   same setting.
 3. **LDtk tiles render** — the active sandbox area paints its tile
    layers (not just background color).
 4. **Player spawns** — the bipedal player sprite is visible at the

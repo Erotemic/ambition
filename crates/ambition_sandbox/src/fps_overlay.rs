@@ -4,26 +4,32 @@
 //! Bevy plugin that spawns a `Text` node in the bottom-right corner
 //! and refreshes it with the running FPS + rolling frame-time average.
 //!
-//! **Toggle:** press `F3` to show / hide.
+//! **Visible by default on every platform** — desktop, browser,
+//! Android. Toggle via the **Video settings page → "FPS Overlay"** row
+//! (persisted across sessions via `crate::settings::persistence`), or
+//! press `F3` for an in-session keyboard toggle that mutates the same
+//! setting.
 //!
-//! **Default visibility:** ON in browser builds (useful for diagnosing
-//! the jumpy-animation symptom Jon hit during the GPU-training-job
-//! window), OFF on desktop (the in-engine devtools provide richer
-//! data).
+//! ## Source of truth
 //!
-//! Designed to be flag-friendly: callers that want to hide it without
-//! the keypress can mutate [`FpsOverlayState::visible`] from any
-//! system, or skip [`FpsOverlayPlugin`] entirely.
+//! [`UserSettings::video::show_fps`] is the canonical flag and is what
+//! lands on disk. [`FpsOverlayState`] is a runtime mirror so the
+//! overlay systems don't have to query `UserSettings` every frame.
+//! [`sync_fps_overlay_state_from_settings`] copies the value from
+//! settings → state when the user changes it from the menu;
+//! [`toggle_fps_overlay_on_f3`] writes back to settings so the keyboard
+//! toggle persists too.
 
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
+use crate::settings::UserSettings;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 
-/// Per-overlay state. Inserted as a `Resource` by
-/// [`FpsOverlayPlugin`]. Mutate `visible` from any system to
-/// programmatically show/hide; the next `update_fps_overlay_visibility`
-/// tick reflects the change.
+/// Runtime mirror of [`UserSettings::video::show_fps`]. Updated by
+/// [`sync_fps_overlay_state_from_settings`] when the persisted flag
+/// changes; the overlay systems read this resource instead of querying
+/// `UserSettings` directly each frame.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct FpsOverlayState {
     pub visible: bool,
@@ -31,12 +37,11 @@ pub struct FpsOverlayState {
 
 impl Default for FpsOverlayState {
     fn default() -> Self {
-        // ON by default on web (debug aid), OFF on desktop (avoid
-        // chrome over the gameplay area until a user asks for it via
-        // F3).
-        Self {
-            visible: cfg!(target_arch = "wasm32"),
-        }
+        // Visible everywhere by default. The Video settings row
+        // overrides this once `UserSettings` is loaded; this default
+        // is for the brief window between resource init and the first
+        // settings sync.
+        Self { visible: true }
     }
 }
 
@@ -67,6 +72,7 @@ impl Plugin for FpsOverlayPlugin {
             .add_systems(
                 Update,
                 (
+                    sync_fps_overlay_state_from_settings,
                     toggle_fps_overlay_on_f3,
                     update_fps_overlay_text,
                     update_fps_overlay_visibility,
@@ -112,14 +118,29 @@ fn spawn_fps_overlay(
     ));
 }
 
-/// F3 toggles `FpsOverlayState::visible`. Cheap; the visibility flip
-/// is consumed by `update_fps_overlay_visibility` next tick.
+/// F3 toggles the FPS overlay by writing to
+/// [`UserSettings::video::show_fps`]. The next
+/// `sync_fps_overlay_state_from_settings` tick mirrors the change into
+/// `FpsOverlayState`, and `crate::settings::persistence` autosaves the
+/// new value so the toggle survives a restart.
 fn toggle_fps_overlay_on_f3(
     keys: Res<ButtonInput<KeyCode>>,
-    mut state: ResMut<FpsOverlayState>,
+    mut settings: ResMut<UserSettings>,
 ) {
     if keys.just_pressed(KeyCode::F3) {
-        state.visible = !state.visible;
+        settings.video.show_fps = !settings.video.show_fps;
+    }
+}
+
+/// Mirror `UserSettings::video::show_fps` into `FpsOverlayState`. Runs
+/// every Update; the cost is `Res::is_changed` change-detection on
+/// `UserSettings` + a single boolean write.
+fn sync_fps_overlay_state_from_settings(
+    settings: Res<UserSettings>,
+    mut state: ResMut<FpsOverlayState>,
+) {
+    if settings.is_changed() && state.visible != settings.video.show_fps {
+        state.visible = settings.video.show_fps;
     }
 }
 
@@ -175,8 +196,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_state_visible_on_wasm_hidden_on_desktop() {
-        let state = FpsOverlayState::default();
-        assert_eq!(state.visible, cfg!(target_arch = "wasm32"));
+    fn default_state_visible_on_every_platform() {
+        // The FPS overlay is opt-out, not opt-in. The Video settings
+        // page lets the user hide it; the default is `true` so the
+        // counter shows up the moment the user runs the game without
+        // touching settings.
+        assert!(FpsOverlayState::default().visible);
+    }
+
+    #[test]
+    fn default_video_settings_show_fps_is_true() {
+        let settings = crate::settings::UserSettings::default();
+        assert!(
+            settings.video.show_fps,
+            "VideoSettings::show_fps default must be true so the overlay shows out of the box",
+        );
     }
 }

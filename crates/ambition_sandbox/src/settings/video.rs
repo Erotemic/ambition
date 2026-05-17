@@ -266,7 +266,7 @@ impl CameraFramingPreset {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VideoSettings {
     #[serde(default)]
     pub display_mode: SerializableDisplayMode,
@@ -280,6 +280,34 @@ pub struct VideoSettings {
     pub flashes: FlashIntensity,
     #[serde(default)]
     pub colorblind: ColorblindMode,
+    /// Whether the FPS / frame-time overlay is shown. ON by default
+    /// on every platform — useful for diagnosing perf issues across
+    /// browser and desktop. Toggle via the Video page or `F3`. The
+    /// overlay is wired by `crate::fps_overlay::FpsOverlayPlugin`,
+    /// which mirrors this flag into `FpsOverlayState::visible`.
+    #[serde(default = "default_show_fps")]
+    pub show_fps: bool,
+}
+
+impl Default for VideoSettings {
+    fn default() -> Self {
+        Self {
+            display_mode: SerializableDisplayMode::default(),
+            camera_zoom: CameraZoomPreset::default(),
+            camera_aspect: CameraAspectPolicy::default(),
+            camera_framing: CameraFramingPreset::default(),
+            flashes: FlashIntensity::default(),
+            colorblind: ColorblindMode::default(),
+            show_fps: default_show_fps(),
+        }
+    }
+}
+
+/// Default for `VideoSettings::show_fps`. Kept as a free function so
+/// `serde(default = "...")` can reference it for round-tripping older
+/// `settings.ron` files that pre-date this field.
+fn default_show_fps() -> bool {
+    true
 }
 
 /// Serializable mirror of `DisplayModeKind`. We keep `DisplayModeKind`

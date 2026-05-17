@@ -76,6 +76,7 @@ pub enum SettingsItem {
     CameraFraming,
     Flashes,
     Colorblind,
+    ShowFps,
 
     // Audio page.
     MasterVolume,
@@ -137,6 +138,7 @@ impl SettingsItem {
                 Self::CameraFraming,
                 Self::Flashes,
                 Self::Colorblind,
+                Self::ShowFps,
                 Self::Back,
             ],
             SettingsPage::Audio => &[
@@ -227,6 +229,10 @@ impl SettingsItem {
             }
             Self::Flashes => format!("Flashes: {}  < / >", settings.video.flashes.label()),
             Self::Colorblind => format!("Colorblind: {}  < / >", settings.video.colorblind.label()),
+            Self::ShowFps => format!(
+                "FPS Overlay: {}",
+                if settings.video.show_fps { "on" } else { "off" }
+            ),
 
             Self::MasterVolume => format!(
                 "Master Volume: {}%  < / >",
@@ -688,6 +694,14 @@ pub fn apply_action(
                 SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
             ) {
                 settings.gameplay.debug_hud_visible = !settings.gameplay.debug_hud_visible;
+            }
+        }
+        SettingsItem::ShowFps => {
+            if matches!(
+                action,
+                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+            ) {
+                settings.video.show_fps = !settings.video.show_fps;
             }
         }
         SettingsItem::QuestHud => {

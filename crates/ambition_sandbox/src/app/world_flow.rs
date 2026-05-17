@@ -212,6 +212,7 @@ pub fn apply_room_transition_system(
     feel_tuning: Res<SandboxFeelTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
+    feature_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
 ) {
     for request in requests.read() {
         let Ok((mut authority, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
@@ -226,6 +227,7 @@ pub fn apply_room_transition_system(
                 pos: player_pos_before,
             });
         }
+        let target_room = request.transition.target_room;
         load_room(
             &mut commands,
             &mut event_writers.sfx,
@@ -247,6 +249,114 @@ pub fn apply_room_transition_system(
             *physics_settings,
             game_assets.as_deref(),
         );
+        log_room_transition_landing(
+            target_room,
+            &room_set,
+            &authority.player,
+            &world.0,
+            &feature_overlay,
+        );
+    }
+}
+
+/// One-line diagnostic emitted on every room transition. Goal: when
+/// "player fell through the floor in <room>" reports come in we have
+/// the signals on disk / in the browser console to tell apart the
+/// usual suspects:
+///
+/// - `world_blocks` == 0 → `to_room_set()` didn't populate this room's
+///   `world.blocks` (LDtk load / merge issue).
+/// - `overlay_blocks` == 0 in a room whose floor is breakable / actor
+///   / boss → ECS feature spawn raced the post-transition sim tick.
+/// - `gap_below_feet` large or `none` → `validated_spawn` placed the
+///   player above the floor (`world.0`-only collision check missed the
+///   overlay floor) and gravity is about to pull them through.
+///
+/// Cheap: runs once per RoomTransitionRequested, iterates blocks once
+/// to find the highest top-below-feet, no per-frame cost. Filter the
+/// browser console / log file with target `ambition::room_transition`.
+fn log_room_transition_landing(
+    target_room: usize,
+    room_set: &rooms::RoomSet,
+    player: &ae::Player,
+    world: &ae::World,
+    feature_overlay: &crate::features::FeatureEcsWorldOverlay,
+) {
+    let target_id = room_set
+        .rooms
+        .get(target_room)
+        .map(|spec| spec.id.clone())
+        .unwrap_or_else(|| format!("<index {target_room}>"));
+    let feet_y = player.pos.y + player.size.y * 0.5;
+    let body = ae::Aabb::new(player.pos, player.size * 0.5);
+    let overlapping_world = world
+        .blocks
+        .iter()
+        .filter(|b| b.aabb.strict_intersects(body))
+        .count();
+    let overlapping_overlay = feature_overlay
+        .blocks
+        .iter()
+        .filter(|b| b.aabb.strict_intersects(body))
+        .count();
+    let gap = ground_gap_below_feet(feet_y, &body, world, feature_overlay);
+    let gap_desc = match gap {
+        Some((distance, source)) => format!("{distance:.1}px ({source})"),
+        None => "none within 256px".to_string(),
+    };
+    bevy::log::info!(
+        target: "ambition::room_transition",
+        "room transition: target={target_id} player_pos=({:.1},{:.1}) \
+         world_blocks={} overlay_blocks={} gap_below_feet={gap_desc} \
+         body_overlaps[world={overlapping_world}, overlay={overlapping_overlay}]",
+        player.pos.x,
+        player.pos.y,
+        world.blocks.len(),
+        feature_overlay.blocks.len(),
+    );
+}
+
+/// Probe straight down from the player's feet for the nearest block
+/// top (within 256 px). Returns `(distance, source)` where `source` is
+/// `"world"`, `"overlay"`, or `"both"`. `None` means nothing — the
+/// player is over a pit (real bug) or `to_room_set()` / overlay
+/// rebuild hasn't materialised the floor yet (the race we're hunting).
+fn ground_gap_below_feet(
+    feet_y: f32,
+    body: &ae::Aabb,
+    world: &ae::World,
+    feature_overlay: &crate::features::FeatureEcsWorldOverlay,
+) -> Option<(f32, &'static str)> {
+    const MAX_PROBE_PX: f32 = 256.0;
+    let probe = |blocks: &[ae::Block]| {
+        let mut best: Option<f32> = None;
+        for block in blocks {
+            // X must overlap the player body.
+            if block.aabb.right() <= body.left() || block.aabb.left() >= body.right() {
+                continue;
+            }
+            // Only consider blocks whose top is below feet.
+            let top = block.aabb.top();
+            if top < feet_y {
+                continue;
+            }
+            let gap = top - feet_y;
+            if gap > MAX_PROBE_PX {
+                continue;
+            }
+            best = Some(best.map_or(gap, |b| b.min(gap)));
+        }
+        best
+    };
+    let world_gap = probe(&world.blocks);
+    let overlay_gap = probe(&feature_overlay.blocks);
+    match (world_gap, overlay_gap) {
+        (Some(a), Some(b)) if (a - b).abs() < 0.5 => Some((a.min(b), "both")),
+        (Some(a), Some(b)) if a <= b => Some((a, "world")),
+        (Some(_), Some(b)) => Some((b, "overlay")),
+        (Some(a), None) => Some((a, "world")),
+        (None, Some(b)) => Some((b, "overlay")),
+        (None, None) => None,
     }
 }
 

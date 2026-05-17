@@ -39,21 +39,38 @@ pub fn record_simulation_frame(
 /// Bevy system: drains pending dump requests, writes JSON+MD if any.
 /// Ordered after `sandbox_update` so manual F8 presses recorded earlier
 /// in the frame still see the latest snapshot.
+///
+/// Wasm (`target_arch = "wasm32"`): drains + clears the dump request
+/// (so the buffer doesn't accumulate stale requests) but skips
+/// `write_dump`. The dump path uses `std::fs` and `SystemTime::now()`,
+/// neither of which is supported under `wasm32-unknown-unknown` —
+/// `SystemTime::now()` panics with "time not implemented on this
+/// platform" exactly like `Instant::now()`. Reports a single warning
+/// per drop so the user knows F8 was received but ignored.
 pub fn flush_pending_dump(mut buffer: ResMut<GameplayTraceBuffer>) {
-    let Some(reason) = buffer.dump_request.take() else {
+    let Some(_reason) = buffer.dump_request.take() else {
         return;
     };
-    let dir = default_dump_dir();
-    match write_dump(&buffer, &reason, &dir) {
-        Ok(path) => {
-            let path_str = path.to_string_lossy().to_string();
-            buffer.last_dump_path = Some(path_str.clone());
-            buffer.last_dump_status = Some(format!("OK: {path_str}"));
-            eprintln!("ambition trace dumped: {path_str}");
-        }
-        Err(err) => {
-            buffer.last_dump_status = Some(format!("error: {err}"));
-            eprintln!("ambition trace dump failed: {err}");
+    #[cfg(target_arch = "wasm32")]
+    {
+        let msg = "trace dump skipped: file IO + SystemTime::now() not supported on wasm32";
+        buffer.last_dump_status = Some(msg.to_string());
+        bevy::log::warn!(target: "ambition::trace", "{msg}");
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let dir = default_dump_dir();
+        match write_dump(&buffer, &_reason, &dir) {
+            Ok(path) => {
+                let path_str = path.to_string_lossy().to_string();
+                buffer.last_dump_path = Some(path_str.clone());
+                buffer.last_dump_status = Some(format!("OK: {path_str}"));
+                eprintln!("ambition trace dumped: {path_str}");
+            }
+            Err(err) => {
+                buffer.last_dump_status = Some(format!("error: {err}"));
+                eprintln!("ambition trace dump failed: {err}");
+            }
         }
     }
 }

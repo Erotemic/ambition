@@ -84,38 +84,68 @@ pub(super) fn setup_presentation_system(
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
     mut profiler: ResMut<crate::profiling::StartupProfiler>,
 ) {
+    // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
+    // with "time not implemented on this platform". Gate the per-step
+    // wall-clock breakdown on non-wasm; the wasm build profiles via
+    // browser devtools (see docs/web_build.md).
+    #[cfg(not(target_arch = "wasm32"))]
     let t0 = std::time::Instant::now();
     let game_assets =
         game_assets::load_game_assets(&asset_config, &sandbox_catalog, &asset_server, &mut atlas_layouts);
-    let t_assets = t0.elapsed().as_secs_f32() * 1000.0;
-    profiler.marks.push((
-        "setup_presentation::load_game_assets",
-        std::time::Instant::now(),
-    ));
-    let t1 = std::time::Instant::now();
-    setup::presentation_world(
-        &mut commands,
-        &mut audio_sources,
-        &asset_server,
-        &sandbox_catalog,
-        setup::PresentationSetup {
-            world: &world,
-            room_set: &room_set,
-            sandbox_data: &sandbox_data,
-            physics_settings: *physics_settings,
-            game_assets: &game_assets,
-            ui_fonts: ui_fonts.as_deref(),
-        },
-        scene_entities.player,
-    );
-    let t_present = t1.elapsed().as_secs_f32() * 1000.0;
-    eprintln!(
-        "[startup]   setup_presentation breakdown: load_game_assets={t_assets:.1}ms presentation_world={t_present:.1}ms"
-    );
-    profiler.marks.push((
-        "setup_presentation::presentation_world",
-        std::time::Instant::now(),
-    ));
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let t_assets = t0.elapsed().as_secs_f32() * 1000.0;
+        profiler.marks.push((
+            "setup_presentation::load_game_assets",
+            std::time::Instant::now(),
+        ));
+        let t1 = std::time::Instant::now();
+        setup::presentation_world(
+            &mut commands,
+            &mut audio_sources,
+            &asset_server,
+            &sandbox_catalog,
+            setup::PresentationSetup {
+                world: &world,
+                room_set: &room_set,
+                sandbox_data: &sandbox_data,
+                physics_settings: *physics_settings,
+                game_assets: &game_assets,
+                ui_fonts: ui_fonts.as_deref(),
+            },
+            scene_entities.player,
+        );
+        let t_present = t1.elapsed().as_secs_f32() * 1000.0;
+        eprintln!(
+            "[startup]   setup_presentation breakdown: load_game_assets={t_assets:.1}ms presentation_world={t_present:.1}ms"
+        );
+        profiler.marks.push((
+            "setup_presentation::presentation_world",
+            std::time::Instant::now(),
+        ));
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Wasm path: no per-step timing, no profiler marks (the
+        // wasm `StartupProfiler` doesn't take Instants — see
+        // `crate::profiling`). The presentation world still spawns.
+        let _ = &profiler; // silence unused-resource warning
+        setup::presentation_world(
+            &mut commands,
+            &mut audio_sources,
+            &asset_server,
+            &sandbox_catalog,
+            setup::PresentationSetup {
+                world: &world,
+                room_set: &room_set,
+                sandbox_data: &sandbox_data,
+                physics_settings: *physics_settings,
+                game_assets: &game_assets,
+                ui_fonts: ui_fonts.as_deref(),
+            },
+            scene_entities.player,
+        );
+    }
     commands.insert_resource(game_assets);
 }
 

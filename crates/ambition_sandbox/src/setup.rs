@@ -323,6 +323,11 @@ fn presentation_world_inner(
 
     commands.spawn((Camera2d, Name::new("Main Camera")));
 
+    // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
+    // (panics with "time not implemented on this platform"). Gate the
+    // per-step wall-clock breakdown on non-wasm; the wasm build
+    // measures via browser devtools.
+    #[cfg(not(target_arch = "wasm32"))]
     let t_room = std::time::Instant::now();
     spawn_parallax_layers(
         commands,
@@ -338,10 +343,13 @@ fn presentation_world_inner(
         physics_settings,
         Some(game_assets),
     );
-    let t_room_ms = t_room.elapsed().as_secs_f32() * 1000.0;
-    eprintln!(
-        "[startup]   presentation_world breakdown: spawn_room_visuals={t_room_ms:.1}ms (active room only)"
-    );
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let t_room_ms = t_room.elapsed().as_secs_f32() * 1000.0;
+        eprintln!(
+            "[startup]   presentation_world breakdown: spawn_room_visuals={t_room_ms:.1}ms (active room only)"
+        );
+    }
     platforms::spawn_moving_platforms(
         commands,
         &world.0,

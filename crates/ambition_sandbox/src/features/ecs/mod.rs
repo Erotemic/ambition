@@ -2004,83 +2004,65 @@ mod tests {
     }
 
     /// Regression for the presentation-reader ordering contract:
-    /// every system added to [`crate::app::SandboxSet::PresentationVisualSync`]
-    /// (which is where `install_visual_animation_systems` puts
-    /// `sync_visuals` and friends) must observe THIS frame's
-    /// [`FeatureViewIndex`] rebuild — never the previous frame's.
+    /// every system added to
+    /// [`crate::app::SandboxSet::PresentationVisualSync`] must run
+    /// after [`crate::app::SandboxSet::FeatureViewSync`].
     ///
-    /// The earlier shape of this test re-typed the
-    /// `.after(SandboxSet::FeatureViewSync)` constraint on a fake
-    /// reader inside the test, which proved Bevy's ordering works
-    /// rather than the production wiring. The fix moved the
-    /// constraint into [`configure_sandbox_sets`] as
-    /// `PresentationVisualSync.after(FeatureViewSync)`; the probe
-    /// below hangs on the set without redeclaring the ordering, so
-    /// the test now fails if the set-level constraint is dropped or
-    /// if `install_visual_animation_systems` stops using the set.
+    /// Structural check: inspect the actual Bevy schedule graph
+    /// rather than depend on the executor's behavior with two
+    /// otherwise-unordered systems. `.after()` between sets
+    /// becomes a directed edge in `Schedule::graph().dependency()`,
+    /// and the edge is materialized eagerly by `configure_sets` —
+    /// we don't have to run the schedule or rely on any
+    /// declaration-order fallback. The test FAILS the moment
+    /// `PresentationVisualSync.after(FeatureViewSync)` is removed
+    /// from `configure_sandbox_sets`, regardless of what executor
+    /// Bevy ships or how it tie-breaks unordered systems.
     #[test]
     fn presentation_visual_sync_runs_after_feature_view_sync() {
         use crate::app::{configure_sandbox_sets, SandboxSet};
-        use bevy::prelude::Resource;
-
-        #[derive(Resource, Default)]
-        struct ProbeSnapshot {
-            index_len_seen: usize,
-            pickup_present: bool,
-        }
-
-        // Probe is pinned ONLY by being in `PresentationVisualSync`.
-        // It does NOT re-add `.after(FeatureViewSync)` — the test's
-        // value comes from the production-side set ordering being
-        // the load-bearing piece.
-        fn presentation_probe(views: Res<FeatureViewIndex>, mut snap: ResMut<ProbeSnapshot>) {
-            snap.index_len_seen = views.len();
-            snap.pickup_present = views.get("hp_pickup").is_some();
-        }
+        use bevy::ecs::schedule::{NodeId, Schedules};
+        use bevy::prelude::{IntoScheduleConfigs, Update};
 
         let mut app = App::new();
-        app.insert_resource(FeatureViewIndex::default());
-        app.insert_resource(ProbeSnapshot::default());
-        app.world_mut().spawn((
-            FeatureSimEntity,
-            FeatureId::new("hp_pickup"),
-            FeatureName::new("Health"),
-            FeatureAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(12.0, 12.0)),
-            PickupFeature::new(ae::Pickup::new(
-                "hp_pickup",
-                ae::PickupKind::Health { amount: 1 },
-            )),
-        ));
         configure_sandbox_sets(&mut app);
-        // Register the probe FIRST and the rebuild SECOND. Bevy's
-        // executor falls back to registration order when no
-        // dependency edge constrains the relative ordering of two
-        // systems — so this registration order would put the probe
-        // BEFORE the rebuild (seeing an empty index, 0 entries) if
-        // the set-level `PresentationVisualSync.after(FeatureViewSync)`
-        // constraint in `configure_sandbox_sets` were ever dropped.
-        // The assertions below pin the post-rebuild state, so the
-        // test fails if and only if that constraint is missing.
+        // Touch both sets with an empty system each so they're
+        // actually registered as nodes (configure_sets alone is
+        // enough to register the relationship, but a no-op .in_set
+        // also makes the intent explicit).
         app.add_systems(
             Update,
             (
-                presentation_probe.in_set(SandboxSet::PresentationVisualSync),
-                rebuild_feature_view_index.in_set(SandboxSet::FeatureViewSync),
+                (|| {}).in_set(SandboxSet::FeatureViewSync),
+                (|| {}).in_set(SandboxSet::PresentationVisualSync),
             ),
         );
 
-        app.update();
-
-        let snap = app.world().resource::<ProbeSnapshot>();
-        assert_eq!(
-            snap.index_len_seen, 1,
-            "system in PresentationVisualSync must observe this frame's \
-             FeatureViewSync rebuild — saw {} entries, expected 1",
-            snap.index_len_seen
-        );
+        let schedules = app.world().resource::<Schedules>();
+        let schedule = schedules
+            .get(Update)
+            .expect("Update schedule must exist after configure_sandbox_sets");
+        let graph = schedule.graph();
+        let fvs_key = graph
+            .system_sets
+            .get_key(SandboxSet::FeatureViewSync.intern())
+            .expect("FeatureViewSync must be a registered SystemSet");
+        let pvs_key = graph
+            .system_sets
+            .get_key(SandboxSet::PresentationVisualSync.intern())
+            .expect("PresentationVisualSync must be a registered SystemSet");
+        let edge_present = graph
+            .dependency()
+            .graph()
+            .contains_edge(NodeId::Set(fvs_key), NodeId::Set(pvs_key));
         assert!(
-            snap.pickup_present,
-            "system in PresentationVisualSync must see the pickup id rebuilt this tick"
+            edge_present,
+            "schedule dependency graph must carry an edge \
+             FeatureViewSync -> PresentationVisualSync (set in \
+             configure_sandbox_sets). Without it, presentation \
+             systems can read a stale FeatureViewIndex on any frame \
+             that mutates feature state (pickups, switches, encounter \
+             spawns, save sync, sandbox reset)."
         );
     }
 }

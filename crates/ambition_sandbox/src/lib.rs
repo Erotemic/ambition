@@ -34,11 +34,13 @@ pub mod rl_sim;
 pub(crate) mod assets;
 pub(crate) mod body_mode;
 pub(crate) mod boss_encounter;
+pub(crate) mod combat_slots;
 pub(crate) mod config;
 pub(crate) mod content;
 pub(crate) mod dev;
 pub(crate) mod dialog;
 pub(crate) mod encounter;
+pub(crate) mod enemy_projectile;
 pub(crate) mod host;
 pub(crate) mod intro;
 pub(crate) mod inventory;
@@ -85,8 +87,8 @@ pub(crate) use world::{physics, platforms};
 // Crate-root types/consts whose definitions moved into themed modules but
 // still need to surface at `crate::WorldTime` / `ambition_sandbox::WorldTime`.
 pub use time::camera_ease::{
-    CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE,
-    DEFAULT_CAMERA_ZOOM_OUT_RATE, DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
+    CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE, DEFAULT_CAMERA_ZOOM_OUT_RATE,
+    DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
 };
 pub use time::move_toward;
 pub use time::world_time::{refresh_world_time, ClockDomain, WorldTime};

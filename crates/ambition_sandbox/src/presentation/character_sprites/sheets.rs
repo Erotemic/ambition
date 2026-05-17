@@ -648,6 +648,55 @@ pub const ABSURD_GENERAL_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 // the silhouette scaled to the LDtk collision box.
 // ─────────────────────────────────────────────────────────────────
 
+/// Burning Flying Shark — wide 192×128 frames, 4 rows
+/// (idle / fly / chomp / dive). Mapped through CharacterAnim as:
+/// Idle row → Idle, fly row → Walk (the enemy picker uses Walk when
+/// vel.x is non-zero, which is the right choice for an always-moving
+/// flyer), chomp row → Slash (attack picker), dive row → Dash. There
+/// is no hit / death row in this generated sheet; the resolver falls
+/// back to Idle for those animations.
+pub const BURNING_FLYING_SHARK_SHEET: CharacterSheetSpec = CharacterSheetSpec {
+    label_width: 118,
+    y_offset: 0,
+    frame_width: 192,
+    frame_height: 128,
+    rows: &[
+        (
+            CharacterAnim::Idle,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.135,
+            },
+        ),
+        (
+            CharacterAnim::Walk,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.090,
+            },
+        ),
+        (
+            CharacterAnim::Slash,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.082,
+            },
+        ),
+        (
+            CharacterAnim::Dash,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.082,
+            },
+        ),
+    ],
+    // 192-wide sprite over a ~108-wide collision body — keep the
+    // silhouette readable without overflowing the box too aggressively.
+    collision_scale: 1.4,
+    feet_anchor_y: -0.289,
+    frame_sample_inset: 1,
+};
+
 /// Pirate Admiral / Pirate Raider — both ship the same generator
 /// layout (idle / walk / slash / taunt / hurt / death; 128×128
 /// frames; feet_anchor_norm.y ≈ -0.375). They share one sheet spec

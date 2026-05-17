@@ -12,7 +12,10 @@ use crate::audio::SfxMessage;
 use crate::fx::{ParticleKind, VfxMessage};
 use crate::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::rendering::RoomVisual;
-use bevy::prelude::{Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, Resource, With};
+use bevy::prelude::{
+    Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,
+    Resource, With,
+};
 
 use crate::WorldTime;
 
@@ -169,10 +172,16 @@ impl ActorRuntime {
     }
 }
 
-
 fn actor_component_snapshot(
     actor: &ActorRuntime,
-) -> (ActorIdentity, ActorDisposition, ActorHealth, ActorCombatState, ActorIntent, ActorCooldowns) {
+) -> (
+    ActorIdentity,
+    ActorDisposition,
+    ActorHealth,
+    ActorCombatState,
+    ActorIntent,
+    ActorCooldowns,
+) {
     match actor {
         ActorRuntime::Peaceful(npc) => (
             ActorIdentity::new(npc.id.clone(), npc.name.clone()),
@@ -317,13 +326,16 @@ fn spawn_room_feature_entity(
             if breakable.collision.blocks_movement() {
                 entity.insert(SandboxSolidContributor);
             }
-            if breakable.pogo_refresh || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand()) {
+            if breakable.pogo_refresh
+                || (breakable.collision.blocks_movement() && breakable.trigger.allows_stand())
+            {
                 entity.insert(PogoTargetContributor);
             }
         }
         ae::RoomObjectKind::EnemySpawn(brain) => {
             let actor = ActorRuntime::Hostile(EnemyRuntime::new(object, brain.clone(), paths));
-            let (identity, disposition, health, combat, intent, cooldowns) = actor_component_snapshot(&actor);
+            let (identity, disposition, health, combat, intent, cooldowns) =
+                actor_component_snapshot(&actor);
             commands.spawn((
                 Name::new(format!("Feature actor enemy: {}", object.name)),
                 EnemyActorBundle {
@@ -345,7 +357,8 @@ fn spawn_room_feature_entity(
                     interactable.clone(),
                     paths,
                 ));
-                let (identity, disposition, health, combat, intent, cooldowns) = actor_component_snapshot(&actor);
+                let (identity, disposition, health, combat, intent, cooldowns) =
+                    actor_component_snapshot(&actor);
                 commands.spawn((
                     Name::new(format!("Feature actor npc: {}", object.name)),
                     EnemyActorBundle {
@@ -360,8 +373,7 @@ fn spawn_room_feature_entity(
                     actor,
                 ));
             } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
-                if let Some(activation) =
-                    crate::encounter::SwitchActivation::parse_custom(payload)
+                if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload)
                 {
                     commands.spawn((
                         Name::new(format!("Feature switch: {}", object.name)),
@@ -379,7 +391,6 @@ fn spawn_room_feature_entity(
         _ => {}
     }
 }
-
 
 /// Spawn one hostile actor for an encounter wave.
 ///
@@ -408,7 +419,8 @@ pub fn spawn_encounter_mob(
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.respawn_timer = 999_999.0;
     let actor = ActorRuntime::Hostile(enemy);
-    let (identity, disposition, health, combat, intent, cooldowns) = actor_component_snapshot(&actor);
+    let (identity, disposition, health, combat, intent, cooldowns) =
+        actor_component_snapshot(&actor);
     commands.spawn((
         Name::new(format!("Encounter mob: {id}")),
         FeatureSimEntity,
@@ -444,7 +456,10 @@ pub fn despawn_encounter_mobs(
 pub fn clear_encounter_reward_ecs(
     commands: &mut Commands,
     save: &mut ae::SandboxSaveData,
-    chests: &Query<(Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>), With<ChestFeature>>,
+    chests: &Query<
+        (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
+        With<ChestFeature>,
+    >,
     encounter_id: &str,
 ) {
     for (entity, reward, _, _) in chests.iter() {
@@ -452,7 +467,10 @@ pub fn clear_encounter_reward_ecs(
             commands.entity(entity).despawn();
         }
     }
-    save.set_flag(crate::encounter::encounter_reward_looted_flag(encounter_id), false);
+    save.set_flag(
+        crate::encounter::encounter_reward_looted_flag(encounter_id),
+        false,
+    );
 }
 
 /// Idempotently ensure cleared mob encounters have an ECS reward chest.
@@ -460,7 +478,10 @@ pub fn sync_encounter_reward_chests_ecs(
     commands: &mut Commands,
     save: &ae::SandboxSaveData,
     registry: &crate::encounter::EncounterRegistry,
-    chests: &Query<(Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>), With<ChestFeature>>,
+    chests: &Query<
+        (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
+        With<ChestFeature>,
+    >,
 ) {
     let chest_size = ae::Vec2::new(28.0, 28.0);
     for (encounter_id, state) in registry.encounters.iter() {
@@ -471,7 +492,9 @@ pub fn sync_encounter_reward_chests_ecs(
             continue;
         };
         let chest_id = format!("encounter_chest_{encounter_id}");
-        let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(encounter_id));
+        let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(
+            encounter_id,
+        ));
         let existing = chests
             .iter()
             .find(|(_, reward, _, _)| reward.encounter_id == *encounter_id);
@@ -516,15 +539,30 @@ pub fn sync_boss_reward_chests_ecs(
     registry: &crate::boss_encounter::BossEncounterRegistry,
     world: &ae::World,
     boss_anchors: &[(String, ae::Vec2)],
-    chests: &Query<(Entity, &BossRewardChest, &FeatureId, Option<&Opened>, Option<&FallingChest>), With<ChestFeature>>,
+    chests: &Query<
+        (
+            Entity,
+            &BossRewardChest,
+            &FeatureId,
+            Option<&Opened>,
+            Option<&FallingChest>,
+        ),
+        With<ChestFeature>,
+    >,
 ) {
     for (encounter_id, profile) in &registry.profiles {
-        let crate::boss_encounter::BossRewardProfile::DropChest { pickup, offset, size } =
-            &profile.reward
+        let crate::boss_encounter::BossRewardProfile::DropChest {
+            pickup,
+            offset,
+            size,
+        } = &profile.reward
         else {
             continue;
         };
-        if !matches!(save.boss(encounter_id), ae::PersistedEncounterState::Cleared) {
+        if !matches!(
+            save.boss(encounter_id),
+            ae::PersistedEncounterState::Cleared
+        ) {
             continue;
         }
         let runtime_id = registry
@@ -536,7 +574,9 @@ pub fn sync_boss_reward_chests_ecs(
             continue;
         };
         let chest_id = format!("encounter_chest_{encounter_id}");
-        let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(encounter_id));
+        let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(
+            encounter_id,
+        ));
         let existing = chests
             .iter()
             .find(|(_, reward, _, _, _)| reward.encounter_id == *encounter_id);
@@ -648,24 +688,29 @@ fn settled_chest_center(world: &ae::World, start: ae::Vec2, size: ae::Vec2) -> a
     center
 }
 
-
 /// Reset ECS-owned static feature state after a same-room sandbox reset.
 pub fn reset_ecs_room_features(
     mut commands: Commands,
     mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
     collected_pickups: Query<Entity, (With<FeatureSimEntity>, With<Collected>)>,
     opened_chests: Query<Entity, (With<FeatureSimEntity>, With<Opened>)>,
-    mut breakables: Query<(Entity, &mut BreakableFeature, Option<&mut StandTimer>), With<FeatureSimEntity>>,
-    mut actors: Query<(
-        &mut FeatureAabb,
-        &mut ActorRuntime,
-        &mut ActorIdentity,
-        &mut ActorDisposition,
-        &mut ActorHealth,
-        &mut ActorCombatState,
-        &mut ActorIntent,
-        &mut ActorCooldowns,
-    ), With<FeatureSimEntity>>,
+    mut breakables: Query<
+        (Entity, &mut BreakableFeature, Option<&mut StandTimer>),
+        With<FeatureSimEntity>,
+    >,
+    mut actors: Query<
+        (
+            &mut FeatureAabb,
+            &mut ActorRuntime,
+            &mut ActorIdentity,
+            &mut ActorDisposition,
+            &mut ActorHealth,
+            &mut ActorCombatState,
+            &mut ActorIntent,
+            &mut ActorCooldowns,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
     mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
@@ -688,7 +733,17 @@ pub fn reset_ecs_room_features(
         }
         commands.entity(entity).remove::<RespawnTimer>();
     }
-    for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat, mut intent, mut cooldowns) in &mut actors {
+    for (
+        mut aabb,
+        mut actor,
+        mut identity,
+        mut disposition,
+        mut health,
+        mut combat,
+        mut intent,
+        mut cooldowns,
+    ) in &mut actors
+    {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 npc.pos = npc.spawn;
@@ -752,7 +807,10 @@ pub fn reset_ecs_room_features(
 /// Rebuild the transient collision blocks contributed by ECS-owned breakables.
 pub fn rebuild_feature_ecs_world_overlay(
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
-    breakables: Query<(&FeatureId, &FeatureName, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    breakables: Query<
+        (&FeatureId, &FeatureName, &FeatureAabb, &BreakableFeature),
+        With<FeatureSimEntity>,
+    >,
     actors: Query<(&FeatureId, &FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
     bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
 ) {
@@ -781,7 +839,8 @@ pub fn rebuild_feature_ecs_world_overlay(
             aabb: aabb.aabb(),
             kind,
         });
-        if feature.breakable.collision.blocks_movement() && feature.breakable.trigger.allows_stand() {
+        if feature.breakable.collision.blocks_movement() && feature.breakable.trigger.allows_stand()
+        {
             overlay.blocks.push(ae::Block {
                 name: format!("ecs-breakable-pogo-target {}", id.as_str()),
                 aabb: aabb.aabb(),
@@ -795,8 +854,12 @@ pub fn rebuild_feature_ecs_world_overlay(
     // damage queue to resolve first. PogoOrb blocks do not block player
     // movement or blink traversal, so this cannot cause collision regressions.
     for (id, aabb, actor) in &actors {
-        let ActorRuntime::Hostile(enemy) = actor else { continue; };
-        if !enemy.alive { continue; }
+        let ActorRuntime::Hostile(enemy) = actor else {
+            continue;
+        };
+        if !enemy.alive {
+            continue;
+        }
         overlay.blocks.push(ae::Block {
             name: format!("ecs-enemy-body {}", id.as_str()),
             aabb: aabb.aabb(),
@@ -804,7 +867,9 @@ pub fn rebuild_feature_ecs_world_overlay(
         });
     }
     for (id, aabb, feature) in &bosses {
-        if !feature.boss.alive { continue; }
+        if !feature.boss.alive {
+            continue;
+        }
         overlay.blocks.push(ae::Block {
             name: format!("ecs-boss-body {}", id.as_str()),
             aabb: aabb.aabb(),
@@ -818,7 +883,16 @@ pub fn collect_ecs_pickups(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
     player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
-    pickups: Query<(Entity, &FeatureName, &FeatureAabb, &PickupFeature, Option<&Collected>), With<FeatureSimEntity>>,
+    pickups: Query<
+        (
+            Entity,
+            &FeatureName,
+            &FeatureAabb,
+            &PickupFeature,
+            Option<&Collected>,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut heals: MessageWriter<crate::player::PlayerHealRequested>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -865,14 +939,17 @@ pub fn open_ecs_chests(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    chests: Query<(
-        Entity,
-        &FeatureId,
-        &FeatureName,
-        &FeatureAabb,
-        Option<&Opened>,
-        Option<&FallingChest>,
-    ), (With<FeatureSimEntity>, With<ChestFeature>)>,
+    chests: Query<
+        (
+            Entity,
+            &FeatureId,
+            &FeatureName,
+            &FeatureAabb,
+            Option<&Opened>,
+            Option<&FallingChest>,
+        ),
+        (With<FeatureSimEntity>, With<ChestFeature>),
+    >,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -919,14 +996,17 @@ pub fn update_ecs_breakables(
     world_time: Res<WorldTime>,
     player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     mut banner: ResMut<GameplayBanner>,
-    mut breakables: Query<(
-        Entity,
-        &FeatureName,
-        &FeatureAabb,
-        &mut BreakableFeature,
-        Option<&mut RespawnTimer>,
-        Option<&mut StandTimer>,
-    ), With<FeatureSimEntity>>,
+    mut breakables: Query<
+        (
+            Entity,
+            &FeatureName,
+            &FeatureAabb,
+            &mut BreakableFeature,
+            Option<&mut RespawnTimer>,
+            Option<&mut StandTimer>,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -934,7 +1014,9 @@ pub fn update_ecs_breakables(
     // Sim clock: breakable respawn / stand-to-break should freeze in
     // bullet-time alongside the player and enemies (ADR 0010).
     let dt = world_time.sim_dt();
-    let Ok(pb) = player_body_q.single() else { return; };
+    let Ok(pb) = player_body_q.single() else {
+        return;
+    };
     let player_body = pb.aabb();
     for (entity, name, aabb, mut feature, respawn_timer, stand_timer) in &mut breakables {
         if feature.broken() {
@@ -988,18 +1070,27 @@ pub fn update_ecs_hazards(
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
     player: Query<
-        (&crate::player::PlayerBody, &crate::player::PlayerCombatState),
+        (
+            &crate::player::PlayerBody,
+            &crate::player::PlayerCombatState,
+        ),
         With<crate::player::PlayerEntity>,
     >,
-    mut hazards: Query<(&FeatureName, &mut FeatureAabb, &mut HazardFeature), With<FeatureSimEntity>>,
+    mut hazards: Query<
+        (&FeatureName, &mut FeatureAabb, &mut HazardFeature),
+        With<FeatureSimEntity>,
+    >,
 ) {
     // Sim clock: patrolling damage volumes must slow in bullet-time
     // so the player can route around them. ADR 0010.
     let dt = world_time.sim_dt();
-    let Ok((pb, combat)) = player.single() else { return; };
+    let Ok((pb, combat)) = player.single() else {
+        return;
+    };
     let player_body = pb.aabb();
     let player_pos = pb.pos;
-    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
+    let player_vulnerable =
+        !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
     for (_name, mut aabb, mut feature) in &mut hazards {
         let hazard = &mut feature.hazard;
         hazard.update(dt);
@@ -1018,7 +1109,10 @@ pub fn update_ecs_hazards(
             color: [1.0, 0.34, 0.28, 0.88],
             kind: ParticleKind::Shard,
         });
-        debris.write(DebrisBurstMessage { pos, cue: PhysicsDebrisCue::Impact });
+        debris.write(DebrisBurstMessage {
+            pos,
+            cue: PhysicsDebrisCue::Impact,
+        });
         sfx.write(crate::audio::SfxMessage::Play {
             id: hazard_sfx_id(&hazard.name),
             pos,
@@ -1054,24 +1148,36 @@ pub fn update_ecs_bosses(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    mut bosses: Query<(&mut FeatureAabb, &mut BossFeature, &mut BossPatternTimer, &mut BossPhase), With<FeatureSimEntity>>,
+    mut bosses: Query<
+        (
+            &mut FeatureAabb,
+            &mut BossFeature,
+            &mut BossPatternTimer,
+            &mut BossPhase,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     // Sim clock: bosses must slow with bullet-time (ADR 0010); a
     // boss locked-on to the player should not get free hits when
     // the player triggers bullet-time mid-pattern.
     let dt = world_time.sim_dt();
-    let feature_world = world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &overlay,
-    );
-    let Ok((pb, combat, authority)) = player_query.single() else { return; };
+    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let Ok((pb, combat, authority)) = player_query.single() else {
+        return;
+    };
     let player = authority.player.clone();
     let player_body = pb.aabb();
-    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
+    let player_vulnerable =
+        !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
     for (mut aabb, mut feature, mut pattern_timer, mut phase) in &mut bosses {
         let boss = &mut feature.boss;
-        boss.update(&feature_world, &player, feel_tuning.feature_combat_tuning(), dt);
+        boss.update(
+            &feature_world,
+            &player,
+            feel_tuning.feature_combat_tuning(),
+            dt,
+        );
         aabb.center = boss.pos;
         aabb.half_size = boss.render_size() * 0.5;
         pattern_timer.0 = boss.pattern_timer;
@@ -1091,13 +1197,15 @@ pub fn update_ecs_bosses(
                     color: [1.0, 0.34, 0.28, 0.88],
                     kind: ParticleKind::Shard,
                 });
-                debris.write(DebrisBurstMessage { pos, cue: PhysicsDebrisCue::Impact });
+                debris.write(DebrisBurstMessage {
+                    pos,
+                    cue: PhysicsDebrisCue::Impact,
+                });
                 player_damage.write(damage);
             }
         }
     }
 }
-
 
 /// Tick ECS actors. Peaceful and hostile actors share the same entity identity
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
@@ -1108,6 +1216,8 @@ pub fn update_ecs_actors(
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
+    mut slot_board: ResMut<crate::combat_slots::CombatSlotsRes>,
+    mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -1120,31 +1230,70 @@ pub fn update_ecs_actors(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    mut actors: Query<(
-        &mut FeatureAabb,
-        &mut ActorRuntime,
-        &mut ActorIdentity,
-        &mut ActorDisposition,
-        &mut ActorHealth,
-        &mut ActorCombatState,
-        &mut ActorIntent,
-        &mut ActorCooldowns,
-    ), With<FeatureSimEntity>>,
+    mut actors: Query<
+        (
+            &mut FeatureAabb,
+            &mut ActorRuntime,
+            &mut ActorIdentity,
+            &mut ActorDisposition,
+            &mut ActorHealth,
+            &mut ActorCombatState,
+            &mut ActorIntent,
+            &mut ActorCooldowns,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     // Sim clock: enemies, NPCs, encounter mobs all advance on the
     // gameplay clock so bullet-time / pause / hitstop freeze them
     // alongside the player. ADR 0010 + reference_lessons_learned.
     let dt = world_time.sim_dt();
-    let feature_world = world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &overlay,
-    );
-    let Ok((pb, combat, authority)) = player_query.single() else { return; };
+    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let Ok((pb, combat, authority)) = player_query.single() else {
+        return;
+    };
     let player = authority.player.clone();
     let player_body = pb.aabb();
-    let player_vulnerable = !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut actor, mut identity, mut disposition, mut health, mut combat, mut intent, mut cooldowns) in &mut actors {
+    let player_vulnerable =
+        !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
+
+    // Pass 1: collect slot requests from every live hostile enemy.
+    // The slot board is per-target (player) and arbitrates which
+    // enemies are allowed to commit to an attack this tick; the
+    // others hold at the outer ring. This is the anti-clump layer.
+    let mut requests: Vec<(String, ae::Vec2, ae::SlotKind)> = Vec::new();
+    for (_, actor, _, _, _, _, _, _) in &actors {
+        if let ActorRuntime::Hostile(enemy) = &*actor {
+            if enemy.alive {
+                requests.push((enemy.id.clone(), enemy.pos, enemy.archetype.slot_kind()));
+            }
+        }
+    }
+    let slot_requests: Vec<ae::SlotRequest> = requests
+        .iter()
+        .map(|(id, pos, kind)| ae::SlotRequest {
+            actor_id: id.as_str(),
+            actor_pos: *pos,
+            kind: *kind,
+        })
+        .collect();
+    ae::assign_slots(&mut slot_board.0, player.pos, &slot_requests);
+
+    // Pass 2: tick each actor with its assigned slot position. Falls
+    // back to the slot's holding-ring position when this actor didn't
+    // win a slot so it still has a sensible steering target.
+    let combat_tuning = feel_tuning.feature_combat_tuning();
+    for (
+        mut aabb,
+        mut actor,
+        mut identity,
+        mut disposition,
+        mut health,
+        mut combat,
+        mut intent,
+        mut cooldowns,
+    ) in &mut actors
+    {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 npc.update(&feature_world, &player, dt);
@@ -1152,9 +1301,38 @@ pub fn update_ecs_actors(
                 aabb.half_size = npc.size * 0.5;
             }
             ActorRuntime::Hostile(enemy) => {
-                enemy.update(&feature_world, &player, feel_tuning.feature_combat_tuning(), dt);
+                let slot_pos = if let Some(slot) = slot_board.0.slot_for(&enemy.id) {
+                    Some(slot.world_pos(player.pos))
+                } else if enemy.alive {
+                    // No slot assigned — fall back to the holding ring
+                    // position of the first slot of the requested kind
+                    // so the actor still steers to a visible perimeter
+                    // stand-off rather than glomming onto the player.
+                    let kind = enemy.archetype.slot_kind();
+                    slot_board
+                        .0
+                        .slots
+                        .iter()
+                        .find(|s| s.kind == kind)
+                        .map(|s| s.holding_pos(player.pos))
+                } else {
+                    None
+                };
+                let mut outputs = super::enemies::EnemyTickOutputs::default();
+                enemy.update(
+                    &feature_world,
+                    &player,
+                    combat_tuning,
+                    slot_pos,
+                    &mut outputs,
+                    dt,
+                );
                 aabb.center = enemy.pos;
                 aabb.half_size = enemy.size * 0.5;
+                // Flush projectile spawns this enemy emitted this tick.
+                for spawn in outputs.projectile_spawns {
+                    enemy_projectiles.spawn(spawn);
+                }
                 if player_vulnerable && enemy.alive {
                     if let Some(damage) = enemy.player_damage(player_body) {
                         let pos = damage.impact_pos;
@@ -1170,7 +1348,10 @@ pub fn update_ecs_actors(
                             color: [1.0, 0.34, 0.28, 0.88],
                             kind: ParticleKind::Shard,
                         });
-                        debris.write(DebrisBurstMessage { pos, cue: PhysicsDebrisCue::Impact });
+                        debris.write(DebrisBurstMessage {
+                            pos,
+                            cue: PhysicsDebrisCue::Impact,
+                        });
                         player_damage.write(damage);
                     }
                 }
@@ -1202,7 +1383,16 @@ pub fn interact_ecs_actors_and_switches(
         With<crate::player::PlayerEntity>,
     >,
     actors: Query<(&FeatureAabb, &ActorRuntime), With<FeatureSimEntity>>,
-    mut switches: Query<(&FeatureId, &FeatureName, &FeatureAabb, &SwitchFeature, &mut SwitchOn), With<FeatureSimEntity>>,
+    mut switches: Query<
+        (
+            &FeatureId,
+            &FeatureName,
+            &FeatureAabb,
+            &SwitchFeature,
+            &mut SwitchOn,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
@@ -1225,9 +1415,17 @@ pub fn interact_ecs_actors_and_switches(
         let request = npc.dialogue_request();
         dialogue.start(&request.dialogue_id, &request.npc_name);
         next_mode.set(crate::GameMode::Dialogue);
-        gameplay_effects.write(GameplayEffect::AdvanceQuest(ae::QuestAdvanceEvent::NpcTalked(npc.id.clone())));
-        gameplay_effects.write(GameplayEffect::SetFlag { id: "met_any_hub_npc".into(), on: true });
-        gameplay_effects.write(GameplayEffect::SetFlag { id: format!("npc_{}_talked", request.dialogue_id), on: true });
+        gameplay_effects.write(GameplayEffect::AdvanceQuest(
+            ae::QuestAdvanceEvent::NpcTalked(npc.id.clone()),
+        ));
+        gameplay_effects.write(GameplayEffect::SetFlag {
+            id: "met_any_hub_npc".into(),
+            on: true,
+        });
+        gameplay_effects.write(GameplayEffect::SetFlag {
+            id: format!("npc_{}_talked", request.dialogue_id),
+            on: true,
+        });
         vfx.write(VfxMessage::Burst {
             pos: npc.pos,
             count: 16,
@@ -1260,7 +1458,6 @@ pub fn interact_ecs_actors_and_switches(
     }
 }
 
-
 /// Mirror save-derived actor state onto ECS-owned authored NPC/enemy actors.
 ///
 /// Provoked NPCs load as hostile actors, and persisted non-respawning enemy
@@ -1268,18 +1465,30 @@ pub fn interact_ecs_actors_and_switches(
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
     save: Res<crate::save::SandboxSave>,
-    mut actors: Query<(
-        &mut ActorRuntime,
-        &mut ActorIdentity,
-        &mut ActorDisposition,
-        &mut ActorHealth,
-        &mut ActorCombatState,
-        &mut ActorIntent,
-        &mut ActorCooldowns,
-    ), With<FeatureSimEntity>>,
+    mut actors: Query<
+        (
+            &mut ActorRuntime,
+            &mut ActorIdentity,
+            &mut ActorDisposition,
+            &mut ActorHealth,
+            &mut ActorCombatState,
+            &mut ActorIntent,
+            &mut ActorCooldowns,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) {
     let data = save.data();
-    for (mut actor, mut identity, mut disposition, mut health, mut combat, mut intent, mut cooldowns) in &mut actors {
+    for (
+        mut actor,
+        mut identity,
+        mut disposition,
+        mut health,
+        mut combat,
+        mut intent,
+        mut cooldowns,
+    ) in &mut actors
+    {
         match &mut *actor {
             ActorRuntime::Peaceful(npc) => {
                 if data.flag(&npc.flag_id()) {
@@ -1314,7 +1523,6 @@ pub fn sync_ecs_actors_with_save(
     }
 }
 
-
 /// Mirror persisted boss-cleared state onto ECS-owned boss actors.
 pub fn sync_ecs_bosses_with_save(
     save: Res<crate::save::SandboxSave>,
@@ -1324,8 +1532,10 @@ pub fn sync_ecs_bosses_with_save(
     for mut feature in &mut bosses {
         let boss = &mut feature.boss;
         let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
-        if matches!(data.boss(&encounter_id), ae::PersistedEncounterState::Cleared)
-            || matches!(data.boss(&boss.id), ae::PersistedEncounterState::Cleared)
+        if matches!(
+            data.boss(&encounter_id),
+            ae::PersistedEncounterState::Cleared
+        ) || matches!(data.boss(&boss.id), ae::PersistedEncounterState::Cleared)
         {
             boss.alive = false;
             boss.health.current = 0;
@@ -1345,7 +1555,6 @@ pub fn sync_ecs_switches_from_save(
         switch_on.0 = save.data().switch(id.as_str());
     }
 }
-
 
 /// Per-frame snapshot of every ECS-owned feature's `FeatureView`, keyed
 /// by [`FeatureId`].
@@ -1498,7 +1707,10 @@ pub fn rebuild_feature_view_index(
     }
 }
 
-pub fn ecs_npc_name<'a>(id: &str, actors: &'a Query<(&FeatureId, &ActorRuntime)>) -> Option<&'a str> {
+pub fn ecs_npc_name<'a>(
+    id: &str,
+    actors: &'a Query<(&FeatureId, &ActorRuntime)>,
+) -> Option<&'a str> {
     actors.iter().find_map(|(feature_id, actor)| {
         if feature_id.as_str() != id {
             return None;
@@ -1643,11 +1855,8 @@ mod tests {
             interact_buffer_timer: 0.15,
             ..Default::default()
         };
-        app.world_mut().spawn((
-            crate::player::PlayerEntity,
-            body,
-            interaction,
-        ));
+        app.world_mut()
+            .spawn((crate::player::PlayerEntity, body, interaction));
     }
 
     #[test]
@@ -1665,7 +1874,13 @@ mod tests {
         ));
         app.add_systems(Update, rebuild_feature_ecs_world_overlay);
         app.update();
-        assert_eq!(app.world().resource::<FeatureEcsWorldOverlay>().blocks.len(), 1);
+        assert_eq!(
+            app.world()
+                .resource::<FeatureEcsWorldOverlay>()
+                .blocks
+                .len(),
+            1
+        );
     }
 
     /// A buffered interact with the player overlapping a closed chest inserts
@@ -1682,13 +1897,16 @@ mod tests {
 
         spawn_interaction_player(&mut app, center);
 
-        let chest_entity = app.world_mut().spawn((
-            FeatureSimEntity,
-            ChestFeature::new(ae::Chest::new("test_chest", None)),
-            FeatureId::new("test_chest"),
-            FeatureName::new("test_chest"),
-            FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
-        )).id();
+        let chest_entity = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                ChestFeature::new(ae::Chest::new("test_chest", None)),
+                FeatureId::new("test_chest"),
+                FeatureName::new("test_chest"),
+                FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+            ))
+            .id();
 
         app.add_systems(Update, open_ecs_chests);
         app.update();
@@ -1723,13 +1941,16 @@ mod tests {
 
         spawn_interaction_player(&mut app, player_pos);
 
-        let chest_entity = app.world_mut().spawn((
-            FeatureSimEntity,
-            ChestFeature::new(ae::Chest::new("far_chest", None)),
-            FeatureId::new("far_chest"),
-            FeatureName::new("far_chest"),
-            FeatureAabb::from_center_size(chest_pos, ae::Vec2::new(24.0, 24.0)),
-        )).id();
+        let chest_entity = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                ChestFeature::new(ae::Chest::new("far_chest", None)),
+                FeatureId::new("far_chest"),
+                FeatureName::new("far_chest"),
+                FeatureAabb::from_center_size(chest_pos, ae::Vec2::new(24.0, 24.0)),
+            ))
+            .id();
 
         app.add_systems(Update, open_ecs_chests);
         app.update();
@@ -1753,14 +1974,17 @@ mod tests {
 
         spawn_interaction_player(&mut app, center);
 
-        let chest_entity = app.world_mut().spawn((
-            FeatureSimEntity,
-            ChestFeature::new(ae::Chest::new("already_open", None)),
-            FeatureId::new("already_open"),
-            FeatureName::new("already_open"),
-            FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
-            Opened,
-        )).id();
+        let chest_entity = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                ChestFeature::new(ae::Chest::new("already_open", None)),
+                FeatureId::new("already_open"),
+                FeatureName::new("already_open"),
+                FeatureAabb::from_center_size(center, ae::Vec2::new(24.0, 24.0)),
+                Opened,
+            ))
+            .id();
 
         app.add_systems(Update, open_ecs_chests);
         app.update();
@@ -1955,10 +2179,7 @@ mod tests {
                 FeatureSimEntity,
                 FeatureId::new("post_reset_pickup"),
                 FeatureName::new("Post-Reset Health"),
-                FeatureAabb::from_center_size(
-                    ae::Vec2::new(20.0, 20.0),
-                    ae::Vec2::new(12.0, 12.0),
-                ),
+                FeatureAabb::from_center_size(ae::Vec2::new(20.0, 20.0), ae::Vec2::new(12.0, 12.0)),
                 PickupFeature::new(ae::Pickup::new(
                     "post_reset_pickup",
                     ae::PickupKind::Health { amount: 1 },
@@ -2067,11 +2288,13 @@ mod tests {
     }
 }
 
-
-pub fn ecs_boss_name<'a>(id: &str, bosses: &'a Query<(&FeatureId, &BossFeature)>) -> Option<&'a str> {
-    bosses.iter().find_map(|(feature_id, boss)| {
-        (feature_id.as_str() == id).then(|| boss.boss.name.as_str())
-    })
+pub fn ecs_boss_name<'a>(
+    id: &str,
+    bosses: &'a Query<(&FeatureId, &BossFeature)>,
+) -> Option<&'a str> {
+    bosses
+        .iter()
+        .find_map(|(feature_id, boss)| (feature_id.as_str() == id).then(|| boss.boss.name.as_str()))
 }
 
 pub fn ecs_boss_anim_state(

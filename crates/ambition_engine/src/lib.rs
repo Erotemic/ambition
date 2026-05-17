@@ -12,10 +12,12 @@
 
 pub mod abilities;
 pub mod actor;
+pub mod attack_choreography;
 pub mod boss_encounter;
 pub mod boss_patterns;
 pub mod character_ai;
 pub mod combat;
+pub mod combat_slots;
 pub mod cutscene;
 pub mod debug;
 pub mod enemy;
@@ -41,6 +43,10 @@ pub use actor::{
     Actor, ActorFaction, ActorKind, BossBrain, EnemyBrain, Health, KinematicPath,
     KinematicPathMode, RespawnPolicy,
 };
+pub use attack_choreography::{
+    evaluate_choreography, AttackChoreography, ChoreographyAction, ChoreographyInput,
+    ChoreographyPhase, ChoreographyState, ChoreographyTick,
+};
 pub use bevy_math::Vec2;
 pub use boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossEncounterState,
@@ -57,6 +63,7 @@ pub use combat::{
     attack_hitbox, attack_spec, player_slash_hitbox, resolve_attack_intent, slash_hitbox,
     AttackIntent, AttackPhase, AttackSpec, Damage, DamageKind, DamageVolume, Hitbox, Hurtbox,
 };
+pub use combat_slots::{assign_slots, CombatSlot, CombatSlotBoard, SlotKind, SlotRequest};
 pub use cutscene::{CutsceneBeat, CutsceneEvent, CutsceneRuntime, CutsceneScript};
 pub use debug::{DebugLabel, DebugLabelKind, DestinationLabel};
 pub use enemy::{spawn_dummies, Dummy, DummyKind};
@@ -77,11 +84,10 @@ pub use movement::{
     FrameEvents, InputState, MovementOp, MovementTuning, Player, AIR_ACCEL, AIR_FRICTION,
     AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER,
     DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH,
-    DEFAULT_TUNING, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG,
-    FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GRAVITY, GROUND_FRICTION,
-    DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, JUMP_BUFFER, JUMP_SPEED,
-    PARRY_WINDOW_TIME,
-    MAX_FALL_SPEED, MAX_RUN_SPEED, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
+    DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED,
+    FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ,
+    FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GRAVITY, GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED,
+    MAX_FALL_SPEED, MAX_RUN_SPEED, PARRY_WINDOW_TIME, POGO_SPEED, PRECISION_BLINK_AIM_SPEED,
     PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL, WALL_CLIMB_SPEED, WALL_JUMP_X,
     WALL_SLIDE_SPEED,
 };

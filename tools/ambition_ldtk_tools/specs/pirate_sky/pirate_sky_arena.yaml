@@ -1,0 +1,109 @@
+# pirate_sky_arena — open-sky combat arena placed above gate_stack_lower.
+#
+# Beat: the gate_stack_lower room has a "pirate sky route" sign over the
+# left balcony. This level is the first real destination on that route —
+# a wide-open patch of sky where the player drops in and gets attacked
+# by pirates riding burning flying sharks. The arena is mostly empty
+# (no platforms in the play area) so the flying choreography reads
+# clearly: pirates orbit at altitude, fire projectile volleys, dive
+# when their shark dismounts.
+#
+# Transitions:
+# - `sky_arrival` LoadingZone on the south edge ← gate_stack_lower
+#   (reciprocal LoadingZone placed on the left balcony there via
+#   `connect_to`).
+#
+id: pirate_sky_arena
+level_id: pirate_sky_arena
+world_x: 108000          # vertically aligned with gate_stack_lower
+world_y: -1024           # one screen above gate_stack_lower
+px_wid: 2400
+px_hei: 1024
+fill_collision: empty
+bg_color: "#1B2A48"      # twilight sky-blue
+biome: outdoor
+
+entities:
+  # World envelope — only the very bottom is solid so the player has
+  # a floor to land on after dropping in; the sides and top are open
+  # sky (camera-clamped) so the dogfight is the whole picture.
+  - type: Solid
+    px: [0, 1000]
+    size: [2400, 24]
+    fields: { name: cloud_floor }
+
+  # Two small stone perches at mid-height — give the player a couple
+  # of vertical anchors to jump between while dodging shark dives.
+  - type: OneWayPlatform
+    px: [560, 640]
+    size: [240, 16]
+    fields: { name: pirate_sky_perch_left }
+  - type: OneWayPlatform
+    px: [1600, 640]
+    size: [240, 16]
+    fields: { name: pirate_sky_perch_right }
+
+  # Return zone to gate_stack_lower. Bottom-center of the arena so the
+  # player just walks south off the cloud floor.
+  - type: LoadingZone
+    px: [1120, 920]
+    size: [160, 80]
+    fields:
+      id: sky_to_gate_stack
+      name: sky_to_gate_stack
+      activation: Door
+      target_room: gate_stack_lower
+      target_zone: pirate_sky_door
+      bidirectional: false
+
+  # Player drops in here when entering from the gate_stack_lower door.
+  - type: PlayerStart
+    px: [1180, 940]
+    size: [28, 46]
+    fields: { name: sky_arrival }
+
+  # Three pirate-on-shark spawns at altitude. The combat slot board
+  # gives 3 aerial slots so all three can engage at once. Spawned
+  # spread across the top of the arena so they don't immediately
+  # cluster.
+  - type: EnemySpawn
+    px: [600, 240]
+    size: [108, 96]
+    fields:
+      name: Burning Flying Shark
+      brain: pirate_on_shark
+  - type: EnemySpawn
+    px: [1200, 200]
+    size: [108, 96]
+    fields:
+      name: Burning Flying Shark
+      brain: pirate_on_shark
+  - type: EnemySpawn
+    px: [1800, 280]
+    size: [108, 96]
+    fields:
+      name: Burning Flying Shark
+      brain: pirate_on_shark
+
+  # Camera covers the full arena — no need for sub-zones; the read
+  # is the dogfight in a single frame.
+  - type: CameraZone
+    px: [0, 0]
+    size: [2400, 1024]
+    fields:
+      id: pirate_sky_camera
+      name: pirate_sky_camera
+      mode: Default
+
+  - type: DebugLabel
+    px: [40, 80]
+    size: [360, 24]
+    fields:
+      name: pirate_sky_sign
+      text: "OPEN SKY — TRESPASSERS WILL BE FED"
+      category: Custom
+
+# Reciprocal door in gate_stack_lower is added separately via
+# `entity add specs/pirate_sky/gate_stack_pirate_door.yaml` because
+# `connect_to` doesn't yet know to ignore room-wide CameraZone /
+# DebugLabel overlaps.

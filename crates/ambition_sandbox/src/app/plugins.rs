@@ -141,6 +141,12 @@ fn install_simulation_messages_and_resources(app: &mut App) {
                 .chain(),
         )
         .insert_resource(crate::projectile::PlayerProjectileState::default())
+        // Enemy projectiles (pirate volleys etc) — separate from
+        // player projectiles so faction routing stays explicit.
+        .insert_resource(crate::enemy_projectile::EnemyProjectileState::default())
+        // Anti-clump attack slot arbitration. Default layout: 3
+        // melee ring slots + 3 aerial arc slots around the player.
+        .insert_resource(crate::combat_slots::CombatSlotsRes::default())
         // Encounter system. The legacy single-encounter `EncounterState`
         // resource stays for backwards-compat tests; the live
         // multi-encounter store is `EncounterRegistry`, populated
@@ -314,6 +320,7 @@ fn register_combat_systems(app: &mut App) {
         (
             attack_advance_system.run_if(gameplay_allowed),
             crate::projectile::update_projectiles,
+            crate::enemy_projectile::update_enemy_projectiles.run_if(gameplay_allowed),
             crate::features::apply_feature_damage_events,
         )
             .chain()
@@ -507,8 +514,7 @@ fn register_progression_populate_systems(app: &mut App) {
 fn register_reset_processing_systems(app: &mut App) {
     app.add_systems(
         Update,
-        crate::reset::process_sandbox_reset_request
-            .in_set(SandboxSet::ResetProcessing),
+        crate::reset::process_sandbox_reset_request.in_set(SandboxSet::ResetProcessing),
     );
 }
 
@@ -910,7 +916,11 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     // one frame late.
     app.add_systems(
         Update,
-        crate::projectile::sync_projectile_visuals.after(crate::projectile::update_projectiles),
+        (
+            crate::projectile::sync_projectile_visuals.after(crate::projectile::update_projectiles),
+            crate::enemy_projectile::sync_enemy_projectile_visuals
+                .after(crate::enemy_projectile::update_enemy_projectiles),
+        ),
     )
     // VFX + debris subscribe on the visible binary only. Audio's
     // subscriber lives in `add_audio_plugins` so the entire kira
@@ -922,7 +932,10 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     // know when the blink button is held, so it lives behind the `input`
     // feature alongside the other gameplay-input-driven presentation.
     #[cfg(feature = "input")]
-    app.add_systems(Update, fx::update_blink_preview.after(SandboxSet::CoreSimulation));
+    app.add_systems(
+        Update,
+        fx::update_blink_preview.after(SandboxSet::CoreSimulation),
+    );
 }
 
 /// Install the egui inspector plugins. Gated by the `dev_tools` feature so
@@ -965,8 +978,10 @@ pub(super) fn add_dev_tools_plugins(_app: &mut App) {}
 /// controller stays kinematic.
 #[cfg(feature = "physics_debris")]
 pub(super) fn add_physics_debris_plugins(app: &mut App) {
-    app.add_plugins(physics::AmbitionPhysicsPlugin)
-        .add_systems(Update, physics_spawn_debris_messages.after(SandboxSet::CoreSimulation));
+    app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
+        Update,
+        physics_spawn_debris_messages.after(SandboxSet::CoreSimulation),
+    );
 }
 
 #[cfg(not(feature = "physics_debris"))]
@@ -1033,7 +1048,10 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 .chain()
                 .before(SandboxSet::CoreSimulation),
         )
-        .add_systems(Update, sync_preset_input_map.before(SandboxSet::CoreSimulation));
+        .add_systems(
+            Update,
+            sync_preset_input_map.before(SandboxSet::CoreSimulation),
+        );
 }
 
 #[cfg(not(feature = "input"))]
@@ -1117,7 +1135,10 @@ pub(super) fn add_audio_plugins(app: &mut App) {
         // flips during Startup so behavior matches the old direct-
         // startup system.
         .add_systems(Update, start_default_music_when_ready)
-        .add_systems(Update, audio_play_sfx_messages.after(SandboxSet::CoreSimulation))
+        .add_systems(
+            Update,
+            audio_play_sfx_messages.after(SandboxSet::CoreSimulation),
+        )
         // Observe the player's WaterContact and request the matching
         // audio environment; the smoother ramps `wetness`, then
         // `apply_audio_environment` writes the combined user-mixer

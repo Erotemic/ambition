@@ -168,7 +168,6 @@ mod conversion_tests {
         ));
     }
 
-
     #[test]
     fn enemy_archetype_brain_round_trip() {
         for (name, expected) in [
@@ -295,7 +294,15 @@ mod conversion_tests {
         enemy.attack_cooldown = 0.0;
         let mut player = ae::Player::new(ae::Vec2::new(240.0, 536.0));
         player.size = ae::Vec2::new(28.0, 46.0);
-        enemy.update(&world, &player, FeatureCombatTuning::default(), 0.05);
+        let mut outputs = super::super::enemies::EnemyTickOutputs::default();
+        enemy.update(
+            &world,
+            &player,
+            FeatureCombatTuning::default(),
+            Some(player.pos),
+            &mut outputs,
+            0.05,
+        );
         assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Chase);
         assert!(
             enemy.vel.x > 0.0,
@@ -326,7 +333,15 @@ mod conversion_tests {
         enemy.attack_cooldown = 0.0;
         let mut player = ae::Player::new(ae::Vec2::new(130.0, 536.0));
         player.size = ae::Vec2::new(28.0, 46.0);
-        enemy.update(&world, &player, FeatureCombatTuning::default(), 0.10);
+        let mut outputs = super::super::enemies::EnemyTickOutputs::default();
+        enemy.update(
+            &world,
+            &player,
+            FeatureCombatTuning::default(),
+            Some(player.pos),
+            &mut outputs,
+            0.10,
+        );
         assert_eq!(enemy.ai_mode, ae::CharacterAiMode::Telegraph);
         assert!(enemy.attack_windup_timer > 0.0);
         assert_eq!(

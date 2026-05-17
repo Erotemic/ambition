@@ -14,10 +14,10 @@ use bevy::prelude::*;
 use ambition_asset_manager::AssetId;
 
 use super::sheets::{
-    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, GOBLIN_CANTINA_CHIEFTAIN_SHEET,
-    GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET, NINJA_SHEET, PIRATE_SHEET,
-    PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET, SANDBAG_SHEET,
-    TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
+    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, BURNING_FLYING_SHARK_SHEET,
+    GOBLIN_CANTINA_CHIEFTAIN_SHEET, GOBLIN_SHEET, KERNEL_GUIDE_SHEET, MERCHANT_PROTOTYPE_SHEET,
+    NINJA_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET,
+    SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::features::FeatureVisualKind;
 use crate::sandbox_assets::{ids, SandboxAssetCatalog};
@@ -144,6 +144,15 @@ const NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
         "pirate_raider_spritesheet.png",
         PIRATE_SHEET,
     ),
+    // Burning Flying Shark — enemy mount used by the pirate sky
+    // arena. Registered through the NPC sprite registry because the
+    // current enemy-sprite resolver falls through to NPC sheets
+    // first; this matches the pattern used by hostile-NPC migrations.
+    (
+        "Burning Flying Shark",
+        "burning_flying_shark_spritesheet.png",
+        BURNING_FLYING_SHARK_SHEET,
+    ),
     // Ninja-faction characters in the Shadow Dojo. Same sheet layout
     // (idle/walk/run/jump/fall/slash/hit/death/blink_out/blink_in/
     // dash) for both — see NINJA_SHEET.
@@ -209,6 +218,7 @@ pub fn npc_sprite_label(npc_name: &str) -> &'static str {
         "Chadwick Disruptor III" => "npc_tech_bro_disruptor",
         "Pirate Admiral" => "npc_pirate_admiral",
         "Pirate Raider" => "npc_pirate_raider",
+        "Burning Flying Shark" => "npc_burning_flying_shark",
         "Shadow Oni Leader" => "npc_ninja_shadow_oni_leader",
         "Shadow Duelist" => "npc_ninja_shadow_duelist",
         "Architect NPC" => "npc_architect",

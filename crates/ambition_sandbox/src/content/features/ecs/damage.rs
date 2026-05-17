@@ -15,10 +15,10 @@ use super::super::{
     NPC_HOSTILE_STRIKE_THRESHOLD,
 };
 use super::{
-    sync_actor_components_from_runtime, ActorCombatState, ActorCooldowns, ActorDisposition,
+    ae, sync_actor_components_from_runtime, ActorCombatState, ActorCooldowns, ActorDisposition,
     ActorHealth, ActorIdentity, ActorIntent, ActorRuntime, BossFeature, BreakableFeature,
     DamageEvent, DamageSource, EnemyArchetype, FeatureAabb, FeatureId, FeatureName,
-    FeatureSimEntity, GameplayBanner, GameplayEffect, PogoBounceEvent, RespawnTimer, ae,
+    FeatureSimEntity, GameplayBanner, GameplayEffect, PogoBounceEvent, RespawnTimer,
 };
 use crate::audio::SfxMessage;
 use crate::fx::{ParticleKind, VfxMessage};
@@ -31,20 +31,35 @@ pub fn apply_feature_damage_events(
     mut pogo_bounces: MessageReader<PogoBounceEvent>,
     mut banner: ResMut<GameplayBanner>,
     combat_banter: Option<Res<crate::banter::CombatBanterRegistry>>,
-    mut breakables: Query<(Entity, &FeatureId, &FeatureName, &FeatureAabb, &mut BreakableFeature), With<FeatureSimEntity>>,
-    mut actors: Query<(
-        &FeatureId,
-        &FeatureAabb,
-        &mut ActorRuntime,
-        &mut ActorIdentity,
-        &mut ActorDisposition,
-        &mut ActorHealth,
-        &mut ActorCombatState,
-        &mut ActorIntent,
-        &mut ActorCooldowns,
-    ), With<FeatureSimEntity>>,
+    mut breakables: Query<
+        (
+            Entity,
+            &FeatureId,
+            &FeatureName,
+            &FeatureAabb,
+            &mut BreakableFeature,
+        ),
+        With<FeatureSimEntity>,
+    >,
+    mut actors: Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            &mut ActorRuntime,
+            &mut ActorIdentity,
+            &mut ActorDisposition,
+            &mut ActorHealth,
+            &mut ActorCombatState,
+            &mut ActorIntent,
+            &mut ActorCooldowns,
+        ),
+        With<FeatureSimEntity>,
+    >,
     mut bosses: Query<(&FeatureId, &FeatureAabb, &mut BossFeature), With<FeatureSimEntity>>,
-    mut player_combat_q: Query<&mut crate::player::PlayerCombatState, With<crate::player::PlayerEntity>>,
+    mut player_combat_q: Query<
+        &mut crate::player::PlayerCombatState,
+        With<crate::player::PlayerEntity>,
+    >,
     mut gameplay_effects: MessageWriter<GameplayEffect>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -52,7 +67,18 @@ pub fn apply_feature_damage_events(
 ) {
     for event in damage_events.read().cloned() {
         let mut actor_hit_this_event = false;
-        for (id, aabb, mut actor, mut identity, mut disposition, mut health, mut combat, mut intent, mut cooldowns) in &mut actors {
+        for (
+            id,
+            aabb,
+            mut actor,
+            mut identity,
+            mut disposition,
+            mut health,
+            mut combat,
+            mut intent,
+            mut cooldowns,
+        ) in &mut actors
+        {
             let key = match *disposition {
                 ActorDisposition::Peaceful => format!("npc:{}", id.as_str()),
                 ActorDisposition::Hostile => format!("enemy:{}", id.as_str()),
@@ -130,14 +156,34 @@ pub fn apply_feature_damage_events(
                         enemy.vel.x += *knock_x;
                         enemy.vel.y = (enemy.vel.y - 90.0).max(-280.0);
                     }
-                    let killed = if enemy.archetype == EnemyArchetype::InfiniteSandbag {
-                        false
-                    } else {
-                        enemy.health.damage(event.damage.max(1))
-                    };
+                    let damage_amount = event.damage.max(1);
+                    // Fused pirate-on-shark routes through apply_damage_at
+                    // so hits on the top half damage the rider and hits
+                    // on the bottom half damage the shark. A rider /
+                    // shark death triggers the dismount morph (actor
+                    // stays alive in its new form — no death banner).
+                    let (killed, archetype_changed) =
+                        if enemy.archetype == EnemyArchetype::PirateOnShark {
+                            match enemy.apply_damage_at(event.volume, damage_amount) {
+                                super::super::enemies::EnemyDamageOutcome::Damaged {
+                                    killed,
+                                    archetype_changed,
+                                } => (killed, archetype_changed),
+                                super::super::enemies::EnemyDamageOutcome::NoOp => (false, false),
+                            }
+                        } else if enemy.archetype == EnemyArchetype::InfiniteSandbag {
+                            (false, false)
+                        } else {
+                            (enemy.health.damage(damage_amount), false)
+                        };
                     let impact = midpoint(event.volume.center(), enemy.pos);
                     vfx.write(VfxMessage::Impact { pos: impact });
                     actor_hit_this_event = true;
+                    if archetype_changed {
+                        // Dismount cue — small banner so the player
+                        // sees the morph happened. Avoid death banner.
+                        banner.show(format!("{} dismounted", enemy.name), 1.8);
+                    }
                     if killed {
                         enemy.alive = false;
                         if enemy.archetype == EnemyArchetype::FiniteSandbag {
@@ -223,7 +269,9 @@ pub fn apply_feature_damage_events(
                 combat.hitstop_timer = combat.hitstop_timer.max(0.06);
                 combat.flash_timer = combat.flash_timer.max(0.10);
             }
-            sfx.write(SfxMessage::Hit { pos: event.volume.center() });
+            sfx.write(SfxMessage::Hit {
+                pos: event.volume.center(),
+            });
         }
 
         for (entity, id, name, aabb, mut feature) in &mut breakables {
@@ -241,7 +289,9 @@ pub fn apply_feature_damage_events(
                 continue;
             }
             let broke = feature.breakable.apply_damage(event.damage.max(1));
-            vfx.write(VfxMessage::Impact { pos: midpoint(event.volume.center(), aabb.center) });
+            vfx.write(VfxMessage::Impact {
+                pos: midpoint(event.volume.center(), aabb.center),
+            });
             if broke {
                 begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
@@ -290,12 +340,15 @@ pub fn ecs_damage_event_hits_breakable(
 
 pub fn ecs_damage_event_hits_actor(
     event: &DamageEvent,
-    actors: &Query<(
-        &FeatureId,
-        &FeatureAabb,
-        &ActorDisposition,
-        &ActorCombatState,
-    ), With<FeatureSimEntity>>,
+    actors: &Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            &ActorDisposition,
+            &ActorCombatState,
+        ),
+        With<FeatureSimEntity>,
+    >,
 ) -> bool {
     actors.iter().any(|(id, aabb, disposition, combat)| {
         let key = match *disposition {

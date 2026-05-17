@@ -60,6 +60,10 @@ pub enum PlayerDamageSource {
     Hazard,
     EnemyBody,
     EnemyAttack,
+    /// Hit by a projectile fired by an enemy (pirate volley, etc).
+    /// Distinct from `EnemyAttack` so the HUD/trace can tell the
+    /// player whether they took a contact swing or a ranged shot.
+    EnemyProjectile,
     BossBody,
     BossAttack,
 }

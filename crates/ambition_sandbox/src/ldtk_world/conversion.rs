@@ -440,306 +440,403 @@ pub(super) fn entity_to_runtime(
 
     match entity.identifier.as_str() {
         "PlayerStart" => Ok(RuntimeEntityEmission::spawn(min + size * 0.5)),
-        "LoadingZone" => Ok(RuntimeEntityEmission::zone(LoadingZone {
-            id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
-            name,
-            activation: match field_string(entity, "activation")
-                .unwrap_or_else(|| "Door".to_string())
-                .as_str()
-            {
-                "EdgeExit" => LoadingZoneActivation::EdgeExit,
-                "Walk" | "walk" => LoadingZoneActivation::Walk,
-                _ => LoadingZoneActivation::Door,
-            },
-            aabb: object_aabb(min, size),
-        })),
-        "DamageVolume" => {
-            let aabb = object_aabb(min, size);
-            let mut volume = ae::DamageVolume::new(
-                entity.iid.clone(),
-                aabb,
-                field_i32(entity, "damage").unwrap_or(1),
-            );
-            volume.path_id = field_string(entity, "path_id")
-                .or_else(|| field_string(entity, "patrol_path_id"))
-                .and_then(|value| {
-                    let trimmed = value.trim();
-                    (!trimmed.is_empty()).then(|| trimmed.to_string())
-                });
-            volume.motion = parse_optional_path(entity).map(|mut path| {
-                path.points = offset_points(path.points, offset);
-                path
-            });
-            Ok(RuntimeEntityEmission::object(ae::RoomObject::new(
-                entity.iid.clone(),
-                name,
-                aabb,
-                ae::RoomObjectKind::DamageVolume(volume),
-            )))
+        "LoadingZone" => Ok(convert_loading_zone(entity, name, min, size)),
+        "DamageVolume" => Ok(convert_damage_volume(entity, name, min, size, offset)),
+        "KinematicPath" => convert_kinematic_path(entity, name, min, size, offset),
+        "Prop" => convert_prop(entity, name, min, size),
+        "NpcSpawn" => Ok(convert_npc_spawn(entity, name, min, size)),
+        "PickupSpawn" => Ok(convert_pickup_spawn(entity, name, min, size)),
+        "ChestSpawn" => Ok(convert_chest_spawn(entity, name, min, size)),
+        "EnemySpawn" => Ok(convert_enemy_spawn(entity, name, min, size)),
+        "BossSpawn" => Ok(convert_boss_spawn(entity, name, min, size)),
+        "DebugLabel" => Ok(convert_debug_label(entity, name, min, size)),
+        "WaterVolume" => Ok(convert_water_volume(entity, min, size)),
+        "MovingPlatform" => Ok(convert_moving_platform(entity, name, min, size)),
+        "CameraZone" => Ok(convert_camera_zone(entity, name, min, size)),
+        // StitchedBoundary / EncounterTrigger / LockWall are read by
+        // their own consumers off the raw LdtkProject and never join
+        // the generic RoomObject stream — emit nothing here.
+        "StitchedBoundary" | "EncounterTrigger" | "LockWall" => {
+            Ok(RuntimeEntityEmission::ignored())
         }
-        "KinematicPath" => {
-            let points = offset_points(
-                parse_points(&field_string(entity, "points").unwrap_or_default()),
-                offset,
-            );
-            if points.len() < 2 {
-                return Err("KinematicPath requires at least two points".to_string());
-            }
-            let speed = field_f32(entity, "speed").unwrap_or(100.0);
-            if speed <= 0.0 {
-                return Err("KinematicPath speed must be positive".to_string());
-            }
-            let path = ae::KinematicPath {
-                points,
-                speed,
-                mode: parse_path_mode(
-                    &field_string(entity, "mode").unwrap_or_else(|| "PingPong".to_string()),
-                ),
-                start_offset_seconds: field_f32(entity, "start_offset_seconds")
-                    .or_else(|| field_f32(entity, "start_offset"))
-                    .unwrap_or(0.0)
-                    .max(0.0),
-            };
-            Ok(RuntimeEntityEmission::kinematic_path(
-                entity.iid.clone(),
-                KinematicPathSpec::new(
-                    path_lookup_id(entity, &name),
-                    name,
-                    object_aabb(min, size),
-                    path,
-                ),
-            ))
-        }
-        "Prop" => {
-            // Decorative-only entity. Renders a sprite via
-            // `PropRegistry`, but never grows an `Interactable` or
-            // a `RoomObject` — so the player can walk past with no
-            // dialogue prompt and the engine never sees it.
-            let kind = field_string(entity, "kind").unwrap_or_default();
-            if kind.trim().is_empty() {
-                return Err("Prop requires non-empty `kind` field".to_string());
-            }
-            Ok(RuntimeEntityEmission::prop(PropSpec {
-                id: entity.iid.clone(),
-                name,
-                kind: kind.trim().to_string(),
-                pos: min + size * 0.5,
-                size,
-            }))
-        }
-        "NpcSpawn" => {
-            let interactable = ae::Interactable::new(
-                entity.iid.clone(),
-                field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
-                object_aabb(min, size),
-                ae::InteractionKind::Npc {
-                    dialogue_id: field_string(entity, "dialogue_id"),
-                    // Optional `patrol_radius` field on NpcSpawn. 0
-                    // (or unset) → static NPC unless `path_id` is set.
-                    patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
-                    patrol_path_id: field_string(entity, "path_id")
-                        .or_else(|| field_string(entity, "patrol_path_id")),
-                },
-            );
-            Ok(RuntimeEntityEmission::object(runtime_room_object(
-                entity,
-                name,
-                min,
-                size,
-                ae::RoomObjectKind::Interactable(interactable),
-            )))
-        }
-        "PickupSpawn" => {
-            let pickup = ae::Pickup::new(
-                entity.iid.clone(),
-                parse_pickup_kind(
-                    &field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string()),
-                ),
-            );
-            Ok(RuntimeEntityEmission::object(runtime_room_object(
-                entity,
-                name,
-                min,
-                size,
-                ae::RoomObjectKind::Pickup(pickup),
-            )))
-        }
-        "ChestSpawn" => {
-            let chest = ae::Chest::new(
-                entity.iid.clone(),
-                field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
-            );
-            Ok(RuntimeEntityEmission::object(runtime_room_object(
-                entity,
-                name,
-                min,
-                size,
-                ae::RoomObjectKind::Chest(chest),
-            )))
-        }
-        "EnemySpawn" => {
-            let mut brain = parse_enemy_brain(
-                &field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()),
-            );
-            if let Some(path_id) =
-                field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"))
-            {
-                if !path_id.trim().is_empty() {
-                    brain = ae::EnemyBrain::Patrol {
-                        path_id: Some(path_id.trim().to_string()),
-                    };
-                }
-            }
-            Ok(RuntimeEntityEmission::object(runtime_room_object(
-                entity,
-                name,
-                min,
-                size,
-                ae::RoomObjectKind::EnemySpawn(brain),
-            )))
-        }
-        "BossSpawn" => Ok(RuntimeEntityEmission::object(runtime_room_object(
-            entity,
-            name,
-            min,
-            size,
-            ae::RoomObjectKind::BossSpawn(parse_boss_brain(
-                &field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()),
-            )),
-        ))),
-        "DebugLabel" => {
-            let pos = min + size * 0.5;
-            let aabb = ae::Aabb::new(pos, ae::Vec2::splat(1.0));
-            let label = ae::DebugLabel::new(
-                field_string(entity, "text").unwrap_or_else(|| entity.identifier.clone()),
-                pos,
-                parse_debug_label_kind(
-                    &field_string(entity, "category").unwrap_or_else(|| "Custom".to_string()),
-                ),
-            );
-            Ok(RuntimeEntityEmission::object(ae::RoomObject::new(
-                entity.iid.clone(),
-                name,
-                aabb,
-                ae::RoomObjectKind::DebugLabel(label),
-            )))
-        }
-        "WaterVolume" => {
-            // Entity-authored water: source-agnostic, lands in the
-            // same `World::water_regions` list IntGrid Water cells
-            // populate. Reserved for irregular pools the per-cell
-            // IntGrid layer can't shape.
-            let mut spec = ae::WaterVolumeSpec::default();
-            if let Some(value) = field_f32(entity, "gravity_scale") {
-                spec.gravity_scale = value;
-            }
-            if let Some(value) = field_f32(entity, "drag") {
-                spec.drag = value;
-            }
-            if let Some(value) = field_f32(entity, "max_fall_speed") {
-                spec.max_fall_speed = value;
-            }
-            if let Some(value) = field_f32(entity, "swim_up_impulse") {
-                spec.swim_up_impulse = value;
-            }
-            // Entity water defaults to Clear. The IntGrid Water
-            // layer is the canonical authoring path for distinct
-            // kinds; if a future entity field needs Murky, add a
-            // `kind` field via `register_ldtk_entity_def.py` and
-            // route it here.
-            Ok(RuntimeEntityEmission::water_region(ae::WaterRegion::new(
-                object_aabb(min, size),
-                ae::WaterKind::Clear,
-                spec,
-            )))
-        }
-        "MovingPlatform" => {
-            // LDtk entity bounds define platform size and, for the legacy
-            // sweep mode, starting AABB. When `path_id` is authored, the
-            // platform follows the referenced active-area-local
-            // `KinematicPathSpec` instead and uses its first point as the
-            // runtime center.
-            let start_pos = min + size * 0.5;
-            let sweep_dx = field_f32(entity, "sweep_dx").unwrap_or(240.0);
-            let speed = field_f32(entity, "speed").unwrap_or(130.0);
-            let path_id =
-                field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"));
-            Ok(RuntimeEntityEmission::moving_platform(
-                crate::platforms::MovingPlatformSpec::from_authored(
-                    entity.iid.clone(),
-                    name,
-                    start_pos,
-                    size,
-                    sweep_dx,
-                    speed,
-                    path_id,
-                ),
-            ))
-        }
-        "CameraZone" => Ok(RuntimeEntityEmission::camera_zone(CameraZoneSpec {
-            id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
-            name,
-            aabb: object_aabb(min, size),
-            priority: field_i32(entity, "priority").unwrap_or(0),
-            zoom: field_f32(entity, "zoom").or_else(|| field_f32(entity, "camera_zoom")),
-            target_offset: ae::Vec2::new(
-                field_f32(entity, "target_offset_x").unwrap_or(0.0),
-                field_f32(entity, "target_offset_y").unwrap_or(0.0),
-            ),
-            easing_hz: field_f32(entity, "easing_hz"),
-            cinematic_lock: field_bool(entity, "cinematic_lock")
-                .or_else(|| field_bool(entity, "lock_to_zone"))
-                .unwrap_or(false),
-            clamp_mode: CameraClampMode::from_author_value(
-                field_string(entity, "clamp_mode").as_deref(),
-            ),
-        })),
-        "StitchedBoundary" => Ok(RuntimeEntityEmission::ignored()),
-        // EncounterTrigger entities are read by `crate::encounter::load_encounter_specs_from_ldtk`
-        // directly off the `LdtkProject` because the encounter spec
-        // wants level-relative coordinates and field combinations
-        // (camera_zoom, target_encounter id) that don't fit the
-        // generic `RoomObject` shape. Skipping here keeps composition
-        // free of encounter-specific routing.
-        "EncounterTrigger" => Ok(RuntimeEntityEmission::ignored()),
-        // LockWall is a marker for an encounter-spawned Solid; the
-        // encounter system reads it off the project directly.
-        "LockWall" => Ok(RuntimeEntityEmission::ignored()),
-        // Switches are interactables routed through ECS switch components.
-        // The id / target_encounter / action fields are encoded into
-        // an `InteractionKind::Custom` payload so the switch handler
-        // can decide what to do without growing a new `RoomObjectKind`
-        // variant in the engine for every action type.
-        "Switch" => {
-            let id = field_string(entity, "id").unwrap_or_else(|| entity.iid.clone());
-            let action = field_string(entity, "action").unwrap_or_else(|| "ResetEncounter".into());
-            let target = field_string(entity, "target_encounter").unwrap_or_default();
-            // Custom payload format: "switch:<id>:<action>:<target>"
-            // ECS switch systems parse it back into typed fields.
-            let custom = format!("switch:{id}:{action}:{target}");
-            let interactable = ae::Interactable::new(
-                id.clone(),
-                field_string(entity, "prompt").unwrap_or_else(|| "Activate".into()),
-                object_aabb(min, size),
-                ae::InteractionKind::Custom(custom),
-            );
-            // Use the LDtk field `id` for the RoomObject id so the
-            // SwitchRuntime's id matches the SwitchActivation payload's
-            // `id`. (`runtime_room_object` defaults to entity.iid like
-            // "Switch-4072"; that would mismatch and
-            // switch state updates would silently no-op,
-            // which is the bug that left the switch stuck red.)
-            let aabb = object_aabb(min, size);
-            Ok(RuntimeEntityEmission::object(ae::RoomObject::new(
-                id,
-                name,
-                aabb,
-                ae::RoomObjectKind::Interactable(interactable),
-            )))
-        }
+        "Switch" => Ok(convert_switch(entity, name, min, size)),
         _ => Err(format!(
             "unsupported entity identifier '{}'",
             entity.identifier
         )),
     }
+}
+
+fn convert_loading_zone(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    RuntimeEntityEmission::zone(LoadingZone {
+        id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+        name,
+        activation: match field_string(entity, "activation")
+            .unwrap_or_else(|| "Door".to_string())
+            .as_str()
+        {
+            "EdgeExit" => LoadingZoneActivation::EdgeExit,
+            "Walk" | "walk" => LoadingZoneActivation::Walk,
+            _ => LoadingZoneActivation::Door,
+        },
+        aabb: object_aabb(min, size),
+    })
+}
+
+fn convert_damage_volume(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+    offset: ae::Vec2,
+) -> RuntimeEntityEmission {
+    let aabb = object_aabb(min, size);
+    let mut volume = ae::DamageVolume::new(
+        entity.iid.clone(),
+        aabb,
+        field_i32(entity, "damage").unwrap_or(1),
+    );
+    volume.path_id = field_string(entity, "path_id")
+        .or_else(|| field_string(entity, "patrol_path_id"))
+        .and_then(|value| {
+            let trimmed = value.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
+        });
+    volume.motion = parse_optional_path(entity).map(|mut path| {
+        path.points = offset_points(path.points, offset);
+        path
+    });
+    RuntimeEntityEmission::object(ae::RoomObject::new(
+        entity.iid.clone(),
+        name,
+        aabb,
+        ae::RoomObjectKind::DamageVolume(volume),
+    ))
+}
+
+fn convert_kinematic_path(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+    offset: ae::Vec2,
+) -> Result<RuntimeEntityEmission, String> {
+    let points = offset_points(
+        parse_points(&field_string(entity, "points").unwrap_or_default()),
+        offset,
+    );
+    if points.len() < 2 {
+        return Err("KinematicPath requires at least two points".to_string());
+    }
+    let speed = field_f32(entity, "speed").unwrap_or(100.0);
+    if speed <= 0.0 {
+        return Err("KinematicPath speed must be positive".to_string());
+    }
+    let path = ae::KinematicPath {
+        points,
+        speed,
+        mode: parse_path_mode(
+            &field_string(entity, "mode").unwrap_or_else(|| "PingPong".to_string()),
+        ),
+        start_offset_seconds: field_f32(entity, "start_offset_seconds")
+            .or_else(|| field_f32(entity, "start_offset"))
+            .unwrap_or(0.0)
+            .max(0.0),
+    };
+    Ok(RuntimeEntityEmission::kinematic_path(
+        entity.iid.clone(),
+        KinematicPathSpec::new(
+            path_lookup_id(entity, &name),
+            name,
+            object_aabb(min, size),
+            path,
+        ),
+    ))
+}
+
+fn convert_prop(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> Result<RuntimeEntityEmission, String> {
+    // Decorative-only entity. Renders a sprite via `PropRegistry`, but
+    // never grows an `Interactable` or a `RoomObject` — so the player
+    // can walk past with no dialogue prompt and the engine never sees
+    // it.
+    let kind = field_string(entity, "kind").unwrap_or_default();
+    if kind.trim().is_empty() {
+        return Err("Prop requires non-empty `kind` field".to_string());
+    }
+    Ok(RuntimeEntityEmission::prop(PropSpec {
+        id: entity.iid.clone(),
+        name,
+        kind: kind.trim().to_string(),
+        pos: min + size * 0.5,
+        size,
+    }))
+}
+
+fn convert_npc_spawn(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    let interactable = ae::Interactable::new(
+        entity.iid.clone(),
+        field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
+        object_aabb(min, size),
+        ae::InteractionKind::Npc {
+            dialogue_id: field_string(entity, "dialogue_id"),
+            // Optional `patrol_radius` field on NpcSpawn. 0 (or unset)
+            // → static NPC unless `path_id` is set.
+            patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
+            patrol_path_id: field_string(entity, "path_id")
+                .or_else(|| field_string(entity, "patrol_path_id")),
+        },
+    );
+    RuntimeEntityEmission::object(runtime_room_object(
+        entity,
+        name,
+        min,
+        size,
+        ae::RoomObjectKind::Interactable(interactable),
+    ))
+}
+
+fn convert_pickup_spawn(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    let pickup = ae::Pickup::new(
+        entity.iid.clone(),
+        parse_pickup_kind(
+            &field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string()),
+        ),
+    );
+    RuntimeEntityEmission::object(runtime_room_object(
+        entity,
+        name,
+        min,
+        size,
+        ae::RoomObjectKind::Pickup(pickup),
+    ))
+}
+
+fn convert_chest_spawn(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    let chest = ae::Chest::new(
+        entity.iid.clone(),
+        field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
+    );
+    RuntimeEntityEmission::object(runtime_room_object(
+        entity,
+        name,
+        min,
+        size,
+        ae::RoomObjectKind::Chest(chest),
+    ))
+}
+
+fn convert_enemy_spawn(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    let mut brain = parse_enemy_brain(
+        &field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()),
+    );
+    if let Some(path_id) =
+        field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"))
+    {
+        if !path_id.trim().is_empty() {
+            brain = ae::EnemyBrain::Patrol {
+                path_id: Some(path_id.trim().to_string()),
+            };
+        }
+    }
+    RuntimeEntityEmission::object(runtime_room_object(
+        entity,
+        name,
+        min,
+        size,
+        ae::RoomObjectKind::EnemySpawn(brain),
+    ))
+}
+
+fn convert_boss_spawn(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    RuntimeEntityEmission::object(runtime_room_object(
+        entity,
+        name,
+        min,
+        size,
+        ae::RoomObjectKind::BossSpawn(parse_boss_brain(
+            &field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()),
+        )),
+    ))
+}
+
+fn convert_debug_label(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    let pos = min + size * 0.5;
+    let aabb = ae::Aabb::new(pos, ae::Vec2::splat(1.0));
+    let label = ae::DebugLabel::new(
+        field_string(entity, "text").unwrap_or_else(|| entity.identifier.clone()),
+        pos,
+        parse_debug_label_kind(
+            &field_string(entity, "category").unwrap_or_else(|| "Custom".to_string()),
+        ),
+    );
+    RuntimeEntityEmission::object(ae::RoomObject::new(
+        entity.iid.clone(),
+        name,
+        aabb,
+        ae::RoomObjectKind::DebugLabel(label),
+    ))
+}
+
+fn convert_water_volume(
+    entity: &LdtkEntityInstance,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    // Entity-authored water: source-agnostic, lands in the same
+    // `World::water_regions` list IntGrid Water cells populate.
+    // Reserved for irregular pools the per-cell IntGrid layer can't
+    // shape.
+    let mut spec = ae::WaterVolumeSpec::default();
+    if let Some(value) = field_f32(entity, "gravity_scale") {
+        spec.gravity_scale = value;
+    }
+    if let Some(value) = field_f32(entity, "drag") {
+        spec.drag = value;
+    }
+    if let Some(value) = field_f32(entity, "max_fall_speed") {
+        spec.max_fall_speed = value;
+    }
+    if let Some(value) = field_f32(entity, "swim_up_impulse") {
+        spec.swim_up_impulse = value;
+    }
+    // Entity water defaults to Clear. The IntGrid Water layer is the
+    // canonical authoring path for distinct kinds; if a future entity
+    // field needs Murky, add a `kind` field via
+    // `register_ldtk_entity_def.py` and route it here.
+    RuntimeEntityEmission::water_region(ae::WaterRegion::new(
+        object_aabb(min, size),
+        ae::WaterKind::Clear,
+        spec,
+    ))
+}
+
+fn convert_moving_platform(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    // LDtk entity bounds define platform size and, for the legacy sweep
+    // mode, starting AABB. When `path_id` is authored, the platform
+    // follows the referenced active-area-local `KinematicPathSpec`
+    // instead and uses its first point as the runtime center.
+    let start_pos = min + size * 0.5;
+    let sweep_dx = field_f32(entity, "sweep_dx").unwrap_or(240.0);
+    let speed = field_f32(entity, "speed").unwrap_or(130.0);
+    let path_id =
+        field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"));
+    RuntimeEntityEmission::moving_platform(
+        crate::platforms::MovingPlatformSpec::from_authored(
+            entity.iid.clone(),
+            name,
+            start_pos,
+            size,
+            sweep_dx,
+            speed,
+            path_id,
+        ),
+    )
+}
+
+fn convert_camera_zone(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    RuntimeEntityEmission::camera_zone(CameraZoneSpec {
+        id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+        name,
+        aabb: object_aabb(min, size),
+        priority: field_i32(entity, "priority").unwrap_or(0),
+        zoom: field_f32(entity, "zoom").or_else(|| field_f32(entity, "camera_zoom")),
+        target_offset: ae::Vec2::new(
+            field_f32(entity, "target_offset_x").unwrap_or(0.0),
+            field_f32(entity, "target_offset_y").unwrap_or(0.0),
+        ),
+        easing_hz: field_f32(entity, "easing_hz"),
+        cinematic_lock: field_bool(entity, "cinematic_lock")
+            .or_else(|| field_bool(entity, "lock_to_zone"))
+            .unwrap_or(false),
+        clamp_mode: CameraClampMode::from_author_value(
+            field_string(entity, "clamp_mode").as_deref(),
+        ),
+    })
+}
+
+/// Convert an LDtk `Switch` entity into a runtime [`ae::Interactable`]
+/// carrying the wire-format custom payload.
+///
+/// The `SwitchFeature` spawn path re-parses the payload into a typed
+/// [`crate::encounter::SwitchActivation`] once, so downstream gameplay
+/// systems never touch the string form.
+fn convert_switch(
+    entity: &LdtkEntityInstance,
+    name: String,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> RuntimeEntityEmission {
+    let activation = crate::encounter::SwitchActivation {
+        id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+        action: field_string(entity, "action").unwrap_or_else(|| "ResetEncounter".into()),
+        target_encounter: field_string(entity, "target_encounter").unwrap_or_default(),
+    };
+    let aabb = object_aabb(min, size);
+    let interactable = ae::Interactable::new(
+        activation.id.clone(),
+        field_string(entity, "prompt").unwrap_or_else(|| "Activate".into()),
+        aabb,
+        ae::InteractionKind::Custom(activation.to_custom_payload()),
+    );
+    // Use the LDtk field `id` (carried on activation) for the
+    // RoomObject id so the SwitchRuntime id matches the
+    // SwitchActivation id. (`runtime_room_object` defaults to
+    // entity.iid like "Switch-4072"; that mismatch silently no-op'd
+    // switch state updates and left the switch sprite stuck red.)
+    RuntimeEntityEmission::object(ae::RoomObject::new(
+        activation.id,
+        name,
+        aabb,
+        ae::RoomObjectKind::Interactable(interactable),
+    ))
 }

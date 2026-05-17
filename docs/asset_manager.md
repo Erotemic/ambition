@@ -77,12 +77,12 @@ AssetId
 | Profile                    | Preferred sources                                | Hot reload | LDtk | Sprites | Fonts | SFX bank | Music tracks | Notes |
 | -------------------------- | ------------------------------------------------ | ---------- | ---- | ------- | ----- | -------- | ------------ | ----- |
 | `DesktopDevLoose`          | LooseFilesystem → EmbeddedBinary → HttpRemote    | ✅         | ✅   | ✅      | ✅    | ✅       | ✅           | `cargo run` from the workspace; LDtk file watcher armed via `SandboxAssetCatalog::hot_reload_local_path`. |
-| `DesktopInstalled`         | InstalledFilesystem → EmbeddedBinary → HttpRemote | ❌         | ✅   | ✅      | ✅    | ✅       | ✅           | Bevy `AssetReader` reads next to the binary; pre-check via `desktop_loose_file_exists`. |
+| `DesktopInstalled`         | InstalledFilesystem → EmbeddedBinary → HttpRemote | ❌         | ✅   | ✅      | ✅    | ✅       | ✅           | Bevy `AssetReader` reads next to the binary; pre-check via `SandboxAssetCatalog::resolve_local_file_path`. |
 | `SteamDeckInstalled`       | InstalledFilesystem → EmbeddedBinary → HttpRemote | ❌         | ✅   | ✅      | ✅    | ✅       | ✅           | Same shape as `DesktopInstalled`; kept distinct for future Deck-specific policy. |
 | `AndroidBundle`            | AndroidApk → EmbeddedBinary                      | ❌         | ✅¹  | ✅²     | ✅²   | ✅¹      | ✅²          | Bevy Android `AssetReader` resolves through APK assets. ¹ LDtk via `static_map` embedded; SFX bank requires `static_sfx_bank`. ² Loaded if packaged. |
 | `IosBundle`                | IosBundle → EmbeddedBinary                       | ❌         | ⚠️   | ⚠️      | ⚠️    | ⚠️       | ⚠️           | Profile modeled but no iOS build target yet — every loader honors the profile, packaging story is TBD. |
 | `WebHttp`                  | HttpRemote → EmbeddedBinary                      | ❌³        | ⚠️   | ❌      | ❌    | ❌       | ❌           | Catalog produces `https://...` URLs when explicit candidates exist; today's sandbox has none, so optional assets resolve to `Disabled` for `should_attempt_optional_load`. ³ HTTP polling / ETag reload future. |
-| `WebStatic`                | EmbeddedBinary → HttpRemote                      | ❌         | ✅¹  | ❌      | ❌    | ❌       | ❌           | Today's wasm first-pass build — LDtk via `static_map`; optional sprites / fonts / SFX / music are explicitly skipped (`should_attempt_optional_load` returns false). Renderer falls back to colored rectangles + Bevy default font. Wires up via `bevy_embedded_assets` in slice 9. |
+| `WebStatic`                | EmbeddedBinary → HttpRemote                      | ❌         | ✅   | ✅²    | ✅²    | ⚠️       | ❌           | wasm build. LDtk, UI fonts, and a core sprite subset (player/robot/goblin/sandbag + chests/pickups/doors/projectile/tiles) are embedded under `static_core_assets` (default for `--features web`). Parallax, optional NPCs, and music still fall back. SFX via `static_sfx_bank` when enabled. ² Embedded via `AmbitionAssetSourcePlugin`. |
 | `BundledStatic`            | EmbeddedBinary                                   | ❌         | ✅¹  | ❌      | ❌    | ❌       | ❌           | Single-binary cross-platform demo build. Same status as `WebStatic` for optional assets — packaging is TBD. |
 | `NoAssets`                 | (none)                                           | ❌         | 💀   | ❌      | ❌    | ❌       | ❌           | `--no-assets`; every entry resolves to `Disabled`. LDtk is `MissingAssetPolicy::Error` so `load_default` returns Err. |
 | `Headless`                 | (none)                                           | ❌         | 💀   | ❌      | ❌    | ❌       | ❌           | Same as `NoAssets`; profile is marked `tolerates_missing_required` so callers can choose to keep going. |
@@ -173,9 +173,13 @@ simply tells the SFX system *where* the bank bytes come from.
 | 10 | `ResolvedAsset::authored_candidate` + `try_path_for_load` API | **DONE** (2026-05-17) |
 | 11 | `AMBITION_SFX_BANK_PATH` as authored catalog override | **DONE** (2026-05-17) |
 | 12 | Guardrail tests (no asset_exists / no BEVY_ASSET_ROOT probes / hot-reload only on DesktopDevLoose) | **DONE** (2026-05-17) |
-| 13 | Sprite / font embedding for `WebStatic` via `bevy_embedded_assets` | TODO |
-| 14 | HTTP/HTTPS `AssetSource` registration for `WebHttp` | TODO |
-| 15 | Music cue layers (file-backed cues under `MusicCueCatalog`) | TODO |
+| 13 | Embedded core fonts + primary character sheets + core entity sprites for `WebStatic`/`BundledStatic` (`static_core_assets`) | **DONE** (2026-05-17) |
+| 14 | Intro plugin sprites flow through catalog ids (`sprite.character.intro_*` namespace) | **DONE** (2026-05-17) |
+| 15 | Delete `should_attempt_optional_load(&str)` | **DONE** (2026-05-17) |
+| 16 | Out-of-set sprites (breakable variants, soft/hard blink walls, lock-wall tile) embedded under `static_core_assets` | TODO |
+| 17 | Parallax layer embedding | TODO |
+| 18 | HTTP/HTTPS `AssetSource` registration for `WebHttp` | TODO |
+| 19 | Music cue layers (file-backed cues under `MusicCueCatalog`) | TODO |
 
 ### Slice 2 — entity sprites + parallax layers (current)
 
@@ -197,24 +201,28 @@ Live entity-sprite loading and parallax-layer loading both run through
   `AndroidBundle` on Android, `DesktopDevLoose` everywhere else). The
   `--no-assets` flag flips the profile to `NoAssets` so catalog
   resolution returns `Disabled` for every entry.
-- **Loader rewrite**: `load_entity_sprites` and `load_parallax_layers`
-  call `catalog.path_for(id, profile)` (Bevy `AssetServer` does the
-  actual load). Both honor a single profile-gated
-  `should_attempt_optional_image_load` helper that:
+- **Loader rewrite**: every loader (entity sprites, parallax layers,
+  character sheets, boss sheets, UI fonts, SFX bank, music tracks) is
+  a single `if let Some(path) = catalog.try_path_for_load(&id) { ... }`
+  call. Bevy `AssetServer` does the actual load. The per-profile load
+  gate ([`SandboxAssetCatalog::should_attempt_resolved_load`]) decides:
   - Pre-checks the host filesystem for `DesktopDevLoose` /
-    `DesktopInstalled` / `SteamDeckInstalled` (preserves the
-    colored-rectangle fallback for missing optional art).
+    `DesktopInstalled` / `SteamDeckInstalled` via
+    `resolve_local_file_path` (the only candidate-roots walker).
   - Trusts the packager for `AndroidBundle` / `IosBundle`.
-  - Skips the load on `WebStatic` / `WebHttp` / `BundledStatic` /
-    `IpfsGatewayPlaceholder` (optional sprites aren't bundled yet —
-    explicit `LocationCandidate`s will opt back in per asset once
-    packaging lands).
-- **`asset_exists` removed** from `game_assets.rs` (replaced by
-  `desktop_loose_file_exists` consulted only when the active profile is
-  desktop). No more `#[cfg(target_os = "android")]` branches in image
-  loading. The standalone copies of `asset_exists` /
-  `desktop_asset_exists` in `boss_sprites.rs` and `ui_fonts.rs` remain
-  for now — those subsystems migrate in their own slices (3 and 6).
+  - Attempts the load on `WebStatic` / `BundledStatic` only when the
+    entry carries an **authored** `EmbeddedBinary` candidate
+    (`ResolvedAsset::authored_candidate == true`). Speculative
+    synthesized `embedded://` URLs are skipped so the rendering layer
+    keeps the colored-rectangle fallback.
+  - Attempts on `WebHttp` / `IpfsGatewayPlaceholder` only when an
+    authored `HttpRemote` / `IpfsGateway` candidate is present.
+- **`asset_exists` removed** from `game_assets.rs`, `boss_sprites.rs`,
+  `ui_fonts.rs`, and `character_sprites/assets.rs`. The only host-
+  filesystem probe in the sandbox is `desktop_candidate_roots` in
+  `sandbox_assets.rs`, exposed via
+  `SandboxAssetCatalog::resolve_local_file_path`. No
+  `#[cfg(target_os = "android")]` branches in any loader.
 
 Behavior preserved (verified by tests in `game_assets.rs::tests`):
 
@@ -249,13 +257,12 @@ were scattered across the sandbox.
   override).
 - Live loaders that asked for paths (entity sprites, parallax layers,
   character/boss sheets, fonts, SFX bank, LDtk world, sandbox RON,
-  music tracks) all go through `SandboxAssetCatalog::path_for(...)` or
-  `SandboxAssetCatalog::resolve(...)`.
-- The **only** host-filesystem probe in the sandbox lives at
-  `crate::sandbox_assets::desktop_loose_file_exists` (marked
-  `[ambition_asset_manager_transition]`). Every other loader calls
-  `catalog.should_attempt_optional_load(...)` or
-  `catalog.should_attempt_required_load(...)`.
+  music tracks) all go through `SandboxAssetCatalog::try_path_for_load(...)`
+  / `::resolve(...)`.
+- The **only** host-filesystem probe in the sandbox lives in
+  `crate::sandbox_assets`, exposed publicly as
+  `SandboxAssetCatalog::resolve_local_file_path(rel) -> Option<PathBuf>`.
+  Every other loader / byte adapter calls through it.
 - LDtk hot reload preserved: `LdtkHotReloadState::from_catalog(...)`
   asks the catalog for a `LocalPath` via
   `SandboxAssetCatalog::hot_reload_local_path`; the watcher polls only
@@ -318,14 +325,9 @@ Every transition shim that was visible in slice 3 has been retired:
   `sandbox_assets::desktop_loose_file_exists` — **deleted** (the
   function itself is gone; `desktop_candidate_roots` survives as the
   single owner).
-
-One small soft-shim remains:
-[`SandboxAssetCatalog::should_attempt_optional_load(path: &str)`](crates/ambition_sandbox/src/sandbox_assets.rs)
-is kept for the `intro::plugin::load_intro_*_sprites_system` path,
-which dynamically authors sprite filenames *outside* the prebuilt
-catalog. Migrating those plugins to emit per-asset catalog entries
-turns the function into a single-call-site wrapper around
-`try_path_for_load`. Tracked as slice 16.
+- `SandboxAssetCatalog::should_attempt_optional_load(path: &str)` —
+  **deleted** (2026-05-17); intro plugin sprites flow through
+  catalog ids + `try_path_for_load` like everything else.
 
 ### Remaining work (slices 13+)
 
@@ -412,17 +414,36 @@ the `http` source on `WebHttp`") has a single switch site.
 
 ## WebStatic packaging status
 
+The `web` Cargo feature composes `visible_web` which now enables both
+`static_map` (LDtk world JSON) and `static_core_assets` (UI fonts +
+primary character sheets + core entity sprites). The wasm build boots,
+accepts keyboard input, renders the LDtk world with real tiles, draws
+the protagonist + goblins + sandbags with their authored
+spritesheets, paints chests / pickups / doors / projectiles / tiles
+with real art, and uses the bundled UI fonts for HUD + dialog text.
+
 | Asset class | WebStatic status | Notes |
 | ----------- | ---------------- | ----- |
-| LDtk worlds (`world.sandbox_ldtk`, `world.intro_ldtk`) | ✅ embedded | `static_map` feature; `AmbitionAssetSourcePlugin` registers under `embedded://ambition_sandbox/...`. |
-| sandbox RON (`data.sandbox`) | ⚠️ via `SandboxDataSpec::load_embedded` | The bytes are `include_str!`'d directly into the binary; the Bevy `AssetServer` handle is informational (hot reload), not load-critical. |
+| LDtk worlds (`world.sandbox_ldtk`, `world.intro_ldtk`) | ✅ embedded | `static_map` feature; `AmbitionAssetSourcePlugin` registers under `embedded://ambition_sandbox/ambition/worlds/...`. |
+| sandbox RON (`data.sandbox`) | ✅ via `SandboxDataSpec::load_embedded` (always-on `include_str!`) | The bytes are `include_str!`'d directly into the binary; the Bevy `AssetServer` handle is informational (hot reload), not load-critical. |
+| UI fonts (`font.dialog_regular`, `font.dialog_semibold`, `font.debug_mono`) | ✅ embedded under `static_core_assets` | `embedded://ambition_sandbox/fonts/bundled/...`. Legacy `font.*.legacy` fallbacks resolve to `Disabled` on WebStatic. |
+| Primary character sheets (`player`, `robot`, `goblin`, `sandbag`) | ✅ embedded under `static_core_assets` | `embedded://ambition_sandbox/sprites/<name>_spritesheet.png`. |
+| Core entity sprites (chests, pickups, door / edge exit, projectile, solid / one-way / hazard tiles, boss core) | ✅ embedded under `static_core_assets` | `embedded://ambition_sandbox/sprites/entities/...`. |
+| Out-of-set entity sprites (breakable variants, soft/hard blink walls, lock-wall tile, pogo orb, rebound pad, moving platform, NPC terminal, hazard spikes, sandbag dummy, solid block) | ❌ placeholder rectangles | No authored `EmbeddedBinary` candidate. Slice 16 work. |
+| Parallax layers | ❌ placeholder | Slice 17 work. |
+| Optional NPC + intro spritesheets | ❌ placeholder | The `sprite.character.npc_*` and `sprite.character.intro_*` entries have catalog ids but no embedded candidates. Adding them is a per-asset opt-in. |
+| Boss spritesheets (`gradient_sentinel`, `mockingbird`) | ❌ placeholder | `sprite.boss.*` entries exist; embedding TBD. |
 | SFX bank (`audio.sfx_bank`) | ⚠️ `static_sfx_bank` feature | When enabled, `try_load_static_sfx_bank` uses `include_bytes!`. Otherwise the wasm build falls back to procedural fundsp SFX. |
-| Entity sprites + parallax + character / boss sheets | ❌ placeholder rectangles | `EmbeddedBinary` candidates not yet authored on these entries; `try_path_for_load` returns `None`. Slice 13 work. |
-| UI fonts | ❌ Bevy default font | Same shape as sprites; slice 13. |
-| Music tracks | ❌ procedural fallback in `AudioLibrary::new` | No `EmbeddedBinary` candidates; the music director silently falls back to `render_lofi_theme` synths in the test path. |
+| Music tracks | ❌ procedural fallback in `AudioLibrary::new` | No `EmbeddedBinary` candidates; the music director silently falls back to `render_lofi_theme` synths. |
 
-The wasm build boots, accepts keyboard input, and renders the LDtk
-world. Colored rectangles fill the sprite slots until slice 13 lands.
+### Adding more embedded assets
+
+Three-line change per asset (see "How platform source registration works"):
+1. add a `const FOO_URL: &str = "ambition_sandbox/..."` to `embedded_core` + append to `ALL_URLS`;
+2. add `with_embedded_core_candidate(entry, FOO_URL)` on the catalog entry;
+3. add `EmbeddedAssetRegistry::insert_asset(..., include_bytes!("../assets/..."))` in `register_embedded_core_assets`.
+
+The `embedded_core_urls_have_authored_catalog_candidates` test fails if any of those three pieces is missing.
 
 ## How to add a new asset
 
@@ -477,4 +498,6 @@ world. Colored rectangles fill the sprite slots until slice 13 lands.
 - `crates/ambition_asset_manager/src/sfx_integration.rs` — `BankProvider` adapter
 - `crates/ambition_asset_manager/tests/end_to_end.rs` — cross-module integration tests
 - `crates/ambition_sandbox/src/game_assets.rs::sandbox_image_manifest` — live entity-sprite + parallax-layer catalog
-- `crates/ambition_sandbox/src/game_assets.rs::should_attempt_optional_image_load` — per-profile load gate (replaces the old `asset_exists`)
+- `crates/ambition_sandbox/src/sandbox_assets.rs::SandboxAssetCatalog` — the single Bevy `Resource` every loader queries
+- `crates/ambition_sandbox/src/sandbox_assets.rs::AmbitionAssetSourcePlugin` — registers embedded asset bytes with Bevy
+- `crates/ambition_sandbox/src/sandbox_assets.rs::desktop_candidate_roots` — the only host-filesystem candidate walker in the sandbox

@@ -200,19 +200,17 @@ pub(crate) fn load_intro_npc_sprites_system(
         if game_assets.characters.npcs.contains_key(*name) {
             continue;
         }
-        if let Some(asset) = build_npc_sprite_asset(
-            &catalog,
-            &asset_server,
-            &mut layouts,
-            &config.sprite_folder,
-            filename,
-            *spec,
-        ) {
+        let id = crate::intro::sprites::intro_npc_asset_id(name);
+        if let Some(asset) =
+            build_npc_sprite_asset(&catalog, &asset_server, &mut layouts, &id, *spec)
+        {
             game_assets.characters.npcs.insert(*name, asset);
         } else {
             eprintln!(
-                "[intro] NPC sheet '{name}' not found at assets/{}/{} — falling back to colored rectangle",
-                config.sprite_folder, filename
+                "[intro] NPC sheet '{name}' (catalog id {id}) not loadable under {} \
+                 profile (logical {}/{filename}) — falling back to colored rectangle",
+                catalog.profile().label(),
+                config.sprite_folder,
             );
         }
     }
@@ -251,19 +249,17 @@ pub(crate) fn load_intro_prop_sprites_system(
         if game_assets.characters.props.contains_key(*kind) {
             continue;
         }
-        if let Some(asset) = build_prop_sprite_asset(
-            &catalog,
-            &asset_server,
-            &mut layouts,
-            &config.sprite_folder,
-            filename,
-            *spec,
-        ) {
+        let id = crate::intro::sprites::intro_prop_asset_id(kind);
+        if let Some(asset) =
+            build_prop_sprite_asset(&catalog, &asset_server, &mut layouts, &id, *spec)
+        {
             game_assets.characters.props.insert((*kind).to_string(), asset);
         } else {
             eprintln!(
-                "[intro] Prop sheet '{kind}' not found at assets/{}/{} — falling back to colored rectangle",
-                config.sprite_folder, filename
+                "[intro] Prop sheet '{kind}' (catalog id {id}) not loadable under {} \
+                 profile (logical {}/{filename}) — falling back to colored rectangle",
+                catalog.profile().label(),
+                config.sprite_folder,
             );
         }
     }

@@ -53,6 +53,88 @@ pub(crate) const EMBEDDED_SANDBOX_LDTK_ASSET_PATH: &str =
 pub(crate) const EMBEDDED_INTRO_LDTK_ASSET_PATH: &str =
     "ambition_sandbox/ambition/worlds/intro.ldtk";
 
+/// (catalog_url_suffix, fs_path_relative_to_assets/) pairs for every
+/// embedded core asset registered under the `static_core_assets`
+/// feature. Each row's `catalog_url_suffix` is the part *after*
+/// `embedded://`, and it must exactly match the bytes inserted into
+/// `EmbeddedAssetRegistry` by `register_embedded_core_assets`.
+///
+/// The two halves are paired by hand below — the catalog's authored
+/// `EmbeddedBinary` candidate and the registry's `insert_asset` call
+/// share the same const so a typo on one side fails the
+/// `embedded_core_paths_match_registration_constants` guardrail.
+pub(crate) mod embedded_core {
+    // ── UI fonts ────────────────────────────────────────────────────
+    pub const FONT_DIALOG_REGULAR_URL: &str =
+        "ambition_sandbox/fonts/bundled/InterDisplay-Regular.otf";
+    pub const FONT_DIALOG_SEMIBOLD_URL: &str =
+        "ambition_sandbox/fonts/bundled/InterDisplay-SemiBold.otf";
+    pub const FONT_DEBUG_MONO_URL: &str =
+        "ambition_sandbox/fonts/bundled/JetBrainsMono-Regular.ttf";
+
+    // ── Primary character spritesheets ──────────────────────────────
+    pub const SPRITE_PLAYER_URL: &str =
+        "ambition_sandbox/sprites/player_robot_spritesheet.png";
+    pub const SPRITE_ROBOT_URL: &str =
+        "ambition_sandbox/sprites/robot_spritesheet.png";
+    pub const SPRITE_GOBLIN_URL: &str =
+        "ambition_sandbox/sprites/goblin_spritesheet.png";
+    pub const SPRITE_SANDBAG_URL: &str =
+        "ambition_sandbox/sprites/sandbag_spritesheet.png";
+
+    // ── Core entity sprites ─────────────────────────────────────────
+    pub const SPRITE_CHEST_CLOSED_URL: &str =
+        "ambition_sandbox/sprites/entities/chest_closed.png";
+    pub const SPRITE_CHEST_OPEN_URL: &str =
+        "ambition_sandbox/sprites/entities/chest_open.png";
+    pub const SPRITE_PICKUP_HEALTH_URL: &str =
+        "ambition_sandbox/sprites/entities/pickup_health.png";
+    pub const SPRITE_PICKUP_CURRENCY_URL: &str =
+        "ambition_sandbox/sprites/entities/pickup_currency.png";
+    pub const SPRITE_PICKUP_ABILITY_URL: &str =
+        "ambition_sandbox/sprites/entities/pickup_ability.png";
+    pub const SPRITE_DOOR_ZONE_URL: &str =
+        "ambition_sandbox/sprites/entities/door_zone.png";
+    pub const SPRITE_EDGE_EXIT_URL: &str =
+        "ambition_sandbox/sprites/entities/edge_exit.png";
+    pub const SPRITE_PROJECTILE_ENERGY_URL: &str =
+        "ambition_sandbox/sprites/entities/projectile_energy.png";
+    pub const SPRITE_SOLID_TILE_URL: &str =
+        "ambition_sandbox/sprites/entities/solid_tile.png";
+    pub const SPRITE_ONE_WAY_TILE_URL: &str =
+        "ambition_sandbox/sprites/entities/one_way_tile.png";
+    pub const SPRITE_HAZARD_TILE_URL: &str =
+        "ambition_sandbox/sprites/entities/hazard_tile.png";
+    pub const SPRITE_BOSS_CORE_URL: &str =
+        "ambition_sandbox/sprites/entities/boss_core.png";
+
+    /// Every embedded core asset's catalog URL suffix. Used by the
+    /// `embedded_core_paths_match_registration_constants` test to
+    /// confirm the catalog candidate set and the registry insert set
+    /// are the same set of URLs.
+    pub const ALL_URLS: &[&str] = &[
+        FONT_DIALOG_REGULAR_URL,
+        FONT_DIALOG_SEMIBOLD_URL,
+        FONT_DEBUG_MONO_URL,
+        SPRITE_PLAYER_URL,
+        SPRITE_ROBOT_URL,
+        SPRITE_GOBLIN_URL,
+        SPRITE_SANDBAG_URL,
+        SPRITE_CHEST_CLOSED_URL,
+        SPRITE_CHEST_OPEN_URL,
+        SPRITE_PICKUP_HEALTH_URL,
+        SPRITE_PICKUP_CURRENCY_URL,
+        SPRITE_PICKUP_ABILITY_URL,
+        SPRITE_DOOR_ZONE_URL,
+        SPRITE_EDGE_EXIT_URL,
+        SPRITE_PROJECTILE_ENERGY_URL,
+        SPRITE_SOLID_TILE_URL,
+        SPRITE_ONE_WAY_TILE_URL,
+        SPRITE_HAZARD_TILE_URL,
+        SPRITE_BOSS_CORE_URL,
+    ];
+}
+
 use crate::data::AudioSpec;
 use crate::game_assets::{sandbox_image_manifest, GameAssetConfig};
 
@@ -248,29 +330,6 @@ impl SandboxAssetCatalog {
         }
     }
 
-    /// Legacy gate: takes a raw path string and assumes "optional"
-    /// semantics. Kept for the few call sites that don't yet have a
-    /// [`ResolvedAsset`] handy (e.g. the intro-plugin sprite loaders).
-    /// New code should use [`Self::try_path_for_load`] instead.
-    ///
-    /// `[ambition_asset_manager_transition]` Remove once
-    /// `intro::plugin::load_intro_*_sprites_system` is migrated to
-    /// emit per-asset catalog entries (currently the intro plugin
-    /// dynamically authors sprite paths outside the prebuilt catalog).
-    pub fn should_attempt_optional_load(&self, path: &str) -> bool {
-        match self.profile {
-            AssetProfile::DesktopDevLoose
-            | AssetProfile::DesktopInstalled
-            | AssetProfile::SteamDeckInstalled => self.resolve_local_file_path(path).is_some(),
-            AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
-            AssetProfile::WebStatic
-            | AssetProfile::WebHttp
-            | AssetProfile::BundledStatic
-            | AssetProfile::IpfsGatewayPlaceholder => false,
-            AssetProfile::NoAssets | AssetProfile::Headless => false,
-        }
-    }
-
     /// Same gate, but for **required** assets. Required entries with
     /// no host-filesystem precheck always attempt the load; the
     /// resolver's `Disabled` path is what consults
@@ -352,6 +411,7 @@ pub fn build_sandbox_catalog(
     extend_with_character_entries(&mut manifest, &config.sprite_folder);
     extend_with_boss_entries(&mut manifest, &config.sprite_folder);
     extend_with_music_entries(&mut manifest, audio);
+    extend_with_intro_sprite_entries(&mut manifest, &config.sprite_folder);
     SandboxAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
 }
 
@@ -451,16 +511,22 @@ fn extend_with_sfx_bank_entry(manifest: &mut AssetManifest) {
 
 /// UI font entries. Both the canonical `bundled/` paths and the legacy
 /// `local/` fallback paths get their own ids so the font loader can
-/// resolve each one and pick the first that exists.
+/// resolve each one and pick the first that exists. Under
+/// `static_core_assets`, the three canonical fonts also carry an
+/// authored `EmbeddedBinary` candidate so WebStatic / BundledStatic
+/// resolve them through the embedded source.
 fn extend_with_font_entries(manifest: &mut AssetManifest) {
     manifest.insert(
-        AssetEntry::new(
-            ids::font_dialog_regular(),
-            AssetKind::Font,
-            "fonts/bundled/InterDisplay-Regular.otf",
-        )
-        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-        .with_preload_group(PreloadGroup::Hud),
+        with_embedded_core_candidate(
+            AssetEntry::new(
+                ids::font_dialog_regular(),
+                AssetKind::Font,
+                "fonts/bundled/InterDisplay-Regular.otf",
+            )
+            .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+            .with_preload_group(PreloadGroup::Hud),
+            embedded_core::FONT_DIALOG_REGULAR_URL,
+        ),
     );
     manifest.insert(
         AssetEntry::new(
@@ -472,13 +538,16 @@ fn extend_with_font_entries(manifest: &mut AssetManifest) {
         .with_preload_group(PreloadGroup::Hud),
     );
     manifest.insert(
-        AssetEntry::new(
-            ids::font_dialog_semibold(),
-            AssetKind::Font,
-            "fonts/bundled/InterDisplay-SemiBold.otf",
-        )
-        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-        .with_preload_group(PreloadGroup::Hud),
+        with_embedded_core_candidate(
+            AssetEntry::new(
+                ids::font_dialog_semibold(),
+                AssetKind::Font,
+                "fonts/bundled/InterDisplay-SemiBold.otf",
+            )
+            .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+            .with_preload_group(PreloadGroup::Hud),
+            embedded_core::FONT_DIALOG_SEMIBOLD_URL,
+        ),
     );
     manifest.insert(
         AssetEntry::new(
@@ -490,13 +559,16 @@ fn extend_with_font_entries(manifest: &mut AssetManifest) {
         .with_preload_group(PreloadGroup::Hud),
     );
     manifest.insert(
-        AssetEntry::new(
-            ids::font_debug_mono(),
-            AssetKind::Font,
-            "fonts/bundled/JetBrainsMono-Regular.ttf",
-        )
-        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-        .with_preload_group(PreloadGroup::Hud),
+        with_embedded_core_candidate(
+            AssetEntry::new(
+                ids::font_debug_mono(),
+                AssetKind::Font,
+                "fonts/bundled/JetBrainsMono-Regular.ttf",
+            )
+            .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+            .with_preload_group(PreloadGroup::Hud),
+            embedded_core::FONT_DEBUG_MONO_URL,
+        ),
     );
     manifest.insert(
         AssetEntry::new(
@@ -509,13 +581,63 @@ fn extend_with_font_entries(manifest: &mut AssetManifest) {
     );
 }
 
+/// Attach an `EmbeddedBinary` `LocationCandidate` to `entry` IFF the
+/// `static_core_assets` feature is enabled. Without the feature the
+/// embedded source has no bytes for the URL, so adding the candidate
+/// would mislead the resolver into trying to load a 404.
+#[cfg(feature = "static_core_assets")]
+fn with_embedded_core_candidate(entry: AssetEntry, embedded_url: &'static str) -> AssetEntry {
+    entry.with_location(
+        AssetSourceProfile::EmbeddedBinary,
+        AssetLocation::embedded(embedded_url.to_string()),
+    )
+}
+
+#[cfg(not(feature = "static_core_assets"))]
+fn with_embedded_core_candidate(entry: AssetEntry, _embedded_url: &'static str) -> AssetEntry {
+    entry
+}
+
 /// Character sprite entries — one per `character_sprites::CHARACTER_SPRITE_REGISTRY`
 /// row (player / robot / goblin / sandbag + every NPC sheet). Pulls
 /// the canonical filename list from `character_sprites` so adding a new
 /// NPC sheet there auto-registers the catalog id.
+///
+/// The four primary character sheets (`player`, `robot`, `goblin`,
+/// `sandbag`) carry an `EmbeddedBinary` candidate under
+/// `static_core_assets` so the wasm build renders the protagonist + the
+/// basic enemy set without falling back to colored rectangles.
 fn extend_with_character_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
     for (name, filename) in crate::character_sprites::all_character_sprite_filenames() {
         let id = ids::character_sprite(name);
+        let logical_path = format!("{sprite_folder}/{filename}");
+        let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)
+            .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+            .with_preload_group(PreloadGroup::SandboxCore);
+        if let Some(embedded_url) = character_sprite_embedded_url(name) {
+            entry = with_embedded_core_candidate(entry, embedded_url);
+        }
+        manifest.insert(entry);
+    }
+}
+
+/// Return the embedded-core URL for a character sprite label, when
+/// that sheet is part of the core embedded set. Pairs with the
+/// `EmbeddedAssetRegistry` insertions in `register_embedded_core_assets`.
+fn character_sprite_embedded_url(name: &str) -> Option<&'static str> {
+    match name {
+        "player" => Some(embedded_core::SPRITE_PLAYER_URL),
+        "robot" => Some(embedded_core::SPRITE_ROBOT_URL),
+        "goblin" => Some(embedded_core::SPRITE_GOBLIN_URL),
+        "sandbag" => Some(embedded_core::SPRITE_SANDBAG_URL),
+        _ => None,
+    }
+}
+
+/// Boss sprite entries — gradient sentinel + mockingbird today.
+fn extend_with_boss_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
+    for (name, filename) in crate::boss_sprites::all_boss_sprite_filenames() {
+        let id = ids::boss_sprite(name);
         let logical_path = format!("{sprite_folder}/{filename}");
         manifest.insert(
             AssetEntry::new(id, AssetKind::Image, logical_path)
@@ -525,10 +647,32 @@ fn extend_with_character_entries(manifest: &mut AssetManifest, sprite_folder: &s
     }
 }
 
-/// Boss sprite entries — gradient sentinel + mockingbird today.
-fn extend_with_boss_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
-    for (name, filename) in crate::boss_sprites::all_boss_sprite_filenames() {
-        let id = ids::boss_sprite(name);
+/// Intro NPC + prop sprite entries. The intro story content owns its
+/// own `INTRO_NPC_SPRITE_REGISTRY` / `INTRO_PROP_REGISTRY` constants
+/// in `crate::intro::sprites`; this helper walks both at catalog-build
+/// time so the intro plugin's load systems can resolve their assets
+/// via `catalog.try_path_for_load(...)` like every other loader.
+///
+/// IDs are `sprite.character.intro_<name_snake>` for NPCs and
+/// `sprite.character.intro_prop_<kind_snake>` for props. Both use
+/// `SilentPlaceholder` because missing intro art falls back to colored
+/// rectangles per the existing contract.
+fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
+    use crate::intro::sprites::{
+        intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id,
+        intro_prop_sprite_rows,
+    };
+    for (name, filename, _spec) in intro_npc_sprite_rows() {
+        let id = intro_npc_asset_id(name);
+        let logical_path = format!("{sprite_folder}/{filename}");
+        manifest.insert(
+            AssetEntry::new(id, AssetKind::Image, logical_path)
+                .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+                .with_preload_group(PreloadGroup::SandboxCore),
+        );
+    }
+    for (kind, filename, _spec) in intro_prop_sprite_rows() {
+        let id = intro_prop_asset_id(kind);
         let logical_path = format!("{sprite_folder}/{filename}");
         manifest.insert(
             AssetEntry::new(id, AssetKind::Image, logical_path)
@@ -617,9 +761,22 @@ impl Plugin for AmbitionAssetSourcePlugin {
 /// [`bevy::asset::io::embedded::EmbeddedAssetRegistry`] under the
 /// URLs the catalog's `Embedded` candidates point at.
 ///
-/// Gated by the `static_map` feature because the LDtk JSON is only
-/// embedded under that feature today; the loose-fs path doesn't need
-/// the embedded copy.
+/// Two independent feature gates:
+/// - `static_map` — LDtk world JSON (sandbox + intro).
+/// - `static_core_assets` — UI fonts + primary character sheets + core
+///   entity sprites (see [`embedded_core`] for the URL constants).
+///
+/// Adding a new embedded asset is a three-line change:
+/// 1. add a `const FOO_URL: &str = "ambition_sandbox/..."` to
+///    [`embedded_core`] and append it to `ALL_URLS`;
+/// 2. add a matching `with_embedded_core_candidate(entry, FOO_URL)`
+///    on the catalog entry;
+/// 3. add an `EmbeddedAssetRegistry::insert_asset(...,
+///    include_bytes!("../assets/..."))` call in
+///    [`register_embedded_core_assets`] below.
+///
+/// The `embedded_core_paths_match_registration_constants` test fails
+/// loudly if any one of those three pieces is missing.
 #[allow(unused_variables)]
 fn register_embedded_assets(app: &mut App) {
     #[cfg(feature = "static_map")]
@@ -641,6 +798,122 @@ fn register_embedded_assets(app: &mut App) {
             include_bytes!("../assets/ambition/worlds/intro.ldtk") as &[u8],
         );
     }
+    #[cfg(feature = "static_core_assets")]
+    register_embedded_core_assets(app);
+}
+
+/// Embed UI fonts + primary character sheets + core entity sprites.
+/// Gated by `static_core_assets`. The URLs match the
+/// `with_embedded_core_candidate(...)` call sites in the catalog.
+#[cfg(feature = "static_core_assets")]
+fn register_embedded_core_assets(app: &mut App) {
+    use bevy::asset::io::embedded::EmbeddedAssetRegistry;
+    use std::path::{Path, PathBuf};
+
+    let embedded = app
+        .world_mut()
+        .resource_mut::<EmbeddedAssetRegistry>();
+
+    // ── UI fonts ─────────────────────────────────────────────────────
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::FONT_DIALOG_REGULAR_URL),
+        include_bytes!("../assets/fonts/bundled/InterDisplay-Regular.otf") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::FONT_DIALOG_SEMIBOLD_URL),
+        include_bytes!("../assets/fonts/bundled/InterDisplay-SemiBold.otf") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::FONT_DEBUG_MONO_URL),
+        include_bytes!("../assets/fonts/bundled/JetBrainsMono-Regular.ttf") as &[u8],
+    );
+
+    // ── Primary character spritesheets ───────────────────────────────
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_PLAYER_URL),
+        include_bytes!("../assets/sprites/player_robot_spritesheet.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_ROBOT_URL),
+        include_bytes!("../assets/sprites/robot_spritesheet.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_GOBLIN_URL),
+        include_bytes!("../assets/sprites/goblin_spritesheet.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_SANDBAG_URL),
+        include_bytes!("../assets/sprites/sandbag_spritesheet.png") as &[u8],
+    );
+
+    // ── Core entity sprites ──────────────────────────────────────────
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_CHEST_CLOSED_URL),
+        include_bytes!("../assets/sprites/entities/chest_closed.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_CHEST_OPEN_URL),
+        include_bytes!("../assets/sprites/entities/chest_open.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_PICKUP_HEALTH_URL),
+        include_bytes!("../assets/sprites/entities/pickup_health.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_PICKUP_CURRENCY_URL),
+        include_bytes!("../assets/sprites/entities/pickup_currency.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_PICKUP_ABILITY_URL),
+        include_bytes!("../assets/sprites/entities/pickup_ability.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_DOOR_ZONE_URL),
+        include_bytes!("../assets/sprites/entities/door_zone.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_EDGE_EXIT_URL),
+        include_bytes!("../assets/sprites/entities/edge_exit.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_PROJECTILE_ENERGY_URL),
+        include_bytes!("../assets/sprites/entities/projectile_energy.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_SOLID_TILE_URL),
+        include_bytes!("../assets/sprites/entities/solid_tile.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_ONE_WAY_TILE_URL),
+        include_bytes!("../assets/sprites/entities/one_way_tile.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_HAZARD_TILE_URL),
+        include_bytes!("../assets/sprites/entities/hazard_tile.png") as &[u8],
+    );
+    embedded.insert_asset(
+        PathBuf::new(),
+        Path::new(embedded_core::SPRITE_BOSS_CORE_URL),
+        include_bytes!("../assets/sprites/entities/boss_core.png") as &[u8],
+    );
 }
 
 /// Documented stub for future HTTP/HTTPS asset source registration.
@@ -658,6 +931,15 @@ mod tests {
     use super::*;
     use crate::data::SandboxDataSpec;
     use std::collections::HashSet;
+    use std::sync::Mutex;
+
+    /// Shared lock for tests that mutate `AMBITION_SFX_BANK_PATH`.
+    /// Env-var mutations are process-global; rust tests run in
+    /// parallel by default, so the lock keeps the
+    /// `sfx_bank_env_override_is_authored_local_path_candidate` setter
+    /// from racing the `sfx_bank_resolves_under_desktop_dev_loose`
+    /// reader.
+    static SFX_BANK_ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn fixture_catalog() -> SandboxAssetCatalog {
         let config = GameAssetConfig::default();
@@ -712,12 +994,25 @@ mod tests {
 
     #[test]
     fn sfx_bank_resolves_under_desktop_dev_loose() {
+        // Serialize with the env-var test below; otherwise the
+        // setter can race the reader (env vars are process-global).
+        let _guard = SFX_BANK_ENV_LOCK.lock().unwrap();
+        let prev = std::env::var("AMBITION_SFX_BANK_PATH").ok();
+        // SAFETY: see SFX_BANK_ENV_LOCK note.
+        unsafe { std::env::remove_var("AMBITION_SFX_BANK_PATH") };
+
         let mut config = GameAssetConfig::default();
         config.asset_profile = AssetProfile::DesktopDevLoose;
         let spec = SandboxDataSpec::load_embedded();
         let catalog = build_sandbox_catalog(&config, &spec.audio);
-        let path = catalog.path_for(&ids::sfx_bank()).expect("sfx_bank path");
-        assert_eq!(path, "audio/sfx.bank");
+        let result = catalog.path_for(&ids::sfx_bank());
+
+        // Restore prior value before asserting.
+        match prev {
+            Some(v) => unsafe { std::env::set_var("AMBITION_SFX_BANK_PATH", v) },
+            None => unsafe { std::env::remove_var("AMBITION_SFX_BANK_PATH") },
+        }
+        assert_eq!(result.as_deref(), Some("audio/sfx.bank"));
     }
 
     #[test]
@@ -1017,6 +1312,7 @@ mod tests {
     /// somewhere outside the catalog.
     #[test]
     fn sfx_bank_env_override_is_authored_local_path_candidate() {
+        let _guard = SFX_BANK_ENV_LOCK.lock().unwrap();
         // SAFETY: tests touching env vars are intrinsically global;
         // use a recognizable temp path and clean up after.
         let probe = "/tmp/__ambition_sfx_bank_override_probe__.bank";
@@ -1055,6 +1351,231 @@ mod tests {
     /// `DesktopDevLoose` (LocalPath) and `WebStatic` (Embedded).
     /// Catches a regression where the secondary-world list goes back
     /// to a hard-coded loader-local constant.
+    /// Every URL in `embedded_core::ALL_URLS` is unique. Catches a
+    /// copy-paste typo where two const URLs collide and would silently
+    /// overwrite each other in `EmbeddedAssetRegistry`.
+    #[test]
+    fn embedded_core_urls_are_unique() {
+        let mut seen = HashSet::new();
+        for url in embedded_core::ALL_URLS {
+            assert!(seen.insert(*url), "duplicate embedded core URL: {url}");
+        }
+    }
+
+    /// Every embedded-core URL is reachable from at least one catalog
+    /// entry as an authored `EmbeddedBinary` candidate. Catches the
+    /// case where someone adds an `EmbeddedAssetRegistry::insert_asset`
+    /// call without adding the matching `with_embedded_core_candidate`
+    /// (would burn binary size without enabling the load).
+    ///
+    /// Only meaningful when the `static_core_assets` feature is on
+    /// (otherwise the candidates are intentionally absent).
+    #[cfg(feature = "static_core_assets")]
+    #[test]
+    fn embedded_core_urls_have_authored_catalog_candidates() {
+        let mut config = GameAssetConfig::default();
+        config.asset_profile = AssetProfile::WebStatic;
+        let spec = SandboxDataSpec::load_embedded();
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let mut authored_urls = HashSet::<String>::new();
+        for (_, entry) in catalog.catalog().manifest().iter() {
+            for candidate in &entry.locations {
+                if candidate.source != AssetSourceProfile::EmbeddedBinary {
+                    continue;
+                }
+                if let AssetLocation::Embedded(url) = &candidate.location {
+                    authored_urls.insert(url.clone());
+                }
+            }
+        }
+        // The LDtk URLs are intentionally outside the embedded_core
+        // set — they're embedded under `static_map` not
+        // `static_core_assets`. Skip them here.
+        let ldtk_urls = [
+            EMBEDDED_SANDBOX_LDTK_ASSET_PATH.to_string(),
+            EMBEDDED_INTRO_LDTK_ASSET_PATH.to_string(),
+        ];
+        let core_urls_authored: HashSet<String> = authored_urls
+            .into_iter()
+            .filter(|u| !ldtk_urls.contains(u))
+            .collect();
+        for url in embedded_core::ALL_URLS {
+            assert!(
+                core_urls_authored.contains(*url),
+                "embedded_core URL `{url}` has no matching catalog candidate. \
+                 Add `with_embedded_core_candidate(entry, {url})` to the right \
+                 `extend_with_*` helper.",
+            );
+        }
+    }
+
+    /// Under `static_core_assets`, every WebStatic font + every primary
+    /// character spritesheet (`player` / `robot` / `goblin` / `sandbag`)
+    /// + every core entity sprite resolves to its embedded URL via
+    /// `try_path_for_load`. The plain `path_for` also resolves; the
+    /// gate confirms WebStatic actually attempts to load them.
+    #[cfg(feature = "static_core_assets")]
+    #[test]
+    fn web_static_loads_core_fonts_and_sprites_under_static_core_assets() {
+        let mut config = GameAssetConfig::default();
+        config.asset_profile = AssetProfile::WebStatic;
+        let spec = SandboxDataSpec::load_embedded();
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+
+        // Fonts.
+        for id in [
+            ids::font_dialog_regular(),
+            ids::font_dialog_semibold(),
+            ids::font_debug_mono(),
+        ] {
+            let path = catalog
+                .try_path_for_load(&id)
+                .unwrap_or_else(|| panic!("WebStatic + static_core_assets must load font {id}"));
+            assert!(
+                path.starts_with("embedded://ambition_sandbox/fonts/"),
+                "font {id} resolved to non-embedded path: {path}",
+            );
+        }
+
+        // Primary character sheets.
+        for label in ["player", "robot", "goblin", "sandbag"] {
+            let id = ids::character_sprite(label);
+            let path = catalog.try_path_for_load(&id).unwrap_or_else(|| {
+                panic!("WebStatic + static_core_assets must load primary character sheet {label}")
+            });
+            assert!(path.starts_with("embedded://ambition_sandbox/sprites/"));
+        }
+
+        // Core entity sprites — pull from the EntitySprite enum so the
+        // contract list is the same one `entity_sprite_embedded_core_url`
+        // owns.
+        for sprite in [
+            crate::game_assets::EntitySprite::ChestClosed,
+            crate::game_assets::EntitySprite::ChestOpen,
+            crate::game_assets::EntitySprite::PickupHealth,
+            crate::game_assets::EntitySprite::PickupCurrency,
+            crate::game_assets::EntitySprite::PickupAbility,
+            crate::game_assets::EntitySprite::DoorZone,
+            crate::game_assets::EntitySprite::EdgeExit,
+            crate::game_assets::EntitySprite::ProjectileEnergy,
+            crate::game_assets::EntitySprite::SolidTile,
+            crate::game_assets::EntitySprite::OneWayTile,
+            crate::game_assets::EntitySprite::HazardTile,
+            crate::game_assets::EntitySprite::BossCore,
+        ] {
+            let id = crate::game_assets::entity_sprite_asset_id(sprite);
+            let path = catalog.try_path_for_load(&id).unwrap_or_else(|| {
+                panic!("WebStatic + static_core_assets must load core entity sprite {sprite:?}")
+            });
+            assert!(path.starts_with("embedded://ambition_sandbox/sprites/entities/"));
+        }
+    }
+
+    /// Out-of-set sprites and parallax layers do NOT load on WebStatic
+    /// even with `static_core_assets` on — they have no authored
+    /// `EmbeddedBinary` candidate and `try_path_for_load` returns
+    /// `None`. This is the seam slice 17+ will eventually flip.
+    #[test]
+    fn web_static_skips_out_of_set_visuals_even_with_static_core_assets() {
+        let mut config = GameAssetConfig::default();
+        config.asset_profile = AssetProfile::WebStatic;
+        let spec = SandboxDataSpec::load_embedded();
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+
+        // Breakable variants are not in the embedded core set.
+        for sprite in [
+            crate::game_assets::EntitySprite::BreakableIntact,
+            crate::game_assets::EntitySprite::BreakableCracked,
+            crate::game_assets::EntitySprite::BreakableBroken,
+        ] {
+            let id = crate::game_assets::entity_sprite_asset_id(sprite);
+            assert!(
+                catalog.try_path_for_load(&id).is_none(),
+                "WebStatic should not attempt out-of-set sprite {sprite:?} (no Embedded candidate)",
+            );
+        }
+        // Parallax layers are not in the embedded core set either.
+        let parallax_id = crate::game_assets::parallax_layer_asset_id(
+            crate::game_assets::ParallaxTheme::Hub,
+            crate::game_assets::ParallaxLayerAsset::Sky,
+        );
+        assert!(catalog.try_path_for_load(&parallax_id).is_none());
+    }
+
+    /// Intro NPC + prop catalog entries exist in the prebuilt
+    /// catalog. The intro plugin's load systems query them via
+    /// `try_path_for_load`; missing entries would silently fall
+    /// through to colored rectangles.
+    #[test]
+    fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
+        use crate::intro::sprites::{
+            intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id,
+            intro_prop_sprite_rows,
+        };
+
+        let mut config = GameAssetConfig::default();
+        config.asset_profile = AssetProfile::DesktopDevLoose;
+        let spec = SandboxDataSpec::load_embedded();
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+
+        for (name, filename, _spec) in intro_npc_sprite_rows() {
+            let id = intro_npc_asset_id(name);
+            let resolved = catalog.resolve(&id).unwrap_or_else(|err| {
+                panic!("intro NPC `{name}` (id {id}) missing from catalog: {err}")
+            });
+            assert_eq!(resolved.kind, AssetKind::Image);
+            // The logical path should end with the registered filename.
+            assert!(
+                resolved
+                    .bevy_asset_path()
+                    .map(|p| p.ends_with(filename))
+                    .unwrap_or(false),
+                "intro NPC `{name}` resolved to path that doesn't end with {filename}",
+            );
+        }
+        for (kind, filename, _spec) in intro_prop_sprite_rows() {
+            let id = intro_prop_asset_id(kind);
+            let resolved = catalog.resolve(&id).unwrap_or_else(|err| {
+                panic!("intro prop `{kind}` (id {id}) missing from catalog: {err}")
+            });
+            assert!(resolved
+                .bevy_asset_path()
+                .map(|p| p.ends_with(filename))
+                .unwrap_or(false));
+        }
+    }
+
+    /// Guardrail: `SandboxAssetCatalog::should_attempt_optional_load(path: &str)`
+    /// has been removed. Catches a regression where someone adds the
+    /// gate back to satisfy a new dynamic-path consumer instead of
+    /// authoring a catalog id.
+    #[test]
+    fn no_should_attempt_optional_load_method_definition() {
+        use std::process::Command;
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let src = manifest_dir.join("src");
+        let output = Command::new("grep")
+            .args([
+                "-rln",
+                "-E",
+                "fn[[:space:]]+should_attempt_optional_load[[:space:]]*\\(",
+            ])
+            .arg(&src)
+            .output();
+        let stdout = match output {
+            Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
+            Err(_) => return,
+        };
+        let offenders: Vec<&str> = stdout.lines().filter(|l| !l.is_empty()).collect();
+        assert!(
+            offenders.is_empty(),
+            "should_attempt_optional_load(...) reappeared:\n  {}\n\
+             Author a catalog id + `with_embedded_core_candidate` if needed; \
+             loaders should use `try_path_for_load` only.",
+            offenders.join("\n  "),
+        );
+    }
+
     #[test]
     fn intro_ldtk_is_in_the_catalog_under_world_namespace() {
         let mut config = GameAssetConfig::default();

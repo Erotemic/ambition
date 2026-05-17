@@ -318,15 +318,27 @@ pub fn parallax_layer_asset_id(theme: ParallaxTheme, layer: ParallaxLayerAsset) 
 /// Bevy. Live image loading consumes it through
 /// [`load_game_assets`] / [`load_entity_sprites`] / [`load_parallax_layers`].
 pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
+    use ambition_asset_manager::AssetSourceProfile;
+
     let mut manifest = AssetManifest::new();
     for &sprite in EntitySprite::ALL {
         let id = entity_sprite_asset_id(sprite);
         let logical_path = format!("{sprite_folder}/{}", sprite.relative_path());
-        manifest.insert(
-            AssetEntry::new(id, AssetKind::Image, logical_path)
-                .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
-                .with_preload_group(PreloadGroup::SandboxCore),
-        );
+        let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)
+            .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+            .with_preload_group(PreloadGroup::SandboxCore);
+        // Only author the Embedded candidate when the
+        // `static_core_assets` feature is on. Without the feature,
+        // `AmbitionAssetSourcePlugin` doesn't insert the bytes — the
+        // candidate would resolve to a 404 on WebStatic.
+        #[cfg(feature = "static_core_assets")]
+        if let Some(embedded_url) = entity_sprite_embedded_core_url(sprite) {
+            entry = entry.with_location(
+                AssetSourceProfile::EmbeddedBinary,
+                ambition_asset_manager::AssetLocation::embedded(embedded_url.to_string()),
+            );
+        }
+        manifest.insert(entry);
     }
     for &theme in ParallaxTheme::ALL {
         for &layer in ParallaxLayerAsset::ALL {
@@ -340,6 +352,35 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
         }
     }
     manifest
+}
+
+/// Return the embedded-core URL for an [`EntitySprite`] when that
+/// sprite is part of the bounded "core visual" set the
+/// `static_core_assets` feature packages. The URL pairs with the
+/// `EmbeddedAssetRegistry::insert_asset` call inside
+/// `crate::sandbox_assets::register_embedded_core_assets`.
+///
+/// Out-of-set sprites (parallax layers, breakables, boss variants,
+/// LDtk debug tiles) return `None` — they keep the colored-rectangle
+/// fallback on `WebStatic` / `BundledStatic` until a follow-up slice
+/// packages them.
+pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static str> {
+    use crate::sandbox_assets::embedded_core;
+    match sprite {
+        EntitySprite::ChestClosed => Some(embedded_core::SPRITE_CHEST_CLOSED_URL),
+        EntitySprite::ChestOpen => Some(embedded_core::SPRITE_CHEST_OPEN_URL),
+        EntitySprite::PickupHealth => Some(embedded_core::SPRITE_PICKUP_HEALTH_URL),
+        EntitySprite::PickupCurrency => Some(embedded_core::SPRITE_PICKUP_CURRENCY_URL),
+        EntitySprite::PickupAbility => Some(embedded_core::SPRITE_PICKUP_ABILITY_URL),
+        EntitySprite::DoorZone => Some(embedded_core::SPRITE_DOOR_ZONE_URL),
+        EntitySprite::EdgeExit => Some(embedded_core::SPRITE_EDGE_EXIT_URL),
+        EntitySprite::ProjectileEnergy => Some(embedded_core::SPRITE_PROJECTILE_ENERGY_URL),
+        EntitySprite::SolidTile => Some(embedded_core::SPRITE_SOLID_TILE_URL),
+        EntitySprite::OneWayTile => Some(embedded_core::SPRITE_ONE_WAY_TILE_URL),
+        EntitySprite::HazardTile => Some(embedded_core::SPRITE_HAZARD_TILE_URL),
+        EntitySprite::BossCore => Some(embedded_core::SPRITE_BOSS_CORE_URL),
+        _ => None,
+    }
 }
 
 /// Convenience: wrap [`sandbox_image_manifest`] in a Bevy-side catalog
@@ -1059,75 +1100,50 @@ mod tests {
         }
     }
 
-    /// WebStatic synthesizes `embedded://` URLs for every entry;
-    /// `SandboxAssetCatalog::should_attempt_optional_load` then skips
-    /// them today (optional sprites aren't packaged into the wasm
-    /// bundle yet), preserving the colored-rectangle fallback.
+    /// WebStatic resolves to `embedded://...` for core sprites that
+    /// have an authored Embedded candidate (chest, pickups, doors,
+    /// tiles, boss core, etc.). Out-of-set sprites (breakable
+    /// variants, lock-wall tile, soft/hard blink walls) resolve to a
+    /// synthesized `embedded://` URL but `try_path_for_load` returns
+    /// `None` because the candidate is not authored.
+    ///
+    /// Locks in the slice-13 packaging contract:
+    /// `static_core_assets` packages ChestClosed but not BreakableIntact.
     #[test]
-    fn web_static_synthesizes_embedded_scheme_but_loader_skips_today() {
+    fn web_static_loads_core_sprites_and_skips_out_of_set_sprites() {
         use crate::sandbox_assets::SandboxAssetCatalog;
 
         let inner = build_sandbox_image_catalog("sprites");
         let catalog = SandboxAssetCatalog::new(inner, AssetProfile::WebStatic);
-        let id = entity_sprite_asset_id(EntitySprite::ChestClosed);
-        let path = catalog.path_for(&id).unwrap();
-        assert_eq!(
-            path,
-            format!(
-                "embedded://sprites/{}",
-                EntitySprite::ChestClosed.relative_path()
-            ),
-        );
+
+        let chest_id = entity_sprite_asset_id(EntitySprite::ChestClosed);
+        // ChestClosed IS in the embedded core set IFF the build
+        // enabled `static_core_assets`. Tests run with default
+        // features, which include desktop_dev → no static_core_assets,
+        // so the candidate is absent here.
+        if cfg!(feature = "static_core_assets") {
+            let path = catalog.try_path_for_load(&chest_id).unwrap();
+            assert_eq!(
+                path,
+                format!(
+                    "embedded://{}",
+                    crate::sandbox_assets::embedded_core::SPRITE_CHEST_CLOSED_URL
+                ),
+            );
+        } else {
+            assert!(
+                catalog.try_path_for_load(&chest_id).is_none(),
+                "without static_core_assets the WebStatic load gate must skip optional images",
+            );
+        }
+
+        // Out-of-set sprite: no embedded candidate ever, regardless
+        // of feature. Always skip on WebStatic.
+        let breakable_id = entity_sprite_asset_id(EntitySprite::BreakableIntact);
         assert!(
-            !catalog.should_attempt_optional_load(&path),
-            "WebStatic optional images must skip the load until packaging lands",
+            catalog.try_path_for_load(&breakable_id).is_none(),
+            "WebStatic must skip optional images without an authored Embedded candidate",
         );
-    }
-
-    /// The per-profile load gate matches the legacy desktop / android
-    /// behavior exactly. Locks in the migration contract documented in
-    /// `SandboxAssetCatalog::should_attempt_optional_load`.
-    #[test]
-    fn should_attempt_optional_load_matches_legacy_per_profile_behavior() {
-        use crate::sandbox_assets::SandboxAssetCatalog;
-        let inner = build_sandbox_image_catalog("sprites");
-
-        // Android / iOS bundles trust the packager — always attempt.
-        for profile in [AssetProfile::AndroidBundle, AssetProfile::IosBundle] {
-            let catalog = SandboxAssetCatalog::new(inner.clone(), profile);
-            assert!(catalog.should_attempt_optional_load("sprites/x.png"));
-        }
-        // Web / bundled / IPFS skip optional images entirely today.
-        for profile in [
-            AssetProfile::WebStatic,
-            AssetProfile::WebHttp,
-            AssetProfile::BundledStatic,
-            AssetProfile::IpfsGatewayPlaceholder,
-        ] {
-            let catalog = SandboxAssetCatalog::new(inner.clone(), profile);
-            assert!(!catalog.should_attempt_optional_load("sprites/x.png"));
-        }
-        // NoAssets / Headless never attempt.
-        for profile in [AssetProfile::NoAssets, AssetProfile::Headless] {
-            let catalog = SandboxAssetCatalog::new(inner.clone(), profile);
-            assert!(!catalog.should_attempt_optional_load("sprites/x.png"));
-        }
-        // Desktop profiles pre-check; pass a path that definitely
-        // doesn't exist under any of the candidate roots.
-        for profile in [
-            AssetProfile::DesktopDevLoose,
-            AssetProfile::DesktopInstalled,
-            AssetProfile::SteamDeckInstalled,
-        ] {
-            let catalog = SandboxAssetCatalog::new(inner.clone(), profile);
-            assert!(!catalog
-                .should_attempt_optional_load("sprites/__nonexistent_test_asset_for_load_gate__.png"));
-        }
-        // Conversely, an asset that DOES exist under CARGO_MANIFEST_DIR/assets/
-        // (the workspace cargo-test fallback) should pass the desktop
-        // gate. Use the sandbox.ron data file the test crate always ships.
-        let catalog = SandboxAssetCatalog::new(inner, AssetProfile::DesktopDevLoose);
-        assert!(catalog.should_attempt_optional_load("ambition/sandbox.ron"));
     }
 
     #[test]

@@ -67,7 +67,7 @@ visible = ["ldtk_runtime", "input", "audio", "ui", "physics_debris"]
 # `sandbox.ldtk`. Pair with `--no-default-features` and the `web_platform`
 # feature; see `crates/ambition_sandbox/web/index.html` for the JS bootstrap
 # and `docs/web_build.md` for the build/check commands.
-visible_web = ["ldtk_runtime", "input", "static_map"]
+visible_web = ["ldtk_runtime", "input", "static_map", "static_core_assets"]
 
 # Browser persona. The composite a `wasm-pack build` /
 # `wasm-bindgen --target web` step builds against; see `docs/web_build.md`.
@@ -101,6 +101,18 @@ dev_hot_reload = ["bevy/file_watcher"]
 # not require recompiling Rust. Enabling this feature also embeds the checked-in
 # map and falls back to it if the external map cannot be read or parsed.
 static_map = []
+
+# Embed a bounded "core visual" subset (UI fonts + primary character sheets +
+# core entity sprite PNGs) into the binary via `include_bytes!`, and register
+# them with Bevy's `EmbeddedAssetRegistry` via `AmbitionAssetSourcePlugin`.
+# Intended for `WebStatic` / `BundledStatic` builds where there is no
+# filesystem to read from. Desktop dev builds normally leave this off — the
+# loose `assets/` tree under `cargo run` is the source of truth there.
+#
+# Composes with `static_map`: `static_map` embeds the LDtk world JSON,
+# `static_core_assets` embeds the visual layer. The `web` composite feature
+# enables both.
+static_core_assets = []
 
 # Opt-in static SFX bank embedding. This is mainly for Android until the
 # synchronous SFX-bank loader can read from APK assets. The build script enables

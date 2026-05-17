@@ -13,6 +13,8 @@
 //! `GameAssets.characters.npcs`. Missing PNGs fall back to colored
 //! rectangles per the existing contract.
 
+use ambition_asset_manager::AssetId;
+
 use crate::character_sprites::{
     CharacterSheetSpec, ARCHITECT_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
     FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
@@ -126,4 +128,50 @@ pub const INTRO_PROP_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
 
 pub fn intro_prop_sprite_rows() -> &'static [(&'static str, &'static str, CharacterSheetSpec)] {
     INTRO_PROP_REGISTRY
+}
+
+/// Stable [`AssetId`] for an intro NPC sprite. The namespace is
+/// `sprite.character.intro_<lower_snake_name>` — distinct from the
+/// sandbox-side `sprite.character.npc_<…>` namespace so the intro's
+/// authored NPC roster doesn't collide with the sandbox `NPC_SPRITE_REGISTRY`.
+///
+/// The mapping is the inverse of [`intro_npc_label`]: catalog id
+/// construction (here) + label lookup (over there) must agree on the
+/// snake_case form for every entry in [`INTRO_NPC_SPRITE_REGISTRY`].
+pub fn intro_npc_asset_id(npc_name: &str) -> AssetId {
+    AssetId::new(format!("sprite.character.intro_{}", intro_npc_label(npc_name)))
+}
+
+/// Snake_case label slot for an intro NPC name. Pairs with
+/// [`intro_npc_asset_id`]. New rows in [`INTRO_NPC_SPRITE_REGISTRY`]
+/// must add a row here too.
+pub fn intro_npc_label(npc_name: &str) -> &'static str {
+    match npc_name {
+        "Creator" => "creator",
+        "Creator Final" => "creator_final",
+        "Oiler" => "oiler",
+        "Gate Janitor" => "gate_janitor",
+        "Erdish" => "erdish",
+        "Framebreaker" => "framebreaker",
+        "Nazi Salvage Guard" => "nazi_salvage_guard",
+        "Manifest Clerk" => "manifest_clerk",
+        "News Board" => "news_board",
+        // Story plugins that author NPCs outside `INTRO_NPC_SPRITE_REGISTRY`
+        // fall through to a single "unregistered" label so the catalog
+        // can still resolve their entries (typically resolves to a
+        // colored rectangle).
+        _ => "unregistered",
+    }
+}
+
+/// Stable [`AssetId`] for an intro prop sprite. Namespace
+/// `sprite.character.intro_prop_<lower_snake_kind>` — props share the
+/// `sprite.character.*` namespace with NPCs because they ride the same
+/// `CharacterSpriteAsset` runtime type, but the `intro_prop_` prefix
+/// keeps the two cleanly separable.
+pub fn intro_prop_asset_id(prop_kind: &str) -> AssetId {
+    AssetId::new(format!(
+        "sprite.character.intro_prop_{}",
+        prop_kind.replace(['-', ' '], "_"),
+    ))
 }

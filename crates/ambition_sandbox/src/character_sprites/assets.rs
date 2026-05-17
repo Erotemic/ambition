@@ -317,26 +317,23 @@ fn build_optional_via_catalog(
     })
 }
 
-/// Build a single NPC sprite asset from a filename + sheet spec.
-/// Story-content plugins (e.g. `crate::intro::sprites`) call this in a
-/// startup system after `GameAssets` is inserted, so they can extend
-/// `CharacterSpriteAssets::npcs` for sheets that aren't registered in
-/// `NPC_SPRITE_REGISTRY` above.
+/// Build a single NPC sprite asset by resolving its catalog id.
+/// Story-content plugins (e.g. `crate::intro::plugin`) call this once
+/// per row in their authored NPC table; the matching catalog entries
+/// are registered by `crate::sandbox_assets::extend_with_intro_sprite_entries`
+/// (or the equivalent helper for new plugins).
 ///
-/// The plugin path stays *outside* the prebuilt catalog: the catalog
-/// holds the sandbox's authored NPC set, and story plugins add their
-/// own sheets dynamically. The fallback gate uses the same per-profile
-/// existence rules via [`SandboxAssetCatalog::should_attempt_optional_load`].
+/// Returns `None` when the catalog reports the asset disabled / not
+/// loadable under the active profile — callers fall back to colored
+/// rectangles.
 pub fn build_npc_sprite_asset(
     catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    sprite_folder: &str,
-    filename: &str,
+    id: &AssetId,
     spec: CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    let rel = format!("{sprite_folder}/{filename}");
-    build_optional_plugin_relative(catalog, asset_server, layouts, &rel, spec)
+    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None)
 }
 
 /// Build a single Prop sprite asset. Same shape as
@@ -348,33 +345,8 @@ pub fn build_prop_sprite_asset(
     catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
-    sprite_folder: &str,
-    filename: &str,
+    id: &AssetId,
     spec: CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    let rel = format!("{sprite_folder}/{filename}");
-    build_optional_plugin_relative(catalog, asset_server, layouts, &rel, spec)
-}
-
-/// Shared core for story-plugin-side dynamic sprite loads (NPCs +
-/// props that aren't in the prebuilt catalog). Uses the catalog only
-/// for the per-profile load gate; the path is built from the
-/// caller-supplied `sprite_folder/filename` because the plugin owns
-/// its own filenames.
-fn build_optional_plugin_relative(
-    catalog: &SandboxAssetCatalog,
-    asset_server: &AssetServer,
-    layouts: &mut Assets<TextureAtlasLayout>,
-    rel_path: &str,
-    spec: CharacterSheetSpec,
-) -> Option<CharacterSpriteAsset> {
-    if !catalog.should_attempt_optional_load(rel_path) {
-        return None;
-    }
-    let layout = layouts.add(spec.build_atlas());
-    Some(CharacterSpriteAsset {
-        texture: asset_server.load(rel_path.to_string()),
-        layout,
-        spec,
-    })
+    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None)
 }

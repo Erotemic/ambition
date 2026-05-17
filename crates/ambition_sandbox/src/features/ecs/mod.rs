@@ -1379,8 +1379,19 @@ impl FeatureViewIndex {
         self.views.clear();
     }
 
-    fn insert(&mut self, id: &str, view: FeatureView) {
-        self.views.insert(id.to_string(), view);
+    /// Insert `view` for `id` only if no view has been recorded yet this
+    /// rebuild.
+    ///
+    /// Preserves the priority order of the old `ecs_feature_view`
+    /// linear scan (pickup → chest → breakable → switch → actor →
+    /// hazard → boss): the first matching family wins, later writes are
+    /// dropped. This matters because authored ids occasionally collide
+    /// between families (e.g. `encounter_chest_{encounter_id}` plus an
+    /// LDtk-authored Switch id with the same string would have rendered
+    /// as the chest under the linear scan; a plain HashMap `insert`
+    /// would silently flip them to whichever family runs last).
+    fn insert_if_absent(&mut self, id: &str, view: FeatureView) {
+        self.views.entry(id.to_string()).or_insert(view);
     }
 }
 
@@ -1402,7 +1413,7 @@ pub fn rebuild_feature_view_index(
 ) {
     index.clear();
     for (id, aabb, collected) in &pickups {
-        index.insert(
+        index.insert_if_absent(
             id.as_str(),
             FeatureView {
                 pos: aabb.center,
@@ -1415,7 +1426,7 @@ pub fn rebuild_feature_view_index(
         );
     }
     for (id, aabb, opened) in &chests {
-        index.insert(
+        index.insert_if_absent(
             id.as_str(),
             FeatureView {
                 pos: aabb.center,
@@ -1428,7 +1439,7 @@ pub fn rebuild_feature_view_index(
         );
     }
     for (id, aabb, breakable) in &breakables {
-        index.insert(
+        index.insert_if_absent(
             id.as_str(),
             FeatureView {
                 pos: aabb.center,
@@ -1441,7 +1452,7 @@ pub fn rebuild_feature_view_index(
         );
     }
     for (id, aabb, switch_on) in &switches {
-        index.insert(
+        index.insert_if_absent(
             id.as_str(),
             FeatureView {
                 pos: aabb.center,
@@ -1454,10 +1465,10 @@ pub fn rebuild_feature_view_index(
         );
     }
     for (id, actor) in &actors {
-        index.insert(id.as_str(), actor.feature_view());
+        index.insert_if_absent(id.as_str(), actor.feature_view());
     }
     for (id, aabb, hazard) in &hazards {
-        index.insert(
+        index.insert_if_absent(
             id.as_str(),
             FeatureView {
                 pos: hazard.hazard.pos,
@@ -1471,7 +1482,7 @@ pub fn rebuild_feature_view_index(
     }
     for (id, feature) in &bosses {
         let boss = &feature.boss;
-        index.insert(
+        index.insert_if_absent(
             id.as_str(),
             FeatureView {
                 pos: boss.pos,
@@ -1820,6 +1831,97 @@ mod tests {
         assert!(
             dialogue.active(),
             "dialogue should be active after NPC interact"
+        );
+    }
+
+    /// A same-frame pickup collection (drops the pickup entity into
+    /// the `Collected` state) must be reflected in `FeatureViewIndex`
+    /// in that same `app.update()`. Regression guard for the
+    /// previously-stale index that lived in `PresentationSync` —
+    /// pickups, switches, and encounter mobs all mutate in sets that
+    /// run AFTER `CoreSimulation`, so a rebuild in `PresentationSync`
+    /// would have published last frame's view.
+    #[test]
+    fn feature_view_index_reflects_same_frame_pickup_collection() {
+        let center = ae::Vec2::new(64.0, 64.0);
+        let mut app = App::new();
+        app.insert_resource(FeatureViewIndex::default());
+        let pickup_entity = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                FeatureId::new("hp_pickup"),
+                FeatureName::new("Health"),
+                FeatureAabb::from_center_size(center, ae::Vec2::new(12.0, 12.0)),
+                PickupFeature::new(ae::Pickup::new(
+                    "hp_pickup",
+                    ae::PickupKind::Health { amount: 1 },
+                )),
+            ))
+            .id();
+        app.add_systems(Update, rebuild_feature_view_index);
+        app.update();
+        assert!(
+            app.world()
+                .resource::<FeatureViewIndex>()
+                .get("hp_pickup")
+                .is_some_and(|v| v.visible),
+            "uncollected pickup must report visible"
+        );
+        // Now mark it Collected and rebuild on the next tick — the
+        // index must drop `visible` immediately, not a frame later.
+        app.world_mut().entity_mut(pickup_entity).insert(Collected);
+        app.update();
+        assert!(
+            app.world()
+                .resource::<FeatureViewIndex>()
+                .get("hp_pickup")
+                .is_some_and(|v| !v.visible),
+            "collected pickup must report not visible in the rebuild tick"
+        );
+    }
+
+    /// Duplicate ids across feature families must resolve to the
+    /// first-priority family in the legacy linear-scan order
+    /// (pickup → chest → breakable → switch → actor → hazard → boss).
+    /// A naive `HashMap::insert` would flip the rendered kind to
+    /// whichever family was iterated last.
+    #[test]
+    fn feature_view_index_first_write_wins_on_duplicate_ids() {
+        let pos = ae::Vec2::new(0.0, 0.0);
+        let mut app = App::new();
+        app.insert_resource(FeatureViewIndex::default());
+        // Pickup wins under the legacy linear-scan priority.
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("dup_id"),
+            FeatureName::new("Pickup"),
+            FeatureAabb::from_center_size(pos, ae::Vec2::new(8.0, 8.0)),
+            PickupFeature::new(ae::Pickup::new(
+                "dup_id",
+                ae::PickupKind::Health { amount: 1 },
+            )),
+        ));
+        // Same id, different family — must NOT shadow the pickup.
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("dup_id"),
+            FeatureName::new("Chest"),
+            FeatureAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
+            ChestFeature::new(ae::Chest::new("dup_id", None)),
+        ));
+        app.add_systems(Update, rebuild_feature_view_index);
+        app.update();
+        let view = app
+            .world()
+            .resource::<FeatureViewIndex>()
+            .get("dup_id")
+            .copied()
+            .expect("duplicate id must resolve to one of the two");
+        assert_eq!(
+            view.kind,
+            FeatureVisualKind::Pickup,
+            "first-write-wins priority must keep the pickup view (not the chest)"
         );
     }
 }

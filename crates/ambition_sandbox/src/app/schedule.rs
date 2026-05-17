@@ -61,6 +61,18 @@ pub enum SandboxSet {
     GameplayEffects,
     /// Boss save sync, quest events, body-mode, room metadata, map sync.
     Progression,
+    /// Rebuild the [`crate::features::FeatureViewIndex`] cache after
+    /// every same-frame mutation to feature state.
+    ///
+    /// Runs after `Progression` (and therefore after `FeatureCollection`,
+    /// `FeatureInteraction`, `EncounterSimulation`, `GameplayEffects`,
+    /// `Progression`) so the cache reflects this frame's pickup
+    /// collections, chest opens, switch toggles, encounter mob spawns,
+    /// reward-chest drops, and save-driven actor/boss sync. Presentation
+    /// systems that read the cache (`sync_visuals`,
+    /// `upgrade_enemy_sprites`, `upgrade_npc_sprites`) chain on the
+    /// presentation half and therefore see a fully-current snapshot.
+    FeatureViewSync,
     /// Sandbox reset request processor. Runs after CoreSimulation.
     ResetProcessing,
     /// Trace recording + dump flush. Runs after CoreSimulation.
@@ -110,6 +122,9 @@ pub fn configure_sandbox_sets(app: &mut App) {
             SandboxSet::Cutscene,
             SandboxSet::GameplayEffects,
             SandboxSet::Progression,
+            // FeatureViewSync is the final sim-side tail; everything
+            // that mutates ECS feature state has already run.
+            SandboxSet::FeatureViewSync,
         )
             .chain(),
     )

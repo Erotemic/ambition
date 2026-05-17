@@ -64,6 +64,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     register_gameplay_effects_systems(app);
     register_progression_chain_systems(app);
     register_progression_populate_systems(app);
+    register_feature_view_sync_systems(app);
     register_reset_processing_systems(app);
     register_trace_systems(app);
 }
@@ -310,21 +311,34 @@ fn register_combat_systems(app: &mut App) {
     );
 }
 
-/// Player ECS body write-back + presentation timer decays + the
-/// per-frame [`FeatureViewIndex`] rebuild. Runs unconditionally so
-/// paused / dialogue modes still wind down flash and landing-pose
-/// timers, and so the visual-side cache is always current when
-/// `sync_visuals` runs in the presentation half.
+/// Player ECS body write-back + presentation timer decays. Runs
+/// unconditionally so paused / dialogue modes still wind down flash and
+/// landing-pose timers.
 fn register_presentation_sync_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
             crate::player::write_player_ecs_components,
             cleanup_timers_system,
-            crate::features::rebuild_feature_view_index,
         )
             .chain()
             .in_set(SandboxSet::PresentationSync),
+    );
+}
+
+/// Per-frame [`crate::features::FeatureViewIndex`] rebuild.
+///
+/// Has its own set rather than living at the end of `PresentationSync`
+/// because the pickup / chest / switch / encounter-mob / save-driven
+/// boss sync mutations land in sets that fire *after* `CoreSimulation`
+/// (`FeatureCollection`, `FeatureInteraction`, `EncounterSimulation`,
+/// `GameplayEffects`, `Progression`). Rebuilding at the very tail of
+/// the sim chain guarantees the cache reflects this frame's full
+/// feature state before the presentation half reads it.
+fn register_feature_view_sync_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        crate::features::rebuild_feature_view_index.in_set(SandboxSet::FeatureViewSync),
     );
 }
 

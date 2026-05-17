@@ -1,0 +1,13 @@
+schema_version: 1
+type: ipfs-sidecar
+cid: bafybeia7h4t2ws5y4otg53okrg2qrs2xxmsidvg45hneewqi4c5lfkxhui
+rel_path: icons
+kind: directory
+import:
+  recursive: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+size_bytes: 3589599
+num_files: 2
+num_items: 3

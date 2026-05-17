@@ -77,12 +77,10 @@ pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics, profiling
 pub(crate) use host::{mobile_input, platform, windowing};
 pub(crate) use persistence::{save, settings};
 pub(crate) use player::bubble_shield;
-pub(crate) use presentation::{
-    character_sprites, cutscene, fx, parallax, rendering, ui_fonts,
-};
+pub(crate) use presentation::{character_sprites, cutscene, fx, rendering, ui_fonts};
 pub(crate) use runtime::{reset, setup};
 pub(crate) use time::{feel, time_control};
-pub(crate) use world::{physics, platforms, room_builder};
+pub(crate) use world::{physics, platforms};
 
 // Crate-root types/consts whose definitions moved into themed modules but
 // still need to surface at `crate::WorldTime` / `ambition_sandbox::WorldTime`.
@@ -146,9 +144,7 @@ pub use time_control::ProperTimeScale;
 use ambition_engine as ae;
 use bevy::prelude::{Message, Resource};
 
-use feel::SandboxFeelTuning;
 use input::KeyboardPreset;
-use player::components::PlayerSlot;
 
 /// Sandbox-side death notification. Emitted from `death_respawn_player`
 /// the frame the player's HP drops to zero and they respawn at the room

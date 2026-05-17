@@ -218,3 +218,9 @@ Conservative, sequenced:
 - [bevy_best_practices](https://github.com/tbillington/bevy_best_practices) — Tom Billington's opinionated Bevy practices guide (compile-time profile blocks, dev feature pattern, log level capping)
 - [Bevy compile time discussion](https://github.com/bevyengine/bevy/discussions/9146)
 - [Bevy binary size + compile time data gathering](https://github.com/bevyengine/bevy/discussions/14864)
+
+## Current implications for agents
+
+- Prefer feature gates and crate boundaries that preserve quick checks.
+- Avoid adding heavy dependencies to default builds without an explicit reason.
+- Use focused validation before broad workspace builds.

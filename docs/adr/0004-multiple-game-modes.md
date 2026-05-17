@@ -21,3 +21,9 @@ Examples:
 ## Consequences
 
 Do not hardwire the engine to one campaign structure. Do not let speculative modes block the first playable vertical slice. Use Bevy ECS and data specs so mode-specific policies can be added without rewriting core mechanics.
+
+## Current implications for agents
+
+- Keep mechanics reusable across modes.
+- Do not hardwire engine primitives to a single campaign structure.
+- Do not let speculative modes block focused vertical-slice work.

@@ -1,8 +1,9 @@
+
 # Vision docs index
 
-Vision docs are distilled direction. Raw idea exploration lives in `docs/brainstorms/` and remains active.
+Vision docs are distilled direction, not implementation truth. Current system truth belongs in `docs/current/`, `docs/concepts/`, `docs/systems/`, and ADRs. Living idea expansion belongs in `docs/brainstorms/`.
 
-| Doc | Use |
-|---|---|
-| [`goal-state.md`](goal-state.md) | Compact long-term product/engine direction. |
-| [`endgame-sandbox.md`](endgame-sandbox.md) | Older endgame sandbox seed; use as inspiration, not current implementation plan. |
+- [`goal-state.md`](goal-state.md) — product and experience target.
+- [`endgame-sandbox.md`](endgame-sandbox.md) — long-range sandbox possibilities.
+
+Mechanics status is now tracked in [`../mechanics/expressibility-checklist.md`](../mechanics/expressibility-checklist.md).

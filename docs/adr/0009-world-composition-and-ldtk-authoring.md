@@ -25,3 +25,9 @@ RON room/world manifests are historical. RON may still be used for tuning, save/
 ## Consequences
 
 Docs that mention RON-based world authoring must be archived or rewritten. Current world docs should point to `docs/systems/ldtk-world-composition.md`, `docs/recipes/ldtk-authoring.md`, `docs/tools/index.md`, and LDtk-related tests/tools.
+
+## Current implications for agents
+
+- Treat LDtk as world-composition source of truth.
+- Use LDtk tooling rather than hand-editing JSON.
+- Keep authored world data, runtime ECS projection, and presentation separate.

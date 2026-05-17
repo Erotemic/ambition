@@ -1,34 +1,31 @@
-# 0007: Use Avian2D for secondary physics while keeping the player controller custom
+# ADR 0007: Use Avian2D for secondary physics while keeping the player controller custom
 
 ## Status
 
-Accepted.
-
-## Context
-
-Ambition's core movement identity depends on a custom, highly tuned platformer controller. The player needs coyote time, buffered jumps/dashes, blink semantics, pogo refreshes, wall behavior, bullet-time aiming, and future mathematical movement operations that are easier to reason about as explicit kinematic gameplay code than as a fully dynamic rigid body.
-
-At the same time, the sandbox is starting to need physical secondary motion: breakable platforms should throw shards, defeated enemies should leave ragdoll-like chunks, boss defeats should feel heavier, and later props or optional physics-player experiments should be possible without rewriting the engine.
+Accepted direction; implementation remains incremental.
 
 ## Decision
 
-Use `avian2d` as the Bevy sandbox's secondary physics backend for dynamic props, debris, and ragdoll-like bodies.
+Use Avian2D as a secondary physics backend for dynamic props, debris, ragdoll-like chunks, breakable effects, and experiments.
 
-Do not move the primary player controller to Avian. The player remains custom/kinematic by default.
+Do **not** move the primary player controller to Avian by default. The player controller remains custom kinematic gameplay code because Ambition's movement identity depends on explicit platformer semantics: coyote time, buffered input, dash, blink, pogo, wall behavior, body modes, and collision-safe resizing.
 
-Add a backend-neutral physics vocabulary to `ambition_engine` so game data can describe physical intent without depending directly on Avian component names. The sandbox maps that vocabulary and runtime events into Avian rigid bodies.
+Expose backend-neutral physics intent in `ambition_engine` only where it helps gameplay data describe physical effects without depending directly on sandbox presentation adapters.
+
+## Context
+
+Ambition needs physical secondary motion, but the core player controller is not a generic rigid-body problem. Earlier notes about Avian and Parry were patch-era scaffolding; the current trusted system entry point is `docs/systems/collision-geometry-and-secondary-physics.md`.
 
 ## Consequences
 
-- Room solids can be mirrored as Avian static colliders for debris and props.
-- Breakables, defeated enemies, and bosses can spawn dynamic debris/ragdoll pieces.
-- The current player collision path remains unchanged.
-- A future `PhysicsControlledPlayerPrototype` marker can be used for experimental alternate modes without changing the default controller.
-- Spatial and coordinate conversion code around physics should be treated as review-sensitive because Ambition simulation space uses top-left +Y-down coordinates while Bevy/Avian uses centered +Y-up rendering/physics coordinates.
+- Room solids may be mirrored as static colliders for debris/props where useful.
+- Breakables, enemies, bosses, and props may spawn dynamic secondary physics bodies.
+- The default player collision path remains custom/kinematic.
+- Coordinate conversion between Ambition, Bevy, LDtk, and Avian is spatial-review-sensitive.
 
-## Follow-ups
+## Current implications for agents
 
-- Add richer data-driven physics specs to room objects when the first effect layer settles.
-- Consider static colliders for intact breakable platforms, but only if they can be despawned when the breakable changes state.
-- Consider joints and articulated bodies once enemies have more stable ECS state machines.
-- Keep player physics optional and experimental until a physics-controlled mode proves it can preserve Ambition's movement feel.
+- Do not replace player movement with Avian unless a future ADR explicitly changes this decision.
+- Keep secondary physics presentation separate from primary collision correctness.
+- Search `dev/` for movement/collision lessons before editing geometry code.
+- Add `AMBITION_REVIEW(spatial): ...` near coordinate conversions that are plausible but hard to prove.

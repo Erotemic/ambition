@@ -1,6 +1,7 @@
+
 # Recipe docs index
 
-Recipes are current procedures: commands, workflows, or repeatable edit protocols an agent can use today. Superseded migrations and one-off roadmap notes belong in `docs/archive/`, `dev/journals/`, or deletion history instead of this index.
+Recipes are current procedures: commands, workflows, or repeatable edit protocols an agent can use today. Landed migrations, one-off roadmaps, and design labs belong in `docs/archive/`, `docs/brainstorms/`, `dev/journals/`, or git history.
 
 ## Build and platform workflows
 
@@ -19,15 +20,14 @@ Recipes are current procedures: commands, workflows, or repeatable edit protocol
 | LDtk authoring | [`ldtk-authoring.md`](ldtk-authoring.md) |
 | Add a showcase room | [`add-showcase-room.md`](add-showcase-room.md) |
 | Mob lab encounter | [`mob-lab.md`](mob-lab.md) |
-| Music generation pipeline | [`music-generation-pipeline-notes.md`](music-generation-pipeline-notes.md), [`music-generation-balance-notes.md`](music-generation-balance-notes.md), [`music-transition-lab.md`](music-transition-lab.md), [`music-transition-notes.md`](music-transition-notes.md), [`procedural-tune-authoring.md`](procedural-tune-authoring.md) |
+| Generated music | [`generated-music-workflow.md`](generated-music-workflow.md) |
 
 ## Maintenance workflows
 
 | Workflow | Doc |
 |---|---|
 | Large-file refactors | [`large-file-refactors.md`](large-file-refactors.md) |
-| Crate split planning | [`crate-split-plan.md`](crate-split-plan.md) |
 
-## Pruned from recipes
+## Excluded from recipes
 
-The old crate-strategy, intro-followup, basement-wave, fly/room-hub, and flying-door activation notes were removed from this index because they were stale roadmap fragments rather than current procedures. Recover them from git history only if a future task needs historical context.
+Crate-split plans, old music transition labs, and landed migration notes are not current recipes. Recover them from `docs/archive/` or git history only when investigating why a past choice happened.

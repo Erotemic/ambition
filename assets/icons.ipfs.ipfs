@@ -1,0 +1,24 @@
+type: ipfs-sidecar
+cid: bafybeia6s2jiz3qh5be7la2umyn5tschj3exalble23f476cidyn5aguda
+rel_path: icons.ipfs
+size: 262 B
+num_items: 1
+add_config:
+  path: icons.ipfs
+  name: null
+  recursive: true
+  progress: true
+  cid_version: 1
+  raw_leaves: false
+  only_hash: false
+  pin: true
+  sidecar: true
+  update_gitignore: true
+  git_add_sidecar: true
+  dry_run: false
+add_datetime: 2026-05-17T160608-5
+add_duration: 0.875138665898703
+local_quickstat:
+  kind: file
+  bytes: 262
+  mtime: 1779049589.5550187

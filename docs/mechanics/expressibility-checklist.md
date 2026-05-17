@@ -1,54 +1,48 @@
+
 # Mechanics expressibility checklist
 
-This is the compact current checklist for reusable backend expressibility. It intentionally avoids exhaustive wishlist prose; use `docs/brainstorms/` for idea expansion and `docs/archive/historical-roadmaps/` for old snapshots.
+Use this as a compact current-status map. It intentionally avoids long wishlist prose; living idea expansion belongs in `docs/brainstorms/`.
 
-Legend:
+Legend: `[x]` expressible now, `[~]` scaffolded but incomplete, `[ ]` not yet reusable backend.
 
-- `[x]` implemented or meaningfully expressible in current code/tests.
-- `[~]` scaffolded but not a complete polished mechanic.
-- `[ ]` not yet expressible as reusable backend.
+## Movement
 
-## Current reusable primitives
+- [x] Kinematic controller, coyote/buffered jump, air jump, dash charges, wall cling/jump/climb, fast fall.
+- [x] Blink/teleport targeting and safety checks.
+- [x] Glide and fly/debug mode.
+- [~] Ledge grab / mantle: behavior exists, polish and animation coverage remain incomplete.
+- [~] Moving platforms: implemented path exists, but carry semantics need more validation.
+- [ ] Grapple/tether constraints.
 
-- [x] Kinematic player controller with coyote/buffered jump, dash, double dash, air jump, wall cling/jump/climb, fast fall, glide, fly/debug mode.
-- [x] Blink/teleport targeting and safety handling.
-- [x] Directional slash intents, including upward slash and downward slash / pogo behavior.
+## Combat and interactions
+
+- [x] Directional slash intents, including upward slash and downward slash / pogo.
 - [x] Projectile backend with Fireball and Hadouken-style motion-input upgrade.
 - [x] Shield/parry state and bubble-shield presentation.
-- [x] Body modes and collision-safe body-shape checks for crouch/crawl/slide/morph-ball-style traversal.
-- [x] Resource meters for dash/projectile-style gating.
 - [x] Actor/faction/damage/interactable/breakable vocabulary.
-- [x] Boss-pattern and encounter vocabulary.
-- [x] Trace/replay/debug hooks for validating movement/combat behavior.
+- [~] Dialogue/commerce hooks: architectural seed exists, content pipeline is not final.
 
-## Partially scaffolded
+## Body and traversal
 
-- [~] Ledge grab / mantle: backend and sandbox behavior exist, but animation/polish and broad validation are still evolving.
-- [~] Moving platforms: data and systems exist; carry-velocity and edge cases need more validation.
-- [~] Body-mode traversal: backend exists; more authored rooms and polish needed.
-- [~] Dialogue/commerce hooks: architecture seed exists; content pipeline is not final.
-- [~] Avian2D secondary physics: intended for debris/props, not the primary player controller.
+- [x] Crouch/crawl/slide/body-mode vocabulary.
+- [x] Collision-safe shape checks for compact traversal and morph-ball-style modes.
+- [~] Authored traversal rooms for body-mode mechanics need expansion.
+- [ ] Spring-ball/bomb/spider-ball-style specialized traversal.
 
-## Missing high-value primitives
+## Simulation and validation
 
-- [ ] Grapple/tether constraint backend.
-- [ ] Generic ray/shape-cast targeting API beyond current specialized uses.
-- [ ] Parametric/curve movement backend and preview renderer.
-- [ ] Vector/scalar field sampling for mathematical movement/world rules.
-- [ ] Per-entity/local-clock gameplay backend beyond current time-domain design docs.
-- [ ] Deterministic randomness/probability backend for procedural systems.
-- [ ] Robust moving-platform carry semantics.
+- [x] Trace/replay/debug hooks for movement/combat validation.
+- [~] Avian2D secondary physics for debris/props; not the primary player controller.
+- [~] Time-domain vocabulary is documented; full per-entity proper-time gameplay is future work.
+- [ ] Deterministic procedural/randomness backend for generated systems.
 
 ## Validation anchors
 
-Use focused tests where possible:
-
 ```bash
-cargo test -p ambition_engine combat::
-cargo test -p ambition_engine projectile::
-cargo test -p ambition_engine movement::
-cargo test -p ambition_engine --test body_shape_fits_at
+cargo test -p ambition_engine combat
+cargo test -p ambition_engine projectile
+cargo test -p ambition_engine movement
 cargo test -p ambition_sandbox scripted_gameplay
 ```
 
-Run broader tests only after focused validation is green.
+Prefer exact tests named by concepts or benchmark candidates when available.

@@ -1,11 +1,8 @@
+
 # Mechanics docs index
 
-Mechanics docs describe what gameplay primitives are expressible now and where the reusable backend lives.
+Mechanics docs describe reusable gameplay primitives and their current expressibility. They are not idea-generation space; use `docs/brainstorms/` for expansion.
 
-| Doc | Use |
-|---|---|
-| [`expressibility-checklist.md`](expressibility-checklist.md) | Compact current checklist of landed/scaffolded/missing mechanics. |
-| [`body_modes.md`](body_modes.md) | Body modes, body shapes, collision-safe resize, and locomotion state. |
-| [`projectiles_and_motion_inputs.md`](projectiles_and_motion_inputs.md) | Fireball/Hadouken projectile backend and motion-input recognizer. |
-
-Keep this folder current. Move long historical wishlist snapshots to `docs/archive/historical-roadmaps/`.
+- [`expressibility-checklist.md`](expressibility-checklist.md) — compact status of current backend primitives.
+- [`body_modes.md`](body_modes.md) — body modes and shape-changing traversal.
+- [`projectiles_and_motion_inputs.md`](projectiles_and_motion_inputs.md) — projectile and command-input primitives.

@@ -27,3 +27,9 @@ Delete redirect-only stubs instead of keeping compatibility clutter. If an old n
 ## Consequences
 
 Agents should read less by default and trust current docs more. Maintainers should actively prune stale docs instead of preserving every old plan at a live path.
+
+## Current implications for agents
+
+- Keep live docs routed and token-efficient.
+- Delete redirect-only stubs instead of preserving flat-doc clutter.
+- Move stale plans to `docs/archive/` or delete them when git history is enough.

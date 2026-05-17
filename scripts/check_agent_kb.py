@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,8 +23,16 @@ REQUIRED_FILES = [
     "docs/concepts/platform-targets.md",
     "docs/concepts/tools-and-generated-content.md",
     "docs/systems/index.md",
+    "docs/systems/asset-manager.md",
+    "docs/systems/collision-geometry-and-secondary-physics.md",
     "docs/recipes/index.md",
+    "docs/recipes/generated-music-workflow.md",
     "docs/tools/index.md",
+    "docs/tools/ldtk-tools.md",
+    "docs/tools/generated-audio-tools.md",
+    "docs/tools/generated-visual-tools.md",
+    "docs/tools/optimization-and-reporting.md",
+    "docs/tools/tool-authoring-policy.md",
     "docs/mechanics/index.md",
     "docs/mechanics/expressibility-checklist.md",
     "docs/vision/index.md",
@@ -41,6 +50,10 @@ REQUIRED_FILES = [
     ".agent/index/symbol_index.json",
     ".agent/index/test_map.json",
     ".agent/index/concept_index.json",
+    ".agent/index/adr_index.json",
+    ".agent/index/tool_index.json",
+    ".agent/index/archive_index.json",
+    ".agent/index/doc_health.json",
     "scripts/generate_agent_index.py",
 ]
 
@@ -60,21 +73,47 @@ FORBIDDEN_LIVE_PATHS = [
     "docs/systems/rooms-and-camera.md",
     "docs/systems/room-graph-data-model.md",
     "docs/systems/ldtk-runtime-spine.md",
+    "docs/systems/avian2d-physics-foundation.md",
+    "docs/systems/parry2d-geometry.md",
+    "docs/systems/enemy-collision.md",
+    "docs/systems/moving-platforms.md",
     "docs/recipes/glam-migration.md",
     "docs/recipes/bevy-math-engine-refactor.md",
     "docs/recipes/events-refactor-plan.md",
     "docs/recipes/room-layout-refactor.md",
     "docs/recipes/mechanics-checklist.md",
     "docs/recipes/steam-deck-deploy.md",
+    "docs/recipes/crate-split-plan.md",
+    "docs/recipes/music-generation-balance-notes.md",
+    "docs/recipes/music-generation-pipeline-notes.md",
+    "docs/recipes/music-transition-lab.md",
+    "docs/recipes/music-transition-notes.md",
+    "docs/recipes/procedural-tune-authoring.md",
+    "docs/vision/mechanics-expressibility-checklist.md",
     "docs/agent_states/gpt_5_5_20260430.md",
     "docs/agent_states/gpt_5_5_20260501-v1.md",
     "docs/agent_states/gpt_5_5_20260501-v2.md",
+]
+
+DUPLICATE_ARCHIVE_PATHS = [
+    "docs/archive/superseded-migrations/bevy-math-engine-refactor.md",
+    "docs/archive/superseded-migrations/events-refactor-plan.md",
+    "docs/archive/superseded-migrations/glam-migration.md",
+    "docs/archive/superseded-migrations/room-layout-refactor.md",
+    "docs/archive/old-system-notes/room-graph-data-model.md",
+    "docs/archive/old-system-notes/rooms-and-camera.md",
 ]
 
 STALE_ACTIVE_PATTERNS = [
     (re.compile(r"docs/(AGENT_HANDOFF|CURRENT_STATE|GOAL_STATE|lessons_learned|redirects)\.md"), "removed top-level doc stub"),
     (re.compile(r"0002-engine-may-be-bevy-native\.md"), "superseded ADR path"),
     (re.compile(r"RON rooms|RON room authoring|RON-backed RoomSet|sandbox\.ron.*rooms", re.IGNORECASE), "stale RON-room phrasing"),
+]
+
+STALE_RECIPE_OR_SYSTEM_PATTERNS = [
+    (re.compile(r"\bthis patch introduces\b", re.IGNORECASE), "patch-era phrasing"),
+    (re.compile(r"\bmigration plan\b", re.IGNORECASE), "migration-plan phrasing"),
+    (re.compile(r"\blanded roadmap\b", re.IGNORECASE), "landed-roadmap phrasing"),
 ]
 
 
@@ -146,6 +185,9 @@ def check_forbidden_live_paths(errors: list[str]) -> None:
     for item in FORBIDDEN_LIVE_PATHS:
         if (ROOT / item).exists():
             fail(errors, f"forbidden live stale doc remains: {item}; archive or delete it")
+    for item in DUPLICATE_ARCHIVE_PATHS:
+        if (ROOT / item).exists():
+            fail(errors, f"duplicate archived copy remains: {item}; keep one canonical archive copy")
 
 
 def check_top_level_docs(errors: list[str]) -> None:
@@ -178,6 +220,10 @@ def check_json_indexes(errors: list[str]) -> None:
         ".agent/index/symbol_index.json": "symbols",
         ".agent/index/test_map.json": "tests",
         ".agent/index/concept_index.json": "concepts",
+        ".agent/index/adr_index.json": "adrs",
+        ".agent/index/tool_index.json": "tools",
+        ".agent/index/archive_index.json": "archive_docs",
+        ".agent/index/doc_health.json": "doc_count",
     }
     for relpath, payload_key in required_keys.items():
         path = ROOT / relpath
@@ -266,6 +312,57 @@ def check_retrieval_evals(errors: list[str]) -> None:
             fail(errors, f"retrieval eval references missing path: {relpath}")
 
 
+def check_adr_current_implications(errors: list[str]) -> None:
+    for path in sorted((ROOT / "docs" / "adr").glob("*.md")):
+        if path.name == "README.md":
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if "## Status" not in text:
+            fail(errors, f"{rel(path)} missing ## Status")
+        if "## Current implications for agents" not in text:
+            fail(errors, f"{rel(path)} missing ## Current implications for agents")
+
+
+def check_active_doc_phrasing(errors: list[str]) -> None:
+    for root in [ROOT / "docs" / "recipes", ROOT / "docs" / "systems"]:
+        if not root.exists():
+            continue
+        for path in sorted(root.glob("*.md")):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for pattern, label in STALE_RECIPE_OR_SYSTEM_PATTERNS:
+                if pattern.search(text):
+                    fail(errors, f"{rel(path)} contains {label}; archive old patch/migration notes")
+
+
+def check_archive_duplicates(errors: list[str]) -> None:
+    archive = ROOT / "docs" / "archive"
+    if not archive.exists():
+        return
+    by_name: dict[str, list[str]] = defaultdict(list)
+    for path in archive.rglob("*.md"):
+        if path.name in {"README.md", "index.md"}:
+            continue
+        by_name[path.name].append(rel(path))
+    for name, paths in sorted(by_name.items()):
+        if len(paths) > 1:
+            fail(errors, f"archive has duplicate basename {name}: {', '.join(paths)}")
+
+
+def check_tool_docs(errors: list[str]) -> None:
+    tools = ROOT / "tools"
+    docs_text = "\n".join(
+        p.read_text(encoding="utf-8", errors="replace")
+        for p in (ROOT / "docs" / "tools").glob("*.md")
+    ) if (ROOT / "docs" / "tools").exists() else ""
+    if not tools.exists():
+        return
+    for path in sorted(tools.iterdir()):
+        if not path.is_dir() or path.name == "experimental":
+            continue
+        if (path / "README.md").exists() and path.name not in docs_text:
+            fail(errors, f"tool with README missing from docs/tools coverage: tools/{path.name}")
+
+
 def main() -> int:
     errors: list[str] = []
     check_required_files(errors)
@@ -277,6 +374,10 @@ def main() -> int:
     check_concepts(errors)
     check_markdown_links(errors)
     check_retrieval_evals(errors)
+    check_adr_current_implications(errors)
+    check_active_doc_phrasing(errors)
+    check_archive_duplicates(errors)
+    check_tool_docs(errors)
     if errors:
         print("Agent KB check failed:", file=sys.stderr)
         for msg in errors:

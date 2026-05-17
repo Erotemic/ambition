@@ -8,13 +8,16 @@ aliases:
   - reproducible assets
 implemented_by:
   - tools/ambition_music_renderer
+  - tools/ambition_sfx_renderer
+  - tools/ambition_sfx_pack
   - crates/ambition_sandbox/src/audio.rs
   - crates/ambition_sandbox/src/music.rs
   - crates/ambition_asset_manager/src
   - assets/
 related_docs:
-  - docs/recipes/music-generation-pipeline-notes.md
-  - docs/recipes/music-transition-notes.md
+  - docs/recipes/generated-music-workflow.md
+  - docs/tools/generated-audio-tools.md
+  - docs/tools/generated-visual-tools.md
   - docs/systems/ai-generation-contract.md
   - docs/systems/asset-manager.md
 related_memory:

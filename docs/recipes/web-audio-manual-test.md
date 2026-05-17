@@ -164,7 +164,7 @@ For each item: paste the literal log line, or note "missing" /
 > is a volume duck (~8 dB on music, ~5 dB on SFX) that ramps over
 > ~350 ms. The mix gets quieter; the spectrum is unchanged. See
 > `docs/systems/audio-underwater.md` for the backend blocker and the
-> direct-Kira migration plan.
+> direct-Kira follow-up plan.
 
 ### How to enter underwater state
 

@@ -1,6 +1,7 @@
+
 # System docs index
 
-System docs describe current subsystem behavior. Superseded migrations and one-off patch notes belong in `docs/archive/`.
+System docs describe current subsystem behavior. If a file reads like a landed migration, old patch skeleton, or roadmap fragment, archive or delete it instead of listing it here.
 
 ## Core architecture
 
@@ -16,10 +17,9 @@ System docs describe current subsystem behavior. Superseded migrations and one-o
 | Area | Doc |
 |---|---|
 | LDtk/world composition | [`ldtk-world-composition.md`](ldtk-world-composition.md), [`ldtk-hot-reload.md`](ldtk-hot-reload.md), [`transition-spawn-validation.md`](transition-spawn-validation.md) |
-| Movement/collision | [`blink-and-fastfall.md`](blink-and-fastfall.md), [`blink-motion-policy.md`](blink-motion-policy.md), [`moving-platforms.md`](moving-platforms.md), [`enemy-collision.md`](enemy-collision.md) |
+| Collision / geometry / secondary physics | [`collision-geometry-and-secondary-physics.md`](collision-geometry-and-secondary-physics.md) |
+| Movement verbs | [`blink-and-fastfall.md`](blink-and-fastfall.md), [`blink-motion-policy.md`](blink-motion-policy.md) |
 | Abilities/combat/actors | [`ability-system.md`](ability-system.md), [`ability-subset.md`](ability-subset.md), [`factions.md`](factions.md), [`boss-behavior-profiles.md`](boss-behavior-profiles.md), [`boss-encounter-architecture.md`](boss-encounter-architecture.md) |
-| UI/input/settings | [`input-model.md`](input-model.md), [`mobile-touch-controls.md`](mobile-touch-controls.md), [`menu-navigation.md`](menu-navigation.md), [`game-mode-pause.md`](game-mode-pause.md), [`settings-system.md`](settings-system.md), [`pause-menu-settings.md`](pause-menu-settings.md), [`save-and-settings.md`](save-and-settings.md) |
+| UI/input/settings | [`input-model.md`](input-model.md), [`input-feel.md`](input-feel.md), [`mobile-touch-controls.md`](mobile-touch-controls.md), [`menu-navigation.md`](menu-navigation.md), [`game-mode-pause.md`](game-mode-pause.md), [`settings-system.md`](settings-system.md), [`pause-menu-settings.md`](pause-menu-settings.md), [`save-and-settings.md`](save-and-settings.md) |
 | Presentation/assets/audio | [`asset-manager.md`](asset-manager.md), [`parallax-backgrounds.md`](parallax-backgrounds.md), [`camera-and-visual-profiles.md`](camera-and-visual-profiles.md), [`audio-particles.md`](audio-particles.md), [`audio-underwater.md`](audio-underwater.md), [`display-modes.md`](display-modes.md) |
-| Experimental/future foundations | [`avian2d-physics-foundation.md`](avian2d-physics-foundation.md), [`parry2d-geometry.md`](parry2d-geometry.md), [`time-reference-platform.md`](time-reference-platform.md), [`two-clock-simulation.md`](two-clock-simulation.md), [`progression-systems.md`](progression-systems.md), [`ai-generation-contract.md`](ai-generation-contract.md) |
-
-If a doc reads like "migration plan", "patch skeleton", or "landed roadmap", archive it instead of listing it here.
+| Time/progression/AI | [`time-reference-platform.md`](time-reference-platform.md), [`two-clock-simulation.md`](two-clock-simulation.md), [`progression-systems.md`](progression-systems.md), [`ai-generation-contract.md`](ai-generation-contract.md) |

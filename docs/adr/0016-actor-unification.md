@@ -4,16 +4,24 @@
 
 Accepted direction; implementation remains incremental.
 
-## Context
-
-Earlier notes separated interactions, hazards, enemies, bosses, debug labels, and NPCs as independent skeleton systems. That made sense while proving primitives, but it is not the enduring architecture. The current direction is data-driven ECS: authored entities and generated specs become components, systems interpret components, and presentation consumes resulting messages/state.
-
 ## Decision
 
-Use actor-like ECS data for gameplay entities that can be spawned, damaged, interacted with, addressed by content IDs, or participate in encounters.
+Represent gameplay entities that can be spawned, addressed, damaged, interacted with, or used in encounters as actor-like ECS data. This is a compositional ECS vocabulary, not one mega-component.
 
-This does not mean every entity shares one mega-component. It means common identity, faction, health/damage, interaction, movement/path, and encounter hooks should compose through components and reusable engine vocabulary.
+Common reusable pieces include identity/content IDs, faction, health/damage, interaction hooks, movement/path behavior, encounter membership, and presentation messages.
+
+## Context
+
+Earlier patch notes separated interactions, hazards, enemies, bosses, labels, and NPCs into independent skeleton systems. That was useful while proving primitives, but it is not the enduring architecture. The current project direction is data-driven ECS: authored/generated data becomes components; systems interpret components; presentation consumes resulting state/messages.
 
 ## Consequences
 
-Old skeleton docs such as interaction/hazard/actor patch notes are historical. Current work should update components, concepts, systems, and tests rather than adding another one-off taxonomy.
+- Old interaction/hazard/actor skeleton docs are historical.
+- New one-off taxonomies should be avoided unless a concept genuinely cannot compose through actor-like ECS data.
+- Dialogue/commerce, combat, hazards, bosses, and authored LDtk entities should converge on shared identity and interaction vocabulary where practical.
+
+## Current implications for agents
+
+- Before adding a new gameplay entity category, check whether actor/faction/damage/interactable components already express it.
+- Keep component vocabulary small and compositional.
+- Update concept/system docs when a reusable actor invariant changes.

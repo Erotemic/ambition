@@ -24,3 +24,9 @@ The Bevy app should be composed through named plugin/setup phases rather than on
 ## Consequences
 
 The archived event-refactor plan is historical evidence. Current agents should read this ADR, `docs/concepts/sim-presentation-seam.md`, and focused source/tests instead of following the old migration checklist.
+
+## Current implications for agents
+
+- Keep gameplay semantics in simulation data/messages.
+- Keep audio, VFX, sprites, UI, and debug overlays in presentation.
+- Use tests/headless paths for simulation behavior where possible.

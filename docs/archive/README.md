@@ -1,26 +1,24 @@
 # Archive
 
-Archive files are historical evidence. They are not current authority.
+Archived docs are historical evidence. They are not current authority.
 
-Use current docs first:
+Use the archive when investigating why a decision happened, recovering details from a landed migration, or comparing old and current direction. Do not put active guidance here.
 
-- `docs/README.md`
-- `docs/current/`
-- `docs/adr/`
-- `docs/concepts/`
-- `docs/systems/`
-- `docs/recipes/`
-- `docs/tools/`
-- `docs/mechanics/`
+## Layout
 
-Archive categories:
+| Area | Meaning |
+|---|---|
+| `agent-handoffs/` | Old handoff prompts and autonomous-session notes. |
+| `agent-states/` | Old model/session state dumps. |
+| `historical-roadmaps/` | Landed or abandoned implementation roadmaps. |
+| `music-labs/` | Old generated-music transition and balance experiments. |
+| `old-system-notes/` | Pre-KB system notes kept for historical context. |
+| `port_notes/` | Historical porting notes. |
+| `retired/` | Retired systems. |
+| `superseded-adrs/` | ADRs replaced by newer ADRs. |
+| `superseded-migrations/` | Migration notes kept until duplicate cleanup. Prefer `historical-roadmaps/` if both exist. |
+| `superseded-systems/` | System docs superseded by current `docs/systems/` entries. |
 
-- `agent-handoffs/` and `agent-states/` — old handoff prompts and snapshots.
-- `retired/` — intentionally retired systems.
-- `superseded-adrs/` — old ADR text replaced by modern ADRs.
-- `superseded-migrations/` — migration plans that have landed or no longer describe current procedure.
-- `superseded-systems/` — old system skeletons or code-driven/RON-era notes.
-- `historical-roadmaps/` — old planning snapshots.
-- overlay folders — patch history and forensic notes.
+## Current docs
 
-`docs/brainstorms/` is not archive. It is active design incubation.
+Use [`../README.md`](../README.md) to find current docs. If an archived note still affects current work, promote the durable part into `docs/concepts/`, `docs/systems/`, `docs/recipes/`, or an ADR.

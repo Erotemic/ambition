@@ -19,3 +19,9 @@ Because the standard apply command extracts files but does not remove stale path
 ## Consequences
 
 This keeps bandwidth low while making patch scope clear. It also makes future agent work safer: if a patch was generated without a full repo view, reviewers can treat it as partial by design rather than assuming it reflected the whole project.
+
+## Current implications for agents
+
+- Verify whether a patch is based on a full repo checkpoint.
+- Preserve repo-relative paths exactly in overlay packages.
+- Provide explicit cleanup commands when stale paths must be removed.

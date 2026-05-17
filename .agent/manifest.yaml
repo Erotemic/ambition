@@ -1,4 +1,4 @@
-schema_version: 3
+schema_version: 4
 generated_from_commit: unknown
 generated_at: 2026-05-17T00:00:00Z
 
@@ -29,18 +29,26 @@ policy:
     - .agent/index/symbol_index.json
     - .agent/index/test_map.json
     - .agent/index/concept_index.json
+    - .agent/index/adr_index.json
+    - .agent/index/tool_index.json
+    - .agent/index/archive_index.json
+    - .agent/index/doc_health.json
 
 indexes:
   file_summaries: .agent/index/file_summaries.json
   symbol_index: .agent/index/symbol_index.json
   test_map: .agent/index/test_map.json
   concept_index: .agent/index/concept_index.json
+  adr_index: .agent/index/adr_index.json
+  tool_index: .agent/index/tool_index.json
+  archive_index: .agent/index/archive_index.json
+  doc_health: .agent/index/doc_health.json
 
 evals: .agent/retrieval_evals.yaml
 
 notes:
   - Generated indexes are navigation aids, not authority.
-  - Regenerate when files, symbols, tests, or concept pages move.
+  - Regenerate when files, symbols, tests, tools, ADRs, archive entries, or concept pages move.
   - Keep AGENTS.md small; route to docs/dev/.agent instead of dumping knowledge there.
-  - Brainstorms are active design incubation, not archive.
+  - Brainstorms are active design incubation and are not touched by cleanup scripts.
   - Top-level docs should contain only docs/README.md.

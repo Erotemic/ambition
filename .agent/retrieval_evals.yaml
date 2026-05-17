@@ -1,4 +1,4 @@
-schema_version: 2
+schema_version: 3
 source: dev/benchmark-candidates
 purpose: >-
   Repository-specific retrieval and localization checks. These are not gameplay
@@ -28,6 +28,7 @@ evals:
       - docs/recipes/android-build.md
       - docs/systems/mobile-touch-controls.md
       - docs/systems/asset-manager.md
+      - docs/tools/index.md
     expected_answer_contains:
       - web
       - Android
@@ -41,6 +42,7 @@ evals:
       - ldtk-world-composition
     expected_docs:
       - docs/tools/index.md
+      - docs/tools/ldtk-tools.md
       - docs/tools/author_ldtk_area.md
       - docs/recipes/ldtk-authoring.md
     expected_answer_contains:
@@ -93,6 +95,7 @@ evals:
       - docs/systems/ldtk-world-composition.md
       - docs/recipes/ldtk-authoring.md
       - docs/adr/0009-world-composition-and-ldtk-authoring.md
+      - docs/tools/ldtk-tools.md
     expected_memory:
       - dev/benchmark-candidates/ldtk-runtime-collision-questions.md
 
@@ -106,9 +109,9 @@ evals:
       - dev/journals/music-director-refactor-lessons-2026-05-11.md
       - dev/benchmark-candidates/music-director-module-split-question-2026-05-11.md
     expected_docs:
-      - docs/recipes/music-generation-pipeline-notes.md
+      - docs/recipes/generated-music-workflow.md
+      - docs/tools/generated-audio-tools.md
       - docs/systems/asset-manager.md
-      - docs/tools/index.md
 
   - id: cargo-test-filter
     question: The agent wants to run multiple cargo test filters in one command. What lesson prevents the bad command?
@@ -131,3 +134,25 @@ evals:
       - stale
       - entrypoint
       - validation
+
+  - id: collision-secondary-physics-boundary
+    question: Should a debris or prop change move the player controller to Avian2D?
+    expected_docs:
+      - docs/adr/0007-avian2d-secondary-physics.md
+      - docs/systems/collision-geometry-and-secondary-physics.md
+    expected_answer_contains:
+      - secondary physics
+      - player controller
+      - kinematic
+
+  - id: tool-inventory-generated-assets
+    question: Which tools generate audio, sprites, backgrounds, parallax assets, and reports?
+    expected_docs:
+      - docs/tools/index.md
+      - docs/tools/generated-audio-tools.md
+      - docs/tools/generated-visual-tools.md
+      - docs/tools/optimization-and-reporting.md
+    expected_answer_contains:
+      - ambition_music_renderer
+      - ambition_sprite2d_renderer
+      - optimization_report

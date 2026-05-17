@@ -27,3 +27,9 @@ The project should lean into Bevy idioms:
 ## Consequences
 
 Do not add abstractions merely to preserve backend neutrality. Add seams when they improve testability, reuse, or platform composition. Prefer data-driven ECS flow over parallel bespoke state whenever the system is moving toward runtime gameplay.
+
+## Current implications for agents
+
+- Prefer Bevy-native ECS/data flow over backend-neutral wrappers.
+- Keep sandbox presentation/app-shell policy out of reusable engine semantics.
+- Do not revive the old "may be Bevy-native" ambiguity.

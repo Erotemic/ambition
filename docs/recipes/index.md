@@ -1,6 +1,6 @@
 # Recipe docs index
 
-Recipes are current procedures. Superseded migrations belong in `docs/archive/`.
+Recipes are current procedures: commands, workflows, or repeatable edit protocols an agent can use today. Superseded migrations and one-off roadmap notes belong in `docs/archive/`, `dev/journals/`, or deletion history instead of this index.
 
 ## Build and platform workflows
 
@@ -26,7 +26,8 @@ Recipes are current procedures. Superseded migrations belong in `docs/archive/`.
 | Workflow | Doc |
 |---|---|
 | Large-file refactors | [`large-file-refactors.md`](large-file-refactors.md) |
-| Crate split thinking | [`crate-split-plan.md`](crate-split-plan.md), [`crate-strategy.md`](crate-strategy.md), [`crate-foundation-seldom-state-assets-tests.md`](crate-foundation-seldom-state-assets-tests.md) |
-| Intro/feature-roadmap notes | [`intro-followup-roadmap.md`](intro-followup-roadmap.md), [`feature-basement-wave.md`](feature-basement-wave.md), [`fly-and-room-hub.md`](fly-and-room-hub.md), [`flying-door-activation.md`](flying-door-activation.md) |
+| Crate split planning | [`crate-split-plan.md`](crate-split-plan.md) |
 
-If a workflow has already landed and no longer tells an agent what to do today, archive it or fold the durable rule into a concept/system doc.
+## Pruned from recipes
+
+The old crate-strategy, intro-followup, basement-wave, fly/room-hub, and flying-door activation notes were removed from this index because they were stale roadmap fragments rather than current procedures. Recover them from git history only if a future task needs historical context.

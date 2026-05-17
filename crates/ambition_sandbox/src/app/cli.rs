@@ -156,12 +156,18 @@ pub fn run_visible() {
     }));
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     app.init_state::<GameMode>();
+    let active_profile = asset_config.asset_profile;
     app.insert_resource(asset_config);
     app.add_plugins((
         SandboxSimulationPlugin,
         SandboxLdtkPlugin,
         SandboxPresentationPlugin,
     ));
+    // AssetSource registration runs LAST so EmbeddedAssetRegistry
+    // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
+    app.add_plugins(
+        crate::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(active_profile),
+    );
     app.run();
 }
 
@@ -217,6 +223,13 @@ pub fn run_web() {
         SandboxLdtkPlugin,
         SandboxPresentationPlugin,
     ));
+    // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
+    // by `AssetPlugin` inside `DefaultPlugins`) is already present.
+    app.add_plugins(
+        crate::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+            crate::game_assets::default_asset_profile(),
+        ),
+    );
     app.run();
 }
 

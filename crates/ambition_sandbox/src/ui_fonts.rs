@@ -143,15 +143,11 @@ fn load_first_available_font(
 ) -> Option<Handle<Font>> {
     let mut tried = Vec::with_capacity(ids.len());
     for id in ids {
-        let Some(path) = catalog.path_for(id) else {
-            tried.push(format!("{id} (disabled by profile)"));
-            continue;
-        };
-        if catalog.should_attempt_optional_load(&path) {
+        if let Some(path) = catalog.try_path_for_load(id) {
             info!("Using {label}: assets/{path} (catalog id {id})");
             return Some(asset_server.load(path));
         }
-        tried.push(format!("{id} -> {path} (missing)"));
+        tried.push(format!("{id} (skipped by profile gate)"));
     }
     warn!("Missing {label}; tried {}", tried.join(", "));
     None

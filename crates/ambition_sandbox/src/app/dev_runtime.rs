@@ -110,6 +110,7 @@ pub(super) fn handle_ldtk_hot_reload(
         ),
         With<crate::player::PlayerEntity>,
     >,
+    catalog: Res<crate::sandbox_assets::SandboxAssetCatalog>,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -159,6 +160,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &room_visuals,
             game_assets.as_deref(),
             &watch_path,
+            &catalog,
         ) {
             Ok(active_room) => {
                 ldtk_reload.mark_applied(&active_room);
@@ -186,12 +188,13 @@ pub(super) struct LdtkReloadTransaction {
 
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
 ) -> Result<LdtkReloadTransaction, Vec<String>> {
-    let project =
-        ldtk_world::LdtkProject::load_from_disk_at(watch_path).map_err(|error| vec![error])?;
+    let project = ldtk_world::LdtkProject::load_from_disk_at(watch_path, catalog)
+        .map_err(|error| vec![error])?;
     let report = project.validate();
     report.print_to_stderr();
     if !report.is_ok() {
@@ -248,11 +251,13 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
     assets: Option<&crate::game_assets::GameAssets>,
     watch_path: &std::path::Path,
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = player.pos;
     let transaction = prepare_ldtk_reload_transaction(
         watch_path,
+        catalog,
         &current_room_id,
         preserved_pos,
         player.size,

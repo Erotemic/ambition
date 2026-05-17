@@ -288,10 +288,10 @@ pub fn load_character_sprites_in(
     }
 }
 
-/// Resolve the catalog id, gate on profile policy, and call
-/// `asset_server.load(...)` if the gate passes. Logs a single line to
-/// `stderr` when a labeled sprite is missing under a desktop profile
-/// (matches the prior loader's noise level).
+/// Resolve the catalog id, gate on profile policy via
+/// `try_path_for_load`, and call `asset_server.load(...)` if the gate
+/// passes. Logs a single line to `stderr` when a labeled sprite is
+/// missing (matches the prior loader's noise level).
 fn build_optional_via_catalog(
     catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
@@ -300,17 +300,15 @@ fn build_optional_via_catalog(
     spec: CharacterSheetSpec,
     log_label: Option<&str>,
 ) -> Option<CharacterSpriteAsset> {
-    let Some(path) = catalog.path_for(id) else {
-        return None;
-    };
-    if !catalog.should_attempt_optional_load(&path) {
+    let Some(path) = catalog.try_path_for_load(id) else {
         if let Some(label) = log_label {
             eprintln!(
-                "[character_sprites] {label} spritesheet not found at assets/{path} — falling back to colored rectangle"
+                "[character_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to colored rectangle",
+                catalog.profile().label(),
             );
         }
         return None;
-    }
+    };
     let layout = layouts.add(spec.build_atlas());
     Some(CharacterSpriteAsset {
         texture: asset_server.load(path),

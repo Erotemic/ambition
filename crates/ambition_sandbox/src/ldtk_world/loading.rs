@@ -35,17 +35,26 @@
 use std::fs;
 use std::path::Path;
 
+use ambition_asset_manager::AssetId;
+
 use crate::sandbox_assets::{ids, SandboxAssetCatalog};
 
 use super::project::LdtkProject;
 
-/// Story-content world files appended into the runtime project on top
-/// of `sandbox.ldtk`. Paths are relative to the same `worlds/`
-/// directory the sandbox map lives in. New zones land here as their
-/// `.ldtk` source files get authored. Missing files are tolerated —
-/// the project still boots from sandbox.ldtk alone — so a partial
-/// checkout doesn't crash startup.
-const SECONDARY_WORLD_FILES: &[&str] = &["intro.ldtk"];
+/// Story-content world ids appended into the runtime project on top of
+/// `world.sandbox_ldtk`. Each id is looked up through
+/// [`SandboxAssetCatalog`]; the resolved location decides whether to
+/// read from disk (DesktopDevLoose) or fall back to the embedded
+/// static copy (Web / Android / Bundled).
+///
+/// Adding a new secondary world entails (1) a catalog id constructor
+/// under [`crate::sandbox_assets::ids`], (2) a manifest entry in
+/// `crate::sandbox_assets::extend_with_world_entries`, and (3) one
+/// row here. Missing entries are tolerated so a partial checkout
+/// still boots `sandbox.ldtk` alone.
+fn secondary_world_ids() -> Vec<AssetId> {
+    vec![ids::intro_ldtk()]
+}
 
 impl LdtkProject {
     /// Load the sandbox LDtk project through the asset catalog.
@@ -85,7 +94,7 @@ impl LdtkProject {
         if let Some(local) = resolved.location.as_local_path() {
             match Self::load_from_path(local) {
                 Ok(mut project) => {
-                    merge_secondary_worlds(&mut project, local);
+                    merge_secondary_worlds_via_catalog(&mut project, catalog);
                     return Ok(project);
                 }
                 Err(error) => {
@@ -151,15 +160,16 @@ impl LdtkProject {
             .map_err(|error| format!("could not parse statically packed sandbox.ldtk: {error}"))
     }
 
-    /// `[ambition_asset_manager_transition]` Disk-only load helper, kept
-    /// for the LDtk hot-reload path that uses
-    /// [`crate::ldtk_world::LdtkHotReloadState::watch_path`] +
-    /// [`Self::load_from_path`] to re-parse after a file-change event.
-    /// Once hot reload also consults the catalog for fresh paths this
-    /// helper can be inlined.
-    pub fn load_from_disk_at(path: &Path) -> Result<Self, String> {
+    /// Hot-reload re-parse helper: read the LDtk file the watcher
+    /// discovered at startup, then re-merge secondary worlds via the
+    /// shared catalog. Catalog is passed by the caller because the
+    /// hot-reload system has both resources in hand.
+    pub fn load_from_disk_at(
+        path: &Path,
+        catalog: &SandboxAssetCatalog,
+    ) -> Result<Self, String> {
         let mut project = Self::load_from_path(path)?;
-        merge_secondary_worlds(&mut project, path);
+        merge_secondary_worlds_via_catalog(&mut project, catalog);
         Ok(project)
     }
 
@@ -172,25 +182,36 @@ impl LdtkProject {
     }
 }
 
-/// Walk [`SECONDARY_WORLD_FILES`] and append each present file's levels
-/// into `project`. Missing files are skipped with a warning; malformed
-/// files are skipped with a warning and the sandbox keeps booting.
-fn merge_secondary_worlds(project: &mut LdtkProject, sandbox_path: &Path) {
-    let Some(parent) = sandbox_path.parent() else {
-        return;
-    };
-    for name in SECONDARY_WORLD_FILES {
-        let path = parent.join(name);
-        if !path.exists() {
+/// Walk the catalog-driven [`secondary_world_ids`] list and append
+/// each present file's levels into `project`. Missing or disabled
+/// entries are skipped silently; malformed files log a warning and
+/// the sandbox keeps booting. Only `LocalPath` resolutions (desktop
+/// profiles) are read here — embedded/static secondary worlds flow
+/// through [`merge_static_secondary_worlds`].
+fn merge_secondary_worlds_via_catalog(
+    project: &mut LdtkProject,
+    catalog: &SandboxAssetCatalog,
+) {
+    for id in secondary_world_ids() {
+        let Ok(resolved) = catalog.resolve(&id) else {
+            continue;
+        };
+        let Some(local) = resolved.location.as_local_path() else {
+            // Embedded / disabled / bevy-only locations don't read
+            // through disk IO. Skip — `merge_static_secondary_worlds`
+            // handles the embedded path on static profiles.
+            continue;
+        };
+        if !local.exists() {
             continue;
         }
-        match LdtkProject::load_from_path(&path) {
-            Ok(secondary) => append_levels(project, secondary, name),
+        match LdtkProject::load_from_path(local) {
+            Ok(secondary) => append_levels(project, secondary, id.as_str()),
             Err(error) => {
                 eprintln!(
-                    "LDtk warning: could not load secondary world '{name}' from {}: {error}; \
+                    "LDtk warning: could not load secondary world '{id}' from {}: {error}; \
                      continuing without it",
-                    path.display()
+                    local.display()
                 );
             }
         }

@@ -116,6 +116,7 @@ mod tests {
             cache_policy: CachePolicy::LifetimeOfProcess,
             preload_group: None,
             source_used: Some(AssetSourceProfile::LooseFilesystem),
+            authored_candidate: true,
         }
     }
 

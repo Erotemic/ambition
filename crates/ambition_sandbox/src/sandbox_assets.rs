@@ -31,13 +31,27 @@
 
 use std::path::PathBuf;
 
-use bevy::prelude::Resource;
+use bevy::prelude::{App, Plugin, Resource};
 
 use ambition_asset_manager::{
     AmbitionAssetCatalog, AssetEntry, AssetId, AssetKind, AssetLocation, AssetManifest,
     AssetProfile, AssetResolutionError, AssetSourceProfile, MissingAssetPolicy, PreloadGroup,
     ResolvedAsset,
 };
+
+/// Path component the [`AmbitionAssetSourcePlugin`] registers the
+/// sandbox LDtk world under, in Bevy's [`bevy::asset::io::embedded::EmbeddedAssetRegistry`].
+/// Concatenated with `embedded://` to form the AssetPath string.
+/// Catalog entries for `world.sandbox_ldtk` carry an explicit
+/// `EmbeddedBinary` `LocationCandidate` pointing at this same path so
+/// the resolved URL matches what the registry will serve.
+pub(crate) const EMBEDDED_SANDBOX_LDTK_ASSET_PATH: &str =
+    "ambition_sandbox/ambition/worlds/sandbox.ldtk";
+
+/// Same shape as [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] for the intro
+/// LDtk world.
+pub(crate) const EMBEDDED_INTRO_LDTK_ASSET_PATH: &str =
+    "ambition_sandbox/ambition/worlds/intro.ldtk";
 
 use crate::data::AudioSpec;
 use crate::game_assets::{sandbox_image_manifest, GameAssetConfig};
@@ -51,6 +65,7 @@ pub mod ids {
     use ambition_asset_manager::AssetId;
 
     pub const SANDBOX_LDTK: &str = "world.sandbox_ldtk";
+    pub const INTRO_LDTK: &str = "world.intro_ldtk";
     pub const SANDBOX_DATA: &str = "data.sandbox";
     pub const SFX_BANK: &str = "audio.sfx_bank";
     pub const FONT_DIALOG_REGULAR: &str = "font.dialog_regular";
@@ -59,6 +74,9 @@ pub mod ids {
 
     pub fn sandbox_ldtk() -> AssetId {
         AssetId::new(SANDBOX_LDTK)
+    }
+    pub fn intro_ldtk() -> AssetId {
+        AssetId::new(INTRO_LDTK)
     }
     pub fn sandbox_data() -> AssetId {
         AssetId::new(SANDBOX_DATA)
@@ -160,26 +178,90 @@ impl SandboxAssetCatalog {
         resolved.location.as_local_path().map(|p| p.to_path_buf())
     }
 
-    /// Sandbox-side gate for *optional* image loads (entity sprites,
-    /// parallax layers, character spritesheets, boss sheets, fonts).
-    /// Mirrors the per-profile policy that used to live ad-hoc in
-    /// `game_assets.rs::should_attempt_optional_image_load`.
+    /// Resolve `id` and apply the per-profile load gate in one call.
     ///
-    /// - Desktop (DevLoose / Installed / SteamDeck): pre-check the
-    ///   host filesystem so missing optional art falls back to the
-    ///   colored-rectangle / `Bevy` default-font path before Bevy
-    ///   logs a load failure.
-    /// - Android / iOS bundle: trust the packager and let Bevy try.
-    /// - Web / BundledStatic / IpfsGateway: skip the load entirely —
-    ///   optional images aren't packaged with these builds today.
-    ///   Future per-asset `LocationCandidate`s opt back in once
-    ///   packaging lands.
-    /// - NoAssets / Headless: skip (the catalog already returned None).
+    /// Returns `Some(path)` when the loader should hand the path to
+    /// Bevy's `AssetServer::load`; `None` when the loader should fall
+    /// back (colored rectangle, silent SFX, Bevy default font, etc.).
+    ///
+    /// This is the **only** function loaders need to call — it combines:
+    /// - `path_for(id)` (resolver),
+    /// - the per-profile "is this asset actually available?" gate
+    ///   ([`Self::should_attempt_resolved_load`]).
+    ///
+    /// Consumers that need the local on-disk path (the SFX bank byte
+    /// loader, the LDtk hot-reload watcher) go through
+    /// [`Self::resolve_local_file_path`] / [`Self::hot_reload_local_path`].
+    pub fn try_path_for_load(&self, id: &AssetId) -> Option<String> {
+        let resolved = self.resolve(id).ok()?;
+        let path = resolved.bevy_asset_path()?;
+        if self.should_attempt_resolved_load(&resolved, &path) {
+            Some(path)
+        } else {
+            None
+        }
+    }
+
+    /// Per-profile load gate keyed on a fully-resolved entry.
+    ///
+    /// - Desktop (DevLoose / Installed / SteamDeck): pre-check the host
+    ///   filesystem via the candidate-roots walker
+    ///   ([`desktop_candidate_roots`]) so missing optional art falls back
+    ///   to colored rectangles / Bevy's default font before Bevy logs a
+    ///   load failure. Required assets always attempt the load so the
+    ///   `MissingAssetPolicy::Error` path can surface a useful error.
+    /// - Android / iOS bundle: trust the packager; let Bevy's platform
+    ///   `AssetReader` try the load.
+    /// - Web / BundledStatic: attempt the load when the entry has an
+    ///   **authored** embedded candidate (the bytes are packaged via
+    ///   `embedded_asset!`); skip otherwise to preserve colored-rectangle
+    ///   fallback.
+    /// - WebHttp: attempt only when the entry has an authored
+    ///   `HttpRemote` candidate. Optional images today have none, so they
+    ///   fall back to placeholders.
+    /// - IpfsGatewayPlaceholder: attempt when an authored `IpfsGateway`
+    ///   candidate is present.
+    /// - NoAssets / Headless: never attempt (catalog already returned
+    ///   None for `path_for`; this is exhaustive-match insurance).
+    pub fn should_attempt_resolved_load(&self, resolved: &ResolvedAsset, path: &str) -> bool {
+        match self.profile {
+            AssetProfile::DesktopDevLoose
+            | AssetProfile::DesktopInstalled
+            | AssetProfile::SteamDeckInstalled => {
+                resolved.missing_policy.is_required()
+                    || self.resolve_local_file_path(path).is_some()
+            }
+            AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
+            AssetProfile::WebStatic | AssetProfile::BundledStatic => {
+                resolved.authored_candidate
+                    && matches!(resolved.source_used, Some(AssetSourceProfile::EmbeddedBinary))
+            }
+            AssetProfile::WebHttp => {
+                resolved.authored_candidate
+                    && matches!(resolved.source_used, Some(AssetSourceProfile::HttpRemote))
+            }
+            AssetProfile::IpfsGatewayPlaceholder => {
+                resolved.authored_candidate
+                    && matches!(resolved.source_used, Some(AssetSourceProfile::IpfsGateway))
+            }
+            AssetProfile::NoAssets | AssetProfile::Headless => false,
+        }
+    }
+
+    /// Legacy gate: takes a raw path string and assumes "optional"
+    /// semantics. Kept for the few call sites that don't yet have a
+    /// [`ResolvedAsset`] handy (e.g. the intro-plugin sprite loaders).
+    /// New code should use [`Self::try_path_for_load`] instead.
+    ///
+    /// `[ambition_asset_manager_transition]` Remove once
+    /// `intro::plugin::load_intro_*_sprites_system` is migrated to
+    /// emit per-asset catalog entries (currently the intro plugin
+    /// dynamically authors sprite paths outside the prebuilt catalog).
     pub fn should_attempt_optional_load(&self, path: &str) -> bool {
         match self.profile {
             AssetProfile::DesktopDevLoose
             | AssetProfile::DesktopInstalled
-            | AssetProfile::SteamDeckInstalled => desktop_loose_file_exists(path),
+            | AssetProfile::SteamDeckInstalled => self.resolve_local_file_path(path).is_some(),
             AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
             AssetProfile::WebStatic
             | AssetProfile::WebHttp
@@ -196,24 +278,44 @@ impl SandboxAssetCatalog {
     pub fn should_attempt_required_load(&self, _path: &str) -> bool {
         !matches!(self.profile, AssetProfile::NoAssets | AssetProfile::Headless)
     }
+
+    /// Locate the absolute on-disk path for a Bevy-relative asset path
+    /// under the current profile, when one is available. Returns
+    /// `None` for non-desktop profiles or when the file simply isn't
+    /// there. Walks the same candidate roots Bevy's file `AssetReader`
+    /// consults at runtime, in this order:
+    ///
+    /// 1. `$BEVY_ASSET_ROOT/assets/<rel>`
+    /// 2. `$BEVY_ASSET_ROOT/<rel>`
+    /// 3. `$CWD/assets/<rel>`
+    /// 4. `$CWD/<rel>`
+    /// 5. `$CARGO_MANIFEST_DIR/assets/<rel>` (dev fallback)
+    ///
+    /// This is the **only** host-filesystem probe in the sandbox. The
+    /// LDtk hot-reload watcher and the SFX bank byte loader both call
+    /// through here — there is no duplicate candidate walk anywhere
+    /// else in `crates/ambition_sandbox/src/`.
+    pub fn resolve_local_file_path(&self, rel: &str) -> Option<std::path::PathBuf> {
+        if !matches!(
+            self.profile,
+            AssetProfile::DesktopDevLoose
+                | AssetProfile::DesktopInstalled
+                | AssetProfile::SteamDeckInstalled
+        ) {
+            return None;
+        }
+        desktop_candidate_roots(rel).into_iter().find(|p| p.exists())
+    }
 }
 
-/// Walk the same desktop candidate roots Bevy's file `AssetReader`
-/// would, return true if any of them holds `rel_path`. This is the
-/// only place in the sandbox that probes the host filesystem for
-/// asset existence; every other module asks the catalog.
-///
-/// Lives here (not in `game_assets.rs`) because every loader gate
-/// (sprites, fonts, parallax) routes through
-/// [`SandboxAssetCatalog::should_attempt_optional_load`].
-///
-/// `[ambition_asset_manager_transition]` Marker for the in-flight
-/// catalog migration. When the catalog grows native Bevy `AssetSource`
-/// registration helpers, this probe collapses into the catalog itself
-/// and the function can be deleted.
-pub(crate) fn desktop_loose_file_exists(rel_path: &str) -> bool {
+/// Build the ordered candidate roots for `rel_path` on desktop / Steam
+/// Deck profiles. The only candidate-roots walker in the sandbox;
+/// [`SandboxAssetCatalog::resolve_local_file_path`] (and through it
+/// `should_attempt_optional_load` / `try_path_for_load`) are the sole
+/// callers.
+fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
     let rel = std::path::Path::new(rel_path);
-    let mut candidates = Vec::new();
+    let mut candidates = Vec::with_capacity(5);
     if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
         let root = std::path::PathBuf::from(root);
         candidates.push(root.join("assets").join(rel));
@@ -228,7 +330,7 @@ pub(crate) fn desktop_loose_file_exists(rel_path: &str) -> bool {
             .join("assets")
             .join(rel),
     );
-    candidates.into_iter().any(|path| path.exists())
+    candidates
 }
 
 /// Build the full sandbox catalog: every visible-sandbox asset id +
@@ -253,12 +355,17 @@ pub fn build_sandbox_catalog(
     SandboxAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
 }
 
-/// LDtk bootstrap entry — required asset that the game cannot run
-/// without. Explicit `LooseFilesystem` candidate carries the absolute
+/// LDtk world entries. The primary `world.sandbox_ldtk` is required —
+/// the game cannot run without it. Secondary worlds (`world.intro_ldtk`
+/// today) are optional: the merge loader skips them silently if the
+/// catalog reports them disabled, matching the prior "tolerate missing
+/// secondary file" behavior.
+///
+/// Explicit `LooseFilesystem` candidates carry the absolute
 /// `CARGO_MANIFEST_DIR/assets/...` path so the desktop hot-reload
-/// watcher can find a `LocalPath` to inotify.
+/// watcher (primary world only) can find a `LocalPath` to inotify.
 fn extend_with_world_entries(manifest: &mut AssetManifest) {
-    let loose_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+    let loose_sandbox = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("assets")
         .join(crate::ldtk_world::SANDBOX_LDTK_ASSET);
     manifest.insert(
@@ -271,7 +378,35 @@ fn extend_with_world_entries(manifest: &mut AssetManifest) {
         .with_preload_group(PreloadGroup::Bootstrap)
         .with_location(
             AssetSourceProfile::LooseFilesystem,
-            AssetLocation::LocalPath(loose_path),
+            AssetLocation::LocalPath(loose_sandbox),
+        )
+        .with_location(
+            AssetSourceProfile::EmbeddedBinary,
+            AssetLocation::embedded(EMBEDDED_SANDBOX_LDTK_ASSET_PATH),
+        ),
+    );
+
+    // intro.ldtk lives next to sandbox.ldtk and is loaded by the
+    // secondary-worlds merge step. Optional today because a fresh
+    // checkout without the intro file should still boot the sandbox.
+    let loose_intro = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("ambition/worlds/intro.ldtk");
+    manifest.insert(
+        AssetEntry::new(
+            ids::intro_ldtk(),
+            AssetKind::LdtkProject,
+            "ambition/worlds/intro.ldtk",
+        )
+        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+        .with_preload_group(PreloadGroup::Bootstrap)
+        .with_location(
+            AssetSourceProfile::LooseFilesystem,
+            AssetLocation::LocalPath(loose_intro),
+        )
+        .with_location(
+            AssetSourceProfile::EmbeddedBinary,
+            AssetLocation::embedded(EMBEDDED_INTRO_LDTK_ASSET_PATH),
         ),
     );
 }
@@ -296,12 +431,22 @@ fn extend_with_data_entries(manifest: &mut AssetManifest) {
 /// Packed SFX bank entry. `WarnAndPlaceholder` matches the current
 /// runtime contract: a missing bank degrades to procedural / silent
 /// SFX instead of refusing to start.
+///
+/// Optional `AMBITION_SFX_BANK_PATH` dev override is encoded as an
+/// explicit [`AssetLocation::LocalPath`] candidate so it's visible
+/// catalog policy rather than an invisible side-path in
+/// `setup.rs`. The env var is documented in `docs/asset_manager.md`.
 fn extend_with_sfx_bank_entry(manifest: &mut AssetManifest) {
-    manifest.insert(
-        AssetEntry::new(ids::sfx_bank(), AssetKind::AudioBank, "audio/sfx.bank")
-            .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-            .with_preload_group(PreloadGroup::SandboxCore),
-    );
+    let mut entry = AssetEntry::new(ids::sfx_bank(), AssetKind::AudioBank, "audio/sfx.bank")
+        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+        .with_preload_group(PreloadGroup::SandboxCore);
+    if let Ok(env_path) = std::env::var("AMBITION_SFX_BANK_PATH") {
+        entry = entry.with_location(
+            AssetSourceProfile::LooseFilesystem,
+            AssetLocation::LocalPath(std::path::PathBuf::from(env_path)),
+        );
+    }
+    manifest.insert(entry);
 }
 
 /// UI font entries. Both the canonical `bundled/` paths and the legacy
@@ -412,6 +557,102 @@ fn extend_with_music_entries(manifest: &mut AssetManifest, audio: &AudioSpec) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Bevy AssetSource registration
+// ─────────────────────────────────────────────────────────────────────
+
+/// Bevy plugin that backs every URL the [`SandboxAssetCatalog`] hands
+/// out with a real `AssetSource`.
+///
+/// Today this is the embedded source only: behind the `static_map`
+/// feature, the plugin inserts the sandbox + intro LDtk JSON bytes into
+/// Bevy's [`bevy::asset::io::embedded::EmbeddedAssetRegistry`] under
+/// [`EMBEDDED_SANDBOX_LDTK_ASSET_PATH`] / [`EMBEDDED_INTRO_LDTK_ASSET_PATH`],
+/// matching the explicit `EmbeddedBinary` `LocationCandidate`s authored
+/// on the corresponding catalog entries. The catalog's resolution +
+/// the plugin's registration are paired: change one, change the other.
+///
+/// Adding more embedded assets (sprites, fonts, audio) is a recipe:
+/// 1. Add a `with_location(EmbeddedBinary, AssetLocation::embedded("ambition_sandbox/..."))`
+///    candidate to the catalog entry.
+/// 2. Add a matching `EmbeddedAssetRegistry::insert_asset(...,
+///    include_bytes!(...))` call in [`register_embedded_assets`].
+/// 3. Optional: extend the `static_map` feature gate or introduce a
+///    separate gate (`static_fonts`, etc.) if a packaged subset is
+///    desirable.
+///
+/// HTTP / HTTPS / IPFS source registration is a future slice; the
+/// catalog already emits `https://...` URLs from authored
+/// `HttpRemote` candidates, but the matching Bevy `AssetReader` isn't
+/// wired yet.
+///
+/// ## Ordering requirement
+///
+/// `EmbeddedAssetRegistry` is created by Bevy's `AssetPlugin`. The
+/// plugin therefore must run AFTER `DefaultPlugins`. The visible app
+/// builder ([`crate::app::run_visible`] / [`crate::app::run_web`])
+/// adds it as the last plugin in the
+/// `SandboxPresentationPlugin` install order.
+pub struct AmbitionAssetSourcePlugin {
+    pub profile: AssetProfile,
+}
+
+impl AmbitionAssetSourcePlugin {
+    pub fn for_profile(profile: AssetProfile) -> Self {
+        Self { profile }
+    }
+}
+
+impl Plugin for AmbitionAssetSourcePlugin {
+    fn build(&self, app: &mut App) {
+        register_embedded_assets(app);
+        // HTTP / IPFS source registration hooks live alongside this
+        // for future profile-conditional registration; see
+        // [`add_http_asset_source`].
+        let _ = self.profile;
+    }
+}
+
+/// Insert every embedded asset's bytes into Bevy's
+/// [`bevy::asset::io::embedded::EmbeddedAssetRegistry`] under the
+/// URLs the catalog's `Embedded` candidates point at.
+///
+/// Gated by the `static_map` feature because the LDtk JSON is only
+/// embedded under that feature today; the loose-fs path doesn't need
+/// the embedded copy.
+#[allow(unused_variables)]
+fn register_embedded_assets(app: &mut App) {
+    #[cfg(feature = "static_map")]
+    {
+        use bevy::asset::io::embedded::EmbeddedAssetRegistry;
+        use std::path::{Path, PathBuf};
+
+        let embedded = app
+            .world_mut()
+            .resource_mut::<EmbeddedAssetRegistry>();
+        embedded.insert_asset(
+            PathBuf::new(),
+            Path::new(EMBEDDED_SANDBOX_LDTK_ASSET_PATH),
+            include_bytes!("../assets/ambition/worlds/sandbox.ldtk") as &[u8],
+        );
+        embedded.insert_asset(
+            PathBuf::new(),
+            Path::new(EMBEDDED_INTRO_LDTK_ASSET_PATH),
+            include_bytes!("../assets/ambition/worlds/intro.ldtk") as &[u8],
+        );
+    }
+}
+
+/// Documented stub for future HTTP/HTTPS asset source registration.
+///
+/// Bevy 0.18 ships `http` and `https` features that provide
+/// `AssetReader`s; the consumer enables those features and adds the
+/// source via `AssetPlugin::source(...)`. This function is the wiring
+/// point — currently a no-op so call sites can be added now.
+pub fn add_http_asset_source(_app: &mut App) {
+    // Slated for slice 9 (WebHttp packaging).
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -500,12 +741,25 @@ mod tests {
         let spec = SandboxDataSpec::load_embedded();
         let catalog = build_sandbox_catalog(&config, &spec.audio);
         let path = catalog.path_for(&ids::sandbox_ldtk()).unwrap();
-        assert_eq!(path, format!("embedded://{}", crate::ldtk_world::SANDBOX_LDTK_ASSET));
+        // Authored EmbeddedBinary candidate carries the explicit URL
+        // that AmbitionAssetSourcePlugin registers under
+        // `EmbeddedAssetRegistry`. The catalog + the source plugin
+        // must agree.
+        assert_eq!(
+            path,
+            format!("embedded://{EMBEDDED_SANDBOX_LDTK_ASSET_PATH}"),
+        );
         // Web static does NOT support hot reload.
         assert!(!catalog
             .resolve(&ids::sandbox_ldtk())
             .unwrap()
             .supports_hot_reload());
+        // The catalog's load gate should now flip to `Some(path)`
+        // because the embedded candidate is authored — the source
+        // plugin actually serves these bytes under `static_map`.
+        let resolved = catalog.resolve(&ids::sandbox_ldtk()).unwrap();
+        assert!(resolved.authored_candidate);
+        assert!(catalog.try_path_for_load(&ids::sandbox_ldtk()).is_some());
     }
 
     #[test]
@@ -551,6 +805,275 @@ mod tests {
         for (id, _) in catalog.catalog().manifest().iter() {
             assert!(seen.insert(id.clone()), "duplicate id: {id}");
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Guardrail tests — these fail loud when the catalog migration
+    // regresses (legacy `asset_exists` re-appears, embedded source
+    // breaks the WebStatic flip, etc.). Add to this section, don't
+    // delete.
+    // ─────────────────────────────────────────────────────────────────
+
+    /// No `fn asset_exists` / `fn desktop_asset_exists` *definitions*
+    /// live anywhere under `crates/ambition_sandbox/src/`. The only
+    /// host-filesystem probe is `desktop_candidate_roots` in this
+    /// file. Catching a regression here means someone re-added a
+    /// per-target existence walker; collapse it back through
+    /// [`SandboxAssetCatalog::resolve_local_file_path`].
+    ///
+    /// Matches at line start (`^[ \t]*`) so the test's own doc-comment
+    /// mentioning the function names doesn't trip the guard.
+    #[test]
+    fn no_legacy_asset_exists_copies_in_sandbox_src() {
+        use std::process::Command;
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let src = manifest_dir.join("src");
+        let output = Command::new("grep")
+            .args([
+                "-rln",
+                "-E",
+                "^[[:space:]]*(pub(\\([^)]*\\))?[[:space:]]+)?fn[[:space:]]+(asset_exists|desktop_asset_exists)\\b",
+            ])
+            .arg(&src)
+            .output();
+        let stdout = match output {
+            Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
+            Err(_) => return, // `grep` missing → skip the guard rather than spuriously failing.
+        };
+        let offenders: Vec<&str> = stdout
+            .lines()
+            .filter(|line| !line.is_empty())
+            .collect();
+        assert!(
+            offenders.is_empty(),
+            "legacy asset_exists / desktop_asset_exists copies re-appeared:\n  {}\n\
+             Collapse the candidate-roots walk back through \
+             SandboxAssetCatalog::resolve_local_file_path.",
+            offenders.join("\n  "),
+        );
+    }
+
+    /// No raw `env::var_os("BEVY_ASSET_ROOT"` / `env::var("BEVY_ASSET_ROOT"`
+    /// outside `sandbox_assets.rs`. The catalog owns the only probe.
+    /// Catches regressions where a new loader re-implements the
+    /// candidate-roots dance instead of calling
+    /// [`SandboxAssetCatalog::resolve_local_file_path`]. Doc-comments
+    /// mentioning the env var by name are allowed.
+    #[test]
+    fn no_unauthorized_bevy_asset_root_probes() {
+        use std::process::Command;
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let src = manifest_dir.join("src");
+        let output = Command::new("grep")
+            .args([
+                "-rln",
+                "-E",
+                "env::(var|var_os)\\([[:space:]]*\"BEVY_ASSET_ROOT\"",
+            ])
+            .arg(&src)
+            .output();
+        let stdout = match output {
+            Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
+            Err(_) => return,
+        };
+        let allowed = ["sandbox_assets.rs"];
+        let offenders: Vec<String> = stdout
+            .lines()
+            .filter(|line| {
+                !line.is_empty()
+                    && !allowed
+                        .iter()
+                        .any(|a| line.ends_with(a) || line.contains(&format!("/{a}:")))
+            })
+            .map(String::from)
+            .collect();
+        assert!(
+            offenders.is_empty(),
+            "unauthorized BEVY_ASSET_ROOT probe(s) re-appeared:\n  {}\n\
+             Approved sites are `sandbox_assets.rs` only. Route new \
+             host-filesystem reads through SandboxAssetCatalog::resolve_local_file_path.",
+            offenders.join("\n  "),
+        );
+    }
+
+    /// Required bootstrap assets resolve under every real profile —
+    /// `LdtkProject::load_default` and the sandbox RON loader both
+    /// depend on this. Disabling here would be fatal.
+    #[test]
+    fn required_bootstrap_assets_resolve_under_every_real_profile() {
+        let spec = SandboxDataSpec::load_embedded();
+        let real_profiles = [
+            AssetProfile::DesktopDevLoose,
+            AssetProfile::DesktopInstalled,
+            AssetProfile::SteamDeckInstalled,
+            AssetProfile::AndroidBundle,
+            AssetProfile::IosBundle,
+            AssetProfile::WebHttp,
+            AssetProfile::WebStatic,
+            AssetProfile::BundledStatic,
+        ];
+        for profile in real_profiles {
+            let mut config = GameAssetConfig::default();
+            config.asset_profile = profile;
+            let catalog = build_sandbox_catalog(&config, &spec.audio);
+            for id in [ids::sandbox_ldtk(), ids::sandbox_data()] {
+                let resolved = catalog.resolve(&id).unwrap();
+                assert!(
+                    !resolved.is_disabled(),
+                    "{} should not disable required {id} (got {:?})",
+                    profile.label(),
+                    resolved.location,
+                );
+            }
+        }
+    }
+
+    /// WebStatic / BundledStatic should actually attempt to load the
+    /// LDtk world (the source plugin registers the bytes under
+    /// `static_map`). Catches a regression where the authored Embedded
+    /// candidate gets stripped or the load gate stops honoring it.
+    #[test]
+    fn web_static_attempts_to_load_embedded_sandbox_ldtk() {
+        let spec = SandboxDataSpec::load_embedded();
+        for profile in [AssetProfile::WebStatic, AssetProfile::BundledStatic] {
+            let mut config = GameAssetConfig::default();
+            config.asset_profile = profile;
+            let catalog = build_sandbox_catalog(&config, &spec.audio);
+            assert!(
+                catalog.try_path_for_load(&ids::sandbox_ldtk()).is_some(),
+                "{} should attempt LDtk load via authored Embedded candidate",
+                profile.label(),
+            );
+        }
+    }
+
+    /// LDtk hot reload is available only under `DesktopDevLoose`. The
+    /// hot-reload watcher consults this via
+    /// `SandboxAssetCatalog::hot_reload_local_path`; any new profile
+    /// that pretends to support filesystem watching would silently
+    /// break here.
+    #[test]
+    fn ldtk_hot_reload_only_under_desktop_dev_loose() {
+        let spec = SandboxDataSpec::load_embedded();
+        let profiles = [
+            (AssetProfile::DesktopDevLoose, true),
+            (AssetProfile::DesktopInstalled, false),
+            (AssetProfile::SteamDeckInstalled, false),
+            (AssetProfile::AndroidBundle, false),
+            (AssetProfile::IosBundle, false),
+            (AssetProfile::WebHttp, false),
+            (AssetProfile::WebStatic, false),
+            (AssetProfile::BundledStatic, false),
+            (AssetProfile::NoAssets, false),
+            (AssetProfile::Headless, false),
+            (AssetProfile::IpfsGatewayPlaceholder, false),
+        ];
+        for (profile, expected) in profiles {
+            let mut config = GameAssetConfig::default();
+            config.asset_profile = profile;
+            let catalog = build_sandbox_catalog(&config, &spec.audio);
+            let supports = catalog
+                .hot_reload_local_path(&ids::sandbox_ldtk())
+                .is_some();
+            assert_eq!(
+                supports,
+                expected,
+                "{}: expected hot-reload support = {} but got {}",
+                profile.label(),
+                expected,
+                supports,
+            );
+        }
+    }
+
+    /// SFX bank byte resolution goes through the catalog. No ad-hoc
+    /// candidate walker should exist in `setup.rs`. The catalog's
+    /// `AMBITION_SFX_BANK_PATH` env override is an authored
+    /// `LooseFilesystem` `LocationCandidate` — visible policy, not a
+    /// side path.
+    #[test]
+    fn no_setup_resolve_to_disk_path_helper() {
+        use std::process::Command;
+        let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let setup = manifest_dir.join("src/setup.rs");
+        let output = Command::new("grep")
+            .args(["-n", "fn resolve_to_disk_path"])
+            .arg(&setup)
+            .output();
+        if let Ok(o) = output {
+            let stdout = String::from_utf8_lossy(&o.stdout).to_string();
+            assert!(
+                stdout.is_empty(),
+                "setup.rs::resolve_to_disk_path re-appeared:\n  {stdout}\n\
+                 Route SFX bank disk reads through \
+                 SandboxAssetCatalog::resolve_local_file_path instead.",
+            );
+        }
+    }
+
+    /// `AMBITION_SFX_BANK_PATH` shows up as an authored
+    /// `LooseFilesystem` candidate on the SFX bank entry when set.
+    /// Guards against accidentally re-introducing the env-var probe
+    /// somewhere outside the catalog.
+    #[test]
+    fn sfx_bank_env_override_is_authored_local_path_candidate() {
+        // SAFETY: tests touching env vars are intrinsically global;
+        // use a recognizable temp path and clean up after.
+        let probe = "/tmp/__ambition_sfx_bank_override_probe__.bank";
+        let prev = std::env::var("AMBITION_SFX_BANK_PATH").ok();
+        // SAFETY: `set_var` is unsafe in Rust 2024 because it mutates
+        // process-global state; this test acknowledges that risk and
+        // restores the prior value below.
+        unsafe { std::env::set_var("AMBITION_SFX_BANK_PATH", probe) };
+
+        let mut config = GameAssetConfig::default();
+        config.asset_profile = AssetProfile::DesktopDevLoose;
+        let spec = SandboxDataSpec::load_embedded();
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let entry = catalog.catalog().manifest().get(&ids::sfx_bank()).unwrap();
+        let has_override = entry.locations.iter().any(|c| {
+            matches!(
+                &c.location,
+                AssetLocation::LocalPath(p) if p == std::path::Path::new(probe)
+            )
+        });
+
+        match prev {
+            // SAFETY: see above.
+            Some(value) => unsafe { std::env::set_var("AMBITION_SFX_BANK_PATH", value) },
+            // SAFETY: see above.
+            None => unsafe { std::env::remove_var("AMBITION_SFX_BANK_PATH") },
+        }
+
+        assert!(
+            has_override,
+            "AMBITION_SFX_BANK_PATH must be reflected as a LooseFilesystem LocationCandidate on the SFX bank entry",
+        );
+    }
+
+    /// `world.intro_ldtk` exists in the catalog and resolves under
+    /// `DesktopDevLoose` (LocalPath) and `WebStatic` (Embedded).
+    /// Catches a regression where the secondary-world list goes back
+    /// to a hard-coded loader-local constant.
+    #[test]
+    fn intro_ldtk_is_in_the_catalog_under_world_namespace() {
+        let mut config = GameAssetConfig::default();
+        config.asset_profile = AssetProfile::DesktopDevLoose;
+        let spec = SandboxDataSpec::load_embedded();
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let entry = catalog
+            .catalog()
+            .manifest()
+            .get(&ids::intro_ldtk())
+            .expect("world.intro_ldtk catalog entry missing");
+        assert_eq!(entry.kind, AssetKind::LdtkProject);
+        let r_desktop = catalog.resolve(&ids::intro_ldtk()).unwrap();
+        assert!(r_desktop.location.as_local_path().is_some());
+
+        config.asset_profile = AssetProfile::WebStatic;
+        let catalog = build_sandbox_catalog(&config, &spec.audio);
+        let path = catalog.try_path_for_load(&ids::intro_ldtk()).unwrap();
+        assert_eq!(path, format!("embedded://{EMBEDDED_INTRO_LDTK_ASSET_PATH}"));
     }
 
     #[test]

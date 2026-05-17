@@ -236,19 +236,19 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 
 /// Resolve the SFX bank through the
 /// [`crate::sandbox_assets::SandboxAssetCatalog`] and synchronously
-/// load its bytes into a [`BankProvider`]. Falls through to:
+/// load its bytes into a [`BankProvider`]. Fall-through order:
 ///
 /// 1. the statically packed bank (`static_sfx_bank` feature),
-/// 2. the catalog's resolved path (today: relative `audio/sfx.bank`,
-///    which the per-profile gate then locates via `BEVY_ASSET_ROOT` /
-///    `CWD` / `CARGO_MANIFEST_DIR` candidate roots),
-/// 3. `None` + a single info log → the SFX system falls back to
+/// 2. the catalog's resolved `LocalPath` candidate (preferred —
+///    explicit `AMBITION_SFX_BANK_PATH` dev override or platform
+///    bundle path),
+/// 3. the catalog's `LooseFilesystem` synthesized default located via
+///    [`SandboxAssetCatalog::resolve_local_file_path`],
+/// 4. `None` + a single info log → the SFX system falls back to
 ///    `SilentProvider` / procedural fundsp via [`AudioLibrary`].
 ///
-/// All path-source policy now lives in
-/// [`SandboxAssetCatalog::should_attempt_optional_load`] and the
-/// underlying [`crate::sandbox_assets::desktop_loose_file_exists`];
-/// this function does not own any per-target probing.
+/// **All host-filesystem probing for the SFX bank happens through the
+/// catalog.** This function owns no candidate-roots walk.
 #[cfg(feature = "audio")]
 fn try_load_sfx_bank_via_catalog(catalog: &SandboxAssetCatalog) -> Option<BankProvider> {
     #[cfg(feature = "static_sfx_bank")]
@@ -257,25 +257,41 @@ fn try_load_sfx_bank_via_catalog(catalog: &SandboxAssetCatalog) -> Option<BankPr
     }
 
     let id = ids::sfx_bank();
-    let Some(rel_path) = catalog.path_for(&id) else {
-        info!("sfx bank disabled under {} profile; falling back to fundsp synthesis",
-            catalog.profile().label());
-        return None;
+    let resolved = match catalog.resolve(&id) {
+        Ok(r) => r,
+        Err(error) => {
+            warn!("sfx bank catalog resolve failed: {error}");
+            return None;
+        }
     };
-    if !catalog.should_attempt_optional_load(&rel_path) {
-        info!(
-            "sfx bank not present under {} profile (path {rel_path}); falling back to fundsp synthesis",
-            catalog.profile().label(),
-        );
-        return None;
+
+    // 1. Explicit LocalPath candidate (the AMBITION_SFX_BANK_PATH env
+    //    override, when set). Use directly without re-probing roots.
+    if let Some(local) = resolved.location.as_local_path() {
+        return load_bank_from_path(local);
     }
-    // Resolve the catalog-relative path against the same desktop
-    // candidate roots Bevy's file `AssetReader` uses, then load.
-    // `desktop_loose_file_exists` already proved one candidate matches;
-    // re-walk the roots here so `BankProvider::from_path` gets an
-    // absolute path it can `std::fs::read`.
-    let path = resolve_to_disk_path(&rel_path)?;
-    match BankProvider::from_path(&path) {
+
+    // 2. Synthesized BevyPath (or any other Bevy-pathable location)
+    //    located via the catalog's centralized desktop candidate-roots
+    //    walker. `resolve_local_file_path` returns None for
+    //    non-desktop profiles or when the file isn't present.
+    if let Some(rel_path) = resolved.bevy_asset_path() {
+        if let Some(local) = catalog.resolve_local_file_path(&rel_path) {
+            return load_bank_from_path(&local);
+        }
+    }
+
+    info!(
+        "no sfx bank found for {} profile (resolved {:?}); falling back to fundsp synthesis",
+        catalog.profile().label(),
+        resolved.location,
+    );
+    None
+}
+
+#[cfg(feature = "audio")]
+fn load_bank_from_path(path: &std::path::Path) -> Option<BankProvider> {
+    match BankProvider::from_path(path) {
         Ok(provider) => {
             debug!("sfx bank loaded from {}", path.display());
             Some(provider)
@@ -288,42 +304,6 @@ fn try_load_sfx_bank_via_catalog(catalog: &SandboxAssetCatalog) -> Option<BankPr
             None
         }
     }
-}
-
-/// `[ambition_asset_manager_transition]` Locate the absolute on-disk
-/// path for a catalog-relative asset under the desktop profiles. The
-/// catalog's per-profile gate already returned true (file is present)
-/// so this just walks the same candidate roots and returns the first
-/// hit. When `ambition_asset_manager` grows native Bevy `AssetSource`
-/// registration, the SFX adapter
-/// (`ambition_asset_manager::sfx_integration`) can read bytes
-/// directly and this helper goes away.
-#[cfg(feature = "audio")]
-fn resolve_to_disk_path(rel: &str) -> Option<std::path::PathBuf> {
-    use std::path::PathBuf;
-    let rel_path = std::path::Path::new(rel);
-    let mut candidates = Vec::<PathBuf>::new();
-    if let Ok(env_path) = std::env::var("AMBITION_SFX_BANK_PATH") {
-        // Back-compat shim: explicit env-var override wins over the
-        // catalog-resolved relative path. Slated for removal once
-        // catalog-managed mods land.
-        candidates.push(PathBuf::from(env_path));
-    }
-    if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
-        let root = PathBuf::from(root);
-        candidates.push(root.join("assets").join(rel_path));
-        candidates.push(root.join(rel_path));
-    }
-    if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("assets").join(rel_path));
-        candidates.push(cwd.join(rel_path));
-    }
-    candidates.push(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("assets")
-            .join(rel_path),
-    );
-    candidates.into_iter().find(|p| p.is_file())
 }
 
 fn presentation_world_inner(

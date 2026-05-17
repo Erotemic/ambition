@@ -64,6 +64,18 @@ pub struct ResolvedAsset {
     /// Source kind that produced `location`. `None` when the profile
     /// has no enabled sources (resolved to `Disabled`).
     pub source_used: Option<AssetSourceProfile>,
+    /// `true` when the resolved location came from an **authored**
+    /// [`crate::manifest::LocationCandidate`] for [`Self::source_used`];
+    /// `false` when the resolver *synthesized* a default location from
+    /// the entry's `logical_path` because no candidate was authored
+    /// for that source.
+    ///
+    /// This is the seam consumers use to decide whether a synthesized
+    /// `embedded://` / bundle path is *speculative* (packaging hasn't
+    /// happened yet → skip the load and rely on the fallback) versus
+    /// an explicit promise that the bytes are actually packaged
+    /// (proceed with `AssetServer::load`).
+    pub authored_candidate: bool,
 }
 
 impl ResolvedAsset {
@@ -117,6 +129,7 @@ pub fn resolve(
 
     let mut chosen_location = AssetLocation::Disabled;
     let mut chosen_source: Option<AssetSourceProfile> = None;
+    let mut authored_candidate = false;
 
     if !profile.preferred_sources().is_empty() {
         for &source in profile.preferred_sources() {
@@ -125,14 +138,16 @@ pub fn resolve(
                 if !candidate.location.is_disabled() {
                     chosen_location = candidate.location.clone();
                     chosen_source = Some(source);
+                    authored_candidate = true;
                     break;
                 }
             }
             // 2. Synthesize a default for filesystem / embedded sources
-            //    from the entry's logical path.
+            //    from the entry's logical path. NOT authored.
             if let Some(loc) = synthesize_default_location(source, &entry.logical_path) {
                 chosen_location = loc;
                 chosen_source = Some(source);
+                authored_candidate = false;
                 break;
             }
         }
@@ -147,6 +162,7 @@ pub fn resolve(
         cache_policy: entry.cache_policy,
         preload_group: entry.preload_group,
         source_used: chosen_source,
+        authored_candidate,
     })
 }
 
@@ -398,6 +414,29 @@ mod tests {
         let m = fixture_with_overrides();
         let r = resolve(&m, &AssetId::new("audio.sfx_bank"), AssetProfile::WebHttp).unwrap();
         assert_eq!(r.source_used, Some(AssetSourceProfile::EmbeddedBinary));
+    }
+
+    #[test]
+    fn authored_candidate_is_true_only_when_resolver_picks_an_explicit_candidate() {
+        let m = fixture_with_overrides();
+        // sfx_bank has an explicit Embedded candidate; WebStatic picks it.
+        let r = resolve(
+            &m,
+            &AssetId::new("audio.sfx_bank"),
+            AssetProfile::WebStatic,
+        )
+        .unwrap();
+        assert!(r.authored_candidate, "explicit Embedded candidate should be authored");
+
+        // world.sandbox_ldtk has no candidate — DesktopDevLoose synthesizes
+        // BevyPath from logical_path.
+        let r = resolve(
+            &m,
+            &AssetId::new("world.sandbox_ldtk"),
+            AssetProfile::DesktopDevLoose,
+        )
+        .unwrap();
+        assert!(!r.authored_candidate, "synthesized default must not be authored");
     }
 
     #[test]

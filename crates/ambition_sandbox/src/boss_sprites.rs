@@ -392,13 +392,13 @@ fn load_named_boss_sprite_via_catalog(
     spec: BossSheetSpec,
 ) -> Option<BossSpriteAsset> {
     let id = crate::sandbox_assets::ids::boss_sprite(label);
-    let path = catalog.path_for(&id)?;
-    if !catalog.should_attempt_optional_load(&path) {
+    let Some(path) = catalog.try_path_for_load(&id) else {
         eprintln!(
-            "[boss_sprites] {label} spritesheet not found at assets/{path} — falling back to entity sprite"
+            "[boss_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to entity sprite",
+            catalog.profile().label(),
         );
         return None;
-    }
+    };
     let layout = layouts.add(spec.build_atlas());
     Some(BossSpriteAsset {
         texture: asset_server.load(path),

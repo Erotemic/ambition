@@ -168,8 +168,14 @@ simply tells the SFX system *where* the bank bytes come from.
 | 5 | LDtk hot-reload watcher consults `supports_hot_reload()` | **DONE** (2026-05-16) |
 | 6 | UI fonts | **DONE** (2026-05-16) |
 | 7 | Music tracks (asset path lookup) | **DONE** (2026-05-16) |
-| 8 | Music cue layers (file-backed cues under `MusicCueCatalog`) | TODO |
-| 9 | Bevy-native `AssetSource` for `embedded://` web bundle | TODO |
+| 8 | Secondary LDtk worlds (`world.intro_ldtk`) catalog-driven | **DONE** (2026-05-17) |
+| 9 | `AmbitionAssetSourcePlugin` + embedded LDtk source registration | **DONE** (2026-05-17) |
+| 10 | `ResolvedAsset::authored_candidate` + `try_path_for_load` API | **DONE** (2026-05-17) |
+| 11 | `AMBITION_SFX_BANK_PATH` as authored catalog override | **DONE** (2026-05-17) |
+| 12 | Guardrail tests (no asset_exists / no BEVY_ASSET_ROOT probes / hot-reload only on DesktopDevLoose) | **DONE** (2026-05-17) |
+| 13 | Sprite / font embedding for `WebStatic` via `bevy_embedded_assets` | TODO |
+| 14 | HTTP/HTTPS `AssetSource` registration for `WebHttp` | TODO |
+| 15 | Music cue layers (file-backed cues under `MusicCueCatalog`) | TODO |
 
 ### Slice 2 — entity sprites + parallax layers (current)
 
@@ -259,16 +265,85 @@ were scattered across the sandbox.
   `LdtkProject::load_default_for_dev()` is the test/headless shortcut
   that builds a default desktop catalog internally.
 
-### Remaining work (slices 8+)
+### Slice 4 — platform asset story (2026-05-17)
 
-8. **Music cue layers** — `MusicCueCatalog` cues
-   (`crates/ambition_sandbox/src/music/director/loader.rs`) still build
-   paths as `{cue.asset_root}/{source.path}`. Per-section/per-layer
-   catalog ids would unify with the music-track path.
-9. **Bevy-native `AssetSource` for `embedded://` web bundle** — once
-   `bevy_embedded_assets` is wired into the wasm build,
-   `should_attempt_optional_load` for `WebStatic` can flip to true for
-   sprites/fonts known to be embedded.
+Closes the remaining transition shims; makes the catalog drive
+runtime asset source registration instead of merely describing assets.
+
+- **Centralized disk probing.** The only host-filesystem candidate
+  walker in the sandbox is `desktop_candidate_roots` in
+  `crates/ambition_sandbox/src/sandbox_assets.rs`, exposed publicly as
+  `SandboxAssetCatalog::resolve_local_file_path(rel) -> Option<PathBuf>`.
+  Every other consumer (SFX bank loader, LDtk hot-reload watcher, font
+  loader, sprite loader) calls through it. `setup.rs::resolve_to_disk_path`
+  is **deleted**.
+- **`SandboxAssetCatalog::try_path_for_load(id)`** combines resolution
+  + per-profile load gate into one call. Returns `Some(path)` when the
+  loader should hand the string to `AssetServer::load`; `None` when the
+  loader should fall back. Every visible loader (sprites, fonts, boss
+  sheets, parallax, character sheets) is now a single
+  `if let Some(path) = catalog.try_path_for_load(&id) { ... }`.
+- **`ResolvedAsset::authored_candidate: bool`** distinguishes "authored
+  explicit candidate" from "resolver-synthesized speculative default."
+  WebStatic/BundledStatic gates the load on the authored flag — a
+  speculative `embedded://...` URL with no real bytes never triggers
+  an `AssetServer::load`.
+- **`AmbitionAssetSourcePlugin`** is the seam where Bevy asset sources
+  get registered. Behind `static_map` it inserts the LDtk world JSON
+  bytes into `EmbeddedAssetRegistry` under
+  `embedded://ambition_sandbox/ambition/worlds/{sandbox,intro}.ldtk` —
+  matching the explicit `EmbeddedBinary` candidates the catalog
+  authors on the corresponding entries. WebStatic now **actually loads
+  the LDtk world** instead of synthesizing a URL into the void.
+- **`AMBITION_SFX_BANK_PATH` env var** is now an authored
+  `LooseFilesystem` `LocationCandidate` on the SFX bank entry — visible
+  catalog policy instead of an invisible side-path in `setup.rs`.
+- **Secondary LDtk worlds (`world.intro_ldtk`)** are catalog-driven:
+  `merge_secondary_worlds_via_catalog` walks `secondary_world_ids()`
+  and reads the resolved `LocalPath` for each entry. Embedded
+  candidates flow through the same `AmbitionAssetSourcePlugin`
+  registration.
+
+### Transition shims still present
+
+> **Empty as of 2026-05-17.**
+
+Every transition shim that was visible in slice 3 has been retired:
+
+- `setup.rs::resolve_to_disk_path` — **deleted**.
+- `setup.rs::try_load_sfx_bank` legacy candidate-roots walk — **deleted**.
+- `ldtk_world::loading::SECONDARY_WORLD_FILES` const — **deleted**;
+  catalog-driven `secondary_world_ids()` replaces it.
+- `ambition_asset_manager_transition` markers in
+  `sandbox_assets::desktop_loose_file_exists` — **deleted** (the
+  function itself is gone; `desktop_candidate_roots` survives as the
+  single owner).
+
+One small soft-shim remains:
+[`SandboxAssetCatalog::should_attempt_optional_load(path: &str)`](crates/ambition_sandbox/src/sandbox_assets.rs)
+is kept for the `intro::plugin::load_intro_*_sprites_system` path,
+which dynamically authors sprite filenames *outside* the prebuilt
+catalog. Migrating those plugins to emit per-asset catalog entries
+turns the function into a single-call-site wrapper around
+`try_path_for_load`. Tracked as slice 16.
+
+### Remaining work (slices 13+)
+
+13. **Sprite / font embedding for `WebStatic`** — author per-asset
+    `EmbeddedBinary` candidates + `EmbeddedAssetRegistry::insert_asset`
+    calls under `AmbitionAssetSourcePlugin`. Likely behind a
+    `static_sprites` feature so the desktop dev build isn't paying
+    the embed cost. Or adopt `bevy_embedded_assets` with a filter.
+14. **HTTP/HTTPS `AssetSource`** for `WebHttp`. The catalog already
+    emits `https://...` URLs from authored `HttpRemote` candidates;
+    `add_http_asset_source` in `sandbox_assets.rs` is the wiring stub.
+15. **Music cue layers** — `MusicCueCatalog` cues
+    (`crates/ambition_sandbox/src/music/director/loader.rs`) still build
+    paths as `{cue.asset_root}/{source.path}`. Per-section/per-layer
+    catalog ids would unify with the music-track path.
+16. **Intro plugin sprite catalog entries** — let
+    `load_intro_npc_sprites_system` author its rows into the catalog
+    so the legacy `should_attempt_optional_load(&str)` API can go.
 
 ## IPFS posture
 
@@ -278,6 +353,76 @@ content-routing, no pinning. The
 canonical HTTPS URL via `ipfs_gateway_url`; consumers fetch through
 Bevy's `https` `AssetSource` like any other HTTP asset. A future slice
 can grow this into native IPFS support behind a separate feature.
+
+## How platform source registration works
+
+`SandboxAssetCatalog` decides *what* an `AssetId` resolves to;
+`AmbitionAssetSourcePlugin` makes those URLs actually resolvable at
+runtime. Together they form the catalog-as-policy + Bevy-as-runtime
+split.
+
+```text
+SandboxAssetCatalog            AmbitionAssetSourcePlugin
+  ───────────────              ───────────────────────────
+  id → AssetPath               registers concrete AssetReaders /
+  "embedded://X"               EmbeddedAssetRegistry entries that
+       │                       answer "embedded://X" with real bytes
+       ▼
+   Bevy AssetServer ───────────► Bevy AssetReader (Embedded / File / Http)
+```
+
+### Install order
+
+```text
+DefaultPlugins              (creates AssetPlugin → EmbeddedAssetRegistry)
+SandboxSimulationPlugin
+SandboxLdtkPlugin
+SandboxPresentationPlugin
+AmbitionAssetSourcePlugin   ◄── must run AFTER DefaultPlugins
+```
+
+`AmbitionAssetSourcePlugin::for_profile(profile)` takes the active
+profile so future profile-conditional registration ("only register
+the `http` source on `WebHttp`") has a single switch site.
+
+### Adding a new embedded asset
+
+1. Add a `with_location(EmbeddedBinary, AssetLocation::embedded("ambition_sandbox/your/path.foo"))`
+   candidate to the catalog entry in
+   `crate::sandbox_assets::extend_with_*`.
+2. Add a matching
+   `EmbeddedAssetRegistry::insert_asset(PathBuf::new(),
+   Path::new("ambition_sandbox/your/path.foo"),
+   include_bytes!("../assets/your/path.foo") as &[u8])`
+   call in `register_embedded_assets` (or a new gated helper, e.g.
+   behind a `static_sprites` feature).
+3. The catalog's `try_path_for_load` immediately flips to true under
+   WebStatic/BundledStatic for that asset, because the candidate is
+   now `authored_candidate = true`.
+
+### Adding an HTTP-served asset (future)
+
+1. Author a `LocationCandidate { source: HttpRemote, location: HttpUrl("https://...") }`
+   on the entry.
+2. Wire Bevy's `http`/`https` features in the sandbox `Cargo.toml`
+   and call `add_http_asset_source(app)` from
+   `AmbitionAssetSourcePlugin::build`. (Currently a documented stub
+   that's safe to call early.)
+3. WebHttp's `try_path_for_load` flips to true.
+
+## WebStatic packaging status
+
+| Asset class | WebStatic status | Notes |
+| ----------- | ---------------- | ----- |
+| LDtk worlds (`world.sandbox_ldtk`, `world.intro_ldtk`) | ✅ embedded | `static_map` feature; `AmbitionAssetSourcePlugin` registers under `embedded://ambition_sandbox/...`. |
+| sandbox RON (`data.sandbox`) | ⚠️ via `SandboxDataSpec::load_embedded` | The bytes are `include_str!`'d directly into the binary; the Bevy `AssetServer` handle is informational (hot reload), not load-critical. |
+| SFX bank (`audio.sfx_bank`) | ⚠️ `static_sfx_bank` feature | When enabled, `try_load_static_sfx_bank` uses `include_bytes!`. Otherwise the wasm build falls back to procedural fundsp SFX. |
+| Entity sprites + parallax + character / boss sheets | ❌ placeholder rectangles | `EmbeddedBinary` candidates not yet authored on these entries; `try_path_for_load` returns `None`. Slice 13 work. |
+| UI fonts | ❌ Bevy default font | Same shape as sprites; slice 13. |
+| Music tracks | ❌ procedural fallback in `AudioLibrary::new` | No `EmbeddedBinary` candidates; the music director silently falls back to `render_lofi_theme` synths in the test path. |
+
+The wasm build boots, accepts keyboard input, and renders the LDtk
+world. Colored rectangles fill the sprite slots until slice 13 lands.
 
 ## How to add a new asset
 

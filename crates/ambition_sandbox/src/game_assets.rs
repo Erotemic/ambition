@@ -613,12 +613,9 @@ fn load_entity_sprites(
     let mut handles = HashMap::with_capacity(EntitySprite::ALL.len());
     for &key in EntitySprite::ALL {
         let id = entity_sprite_asset_id(key);
-        let Some(path) = catalog.path_for(&id) else {
+        let Some(path) = catalog.try_path_for_load(&id) else {
             continue;
         };
-        if !catalog.should_attempt_optional_load(&path) {
-            continue;
-        }
         handles.insert(key, asset_server.load(path));
     }
     EntitySpriteSet { handles }
@@ -632,12 +629,9 @@ fn load_parallax_layers(
     for &theme in ParallaxTheme::ALL {
         for &layer in ParallaxLayerAsset::ALL {
             let id = parallax_layer_asset_id(theme, layer);
-            let Some(path) = catalog.path_for(&id) else {
+            let Some(path) = catalog.try_path_for_load(&id) else {
                 continue;
             };
-            if !catalog.should_attempt_optional_load(&path) {
-                continue;
-            }
             handles.insert((theme, layer), asset_server.load(path));
         }
     }

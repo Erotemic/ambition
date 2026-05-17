@@ -191,6 +191,26 @@ log "default features: $USE_DEFAULT_FEATURES"
 log "features: ${FEATURES:-<default only>}"
 log "wasm artifact: $WASM_ARTIFACT"
 log "wasm-bindgen target: $BINDGEN_TARGET  out dir: $OUT_DIR"
+
+# Audio is only in the build when the feature set includes web_audio.
+# `web` (--serve without --served) is a visual smoke build with no
+# audio backend: `bevy_kira_audio` isn't even compiled in, so the
+# browser will boot silent and the `[ambition-audio] AudioContext
+# created` log line will never fire. Surface this loudly because
+# silent web audio after a build is otherwise indistinguishable from
+# "Kira refused to resume" and easy to misdiagnose.
+audio_feature_active=false
+case ",$FEATURES," in
+    *,web_audio,*|*,web_served_assets,*|*,visible_web_served,*|*,audio,*)
+        audio_feature_active=true ;;
+esac
+if [[ "$audio_feature_active" == true ]]; then
+    log "audio: ENABLED in build (bevy_kira_audio in wasm). The browser must show 'AssetProfile = web_served_assets' in the boot banner."
+else
+    warn "audio: DISABLED in build. This is a visual-smoke build only."
+    warn "audio: bevy_kira_audio is NOT in the wasm; the browser will boot silent."
+    warn "audio: for audible web audio rebuild with: ./build_for_web.sh --served --serve"
+fi
 if [[ -n "$WANT_BINDGEN_VERSION" ]]; then
     log "Cargo.lock pins wasm-bindgen $WANT_BINDGEN_VERSION (wasm-bindgen-cli must match)"
 fi

@@ -33,10 +33,48 @@
 # devtools -> Network -> Disable cache -> hard reload (Cmd-Shift-R / Ctrl-Shift-R)
 ```
 
+⚠️ **The `--served` flag is required for audible audio.** Without
+it, `./build_for_web.sh --serve` produces a `web` (visual smoke)
+build that does NOT include `bevy_kira_audio` — the browser will
+boot silent regardless of the JS shim, because there's no audio
+backend in the wasm at all. The build script now warns about this:
+
+```text
+[web-build] warning: audio: DISABLED in build. This is a visual-smoke build only.
+[web-build] warning: audio: bevy_kira_audio is NOT in the wasm; the browser will boot silent.
+[web-build] warning: audio: for audible web audio rebuild with: ./build_for_web.sh --served --serve
+```
+
+With `--served`, you should see:
+
+```text
+[web-build] audio: ENABLED in build (bevy_kira_audio in wasm). The browser must show 'AssetProfile = web_served_assets' in the boot banner.
+```
+
 `--served` builds with `--features web_served_assets`, which includes
 `web_audio` (so `bevy_kira_audio` is in the wasm) and auto-symlinks
 `crates/ambition_sandbox/assets/` to `crates/ambition_sandbox/web/assets/`
 so the served URLs resolve.
+
+### First sanity check after page load
+
+The very first log line under target `ambition::sandbox_assets` is:
+
+```text
+web start: AssetProfile = <PROFILE> | static_map = ... | static_core_assets = ... | static_sfx_bank = ...
+```
+
+**`<PROFILE>` must be `web_served_assets`.** If it shows `web_static`
+instead, you ran a `web` (visual-smoke) build. Stop, rerun
+`./build_for_web.sh --served --serve`, hard-reload.
+
+Diagnostic table:
+
+| Boot banner says | Means | Audio status | Fix |
+| --- | --- | --- | --- |
+| `web_served_assets` | served-assets build, audio compiled in | should be audible after gesture | follow checklist below |
+| `web_static` | visual-smoke build, no Kira | silent, by design | rebuild with `--served` |
+| `no_assets` | smoke-test build, no assets | silent, no visuals either | rebuild with `--served` |
 
 ## Console logs to watch for
 

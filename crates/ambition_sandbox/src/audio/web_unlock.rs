@@ -1,34 +1,68 @@
-//! Browser AudioContext unlock detection.
+//! Browser AudioContext unlock detection + ECS readiness flag.
 //!
 //! Browsers create the Web Audio `AudioContext` in the `suspended`
-//! state and only resume it after a user gesture (click, key, touch).
-//! Kira's `cpal` backend handles the actual resume call once a sound
-//! tries to play after the gesture, so we don't need to poke the
-//! context from Rust — but the user sees the game boot silent and
-//! might assume audio is broken. This plugin logs a clear status line
-//! at startup and a second line the first time we see a user gesture,
-//! so devtools shows the unlock moment.
+//! state and only let `ctx.resume()` succeed when called from inside
+//! a user-gesture event handler. Kira (via cpal's webaudio backend)
+//! constructs the AudioContext at startup and calls `ctx.resume()`
+//! lazily from `Stream::play()`; those play calls dispatch from
+//! Bevy's RAF loop, *not* from a gesture handler, so the resume
+//! silently fails and audio stays muted forever.
 //!
-//! On non-wasm targets the systems are still registered but the
-//! "audio locked" startup line is suppressed (desktop audio is not
-//! gesture-gated). The unlock log fires on the first input event on
-//! every platform — harmless on desktop, useful for cross-checking.
+//! The fix has two halves:
+//!
+//! 1. **JS-side resume** — `crates/ambition_sandbox/web/index.html`
+//!    patches `window.AudioContext` to track every context cpal
+//!    creates, then resumes them all from a real DOM gesture handler
+//!    (`pointerdown` / `keydown` / `touchstart` / `click`). This is
+//!    the half that actually unblocks playback.
+//!
+//! 2. **Rust-side gating** — this module observes the *first* Bevy
+//!    input event and flips [`AudioUnlockState::unlocked`] to `true`.
+//!    Music + SFX startup gates itself on that flag so we don't fire
+//!    a `play()` against a context the JS hook hasn't had a chance
+//!    to resume yet.
+//!
+//! On non-wasm targets the JS hook is irrelevant and the
+//! `AudioUnlockState` flips on the first frame so behavior matches
+//! the pre-deferred startup. Cross-platform call sites can read
+//! `unlock.unlocked` uniformly.
 
 #![cfg(feature = "audio")]
 
 use bevy::input::touch::Touches;
 use bevy::input::ButtonInput;
 use bevy::log::info;
-use bevy::prelude::{App, KeyCode, Local, MouseButton, Plugin, Res, Startup, Update};
+use bevy::prelude::{
+    App, KeyCode, MouseButton, Plugin, Res, ResMut, Resource, Startup, Update,
+};
 
 pub const AUDIO_LOG_TARGET: &str = "ambition::audio";
+
+/// ECS-visible readiness signal for "is it safe to start playback?".
+///
+/// - On wasm, flips to `true` the frame we observe the first user
+///   gesture. The JS unlock shim in `web/index.html` resumes the
+///   AudioContext from inside that same gesture event handler, so
+///   by the time downstream `Update` systems see `unlocked == true`
+///   the context is (or is in the middle of becoming) `running`.
+/// - On desktop / Android, gestures are not required by the audio
+///   backend, so this is force-flipped to `true` during Startup.
+#[derive(Resource, Default, Clone, Copy, Debug)]
+pub struct AudioUnlockState {
+    pub unlocked: bool,
+    /// Number of `Update` frames observed since startup. Lets the
+    /// "we never saw a gesture" warning fire at a sensible moment
+    /// without spamming.
+    pub frames_since_startup: u64,
+}
 
 pub struct WebAudioUnlockPlugin;
 
 impl Plugin for WebAudioUnlockPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, log_initial_lock_status)
-            .add_systems(Update, log_first_unlock_gesture);
+        app.init_resource::<AudioUnlockState>()
+            .add_systems(Startup, (log_initial_lock_status, prime_unlock_for_native))
+            .add_systems(Update, observe_unlock_gesture);
     }
 }
 
@@ -37,32 +71,60 @@ fn log_initial_lock_status() {
     {
         info!(
             target: AUDIO_LOG_TARGET,
-            "audio locked until first user gesture (click / key / touch); \
-             kira will start playback once the AudioContext resumes"
+            "ambition audio: kira plugin installed; AudioContext is suspended until \
+             first user gesture (click / key / touch). The JS shim in web/index.html \
+             resumes the context on gesture and logs `[ambition-audio] resume() ...`."
+        );
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        info!(
+            target: AUDIO_LOG_TARGET,
+            "ambition audio: kira plugin installed (native backend; no gesture gate)."
         );
     }
 }
 
-/// Watch for the first input event and emit a one-shot log so the
-/// browser devtools captures the exact moment audio could start
-/// playing. Uses `ButtonInput::get_just_pressed` rather than message
-/// readers to keep the system param list tiny and let it coexist with
-/// the rest of the input pipeline.
-fn log_first_unlock_gesture(
+/// Native (desktop / Android) backends don't require a user gesture
+/// to start audio. Flip the unlock flag in Startup so downstream
+/// systems that gate on it behave identically to the pre-deferred
+/// startup.
+fn prime_unlock_for_native(mut state: ResMut<AudioUnlockState>) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        state.unlocked = true;
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Wasm path: stay locked until `observe_unlock_gesture` sees
+        // a real input. `state` is intentionally untouched here.
+        let _ = state;
+    }
+}
+
+/// Watch for the first input event and:
+/// - emit a one-shot log line so devtools captures the unlock moment
+/// - flip [`AudioUnlockState::unlocked`] so downstream playback
+///   systems can fire their first `play()` call.
+fn observe_unlock_gesture(
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
-    mut logged: Local<bool>,
+    mut state: ResMut<AudioUnlockState>,
 ) {
-    if *logged {
+    state.frames_since_startup = state.frames_since_startup.saturating_add(1);
+    if state.unlocked {
         return;
     }
     let gesture = keys.get_just_pressed().next().is_some()
         || mouse.get_just_pressed().next().is_some()
         || touches.iter_just_pressed().next().is_some();
     if gesture {
-        info!(target: AUDIO_LOG_TARGET, "audio unlocked (user gesture detected)");
-        *logged = true;
+        info!(
+            target: AUDIO_LOG_TARGET,
+            "ambition audio: first user gesture observed; flagging AudioUnlockState. \
+             Music + SFX startup will now fire."
+        );
+        state.unlocked = true;
     }
 }
-

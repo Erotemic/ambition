@@ -2,29 +2,41 @@
 //!
 //! Gameplay state (water volumes, future caves/tunnels) sets
 //! [`AudioEnvironment::target`]; this module smoothly approaches the
-//! target wetness on a wall-clock timer and exposes per-channel
-//! attenuation multipliers that the volume writer applies on top of
-//! the user's mixer settings. Gameplay/water code does not touch Kira
+//! target wetness on a wall-clock timer and feeds the writer that
+//! adjusts the audio mix. Gameplay/water code does not touch Kira
 //! directly — it only mutates `AudioEnvironment` (or relies on the
 //! built-in `detect_audio_environment` system to do so from
 //! `WaterContact`).
 //!
-//! ## Real-world Kira filter status
+//! ## Underwater effect — current status (not a "real" low-pass)
 //!
-//! True low-pass filtering on music + SFX is the long-term goal
-//! (Kira ships a `kira::effect::filter::FilterBuilder` that would let
-//! us tween a 500–1200 Hz cutoff). `bevy_kira_audio` 0.25 — the
-//! wrapper this sandbox uses — does not expose track-level effect
-//! insertion or the underlying `kira::AudioManager`, so we cannot
-//! attach the filter through the public API. Until the wrapper grows
-//! that seam (or we replace it with a thin direct-Kira shim) this
-//! module falls back to per-channel volume attenuation. The fallback
-//! still composes with the user's master/music/sfx sliders, still
-//! transitions on a smooth ramp, and is replaceable with a real
-//! filter call site by editing only [`apply_audio_environment`].
+//! **What you actually hear today:** music drops by ~8 dB and SFX by
+//! ~5 dB on a smooth 350 ms ramp. There is **no high-frequency
+//! damping**; the spectrum is unchanged. This is a placeholder mix
+//! adjustment, *not* an underwater muffle. Do not represent it that
+//! way in UI/docs.
 //!
-//! Search for `TODO: kira_underwater_filter_backend` to find the
-//! exact swap points.
+//! **Why volume-only:** the brief asks for a Kira `LowPass` filter
+//! tweened from ~20 kHz to ~800 Hz. Kira ships exactly that
+//! (`kira::effect::filter::FilterBuilder` /
+//! `MainTrackBuilder::with_effect`), but the wrapper this sandbox
+//! uses — `bevy_kira_audio` 0.25 — does not expose track-level
+//! effect insertion. Verified by reading the crate source:
+//! `AudioOutput` is `pub(crate)`, `AudioManager` is a private field,
+//! and `AudioSettings` only forwards `sound_capacity` to
+//! `MainTrackBuilder::new()`. There is no extension point.
+//!
+//! **Required next step (not done in this module):** replace the
+//! bevy_kira_audio wrapper with a thin direct-Kira layer that owns
+//! one `kira::AudioManager`, exposes a music sub-track + an SFX
+//! sub-track each pre-built with `FilterBuilder::new().mode(LowPass)
+//! .cutoff(20_000.0)`, and hands `FilterHandle`s back to the ECS
+//! writer. See `docs/audio_underwater.md` for the full migration
+//! plan and surface area.
+//!
+//! **Search markers in the code:** every place that has to change
+//! when the direct-Kira layer lands is tagged
+//! `TODO: kira_underwater_filter_backend`.
 
 use bevy::prelude::*;
 
@@ -42,8 +54,11 @@ pub enum AudioEnvironmentMode {
     /// Open-air mix: no environmental coloration applied.
     #[default]
     Normal,
-    /// Submerged: low-pass-feel (or, with the current backend, a
-    /// volume duck) is applied to music + SFX.
+    /// Submerged. The *intended* effect is a Kira low-pass tween
+    /// (cutoff ~20 kHz → ~800 Hz over 200–600 ms). The *current*
+    /// effect is a volume duck (~-8 dB music, ~-5 dB SFX) — a
+    /// placeholder until the bevy_kira_audio backend gap is closed.
+    /// See module docs.
     Underwater,
 }
 
@@ -179,11 +194,15 @@ pub fn smooth_audio_environment(
 /// * one cache key (`Local<Option<(...)>>`) gates the per-frame
 ///   write — we don't spam `set_volume` once steady-state is reached.
 ///
-/// `TODO: kira_underwater_filter_backend` — replace the
-/// `music_attenuation()`/`sfx_attenuation()` multipliers with a real
-/// Kira `FilterBuilder` (LowPass, cutoff tweened from ~20 kHz to
-/// ~800 Hz against `wetness`) once `bevy_kira_audio` grows track-effect
-/// access (or we swap to a direct Kira shim).
+/// `TODO: kira_underwater_filter_backend` — the volume attenuation
+/// computed here is the **placeholder** until the bevy_kira_audio
+/// wrapper grows track-level effect access (or we swap to a direct-
+/// Kira layer per `docs/audio_underwater.md`). The real underwater
+/// effect should be a Kira `FilterBuilder` (LowPass, cutoff tweened
+/// from ~20 kHz to ~800 Hz against `wetness`), not a level reduction.
+/// This function is the exact swap point: replace the
+/// `effective_music * music_attenuation` arithmetic with a call into
+/// the filter handle, and leave the user-mixer composition intact.
 #[cfg(feature = "audio")]
 pub fn apply_audio_environment(
     settings: Res<crate::settings::UserSettings>,
@@ -212,6 +231,7 @@ pub fn apply_audio_environment(
 /// 64-step granularity is finer than the ear can resolve over an
 /// 8 dB range while still cutting roughly two orders of magnitude of
 /// redundant writes.
+#[cfg_attr(not(feature = "audio"), allow(dead_code))]
 #[inline]
 fn quantize_wetness(wetness: f32) -> f32 {
     (wetness.clamp(0.0, 1.0) * 64.0).round() / 64.0

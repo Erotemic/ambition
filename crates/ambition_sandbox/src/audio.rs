@@ -63,8 +63,8 @@ pub use render::SfxBankHandleCache;
 #[cfg(feature = "audio")]
 pub use runtime::{
     amplitude_to_decibels, apply_encounter_music, audio_play_sfx_messages, set_radio_track,
-    start_default_music, switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState,
-    MusicTrackRuntime, RadioStationState, SfxChannel,
+    start_default_music_when_ready, switch_to_music_track, AudioLibrary, DefaultMusicStarted,
+    MusicChannel, MusicPlaybackState, MusicTrackRuntime, RadioStationState, SfxChannel,
 };
 #[cfg(feature = "audio")]
-pub use web_unlock::WebAudioUnlockPlugin;
+pub use web_unlock::{AudioUnlockState, WebAudioUnlockPlugin};

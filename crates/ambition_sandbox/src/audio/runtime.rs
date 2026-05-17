@@ -56,8 +56,18 @@ pub fn audio_play_sfx_messages(
     bank: Option<Res<crate::setup::SfxBankResource>>,
     mut cache: ResMut<SfxBankHandleCache>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
+    mut first_play_logged: Local<bool>,
 ) {
     for message in messages.read() {
+        if !*first_play_logged {
+            info!(
+                target: super::web_unlock::AUDIO_LOG_TARGET,
+                "ambition audio: first SFX play attempt (cue={:?}, bank_loaded={})",
+                message.cue(),
+                bank.is_some()
+            );
+            *first_play_logged = true;
+        }
         if let Some(cue) = message.cue() {
             sfx_channel.play(library.sfx_handle(cue));
             continue;
@@ -199,6 +209,16 @@ pub struct MusicTrackRuntime {
     pub display_name: String,
     pub duration_seconds: f32,
     source: TrackSource,
+}
+
+#[cfg(feature = "audio")]
+impl MusicTrackRuntime {
+    /// Logical asset path the AssetServer was (or will be) asked to
+    /// load. Used in diagnostics / log lines; the live handle lives
+    /// behind the lazy `resolve_track_handle` call.
+    pub fn asset_path(&self) -> &str {
+        &self.source.asset_path
+    }
 }
 
 #[derive(Resource)]
@@ -503,19 +523,92 @@ impl MusicPlaybackState {
     }
 }
 
+/// Tracks whether [`start_default_music_when_ready`] has actually
+/// kicked off the music playback. Inserted at startup, flipped to
+/// `true` the frame the deferred play call lands. Exposed so other
+/// systems / overlays can show "audio: waiting for asset…" instead
+/// of "audio: silent".
+#[derive(Resource, Default, Clone, Copy, Debug)]
 #[cfg(feature = "audio")]
-pub fn start_default_music(
+pub struct DefaultMusicStarted(pub bool);
+
+/// Update-loop variant of the old `start_default_music`. Polls the
+/// asset server until the default music track's handle finishes
+/// loading, then issues the `play` call once. Important on web,
+/// where the music OGG is fetched over HTTP and may not be ready
+/// until several frames after startup — calling `play(handle)` on a
+/// not-yet-loaded handle either drops the request silently or fires
+/// a soft warning, depending on bevy_kira_audio's internal state,
+/// and the music never starts.
+///
+/// Also gated by [`AudioUnlockState::unlocked`]: on web the
+/// AudioContext is `suspended` until a user gesture, and Kira's
+/// `play()` call on a suspended context schedules sounds that never
+/// audibly play. Deferring the first `play` until after the gesture
+/// gives the JS unlock shim in `web/index.html` a chance to resume
+/// the context first. Desktop builds flip `unlocked` to `true` on
+/// the first `Update` frame, so behavior matches the old startup
+/// system there.
+#[cfg(feature = "audio")]
+pub fn start_default_music_when_ready(
+    mut started: ResMut<DefaultMusicStarted>,
+    unlock: Res<super::web_unlock::AudioUnlockState>,
     mut library: ResMut<AudioLibrary>,
     asset_server: Res<AssetServer>,
     state: Res<MusicPlaybackState>,
     music_channel: Res<AudioChannel<MusicChannel>>,
+    mut waiting_logged: Local<bool>,
 ) {
-    play_music_track(
-        &mut library,
-        &asset_server,
-        &state.active_track,
-        &music_channel,
+    if started.0 {
+        return;
+    }
+    if !unlock.unlocked {
+        return;
+    }
+    let track_id = state.active_track.clone();
+    let Some(_track) = library.track(&track_id) else {
+        // No track at all in the library (e.g. all music tracks
+        // missing asset_path); nothing to do, but log once so the
+        // browser console / log shows why music never starts.
+        if !*waiting_logged {
+            warn!(
+                "default music: track '{}' not present in AudioLibrary; \
+                 nothing to start (check sandbox.ron music_tracks + catalog)",
+                track_id
+            );
+            *waiting_logged = true;
+            started.0 = true; // stop polling — there's nothing to wait for
+        }
+        return;
+    };
+    // Resolve / allocate the handle so we have an asset id to query.
+    let Some(handle) = library.resolve_track_handle(&track_id, &asset_server) else {
+        return;
+    };
+    let asset_path = library
+        .track(&track_id)
+        .map(|t| t.asset_path().to_string())
+        .unwrap_or_default();
+    if !asset_server.is_loaded(&handle) {
+        if !*waiting_logged {
+            info!(
+                "default music: waiting for asset `{}` (track `{}`) to load \
+                 before first play",
+                asset_path, track_id
+            );
+            *waiting_logged = true;
+        }
+        return;
+    }
+    info!(
+        "default music: track `{}` asset `{}` loaded; starting playback",
+        track_id, asset_path
     );
+    music_channel.play(handle).looped().fade_in(AudioTween::new(
+        Duration::from_millis(220),
+        AudioEasing::InPowi(2),
+    ));
+    started.0 = true;
 }
 
 #[cfg(feature = "audio")]

@@ -25,8 +25,10 @@
 use std::sync::Arc;
 
 use bevy::asset::{io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext};
-use bevy::log::{debug, info};
+use bevy::log::{debug, info, warn};
 use bevy::prelude::{App, Commands, Plugin, Res, ResMut, Resource, Startup, Update};
+
+use super::web_unlock::AUDIO_LOG_TARGET;
 use bevy::reflect::TypePath;
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
@@ -139,17 +141,24 @@ fn kick_off_bank_load(
     existing: Option<Res<SfxBankResource>>,
 ) {
     if existing.is_some() {
-        debug!("sfx bank already loaded synchronously; skipping async load");
+        debug!(
+            target: AUDIO_LOG_TARGET,
+            "ambition audio: sfx bank already loaded synchronously; skipping async load"
+        );
         return;
     }
     let Some(path) = catalog.path_for(&ids::sfx_bank()) else {
-        info!(
-            "audio.sfx_bank not resolvable under {} profile; SFX will play silent stubs",
+        warn!(
+            target: AUDIO_LOG_TARGET,
+            "ambition audio: audio.sfx_bank not resolvable under {} profile; SFX will play silent stubs",
             catalog.profile().label()
         );
         return;
     };
-    info!("loading sfx bank from `{path}` (async via AssetServer)");
+    info!(
+        target: AUDIO_LOG_TARGET,
+        "ambition audio: loading sfx bank from `{path}` (async via AssetServer)"
+    );
     let handle: Handle<SfxBankAsset> = asset_server.load(path);
     commands.insert_resource(PendingSfxBankHandle(handle));
 }
@@ -176,12 +185,19 @@ fn promote_loaded_sfx_bank(
     };
     let provider = asset.provider.clone();
     info!(
-        "sfx bank loaded async ({} entries) — promoting to SfxBankResource",
+        target: AUDIO_LOG_TARGET,
+        "ambition audio: sfx bank loaded async ({} entries) — promoting to SfxBankResource",
         provider.entry_count()
     );
+    let mut refreshed_library = false;
     if let (Some(mut library), Some(mut audio_sources)) = (library, audio_sources) {
         library.refresh_sfx_from_bank(&mut audio_sources, provider.as_ref());
+        refreshed_library = true;
     }
+    info!(
+        target: AUDIO_LOG_TARGET,
+        "ambition audio: SfxBankResource installed (audio_library_refreshed={refreshed_library})"
+    );
     commands.insert_resource(SfxBankResource(provider));
     commands.remove_resource::<PendingSfxBankHandle>();
 }

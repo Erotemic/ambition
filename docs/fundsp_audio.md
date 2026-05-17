@@ -43,23 +43,28 @@ The deleted code lived at:
 - The wasm port can't synthesize on a worker thread without rework;
   authored OGGs ship to every platform unchanged.
 
-## Realtime DSP/effects (status: underwater shipped, rest future)
+## Realtime DSP/effects (status: ECS plumbed, real filter blocked)
 
-The first realtime effect — **underwater muffle** — landed via an
-ECS [`AudioEnvironment`](../crates/ambition_sandbox/src/audio/environment.rs)
-layer. It reads the player's `WaterContact` (the same field the swim
-mechanics already write), smooths a `wetness` value on a wall-clock
-timer, and a single writer (`apply_audio_environment`) composes the
-mixer-level settings with per-channel attenuation multipliers.
+The ECS [`AudioEnvironment`](../crates/ambition_sandbox/src/audio/environment.rs)
+layer is in place: it reads the player's `WaterContact` (the same
+field the swim mechanics already write), smooths a `wetness` value
+on a wall-clock timer, and a single writer composes mixer-level
+settings with the environment state.
 
-> **Backend reality, not aesthetic choice.** Kira itself ships
-> `kira::effect::filter::FilterBuilder` (LowPass / HighPass / BandPass
-> / Notch with a tweenable cutoff), but `bevy_kira_audio` 0.25 does
-> not expose track-level effect insertion or its private
-> `kira::AudioManager`. Until that seam exists we use volume
-> attenuation as the underwater effect. Swap points are tagged
-> `TODO: kira_underwater_filter_backend` in
-> `audio/environment.rs`.
+**But the writer is a volume duck, not a filter.** Music drops ~8 dB
+and SFX ~5 dB while underwater; the spectrum is unchanged. There is
+**no high-frequency damping** today. See `docs/audio_underwater.md`
+for the migration plan to a real Kira `FilterBuilder` (LowPass,
+~20 kHz → ~800 Hz). Do not describe the current effect as
+"underwater muffle" in any user-facing surface.
+
+**Backend blocker:** `bevy_kira_audio` 0.25 hides the
+`kira::AudioManager` (`pub(crate)` `AudioOutput.manager`), does not
+expose `MainTrackBuilder::with_effect`, and offers no `add_sub_track`
+or per-track effect-handle API. The recommended unlock is to replace
+the wrapper with a thin direct-Kira layer (see
+`docs/audio_underwater.md` Option A), not to forklift `fundsp` back
+into the runtime as a parallel DSP engine.
 
 Future effects (combat low-pass on damage, reverb-ish ambience, filter
 sweeps tied to gameplay state) should follow the same pattern:

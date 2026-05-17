@@ -60,22 +60,47 @@ procedural music + SFX synthesizer was retired (see
 
 Chrome / Firefox / Safari all create the Web Audio `AudioContext` in
 the `suspended` state and only resume it after a user gesture (click,
-key, touch). Kira / cpal handle the actual `resume()` automatically
-once a sound tries to play after a gesture, so no JS plumbing is
-needed in `web/index.html`. The sandbox surfaces the unlock state via
-two log lines (target `ambition::audio`):
+key, touch). **cpal's webaudio backend does *not* reliably resume**
+on its own: `Stream::play()` calls `ctx.resume()`, but `resume()` only
+succeeds when invoked from a JS call stack that originated inside a
+user gesture handler. Bevy systems run on `requestAnimationFrame`,
+which is a separate task from the gesture handler, so cpal's lazy
+resume silently fails and audio stays muted for the session.
 
-- at startup, on wasm only: `audio locked until first user gesture (click / key / touch); kira will start playback once the AudioContext resumes`
-- on the first input event, on every platform: `audio unlocked (user gesture detected)`
+The fix in this repo is two-layer:
 
-These come from `crate::audio::WebAudioUnlockPlugin` (see
-`crates/ambition_sandbox/src/audio/web_unlock.rs`). The browser
-devtools console is the canonical place to confirm unlock fired.
+1. **`crates/ambition_sandbox/web/index.html` JS shim** — patches
+   `window.AudioContext` to track every context cpal creates, then
+   calls `ctx.resume()` from a real DOM
+   `pointerdown` / `keydown` / `touchstart` / `click` listener. This
+   is what actually unblocks playback in the browser. Look for
+   `[ambition-audio]` lines in the devtools console.
+2. **`crate::audio::WebAudioUnlockPlugin`** (see
+   `crates/ambition_sandbox/src/audio/web_unlock.rs`) — flips
+   `AudioUnlockState::unlocked` to `true` on the first Bevy input
+   event, and `start_default_music_when_ready` (in
+   `audio/runtime.rs`) gates the first `play()` call on that flag
+   *and* on the music asset finishing its async load. Look for
+   `ambition::audio`-targeted log lines (`first user gesture
+   observed`, `default music: track … loaded; starting playback`,
+   `sfx bank loaded async …`).
 
-If a future build needs a more aggressive unlock (e.g. an in-page
-"click to enable audio" banner), `web/index.html` is the right
-place — add a click handler that calls a JS-exposed wasm export.
-Today the canvas-focus prompt + the unlock log line are sufficient.
+On native (desktop / Android) the JS shim is irrelevant and the
+unlock flag is force-flipped to `true` at Startup so behavior matches
+the pre-deferred startup. Cross-platform call sites can read
+`unlock.unlocked` uniformly.
+
+If music remains silent after a gesture, the order of triage is:
+
+1. Confirm the JS shim ran — `[ambition-audio] AudioContext unlock hook installed`.
+2. Confirm cpal created the context — `[ambition-audio] AudioContext created (state=suspended, …)`.
+3. Confirm the gesture resumed it — `[ambition-audio] resume() succeeded via …`.
+4. Confirm Bevy observed the gesture — `ambition audio: first user gesture observed`.
+5. Confirm the music asset loaded — `default music: track \`…\` asset \`…\` loaded; starting playback`.
+6. Network tab: is the `.ogg` and `sfx.bank` returning 200?
+
+See `docs/web_audio_manual_test.md` for the full Jon-facing
+checklist.
 
 ## One-time setup
 

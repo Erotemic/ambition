@@ -46,7 +46,8 @@ use crate::audio::SfxMessage;
 #[cfg(feature = "audio")]
 use crate::audio::{
     apply_audio_environment, audio_play_sfx_messages, detect_audio_environment,
-    smooth_audio_environment, start_default_music, AudioEnvironment, MusicChannel, SfxChannel,
+    smooth_audio_environment, start_default_music_when_ready, AudioEnvironment, DefaultMusicStarted,
+    MusicChannel, SfxChannel,
 };
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::content_validation;

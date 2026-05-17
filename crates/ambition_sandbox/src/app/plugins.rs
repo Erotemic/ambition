@@ -934,6 +934,7 @@ pub(super) fn add_audio_plugins(app: &mut App) {
         .init_resource::<crate::audio::RadioStationState>()
         .init_resource::<crate::audio::SfxBankHandleCache>()
         .init_resource::<AudioEnvironment>()
+        .init_resource::<DefaultMusicStarted>()
         .add_audio_channel::<MusicChannel>()
         .add_audio_channel::<SfxChannel>()
         .add_audio_channel::<crate::music::MusicLayer0AChannel>()
@@ -952,13 +953,20 @@ pub(super) fn add_audio_plugins(app: &mut App) {
             Startup,
             (
                 crate::profiling::phase_mark("before_audio_init"),
-                start_default_music,
                 crate::music::load_music_cues,
                 crate::profiling::phase_mark("after_audio_init"),
             )
                 .chain()
                 .after(setup_presentation_system),
         )
+        // Deferred music start: polls each Update for (a) user
+        // gesture observed (AudioUnlockState) and (b) the default
+        // music track's asset handle finished loading. On wasm the
+        // gesture gate is what prevents `play()` from no-op'ing
+        // against a suspended AudioContext; on desktop the gate
+        // flips during Startup so behavior matches the old direct-
+        // startup system.
+        .add_systems(Update, start_default_music_when_ready)
         .add_systems(Update, audio_play_sfx_messages.after(SandboxSet::CoreSimulation))
         // Observe the player's WaterContact and request the matching
         // audio environment; the smoother ramps `wetness`, then

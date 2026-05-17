@@ -460,12 +460,16 @@ with real art, and uses the bundled UI fonts for HUD + dialog text.
 > **Runtime audio backend.** Kira (via `bevy_kira_audio` 0.25) plays
 > everything the asset manager resolves above; there is no procedural
 > renderer. The ECS [`AudioEnvironment`](../crates/ambition_sandbox/src/audio/environment.rs)
-> layer applies an underwater muffle (channel-volume duck today,
-> Kira `FilterBuilder` once `bevy_kira_audio` exposes track effects —
-> search `TODO: kira_underwater_filter_backend`) on top of whatever
-> the asset manager has handed Kira. The asset manager itself does
-> not know about effects; environment state is a pure presentation
-> concern.
+> layer applies a **volume-only placeholder** for underwater (not a
+> real low-pass — `bevy_kira_audio` doesn't expose Kira's filter
+> chain; see `docs/audio_underwater.md`) on top of whatever the asset
+> manager has handed Kira. The asset manager itself does not know
+> about effects; environment state is a pure presentation concern.
+> On web, AudioContext unlock is solved by a JS shim in
+> `crates/ambition_sandbox/web/index.html`; the first `play()` call
+> is deferred until both (a) the asset has finished loading via the
+> Bevy `AssetServer` and (b) `AudioUnlockState.unlocked` is set —
+> see `docs/web_audio_manual_test.md` and `docs/web_build.md`.
 
 ### Adding more embedded assets
 

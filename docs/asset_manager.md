@@ -457,6 +457,16 @@ with real art, and uses the bundled UI fonts for HUD + dialog text.
 | SFX bank (`audio.sfx_bank`) | ✅ async fetch under `WebServedAssets`; ⚠️ `static_sfx_bank` feature embeds for `WebStatic` | `WebServedAssets`: the `SfxBankAsset` loader in `crate::audio::bank_asset` decodes `/assets/audio/sfx.bank` and the `promote_loaded_sfx_bank` system installs the `SfxBankResource` once decoded. `WebStatic`: `try_load_static_sfx_bank` embeds via `include_bytes!`. Without either, missing cues fall back to a short silent stub (`crate::audio::render::silent_audio_source`); the fundsp procedural SFX synthesizer was retired. |
 | Music tracks | ✅ served under `WebServedAssets` | Catalog entries are emitted by `extend_with_music_entries` for every track with an `asset_path`; under `WebServedAssets` they resolve to `BevyPath("audio/music/generated/<id>/full.ogg")` and Bevy's wasm HTTP reader fetches them. The fundsp procedural music generator was retired — tracks without `asset_path` are skipped at startup with a warning. |
 
+> **Runtime audio backend.** Kira (via `bevy_kira_audio` 0.25) plays
+> everything the asset manager resolves above; there is no procedural
+> renderer. The ECS [`AudioEnvironment`](../crates/ambition_sandbox/src/audio/environment.rs)
+> layer applies an underwater muffle (channel-volume duck today,
+> Kira `FilterBuilder` once `bevy_kira_audio` exposes track effects —
+> search `TODO: kira_underwater_filter_backend`) on top of whatever
+> the asset manager has handed Kira. The asset manager itself does
+> not know about effects; environment state is a pure presentation
+> concern.
+
 ### Adding more embedded assets
 
 Three-line change per asset (see "How platform source registration works"):

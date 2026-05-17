@@ -933,6 +933,7 @@ pub(super) fn add_audio_plugins(app: &mut App) {
         .add_plugins(crate::audio::WebAudioUnlockPlugin)
         .init_resource::<crate::audio::RadioStationState>()
         .init_resource::<crate::audio::SfxBankHandleCache>()
+        .init_resource::<AudioEnvironment>()
         .add_audio_channel::<MusicChannel>()
         .add_audio_channel::<SfxChannel>()
         .add_audio_channel::<crate::music::MusicLayer0AChannel>()
@@ -959,10 +960,21 @@ pub(super) fn add_audio_plugins(app: &mut App) {
                 .after(setup_presentation_system),
         )
         .add_systems(Update, audio_play_sfx_messages.after(SandboxSet::CoreSimulation))
-        // Push UserSettings.audio (master/music/sfx/mute) into the
-        // Kira channels whenever the user changes the menu sliders.
-        // Cheap; the system early-returns when settings are unchanged.
-        .add_systems(Update, apply_audio_settings.after(SandboxSet::CoreSimulation))
+        // Observe the player's WaterContact and request the matching
+        // audio environment; the smoother ramps `wetness`, then
+        // `apply_audio_environment` writes the combined user-mixer
+        // × environment volume to Kira. Order: detect → smooth →
+        // apply so a single frame fully propagates a state change.
+        .add_systems(
+            Update,
+            (
+                detect_audio_environment,
+                smooth_audio_environment,
+                apply_audio_environment,
+            )
+                .chain()
+                .after(SandboxSet::CoreSimulation),
+        )
         // Unified director: resolves room/encounter simple tracks and
         // adaptive cue states behind one music intent layer.
         .add_systems(

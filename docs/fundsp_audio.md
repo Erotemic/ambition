@@ -43,15 +43,40 @@ The deleted code lived at:
 - The wasm port can't synthesize on a worker thread without rework;
   authored OGGs ship to every platform unchanged.
 
-## Future: realtime DSP/effects
+## Realtime DSP/effects (status: underwater shipped, rest future)
 
-Effects like underwater muffle, low-pass filter on damage, reverb-ish
-ambience, or filter sweeps tied to gameplay state are still on the
-roadmap. When that work lands, prefer adding a small `audio_fx` feature
-behind which `fundsp` (or a lighter DSP crate) can be re-introduced as
-a *processing layer over Kira playback*, not as a content generator.
-Keep this distinction crisp: future audio_fx is meant for live
-gameplay-driven effects, not for synthesizing music at startup.
+The first realtime effect — **underwater muffle** — landed via an
+ECS [`AudioEnvironment`](../crates/ambition_sandbox/src/audio/environment.rs)
+layer. It reads the player's `WaterContact` (the same field the swim
+mechanics already write), smooths a `wetness` value on a wall-clock
+timer, and a single writer (`apply_audio_environment`) composes the
+mixer-level settings with per-channel attenuation multipliers.
+
+> **Backend reality, not aesthetic choice.** Kira itself ships
+> `kira::effect::filter::FilterBuilder` (LowPass / HighPass / BandPass
+> / Notch with a tweenable cutoff), but `bevy_kira_audio` 0.25 does
+> not expose track-level effect insertion or its private
+> `kira::AudioManager`. Until that seam exists we use volume
+> attenuation as the underwater effect. Swap points are tagged
+> `TODO: kira_underwater_filter_backend` in
+> `audio/environment.rs`.
+
+Future effects (combat low-pass on damage, reverb-ish ambience, filter
+sweeps tied to gameplay state) should follow the same pattern:
+
+- An ECS state (`AudioEnvironment` already covers "what acoustic mode
+  is the world in"; add new variants rather than parallel resources).
+- A pure smoother (the `advance` method) that is deterministic and
+  unit-testable on its own.
+- A single channel writer that composes with the user mixer settings,
+  caching the last-applied tuple to avoid per-frame writes.
+
+`fundsp` (or any other DSP crate) is **not** the right vehicle for
+realtime effects on the Kira pipeline — Kira already owns the audio
+graph and ships its own effects. The right unlock for real low-pass
+filtering is plumbing access to Kira's `MainTrackBuilder::with_effect`
+or `SubTrackBuilder` through `bevy_kira_audio` (upstream PR or local
+fork), not bringing back a parallel DSP engine.
 
 ## Where to look for runtime audio today
 

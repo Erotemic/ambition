@@ -115,24 +115,6 @@ pub fn apply_encounter_music(
     request.last_applied = Some(target);
 }
 
-#[cfg(feature = "audio")]
-pub fn apply_audio_settings(
-    settings: Res<crate::settings::UserSettings>,
-    music_channel: Res<AudioChannel<MusicChannel>>,
-    sfx_channel: Res<AudioChannel<SfxChannel>>,
-    mut last: Local<Option<crate::settings::AudioSettings>>,
-) {
-    let current = settings.audio;
-    if last.as_ref() == Some(&current) {
-        return;
-    }
-    let music_db = amplitude_to_decibels(current.effective_music());
-    let sfx_db = amplitude_to_decibels(current.effective_sfx());
-    music_channel.set_volume(music_db);
-    sfx_channel.set_volume(sfx_db);
-    *last = Some(current);
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SoundCue {
     Jump,

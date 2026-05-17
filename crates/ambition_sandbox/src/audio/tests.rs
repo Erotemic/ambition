@@ -287,6 +287,80 @@ fn no_runtime_references_to_retired_procedural_renderer() {
     );
 }
 
+/// Cargo-level guardrail: the sandbox crate's own `Cargo.toml` must
+/// not list `fundsp` as a runtime dependency or feature input. Pairs
+/// with `no_runtime_references_to_retired_procedural_renderer` —
+/// that one catches `use fundsp::` *inside* a `.rs` file, this one
+/// catches a `fundsp = "..."` line that hasn't been called yet but
+/// would silently re-arm the procedural path. Comments are stripped
+/// before scanning so the existing "fundsp was retired" prose
+/// blocks pass.
+#[test]
+fn ambition_sandbox_cargo_toml_has_no_fundsp_dep() {
+    let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let contents = std::fs::read_to_string(&manifest)
+        .unwrap_or_else(|e| panic!("read {}: {e}", manifest.display()));
+    let mut violations: Vec<String> = Vec::new();
+    for (lineno, raw_line) in contents.lines().enumerate() {
+        let line = raw_line
+            .split_once('#')
+            .map(|(code, _comment)| code)
+            .unwrap_or(raw_line)
+            .trim();
+        if line.is_empty() {
+            continue;
+        }
+        if line.contains("fundsp") {
+            violations.push(format!(
+                "{}:{}: {}",
+                manifest.display(),
+                lineno + 1,
+                raw_line
+            ));
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "ambition_sandbox/Cargo.toml re-introduced `fundsp` outside \
+         documentation comments:\n{}\n\n`fundsp` was retired as a \
+         runtime audio backend. The new realtime DSP layer must go \
+         through Kira (see docs/fundsp_audio.md).",
+        violations.join("\n")
+    );
+}
+
+/// Cargo-level guardrail: a runtime-DSP layer must compose with
+/// Kira, not bypass it. Re-introducing a non-Kira playback path
+/// would split the audio graph (mixer / underwater effect / unlock
+/// telemetry all live on the Kira side), so the only audio backend
+/// the sandbox is allowed to pull is `bevy_kira_audio`.
+#[test]
+fn ambition_sandbox_uses_only_bevy_kira_audio() {
+    let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let contents = std::fs::read_to_string(&manifest).expect("read sandbox Cargo.toml");
+    // Other Bevy audio integrations we want to refuse silently
+    // sneaking in via `bevy_audio` or alternative wrappers.
+    let banned: &[&str] = &["bevy_audio", "bevy_oddio", "oddio"];
+    for needle in banned {
+        for (lineno, raw_line) in contents.lines().enumerate() {
+            let stripped = raw_line.split_once('#').map(|(c, _)| c).unwrap_or(raw_line);
+            // Allow `default-features = false` Bevy mentions that may
+            // include the word in the disable list. We only care
+            // about `<crate> = "..."` style dep declarations.
+            let is_dep_decl = stripped.contains(needle)
+                && stripped.contains('=')
+                && !stripped.contains("default-features");
+            if is_dep_decl {
+                panic!(
+                    "{}:{}: introduced alternative audio backend `{needle}` -> {raw_line}",
+                    manifest.display(),
+                    lineno + 1
+                );
+            }
+        }
+    }
+}
+
 /// Live-runtime guardrail: every music track in the embedded sandbox
 /// spec must have a `WebServedAssets`-resolvable catalog path. This
 /// pins the "music works on the served-web profile" contract — if a

@@ -77,6 +77,60 @@ For each of the items below, please paste the literal log line or note
   logs; if needed, `web/index.html` can be extended with a JS
   `audioCtx.resume()` shim triggered by the first canvas pointerdown.
 
+## Underwater audio environment (this checklist's new section)
+
+The sandbox now ships an ECS [`AudioEnvironment`](../crates/ambition_sandbox/src/audio/environment.rs)
+layer. When the player's `WaterContact.submersion >= 0.5` the target
+flips to `Underwater`, the wetness ramps over ~350 ms, and a single
+writer (`apply_audio_environment`) re-pushes music + SFX channel
+volumes with an attenuation multiplier composed on top of the user's
+mixer settings.
+
+> **Backend reality:** `bevy_kira_audio` 0.25 does not expose
+> Kira's track-level `FilterBuilder` API, so the "underwater muffle"
+> currently lands as a music-and-SFX duck rather than a true
+> 500–1200 Hz low-pass. The swap points are tagged
+> `TODO: kira_underwater_filter_backend` in
+> [`audio/environment.rs`](../crates/ambition_sandbox/src/audio/environment.rs).
+
+### How to enter underwater state
+
+1. Build + serve as above (`./build_for_web.sh --served --serve`).
+2. After audio unlocks (first click / key / touch), find a room with
+   a water volume — the LDtk `water_test` room and the hub basement
+   pool both work.
+3. Walk in and let the player sink so the head is below the surface
+   (`WaterContact.submersion >= 0.5`). Without the `swim` ability
+   this triggers a reset, so toggle swim on in dev tools first.
+
+### Expected audible change
+
+- Within ~350 ms after submersion crosses the threshold, music
+  audibly ducks by roughly 8 dB and SFX by roughly 5 dB.
+- Surface again → both return to full level over the same window.
+- Adjust the music slider (pause menu) while submerged — the
+  underwater duck **stays applied** on top of whatever new mixer
+  level you pick. Muting still produces silence.
+- Pause the game; the wetness transition keeps running (audio buses
+  are on the wall clock), so unpausing while still submerged should
+  not "snap" the mix.
+
+### Things to report back
+
+- [ ] **Submerge** — does the mix dip within ~½ second? Paste
+      anything visible in the console (no per-frame logs are wired,
+      so this is mostly an audible check).
+- [ ] **Surface** — does the mix come back over the same window?
+- [ ] **Slider sweep while underwater** — does music volume still
+      respond to the slider?
+- [ ] **Mute while underwater** — silence?
+- [ ] **Any clipping / artifacts** — pops at the transition edges?
+      Step-wise jumps instead of smooth ramps?
+
+If the duck never lands, the most likely cause is `apply_audio_environment`
+never running (check the system order in `app/plugins.rs`) or the
+`PrimaryPlayer` query coming up empty.
+
 ## Future work (not part of this verification)
 
 - "Click to enable audio" banner in `web/index.html`.
@@ -86,3 +140,8 @@ For each of the items below, please paste the literal log line or note
   music director already supports it on desktop; the limiter is just
   whether the layered assets are reachable through the catalog under
   `WebServedAssets`).
+- **`TODO: kira_underwater_filter_backend`** — replace the
+  `AudioEnvironment::{music,sfx}_attenuation` multipliers with a
+  real Kira `FilterBuilder` (LowPass) once `bevy_kira_audio` exposes
+  track-level effect insertion, or once we ship a thin direct-Kira
+  shim that bypasses the wrapper for filter access.

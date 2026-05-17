@@ -92,10 +92,15 @@ pub enum GameplayEffect {
     SetFlag { id: String, on: bool },
     /// Feed a structured quest event into `QuestRegistry`.
     AdvanceQuest(ae::QuestAdvanceEvent),
-    /// A Switch interactable was activated. `payload` is still the authored
-    /// Custom string for now, but it is contained in one typed effect variant
-    /// instead of a standalone side-channel.
-    ActivateSwitch { payload: String, pos: ae::Vec2 },
+    /// A Switch interactable was activated. Carries the parsed
+    /// [`crate::encounter::SwitchActivation`] directly — the
+    /// `switch:<id>:<action>:<target>` wire string lives only at the
+    /// engine `InteractionKind::Custom` boundary and is parsed once at
+    /// LDtk spawn time.
+    ActivateSwitch {
+        activation: crate::encounter::SwitchActivation,
+        pos: ae::Vec2,
+    },
     /// Route damage into the boss encounter state machine.
     DamageBoss { boss_id: String, amount: i32 },
     /// Record that an NPC was struck. Today this is trace/reporting glue;
@@ -110,9 +115,9 @@ pub enum GameplayEffect {
 }
 
 impl GameplayEffect {
-    pub fn switch_activation(&self) -> Option<(&str, ae::Vec2)> {
+    pub fn switch_activation(&self) -> Option<(&crate::encounter::SwitchActivation, ae::Vec2)> {
         match self {
-            Self::ActivateSwitch { payload, pos } => Some((payload.as_str(), *pos)),
+            Self::ActivateSwitch { activation, pos } => Some((activation, *pos)),
             _ => None,
         }
     }

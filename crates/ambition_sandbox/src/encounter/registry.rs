@@ -57,7 +57,14 @@ impl EncounterRegistry {
 }
 
 /// One activation request from a switch interaction.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// Built once when an LDtk `Switch` entity is converted into an
+/// `ae::Interactable` payload and spawned through
+/// `crate::features::SwitchFeature`. The encounter pipeline, switch
+/// activation queue, and switch index all consume the typed fields
+/// directly — only the engine-side `InteractionKind::Custom(String)`
+/// boundary still carries the wire format.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SwitchActivation {
     pub id: String,
     pub action: String,
@@ -67,6 +74,10 @@ pub struct SwitchActivation {
 impl SwitchActivation {
     /// Parse the `Custom("switch:<id>:<action>:<target>")` payload
     /// produced by `entity_to_runtime` for `Switch` LDtk entities.
+    ///
+    /// Called exactly once per switch — at LDtk-to-ECS spawn — so
+    /// downstream systems can read the typed fields without re-parsing
+    /// the wire format every frame.
     pub fn parse_custom(payload: &str) -> Option<Self> {
         let mut parts = payload.split(':');
         if parts.next()? != "switch" {
@@ -80,6 +91,16 @@ impl SwitchActivation {
             action,
             target_encounter,
         })
+    }
+
+    /// Inverse of [`Self::parse_custom`]. Used by the LDtk converter to
+    /// keep the engine-boundary string format in sync with the typed
+    /// fields and by tests that round-trip through the payload form.
+    pub fn to_custom_payload(&self) -> String {
+        format!(
+            "switch:{}:{}:{}",
+            self.id, self.action, self.target_encounter
+        )
     }
 }
 

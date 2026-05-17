@@ -54,17 +54,15 @@ pub fn rebuild_encounter_switch_index(
 ) {
     index.links.clear();
     for (feature_id, switch, switch_on) in &switches {
-        let Some(activation) = SwitchActivation::parse_custom(&switch.payload) else {
-            continue;
-        };
+        let activation = &switch.activation;
         let switch_id = if activation.id.is_empty() {
             feature_id.as_str().to_string()
         } else {
-            activation.id
+            activation.id.clone()
         };
         index.links.push(EncounterSwitchLink {
             switch_id,
-            target_encounter: activation.target_encounter,
+            target_encounter: activation.target_encounter.clone(),
             on: switch_on.0,
         });
     }

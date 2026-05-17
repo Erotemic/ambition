@@ -32,19 +32,18 @@ pub fn apply_quest_effects(
     }
 }
 
-/// Switch activations are gameplay events too. Parse the authored payload once
-/// at the message boundary and feed the encounter queue before the encounter
-/// sync systems run.
+/// Switch activations are gameplay events too. The activation is already
+/// typed by the LDtk-to-ECS spawn path (see [`crate::features::SwitchFeature`]),
+/// so this consumer just forwards it to the encounter queue and emits the
+/// click SFX.
 pub fn apply_switch_effects(
     mut effects: MessageReader<GameplayEffect>,
     mut switch_activations: ResMut<crate::encounter::SwitchActivationQueue>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
 ) {
     for effect in effects.read() {
-        if let GameplayEffect::ActivateSwitch { payload, pos } = effect {
-            if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
-                switch_activations.0.push(activation);
-            }
+        if let GameplayEffect::ActivateSwitch { activation, pos } = effect {
+            switch_activations.0.push(activation.clone());
             sfx.write(crate::audio::SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_SWITCH_TOGGLE,
                 pos: *pos,
@@ -114,7 +113,11 @@ mod tests {
             },
             GameplayEffect::AdvanceQuest(ae::QuestAdvanceEvent::NpcTalked("guide".into())),
             GameplayEffect::ActivateSwitch {
-                payload: "switch:mob_lab".into(),
+                activation: crate::encounter::SwitchActivation {
+                    id: "mob_lab".into(),
+                    action: "ResetEncounter".into(),
+                    target_encounter: "mob_lab".into(),
+                },
                 pos: ae::Vec2::new(1.0, 2.0),
             },
             GameplayEffect::DamageBoss {

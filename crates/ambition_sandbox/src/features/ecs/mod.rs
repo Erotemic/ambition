@@ -360,7 +360,9 @@ fn spawn_room_feature_entity(
                     actor,
                 ));
             } else if let ae::InteractionKind::Custom(payload) = &interactable.kind {
-                if payload.starts_with("switch:") {
+                if let Some(activation) =
+                    crate::encounter::SwitchActivation::parse_custom(payload)
+                {
                     commands.spawn((
                         Name::new(format!("Feature switch: {}", object.name)),
                         FeatureSimEntity,
@@ -368,7 +370,7 @@ fn spawn_room_feature_entity(
                         FeatureId::new(object.id.clone()),
                         FeatureName::new(object.name.clone()),
                         feature_aabb,
-                        SwitchFeature::new(payload.clone()),
+                        SwitchFeature::new(activation),
                         SwitchOn(false),
                     ));
                 }
@@ -1244,7 +1246,7 @@ pub fn interact_ecs_actors_and_switches(
         banner.show(format!("activated {}", name.0.as_str()), 2.6);
         on.0 = true;
         gameplay_effects.write(GameplayEffect::ActivateSwitch {
-            payload: switch.payload.clone(),
+            activation: switch.activation.clone(),
             pos: aabb.center,
         });
         vfx.write(VfxMessage::Burst {

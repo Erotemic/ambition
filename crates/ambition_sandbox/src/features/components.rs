@@ -173,17 +173,22 @@ pub struct SandboxSolidContributor;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PogoTargetContributor;
 
-/// ECS-native switch payload.
+/// ECS-native switch.
+///
+/// Carries a typed [`crate::encounter::SwitchActivation`] instead of the
+/// raw `"switch:<id>:<action>:<target>"` wire string. The parse happens
+/// once at LDtk-to-ECS spawn time in
+/// `crate::features::ecs::spawn_room_feature_entity`; the
+/// activation-queue / switch-index / interact-emit paths all read
+/// `feature.activation` directly.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct SwitchFeature {
-    pub payload: String,
+    pub activation: crate::encounter::SwitchActivation,
 }
 
 impl SwitchFeature {
-    pub fn new(payload: impl Into<String>) -> Self {
-        Self {
-            payload: payload.into(),
-        }
+    pub fn new(activation: crate::encounter::SwitchActivation) -> Self {
+        Self { activation }
     }
 }
 

@@ -11,6 +11,8 @@ use crate::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::rendering::RoomVisual;
 use bevy::prelude::{Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, Resource, Time, With};
 
+use crate::WorldTime;
+
 /// Marker for simulation-side feature entities spawned from the active room.
 /// They are deliberately separate from presentation `FeatureVisual` sprites;
 /// visible builds keep using the existing visual entities and look up live ECS
@@ -218,8 +220,12 @@ pub struct FeatureEcsWorldOverlay {
 }
 
 /// Tick the gameplay banner resource once per frame.
-pub fn tick_gameplay_banner(time: Res<Time>, mut banner: ResMut<GameplayBanner>) {
-    banner.tick(time.delta_secs());
+pub fn tick_gameplay_banner(world_time: Res<WorldTime>, mut banner: ResMut<GameplayBanner>) {
+    // Sim clock: the gameplay banner displays gameplay-driven
+    // messages (quest hints, encounter intros) so its dismissal
+    // timer should pause alongside the sim — otherwise the banner
+    // burns its display window during bullet-time / pause.
+    banner.tick(world_time.sim_dt());
 }
 
 /// Apply deferred banner requests from high-param systems.
@@ -561,11 +567,13 @@ pub fn sync_boss_reward_chests_ecs(
 /// Tick ECS reward chests that are still falling to the floor.
 pub fn update_ecs_falling_chests(
     mut commands: Commands,
-    time: Res<Time>,
+    world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
     mut chests: Query<(Entity, &mut FeatureAabb, &mut FallingChest), With<ChestFeature>>,
 ) {
-    let dt = time.delta_secs();
+    // Sim clock: bullet-time / pause / hitstop must freeze a falling
+    // chest mid-arc the same way they freeze the player. ADR 0010.
+    let dt = world_time.sim_dt();
     for (entity, mut aabb, mut falling) in &mut chests {
         falling.vel_y = (falling.vel_y + CHEST_FALL_GRAVITY * dt).min(CHEST_FALL_MAX_SPEED);
         let step = falling.vel_y * dt;
@@ -895,7 +903,7 @@ pub fn open_ecs_chests(
 /// Tick ECS-owned breakable timers and stand-to-break triggers.
 pub fn update_ecs_breakables(
     mut commands: Commands,
-    time: Res<Time>,
+    world_time: Res<WorldTime>,
     player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<(
@@ -910,7 +918,9 @@ pub fn update_ecs_breakables(
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
-    let dt = time.delta_secs();
+    // Sim clock: breakable respawn / stand-to-break should freeze in
+    // bullet-time alongside the player and enemies (ADR 0010).
+    let dt = world_time.sim_dt();
     let Ok(pb) = player_body_q.single() else { return; };
     let player_body = pb.aabb();
     for (entity, name, aabb, mut feature, respawn_timer, stand_timer) in &mut breakables {
@@ -1207,7 +1217,7 @@ pub fn apply_feature_damage_events(
 
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
 pub fn update_ecs_hazards(
-    time: Res<Time>,
+    world_time: Res<WorldTime>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
     mut vfx: MessageWriter<crate::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -1218,7 +1228,9 @@ pub fn update_ecs_hazards(
     >,
     mut hazards: Query<(&FeatureName, &mut FeatureAabb, &mut HazardFeature), With<FeatureSimEntity>>,
 ) {
-    let dt = time.delta_secs();
+    // Sim clock: patrolling damage volumes must slow in bullet-time
+    // so the player can route around them. ADR 0010.
+    let dt = world_time.sim_dt();
     let Ok((pb, combat)) = player.single() else { return; };
     let player_body = pb.aabb();
     let player_pos = pb.pos;
@@ -1260,7 +1272,7 @@ pub fn update_ecs_hazards(
 
 /// Tick ECS-authored bosses and publish player damage through Bevy messages.
 pub fn update_ecs_bosses(
-    time: Res<Time>,
+    world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
@@ -1279,7 +1291,10 @@ pub fn update_ecs_bosses(
     >,
     mut bosses: Query<(&mut FeatureAabb, &mut BossFeature, &mut BossPatternTimer, &mut BossPhase), With<FeatureSimEntity>>,
 ) {
-    let dt = time.delta_secs();
+    // Sim clock: bosses must slow with bullet-time (ADR 0010); a
+    // boss locked-on to the player should not get free hits when
+    // the player triggers bullet-time mid-pattern.
+    let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(
         &world.0,
         &platform_set.0,
@@ -1323,7 +1338,7 @@ pub fn update_ecs_bosses(
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the
 /// same `ActorRuntime::Hostile` path with an `EncounterMob` marker.
 pub fn update_ecs_actors(
-    time: Res<Time>,
+    world_time: Res<WorldTime>,
     world: Res<crate::GameWorld>,
     platform_set: Res<crate::MovingPlatformSet>,
     feel_tuning: Res<crate::feel::SandboxFeelTuning>,
@@ -1351,7 +1366,10 @@ pub fn update_ecs_actors(
         &mut ActorCooldowns,
     ), With<FeatureSimEntity>>,
 ) {
-    let dt = time.delta_secs();
+    // Sim clock: enemies, NPCs, encounter mobs all advance on the
+    // gameplay clock so bullet-time / pause / hitstop freeze them
+    // alongside the player. ADR 0010 + reference_lessons_learned.
+    let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(
         &world.0,
         &platform_set.0,

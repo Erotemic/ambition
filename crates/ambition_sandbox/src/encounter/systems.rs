@@ -100,7 +100,7 @@ pub fn sync_encounter_controller_states(
 /// player is actually inside the room.
 pub fn update_encounters_from_world(
     mut commands: Commands,
-    time: Res<Time>,
+    world_time: Res<crate::WorldTime>,
     mut died_messages: MessageReader<crate::PlayerDiedMessage>,
     mut registry: ResMut<EncounterRegistry>,
     mut save: ResMut<crate::save::SandboxSave>,
@@ -130,7 +130,10 @@ pub fn update_encounters_from_world(
     let Ok(body) = player_body_q.single() else { return; };
     let player_pos = body.pos;
     let player_size = body.size;
-    let dt = time.delta_secs();
+    // Sim clock: encounter trigger / cancellation timers freeze in
+    // bullet-time alongside the player (ADR 0010); we don't want a
+    // grace-window to tick down while the world is stopped.
+    let dt = world_time.sim_dt();
     let mut events: Vec<(String, Vec<EncounterEvent>)> = Vec::new();
 
     // 0. Player death this frame? Fail any in-flight encounter,

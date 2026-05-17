@@ -18,7 +18,7 @@ use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
 
 pub fn update_projectiles(
-    time: Res<Time>,
+    world_time: Res<crate::WorldTime>,
     world: Res<GameWorld>,
     control_frame: Res<ControlFrame>,
     player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
@@ -37,7 +37,11 @@ pub fn update_projectiles(
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
-    let dt = time.delta_secs();
+    // Sim clock: projectile motion + spawner pacing freeze in
+    // bullet-time alongside the rest of the world (ADR 0010). A
+    // projectile in mid-arc should not advance while the world
+    // is stopped.
+    let dt = world_time.sim_dt();
     state.clock += dt;
     state.spawner.tick(dt);
 

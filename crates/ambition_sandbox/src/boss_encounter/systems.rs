@@ -41,7 +41,7 @@ pub fn populate_boss_encounter_registry(
 /// system without splitting.
 pub fn update_boss_encounters(
     mut commands: Commands,
-    time: Res<Time>,
+    world_time: Res<crate::WorldTime>,
     mut registry: ResMut<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut save: ResMut<crate::save::SandboxSave>,
@@ -59,7 +59,11 @@ pub fn update_boss_encounters(
     ), With<crate::features::ChestFeature>>,
     mut bosses: Query<(&crate::features::FeatureId, &mut crate::features::BossFeature), With<crate::features::FeatureSimEntity>>,
 ) {
-    let dt = time.delta_secs();
+    // Sim clock: encounter pacing (intro / phase-change timers,
+    // reward grace) freezes alongside the player in bullet-time
+    // (ADR 0010); we don't want phase transitions to fire while the
+    // sim is stopped.
+    let dt = world_time.sim_dt();
     let _active_room = room_set.active_spec().id.clone();
 
     // Build a list of boss runtime ids alive in the current room so we

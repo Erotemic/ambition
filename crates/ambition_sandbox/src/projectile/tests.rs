@@ -50,6 +50,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
 fn min_app() -> App {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
+    app.insert_resource(crate::WorldTime::default());
     app.insert_resource(GameWorld(dummy_world()));
     app.insert_resource(ControlFrame::default());
     app.insert_resource(crate::settings::UserSettings::default());
@@ -74,6 +75,13 @@ fn min_app() -> App {
 fn advance_time(app: &mut App, dt_seconds: f32) {
     let mut time = app.world_mut().resource_mut::<Time<()>>();
     time.advance_by(std::time::Duration::from_secs_f32(dt_seconds));
+    // `update_projectiles` reads `Res<WorldTime>`, not `Res<Time>`,
+    // so the test harness must mirror the production pipeline's
+    // `refresh_world_time` step. Tests run at `time_scale = 1.0`,
+    // so `sim_dt == wall_dt`.
+    let mut world_time = app.world_mut().resource_mut::<crate::WorldTime>();
+    world_time.raw_dt = dt_seconds;
+    world_time.scaled_dt = dt_seconds;
 }
 
 /// Helper: press the projectile button (no motion) and immediately
@@ -378,6 +386,7 @@ fn fireball_damages_enemy_on_intersect() {
 fn fireball_bounces_off_floor_in_system() {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
+    app.insert_resource(crate::WorldTime::default());
     // World with a single floor block well below the spawn point.
     let world = ae::World::new(
         "bounce_test",
@@ -449,6 +458,7 @@ fn fireball_bounces_off_floor_in_system() {
 fn fireball_bounces_off_one_way_platform_in_system() {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
+    app.insert_resource(crate::WorldTime::default());
     let world = ae::World::new(
         "one_way_bounce_test",
         ae::Vec2::new(2000.0, 2000.0),
@@ -521,6 +531,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
 fn fireball_passes_through_one_way_from_below_in_system() {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
+    app.insert_resource(crate::WorldTime::default());
     let world = ae::World::new(
         "one_way_passthrough_test",
         ae::Vec2::new(2000.0, 2000.0),
@@ -590,6 +601,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
 fn hadouken_expires_on_solid_in_system() {
     let mut app = App::new();
     app.insert_resource(Time::<()>::default());
+    app.insert_resource(crate::WorldTime::default());
     let world = ae::World::new(
         "wall_test",
         ae::Vec2::new(2000.0, 2000.0),

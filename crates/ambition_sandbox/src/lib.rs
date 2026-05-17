@@ -64,7 +64,6 @@ pub(crate) mod world;
 // bins / tests / the engine crate's doc comments.
 pub use content::features;
 pub use dev::trace;
-pub use host::platform;
 pub use runtime::game_mode;
 pub use world::{ldtk_world, rooms};
 
@@ -72,7 +71,10 @@ pub(crate) use assets::{game_assets, loading, sandbox_assets};
 pub(crate) use boss_encounter::sprites as boss_sprites;
 pub(crate) use content::{banter, content_validation, data, quest};
 pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics, profiling};
-pub(crate) use host::{mobile_input, windowing};
+// `platform` was `pub(crate) mod platform;` before the reorg; the shim
+// stays `pub(crate)` to preserve that visibility — bins/tests don't reach
+// into it. Accidentally widening it to `pub` last commit was a slip.
+pub(crate) use host::{mobile_input, platform, windowing};
 pub(crate) use persistence::{save, settings};
 pub(crate) use player::bubble_shield;
 pub(crate) use presentation::{

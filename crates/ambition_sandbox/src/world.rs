@@ -10,5 +10,4 @@
 pub mod ldtk_world;
 pub mod physics;
 pub mod platforms;
-pub mod room_builder;
 pub mod rooms;

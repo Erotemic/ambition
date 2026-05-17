@@ -597,6 +597,21 @@ pub(super) fn spawn_ldtk_world_root(
 /// Register presentation-side plugins (input, dialogue, inspector, audio
 /// and VFX subscribers, HUD, debug overlays). Visible binary only.
 pub fn add_presentation_plugins(app: &mut App) {
+    install_presentation_resources_and_subplugins(app);
+    install_settings_and_save_systems(app);
+    install_menu_setup_and_hotkeys(app);
+    install_visual_animation_systems(app);
+    install_camera_and_debug_overlay_systems(app);
+    install_fx_and_hud_systems(app);
+    install_misc_visual_sync_systems(app);
+    install_player_visual_systems(app);
+    install_projectile_and_vfx_systems(app);
+}
+
+/// Visible-side resources, registered types, and presentation child
+/// plugins (input, audio, dev_tools, physics_debris, ui, mobile touch,
+/// FPS overlay, font loader).
+fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .insert_resource(windowing::DisplayModeState::default())
         .register_type::<DeveloperTools>()
@@ -619,11 +634,13 @@ pub fn add_presentation_plugins(app: &mut App) {
     app.add_plugins(crate::fps_overlay::FpsOverlayPlugin);
 
     app.add_systems(Startup, ui_fonts::load_ui_fonts);
+}
 
-    // Settings + sandbox-save persistence. Both load on startup and
-    // autosave when the relevant resource changes (`Res::is_changed`
-    // throttle). Headless drivers do not register these systems, so
-    // a `cargo run --bin headless` never reads or writes user files.
+/// Settings + sandbox-save persistence. Both load on startup and
+/// autosave when the relevant resource changes (`Res::is_changed`
+/// throttle). Headless drivers do not register these systems, so
+/// a `cargo run --bin headless` never reads or writes user files.
+fn install_settings_and_save_systems(app: &mut App) {
     app.add_systems(
         Startup,
         (
@@ -638,7 +655,11 @@ pub fn add_presentation_plugins(app: &mut App) {
             crate::save::autosave_sandbox_save,
         ),
     );
+}
 
+/// Pause menu, inventory, map menu, presentation startup, dev/dialog
+/// hotkeys.
+fn install_menu_setup_and_hotkeys(app: &mut App) {
     app.insert_resource(pause_menu::PauseMenuState::default())
         .insert_resource(inventory::InventoryUiState::default())
         .insert_resource(inventory::PlayerInventory::starter())
@@ -685,123 +706,138 @@ pub fn add_presentation_plugins(app: &mut App) {
             )
                 .chain()
                 .after(SandboxSet::CoreSimulation),
+        );
+}
+
+/// Visual entity spawn for dynamic features + sprite/animation pipelines.
+/// Chained after `handle_map_menu_hotkeys` (the last input system in the
+/// presentation half) and feeds the camera + overlay chain that follows.
+fn install_visual_animation_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            // Spawn visual entities for encounter-spawned enemies
+            // BEFORE sync_visuals reads positions for them.
+            crate::rendering::spawn_dynamic_feature_visuals,
+            sync_visuals,
+            upgrade_enemy_sprites,
+            upgrade_boss_sprites,
+            animate_player,
+            animate_characters,
+            crate::rendering::animate_props,
+            animate_bosses,
         )
-        .add_systems(
-            Update,
-            (
-                // Spawn visual entities for encounter-spawned enemies
-                // BEFORE sync_visuals reads positions for them.
-                crate::rendering::spawn_dynamic_feature_visuals,
-                sync_visuals,
-                upgrade_enemy_sprites,
-                upgrade_boss_sprites,
-                animate_player,
-                animate_characters,
-                crate::rendering::animate_props,
-                animate_bosses,
-            )
-                .chain()
-                .after(crate::map_menu::handle_map_menu_hotkeys),
+            .chain()
+            .after(crate::map_menu::handle_map_menu_hotkeys),
+    );
+}
+
+fn install_camera_and_debug_overlay_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (camera_follow, debug_overlay::draw_debug_overlay)
+            .chain()
+            .after(animate_bosses),
+    );
+}
+
+fn install_fx_and_hud_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        (
+            fx::update_particles,
+            fx::update_impacts,
+            fx::update_slash_previews,
+            fx::update_speech_bubbles,
+            windowing::window_mode_hotkeys,
         )
-        .add_systems(
-            Update,
-            (camera_follow, debug_overlay::draw_debug_overlay)
-                .chain()
-                .after(animate_bosses),
+            .chain()
+            .after(debug_overlay::draw_debug_overlay),
+    )
+    .add_systems(
+        Update,
+        (
+            update_hud,
+            dialog::sync_dialog_ui,
+            crate::cutscene::sync_cutscene_ui,
         )
-        .add_systems(
-            Update,
-            (
-                fx::update_particles,
-                fx::update_impacts,
-                fx::update_slash_previews,
-                fx::update_speech_bubbles,
-                windowing::window_mode_hotkeys,
-            )
-                .chain()
-                .after(debug_overlay::draw_debug_overlay),
+            .chain()
+            .after(windowing::window_mode_hotkeys),
+    );
+}
+
+/// Health overlays, portal sprite sync, parallax, dialog redirect,
+/// lock-wall visuals, NPC sprite upgrade, map-menu pointer dismiss,
+/// quest panel. Each system is its own `add_systems` call because the
+/// big presentation tuple is already at Bevy's 20-system arity ceiling.
+fn install_misc_visual_sync_systems(app: &mut App) {
+    app.add_systems(
+        Update,
+        crate::rendering::sync_health_overlays.after(sync_visuals),
+    )
+    // Portal presentation: read PortalRegistry.phase + apply
+    // visibility / animation row / ring-spin to the matching
+    // FeatureName-tagged sprites + hide the redundant debug
+    // door-zone visual for portal-mode LoadingZones. Visible-
+    // only; headless has no FeatureName ↔ Bevy-entity binding
+    // anyway. Runs after sync_visuals so the sprite entities
+    // exist this frame.
+    .add_systems(
+        Update,
+        (
+            crate::rooms::sync_portal_sprite_visibility,
+            crate::rooms::sync_portal_sprite_animation,
+            crate::rooms::sync_portal_ring_rotation_system,
+            crate::rooms::hide_portal_loading_zone_visuals,
         )
-        .add_systems(
-            Update,
-            (
-                update_hud,
-                dialog::sync_dialog_ui,
-                crate::cutscene::sync_cutscene_ui,
-            )
-                .chain()
-                .after(windowing::window_mode_hotkeys),
-        )
-        .add_systems(
-            Update,
-            crate::rendering::sync_health_overlays.after(sync_visuals),
-        )
-        // Portal presentation: read PortalRegistry.phase + apply
-        // visibility / animation row / ring-spin to the matching
-        // FeatureName-tagged sprites + hide the redundant debug
-        // door-zone visual for portal-mode LoadingZones. Visible-
-        // only; headless has no FeatureName ↔ Bevy-entity binding
-        // anyway. Runs after sync_visuals so the sprite entities
-        // exist this frame.
-        .add_systems(
-            Update,
-            (
-                crate::rooms::sync_portal_sprite_visibility,
-                crate::rooms::sync_portal_sprite_animation,
-                crate::rooms::sync_portal_ring_rotation_system,
-                crate::rooms::hide_portal_loading_zone_visuals,
-            )
-                .after(sync_visuals),
-        )
-        .add_systems(
-            Update,
-            crate::rendering::sync_parallax_layers.after(camera_follow),
-        )
-        // Quest-state-driven dialog redirect: flips the live dialog
-        // branch the moment the underlying world state advances past
-        // the conversation's prompt (e.g. mockingbird is now dead).
-        // Must run after CoreSimulation (which is where dialog start
-        // happens) and before `sync_dialog_ui` (which renders the
-        // chosen branch) so the redirected mode is the one drawn.
-        .add_systems(
-            Update,
-            dialog::redirect_post_quest_dialog
-                .after(SandboxSet::CoreSimulation)
-                .before(dialog::sync_dialog_ui),
-        )
-        // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
-        // Bevy entities against `world.blocks` so the wall is visible
-        // for the player when an encounter slams it shut. Must run
-        // after `update_encounters_from_world` (which inserts /
-        // removes the backing `lockwall:*` blocks) so we observe the
-        // current frame's world state, not last frame's.
-        .add_systems(
-            Update,
-            crate::rendering::sync_lock_wall_visuals
-                .after(crate::encounter::update_encounters_from_world),
-        )
-        // NPC spritesheet upgrade. Lives outside the big presentation
-        // tuple because that tuple is already at Bevy's 20-system
-        // `IntoSystemConfigs::chain()` cap. `.after(sync_visuals)`
-        // preserves the ordering guarantee the chain otherwise
-        // provided (FeatureVisuals must exist before we look them up).
-        .add_systems(
-            Update,
-            crate::rendering::upgrade_npc_sprites.after(sync_visuals),
-        )
-        // Mouse / touch dismissal for the map menu — separate from the
-        // big presentation tuple to keep that under Bevy's 20-system
-        // tuple budget.
-        .add_systems(Update, crate::map_menu::map_menu_pointer_dismiss)
-        // Quest panel runs alongside the verbose HUD; placed in its
-        // own `add_systems` so the main presentation tuple doesn't
-        // overflow Bevy's 20-system tuple budget.
-        .add_systems(Update, update_quest_panel.after(dialog::sync_dialog_ui))
-        // Procedural morph-ball visual: build the texture once at
-        // startup, spawn the sibling sprite as soon as the player
-        // entity exists, and toggle visibility / position each frame
-        // based on `Player::body_mode`. After `sync_visuals` so the
-        // player's transform is already mirrored when we read it.
-        .add_systems(Startup, crate::body_mode::build_morph_ball_sprite)
+            .after(sync_visuals),
+    )
+    .add_systems(
+        Update,
+        crate::rendering::sync_parallax_layers.after(camera_follow),
+    )
+    // Quest-state-driven dialog redirect: flips the live dialog
+    // branch the moment the underlying world state advances past
+    // the conversation's prompt (e.g. mockingbird is now dead).
+    // Must run after CoreSimulation (which is where dialog start
+    // happens) and before `sync_dialog_ui` (which renders the
+    // chosen branch) so the redirected mode is the one drawn.
+    .add_systems(
+        Update,
+        dialog::redirect_post_quest_dialog
+            .after(SandboxSet::CoreSimulation)
+            .before(dialog::sync_dialog_ui),
+    )
+    // Encounter-driven LockWall visuals. Reconciles `LockWallVisual`
+    // Bevy entities against `world.blocks` so the wall is visible
+    // for the player when an encounter slams it shut. Must run
+    // after `update_encounters_from_world` (which inserts /
+    // removes the backing `lockwall:*` blocks) so we observe the
+    // current frame's world state, not last frame's.
+    .add_systems(
+        Update,
+        crate::rendering::sync_lock_wall_visuals
+            .after(crate::encounter::update_encounters_from_world),
+    )
+    // NPC spritesheet upgrade. `.after(sync_visuals)` preserves the
+    // ordering guarantee the chain otherwise provided (FeatureVisuals
+    // must exist before we look them up).
+    .add_systems(
+        Update,
+        crate::rendering::upgrade_npc_sprites.after(sync_visuals),
+    )
+    // Mouse / touch dismissal for the map menu.
+    .add_systems(Update, crate::map_menu::map_menu_pointer_dismiss)
+    // Quest panel runs alongside the verbose HUD.
+    .add_systems(Update, update_quest_panel.after(dialog::sync_dialog_ui));
+}
+
+/// Player-bound visuals: morph-ball sprite + bubble-shield sprite.
+/// Both follow the same pattern — build the texture once at startup,
+/// spawn lazily once the player entity exists, sync visibility / tint
+/// every frame after `sync_visuals` has mirrored the player transform.
+fn install_player_visual_systems(app: &mut App) {
+    app.add_systems(Startup, crate::body_mode::build_morph_ball_sprite)
         .add_systems(
             Update,
             (
@@ -811,10 +847,10 @@ pub fn add_presentation_plugins(app: &mut App) {
                 .chain()
                 .after(sync_visuals),
         )
-        // Bubble shield visual: similar pattern — build once, spawn
-        // lazily, toggle / tint every frame from `PlayerBody.shielding`
-        // and `PlayerBody.parrying`. Must run after
-        // `write_player_ecs_components` so `PlayerBody` is current.
+        // Bubble shield visual: similar pattern — toggle / tint every
+        // frame from `PlayerBody.shielding` and `PlayerBody.parrying`.
+        // Must run after `write_player_ecs_components` so `PlayerBody`
+        // is current.
         .add_systems(Startup, crate::bubble_shield::build_bubble_shield_sprite)
         .add_systems(
             Update,
@@ -824,24 +860,28 @@ pub fn add_presentation_plugins(app: &mut App) {
             )
                 .chain()
                 .after(sync_visuals),
-        )
-        // Player projectile visuals: rebuild the sprite ring each tick
-        // from `PlayerProjectileState::bodies`. Lives in its own
-        // `add_systems` because the main visible-only chain is at the
-        // tuple-arity ceiling. Must run after `update_projectiles` so
-        // the body list reflects this frame's spawn / tick / collision
-        // before the visuals are rebuilt — otherwise newly-fired
-        // projectiles would only become visible one frame late.
-        .add_systems(
-            Update,
-            crate::projectile::sync_projectile_visuals.after(crate::projectile::update_projectiles),
-        )
-        // VFX + debris subscribe on the visible binary only. Audio's
-        // subscriber lives in `add_audio_plugins` so the entire kira
-        // chain stays behind the `audio` feature. Headless builds omit
-        // these so the message queues drain without entity spawns or
-        // audio playback.
-        .add_systems(Update, vfx_spawn_messages.after(SandboxSet::CoreSimulation));
+        );
+}
+
+/// Projectile sprite ring + VFX/debris message subscribers + (input-
+/// feature-gated) blink preview ring.
+fn install_projectile_and_vfx_systems(app: &mut App) {
+    // Player projectile visuals: rebuild the sprite ring each tick
+    // from `PlayerProjectileState::bodies`. Must run after
+    // `update_projectiles` so the body list reflects this frame's
+    // spawn / tick / collision before the visuals are rebuilt —
+    // otherwise newly-fired projectiles would only become visible
+    // one frame late.
+    app.add_systems(
+        Update,
+        crate::projectile::sync_projectile_visuals.after(crate::projectile::update_projectiles),
+    )
+    // VFX + debris subscribe on the visible binary only. Audio's
+    // subscriber lives in `add_audio_plugins` so the entire kira
+    // chain stays behind the `audio` feature. Headless builds omit
+    // these so the message queues drain without entity spawns or
+    // audio playback.
+    .add_systems(Update, vfx_spawn_messages.after(SandboxSet::CoreSimulation));
     // Live blink-destination preview ring. Reads leafwing action state to
     // know when the blink button is held, so it lives behind the `input`
     // feature alongside the other gameplay-input-driven presentation.

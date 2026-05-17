@@ -1,3 +1,11 @@
+# Archived: ldtk-runtime-spine.md
+
+Superseded migration or transition note. Preserve as historical evidence; do not treat as current procedure.
+
+Original path: `docs/systems/ldtk-runtime-spine.md`
+
+---
+
 # LDtk runtime-spine migration
 
 `ambition_sandbox` is moving from a custom LDtk JSON adapter toward

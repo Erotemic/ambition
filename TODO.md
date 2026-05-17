@@ -252,5 +252,5 @@
 ## Notes
 - **Verify before claiming done.** Many "TODO" items in past lists turned out to already be shipped — re-grep + check `git log --all` before assuming.
 - This file supersedes `tmp-todo-notes.txt` (now removed; all items folded into the tiers above).
-- Source docs: `docs/planning/path-forward.md`, `docs/planning/tech-debt-log.md`, `docs/systems/character-ai-refactor.md`, `docs/archive/historical-roadmaps/crate-split-plan.md`, `docs/archive/historical-roadmaps/events-refactor-plan.md`, `docs/vision/mechanics-expressibility-checklist.md`, `docs/systems/progression-systems.md`, `docs/recipes/mob-lab.md`. When closing an item, update the source doc too if it tracks the same state.
+- Source docs: `docs/planning/path-forward.md`, `docs/planning/tech-debt-log.md`, `docs/systems/character-ai-refactor.md`, `docs/crate_split_plan.md`, `docs/archive/superseded-migrations/events-refactor-plan.md`, `docs/mechanics/expressibility-checklist.md`, `docs/progression_systems_2026-05-05.md`, `docs/recipes/mob-lab.md`. When closing an item, update the source doc too if it tracks the same state.
 - Trim "Recently completed" entries here once they have an entry in `FEATURES.md`.

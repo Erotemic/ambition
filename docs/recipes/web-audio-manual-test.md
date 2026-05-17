@@ -163,7 +163,7 @@ For each item: paste the literal log line, or note "missing" /
 > ⚠️ **The underwater effect is NOT a real low-pass filter today.** It
 > is a volume duck (~8 dB on music, ~5 dB on SFX) that ramps over
 > ~350 ms. The mix gets quieter; the spectrum is unchanged. See
-> `docs/audio_underwater.md` for the backend blocker and the
+> `docs/systems/audio-underwater.md` for the backend blocker and the
 > direct-Kira migration plan.
 
 ### How to enter underwater state
@@ -226,7 +226,7 @@ For each item: paste the literal log line, or note "missing" /
 - "Click to enable audio" banner in `web/index.html` (visible
   affordance, not just JS console).
 - Real underwater muffle via direct-Kira backend — see
-  `docs/audio_underwater.md` (Option A, recommended).
+  `docs/systems/audio-underwater.md` (Option A, recommended).
 - Per-room ambience and combat-stem layering on the web build (the
   music director already supports it on desktop; the limiter is just
   whether the layered assets are reachable through the catalog under

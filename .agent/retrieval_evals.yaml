@@ -1,11 +1,53 @@
-schema_version: 1
+schema_version: 2
 source: dev/benchmark-candidates
 purpose: >-
-  Repository-specific retrieval and localization checks. These are not answer-key
-  benchmarks for gameplay correctness; they check whether an agent can find the
-  right concept, files, memory entries, and validation commands before editing.
+  Repository-specific retrieval and localization checks. These are not gameplay
+  correctness benchmarks; they check whether an agent can find the right
+  concepts, files, memory entries, tools, and validation commands before editing.
 
 evals:
+  - id: bevy-native-data-driven-ecs
+    question: An old doc suggests adding a backend-neutral adapter or a RON room manifest. What current decision supersedes that?
+    expected_concepts:
+      - bevy-native-data-driven-ecs
+    expected_docs:
+      - docs/adr/0002-engine-must-be-bevy-native.md
+      - docs/adr/0003-data-specs-and-asset-loading.md
+      - docs/adr/0009-world-composition-and-ldtk-authoring.md
+    expected_answer_contains:
+      - Bevy-native
+      - LDtk
+      - ECS
+
+  - id: platform-sensitive-feature-change
+    question: A patch touches input, assets, or app features. Which platform docs should be consulted before editing?
+    expected_concepts:
+      - platform-targets
+    expected_docs:
+      - docs/recipes/web-build.md
+      - docs/recipes/android-build.md
+      - docs/systems/mobile-touch-controls.md
+      - docs/systems/asset-manager.md
+    expected_answer_contains:
+      - web
+      - Android
+      - Steam Deck
+      - touch
+
+  - id: tool-lookup-ldtk-area
+    question: The agent needs to add or repair an LDtk area. What tool and docs should it use instead of hand-editing JSON?
+    expected_concepts:
+      - tools-and-generated-content
+      - ldtk-world-composition
+    expected_docs:
+      - docs/tools/index.md
+      - docs/tools/author_ldtk_area.md
+      - docs/recipes/ldtk-authoring.md
+    expected_answer_contains:
+      - ambition_ldtk_tools
+      - validate
+      - repair
+
   - id: movement-wall-cling-teleport
     question: The player teleports upward while wall-clinging or sweeping near an edge. What should I read, edit, and test?
     expected_concepts:
@@ -19,6 +61,17 @@ evals:
     expected_tests_contains:
       - wall
       - repro_walls
+
+  - id: mechanics-checklist-status
+    question: Are up slash, down slash, projectiles, and shield still TODOs or already expressible?
+    expected_docs:
+      - docs/mechanics/expressibility-checklist.md
+      - docs/concepts/movement-collision.md
+    expected_answer_contains:
+      - upward slash
+      - downward slash
+      - projectile
+      - shield
 
   - id: rust-module-split-import-closure
     question: A Rust module split compiles locally in one file but breaks helper methods, extension traits, or private imports elsewhere. What prior trap applies?
@@ -48,12 +101,14 @@ evals:
     expected_concepts:
       - generated-assets-audio
       - sim-presentation-seam
+      - tools-and-generated-content
     expected_memory:
       - dev/journals/music-director-refactor-lessons-2026-05-11.md
       - dev/benchmark-candidates/music-director-module-split-question-2026-05-11.md
     expected_docs:
       - docs/recipes/music-generation-pipeline-notes.md
       - docs/systems/asset-manager.md
+      - docs/tools/index.md
 
   - id: cargo-test-filter
     question: The agent wants to run multiple cargo test filters in one command. What lesson prevents the bad command?
@@ -69,27 +124,10 @@ evals:
     expected_concepts:
       - patch-overlays-and-repo-state
       - sim-presentation-seam
+      - platform-targets
     expected_memory:
       - dev/benchmark-candidates/overlay-stale-feature-events-api-question-2026-05-12.md
     expected_answer_contains:
       - stale
       - entrypoint
       - validation
-
-  - id: bevy-system-tuple-chain
-    question: A Bevy plugin chains a long tuple of systems and fails with trait-bound or IntoScheduleConfigs errors. What known trap applies?
-    expected_memory:
-      - dev/benchmark-candidates/bevy-system-tuple-chain-limit-question-2026-05-12.md
-    expected_answer_contains:
-      - tuple
-      - chain
-      - split
-
-  - id: stale-ecs-components-after-sync-removal
-    question: A sync refactor removes one update path but old ECS components persist and visuals behave as if stale state remains. What should be retrieved?
-    expected_memory:
-      - dev/benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md
-    expected_answer_contains:
-      - despawn
-      - stale component
-      - sync

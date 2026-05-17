@@ -4,7 +4,7 @@ Status: 2026-05-10
 
 This note tracks technical-debt pressure from oversized source files and keeps the
 next refactor passes aligned with the current facade-module policy in
-`docs/code_structure.md`: keep the existing public `foo.rs` as a stable facade and
+`docs/systems/code-structure.md`: keep the existing public `foo.rs` as a stable facade and
 move implementation into `foo/*.rs` child modules.
 
 ## Refactor completed in this patch
@@ -53,5 +53,5 @@ input, or UI easier to review independently.
    internal access; avoid widening APIs to `pub` just to satisfy the split.
 4. Keep tests near the split module and add small regression tests before moving
    more behavior.
-5. Update this note and `docs/code_structure.md` after each successful split so
+5. Update this note and `docs/systems/code-structure.md` after each successful split so
    the next pass starts from the latest architecture map.

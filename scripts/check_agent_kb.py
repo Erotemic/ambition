@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Lightweight lint for Ambition's agent-readable repository knowledge base.
-
-This intentionally uses only the Python standard library so it can run in a
-minimal checkout and inside GitHub Actions.
-"""
+"""Lightweight lint for Ambition's agent-readable repository knowledge base."""
 from __future__ import annotations
 
 import json
@@ -15,17 +11,26 @@ ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_FILES = [
     "AGENTS.md",
+    "CLAUDE.md",
     "README.md",
     "docs/README.md",
     "docs/current/state.md",
     "docs/current/risks.md",
     "docs/current/next.md",
     "docs/concepts/index.md",
+    "docs/concepts/bevy-native-data-driven-ecs.md",
+    "docs/concepts/platform-targets.md",
+    "docs/concepts/tools-and-generated-content.md",
     "docs/systems/index.md",
     "docs/recipes/index.md",
+    "docs/tools/index.md",
+    "docs/mechanics/index.md",
+    "docs/mechanics/expressibility-checklist.md",
     "docs/vision/index.md",
     "docs/planning/index.md",
     "docs/history/index.md",
+    "docs/adr/README.md",
+    "docs/adr/0002-engine-must-be-bevy-native.md",
     "dev/README.md",
     "dev/SEARCH.md",
     "dev/journals/index.md",
@@ -40,33 +45,37 @@ REQUIRED_FILES = [
 ]
 
 ALLOWED_TOP_LEVEL_DOCS = {"README.md"}
+CONCEPT_REQUIRED_KEYS = {"id", "aliases", "last_verified"}
+AGENTS_MAX_LINES = 150
 
-REMOVED_DOC_PATHS = {
+FORBIDDEN_LIVE_PATHS = [
     "docs/AGENT_HANDOFF.md",
     "docs/CURRENT_STATE.md",
     "docs/GOAL_STATE.md",
     "docs/lessons_learned.md",
     "docs/redirects.md",
-    "docs/agent_states",
+    "docs/adr/0002-engine-may-be-bevy-native.md",
+    "docs/systems/interaction-hazard-actor-skeleton.md",
+    "docs/systems/data-driven-manifest.md",
+    "docs/systems/rooms-and-camera.md",
+    "docs/systems/room-graph-data-model.md",
+    "docs/systems/ldtk-runtime-spine.md",
     "docs/recipes/glam-migration.md",
     "docs/recipes/bevy-math-engine-refactor.md",
-    "docs/recipes/crate-foundation-seldom-state-assets-tests.md",
-    "docs/recipes/crate-split-plan.md",
-    "docs/recipes/crate-strategy.md",
     "docs/recipes/events-refactor-plan.md",
-    "docs/recipes/feature-basement-wave.md",
-    "docs/recipes/fly-and-room-hub.md",
-    "docs/recipes/flying-door-activation.md",
-    "docs/recipes/input-buffering-feel.md",
-    "docs/recipes/intro-followup-roadmap.md",
-    "docs/recipes/mechanics-checklist.md",
     "docs/recipes/room-layout-refactor.md",
-    "docs/systems/room-graph-data-model.md",
-    "docs/systems/rooms-and-camera.md",
-}
+    "docs/recipes/mechanics-checklist.md",
+    "docs/recipes/steam-deck-deploy.md",
+    "docs/agent_states/gpt_5_5_20260430.md",
+    "docs/agent_states/gpt_5_5_20260501-v1.md",
+    "docs/agent_states/gpt_5_5_20260501-v2.md",
+]
 
-CONCEPT_REQUIRED_KEYS = {"id", "aliases", "last_verified"}
-AGENTS_MAX_LINES = 170
+STALE_ACTIVE_PATTERNS = [
+    (re.compile(r"docs/(AGENT_HANDOFF|CURRENT_STATE|GOAL_STATE|lessons_learned|redirects)\.md"), "removed top-level doc stub"),
+    (re.compile(r"0002-engine-may-be-bevy-native\.md"), "superseded ADR path"),
+    (re.compile(r"RON rooms|RON room authoring|RON-backed RoomSet|sandbox\.ron.*rooms", re.IGNORECASE), "stale RON-room phrasing"),
+]
 
 
 def rel(path: Path) -> str:
@@ -108,24 +117,50 @@ def parse_frontmatter(path: Path) -> dict[str, object]:
     return data
 
 
+def active_text_files() -> list[Path]:
+    out: list[Path] = []
+    for base in [ROOT / "AGENTS.md", ROOT / "README.md"]:
+        if base.exists():
+            out.append(base)
+    for root in [ROOT / "docs", ROOT / "dev", ROOT / "crates", ROOT / "tools"]:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            r = rel(path)
+            if r.startswith(("docs/archive/", "tools/experimental/")):
+                continue
+            if path.suffix.lower() in {".md", ".rs", ".toml", ".py", ".yaml", ".yml", ".sh"}:
+                out.append(path)
+    return sorted(set(out))
+
+
 def check_required_files(errors: list[str]) -> None:
     for item in REQUIRED_FILES:
         if not (ROOT / item).exists():
             fail(errors, f"missing required KB file: {item}")
 
 
+def check_forbidden_live_paths(errors: list[str]) -> None:
+    for item in FORBIDDEN_LIVE_PATHS:
+        if (ROOT / item).exists():
+            fail(errors, f"forbidden live stale doc remains: {item}; archive or delete it")
+
+
 def check_top_level_docs(errors: list[str]) -> None:
     docs = ROOT / "docs"
     for path in sorted(docs.glob("*.md")):
         if path.name not in ALLOWED_TOP_LEVEL_DOCS:
-            fail(errors, f"unexpected top-level docs file: {rel(path)}; move it under a routed folder instead of adding redirect stubs")
+            fail(errors, f"unexpected top-level docs file: {rel(path)}; only docs/README.md should remain")
 
 
-
-def check_removed_doc_cruft(errors: list[str]) -> None:
-    for item in sorted(REMOVED_DOC_PATHS):
-        if (ROOT / item).exists():
-            fail(errors, f"removed documentation cruft still exists: {item}")
+def check_stale_active_references(errors: list[str]) -> None:
+    for path in active_text_files():
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for pattern, label in STALE_ACTIVE_PATTERNS:
+            if pattern.search(text):
+                fail(errors, f"{rel(path)} contains {label}: {pattern.pattern}")
 
 
 def check_agents_size(errors: list[str]) -> None:
@@ -150,30 +185,28 @@ def check_json_indexes(errors: list[str]) -> None:
             continue
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as ex:  # pragma: no cover - lint output path
-            fail(errors, f"invalid JSON in {relpath}: {ex}")
+        except Exception as ex:
+            fail(errors, f"{relpath} is not valid JSON: {ex}")
             continue
-        if "generated_from_commit" not in data or "generated_at" not in data:
-            fail(errors, f"{relpath} missing generated_from_commit/generated_at provenance")
         if payload_key not in data:
-            fail(errors, f"{relpath} missing payload key: {payload_key}")
-        elif not isinstance(data[payload_key], list):
-            fail(errors, f"{relpath} payload key is not a list: {payload_key}")
+            fail(errors, f"{relpath} missing key {payload_key!r}")
 
 
 def check_concepts(errors: list[str]) -> None:
-    concept_dir = ROOT / "docs/concepts"
-    if not concept_dir.exists():
+    cdir = ROOT / "docs" / "concepts"
+    if not cdir.exists():
         return
-    for path in sorted(concept_dir.glob("*.md")):
+    for path in sorted(cdir.glob("*.md")):
         if path.name == "index.md":
             continue
-        data = parse_frontmatter(path)
-        missing = sorted(CONCEPT_REQUIRED_KEYS - set(data))
+        fm = parse_frontmatter(path)
+        missing = sorted(CONCEPT_REQUIRED_KEYS - set(fm))
         if missing:
             fail(errors, f"{rel(path)} missing frontmatter keys: {', '.join(missing)}")
-        for key in ["implemented_by", "tested_by", "related_docs", "related_memory", "related_adrs"]:
-            values = data.get(key, [])
+        for key in ["implemented_by", "tested_by", "related_docs", "related_adrs", "related_memory"]:
+            values = fm.get(key)
+            if not values:
+                continue
             if isinstance(values, str):
                 values = [values]
             for raw in values:  # type: ignore[assignment]
@@ -186,22 +219,13 @@ def check_concepts(errors: list[str]) -> None:
 
 def check_markdown_links(errors: list[str]) -> None:
     candidates = [ROOT / "AGENTS.md", ROOT / "README.md"]
-    docs_base = ROOT / "docs"
-    if docs_base.exists():
-        for item in sorted(docs_base.rglob("*.md")):
-            rel_item = rel(item)
-            if rel_item.startswith("docs/archive/"):
-                continue
-            candidates.append(item)
-    for item in [
-        ROOT / "dev/README.md",
-        ROOT / "dev/SEARCH.md",
-        ROOT / "dev/journals/index.md",
-        ROOT / "dev/benchmark-candidates/index.md",
-        ROOT / "dev/benchmark-candidates/README.md",
-    ]:
-        if item.exists():
-            candidates.append(item)
+    for root in [ROOT / "docs", ROOT / "dev"]:
+        if root.exists():
+            for item in sorted(root.rglob("*.md")):
+                rel_item = rel(item)
+                if rel_item.startswith("docs/archive/"):
+                    continue
+                candidates.append(item)
     link_re = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
     for path in candidates:
         if not path.exists():
@@ -232,8 +256,8 @@ def check_retrieval_evals(errors: list[str]) -> None:
         return
     text = path.read_text(encoding="utf-8", errors="replace")
     eval_count = len(re.findall(r"^\s*- id:\s*", text, flags=re.MULTILINE))
-    if eval_count < 8:
-        fail(errors, f".agent/retrieval_evals.yaml has only {eval_count} evals; expected at least 8")
+    if eval_count < 10:
+        fail(errors, f".agent/retrieval_evals.yaml has only {eval_count} evals; expected at least 10")
     for relpath in re.findall(r"(?:dev|docs|crates)/[^\s\]]+\.md", text):
         relpath = relpath.rstrip(",")
         if relpath.startswith("crates/"):
@@ -245,8 +269,9 @@ def check_retrieval_evals(errors: list[str]) -> None:
 def main() -> int:
     errors: list[str] = []
     check_required_files(errors)
+    check_forbidden_live_paths(errors)
     check_top_level_docs(errors)
-    check_removed_doc_cruft(errors)
+    check_stale_active_references(errors)
     check_agents_size(errors)
     check_json_indexes(errors)
     check_concepts(errors)

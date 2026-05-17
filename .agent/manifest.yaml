@@ -1,21 +1,27 @@
 schema_version: 3
-generated_from_commit: 911d784
-generated_at: 2026-05-17T19:00:00Z
+generated_from_commit: unknown
+generated_at: 2026-05-17T00:00:00Z
 
 generator: scripts/generate_agent_index.py
 lint: scripts/check_agent_kb.py
 
+entrypoints:
+  canonical: AGENTS.md
+  claude: CLAUDE.md
+
 policy:
   human_maintained:
+    - docs/adr
+    - docs/current
     - docs/concepts
     - docs/systems
     - docs/recipes
+    - docs/tools
+    - docs/mechanics
     - docs/vision
     - docs/planning
     - docs/history
-    - docs/adr
     - docs/brainstorms
-    - docs/archive
     - dev/journals
     - dev/benchmark-candidates
   generated:
@@ -37,4 +43,4 @@ notes:
   - Regenerate when files, symbols, tests, or concept pages move.
   - Keep AGENTS.md small; route to docs/dev/.agent instead of dumping knowledge there.
   - Brainstorms are active design incubation, not archive.
-  - Do not recreate redirect-only top-level docs stubs.
+  - Top-level docs should contain only docs/README.md.

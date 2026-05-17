@@ -462,14 +462,14 @@ with real art, and uses the bundled UI fonts for HUD + dialog text.
 > renderer. The ECS [`AudioEnvironment`](../../crates/ambition_sandbox/src/audio/environment.rs)
 > layer applies a **volume-only placeholder** for underwater (not a
 > real low-pass — `bevy_kira_audio` doesn't expose Kira's filter
-> chain; see `docs/audio_underwater.md`) on top of whatever the asset
+> chain; see `docs/systems/audio-underwater.md`) on top of whatever the asset
 > manager has handed Kira. The asset manager itself does not know
 > about effects; environment state is a pure presentation concern.
 > On web, AudioContext unlock is solved by a JS shim in
 > `crates/ambition_sandbox/web/index.html`; the first `play()` call
 > is deferred until both (a) the asset has finished loading via the
 > Bevy `AssetServer` and (b) `AudioUnlockState.unlocked` is set —
-> see `docs/web_audio_manual_test.md` and `docs/web_build.md`.
+> see `docs/recipes/web-audio-manual-test.md` and `docs/recipes/web-build.md`.
 
 ### Adding more embedded assets
 

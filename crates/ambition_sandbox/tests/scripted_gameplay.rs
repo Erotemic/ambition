@@ -5,7 +5,7 @@
 //! sim through a sequence of `ControlFrame`s across several
 //! `app.update()` calls and asserts on the cumulative event timeline.
 //!
-//! Pinned by `docs/archive/historical-roadmaps/events-refactor-plan.md` (Slice 5 acceptance):
+//! Pinned by `docs/archive/superseded-migrations/events-refactor-plan.md` (Slice 5 acceptance):
 //! a scripted gameplay test that exercises the full sim/presentation
 //! seam without any visible plugin (AudioPlugin / RenderPlugin /
 //! InputPlugin / inspector / Avian2D).

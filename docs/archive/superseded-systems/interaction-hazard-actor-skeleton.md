@@ -1,3 +1,11 @@
+# Archived: interaction-hazard-actor-skeleton.md
+
+Superseded by current LDtk/data-driven ECS docs and concept pages.
+
+Original path: `docs/systems/interaction-hazard-actor-skeleton.md`
+
+---
+
 # Interaction / hazard / actor architecture skeleton
 
 Patch 2 establishes the shared engine vocabulary for gameplay objects before the sandbox grows basement feature rooms. The intent is to keep hazards, enemies, bosses, breakables, chests, pickups, NPCs, and debug labels composable rather than implementing each as a one-off sandbox system.

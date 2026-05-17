@@ -3,7 +3,7 @@
 # drafted for the military faction; the military lair is already
 # served by `military_tower` (with the General), so this layout
 # moves to the Goblin Cantina instead. Marker rev: see
-# docs/factions.md for which sprite + music belongs to whom.
+# docs/systems/factions.md for which sprite + music belongs to whom.
 #
 # Layout (800 wide × 480 tall):
 #

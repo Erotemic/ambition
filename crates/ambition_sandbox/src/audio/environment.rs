@@ -31,7 +31,7 @@
 //! one `kira::AudioManager`, exposes a music sub-track + an SFX
 //! sub-track each pre-built with `FilterBuilder::new().mode(LowPass)
 //! .cutoff(20_000.0)`, and hands `FilterHandle`s back to the ECS
-//! writer. See `docs/audio_underwater.md` for the full migration
+//! writer. See `docs/systems/audio-underwater.md` for the full migration
 //! plan and surface area.
 //!
 //! **Search markers in the code:** every place that has to change
@@ -197,7 +197,7 @@ pub fn smooth_audio_environment(
 /// `TODO: kira_underwater_filter_backend` — the volume attenuation
 /// computed here is the **placeholder** until the bevy_kira_audio
 /// wrapper grows track-level effect access (or we swap to a direct-
-/// Kira layer per `docs/audio_underwater.md`). The real underwater
+/// Kira layer per `docs/systems/audio-underwater.md`). The real underwater
 /// effect should be a Kira `FilterBuilder` (LowPass, cutoff tweened
 /// from ~20 kHz to ~800 Hz against `wetness`), not a level reduction.
 /// This function is the exact swap point: replace the

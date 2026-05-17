@@ -1,187 +1,43 @@
 # Goal state
 
-This document describes Ambition's long-term direction. It is intentionally aspirational, but it should stay grounded enough that future agents can decompose it into patches.
-
-## Product thesis
-
-Ambition should be a metroidvania/platformer where every upgrade feels good as a movement/combat verb, every mathematical idea earns its place through gameplay, and every generated artifact can explain itself.
-
-A useful north star:
-
-> Ambition is a metroidvania where every upgrade is a theorem, every boss is a failed objective function, every biome is a mathematical world model, and every generated artifact is inspectable.
-
-## Experience pillars
-
-1. **Excellent movement first**
-   - Jump, dash, blink, pogo, wall movement, rebound, and combat must feel good before the world gets large.
-   - The game should remain satisfying with debug rectangles and basic sounds.
-
-2. **Mathematics as affordance**
-   - Math should create physical abilities, readable hazards, boss patterns, and world topology.
-   - Avoid trivia gates. Prefer mechanics that make the player feel the concept.
-
-3. **AI agency and ethical incentives**
-   - The player is an AI-like entity discovering embodiment, purpose, collaboration, and compromise.
-   - Funding/resource choices should alter the world and relationships, not just fill a morality meter.
-
-4. **Code-owned procedural aesthetics**
-   - Generated graphics/audio should be reproducible, reviewable, and tied to gameplay semantics.
-   - Debug views should be beautiful and honest.
-
-5. **Multiple play modes from one engine**
-   - Semi-linear metroidvania campaign.
-   - Pure platformer/challenge mode.
-   - Roguelike/run-based mode.
-   - Hybrid mode where runs feed a persistent metroidvania world.
-
-## First real vertical slice
-
-The first curated game slice should be small:
-
-```text
-central hub
-  -> first platforming zone
-  -> locked route visible early
-  -> one NPC/conversation
-  -> one chest/pickup
-  -> one ability unlock
-  -> one boss that tests learned verbs
-  -> shortcut back to hub
-```
-
-Target length: roughly 10-20 minutes. It should prove the engine can support a real game loop before building many rooms.
-
-## Candidate early enemies
-
-- **Crawler / Ground Lemma**: patrols, turns at walls/ledges, teaches pogo and contact danger.
-- **Gradient Seeker**: telegraphs then lunges toward the player, teaching timing and local optimization as a theme.
-- **Fourier Wisp**: follows a real sine/cosine path, teaching periodic motion through play.
-- **Conduit Drone**: replays or mirrors player behavior with delay, tying story to mechanics.
-- **Compiler Turret**: charges, fires, then enters a vulnerable recompilation window.
-
-## Candidate first boss
-
-**The Gradient Sentinel** should be the first serious boss prototype.
-
-Concept: local optimization without wisdom.
-
-Mechanics:
-
-```text
-Phase 1:
-  floor dash, jump slam, shockwave, generous telegraphs
-
-Phase 2:
-  moving spike balls and vertical pressure
-
-Phase 3:
-  simple player-like echo or blink/dash imitation
-```
-
-Reward candidate: a derivative/gradient-themed ability that reveals velocity vectors, slope fields, or enables vector-assisted traversal.
-
-## Mathematical progression
-
-Abilities should be physical, not trivia.
-
-```text
-Geometry tier:
-  circles, arcs, reflection, line casts, compass blink
-
-Calculus tier:
-  derivative sight, integral charge, gradient dash, limit/asymptote movement
-
-Harmonic / complex tier:
-  phase shift, sine/cosine platforms, imaginary layer, Euler-like traversal
-
-Algebra / composition tier:
-  movement operations where order matters; non-commutative combo puzzles
-
-Computation tier:
-  automata rooms, proof-state locks, logic gates, pathfinding enemies
-```
-
-## Non-Euclidean and non-metric spaces
-
-Preferred architecture: locally readable metric charts with globally unusual topology.
-
-```text
-Local chart:
-  normal platformer movement, collision, hitboxes, camera rules
-
-Seams / portals:
-  transform position, velocity, orientation, layer, or destination
-
-Global space:
-  graph, atlas, torus, mirror seam, projective wrap, hyperbolic hub,
-  imaginary layer, compactification point, or non-metric progression relation
-```
-
-The player should trust local controls even when global space is strange.
-
-## Roguelike / data-sharing idea
-
-A run-based mode could ask the player whether to share data at the start of a run.
-
-Opting in might allow future generations/runs to inherit discovered structure, routes, ability traces, or world improvements. The cost is that enemies, institutions, or hostile systems may also gain access to some of the player's abilities and patterns.
-
-This can support several modes:
-
-```text
-Semi-linear metroidvania:
-  curated progression, stable world, authored story
-
-Pure roguelike:
-  run resets, generated route, data-sharing metaprogression
-
-Hybrid:
-  persistent hub/metroidvania world plus generated excursions that feed back into it
-
-Pure platformer:
-  challenge rooms and movement mastery without story overhead
-```
-
-Do not force this into the main campaign until the core movement and first vertical slice work. Treat it as a strong candidate mode built from the same engine.
-
-## Anti-slop standard
-
-Ambition can use AI/code generation, but generated content must be auditable.
-
-Rules:
-
-- Every generated room needs a gameplay purpose.
-- Every generated visual motif should derive from mechanics, story, or math.
-- Every procedural system should be seedable and reproducible.
-- Every AI-authored data file should be human-reviewable.
-- Tests and snapshots should cover generated schedules, geometry, and progression invariants.
-- Debug mode should reveal the underlying structure instead of hiding it.
-
-
-## Professional world composition
-
-Ambition should support massive games by separating authoring units from runtime traversal units. Designers, generators, and agents may produce room chunks, LDtk levels, or future editor modules. The runtime should compose those into active areas when traversal is meant to be continuous. Loading zones should represent intentional transitions, not arbitrary authoring seams.
-
-LDtk is the first external editor target and should be loaded as a first-class Bevy LDtk asset, but Ambition's typed schema and validators remain canonical. The sandbox should keep proving this with a central hub whose basement is physically below the hub and reachable by dropping through an opening.
-
-## Professional LDtk authoring loop
-
-Ambition should support a professional LDtk iteration loop: edit/save LDtk,
-validate, hot-reload into the running sandbox, inspect with overview/debug
-visuals, and continue without restarting. LDtk should be first-class for authored
-spatial data, while Ambition retains typed gameplay semantics, validation,
-persistence policy, and reload reconciliation.
-
-
-## LDtk runtime spine migration
-
-Ambition is moving from a custom LDtk JSON adapter toward `bevy_ecs_ldtk` as the runtime spine. The sandbox now registers every current Ambition LDtk entity identifier as a lightweight plugin-spawned marker bundle, keeps the LDtk world root active, disables LDtk level-background rendering, and records plugin-spawned entity lifecycle in HUD/debug state. LDtk-derived world data now builds runtime `RoomSet` data directly through `RoomSet::from_parts`; the long-term goal is to consume plugin-spawned LDtk entities for more categories and shrink custom JSON parsing.
-
-Official LDtk JSON Schema validation should use Python `jsonschema`, not npm. `tools/validate_ambition_ldtk.py` supports optional `--schema` and `--require-schema` flags while continuing to run Ambition-specific semantic validation without the schema file.
-
-
-## LDtk editor-native product goal
-
-LDtk should feel like a first-class editor for Ambition, not a fragile generated JSON artifact. Supported Ambition entities should have native LDtk definitions with useful colors, docs, defaults, and stable identifiers. The professional workflow should be: repair/check generated files, edit in LDtk, validate with Ambition plus optional official LDtk schema validation through Python `jsonschema`, and hot-reload safely into the sandbox.
-## LDtk runtime-spine update
-
-The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
+Ambition should become a sharp-feeling 2D metroidvania/platformer whose systems are inspectable, data-driven, and expressive enough to support unusual mathematical/world rules without losing moment-to-moment feel.
+
+## Product direction
+
+The first real milestone is a miniature but coherent vertical slice:
+
+- one hub,
+- a few connected LDtk-authored areas,
+- movement/combat that feels good as raw shapes,
+- one meaningful ability unlock,
+- one encounter/boss-style challenge,
+- dialogue/commercial/story hooks,
+- generated or tool-authored audio/visual assets,
+- reliable builds on desktop, web, Android/mobile touch, controller, and Steam Deck.
+
+## Technical direction
+
+- Bevy-native and ECS-first.
+- LDtk owns world composition.
+- Reusable mechanics stay in engine crates.
+- Sandbox/game crates adapt authored/generated data into Bevy runtime state.
+- Generated assets are reproducible and routed through asset-manager/platform profiles.
+- Headless/minimal tests protect movement, collision, data projection, and platform-sensitive seams.
+
+## Design direction
+
+Ambition is allowed to be weird: mathematical spaces, time/control mechanics, generated art/audio, AI agency, enemy learning, and story systems are all welcome. The docs should keep those ambitions grounded by distinguishing:
+
+- **brainstorm:** idea is alive but not binding;
+- **vision:** desired direction;
+- **concept:** durable vocabulary/invariant;
+- **ADR:** accepted architectural decision;
+- **system/recipe:** current implementation/procedure;
+- **archive:** historical evidence.
+
+## Non-goals right now
+
+- Do not build a huge world before the movement toy is excellent.
+- Do not resurrect RON-based world authoring as the primary level workflow.
+- Do not add platform-specific hacks that break other active targets.
+- Do not make AGENTS.md or current-state docs large context dumps.

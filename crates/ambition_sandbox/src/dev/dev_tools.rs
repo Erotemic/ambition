@@ -2,7 +2,7 @@
 //!
 //! This module is intentionally sandbox-side: it is allowed to depend on Bevy
 //! reflection and inspector UI crates, while `ambition_engine` stays focused on
-//! backend-neutral movement/collision logic. The reflected resources here mirror
+//! reusable Bevy-native movement/collision logic. The reflected resources here mirror
 //! engine data so live tuning can happen without forcing Bevy dependencies into
 //! the reusable crate.
 

@@ -867,7 +867,7 @@ assert |dx| < 1.0".
 
 The simplest defense is to write the alignment convention down in
 plain words next to the format definition (e.g.
-`docs/gameplay_trace_recorder.md`) and make the replay loop's first
+`docs/systems/gameplay-trace-recorder.md`) and make the replay loop's first
 line read like prose: "frames[i].controls drives step i; the
 resulting position must equal frames[i].player_pos."
 

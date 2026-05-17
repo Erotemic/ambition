@@ -74,7 +74,7 @@ visible_web_base = ["ldtk_runtime", "input", "static_map"]
 # core entity sprites into the wasm binary. Smaller asset footprint
 # on the host; bigger binary. Out-of-set sprites fall back to colored
 # rectangles. Audio is silent here unless `static_sfx_bank` also bakes
-# the SFX bank into the wasm. See `docs/web_build.md`.
+# the SFX bank into the wasm. See `docs/recipes/web-build.md`.
 visible_web = ["visible_web_base", "static_core_assets"]
 
 # Composite for the "served assets" browser persona. Bundles LDtk only;
@@ -88,7 +88,7 @@ visible_web_served = ["visible_web_base", "web_served", "web_audio"]
 
 # Browser persona — embedded core assets. The composite a `wasm-pack
 # build` / `wasm-bindgen --target web` step builds against by default;
-# see `docs/web_build.md`. Visual smoke build; audio stays silent unless
+# see `docs/recipes/web-build.md`. Visual smoke build; audio stays silent unless
 # `static_sfx_bank` or `web_audio` is added on top.
 web = ["visible_web", "web_platform"]
 
@@ -174,7 +174,7 @@ ldtk_runtime = ["dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
 # of authored OGG/WAV music + the packed SFX bank loaded through the
 # asset manager catalog. There is no runtime DSP/effects backend today;
 # the old fundsp procedural music + SFX synthesizer was retired in
-# favor of authored OGGs and the SFX bank. See docs/fundsp_audio.md
+# favor of authored OGGs and the SFX bank. See docs/archive/retired/fundsp-audio.md
 # (now an end-of-life note).
 audio = ["authored_audio"]
 # Authored-asset audio playback. `bevy_kira_audio` works on
@@ -204,7 +204,7 @@ mobile_touch = ["input", "dep:virtual_joystick"]
 # `tracing-tracy` and instruments every Bevy system, increasing binary
 # size and runtime overhead. Build with `cargo run --features profile`
 # and connect the Tracy GUI to record a flamegraph. See
-# `docs/profiling.md` for the workflow.
+# `docs/recipes/profiling.md` for the workflow.
 profile = ["bevy/trace", "bevy/trace_tracy"]
 
 [dependencies]
@@ -217,7 +217,7 @@ ambition_sfx = { path = "../ambition_sfx" }
 # Logical asset catalog + per-profile source resolution. Bevy + sfx
 # features so the sandbox can format `AssetPath` strings through the
 # catalog and (in a follow-up) route the SFX bank bytes through the
-# same id space. See `docs/asset_manager.md`.
+# same id space. See `docs/systems/asset-manager.md`.
 ambition_asset_manager = { path = "../ambition_asset_manager", features = [
     "bevy",
     "sfx",

@@ -1,3 +1,11 @@
+# Archived: 0002-engine-may-be-bevy-native.md
+
+Superseded by `docs/adr/0002-engine-must-be-bevy-native.md`.
+
+Original path: `docs/adr/0002-engine-may-be-bevy-native.md`
+
+---
+
 # ADR 0002: The engine may be Bevy-native
 
 ## Status

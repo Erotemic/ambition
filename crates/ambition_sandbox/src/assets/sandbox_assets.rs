@@ -554,7 +554,7 @@ fn extend_with_data_entries(manifest: &mut AssetManifest) {
 /// Optional `AMBITION_SFX_BANK_PATH` dev override is encoded as an
 /// explicit [`AssetLocation::LocalPath`] candidate so it's visible
 /// catalog policy rather than an invisible side-path in
-/// `setup.rs`. The env var is documented in `docs/asset_manager.md`.
+/// `setup.rs`. The env var is documented in `docs/systems/asset-manager.md`.
 fn extend_with_sfx_bank_entry(manifest: &mut AssetManifest) {
     let mut entry = AssetEntry::new(ids::sfx_bank(), AssetKind::AudioBank, "audio/sfx.bank")
         .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
@@ -745,7 +745,7 @@ fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_folder:
 /// that has an `asset_path` (pre-rendered OGG). Tracks without
 /// `asset_path` are skipped at both the catalog layer and the
 /// `AudioLibrary` layer (the procedural fundsp music generator was
-/// retired; see `docs/fundsp_audio.md` for the historical note).
+/// retired; see `docs/archive/retired/fundsp-audio.md` for the historical note).
 /// Spec authors must add a pre-rendered OGG via
 /// `tools/ambition_music_renderer` or remove the track from
 /// `sandbox.ron`.

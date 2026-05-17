@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 /// Active platform/runtime persona. One value per app session.
 ///
-/// See `docs/asset_manager.md` for the per-profile contract (preferred
+/// See `docs/systems/asset-manager.md` for the per-profile contract (preferred
 /// sources, hot-reload availability, embedding policy, fallback behavior).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AssetProfile {

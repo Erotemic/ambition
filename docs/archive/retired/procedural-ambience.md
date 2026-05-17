@@ -4,7 +4,7 @@
 > has been removed from the runtime. Music in Ambition is now authored:
 > every `MusicTrackSpec` declares an `asset_path` pointing at a
 > pre-rendered OGG, which `bevy_kira_audio` loads through Bevy's asset
-> server. See `docs/fundsp_audio.md` for the broader context.
+> server. See `docs/archive/retired/fundsp-audio.md` for the broader context.
 
 ## Where the OGGs come from
 

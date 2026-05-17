@@ -22,7 +22,7 @@
 //! Bevy `AssetSource` registrations (e.g. `embedded`, `http`, `https`)
 //! must be wired by the consuming app via Bevy's
 //! `AssetPlugin::source` / `AssetServer::register_source` APIs.
-//! See `docs/asset_manager.md`.
+//! See `docs/systems/asset-manager.md`.
 
 use std::path::PathBuf;
 

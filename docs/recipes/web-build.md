@@ -38,13 +38,13 @@ Common to both:
 | Save / settings persistence | ❌ | ❌ | No-op on wasm32; in-memory only. |
 | FPS overlay | ✅ default-on | ✅ default-on | Bottom-right Text node, default-on across desktop/web/Android. Toggle from the **Video settings page → "FPS Overlay"** row (persisted in `settings.ron`), or press **F3** for an in-session keyboard toggle that writes the same setting. |
 
-`docs/asset_manager.md` has the full per-asset / per-profile matrix.
+`docs/systems/asset-manager.md` has the full per-asset / per-profile matrix.
 
 ## Audio status
 
 The runtime audio backend is `bevy_kira_audio` only — the fundsp
 procedural music + SFX synthesizer was retired (see
-`docs/fundsp_audio.md`). Composition:
+`docs/archive/retired/fundsp-audio.md`). Composition:
 
 - **WebServedAssets** (`./build_for_web.sh --served`) bundles
   `web_audio` automatically. Music tracks load from
@@ -99,7 +99,7 @@ If music remains silent after a gesture, the order of triage is:
 5. Confirm the music asset loaded — `default music: track \`…\` asset \`…\` loaded; starting playback`.
 6. Network tab: is the `.ogg` and `sfx.bank` returning 200?
 
-See `docs/web_audio_manual_test.md` for the full Jon-facing
+See `docs/recipes/web-audio-manual-test.md` for the full Jon-facing
 checklist.
 
 ## One-time setup

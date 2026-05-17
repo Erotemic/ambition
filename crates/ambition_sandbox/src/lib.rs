@@ -12,7 +12,7 @@
 //! components instead.
 //!
 //! See `docs/systems/headless-simulation.md` for the sim/presentation contract this
-//! library is being shaped toward, and `docs/architecture_targets.md` for the
+//! library is being shaped toward, and `docs/adr/0012-sim-presentation-split-and-events-refactor.md` for the
 //! longer-term events refactor that will let `sandbox_update` itself run
 //! headless.
 

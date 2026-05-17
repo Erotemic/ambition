@@ -1,6 +1,6 @@
 # Body modes & locomotion state
 
-Three Tier-1 backend primitives from `docs/vision/mechanics-expressibility-checklist.md` are now
+Three Tier-1 backend primitives from `docs/mechanics/expressibility-checklist.md` are now
 landed in the engine. They are the foundation for the planned crouch /
 crawl / morph-ball / projectile / hover / charge / etc. mechanics.
 
@@ -121,7 +121,7 @@ or RL observation can include it without an adapter.
 ## What this enables next
 
 These primitives unlock the following mechanic checklist boxes (from
-`docs/vision/mechanics-expressibility-checklist.md`) once the corresponding sandbox station
+`docs/mechanics/expressibility-checklist.md`) once the corresponding sandbox station
 is wired:
 
 - crouch / crawl / morph ball (body-state mechanics)

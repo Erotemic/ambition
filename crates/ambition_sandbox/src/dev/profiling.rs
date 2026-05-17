@@ -26,7 +26,7 @@
 //!
 //! For deeper per-system profiling, build with `--features profile`,
 //! which enables Bevy's `trace_tracy` integration; see
-//! `docs/profiling.md`.
+//! `docs/recipes/profiling.md`.
 //!
 //! ## Wasm32 (browser) note
 //!

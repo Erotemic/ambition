@@ -228,7 +228,7 @@ fn music_track_order_cycles() {
 
 /// Live-runtime guardrail: the audio module must not gain a new
 /// fundsp / procedural-music reference. The renderer was retired
-/// (see `docs/fundsp_audio.md`) and re-introducing it would silently
+/// (see `docs/archive/retired/fundsp-audio.md`) and re-introducing it would silently
 /// resurrect the dead code paths the rest of this task tore out.
 ///
 /// This walks the `audio/*.rs` source tree at test time and rejects
@@ -279,7 +279,7 @@ fn no_runtime_references_to_retired_procedural_renderer() {
         findings.is_empty(),
         "runtime audio module re-introduced retired procedural / fundsp \
          references:\n{}\n\nThe fundsp procedural renderer was retired in \
-         favor of authored OGGs + the SFX bank (see docs/fundsp_audio.md). \
+         favor of authored OGGs + the SFX bank (see docs/archive/retired/fundsp-audio.md). \
          If a new realtime DSP/effects layer is wanted, gate it behind an \
          `audio_fx` feature and a separate module — do not re-thread it \
          through the runtime audio module.",
@@ -324,7 +324,7 @@ fn ambition_sandbox_cargo_toml_has_no_fundsp_dep() {
         "ambition_sandbox/Cargo.toml re-introduced `fundsp` outside \
          documentation comments:\n{}\n\n`fundsp` was retired as a \
          runtime audio backend. The new realtime DSP layer must go \
-         through Kira (see docs/fundsp_audio.md).",
+         through Kira (see docs/archive/retired/fundsp-audio.md).",
         violations.join("\n")
     );
 }
@@ -369,7 +369,7 @@ fn web_audio_feature_implies_audio_feature() {
          Found: web_audio = {rhs}\n\nWithout this, every `#[cfg(feature = \"audio\")]` \
          gate in the audio runtime is false on web builds and the wasm boots silent \
          (no kira plugin install, no AudioContext, no music, no SFX). See \
-         docs/web_audio_manual_test.md and src/audio/web_unlock.rs."
+         docs/recipes/web-audio-manual-test.md and src/audio/web_unlock.rs."
     );
 }
 

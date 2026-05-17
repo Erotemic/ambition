@@ -110,7 +110,7 @@ Reaching for `sed` or the `Edit` tool is the wrong muscle: the file's `realEdito
 
 ## 2026-05-10: Calibrate `CharacterSheetSpec.collision_scale` against the generator's `body_pixel_bbox` fraction
 
-`build_character_sprite` in [crates/ambition_sandbox/src/character_sprites/sheets.rs](../../crates/ambition_sandbox/src/character_sprites/sheets.rs) sizes the rendered quad as `collision.max() * collision_scale`. The visible body inside that quad is determined by the generator's frame layout: how much of `frame_height × frame_width` is opaque body pixels.
+`build_character_sprite` in `crates/ambition_sandbox/src/character_sprites/sheets.rs` (historical path) sizes the rendered quad as `collision.max() * collision_scale`. The visible body inside that quad is determined by the generator's frame layout: how much of `frame_height × frame_width` is opaque body pixels.
 
 Robot/Goblin sheets use `collision_scale: 2.1` because their generator leaves big transparent margins (the silhouette occupies maybe 60% of the frame). Copying `2.1` for a generator like `absurd_general` whose `body_pixel_bbox` covers ~95% of the frame produces a sprite ~2× too tall — the General towers above the player.
 
@@ -475,7 +475,7 @@ Regression tests live in
 [`crates/ambition_sandbox/tests/crouch_stability.rs`](../../crates/ambition_sandbox/tests/crouch_stability.rs)
 (held Down for 30 frames must stay Crouching with per-frame `pos.y`
 delta < 5 px) and
-[`fold_held_down_without_edge_flag_does_not_fire_down_pressed`](../../crates/ambition_sandbox/src/mobile_input.rs)
+`fold_held_down_without_edge_flag_does_not_fire_down_pressed` (historical path: `crates/ambition_sandbox/src/mobile_input.rs`)
 (pins the touch path).
 
 ### Takeaway
@@ -692,9 +692,9 @@ CI runs every commit.
 
 ---
 
-## Migrated historical entries from `docs/lessons_learned.md`
+## Migrated historical entries from `dev/journals/lessons_learned.md`
 
-These older entries were originally maintained in `docs/lessons_learned.md`. `dev/journals/lessons_learned.md` is now the canonical aggregate journal so future agents have one place to search lessons learned.
+These older entries were originally maintained in `dev/journals/lessons_learned.md`. `dev/journals/lessons_learned.md` is now the canonical aggregate journal so future agents have one place to search lessons learned.
 
 Debugging journals for surprises that took serious time to track down.
 Ordered newest-first. Each lesson should make the next time you hit the
@@ -764,7 +764,7 @@ player stays in the world.
 ### Trace coverage that made the fix takeable
 
 The ad-hoc trace recorder added shortly before this bug (see
-`docs/gameplay_trace_recorder.md`) made the diagnosis 10× faster. Two
+`docs/systems/gameplay-trace-recorder.md`) made the diagnosis 10× faster. Two
 recorder upgrades from this fix's patch are worth keeping in mind:
 
 - **`nearby_collision` now uses the feature-augmented collision world.**

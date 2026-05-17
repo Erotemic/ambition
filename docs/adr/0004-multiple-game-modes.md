@@ -1,17 +1,23 @@
-# ADR 0004: Support multiple game modes from one reusable engine
+# ADR 0004: Support multiple modes from reusable mechanics
 
 ## Status
 
-Proposed.
+Accepted as a design constraint.
 
 ## Context
 
-Ambition may support a semi-linear metroidvania, a pure platformer, a pure roguelike, and a hybrid mode where generated runs feed a persistent world. A new brainstorm introduced a data-sharing choice: opting in helps later generations build on the player's run, but enemies or hostile systems may learn from the same data.
+Ambition may support a semi-linear metroidvania, pure platformer labs, roguelike/procedural runs, hybrid generated worlds, and debug/simulation modes. The exact product shape is still developing in `docs/brainstorms/` and `docs/vision/`.
 
 ## Decision
 
-Design `ambition_engine` around reusable verbs and data specs that can serve multiple modes. Do not hardwire the engine to exactly one campaign structure. Treat roguelike/data-sharing as a candidate game mode until the first vertical slice proves the core.
+Design reusable mechanics and data vocabularies so game modes compose on top of them instead of forking the controller or collision model.
+
+Examples:
+
+- movement, combat, body modes, and projectiles belong in reusable mechanics;
+- campaign progression, story flags, enemy-learning policy, and mode-specific tuning belong in game/story/sandbox policy;
+- recording/replay/test hooks should help multiple modes validate behavior.
 
 ## Consequences
 
-Progression systems should distinguish engine mechanics from campaign policy. Data-sharing, metaprogression, and enemy-learning systems should be implemented as game/story policy on top of reusable recording, replay, ability, and world-state primitives.
+Do not hardwire the engine to one campaign structure. Do not let speculative modes block the first playable vertical slice. Use Bevy ECS and data specs so mode-specific policies can be added without rewriting core mechanics.

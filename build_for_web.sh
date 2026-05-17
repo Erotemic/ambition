@@ -12,7 +12,7 @@ set -euo pipefail
 # Default: Rust release build + wasm-bindgen output, no auto-serve.
 # Pass --serve to also start a static file server on http://localhost:8000/.
 #
-# See docs/web_build.md for the per-subsystem scope of the first-pass
+# See docs/recipes/web-build.md for the per-subsystem scope of the first-pass
 # web build (audio / dev tools / file watcher / mobile touch / physics
 # debris are intentionally OFF; LDtk loads via static_map).
 

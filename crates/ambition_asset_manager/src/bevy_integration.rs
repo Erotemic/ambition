@@ -41,7 +41,7 @@
 //! the canonical hook. This crate intentionally does not auto-register
 //! sources — the consumer knows which features it compiled with.
 //!
-//! See `docs/asset_manager.md` for the integration recipe per profile
+//! See `docs/systems/asset-manager.md` for the integration recipe per profile
 //! (`bevy_embedded_assets` for BundledStatic, Bevy's `http` source for
 //! WebHttp, etc.).
 

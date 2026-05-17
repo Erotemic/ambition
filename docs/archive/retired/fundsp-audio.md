@@ -53,7 +53,7 @@ settings with the environment state.
 
 **But the writer is a volume duck, not a filter.** Music drops ~8 dB
 and SFX ~5 dB while underwater; the spectrum is unchanged. There is
-**no high-frequency damping** today. See `docs/audio_underwater.md`
+**no high-frequency damping** today. See `docs/systems/audio-underwater.md`
 for the migration plan to a real Kira `FilterBuilder` (LowPass,
 ~20 kHz → ~800 Hz). Do not describe the current effect as
 "underwater muffle" in any user-facing surface.
@@ -63,7 +63,7 @@ for the migration plan to a real Kira `FilterBuilder` (LowPass,
 expose `MainTrackBuilder::with_effect`, and offers no `add_sub_track`
 or per-track effect-handle API. The recommended unlock is to replace
 the wrapper with a thin direct-Kira layer (see
-`docs/audio_underwater.md` Option A), not to forklift `fundsp` back
+`docs/systems/audio-underwater.md` Option A), not to forklift `fundsp` back
 into the runtime as a parallel DSP engine.
 
 Future effects (combat low-pass on damage, reverb-ish ambience, filter

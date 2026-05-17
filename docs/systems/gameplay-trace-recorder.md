@@ -173,7 +173,7 @@ collision-correction events) is a matter of:
 - **Not** a video recorder. Visual state is implied by gameplay data;
   for a visual baseline, see the planned
   `bevy_dev_tools::EasyScreenshotPlugin` integration noted in
-  `docs/archive/historical-roadmaps/events-refactor-plan.md`.
+  `docs/archive/superseded-migrations/events-refactor-plan.md`.
 
 ## Attaching a trace to a bug report
 
@@ -213,11 +213,11 @@ cargo test -p ambition_sandbox trace::
 
 ## Related docs
 
-- `docs/vision/mechanics-expressibility-checklist.md` — `LocomotionState`, `BodyMode`,
+- `docs/mechanics/expressibility-checklist.md` — `LocomotionState`, `BodyMode`,
   `ResourceMeter` Tier 1 backends used by the trace.
 - `docs/systems/headless-simulation.md` — the simulation half the recorder
   attaches to.
-- `docs/archive/historical-roadmaps/events-refactor-plan.md` — the per-frame `Vec` collector
+- `docs/archive/superseded-migrations/events-refactor-plan.md` — the per-frame `Vec` collector
   pattern the trace's event channel mirrors.
 
 

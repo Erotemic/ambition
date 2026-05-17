@@ -87,7 +87,7 @@ pub(super) fn setup_presentation_system(
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
     // with "time not implemented on this platform". Gate the per-step
     // wall-clock breakdown on non-wasm; the wasm build profiles via
-    // browser devtools (see docs/web_build.md).
+    // browser devtools (see docs/recipes/web-build.md).
     #[cfg(not(target_arch = "wasm32"))]
     let t0 = std::time::Instant::now();
     let game_assets =

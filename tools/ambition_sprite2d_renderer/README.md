@@ -184,5 +184,5 @@ and a long rifle so it reads as a distinct villain rather than a variant of
   (or `draw-all` / `draw-canonicals` / `draw-entities` for adapter targets).
 - Do not commit `.png`, `.yaml`, etc., from `generated/`.
 
-See `docs/design.md` for the architecture rationale and `docs/ENTITY_TODOS.md`
+See `tools/ambition_sprite2d_renderer/docs/design.md` for the architecture rationale and `tools/ambition_sprite2d_renderer/docs/ENTITY_TODOS.md`
 for outstanding entity-sprite work.

@@ -122,7 +122,7 @@ pub struct MusicTrackSpec {
     /// runtime requires every live track to set this — tracks left
     /// at `None` are skipped at startup with a warning (the fundsp
     /// procedural music generator was retired; see
-    /// `docs/fundsp_audio.md`). The `arrangement` field is retained
+    /// `docs/archive/retired/fundsp-audio.md`). The `arrangement` field is retained
     /// as documentation of how each OGG was authored and for
     /// `duration_seconds()` reporting.
     #[serde(default)]

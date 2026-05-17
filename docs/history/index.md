@@ -1,11 +1,9 @@
 # History docs index
 
-History docs preserve compact project chronology. They are useful context but do
-not override current docs, ADRs, concepts, or source code.
+History docs preserve compact chronology. They are context, not current authority.
 
-| Topic | Doc |
+| Doc | Use |
 |---|---|
-| Progression log | [`progression-log.md`](progression-log.md) |
+| [`progression-log.md`](progression-log.md) | Project evolution summary. |
 
-For stale handoffs, old agent prompts, retired docs, migration plans, and old
-system notes, use [`../archive/`](../archive/).
+For detailed obsolete roadmaps, see `docs/archive/`.

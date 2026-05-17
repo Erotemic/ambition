@@ -1,21 +1,32 @@
 # Recipe docs index
 
-Recipes are actionable workflows: build, deploy, author, profile, validate, or perform a recurring maintenance task. Historical migration plans that already landed live under `../archive/`.
+Recipes are current procedures. Superseded migrations belong in `docs/archive/`.
+
+## Build and platform workflows
 
 | Workflow | Doc |
 |---|---|
-| Adding a sandbox showcase room | [`add-showcase-room.md`](add-showcase-room.md) |
-| Android build / sideload workflow | [`android-build.md`](android-build.md) |
+| Web / wasm build | [`web-build.md`](web-build.md) |
+| Manual browser audio testing | [`web-audio-manual-test.md`](web-audio-manual-test.md) |
+| Android build / sideload | [`android-build.md`](android-build.md) |
 | Android power plan | [`android-power-plan.md`](android-power-plan.md) |
-| First Goblin Transition Lab | [`music-transition-lab.md`](music-transition-lab.md) |
-| LDtk authoring workflow | [`ldtk-authoring.md`](ldtk-authoring.md) |
-| Manual browser audio checklist | [`web-audio-manual-test.md`](web-audio-manual-test.md) |
+| Profiling | [`profiling.md`](profiling.md) |
+
+## Content and tools workflows
+
+| Workflow | Doc |
+|---|---|
+| LDtk authoring | [`ldtk-authoring.md`](ldtk-authoring.md) |
+| Add a showcase room | [`add-showcase-room.md`](add-showcase-room.md) |
 | Mob lab encounter | [`mob-lab.md`](mob-lab.md) |
-| Music generation balance notes | [`music-generation-balance-notes.md`](music-generation-balance-notes.md) |
-| Music generation pipeline notes | [`music-generation-pipeline-notes.md`](music-generation-pipeline-notes.md) |
-| Music transition notes | [`music-transition-notes.md`](music-transition-notes.md) |
-| Procedural Tune Authoring | [`procedural-tune-authoring.md`](procedural-tune-authoring.md) |
-| Profiling Ambition | [`profiling.md`](profiling.md) |
-| Steam Deck deploy note | [`steam-deck-deploy.md`](steam-deck-deploy.md) |
-| Web build | [`web-build.md`](web-build.md) |
-| Large-file refactor candidates | [`large-file-refactors.md`](large-file-refactors.md) |
+| Music generation pipeline | [`music-generation-pipeline-notes.md`](music-generation-pipeline-notes.md), [`music-generation-balance-notes.md`](music-generation-balance-notes.md), [`music-transition-lab.md`](music-transition-lab.md), [`music-transition-notes.md`](music-transition-notes.md), [`procedural-tune-authoring.md`](procedural-tune-authoring.md) |
+
+## Maintenance workflows
+
+| Workflow | Doc |
+|---|---|
+| Large-file refactors | [`large-file-refactors.md`](large-file-refactors.md) |
+| Crate split thinking | [`crate-split-plan.md`](crate-split-plan.md), [`crate-strategy.md`](crate-strategy.md), [`crate-foundation-seldom-state-assets-tests.md`](crate-foundation-seldom-state-assets-tests.md) |
+| Intro/feature-roadmap notes | [`intro-followup-roadmap.md`](intro-followup-roadmap.md), [`feature-basement-wave.md`](feature-basement-wave.md), [`fly-and-room-hub.md`](fly-and-room-hub.md), [`flying-door-activation.md`](flying-door-activation.md) |
+
+If a workflow has already landed and no longer tells an agent what to do today, archive it or fold the durable rule into a concept/system doc.

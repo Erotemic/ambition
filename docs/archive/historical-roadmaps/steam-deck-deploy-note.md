@@ -1,3 +1,11 @@
+# Archived: steam-deck-deploy.md
+
+Historical deploy note. Current platform policy lives in `docs/concepts/platform-targets.md` and build recipes.
+
+Original path: `docs/recipes/steam-deck-deploy.md`
+
+---
+
 # Steam Deck deploy note
 
 This overlay only replaces `deploy_to_steamdeck.sh`.

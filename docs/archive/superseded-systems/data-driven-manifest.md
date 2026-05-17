@@ -1,3 +1,11 @@
+# Archived: data-driven-manifest.md
+
+Superseded by current LDtk/data-driven ECS docs and concept pages.
+
+Original path: `docs/systems/data-driven-manifest.md`
+
+---
+
 # Data-driven sandbox manifest
 
 The sandbox now has one top-level RON manifest at `crates/ambition_sandbox/assets/ambition/sandbox.ron`. It is loaded in two ways:

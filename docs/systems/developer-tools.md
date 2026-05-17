@@ -74,4 +74,4 @@ These hotkeys live in their own modules but are listed here for discoverability.
 - `F8` — gameplay trace recorder dump (`crate::trace::handle_trace_hotkey`).
 - `F11` — manual LDtk hot-reload.
 - `F12` — toggle LDtk auto-reload polling.
-- `F6` / `F7` — display mode hotkeys (windowed / borderless); see `docs/display_modes.md`.
+- `F6` / `F7` — display mode hotkeys (windowed / borderless); see `docs/systems/display-modes.md`.

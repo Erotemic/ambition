@@ -102,7 +102,7 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         // PostStartup report prints "where did the first frame's
         // worth of init time go" without needing an external profiler
         // attached. See `crate::profiling` for the helper API and
-        // `docs/profiling.md` for Tracy / per-system profiling.
+        // `docs/recipes/profiling.md` for Tracy / per-system profiling.
         .insert_resource(crate::profiling::StartupProfiler::default())
         .insert_resource(crate::trace::GameplayTraceBuffer::default())
         .insert_resource(crate::CurrentPlayerAttack::default())

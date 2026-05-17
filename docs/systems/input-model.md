@@ -1,85 +1,27 @@
 # Ambition input model
 
-Ambition treats physical inputs as mappings onto semantic actions. The sandbox
-uses named presets now, and the code path is intentionally preset/remap-friendly
-rather than hard-coded to one keyboard layout.
+Input is semantic and platform-aware. Physical keyboard, controller, and touch inputs should fold into shared gameplay/menu actions instead of separate gameplay paths.
 
-`F9` cycles to the previous preset. `F10` cycles to the next preset.
+## Current shape
 
-## Current keyboard presets
+- `SandboxAction` is the Bevy/Leafwing action vocabulary.
+- `ControlFrame` is the simulation seam used by engine/headless/test paths.
+- Touch input folds into the same control frame where possible.
+- Menu navigation has separate actions so pause/settings/dialogue do not consume gameplay buttons accidentally.
+- Platform-specific input should preserve controller and touch semantics.
 
-| Preset | Movement | Jump | Attack / slash | Dash | Pogo | Other mapped placeholders |
-|---|---|---|---|---|---|---|
-| `ArrowsZxc` | Arrow keys | `Z` | `X` | `C` | Down + `X` | Secondary `A`, quick `E`, modifier `S`, utility `D`, map `Tab`, inventory `I` |
-| `WasdJkl` | `WASD` | `Space` | `J` | `K` | Down + `J` | Secondary `L`, quick `I`, modifier `Left Shift`, utility `U`, map `Tab`, inventory `V` |
-| `ArrowsQwer` | Arrow keys | `Q` | `E` | `W` | Down + `E` | Blink `R`, map `Tab`, inventory `I` |
-| `WasdUipo` | `WASD` | `U` | `P` | `I` | Down + `P` | Blink `O`, map `Tab`, inventory `V` |
+## Current actions of note
 
-The `ArrowsZxc` preset is the default because it gives a compact, familiar
-keyboard action-platformer baseline without baking any specific game's verbs
-into Ambition's terminology.
+- Movement, jump, dash, blink, attack, projectile, pogo, interact.
+- Quick action currently carries shield input into engine `shield_held`.
+- Projectile action supports Fireball and motion-input Hadouken upgrade.
+- Menu actions are separate from gameplay actions.
 
-## Canonical gamepad target
+## Common failure modes
 
-| Gamepad control | Semantic action | Current gameplay meaning |
-|---|---|---|
-| L-stick / D-pad | Movement | Move, aim dash, aim slash/pogo |
-| A / Cross | Jump | Jump / confirm |
-| X / Square | Primary attack | Slash; Down+Attack is pogo |
-| RT / R2 | Dash | Dash |
-| B / Circle | Secondary action | Blink / special |
-| RB / R1 | Quick action | Placeholder |
-| LT / L2 | Modifier action | Placeholder |
-| Y / Triangle | Utility action | Fly toggle / utility |
-| LB / L1 | Map | Placeholder |
-| Back / Touchpad | Inventory/select | Inventory later; sandbox restart for now |
-| Start / Options | Pause | Pause/menu mode |
+- Updating keyboard bindings without controller/touch equivalents.
+- Reading raw keys inside gameplay systems instead of semantic actions/control frames.
+- Letting gameplay consume menu actions while paused/dialogue/cutscene modes are active.
+- Adding platform-specific behavior that bypasses the shared simulation seam.
 
-## Universal sandbox/system controls
-
-| Input | Semantic control | Current behavior |
-|---|---|---|
-| `Escape` | Start | Pause/menu mode |
-| `Delete` / `Backspace` | Select / restart | Full sandbox restart, including enemies and transient effects |
-| `F1` | Debug | Toggle overlay |
-| `F2` | Slow motion | Toggle slow motion |
-| `F9` | Preset previous | Cycle backward through presets |
-| `F10` | Preset next | Cycle forward through presets |
-
-## Implementation note
-
-The current Bevy implementation lives primarily in
-`crates/ambition_sandbox/src/input.rs`. Physical keyboard and gamepad bindings
-are collected by `leafwing-input-manager` into `SandboxAction` / `ActionState`,
-then converted into `ControlFrame`. The engine still consumes a compact
-`InputState`, so key remapping can evolve without coupling movement physics to
-physical devices. See `docs/archive/port_notes/leafwing_input_manager_port.md` for the historical port notes.
-
-## Current action semantics
-
-Only movement, jump, attack, dash, pogo, pause, and restart affect gameplay in
-this prototype. The other generic gamepad-style verbs are deliberately kept in
-the preset structures and shown in the debug overlay so future engine work can
-attach mechanics without changing the physical layout model.
-
-The current pogo rule is:
-
-- Most action-platformer layouts: hold Down and press Attack.
-- Current chirality test layouts: hold Down and press Attack. Their fourth action
-  keys are currently bound to Blink.
-
-
-## Implementation layout
-
-`crates/ambition_sandbox/src/input.rs` is now a facade. The child modules under
-`src/input/` separate the concerns that used to be interleaved:
-
-- `actions.rs` — Leafwing `SandboxAction` declarations.
-- `presets.rs` — keyboard/gamepad preset data and labels.
-- `control.rs` — gameplay `ControlFrame` and dash trigger edge state.
-- `menu.rs` — `MenuInputFrame`, `MenuControlFrame`, analog direction mapping,
-  and repeat/scroll handling.
-
-Menu/dialog/inventory/pause code should consume `MenuControlFrame`, not raw
-keyboard, touch, or Leafwing state. Gameplay systems should consume
-`ControlFrame`, not menu semantics.
+See `docs/concepts/platform-targets.md` and `docs/systems/mobile-touch-controls.md`.

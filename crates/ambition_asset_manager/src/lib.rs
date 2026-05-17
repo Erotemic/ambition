@@ -19,7 +19,7 @@
 //!
 //! # End-state architecture
 //!
-//! See [`docs/asset_manager.md`](https://github.com/anthropics/claude-code/tree/main/docs)
+//! See [`docs/systems/asset-manager.md`](https://github.com/anthropics/claude-code/tree/main/docs)
 //! (the in-repo design doc) for the full per-profile contract — what
 //! sources each profile understands, hot-reload availability, and the
 //! recommended Bevy `AssetSource` wiring per platform.

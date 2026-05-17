@@ -5,7 +5,7 @@
 //! from the packed `.sfxbank` (also catalog-routed). Kira owns the
 //! backend, channels, fades, and looping. The old runtime fundsp
 //! procedural music generator + SFX synthesizer was retired; see
-//! `docs/fundsp_audio.md` for the historical note.
+//! `docs/archive/retired/fundsp-audio.md` for the historical note.
 //!
 //! Realtime DSP/effects (underwater muffle, low-pass filtering,
 //! reverb) live in [`environment`]. Today only a Kira-friendly

@@ -34,7 +34,7 @@
 //! - [`persistence`] — `settings.ron` load + save + the corresponding
 //!   Bevy startup / change-watching systems.
 //!
-//! See `docs/settings_system.md` for how to add a new row or category.
+//! See `docs/systems/settings-system.md` for how to add a new row or category.
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};

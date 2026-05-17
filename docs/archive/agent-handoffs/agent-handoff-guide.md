@@ -5,8 +5,8 @@ This document is for future AI agents and human contributors who need to get pro
 ## First files to read
 
 1. `README.md`
-2. `docs/CURRENT_STATE.md`
-3. `docs/GOAL_STATE.md`
+2. `docs/current/state.md`
+3. `docs/vision/goal-state.md`
 4. `docs/adr/README.md`
 5. The focused doc for the subsystem you are editing
 
@@ -69,7 +69,7 @@ Use this order when documents disagree:
 
 1. Fresh user instructions in the current conversation.
 2. `docs/adr/*.md` for recorded decisions.
-3. `docs/CURRENT_STATE.md` for active state.
+3. `docs/current/state.md` for active state.
 4. Focused subsystem docs.
 5. Historical notes and older patch docs.
 
@@ -219,7 +219,7 @@ Startup should not use `.expect()` on LDtk room construction. If the embedded LD
 
 ## LDtk authoring tooling rule
 
-Before handing a generated or patched `.ldtk` file to the user for LDtk GUI editing, run `python tools/repair_ambition_ldtk.py --in-place crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk` and then `python tools/check_ldtk_editor_roundtrip.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`. Use Python `jsonschema` only for official LDtk schema validation; do not add npm/Node validation tooling. If a new Ambition LDtk entity is introduced, add an LDtk entity definition with docs/colors/default field values, register it with `bevy_ecs_ldtk`, update the validator, and update `docs/ldtk_authoring.md`.
+Before handing a generated or patched `.ldtk` file to the user for LDtk GUI editing, run `python tools/repair_ambition_ldtk.py --in-place crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk` and then `python tools/check_ldtk_editor_roundtrip.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk`. Use Python `jsonschema` only for official LDtk schema validation; do not add npm/Node validation tooling. If a new Ambition LDtk entity is introduced, add an LDtk entity definition with docs/colors/default field values, register it with `bevy_ecs_ldtk`, update the validator, and update `docs/recipes/ldtk-authoring.md`.
 ## LDtk runtime-spine update
 
 The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZone`, `DebugLabel`, and `CameraZone`. `bevy_ecs_ldtk` owns their entity lifecycle; Ambition rebuilds a runtime-spine index from spawned entities each frame for HUD/debug overlays and future direct gameplay promotion. Hot reload now prepares a replacement world transaction before mutating live state and rejects edits that delete the current active area or leave missing graph links.
@@ -234,7 +234,7 @@ The first promoted plugin-spawned LDtk categories are `PlayerStart`, `LoadingZon
   resource); dumps work in headless and visible builds.
 - Attach both files to OOB / collision-escape bug reports. The `.md`
   is a 120-frame summary; the `.json` is the full 240-frame ring.
-- See `docs/gameplay_trace_recorder.md` and the tests in
+- See `docs/systems/gameplay-trace-recorder.md` and the tests in
   `crates/ambition_sandbox/src/trace.rs`.
 
 ## Tier-1 player primitives in the engine
@@ -270,7 +270,7 @@ mirrored through `ae::World::objects` for older feature consumers. Moving
 platforms, NPC patrols, enemy patrols, and moving hazards can now consume the
 typed path index via `path_id`; new systems should prefer the typed `RoomSpec`
 fields. See
-`docs/ldtk_runtime_spine.md`.
+`docs/archive/superseded-migrations/ldtk-runtime-spine.md`.
 
 ## Settings / input architecture
 
@@ -279,7 +279,7 @@ fields. See
 (serializable, defaults today; persistence is a focused follow-up).
 The pause overlay is a renderer/controller that walks a page
 stack and dispatches per-row `apply_action` calls; mutation logic
-stays close to the field. See `docs/settings_system.md` for the
+stays close to the field. See `docs/systems/settings-system.md` for the
 add-a-setting recipe. `SandboxAction` has a dedicated
 `Menu*` action seam; the sandbox menu reads only those + analog
 left-stick repeat, never gameplay actions. Controller deadzone
@@ -305,7 +305,7 @@ LDtk room is wired end-to-end: `EncounterTrigger` enters
 `mob_lab_wave_specs` drives the hard-coded wave script, and a
 hallway `Switch` free-toggles `Cleared / Inactive` for sandbox
 iteration. Persistence (Cleared / Failed) survives reload. See
-`docs/mob_lab.md` for layout, save shape, and remaining deferred
+`docs/recipes/mob-lab.md` for layout, save shape, and remaining deferred
 items (smooth camera ease, switch sprite swap, multi-encounter
 authoring, on-screen wave indicator).
 
@@ -331,7 +331,7 @@ that picks the mode from the snapshot. It is used today as an
 *observed* signal — `EnemyRuntime` / `BossRuntime` populate
 `ai_mode` for HUD/debug — but the movement / attack branches still
 read the old timer fields. The path to making it authoritative is
-in `docs/character_ai_refactor.md`. Hostile NPC conversion already
+in `docs/systems/character-ai-refactor.md`. Hostile NPC conversion already
 routes through `EnemyRuntime` so a single AI loop covers authored
 enemies and runtime-converted hostiles, but bosses and per-brain
 knobs are still parallel implementations.

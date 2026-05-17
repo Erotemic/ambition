@@ -6,7 +6,7 @@ renderer/controller; per-setting business logic lives in the matching
 submodule (`settings::audio`, `settings::controls`,
 `settings::gameplay`, `settings::video`).
 
-See `docs/settings_system.md` for the architecture diagram and
+See `docs/systems/settings-system.md` for the architecture diagram and
 extension recipe.
 
 ## Pages
@@ -78,7 +78,7 @@ menu and the keystrokes never drift out of sync:
 - `F7` — borderless fullscreen
 
 `F8` is reserved for the gameplay trace recorder
-(`docs/gameplay_trace_recorder.md`).
+(`docs/systems/gameplay-trace-recorder.md`).
 
 ## Audio-off compatibility
 

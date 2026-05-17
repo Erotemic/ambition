@@ -1,24 +1,29 @@
-# ADR 0001: Maintain source-of-truth docs separately from historical notes
+# ADR 0001: Use a layered repository knowledge base
 
 ## Status
 
-Accepted.
+Accepted and updated 2026-05-17.
 
 ## Context
 
-Ambition has accumulated many focused patch docs and historical design notes. These are valuable, but older notes can make it look like superseded constraints still apply. The README had also become stale by trying to describe too much current implementation detail.
+Ambition has code, ADRs, concept docs, recipes, active brainstorms, historical notes, dev journals, benchmark questions, and generated indexes. Older migration notes were competing with current guidance, and redirect stubs made `docs/` noisy for agents.
 
 ## Decision
 
-Use a documentation hierarchy:
+Use this hierarchy:
 
-1. README as a stable project portal.
-2. `docs/current/` for active state, risks, and next steps.
-3. `docs/vision/` for distilled long-term direction.
-4. ADRs for durable decisions and supersessions.
-5. Focused subsystem docs for implementation details.
-6. Historical docs preserved with supersession pointers when needed.
+1. `README.md` and `AGENTS.md` route the reader.
+2. ADRs record durable architectural decisions and must stay modern.
+3. `docs/current/` records active state, risks, and next moves.
+4. `docs/concepts/` records durable terms, invariants, edit protocols, and validation anchors.
+5. `docs/systems/`, `docs/recipes/`, `docs/tools/`, and `docs/mechanics/` contain current focused docs.
+6. `docs/brainstorms/` stays active as idea incubation.
+7. `dev/` stores engineering memory: postmortems and benchmark traps.
+8. `.agent/` stores generated indexes.
+9. `docs/archive/` stores historical evidence only.
+
+Delete redirect-only stubs instead of keeping compatibility clutter. If an old note still matters, either rewrite it as a current doc or archive it with an explicit supersession.
 
 ## Consequences
 
-The README should be easier to keep correct. Future agents should update `CURRENT_STATE.md` and ADRs instead of editing scattered historical notes when architecture changes.
+Agents should read less by default and trust current docs more. Maintainers should actively prune stale docs instead of preserving every old plan at a live path.

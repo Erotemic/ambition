@@ -4,7 +4,7 @@
 //! events. The buffer is filled inside `sandbox_update` (simulation-side) so
 //! the recorder works in the headless binary as well as the visible game.
 //!
-//! See `docs/gameplay_trace_recorder.md` for the workflow and bug-reporting
+//! See `docs/systems/gameplay-trace-recorder.md` for the workflow and bug-reporting
 //! checklist.
 
 use std::collections::VecDeque;

@@ -16,65 +16,72 @@
 //! longer-term events refactor that will let `sandbox_update` itself run
 //! headless.
 
+// External API surface — bins, tests, and Android/wasm entry points all
+// reach into these modules. Everything else stays `pub(crate)` so the
+// compiler can tell us what's actually depended on from outside.
 pub mod audio;
-pub mod banter;
-pub mod body_mode;
-pub mod bubble_shield;
-pub mod boss_encounter;
-pub mod boss_sprites;
-pub mod character_sprites;
-pub mod config;
-pub mod content_validation;
-pub mod cutscene;
-pub mod data;
-pub mod debug_overlay;
-pub mod dev_tools;
-pub mod dialog;
-pub mod encounter;
 pub mod features;
-pub mod feel;
-pub mod fps_overlay;
-pub mod fx;
-pub mod game_assets;
 pub mod game_mode;
 pub mod input;
-pub mod intro;
-pub mod inventory;
 pub mod ldtk_world;
-pub mod ledge_grab;
-pub mod loading;
-pub mod map_menu;
-pub mod mechanics;
-pub mod mobile_input;
-pub mod music;
-pub mod parallax;
-pub mod pause_menu;
-pub mod physics;
 pub mod player;
-pub mod platform;
-pub mod platforms;
-pub mod profiling;
-pub mod projectile;
-pub mod quest;
-pub mod rendering;
-pub mod reset;
-pub mod room_builder;
 pub mod rooms;
-pub mod sandbox_assets;
-pub mod save;
-pub mod settings;
-pub mod swim;
-pub mod time_control;
 pub mod trace;
-pub mod ui_fonts;
-pub mod ui_nav;
-pub mod windowing;
-
 pub mod app;
 pub mod headless;
 #[cfg(feature = "rl_sim")]
 pub mod rl_sim;
-pub mod setup;
+
+// Internal subsystems — no external caller depends on them, so they're
+// `pub(crate)` to keep the lib surface small. Cross-module reads inside
+// the crate still work because `pub(crate)` is visible to the rest of
+// the crate.
+pub(crate) mod banter;
+pub(crate) mod body_mode;
+pub(crate) mod bubble_shield;
+pub(crate) mod boss_encounter;
+pub(crate) mod boss_sprites;
+pub(crate) mod character_sprites;
+pub(crate) mod config;
+pub(crate) mod content_validation;
+pub(crate) mod cutscene;
+pub(crate) mod data;
+pub(crate) mod debug_overlay;
+pub(crate) mod dev_tools;
+pub(crate) mod dialog;
+pub(crate) mod encounter;
+pub(crate) mod feel;
+pub(crate) mod fps_overlay;
+pub(crate) mod fx;
+pub(crate) mod game_assets;
+pub(crate) mod intro;
+pub(crate) mod inventory;
+pub(crate) mod ledge_grab;
+pub(crate) mod loading;
+pub(crate) mod map_menu;
+pub(crate) mod mechanics;
+pub(crate) mod mobile_input;
+pub(crate) mod music;
+pub(crate) mod parallax;
+pub(crate) mod pause_menu;
+pub(crate) mod physics;
+pub(crate) mod platform;
+pub(crate) mod platforms;
+pub(crate) mod profiling;
+pub(crate) mod projectile;
+pub(crate) mod quest;
+pub(crate) mod rendering;
+pub(crate) mod reset;
+pub(crate) mod room_builder;
+pub(crate) mod sandbox_assets;
+pub(crate) mod save;
+pub(crate) mod settings;
+pub(crate) mod swim;
+pub(crate) mod time_control;
+pub(crate) mod ui_fonts;
+pub(crate) mod ui_nav;
+pub(crate) mod windowing;
+pub(crate) mod setup;
 
 /// Android shared-library entry point.
 ///

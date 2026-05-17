@@ -1148,15 +1148,30 @@ class ToonSideGenerator:
             d.line([(eye_x - 5.5 * S, eye_y - 2.4 * S), (eye_x + 0.6 * S, eye_y - 0.8 * S)], fill=outline, width=max(1, int(1.2 * S)))
             d.line([(eye_x + 3.0 * S, eye_y - 0.9 * S), (eye_x + 7.2 * S, eye_y - 2.8 * S)], fill=outline, width=max(1, int(1.1 * S)))
         else:
+            # 3/4 view: draw both eyes flanking the nose so the face
+            # doesn't read as a cyclops. Matches the general_hat /
+            # officer_cap layout the user already approved: a larger
+            # near eye on the camera-left of the face and a smaller
+            # far eye on the camera-right, both with pupils tracking
+            # forward. Spacing is 7.0×S center-to-center, roughly the
+            # same fraction of head width as the General sheet.
             eye_y = c[1] - 1.8 * S
-            eye_x = c[0] + 4.4 * S
-            eyelid = max(1.2 * S, (1.2 + pose.eye_squint * 4.0) * S)
+            near_eye_x = c[0] + 1.0 * S
+            far_eye_x = c[0] + 8.0 * S
+            near_w, near_h = 3.6 * S, max(1.2 * S, (1.2 + pose.eye_squint * 4.0) * S)
+            far_w, far_h = 3.0 * S, max(1.0 * S, (1.0 + pose.eye_squint * 3.4) * S)
             if pose.blink or pose.dead:
-                d.line([(eye_x - 2.2 * S, eye_y), (eye_x + 2.0 * S, eye_y)], fill=outline, width=max(1, int(1.3 * S)))
+                d.line([(near_eye_x - 2.2 * S, eye_y), (near_eye_x + 2.0 * S, eye_y)], fill=outline, width=max(1, int(1.3 * S)))
+                d.line([(far_eye_x - 1.6 * S, eye_y), (far_eye_x + 1.4 * S, eye_y)], fill=outline, width=max(1, int(1.1 * S)))
             else:
-                d.ellipse(_bbox((eye_x, eye_y), 3.8 * S, eyelid), fill=pal["white"], outline=outline, width=max(1, int(1.0 * S)))
                 pupil_y = eye_y + pose.eye_squint * 0.4 * S
-                d.ellipse(_bbox((eye_x + 0.6 * S, pupil_y), 1.3 * S, 2.6 * S), fill=outline)
+                # Near eye (camera-left, larger).
+                d.ellipse(_bbox((near_eye_x, eye_y), near_w, near_h), fill=pal["white"], outline=outline, width=max(1, int(1.0 * S)))
+                d.ellipse(_bbox((near_eye_x + 0.55 * S, pupil_y), 1.3 * S, 2.4 * S), fill=outline)
+                # Far eye (camera-right, smaller, slightly higher to
+                # suggest the head tilt from the 3/4 angle).
+                d.ellipse(_bbox((far_eye_x, eye_y - 0.1 * S), far_w, far_h), fill=pal["white"], outline=outline, width=max(1, int(0.9 * S)))
+                d.ellipse(_bbox((far_eye_x + 0.45 * S, pupil_y - 0.05 * S), 1.05 * S, 2.0 * S), fill=outline)
         nose = [
             (c[0] + 4.5 * S, c[1] + 1.8 * S),
             (c[0] + (4.5 + spec.nose_len) * S, c[1] + 3.0 * S),

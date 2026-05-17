@@ -243,9 +243,9 @@ body_metrics:
   frame_height: 98
   body_pixel_bbox:
     x: 3
-    y: 4
+    y: 3
     w: 76
-    h: 92
+    h: 93
   feet_pixel:
     x: 40.5
     y: 95.0

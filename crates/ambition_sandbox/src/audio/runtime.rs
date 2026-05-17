@@ -1,9 +1,5 @@
 #[cfg(feature = "audio")]
-use super::render::render_lofi_theme;
-#[cfg(feature = "audio")]
-use super::render::{
-    add_rendered_audio, audio_source_from_sfx_clip, fallback_sfx, find_sfx, render_sfx,
-};
+use super::render::{audio_source_from_sfx_clip, silent_audio_source};
 use super::*;
 
 pub const ORIGINAL_TRACK_ID: &str = "original_lofi_loop";
@@ -203,21 +199,15 @@ impl From<SoundCue> for SoundCueKey {
     }
 }
 
-/// Backing storage for a music track's audio source.
-///
-/// Procedural tracks are synthesized at `AudioLibrary::new` time (cheap,
-/// deterministic, and tolerated by tests that have no `AssetServer`).
-/// File-backed tracks defer the `asset_server.load(...)` call until the
-/// first time the track is requested via `resolve_track_handle` so the
-/// 25 OGGs in the data spec don't all hit the IO queue at startup.
+/// Backing storage for a music track's audio source. Always file-backed
+/// now (procedural fallback removed); the handle is lazily allocated on
+/// the first `resolve_track_handle` call so the catalog's 25+ OGGs don't
+/// all hit the asset IO queue at startup.
 #[derive(Clone)]
 #[cfg(feature = "audio")]
-enum TrackSource {
-    Procedural(Handle<KiraAudioSource>),
-    Lazy {
-        asset_path: String,
-        handle: Option<Handle<KiraAudioSource>>,
-    },
+struct TrackSource {
+    asset_path: String,
+    handle: Option<Handle<KiraAudioSource>>,
 }
 
 #[derive(Clone)]
@@ -270,16 +260,18 @@ impl AudioLibrary {
     /// `catalog` (when `Some`) resolves each music track id through
     /// [`crate::sandbox_assets::ids::music_track`] so the runtime
     /// stores the catalog-blessed path instead of the raw
-    /// `MusicTrackSpec::asset_path`. Procedural tracks (no
-    /// `asset_path` in the spec) keep their procedural source.
+    /// `MusicTrackSpec::asset_path`. Tracks without an `asset_path`
+    /// (and with no catalog-resolved path) are skipped with a loud
+    /// warning — there is no procedural fallback anymore. Author a
+    /// pre-rendered OGG at the path the spec points to, or drop the
+    /// track from the list.
     ///
     /// `catalog = None` is the test-fixture / pre-catalog seam: the
-    /// library reads paths directly from `spec.music_tracks` —
-    /// equivalent to the legacy behavior.
+    /// library reads paths directly from `spec.music_tracks`.
     pub fn new(
         audio_sources: &mut Assets<KiraAudioSource>,
         spec: &AudioSpec,
-        asset_server: Option<&AssetServer>,
+        _asset_server: Option<&AssetServer>,
         sfx_provider: Option<&dyn SfxProvider>,
         catalog: Option<&crate::sandbox_assets::SandboxAssetCatalog>,
     ) -> Self {
@@ -287,70 +279,78 @@ impl AudioLibrary {
             warn!("invalid audio spec: {error}");
         }
         let sample_rate = spec.sample_rate.max(8_000);
+
+        // SFX: every cue tries the bank; missing entries get a short
+        // silent stub so the playback path stays uniform without
+        // surfacing per-call warnings (the bank-cache layer logs once
+        // when it sees the gap).
+        let silent_handle = audio_sources.add(silent_audio_source(sample_rate));
         let mut sfx_handles = HashMap::default();
+        let mut missing_cues: Vec<SoundCue> = Vec::new();
         for cue in SoundCue::ALL {
             let from_bank = sfx_provider
                 .and_then(|provider| provider.provide_clip(cue.sfx_id()))
                 .and_then(|clip| match audio_source_from_sfx_clip(clip) {
                     Ok(source) => Some(audio_sources.add(source)),
                     Err(error) => {
-                        warn!(
-                            "bank entry for {cue:?} failed to decode ({error}); falling back to fundsp"
-                        );
+                        warn!("bank entry for {cue:?} failed to decode ({error})");
                         None
                     }
                 });
             let handle = match from_bank {
                 Some(handle) => handle,
                 None => {
-                    let sfx_spec = find_sfx(spec, cue);
-                    add_rendered_audio(audio_sources, render_sfx(sfx_spec, sample_rate))
+                    missing_cues.push(cue);
+                    silent_handle.clone()
                 }
             };
             sfx_handles.insert(cue, handle);
         }
-        let sfx = sfx_handles;
-        let fallback_sfx = sfx.get(&SoundCue::Jump).cloned().unwrap_or_else(|| {
-            add_rendered_audio(
-                audio_sources,
-                render_sfx(fallback_sfx(SoundCueKey::Jump), sample_rate),
-            )
-        });
+        if !missing_cues.is_empty() {
+            warn!(
+                "audio library: no SFX bank entry for {} cue(s): {:?} — playing silent stubs. \
+                 Repack the bank via `tools/ambition_sfx_pack` or check the active asset profile.",
+                missing_cues.len(),
+                missing_cues
+            );
+        }
+        let fallback_sfx = silent_handle;
 
-        let music_tracks = spec
-            .music_tracks
-            .iter()
-            .map(|track| {
-                // Prefer the catalog-resolved path under the active
-                // profile (the `music.track.<id>` entry exists when
-                // `track.asset_path` is set). Fall back to the raw
-                // `track.asset_path` only when the caller passed no
-                // catalog — that's the test/pre-migration seam.
-                let catalog_path = catalog.and_then(|catalog| {
-                    catalog.path_for(&crate::sandbox_assets::ids::music_track(&track.id))
-                });
-                let effective_path = catalog_path.or_else(|| track.asset_path.clone());
-                let source = match (effective_path, asset_server) {
-                    (Some(path), Some(_)) => TrackSource::Lazy {
-                        asset_path: path,
-                        handle: None,
-                    },
-                    _ => TrackSource::Procedural(add_rendered_audio(
-                        audio_sources,
-                        render_lofi_theme(&track.arrangement, sample_rate),
-                    )),
-                };
-                MusicTrackRuntime {
-                    id: track.id.clone(),
-                    display_name: track.display_name.clone(),
-                    duration_seconds: track.arrangement.duration_seconds(),
-                    source,
-                }
-            })
-            .collect();
+        // Music: every track must have an `asset_path` (either authored
+        // on `MusicTrackSpec` or resolved by the catalog). Skip silently
+        // missing ones with a loud warning — no fundsp fallback exists.
+        let mut music_tracks = Vec::with_capacity(spec.music_tracks.len());
+        let mut skipped: Vec<String> = Vec::new();
+        for track in &spec.music_tracks {
+            let catalog_path = catalog.and_then(|catalog| {
+                catalog.path_for(&crate::sandbox_assets::ids::music_track(&track.id))
+            });
+            let effective_path = catalog_path.or_else(|| track.asset_path.clone());
+            let Some(asset_path) = effective_path else {
+                skipped.push(track.id.clone());
+                continue;
+            };
+            music_tracks.push(MusicTrackRuntime {
+                id: track.id.clone(),
+                display_name: track.display_name.clone(),
+                duration_seconds: track.arrangement.duration_seconds(),
+                source: TrackSource {
+                    asset_path,
+                    handle: None,
+                },
+            });
+        }
+        if !skipped.is_empty() {
+            warn!(
+                "audio library: skipped {} music track(s) with no asset_path: {:?}. \
+                 Author a pre-rendered OGG (see tools/ambition_music_renderer) or remove from sandbox.ron.",
+                skipped.len(),
+                skipped
+            );
+        }
 
         Self {
-            sfx,
+            sfx: sfx_handles,
             fallback_sfx,
             music_tracks,
         }
@@ -361,6 +361,40 @@ impl AudioLibrary {
             .get(&cue)
             .cloned()
             .unwrap_or_else(|| self.fallback_sfx.clone())
+    }
+
+    /// Replace the per-cue SFX handles with freshly-decoded clips from
+    /// `sfx_provider`. Used when an async-loaded SFX bank arrives
+    /// (`audio/bank_asset.rs::promote_loaded_sfx_bank`) after the
+    /// library was already constructed with no bank — without this
+    /// refresh the typed cues would stay silent for the whole session.
+    /// Missing entries keep the existing handle (silent stub by default).
+    pub fn refresh_sfx_from_bank(
+        &mut self,
+        audio_sources: &mut Assets<KiraAudioSource>,
+        sfx_provider: &dyn SfxProvider,
+    ) {
+        let mut refreshed = 0usize;
+        for cue in SoundCue::ALL {
+            let Some(clip) = sfx_provider.provide_clip(cue.sfx_id()) else {
+                continue;
+            };
+            match audio_source_from_sfx_clip(clip) {
+                Ok(source) => {
+                    let handle = audio_sources.add(source);
+                    self.sfx.insert(cue, handle);
+                    refreshed += 1;
+                }
+                Err(error) => {
+                    warn!("bank entry for {cue:?} failed to decode ({error})");
+                }
+            }
+        }
+        if refreshed > 0 {
+            info!(
+                "audio library: refreshed {refreshed} typed SFX cue handle(s) from bank"
+            );
+        }
     }
 
     pub fn track(&self, id: &str) -> Option<&MusicTrackRuntime> {
@@ -443,8 +477,7 @@ impl AudioLibrary {
     }
 
     /// Resolve a music track's playable handle, loading from disk on the
-    /// first request for file-backed tracks. Returns `None` only for
-    /// missing IDs.
+    /// first request. Returns `None` only for missing IDs.
     pub fn resolve_track_handle(
         &mut self,
         track_id: &str,
@@ -454,21 +487,14 @@ impl AudioLibrary {
             .music_tracks
             .iter_mut()
             .find(|track| track.id == track_id)?;
-        let handle = match &mut track.source {
-            TrackSource::Procedural(handle) => handle.clone(),
-            TrackSource::Lazy { asset_path, handle } => {
-                if handle.is_none() {
-                    *handle = Some(asset_server.load(asset_path.clone()));
-                }
-                handle.clone().expect("handle just populated")
-            }
-        };
-        Some(handle)
+        if track.source.handle.is_none() {
+            track.source.handle = Some(asset_server.load(track.source.asset_path.clone()));
+        }
+        track.source.handle.clone()
     }
 
     /// Warm a file-backed track's handle ahead of likely use (e.g. when
-    /// the radio menu highlights it). No-op for procedural tracks and
-    /// already-resolved ones.
+    /// the radio menu highlights it).
     pub fn preload_track(&mut self, track_id: &str, asset_server: &AssetServer) {
         let _ = self.resolve_track_handle(track_id, asset_server);
     }

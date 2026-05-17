@@ -913,12 +913,24 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 
 /// Install the kira audio backend, channel resources, default music
 /// startup, and the SFX subscriber. Gated by `audio` so headless / RL
-/// builds drop `bevy_kira_audio` and `fundsp` from the dep graph
-/// entirely. The sim still emits `SfxMessage`s; without this plugin the
-/// message queue just drains harmlessly per the ADR 0012 seam.
+/// builds drop `bevy_kira_audio` from the dep graph entirely. The sim
+/// still emits `SfxMessage`s; without this plugin the message queue
+/// just drains harmlessly per the ADR 0012 seam.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
     app.add_plugins(KiraAudioPlugin)
+        // Async SFX-bank loader for profiles whose bank is not picked
+        // up by the sync fast path in `setup::try_load_sfx_bank_via_catalog`
+        // (web HTTP fetch, plain desktop loose FS without env override).
+        // Idempotent against the sync path; both insert the same
+        // `SfxBankResource` and the second writer no-ops.
+        .add_plugins(crate::audio::SfxBankAssetPlugin)
+        // Browser AudioContext unlock telemetry. No-op on desktop
+        // except the one-shot "audio unlocked" log; on wasm it also
+        // emits the startup "audio locked until first gesture" line
+        // so anyone watching devtools knows why audio is silent
+        // before they click.
+        .add_plugins(crate::audio::WebAudioUnlockPlugin)
         .init_resource::<crate::audio::RadioStationState>()
         .init_resource::<crate::audio::SfxBankHandleCache>()
         .add_audio_channel::<MusicChannel>()

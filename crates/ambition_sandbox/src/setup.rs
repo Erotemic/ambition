@@ -203,8 +203,9 @@ pub fn presentation_world(commands: &mut Commands, params: PresentationSetup<'_>
 /// startup. Wrapped in `Arc` so future systems that need to play
 /// catalog SFX (beyond the typed `SoundCue` set the `AudioLibrary`
 /// preloads) can clone cheaply and look up by id without re-reading
-/// the file. Absent when the bank file isn't on disk; gameplay falls
-/// through to fundsp synthesis for the typed cues.
+/// the file. Absent when the bank file isn't on disk; missing cues
+/// then resolve to a short silent stub (see
+/// `crate::audio::render::silent_audio_source`).
 #[cfg(feature = "audio")]
 #[derive(Resource, Clone)]
 pub struct SfxBankResource(pub std::sync::Arc<BankProvider>);
@@ -244,8 +245,8 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 ///    bundle path),
 /// 3. the catalog's `LooseFilesystem` synthesized default located via
 ///    [`SandboxAssetCatalog::resolve_local_file_path`],
-/// 4. `None` + a single info log → the SFX system falls back to
-///    `SilentProvider` / procedural fundsp via [`AudioLibrary`].
+/// 4. `None` + a single info log → the [`AudioLibrary`] uses a short
+///    silent stub for any missing cue (procedural fallback retired).
 ///
 /// **All host-filesystem probing for the SFX bank happens through the
 /// catalog.** This function owns no candidate-roots walk.
@@ -282,7 +283,7 @@ fn try_load_sfx_bank_via_catalog(catalog: &SandboxAssetCatalog) -> Option<BankPr
     }
 
     info!(
-        "no sfx bank found for {} profile (resolved {:?}); falling back to fundsp synthesis",
+        "no sfx bank found for {} profile (resolved {:?}); SFX will play short silent stubs",
         catalog.profile().label(),
         resolved.location,
     );
@@ -298,7 +299,7 @@ fn load_bank_from_path(path: &std::path::Path) -> Option<BankProvider> {
         }
         Err(error) => {
             warn!(
-                "sfx bank at {} failed to parse: {error}; falling back to fundsp synthesis",
+                "sfx bank at {} failed to parse: {error}; SFX will play short silent stubs",
                 path.display()
             );
             None

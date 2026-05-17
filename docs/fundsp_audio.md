@@ -1,50 +1,72 @@
-# FunDSP audio rendering
+# FunDSP audio rendering — RETIRED
 
-Ambition uses FunDSP for generated-audio synthesis and `bevy_kira_audio` for visible playback.
+> **End-of-life note.** Ambition no longer uses FunDSP for runtime audio.
+> The procedural music generator and procedural SFX synthesizer have been
+> deleted from the runtime; the `fundsp` crate is no longer a dependency
+> of `ambition_sandbox`. This doc remains as historical context so future
+> readers can understand what the now-deleted `audio/render.rs` code did
+> and why it was retired.
 
-The current pipeline is:
+## What changed
+
+The runtime audio pipeline is now purely **authored**:
 
 ```text
-RON audio specs
-  -> FunDSP-backed startup rendering
-  -> in-memory stereo frame buffers
-  -> Kira StaticSoundData assets
-  -> typed Kira music/SFX channels
+authored OGGs (pre-rendered by tools/ambition_music_renderer)
+  -> Bevy AssetServer  ->  bevy_kira_audio  ->  Kira channels
+
+packed .sfxbank (tools/ambition_sfx_pack)
+  -> Bevy AssetServer (audio/sfx.bank) -> SfxBankAsset loader
+  -> ambition_sfx::BankProvider  ->  Kira static sounds
 ```
 
-The renderer stays data-driven and testable without an audio device. Kira owns runtime playback, channel-level fades, looping, and track switching.
+Music tracks must declare an `asset_path` (a pre-rendered OGG); tracks
+left at `asset_path: None` are skipped at startup with a loud warning.
+SFX cues come from the packed bank; cues missing from the bank fall back
+to a short silent stub so playback never panics.
 
-## What FunDSP owns now
+The deleted code lived at:
 
-`crates/ambition_sandbox/src/audio.rs` uses FunDSP for:
+- `crates/ambition_sandbox/src/audio/render.rs::render_lofi_theme`
+- `crates/ambition_sandbox/src/audio/render.rs::render_sfx*`
+- `crates/ambition_sandbox/src/audio/runtime.rs::TrackSource::Procedural`
+- `crates/ambition_sandbox/src/bin/tune_preview.rs`
+- `crates/ambition_sandbox/src/bin/music_track_report.rs`
+- the `fundsp` Cargo dependency on `ambition_sandbox`.
 
-- bandlimited one-shot SFX oscillators: sine, square, triangle, and soft saw;
-- SFX white noise and low-pole filtering;
-- lo-fi music low-pole filtering;
-- pink-noise tape hiss;
-- white-noise drum dust;
-- waveform helpers for procedural notes;
-- smooth envelope shaping and soft clipping helpers.
+## Why retired
 
-## What stays data-driven
+- The startup procedural render added ~2.4s to visible boot.
+- Generated tracks were rarely listened to once authored OGGs existed.
+- `fundsp` is a non-trivial dep tree that contributed to long sandbox
+  rebuilds.
+- The wasm port can't synthesize on a worker thread without rework;
+  authored OGGs ship to every platform unchanged.
 
-The following values are still authored in `crates/ambition_sandbox/assets/ambition/sandbox.ron`:
+## Future: realtime DSP/effects
 
-- sample rate;
-- SFX cue frequencies, envelopes, durations, gains, noise amounts, and waveforms;
-- default music track id;
-- lo-fi track ids/display names, BPM, loop length, note pattern, chords, bass roots, gains, low-pass warmth, and tape hiss.
+Effects like underwater muffle, low-pass filter on damage, reverb-ish
+ambience, or filter sweeps tied to gameplay state are still on the
+roadmap. When that work lands, prefer adding a small `audio_fx` feature
+behind which `fundsp` (or a lighter DSP crate) can be re-introduced as
+a *processing layer over Kira playback*, not as a content generator.
+Keep this distinction crisp: future audio_fx is meant for live
+gameplay-driven effects, not for synthesizing music at startup.
 
-FunDSP is the renderer; RON remains the authoring layer.
+## Where to look for runtime audio today
 
-## Why not live FunDSP graphs?
-
-Live graphs are attractive for adaptive music, bullet-time pitch/filtering, room-specific ambience, and layered theorem-field effects. The current path deliberately renders static procedural tracks at startup, then lets Kira handle playback. A future audio patch can add live graph scheduling or adaptive stems if the game design needs it.
-
-## Compatibility note
-
-Use `fundsp::prelude` as the sandbox DSP namespace. Some FunDSP docs and examples refer to `hacker32` / `hacker64` style preludes, but the crate version resolved by Cargo for this workspace exposes the stable prelude namespace instead. Keeping the import on `fundsp::prelude` avoids compile churn while still using FunDSP oscillators, filters, noise sources, and math helpers for startup WAV generation.
-
-The stable prelude keeps oscillator and pink-noise constructors generic over sample type, so the sandbox explicitly asks for `f32` nodes such as `dsp::sine::<f32>()` and `dsp::pink::<f32>()`. The rest of the renderer is already `f32`, so making the sample type explicit avoids inference failures without changing the audio path.
-
-Compatibility note: In FunDSP 0.23, `sine` and `pink` are generic and should be called with `::<f32>()`, while `square`, `triangle`, and `soft_saw` are not generic and should be called without type parameters.
+- `crates/ambition_sandbox/src/audio.rs` — module root + re-exports
+- `crates/ambition_sandbox/src/audio/runtime.rs` — `AudioLibrary`,
+  music track table, `audio_play_sfx_messages` system, SFX cue handles
+- `crates/ambition_sandbox/src/audio/render.rs` — bank-clip → Kira
+  `AudioSource` adapter + `SfxBankHandleCache` for ad-hoc
+  `SfxMessage::Play { id }` lookups
+- `crates/ambition_sandbox/src/audio/bank_asset.rs` — Bevy `Asset` +
+  `AssetLoader` for the packed `.sfxbank`; promotes to
+  `SfxBankResource` once decoded
+- `crates/ambition_sandbox/src/audio/web_unlock.rs` — telemetry around
+  the browser AudioContext gesture unlock
+- `crates/ambition_sandbox/src/music.rs` — the music director, layer
+  channels, adaptive cue catalog
+- `crates/ambition_sandbox/src/setup.rs::try_load_sfx_bank_via_catalog`
+  — sync bank load fast path (static embed + dev env override)

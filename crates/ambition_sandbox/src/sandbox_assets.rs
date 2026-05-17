@@ -742,10 +742,13 @@ fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_folder:
 }
 
 /// Music track entries — one per `MusicTrackSpec` in the audio spec
-/// that actually has an `asset_path` (pre-rendered OGG). Tracks
-/// without `asset_path` are procedural-only and don't get an entry —
-/// they're synthesized at runtime via `render_lofi_theme` and never
-/// hit Bevy's `AssetServer`.
+/// that has an `asset_path` (pre-rendered OGG). Tracks without
+/// `asset_path` are skipped at both the catalog layer and the
+/// `AudioLibrary` layer (the procedural fundsp music generator was
+/// retired; see `docs/fundsp_audio.md` for the historical note).
+/// Spec authors must add a pre-rendered OGG via
+/// `tools/ambition_music_renderer` or remove the track from
+/// `sandbox.ron`.
 fn extend_with_music_entries(manifest: &mut AssetManifest, audio: &AudioSpec) {
     for track in &audio.music_tracks {
         let Some(asset_path) = track.asset_path.as_deref() else {

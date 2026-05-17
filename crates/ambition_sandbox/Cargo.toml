@@ -60,18 +60,21 @@ web_platform = [
 visible = ["ldtk_runtime", "input", "audio", "ui", "physics_debris"]
 
 # Shared backbone for the two browser personas. Mirrors `visible` but
-# drops the subsystems that don't yet have a wasm story: audio
-# (kira/fundsp), UI polish (yarnspinner/material_ui), physics debris
-# (avian2d), file watcher, mobile touch (virtual_joystick), and dev
-# tools (egui inspector). `static_map` is mandatory because the wasm
-# build has no synchronous filesystem reader for `sandbox.ldtk`.
+# drops the subsystems that don't yet have a wasm story: UI polish
+# (yarnspinner/material_ui), physics debris (avian2d), file watcher,
+# mobile touch (virtual_joystick), and dev tools (egui inspector).
+# `static_map` is mandatory because the wasm build has no synchronous
+# filesystem reader for `sandbox.ldtk`. Audio is NOT in this backbone —
+# each web persona opts in via `web_audio` so a silent smoke build is
+# still cheap.
 visible_web_base = ["ldtk_runtime", "input", "static_map"]
 
 # Composite for the "embed core assets" browser persona. Bundles the
 # LDtk world + a bounded set of UI fonts + primary character sheets +
 # core entity sprites into the wasm binary. Smaller asset footprint
 # on the host; bigger binary. Out-of-set sprites fall back to colored
-# rectangles. See `docs/web_build.md` for the build/check commands.
+# rectangles. Audio is silent here unless `static_sfx_bank` also bakes
+# the SFX bank into the wasm. See `docs/web_build.md`.
 visible_web = ["visible_web_base", "static_core_assets"]
 
 # Composite for the "served assets" browser persona. Bundles LDtk only;
@@ -79,18 +82,20 @@ visible_web = ["visible_web_base", "static_core_assets"]
 # `/assets/` tree served alongside `index.html`. The sandbox selects
 # `AssetProfile::WebServedAssets` automatically when the `web_served`
 # feature is enabled (see `crate::game_assets::default_asset_profile`).
-# The full "same game in the browser" mode.
-visible_web_served = ["visible_web_base", "web_served"]
+# Includes `web_audio` so authored music + the SFX bank flow through
+# the same asset manager catalog routing on web as on desktop.
+visible_web_served = ["visible_web_base", "web_served", "web_audio"]
 
 # Browser persona — embedded core assets. The composite a `wasm-pack
 # build` / `wasm-bindgen --target web` step builds against by default;
-# see `docs/web_build.md`.
+# see `docs/web_build.md`. Visual smoke build; audio stays silent unless
+# `static_sfx_bank` or `web_audio` is added on top.
 web = ["visible_web", "web_platform"]
 
 # Browser persona — served assets. Use with `./build_for_web.sh --served`
 # (which symlinks/copies `crates/ambition_sandbox/assets/` into
 # `crates/ambition_sandbox/web/assets/` so the served pages can reach
-# them under `/assets/...`).
+# them under `/assets/...`). Full media: visuals + authored audio.
 web_served_assets = ["visible_web_served", "web_platform"]
 
 # Marker feature read by `crate::game_assets::default_asset_profile`
@@ -165,7 +170,21 @@ android_dev = ["android"]
 # them today only works when paired with `--features visible` (where
 # they're all enabled).
 ldtk_runtime = ["dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
-audio = ["dep:bevy_kira_audio", "dep:fundsp"]
+# The runtime audio subsystem. Composes `authored_audio`: Kira playback
+# of authored OGG/WAV music + the packed SFX bank loaded through the
+# asset manager catalog. There is no runtime DSP/effects backend today;
+# the old fundsp procedural music + SFX synthesizer was retired in
+# favor of authored OGGs and the SFX bank. See docs/fundsp_audio.md
+# (now an end-of-life note).
+audio = ["authored_audio"]
+# Authored-asset audio playback. `bevy_kira_audio` works on
+# wasm32-unknown-unknown via `kira/cpal/wasm-bindgen`, so this composite
+# is the same on desktop, Android, and web.
+authored_audio = ["dep:bevy_kira_audio"]
+# Browser-side audio composite. Same as desktop authored audio today;
+# kept as a distinct name so build scripts / docs can say "web audio"
+# without implying a separate backend.
+web_audio = ["authored_audio"]
 ui = ["dep:bevy_material_ui", "dep:bevy_yarnspinner"]
 physics_debris = ["dep:avian2d"]
 input = ["dep:leafwing-input-manager"]
@@ -215,7 +234,6 @@ bevy_asset_loader = { version = "0.26", optional = true }
 bevy_ecs_ldtk = { version = "0.14", optional = true }
 bevy-inspector-egui = { version = "0.36", optional = true }
 bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
-fundsp = { version = "0.23", optional = true }
 leafwing-input-manager = { version = "0.20", optional = true }
 virtual_joystick = { version = "2.7.2", default-features = false, optional = true }
 # Browser bootstrap deps. Pulled in only by the `web_platform` feature.
@@ -228,21 +246,6 @@ petgraph = "0.8"
 ron = "0.11"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
-# tune_preview renders music to WAV via the audio subsystem; it can't
-# build without `audio` enabled. `headless` and the lib build target are
-# unaffected.
-[[bin]]
-name = "tune_preview"
-required-features = ["audio"]
-
-# music_track_report walks the embedded sandbox.ron audio manifest and
-# prints id/name/bpm/duration/validation per track. The optional WAV
-# render reuses the audio subsystem so this binary requires `audio`
-# the same way `tune_preview` does.
-[[bin]]
-name = "music_track_report"
-required-features = ["audio"]
 
 # headless binary doesn't need any subsystem features (the sim's seam
 # is feature-gated; messages drain harmlessly without subscribers).

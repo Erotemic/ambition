@@ -1,30 +1,55 @@
-# Procedural Lo-Fi Music
+# Procedural Lo-Fi Music — RETIRED
 
-The sandbox starts a generated lo-fi music track at startup instead of the earlier drone/pad ambience or the brighter SNES-style pass. Tracks are synthesized into in-memory Kira static sound data and played through `bevy_kira_audio`, matching the assetless direction: no prerecorded files, no imported samples, and no external asset pipeline.
+> **End-of-life note.** The "render lo-fi music at Rust startup" pipeline
+> has been removed from the runtime. Music in Ambition is now authored:
+> every `MusicTrackSpec` declares an `asset_path` pointing at a
+> pre-rendered OGG, which `bevy_kira_audio` loads through Bevy's asset
+> server. See `docs/fundsp_audio.md` for the broader context.
 
-The current loop is intentionally low-key and unintrusive. It is built from code-owned voices:
+## Where the OGGs come from
 
-- a slow warm chord pad;
-- a sparse lower-register triangle melody;
-- lazy off-beat soft-key stabs;
-- a simple subby sine bass;
-- dusty, low-volume kick/snare/hat noise;
-- a tiny amount of procedural tape hiss plus low-pass filtering and soft clipping.
+`tools/ambition_music_renderer` is the offline authoring tool. It takes
+a YAML cue file describing the arrangement and writes
+`assets/audio/music/generated/<id>/full.ogg`. The RON manifest
+(`crates/ambition_sandbox/assets/ambition/sandbox.ron`) points at those
+files via `asset_path: Some("audio/music/generated/<id>/full.ogg")`.
 
-The goal is closer to "lo-fi beats to study or relax to" than arcade energy. Keep future background music melodic, tonal, low in the mix, and gentle enough that movement SFX remain readable. If a future patch adds bus control, the music volume should be user-tunable separately from SFX.
+To add or revise a track:
 
-The manifest now supports multiple generated tracks via `default_music_track` and `music_tracks`. The old 32-beat loop is still available as data, and the current default track is longer and less repetitive for sandbox iteration.
+1. Author / edit the YAML cue under
+   `tools/ambition_music_renderer/scores/`.
+2. Run the renderer to produce the OGG under
+   `assets/audio/music/generated/<id>/`.
+3. Add or update the matching `MusicTrackSpec` row in `sandbox.ron`,
+   making sure `asset_path` is set (the runtime warns and skips tracks
+   with `asset_path: None`).
+4. The asset manager catalog
+   (`crates/ambition_sandbox/src/sandbox_assets.rs::extend_with_music_entries`)
+   picks up every track with an `asset_path` automatically — no
+   additional Rust changes needed.
 
-For a compact tune-format guide and WAV preview CLI workflow, see `docs/procedural_tune_authoring.md`.
+## What the `arrangement` field is for now
 
-If Ambition's music becomes adaptive, layered, or timing-sensitive, move the audio layer behind an `ambition_audio` abstraction and extend the current Kira path with:
+`MusicTrackSpec::arrangement` (BPM, chord progression, bass roots,
+gains, etc.) is **retained as documentation** of how the OGG was
+authored. The runtime no longer renders from it; `duration_seconds()`
+is the only reader.
 
-- cross-fading;
-- buses/effects;
-- smooth parameter automation;
-- clocked musical events;
-- layered room/state music.
+It's safe to leave existing entries as-is. New tracks may carry minimal
+`arrangement` placeholders if they're authored entirely in the YAML
+cue rather than in RON.
 
-## FunDSP renderer note
+## Adaptive cues
 
-The arrangements are still authored as compact RON data, and the startup renderer uses FunDSP nodes and helpers for oscillators, filters, noise, envelopes, and soft clipping. Kira receives generated stereo frame buffers directly, so playback no longer depends on Bevy's built-in audio or encoded WAV buffers.
+Section/layer adaptive cues (e.g. the goblin combat music) work the
+same way — every section/layer references a pre-rendered audio file
+via `crate::music::MusicLayerSourceSpec`. The music director crossfades
+those layers per the cue catalog. No procedural synthesis anywhere in
+the runtime path.
+
+## Future: realtime DSP
+
+Live effects (filter sweeps, underwater muffling, reverb-ish ambience)
+are still on the roadmap and would re-introduce something like FunDSP
+behind an `audio_fx` feature, **but only as a processing layer over
+authored playback** — not as a content generator.

@@ -308,8 +308,6 @@ def collect_binary_sizes(repo: Path, out: Path) -> list[dict[str, object]]:
             "rl_random_walker",
             "rl_smoke",
             "trace_replay",
-            "tune_preview",
-            "music_track_report",
         ]:
             path = profile_dir / name
             if path.exists() and path.is_file():

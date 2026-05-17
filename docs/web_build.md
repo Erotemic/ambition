@@ -30,8 +30,8 @@ Common to both:
 | Parallax layers | ❌ placeholder | ✅ served | WebServedAssets fetches `/assets/backgrounds/parallax_layers/...`. |
 | UI fonts | ✅ embedded | ✅ served | InterDisplay + JetBrainsMono. |
 | LDtk tiles | ✅ | ✅ | `bevy_ecs_ldtk` loads via the embedded source. |
-| Music tracks (`music.track.*`) | ❌ procedural fallback | ⚠️ served path resolves; **playback requires `audio` feature, not yet in `visible_web`** | Catalog hands Bevy a path; the music director silently drops requests because `bevy_kira_audio` isn't compiled into the wasm. See "Audio status" below. |
-| SFX bank (`audio.sfx_bank`) | ⚠️ `static_sfx_bank` only | ⚠️ served path resolves; same `audio`-feature caveat | Same. |
+| Music tracks (`music.track.*`) | ⚠️ silent (no audio feature) | ✅ served | `WebServedAssets` includes `web_audio`; tracks load via `bevy_kira_audio` from `/assets/audio/music/generated/<id>/full.ogg`. WebStatic stays silent unless `web_audio` or `static_sfx_bank` is composed in manually. |
+| SFX bank (`audio.sfx_bank`) | ⚠️ `static_sfx_bank` only | ✅ served via async `SfxBankAsset` loader | `WebServedAssets` fetches `/assets/audio/sfx.bank` through the asset server; the `SfxBankAsset` loader parses bytes into a `BankProvider` and the `promote_loaded_sfx_bank` system installs it once decoded. WebStatic loads silent stubs unless `static_sfx_bank` embeds the bank in the wasm. |
 | Dev tools (egui inspector, file watcher) | ❌ | ❌ | Excluded from `visible_web_base`. |
 | Mobile touch | ❌ | ❌ | `virtual_joystick` excluded. |
 | Physics debris | ❌ | ❌ | `avian2d` excluded. |
@@ -42,15 +42,40 @@ Common to both:
 
 ## Audio status
 
-Audio (`bevy_kira_audio` + `fundsp` procedural synthesis) is intentionally
-excluded from `visible_web` and `visible_web_served` today because the
-sandbox-side `audio` feature also pulls a procedural fundsp music
-fallback path that costs binary size without playing audibly in the
-browser. The catalog already produces correct `/assets/music/...` paths
-under `WebServedAssets` — adding `audio` to `visible_web_served` and
-verifying browser playback is a follow-up task. Known browser-side
-hurdle: Chrome blocks autoplay until a user gesture; the bootstrap
-must defer `AudioContext.resume()` until the canvas-click handler.
+The runtime audio backend is `bevy_kira_audio` only — the fundsp
+procedural music + SFX synthesizer was retired (see
+`docs/fundsp_audio.md`). Composition:
+
+- **WebServedAssets** (`./build_for_web.sh --served`) bundles
+  `web_audio` automatically. Music tracks load from
+  `/assets/audio/music/generated/<id>/full.ogg` through Bevy's wasm
+  HTTP reader; the SFX bank loads from `/assets/audio/sfx.bank`
+  through the custom `SfxBankAsset` loader in
+  `crates/ambition_sandbox/src/audio/bank_asset.rs`.
+- **WebStatic** (`./build_for_web.sh`) ships silent unless you also
+  add `web_audio` (and, optionally, `static_sfx_bank` to embed the
+  bank into the wasm). The smoke profile is intentionally minimal.
+
+### Browser AudioContext unlock
+
+Chrome / Firefox / Safari all create the Web Audio `AudioContext` in
+the `suspended` state and only resume it after a user gesture (click,
+key, touch). Kira / cpal handle the actual `resume()` automatically
+once a sound tries to play after a gesture, so no JS plumbing is
+needed in `web/index.html`. The sandbox surfaces the unlock state via
+two log lines (target `ambition::audio`):
+
+- at startup, on wasm only: `audio locked until first user gesture (click / key / touch); kira will start playback once the AudioContext resumes`
+- on the first input event, on every platform: `audio unlocked (user gesture detected)`
+
+These come from `crate::audio::WebAudioUnlockPlugin` (see
+`crates/ambition_sandbox/src/audio/web_unlock.rs`). The browser
+devtools console is the canonical place to confirm unlock fired.
+
+If a future build needs a more aggressive unlock (e.g. an in-page
+"click to enable audio" banner), `web/index.html` is the right
+place — add a click handler that calls a JS-exposed wasm export.
+Today the canvas-focus prompt + the unlock log line are sufficient.
 
 ## One-time setup
 
@@ -195,12 +220,9 @@ canvas to capture keyboard focus, and look for:
 
 ### Known browser-side gaps
 
-- **No audio.** Both web personas drop `bevy_kira_audio` from the
-  wasm dep graph. Under `WebServedAssets` the catalog still resolves
-  `music.track.<id>` and `audio.sfx_bank` to real `/assets/...`
-  paths, but the music director skips playback because the audio
-  subsystem isn't installed. Enabling `audio` for the web personas
-  is a follow-up.
+- **Audio:** `WebServedAssets` now ships authored music + the SFX
+  bank (see "Audio status" above). `WebStatic` is silent unless
+  composed with `web_audio` and/or `static_sfx_bank`.
 - **No saves.** Settings / sandbox-save persistence is cfg-gated to
   no-op on `wasm32`. Pause-menu toggles work for the session.
 - **No hot reload.** `LdtkHotReloadState::from_catalog` reports

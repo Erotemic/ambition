@@ -454,8 +454,8 @@ with real art, and uses the bundled UI fonts for HUD + dialog text.
 | Parallax layers | ❌ placeholder | Slice 17 work. |
 | Optional NPC + intro spritesheets | ❌ placeholder | The `sprite.character.npc_*` and `sprite.character.intro_*` entries have catalog ids but no embedded candidates. Adding them is a per-asset opt-in. |
 | Boss spritesheets (`gradient_sentinel`, `mockingbird`) | ❌ placeholder | `sprite.boss.*` entries exist; embedding TBD. |
-| SFX bank (`audio.sfx_bank`) | ⚠️ `static_sfx_bank` feature | When enabled, `try_load_static_sfx_bank` uses `include_bytes!`. Otherwise the wasm build falls back to procedural fundsp SFX. |
-| Music tracks | ❌ procedural fallback in `AudioLibrary::new` | No `EmbeddedBinary` candidates; the music director silently falls back to `render_lofi_theme` synths. |
+| SFX bank (`audio.sfx_bank`) | ✅ async fetch under `WebServedAssets`; ⚠️ `static_sfx_bank` feature embeds for `WebStatic` | `WebServedAssets`: the `SfxBankAsset` loader in `crate::audio::bank_asset` decodes `/assets/audio/sfx.bank` and the `promote_loaded_sfx_bank` system installs the `SfxBankResource` once decoded. `WebStatic`: `try_load_static_sfx_bank` embeds via `include_bytes!`. Without either, missing cues fall back to a short silent stub (`crate::audio::render::silent_audio_source`); the fundsp procedural SFX synthesizer was retired. |
+| Music tracks | ✅ served under `WebServedAssets` | Catalog entries are emitted by `extend_with_music_entries` for every track with an `asset_path`; under `WebServedAssets` they resolve to `BevyPath("audio/music/generated/<id>/full.ogg")` and Bevy's wasm HTTP reader fetches them. The fundsp procedural music generator was retired — tracks without `asset_path` are skipped at startup with a warning. |
 
 ### Adding more embedded assets
 

@@ -181,10 +181,14 @@ audio = ["authored_audio"]
 # wasm32-unknown-unknown via `kira/cpal/wasm-bindgen`, so this composite
 # is the same on desktop, Android, and web.
 authored_audio = ["dep:bevy_kira_audio"]
-# Browser-side audio composite. Same as desktop authored audio today;
-# kept as a distinct name so build scripts / docs can say "web audio"
-# without implying a separate backend.
-web_audio = ["authored_audio"]
+# Browser-side audio composite. Pulls in the full `audio` feature
+# (NOT just `authored_audio`) so the `#[cfg(feature = "audio")]`
+# gates in `audio/runtime.rs`, `audio/web_unlock.rs`, the bank
+# loader, the env writer, etc. actually fire. Before this depended
+# only on `authored_audio` and the web build silently boot-stripped
+# the entire audio runtime (no plugin install, no AudioContext
+# creation) even though `bevy_kira_audio` was in the dep graph.
+web_audio = ["audio"]
 ui = ["dep:bevy_material_ui", "dep:bevy_yarnspinner"]
 physics_debris = ["dep:avian2d"]
 input = ["dep:leafwing-input-manager"]

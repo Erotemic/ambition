@@ -329,6 +329,50 @@ fn ambition_sandbox_cargo_toml_has_no_fundsp_dep() {
     );
 }
 
+/// Cargo-level guardrail: `web_audio` MUST imply `audio`, not just
+/// `authored_audio`. The source uses `#[cfg(feature = "audio")]`
+/// gates everywhere; if `web_audio` only enables `authored_audio`,
+/// `bevy_kira_audio` is in the dep graph but every audio runtime
+/// module is compiled out — the wasm boots silent and the only
+/// symptom is "no `[ambition-audio] AudioContext created` log even
+/// though the boot banner says `web_served_assets`". That is exactly
+/// the regression Jon hit; pin it in CI.
+#[test]
+fn web_audio_feature_implies_audio_feature() {
+    let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let contents = std::fs::read_to_string(&manifest).expect("read sandbox Cargo.toml");
+    let mut in_features = false;
+    let mut web_audio_line: Option<String> = None;
+    for raw in contents.lines() {
+        let stripped = raw.split_once('#').map(|(c, _)| c).unwrap_or(raw).trim();
+        if stripped.starts_with('[') {
+            in_features = stripped == "[features]";
+            continue;
+        }
+        if !in_features {
+            continue;
+        }
+        if let Some((name, rest)) = stripped.split_once('=') {
+            if name.trim() == "web_audio" {
+                web_audio_line = Some(rest.to_string());
+            }
+        }
+    }
+    let rhs = web_audio_line.expect(
+        "Cargo.toml lost the `web_audio` feature definition — the web build pipeline \
+         depends on it (build_for_web.sh --served and the web_served_assets composite).",
+    );
+    let has_audio = rhs.contains("\"audio\"");
+    assert!(
+        has_audio,
+        "web_audio must include the `audio` feature, not just `authored_audio`. \
+         Found: web_audio = {rhs}\n\nWithout this, every `#[cfg(feature = \"audio\")]` \
+         gate in the audio runtime is false on web builds and the wasm boots silent \
+         (no kira plugin install, no AudioContext, no music, no SFX). See \
+         docs/web_audio_manual_test.md and src/audio/web_unlock.rs."
+    );
+}
+
 /// Cargo-level guardrail: a runtime-DSP layer must compose with
 /// Kira, not bypass it. Re-introducing a non-Kira playback path
 /// would split the audio graph (mixer / underwater effect / unlock

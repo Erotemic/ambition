@@ -2003,39 +2003,44 @@ mod tests {
         );
     }
 
-    /// Regression for the presentation-reader ordering bug:
-    /// presentation systems that read `FeatureViewIndex` were
-    /// previously pinned only to `.after(SandboxSet::CoreSimulation)`,
-    /// which is satisfied whether `FeatureViewSync` runs before OR
-    /// after the reader — because `FeatureViewSync` is downstream of
-    /// `CoreSimulation`, the constraint imposed no relative order
-    /// between rebuild and readers. The fix pins the visual chain in
-    /// `install_visual_animation_systems` to
-    /// `.after(SandboxSet::FeatureViewSync)`. This test stands in a
-    /// minimal reader that copies the index size into a sentinel
-    /// resource and proves the same-frame ordering contract.
+    /// Regression for the presentation-reader ordering contract:
+    /// every system added to [`crate::app::SandboxSet::PresentationVisualSync`]
+    /// (which is where `install_visual_animation_systems` puts
+    /// `sync_visuals` and friends) must observe THIS frame's
+    /// [`FeatureViewIndex`] rebuild — never the previous frame's.
+    ///
+    /// The earlier shape of this test re-typed the
+    /// `.after(SandboxSet::FeatureViewSync)` constraint on a fake
+    /// reader inside the test, which proved Bevy's ordering works
+    /// rather than the production wiring. The fix moved the
+    /// constraint into [`configure_sandbox_sets`] as
+    /// `PresentationVisualSync.after(FeatureViewSync)`; the probe
+    /// below hangs on the set without redeclaring the ordering, so
+    /// the test now fails if the set-level constraint is dropped or
+    /// if `install_visual_animation_systems` stops using the set.
     #[test]
-    fn presentation_reader_sees_feature_view_index_built_this_frame() {
+    fn presentation_visual_sync_runs_after_feature_view_sync() {
         use crate::app::{configure_sandbox_sets, SandboxSet};
         use bevy::prelude::Resource;
 
         #[derive(Resource, Default)]
-        struct ReaderSnapshot {
+        struct ProbeSnapshot {
             index_len_seen: usize,
             pickup_present: bool,
         }
 
-        fn fake_presentation_reader(
-            views: Res<FeatureViewIndex>,
-            mut snapshot: ResMut<ReaderSnapshot>,
-        ) {
-            snapshot.index_len_seen = views.len();
-            snapshot.pickup_present = views.get("hp_pickup").is_some();
+        // Probe is pinned ONLY by being in `PresentationVisualSync`.
+        // It does NOT re-add `.after(FeatureViewSync)` — the test's
+        // value comes from the production-side set ordering being
+        // the load-bearing piece.
+        fn presentation_probe(views: Res<FeatureViewIndex>, mut snap: ResMut<ProbeSnapshot>) {
+            snap.index_len_seen = views.len();
+            snap.pickup_present = views.get("hp_pickup").is_some();
         }
 
         let mut app = App::new();
         app.insert_resource(FeatureViewIndex::default());
-        app.insert_resource(ReaderSnapshot::default());
+        app.insert_resource(ProbeSnapshot::default());
         app.world_mut().spawn((
             FeatureSimEntity,
             FeatureId::new("hp_pickup"),
@@ -2047,28 +2052,35 @@ mod tests {
             )),
         ));
         configure_sandbox_sets(&mut app);
+        // Register the probe FIRST and the rebuild SECOND. Bevy's
+        // executor falls back to registration order when no
+        // dependency edge constrains the relative ordering of two
+        // systems — so this registration order would put the probe
+        // BEFORE the rebuild (seeing an empty index, 0 entries) if
+        // the set-level `PresentationVisualSync.after(FeatureViewSync)`
+        // constraint in `configure_sandbox_sets` were ever dropped.
+        // The assertions below pin the post-rebuild state, so the
+        // test fails if and only if that constraint is missing.
         app.add_systems(
             Update,
             (
+                presentation_probe.in_set(SandboxSet::PresentationVisualSync),
                 rebuild_feature_view_index.in_set(SandboxSet::FeatureViewSync),
-                // The load-bearing constraint: presentation readers
-                // must observe the rebuild that ran in the same tick.
-                fake_presentation_reader.after(SandboxSet::FeatureViewSync),
             ),
         );
 
         app.update();
 
-        let snapshot = app.world().resource::<ReaderSnapshot>();
+        let snap = app.world().resource::<ProbeSnapshot>();
         assert_eq!(
-            snapshot.index_len_seen, 1,
-            "presentation reader must observe the FeatureViewSync rebuild from \
-             the same tick — saw {} entries, expected 1",
-            snapshot.index_len_seen
+            snap.index_len_seen, 1,
+            "system in PresentationVisualSync must observe this frame's \
+             FeatureViewSync rebuild — saw {} entries, expected 1",
+            snap.index_len_seen
         );
         assert!(
-            snapshot.pickup_present,
-            "presentation reader must see the pickup id rebuilt this tick"
+            snap.pickup_present,
+            "system in PresentationVisualSync must see the pickup id rebuilt this tick"
         );
     }
 }

@@ -77,11 +77,23 @@ pub enum SandboxSet {
     /// the cache reflects this frame's pickup collections, chest
     /// opens, switch toggles, encounter mob spawns, reward-chest
     /// drops, save-driven actor/boss sync, and any post-reset
-    /// re-spawn. Presentation systems that read the cache
-    /// (`sync_visuals`, `upgrade_enemy_sprites`,
-    /// `upgrade_npc_sprites`) chain on the presentation half and
-    /// therefore see a fully-current snapshot.
+    /// re-spawn. Presentation systems that read the cache run in
+    /// [`SandboxSet::PresentationVisualSync`], which is configured
+    /// `.after(SandboxSet::FeatureViewSync)` below.
     FeatureViewSync,
+    /// Presentation-side container set for visual systems that read
+    /// [`crate::features::FeatureViewIndex`] (`sync_visuals`,
+    /// `upgrade_enemy_sprites`, `upgrade_npc_sprites`, and the
+    /// animation chain that follows them).
+    ///
+    /// Declared as a SandboxSet rather than left as an `.after(...)`
+    /// pin on the chain itself so the ordering contract
+    /// (`PresentationVisualSync.after(FeatureViewSync)`) lives in
+    /// exactly one place — [`configure_sandbox_sets`] — and so tests
+    /// can hang a probe on the set without re-typing the constraint.
+    /// Removing the `.after` here would break the regression test
+    /// `presentation_visual_sync_runs_after_feature_view_sync`.
+    PresentationVisualSync,
     /// Trace recording + dump flush. Runs after CoreSimulation.
     Trace,
 }
@@ -144,5 +156,15 @@ pub fn configure_sandbox_sets(app: &mut App) {
         )
             .chain(),
     )
-    .configure_sets(Update, SandboxSet::Trace.after(SandboxSet::CoreSimulation));
+    .configure_sets(Update, SandboxSet::Trace.after(SandboxSet::CoreSimulation))
+    // Presentation visual chain: must observe this frame's
+    // FeatureViewIndex rebuild. Owning the ordering at the set level
+    // means every system added to `PresentationVisualSync` inherits
+    // the `.after(FeatureViewSync)` constraint without re-typing it
+    // — and a test can hang a probe in the set to verify the
+    // ordering survives.
+    .configure_sets(
+        Update,
+        SandboxSet::PresentationVisualSync.after(SandboxSet::FeatureViewSync),
+    );
 }

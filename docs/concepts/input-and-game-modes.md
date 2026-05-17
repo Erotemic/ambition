@@ -13,10 +13,10 @@ implemented_by:
   - crates/ambition_sandbox/src/map_menu.rs
   - crates/ambition_sandbox/src/time.rs
 related_docs:
-  - docs/systems/input-model.md
-  - docs/systems/menu-navigation.md
+  - docs/systems/input-and-control-frame.md
+  - docs/systems/ui-navigation-and-pause.md
   - docs/systems/mobile-touch-controls.md
-  - docs/systems/game-mode-pause.md
+  - docs/systems/ui-navigation-and-pause.md
 related_memory:
   - dev/journals/lessons_learned.md
   - dev/benchmark-candidates/ui-nav-refactor-questions.md

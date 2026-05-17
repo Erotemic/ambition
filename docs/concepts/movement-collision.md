@@ -18,8 +18,8 @@ implemented_by:
   - crates/ambition_engine/src/ledge_grab.rs
 related_docs:
   - docs/mechanics/expressibility-checklist.md
-  - docs/mechanics/body_modes.md
-  - docs/mechanics/projectiles_and_motion_inputs.md
+  - docs/mechanics/body-modes.md
+  - docs/mechanics/projectiles-and-motion-inputs.md
 related_memory:
   - dev/journals/movement-edge-touch-y-sweep-lessons-2026-05-11.md
 last_verified: 2026-05-17

@@ -55,6 +55,7 @@ Regenerate indexes after moving docs, tests, or code symbols:
 ```bash
 python scripts/generate_agent_index.py
 python scripts/check_agent_kb.py
+python scripts/check_doc_links.py
 ```
 
 ## Patch discipline
@@ -71,6 +72,7 @@ cargo test -p ambition_engine
 cargo test -p ambition_sandbox --lib
 cargo run -p ambition_sandbox --bin headless
 python scripts/check_agent_kb.py
+python scripts/check_doc_links.py
 ```
 
 Use narrower tests when a focused test already covers the touched concept.

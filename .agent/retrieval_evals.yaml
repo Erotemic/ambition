@@ -43,7 +43,6 @@ evals:
     expected_docs:
       - docs/tools/index.md
       - docs/tools/ldtk-tools.md
-      - docs/tools/author_ldtk_area.md
       - docs/recipes/ldtk-authoring.md
     expected_answer_contains:
       - ambition_ldtk_tools

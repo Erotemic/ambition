@@ -12,7 +12,7 @@ When adding a faction:
 1. Pick a row in **Active** (in-game today) or **Roadmap** (sprite +
    music ready, lair pending).
 2. The display name on the LDtk `NpcSpawn` field must match the key
-   in `NPC_SPRITE_REGISTRY` (`crates/ambition_sandbox/src/character_sprites/assets.rs`).
+   in `NPC_SPRITE_REGISTRY` (`crates/ambition_sandbox/src/presentation/character_sprites/assets.rs`).
 3. The level's `music_track` field is the cue id from
    `crates/ambition_sandbox/assets/ambition/sandbox.ron`'s
    `music_tracks` list.

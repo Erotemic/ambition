@@ -59,4 +59,4 @@ The first pass adds tests for:
 - double dash charge counts
 - attack hitbox orientation
 
-See also: [Sane maximalist subset](ability-subset.md).
+See also: `docs/mechanics/abilities.md` and `docs/mechanics/expressibility-checklist.md`.

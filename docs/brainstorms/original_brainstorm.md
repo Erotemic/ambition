@@ -401,3 +401,14 @@ A boss standing on the shoulders of giants (i.e. Newton) would be fun.
 Oh, I think that we should also let the intro open with the character just
 leaving the lab and skipping the entire intro, when they come back the creator
 is dead. They miss the commotion.
+
+---
+
+Apparently a sprite is named "bob". We need an Alice sprite as well. They
+should be a recurring quest that ends in a love story. Or maybe your choices
+can have the story end up different, with a love story as an option.
+
+
+Would be fun to have a character claim quantum mechanics is letting them
+communicate faster than the speed of light, and have someone slap them. Or
+maybe a big weight of reality falls on them as a literal anvil.

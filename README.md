@@ -77,3 +77,4 @@ The first Bevy build can take a while. For targeted validation, prefer the focus
 - Put historical/superseded material in `docs/archive/` or delete it.
 - Put hard-won postmortems and benchmark traps in `dev/`.
 - Regenerate `.agent/` indexes after doc/code/test moves.
+- Run `python scripts/check_doc_links.py` after documentation cleanup or moves.

@@ -84,7 +84,7 @@ to the bottom under "Closed" with the commit that fixed them.
 
 - **MED — `EnemyRuntime` movement still pre-computes `desired_x` from
   brain enums, then overrides via `ai_mode`**
-  - File: `crates/ambition_sandbox/src/features.rs:EnemyRuntime::update`
+  - File: `crates/ambition_sandbox/src/content/features/enemies.rs:EnemyRuntime::update`
   - The post-refactor pattern is: evaluate ai_mode → branch movement
     on it. The match-on-brain still has its own arms because the
     chase-speed and aggro-radius logic varies per `EnemyBrain`
@@ -107,7 +107,7 @@ to the bottom under "Closed" with the commit that fixed them.
 
 - **MED — Hostile NPC conversion is one-way; conversion path now
   tested but the race-with-other-mutators invariant isn't enforced**
-  - File: `crates/ambition_sandbox/src/features.rs:apply_save`
+  - File: `crates/ambition_sandbox/src/content/features/world_overlay.rs:apply_save`
   - When an NPC's hostile flag is set, `apply_save` removes the
     `NpcRuntime` and `spawn_enemy`s a striker with the same id. The
     `enemy_<id>_dead` save flag now suppresses the respawn loop
@@ -119,7 +119,7 @@ to the bottom under "Closed" with the commit that fixed them.
 
 - **HIGH — `EnemyRuntime` and `BossRuntime` carry their own ad-hoc
   state machines**
-  - File: `crates/ambition_sandbox/src/features.rs`
+  - File: `crates/ambition_sandbox/src/content/features/`
   - We just added `ai_mode: CharacterAiMode` snapshot but the actual
     movement / attack code still uses the timer-fields directly.
     Real refactor: swap those branches over to `evaluate_character_ai`
@@ -138,7 +138,7 @@ to the bottom under "Closed" with the commit that fixed them.
 ### Encounter
 
 - **MED — Encounter chest reward is hard-coded to a small heal**
-  - File: `crates/ambition_sandbox/src/encounter.rs:update_encounters_from_world`
+  - File: `crates/ambition_sandbox/src/encounter/systems.rs:update_encounters_from_world`
   - When an encounter clears we drop a chest with
     `PickupKind::Health { amount: 2 }`. Real encounters want
     per-encounter reward authoring (an `EncounterSpec::reward` field
@@ -154,7 +154,7 @@ to the bottom under "Closed" with the commit that fixed them.
     `crates/ambition_sandbox/src/app.rs::death_respawn_player`.
 
 - **LOW — Camera ease snaps in overview mode**
-  - File: `crates/ambition_sandbox/src/rendering.rs:camera_follow`
+  - File: `crates/ambition_sandbox/src/presentation/rendering/camera.rs:camera_follow`
   - Overview camera (F5) sets the live scale directly so the
     debug toggle is instant. If we ever want a smooth dev-only
     transition, parameterize the rate.
@@ -189,7 +189,7 @@ to the bottom under "Closed" with the commit that fixed them.
     retirement plan (down to two channels: `sfx` and `vfx`).
 
 - **LOW — `RoomVisual` is a dual-purpose marker**
-  - File: `crates/ambition_sandbox/src/rendering/primitives.rs`
+  - File: `crates/ambition_sandbox/src/presentation/rendering/primitives.rs`
   - `RoomVisual` is both the rendering tag and the "lifetime scoped
     to current room" lifecycle marker. The room-load + reset paths
     despawn every `RoomVisual`, and rendering systems query it to
@@ -211,7 +211,7 @@ to the bottom under "Closed" with the commit that fixed them.
   20-system arity cap.
 
 - **MED — `FeatureEventBus` is a workaround for the param-count cap**
-  - File: `crates/ambition_sandbox/src/features.rs`
+  - File: `crates/ambition_sandbox/src/content/features/`
   - We fan events out through a resource because `sandbox_update`
     can't accept more `ResMut`s. Once the crate split lands and
     sandbox_update is replaced by per-entity systems, the bus may
@@ -228,14 +228,14 @@ to the bottom under "Closed" with the commit that fixed them.
 
 - **LOW — Boss spec id derives from name; explicit LDtk field still
   open**
-  - File: `crates/ambition_sandbox/src/boss_encounter.rs:encounter_id_from_name`
+  - File: `crates/ambition_sandbox/src/boss_encounter/ids.rs:encounter_id_from_name`
   - The encounter id now normalizes the LDtk `BossSpawn::name` field
     (closed by commit `75ebfcb`). A purpose-built `encounter_id`
     LDtk field would still be cleaner — the name doubles as both the
     HUD display string and the save key.
 
 - **MED — Music tracks for boss phases are placeholders**
-  - File: `crates/ambition_engine/src/boss_encounter.rs:gradient_sentinel`
+  - File: `crates/ambition_engine/src/boss_encounter.rs:BossEncounterSpec::gradient_sentinel`
   - Phase 1 / 2 / Enrage all reuse existing sandbox tracks. The swap
     *mechanism* works end-to-end (see the integration test) but the
     audio identity doesn't change yet. Authoring 3–4 tracks in the
@@ -250,7 +250,7 @@ to the bottom under "Closed" with the commit that fixed them.
   toggle is unaffected during cutscenes.)*
 
 - **LOW — Quest log lines are inlined in the HUD format string**
-  - File: `crates/ambition_sandbox/src/app.rs:update_hud`
+  - File: `crates/ambition_sandbox/src/app/hud.rs:update_hud`
   - Real game wants a dedicated quest panel. Right now the lines
     just get appended to the debug HUD text.
 
@@ -263,7 +263,7 @@ to the bottom under "Closed" with the commit that fixed them.
   if room count grows.)*
 
 - **LOW — Map UI repaints rectangles every frame**
-  - File: `crates/ambition_sandbox/src/map_menu.rs:sync_map_menu`
+  - File: `crates/ambition_sandbox/src/map_menu/ui.rs:sync_map_menu`
   - Despawn + respawn pattern is cheap for the current room count
     but isn't ideal. Switch to per-room entities with change
     detection if the map ever holds many rooms.
@@ -294,7 +294,7 @@ to the bottom under "Closed" with the commit that fixed them.
 ### Build / repo
 
 - **LOW — Sandbox `headless` feature build is broken**
-  - File: `crates/ambition_sandbox/src/ldtk_world/bevy_runtime.rs`
+  - File: `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime.rs`
   - Per the LDtk runtime spine memory, the headless feature gate
     doesn't fully cfg-out the LDtk plugin yet. The default visible
     build is fine; `cargo check --features headless` errors on

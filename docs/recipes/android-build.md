@@ -342,7 +342,7 @@ SIL Open Font License.
 
 ## Battery / power plan
 
-See `docs/recipes/android-power-plan.md` for the current battery-life plan. The first
+See `docs/planning/android-power.md` for the current battery-life plan. The first
 steps are platform-feature cleanup, static-first Android LDtk loading, bundled
 fonts, frame-pacing settings, background throttling, and keeping phone builds
 free of desktop debug overlays unless explicitly requested.

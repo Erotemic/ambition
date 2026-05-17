@@ -16,7 +16,7 @@ implemented_by:
   - crates/ambition_sandbox/src/world.rs
   - crates/ambition_sandbox/src/world/ldtk_world.rs
 related_docs:
-  - docs/systems/engine-architecture.md
+  - docs/systems/architecture.md
   - docs/systems/ldtk-world-composition.md
 last_verified: 2026-05-17
 ---

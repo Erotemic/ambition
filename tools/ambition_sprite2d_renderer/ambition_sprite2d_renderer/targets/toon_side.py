@@ -273,30 +273,35 @@ class ToonSideGenerator:
         "oiler": {
             "skin": rgba("#E6C4A4"),
             "skin_shadow": rgba("#B8957A"),
-            # Powdered-gray wig hair: close enough to white that it
-            # reads "18th c. wig" but dark enough to retain contrast
-            # against skin at the runtime downsample. An earlier pass
-            # at near-white melted into the face and the silhouette
-            # read as bald.
-            "hair": rgba("#B2A88F"),
-            "hair_shine": rgba("#D8CFB6"),
-            "outfit": rgba("#5C5142"),
-            "outfit_dark": rgba("#332D24"),
-            "accent": rgba("#C76A23"),
-            "accent_dark": rgba("#7E3F0F"),
+            # Hair is mostly hidden by the savant_cap; the values still
+            # need to be set in case the head-back branch ever runs.
+            "hair": rgba("#9E9784"),
+            "hair_shine": rgba("#C9C2AE"),
+            # Silk banyan: warm rust-brocade body with a darker
+            # rust-brown lapel/sash and a brighter ochre paisley dot.
+            # Skin is warm and contrasts the silk so the silhouette
+            # reads "robed scholar holding a wrench."
+            "outfit": rgba("#7C3D24"),
+            "outfit_dark": rgba("#46210F"),
+            "accent": rgba("#E3A24B"),
+            "accent_dark": rgba("#9A5A1B"),
+            # Soft cloth cap (Handmann turban) and its darker hem band.
+            "cap": rgba("#C9B98F"),
+            "cap_band": rgba("#7F5E2B"),
             "shoe": rgba("#211E1A"),
             "outline": rgba("#14110E"),
             "shadow": rgba("#000000", 46),
-            "white": rgba("#FFF1DC"),
+            "white": rgba("#FBEAC9"),
         },
         # Erdish — wandering graph-theory eccentric. Dusty travel coat,
-        # ink-stained satchel, ash-violet trim. "Open mind, possibly
-        # also open door."
+        # ink-stained satchel, ash-violet trim. Hair is gray and
+        # combed back, slightly receding, slightly wild — "open mind,
+        # possibly also open door."
         "erdish": {
             "skin": rgba("#D6C2B0"),
             "skin_shadow": rgba("#A78F7B"),
-            "hair": rgba("#1F1B26"),
-            "hair_shine": rgba("#3D3650"),
+            "hair": rgba("#8A8694"),
+            "hair_shine": rgba("#CFCAD6"),
             "outfit": rgba("#3F394A"),
             "outfit_dark": rgba("#1F1C28"),
             "accent": rgba("#C9B6FF"),
@@ -535,32 +540,29 @@ class ToonSideGenerator:
             "nose_len": 3.2,
             "satchel_size": 3.0,
         },
-        # Oiler — gate mechanic with mathematician's wig. Stocky frame,
-        # work apron, tool satchel. Body geometry is derived from
-        # `merchant_prototype` (round, working-person silhouette) with
-        # a slight broadening for "carries heavy things". The
-        # `scholar_queue` hair style (powdered wig with tied tail) is
-        # the load-bearing visual nod to Leonhard Euler — the dialog
-        # already plays this as the "man with tools" version of a
-        # mathematician, so the silhouette needs to read scholar+
-        # workshop, not generic plumber.
+        # Oiler — gate mechanic, drawn after Handmann's 1753 portrait
+        # of Euler: soft turban/nightcap (`savant_cap`) and a loose
+        # silk banyan robe over a shirt + cravat. Still carries a
+        # wrench and a tool satchel so the read is "scholar at the
+        # workbench" rather than "professor on a Sunday." Stocky
+        # `broad` body plan keeps him grounded and warm.
         "oiler": {
             "name": "Oiler",
             "role": "npc",
             "palette_name": "oiler",
             "body_plan": "broad",
-            "outfit": "apron",
-            "hair_style": "scholar_queue",
+            "outfit": "banyan",
+            "hair_style": "savant_cap",
             "prop": "wrench",
             "accessory": "satchel",
             "head_w": 26.0,
             "head_h": 28.5,
             "chin_h": 6.5,
             "neck_h": 3.4,
-            "shoulder_w": 31.0,
-            "torso_w": 30.0,
-            "torso_h": 28.0,
-            "hip_w": 25.0,
+            "shoulder_w": 32.0,
+            "torso_w": 31.0,
+            "torso_h": 28.5,
+            "hip_w": 26.0,
             "arm_upper": 12.5,
             "arm_lower": 12.0,
             "arm_radius": 3.2,
@@ -570,9 +572,9 @@ class ToonSideGenerator:
             "hand_r": 3.3,
             "foot_w": 12.8,
             "foot_h": 5.0,
-            "coat_len": 9.0,
+            "coat_len": 14.0,
             "cape_len": 0.0,
-            "hair_volume": 5.0,
+            "hair_volume": 4.0,
             "nose_len": 3.1,
             "satchel_size": 9.0,
         },
@@ -580,13 +582,15 @@ class ToonSideGenerator:
         # satchel of paper. Body geometry is derived from `architect`
         # (tall silhouette) with the satchel inflated to match the
         # "always carrying a stack of incomplete proofs" energy.
+        # Hair is `combed_back_balding` — gray, receding, swept back
+        # with a few wild strands at the back. Reads as Erdős.
         "erdish": {
             "name": "Erdish",
             "role": "npc",
             "palette_name": "erdish",
             "body_plan": "tall",
             "outfit": "long_coat",
-            "hair_style": "swoop",
+            "hair_style": "combed_back_balding",
             "prop": "tablet",
             "accessory": "satchel",
             "head_w": 23.0,
@@ -876,41 +880,104 @@ class ToonSideGenerator:
         # Hood / back hair mass first.
         if spec.hair_style == "hood":
             d.ellipse(_bbox((c[0] - 2 * S, c[1] - 1 * S), (spec.head_w + 8.0) * S, (spec.head_h + 8.0) * S), fill=pal["outfit_dark"], outline=outline, width=max(1, int(1.2 * S)))
-        elif spec.hair_style == "scholar_queue":
-            # Powdered-wig "queue" silhouette (Euler / 18th c. mathematician).
-            # A domed back cap, two visible side curls clearly extending
-            # past the temples, and a long ribbon-tied tail hanging below
-            # the head so the wig reads at runtime downsample. Intentionally
-            # bilateral so the head reads round and scholarly rather than
-            # as a side-swept fringe.
-            puff_w = (spec.head_w + spec.hair_volume * 1.35) * S
-            puff_h = (spec.head_h * 0.72 + spec.hair_volume * 0.65) * S
-            d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 3.6 * S), puff_w, puff_h), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
-            # A lighter dome highlight so the powdered finish reads as
-            # rounded volume rather than a flat cap.
-            d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - spec.head_h * 0.40 * S), puff_w * 0.55, puff_h * 0.34), fill=pal["hair_shine"], outline=None)
-            # Curl puffs over each "ear" extending well past the head
-            # silhouette so the bilateral wig shape is unmistakable.
+        elif spec.hair_style == "savant_cap":
+            # Soft cloth turban / nightcap (Emanuel Handmann 1753 portrait
+            # of Euler). The cap is a rounded mass over the skull, slightly
+            # peaked on one side, with a visible cap band where it meets
+            # the forehead. We deliberately do NOT draw side hair or a
+            # tail — period portraits of Euler in this style show only the
+            # cap silhouette over a clean face, which is the simplest way
+            # to make the character read as the mathematician at first
+            # glance. `pal["cap"]` is the cap fabric color (fall back to
+            # outfit if a palette pre-dates the field).
+            cap_fill = pal.get("cap", pal["outfit"])
+            cap_band = pal.get("cap_band", pal["outfit_dark"])
+            # Main cap dome: wider than the head, taller above the brow.
+            cap_w = (spec.head_w + spec.hair_volume * 1.6 + 6.0) * S
+            cap_h = (spec.head_h * 0.85 + spec.hair_volume * 0.55) * S
+            cap_cx = c[0] - 0.5 * S
+            cap_cy = c[1] - spec.head_h * 0.30 * S
+            d.ellipse(_bbox((cap_cx, cap_cy), cap_w, cap_h), fill=cap_fill, outline=outline, width=max(1, int(1.2 * S)))
+            # Soft fold/peak leaning forward (camera-right) so the cap
+            # silhouette has a recognizable Handmann-style nipple shape
+            # instead of a perfect dome.
+            peak = [
+                (cap_cx - 1.0 * S, cap_cy - cap_h * 0.45),
+                (cap_cx + cap_w * 0.18, cap_cy - cap_h * 0.78),
+                (cap_cx + cap_w * 0.32, cap_cy - cap_h * 0.42),
+                (cap_cx + cap_w * 0.06, cap_cy - cap_h * 0.30),
+            ]
+            d.polygon(peak, fill=cap_fill, outline=outline)
+            # Cap band along the forehead — a darker strip with two short
+            # tabs that read as the fabric's hem.
+            band_top = c[1] - spec.head_h * 0.18 * S
+            band_bot = c[1] - spec.head_h * 0.04 * S
+            d.rounded_rectangle(
+                (c[0] - spec.head_w * 0.50 * S, band_top, c[0] + spec.head_w * 0.50 * S, band_bot),
+                radius=2.0 * S,
+                fill=cap_band,
+                outline=outline,
+                width=max(1, int(1.0 * S)),
+            )
+            # Highlight curl on top of the dome so it doesn't read flat.
+            d.ellipse(
+                _bbox((cap_cx + cap_w * 0.05, cap_cy - cap_h * 0.18), cap_w * 0.42, cap_h * 0.28),
+                fill=_scale_color(cap_fill, 1.18),
+                outline=None,
+            )
+            # A small triangular shadow under the peak fold lifts it off
+            # the dome and gives the cap a believable crease.
+            d.polygon([
+                (cap_cx + cap_w * 0.08, cap_cy - cap_h * 0.32),
+                (cap_cx + cap_w * 0.26, cap_cy - cap_h * 0.20),
+                (cap_cx + cap_w * 0.10, cap_cy - cap_h * 0.10),
+            ], fill=_scale_color(cap_fill, 0.78), outline=None)
+        elif spec.hair_style == "combed_back_balding":
+            # Gray, receding, combed-back hair with a few wilder strands
+            # at the back (Erdős). The hairline starts well behind the
+            # forehead so a clear band of skin shows up front, then the
+            # hair mass sweeps up and back over the crown. A handful of
+            # short stragglers behind the ear keep it from reading
+            # corporate.
+            # Back-of-skull cap, but pulled BACK from the brow so the
+            # forehead skin is exposed.
+            d.ellipse(
+                _bbox(
+                    (c[0] + 1.0 * S, c[1] - spec.head_h * 0.28 * S),
+                    (spec.head_w * 0.92 + spec.hair_volume * 0.7) * S,
+                    (spec.head_h * 0.55 + spec.hair_volume * 0.35) * S,
+                ),
+                fill=pal["hair"],
+                outline=outline,
+                width=max(1, int(1.0 * S)),
+            )
+            # Combed-back streaks: a few thin parallel lines following the
+            # crown curve, drawn in the lighter hair_shine to suggest a
+            # combed texture rather than a solid block.
+            for i in range(4):
+                t_streak = i / 3.0
+                start = (c[0] - spec.head_w * 0.30 * S + t_streak * spec.head_w * 0.55 * S, c[1] - spec.head_h * 0.55 * S + t_streak * 1.6 * S)
+                end = (c[0] + spec.head_w * 0.42 * S, c[1] - spec.head_h * 0.34 * S + t_streak * 4.0 * S)
+                d.line([start, end], fill=pal["hair_shine"], width=max(1, int(0.9 * S)))
+            # Stray wisps poking out at the back (camera-left) so the
+            # silhouette has a slightly wild edge without losing the
+            # tidy "combed back" read.
+            for dy, dx in [(-2.4, -4.6), (1.0, -5.4), (5.0, -4.0)]:
+                wisp_tip = (c[0] - spec.head_w * 0.52 * S + dx * S, c[1] - spec.head_h * 0.10 * S + dy * S)
+                wisp_root = (c[0] - spec.head_w * 0.38 * S, c[1] - spec.head_h * 0.18 * S + dy * S * 0.6)
+                d.line([wisp_root, wisp_tip], fill=pal["hair"], width=max(1, int(1.5 * S)))
+            # Slight forehead temple recession line so the receding
+            # hairline is visible even at downsample: two short skin
+            # strokes carving into the front of the cap.
             for sign in (-1, 1):
-                curl_c = (c[0] + sign * (spec.head_w * 0.50 + 1.6) * S, c[1] + spec.head_h * 0.08 * S)
-                d.ellipse(_bbox(curl_c, 11.0 * S, 11.5 * S), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
-                d.ellipse(_bbox((curl_c[0] + sign * 0.6 * S, curl_c[1] - 0.6 * S), 6.0 * S, 6.0 * S), fill=pal["hair_shine"], outline=None)
-                # Small lower curl so the wig "drips" down past the jaw,
-                # framing the face the way a tied side-roll wig does.
-                lower_c = (c[0] + sign * (spec.head_w * 0.46 + 1.0) * S, c[1] + spec.head_h * 0.32 * S)
-                d.ellipse(_bbox(lower_c, 7.0 * S, 7.5 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
-            # Long tied tail (queue) hanging behind the head. Anchored at
-            # the back-of-skull and extending below the chin so a visible
-            # ribbon-tied hank sticks out under the head silhouette.
-            tail_top = (c[0] - spec.head_w * 0.52 * S, c[1] + spec.head_h * 0.15 * S)
-            tail_bot = (c[0] - spec.head_w * 0.34 * S, c[1] + spec.head_h * 0.95 * S)
-            d.line([tail_top, tail_bot], fill=pal["hair"], width=max(1, int(5.0 * S)))
-            d.line([tail_top, tail_bot], fill=outline, width=max(1, int(6.6 * S)))
-            d.line([tail_top, tail_bot], fill=pal["hair"], width=max(1, int(4.6 * S)))
-            d.ellipse(_bbox(tail_top, 7.5 * S, 7.5 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
-            d.ellipse(_bbox(tail_bot, 5.6 * S, 5.6 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
-            ribbon = pal.get("accent", pal["outline"])
-            d.line([(tail_top[0] - 3.0 * S, tail_top[1] + 3.0 * S), (tail_top[0] + 3.0 * S, tail_top[1] + 3.0 * S)], fill=ribbon, width=max(1, int(1.8 * S)))
+                temple_tip = (c[0] + sign * spec.head_w * 0.30 * S, c[1] - spec.head_h * 0.30 * S)
+                temple_base = (c[0] + sign * spec.head_w * 0.16 * S, c[1] - spec.head_h * 0.20 * S)
+                d.polygon([
+                    temple_tip,
+                    temple_base,
+                    (temple_base[0], temple_base[1] + 3.0 * S),
+                    (temple_tip[0], temple_tip[1] + 3.0 * S),
+                ], fill=pal["skin"], outline=None)
         elif spec.hair_style in {"bob", "crest", "swoop", "cap", "general_hat", "officer_cap"}:
             d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.78 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
         # Face.
@@ -941,36 +1008,40 @@ class ToonSideGenerator:
                 (c[0] + spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.18 * S),
             ], fill=pal["skin"], width=max(1, int(1.0 * S)))
         elif spec.hair_style == "bob":
-            # Centered chin-length bob with a deliberate middle part. The
-            # earlier implementation was a half-pie slice that hung mostly
-            # over one side of the face, which combined with the dark
-            # cap-of-hair behind read as a recognizable 1930s side-sweep.
-            # This version draws two symmetric curtains so the silhouette
-            # is unmistakably a tidy office bob.
-            volume = spec.hair_volume
-            for sign in (-1, 1):
-                curtain = [
-                    (c[0] + sign * spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.46 * S),
-                    (c[0] + sign * (spec.head_w * 0.52 + volume * 0.25) * S, c[1] - spec.head_h * 0.28 * S),
-                    (c[0] + sign * (spec.head_w * 0.58 + volume * 0.30) * S, c[1] + spec.head_h * 0.10 * S),
-                    (c[0] + sign * (spec.head_w * 0.40 + volume * 0.10) * S, c[1] + spec.head_h * 0.38 * S),
-                    (c[0] + sign * spec.head_w * 0.14 * S, c[1] + spec.head_h * 0.30 * S),
-                    (c[0] + sign * spec.head_w * 0.04 * S, c[1] - spec.head_h * 0.10 * S),
-                ]
-                d.polygon(curtain, fill=pal["hair"], outline=outline)
-            # Center part — a thin skin-toned wedge so the two curtains
-            # don't merge into a solid block at small sizes.
+            # Short close-cropped professional cut. Earlier passes had
+            # this as a chin-length bob with two curtain polygons that
+            # hung past the jaw; the user read those as "two lobes over
+            # his face," so we drop the side curtains entirely. The hair
+            # now hugs the top of the skull, has a soft side-part forehead
+            # sweep, and stops cleanly above the ear so the face silhouette
+            # stays open. The back-of-head ellipse drawn above this
+            # branch is still doing the bulk of the silhouette work.
+            d.pieslice(
+                _bbox(
+                    (c[0] - 0.5 * S, c[1] - spec.head_h * 0.18 * S),
+                    (spec.head_w * 0.94 + spec.hair_volume * 0.40) * S,
+                    (spec.head_h * 0.46 + spec.hair_volume * 0.18) * S,
+                ),
+                start=200,
+                end=345,
+                fill=pal["hair"],
+                outline=outline,
+                width=max(1, int(1.0 * S)),
+            )
+            # Soft side-part forehead sweep — a single small wedge angled
+            # toward the camera-right brow. Kept short (does not reach
+            # past the brow line) so it can't be misread as a side sweep.
             d.polygon([
-                (c[0] - 0.6 * S, c[1] - spec.head_h * 0.48 * S),
-                (c[0] + 0.6 * S, c[1] - spec.head_h * 0.48 * S),
-                (c[0] + 0.4 * S, c[1] - spec.head_h * 0.18 * S),
-                (c[0] - 0.4 * S, c[1] - spec.head_h * 0.18 * S),
-            ], fill=pal["skin"], outline=None)
-            # Subtle highlight on the back-of-head cap to lift it off the
-            # darker outline and read less monolithic.
+                (c[0] - spec.head_w * 0.18 * S, c[1] - spec.head_h * 0.28 * S),
+                (c[0] + spec.head_w * 0.22 * S, c[1] - spec.head_h * 0.36 * S),
+                (c[0] + spec.head_w * 0.10 * S, c[1] - spec.head_h * 0.18 * S),
+                (c[0] - spec.head_w * 0.04 * S, c[1] - spec.head_h * 0.16 * S),
+            ], fill=pal["hair"], outline=outline)
+            # Visible side-part line in the lighter shine color so the
+            # cut reads as styled hair rather than a helmet.
             d.line([
-                (c[0] - spec.head_w * 0.28 * S, c[1] - spec.head_h * 0.42 * S),
-                (c[0] + spec.head_w * 0.20 * S, c[1] - spec.head_h * 0.52 * S),
+                (c[0] - spec.head_w * 0.04 * S, c[1] - spec.head_h * 0.46 * S),
+                (c[0] + spec.head_w * 0.14 * S, c[1] - spec.head_h * 0.26 * S),
             ], fill=pal["hair_shine"], width=max(1, int(1.1 * S)))
         elif spec.hair_style == "crest":
             crest = [
@@ -1274,6 +1345,90 @@ class ToonSideGenerator:
                 (center[0] - 2.0 * S, center[1] + spec.torso_h * 0.50 * S),
                 (center[0] - 7.4 * S, center[1] + spec.torso_h * 0.46 * S),
             ], fill=pal["outfit_dark"], outline=outline)
+        elif spec.outfit == "banyan":
+            # Loose 18th-century silk banyan / dressing gown (Handmann's
+            # 1753 Euler portrait). A wide-shouldered draped robe that
+            # falls open at the front to reveal a paler shirt underneath,
+            # tied with a sash at the waist. We render: (1) the outer
+            # robe silhouette, (2) the visible shirt panel down the
+            # center, (3) the broad lapel/shawl collar, (4) a darker sash
+            # at the waist, and (5) a sparse paisley-dot pattern in the
+            # accent color so the silk reads as patterned rather than
+            # a flat block.
+            d = ImageDraw.Draw(base)
+            shirt = pal.get("white", rgba("#FFF6E0"))
+            sash = pal.get("accent_dark", pal["outfit_dark"])
+            silk_dot = pal.get("accent", pal["outfit_dark"])
+            # Outer robe (drapes wider than the torso, falls long).
+            robe = [
+                (center[0] - spec.shoulder_w * 0.74 * S, center[1] - spec.torso_h * 0.50 * S),
+                (center[0] + spec.shoulder_w * 0.60 * S, center[1] - spec.torso_h * 0.44 * S),
+                (center[0] + (spec.torso_w * 0.62 + 2.0) * S, center[1] + spec.torso_h * 0.10 * S),
+                (center[0] + (spec.hip_w * 0.58 + 1.0) * S, center[1] + spec.torso_h * 0.48 * S + spec.coat_len * 0.55 * S),
+                (center[0] - (spec.hip_w * 0.74 + 1.0) * S, center[1] + spec.torso_h * 0.46 * S + spec.coat_len * 0.50 * S),
+                (center[0] - (spec.torso_w * 0.64 + 2.0) * S, center[1] + spec.torso_h * 0.08 * S),
+            ]
+            d.polygon(robe, fill=pal["outfit"], outline=outline)
+            # Sparse paisley dots on the silk. Only a handful so they
+            # read as pattern at the runtime downsample, not as
+            # accidental dirt.
+            for px, py in [
+                (-9.0, -8.0), (4.0, -10.0), (-12.0, 2.0),
+                (8.0, -1.0), (-6.0, 8.0), (10.0, 10.0),
+                (-10.0, 14.0),
+            ]:
+                d.ellipse(
+                    _bbox((center[0] + px * S, center[1] + py * S), 2.2 * S, 2.2 * S),
+                    fill=silk_dot,
+                    outline=None,
+                )
+            # Visible shirt panel running down the open front of the robe.
+            shirt_panel = [
+                (center[0] - 6.0 * S, center[1] - spec.torso_h * 0.40 * S),
+                (center[0] + 6.0 * S, center[1] - spec.torso_h * 0.36 * S),
+                (center[0] + 4.0 * S, center[1] + spec.torso_h * 0.48 * S),
+                (center[0] - 4.0 * S, center[1] + spec.torso_h * 0.46 * S),
+            ]
+            d.polygon(shirt_panel, fill=shirt, outline=outline)
+            # Cravat / ruffled neckline at the top of the shirt panel.
+            d.polygon([
+                (center[0] - 7.0 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + 7.5 * S, center[1] - spec.torso_h * 0.38 * S),
+                (center[0] + 5.0 * S, center[1] - spec.torso_h * 0.26 * S),
+                (center[0] - 4.5 * S, center[1] - spec.torso_h * 0.28 * S),
+            ], fill=shirt, outline=outline)
+            # Broad shawl-collar lapels of the banyan, framing the
+            # shirt panel.
+            lapel_left = [
+                (center[0] - spec.shoulder_w * 0.62 * S, center[1] - spec.torso_h * 0.48 * S),
+                (center[0] - 4.0 * S, center[1] - spec.torso_h * 0.38 * S),
+                (center[0] - 2.0 * S, center[1] + spec.torso_h * 0.10 * S),
+                (center[0] - spec.shoulder_w * 0.30 * S, center[1] + spec.torso_h * 0.20 * S),
+            ]
+            lapel_right = [
+                (center[0] + spec.shoulder_w * 0.50 * S, center[1] - spec.torso_h * 0.42 * S),
+                (center[0] + 5.0 * S, center[1] - spec.torso_h * 0.34 * S),
+                (center[0] + 4.0 * S, center[1] + spec.torso_h * 0.18 * S),
+                (center[0] + spec.shoulder_w * 0.26 * S, center[1] + spec.torso_h * 0.28 * S),
+            ]
+            d.polygon(lapel_left, fill=pal["outfit_dark"], outline=outline)
+            d.polygon(lapel_right, fill=pal["outfit_dark"], outline=outline)
+            # Waist sash tied to one side.
+            sash_y = center[1] + spec.torso_h * 0.30 * S
+            d.rounded_rectangle(
+                (center[0] - spec.hip_w * 0.62 * S, sash_y - 3.5 * S, center[0] + spec.hip_w * 0.52 * S, sash_y + 3.5 * S),
+                radius=2.0 * S,
+                fill=sash,
+                outline=outline,
+                width=max(1, int(1.0 * S)),
+            )
+            # Sash tassel drop on camera-right.
+            d.polygon([
+                (center[0] + spec.hip_w * 0.50 * S, sash_y - 1.5 * S),
+                (center[0] + spec.hip_w * 0.58 * S + 4.0 * S, sash_y + 0.0 * S),
+                (center[0] + spec.hip_w * 0.46 * S + 1.0 * S, sash_y + 10.0 * S),
+                (center[0] + spec.hip_w * 0.34 * S, sash_y + 2.0 * S),
+            ], fill=sash, outline=outline)
         # accessory overlays that belong to the silhouette, not random doodads.
         d = ImageDraw.Draw(base)
         if spec.accessory == "scarf":
@@ -1546,7 +1701,7 @@ class ToonSideGenerator:
         draw_capsule(d, near_knee, near_ankle, spec.leg_radius * 0.96 * S, near_tint, pal["outline"], 1.15 * S)
         draw_rotated_rounded_rect(img, (near_ankle[0] + spec.foot_w * 0.28 * S, near_ankle[1] + 2.0 * S), (spec.foot_w * S, spec.foot_h * S), 2.0 + p.torso_tilt * 0.10, spec.foot_h * 0.48 * S, pal["shoe"], pal["outline"], 1.0 * S)
         near_shoulder, near_elbow, near_hand = arm_points(True)
-        sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform", "storm_uniform"} else pal["skin"]
+        sleeve_fill = pal["outfit"] if spec.outfit in {"poncho", "keeper_robe", "long_coat", "general_uniform", "storm_uniform", "banyan"} else pal["skin"]
         draw_capsule(d, near_shoulder, near_elbow, spec.arm_radius * S, sleeve_fill, pal["outline"], 1.1 * S)
         draw_capsule(d, near_elbow, near_hand, spec.arm_radius * 0.95 * S, sleeve_fill, pal["outline"], 1.1 * S)
         draw_armband(near_shoulder, near_elbow, scale=1.0, include_insignia=True)

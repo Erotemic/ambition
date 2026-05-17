@@ -75,8 +75,8 @@ def test_oiler_and_erdish_review_specs_render(tmp_path):
     # `scholar_queue` (powdered-wig silhouette) so the silhouette reads
     # "Euler with tools" rather than generic mechanic.
     checks = {
-        "oiler.yaml": ("Oiler", "apron", "scholar_queue", "wrench", "satchel"),
-        "erdish.yaml": ("Erdish", "long_coat", "swoop", "tablet", "satchel"),
+        "oiler.yaml": ("Oiler", "banyan", "savant_cap", "wrench", "satchel"),
+        "erdish.yaml": ("Erdish", "long_coat", "combed_back_balding", "tablet", "satchel"),
     }
     for filename, (name, outfit, hair_style, prop, accessory) in checks.items():
         job = CharacterJob.load(REVIEW_DIR / filename)

@@ -994,11 +994,12 @@ pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     // the neighboring frame.
     label_width: 116,
     y_offset: 0,
-    // body_metrics yaml frame=83×101 (scholar_queue silhouette is a
-    // shade shorter than the previous workmen's-cap version); +4 border
-    // on both axes → 87×105.
-    frame_width: 87,
-    frame_height: 105,
+    // body_metrics yaml frame=84×115 (savant_cap + banyan silhouette
+    // is taller than the old cap version because the turban peak adds
+    // headroom and the banyan + cravat add a bit more torso). +4 border
+    // on both axes → 88×119.
+    frame_width: 88,
+    frame_height: 119,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1007,7 +1008,7 @@ pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
         },
     )],
     collision_scale: 1.10,
-    feet_anchor_y: -0.470,
+    feet_anchor_y: -0.474,
     frame_sample_inset: 2,
 };
 

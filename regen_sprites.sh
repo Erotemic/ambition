@@ -54,7 +54,7 @@ echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
 (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch")
-for cue in absurd_general architect kernel_guide vault_keeper merchant_prototype; do
+for cue in absurd_general architect kernel_guide vault_keeper merchant_prototype oiler erdish fascist_enforcer; do
     for ext in png yaml; do
         src="$review_scratch/${cue}_spritesheet.$ext"
         if [ -f "$src" ]; then

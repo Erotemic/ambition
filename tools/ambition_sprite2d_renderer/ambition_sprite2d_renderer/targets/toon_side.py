@@ -263,18 +263,27 @@ class ToonSideGenerator:
             "shadow": rgba("#000000", 52),
             "white": rgba("#F1ECE2"),
         },
-        # Oiler — street mechanic / gate maintenance. Grimy workwear,
-        # rust-orange accent, tools and a satchel. Reads as
-        # "person who fixes pipes for a living."
+        # Oiler — gate mechanic with an 18th-century-mathematician streak.
+        # The name is a pun on "Euler" (pronounced "oiler") so the
+        # silhouette leans powdered-wig + workshop apron: pale cream
+        # wig hair with shine, grimy olive coveralls under a leather
+        # apron, rust-orange accent for the tied wig ribbon and tool
+        # trim. Reads as "person who fixes pipes for a living and
+        # also keeps a notebook of theorems in the satchel."
         "oiler": {
-            "skin": rgba("#D7B294"),
-            "skin_shadow": rgba("#A8866A"),
-            "hair": rgba("#3B2A23"),
-            "hair_shine": rgba("#5E4639"),
+            "skin": rgba("#E6C4A4"),
+            "skin_shadow": rgba("#B8957A"),
+            # Powdered-gray wig hair: close enough to white that it
+            # reads "18th c. wig" but dark enough to retain contrast
+            # against skin at the runtime downsample. An earlier pass
+            # at near-white melted into the face and the silhouette
+            # read as bald.
+            "hair": rgba("#B2A88F"),
+            "hair_shine": rgba("#D8CFB6"),
             "outfit": rgba("#5C5142"),
             "outfit_dark": rgba("#332D24"),
-            "accent": rgba("#D27A2C"),
-            "accent_dark": rgba("#8E4D14"),
+            "accent": rgba("#C76A23"),
+            "accent_dark": rgba("#7E3F0F"),
             "shoe": rgba("#211E1A"),
             "outline": rgba("#14110E"),
             "shadow": rgba("#000000", 46),
@@ -526,21 +535,26 @@ class ToonSideGenerator:
             "nose_len": 3.2,
             "satchel_size": 3.0,
         },
-        # Oiler — street mechanic. Stocky frame, work apron, tool
-        # satchel, smudges. Body geometry is derived from
+        # Oiler — gate mechanic with mathematician's wig. Stocky frame,
+        # work apron, tool satchel. Body geometry is derived from
         # `merchant_prototype` (round, working-person silhouette) with
-        # a slight broadening for "carries heavy things."
+        # a slight broadening for "carries heavy things". The
+        # `scholar_queue` hair style (powdered wig with tied tail) is
+        # the load-bearing visual nod to Leonhard Euler — the dialog
+        # already plays this as the "man with tools" version of a
+        # mathematician, so the silhouette needs to read scholar+
+        # workshop, not generic plumber.
         "oiler": {
             "name": "Oiler",
             "role": "npc",
             "palette_name": "oiler",
             "body_plan": "broad",
             "outfit": "apron",
-            "hair_style": "cap",
+            "hair_style": "scholar_queue",
             "prop": "wrench",
             "accessory": "satchel",
-            "head_w": 25.0,
-            "head_h": 28.0,
+            "head_w": 26.0,
+            "head_h": 28.5,
             "chin_h": 6.5,
             "neck_h": 3.4,
             "shoulder_w": 31.0,
@@ -558,7 +572,7 @@ class ToonSideGenerator:
             "foot_h": 5.0,
             "coat_len": 9.0,
             "cape_len": 0.0,
-            "hair_volume": 4.0,
+            "hair_volume": 5.0,
             "nose_len": 3.1,
             "satchel_size": 9.0,
         },
@@ -633,11 +647,34 @@ class ToonSideGenerator:
         plan = spec.body_plan
         run_scale = 1.0 if plan not in {"round", "soft"} else 0.82
         if animation == "idle":
-            p.body_bob = abs(wave) * (1.1 if plan != "tall" else 0.7)
+            # Two-cycle breath layered over a slower body sway so the
+            # NPC reads as alive rather than mechanically swinging
+            # back-and-forth. The slower sway uses the loop's full
+            # period (`wave`), the breath uses half-period for visible
+            # chest rise without forcing the silhouette off-balance.
+            breath = math.sin(t * math.tau * 2.0)
+            p.body_bob = (0.55 + abs(breath) * 0.55) * (1.1 if plan != "tall" else 0.7)
             p.torso_tilt = wave * (1.2 if plan != "broad" else 0.6)
-            p.head_tilt = -wave * 0.8
+            p.head_tilt = -wave * 0.8 + breath * 0.25
+            # Subtle near-arm drift and an occasional small gesture
+            # part-way through the loop so the figure doesn't look
+            # frozen between blinks. Use small numbers — anything
+            # larger reads as a fidget instead of "idle".
+            gesture_t = clamp((t - 0.55) / 0.3, 0.0, 1.0)
+            gesture_pulse = gesture_t * (1.0 - gesture_t) * 4.0
+            p.near_arm_upper = 24.0 + breath * 1.4 - gesture_pulse * 3.5
+            p.near_arm_lower = 18.0 + breath * 1.0 - gesture_pulse * 2.5
+            p.far_arm_upper = 150.0 - breath * 1.1
+            p.far_arm_lower = 132.0 - breath * 0.7
+            p.gesture = gesture_pulse * 0.35
+            # Blink-and-glance pattern: blink near the middle, a brief
+            # eye-squint near the start and end, plus a subtle pupil
+            # squint during the gesture so the eye direction feels
+            # connected to the small arm move.
             p.blink = frame_index == frame_count // 2
             p.eye_squint = 0.12 if frame_index in {1, frame_count - 2} else 0.0
+            if gesture_pulse > 0.1:
+                p.eye_squint = max(p.eye_squint, 0.05 + gesture_pulse * 0.08)
         elif animation in {"walk", "run"}:
             stride = math.sin(t * math.tau)
             bounce = (1.0 - math.cos(t * math.tau * 2.0)) * 0.5
@@ -839,6 +876,41 @@ class ToonSideGenerator:
         # Hood / back hair mass first.
         if spec.hair_style == "hood":
             d.ellipse(_bbox((c[0] - 2 * S, c[1] - 1 * S), (spec.head_w + 8.0) * S, (spec.head_h + 8.0) * S), fill=pal["outfit_dark"], outline=outline, width=max(1, int(1.2 * S)))
+        elif spec.hair_style == "scholar_queue":
+            # Powdered-wig "queue" silhouette (Euler / 18th c. mathematician).
+            # A domed back cap, two visible side curls clearly extending
+            # past the temples, and a long ribbon-tied tail hanging below
+            # the head so the wig reads at runtime downsample. Intentionally
+            # bilateral so the head reads round and scholarly rather than
+            # as a side-swept fringe.
+            puff_w = (spec.head_w + spec.hair_volume * 1.35) * S
+            puff_h = (spec.head_h * 0.72 + spec.hair_volume * 0.65) * S
+            d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 3.6 * S), puff_w, puff_h), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
+            # A lighter dome highlight so the powdered finish reads as
+            # rounded volume rather than a flat cap.
+            d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - spec.head_h * 0.40 * S), puff_w * 0.55, puff_h * 0.34), fill=pal["hair_shine"], outline=None)
+            # Curl puffs over each "ear" extending well past the head
+            # silhouette so the bilateral wig shape is unmistakable.
+            for sign in (-1, 1):
+                curl_c = (c[0] + sign * (spec.head_w * 0.50 + 1.6) * S, c[1] + spec.head_h * 0.08 * S)
+                d.ellipse(_bbox(curl_c, 11.0 * S, 11.5 * S), fill=pal["hair"], outline=outline, width=max(1, int(1.0 * S)))
+                d.ellipse(_bbox((curl_c[0] + sign * 0.6 * S, curl_c[1] - 0.6 * S), 6.0 * S, 6.0 * S), fill=pal["hair_shine"], outline=None)
+                # Small lower curl so the wig "drips" down past the jaw,
+                # framing the face the way a tied side-roll wig does.
+                lower_c = (c[0] + sign * (spec.head_w * 0.46 + 1.0) * S, c[1] + spec.head_h * 0.32 * S)
+                d.ellipse(_bbox(lower_c, 7.0 * S, 7.5 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
+            # Long tied tail (queue) hanging behind the head. Anchored at
+            # the back-of-skull and extending below the chin so a visible
+            # ribbon-tied hank sticks out under the head silhouette.
+            tail_top = (c[0] - spec.head_w * 0.52 * S, c[1] + spec.head_h * 0.15 * S)
+            tail_bot = (c[0] - spec.head_w * 0.34 * S, c[1] + spec.head_h * 0.95 * S)
+            d.line([tail_top, tail_bot], fill=pal["hair"], width=max(1, int(5.0 * S)))
+            d.line([tail_top, tail_bot], fill=outline, width=max(1, int(6.6 * S)))
+            d.line([tail_top, tail_bot], fill=pal["hair"], width=max(1, int(4.6 * S)))
+            d.ellipse(_bbox(tail_top, 7.5 * S, 7.5 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
+            d.ellipse(_bbox(tail_bot, 5.6 * S, 5.6 * S), fill=pal["hair"], outline=outline, width=max(1, int(0.9 * S)))
+            ribbon = pal.get("accent", pal["outline"])
+            d.line([(tail_top[0] - 3.0 * S, tail_top[1] + 3.0 * S), (tail_top[0] + 3.0 * S, tail_top[1] + 3.0 * S)], fill=ribbon, width=max(1, int(1.8 * S)))
         elif spec.hair_style in {"bob", "crest", "swoop", "cap", "general_hat", "officer_cap"}:
             d.ellipse(_bbox((c[0] - 1.0 * S, c[1] - 4.0 * S), (spec.head_w + spec.hair_volume) * S, (spec.head_h * 0.78 + spec.hair_volume * 0.45) * S), fill=pal["hair"], outline=outline, width=max(1, int(1.1 * S)))
         # Face.
@@ -846,15 +918,60 @@ class ToonSideGenerator:
         d.ellipse(_bbox((c[0] + 1.0 * S, c[1] + spec.head_h * 0.18 * S), (spec.head_w * 0.70) * S, (spec.chin_h * 1.9) * S), fill=pal["skin_shadow"], outline=None)
         # Front hair / features.
         if spec.hair_style == "swoop":
-            pts = [
-                (c[0] - spec.head_w * 0.45 * S, c[1] - spec.head_h * 0.40 * S),
-                (c[0] + spec.head_w * 0.12 * S, c[1] - spec.head_h * 0.62 * S),
-                (c[0] + spec.head_w * 0.50 * S, c[1] - spec.head_h * 0.10 * S),
-                (c[0] + spec.head_w * 0.10 * S, c[1] - spec.head_h * 0.04 * S),
+            # Tousled front fringe broken into two clumps so it doesn't
+            # read as a single hard-edged side-sweep. A short forehead
+            # highlight keeps a sliver of bare skin visible between the
+            # clumps even when the sprite is downsampled.
+            left_clump = [
+                (c[0] - spec.head_w * 0.46 * S, c[1] - spec.head_h * 0.42 * S),
+                (c[0] - spec.head_w * 0.08 * S, c[1] - spec.head_h * 0.60 * S),
+                (c[0] - spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.18 * S),
+                (c[0] - spec.head_w * 0.34 * S, c[1] - spec.head_h * 0.10 * S),
             ]
-            d.polygon(pts, fill=pal["hair"], outline=outline)
+            right_clump = [
+                (c[0] + spec.head_w * 0.06 * S, c[1] - spec.head_h * 0.56 * S),
+                (c[0] + spec.head_w * 0.42 * S, c[1] - spec.head_h * 0.34 * S),
+                (c[0] + spec.head_w * 0.34 * S, c[1] - spec.head_h * 0.04 * S),
+                (c[0] + spec.head_w * 0.06 * S, c[1] - spec.head_h * 0.08 * S),
+            ]
+            d.polygon(left_clump, fill=pal["hair"], outline=outline)
+            d.polygon(right_clump, fill=pal["hair"], outline=outline)
+            d.line([
+                (c[0] - spec.head_w * 0.06 * S, c[1] - spec.head_h * 0.30 * S),
+                (c[0] + spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.18 * S),
+            ], fill=pal["skin"], width=max(1, int(1.0 * S)))
         elif spec.hair_style == "bob":
-            d.pieslice(_bbox((c[0] - 1.0 * S, c[1] - 1.5 * S), (spec.head_w + spec.hair_volume * 0.8) * S, (spec.head_h + spec.hair_volume * 0.2) * S), start=195, end=18, fill=pal["hair"], outline=outline)
+            # Centered chin-length bob with a deliberate middle part. The
+            # earlier implementation was a half-pie slice that hung mostly
+            # over one side of the face, which combined with the dark
+            # cap-of-hair behind read as a recognizable 1930s side-sweep.
+            # This version draws two symmetric curtains so the silhouette
+            # is unmistakably a tidy office bob.
+            volume = spec.hair_volume
+            for sign in (-1, 1):
+                curtain = [
+                    (c[0] + sign * spec.head_w * 0.02 * S, c[1] - spec.head_h * 0.46 * S),
+                    (c[0] + sign * (spec.head_w * 0.52 + volume * 0.25) * S, c[1] - spec.head_h * 0.28 * S),
+                    (c[0] + sign * (spec.head_w * 0.58 + volume * 0.30) * S, c[1] + spec.head_h * 0.10 * S),
+                    (c[0] + sign * (spec.head_w * 0.40 + volume * 0.10) * S, c[1] + spec.head_h * 0.38 * S),
+                    (c[0] + sign * spec.head_w * 0.14 * S, c[1] + spec.head_h * 0.30 * S),
+                    (c[0] + sign * spec.head_w * 0.04 * S, c[1] - spec.head_h * 0.10 * S),
+                ]
+                d.polygon(curtain, fill=pal["hair"], outline=outline)
+            # Center part — a thin skin-toned wedge so the two curtains
+            # don't merge into a solid block at small sizes.
+            d.polygon([
+                (c[0] - 0.6 * S, c[1] - spec.head_h * 0.48 * S),
+                (c[0] + 0.6 * S, c[1] - spec.head_h * 0.48 * S),
+                (c[0] + 0.4 * S, c[1] - spec.head_h * 0.18 * S),
+                (c[0] - 0.4 * S, c[1] - spec.head_h * 0.18 * S),
+            ], fill=pal["skin"], outline=None)
+            # Subtle highlight on the back-of-head cap to lift it off the
+            # darker outline and read less monolithic.
+            d.line([
+                (c[0] - spec.head_w * 0.28 * S, c[1] - spec.head_h * 0.42 * S),
+                (c[0] + spec.head_w * 0.20 * S, c[1] - spec.head_h * 0.52 * S),
+            ], fill=pal["hair_shine"], width=max(1, int(1.1 * S)))
         elif spec.hair_style == "crest":
             crest = [
                 (c[0] - 2 * S, c[1] - spec.head_h * 0.60 * S),

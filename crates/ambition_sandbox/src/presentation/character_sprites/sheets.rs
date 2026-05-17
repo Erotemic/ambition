@@ -959,11 +959,16 @@ pub const CREATOR_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// silhouette for the intro Nazi salvage guard (the Absurd General
 /// placeholder was a satirical hub NPC, not a raid trooper).
 pub const FASCIST_ENFORCER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
+    // Toon-target convention: yaml `label_width`+border for the offset
+    // to the first frame and yaml `frame_width`+border for the column
+    // pitch. The 4-px inter-frame gap is transparent, so the extra
+    // sample width gets clipped by `frame_sample_inset`.
+    label_width: 116,
     y_offset: 0,
-    // body_metrics frame=124×118, +4px padding → 128×122.
-    frame_width: 128,
-    frame_height: 122,
+    // body_metrics yaml frame=128×122 (already includes the right/bottom
+    // pad inside the cropped sheet); add border to match the col/row pitch.
+    frame_width: 132,
+    frame_height: 126,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -976,15 +981,24 @@ pub const FASCIST_ENFORCER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
     frame_sample_inset: 2,
 };
 
-/// Oiler — street mechanic NPC who finds the player in the drain alley
-/// after the intro escape. Toon-side adapter render; matches the Oiler
-/// review config (configs/review/oiler.yaml).
+/// Oiler — street mechanic / Eulerian gate-keeper NPC who finds the
+/// player in the drain alley after the intro escape. Toon-side adapter
+/// render; matches the Oiler review config (configs/review/oiler.yaml).
 pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
+    // Toon-target convention (see Architect/Vault Keeper above):
+    // label_width = yaml_label_width + border; frame_width/height =
+    // yaml + border. Without the +border on `label_width` the sample
+    // window starts 4 pixels left of frame 0, and the missing border
+    // on `frame_width` makes that offset accumulate by 4 px per column,
+    // causing the sprite to appear to "drive" rightward and wrap into
+    // the neighboring frame.
+    label_width: 116,
     y_offset: 0,
-    // body_metrics frame=79×100, +4px padding → 83×104.
-    frame_width: 83,
-    frame_height: 104,
+    // body_metrics yaml frame=83×101 (scholar_queue silhouette is a
+    // shade shorter than the previous workmen's-cap version); +4 border
+    // on both axes → 87×105.
+    frame_width: 87,
+    frame_height: 105,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {
@@ -1000,11 +1014,16 @@ pub const OILER_SHEET: CharacterSheetSpec = CharacterSheetSpec {
 /// Erdish — wandering graph-theory eccentric. Toon-side adapter render;
 /// matches the Erdish review config (configs/review/erdish.yaml).
 pub const ERDISH_SHEET: CharacterSheetSpec = CharacterSheetSpec {
-    label_width: 112,
+    // Toon-target convention (see Architect): yaml label_width/frame_*
+    // + 4-px border for the actual column/row pitch in the cropped
+    // sheet. The previous values omitted the border on `label_width`
+    // and `frame_*`, which made the sample window drift right by 4 px
+    // per column and pull the next frame's content.
+    label_width: 116,
     y_offset: 0,
-    // body_metrics frame=87×112, +4px padding → 91×116.
-    frame_width: 91,
-    frame_height: 116,
+    // body_metrics yaml frame=91×115; +4 border on both axes → 95×119.
+    frame_width: 95,
+    frame_height: 119,
     rows: &[(
         CharacterAnim::Idle,
         AnimRow {

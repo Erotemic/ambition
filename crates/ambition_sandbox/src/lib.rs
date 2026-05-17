@@ -124,6 +124,15 @@ pub use headless::{run_headless, HeadlessReport};
 #[cfg(feature = "rl_sim")]
 pub use rl_sim::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
 
+// Re-export the types that leak through public crate-root signatures
+// (`MovingPlatformSet.0`, `WorldTime::entity_dt`) so the modules they
+// live in can stay `pub(crate)`. Without these, downstream callers
+// couldn't name the types cleanly — `platforms::MovingPlatformState`
+// wouldn't be reachable via any pub path — and Rust's
+// private-interfaces lint would fire under `-D warnings`.
+pub use platforms::MovingPlatformState;
+pub use time_control::ProperTimeScale;
+
 use ambition_engine as ae;
 use bevy::prelude::{Message, Resource};
 
@@ -500,7 +509,7 @@ pub fn remember_safe_player_position(
            `apply_clock_scale_requests` + `smooth_sim_clock_toward_target_system`. \
            Wire your intent through `ClockScaleRequest` instead."
 )]
-pub fn update_time_scale(
+pub(crate) fn update_time_scale(
     slowmo: bool,
     sim_state: &mut SandboxSimState,
     player: &ae::Player,

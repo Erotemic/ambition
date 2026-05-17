@@ -9,13 +9,13 @@ aliases:
 implemented_by:
   - crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
   - crates/ambition_sandbox/src/world.rs
-  - tools/author_ldtk_area.py
+  - tools/ambition_ldtk_tools/ambition_ldtk_tools/area_authoring.py
   - tools/ambition_ldtk_tools
 related_adrs:
   - docs/adr/0009-world-composition-and-ldtk-authoring.md
 related_docs:
-  - docs/ldtk_world_composition.md
-  - docs/ldtk_authoring.md
+  - docs/systems/ldtk-world-composition.md
+  - docs/recipes/ldtk-authoring.md
   - docs/current/state.md
 related_memory:
   - dev/journals/lessons_learned.md
@@ -39,16 +39,16 @@ LDtk is the current sandbox level-editor adapter. Ambition still treats typed ru
 
 ## Edit protocol
 
-1. Read `docs/ldtk_authoring.md` and ADR 0009 for world-authoring direction.
+1. Read `docs/recipes/ldtk-authoring.md` and ADR 0009 for world-authoring direction.
 2. Search `dev/` for the exact LDtk symptom or field name.
-3. Use `tools/author_ldtk_area.py`, `tools/repair_ambition_ldtk.py`, or `ambition_ldtk_tools` rather than direct JSON surgery.
+3. Use `tools/ambition_ldtk_tools/ambition_ldtk_tools/area_authoring.py`, `tools/ambition_ldtk_tools/ambition_ldtk_tools/repair.py`, or `ambition_ldtk_tools` rather than direct JSON surgery.
 4. Run doctor/roundtrip validation after map mutations.
 5. Update this concept or focused LDtk docs if an authoring rule changes.
 
 ## Validation
 
 ```bash
-python tools/author_ldtk_area_features_test.py
+python -m pytest tools/ambition_ldtk_tools/tests/test_area_authoring_features.py
 python tools/check_ldtk_editor_roundtrip.py crates/ambition_sandbox/assets/ambition/worlds/sandbox.ldtk
 cargo run -p ambition_sandbox --bin headless
 ```

@@ -16,7 +16,11 @@ The README is intentionally high-level. It should not try to track every transie
 - [`docs/current/risks.md`](docs/current/risks.md) — high-risk systems and review rules.
 - [`docs/current/next.md`](docs/current/next.md) — current next good moves.
 - [`docs/GOAL_STATE.md`](docs/GOAL_STATE.md) — long-term product/engine vision.
+- [`docs/concepts/index.md`](docs/concepts/index.md) — durable concept pages: invariants, aliases, edit protocols, validation paths.
+- [`docs/systems/index.md`](docs/systems/index.md) — focused subsystem documentation.
+- [`docs/recipes/index.md`](docs/recipes/index.md) — procedural workflows for builds, tests, refactors, profiling, packaging, and content authoring.
 - [`dev/README.md`](dev/README.md) — engineering memory: journals and benchmark candidates from real mistakes.
+- [`.agent/manifest.yaml`](.agent/manifest.yaml) — generated indexes for file/symbol/test localization.
 - [`docs/adr/README.md`](docs/adr/README.md) — architectural decision records. ADRs are the durable source of truth for decisions that supersede older notes.
 
 Historical notes under `docs/` are preserved because they explain why the project moved in certain directions, but some are intentionally older than the current design. When a decision conflicts with an ADR or `docs/current/`, prefer the ADR/current-state document and update the stale note or add a supersession pointer.
@@ -84,7 +88,11 @@ The longer-term ambition is larger: movement/combat mastery, mathematical spaces
 - Put volatile state in `docs/current/`.
 - Put long-term vision in `GOAL_STATE.md`.
 - Put decisions in ADRs.
-- Put implementation notes near the system they describe, and promote durable cross-cutting rules into `docs/concepts/`.
+- Put current subsystem notes in `docs/systems/`.
+- Put procedural workflows in `docs/recipes/`.
+- Promote durable cross-cutting rules into `docs/concepts/`.
+- Keep hard-won debugging memories and benchmark traps in `dev/`.
+- Keep generated navigation aids in `.agent/` and verify them with `python scripts/check_agent_kb.py`.
 - Preserve history, but clearly mark superseded guidance.
 
 

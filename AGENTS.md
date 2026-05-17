@@ -11,7 +11,7 @@ For non-trivial work, read in this order:
 3. `dev/README.md`
 4. `docs/README.md`
 5. `docs/current/state.md`
-6. One focused concept/system/recipe doc for the task
+6. One focused concept, system doc, or recipe for the task
 
 Do not read all of `docs/` or `dev/` by default.
 
@@ -21,10 +21,11 @@ Do not read all of `docs/` or `dev/` by default.
 2. ADRs under `docs/adr/`.
 3. Current state under `docs/current/`.
 4. Concept pages under `docs/concepts/`.
-5. Focused system/recipe docs under `docs/`.
+5. Focused system docs under `docs/systems/` and recipes under `docs/recipes/`.
 6. Engineering memory under `dev/`.
+7. Generated navigation indexes under `.agent/`.
 
-Historical notes are useful evidence, but they do not override current docs or ADRs.
+Historical notes are useful evidence, but they do not override current docs or ADRs. Generated indexes aid localization but do not override source files.
 
 ## Engineering memory check
 
@@ -43,6 +44,16 @@ Use:
 - `dev/SEARCH.md` for suggested searches.
 
 Benchmark questions are distilled from real Ambition mistakes. Treat them as pre-flight checks.
+
+## Generated indexes
+
+Use `.agent/manifest.yaml` to find generated repository maps. Use `.agent/index/` for quick file, symbol, and test localization. Regenerate or update indexes when the touched code makes them stale.
+
+Run the knowledge-base check before handing off docs or KB changes:
+
+```bash
+python scripts/check_agent_kb.py
+```
 
 ## Brainstorms are alive
 

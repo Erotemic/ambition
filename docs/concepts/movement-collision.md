@@ -17,7 +17,7 @@ tested_by:
   - crates/ambition_sandbox/tests/repro_walls.rs
 related_docs:
   - docs/current/risks.md
-  - docs/gameplay_trace_recorder.md
+  - docs/systems/gameplay-trace-recorder.md
 related_memory:
   - dev/journals/movement-edge-touch-y-sweep-lessons-2026-05-11.md
   - dev/benchmark-candidates/movement-edge-touch-y-sweep-question-2026-05-11.md

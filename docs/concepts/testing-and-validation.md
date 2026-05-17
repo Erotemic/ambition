@@ -10,8 +10,8 @@ implemented_by:
   - crates/ambition_sandbox/tests
   - .github/workflows
 related_docs:
-  - docs/testing_strategy.md
-  - docs/headless_simulation.md
+  - docs/systems/testing-strategy.md
+  - docs/systems/headless-simulation.md
   - docs/current/risks.md
 related_memory:
   - dev/journals/cargo-test-command-lessons-2026-05-11.md

@@ -36,3 +36,16 @@ rg -n "input|ControlFrame|edge|held|touch|menu|semantic" dev/journals dev/benchm
 5. Promote durable rules into `docs/concepts/`, `docs/recipes/`, or `docs/adr/` when the lesson becomes current project policy.
 
 Do not load the whole corpus into context. It is a lookup memory, not a cold-start essay.
+
+
+## Generated localization aids
+
+After symptom/invariant search, use generated indexes when you need concrete files, symbols, or tests:
+
+```bash
+python scripts/check_agent_kb.py
+cat .agent/index/test_map.json
+cat .agent/index/symbol_index.json
+```
+
+The generated indexes are navigation aids. Trust source code and current docs over generated summaries if they disagree.

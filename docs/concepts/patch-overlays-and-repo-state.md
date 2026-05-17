@@ -9,7 +9,7 @@ aliases:
 related_adrs:
   - docs/adr/0006-repo-state-and-patch-packaging.md
 related_docs:
-  - docs/AGENT_HANDOFF.md
+  - AGENTS.md
 related_memory:
   - dev/journals/lessons_learned.md
   - dev/benchmark-candidates/overlay-stale-feature-events-api-question-2026-05-12.md

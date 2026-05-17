@@ -10,8 +10,8 @@ implemented_by:
   - crates/ambition_sandbox/src/assets.rs
   - crates/ambition_sandbox/assets/ambition/sandbox.ron
 related_docs:
-  - docs/asset_manager.md
-  - docs/data_driven_manifest.md
+  - docs/systems/asset-manager.md
+  - docs/systems/data-driven-manifest.md
   - docs/current/state.md
 related_memory:
   - dev/journals/lessons_learned.md

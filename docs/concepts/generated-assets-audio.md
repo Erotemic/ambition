@@ -13,10 +13,10 @@ implemented_by:
   - crates/ambition_asset_manager/src
   - assets/
 related_docs:
-  - docs/music_generation_pipeline_notes.md
-  - docs/music_transition_notes.md
-  - docs/ai_generation_contract.md
-  - docs/asset_manager.md
+  - docs/recipes/music-generation-pipeline-notes.md
+  - docs/recipes/music-transition-notes.md
+  - docs/systems/ai-generation-contract.md
+  - docs/systems/asset-manager.md
 related_memory:
   - dev/benchmark-candidates/procedural-audio-questions.md
   - dev/journals/music-director-refactor-lessons-2026-05-11.md

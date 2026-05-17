@@ -93,3 +93,14 @@ jobs:
         # for visibility but with `--message-format=short` so PR reviews
         # can spot regressions without blocking on them.
         run: cargo clippy --workspace --all-targets --message-format=short || true
+
+  agent-kb-check:
+    name: agent knowledge-base check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: python scripts/check_agent_kb.py
+        run: python scripts/check_agent_kb.py

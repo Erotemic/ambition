@@ -1,0 +1,95 @@
+schema_version: 1
+source: dev/benchmark-candidates
+purpose: >-
+  Repository-specific retrieval and localization checks. These are not answer-key
+  benchmarks for gameplay correctness; they check whether an agent can find the
+  right concept, files, memory entries, and validation commands before editing.
+
+evals:
+  - id: movement-wall-cling-teleport
+    question: The player teleports upward while wall-clinging or sweeping near an edge. What should I read, edit, and test?
+    expected_concepts:
+      - movement-collision
+    expected_memory:
+      - dev/journals/movement-edge-touch-y-sweep-lessons-2026-05-11.md
+      - dev/benchmark-candidates/movement-edge-touch-y-sweep-question-2026-05-11.md
+    expected_files:
+      - crates/ambition_engine/src/kinematic.rs
+      - crates/ambition_engine/src/movement.rs
+    expected_tests_contains:
+      - wall
+      - repro_walls
+
+  - id: rust-module-split-import-closure
+    question: A Rust module split compiles locally in one file but breaks helper methods, extension traits, or private imports elsewhere. What prior trap applies?
+    expected_concepts:
+      - rust-module-boundaries
+    expected_memory:
+      - dev/journals/rust-module-split-import-visibility-lessons-2026-05-11.md
+      - dev/benchmark-candidates/rust-module-split-subtle-review-question-2026-05-11.md
+    expected_answer_contains:
+      - re-export
+      - extension trait
+      - visibility
+
+  - id: ldtk-runtime-collision
+    question: LDtk levels load visually but collision or loading-zone behavior is wrong at runtime. Which docs and memory should the agent retrieve?
+    expected_concepts:
+      - ldtk-world-composition
+    expected_docs:
+      - docs/systems/ldtk-world-composition.md
+      - docs/recipes/ldtk-authoring.md
+      - docs/adr/0009-world-composition-and-ldtk-authoring.md
+    expected_memory:
+      - dev/benchmark-candidates/ldtk-runtime-collision-questions.md
+
+  - id: generated-audio-refactor
+    question: A music director or generated-audio refactor breaks imports, balances, or runtime cue behavior. What should be searched first?
+    expected_concepts:
+      - generated-assets-audio
+      - sim-presentation-seam
+    expected_memory:
+      - dev/journals/music-director-refactor-lessons-2026-05-11.md
+      - dev/benchmark-candidates/music-director-module-split-question-2026-05-11.md
+    expected_docs:
+      - docs/recipes/music-generation-pipeline-notes.md
+      - docs/systems/asset-manager.md
+
+  - id: cargo-test-filter
+    question: The agent wants to run multiple cargo test filters in one command. What lesson prevents the bad command?
+    expected_memory:
+      - dev/journals/cargo-test-command-lessons-2026-05-11.md
+      - dev/benchmark-candidates/cargo-test-single-filter-question-2026-05-11.md
+    expected_answer_contains:
+      - one filter
+      - cargo test
+
+  - id: stale-overlay-feature-events-api
+    question: An overlay replaces broad files and may clobber typed events or platform entrypoints. What pre-flight checks apply?
+    expected_concepts:
+      - patch-overlays-and-repo-state
+      - sim-presentation-seam
+    expected_memory:
+      - dev/benchmark-candidates/overlay-stale-feature-events-api-question-2026-05-12.md
+    expected_answer_contains:
+      - stale
+      - entrypoint
+      - validation
+
+  - id: bevy-system-tuple-chain
+    question: A Bevy plugin chains a long tuple of systems and fails with trait-bound or IntoScheduleConfigs errors. What known trap applies?
+    expected_memory:
+      - dev/benchmark-candidates/bevy-system-tuple-chain-limit-question-2026-05-12.md
+    expected_answer_contains:
+      - tuple
+      - chain
+      - split
+
+  - id: stale-ecs-components-after-sync-removal
+    question: A sync refactor removes one update path but old ECS components persist and visuals behave as if stale state remains. What should be retrieved?
+    expected_memory:
+      - dev/benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md
+    expected_answer_contains:
+      - despawn
+      - stale component
+      - sync

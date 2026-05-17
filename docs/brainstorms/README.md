@@ -23,3 +23,7 @@ A storyline should not require prerendered assets or bespoke engine behavior unl
 ## Draft status
 
 Everything here is provisional. The first playable priority remains the endgame movement sandbox. Story documentation exists now so narrative intent does not get lost while we iterate on feel, controls, audio, particles, and engine structure.
+
+## Status
+
+This directory is active design incubation, not archive material. Use it to preserve and develop ideas before they become implementation docs, ADRs, features, or TODOs.

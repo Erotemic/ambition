@@ -1,0 +1,31 @@
+schema_version: 1
+generated_from_commit: 1aa48a0
+generated_at: 2026-05-17T19:14:16Z
+
+policy:
+  human_maintained:
+    - docs/concepts
+    - docs/systems
+    - docs/recipes
+    - docs/adr
+    - dev/journals
+    - dev/benchmark-candidates
+  generated:
+    - .agent/index/file_summaries.json
+    - .agent/index/symbol_index.json
+    - .agent/index/test_map.json
+    - .agent/index/concept_index.json
+
+indexes:
+  file_summaries: .agent/index/file_summaries.json
+  symbol_index: .agent/index/symbol_index.json
+  test_map: .agent/index/test_map.json
+  concept_index: .agent/index/concept_index.json
+
+evals: .agent/retrieval_evals.yaml
+lint: scripts/check_agent_kb.py
+
+notes:
+  - Generated indexes are navigation aids, not authority.
+  - Regenerate when files, symbols, tests, or concept pages move.
+  - Keep AGENTS.md small; route to docs/dev/.agent instead of dumping knowledge there.

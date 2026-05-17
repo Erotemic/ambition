@@ -12,8 +12,8 @@ implemented_by:
 related_adrs:
   - docs/adr/0012-sim-presentation-split-and-events-refactor.md
 related_docs:
-  - docs/events_refactor_plan.md
-  - docs/gameplay_effects.md
+  - docs/recipes/events-refactor-plan.md
+  - docs/systems/gameplay-effects.md
 related_memory:
   - dev/benchmark-candidates/overlay-stale-feature-events-api-question-2026-05-12.md
 last_verified: 2026-05-17

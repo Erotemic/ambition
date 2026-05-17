@@ -23,6 +23,7 @@ mod profile;
 mod registry;
 mod rewards;
 mod specs;
+pub(crate) mod sprites;
 mod systems;
 
 #[cfg(test)]

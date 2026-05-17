@@ -852,12 +852,12 @@ fn register_embedded_assets(app: &mut App) {
         embedded.insert_asset(
             PathBuf::new(),
             Path::new(EMBEDDED_SANDBOX_LDTK_ASSET_PATH),
-            include_bytes!("../assets/ambition/worlds/sandbox.ldtk") as &[u8],
+            include_bytes!("../../assets/ambition/worlds/sandbox.ldtk") as &[u8],
         );
         embedded.insert_asset(
             PathBuf::new(),
             Path::new(EMBEDDED_INTRO_LDTK_ASSET_PATH),
-            include_bytes!("../assets/ambition/worlds/intro.ldtk") as &[u8],
+            include_bytes!("../../assets/ambition/worlds/intro.ldtk") as &[u8],
         );
     }
     #[cfg(feature = "static_core_assets")]

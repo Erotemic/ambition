@@ -10,10 +10,13 @@
 //! - [`events`]     — player-domain message types.
 //! - [`systems`]    — frame systems that read or sync the player components.
 
+pub mod bubble_shield;
 pub mod bundles;
 pub mod components;
 pub mod events;
+pub mod ledge_grab;
 pub mod queries;
+pub mod swim;
 pub mod systems;
 
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};

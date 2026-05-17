@@ -29,7 +29,7 @@ pub struct SandboxDataSpec {
 
 impl SandboxDataSpec {
     pub fn load_embedded() -> Self {
-        ron::from_str(include_str!("../assets/ambition/sandbox.ron"))
+        ron::from_str(include_str!("../../assets/ambition/sandbox.ron"))
             .expect("embedded assets/ambition/sandbox.ron should parse")
     }
 }

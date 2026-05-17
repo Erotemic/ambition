@@ -16,72 +16,80 @@
 //! longer-term events refactor that will let `sandbox_update` itself run
 //! headless.
 
-// External API surface — bins, tests, and Android/wasm entry points all
-// reach into these modules. Everything else stays `pub(crate)` so the
-// compiler can tell us what's actually depended on from outside.
-pub mod audio;
-pub mod features;
-pub mod game_mode;
-pub mod input;
-pub mod ldtk_world;
-pub mod player;
-pub mod rooms;
-pub mod trace;
+// External API surface — bins, tests, and Android/wasm entry points reach
+// into these modules. Everything else stays `pub(crate)` so the compiler
+// can tell us what's actually depended on from outside.
 pub mod app;
+pub mod audio;
 pub mod headless;
+pub mod input;
+pub mod player;
 #[cfg(feature = "rl_sim")]
 pub mod rl_sim;
 
-// Internal subsystems — no external caller depends on them, so they're
-// `pub(crate)` to keep the lib surface small. Cross-module reads inside
-// the crate still work because `pub(crate)` is visible to the rest of
-// the crate.
-pub(crate) mod banter;
+// Themed umbrellas. Each owns a coherent slice of the sandbox; the long-
+// term shape carves the reusable ones (`presentation`, `time`, `dev`,
+// `world`, `persistence`) into the future `ambition` framework crate, and
+// leaves the sandbox-specific ones (`content`, sandbox `assets`) behind.
+pub(crate) mod assets;
 pub(crate) mod body_mode;
-pub(crate) mod bubble_shield;
 pub(crate) mod boss_encounter;
-pub(crate) mod boss_sprites;
-pub(crate) mod character_sprites;
 pub(crate) mod config;
-pub(crate) mod content_validation;
-pub(crate) mod cutscene;
-pub(crate) mod data;
-pub(crate) mod debug_overlay;
-pub(crate) mod dev_tools;
+pub(crate) mod content;
+pub(crate) mod dev;
 pub(crate) mod dialog;
 pub(crate) mod encounter;
-pub(crate) mod feel;
-pub(crate) mod fps_overlay;
-pub(crate) mod fx;
-pub(crate) mod game_assets;
+pub(crate) mod host;
 pub(crate) mod intro;
 pub(crate) mod inventory;
-pub(crate) mod ledge_grab;
-pub(crate) mod loading;
 pub(crate) mod map_menu;
-pub(crate) mod mechanics;
-pub(crate) mod mobile_input;
 pub(crate) mod music;
-pub(crate) mod parallax;
 pub(crate) mod pause_menu;
-pub(crate) mod physics;
-pub(crate) mod platform;
-pub(crate) mod platforms;
-pub(crate) mod profiling;
+pub(crate) mod persistence;
+pub(crate) mod presentation;
 pub(crate) mod projectile;
-pub(crate) mod quest;
-pub(crate) mod rendering;
-pub(crate) mod reset;
-pub(crate) mod room_builder;
-pub(crate) mod sandbox_assets;
-pub(crate) mod save;
-pub(crate) mod settings;
-pub(crate) mod swim;
-pub(crate) mod time_control;
-pub(crate) mod ui_fonts;
+pub(crate) mod runtime;
+pub(crate) mod time;
 pub(crate) mod ui_nav;
-pub(crate) mod windowing;
-pub(crate) mod setup;
+pub(crate) mod world;
+
+// Backward-compat re-export shims. They surface the moved modules under
+// their old `crate::X` paths so the ~80 internal `crate::X::…` call sites
+// keep resolving without an additional cross-crate edit pass. Removing
+// these later is a mechanical search-and-replace once we're ready to
+// commit to the themed paths.
+//
+// Public re-exports (`pub use …`) double as the external API: `features`,
+// `rooms`, `ldtk_world`, `game_mode`, and `trace` are all referenced from
+// bins / tests / the engine crate's doc comments.
+pub use content::features;
+pub use dev::trace;
+pub use host::platform;
+pub use runtime::game_mode;
+pub use world::{ldtk_world, rooms};
+
+pub(crate) use assets::{game_assets, loading, sandbox_assets};
+pub(crate) use boss_encounter::sprites as boss_sprites;
+pub(crate) use content::{banter, content_validation, data, quest};
+pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics, profiling};
+pub(crate) use host::{mobile_input, windowing};
+pub(crate) use persistence::{save, settings};
+pub(crate) use player::bubble_shield;
+pub(crate) use presentation::{
+    character_sprites, cutscene, fx, parallax, rendering, ui_fonts,
+};
+pub(crate) use runtime::{reset, setup};
+pub(crate) use time::{feel, time_control};
+pub(crate) use world::{physics, platforms, room_builder};
+
+// Crate-root types/consts whose definitions moved into themed modules but
+// still need to surface at `crate::WorldTime` / `ambition_sandbox::WorldTime`.
+pub use time::camera_ease::{
+    CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE,
+    DEFAULT_CAMERA_ZOOM_OUT_RATE, DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
+};
+pub use time::move_toward;
+pub use time::world_time::{refresh_world_time, ClockDomain, WorldTime};
 
 /// Android shared-library entry point.
 ///
@@ -234,132 +242,10 @@ pub struct CurrentPlayerAttack(pub Option<PlayerAttackState>);
 #[derive(Resource, Default)]
 pub struct MovingPlatformSet(pub Vec<platforms::MovingPlatformState>);
 
-/// ADR 0010 vocabulary — the named clocks gameplay code can read.
-///
-/// `SimClock` ticks at the gameplay rate; bullet-time / hitstop /
-/// pause scale this. `PlayerClock(slot)` is a per-player cognitive
-/// rate (ADR 0011) and is what multiplayer-coherent time abilities
-/// rebind. `WallClock` is the host's real time, never scaled —
-/// used by UI fades, hot-reload polling, audio.
-///
-/// In single-player today every PlayerClock equals SimClock, so
-/// the operationally-equivalent SP path "slow sim" and MP-correct
-/// path "boost player proper time" are observationally identical.
-/// See ADR 0011 §"Two time-control operations".
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ClockDomain {
-    SimClock,
-    PlayerClock(PlayerSlot),
-    WallClock,
-}
-
-/// Per-frame dt snapshots keyed by [`ClockDomain`].
-///
-/// Use the typed accessors instead of `Res<Time>::delta_secs()`:
-///
-/// - [`WorldTime::sim_dt`] — gameplay state machines + world-anchored
-///   animation. Scales with bullet-time / hitstop / pause.
-/// - [`WorldTime::player_dt`] — per-player cognitive rate. In SP this
-///   equals `sim_dt`; in future MP it's the seam where one player's
-///   bullet-time doesn't slow the other's world.
-/// - [`WorldTime::wall_dt`] — real time. UI fades, hot-reload polling,
-///   debug overlays — anything that must NOT freeze with the world.
-///
-/// Default `sim_dt` for new code; reach for the others only when you
-/// can articulate why ([feedback-time-domains]).
-///
-/// The legacy fields [`WorldTime::raw_dt`] / [`WorldTime::scaled_dt`]
-/// remain as aliases (`raw_dt == wall_dt`, `scaled_dt == sim_dt`) so
-/// existing callers keep compiling. Migrate to the accessors at
-/// touch time; the fields are slated for removal in a follow-up.
-///
-/// Refreshed once per Update via [`refresh_world_time`] before
-/// every system that reads it; the resource is always one frame
-/// fresh by construction.
-#[derive(Resource, Default, Debug, Clone, Copy)]
-pub struct WorldTime {
-    /// Wall-clock dt from Bevy's `Time` resource. Unscaled — for
-    /// UI / debug only. Legacy alias for [`WorldTime::wall_dt`].
-    pub raw_dt: f32,
-    /// `raw_dt * SandboxSimState::time_scale`. The canonical
-    /// dt for gameplay + world-anchored animation timers. Zero
-    /// while paused (`time_scale == 0`). Legacy alias for
-    /// [`WorldTime::sim_dt`].
-    pub scaled_dt: f32,
-}
-
-impl WorldTime {
-    /// Dt for the gameplay sim clock — bullet-time / hitstop / pause
-    /// scale this. Canonical choice for world-anchored timers,
-    /// animation, AI ticks, and any gameplay state machine.
-    #[inline]
-    pub fn sim_dt(&self) -> f32 {
-        self.scaled_dt
-    }
-
-    /// Dt for the host's wall clock — never scaled. Use for UI
-    /// fades, hot-reload polling, debug overlays, audio buses;
-    /// anything that must keep ticking when the world freezes.
-    #[inline]
-    pub fn wall_dt(&self) -> f32 {
-        self.raw_dt
-    }
-
-    /// Dt for player `slot`'s cognitive clock (ADR 0011). In the
-    /// single-player Solo regime every `PlayerClock` equals
-    /// `SimClock`, so this is observationally identical to
-    /// [`Self::sim_dt`] today. The accessor is the seam where a
-    /// future CoopConsensual / Competitive regime can give each
-    /// player a distinct rate without the call sites changing.
-    #[inline]
-    pub fn player_dt(&self, _slot: PlayerSlot) -> f32 {
-        // SP regime: every PlayerClock == SimClock.
-        // ADR 0010 §Regimes — Solo is permissive; multi-observer
-        // regimes (future) will diverge here.
-        self.sim_dt()
-    }
-
-    /// Dt for an arbitrary [`ClockDomain`]. Prefer the typed
-    /// accessors above for known domains; this exists for systems
-    /// that take a domain as data (the regime-policy dispatch).
-    #[inline]
-    pub fn dt_for(&self, domain: ClockDomain) -> f32 {
-        match domain {
-            ClockDomain::SimClock => self.sim_dt(),
-            ClockDomain::PlayerClock(slot) => self.player_dt(slot),
-            ClockDomain::WallClock => self.wall_dt(),
-        }
-    }
-
-    /// Per-entity proper-time dt (ADR 0011). Multiplies [`Self::sim_dt`]
-    /// by the entity's [`crate::time_control::ProperTimeScale`] —
-    /// `1.0` by default, so callers that pass
-    /// [`crate::time_control::ProperTimeScale::ONE`] (the missing-
-    /// component case) get the same `sim_dt` value as before.
-    ///
-    /// Pattern: animator + AI systems query `Option<&ProperTimeScale>`
-    /// alongside the entity's other components and feed the result
-    /// through [`crate::time_control::ProperTimeScale::or_default`]
-    /// before calling `entity_dt`. SP gameplay is unchanged because no
-    /// entity sets the component today.
-    #[inline]
-    pub fn entity_dt(&self, scale: crate::time_control::ProperTimeScale) -> f32 {
-        self.sim_dt() * scale.value()
-    }
-}
-
-/// Refresh [`WorldTime`] from `Time × SandboxSimState::time_scale`.
-/// Registered early in the Update schedule so every downstream
-/// system sees a current value.
-pub fn refresh_world_time(
-    time: bevy::prelude::Res<bevy::prelude::Time>,
-    sim_state: bevy::prelude::Res<SandboxSimState>,
-    mut world_time: bevy::prelude::ResMut<WorldTime>,
-) {
-    let raw = time.delta_secs();
-    world_time.raw_dt = raw;
-    world_time.scaled_dt = raw * sim_state.time_scale;
-}
+// `WorldTime`, `ClockDomain`, `refresh_world_time` moved to
+// `time::world_time`; `CameraEaseState` / `CameraEaseTuning` and the
+// `DEFAULT_CAMERA_*` constants moved to `time::camera_ease`. Re-exported
+// below so `crate::WorldTime` / `ambition_sandbox::WorldTime` keep working.
 
 /// Pure simulation scalars for the running sandbox session.
 /// Holds values that belong to the simulation, not to
@@ -494,125 +380,12 @@ pub fn remember_safe_player_position(
     }
 }
 
-/// Drive the `time_scale` ramp: hitstop → bullet-time → slowmo → normal.
-///
-/// **Deprecated** as of ADR 0010 step 4. The hitstop / bullet-time /
-/// slowmo intent is now emitted via [`time_control::ClockScaleRequest`]
-/// by [`time_control::emit_player_time_intent_system`] and smoothed
-/// by [`time_control::smooth_sim_clock_toward_target_system`]. No
-/// runtime caller remains; kept in source for one release so any
-/// downstream test / experimental binary still links. To be removed
-/// next cleanup.
-#[deprecated(
-    since = "0.2.0",
-    note = "Replaced by `time_control::emit_player_time_intent_system` + \
-           `apply_clock_scale_requests` + `smooth_sim_clock_toward_target_system`. \
-           Wire your intent through `ClockScaleRequest` instead."
-)]
-pub(crate) fn update_time_scale(
-    slowmo: bool,
-    sim_state: &mut SandboxSimState,
-    player: &ae::Player,
-    hitstop_timer: f32,
-    frame_dt: f32,
-    feel: SandboxFeelTuning,
-) {
-    let target = if hitstop_timer > 0.0 {
-        0.0
-    } else if player.blink_aiming {
-        feel.bullet_time_scale
-    } else if player.blink_hold_active {
-        feel.blink_hold_slow_scale
-    } else if slowmo {
-        feel.debug_slowmo_scale
-    } else {
-        1.0
-    };
-    let rate = if target < sim_state.time_scale {
-        feel.time_ramp_down_rate
-    } else {
-        feel.time_ramp_up_rate
-    };
-    sim_state.time_scale = move_toward(sim_state.time_scale, target, rate * frame_dt);
-}
-
-/// Approach `target` from `value` by at most `delta`. Used for time-scale
-/// ramping in `update_time_scale`.
-pub fn move_toward(value: f32, target: f32, delta: f32) -> f32 {
-    if value < target {
-        (value + delta).min(target)
-    } else {
-        (value - delta).max(target)
-    }
-}
-
-/// Live camera scale + ease state. The camera reads target scale from
-/// the encounter registry (or developer overview override) every
-/// frame; this resource holds the smoothed value so transitions feel
-/// like a breath instead of a snap.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct CameraEaseState {
-    pub live_scale: f32,
-    /// Smoothed world-space camera target. Presentation-only: avoids hard
-    /// jumps when look-ahead flips with facing or when framing presets change.
-    pub live_target_world: ae::Vec2,
-    pub target_initialized: bool,
-}
-
-impl Default for CameraEaseState {
-    fn default() -> Self {
-        Self {
-            live_scale: 1.0,
-            live_target_world: ae::Vec2::ZERO,
-            target_initialized: false,
-        }
-    }
-}
-
-/// Scale-units per second when easing camera *into* an encounter
-/// (zoom-out). Faster than the recovery rate so the player feels the
-/// arena widen quickly when the lock-wall slams.
-pub const DEFAULT_CAMERA_ZOOM_OUT_RATE: f32 = 1.6;
-
-/// Scale-units per second when easing camera *out of* an encounter
-/// (zoom-in). Slower than zoom-out; the post-fight breathing room is
-/// the moment to savor.
-pub const DEFAULT_CAMERA_ZOOM_IN_RATE: f32 = 0.9;
-
-/// Below this absolute delta the camera-ease snap completes — prevents
-/// floating-point drift from accumulating into never-converges
-/// territory at the tail of the ease.
-pub const DEFAULT_CAMERA_ZOOM_SNAP_EPSILON: f32 = 0.0025;
-
-/// Tunable knobs for the camera-ease behavior. Replaces the
-/// hardcoded `CAMERA_ZOOM_{IN,OUT}_RATE` constants so the sandbox or
-/// tests can override the rates without recompiling. The defaults
-/// match the previous constants (`1.6` zoom-out, `0.9` zoom-in).
-///
-/// `target_scale > live_scale` (zooming out) uses `zoom_out_rate`;
-/// the inverse direction uses `zoom_in_rate`. `snap_epsilon` is the
-/// distance at which the ease finalizes onto the target value.
-#[derive(Resource, Clone, Copy, Debug, PartialEq)]
-pub struct CameraEaseTuning {
-    /// Scale-units per second when easing into a wider view
-    /// (encounter starts; lock-wall slam moment).
-    pub zoom_out_rate: f32,
-    /// Scale-units per second when easing back to the close view
-    /// (post-encounter breathing room).
-    pub zoom_in_rate: f32,
-    /// Snap-to-target threshold to terminate the ease.
-    pub snap_epsilon: f32,
-}
-
-impl Default for CameraEaseTuning {
-    fn default() -> Self {
-        Self {
-            zoom_out_rate: DEFAULT_CAMERA_ZOOM_OUT_RATE,
-            zoom_in_rate: DEFAULT_CAMERA_ZOOM_IN_RATE,
-            snap_epsilon: DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
-        }
-    }
-}
+// `update_time_scale` (deprecated since 0.2.0) and `move_toward` removed
+// from the crate root. `move_toward` now lives in `time::move_toward` and
+// is re-exported below; the `update_time_scale` ramp was superseded by
+// `time_control::emit_player_time_intent_system` +
+// `smooth_sim_clock_toward_target_system` (ADR 0010 step 4) and had no
+// runtime callers left.
 
 #[cfg(test)]
 mod safe_pos_tests {
@@ -773,69 +546,5 @@ mod safe_pos_tests {
     }
 }
 
-#[cfg(test)]
-mod world_time_clock_tests {
-    use super::*;
-    use crate::player::components::PlayerSlot;
-
-    /// Sim regime: SP grants every PlayerClock the SimClock rate, so
-    /// player_dt(slot) is observationally identical to sim_dt(). This
-    /// is the seam where future MP / RL regimes diverge — until they
-    /// do, the SP path stays one-line.
-    #[test]
-    fn sp_player_clock_equals_sim_clock() {
-        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 240.0 };
-        assert_eq!(wt.sim_dt(), 1.0 / 240.0);
-        assert_eq!(wt.player_dt(PlayerSlot::PRIMARY), wt.sim_dt());
-        assert_eq!(wt.player_dt(PlayerSlot(7)), wt.sim_dt());
-    }
-
-    /// Wall clock is never scaled. UI fades / hot-reload polling must
-    /// keep ticking when the world freezes.
-    #[test]
-    fn wall_dt_ignores_sim_scale() {
-        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 0.0 };
-        assert_eq!(wt.wall_dt(), 1.0 / 60.0);
-        assert_eq!(wt.sim_dt(), 0.0);
-    }
-
-    /// `dt_for(ClockDomain)` is the data-driven dispatch used by the
-    /// regime policy. Each domain routes to its typed accessor.
-    #[test]
-    fn dt_for_dispatches_by_domain() {
-        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 480.0 };
-        assert_eq!(wt.dt_for(ClockDomain::SimClock), wt.sim_dt());
-        assert_eq!(wt.dt_for(ClockDomain::WallClock), wt.wall_dt());
-        assert_eq!(
-            wt.dt_for(ClockDomain::PlayerClock(PlayerSlot::PRIMARY)),
-            wt.player_dt(PlayerSlot::PRIMARY),
-        );
-    }
-
-    /// Legacy fields remain as aliases — `raw_dt == wall_dt` and
-    /// `scaled_dt == sim_dt`. Existing call sites keep compiling.
-    #[test]
-    fn legacy_fields_alias_new_accessors() {
-        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.004 };
-        assert_eq!(wt.raw_dt, wt.wall_dt());
-        assert_eq!(wt.scaled_dt, wt.sim_dt());
-    }
-
-    /// ADR 0011 — per-entity proper time. The default scale 1.0
-    /// collapses entity_dt to sim_dt; non-1.0 scales independently
-    /// stretch or shrink the entity's tick. SP today doesn't set
-    /// the component, so every entity tickts at sim_dt — Galilean
-    /// behavior unchanged.
-    #[test]
-    fn entity_dt_default_one_equals_sim_dt() {
-        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.008 };
-        assert_eq!(wt.entity_dt(crate::time_control::ProperTimeScale::ONE), wt.sim_dt());
-    }
-
-    #[test]
-    fn entity_dt_scales_sim_dt_by_proper_time() {
-        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.008 };
-        assert!((wt.entity_dt(crate::time_control::ProperTimeScale(2.0)) - 0.016).abs() < 1e-7);
-        assert!((wt.entity_dt(crate::time_control::ProperTimeScale(0.5)) - 0.004).abs() < 1e-7);
-    }
-}
+// `world_time_clock_tests` moved alongside the implementation in
+// `time::world_time`.

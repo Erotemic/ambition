@@ -555,30 +555,30 @@ mod tests {
         // Add a one-line justification next to each entry — "why
         // does this need raw wall-clock dt and not WorldTime?"
         let allowlist: &[(&str, &str)] = &[
-            // Producer: this is THE system that writes WorldTime
-            // from Bevy's Time. Must read Time.
-            ("lib.rs", "refresh_world_time itself converts Time -> WorldTime"),
+            // Producer side: `refresh_world_time` (now in `time::world_time`)
+            // is THE system that writes WorldTime from Bevy's Time.
+            ("time/world_time.rs", "refresh_world_time itself converts Time -> WorldTime"),
             // The time-control pipeline runs on real wall-clock to
             // smoothly ramp time_scale; ramping on its own output
             // would be circular.
-            ("time_control.rs", "smoother / clock-scale dispatch is the controller, not a consumer"),
+            ("time/time_control.rs", "smoother / clock-scale dispatch is the controller, not a consumer"),
             // Cutscenes intentionally suspend bullet-time and run
             // on the wall clock so a paused cutscene still advances.
-            ("cutscene.rs", "cutscene beats are wall-clock by design"),
+            ("presentation/cutscene.rs", "cutscene beats are wall-clock by design"),
             // VFX particles are presentation; the design decision
             // is wall-clock so juice survives bullet-time. Revisit
             // if you want VFX to slow alongside the sim.
-            ("fx.rs", "VFX particles are wall-clock by design"),
+            ("presentation/fx.rs", "VFX particles are wall-clock by design"),
             // Music director (track switching, fades) is wall-clock;
             // music should not slow in bullet-time.
             ("music/director.rs", "music timing is wall-clock by design"),
             // Camera smoothing is wall-clock so glide responsiveness
             // stays consistent. Switch to scaled if bullet-time camera
             // feel is desired.
-            ("rendering/camera.rs", "camera smoothing is wall-clock by design"),
+            ("presentation/rendering/camera.rs", "camera smoothing is wall-clock by design"),
             // Physics debris is cosmetic; it spawns from sim events
             // but its falling animation is independent of sim time.
-            ("physics.rs", "debris fall is cosmetic / wall-clock by design"),
+            ("world/physics.rs", "debris fall is cosmetic / wall-clock by design"),
             // Player-input timers + the legacy sandbox_update wrapper
             // compute their own scaled dt via `sandbox_dt(hitstop,
             // time_scale, frame_dt)`. Migration target for ADR 0011
@@ -587,11 +587,11 @@ mod tests {
             ("app/sim_systems.rs", "input timers + attack advance still compute scaled dt manually — ADR 0011 follow-up"),
             ("app/input_systems.rs", "input buffer decay; ADR 0011 player-clock follow-up"),
             // Hot reload polls disk in wall-clock cadence.
-            ("ldtk_world/hot_reload.rs", "filesystem watcher cadence is wall-clock"),
+            ("world/ldtk_world/hot_reload.rs", "filesystem watcher cadence is wall-clock"),
             // Mobile-touch menu bridge: UI bridging.
-            ("mobile_input/menu_bridge.rs", "touch menu bridge is wall-clock UI"),
+            ("host/mobile_input/menu_bridge.rs", "touch menu bridge is wall-clock UI"),
             // Trace recorder timestamps each frame on the wall clock.
-            ("trace/systems.rs", "trace timestamps are wall-clock by design"),
+            ("dev/trace/systems.rs", "trace timestamps are wall-clock by design"),
         ];
 
         fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -620,7 +620,7 @@ mod tests {
                 .and_then(|p| p.to_str())
                 .unwrap_or("<non-utf8>");
             // Allow this guardrail test file itself (it names `Res<Time>` literally).
-            if rel == "time_control.rs" {
+            if rel == "time/time_control.rs" {
                 continue;
             }
             if allowlist.iter().any(|(p, _)| *p == rel) {

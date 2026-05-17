@@ -156,7 +156,7 @@ impl LdtkProject {
 
     #[cfg(feature = "static_map")]
     pub fn load_static_map() -> Result<Self, String> {
-        serde_json::from_str(include_str!("../../assets/ambition/worlds/sandbox.ldtk"))
+        serde_json::from_str(include_str!("../../../assets/ambition/worlds/sandbox.ldtk"))
             .map_err(|error| format!("could not parse statically packed sandbox.ldtk: {error}"))
     }
 
@@ -227,7 +227,7 @@ fn merge_static_secondary_worlds(project: &mut LdtkProject) {
     // file; a build-time codegen pass can replace this when the list
     // grows.
     const INTRO_LDTK_STATIC: &str =
-        include_str!("../../assets/ambition/worlds/intro.ldtk");
+        include_str!("../../../assets/ambition/worlds/intro.ldtk");
     match serde_json::from_str::<LdtkProject>(INTRO_LDTK_STATIC) {
         Ok(secondary) => append_levels(project, secondary, "intro.ldtk"),
         Err(error) => eprintln!(

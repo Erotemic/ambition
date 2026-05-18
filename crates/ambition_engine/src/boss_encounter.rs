@@ -171,6 +171,34 @@ impl BossEncounterSpec {
             music_enrage: "how_to_kill_a_mockingbird".into(),
         }
     }
+
+    /// GNU-ton — the giant GNU with a scholar perched on its shoulders.
+    ///
+    /// Multi-part fight: the player must dodge hands (Phase 1) until the
+    /// head descends (SpikeHalo windows in Phase 2+). The GNU's body
+    /// stays in the background throughout; only the head and hands are
+    /// interactive. Long HP pool to reflect the multi-part structure —
+    /// Phase 1 is pure hand-dodge pressure with no damage opportunities.
+    pub fn gnu_ton() -> Self {
+        Self {
+            id: "gnu_ton".into(),
+            name: "GNU-ton".into(),
+            max_hp: 42,
+            phase1_to_transition_hp: 0.65,
+            transition_to_phase2_hp: 0.65,
+            phase2_to_enrage_hp: 0.28,
+            intro_seconds: 2.8,
+            transition_seconds: 2.0,
+            stagger_seconds: 2.2,
+            death_seconds: 3.0,
+            stagger_threshold: 8,
+            stagger_window_seconds: 2.0,
+            music_intro: "pulse_drift_voyage".into(),
+            music_phase1: "pulse_drift_voyage".into(),
+            music_phase2: "original_lofi_loop".into(),
+            music_enrage: "original_lofi_loop".into(),
+        }
+    }
 }
 
 /// Live encounter state.
@@ -246,6 +274,15 @@ impl BossEncounterState {
             }
             ("mockingbird", BossEncounterPhase::Enrage) => {
                 Some(crate::BossPatternSchedule::mockingbird_phase2())
+            }
+            ("gnu_ton", BossEncounterPhase::Phase1) => {
+                Some(crate::BossPatternSchedule::gnu_ton_phase1())
+            }
+            ("gnu_ton", BossEncounterPhase::Phase2) => {
+                Some(crate::BossPatternSchedule::gnu_ton_phase2())
+            }
+            ("gnu_ton", BossEncounterPhase::Enrage) => {
+                Some(crate::BossPatternSchedule::gnu_ton_enrage())
             }
             _ => None,
         }

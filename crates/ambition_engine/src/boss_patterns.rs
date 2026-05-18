@@ -272,6 +272,60 @@ impl BossPatternSchedule {
         )
     }
 
+    /// GNU-ton Phase 1 — hands-only pressure: alternating hand slams and
+    /// sweeps while the head stays high. The player must dodge the
+    /// hands without being able to strike the head yet.
+    ///
+    /// Choreography: slam → rest beat → sweep → rest beat
+    pub fn gnu_ton_phase1() -> Self {
+        Self::new(
+            "gnu_ton",
+            1,
+            0xC7A3_0001,
+            vec![
+                BossPatternStep::new(BossAttackKind::FloorSlam, 0.60, 0.30, 0.65),
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.45, 0.10),
+                BossPatternStep::new(BossAttackKind::SideSweep, 0.50, 0.35, 0.55),
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.35, 0.10),
+            ],
+        )
+    }
+
+    /// GNU-ton Phase 2 — head descends: SpikeHalo opens the vulnerability
+    /// window. The player must survive hand attacks to get punish windows
+    /// when the head is low.
+    pub fn gnu_ton_phase2() -> Self {
+        Self::new(
+            "gnu_ton",
+            2,
+            0xC7A3_0002,
+            vec![
+                BossPatternStep::new(BossAttackKind::FloorSlam, 0.48, 0.28, 0.52),
+                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.70, 1.40, 0.40),
+                BossPatternStep::new(BossAttackKind::SideSweep, 0.40, 0.30, 0.45),
+                BossPatternStep::new(BossAttackKind::FloorSlam, 0.42, 0.26, 0.48),
+            ],
+        )
+    }
+
+    /// GNU-ton Enrage — rapid-fire pressure with shorter rests, both hand
+    /// attacks interleaved with head exposure. The head window gets shorter
+    /// under enrage — player must act quickly.
+    pub fn gnu_ton_enrage() -> Self {
+        Self::new(
+            "gnu_ton",
+            3,
+            0xC7A3_0003,
+            vec![
+                BossPatternStep::new(BossAttackKind::FloorSlam, 0.35, 0.22, 0.36),
+                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.55, 1.00, 0.30),
+                BossPatternStep::new(BossAttackKind::SideSweep, 0.32, 0.26, 0.38),
+                BossPatternStep::new(BossAttackKind::DashEcho,  0.42, 0.30, 0.40),
+                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.48, 0.85, 0.28),
+            ],
+        )
+    }
+
     pub fn is_valid(&self) -> bool {
         !self.boss_id.is_empty()
             && self.phase > 0

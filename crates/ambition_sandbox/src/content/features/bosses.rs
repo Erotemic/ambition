@@ -27,6 +27,15 @@ pub enum BossMovementProfile {
         chase_limit: f32,
         speed: f32,
     },
+    /// Stationary giant: the entity barely moves — only a slow breath-like
+    /// sway. The hands and head do the attacking via hitbox volumes computed
+    /// relative to spawn; the entity itself stays nearly fixed so the large
+    /// background body sprite reads as immovable.
+    StationaryGiant {
+        sway_amplitude: f32,
+        sway_frequency: f32,
+        speed: f32,
+    },
 }
 
 impl BossMovementProfile {
@@ -64,12 +73,26 @@ impl BossMovementProfile {
                         - y_radius * 0.35,
                 )
             }
+            Self::StationaryGiant {
+                sway_amplitude,
+                sway_frequency,
+                ..
+            } => {
+                // Minimal sway around spawn — the GNU-ton body stays nearly fixed.
+                let _ = anchor_to_player; // giant ignores player for movement
+                ae::Vec2::new(
+                    boss.spawn.x + (boss.movement_timer * sway_frequency).sin() * sway_amplitude,
+                    boss.spawn.y,
+                )
+            }
         }
     }
 
     fn speed(&self) -> f32 {
         match *self {
-            Self::AnchorSway { speed, .. } | Self::AirSwoop { speed, .. } => speed,
+            Self::AnchorSway { speed, .. }
+            | Self::AirSwoop { speed, .. }
+            | Self::StationaryGiant { speed, .. } => speed,
         }
     }
 }
@@ -83,6 +106,14 @@ pub enum BossAttackProfile {
     WingSweep,
     DiveLane,
     Broadside,
+    // GNU-ton specific: giant hands slam from above
+    GnuHandSlam,
+    // GNU-ton specific: hands sweep in from the far sides
+    GnuHandSweep,
+    // GNU-ton specific: the head descends into player space (vulnerability + hazard)
+    GnuHeadDescent,
+    // GNU-ton specific: shockwave from both hands meeting in the center
+    GnuShockwave,
 }
 
 /// Live sandbox-side behavior tuning for a boss. This is deliberately separate
@@ -155,6 +186,36 @@ impl BossBehaviorProfile {
         }
     }
 
+    /// GNU-ton: stationary giant with wide-ranging hand attacks.
+    ///
+    /// The entity barely moves (StationaryGiant sway). Attack volumes are
+    /// computed relative to spawn so the hands appear at the arena sides
+    /// and the descending head appears near center.
+    pub fn gnu_ton() -> Self {
+        Self {
+            id: "gnu_ton".into(),
+            // Large combat size covers the full body + hand extension range.
+            // The player can be damaged by the hands (far sides) or the descending head.
+            combat_size: Some(ae::Vec2::new(580.0, 320.0)),
+            movement: BossMovementProfile::StationaryGiant {
+                sway_amplitude: 6.0,
+                sway_frequency: 0.28,
+                speed: 40.0,
+            },
+            attacks: vec![
+                BossAttackProfile::GnuHandSlam,
+                BossAttackProfile::GnuHandSweep,
+                BossAttackProfile::GnuHeadDescent,
+                BossAttackProfile::GnuShockwave,
+            ],
+            attack_cooldown: 1.20,
+            attack_windup: 0.62,
+            attack_active: 0.35,
+            attack_damage: 2,
+            body_damage: 0, // no contact damage from the offscreen body
+        }
+    }
+
     pub fn generic(id: impl Into<String>) -> Self {
         let mut profile = Self::clockwork_warden();
         profile.id = id.into();
@@ -166,6 +227,7 @@ impl BossBehaviorProfile {
         match key.as_str() {
             "mockingbird" => Self::mockingbird(),
             "clockwork_warden" | "gradient_sentinel" => Self::clockwork_warden(),
+            "gnu_ton" => Self::gnu_ton(),
             other => Self::generic(other),
         }
     }
@@ -248,6 +310,12 @@ impl BossRuntime {
 
     pub fn is_mockingbird(&self) -> bool {
         self.behavior.id == "mockingbird" || self.name.eq_ignore_ascii_case("mockingbird")
+    }
+
+    pub fn is_gnu_ton(&self) -> bool {
+        self.behavior.id == "gnu_ton"
+            || self.name.eq_ignore_ascii_case("gnu_ton")
+            || self.name.eq_ignore_ascii_case("gnu-ton")
     }
 
     pub fn render_size(&self) -> ae::Vec2 {
@@ -356,6 +424,38 @@ impl BossRuntime {
                     ae::Vec2::new(size.x * 0.18, size.y * 0.84),
                 ),
             ],
+            // GNU-ton: two giant hands slam down from the top of the arena.
+            // Hitboxes appear at the far left and right of the combat zone,
+            // extending from near the top down to the floor.
+            BossAttackProfile::GnuHandSlam => vec![
+                ae::Aabb::new(
+                    self.pos + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
+                    ae::Vec2::new(size.x * 0.14, size.y * 0.60),
+                ),
+                ae::Aabb::new(
+                    self.pos + ae::Vec2::new(size.x * 0.40, size.y * 0.25),
+                    ae::Vec2::new(size.x * 0.14, size.y * 0.60),
+                ),
+            ],
+            // GNU-ton: hands sweep from the far sides inward.
+            // A wide horizontal hitbox covers most of the arena width at mid-height.
+            BossAttackProfile::GnuHandSweep => vec![ae::Aabb::new(
+                self.pos + ae::Vec2::new(0.0, size.y * 0.15),
+                ae::Vec2::new(size.x * 0.85, size.y * 0.28),
+            )],
+            // GNU-ton: the GNU head descends into player space.
+            // Contact with the center-top region is dangerous; this is also
+            // the window where the head becomes the vulnerable target.
+            BossAttackProfile::GnuHeadDescent => vec![ae::Aabb::new(
+                self.pos + ae::Vec2::new(0.0, size.y * 0.05),
+                ae::Vec2::new(size.x * 0.32, size.y * 0.38),
+            )],
+            // GNU-ton: shockwave when both hands meet in the center.
+            // Floor-level shockwave spanning the full arena width.
+            BossAttackProfile::GnuShockwave => vec![ae::Aabb::new(
+                self.pos + ae::Vec2::new(0.0, size.y * 0.48),
+                ae::Vec2::new(size.x * 0.90, size.y * 0.08),
+            )],
         }
     }
 

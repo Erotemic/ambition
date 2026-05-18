@@ -87,6 +87,7 @@ _TACKON_TARGETS: dict[str, str] = {
     # "Sprites") and restored 2026-05-16 so `render-publish-all` and
     # `list-targets` see them again.
     "creator": "ambition_sprite2d_renderer.targets.creator",
+    "gnu_ton_boss": "ambition_sprite2d_renderer.targets.gnu_ton_boss",
     "mockingbird_boss": "ambition_sprite2d_renderer.targets.mockingbird_boss",
     "pirate_admiral": "ambition_sprite2d_renderer.targets.pirate_admiral",
     "pirate_raider": "ambition_sprite2d_renderer.targets.pirate_raider",

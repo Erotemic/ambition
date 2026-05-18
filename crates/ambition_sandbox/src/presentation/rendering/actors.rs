@@ -514,17 +514,21 @@ pub fn upgrade_boss_sprites(
         if !matches!(view.kind, FeatureVisualKind::Boss) {
             continue;
         }
-        // Pick the per-boss sheet by authored name. The mockingbird
-        // ships its own 6-row sheet (hover / thrust / bite / slash /
-        // hit / death) installed by the standalone python generator;
-        // other bosses fall back to the gradient-sentinel sheet that
-        // ships with the main `ambition_sprite2d_renderer` package.
-        // If neither is available we skip — the colored rectangle
+        // Pick the per-boss sheet by authored name. Each boss has its
+        // own spritesheet from a dedicated Python generator; unrecognized
+        // bosses fall back to the gradient-sentinel sheet.
+        // If no asset is available we skip — the colored rectangle
         // fallback in `sync_visuals` continues to render.
         let boss_name = crate::features::ecs_boss_name(&visual.id, &ecs_bosses)
             .unwrap_or("");
         let boss_asset = if boss_name.eq_ignore_ascii_case("mockingbird") {
             assets.mockingbird.as_ref().or(assets.boss.as_ref())
+        } else if boss_name.eq_ignore_ascii_case("gnu_ton")
+            || boss_name.eq_ignore_ascii_case("gnu-ton")
+            || boss_name.to_lowercase().starts_with("gnu_ton")
+            || boss_name.to_lowercase().starts_with("gnu-ton")
+        {
+            assets.gnu_ton.as_ref().or(assets.boss.as_ref())
         } else {
             assets.boss.as_ref()
         };

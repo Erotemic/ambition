@@ -335,6 +335,83 @@ pub struct BossSpriteAsset {
 pub(crate) const BOSS_FILENAME: &str = "boss_spritesheet.png";
 pub(crate) const MOCKINGBIRD_FILENAME: &str =
     "mockingbird_boss/mockingbird_boss_spritesheet.png";
+pub(crate) const GNU_TON_FILENAME: &str =
+    "gnu_ton_boss/gnu_ton_boss_spritesheet.png";
+
+/// GNU-ton boss sheet.
+///
+/// Frame layout: 512×384 pixels per frame, 6 animation rows.
+/// Rows map to BossAnim as: Rest/FloorSlam/SideSweep/SpikeHalo/Hit/Death.
+///
+/// The collision box is placed at the GNU-ton scholar's location (near
+/// top of the frame). `body_centered: true` with `feet_anchor_y ≈ 0.63`
+/// places the entity position at the man's rendered location, letting
+/// the full GNU body hang below in the arena.
+///
+/// `collision_scale: 4.5` makes the 512×384 sprite render at roughly
+/// 360×270 game-pixels for a collision box of 80px height — the giant
+/// GNU body dominates the arena visually.
+pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
+    label_width: 0,
+    frame_width: 512,
+    frame_height: 384,
+    rows: &[
+        (
+            BossAnim::Rest,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.120,
+            },
+        ),
+        (
+            BossAnim::FloorSlam,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.085,
+            },
+        ),
+        (
+            BossAnim::SideSweep,
+            AnimRow {
+                frame_count: 7,
+                duration_secs: 0.075,
+            },
+        ),
+        (
+            BossAnim::SpikeHalo,
+            AnimRow {
+                frame_count: 6,
+                duration_secs: 0.095,
+            },
+        ),
+        (
+            BossAnim::Hit,
+            AnimRow {
+                frame_count: 5,
+                duration_secs: 0.080,
+            },
+        ),
+        (
+            BossAnim::Death,
+            AnimRow {
+                frame_count: 8,
+                duration_secs: 0.110,
+            },
+        ),
+    ],
+    // At collision_scale 4.5, a 80-px-tall collision box renders the
+    // sprite at 360px tall x 480px wide — the GNU body fills the arena.
+    collision_scale: 4.5,
+    // The scholar (GNU-ton) sits at roughly 18% from the top of the 384px
+    // frame (≈70px from top). In Bevy +Y-up, that's 0.5 − 70/384 ≈ +0.32
+    // above sprite center. With body_centered:true this value is used
+    // verbatim as the anchor.y, placing the entity position at the man.
+    feet_anchor_y: 0.32,
+    frame_sample_inset: 1,
+    // body_centered:true bypasses the feet-on-floor delta so the man
+    // (not the GNU's hooves) is placed at the entity transform origin.
+    body_centered: true,
+};
 
 /// Sandbox-side `(label, filename)` rows for every boss spritesheet
 /// the sandbox knows about. The aggregator in
@@ -344,6 +421,7 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
     vec![
         ("gradient_sentinel", BOSS_FILENAME),
         ("mockingbird", MOCKINGBIRD_FILENAME),
+        ("gnu_ton", GNU_TON_FILENAME),
     ]
 }
 
@@ -381,6 +459,23 @@ pub fn load_mockingbird_sprite_in(
         layouts,
         "mockingbird",
         MOCKINGBIRD_SHEET,
+    )
+}
+
+/// Build the boss sprite asset for the GNU-ton sheet (installed by
+/// `tools/ambition_sprite2d_renderer render-publish gnu_ton_boss`).
+/// Returns `None` if the PNG is missing — falls back to colored rectangle.
+pub fn load_gnu_ton_sprite_in(
+    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    asset_server: &AssetServer,
+    layouts: &mut Assets<TextureAtlasLayout>,
+) -> Option<BossSpriteAsset> {
+    load_named_boss_sprite_via_catalog(
+        catalog,
+        asset_server,
+        layouts,
+        "gnu_ton",
+        GNU_TON_SHEET,
     )
 }
 
@@ -641,5 +736,35 @@ mod tests {
         assert!(!is_boss_kind(FeatureVisualKind::Enemy));
         assert!(!is_boss_kind(FeatureVisualKind::Hazard));
         assert!(!is_boss_kind(FeatureVisualKind::Chest));
+    }
+
+    #[test]
+    fn gnu_ton_sheet_has_six_rows() {
+        assert_eq!(GNU_TON_SHEET.rows.len(), 6);
+    }
+
+    #[test]
+    fn gnu_ton_sheet_is_body_centered() {
+        // body_centered:true is required so the man (at top of frame)
+        // is placed at the entity transform origin rather than the
+        // GNU's hooves (at the bottom of frame).
+        assert!(GNU_TON_SHEET.body_centered);
+    }
+
+    #[test]
+    fn gnu_ton_anchor_is_above_sprite_center() {
+        // feet_anchor_y > 0 means the entity position is above the
+        // sprite center — placing the man (upper frame) at entity pos.
+        assert!(GNU_TON_SHEET.feet_anchor_y > 0.0,
+            "feet_anchor_y should be positive for GNU-ton (man at top), got {}",
+            GNU_TON_SHEET.feet_anchor_y);
+        // Should not be so large that the man falls outside the frame.
+        assert!(GNU_TON_SHEET.feet_anchor_y < 0.5,
+            "feet_anchor_y too large, would place entity at sprite top edge");
+    }
+
+    #[test]
+    fn gnu_ton_side_sweep_resolves_to_itself() {
+        assert_eq!(GNU_TON_SHEET.resolve_anim(BossAnim::SideSweep), BossAnim::SideSweep);
     }
 }

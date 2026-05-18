@@ -606,6 +606,11 @@ pub struct GameAssets {
     /// layer dispatches on the boss's authored name to pick this
     /// asset; other bosses fall back to `boss`.
     pub mockingbird: Option<BossSpriteAsset>,
+    /// GNU-ton boss spritesheet — the giant GNU wildebeest with a
+    /// scholar (GNU-ton) perched on its shoulders. 6-row layout:
+    /// rest / hand_slam / hand_sweep / head_down / hit / death.
+    /// Installed by `ambition_sprite2d_renderer render-publish gnu_ton_boss`.
+    pub gnu_ton: Option<BossSpriteAsset>,
     /// Optional generated biome sky/background/parallax layers. Missing PNGs
     /// are fine: room rendering simply skips the extra layers and keeps the
     /// existing clear-color/grid/block visuals.
@@ -635,6 +640,7 @@ pub fn load_game_assets(
     let entities = load_entity_sprites(catalog, asset_server);
     let boss = boss_sprites::load_boss_sprite_in(catalog, asset_server, layouts);
     let mockingbird = boss_sprites::load_mockingbird_sprite_in(catalog, asset_server, layouts);
+    let gnu_ton = boss_sprites::load_gnu_ton_sprite_in(catalog, asset_server, layouts);
     let parallax_layers = load_parallax_layers(catalog, asset_server);
 
     let missing = EntitySprite::ALL.len() - entities.len();
@@ -651,6 +657,7 @@ pub fn load_game_assets(
         entities,
         boss,
         mockingbird,
+        gnu_ton,
         parallax_layers,
     }
 }

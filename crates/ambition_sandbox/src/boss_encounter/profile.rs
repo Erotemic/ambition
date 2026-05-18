@@ -55,6 +55,27 @@ impl BossProfile {
         }
     }
 
+    /// GNU-ton — the giant GNU wildebeest with a scholar on its shoulders.
+    ///
+    /// Phase 1: hands-only — player must dodge without dealing damage.
+    /// Phase 2+: head descends periodically (SpikeHalo windows) — the
+    /// player can deal damage during the head-down vulnerability period.
+    /// The arena needs to be wide (~640px) to give space for the hands.
+    pub fn gnu_ton() -> Self {
+        let encounter = ae::BossEncounterSpec::gnu_ton();
+        Self {
+            id: encounter.id.clone(),
+            display_name: encounter.name.clone(),
+            encounter,
+            behavior: crate::features::BossBehaviorProfile::gnu_ton(),
+            reward: BossRewardProfile::DropChest {
+                pickup: ae::PickupKind::Custom("gnu_scroll".to_string()),
+                offset: ae::Vec2::new(0.0, 30.0),
+                size: ae::Vec2::new(52.0, 52.0),
+            },
+        }
+    }
+
     pub fn generic(id: impl Into<String>, display_name: impl Into<String>, max_hp: i32) -> Self {
         let id = id.into();
         let display_name = display_name.into();
@@ -76,13 +97,18 @@ impl BossProfile {
         match id.as_str() {
             "clockwork_warden" | "gradient_sentinel" => Some(Self::clockwork_warden()),
             "mockingbird" => Some(Self::mockingbird()),
+            "gnu_ton" => Some(Self::gnu_ton()),
             _ => None,
         }
     }
 }
 
 pub fn default_boss_profiles() -> Vec<BossProfile> {
-    vec![BossProfile::clockwork_warden(), BossProfile::mockingbird()]
+    vec![
+        BossProfile::clockwork_warden(),
+        BossProfile::mockingbird(),
+        BossProfile::gnu_ton(),
+    ]
 }
 
 #[cfg(test)]

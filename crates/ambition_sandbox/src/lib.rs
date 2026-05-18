@@ -79,7 +79,9 @@ pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics, profiling
 pub(crate) use host::{mobile_input, platform, windowing};
 pub(crate) use persistence::{save, settings};
 pub(crate) use player::bubble_shield;
-pub(crate) use presentation::{character_sprites, cutscene, fx, rendering, ui_fonts};
+pub(crate) use presentation::{
+    character_sprites, cutscene, fx, rendering, screen_effects, ui_fonts,
+};
 pub(crate) use runtime::{reset, setup};
 pub(crate) use time::{feel, time_control};
 pub(crate) use world::{physics, platforms};

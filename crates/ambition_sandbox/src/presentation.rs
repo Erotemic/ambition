@@ -11,4 +11,5 @@ pub mod cutscene;
 pub mod fx;
 pub mod parallax;
 pub mod rendering;
+pub mod screen_effects;
 pub mod ui_fonts;

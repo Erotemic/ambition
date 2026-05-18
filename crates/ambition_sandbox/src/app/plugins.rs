@@ -651,12 +651,14 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<DeveloperTools>()
         .register_type::<PlayerBodyProfile>()
         .register_type::<MovementProfile>()
+        .register_type::<ScreenEffectPreset>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
         .register_type::<SandboxFeelTuning>();
 
     app.add_plugins(crate::platform::PlatformPlugin);
+    app.add_plugins(crate::screen_effects::ScreenEffectsPlugin);
     add_dev_tools_plugins(app);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);

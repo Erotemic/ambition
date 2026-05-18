@@ -322,7 +322,11 @@ fn presentation_world_inner(
     let ui_fonts: Option<&UiFonts> = None;
     let character_sprites = &game_assets.characters;
 
-    commands.spawn((Camera2d, Name::new("Main Camera")));
+    commands.spawn((
+        Camera2d,
+        crate::screen_effects::ScreenEffectSettings::default(),
+        Name::new("Main Camera"),
+    ));
 
     // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
     // (panics with "time not implemented on this platform"). Gate the

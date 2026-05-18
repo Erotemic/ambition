@@ -115,6 +115,8 @@ pub enum SettingsItem {
     OverviewCamera,
     MicroGrid,
     CameraFrame,
+    ScreenEffectPreset,
+    ScreenEffectStrength,
     PlayerBodyProfile,
     MovementProfile,
     LdtkAutoApply,
@@ -181,6 +183,8 @@ impl SettingsItem {
                 Self::OverviewCamera,
                 Self::MicroGrid,
                 Self::CameraFrame,
+                Self::ScreenEffectPreset,
+                Self::ScreenEffectStrength,
                 Self::PlayerBodyProfile,
                 Self::MovementProfile,
                 Self::LdtkAutoApply,
@@ -362,6 +366,12 @@ impl SettingsItem {
             Self::CameraFrame => {
                 format!("Camera Frame: {}", on_off(dev.camera_frame))
             }
+            Self::ScreenEffectPreset => {
+                format!("Screen Effect: {}  < / >", dev.screen_effect_preset.label())
+            }
+            Self::ScreenEffectStrength => {
+                format!("Effect Strength: {}%  < / >", dev.screen_effect_strength_percent)
+            }
             Self::PlayerBodyProfile => {
                 format!("Player Body: {}  < / >", dev.player_body_profile.label())
             }
@@ -396,6 +406,8 @@ pub struct DevToggleSnapshot {
     pub overview_camera: bool,
     pub micro_grid: bool,
     pub camera_frame: bool,
+    pub screen_effect_preset: crate::dev_tools::ScreenEffectPreset,
+    pub screen_effect_strength_percent: u8,
     pub player_body_profile: crate::dev_tools::PlayerBodyProfile,
     pub movement_profile: crate::dev_tools::MovementProfile,
     pub ldtk_auto_apply: bool,
@@ -415,6 +427,8 @@ impl DevToggleSnapshot {
             overview_camera: developer.overview_camera,
             micro_grid: developer.show_micro_grid,
             camera_frame: developer.show_camera_frame,
+            screen_effect_preset: developer.screen_effect_preset,
+            screen_effect_strength_percent: developer.screen_effect_strength_percent(),
             player_body_profile: developer.player_body_profile,
             movement_profile: developer.movement_profile,
             ldtk_auto_apply: ldtk_reload.auto_apply,
@@ -756,6 +770,20 @@ pub fn apply_action(
                 developer.show_camera_frame = !developer.show_camera_frame;
             }
         }
+        SettingsItem::ScreenEffectPreset => match action {
+            SettingsAction::Prev => {
+                developer.screen_effect_preset = developer.screen_effect_preset.prev();
+            }
+            SettingsAction::Next | SettingsAction::Confirm => {
+                developer.screen_effect_preset = developer.screen_effect_preset.next();
+            }
+        },
+        SettingsItem::ScreenEffectStrength => match action {
+            SettingsAction::Prev => developer.nudge_screen_effect_strength(-0.10),
+            SettingsAction::Next | SettingsAction::Confirm => {
+                developer.nudge_screen_effect_strength(0.10);
+            }
+        },
         SettingsItem::PlayerBodyProfile => match action {
             SettingsAction::Prev => {
                 developer.player_body_profile = developer.player_body_profile.prev();

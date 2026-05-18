@@ -149,6 +149,57 @@ impl MovementProfile {
     }
 }
 
+/// Camera-space screen filter presets exposed in the Developer settings page.
+///
+/// These are intentionally high-level. The presentation-side post-process
+/// shader maps each preset to a bundle of scanline, noise, vignette, color,
+/// and UV-distortion parameters so the menu can stay small.
+#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ScreenEffectPreset {
+    #[default]
+    Off,
+    RobotDeathStatic,
+    Crt,
+    Underwater,
+}
+
+impl ScreenEffectPreset {
+    pub const ALL: [Self; 4] = [
+        Self::Off,
+        Self::RobotDeathStatic,
+        Self::Crt,
+        Self::Underwater,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::RobotDeathStatic => "robot death static",
+            Self::Crt => "CRT",
+            Self::Underwater => "underwater ripple",
+        }
+    }
+
+    pub fn gpu_id(self) -> f32 {
+        match self {
+            Self::Off => 0.0,
+            Self::RobotDeathStatic => 1.0,
+            Self::Crt => 2.0,
+            Self::Underwater => 3.0,
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|p| *p == self).unwrap_or(0);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
 /// Top-level switches for debug UI and gizmo layers.
 #[derive(Resource, Reflect, Clone, Debug)]
 #[reflect(Resource)]
@@ -185,6 +236,13 @@ pub struct DeveloperTools {
     pub overview_camera: bool,
     /// Orthographic scale used while overview camera is enabled.
     pub overview_camera_scale: f32,
+    /// Active whole-screen post-process preset. This is synced onto the
+    /// presentation camera and extracted to the render graph each frame.
+    pub screen_effect_preset: ScreenEffectPreset,
+    /// Scalar applied to the active screen-effect preset. Kept in 0..=1 for
+    /// menu friendliness; individual shader ingredients can still map this
+    /// to stronger/smaller internal amplitudes.
+    pub screen_effect_strength: f32,
     /// High-level movement collider size preset for sandbox feel testing.
     pub player_body_profile: PlayerBodyProfile,
     /// High-level movement tuning preset for sandbox feel testing.
@@ -222,9 +280,21 @@ impl Default for DeveloperTools {
             show_rebound_vectors: !phone_demo,
             overview_camera: false,
             overview_camera_scale: 2.35,
+            screen_effect_preset: ScreenEffectPreset::default(),
+            screen_effect_strength: 1.0,
             player_body_profile: PlayerBodyProfile::default(),
             movement_profile: MovementProfile::default(),
         }
+    }
+}
+
+impl DeveloperTools {
+    pub fn screen_effect_strength_percent(&self) -> u8 {
+        (self.screen_effect_strength.clamp(0.0, 1.0) * 100.0).round() as u8
+    }
+
+    pub fn nudge_screen_effect_strength(&mut self, delta: f32) {
+        self.screen_effect_strength = (self.screen_effect_strength + delta).clamp(0.0, 1.0);
     }
 }
 

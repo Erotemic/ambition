@@ -27,18 +27,29 @@ pub enum TouchActionButton {
     Reset,
 }
 
+/// Uniform shrink factor applied to every touch-control dimension
+/// (action cluster, button positions/sizes, menu row). Bumped from
+/// the original 1.0 layout after Android playtesting showed the HUD
+/// eating too much screen real estate; keep the diamond/menu shape
+/// identical and just scale through this single knob.
+pub(super) const TOUCH_SCALE: f32 = 0.7;
+/// Font shrinks more conservatively than geometry so the labels stay
+/// legible at phone DPI even when the buttons themselves drop by 30%.
+pub(super) const TOUCH_FONT_SCALE: f32 = 0.85;
 pub(super) const ACTION_CLUSTER_MARGIN: f32 = 10.0;
 pub(super) const ACTION_BEZEL_PAD: f32 = 8.0;
-pub(super) const ACTION_CLUSTER_W: f32 = 310.0;
-pub(super) const ACTION_CLUSTER_H: f32 = 312.0;
+pub(super) const ACTION_CLUSTER_W: f32 = 310.0 * TOUCH_SCALE;
+pub(super) const ACTION_CLUSTER_H: f32 = 312.0 * TOUCH_SCALE;
 pub(super) const ACTION_BEZEL_W: f32 = ACTION_CLUSTER_W + ACTION_BEZEL_PAD * 2.0;
 pub(super) const ACTION_BEZEL_H: f32 = ACTION_CLUSTER_H + ACTION_BEZEL_PAD * 2.0;
 pub(super) const MENU_ROW_MARGIN: f32 = 12.0;
-pub(super) const MENU_ROW_W: f32 = 198.0;
-pub(super) const MENU_W: f32 = 88.0;
-pub(super) const MENU_H: f32 = 44.0;
-/// 88px button + 4px margin each side.
-pub(super) const MENU_CELL: f32 = 96.0;
+pub(super) const MENU_ROW_W: f32 = 198.0 * TOUCH_SCALE;
+pub(super) const MENU_W: f32 = 88.0 * TOUCH_SCALE;
+pub(super) const MENU_H: f32 = 44.0 * TOUCH_SCALE;
+/// 88px button + 4px margin each side, scaled to match the shrunken
+/// menu buttons so multitouch hit testing stays aligned with the
+/// rendered overlay.
+pub(super) const MENU_CELL: f32 = 96.0 * TOUCH_SCALE;
 
 #[derive(Clone, Copy, Debug)]
 pub struct TouchActionSpec {
@@ -54,71 +65,54 @@ pub struct TouchActionSpec {
 /// raw multitouch hit testing. Keep all positions here so spacing fixes
 /// cannot drift between the visible overlay and the Android touch path.
 pub fn touch_action_layout() -> [TouchActionSpec; 8] {
+    // Authored at the original 1.0-scale layout; `scaled` multiplies
+    // through TOUCH_SCALE / TOUCH_FONT_SCALE so a single knob shrinks
+    // the entire HUD without disturbing the diamond shape.
+    let scaled = |action, label, left, top, size, font_size| TouchActionSpec {
+        action,
+        label,
+        left: left * TOUCH_SCALE,
+        top: top * TOUCH_SCALE,
+        size: size * TOUCH_SCALE,
+        font_size: font_size * TOUCH_FONT_SCALE,
+    };
     [
-        TouchActionSpec {
-            action: TouchActionButton::Blink,
-            label: "Blink",
-            left: 18.0,
-            top: 10.0,
-            size: 64.0,
-            font_size: 13.0,
-        },
-        TouchActionSpec {
-            action: TouchActionButton::FlyToggle,
-            label: "Fly",
-            left: 123.0,
-            top: 2.0,
-            size: 68.0,
-            font_size: 14.0,
-        },
-        TouchActionSpec {
-            action: TouchActionButton::Projectile,
-            label: "Shot",
-            left: 228.0,
-            top: 10.0,
-            size: 64.0,
-            font_size: 13.0,
-        },
-        TouchActionSpec {
-            action: TouchActionButton::Interact,
-            label: "Interact",
-            left: 116.0,
-            top: 76.0,
-            size: 76.0,
-            font_size: 14.0,
-        },
-        TouchActionSpec {
-            action: TouchActionButton::Attack,
-            label: "Attack",
-            left: 48.0,
-            top: 148.0,
-            size: 78.0,
-            font_size: 14.0,
-        },
-        TouchActionSpec {
-            action: TouchActionButton::Dash,
-            label: "Dash",
-            left: 184.0,
-            top: 148.0,
-            size: 78.0,
-            font_size: 14.0,
-        },
-        TouchActionSpec {
-            action: TouchActionButton::Shield,
-            label: "Shield",
-            left: 5.0,
-            top: 222.0,
-            size: 72.0,
-            font_size: 13.0,
-        },
-        TouchActionSpec {
-            action: TouchActionButton::Jump,
-            label: "Jump",
-            left: 115.0,
-            top: 218.0,
-            size: 80.0,
-            font_size: 15.0,
-        },
+        scaled(TouchActionButton::Blink, "Blink", 18.0, 10.0, 64.0, 13.0),
+        scaled(TouchActionButton::FlyToggle, "Fly", 123.0, 2.0, 68.0, 14.0),
+        scaled(
+            TouchActionButton::Projectile,
+            "Shot",
+            228.0,
+            10.0,
+            64.0,
+            13.0,
+        ),
+        scaled(
+            TouchActionButton::Interact,
+            "Interact",
+            116.0,
+            76.0,
+            76.0,
+            14.0,
+        ),
+        scaled(
+            TouchActionButton::Attack,
+            "Attack",
+            48.0,
+            148.0,
+            78.0,
+            14.0,
+        ),
+        scaled(TouchActionButton::Dash, "Dash", 184.0, 148.0, 78.0, 14.0),
+        scaled(
+            TouchActionButton::Shield,
+            "Shield",
+            5.0,
+            222.0,
+            72.0,
+            13.0,
+        ),
+        scaled(TouchActionButton::Jump, "Jump", 115.0, 218.0, 80.0, 15.0),
     ]
 }
 

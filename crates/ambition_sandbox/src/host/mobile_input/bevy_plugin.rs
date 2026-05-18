@@ -165,6 +165,16 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
     // for blink-aim, the right-stick gamepad path stays
     // canonical, and on touch the action buttons cover Blink as
     // a tap (a future polish could add a directional gesture).
+    // Joystick footprint is scaled by `TOUCH_SCALE` from the original
+    // 120x120 / 56x56 layout to match the shrunken action cluster.
+    // Keep the `JOYSTICK_*` constants in sync with the area exclusion
+    // in `menu_bridge::touch_control_area_contains` (uses the same
+    // base+margin geometry to skip the stick when matching menu
+    // drag-scroll gestures).
+    use super::layout::TOUCH_SCALE;
+    let stick_base = 120.0 * TOUCH_SCALE;
+    let stick_knob = 56.0 * TOUCH_SCALE;
+    let stick_margin = 24.0 * TOUCH_SCALE;
     create_joystick(
         &mut cmd,
         MobileStick::Move,
@@ -176,14 +186,14 @@ fn spawn_touch_joysticks(mut cmd: Commands, mut images: ResMut<Assets<Image>>) {
         Some(Color::srgba(0.95, 0.95, 0.95, 0.58)),
         Some(Color::srgba(0.20, 0.30, 0.45, 0.46)),
         Some(Color::srgba(0.10, 0.16, 0.24, 0.18)),
-        Vec2::new(56.0, 56.0),
-        Vec2::new(120.0, 120.0),
+        Vec2::new(stick_knob, stick_knob),
+        Vec2::new(stick_base, stick_base),
         Node {
-            width: Val::Px(120.0),
-            height: Val::Px(120.0),
+            width: Val::Px(stick_base),
+            height: Val::Px(stick_base),
             position_type: PositionType::Absolute,
-            left: Val::Px(24.0),
-            bottom: Val::Px(24.0),
+            left: Val::Px(stick_margin),
+            bottom: Val::Px(stick_margin),
             ..default()
         },
         // JoystickFixed: knob returns to base center on release

@@ -21,7 +21,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState, TouchControlsVisible};
-use super::layout::touch_action_at_position;
+use super::layout::{touch_action_at_position, TOUCH_SCALE};
 use super::state::{fold_touch_into_control_frame, touch_state_is_active, TouchInputState};
 use crate::input::{ControlFrame, MenuControlFrame, MenuInputState};
 
@@ -48,6 +48,7 @@ use crate::input::{ControlFrame, MenuControlFrame, MenuInputState};
 /// stick/button intent via [`fold_to_menu_control_frame`] instead.
 pub fn fold_to_control_frame(
     mode: Res<State<crate::game_mode::GameMode>>,
+    cutscene: Res<crate::cutscene::ActiveCutscene>,
     state: Res<MobileTouchState>,
     visible: Res<TouchControlsVisible>,
     mut frame: ResMut<ControlFrame>,
@@ -56,6 +57,16 @@ pub fn fold_to_control_frame(
         return;
     }
     if !mode.get().allows_gameplay() {
+        return;
+    }
+    // Cutscenes don't change GameMode (they overlay `Playing`), so the
+    // mode gate above doesn't catch them. Without this check, touch
+    // joystick + buttons would steer the character through a scripted
+    // beat even though `populate_control_frame_from_actions` already
+    // zeroed the keyboard-derived gameplay frame for the cutscene.
+    // Cutscene advance/skip from touch lives on the menu frame via
+    // `apply_menu_frame_to_cutscene_request`.
+    if cutscene.is_playing() {
         return;
     }
     if !touch_state_is_active(&state.0) {
@@ -216,6 +227,10 @@ pub(super) fn touch_control_area_contains(pos: Vec2, window_size: Vec2) -> bool 
     // Approximate virtual joystick footprint in the lower-left corner.
     // The exact nodes are owned by `virtual_joystick`, so a geometric
     // exclusion is the least-coupled way to avoid treating
-    // movement-stick drags as menu scroll gestures.
-    pos.x <= 300.0 && pos.y >= window_size.y - 300.0
+    // movement-stick drags as menu scroll gestures. The 300px envelope
+    // matches the original 1.0-scale stick (120px base + 24px margin +
+    // generous slop) and shrinks with `TOUCH_SCALE` so the smaller
+    // stick doesn't reserve a too-large dead zone for menu drags.
+    let stick_envelope = 300.0 * TOUCH_SCALE;
+    pos.x <= stick_envelope && pos.y >= window_size.y - stick_envelope
 }

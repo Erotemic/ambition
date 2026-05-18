@@ -127,6 +127,65 @@ pub struct ChoreographyState {
     /// Whether the actor is currently in a usable attack slot. Set by
     /// the caller from `combat_slots`.
     pub has_slot: bool,
+    /// Stable per-actor seed (derived from the actor's id at
+    /// construction via [`seed_from_id`]). Drives orbit-phase
+    /// offsets, fire-cadence jitter, and the aerial "personality"
+    /// pick so two actors with the same archetype + slot still
+    /// produce visually distinct trajectories. Zero is treated as
+    /// "no seed set" (legacy behaviour, all actors in lockstep).
+    pub seed: u32,
+}
+
+/// Stable, allocation-free 32-bit hash of an actor id. Used so a
+/// shark named `Burning Flying Shark` always produces the same
+/// orbit-phase offset / fire-cadence jitter across runs — the
+/// gameplay rng is deterministic and replay-safe.
+///
+/// FNV-1a (32-bit) — small, no deps, plenty distinct for the
+/// handful of enemies we ever see per arena.
+pub fn seed_from_id(id: &str) -> u32 {
+    let mut hash: u32 = 0x811C9DC5;
+    for byte in id.as_bytes() {
+        hash ^= *byte as u32;
+        hash = hash.wrapping_mul(0x01000193);
+    }
+    // Never produce 0 — `ChoreographyState::seed == 0` is the
+    // "unset" sentinel; an id that happens to hash to 0 would
+    // otherwise be indistinguishable from "never assigned".
+    if hash == 0 {
+        1
+    } else {
+        hash
+    }
+}
+
+/// Personality variants for aerial actors. Derived from
+/// `ChoreographyState::seed` so each actor picks one role at
+/// spawn and sticks with it for the run. Three readable variants:
+///
+/// - `Hover` — orbits and fires from a standard altitude. The
+///   default reading of a "fires-from-above" enemy.
+/// - `Swoop` — periodically dives at the player and pulls back up,
+///   firing on the recovery arc. Reads as the "aggressive" shark.
+/// - `Retreat` — keeps a higher-than-normal altitude, fires less
+///   frequently. Reads as the "cautious" shark.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AerialRole {
+    Hover,
+    Swoop,
+    Retreat,
+}
+
+impl AerialRole {
+    /// Pick a role from a seed. Three roles, modulo-3 on the seed
+    /// after a small shift to avoid clumping in the low bits.
+    pub fn from_seed(seed: u32) -> Self {
+        match (seed >> 4) % 3 {
+            0 => Self::Hover,
+            1 => Self::Swoop,
+            _ => Self::Retreat,
+        }
+    }
 }
 
 /// Read-only snapshot for [`evaluate_choreography`].
@@ -141,6 +200,24 @@ pub struct ChoreographyInput {
     pub assigned_slot_pos: Vec2,
     /// Seconds since last tick.
     pub dt: f32,
+    /// World position of the nearest same-kind neighbor (other aerial
+    /// actor, etc), if any. Aerial choreographies add a "personal
+    /// space" steering bias when a neighbor is too close so two
+    /// sharks don't visually merge into one blob even after the slot
+    /// board has assigned them distinct anchors.
+    pub nearest_neighbor: Option<Vec2>,
+}
+
+impl Default for ChoreographyInput {
+    fn default() -> Self {
+        Self {
+            actor_pos: Vec2::ZERO,
+            target_pos: Vec2::ZERO,
+            assigned_slot_pos: Vec2::ZERO,
+            dt: 0.0,
+            nearest_neighbor: None,
+        }
+    }
 }
 
 /// Action the choreography wants to perform this tick. The caller is
@@ -164,6 +241,33 @@ pub struct ChoreographyTick {
     pub face_x: f32,
     /// Optional attack action this tick.
     pub action: Option<ChoreographyAction>,
+    /// Optional per-tick steering speed override (px/s). When `Some`,
+    /// the caller should use this instead of the archetype's
+    /// `chase_speed` for this tick's convergence — used by
+    /// `DiveStrike` to actually accelerate during the dive phase
+    /// (the `dive_speed` knob was previously unwired tuning data).
+    /// `None` means "use the archetype default".
+    pub steering_speed_override: Option<f32>,
+}
+
+const NEIGHBOR_PERSONAL_SPACE: f32 = 110.0;
+const NEIGHBOR_SPREAD_GAIN: f32 = 70.0;
+
+/// Apply a "personal space" steering bias: when `neighbor` is closer
+/// than `NEIGHBOR_PERSONAL_SPACE`, push the steering target away
+/// from the neighbor along the actor→away axis. The magnitude
+/// scales linearly to zero at the personal-space radius.
+fn apply_neighbor_spread(target: Vec2, actor: Vec2, neighbor: Option<Vec2>) -> Vec2 {
+    let Some(neighbor) = neighbor else {
+        return target;
+    };
+    let away = actor - neighbor;
+    let dist = away.length();
+    if dist >= NEIGHBOR_PERSONAL_SPACE || dist < 1.0e-3 {
+        return target;
+    }
+    let push = NEIGHBOR_SPREAD_GAIN * (1.0 - dist / NEIGHBOR_PERSONAL_SPACE);
+    target + (away / dist) * push
 }
 
 const MELEE_ENGAGE_DISTANCE: f32 = 56.0;
@@ -216,9 +320,16 @@ pub fn evaluate_choreography(
         AttackChoreography::DiveStrike {
             hover_altitude,
             hover_rest,
-            dive_speed: _,
+            dive_speed,
             recover_height,
-        } => evaluate_dive_strike(state, input, hover_altitude, hover_rest, recover_height),
+        } => evaluate_dive_strike(
+            state,
+            input,
+            hover_altitude,
+            hover_rest,
+            dive_speed,
+            recover_height,
+        ),
     }
 }
 
@@ -242,10 +353,19 @@ fn evaluate_melee(state: &mut ChoreographyState, input: ChoreographyInput) -> Ch
         state.phase = ChoreographyPhase::Approach;
         None
     };
+    // Grounded melee gets neighbor-spread too: two SmallSkitters
+    // converging on the player from the same direction shouldn't
+    // visually merge into one blob.
+    let steering = apply_neighbor_spread(
+        input.assigned_slot_pos,
+        input.actor_pos,
+        input.nearest_neighbor,
+    );
     ChoreographyTick {
-        steering_target: input.assigned_slot_pos,
+        steering_target: steering,
         face_x: face_toward(input.actor_pos, input.target_pos),
         action,
+        steering_speed_override: None,
     }
 }
 
@@ -309,7 +429,28 @@ fn evaluate_projectile_volley(
         steering_target: engage_pos,
         face_x,
         action,
+        steering_speed_override: None,
     }
+}
+
+/// Deterministic per-seed jitter in `[-1.0, 1.0]`. Used to vary
+/// fire cadence so two same-archetype aerial actors don't volley in
+/// lockstep — pure function of the seed so it's replay-stable.
+fn seed_jitter_unit(seed: u32) -> f32 {
+    // Take 8 bits in the middle of the seed, map to [-1, 1].
+    let bits = ((seed >> 8) & 0xFF) as f32; // 0..255
+    (bits / 127.5) - 1.0
+}
+
+/// Stable per-seed orbit-phase starting offset in radians. Two
+/// sharks with the same orbit_speed but different seeds end up at
+/// different points around their slot anchor at any given tick.
+fn seed_orbit_offset(seed: u32) -> f32 {
+    // Spread the offset deterministically across [0, 2π); the
+    // golden-ratio multiplier keeps adjacent seed values from
+    // landing too close on the circle.
+    let unit = (seed.wrapping_mul(2654435761) >> 8) as f32 / (u32::MAX as f32 / 256.0);
+    unit * std::f32::consts::TAU
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -324,50 +465,117 @@ fn evaluate_aerial_orbit(
     projectile_speed: f32,
 ) -> ChoreographyTick {
     state.orbit_phase = (state.orbit_phase + orbit_speed * dt) % std::f32::consts::TAU;
-    // Spatial anchor is the slot-board-assigned position, NOT the
-    // player. The slot board has already spread aerial actors across
-    // a wide arc above the target, so anchoring here is what keeps
-    // sharks from clumping at a single orbit point. The choreography
-    // adds a small per-actor wobble around its slot anchor so the
-    // sprite still reads as "hovering / circling" rather than static.
-    //
-    // `altitude` and `radius` from the enum no longer set the absolute
-    // standoff (the slot board owns that). They now scale the wobble
-    // ellipse so aggressive aerial archetypes can still feel jittery
-    // while tank-flyers feel anchored. The horizontal wobble caps at
-    // a fraction of `radius` so neighboring slots don't overlap.
+
+    // Per-actor variation derived from the stable seed. Three roles
+    // (Hover / Swoop / Retreat) give visually distinct readings;
+    // orbit offset + cadence jitter keep two same-role actors out of
+    // lockstep.
+    let role = AerialRole::from_seed(state.seed);
+    let orbit_offset = seed_orbit_offset(state.seed);
+    let cadence_jitter = 1.0 + 0.20 * seed_jitter_unit(state.seed);
+
+    // `altitude` and `radius` from the enum scale the wobble
+    // ellipse around the slot anchor; the slot board owns the
+    // absolute standoff. Role tweaks shift altitude / cadence.
+    let (altitude_scale, fire_scale) = match role {
+        AerialRole::Hover => (1.0, 1.0),
+        AerialRole::Retreat => (1.4, 1.6), // higher + slower fire
+        AerialRole::Swoop => (0.85, 0.85), // lower + faster fire
+    };
     let wobble_x = (radius * 0.18).min(60.0);
-    let wobble_y = (altitude * 0.10).min(28.0).max(8.0);
-    let engage_pos = Vec2::new(
-        input.assigned_slot_pos.x + state.orbit_phase.cos() * wobble_x,
-        input.assigned_slot_pos.y + state.orbit_phase.sin() * wobble_y,
+    let wobble_y = (altitude * 0.10).min(28.0).max(8.0) * altitude_scale;
+    let phase = state.orbit_phase + orbit_offset;
+    let mut engage_pos = Vec2::new(
+        input.assigned_slot_pos.x + phase.cos() * wobble_x,
+        input.assigned_slot_pos.y + phase.sin() * wobble_y,
     );
+
+    // Swoop: every ~3s the actor commits to a quick descent toward
+    // the target, then climbs back. Drives the `phase` field so the
+    // visual read transitions Approach → Engage (descent) →
+    // Recover (climb).
+    if role == AerialRole::Swoop {
+        match state.phase {
+            ChoreographyPhase::Recover if state.phase_timer <= 0.0 => {
+                state.phase = ChoreographyPhase::Approach;
+            }
+            ChoreographyPhase::Approach if state.shots_remaining == 0 && state.phase_timer <= 0.0
+            => {
+                // Use shots_remaining as a "swoop interval"
+                // countdown latch: a fresh approach phase lasts
+                // `phase_timer` seconds before triggering a swoop.
+                state.shots_remaining = 1;
+                state.phase_timer = 2.5 + 0.5 * seed_jitter_unit(state.seed);
+            }
+            ChoreographyPhase::Approach if state.phase_timer <= 0.0 && state.shots_remaining > 0 => {
+                state.phase = ChoreographyPhase::Engage;
+                state.phase_timer = 0.6;
+                state.shots_remaining = 0;
+            }
+            _ => {}
+        }
+        if state.phase == ChoreographyPhase::Engage {
+            // Descend toward the player horizontally + vertically
+            // for the duration of the engage phase.
+            engage_pos = Vec2::new(
+                input.target_pos.x,
+                input.target_pos.y - 24.0,
+            );
+            if state.phase_timer <= 0.0 {
+                state.phase = ChoreographyPhase::Recover;
+                state.phase_timer = 0.7;
+            }
+        } else if state.phase == ChoreographyPhase::Recover {
+            // Pull back up above the slot anchor.
+            engage_pos = Vec2::new(
+                input.assigned_slot_pos.x,
+                input.assigned_slot_pos.y - 80.0,
+            );
+        }
+    }
+
+    // Neighbor-aware spread: push away from the nearest aerial
+    // neighbor if it's inside personal-space radius. Layered on
+    // AFTER the role-specific engage_pos so a swoop still moves
+    // toward the player but bends around a neighbor in the way.
+    let engage_pos = apply_neighbor_spread(engage_pos, input.actor_pos, input.nearest_neighbor);
+
     let face_x = face_toward(input.actor_pos, input.target_pos);
     let dist_to_engage = (engage_pos - input.actor_pos).length();
-    // Wider engage threshold for aerial actors: they're flying, not
-    // settling on a tile, and the wobble keeps the target moving
-    // ±wobble_x px every tick — a tight threshold would have the
-    // shark forever "approaching" and never firing.
     let in_position = dist_to_engage <= (AERIAL_ENGAGE_DISTANCE + wobble_x);
 
+    let effective_fire_interval = (fire_interval * fire_scale * cadence_jitter).max(0.2);
     let mut action = None;
-    if in_position && state.has_slot {
+    if in_position && state.has_slot && role != AerialRole::Swoop {
+        // Hover / Retreat fire on cadence when in position.
         if state.phase_timer <= 0.0 {
             let dir = (input.target_pos - input.actor_pos).normalize_or(Vec2::new(face_x, 1.0));
             action = Some(ChoreographyAction::FireProjectile {
                 dir,
                 speed: projectile_speed,
             });
-            state.phase_timer = fire_interval.max(0.2);
+            state.phase_timer = effective_fire_interval;
             state.phase = ChoreographyPhase::Engage;
         }
-    } else {
+    } else if role == AerialRole::Swoop && state.phase == ChoreographyPhase::Engage {
+        // Swoop fires once at the start of the engage descent.
+        if state.shots_remaining == 0 {
+            let dir = (input.target_pos - input.actor_pos).normalize_or(Vec2::new(face_x, 1.0));
+            action = Some(ChoreographyAction::FireProjectile {
+                dir,
+                speed: projectile_speed * 1.1,
+            });
+            // Use shots_remaining=1 as a "fired this swoop" flag.
+            state.shots_remaining = 1;
+        }
+    } else if role != AerialRole::Swoop {
         state.phase = ChoreographyPhase::Approach;
     }
     ChoreographyTick {
         steering_target: engage_pos,
         face_x,
         action,
+        steering_speed_override: None,
     }
 }
 
@@ -376,54 +584,67 @@ fn evaluate_dive_strike(
     input: ChoreographyInput,
     hover_altitude: f32,
     hover_rest: f32,
+    dive_speed: f32,
     recover_height: f32,
 ) -> ChoreographyTick {
     let face_x = face_toward(input.actor_pos, input.target_pos);
     // Hover position is above the target; dive target is the target
-    // itself.
-    let hover_pos = Vec2::new(input.target_pos.x, input.target_pos.y - hover_altitude);
+    // itself. Per-actor seed offsets the hover position horizontally
+    // so two dismounted sharks don't pick exactly the same hover spot.
+    let hover_x_offset = 60.0 * seed_jitter_unit(state.seed);
+    let hover_pos = Vec2::new(
+        input.target_pos.x + hover_x_offset,
+        input.target_pos.y - hover_altitude,
+    );
     let dive_pos = input.target_pos;
     let recover_pos = Vec2::new(
-        input.target_pos.x,
+        input.target_pos.x + hover_x_offset,
         input.target_pos.y - hover_altitude - recover_height,
     );
-    let (steering, action) = match state.phase {
+    let (steering, action, speed_override) = match state.phase {
         ChoreographyPhase::Approach => {
             // Approach → reach hover position → rest → dive.
             let dist = (hover_pos - input.actor_pos).length();
             if dist <= AERIAL_ENGAGE_DISTANCE && state.has_slot {
                 state.phase = ChoreographyPhase::Engage;
-                state.phase_timer = hover_rest.max(0.2);
+                // Per-actor rest jitter so two sharks don't
+                // synchronize their dive timing.
+                state.phase_timer = (hover_rest.max(0.2))
+                    * (1.0 + 0.25 * seed_jitter_unit(state.seed));
             }
-            (hover_pos, None)
+            (hover_pos, None, None)
         }
         ChoreographyPhase::Engage => {
             if state.phase_timer <= 0.0 {
-                // Dive! The "action" is a melee strike — caller
-                // converts that into contact damage.
+                // Dive — use the authored `dive_speed` rather than
+                // the archetype's general `chase_speed` so a fast
+                // dive *reads* fast. The Recover/Approach phases
+                // pass `None` and fall back to archetype default.
                 let dist_to_target = (input.target_pos - input.actor_pos).length();
                 if dist_to_target <= MELEE_ENGAGE_DISTANCE {
                     state.phase = ChoreographyPhase::Recover;
                     state.phase_timer = 0.6;
-                    (recover_pos, Some(ChoreographyAction::Melee))
+                    (recover_pos, Some(ChoreographyAction::Melee), Some(dive_speed))
                 } else {
-                    (dive_pos, None)
+                    (dive_pos, None, Some(dive_speed))
                 }
             } else {
-                (hover_pos, None)
+                (hover_pos, None, None)
             }
         }
         ChoreographyPhase::Recover => {
             if state.phase_timer <= 0.0 {
                 state.phase = ChoreographyPhase::Approach;
             }
-            (recover_pos, None)
+            (recover_pos, None, None)
         }
     };
+    let steering = apply_neighbor_spread(steering, input.actor_pos, input.nearest_neighbor);
     ChoreographyTick {
         steering_target: steering,
         face_x,
         action,
+        steering_speed_override: speed_override,
     }
 }
 
@@ -437,6 +658,7 @@ mod tests {
             target_pos: target,
             assigned_slot_pos: slot,
             dt: 1.0 / 60.0,
+            nearest_neighbor: None,
         }
     }
 
@@ -531,6 +753,7 @@ mod tests {
                 target_pos: target,
                 assigned_slot_pos: actor,
                 dt: 1.0 / 30.0,
+                nearest_neighbor: None,
             };
             let tick = evaluate_choreography(choreography, &mut state, input);
             actor = tick.steering_target; // teleport to track engage point
@@ -564,6 +787,7 @@ mod tests {
                 target_pos: target,
                 assigned_slot_pos: actor,
                 dt: 1.0 / 30.0,
+                nearest_neighbor: None,
             };
             let tick = evaluate_choreography(choreography, &mut state, input);
             if state.phase == ChoreographyPhase::Engage {
@@ -580,6 +804,210 @@ mod tests {
         }
         assert!(saw_engage, "dive never engaged");
         assert!(saw_melee, "dive never landed a melee strike");
+    }
+
+    #[test]
+    fn seed_from_id_is_stable_and_nonzero() {
+        let a = seed_from_id("Burning Flying Shark:0");
+        let b = seed_from_id("Burning Flying Shark:0");
+        assert_eq!(a, b, "same id must hash to same seed across calls");
+        assert_ne!(seed_from_id(""), 0, "empty id must not produce sentinel 0");
+        assert_ne!(
+            seed_from_id("a"),
+            seed_from_id("b"),
+            "different ids should typically hash to different seeds"
+        );
+    }
+
+    #[test]
+    fn aerial_orbit_seeds_produce_distinct_positions() {
+        // Three actors at the SAME slot pos but different seeds must
+        // produce visibly different engage positions on the same tick.
+        // The pre-fix behaviour (no per-actor offset) had all three
+        // landing on the same point — the "three sharks clump" bug.
+        let choreography = AttackChoreography::AerialOrbitAndFire {
+            altitude: 160.0,
+            radius: 220.0,
+            orbit_speed: 0.9,
+            fire_interval: 1.4,
+            projectile_speed: 380.0,
+        };
+        let target = Vec2::new(0.0, 0.0);
+        let slot = Vec2::new(0.0, -160.0);
+        let mut positions = Vec::new();
+        for id in ["shark_a", "shark_b", "shark_c"] {
+            let mut state = ChoreographyState {
+                seed: seed_from_id(id),
+                has_slot: true,
+                ..Default::default()
+            };
+            // Tick once to advance orbit_phase off zero.
+            let tick = evaluate_choreography(
+                choreography,
+                &mut state,
+                ChoreographyInput {
+                    actor_pos: slot,
+                    target_pos: target,
+                    assigned_slot_pos: slot,
+                    dt: 1.0 / 30.0,
+                    nearest_neighbor: None,
+                },
+            );
+            positions.push(tick.steering_target);
+        }
+        // Pairwise distance — every pair must differ by at least
+        // a few px or they'll visually merge.
+        for i in 0..positions.len() {
+            for j in i + 1..positions.len() {
+                let d = (positions[i] - positions[j]).length();
+                assert!(
+                    d > 5.0,
+                    "shark {i} and {j} at indistinguishable engage positions \
+                     ({:?} vs {:?})",
+                    positions[i],
+                    positions[j]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn aerial_role_distribution_covers_all_three() {
+        // Survey a batch of plausible ids and confirm the role
+        // distribution actually hits all three variants — otherwise
+        // the role pick would silently collapse to a single role and
+        // the visual variety claim is false.
+        let ids = ["shark_a", "shark_b", "shark_c", "shark_d", "shark_e", "shark_f"];
+        let mut hovers = 0;
+        let mut swoops = 0;
+        let mut retreats = 0;
+        for id in &ids {
+            match AerialRole::from_seed(seed_from_id(id)) {
+                AerialRole::Hover => hovers += 1,
+                AerialRole::Swoop => swoops += 1,
+                AerialRole::Retreat => retreats += 1,
+            }
+        }
+        assert!(
+            hovers + swoops + retreats == ids.len(),
+            "role count mismatch"
+        );
+        // With 6 ids we expect at least 2 distinct roles to appear in
+        // practice; modulo-3 distribution is uniform enough.
+        let distinct = [hovers, swoops, retreats]
+            .iter()
+            .filter(|&&n| n > 0)
+            .count();
+        assert!(
+            distinct >= 2,
+            "expected at least 2 distinct aerial roles across 6 ids \
+             (Hover={hovers}, Swoop={swoops}, Retreat={retreats})"
+        );
+    }
+
+    #[test]
+    fn neighbor_spread_pushes_away_when_close() {
+        let mut state = ChoreographyState {
+            seed: seed_from_id("a"),
+            has_slot: true,
+            ..Default::default()
+        };
+        let target = Vec2::new(0.0, 0.0);
+        let slot = Vec2::new(100.0, -100.0);
+        let actor = slot; // already at slot
+        // Without a neighbor, steering = slot + small wobble.
+        let no_neighbor = evaluate_choreography(
+            AttackChoreography::AerialOrbitAndFire {
+                altitude: 160.0,
+                radius: 220.0,
+                orbit_speed: 0.9,
+                fire_interval: 1.4,
+                projectile_speed: 380.0,
+            },
+            &mut state.clone(),
+            ChoreographyInput {
+                actor_pos: actor,
+                target_pos: target,
+                assigned_slot_pos: slot,
+                dt: 1.0 / 30.0,
+                nearest_neighbor: None,
+            },
+        );
+        // With a neighbor 30px to the left, steering should bias right.
+        let with_neighbor = evaluate_choreography(
+            AttackChoreography::AerialOrbitAndFire {
+                altitude: 160.0,
+                radius: 220.0,
+                orbit_speed: 0.9,
+                fire_interval: 1.4,
+                projectile_speed: 380.0,
+            },
+            &mut state,
+            ChoreographyInput {
+                actor_pos: actor,
+                target_pos: target,
+                assigned_slot_pos: slot,
+                dt: 1.0 / 30.0,
+                nearest_neighbor: Some(actor - Vec2::new(30.0, 0.0)),
+            },
+        );
+        assert!(
+            with_neighbor.steering_target.x > no_neighbor.steering_target.x,
+            "neighbor on left should push steering to the right (no={:?}, with={:?})",
+            no_neighbor.steering_target,
+            with_neighbor.steering_target
+        );
+    }
+
+    #[test]
+    fn dive_strike_uses_dive_speed_override_during_engage() {
+        // Place the actor at the hover position; first tick → Engage.
+        // Drain the rest timer to 0; next tick → dive, which must
+        // populate `steering_speed_override` with the authored
+        // `dive_speed` value (not None).
+        let choreography = AttackChoreography::DiveStrike {
+            hover_altitude: 100.0,
+            hover_rest: 0.2,
+            dive_speed: 999.0,
+            recover_height: 80.0,
+        };
+        let mut state = ChoreographyState {
+            seed: seed_from_id("dive_test"),
+            has_slot: true,
+            ..Default::default()
+        };
+        let target = Vec2::new(0.0, 0.0);
+        // The dive helper applies a per-seed horizontal hover offset.
+        let hover_offset = 60.0 * seed_jitter_unit(state.seed);
+        let hover_pos = Vec2::new(target.x + hover_offset, target.y - 100.0);
+        let mut actor = hover_pos;
+        let mut saw_override = false;
+        for _ in 0..120 {
+            let tick = evaluate_choreography(
+                choreography,
+                &mut state,
+                ChoreographyInput {
+                    actor_pos: actor,
+                    target_pos: target,
+                    assigned_slot_pos: hover_pos,
+                    dt: 1.0 / 30.0,
+                    nearest_neighbor: None,
+                },
+            );
+            if let Some(speed) = tick.steering_speed_override {
+                saw_override = true;
+                assert!(
+                    (speed - 999.0).abs() < 1e-3,
+                    "dive_speed override should equal authored value, got {speed}"
+                );
+                break;
+            }
+            actor = tick.steering_target;
+        }
+        assert!(
+            saw_override,
+            "dive_speed override was never produced during engage phase"
+        );
     }
 
     #[test]

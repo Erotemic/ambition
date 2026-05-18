@@ -807,12 +807,21 @@ def validate(
             ident = entity.get("__identifier")
             if ident not in KNOWN_ENTITIES:
                 errors.append(f"level {identifier!r} has unsupported entity {ident!r} ({entity.get('iid')})")
-            width = int(entity.get("width", 0) or 0)
-            height = int(entity.get("height", 0) or 0)
+            # NOTE: `width`/`height` further down still refer to the LEVEL
+            # dimensions captured above (the per-level loop). Per-entity
+            # dimensions use distinct `entity_w`/`entity_h` names to
+            # avoid shadowing — an earlier shadow on `width`/`height`
+            # caused `touches_level_edge` below to compare entity-rect
+            # against entity-dims, which is vacuously true for any
+            # entity at px=[0,0] and incorrect for the EdgeExit
+            # mid-room check (every EdgeExit zone was "passing"
+            # regardless of position).
+            entity_w = int(entity.get("width", 0) or 0)
+            entity_h = int(entity.get("height", 0) or 0)
             px = entity.get("px") or [0, 0]
-            if width <= 0 or height <= 0:
+            if entity_w <= 0 or entity_h <= 0:
                 errors.append(f"level {identifier!r} entity {entity_name(entity)} has non-positive dimensions")
-            if len(px) != 2 or px[0] < 0 or px[1] < 0 or px[0] + width > level.get("pxWid", 0) or px[1] + height > level.get("pxHei", 0):
+            if len(px) != 2 or px[0] < 0 or px[1] < 0 or px[0] + entity_w > level.get("pxWid", 0) or px[1] + entity_h > level.get("pxHei", 0):
                 errors.append(f"level {identifier!r} entity {entity_name(entity)} is outside level bounds")
             elif "__worldX" in entity or "__worldY" in entity:
                 expected_world_x = world_x + int(px[0])

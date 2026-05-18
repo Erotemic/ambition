@@ -769,6 +769,15 @@ fn install_visual_animation_systems(app: &mut App) {
             animate_characters,
             crate::rendering::animate_props,
             animate_bosses,
+            // Pirate rider composite — reads ECS actor state and
+            // spawns/despawns presentation entities each frame, so
+            // it belongs in `PresentationVisualSync` (after
+            // `FeatureViewSync`) alongside `sync_visuals` rather
+            // than the projectile/VFX batch. Placing it here means
+            // a room reset's actor despawn is observed the same
+            // frame the rider visual disappears — no stale
+            // rider-on-no-shark across resets/transitions.
+            crate::rendering::sync_pirate_rider_visuals,
         )
             .chain()
             .in_set(SandboxSet::PresentationVisualSync)
@@ -922,12 +931,6 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
             crate::projectile::sync_projectile_visuals.after(crate::projectile::update_projectiles),
             crate::enemy_projectile::sync_enemy_projectile_visuals
                 .after(crate::enemy_projectile::update_enemy_projectiles),
-            // Pirate rider composite — runs in the same Update batch
-            // as enemy projectile visuals because both are per-frame
-            // despawn-and-respawn passes that read the live actor
-            // list. Position tracking lives inside this system; no
-            // parent-child plumbing.
-            crate::rendering::sync_pirate_rider_visuals,
         ),
     )
     // VFX + debris subscribe on the visible binary only. Audio's

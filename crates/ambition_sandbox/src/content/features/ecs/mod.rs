@@ -714,10 +714,19 @@ pub fn reset_ecs_room_features(
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
     mut hazards: Query<&mut HazardFeature, With<FeatureSimEntity>>,
+    mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
+    mut combat_slots: ResMut<crate::combat_slots::CombatSlotsRes>,
 ) {
     if reset_requests.read().next().is_none() {
         return;
     }
+    // In-flight enemy volleys belong to the previous attempt; clear
+    // them so the room reset doesn't leave hostile shots sailing
+    // through the spawn point. Combat slot reservations are dropped
+    // for the same reason — `update_ecs_actors` will rebuild them
+    // from the freshly-respawned actor positions.
+    enemy_projectiles.clear();
+    combat_slots.0.clear_assignments();
 
     for entity in &collected_pickups {
         commands.entity(entity).remove::<Collected>();
@@ -755,14 +764,15 @@ pub fn reset_ecs_room_features(
                 npc.hit_flash = 0.0;
             }
             ActorRuntime::Hostile(enemy) => {
-                enemy.pos = enemy.spawn;
-                aabb.center = enemy.spawn;
-                enemy.vel = ae::Vec2::ZERO;
-                enemy.alive = true;
-                enemy.health.reset();
-                enemy.hit_flash = 0.0;
-                enemy.attack_timer = 0.0;
-                enemy.attack_windup_timer = 0.0;
+                // Restore authored spawn state so morphed actors
+                // (PirateOnShark → PirateRaider / BurningFlyingShark)
+                // return as their original fused archetype with
+                // matching size, gravity, choreography, and rider
+                // health. Non-morphing enemies are reset to a clean
+                // baseline by the same call.
+                enemy.reset_to_spawn();
+                aabb.center = enemy.pos;
+                aabb.half_size = enemy.size * 0.5;
             }
         }
         sync_actor_components_from_runtime(
@@ -1279,6 +1289,69 @@ pub fn update_ecs_actors(
         .collect();
     ae::assign_slots(&mut slot_board.0, player.pos, &slot_requests);
 
+    // Per-kind holding-position fallback: when an actor doesn't win
+    // a slot, distribute the leftover actors across the holding
+    // positions of all slots of their kind. Stable, deterministic
+    // ordering by actor id so the assignment doesn't flicker
+    // between frames.
+    //
+    // Without this, multiple unassigned actors of the same kind all
+    // picked `slots.iter().find()`'s FIRST matching slot's
+    // `holding_pos` — i.e. they shared a single fallback point and
+    // visually clumped.
+    let mut unassigned_by_kind: std::collections::HashMap<ae::SlotKind, Vec<&str>> =
+        std::collections::HashMap::new();
+    for (id, _pos, kind) in &requests {
+        if slot_board.0.slot_for(id).is_none() {
+            unassigned_by_kind.entry(*kind).or_default().push(id.as_str());
+        }
+    }
+    let mut holding_pos_by_id: std::collections::HashMap<String, ae::Vec2> =
+        std::collections::HashMap::new();
+    for (kind, mut ids) in unassigned_by_kind {
+        let kind_slots: Vec<usize> = slot_board
+            .0
+            .slots
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.kind == kind)
+            .map(|(i, _)| i)
+            .collect();
+        if kind_slots.is_empty() {
+            continue;
+        }
+        ids.sort_unstable(); // stable round-robin order
+        for (rank, id) in ids.into_iter().enumerate() {
+            let slot_idx = kind_slots[rank % kind_slots.len()];
+            holding_pos_by_id.insert(
+                id.to_string(),
+                slot_board.0.slots[slot_idx].holding_pos(player.pos),
+            );
+        }
+    }
+
+    // Per-actor nearest-same-kind-neighbor index (O(N²), N ≤ a few).
+    // Used by the choreography for "personal space" steering so two
+    // aerial actors close to each other push apart even when their
+    // slot anchors are far apart.
+    let mut neighbor_by_id: std::collections::HashMap<String, ae::Vec2> =
+        std::collections::HashMap::new();
+    for (id_a, pos_a, kind_a) in &requests {
+        let mut nearest: Option<(f32, ae::Vec2)> = None;
+        for (id_b, pos_b, kind_b) in &requests {
+            if id_a == id_b || kind_a != kind_b {
+                continue;
+            }
+            let d = (*pos_a - *pos_b).length_squared();
+            if nearest.map(|(best, _)| d < best).unwrap_or(true) {
+                nearest = Some((d, *pos_b));
+            }
+        }
+        if let Some((_, pos)) = nearest {
+            neighbor_by_id.insert(id_a.clone(), pos);
+        }
+    }
+
     // Pass 2: tick each actor with its assigned slot position. Falls
     // back to the slot's holding-ring position when this actor didn't
     // win a slot so it still has a sensible steering target.
@@ -1304,26 +1377,23 @@ pub fn update_ecs_actors(
                 let slot_pos = if let Some(slot) = slot_board.0.slot_for(&enemy.id) {
                     Some(slot.world_pos(player.pos))
                 } else if enemy.alive {
-                    // No slot assigned — fall back to the holding ring
-                    // position of the first slot of the requested kind
-                    // so the actor still steers to a visible perimeter
-                    // stand-off rather than glomming onto the player.
-                    let kind = enemy.archetype.slot_kind();
-                    slot_board
-                        .0
-                        .slots
-                        .iter()
-                        .find(|s| s.kind == kind)
-                        .map(|s| s.holding_pos(player.pos))
+                    // No slot assigned — fall back to the per-actor
+                    // holding-ring position computed above. Multiple
+                    // unassigned actors of the same kind are spread
+                    // round-robin across all holding positions of
+                    // that kind rather than sharing slot 0.
+                    holding_pos_by_id.get(&enemy.id).copied()
                 } else {
                     None
                 };
+                let nearest_neighbor = neighbor_by_id.get(&enemy.id).copied();
                 let mut outputs = super::enemies::EnemyTickOutputs::default();
                 enemy.update(
                     &feature_world,
                     &player,
                     combat_tuning,
                     slot_pos,
+                    nearest_neighbor,
                     &mut outputs,
                     dt,
                 );

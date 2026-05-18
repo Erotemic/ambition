@@ -39,6 +39,33 @@ pub struct SandboxEventWriters<'w> {
     pub(super) vfx: MessageWriter<'w, VfxMessage>,
 }
 
+/// Bundled combat-state resources that need to be torn down on a
+/// room transition or same-room reset (per-target slot reservations,
+/// in-flight enemy projectiles, …) PLUS the feature-overlay
+/// read-side that the transition logger needs. Bundling keeps
+/// consumers like `apply_room_transition_system` under Bevy's
+/// 16-`SystemParam` budget — without this they'd need a separate
+/// ResMut/Res for each piece.
+#[derive(SystemParam)]
+pub struct CombatRoomReset<'w> {
+    pub enemy_projectiles: ResMut<'w, crate::enemy_projectile::EnemyProjectileState>,
+    pub slot_board: ResMut<'w, crate::combat_slots::CombatSlotsRes>,
+    pub feature_overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
+}
+
+impl<'w> CombatRoomReset<'w> {
+    /// Drop every in-flight enemy projectile + every slot
+    /// reservation. Called by the room-transition path so a fresh
+    /// arena doesn't inherit hostile shots or stale assignments
+    /// from the room the player just left, AND by the same-room
+    /// reset path so a player death + respawn comes back to a
+    /// clean combat state.
+    pub fn clear_carryover(&mut self) {
+        self.enemy_projectiles.clear();
+        self.slot_board.0.clear_assignments();
+    }
+}
+
 /// Mutable producer streams `sandbox_update` writes into during the gameplay
 /// tick.
 ///

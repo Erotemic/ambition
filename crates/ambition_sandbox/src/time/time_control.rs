@@ -569,6 +569,11 @@ mod tests {
             // is wall-clock so juice survives bullet-time. Revisit
             // if you want VFX to slow alongside the sim.
             ("presentation/fx.rs", "VFX particles are wall-clock by design"),
+            // Screen-effect shader modulation (CRT scanline jitter,
+            // chromatic-aberration breathing, etc.) is a fullscreen
+            // visual driven by wall-clock elapsed seconds so the
+            // post-process still animates in bullet-time / hitstop.
+            ("presentation/screen_effects.rs", "screen-effect shader modulation is wall-clock by design"),
             // Music director (track switching, fades) is wall-clock;
             // music should not slow in bullet-time.
             ("music/director.rs", "music timing is wall-clock by design"),

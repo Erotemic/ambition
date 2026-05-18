@@ -12,6 +12,16 @@ pub struct EnemyRuntime {
     pub health: ae::Health,
     pub brain: ae::EnemyBrain,
     pub archetype: EnemyArchetype,
+    /// Authored spawn archetype, captured at construction. `archetype`
+    /// can mutate at runtime (PirateOnShark dismounts into
+    /// PirateRaider or BurningFlyingShark on rider/shark death), so
+    /// `spawn_archetype` is the "what the level author wrote" record
+    /// that `reset_to_spawn` restores. Identical to `archetype` for
+    /// every non-morphing actor.
+    pub spawn_archetype: EnemyArchetype,
+    /// Authored spawn size (in case `archetype` mutates to one with
+    /// a different `default_size`, like PirateOnShark → PirateRaider).
+    pub spawn_size: ae::Vec2,
     pub motion: Option<PathMotion>,
     pub alive: bool,
     pub facing: f32,
@@ -343,6 +353,8 @@ impl EnemyRuntime {
             health: ae::Health::new(archetype.max_health()),
             brain,
             archetype,
+            spawn_archetype: archetype,
+            spawn_size: size,
             motion,
             alive: true,
             facing: -1.0,
@@ -359,6 +371,37 @@ impl EnemyRuntime {
             choreography_state: ae::ChoreographyState::default(),
             rider_health: archetype.rider_max_health().map(ae::Health::new),
         }
+    }
+
+    /// Restore the actor to its authored spawn state. Used by the
+    /// same-room reset path so a PirateOnShark that morphed into
+    /// PirateRaider or BurningFlyingShark mid-fight returns as the
+    /// original fused actor; non-morphing enemies are reset to a
+    /// clean baseline too (health full, timers zeroed, pos back at
+    /// spawn). Callers must follow with an `aabb.half_size = size
+    /// * 0.5` write on the ECS `FeatureAabb` component so the
+    /// collision shape matches when the archetype changes its
+    /// `default_size`.
+    pub fn reset_to_spawn(&mut self) {
+        let archetype = self.spawn_archetype;
+        self.archetype = archetype;
+        self.size = self.spawn_size;
+        self.pos = self.spawn;
+        self.vel = ae::Vec2::ZERO;
+        self.alive = true;
+        self.health = ae::Health::new(archetype.max_health());
+        self.rider_health = archetype.rider_max_health().map(ae::Health::new);
+        self.gravity_scale = if archetype.is_aerial() { 0.0 } else { 1.0 };
+        self.choreography = archetype.choreography();
+        self.choreography_state = ae::ChoreographyState::default();
+        self.attack_windup_timer = 0.0;
+        self.attack_timer = 0.0;
+        self.attack_cooldown = 0.2;
+        self.respawn_timer = 0.0;
+        self.hit_flash = 0.0;
+        self.ai_mode = ae::CharacterAiMode::Idle;
+        self.on_ground = false;
+        self.facing = -1.0;
     }
 
     /// True when this actor still has a rider (live pirate on top).
@@ -487,9 +530,17 @@ impl EnemyRuntime {
         player: &ae::Player,
         tuning: FeatureCombatTuning,
         slot_pos: Option<ae::Vec2>,
+        nearest_neighbor: Option<ae::Vec2>,
         outputs: &mut EnemyTickOutputs,
         dt: f32,
     ) {
+        // Seed is derived from the actor id and cached on the
+        // choreography state. Done lazily here (rather than in
+        // `new`) so reset_to_spawn — which `Default`s the state —
+        // re-establishes the seed automatically on the next tick.
+        if self.choreography_state.seed == 0 {
+            self.choreography_state.seed = ae::seed_from_id(&self.id);
+        }
         self.hit_flash = (self.hit_flash - dt).max(0.0);
         if !self.alive {
             self.respawn_timer = (self.respawn_timer - dt).max(0.0);
@@ -557,6 +608,7 @@ impl EnemyRuntime {
                 target_pos: player.pos,
                 assigned_slot_pos,
                 dt,
+                nearest_neighbor,
             },
         );
 
@@ -579,14 +631,24 @@ impl EnemyRuntime {
             // Aerial flight: steer toward the choreography's target
             // position. No world collision (sky arenas are open) and
             // no gravity — the steering target *is* the path.
+            // The choreography may override the convergence speed
+            // (e.g. DiveStrike during the dive phase uses
+            // `dive_speed` instead of `chase_speed`); fall back to
+            // the archetype default otherwise.
+            let steering_speed = choreo_tick
+                .steering_speed_override
+                .unwrap_or_else(|| self.archetype.chase_speed());
             let to_target = choreo_tick.steering_target - self.pos;
             let dist = to_target.length();
             let desired_vel = if dist > 1.0 {
-                (to_target / dist) * self.archetype.chase_speed()
+                (to_target / dist) * steering_speed
             } else {
                 ae::Vec2::ZERO
             };
-            let accel = 900.0 * dt;
+            // Match accel to the steering speed so a faster dive
+            // also ramps faster — otherwise an aerial actor at
+            // 3x speed would still take 3x as long to converge.
+            let accel = (steering_speed * 3.0).max(900.0) * dt;
             self.vel.x = approach(self.vel.x, desired_vel.x, accel);
             self.vel.y = approach(self.vel.y, desired_vel.y, accel);
             self.pos += self.vel * dt;
@@ -609,7 +671,10 @@ impl EnemyRuntime {
                     // approach the slot, not the player center.
                     let dx = choreo_tick.steering_target.x - self.pos.x;
                     let sign = if dx.abs() < 1.0 { 0.0 } else { dx.signum() };
-                    sign * self.archetype.chase_speed()
+                    let speed = choreo_tick
+                        .steering_speed_override
+                        .unwrap_or_else(|| self.archetype.chase_speed());
+                    sign * speed
                 }
             };
             self.vel.x = approach(self.vel.x, desired_x, 650.0 * dt);

@@ -300,6 +300,7 @@ mod conversion_tests {
             &player,
             FeatureCombatTuning::default(),
             Some(player.pos),
+            None,
             &mut outputs,
             0.05,
         );
@@ -339,6 +340,7 @@ mod conversion_tests {
             &player,
             FeatureCombatTuning::default(),
             Some(player.pos),
+            None,
             &mut outputs,
             0.10,
         );
@@ -349,5 +351,74 @@ mod conversion_tests {
             ae::Vec2::new(100.0, 536.0),
             "path patrol must hold when CharacterAI requests an attack"
         );
+    }
+
+    /// `reset_to_spawn` must restore a morphed PirateOnShark back to
+    /// its original fused archetype with the right size, gravity,
+    /// rider health, and choreography. Same-room reset relies on
+    /// this — without it, a dismounted shark stays a grounded
+    /// pirate forever even after the player respawns.
+    #[test]
+    fn reset_to_spawn_restores_morphed_pirate_on_shark() {
+        let pos = ae::Vec2::new(400.0, 200.0);
+        let aabb = ae::Aabb::new(pos, ae::Vec2::new(14.0, 23.0));
+        let object = ae::RoomObject::new(
+            "shark_a".to_string(),
+            "Burning Flying Shark".to_string(),
+            aabb,
+            ae::RoomObjectKind::EnemySpawn(ae::EnemyBrain::Custom("pirate_on_shark".into())),
+        );
+        let mut enemy = EnemyRuntime::new(
+            &object,
+            ae::EnemyBrain::Custom("pirate_on_shark".into()),
+            &[],
+        );
+        assert_eq!(enemy.archetype, EnemyArchetype::PirateOnShark);
+        assert_eq!(enemy.gravity_scale, 0.0);
+        assert!(enemy.rider_health.is_some());
+        let spawn_size = enemy.spawn_size;
+
+        // Force a morph: shark dies → grounded pirate.
+        // apply_damage_at with a body-overlap hit and damage >= shark hp.
+        let body = enemy.aabb();
+        // Skip the rider's hitbox by hitting at the bottom of the body.
+        let bottom_hit = ae::Aabb::new(
+            ae::Vec2::new(enemy.pos.x, enemy.pos.y + 20.0),
+            ae::Vec2::new(8.0, 8.0),
+        );
+        // Damage the shark to death (max_health is 6).
+        let outcome = enemy.apply_damage_at(bottom_hit, 99);
+        assert!(
+            matches!(
+                outcome,
+                super::super::enemies::EnemyDamageOutcome::Damaged {
+                    archetype_changed: true,
+                    ..
+                }
+            ),
+            "expected dismount morph, got {outcome:?}"
+        );
+        assert_eq!(enemy.archetype, EnemyArchetype::PirateRaider);
+        assert_eq!(enemy.gravity_scale, 1.0);
+        assert!(enemy.rider_health.is_none());
+
+        // Now reset to spawn — archetype must come back, size + gravity
+        // restored, rider_health re-armed, timers cleared.
+        enemy.pos = ae::Vec2::new(0.0, 0.0);
+        enemy.attack_timer = 0.5;
+        enemy.attack_windup_timer = 0.3;
+        enemy.hit_flash = 0.2;
+        enemy.reset_to_spawn();
+        assert_eq!(enemy.archetype, EnemyArchetype::PirateOnShark);
+        assert_eq!(enemy.spawn_archetype, EnemyArchetype::PirateOnShark);
+        assert_eq!(enemy.gravity_scale, 0.0);
+        assert!(enemy.rider_health.is_some());
+        assert_eq!(enemy.size, spawn_size);
+        assert_eq!(enemy.pos, pos);
+        assert!(enemy.alive);
+        assert_eq!(enemy.attack_timer, 0.0);
+        assert_eq!(enemy.attack_windup_timer, 0.0);
+        assert_eq!(enemy.hit_flash, 0.0);
+        let _ = body; // silence unused warning if body becomes unused
     }
 }

@@ -212,12 +212,18 @@ pub fn apply_room_transition_system(
     feel_tuning: Res<SandboxFeelTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
-    feature_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
+    mut combat_reset: super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {
         let Ok((mut authority, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
             continue;
         };
+        // Any enemy volleys still in flight from the previous room
+        // would otherwise sail across the seam and hit the player
+        // mid-transition. The slot board is per-target and the live
+        // actor list is about to be torn down + rebuilt, so drop
+        // every reservation now and let the next tick rebuild.
+        combat_reset.clear_carryover();
         // Play the zone-entry SFX at the pre-load player position so it sounds
         // like it originates from the door/edge the player walked through.
         let player_pos_before = authority.player.pos;
@@ -254,7 +260,7 @@ pub fn apply_room_transition_system(
             &room_set,
             &authority.player,
             &world.0,
-            &feature_overlay,
+            &combat_reset.feature_overlay,
         );
     }
 }

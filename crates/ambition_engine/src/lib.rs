@@ -44,8 +44,8 @@ pub use actor::{
     KinematicPathMode, RespawnPolicy,
 };
 pub use attack_choreography::{
-    evaluate_choreography, AttackChoreography, ChoreographyAction, ChoreographyInput,
-    ChoreographyPhase, ChoreographyState, ChoreographyTick,
+    evaluate_choreography, seed_from_id, AerialRole, AttackChoreography, ChoreographyAction,
+    ChoreographyInput, ChoreographyPhase, ChoreographyState, ChoreographyTick,
 };
 pub use bevy_math::Vec2;
 pub use boss_encounter::{

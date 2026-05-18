@@ -59,7 +59,7 @@ pub use model::{
 };
 pub use video::{
     CameraAspectPolicy, CameraFramingPreset, CameraZoomPreset, ColorblindMode, FlashIntensity,
-    SerializableDisplayMode, VideoSettings,
+    ScreenShaderSettings, SerializableDisplayMode, VideoSettings,
 };
 
 /// Aggregate user settings resource. Inserted at sandbox startup; the
@@ -81,6 +81,7 @@ impl UserSettings {
     /// Re-clamp every value into its valid range. Useful right after
     /// loading from disk in case the file was hand-edited.
     pub fn clamp_all(&mut self) {
+        self.video.clamp_all();
         self.audio.clamp_all();
         self.controls.clamp_all();
         self.gameplay.clamp_all();

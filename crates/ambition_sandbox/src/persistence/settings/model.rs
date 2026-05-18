@@ -12,7 +12,7 @@ use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
 
 use super::audio::AudioSettings;
 use super::gameplay::GameplaySettings;
-use super::video::SerializableDisplayMode;
+use super::video::{ScreenShaderSettings, SerializableDisplayMode};
 use super::UserSettings;
 use crate::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DeveloperTools, EditableMovementTuning,
@@ -29,6 +29,7 @@ pub enum SettingsPage {
     #[default]
     Top,
     Video,
+    Shaders,
     Audio,
     Controls,
     Gameplay,
@@ -40,6 +41,7 @@ impl SettingsPage {
         match self {
             Self::Top => "Settings",
             Self::Video => "Video",
+            Self::Shaders => "Shaders",
             Self::Audio => "Audio",
             Self::Controls => "Controls",
             Self::Gameplay => "Gameplay",
@@ -50,6 +52,7 @@ impl SettingsPage {
     pub const ALL: &'static [Self] = &[
         Self::Top,
         Self::Video,
+        Self::Shaders,
         Self::Audio,
         Self::Controls,
         Self::Gameplay,
@@ -74,9 +77,31 @@ pub enum SettingsItem {
     CameraZoom,
     CameraAspect,
     CameraFraming,
+    OpenShaders,
     Flashes,
     Colorblind,
     ShowFps,
+
+    // Video > Shaders page.
+    ShaderStrength,
+    ShaderCrtStrength,
+    ShaderCrtScanlines,
+    ShaderCrtMask,
+    ShaderCrtCurvature,
+    ShaderCrtBloom,
+    ShaderCrtChroma,
+    ShaderFilmGrainStrength,
+    ShaderFilmGrainSize,
+    ShaderFilmGrainFps,
+    ShaderFilmGrainLumaBias,
+    ShaderRobotDeathStrength,
+    ShaderRobotStatic,
+    ShaderRobotTear,
+    ShaderRobotDesaturate,
+    ShaderRobotScanlines,
+    ShaderUnderwaterStrength,
+    ShaderUnderwaterDistortion,
+    ShaderVignetteStrength,
 
     // Audio page.
     MasterVolume,
@@ -115,8 +140,6 @@ pub enum SettingsItem {
     OverviewCamera,
     MicroGrid,
     CameraFrame,
-    ScreenEffectPreset,
-    ScreenEffectStrength,
     PlayerBodyProfile,
     MovementProfile,
     LdtkAutoApply,
@@ -138,9 +161,32 @@ impl SettingsItem {
                 Self::CameraZoom,
                 Self::CameraAspect,
                 Self::CameraFraming,
+                Self::OpenShaders,
                 Self::Flashes,
                 Self::Colorblind,
                 Self::ShowFps,
+                Self::Back,
+            ],
+            SettingsPage::Shaders => &[
+                Self::ShaderStrength,
+                Self::ShaderCrtStrength,
+                Self::ShaderCrtScanlines,
+                Self::ShaderCrtMask,
+                Self::ShaderCrtCurvature,
+                Self::ShaderCrtBloom,
+                Self::ShaderCrtChroma,
+                Self::ShaderFilmGrainStrength,
+                Self::ShaderFilmGrainSize,
+                Self::ShaderFilmGrainFps,
+                Self::ShaderFilmGrainLumaBias,
+                Self::ShaderRobotDeathStrength,
+                Self::ShaderRobotStatic,
+                Self::ShaderRobotTear,
+                Self::ShaderRobotDesaturate,
+                Self::ShaderRobotScanlines,
+                Self::ShaderUnderwaterStrength,
+                Self::ShaderUnderwaterDistortion,
+                Self::ShaderVignetteStrength,
                 Self::Back,
             ],
             SettingsPage::Audio => &[
@@ -183,8 +229,6 @@ impl SettingsItem {
                 Self::OverviewCamera,
                 Self::MicroGrid,
                 Self::CameraFrame,
-                Self::ScreenEffectPreset,
-                Self::ScreenEffectStrength,
                 Self::PlayerBodyProfile,
                 Self::MovementProfile,
                 Self::LdtkAutoApply,
@@ -206,6 +250,7 @@ impl SettingsItem {
     pub fn label_with_dev(self, settings: &UserSettings, dev: DevToggleSnapshot) -> String {
         match self {
             Self::OpenVideo => "Video >".into(),
+            Self::OpenShaders => "Shaders >".into(),
             Self::OpenAudio => "Audio >".into(),
             Self::OpenControls => "Controls >".into(),
             Self::OpenGameplay => "Gameplay >".into(),
@@ -236,6 +281,82 @@ impl SettingsItem {
             Self::ShowFps => format!(
                 "FPS Overlay: {}",
                 if settings.video.show_fps { "on" } else { "off" }
+            ),
+            Self::ShaderStrength => format!(
+                "Shader Strength: {}%  < / >",
+                settings.video.shaders.strength_percent()
+            ),
+            Self::ShaderCrtStrength => format!(
+                "CRT Strength: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.crt_strength)
+            ),
+            Self::ShaderCrtScanlines => format!(
+                "CRT Scanlines: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.crt_scanlines)
+            ),
+            Self::ShaderCrtMask => format!(
+                "CRT Phosphor Mask: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.crt_mask)
+            ),
+            Self::ShaderCrtCurvature => format!(
+                "CRT Curvature: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.crt_curvature)
+            ),
+            Self::ShaderCrtBloom => format!(
+                "CRT Bloom: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.crt_bloom)
+            ),
+            Self::ShaderCrtChroma => format!(
+                "CRT Chroma Split: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.crt_chroma)
+            ),
+            Self::ShaderFilmGrainStrength => format!(
+                "Film Grain Strength: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.film_grain_strength)
+            ),
+            Self::ShaderFilmGrainSize => format!(
+                "Film Grain Size: {:.0}px  < / >",
+                settings.video.shaders.film_grain_size
+            ),
+            Self::ShaderFilmGrainFps => format!(
+                "Film Grain Rate: {:.0} fps  < / >",
+                settings.video.shaders.film_grain_fps
+            ),
+            Self::ShaderFilmGrainLumaBias => format!(
+                "Film Grain Luma Bias: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.film_grain_luma_bias)
+            ),
+            Self::ShaderRobotDeathStrength => format!(
+                "Robot Death Strength: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.robot_death_strength)
+            ),
+            Self::ShaderRobotStatic => format!(
+                "Robot Static: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.robot_static)
+            ),
+            Self::ShaderRobotTear => format!(
+                "Robot Tear: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.robot_tear)
+            ),
+            Self::ShaderRobotDesaturate => format!(
+                "Robot Desaturate: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.robot_desaturate)
+            ),
+            Self::ShaderRobotScanlines => format!(
+                "Robot Scanlines: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.robot_scanlines)
+            ),
+            Self::ShaderUnderwaterStrength => format!(
+                "Underwater Strength: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.underwater_strength)
+            ),
+            Self::ShaderUnderwaterDistortion => format!(
+                "Underwater Distortion: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.underwater_distortion)
+            ),
+            Self::ShaderVignetteStrength => format!(
+                "Vignette Strength: {}%  < / >",
+                ScreenShaderSettings::percent(settings.video.shaders.vignette_strength)
             ),
 
             Self::MasterVolume => format!(
@@ -366,12 +487,6 @@ impl SettingsItem {
             Self::CameraFrame => {
                 format!("Camera Frame: {}", on_off(dev.camera_frame))
             }
-            Self::ScreenEffectPreset => {
-                format!("Screen Effect: {}  < / >", dev.screen_effect_preset.label())
-            }
-            Self::ScreenEffectStrength => {
-                format!("Effect Strength: {}%  < / >", dev.screen_effect_strength_percent)
-            }
             Self::PlayerBodyProfile => {
                 format!("Player Body: {}  < / >", dev.player_body_profile.label())
             }
@@ -406,8 +521,6 @@ pub struct DevToggleSnapshot {
     pub overview_camera: bool,
     pub micro_grid: bool,
     pub camera_frame: bool,
-    pub screen_effect_preset: crate::dev_tools::ScreenEffectPreset,
-    pub screen_effect_strength_percent: u8,
     pub player_body_profile: crate::dev_tools::PlayerBodyProfile,
     pub movement_profile: crate::dev_tools::MovementProfile,
     pub ldtk_auto_apply: bool,
@@ -427,8 +540,6 @@ impl DevToggleSnapshot {
             overview_camera: developer.overview_camera,
             micro_grid: developer.show_micro_grid,
             camera_frame: developer.show_camera_frame,
-            screen_effect_preset: developer.screen_effect_preset,
-            screen_effect_strength_percent: developer.screen_effect_strength_percent(),
             player_body_profile: developer.player_body_profile,
             movement_profile: developer.movement_profile,
             ldtk_auto_apply: ldtk_reload.auto_apply,
@@ -481,6 +592,11 @@ pub fn apply_action(
         SettingsItem::OpenVideo => {
             if matches!(action, SettingsAction::Confirm) {
                 return SettingsOutcome::OpenPage(SettingsPage::Video);
+            }
+        }
+        SettingsItem::OpenShaders => {
+            if matches!(action, SettingsAction::Confirm) {
+                return SettingsOutcome::OpenPage(SettingsPage::Shaders);
             }
         }
         SettingsItem::OpenAudio => {
@@ -718,6 +834,110 @@ pub fn apply_action(
                 settings.video.show_fps = !settings.video.show_fps;
             }
         }
+        SettingsItem::ShaderStrength => match action {
+            SettingsAction::Prev => settings
+                .video
+                .shaders
+                .nudge_strength(-ScreenShaderSettings::UNIT_STEP),
+            SettingsAction::Next | SettingsAction::Confirm => settings
+                .video
+                .shaders
+                .nudge_strength(ScreenShaderSettings::UNIT_STEP),
+        },
+        SettingsItem::ShaderCrtStrength => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.crt_strength,
+            ScreenShaderSettings::UNIT_STEP,
+        ),
+        SettingsItem::ShaderCrtScanlines => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.crt_scanlines,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderCrtMask => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.crt_mask,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderCrtCurvature => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.crt_curvature,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderCrtBloom => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.crt_bloom,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderCrtChroma => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.crt_chroma,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderFilmGrainStrength => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.film_grain_strength,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderFilmGrainSize => nudge_shader_range(
+            action,
+            &mut settings.video.shaders.film_grain_size,
+            ScreenShaderSettings::GRAIN_SIZE_STEP,
+            1.0,
+            8.0,
+        ),
+        SettingsItem::ShaderFilmGrainFps => nudge_shader_range(
+            action,
+            &mut settings.video.shaders.film_grain_fps,
+            ScreenShaderSettings::GRAIN_FPS_STEP,
+            1.0,
+            60.0,
+        ),
+        SettingsItem::ShaderFilmGrainLumaBias => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.film_grain_luma_bias,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderRobotDeathStrength => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.robot_death_strength,
+            ScreenShaderSettings::UNIT_STEP,
+        ),
+        SettingsItem::ShaderRobotStatic => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.robot_static,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderRobotTear => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.robot_tear,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderRobotDesaturate => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.robot_desaturate,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderRobotScanlines => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.robot_scanlines,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderUnderwaterStrength => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.underwater_strength,
+            ScreenShaderSettings::UNIT_STEP,
+        ),
+        SettingsItem::ShaderUnderwaterDistortion => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.underwater_distortion,
+            ScreenShaderSettings::FINE_STEP,
+        ),
+        SettingsItem::ShaderVignetteStrength => nudge_shader_unit(
+            action,
+            &mut settings.video.shaders.vignette_strength,
+            ScreenShaderSettings::FINE_STEP,
+        ),
         SettingsItem::QuestHud => {
             if matches!(
                 action,
@@ -770,20 +990,6 @@ pub fn apply_action(
                 developer.show_camera_frame = !developer.show_camera_frame;
             }
         }
-        SettingsItem::ScreenEffectPreset => match action {
-            SettingsAction::Prev => {
-                developer.screen_effect_preset = developer.screen_effect_preset.prev();
-            }
-            SettingsAction::Next | SettingsAction::Confirm => {
-                developer.screen_effect_preset = developer.screen_effect_preset.next();
-            }
-        },
-        SettingsItem::ScreenEffectStrength => match action {
-            SettingsAction::Prev => developer.nudge_screen_effect_strength(-0.10),
-            SettingsAction::Next | SettingsAction::Confirm => {
-                developer.nudge_screen_effect_strength(0.10);
-            }
-        },
         SettingsItem::PlayerBodyProfile => match action {
             SettingsAction::Prev => {
                 developer.player_body_profile = developer.player_body_profile.prev();
@@ -823,6 +1029,25 @@ pub fn apply_action(
         }
     }
     SettingsOutcome::Stay
+}
+
+
+fn nudge_shader_unit(action: SettingsAction, value: &mut f32, step: f32) {
+    match action {
+        SettingsAction::Prev => ScreenShaderSettings::nudge_unit(value, -step),
+        SettingsAction::Next | SettingsAction::Confirm => {
+            ScreenShaderSettings::nudge_unit(value, step);
+        }
+    }
+}
+
+fn nudge_shader_range(action: SettingsAction, value: &mut f32, step: f32, min: f32, max: f32) {
+    match action {
+        SettingsAction::Prev => ScreenShaderSettings::nudge_range(value, -step, min, max),
+        SettingsAction::Next | SettingsAction::Confirm => {
+            ScreenShaderSettings::nudge_range(value, step, min, max);
+        }
+    }
 }
 
 fn is_toggle_action(action: SettingsAction) -> bool {

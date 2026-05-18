@@ -3,8 +3,8 @@
 //! This is intentionally not a sprite overlay. The render node runs after the
 //! 2D main pass, samples the already-rendered view texture, and writes a
 //! fullscreen filtered result back into Bevy's post-process destination. That
-//! lets presets distort scene UVs, split color channels, apply scanlines, and
-//! modulate luminance in ways an overlay cannot.
+//! lets shader toggles distort scene UVs, split color channels, apply scanlines,
+//! and modulate luminance in ways an overlay cannot.
 
 use bevy::{
     core_pipeline::{
@@ -32,7 +32,7 @@ use bevy::{
     },
 };
 
-use crate::dev_tools::{DeveloperTools, ScreenEffectPreset};
+use crate::settings::{ScreenShaderSettings, UserSettings};
 
 const SHADER_ASSET_PATH: &str = "shaders/screen_effects.wgsl";
 
@@ -45,7 +45,7 @@ impl Plugin for ScreenEffectsPlugin {
             ExtractComponentPlugin::<ScreenEffectSettings>::default(),
             UniformComponentPlugin::<ScreenEffectSettings>::default(),
         ))
-        .add_systems(Update, sync_screen_effect_settings_from_developer_tools);
+        .add_systems(Update, sync_screen_effect_settings_from_video_settings);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -181,67 +181,91 @@ fn init_screen_effects_pipeline(
 }
 
 /// GPU-facing component attached to cameras that should receive the screen
-/// filter. Three vec4s keep the uniform layout WebGL2-friendly and give the
-/// shader room to add POC ingredients without Rust/WGSL layout churn.
+/// filter. Vec4 packing keeps the uniform layout WebGL2-friendly while exposing
+/// enough independent parameters for diagnosing shader ingredients.
 #[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
 pub struct ScreenEffectSettings {
-    /// x = preset id, y = strength, z = elapsed time seconds, w = reserved.
+    /// x = global strength, y = elapsed seconds modulo one hour,
+    /// z = film-grain frame rate, w = film-grain pixel size.
     pub control: Vec4,
-    /// x = noise, y = vignette, z = distortion, w = scanlines.
-    pub amounts: Vec4,
-    /// x = chromatic split, y = rolling tear, z = desaturation, w = ripple.
-    pub modulation: Vec4,
+    /// x = CRT strength, y = film-grain strength, z = robot-death strength,
+    /// w = underwater strength. These are already multiplied by the global
+    /// strength on the CPU, so zero means disabled.
+    pub strengths: Vec4,
+    /// x = CRT scanlines, y = CRT mask, z = CRT curvature, w = CRT bloom.
+    pub crt: Vec4,
+    /// x = film-grain luma bias, y = vignette strength, z = CRT chroma split,
+    /// w = reserved.
+    pub grain_and_vignette: Vec4,
+    /// x = robot static, y = robot tear, z = robot desaturation,
+    /// w = robot scanlines.
+    pub robot: Vec4,
+    /// x = underwater distortion, y/z/w = reserved.
+    pub underwater: Vec4,
 }
 
 impl Default for ScreenEffectSettings {
     fn default() -> Self {
-        Self::for_preset(ScreenEffectPreset::Off, 0.0, 0.0)
+        Self::for_shader_settings(&ScreenShaderSettings::default(), 0.0)
     }
 }
 
 impl ScreenEffectSettings {
-    pub fn for_preset(preset: ScreenEffectPreset, strength: f32, elapsed_secs: f32) -> Self {
-        let strength = if matches!(preset, ScreenEffectPreset::Off) {
-            0.0
-        } else {
-            strength.clamp(0.0, 1.0)
-        };
-
-        let (amounts, modulation) = match preset {
-            ScreenEffectPreset::Off => (Vec4::ZERO, Vec4::ZERO),
-            ScreenEffectPreset::RobotDeathStatic => (
-                Vec4::new(0.55, 0.50, 1.00, 0.38),
-                Vec4::new(0.0075, 0.90, 0.48, 0.00),
-            ),
-            ScreenEffectPreset::Crt => (
-                Vec4::new(0.08, 0.65, 0.45, 0.65),
-                Vec4::new(0.0035, 0.05, 0.08, 0.00),
-            ),
-            ScreenEffectPreset::Underwater => (
-                Vec4::new(0.04, 0.20, 0.95, 0.00),
-                Vec4::new(0.0010, 0.00, 0.00, 1.00),
-            ),
+    pub fn for_shader_settings(shaders: &ScreenShaderSettings, elapsed_secs: f32) -> Self {
+        let global = shaders.strength.clamp(0.0, 1.0);
+        let enabled = shaders.any_effect_enabled() && global > 0.001;
+        let active = |value: f32| {
+            if enabled {
+                value.clamp(0.0, 1.0) * global
+            } else {
+                0.0
+            }
         };
 
         Self {
-            control: Vec4::new(preset.gpu_id(), strength, elapsed_secs, 0.0),
-            amounts,
-            modulation,
+            control: Vec4::new(
+                global,
+                elapsed_secs.rem_euclid(3600.0),
+                shaders.film_grain_fps.clamp(1.0, 60.0),
+                shaders.film_grain_size.clamp(1.0, 8.0),
+            ),
+            strengths: Vec4::new(
+                active(shaders.crt_strength),
+                active(shaders.film_grain_strength),
+                active(shaders.robot_death_strength),
+                active(shaders.underwater_strength),
+            ),
+            crt: Vec4::new(
+                shaders.crt_scanlines.clamp(0.0, 1.0),
+                shaders.crt_mask.clamp(0.0, 1.0),
+                shaders.crt_curvature.clamp(0.0, 1.0),
+                shaders.crt_bloom.clamp(0.0, 1.0),
+            ),
+            grain_and_vignette: Vec4::new(
+                shaders.film_grain_luma_bias.clamp(0.0, 1.0),
+                active(shaders.vignette_strength),
+                shaders.crt_chroma.clamp(0.0, 1.0),
+                0.0,
+            ),
+            robot: Vec4::new(
+                shaders.robot_static.clamp(0.0, 1.0),
+                shaders.robot_tear.clamp(0.0, 1.0),
+                shaders.robot_desaturate.clamp(0.0, 1.0),
+                shaders.robot_scanlines.clamp(0.0, 1.0),
+            ),
+            underwater: Vec4::new(shaders.underwater_distortion.clamp(0.0, 1.0), 0.0, 0.0, 0.0),
         }
     }
 }
 
-fn sync_screen_effect_settings_from_developer_tools(
-    developer: Res<DeveloperTools>,
+fn sync_screen_effect_settings_from_video_settings(
+    settings: Res<UserSettings>,
     time: Res<Time>,
     mut cameras: Query<&mut ScreenEffectSettings>,
 ) {
-    let next = ScreenEffectSettings::for_preset(
-        developer.screen_effect_preset,
-        developer.screen_effect_strength,
-        time.elapsed_secs(),
-    );
-    for mut settings in &mut cameras {
-        *settings = next;
+    let next =
+        ScreenEffectSettings::for_shader_settings(&settings.video.shaders, time.elapsed_secs());
+    for mut camera_settings in &mut cameras {
+        *camera_settings = next;
     }
 }

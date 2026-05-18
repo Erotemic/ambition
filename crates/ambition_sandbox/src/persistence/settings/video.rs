@@ -266,6 +266,270 @@ impl CameraFramingPreset {
     }
 }
 
+
+/// Whole-screen shader/post-process controls exposed under Video > Shaders.
+///
+/// The screen shader stack is controlled by independent strengths. A value of
+/// `0.0` disables that ingredient; `strength` is the global multiplier and
+/// therefore acts as the master off switch when it is zero. Secondary knobs
+/// stay non-zero by default so enabling an effect strength immediately shows a
+/// useful tuned version while still letting the Shaders page diagnose each
+/// ingredient independently.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ScreenShaderSettings {
+    /// Legacy master switch from the first proof-of-concept. Kept only so old
+    /// `settings.ron` files can be migrated during clamping, then omitted when
+    /// settings are saved again.
+    #[serde(default, skip_serializing)]
+    pub enabled: bool,
+    /// Legacy CRT toggle from the first proof-of-concept.
+    #[serde(default, skip_serializing)]
+    pub crt: bool,
+    /// Legacy film-grain toggle from the first proof-of-concept.
+    #[serde(default, skip_serializing)]
+    pub film_grain: bool,
+    /// Legacy robot-death toggle from the first proof-of-concept.
+    #[serde(default, skip_serializing)]
+    pub robot_death_static: bool,
+    /// Legacy underwater toggle from the first proof-of-concept.
+    #[serde(default, skip_serializing)]
+    pub underwater_ripple: bool,
+    /// Legacy vignette toggle from the first proof-of-concept.
+    #[serde(default, skip_serializing)]
+    pub vignette: bool,
+
+    /// Global strength for the shader stack, in 0..=1. This is the master off
+    /// switch when it reaches zero.
+    #[serde(default = "default_shader_strength")]
+    pub strength: f32,
+
+    /// Lottes-inspired CRT treatment: curvature, beam scanlines, RGB mask, and
+    /// subtle local glow.
+    #[serde(default)]
+    pub crt_strength: f32,
+    #[serde(default = "default_crt_scanlines")]
+    pub crt_scanlines: f32,
+    #[serde(default = "default_crt_mask")]
+    pub crt_mask: f32,
+    #[serde(default = "default_crt_curvature")]
+    pub crt_curvature: f32,
+    #[serde(default = "default_crt_bloom")]
+    pub crt_bloom: f32,
+    #[serde(default = "default_crt_chroma")]
+    pub crt_chroma: f32,
+
+    /// Pixel/frame-anchored film grain. Grain size is measured in output
+    /// pixels per grain cell; FPS controls how often the random seed changes.
+    #[serde(default)]
+    pub film_grain_strength: f32,
+    #[serde(default = "default_grain_size")]
+    pub film_grain_size: f32,
+    #[serde(default = "default_grain_fps")]
+    pub film_grain_fps: f32,
+    #[serde(default = "default_grain_luma_bias")]
+    pub film_grain_luma_bias: f32,
+
+    /// Robot-death static/glitch treatment.
+    #[serde(default)]
+    pub robot_death_strength: f32,
+    #[serde(default = "default_robot_static")]
+    pub robot_static: f32,
+    #[serde(default = "default_robot_tear")]
+    pub robot_tear: f32,
+    #[serde(default = "default_robot_desaturate")]
+    pub robot_desaturate: f32,
+    #[serde(default = "default_robot_scanlines")]
+    pub robot_scanlines: f32,
+
+    /// Underwater/heat-haze style ripple displacement and tint.
+    #[serde(default)]
+    pub underwater_strength: f32,
+    #[serde(default = "default_underwater_distortion")]
+    pub underwater_distortion: f32,
+
+    /// Shared edge darkening layered after the other effects.
+    #[serde(default)]
+    pub vignette_strength: f32,
+}
+
+impl Default for ScreenShaderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            crt: false,
+            film_grain: false,
+            robot_death_static: false,
+            underwater_ripple: false,
+            vignette: false,
+            strength: default_shader_strength(),
+            crt_strength: 0.0,
+            crt_scanlines: default_crt_scanlines(),
+            crt_mask: default_crt_mask(),
+            crt_curvature: default_crt_curvature(),
+            crt_bloom: default_crt_bloom(),
+            crt_chroma: default_crt_chroma(),
+            film_grain_strength: 0.0,
+            film_grain_size: default_grain_size(),
+            film_grain_fps: default_grain_fps(),
+            film_grain_luma_bias: default_grain_luma_bias(),
+            robot_death_strength: 0.0,
+            robot_static: default_robot_static(),
+            robot_tear: default_robot_tear(),
+            robot_desaturate: default_robot_desaturate(),
+            robot_scanlines: default_robot_scanlines(),
+            underwater_strength: 0.0,
+            underwater_distortion: default_underwater_distortion(),
+            vignette_strength: 0.0,
+        }
+    }
+}
+
+impl ScreenShaderSettings {
+    pub const UNIT_STEP: f32 = 0.10;
+    pub const FINE_STEP: f32 = 0.05;
+    pub const GRAIN_SIZE_STEP: f32 = 1.0;
+    pub const GRAIN_FPS_STEP: f32 = 6.0;
+
+    pub fn any_effect_enabled(&self) -> bool {
+        self.crt_strength > 0.001
+            || self.film_grain_strength > 0.001
+            || self.robot_death_strength > 0.001
+            || self.underwater_strength > 0.001
+            || self.vignette_strength > 0.001
+    }
+
+    pub fn strength_percent(&self) -> u8 {
+        Self::percent(self.strength)
+    }
+
+    pub fn percent(value: f32) -> u8 {
+        (value.clamp(0.0, 1.0) * 100.0).round() as u8
+    }
+
+    pub fn nudge_unit(value: &mut f32, delta: f32) {
+        *value = (*value + delta).clamp(0.0, 1.0);
+    }
+
+    pub fn nudge_range(value: &mut f32, delta: f32, min: f32, max: f32) {
+        *value = (*value + delta).clamp(min, max);
+    }
+
+    pub fn nudge_strength(&mut self, delta: f32) {
+        Self::nudge_unit(&mut self.strength, delta);
+    }
+
+    /// Clamp hand-edited settings and migrate legacy boolean shader toggles
+    /// into the new independent-strength model.
+    pub fn clamp_all(&mut self) {
+        let had_new_effect_strength = self.any_effect_enabled();
+        if self.enabled && !had_new_effect_strength {
+            if self.crt {
+                self.crt_strength = default_migrated_effect_strength();
+            }
+            if self.film_grain {
+                self.film_grain_strength = default_migrated_grain_strength();
+            }
+            if self.robot_death_static {
+                self.robot_death_strength = default_migrated_effect_strength();
+            }
+            if self.underwater_ripple {
+                self.underwater_strength = default_migrated_effect_strength();
+            }
+            if self.vignette {
+                self.vignette_strength = default_migrated_vignette_strength();
+            }
+        }
+
+        self.strength = self.strength.clamp(0.0, 1.0);
+        self.crt_strength = self.crt_strength.clamp(0.0, 1.0);
+        self.crt_scanlines = self.crt_scanlines.clamp(0.0, 1.0);
+        self.crt_mask = self.crt_mask.clamp(0.0, 1.0);
+        self.crt_curvature = self.crt_curvature.clamp(0.0, 1.0);
+        self.crt_bloom = self.crt_bloom.clamp(0.0, 1.0);
+        self.crt_chroma = self.crt_chroma.clamp(0.0, 1.0);
+        self.film_grain_strength = self.film_grain_strength.clamp(0.0, 1.0);
+        self.film_grain_size = self.film_grain_size.clamp(1.0, 8.0);
+        self.film_grain_fps = self.film_grain_fps.clamp(1.0, 60.0);
+        self.film_grain_luma_bias = self.film_grain_luma_bias.clamp(0.0, 1.0);
+        self.robot_death_strength = self.robot_death_strength.clamp(0.0, 1.0);
+        self.robot_static = self.robot_static.clamp(0.0, 1.0);
+        self.robot_tear = self.robot_tear.clamp(0.0, 1.0);
+        self.robot_desaturate = self.robot_desaturate.clamp(0.0, 1.0);
+        self.robot_scanlines = self.robot_scanlines.clamp(0.0, 1.0);
+        self.underwater_strength = self.underwater_strength.clamp(0.0, 1.0);
+        self.underwater_distortion = self.underwater_distortion.clamp(0.0, 1.0);
+        self.vignette_strength = self.vignette_strength.clamp(0.0, 1.0);
+    }
+}
+
+fn default_shader_strength() -> f32 {
+    0.0
+}
+
+fn default_crt_scanlines() -> f32 {
+    0.70
+}
+
+fn default_crt_mask() -> f32 {
+    0.72
+}
+
+fn default_crt_curvature() -> f32 {
+    0.90
+}
+
+fn default_crt_bloom() -> f32 {
+    0.12
+}
+
+fn default_crt_chroma() -> f32 {
+    0.45
+}
+
+fn default_grain_size() -> f32 {
+    1.0
+}
+
+fn default_grain_fps() -> f32 {
+    24.0
+}
+
+fn default_grain_luma_bias() -> f32 {
+    0.35
+}
+
+fn default_robot_static() -> f32 {
+    0.55
+}
+
+fn default_robot_tear() -> f32 {
+    0.90
+}
+
+fn default_robot_desaturate() -> f32 {
+    0.48
+}
+
+fn default_robot_scanlines() -> f32 {
+    0.38
+}
+
+fn default_underwater_distortion() -> f32 {
+    0.95
+}
+
+fn default_migrated_effect_strength() -> f32 {
+    0.75
+}
+
+fn default_migrated_grain_strength() -> f32 {
+    0.22
+}
+
+fn default_migrated_vignette_strength() -> f32 {
+    0.55
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VideoSettings {
     #[serde(default)]
@@ -287,6 +551,8 @@ pub struct VideoSettings {
     /// which mirrors this flag into `FpsOverlayState::visible`.
     #[serde(default = "default_show_fps")]
     pub show_fps: bool,
+    #[serde(default)]
+    pub shaders: ScreenShaderSettings,
 }
 
 impl Default for VideoSettings {
@@ -299,7 +565,14 @@ impl Default for VideoSettings {
             flashes: FlashIntensity::default(),
             colorblind: ColorblindMode::default(),
             show_fps: default_show_fps(),
+            shaders: ScreenShaderSettings::default(),
         }
+    }
+}
+
+impl VideoSettings {
+    pub fn clamp_all(&mut self) {
+        self.shaders.clamp_all();
     }
 }
 
@@ -344,6 +617,15 @@ impl From<SerializableDisplayMode> for DisplayModeKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn screen_shader_strength_stays_clamped() {
+        let mut shaders = ScreenShaderSettings::default();
+        shaders.nudge_strength(10.0);
+        assert_eq!(shaders.strength, 1.0);
+        shaders.nudge_strength(-10.0);
+        assert_eq!(shaders.strength, 0.0);
+    }
 
     #[test]
     fn flash_intensity_cycles() {

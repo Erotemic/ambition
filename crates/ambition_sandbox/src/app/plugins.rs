@@ -651,7 +651,6 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<DeveloperTools>()
         .register_type::<PlayerBodyProfile>()
         .register_type::<MovementProfile>()
-        .register_type::<ScreenEffectPreset>()
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()

@@ -483,7 +483,11 @@ fn default_crt_bloom() -> f32 {
 }
 
 fn default_crt_chroma() -> f32 {
-    0.45
+    // Lowered from 0.45 after Android playtesting: the higher default
+    // made the screen feel rainbow-fringed before the user had a
+    // chance to tune it down. 10% reads as "subtle chroma" and still
+    // makes the effect visible when CRT strength is bumped.
+    0.10
 }
 
 fn default_grain_size() -> f32 {

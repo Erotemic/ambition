@@ -37,6 +37,39 @@ pub struct SettingsRowSlot {
     pub index: usize,
 }
 
+/// Inner text node of a settings row. Separated from the slot button
+/// so the same slot can also host a slider track underneath the label.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SettingsRowLabel {
+    pub index: usize,
+}
+
+/// Slider track inside a settings row. Visible only when the row is a
+/// percent-style setting; touch drag on this entity drives
+/// `SettingsItem::try_set_normalized`.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SettingsRowSliderTrack {
+    pub index: usize,
+}
+
+/// Filled portion of a settings row slider. Width is bound to the
+/// row's normalized value each frame.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SettingsRowSliderFill {
+    pub index: usize,
+}
+
+/// Vertical scrollbar track pinned to the right edge of the settings
+/// panel. Touch drag picks the selected row by mapping the relative Y
+/// position to a row index.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SettingsScrollbarTrack;
+
+/// Movable thumb inside the scrollbar track. Height + top are bound
+/// to the windowed-list position each frame.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SettingsScrollbarThumb;
+
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PauseMenuItem {
     Resume,

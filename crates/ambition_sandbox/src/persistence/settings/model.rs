@@ -1032,6 +1032,114 @@ pub fn apply_action(
 }
 
 
+/// Slider cap for the player-damage multiplier. The underlying field
+/// clamps to `[0.25, 4.0]` (see `GameplaySettings::nudge_player_damage`),
+/// but exposing the full range on a 0..1 slider would mean "default"
+/// (1.0) lives at the 25% mark, which reads as "I should slide right".
+/// Capping the slider at 2.0 gives a 0..1 bar where 0.5 ≈ default and
+/// 1.0 ≈ glass-cannon mode; users who want higher have to nudge with
+/// keyboard `>`. Matches the spirit of the existing `< / >` nudge UX.
+pub const PLAYER_DAMAGE_SLIDER_MAX: f32 = 2.0;
+
+impl SettingsItem {
+    /// Read the row's value as a normalized `0.0..=1.0` slider position.
+    /// Returns `None` for rows that aren't scalar percent-style settings
+    /// (enums, toggles, navigation rows, non-percent ranges). Used by
+    /// the touch slider widget; keyboard `<` / `>` continues to drive
+    /// the same value through `apply_action`.
+    pub fn normalized_value(self, settings: &UserSettings) -> Option<f32> {
+        match self {
+            Self::ShaderStrength => Some(settings.video.shaders.strength),
+            Self::ShaderCrtStrength => Some(settings.video.shaders.crt_strength),
+            Self::ShaderCrtScanlines => Some(settings.video.shaders.crt_scanlines),
+            Self::ShaderCrtMask => Some(settings.video.shaders.crt_mask),
+            Self::ShaderCrtCurvature => Some(settings.video.shaders.crt_curvature),
+            Self::ShaderCrtBloom => Some(settings.video.shaders.crt_bloom),
+            Self::ShaderCrtChroma => Some(settings.video.shaders.crt_chroma),
+            Self::ShaderFilmGrainStrength => Some(settings.video.shaders.film_grain_strength),
+            Self::ShaderFilmGrainLumaBias => Some(settings.video.shaders.film_grain_luma_bias),
+            Self::ShaderRobotDeathStrength => Some(settings.video.shaders.robot_death_strength),
+            Self::ShaderRobotStatic => Some(settings.video.shaders.robot_static),
+            Self::ShaderRobotTear => Some(settings.video.shaders.robot_tear),
+            Self::ShaderRobotDesaturate => Some(settings.video.shaders.robot_desaturate),
+            Self::ShaderRobotScanlines => Some(settings.video.shaders.robot_scanlines),
+            Self::ShaderUnderwaterStrength => Some(settings.video.shaders.underwater_strength),
+            Self::ShaderUnderwaterDistortion => Some(settings.video.shaders.underwater_distortion),
+            Self::ShaderVignetteStrength => Some(settings.video.shaders.vignette_strength),
+            Self::MasterVolume => Some(settings.audio.master_volume),
+            Self::MusicVolume => Some(settings.audio.music_volume),
+            Self::SfxVolume => Some(settings.audio.sfx_volume),
+            // Stick deadzones top out at 0.6 internally; expose them as
+            // 0..1 on the slider so the bar represents "drag fraction
+            // of allowed range" rather than a misleading 0..100% the
+            // engine never honors.
+            Self::LeftStickDeadzone => Some(settings.controls.left_stick_deadzone / 0.6),
+            Self::RightStickDeadzone => Some(settings.controls.right_stick_deadzone / 0.6),
+            // Trigger press clamps to [0.05, 1.0]; map back to a
+            // 0..1 slider that represents the live press level.
+            Self::TriggerPress => {
+                Some(((settings.controls.trigger_press_threshold - 0.05) / 0.95).clamp(0.0, 1.0))
+            }
+            // Trigger release clamps to [0.0, 0.95]; map back to a
+            // 0..1 slider.
+            Self::TriggerRelease => {
+                Some((settings.controls.trigger_release_threshold / 0.95).clamp(0.0, 1.0))
+            }
+            Self::PlayerDamageMultiplier => Some(
+                (settings.gameplay.player_damage_multiplier
+                    / PLAYER_DAMAGE_SLIDER_MAX)
+                    .clamp(0.0, 1.0),
+            ),
+            _ => None,
+        }
+    }
+
+    /// Write a normalized `0.0..=1.0` slider position back to the row's
+    /// underlying value. Returns `true` if the row accepted the write
+    /// (i.e. is a slider row). Inverse of [`normalized_value`].
+    pub fn try_set_normalized(self, settings: &mut UserSettings, value: f32) -> bool {
+        let v = value.clamp(0.0, 1.0);
+        match self {
+            Self::ShaderStrength => settings.video.shaders.strength = v,
+            Self::ShaderCrtStrength => settings.video.shaders.crt_strength = v,
+            Self::ShaderCrtScanlines => settings.video.shaders.crt_scanlines = v,
+            Self::ShaderCrtMask => settings.video.shaders.crt_mask = v,
+            Self::ShaderCrtCurvature => settings.video.shaders.crt_curvature = v,
+            Self::ShaderCrtBloom => settings.video.shaders.crt_bloom = v,
+            Self::ShaderCrtChroma => settings.video.shaders.crt_chroma = v,
+            Self::ShaderFilmGrainStrength => settings.video.shaders.film_grain_strength = v,
+            Self::ShaderFilmGrainLumaBias => settings.video.shaders.film_grain_luma_bias = v,
+            Self::ShaderRobotDeathStrength => settings.video.shaders.robot_death_strength = v,
+            Self::ShaderRobotStatic => settings.video.shaders.robot_static = v,
+            Self::ShaderRobotTear => settings.video.shaders.robot_tear = v,
+            Self::ShaderRobotDesaturate => settings.video.shaders.robot_desaturate = v,
+            Self::ShaderRobotScanlines => settings.video.shaders.robot_scanlines = v,
+            Self::ShaderUnderwaterStrength => settings.video.shaders.underwater_strength = v,
+            Self::ShaderUnderwaterDistortion => settings.video.shaders.underwater_distortion = v,
+            Self::ShaderVignetteStrength => settings.video.shaders.vignette_strength = v,
+            Self::MasterVolume => settings.audio.master_volume = v,
+            Self::MusicVolume => settings.audio.music_volume = v,
+            Self::SfxVolume => settings.audio.sfx_volume = v,
+            Self::LeftStickDeadzone => settings.controls.left_stick_deadzone = v * 0.6,
+            Self::RightStickDeadzone => settings.controls.right_stick_deadzone = v * 0.6,
+            Self::TriggerPress => settings.controls.trigger_press_threshold = 0.05 + v * 0.95,
+            Self::TriggerRelease => settings.controls.trigger_release_threshold = v * 0.95,
+            Self::PlayerDamageMultiplier => {
+                settings.gameplay.player_damage_multiplier =
+                    v * PLAYER_DAMAGE_SLIDER_MAX;
+            }
+            _ => return false,
+        }
+        // Re-run the per-category clamps so any cross-field invariants
+        // (trigger press > release, audio mute, etc.) stay healthy.
+        settings.video.shaders.clamp_all();
+        settings.audio.clamp_all();
+        settings.controls.clamp_all();
+        settings.gameplay.clamp_all();
+        true
+    }
+}
+
 fn nudge_shader_unit(action: SettingsAction, value: &mut f32, step: f32) {
     match action {
         SettingsAction::Prev => ScreenShaderSettings::nudge_unit(value, -step),

@@ -8268,7 +8268,8 @@
 			"externalRelPath": null,
 			"fieldInstances": [
 				{ "__identifier": "activeArea", "__type": "String", "__value": "pirate_sky_arena", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["pirate_sky_arena"] } ] },
-				{ "__identifier": "biome", "__type": "String", "__value": "outdoor", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["outdoor"] } ] }
+				{ "__identifier": "biome", "__type": "String", "__value": "outdoor", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["outdoor"] } ] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "pirates_guild_black_flag_jig", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": ["pirates_guild_black_flag_jig"] } ] }
 			],
 			"layerInstances": [
 				{

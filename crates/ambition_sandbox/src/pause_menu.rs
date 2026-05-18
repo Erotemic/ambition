@@ -56,8 +56,12 @@ mod tests;
 pub use self::input::{pause_menu_navigate, pause_menu_toggle};
 pub use self::model::{
     DevToggleParams, DevToggleView, PauseMenuItem, PauseMenuPage, PauseMenuRoot,
-    PauseMenuSettingsPanel, PauseMenuState, PauseMenuTopPanel, SettingsRowSlot,
+    PauseMenuSettingsPanel, PauseMenuState, PauseMenuTopPanel, SettingsRowLabel,
+    SettingsRowSliderFill, SettingsRowSliderTrack, SettingsRowSlot, SettingsScrollbarThumb,
+    SettingsScrollbarTrack,
 };
 #[cfg(feature = "input")]
 pub use self::pointer::pause_menu_pointer_input;
-pub use self::ui::{spawn_pause_menu, sync_pause_menu, SettingsTitle};
+#[cfg(feature = "input")]
+pub use self::ui::{settings_scrollbar_drag_input, settings_slider_drag_input};
+pub use self::ui::{spawn_pause_menu, sync_pause_menu, sync_settings_panel_rows, SettingsTitle};

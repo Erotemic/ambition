@@ -710,6 +710,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
             Update,
             (
                 pause_menu::sync_pause_menu,
+                pause_menu::sync_settings_panel_rows,
                 inventory::sync_inventory_panel,
                 crate::map_menu::sync_map_menu,
             )
@@ -1052,6 +1053,8 @@ pub(super) fn add_input_plugins(app: &mut App) {
                 pause_menu::pause_menu_toggle,
                 inventory::inventory_input,
                 pause_menu::pause_menu_pointer_input,
+                pause_menu::settings_slider_drag_input,
+                pause_menu::settings_scrollbar_drag_input,
                 inventory::inventory_pointer_input,
                 pause_menu::pause_menu_navigate,
             )

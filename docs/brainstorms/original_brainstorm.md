@@ -412,3 +412,13 @@ can have the story end up different, with a love story as an option.
 Would be fun to have a character claim quantum mechanics is letting them
 communicate faster than the speed of light, and have someone slap them. Or
 maybe a big weight of reality falls on them as a literal anvil.
+
+----
+
+We should have a Gnu-ton boss battle, standing on the shoulder of giants with
+some line about not known what it is, but its not Unix.
+
+
+The Luddite / Nazi dichotomy in the intro doesn't work. One isn't as bad as the
+other. The current presentation is too symmetrical. We either need to rework it
+so save Nazis for later, or figure out how to handle the asymmetry. 

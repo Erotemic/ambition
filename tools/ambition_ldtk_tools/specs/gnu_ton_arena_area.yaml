@@ -30,7 +30,7 @@ px_hei: 640
 fill_collision: empty
 
 biome: boss
-music_track: pulse_drift_voyage
+music_track: standing_on_shoulders
 ambient_profile: hum
 visual_theme: default
 

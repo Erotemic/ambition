@@ -16,6 +16,7 @@
 //! transitions; this module mirrors them onto the seldom_state `BossPhase`
 //! component, the audio request, and the save resource.
 
+pub(crate) mod banter;
 mod damage;
 mod events;
 mod ids;
@@ -29,6 +30,7 @@ mod systems;
 #[cfg(test)]
 mod tests;
 
+pub use banter::install_boss_banter;
 pub use damage::record_boss_damage;
 pub use ids::{encounter_id_from_name, MOCKINGBIRD_ENCOUNTER_ID};
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};

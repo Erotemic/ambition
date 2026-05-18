@@ -4,6 +4,21 @@ use super::*;
 use crate::ui_nav::ListCursor;
 
 pub fn spawn_pause_menu(mut commands: Commands) {
+    // Mobile vs. desktop sizing constants. Touch targets need to be at least
+    // 44px tall (Apple HIG) and font must be readable at arm's length.
+    const IS_MOBILE: bool = cfg!(target_os = "android");
+    let panel_padding = if IS_MOBILE { 22.0 } else { 18.0 };
+    let top_panel_gap = if IS_MOBILE { 10.0 } else { 6.0 };
+    let settings_panel_gap = if IS_MOBILE { 8.0 } else { 4.0 };
+    let item_height = if IS_MOBILE { 54.0 } else { 38.0 };
+    let item_pad_h = if IS_MOBILE { 16.0 } else { 14.0 };
+    let item_pad_v = if IS_MOBILE { 14.0 } else { 8.0 };
+    let item_font = if IS_MOBILE { 22.0 } else { 20.0 };
+    let title_font = if IS_MOBILE { 28.0 } else { 25.0 };
+    let max_panel_pct = if IS_MOBILE { 97.0 } else { 92.0 };
+    let settings_max_pct = if IS_MOBILE { 98.0 } else { 94.0 };
+    let scrollbar_w = if IS_MOBILE { 22.0 } else { 14.0 };
+
     let root = commands
         .spawn((
             Node {
@@ -12,10 +27,10 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Px(14.0)),
+                padding: UiRect::all(Val::Px(if IS_MOBILE { 8.0 } else { 14.0 })),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.02, 0.03, 0.06, 0.78)),
+            BackgroundColor(Color::srgba(0.02, 0.03, 0.06, 0.82)),
             ZIndex(50),
             Visibility::Hidden,
             PauseMenuRoot,
@@ -26,17 +41,17 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     let top_panel = commands
         .spawn((
             Node {
-                width: Val::Px(400.0),
-                max_width: Val::Percent(92.0),
+                width: Val::Percent(if IS_MOBILE { 92.0 } else { 55.0 }),
+                max_width: Val::Percent(max_panel_pct),
                 max_height: Val::Percent(94.0),
-                padding: UiRect::all(Val::Px(18.0)),
+                padding: UiRect::all(Val::Px(panel_padding)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(5.0),
+                row_gap: Val::Px(top_panel_gap),
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.08, 0.10, 0.16, 0.94)),
-            BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.85)),
+            BackgroundColor(Color::srgba(0.07, 0.09, 0.15, 0.96)),
+            BorderColor::all(Color::srgba(0.48, 0.82, 1.00, 0.90)),
             PauseMenuTopPanel,
             Name::new("Pause panel — top"),
         ))
@@ -47,7 +62,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
         .spawn((
             Text::new("Paused"),
             TextFont {
-                font_size: 25.0,
+                font_size: title_font,
                 ..default()
             },
             TextColor(Color::srgba(0.92, 0.96, 1.0, 0.98)),
@@ -63,8 +78,8 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 Button,
                 Node {
                     width: Val::Percent(100.0),
-                    min_height: Val::Px(34.0),
-                    padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                    min_height: Val::Px(item_height),
+                    padding: UiRect::axes(Val::Px(item_pad_h), Val::Px(item_pad_v)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
@@ -72,10 +87,10 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 BackgroundColor(Color::NONE),
                 Text::new(label),
                 TextFont {
-                    font_size: 19.0,
+                    font_size: item_font,
                     ..default()
                 },
-                TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96)),
+                TextColor(Color::srgba(0.80, 0.88, 0.96, 0.96)),
                 item,
                 Name::new(format!("Pause item: {label}")),
             ))
@@ -86,18 +101,18 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     let settings_panel = commands
         .spawn((
             Node {
-                width: Val::Px(500.0),
-                max_width: Val::Percent(94.0),
+                width: Val::Percent(if IS_MOBILE { 96.0 } else { 68.0 }),
+                max_width: Val::Percent(settings_max_pct),
                 max_height: Val::Percent(94.0),
-                padding: UiRect::all(Val::Px(16.0)),
+                padding: UiRect::all(Val::Px(panel_padding)),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(4.0),
+                row_gap: Val::Px(settings_panel_gap),
                 align_items: AlignItems::Center,
                 display: Display::None,
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.08, 0.10, 0.16, 0.94)),
-            BorderColor::all(Color::srgba(0.42, 0.78, 1.00, 0.85)),
+            BackgroundColor(Color::srgba(0.07, 0.09, 0.15, 0.96)),
+            BorderColor::all(Color::srgba(0.48, 0.82, 1.00, 0.90)),
             PauseMenuSettingsPanel,
             Name::new("Pause panel — settings"),
         ))
@@ -157,13 +172,11 @@ pub fn spawn_pause_menu(mut commands: Commands) {
     }
 
     // Vertical scrollbar pinned to the right edge of the settings panel.
-    // Width is intentionally chunky (~12 px) so a thumb can be grabbed
-    // with a finger on Android; on desktop it doubles as a visible
-    // affordance for the windowed-list scroll position.
+    // Wider on mobile so the thumb is grabbable with a finger.
     let scrollbar_track = commands
         .spawn((
             Node {
-                width: Val::Px(14.0),
+                width: Val::Px(scrollbar_w),
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(2.0)),
                 ..default()
@@ -188,7 +201,7 @@ pub fn spawn_pause_menu(mut commands: Commands) {
                 top: Val::Px(0.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.62, 0.78, 0.96, 0.92)),
+            BackgroundColor(Color::srgba(0.68, 0.84, 1.00, 0.94)),
             SettingsScrollbarThumb,
             Name::new("Settings scrollbar thumb"),
         ))
@@ -202,17 +215,23 @@ fn spawn_settings_row_slot(commands: &mut Commands, parent: Entity, index: usize
     // label on top, the slider track underneath. Percent-style rows
     // show + drive the slider; toggle / enum / nav rows hide it via
     // `Display::None` in `sync_pause_menu`.
+    const IS_MOBILE: bool = cfg!(target_os = "android");
+    let row_height = if IS_MOBILE { 50.0_f32 } else { 34.0_f32 };
+    let row_pad_v = if IS_MOBILE { 12.0_f32 } else { 6.0_f32 };
+    let row_font = if IS_MOBILE { 20.0_f32 } else { 17.0_f32 };
+    let slider_h = if IS_MOBILE { 12.0_f32 } else { 8.0_f32 };
+
     let row = commands
         .spawn((
             Button,
             Node {
                 width: Val::Percent(100.0),
-                min_height: Val::Px(30.0),
-                padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
+                min_height: Val::Px(row_height),
+                padding: UiRect::axes(Val::Px(12.0), Val::Px(row_pad_v)),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                row_gap: Val::Px(3.0),
+                row_gap: Val::Px(if IS_MOBILE { 5.0 } else { 3.0 }),
                 // Start out of layout; sync_pause_menu flips to Flex
                 // for slots that map to a real row this frame.
                 display: Display::None,
@@ -228,10 +247,10 @@ fn spawn_settings_row_slot(commands: &mut Commands, parent: Entity, index: usize
         .spawn((
             Text::new(""),
             TextFont {
-                font_size: 17.0,
+                font_size: row_font,
                 ..default()
             },
-            TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96)),
+            TextColor(Color::srgba(0.80, 0.88, 0.96, 0.96)),
             SettingsRowLabel { index },
             Name::new(format!("Settings row label {index}")),
         ))
@@ -241,19 +260,19 @@ fn spawn_settings_row_slot(commands: &mut Commands, parent: Entity, index: usize
     // Slider track: dark background with a brighter fill child whose
     // width is the normalized value. Both the track and the fill are
     // pure visuals; touch hit-testing keys on the track's
-    // `RelativeCursorPosition`.
+    // `RelativeCursorPosition`. Taller on mobile for thumb grab comfort.
     let track = commands
         .spawn((
             Node {
-                width: Val::Percent(86.0),
-                height: Val::Px(8.0),
+                width: Val::Percent(88.0),
+                height: Val::Px(slider_h),
                 display: Display::None,
                 padding: UiRect::all(Val::Px(0.0)),
                 border: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.06, 0.09, 0.14, 0.90)),
-            BorderColor::all(Color::srgba(0.30, 0.42, 0.62, 0.60)),
+            BorderColor::all(Color::srgba(0.32, 0.46, 0.68, 0.65)),
             bevy::ui::RelativeCursorPosition::default(),
             Interaction::default(),
             SettingsRowSliderTrack { index },
@@ -267,7 +286,7 @@ fn spawn_settings_row_slot(commands: &mut Commands, parent: Entity, index: usize
                 height: Val::Percent(100.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.62, 0.86, 1.00, 0.92)),
+            BackgroundColor(Color::srgba(0.62, 0.88, 1.00, 0.94)),
             SettingsRowSliderFill { index },
             Name::new(format!("Settings row slider fill {index}")),
         ))
@@ -845,7 +864,7 @@ fn update_scrollbar(
 
 fn apply_slot_bg(bg: &mut BackgroundColor, is_selected: bool) {
     *bg = if is_selected {
-        BackgroundColor(Color::srgba(0.95, 0.78, 0.32, 0.96))
+        BackgroundColor(Color::srgba(0.98, 0.82, 0.28, 0.98))
     } else {
         BackgroundColor(Color::NONE)
     };
@@ -853,9 +872,9 @@ fn apply_slot_bg(bg: &mut BackgroundColor, is_selected: bool) {
 
 fn apply_label_color(color: &mut TextColor, is_selected: bool) {
     *color = if is_selected {
-        TextColor(Color::srgba(0.18, 0.06, 0.04, 1.0))
+        TextColor(Color::srgba(0.12, 0.04, 0.02, 1.0))
     } else {
-        TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96))
+        TextColor(Color::srgba(0.80, 0.88, 0.96, 0.96))
     };
 }
 
@@ -980,12 +999,12 @@ pub fn settings_scrollbar_drag_input(
 
 fn apply_item_highlight(color: &mut TextColor, bg: &mut BackgroundColor, is_selected: bool) {
     *color = if is_selected {
-        TextColor(Color::srgba(0.18, 0.06, 0.04, 1.0))
+        TextColor(Color::srgba(0.12, 0.04, 0.02, 1.0))
     } else {
-        TextColor(Color::srgba(0.78, 0.86, 0.96, 0.96))
+        TextColor(Color::srgba(0.80, 0.88, 0.96, 0.96))
     };
     *bg = if is_selected {
-        BackgroundColor(Color::srgba(0.95, 0.78, 0.32, 0.96))
+        BackgroundColor(Color::srgba(0.98, 0.82, 0.28, 0.98))
     } else {
         BackgroundColor(Color::NONE)
     };

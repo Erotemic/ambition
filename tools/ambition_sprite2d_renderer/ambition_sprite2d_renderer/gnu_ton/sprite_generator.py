@@ -585,21 +585,36 @@ def draw_frame(anim: str, frame_idx: int, frame_count: int) -> Image.Image:
     return c.finish()
 
 
-# Head at -70px above center (110px from top in 384px frame), man at -120px (72px from top).
-# Body at +70px below center (262px from top), hands at +30px (222px from top).
-REST_HEAD_Y = -70.0
-REST_HAND_Y = 30.0
-REST_BODY_Y = 70.0
+# Giant GNU is raised so the full silhouette reads clearly:
+#   Body at +50 below center  (250px from top in 384px frame)
+#   Shoulder hump peak: body_y - 62 = -12 (center of frame = 192px from top)
+#   Head at -95 above center  (97px from top)
+#   Hands at +20 below center (212px from top)
+#
+# Scholar (GNU-ton) stands on the RIGHT shoulder of the giant (x≈+28), feet
+# resting on the hump peak (y≈-12), so his center is at y≈-38. He is NOT
+# on the head — the head is the attack target that periodically descends.
+REST_HEAD_Y = -95.0
+REST_HAND_Y = 20.0
+REST_BODY_Y = 50.0
+
+# Shoulder contact point: body hump peak is at (body_y - 62).
+# Man feet sit here; man center (hy in draw_gnu_ton_man) = foot_y - 22.
+_SHOULDER_TOP_Y = REST_BODY_Y - 62  # ≈ -12
+_MAN_CENTER_Y   = _SHOULDER_TOP_Y - 22  # ≈ -34
+_MAN_CENTER_X   = 28.0  # right shoulder
 
 
 def _draw_rest(c: Canvas, phase: float, frame_idx: int) -> None:
-    """Idle: gentle sway, man muttering on the GNU's shoulders."""
+    """Idle: gentle sway, scholar muttering from the GNU's right shoulder."""
     bob = wave(phase, 0.9) * 3.5
     head_y = REST_HEAD_Y + bob * 0.6
+    # Neck offset: bottom of neck should connect near the shoulder hump
+    neck_offset = head_y - REST_BODY_Y + 72  # keep neck bridge at body top
 
     # Body in background (lower portion)
     draw_gnu_body(c, body_y=REST_BODY_Y, phase=phase, anim="rest")
-    draw_gnu_neck(c, head_y_offset=head_y + 70, tilt=0.0, phase=phase, anim="rest")
+    draw_gnu_neck(c, head_y_offset=neck_offset, tilt=0.0, phase=phase, anim="rest")
 
     # Hands resting at sides
     lhx = wave(phase, 0.6) * 5 - 185
@@ -609,13 +624,15 @@ def _draw_rest(c: Canvas, phase: float, frame_idx: int) -> None:
     draw_hand(c, lhx, lhy, side=-1, phase=phase, anim="rest")
     draw_hand(c, rhx, rhy, side=+1, phase=phase, anim="rest")
 
-    # Head (above body)
+    # Head (above body — the attack target, not where scholar sits)
     draw_gnu_head(c, 0.0, head_y, phase=phase, anim="rest")
 
-    # Scholar on top (50px above head center)
-    man_y = head_y - 50
+    # Scholar on the right shoulder (NOT on the head).
+    # Slight bob shares the body breathing rhythm.
+    man_y = _MAN_CENTER_Y + bob * 0.4
+    man_x = _MAN_CENTER_X + wave(phase, 0.7, 0.2) * 1.5
     show_speech = (frame_idx % 4 == 0)
-    draw_gnu_ton_man(c, -8, man_y, phase=phase, anim="rest", show_speech=show_speech)
+    draw_gnu_ton_man(c, man_x, man_y, phase=phase, anim="rest", show_speech=show_speech)
 
 
 def _draw_hand_slam(c: Canvas, phase: float) -> None:
@@ -636,7 +653,7 @@ def _draw_hand_slam(c: Canvas, phase: float) -> None:
 
     head_y = REST_HEAD_Y
     draw_gnu_body(c, body_y=REST_BODY_Y, phase=phase, anim="hand_slam")
-    draw_gnu_neck(c, head_y_offset=head_y + 70, phase=phase, anim="hand_slam")
+    draw_gnu_neck(c, head_y_offset=head_y - REST_BODY_Y + 72, phase=phase, anim="hand_slam")
 
     draw_hand(c, -185, slam_y, side=-1, phase=phase, anim="hand_slam",
               slam_progress=slam_alpha)
@@ -651,7 +668,7 @@ def _draw_hand_slam(c: Canvas, phase: float) -> None:
             c.ellipse(0, 120, 180 * r * ws, 22 * r * ws, (255, 200, 80, a))
 
     draw_gnu_head(c, 0.0, head_y, phase=phase, anim="hand_slam", enraged=True)
-    draw_gnu_ton_man(c, -8, head_y - 50, phase=phase, anim="hand_slam")
+    draw_gnu_ton_man(c, _MAN_CENTER_X, _MAN_CENTER_Y, phase=phase, anim="hand_slam")
 
 
 def _draw_hand_sweep(c: Canvas, phase: float) -> None:
@@ -675,7 +692,7 @@ def _draw_hand_sweep(c: Canvas, phase: float) -> None:
 
     head_y = REST_HEAD_Y
     draw_gnu_body(c, body_y=REST_BODY_Y, phase=phase, anim="hand_sweep")
-    draw_gnu_neck(c, head_y_offset=head_y + 70, phase=phase, anim="hand_sweep")
+    draw_gnu_neck(c, head_y_offset=head_y - REST_BODY_Y + 72, phase=phase, anim="hand_sweep")
 
     draw_hand(c, lhx, REST_HAND_Y, side=-1, phase=phase, anim="hand_sweep",
               sweep_progress=sweep_prog)
@@ -683,7 +700,7 @@ def _draw_hand_sweep(c: Canvas, phase: float) -> None:
               sweep_progress=sweep_prog)
 
     draw_gnu_head(c, 0.0, head_y, phase=phase, anim="hand_sweep", enraged=True)
-    draw_gnu_ton_man(c, -8, head_y - 50, phase=phase, anim="hand_sweep")
+    draw_gnu_ton_man(c, _MAN_CENTER_X, _MAN_CENTER_Y, phase=phase, anim="hand_sweep")
 
 
 def _draw_head_down(c: Canvas, phase: float) -> None:
@@ -702,7 +719,7 @@ def _draw_head_down(c: Canvas, phase: float) -> None:
         enrage_scale = lerp(1.0, 0.0, t)
 
     draw_gnu_body(c, body_y=REST_BODY_Y, phase=phase, anim="head_down")
-    draw_gnu_neck(c, head_y_offset=head_y + 55, tilt=0.3, phase=phase, anim="head_down")
+    draw_gnu_neck(c, head_y_offset=head_y - REST_BODY_Y + 57, tilt=0.3, phase=phase, anim="head_down")
 
     c_sway = wave(phase, 1.5) * 8
     draw_hand(c, -185 + c_sway, REST_HAND_Y, side=-1, phase=phase, anim="head_down")
@@ -714,7 +731,7 @@ def _draw_head_down(c: Canvas, phase: float) -> None:
         c.ellipse(0.0, head_y, 100 * enrage_scale, 80 * enrage_scale, (255, 220, 60, ga))
 
     draw_gnu_head(c, 0.0, head_y, phase=phase, anim="head_down", enraged=(enrage_scale > 0.5))
-    draw_gnu_ton_man(c, -8, head_y - 50, phase=phase, anim="head_down")
+    draw_gnu_ton_man(c, _MAN_CENTER_X, _MAN_CENTER_Y, phase=phase, anim="head_down")
 
 
 def _draw_hit(c: Canvas, phase: float) -> None:
@@ -722,13 +739,14 @@ def _draw_hit(c: Canvas, phase: float) -> None:
     jolt = wave(phase, 2.0) * 8
     flash_alpha = int(150 * (1.0 - phase))
 
+    body_y_hit = REST_BODY_Y + jolt * 0.3
     head_y = REST_HEAD_Y + jolt * 0.5
-    draw_gnu_body(c, body_y=REST_BODY_Y + jolt * 0.3, phase=phase, anim="hit")
-    draw_gnu_neck(c, head_y_offset=head_y + 70, phase=phase, anim="hit")
+    draw_gnu_body(c, body_y=body_y_hit, phase=phase, anim="hit")
+    draw_gnu_neck(c, head_y_offset=head_y - body_y_hit + 72, phase=phase, anim="hit")
     draw_hand(c, -185 + jolt, REST_HAND_Y - jolt * 0.5, side=-1, phase=phase, anim="hit")
     draw_hand(c, 185 + jolt, REST_HAND_Y + jolt * 0.3, side=+1, phase=phase, anim="hit")
     draw_gnu_head(c, jolt * 0.7, head_y, phase=phase, anim="hit")
-    draw_gnu_ton_man(c, -8 + jolt * 0.4, head_y - 50, phase=phase, anim="hit")
+    draw_gnu_ton_man(c, _MAN_CENTER_X + jolt * 0.4, _MAN_CENTER_Y + jolt * 0.2, phase=phase, anim="hit")
 
     if flash_alpha > 0:
         flash_img = Image.new("RGBA", (c.sw, c.sh), (255, 140, 40, flash_alpha))
@@ -742,10 +760,12 @@ def _draw_death(c: Canvas, phase: float) -> None:
 
     head_y = lerp(REST_HEAD_Y, 60, smoothstep(settle * 1.1))
     body_y = lerp(REST_BODY_Y, 100.0, smoothstep(settle))
-    man_y = head_y - 50 + settle * 80
+    # Scholar starts on shoulder then tumbles sideways as body collapses
+    man_y = _MAN_CENTER_Y + settle * 110
+    man_x = _MAN_CENTER_X + settle * 60
 
     draw_gnu_body(c, body_y=body_y, phase=phase, anim="death")
-    draw_gnu_neck(c, head_y_offset=head_y + 70, phase=phase, anim="death")
+    draw_gnu_neck(c, head_y_offset=head_y - body_y + 72, phase=phase, anim="death")
 
     lhx = lerp(-185, -205, settle)
     lhy = lerp(REST_HAND_Y, 110, smoothstep(settle))
@@ -757,7 +777,7 @@ def _draw_death(c: Canvas, phase: float) -> None:
     draw_gnu_head(c, 0.0, head_y, phase=phase, anim="death")
 
     if settle < 0.9:
-        draw_gnu_ton_man(c, -8 + settle * 60, man_y, phase=phase, anim="death")
+        draw_gnu_ton_man(c, man_x, man_y, phase=phase, anim="death")
 
     grey_blend = settle * 0.7
     if grey_blend > 0:

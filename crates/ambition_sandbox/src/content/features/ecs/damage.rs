@@ -236,7 +236,20 @@ pub fn apply_feature_damage_events(
             if !boss.alive || !event.volume.strict_intersects(aabb.aabb()) {
                 continue;
             }
+            // Speech bubble bark when player lands a hit, debounced by hit_flash.
+            let should_bark = boss.hit_flash < 0.05;
             boss.hit_flash = 0.18;
+            if should_bark {
+                if let Some(reg) = combat_banter.as_deref() {
+                    let strikes = boss.health.max - boss.health.current;
+                    if let Some(line) = reg.pick_hit_bark(&boss.name, strikes.max(0) as u32) {
+                        vfx.write(VfxMessage::SpeechBubble {
+                            pos: boss.bark_anchor(),
+                            text: line.to_string(),
+                        });
+                    }
+                }
+            }
             let amount = event.damage.max(1);
             let killed = boss.health.damage(amount);
             let impact = midpoint(event.volume.center(), boss.pos);

@@ -272,56 +272,87 @@ impl BossPatternSchedule {
         )
     }
 
-    /// GNU-ton Phase 1 — hands-only pressure: alternating hand slams and
-    /// sweeps while the head stays high. The player must dodge the
-    /// hands without being able to strike the head yet.
+    /// GNU-ton Phase 1 — hands-only pressure. The head stays high and out
+    /// of reach; the player learns to read the hand telegraph and find the
+    /// gap before the sweep follows the slam.
     ///
-    /// Choreography: slam → rest beat → sweep → rest beat
+    /// Choreography (~8s cycle):
+    ///   menace breath → slam (long telegraph) → breath → sweep (long telegraph) → long breath
     pub fn gnu_ton_phase1() -> Self {
         Self::new(
             "gnu_ton",
             1,
             0xC7A3_0001,
             vec![
-                BossPatternStep::new(BossAttackKind::FloorSlam, 0.60, 0.30, 0.65),
-                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.45, 0.10),
-                BossPatternStep::new(BossAttackKind::SideSweep, 0.50, 0.35, 0.55),
-                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.35, 0.10),
+                // Breath: giant raises head, signals intent — ~1.0s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.80, 0.20),
+                // FloorSlam: very readable windup, long recover gives escape room — ~2.2s
+                BossPatternStep::new(BossAttackKind::FloorSlam, 0.95, 0.45, 0.80),
+                // Mid-sequence pause — ~0.9s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.70, 0.20),
+                // SideSweep: deliberate sweep with time to read — ~2.0s
+                BossPatternStep::new(BossAttackKind::SideSweep, 0.85, 0.40, 0.75),
+                // Long closing breath — player knows the loop resets — ~1.1s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.90, 0.20),
             ],
         )
     }
 
-    /// GNU-ton Phase 2 — head descends: SpikeHalo opens the vulnerability
-    /// window. The player must survive hand attacks to get punish windows
-    /// when the head is low.
+    /// GNU-ton Phase 2 — head descends. SpikeHalo lowers the head and opens
+    /// a vulnerability window; the player must survive the hand combo first
+    /// to earn the punish. Each loop has a clear 3-beat shape: slam → head
+    /// down (punish here) → breath → sweep → breath.
+    ///
+    /// Choreography (~9s cycle):
+    ///   breath → slam → head-down (long active) → breath → sweep → breath
     pub fn gnu_ton_phase2() -> Self {
         Self::new(
             "gnu_ton",
             2,
             0xC7A3_0002,
             vec![
-                BossPatternStep::new(BossAttackKind::FloorSlam, 0.48, 0.28, 0.52),
-                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.70, 1.40, 0.40),
-                BossPatternStep::new(BossAttackKind::SideSweep, 0.40, 0.30, 0.45),
-                BossPatternStep::new(BossAttackKind::FloorSlam, 0.42, 0.26, 0.48),
+                // Opening breath — ~0.8s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.65, 0.15),
+                // FloorSlam windup, moderate recover — ~1.7s
+                BossPatternStep::new(BossAttackKind::FloorSlam, 0.72, 0.38, 0.60),
+                // SpikeHalo: head descends; long active = generous punish window — ~2.9s
+                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.80, 1.60, 0.50),
+                // Recovery breath between combo and sweep — ~0.9s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.75, 0.15),
+                // SideSweep with readable telegraph — ~1.7s
+                BossPatternStep::new(BossAttackKind::SideSweep, 0.68, 0.38, 0.64),
+                // Closing breath — ~0.8s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.65, 0.15),
             ],
         )
     }
 
-    /// GNU-ton Enrage — rapid-fire pressure with shorter rests, both hand
-    /// attacks interleaved with head exposure. The head window gets shorter
-    /// under enrage — player must act quickly.
+    /// GNU-ton Enrage — intensity escalates but the shape remains legible.
+    /// Telegraphs are shorter; rests shrink; a dash is added. The player who
+    /// learned Phase 1+2 rhythms can still read it — they just have less margin.
+    ///
+    /// Choreography (~8s cycle):
+    ///   breath → slam → sweep (back-to-back) → head-down (shorter window) → breath → dash → breath
     pub fn gnu_ton_enrage() -> Self {
         Self::new(
             "gnu_ton",
             3,
             0xC7A3_0003,
             vec![
-                BossPatternStep::new(BossAttackKind::FloorSlam, 0.35, 0.22, 0.36),
-                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.55, 1.00, 0.30),
-                BossPatternStep::new(BossAttackKind::SideSweep, 0.32, 0.26, 0.38),
-                BossPatternStep::new(BossAttackKind::DashEcho,  0.42, 0.30, 0.40),
-                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.48, 0.85, 0.28),
+                // Brief menace breath — ~0.6s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.50, 0.10),
+                // FloorSlam, tighter telegraph — ~1.4s
+                BossPatternStep::new(BossAttackKind::FloorSlam, 0.58, 0.32, 0.50),
+                // Immediate SideSweep (no rest — tests learned pattern) — ~1.3s
+                BossPatternStep::new(BossAttackKind::SideSweep, 0.52, 0.32, 0.46),
+                // SpikeHalo: head exposure, shorter window under pressure — ~2.2s
+                BossPatternStep::new(BossAttackKind::SpikeHalo, 0.62, 1.10, 0.48),
+                // Short breath before dash — ~0.6s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.50, 0.10),
+                // DashEcho cross-map — ~1.2s
+                BossPatternStep::new(BossAttackKind::DashEcho, 0.44, 0.30, 0.46),
+                // Closing breath — ~0.7s
+                BossPatternStep::new(BossAttackKind::Rest, 0.00, 0.55, 0.15),
             ],
         )
     }

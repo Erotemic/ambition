@@ -35,10 +35,10 @@ ambient_profile: hum
 visual_theme: default
 
 connect_to:
-  # Add the hall door in central_hub_main in the wide gap at y=832
-  # (x=1098..1900 is free at that row; x=1475 is well clear of nearby entities).
+  # Add the hall door in central_hub_main at the ground-floor row y=880
+  # (gap x=1224..1538; x=1410 clears the NPC at x=1346..1388).
   - target_room: central_hub_main
-    px: [1475, 832]
+    px: [1410, 880]
     size: [48, 96]
     id: hall_of_bosses_door
     target_zone: hall_entry

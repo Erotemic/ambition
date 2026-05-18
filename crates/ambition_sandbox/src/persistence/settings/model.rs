@@ -138,6 +138,7 @@ pub enum SettingsItem {
     Inspector,
     WorldInspector,
     OverviewCamera,
+    ShowHitboxes,
     MicroGrid,
     CameraFrame,
     PlayerBodyProfile,
@@ -227,6 +228,7 @@ impl SettingsItem {
                 Self::Inspector,
                 Self::WorldInspector,
                 Self::OverviewCamera,
+                Self::ShowHitboxes,
                 Self::MicroGrid,
                 Self::CameraFrame,
                 Self::PlayerBodyProfile,
@@ -481,6 +483,9 @@ impl SettingsItem {
             Self::OverviewCamera => {
                 format!("Overview Camera (F5): {}", on_off(dev.overview_camera))
             }
+            Self::ShowHitboxes => {
+                format!("Show Hitboxes: {}", on_off(dev.show_hitboxes))
+            }
             Self::MicroGrid => {
                 format!("Micro Grid (8px): {}", on_off(dev.micro_grid))
             }
@@ -519,6 +524,7 @@ pub struct DevToggleSnapshot {
     pub inspector: bool,
     pub world_inspector: bool,
     pub overview_camera: bool,
+    pub show_hitboxes: bool,
     pub micro_grid: bool,
     pub camera_frame: bool,
     pub player_body_profile: crate::dev_tools::PlayerBodyProfile,
@@ -538,6 +544,7 @@ impl DevToggleSnapshot {
             inspector: developer.inspector_visible,
             world_inspector: developer.world_inspector_visible,
             overview_camera: developer.overview_camera,
+            show_hitboxes: developer.show_feature_hitboxes,
             micro_grid: developer.show_micro_grid,
             camera_frame: developer.show_camera_frame,
             player_body_profile: developer.player_body_profile,
@@ -978,6 +985,13 @@ pub fn apply_action(
         SettingsItem::OverviewCamera => {
             if is_toggle_action(action) {
                 developer.overview_camera = !developer.overview_camera;
+            }
+        }
+        SettingsItem::ShowHitboxes => {
+            if is_toggle_action(action) {
+                let next = !developer.show_feature_hitboxes;
+                developer.show_feature_hitboxes = next;
+                developer.show_player_hitbox = next;
             }
         }
         SettingsItem::MicroGrid => {

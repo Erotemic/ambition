@@ -170,8 +170,12 @@ pub fn camera_follow(
     let visible_view = ae::Vec2::new(half_view_w * 2.0, half_view_h * 2.0);
 
     let (target, target_world) = if developer_tools.overview_camera {
-        camera_state.target_initialized = false;
-        let target_world = world.0.size * 0.5;
+        // Overview still follows the player — the zoom handles the wider view.
+        // Previously locked to world center, making large rooms unnavigable in F5 mode.
+        let resize_offset = (player_body.base_size.y - player_body.size.y) * 0.5;
+        let target_world = ae::Vec2::new(player_body.pos.x, player_body.pos.y - resize_offset);
+        camera_state.live_target_world = target_world;
+        camera_state.target_initialized = true;
         (world_to_bevy(&world.0, target_world, 0.0), target_world)
     } else {
         // AMBITION_REVIEW(spatial): camera follows a stable "standing-pose center"

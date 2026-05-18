@@ -1028,3 +1028,29 @@ The general rule the next person should pattern-match against.
 Skip the pretty narrative. The point is grep-ability — somebody
 hunting for "duplicate sprite" or "staircase smear" should land on
 the right entry.
+
+---
+
+## LDtk LoadingZone target_room must use activeArea id, not level identifier
+
+**Date:** 2026-05-18. **Fixed in:** `d874187`.
+
+### Symptom
+Newly authored `hall_of_bosses` level was unreachable after `area create` even though the connecting door existed in `central_hub_main`. Walking into the door did nothing.
+
+### Root cause
+`LoadingZone.target_room` must contain the **activeArea** value — a separate level field — not the LDtk level `identifier`. `central_hub_main` and `central_hub_basement` both share `activeArea = "central_hub_complex"`. The `area create` spec used `target_room: central_hub_main` (level identifier) instead of `target_room: central_hub_complex` (activeArea). The Bevy LDtk runtime resolves warp targets by activeArea, so a level-identifier string produced a silent miss and the door was never activated.
+
+### Fix
+Use `entity set-field` to patch the generated zone:
+```yaml
+level_id: hall_of_bosses
+edits:
+  - target: {iid: "LoadingZone-4366"}
+    fields:
+      target_room: central_hub_complex
+```
+In future specs, check `entity query --level <name>` output for the `activeArea` field value — it may differ from the identifier when multiple LDtk levels share a logical room.
+
+### Takeaway
+**`target_room` = activeArea, not level identifier.** Whenever a spec writes `target_room:`, verify the destination level's `activeArea` field with `entity query` or by reading the `fieldInstances` in the LDtk JSON. The validator catches this as an "unknown room" error if the activeArea doesn't exist, but the inverse (a valid activeArea for the wrong level) is silent.

@@ -173,10 +173,14 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         .insert_resource(crate::cutscene::CutsceneAdvanceRequest::default())
         .insert_resource(crate::cutscene::RoomCutsceneBindings::defaults())
         // Combat-banter registry — story-content lines for the
-        // `apply_feature_damage_events` hit handler. Starts empty;
-        // IntroPlugin contributes the intro raiders' lines via a
-        // startup system.
-        .insert_resource(crate::banter::CombatBanterRegistry::default())
+        // `apply_feature_damage_events` hit handler. Boss barks are
+        // installed inline; IntroPlugin adds the intro raiders' lines
+        // via a startup system.
+        .insert_resource({
+            let mut reg = crate::banter::CombatBanterRegistry::default();
+            crate::boss_encounter::install_boss_banter(&mut reg);
+            reg
+        })
         // World-clock dt mirror — `WorldTime::scaled_dt` is the
         // bullet-time-respecting delta for gameplay timers and
         // world-anchored animation timers. `WorldTime::raw_dt`

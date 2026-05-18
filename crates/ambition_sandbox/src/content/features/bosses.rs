@@ -322,6 +322,20 @@ impl BossRuntime {
         self.size
     }
 
+    /// World-space anchor for a combat-banter speech bubble. For GNU-ton the
+    /// scholar sits on the right shoulder — offset slightly right and not as
+    /// high as the body top so the bubble appears near the character, not
+    /// floating above the beast's head.
+    pub fn bark_anchor(&self) -> ae::Vec2 {
+        if self.is_gnu_ton() {
+            let half_h = self.combat_size().y * 0.5;
+            ae::Vec2::new(self.pos.x + 38.0, self.pos.y - half_h * 0.55 - 18.0)
+        } else {
+            let half_h = self.combat_size().y * 0.5;
+            ae::Vec2::new(self.pos.x, self.pos.y - half_h - 20.0)
+        }
+    }
+
     pub fn apply_behavior_profile(&mut self, behavior: BossBehaviorProfile) {
         self.behavior = behavior;
     }

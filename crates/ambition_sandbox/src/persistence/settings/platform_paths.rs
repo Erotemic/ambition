@@ -17,6 +17,10 @@
 use std::path::PathBuf;
 
 /// Subpath under the data root where every Ambition file lives.
+/// Currently inlined as `"ambition"` in `data_dir_root`; kept as a
+/// pub const so tooling and future callers can join the same dir
+/// name without duplicating the literal.
+#[allow(dead_code)]
 pub const AMBITION_DIR: &str = "ambition";
 
 /// Resolve the OS-conventional data directory for Ambition.

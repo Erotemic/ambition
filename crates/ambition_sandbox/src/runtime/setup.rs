@@ -57,6 +57,7 @@ pub struct SimulationSetup<'a> {
     pub world: &'a GameWorld,
     pub room_set: &'a RoomSet,
     pub ldtk_index: &'a LdtkRuntimeIndex,
+    #[allow(dead_code)] // Reserved; setup currently reads sandbox_data via the asset handle.
     pub sandbox_data: &'a SandboxDataSpec,
     pub editable_abilities: &'a EditableAbilitySet,
     pub editable_tuning: &'a EditableMovementTuning,

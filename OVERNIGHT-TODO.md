@@ -2,12 +2,15 @@ Here’s the refactor backlog I’d give an autonomous coding agent, prioritized
 
 ## Status (2026-05-19 agent session)
 
-Completed in the session that produced commits 6ef63ba…0500a5e:
+Completed in the session that produced commits 6ef63ba…30bc1f2:
 
 - ✅ **P3 PrimaryPlayerOnly docs** — removed the non-existent `PrimaryPlayerOnlyMut` reference; clarified the filter type works for both immutable and mutable component access.
 - ✅ **P2 FeatureBaseBundle split** — introduced `FeatureLifecycleBundle` (sim + RoomScopedEntity + id/name/aabb) and `FeatureRenderedBundle` (lifecycle + RoomVisual). `FeatureBaseBundle` is now a type alias for `FeatureRenderedBundle`, so existing PickupBundle/ChestBundle/EnemyActorBundle call sites compile unchanged.
 - ✅ **P1 content/features/ecs/mod.rs split** — 2412 → 104 lines. Submodules: `actors`, `anim_helpers`, `banner`, `bosses`, `breakables`, `chests`, `damage` (pre-existing), `encounter_rewards`, `falling_chest`, `hazards`, `interact`, `overlay`, `pickups`, `reset`, `save_sync`, `spawn`, `tests`, `view_index`.
 - ✅ **P3 map_menu repaint gating** — `sync_map_menu` now skips its despawn-and-rebuild pass when neither `MapMenuState` nor `RoomSet` changed this frame. Visibility / status-text branches stay per-frame (cheap and not fully covered by `is_changed`).
+- ✅ **P17.1 player singleton audit refresh** — `docs/planning/player-singleton-audit.md` B-bucket table updated to point at the new ecs submodules (pickups/chests/breakables/hazards/bosses/actors/interact) instead of the old mod.rs line numbers.
+- ✅ **Dead facade re-export cleanup** — `cargo check -p ambition_sandbox --lib` had 30 `unused-import` warnings at session start; now zero. Touched `body_mode`, `dialog`, `encounter`, `host::mobile_input`, `host::platform`, `map_menu`, `pause_menu`, `persistence::settings`, `presentation::character_sprites`, `presentation::parallax`, `presentation::rendering`, `projectile`, `ui_nav`. Test-only re-exports moved behind `#[cfg(test)] pub(crate) use` where needed.
+- ✅ **Benchmark candidate (E0364)** — new `dev/benchmark-candidates/rust-pub-use-pub-crate-mismatch-2026-05-19.md` distils the visibility-mismatch trap encountered while splitting the ecs module.
 - ⚠️ **P1 crate-root path migration** — the comment in `lib.rs` lines 58-65 confirms the internal `pub(crate) use` shims were removed on the 2026-05-19 shim-cleanup pass. The remaining `pub use content::features;`, `pub use dev::trace;`, `pub use runtime::game_mode;`, `pub use world::{ldtk_world, rooms};` are documented external API (used from bins/tests/engine docs). Deferred as low-ROI.
 
 Backlog below is the original task list — items marked above are no longer current.

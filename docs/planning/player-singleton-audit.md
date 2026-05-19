@@ -75,16 +75,24 @@ typically filter by faction/state. Today single-player parity is preserved.
 | `content/features/ecs/pickups.rs` | 24 | `player.single()` for pickup overlap | `for player_body in players.iter()` — any overlapping player triggers |
 | `content/features/ecs/chests.rs` | 32 | `player.single_mut()` for chest interact | iterate; each player can buffer-interact independently |
 | `content/features/ecs/breakables.rs` | 32 | `player_body_q.single()` for stand-to-break | iterate; any player standing triggers |
-| `content/features/ecs/hazards.rs` | 29 | `player.single()` for hazard damage | iterate; hazards damage every overlapping player |
-| `content/features/ecs/bosses.rs` | 41 | `player_query.single()` for boss contact damage | iterate; bosses damage every overlapping player |
-| `content/features/ecs/actors.rs` | 226 | `player_query.single()` for enemy attacks + slot board | iterate; slot board needs a per-target struct (OVERNIGHT-TODO #17.8) |
+| `content/features/ecs/pickups.rs` | 24 | `player.single()` for pickup overlap | iterate; every overlapping player should collect (OVERNIGHT-TODO #17.6) |
+| `content/features/ecs/chests.rs` | 32 | `player.single_mut()` for chest interact | iterate; per-player interact buffer would be needed |
+| `content/features/ecs/breakables.rs` | 32 | `player_body_q.single()` for stand-to-break | iterate; any player triggers the break |
+| ~~`content/features/ecs/hazards.rs`~~ ✓ DONE 2026-05-19 (c626d35) | Was `player.single()` | Now iterates every overlapping player — co-op-ready for the "no targeting needed" pattern |
+| ~~`content/features/ecs/bosses.rs`~~ ✓ DONE 2026-05-19 (f0a4e08) | Was `player_query.single()` | Now `PrimaryPlayerOnly` filter documents the "boss targets primary player" decision until #17.8 lands per-target AI |
+| ~~`content/features/ecs/actors.rs`~~ ✓ DONE 2026-05-19 (f0a4e08) | Was `player_query.single()` | Now `PrimaryPlayerOnly`; enemy targeting decision is visible at the query |
 | `content/features/ecs/interact.rs` | 37 | `player.single_mut()` for NPC dialogue + switch activation | iterate; per-player interact buffers |
 | `content/features/ecs/damage.rs` | 288 | `player_combat_q.single_mut()` | Per-player damage routing (OVERNIGHT-TODO #17.6) |
-| `enemy_projectile/systems.rs` | 32 | `player_body_q.single().ok()` for enemy aim target | Target nearest hostile actor (OVERNIGHT-TODO #17.8) |
+| ~~`enemy_projectile/systems.rs`~~ ✓ DONE 2026-05-19 (bd306f0) | Was `player_body_q.single().ok()` | Now iterates every player; the first vulnerable overlapping player takes the hit |
 | `encounter/systems.rs` | 130 | `player_body_q.single()` for encounter trigger overlap | Iterate players; any player triggers |
 | `projectile/systems.rs` | 164 | `player_body_q.single()` for player projectile spawn | Should be per-player owner (OVERNIGHT-TODO #17.7) |
 | `projectile/visuals.rs` | 62 | `player_body_q.single()` for projectile recolor based on player state | Per-projectile owner reference |
 | `presentation/fx.rs` | 480 | `player_authority.single()` for screen FX origin | Primary-player FX is acceptable; multi-player split-screen would need per-player FX |
+
+**B-bucket pattern split (post 2026-05-19):**
+
+- **No targeting needed (hazards, projectiles)** — iterate every player, hit every overlapping player. Already done for `ecs/hazards.rs` (c626d35) and `enemy_projectile/systems.rs` (bd306f0).
+- **Targeting decision deliberate (bosses, enemy AI)** — `PrimaryPlayerOnly` filter until per-target selection lands. Already done for `ecs/bosses.rs` and `ecs/actors.rs` (f0a4e08). Real multi-target boss AI is OVERNIGHT-TODO #17.8.
 
 ### C — Should target a specific player slot / entity (input, attack state, damage, healing)
 

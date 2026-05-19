@@ -160,5 +160,5 @@ pub fn init_sandbox_resources(app: &mut App) {
         // Aggregate user settings (video/audio/controls/gameplay).
         // Mutated by the pause menu; read by audio/video/gameplay
         // systems and the input deadzone/hysteresis filter.
-        .insert_resource(crate::settings::UserSettings::default());
+        .insert_resource(crate::persistence::settings::UserSettings::default());
 }

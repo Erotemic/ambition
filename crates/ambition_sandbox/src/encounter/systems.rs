@@ -12,7 +12,7 @@ use super::{
 /// project and apply persisted states from the save.
 pub fn populate_encounter_registry(
     mut registry: ResMut<EncounterRegistry>,
-    save: Res<crate::save::SandboxSave>,
+    save: Res<crate::persistence::save::SandboxSave>,
     project: Res<crate::ldtk_world::SandboxLdtkProject>,
     mut commands: Commands,
 ) {
@@ -103,7 +103,7 @@ pub fn update_encounters_from_world(
     world_time: Res<crate::WorldTime>,
     mut died_messages: MessageReader<crate::PlayerDiedMessage>,
     mut registry: ResMut<EncounterRegistry>,
-    mut save: ResMut<crate::save::SandboxSave>,
+    mut save: ResMut<crate::persistence::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,

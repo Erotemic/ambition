@@ -45,7 +45,7 @@ pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
     player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut frame: ResMut<ControlFrame>,
-    user_settings: Res<crate::settings::UserSettings>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
     cutscene: Res<crate::cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<crate::cutscene::CutsceneAdvanceRequest>,
@@ -55,7 +55,7 @@ pub fn populate_control_frame_from_actions(
         // Dialogue is a UI state: gameplay input is suppressed, but the
         // underlying `ActionState` must remain intact so a held arrow/D-pad
         // key does not become `just_pressed` again on every frame.
-        dash_state.edge = crate::settings::TriggerEdgeState::default();
+        dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
         *frame = ControlFrame::default();
         return;
     }
@@ -105,7 +105,7 @@ pub fn populate_control_frame_from_actions(
                 // While paused, suppress gameplay input AND reset the
                 // dash trigger state so the post-pause re-press starts
                 // from a clean Released edge.
-                dash_state.edge = crate::settings::TriggerEdgeState::default();
+                dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
                 ControlFrame::read_menu(action_state)
             }
         }
@@ -125,7 +125,7 @@ pub fn populate_menu_control_frame_from_actions(
     player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
-    user_settings: Res<crate::settings::UserSettings>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
     mut mouse_wheel: MessageReader<MouseWheel>,
 ) {
     let mut next = MenuControlFrame::default();
@@ -137,7 +137,7 @@ pub fn populate_menu_control_frame_from_actions(
         let edge_right = actions.just_pressed(&SandboxAction::MenuNavigateRight);
 
         let raw = actions.clamped_axis_pair(&SandboxAction::MenuStick);
-        let (sx, sy) = crate::settings::ControlSettings::apply_deadzone(
+        let (sx, sy) = crate::persistence::settings::ControlSettings::apply_deadzone(
             raw.x,
             raw.y,
             user_settings.controls.left_stick_deadzone,

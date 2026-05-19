@@ -198,7 +198,7 @@ pub fn drain_cutscene_triggers(
     mut queue: ResMut<CutsceneTriggerQueue>,
     library: Res<CutsceneLibrary>,
     mut active: ResMut<ActiveCutscene>,
-    save: Res<crate::save::SandboxSave>,
+    save: Res<crate::persistence::save::SandboxSave>,
 ) {
     if active.is_playing() {
         return;
@@ -260,7 +260,7 @@ pub fn tick_active_cutscene(
     time: Res<Time>,
     mut active: ResMut<ActiveCutscene>,
     mut request: ResMut<CutsceneAdvanceRequest>,
-    mut save: ResMut<crate::save::SandboxSave>,
+    mut save: ResMut<crate::persistence::save::SandboxSave>,
 ) {
     let dismiss = std::mem::take(&mut request.dismiss_dialogue);
     let skip = std::mem::take(&mut request.skip_cutscene);

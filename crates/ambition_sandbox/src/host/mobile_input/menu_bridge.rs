@@ -136,7 +136,7 @@ pub fn fold_to_menu_control_frame(
     touches: Res<Touches>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    user_settings: Res<crate::settings::UserSettings>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
 ) {
@@ -213,7 +213,7 @@ pub fn touch_move_to_menu_dir(
     deadzone: f32,
 ) -> Option<crate::input::MenuDir> {
     let (x, y_down) =
-        crate::settings::ControlSettings::apply_deadzone(touch.move_x, touch.move_y, deadzone);
+        crate::persistence::settings::ControlSettings::apply_deadzone(touch.move_x, touch.move_y, deadzone);
     crate::input::analog_to_dir(x, -y_down, 0.5)
 }
 

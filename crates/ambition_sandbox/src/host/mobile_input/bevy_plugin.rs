@@ -340,7 +340,7 @@ fn sync_touch_ui_visibility(
 /// Both values default to `true` so the HUD is on by default and
 /// the user can flip it off via the controls page.
 fn sync_touch_visibility_from_settings(
-    settings: Res<crate::settings::UserSettings>,
+    settings: Res<crate::persistence::settings::UserSettings>,
     mut visible: ResMut<TouchControlsVisible>,
 ) {
     if visible.0 != settings.controls.touch_controls_visible {

@@ -9,7 +9,7 @@ use bevy::window::PrimaryWindow;
 use super::primitives::PlayerVisual;
 use crate::config::world_to_bevy;
 use crate::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
-use crate::settings::CameraAspectPolicy;
+use crate::persistence::settings::CameraAspectPolicy;
 
 /// Live camera diagnostics and feel-lab data.
 ///
@@ -70,7 +70,7 @@ pub fn camera_follow(
     time: Res<Time>,
     developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
     encounter_registry: Res<crate::encounter::EncounterRegistry>,
-    user_settings: Res<crate::settings::UserSettings>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
     mut camera_state: ResMut<crate::CameraEaseState>,
     mut view_state: ResMut<CameraViewState>,
     ease_tuning: Res<crate::CameraEaseTuning>,

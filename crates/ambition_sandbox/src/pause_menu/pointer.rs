@@ -82,7 +82,7 @@ pub fn pause_menu_pointer_input(
 fn handle_row_pointer_interaction(
     interaction: &Interaction,
     index: usize,
-    tap_mode: crate::settings::MenuTapMode,
+    tap_mode: crate::persistence::settings::MenuTapMode,
     state: &mut PauseMenuState,
 ) {
     let update = resolve_selectable_row_interaction(

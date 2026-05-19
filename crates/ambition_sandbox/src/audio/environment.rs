@@ -205,11 +205,11 @@ pub fn smooth_audio_environment(
 /// the filter handle, and leave the user-mixer composition intact.
 #[cfg(feature = "audio")]
 pub fn apply_audio_environment(
-    settings: Res<crate::settings::UserSettings>,
+    settings: Res<crate::persistence::settings::UserSettings>,
     env: Res<AudioEnvironment>,
     music_channel: Res<AudioChannel<MusicChannel>>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,
-    mut last: Local<Option<(crate::settings::AudioSettings, f32)>>,
+    mut last: Local<Option<(crate::persistence::settings::AudioSettings, f32)>>,
 ) {
     let current_settings = settings.audio;
     let wetness = env.wetness;
@@ -315,7 +315,7 @@ mod tests {
     /// preference would leak audio while submerged.
     #[test]
     fn underwater_composes_with_user_settings() {
-        use crate::settings::AudioSettings;
+        use crate::persistence::settings::AudioSettings;
 
         let dry = AudioEnvironment::default();
         let mut wet = AudioEnvironment::default();

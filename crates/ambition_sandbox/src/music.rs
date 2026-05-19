@@ -31,7 +31,7 @@ use crate::audio::{
 use crate::content::data::SandboxDataSpec;
 use crate::encounter::{EncounterMusicRequest, EncounterPhase, EncounterRegistry};
 use crate::rooms::RoomMusicRequest;
-use crate::settings::UserSettings;
+use crate::persistence::settings::UserSettings;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
 const MAX_LAYERS: usize = 6;

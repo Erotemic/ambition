@@ -1555,7 +1555,7 @@ pub fn interact_ecs_actors_and_switches(
 /// deaths stay dead across room reloads. Dynamic encounter mobs are ignored
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
-    save: Res<crate::save::SandboxSave>,
+    save: Res<crate::persistence::save::SandboxSave>,
     mut actors: Query<
         (
             &mut ActorRuntime,
@@ -1616,7 +1616,7 @@ pub fn sync_ecs_actors_with_save(
 
 /// Mirror persisted boss-cleared state onto ECS-owned boss actors.
 pub fn sync_ecs_bosses_with_save(
-    save: Res<crate::save::SandboxSave>,
+    save: Res<crate::persistence::save::SandboxSave>,
     mut bosses: Query<&mut BossFeature, With<FeatureSimEntity>>,
 ) {
     let data = save.data();
@@ -1639,7 +1639,7 @@ pub fn sync_ecs_bosses_with_save(
 /// Encounter arming now reads `EncounterSwitchIndex`, which is rebuilt from
 /// these ECS components.
 pub fn sync_ecs_switches_from_save(
-    save: Res<crate::save::SandboxSave>,
+    save: Res<crate::persistence::save::SandboxSave>,
     mut switches: Query<(&FeatureId, &mut SwitchOn), With<SwitchFeature>>,
 ) {
     for (id, mut switch_on) in &mut switches {

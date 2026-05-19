@@ -80,7 +80,8 @@ pub use world::{ldtk_world, rooms};
 // Removed: `pub(crate) use host::{mobile_input, platform, windowing};` —
 // call sites now use the canonical `crate::host::{mobile_input,
 // platform, windowing}::…` paths.
-pub(crate) use persistence::{save, settings};
+// Removed: `pub(crate) use persistence::{save, settings};` — call
+// sites now use `crate::persistence::{save, settings}::…`.
 // Removed: `pub(crate) use player::bubble_shield;` — call sites now
 // use `crate::player::bubble_shield::…`.
 // `screen_effects` removed from the shim: call sites now use

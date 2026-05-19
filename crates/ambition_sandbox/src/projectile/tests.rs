@@ -53,7 +53,7 @@ fn min_app() -> App {
     app.insert_resource(crate::WorldTime::default());
     app.insert_resource(GameWorld(dummy_world()));
     app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::settings::UserSettings::default());
+    app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
@@ -400,7 +400,7 @@ fn fireball_bounces_off_floor_in_system() {
     );
     app.insert_resource(GameWorld(world.clone()));
     app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::settings::UserSettings::default());
+    app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
@@ -472,7 +472,7 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.insert_resource(GameWorld(world.clone()));
 
     app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::settings::UserSettings::default());
+    app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
@@ -545,7 +545,7 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.insert_resource(GameWorld(world.clone()));
 
     app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::settings::UserSettings::default());
+    app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());
@@ -615,7 +615,7 @@ fn hadouken_expires_on_solid_in_system() {
     app.insert_resource(GameWorld(world.clone()));
 
     app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::settings::UserSettings::default());
+    app.insert_resource(crate::persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(PlayerProjectileState::default());

@@ -130,7 +130,7 @@ pub fn save_settings_on_change(_settings: Res<UserSettings>) {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::{Difficulty, FlashIntensity};
+    use crate::persistence::settings::{Difficulty, FlashIntensity};
     use std::cell::Cell;
     use std::sync::Mutex;
 

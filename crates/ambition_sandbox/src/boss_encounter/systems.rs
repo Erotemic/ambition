@@ -13,7 +13,7 @@ use super::{
 
 pub fn populate_boss_encounter_registry(
     mut registry: ResMut<BossEncounterRegistry>,
-    save: Res<crate::save::SandboxSave>,
+    save: Res<crate::persistence::save::SandboxSave>,
 ) {
     if registry.specs_loaded {
         return;
@@ -44,7 +44,7 @@ pub fn update_boss_encounters(
     world_time: Res<crate::WorldTime>,
     mut registry: ResMut<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
-    mut save: ResMut<crate::save::SandboxSave>,
+    mut save: ResMut<crate::persistence::save::SandboxSave>,
     mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,

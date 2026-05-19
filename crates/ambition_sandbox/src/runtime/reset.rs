@@ -39,7 +39,7 @@
 //! ## What does NOT get reset
 //!
 //! - User settings (audio mix, controls, video, gameplay tuning) —
-//!   those live in `crate::settings::UserSettings` and are not part
+//!   those live in `crate::persistence::settings::UserSettings` and are not part
 //!   of the sandbox state. Reset is about gameplay progress only.
 //! - Keyboard preset selection.
 //! - Dev-tool toggles (the F3 stats editor's invincible flag etc.)
@@ -61,7 +61,7 @@ use crate::world::platforms;
 use crate::content::quest::QuestRegistry;
 use crate::rendering::{spawn_room_visuals, RoomScopedEntity};
 use crate::rooms::RoomSet;
-use crate::save::SandboxSave;
+use crate::persistence::save::SandboxSave;
 
 /// Bundles sim-state resources so `process_sandbox_reset_request`
 /// stays within Bevy's 16-SystemParam limit.

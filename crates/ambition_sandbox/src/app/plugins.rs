@@ -162,7 +162,7 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         // presentation half so headless / RL drivers don't touch
         // disk; mutated by encounter + switch systems; written by
         // `autosave_sandbox_save` when change-detection fires.
-        .insert_resource(crate::save::SandboxSave::default())
+        .insert_resource(crate::persistence::save::SandboxSave::default())
         // Quest + cutscene systems. Both are sim-side state machines
         // that read/write the save resource and surface HUD lines via
         // the encounter overlay.
@@ -683,15 +683,15 @@ fn install_settings_and_save_systems(app: &mut App) {
     app.add_systems(
         Startup,
         (
-            crate::settings::persistence::load_settings_at_startup,
-            crate::save::load_save_at_startup,
+            crate::persistence::settings::persistence::load_settings_at_startup,
+            crate::persistence::save::load_save_at_startup,
         ),
     )
     .add_systems(
         Update,
         (
-            crate::settings::persistence::save_settings_on_change,
-            crate::save::autosave_sandbox_save,
+            crate::persistence::settings::persistence::save_settings_on_change,
+            crate::persistence::save::autosave_sandbox_save,
         ),
     );
 }

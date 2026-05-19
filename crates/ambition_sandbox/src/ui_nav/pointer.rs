@@ -1,6 +1,6 @@
 use bevy::prelude::Interaction;
 
-use crate::settings::{MenuPointerPress, MenuTapMode};
+use crate::persistence::settings::{MenuPointerPress, MenuTapMode};
 
 /// Semantic result of a pointer interaction with a selectable UI row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

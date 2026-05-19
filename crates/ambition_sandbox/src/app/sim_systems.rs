@@ -404,7 +404,7 @@ pub fn apply_player_damage_system(
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    user_settings: Res<crate::settings::UserSettings>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
     mut banner: ResMut<GameplayBanner>,
@@ -430,8 +430,8 @@ pub fn apply_player_damage_system(
     let feature_damaged_player = !player_damage_events.is_empty();
 
     let assist_factor = match user_settings.gameplay.assist {
-        crate::settings::AssistMode::Off => 1.0,
-        crate::settings::AssistMode::On => 0.5,
+        crate::persistence::settings::AssistMode::Off => 1.0,
+        crate::persistence::settings::AssistMode::On => 0.5,
     };
     let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
         * user_settings.gameplay.player_damage_multiplier

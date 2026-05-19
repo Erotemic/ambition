@@ -32,7 +32,7 @@ use bevy::{
     },
 };
 
-use crate::settings::{ScreenShaderSettings, UserSettings};
+use crate::persistence::settings::{ScreenShaderSettings, UserSettings};
 
 const SHADER_ASSET_PATH: &str = "shaders/screen_effects.wgsl";
 

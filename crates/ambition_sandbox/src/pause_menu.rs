@@ -30,7 +30,7 @@ use crate::game_mode::GameMode;
 use crate::input::{KeyboardPreset, MenuControlFrame, MenuInputFrame};
 use crate::inventory::InventoryUiState;
 use crate::ldtk_world::LdtkHotReloadState;
-use crate::settings::{
+use crate::persistence::settings::{
     apply_action as handle_settings_action, DevToggleSnapshot, SettingsAction, SettingsItem,
     SettingsOutcome, SettingsPage, UserSettings,
 };
@@ -42,7 +42,7 @@ use crate::SandboxDevState;
 
 /// Re-export the settings-row component so other modules that want to
 /// query menu rows by tag don't need to remember which module owns it.
-pub use crate::settings::SettingsItem as MenuSettingsItem;
+pub use crate::persistence::settings::SettingsItem as MenuSettingsItem;
 
 mod input;
 mod model;

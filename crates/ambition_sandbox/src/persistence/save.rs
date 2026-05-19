@@ -43,7 +43,7 @@ impl SandboxSave {
 /// as the settings persistence module so both files end up alongside
 /// each other.
 pub fn save_path() -> PathBuf {
-    save_path_under(&crate::settings::platform_paths::data_dir_root())
+    save_path_under(&crate::persistence::settings::platform_paths::data_dir_root())
 }
 
 pub fn save_path_under(root: &Path) -> PathBuf {

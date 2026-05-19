@@ -22,7 +22,7 @@ pub fn update_projectiles(
     world: Res<GameWorld>,
     control_frame: Res<ControlFrame>,
     player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
-    user_settings: Res<crate::settings::UserSettings>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
     mut state: ResMut<PlayerProjectileState>,
     mut trace: ResMut<GameplayTraceBuffer>,
     mut feature_damage: MessageWriter<DamageEvent>,

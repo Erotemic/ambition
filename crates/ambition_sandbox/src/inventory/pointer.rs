@@ -13,7 +13,7 @@ pub fn inventory_pointer_input(
     mode: Res<State<GameMode>>,
     mut next_mode: ResMut<NextState<GameMode>>,
     mut state: ResMut<InventoryUiState>,
-    user_settings: Res<crate::settings::UserSettings>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
     rows: Query<(&Interaction, &InventoryItemRow), Changed<Interaction>>,
     tabs: Query<(&Interaction, &InventoryTabButton), Changed<Interaction>>,
     back_buttons: Query<&Interaction, (With<InventoryBackButton>, Changed<Interaction>)>,
@@ -56,7 +56,7 @@ pub fn inventory_pointer_input(
                 let press =
                     tap_mode.resolve_press(index, state.selected, false, &mut state.pointer_armed);
                 state.selected = index;
-                if matches!(press, crate::settings::MenuPointerPress::Confirm) {
+                if matches!(press, crate::persistence::settings::MenuPointerPress::Confirm) {
                     state.pointer_confirm = true;
                 }
             }

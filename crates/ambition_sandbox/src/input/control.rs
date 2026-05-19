@@ -70,7 +70,7 @@ pub struct ControlFrame {
 impl ControlFrame {
     /// Build a gameplay control frame, applying configurable deadzones,
     /// trigger hysteresis, and the dash-input mode from
-    /// `crate::settings::ControlSettings`.
+    /// `crate::persistence::settings::ControlSettings`.
     ///
     /// `dash_state` is the persistent trigger edge tracker for the
     /// player; it must outlive a single frame so the hysteretic press/
@@ -79,13 +79,13 @@ impl ControlFrame {
     #[cfg(feature = "input")]
     pub fn read_gameplay_with_settings(
         actions: &ActionState<SandboxAction>,
-        controls: &crate::settings::ControlSettings,
-        dash_state: crate::settings::TriggerEdgeState,
-    ) -> (Self, crate::settings::TriggerEdgeState) {
+        controls: &crate::persistence::settings::ControlSettings,
+        dash_state: crate::persistence::settings::TriggerEdgeState,
+    ) -> (Self, crate::persistence::settings::TriggerEdgeState) {
         let raw_move = actions.clamped_axis_pair(&SandboxAction::Move);
         // Apply the left-stick deadzone before any walk-modifier logic
         // so analog drift doesn't pollute the magnitude check.
-        let (deadzoned_x, deadzoned_y) = crate::settings::ControlSettings::apply_deadzone(
+        let (deadzoned_x, deadzoned_y) = crate::persistence::settings::ControlSettings::apply_deadzone(
             raw_move.x,
             raw_move.y,
             controls.left_stick_deadzone,
@@ -120,18 +120,18 @@ impl ControlFrame {
             0.0
         };
         let trigger_value = raw_trigger.max(dash_button_value);
-        let (next_dash_state, trigger_edge_pressed) = crate::settings::update_trigger_edge(
+        let (next_dash_state, trigger_edge_pressed) = crate::persistence::settings::update_trigger_edge(
             dash_state,
             trigger_value,
             controls.trigger_release_threshold,
             controls.trigger_press_threshold,
         );
         let dash_pressed = match controls.dash_input_mode {
-            crate::settings::DashInputMode::Trigger => trigger_edge_pressed,
+            crate::persistence::settings::DashInputMode::Trigger => trigger_edge_pressed,
             // Button mode: ignore trigger hysteresis, only the
             // configured Dash button counts (e.g. RB on a 360 pad).
-            crate::settings::DashInputMode::Button => actions.just_pressed(&SandboxAction::Dash),
-            crate::settings::DashInputMode::Both => {
+            crate::persistence::settings::DashInputMode::Button => actions.just_pressed(&SandboxAction::Dash),
+            crate::persistence::settings::DashInputMode::Both => {
                 trigger_edge_pressed || actions.just_pressed(&SandboxAction::Dash)
             }
         };
@@ -140,7 +140,7 @@ impl ControlFrame {
         // consumes it. This is the fix for old-controller drift
         // pushing the blink target upward.
         let raw_aim = actions.clamped_axis_pair(&SandboxAction::AimStick);
-        let (aim_x_raw, aim_y_raw) = crate::settings::ControlSettings::apply_deadzone(
+        let (aim_x_raw, aim_y_raw) = crate::persistence::settings::ControlSettings::apply_deadzone(
             raw_aim.x,
             raw_aim.y,
             controls.right_stick_deadzone,
@@ -189,8 +189,8 @@ impl ControlFrame {
     pub fn read_gameplay(actions: &ActionState<SandboxAction>) -> Self {
         let (frame, _) = Self::read_gameplay_with_settings(
             actions,
-            &crate::settings::ControlSettings::default(),
-            crate::settings::TriggerEdgeState::default(),
+            &crate::persistence::settings::ControlSettings::default(),
+            crate::persistence::settings::TriggerEdgeState::default(),
         );
         frame
     }
@@ -238,5 +238,5 @@ impl ControlFrame {
 /// frames; `ControlFrame` is stateless and rebuilt every frame.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerDashTriggerState {
-    pub edge: crate::settings::TriggerEdgeState,
+    pub edge: crate::persistence::settings::TriggerEdgeState,
 }

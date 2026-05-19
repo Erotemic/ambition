@@ -142,7 +142,7 @@ pub fn dialog_input() {}
 /// the redirected mode is the one the renderer reads.
 pub fn redirect_post_quest_dialog(
     mut dialogue: ResMut<DialogState>,
-    save: Res<crate::save::SandboxSave>,
+    save: Res<crate::persistence::save::SandboxSave>,
 ) {
     if !dialogue.active() {
         return;

@@ -2,7 +2,7 @@
 //!
 //! Display mode is the established axis; flashes and colorblind mode are
 //! new and read by VFX/HUD systems where wired. The structs are
-//! serializable so persistence (`crate::settings::persistence`) can
+//! serializable so persistence (`crate::persistence::settings::persistence`) can
 //! load/save them.
 
 use serde::{Deserialize, Serialize};

@@ -64,7 +64,7 @@ impl DisplayModeState {
 /// the way to reach it.
 ///
 /// The actual mode-application logic lives in
-/// `crate::settings::apply_display_mode` so the menu and the hotkeys
+/// `crate::persistence::settings::apply_display_mode` so the menu and the hotkeys
 /// stay in lock-step. Adding a new mode happens in one place.
 pub fn window_mode_hotkeys(
     keys: Res<ButtonInput<KeyCode>>,
@@ -79,7 +79,7 @@ pub fn window_mode_hotkeys(
         None
     };
     if let Some(mode) = requested {
-        crate::settings::apply_display_mode(mode, &mut state, &mut windows);
+        crate::persistence::settings::apply_display_mode(mode, &mut state, &mut windows);
     }
 }
 

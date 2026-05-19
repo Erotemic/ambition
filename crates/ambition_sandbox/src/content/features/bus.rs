@@ -7,7 +7,7 @@ use bevy::prelude::{MessageReader, MessageWriter, ResMut};
 /// the former monolithic router behavior.
 pub fn apply_flag_effects(
     mut effects: MessageReader<GameplayEffect>,
-    mut save: ResMut<crate::save::SandboxSave>,
+    mut save: ResMut<crate::persistence::save::SandboxSave>,
     mut quests: ResMut<crate::content::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {

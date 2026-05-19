@@ -167,7 +167,7 @@ pub fn default_quest_specs() -> Vec<ae::QuestSpec> {
 /// Startup system: register specs and rehydrate from save.
 pub fn populate_quest_registry(
     mut registry: ResMut<QuestRegistry>,
-    save: Res<crate::save::SandboxSave>,
+    save: Res<crate::persistence::save::SandboxSave>,
 ) {
     if registry.initialized {
         return;
@@ -217,7 +217,7 @@ pub fn push_room_entered_quest_events(
 /// progress back to the save resource. Runs each frame.
 pub fn apply_quest_advance_events(
     mut registry: ResMut<QuestRegistry>,
-    mut save: ResMut<crate::save::SandboxSave>,
+    mut save: ResMut<crate::persistence::save::SandboxSave>,
 ) {
     let events = std::mem::take(&mut registry.pending_events);
     if events.is_empty() {
@@ -257,7 +257,7 @@ pub fn grant_pirate_treasure_reward(inventory: &mut PlayerInventory) -> String {
 /// quests that need rewards on completion can extend the match.
 pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
-    mut save: ResMut<crate::save::SandboxSave>,
+    mut save: ResMut<crate::persistence::save::SandboxSave>,
     mut inventory: ResMut<PlayerInventory>,
     mut banner_state: ResMut<crate::features::GameplayBanner>,
 ) {

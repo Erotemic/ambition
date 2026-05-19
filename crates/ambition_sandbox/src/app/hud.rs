@@ -24,7 +24,7 @@ use bevy::ecs::system::SystemParam;
 
 #[derive(SystemParam)]
 pub(super) struct HudCameraParams<'w, 's> {
-    user_settings: Res<'w, crate::settings::UserSettings>,
+    user_settings: Res<'w, crate::persistence::settings::UserSettings>,
     camera_view: Res<'w, crate::rendering::CameraViewState>,
     player: bevy::prelude::Query<
         'w,
@@ -451,7 +451,7 @@ pub(super) fn update_hud(
 /// quests, which collapses the panel visually.
 pub fn update_quest_panel(
     quests: Res<crate::content::quest::QuestRegistry>,
-    user_settings: Res<crate::settings::UserSettings>,
+    user_settings: Res<crate::persistence::settings::UserSettings>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<crate::rendering::QuestPanelText>>,
 ) {

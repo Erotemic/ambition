@@ -22,6 +22,8 @@
 //! Listening to all three protects against platform versions /
 //! launcher quirks that drop one of the events.
 
+#![cfg_attr(not(target_os = "android"), allow(dead_code))]
+
 use bevy::prelude::*;
 #[cfg(target_os = "android")]
 use bevy::window::{AppLifecycle, WindowFocused, WindowOccluded};

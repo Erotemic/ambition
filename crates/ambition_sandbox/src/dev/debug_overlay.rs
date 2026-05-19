@@ -6,6 +6,7 @@
 
 use ambition_engine as ae;
 use ambition_engine::AabbExt;
+use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -77,10 +78,7 @@ pub fn draw_debug_overlay(
         (&crate::player::PlayerMovementAuthority, Option<&crate::player::PlayerHealth>),
         With<crate::player::PlayerEntity>,
     >,
-    boss_q: Query<
-        &crate::features::BossFeature,
-        With<crate::features::FeatureSimEntity>,
-    >,
+    feature_q: FeatureDebugQueries,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -136,8 +134,49 @@ pub fn draw_debug_overlay(
         draw_health_bars(&mut gizmos, world, &authority.player, player_health);
     }
     if developer_tools.show_feature_hitboxes {
-        draw_boss_hitboxes(&mut gizmos, world, &boss_q);
+        draw_feature_debug(&mut gizmos, world, &feature_q);
     }
+}
+
+#[cfg(feature = "input")]
+#[derive(SystemParam)]
+pub struct FeatureDebugQueries<'w, 's> {
+    pub bosses: Query<
+        'w,
+        's,
+        &'static crate::features::BossFeature,
+        With<crate::features::FeatureSimEntity>,
+    >,
+    pub actors: Query<
+        'w,
+        's,
+        &'static crate::features::ActorRuntime,
+        With<crate::features::FeatureSimEntity>,
+    >,
+    pub breakables: Query<
+        'w,
+        's,
+        &'static crate::features::FeatureAabb,
+        (
+            With<crate::features::FeatureSimEntity>,
+            With<crate::features::BreakableFeature>,
+        ),
+    >,
+    pub chests: Query<
+        'w,
+        's,
+        &'static crate::features::FeatureAabb,
+        (
+            With<crate::features::FeatureSimEntity>,
+            With<crate::features::ChestFeature>,
+        ),
+    >,
+    pub hazards: Query<
+        'w,
+        's,
+        &'static crate::features::HazardFeature,
+        With<crate::features::FeatureSimEntity>,
+    >,
 }
 
 fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
@@ -477,31 +516,54 @@ fn draw_health_bar(
 }
 
 
-fn draw_boss_hitboxes(
+/// Draw debug rectangles for every gameplay feature (NPCs, enemies, bosses,
+/// breakables, chests, hazards). Also overlays boss attack telegraph + active
+/// volumes when an attack is firing. This is the "solid box" view the player
+/// expects when `Hide Sprites` is also on — sprites disappear and the boxes
+/// reveal exactly where each entity lives.
+fn draw_feature_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    boss_q: &Query<&crate::features::BossFeature, With<crate::features::FeatureSimEntity>>,
+    feature_q: &FeatureDebugQueries,
 ) {
-    for bf in boss_q.iter() {
+    // Colors per role — strong enough to read against most backgrounds.
+    let npc_color = Color::srgba(0.30, 1.00, 0.45, 0.85);          // green
+    let enemy_color = Color::srgba(1.00, 0.32, 0.32, 0.88);        // red
+    let boss_color = Color::srgba(1.00, 0.60, 0.10, 0.88);         // orange
+    let breakable_color = Color::srgba(0.55, 0.80, 1.00, 0.80);    // light blue
+    let chest_color = Color::srgba(1.00, 0.85, 0.25, 0.85);        // gold
+    let hazard_color = Color::srgba(1.00, 0.32, 0.92, 0.80);       // magenta
+    let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60);    // yellow
+    let active_color = Color::srgba(1.00, 0.12, 0.12, 0.95);       // bright red
+
+    for actor in feature_q.actors.iter() {
+        let color = match actor {
+            crate::features::ActorRuntime::Peaceful(_) => npc_color,
+            crate::features::ActorRuntime::Hostile(_) => enemy_color,
+        };
+        draw_aabb(gizmos, world, actor.aabb(), color);
+    }
+    for bf in feature_q.bosses.iter() {
         let boss = &bf.boss;
         if !boss.alive {
             continue;
         }
-        // Hurtbox: dim orange outline — the body the player can hit.
-        let hurtbox_color = Color::srgba(1.00, 0.60, 0.10, 0.72);
-        draw_aabb(gizmos, world, boss.aabb(), hurtbox_color);
-
-        // Telegraph volumes: yellow — boss is winding up.
-        let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60);
+        draw_aabb(gizmos, world, boss.aabb(), boss_color);
         for vol in boss.attack_telegraph_volumes() {
             draw_aabb(gizmos, world, vol, telegraph_color);
         }
-
-        // Active hitboxes: bright red — damages the player right now.
-        let active_color = Color::srgba(1.00, 0.12, 0.12, 0.88);
         for vol in boss.attack_volumes() {
             draw_aabb(gizmos, world, vol, active_color);
         }
+    }
+    for aabb in feature_q.breakables.iter() {
+        draw_aabb(gizmos, world, aabb.aabb(), breakable_color);
+    }
+    for aabb in feature_q.chests.iter() {
+        draw_aabb(gizmos, world, aabb.aabb(), chest_color);
+    }
+    for hf in feature_q.hazards.iter() {
+        draw_aabb(gizmos, world, hf.hazard.aabb(), hazard_color);
     }
 }
 

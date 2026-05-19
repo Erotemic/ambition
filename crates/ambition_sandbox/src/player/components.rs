@@ -422,6 +422,7 @@ impl PlayerSafetyState {
 #[cfg(test)]
 mod multiplayer_smoke_tests {
     use super::*;
+    use crate::player::PrimaryPlayerOnly;
     use ambition_engine as ae;
 
     fn dummy_attack_spec() -> ae::AttackSpec {
@@ -541,6 +542,46 @@ mod multiplayer_smoke_tests {
             "p2's anchor must not pick up p1's update — that's the whole \
              point of moving last_safe_player_pos onto the player entity"
         );
+    }
+
+    /// With two `PlayerEntity` actors spawned, a `Query<...,
+    /// PrimaryPlayerOnly>` resolves to exactly one entity. Together
+    /// with the next test (which checks generic `With<PlayerEntity>`
+    /// queries see both), this pins the invariant the audit calls
+    /// out: only one player carries the `PrimaryPlayer` marker, so
+    /// camera/HUD/input systems can keep using `.single()` safely
+    /// while combat/hazard systems iterate.
+    #[test]
+    fn primary_player_query_resolves_with_two_players_spawned() {
+        let mut app = App::new();
+        app.world_mut().spawn((PlayerEntity, PlayerSlot(0), PrimaryPlayer));
+        app.world_mut().spawn((PlayerEntity, PlayerSlot(1)));
+
+        let mut q = app.world_mut().query_filtered::<Entity, PrimaryPlayerOnly>();
+        let primaries: Vec<Entity> = q.iter(app.world()).collect();
+        assert_eq!(
+            primaries.len(),
+            1,
+            "exactly one entity must carry both PlayerEntity and PrimaryPlayer; \
+             camera/HUD systems rely on this for `.single()` correctness"
+        );
+    }
+
+    /// Generic `With<PlayerEntity>` queries see every spawned player,
+    /// even the non-primary one. This is the half of the architectural
+    /// promise that lets hazards/projectiles/pickups iterate over all
+    /// players in B-bucket systems (audit doc §B).
+    #[test]
+    fn player_entity_query_iterates_all_spawned_players() {
+        let mut app = App::new();
+        app.world_mut().spawn((PlayerEntity, PlayerSlot(0), PrimaryPlayer));
+        app.world_mut().spawn((PlayerEntity, PlayerSlot(1)));
+        app.world_mut().spawn((PlayerEntity, PlayerSlot(2)));
+
+        let mut q = app.world_mut().query_filtered::<&PlayerSlot, With<PlayerEntity>>();
+        let mut slots: Vec<u8> = q.iter(app.world()).map(|s| s.0).collect();
+        slots.sort_unstable();
+        assert_eq!(slots, vec![0, 1, 2]);
     }
 
     /// `ActivePlayerAttack::clear` zeroes the attack on its own

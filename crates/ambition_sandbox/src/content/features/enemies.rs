@@ -94,6 +94,204 @@ pub enum EnemyArchetype {
     PirateOnShark,
 }
 
+/// Authored tuning row for one [`EnemyArchetype`]. Every archetype is
+/// fully specified in [`ARCHETYPE_SPECS`]; the small accessor methods
+/// on [`EnemyArchetype`] (`max_health`, `patrol_speed`, ...) all read
+/// from this row.
+///
+/// Adding a new archetype is one new entry in the table plus one new
+/// `Custom("…")` arm in [`EnemyArchetype::from_brain`] — no more
+/// hunting through ten parallel `match` blocks.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct EnemyArchetypeSpec {
+    pub max_health: i32,
+    pub rider_max_health: Option<i32>,
+    pub patrol_speed: f32,
+    pub chase_speed: f32,
+    pub aggro_radius: f32,
+    pub attack_range: f32,
+    pub contact_strength: f32,
+    pub damage_amount: i32,
+    pub is_aerial: bool,
+    pub is_sandbag: bool,
+    pub default_size: Option<ae::Vec2>,
+}
+
+/// Table indexed by [`EnemyArchetype`]; built via a single `match`
+/// over the enum so the compiler still flags every variant if we add
+/// one. Aerial archetypes inherit `is_aerial: true` which feeds both
+/// `gravity_scale` (zero gravity) and the combat slot kind
+/// (`SlotKind::Aerial`).
+const fn archetype_spec(arch: EnemyArchetype) -> EnemyArchetypeSpec {
+    use EnemyArchetype::*;
+    match arch {
+        Combatant => EnemyArchetypeSpec {
+            max_health: 4,
+            rider_max_health: None,
+            patrol_speed: ENEMY_PATROL_SPEED,
+            chase_speed: ENEMY_CHASE_SPEED,
+            aggro_radius: 460.0,
+            attack_range: ENEMY_ATTACK_RANGE,
+            contact_strength: 0.70,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: false,
+            default_size: None,
+        },
+        SmallSkitter => EnemyArchetypeSpec {
+            max_health: 2,
+            rider_max_health: None,
+            patrol_speed: 150.0,
+            chase_speed: 210.0,
+            aggro_radius: 320.0,
+            attack_range: 105.0,
+            contact_strength: 0.55,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: false,
+            default_size: None,
+        },
+        SmallLurker => EnemyArchetypeSpec {
+            max_health: 2,
+            rider_max_health: None,
+            patrol_speed: 60.0, // sluggish — that's the point
+            chase_speed: 90.0,
+            aggro_radius: 96.0, // tight — player can walk past
+            attack_range: 90.0,
+            contact_strength: 0.45,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: false,
+            default_size: None,
+        },
+        MediumStriker => EnemyArchetypeSpec {
+            max_health: 5,
+            rider_max_health: None,
+            patrol_speed: ENEMY_PATROL_SPEED,
+            chase_speed: 170.0,
+            aggro_radius: 460.0,
+            attack_range: ENEMY_ATTACK_RANGE,
+            contact_strength: 0.70,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: false,
+            default_size: None,
+        },
+        LargeBrute => EnemyArchetypeSpec {
+            max_health: 9,
+            rider_max_health: None,
+            patrol_speed: 72.0,
+            chase_speed: 118.0,
+            aggro_radius: 380.0,
+            attack_range: 205.0,
+            contact_strength: 1.25,
+            damage_amount: 2,
+            is_aerial: false,
+            is_sandbag: false,
+            default_size: None,
+        },
+        LargeColossus => EnemyArchetypeSpec {
+            max_health: 14,
+            rider_max_health: None,
+            patrol_speed: 40.0, // barely moves; almost stationary
+            chase_speed: 80.0,  // never sprints
+            aggro_radius: 200.0, // narrow threat envelope
+            attack_range: 240.0, // big arms reach further
+            contact_strength: 1.50, // hits the hardest of any non-boss
+            damage_amount: 3,
+            is_aerial: false,
+            is_sandbag: false,
+            default_size: None,
+        },
+        AggressiveSeeker => EnemyArchetypeSpec {
+            max_health: 4,
+            rider_max_health: None,
+            patrol_speed: 130.0,
+            chase_speed: 225.0,
+            aggro_radius: 900.0,
+            attack_range: ENEMY_ATTACK_RANGE,
+            contact_strength: 0.80,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: false,
+            default_size: None,
+        },
+        InfiniteSandbag => EnemyArchetypeSpec {
+            max_health: 9999,
+            rider_max_health: None,
+            patrol_speed: ENEMY_PATROL_SPEED,
+            chase_speed: ENEMY_CHASE_SPEED,
+            aggro_radius: 0.0,
+            attack_range: ENEMY_ATTACK_RANGE,
+            contact_strength: 0.70,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: true,
+            default_size: None,
+        },
+        FiniteSandbag => EnemyArchetypeSpec {
+            max_health: 6,
+            rider_max_health: None,
+            patrol_speed: ENEMY_PATROL_SPEED,
+            chase_speed: ENEMY_CHASE_SPEED,
+            aggro_radius: 0.0,
+            attack_range: ENEMY_ATTACK_RANGE,
+            contact_strength: 0.70,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: true,
+            default_size: None,
+        },
+        PirateRaider => EnemyArchetypeSpec {
+            max_health: 5,
+            rider_max_health: None,
+            patrol_speed: 130.0,
+            chase_speed: 190.0,
+            aggro_radius: 460.0,
+            attack_range: 140.0,
+            contact_strength: 0.85,
+            damage_amount: 1,
+            is_aerial: false,
+            is_sandbag: false,
+            default_size: Some(ae::Vec2::new(44.0, 78.0)),
+        },
+        BurningFlyingShark => EnemyArchetypeSpec {
+            // Shark hp (the body pool); no rider on this dismounted form.
+            max_health: 6,
+            rider_max_health: None,
+            patrol_speed: 110.0,
+            // Aerial fly speed — used as the steering convergence rate
+            // toward the choreography's engage position.
+            chase_speed: 260.0,
+            // Aerial archetypes spot the player from across the arena.
+            aggro_radius: 1200.0,
+            // For ranged actors `attack_range` is the AI "I am willing
+            // to attack" gate; choreography decides the actual engage.
+            attack_range: 200.0,
+            contact_strength: 1.10,
+            damage_amount: 2,
+            is_aerial: true,
+            is_sandbag: false,
+            default_size: Some(ae::Vec2::new(108.0, 96.0)),
+        },
+        PirateOnShark => EnemyArchetypeSpec {
+            // Shark hp (the body pool). Rider has its own pool — see
+            // `rider_max_health`.
+            max_health: 6,
+            rider_max_health: Some(4),
+            patrol_speed: 110.0,
+            chase_speed: 230.0,
+            aggro_radius: 1200.0,
+            attack_range: 1100.0,
+            contact_strength: 1.10,
+            damage_amount: 2,
+            is_aerial: true,
+            is_sandbag: false,
+            default_size: Some(ae::Vec2::new(108.0, 96.0)),
+        },
+    }
+}
+
 impl EnemyArchetype {
     /// All combat-capable archetypes in a stable order. Useful for
     /// tests / tooling that want to iterate every variant; the
@@ -131,10 +329,16 @@ impl EnemyArchetype {
         }
     }
 
+    /// Tuning row for this archetype.
+    #[inline]
+    pub(super) fn spec(self) -> EnemyArchetypeSpec {
+        archetype_spec(self)
+    }
+
     /// True for archetypes that ignore gravity. Drives the
     /// `gravity_scale` field on `EnemyRuntime`.
     pub(super) fn is_aerial(self) -> bool {
-        matches!(self, Self::BurningFlyingShark | Self::PirateOnShark)
+        self.spec().is_aerial
     }
 
     /// Slot kind this archetype requests from the combat slot board.
@@ -147,7 +351,11 @@ impl EnemyArchetype {
         }
     }
 
-    /// Authored attack choreography for this archetype.
+    /// Authored attack choreography for this archetype. Kept as a
+    /// dedicated method (not table data) because each ranged
+    /// variant carries its own non-Copy parameter bag — putting them
+    /// in the spec table would force every row to spell out a
+    /// `MeleeContact` literal.
     pub(super) fn choreography(self) -> ae::AttackChoreography {
         match self {
             Self::PirateOnShark => ae::AttackChoreography::AerialOrbitAndFire {
@@ -169,128 +377,47 @@ impl EnemyArchetype {
     }
 
     pub(crate) fn is_sandbag(self) -> bool {
-        matches!(self, Self::InfiniteSandbag | Self::FiniteSandbag)
+        self.spec().is_sandbag
     }
 
     pub(super) fn max_health(self) -> i32 {
-        match self {
-            Self::SmallSkitter => 2,
-            Self::SmallLurker => 2,
-            Self::Combatant | Self::AggressiveSeeker => 4,
-            Self::MediumStriker => 5,
-            Self::LargeBrute => 9,
-            Self::LargeColossus => 14,
-            Self::InfiniteSandbag => 9999,
-            Self::FiniteSandbag => 6,
-            Self::PirateRaider => 5,
-            // Shark hp (the body pool). Rider has its own pool, see
-            // `rider_max_health`.
-            Self::BurningFlyingShark | Self::PirateOnShark => 6,
-        }
+        self.spec().max_health
     }
 
     /// Extra HP pool for actors that have a "rider" on top — today
     /// only `PirateOnShark`. `None` for every other archetype.
     pub(super) fn rider_max_health(self) -> Option<i32> {
-        match self {
-            Self::PirateOnShark => Some(4),
-            _ => None,
-        }
+        self.spec().rider_max_health
     }
 
     pub(super) fn patrol_speed(self) -> f32 {
-        match self {
-            Self::SmallSkitter => 150.0,
-            Self::SmallLurker => 60.0, // sluggish — that's the point
-            Self::LargeBrute => 72.0,
-            Self::LargeColossus => 40.0, // barely moves; almost stationary
-            Self::AggressiveSeeker => 130.0,
-            Self::PirateRaider => 130.0,
-            // Aerial archetypes patrol by drifting through the air at
-            // roughly their chase speed.
-            Self::BurningFlyingShark | Self::PirateOnShark => 110.0,
-            _ => ENEMY_PATROL_SPEED,
-        }
+        self.spec().patrol_speed
     }
 
     pub(super) fn chase_speed(self) -> f32 {
-        match self {
-            Self::SmallSkitter => 210.0,
-            Self::SmallLurker => 90.0,
-            Self::LargeBrute => 118.0,
-            Self::LargeColossus => 80.0, // never sprints
-            Self::AggressiveSeeker => 225.0,
-            Self::MediumStriker => 170.0,
-            Self::PirateRaider => 190.0,
-            // Aerial fly speed — used as the steering convergence rate
-            // toward the choreography's engage position.
-            Self::BurningFlyingShark => 260.0,
-            Self::PirateOnShark => 230.0,
-            _ => ENEMY_CHASE_SPEED,
-        }
+        self.spec().chase_speed
     }
 
     pub(super) fn aggro_radius(self) -> f32 {
-        match self {
-            Self::SmallSkitter => 320.0,
-            Self::SmallLurker => 96.0, // tight — player can walk past
-            Self::MediumStriker | Self::Combatant => 460.0,
-            Self::LargeBrute => 380.0,
-            Self::LargeColossus => 200.0, // narrow threat envelope
-            Self::AggressiveSeeker => 900.0,
-            Self::InfiniteSandbag | Self::FiniteSandbag => 0.0,
-            Self::PirateRaider => 460.0,
-            // Aerial archetypes spot the player from across the arena.
-            Self::BurningFlyingShark | Self::PirateOnShark => 1200.0,
-        }
+        self.spec().aggro_radius
     }
 
     pub(super) fn attack_range(self) -> f32 {
-        match self {
-            Self::SmallSkitter => 105.0,
-            Self::SmallLurker => 90.0,
-            Self::LargeBrute => 205.0,
-            Self::LargeColossus => 240.0, // big arms reach further
-            Self::PirateRaider => 140.0,
-            // For ranged actors `attack_range` is just the AI "I am
-            // willing to attack" gate; choreography decides the actual
-            // engage position.
-            Self::BurningFlyingShark => 200.0,
-            Self::PirateOnShark => 1100.0,
-            _ => ENEMY_ATTACK_RANGE,
-        }
+        self.spec().attack_range
     }
 
     pub(super) fn contact_strength(self) -> f32 {
-        match self {
-            Self::SmallSkitter => 0.55,
-            Self::SmallLurker => 0.45,
-            Self::LargeBrute => 1.25,
-            Self::LargeColossus => 1.50, // hits the hardest of any non-boss
-            Self::AggressiveSeeker => 0.80,
-            Self::PirateRaider => 0.85,
-            Self::BurningFlyingShark | Self::PirateOnShark => 1.10,
-            _ => 0.70,
-        }
+        self.spec().contact_strength
     }
 
     pub(super) fn damage_amount(self) -> i32 {
-        match self {
-            Self::LargeBrute => 2,
-            Self::LargeColossus => 3,
-            Self::BurningFlyingShark | Self::PirateOnShark => 2,
-            _ => 1,
-        }
+        self.spec().damage_amount
     }
 
     /// Body size (px) for actors of this archetype. Aerial actors
     /// are larger because the shark sprite is 192×128.
     pub(super) fn default_size(self) -> Option<ae::Vec2> {
-        match self {
-            Self::BurningFlyingShark | Self::PirateOnShark => Some(ae::Vec2::new(108.0, 96.0)),
-            Self::PirateRaider => Some(ae::Vec2::new(44.0, 78.0)),
-            _ => None, // fall back to LDtk-authored size
-        }
+        self.spec().default_size
     }
 }
 

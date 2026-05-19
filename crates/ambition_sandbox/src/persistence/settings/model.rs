@@ -139,6 +139,7 @@ pub enum SettingsItem {
     WorldInspector,
     OverviewCamera,
     ShowHitboxes,
+    HideSprites,
     MicroGrid,
     CameraFrame,
     PlayerBodyProfile,
@@ -229,6 +230,7 @@ impl SettingsItem {
                 Self::WorldInspector,
                 Self::OverviewCamera,
                 Self::ShowHitboxes,
+                Self::HideSprites,
                 Self::MicroGrid,
                 Self::CameraFrame,
                 Self::PlayerBodyProfile,
@@ -486,6 +488,9 @@ impl SettingsItem {
             Self::ShowHitboxes => {
                 format!("Show Hitboxes: {}", on_off(dev.show_hitboxes))
             }
+            Self::HideSprites => {
+                format!("Hide Sprites: {}", on_off(dev.hide_sprites))
+            }
             Self::MicroGrid => {
                 format!("Micro Grid (8px): {}", on_off(dev.micro_grid))
             }
@@ -525,6 +530,7 @@ pub struct DevToggleSnapshot {
     pub world_inspector: bool,
     pub overview_camera: bool,
     pub show_hitboxes: bool,
+    pub hide_sprites: bool,
     pub micro_grid: bool,
     pub camera_frame: bool,
     pub player_body_profile: crate::dev_tools::PlayerBodyProfile,
@@ -545,6 +551,7 @@ impl DevToggleSnapshot {
             world_inspector: developer.world_inspector_visible,
             overview_camera: developer.overview_camera,
             show_hitboxes: developer.show_feature_hitboxes,
+            hide_sprites: developer.hide_sprites,
             micro_grid: developer.show_micro_grid,
             camera_frame: developer.show_camera_frame,
             player_body_profile: developer.player_body_profile,
@@ -992,6 +999,11 @@ pub fn apply_action(
                 let next = !developer.show_feature_hitboxes;
                 developer.show_feature_hitboxes = next;
                 developer.show_player_hitbox = next;
+            }
+        }
+        SettingsItem::HideSprites => {
+            if is_toggle_action(action) {
+                developer.hide_sprites = !developer.hide_sprites;
             }
         }
         SettingsItem::MicroGrid => {

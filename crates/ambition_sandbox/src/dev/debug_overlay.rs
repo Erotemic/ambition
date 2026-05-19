@@ -77,6 +77,10 @@ pub fn draw_debug_overlay(
         (&crate::player::PlayerMovementAuthority, Option<&crate::player::PlayerHealth>),
         With<crate::player::PlayerEntity>,
     >,
+    boss_q: Query<
+        &crate::features::BossFeature,
+        With<crate::features::FeatureSimEntity>,
+    >,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -130,6 +134,9 @@ pub fn draw_debug_overlay(
     );
     if developer_tools.show_health_bars {
         draw_health_bars(&mut gizmos, world, &authority.player, player_health);
+    }
+    if developer_tools.show_feature_hitboxes {
+        draw_boss_hitboxes(&mut gizmos, world, &boss_q);
     }
 }
 
@@ -469,6 +476,34 @@ fn draw_health_bar(
     );
 }
 
+
+fn draw_boss_hitboxes(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    boss_q: &Query<&crate::features::BossFeature, With<crate::features::FeatureSimEntity>>,
+) {
+    for bf in boss_q.iter() {
+        let boss = &bf.boss;
+        if !boss.alive {
+            continue;
+        }
+        // Hurtbox: dim orange outline — the body the player can hit.
+        let hurtbox_color = Color::srgba(1.00, 0.60, 0.10, 0.72);
+        draw_aabb(gizmos, world, boss.aabb(), hurtbox_color);
+
+        // Telegraph volumes: yellow — boss is winding up.
+        let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60);
+        for vol in boss.attack_telegraph_volumes() {
+            draw_aabb(gizmos, world, vol, telegraph_color);
+        }
+
+        // Active hitboxes: bright red — damages the player right now.
+        let active_color = Color::srgba(1.00, 0.12, 0.12, 0.88);
+        for vol in boss.attack_volumes() {
+            draw_aabb(gizmos, world, vol, active_color);
+        }
+    }
+}
 
 fn draw_rebound_vectors(gizmos: &mut Gizmos, world: &ae::World) {
     for block in &world.blocks {

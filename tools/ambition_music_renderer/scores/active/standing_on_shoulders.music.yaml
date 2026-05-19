@@ -56,7 +56,7 @@ stem_postprocess:
 
 instruments:
   # Scholar voice — academic above the fray
-  - {name: organ_scholar,     group: scholar,  program: rock_organ,          volume: 84,  pan: 68,  expression: 96,  modulation: 5, chorus: 10, reverb: 22}
+  - {name: organ_scholar,     group: scholar,  program: drawbar_organ,       volume: 84,  pan: 68,  expression: 96,  modulation: 5, chorus: 10, reverb: 22}
   - {name: harpsichord_voice, group: scholar,  program: harpsichord,         volume: 70,  pan: 78,  expression: 88,  reverb: 18}
   # Giant voice — immovable bulk
   - {name: heavy_distortion,  group: giant,    program: distortion_guitar,   volume: 112, pan: 42,  expression: 114, chorus: 5}

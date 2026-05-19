@@ -208,9 +208,14 @@ impl BossBehaviorProfile {
                 BossAttackProfile::GnuHeadDescent,
                 BossAttackProfile::GnuShockwave,
             ],
-            attack_cooldown: 1.20,
-            attack_windup: 0.62,
-            attack_active: 0.35,
+            // Deliberate, slow attack rhythm: each cycle takes ~5s
+            // (1.40 telegraph + 0.55 active + 3.20 cooldown) so the
+            // player has time to read the windup and dodge before the
+            // hitbox fires. The pattern rotates through all four
+            // attack profiles over 4 cycles (~20s).
+            attack_cooldown: 3.20,
+            attack_windup: 1.40,
+            attack_active: 0.55,
             attack_damage: 2,
             body_damage: 0, // no contact damage from the offscreen body
         }

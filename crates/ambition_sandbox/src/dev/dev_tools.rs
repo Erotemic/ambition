@@ -185,6 +185,10 @@ pub struct DeveloperTools {
     pub overview_camera: bool,
     /// Orthographic scale used while overview camera is enabled.
     pub overview_camera_scale: f32,
+    /// When true, sprite/visual rendering is suppressed so only hitbox gizmos
+    /// are visible. Useful for diagnosing spatial mismatches between art and
+    /// collision geometry without sprite occlusion.
+    pub hide_sprites: bool,
     /// High-level movement collider size preset for sandbox feel testing.
     pub player_body_profile: PlayerBodyProfile,
     /// High-level movement tuning preset for sandbox feel testing.
@@ -222,6 +226,7 @@ impl Default for DeveloperTools {
             show_rebound_vectors: !phone_demo,
             overview_camera: false,
             overview_camera_scale: 2.35,
+            hide_sprites: false,
             player_body_profile: PlayerBodyProfile::default(),
             movement_profile: MovementProfile::default(),
         }

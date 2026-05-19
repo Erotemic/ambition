@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
-    PropVisual,
+    PropVisual, RoomVisual,
     SceneEntities,
 };
 use crate::boss_sprites::{self, BossAnimState, BossAnimator};
@@ -594,5 +594,31 @@ pub fn animate_bosses(
         } else {
             Color::WHITE
         };
+    }
+}
+
+/// When `DeveloperTools::hide_sprites` is enabled, force all room-scoped and
+/// player sprites to `Hidden` so only gizmo hitbox outlines are visible.
+/// When the flag is off, restore them to `Inherited` (the normal default).
+/// Runs after all other visibility systems so it wins the last-write battle.
+pub fn apply_hide_sprites_override(
+    developer_tools: Res<crate::dev_tools::DeveloperTools>,
+    mut room_sprites: Query<&mut Visibility, (With<RoomVisual>, With<Sprite>)>,
+    mut player_sprites: Query<&mut Visibility, (With<PlayerVisual>, With<Sprite>)>,
+) {
+    let target = if developer_tools.hide_sprites {
+        Visibility::Hidden
+    } else {
+        Visibility::Inherited
+    };
+    for mut vis in room_sprites.iter_mut() {
+        if *vis != target {
+            *vis = target;
+        }
+    }
+    for mut vis in player_sprites.iter_mut() {
+        if *vis != target {
+            *vis = target;
+        }
     }
 }

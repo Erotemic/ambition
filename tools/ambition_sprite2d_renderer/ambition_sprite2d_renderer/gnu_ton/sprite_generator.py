@@ -609,8 +609,8 @@ def _draw_rest(c: Canvas, phase: float, frame_idx: int) -> None:
     """Idle: gentle sway, scholar muttering from the GNU's right shoulder."""
     bob = wave(phase, 0.9) * 3.5
     head_y = REST_HEAD_Y + bob * 0.6
-    # Neck offset: bottom of neck should connect near the shoulder hump
-    neck_offset = head_y - REST_BODY_Y + 72  # keep neck bridge at body top
+    # ny + 60 places neck top (ny - 60) exactly at head_y, connecting head to body.
+    neck_offset = head_y + 60
 
     # Body in background (lower portion)
     draw_gnu_body(c, body_y=REST_BODY_Y, phase=phase, anim="rest")
@@ -653,7 +653,7 @@ def _draw_hand_slam(c: Canvas, phase: float) -> None:
 
     head_y = REST_HEAD_Y
     draw_gnu_body(c, body_y=REST_BODY_Y, phase=phase, anim="hand_slam")
-    draw_gnu_neck(c, head_y_offset=head_y - REST_BODY_Y + 72, phase=phase, anim="hand_slam")
+    draw_gnu_neck(c, head_y_offset=head_y + 60, phase=phase, anim="hand_slam")
 
     draw_hand(c, -185, slam_y, side=-1, phase=phase, anim="hand_slam",
               slam_progress=slam_alpha)
@@ -692,7 +692,7 @@ def _draw_hand_sweep(c: Canvas, phase: float) -> None:
 
     head_y = REST_HEAD_Y
     draw_gnu_body(c, body_y=REST_BODY_Y, phase=phase, anim="hand_sweep")
-    draw_gnu_neck(c, head_y_offset=head_y - REST_BODY_Y + 72, phase=phase, anim="hand_sweep")
+    draw_gnu_neck(c, head_y_offset=head_y + 60, phase=phase, anim="hand_sweep")
 
     draw_hand(c, lhx, REST_HAND_Y, side=-1, phase=phase, anim="hand_sweep",
               sweep_progress=sweep_prog)
@@ -719,7 +719,7 @@ def _draw_head_down(c: Canvas, phase: float) -> None:
         enrage_scale = lerp(1.0, 0.0, t)
 
     draw_gnu_body(c, body_y=REST_BODY_Y, phase=phase, anim="head_down")
-    draw_gnu_neck(c, head_y_offset=head_y - REST_BODY_Y + 57, tilt=0.3, phase=phase, anim="head_down")
+    draw_gnu_neck(c, head_y_offset=head_y + 45, tilt=0.3, phase=phase, anim="head_down")
 
     c_sway = wave(phase, 1.5) * 8
     draw_hand(c, -185 + c_sway, REST_HAND_Y, side=-1, phase=phase, anim="head_down")
@@ -742,7 +742,7 @@ def _draw_hit(c: Canvas, phase: float) -> None:
     body_y_hit = REST_BODY_Y + jolt * 0.3
     head_y = REST_HEAD_Y + jolt * 0.5
     draw_gnu_body(c, body_y=body_y_hit, phase=phase, anim="hit")
-    draw_gnu_neck(c, head_y_offset=head_y - body_y_hit + 72, phase=phase, anim="hit")
+    draw_gnu_neck(c, head_y_offset=head_y + 60, phase=phase, anim="hit")
     draw_hand(c, -185 + jolt, REST_HAND_Y - jolt * 0.5, side=-1, phase=phase, anim="hit")
     draw_hand(c, 185 + jolt, REST_HAND_Y + jolt * 0.3, side=+1, phase=phase, anim="hit")
     draw_gnu_head(c, jolt * 0.7, head_y, phase=phase, anim="hit")
@@ -765,7 +765,7 @@ def _draw_death(c: Canvas, phase: float) -> None:
     man_x = _MAN_CENTER_X + settle * 60
 
     draw_gnu_body(c, body_y=body_y, phase=phase, anim="death")
-    draw_gnu_neck(c, head_y_offset=head_y - body_y + 72, phase=phase, anim="death")
+    draw_gnu_neck(c, head_y_offset=head_y + 60, phase=phase, anim="death")
 
     lhx = lerp(-185, -205, settle)
     lhy = lerp(REST_HAND_Y, 110, smoothstep(settle))

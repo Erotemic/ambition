@@ -883,6 +883,14 @@ fn install_misc_visual_sync_systems(app: &mut App) {
         Update,
         crate::rendering::upgrade_npc_sprites.after(sync_visuals),
     )
+    // Dev "hide sprites" override — runs last so it wins over all other
+    // visibility-setting systems. When `developer.hide_sprites` is on,
+    // all room and player sprites are forced Hidden so only gizmo
+    // hitbox outlines remain visible.
+    .add_systems(
+        Update,
+        crate::rendering::apply_hide_sprites_override.after(sync_visuals),
+    )
     // Mouse / touch dismissal for the map menu.
     .add_systems(Update, crate::map_menu::map_menu_pointer_dismiss)
     // Quest panel runs alongside the verbose HUD.

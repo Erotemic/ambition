@@ -25,7 +25,7 @@ impl Plugin for ParallaxPlugin {
                 Update,
                 (
                     refresh_parallax_background.after(crate::rooms::sync_active_room_metadata),
-                    sync_parallax_layers.after(crate::rendering::camera_follow),
+                    sync_parallax_layers.after(crate::presentation::rendering::camera_follow),
                 ),
             );
     }

@@ -167,11 +167,11 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         // that read/write the save resource and surface HUD lines via
         // the encounter overlay.
         .insert_resource(crate::content::quest::QuestRegistry::default())
-        .insert_resource(crate::cutscene::default_cutscene_library())
-        .insert_resource(crate::cutscene::ActiveCutscene::default())
-        .insert_resource(crate::cutscene::CutsceneTriggerQueue::default())
-        .insert_resource(crate::cutscene::CutsceneAdvanceRequest::default())
-        .insert_resource(crate::cutscene::RoomCutsceneBindings::defaults())
+        .insert_resource(crate::presentation::cutscene::default_cutscene_library())
+        .insert_resource(crate::presentation::cutscene::ActiveCutscene::default())
+        .insert_resource(crate::presentation::cutscene::CutsceneTriggerQueue::default())
+        .insert_resource(crate::presentation::cutscene::CutsceneAdvanceRequest::default())
+        .insert_resource(crate::presentation::cutscene::RoomCutsceneBindings::defaults())
         // Combat-banter registry — story-content lines for the
         // `apply_feature_damage_events` hit handler. Boss barks are
         // installed inline; IntroPlugin adds the intro raiders' lines
@@ -211,7 +211,7 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         .insert_resource(crate::map_menu::MapMenuState::default())
         .insert_resource(crate::CameraEaseState::default())
         .insert_resource(crate::CameraEaseTuning::default())
-        .insert_resource(crate::rendering::CameraViewState::default())
+        .insert_resource(crate::presentation::rendering::CameraViewState::default())
         .insert_resource(crate::runtime::reset::SandboxResetRequested::default());
 }
 
@@ -431,9 +431,9 @@ fn register_cutscene_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            crate::cutscene::auto_trigger_room_cutscenes,
-            crate::cutscene::drain_cutscene_triggers,
-            crate::cutscene::tick_active_cutscene,
+            crate::presentation::cutscene::auto_trigger_room_cutscenes,
+            crate::presentation::cutscene::drain_cutscene_triggers,
+            crate::presentation::cutscene::tick_active_cutscene,
         )
             .chain()
             .in_set(SandboxSet::Cutscene),
@@ -765,13 +765,13 @@ fn install_visual_animation_systems(app: &mut App) {
         (
             // Spawn visual entities for encounter-spawned enemies
             // BEFORE sync_visuals reads positions for them.
-            crate::rendering::spawn_dynamic_feature_visuals,
+            crate::presentation::rendering::spawn_dynamic_feature_visuals,
             sync_visuals,
             upgrade_enemy_sprites,
             upgrade_boss_sprites,
             animate_player,
             animate_characters,
-            crate::rendering::animate_props,
+            crate::presentation::rendering::animate_props,
             animate_bosses,
             // Pirate rider composite — reads ECS actor state and
             // spawns/despawns presentation entities each frame, so
@@ -781,7 +781,7 @@ fn install_visual_animation_systems(app: &mut App) {
             // a room reset's actor despawn is observed the same
             // frame the rider visual disappears — no stale
             // rider-on-no-shark across resets/transitions.
-            crate::rendering::sync_pirate_rider_visuals,
+            crate::presentation::rendering::sync_pirate_rider_visuals,
         )
             .chain()
             .in_set(SandboxSet::PresentationVisualSync)
@@ -816,7 +816,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
         (
             update_hud,
             dialog::sync_dialog_ui,
-            crate::cutscene::sync_cutscene_ui,
+            crate::presentation::cutscene::sync_cutscene_ui,
         )
             .chain()
             .after(windowing::window_mode_hotkeys),
@@ -830,7 +830,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
 fn install_misc_visual_sync_systems(app: &mut App) {
     app.add_systems(
         Update,
-        crate::rendering::sync_health_overlays.after(sync_visuals),
+        crate::presentation::rendering::sync_health_overlays.after(sync_visuals),
     )
     // Portal presentation: read PortalRegistry.phase + apply
     // visibility / animation row / ring-spin to the matching
@@ -851,7 +851,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     )
     .add_systems(
         Update,
-        crate::rendering::sync_parallax_layers.after(camera_follow),
+        crate::presentation::rendering::sync_parallax_layers.after(camera_follow),
     )
     // Quest-state-driven dialog redirect: flips the live dialog
     // branch the moment the underlying world state advances past
@@ -873,7 +873,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // current frame's world state, not last frame's.
     .add_systems(
         Update,
-        crate::rendering::sync_lock_wall_visuals
+        crate::presentation::rendering::sync_lock_wall_visuals
             .after(crate::encounter::update_encounters_from_world),
     )
     // NPC spritesheet upgrade. `.after(sync_visuals)` preserves the
@@ -881,7 +881,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // must exist before we look them up).
     .add_systems(
         Update,
-        crate::rendering::upgrade_npc_sprites.after(sync_visuals),
+        crate::presentation::rendering::upgrade_npc_sprites.after(sync_visuals),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run
     // after every other visibility- or sprite-setting system so they
@@ -895,8 +895,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            crate::rendering::apply_placeholder_sprites_override,
-            crate::rendering::apply_hide_sprites_override,
+            crate::presentation::rendering::apply_placeholder_sprites_override,
+            crate::presentation::rendering::apply_hide_sprites_override,
         )
             .chain()
             .after(sync_visuals)

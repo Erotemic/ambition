@@ -149,7 +149,7 @@ pub(super) fn load_room(
     };
     dev_state.preset_flash = 1.0;
 
-    crate::rendering::spawn_parallax_layers(commands, &world.0, &spec.metadata, assets);
+    crate::presentation::rendering::spawn_parallax_layers(commands, &world.0, &spec.metadata, assets);
     spawn_room_visuals(
         commands,
         &world.0,

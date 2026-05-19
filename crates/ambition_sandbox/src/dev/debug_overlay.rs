@@ -17,8 +17,8 @@ use crate::input::ControlFrame;
 use crate::input::SandboxAction;
 use crate::world::platforms;
 #[cfg(feature = "input")]
-use crate::rendering::PlayerVisual;
-use crate::rendering::{CameraViewState, SceneEntities};
+use crate::presentation::rendering::PlayerVisual;
+use crate::presentation::rendering::{CameraViewState, SceneEntities};
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use crate::{GameMode, GameWorld, SandboxDevState};
 #[cfg(feature = "input")]

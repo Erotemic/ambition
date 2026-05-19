@@ -21,7 +21,7 @@ use super::{
     FeatureSimEntity, GameplayBanner, GameplayEffect, PogoBounceEvent, RespawnTimer,
 };
 use crate::audio::SfxMessage;
-use crate::fx::{ParticleKind, VfxMessage};
+use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 
 /// Apply typed slash/projectile/pogo damage messages to ECS feature targets.

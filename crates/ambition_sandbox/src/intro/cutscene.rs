@@ -1,7 +1,7 @@
 //! Intro cutscene scripts + room→cutscene bindings.
 //!
-//! Inserted into the shared [`crate::cutscene::CutsceneLibrary`] and
-//! [`crate::cutscene::RoomCutsceneBindings`] by
+//! Inserted into the shared [`crate::presentation::cutscene::CutsceneLibrary`] and
+//! [`crate::presentation::cutscene::RoomCutsceneBindings`] by
 //! [`crate::intro::plugin::install_intro_cutscenes_system`] at startup,
 //! so the sandbox cutscene/system runtime picks them up the moment the
 //! player enters the matching room.
@@ -12,10 +12,10 @@
 
 use ambition_engine as ae;
 
-use crate::cutscene::CutsceneLibrary;
+use crate::presentation::cutscene::CutsceneLibrary;
 
 /// Room → cutscene bindings for the intro slice. Mirrors the shape of
-/// [`crate::cutscene::RoomCutsceneBindings::defaults`] — `(room_id,
+/// [`crate::presentation::cutscene::RoomCutsceneBindings::defaults`] — `(room_id,
 /// cutscene_id)` pairs walked once per room change in
 /// `auto_trigger_room_cutscenes`.
 pub const INTRO_ROOM_CUTSCENE_BINDINGS: &[(&str, &str)] = &[

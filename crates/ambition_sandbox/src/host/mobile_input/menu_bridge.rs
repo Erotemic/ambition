@@ -48,7 +48,7 @@ use crate::input::{ControlFrame, MenuControlFrame, MenuInputState};
 /// stick/button intent via [`fold_to_menu_control_frame`] instead.
 pub fn fold_to_control_frame(
     mode: Res<State<crate::game_mode::GameMode>>,
-    cutscene: Res<crate::cutscene::ActiveCutscene>,
+    cutscene: Res<crate::presentation::cutscene::ActiveCutscene>,
     state: Res<MobileTouchState>,
     visible: Res<TouchControlsVisible>,
     mut frame: ResMut<ControlFrame>,

@@ -1,6 +1,6 @@
 use ambition_engine as ae;
 
-use crate::cutscene::CutsceneTriggerQueue;
+use crate::presentation::cutscene::CutsceneTriggerQueue;
 
 pub(super) fn publish_events(
     encounter_id: &str,

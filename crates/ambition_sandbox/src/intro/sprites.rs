@@ -15,7 +15,7 @@
 
 use ambition_asset_manager::AssetId;
 
-use crate::character_sprites::{
+use crate::presentation::character_sprites::{
     CharacterSheetSpec, ARCHITECT_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
     FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
     LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
@@ -25,7 +25,7 @@ use crate::character_sprites::{
 /// `(LDtk NpcSpawn.name, asset filename, sheet spec)` rows for the
 /// intro NPCs. Filenames are relative to the configured
 /// `assets/<sprite_folder>/` directory — same convention as
-/// `crate::character_sprites::assets::NPC_SPRITE_REGISTRY`.
+/// `crate::presentation::character_sprites::assets::NPC_SPRITE_REGISTRY`.
 pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     // Wake-room creator. Dedicated creator tack-on sheet — 160×192 with
     // a 108px label column, four authored rows (idle/speak/gesture/walk).

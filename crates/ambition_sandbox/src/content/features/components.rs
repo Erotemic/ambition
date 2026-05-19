@@ -422,7 +422,7 @@ impl BossRewardChest {
 /// actor, breakable …). Combines the marker, visual tag, and authored identity
 /// components that appear on every feature spawn.
 ///
-/// Includes [`crate::rendering::RoomVisual`] because every authored feature
+/// Includes [`crate::presentation::rendering::RoomVisual`] because every authored feature
 /// today both *is* a simulation entity and *renders*; the rendering systems
 /// query `With<RoomVisual>` and the room-load / reset path despawns the same
 /// marker to wipe the previous room. See the doc comment on `RoomVisual` for
@@ -432,7 +432,7 @@ impl BossRewardChest {
 #[derive(Bundle)]
 pub struct FeatureBaseBundle {
     pub sim_entity: FeatureSimEntity,
-    pub room_visual: crate::rendering::RoomVisual,
+    pub room_visual: crate::presentation::rendering::RoomVisual,
     pub id: FeatureId,
     pub name: FeatureName,
     pub aabb: FeatureAabb,
@@ -442,7 +442,7 @@ impl FeatureBaseBundle {
     pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb) -> Self {
         Self {
             sim_entity: FeatureSimEntity,
-            room_visual: crate::rendering::RoomVisual,
+            room_visual: crate::presentation::rendering::RoomVisual,
             id: FeatureId(id.into()),
             name: FeatureName(name.into()),
             aabb,

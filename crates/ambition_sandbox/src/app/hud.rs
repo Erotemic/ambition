@@ -25,7 +25,7 @@ use bevy::ecs::system::SystemParam;
 #[derive(SystemParam)]
 pub(super) struct HudCameraParams<'w, 's> {
     user_settings: Res<'w, crate::persistence::settings::UserSettings>,
-    camera_view: Res<'w, crate::rendering::CameraViewState>,
+    camera_view: Res<'w, crate::presentation::rendering::CameraViewState>,
     player: bevy::prelude::Query<
         'w,
         's,
@@ -190,7 +190,7 @@ pub(super) fn update_hud(
         format!("\nQUESTS: {}", quest_lines.join("  ::  "))
     };
     // Cutscene UI lives in the dedicated overlay
-    // (`crate::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
+    // (`crate::presentation::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
     // with speaker / body / continue prompt and a skip-hold progress
     // bar. The debug HUD just notes that one is active so testers
     // can correlate skip-hold state with the floating overlay; the
@@ -453,7 +453,7 @@ pub fn update_quest_panel(
     quests: Res<crate::content::quest::QuestRegistry>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
     entities: Res<SceneEntities>,
-    mut query: Query<&mut Text, With<crate::rendering::QuestPanelText>>,
+    mut query: Query<&mut Text, With<crate::presentation::rendering::QuestPanelText>>,
 ) {
     if entities.quest_panel == Entity::PLACEHOLDER {
         return;

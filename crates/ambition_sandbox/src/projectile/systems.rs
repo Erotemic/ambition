@@ -12,7 +12,7 @@ use crate::features::{
     ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, DamageEvent, DamageSource, FeatureAabb,
     FeatureId, FeatureSimEntity,
 };
-use crate::fx::VfxMessage;
+use crate::presentation::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;

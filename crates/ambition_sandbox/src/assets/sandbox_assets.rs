@@ -228,7 +228,7 @@ pub mod ids {
 
     /// `sprite.character.<name>` for a character spritesheet. `name`
     /// is the sandbox-side label used by
-    /// `crate::character_sprites::assets` (e.g. `player`, `robot`,
+    /// `crate::presentation::character_sprites::assets` (e.g. `player`, `robot`,
     /// `goblin`, or an NPC sprite key derived from the LDtk
     /// `NpcSpawn.name` field).
     pub fn character_sprite(name: &str) -> AssetId {
@@ -667,7 +667,7 @@ fn with_embedded_core_candidate(entry: AssetEntry, _embedded_url: &'static str) 
 /// `static_core_assets` so the wasm build renders the protagonist + the
 /// basic enemy set without falling back to colored rectangles.
 fn extend_with_character_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
-    for (name, filename) in crate::character_sprites::all_character_sprite_filenames() {
+    for (name, filename) in crate::presentation::character_sprites::all_character_sprite_filenames() {
         let id = ids::character_sprite(name);
         let logical_path = format!("{sprite_folder}/{filename}");
         let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)

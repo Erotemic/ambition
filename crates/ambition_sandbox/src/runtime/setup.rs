@@ -25,7 +25,7 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use crate::audio::{AudioLibrary, MusicPlaybackState};
 #[cfg(feature = "audio")]
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
-use crate::character_sprites::{
+use crate::presentation::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
@@ -37,12 +37,12 @@ use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::assets::loading::SandboxAssetCollection;
 use crate::world::physics::PhysicsSandboxSettings;
 use crate::world::platforms;
-use crate::rendering::{
+use crate::presentation::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, PlayerVisual,
     QuestPanelText, SceneEntities,
 };
 use crate::rooms::RoomSet;
-use crate::ui_fonts::{UiFontWeight, UiFonts};
+use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
 use crate::GameWorld;
 #[cfg(feature = "audio")]
 use ambition_sfx::BankProvider;

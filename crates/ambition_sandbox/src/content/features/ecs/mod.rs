@@ -9,9 +9,9 @@
 
 use super::*;
 use crate::audio::SfxMessage;
-use crate::fx::{ParticleKind, VfxMessage};
+use crate::presentation::fx::{ParticleKind, VfxMessage};
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
-use crate::rendering::RoomVisual;
+use crate::presentation::rendering::RoomVisual;
 use bevy::prelude::{
     Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,
     Resource, With,
@@ -1076,7 +1076,7 @@ pub fn update_ecs_breakables(
 pub fn update_ecs_hazards(
     world_time: Res<WorldTime>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::fx::VfxMessage>,
+    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
     player: Query<
@@ -1148,7 +1148,7 @@ pub fn update_ecs_bosses(
     overlay: Res<FeatureEcsWorldOverlay>,
     encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::fx::VfxMessage>,
+    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
     player_query: Query<
@@ -1247,7 +1247,7 @@ pub fn update_ecs_actors(
     mut slot_board: ResMut<crate::combat_slots::CombatSlotsRes>,
     mut enemy_projectiles: ResMut<crate::enemy_projectile::EnemyProjectileState>,
     mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::fx::VfxMessage>,
+    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
     player_query: Query<
@@ -1853,13 +1853,13 @@ pub fn ecs_enemy_name<'a>(
 pub fn ecs_enemy_anim_state(
     id: &str,
     actors: &Query<(&FeatureId, &ActorRuntime)>,
-) -> Option<crate::character_sprites::EnemyAnimState> {
+) -> Option<crate::presentation::character_sprites::EnemyAnimState> {
     actors.iter().find_map(|(feature_id, actor)| {
         if feature_id.as_str() != id {
             return None;
         }
         match actor {
-            ActorRuntime::Hostile(enemy) => Some(crate::character_sprites::EnemyAnimState {
+            ActorRuntime::Hostile(enemy) => Some(crate::presentation::character_sprites::EnemyAnimState {
                 vel: enemy.vel,
                 facing: enemy.facing,
                 alive: enemy.alive,
@@ -1875,13 +1875,13 @@ pub fn ecs_enemy_anim_state(
 pub fn ecs_npc_anim_state(
     id: &str,
     actors: &Query<(&FeatureId, &ActorRuntime)>,
-) -> Option<crate::character_sprites::NpcAnimState> {
+) -> Option<crate::presentation::character_sprites::NpcAnimState> {
     actors.iter().find_map(|(feature_id, actor)| {
         if feature_id.as_str() != id {
             return None;
         }
         match actor {
-            ActorRuntime::Peaceful(npc) => Some(crate::character_sprites::NpcAnimState {
+            ActorRuntime::Peaceful(npc) => Some(crate::presentation::character_sprites::NpcAnimState {
                 vel: npc.vel,
                 facing: npc.facing,
                 hit_flash: npc.hit_flash > 0.0,

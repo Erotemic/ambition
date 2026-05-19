@@ -342,7 +342,7 @@ pub fn tick_active_cutscene(
 //   input) and CutsceneBeat::Banner (timed — auto-advances). The skip-
 //   hold progress bar lives here too. Owned by [`sync_cutscene_ui`].
 //
-// - **Speech bubbles** (`crate::fx::update_speech_bubbles`): world-
+// - **Speech bubbles** (`crate::presentation::fx::update_speech_bubbles`): world-
 //   space transient quote bubbles that anyone can fire via
 //   `VfxMessage::SpeechBubble { pos, text }`. Already used by the
 //   combat / damage path so enemies can shout when they get hit. The
@@ -375,7 +375,7 @@ pub fn sync_cutscene_ui(
     active: Res<ActiveCutscene>,
     request: Res<CutsceneAdvanceRequest>,
     overlays: Query<Entity, With<CutsceneOverlayRoot>>,
-    ui_fonts: Option<Res<crate::ui_fonts::UiFonts>>,
+    ui_fonts: Option<Res<crate::presentation::ui_fonts::UiFonts>>,
 ) {
     use bevy::ui::{
         AlignItems, BorderRadius, FlexDirection, JustifyContent, Node, PositionType, UiRect, Val,
@@ -389,7 +389,7 @@ pub fn sync_cutscene_ui(
         return;
     }
 
-    let cutscene_font = |font_size: f32, weight: crate::ui_fonts::UiFontWeight| {
+    let cutscene_font = |font_size: f32, weight: crate::presentation::ui_fonts::UiFontWeight| {
         ui_fonts
             .as_deref()
             .map(|fonts| fonts.text_font(font_size, weight))
@@ -449,7 +449,7 @@ pub fn sync_cutscene_ui(
                 .with_children(|panel| {
                     panel.spawn((
                         Text::new(banner_text.clone()),
-                        cutscene_font(18.0, crate::ui_fonts::UiFontWeight::Semibold),
+                        cutscene_font(18.0, crate::presentation::ui_fonts::UiFontWeight::Semibold),
                         TextColor(Color::srgba(0.96, 0.90, 0.74, 1.0)),
                     ));
                 });
@@ -481,12 +481,12 @@ pub fn sync_cutscene_ui(
                 .with_children(|panel| {
                     panel.spawn((
                         Text::new(speaker.clone()),
-                        cutscene_font(20.0, crate::ui_fonts::UiFontWeight::Semibold),
+                        cutscene_font(20.0, crate::presentation::ui_fonts::UiFontWeight::Semibold),
                         TextColor(Color::srgba(0.82, 0.94, 1.00, 1.0)),
                     ));
                     panel.spawn((
                         Text::new(text.clone()),
-                        cutscene_font(16.0, crate::ui_fonts::UiFontWeight::Regular),
+                        cutscene_font(16.0, crate::presentation::ui_fonts::UiFontWeight::Regular),
                         TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
                     ));
                     panel.spawn((
@@ -496,7 +496,7 @@ pub fn sync_cutscene_ui(
                         // The hint names the *semantic* actions so a
                         // rebound key isn't a lie.
                         Text::new("Press Interact (E) or Jump (Space) to continue. Hold Backspace to skip."),
-                        cutscene_font(12.0, crate::ui_fonts::UiFontWeight::Regular),
+                        cutscene_font(12.0, crate::presentation::ui_fonts::UiFontWeight::Regular),
                         TextColor(Color::srgba(0.66, 0.76, 0.88, 0.96)),
                     ));
                 });
@@ -528,7 +528,7 @@ pub fn sync_cutscene_ui(
             .with_children(|root| {
                 root.spawn((
                     Text::new(format!("hold to skip … {fill_pct:>3.0}%")),
-                    cutscene_font(12.0, crate::ui_fonts::UiFontWeight::Regular),
+                    cutscene_font(12.0, crate::presentation::ui_fonts::UiFontWeight::Regular),
                     TextColor(Color::srgba(0.86, 0.86, 0.92, 0.92)),
                 ));
                 root.spawn((

@@ -60,7 +60,7 @@ use crate::dev::dev_tools::{
 use crate::dialog;
 use crate::features;
 use crate::time::feel::SandboxFeelTuning;
-use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
+use crate::presentation::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::assets::game_assets::{self, GameAssetConfig};
 use crate::game_mode::{gameplay_allowed, gameplay_suspended, GameMode};
 #[cfg(feature = "input")]
@@ -76,14 +76,14 @@ use crate::pause_menu;
 use crate::world::physics::physics_spawn_debris_messages;
 use crate::world::physics::{self, DebrisBurstMessage};
 use crate::world::platforms;
-use crate::rendering::{
+use crate::presentation::rendering::{
     animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
     sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,
     PlayerVisual, RoomScopedEntity, SceneEntities,
 };
 use crate::rooms;
 use crate::runtime::setup;
-use crate::ui_fonts;
+use crate::presentation::ui_fonts;
 use crate::host::windowing;
 use crate::{GameWorld, PlayerDiedMessage, SandboxDevState};
 

@@ -16,7 +16,7 @@ use crate::features::{
     PlayerDamageEvent, PogoBounceEvent,
 };
 use crate::time::feel::SandboxFeelTuning;
-use crate::fx::VfxMessage;
+use crate::presentation::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
 use crate::{

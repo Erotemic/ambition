@@ -12,7 +12,7 @@ use super::primitives::{
     PropVisual, SceneEntities,
 };
 use crate::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
-use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
+use crate::presentation::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
     ActorRuntime, BossFeature, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
@@ -326,7 +326,7 @@ pub fn animate_player(
     else {
         return;
     };
-    let anim = crate::character_sprites::pick_player_anim(
+    let anim = crate::presentation::character_sprites::pick_player_anim(
         anim_state,
         player_combat,
         blink_cam,
@@ -397,14 +397,14 @@ pub fn animate_characters(
             crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
         {
             (
-                crate::character_sprites::pick_enemy_anim(state),
+                crate::presentation::character_sprites::pick_enemy_anim(state),
                 state.facing,
                 state.hit_flash,
                 state.attack_active || state.attack_windup,
             )
         } else if let Some(state) = crate::features::ecs_npc_anim_state(&visual.id, &ecs_actors) {
             (
-                crate::character_sprites::pick_npc_anim(state),
+                crate::presentation::character_sprites::pick_npc_anim(state),
                 state.facing,
                 state.hit_flash,
                 false,
@@ -474,7 +474,7 @@ pub fn animate_props(
             // Force-rest at frame 0 of the Idle row. `request` selects
             // the row; ticking with dt=0 holds the row's current frame
             // and matches the asset's first frame on entry.
-            animator.request(crate::character_sprites::CharacterAnim::Idle);
+            animator.request(crate::presentation::character_sprites::CharacterAnim::Idle);
             let index = animator.tick(0.0);
             if let Some(atlas) = sprite.texture_atlas.as_mut() {
                 atlas.index = index;
@@ -482,7 +482,7 @@ pub fn animate_props(
             continue;
         }
         let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(scale));
-        animator.request(crate::character_sprites::CharacterAnim::Idle);
+        animator.request(crate::presentation::character_sprites::CharacterAnim::Idle);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
             atlas.index = index;

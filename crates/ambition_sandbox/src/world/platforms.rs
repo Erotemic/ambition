@@ -12,7 +12,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use crate::config::{world_to_bevy, WORLD_Z_BLOCK};
-use crate::rendering::RoomVisual;
+use crate::presentation::rendering::RoomVisual;
 use crate::rooms::{KinematicPathSpec, RoomSet};
 
 /// LDtk-authored moving-platform declaration before path references are resolved.

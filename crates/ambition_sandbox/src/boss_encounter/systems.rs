@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use ambition_engine as ae;
 use bevy::prelude::*;
 
-use crate::cutscene::CutsceneTriggerQueue;
+use crate::presentation::cutscene::CutsceneTriggerQueue;
 use crate::content::quest::QuestRegistry;
 
 use super::{

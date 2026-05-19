@@ -20,7 +20,7 @@
 
 use bevy::prelude::*;
 
-use crate::character_sprites::{build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator};
+use crate::presentation::character_sprites::{build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{ActorRuntime, EnemyArchetype, FeatureId};
 use crate::assets::game_assets::GameAssets;

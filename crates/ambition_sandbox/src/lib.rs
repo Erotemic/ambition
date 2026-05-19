@@ -84,9 +84,10 @@ pub use world::{ldtk_world, rooms};
 // sites now use `crate::persistence::{save, settings}::…`.
 // Removed: `pub(crate) use player::bubble_shield;` — call sites now
 // use `crate::player::bubble_shield::…`.
-// `screen_effects` removed from the shim: call sites now use
-// `crate::presentation::screen_effects::…`.
-pub(crate) use presentation::{character_sprites, cutscene, fx, rendering, ui_fonts};
+// Removed: `pub(crate) use presentation::{character_sprites, cutscene,
+// fx, rendering, ui_fonts};` — call sites now use the canonical
+// `crate::presentation::…` paths. `screen_effects` was already
+// removed in a prior commit.
 // Removed: `pub(crate) use runtime::{reset, setup};` — call sites now
 // use the canonical `crate::runtime::{reset, setup}::…` paths.
 // Removed: `pub(crate) use time::{feel, time_control};` — call sites

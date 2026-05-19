@@ -57,7 +57,7 @@ pub fn apply_boss_damage_effects(
     mut effects: MessageReader<GameplayEffect>,
     mut boss_registry: ResMut<crate::boss_encounter::BossEncounterRegistry>,
     mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
-    mut cutscene_queue: ResMut<crate::cutscene::CutsceneTriggerQueue>,
+    mut cutscene_queue: ResMut<crate::presentation::cutscene::CutsceneTriggerQueue>,
     mut banner: ResMut<crate::features::GameplayBanner>,
 ) {
     for effect in effects.read() {

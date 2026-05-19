@@ -1,7 +1,7 @@
 use bevy::log::info;
 use bevy::prelude::*;
 
-use crate::ui_fonts::{UiFontWeight, UiFonts};
+use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
 use crate::ui_nav::{decorate_windowed_label, visible_window_start};
 
 pub(in crate::dialog) const DIALOG_VISIBLE_OPTIONS: usize = 4;

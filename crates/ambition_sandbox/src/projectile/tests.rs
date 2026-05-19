@@ -6,7 +6,7 @@ use super::state::{PlayerProjectile, PlayerProjectileState};
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
 use crate::features::{ActorHealth, ActorIdentity, DamageEvent, GameplayBanner, GameplayEffect, PogoBounceEvent};
-use crate::fx::VfxMessage;
+use crate::presentation::fx::VfxMessage;
 use crate::input::ControlFrame;
 use crate::world::physics::DebrisBurstMessage;
 use crate::trace::GameplayTraceBuffer;

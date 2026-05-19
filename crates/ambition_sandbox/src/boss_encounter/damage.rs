@@ -1,4 +1,4 @@
-use crate::cutscene::CutsceneTriggerQueue;
+use crate::presentation::cutscene::CutsceneTriggerQueue;
 
 use super::{events::publish_events, BossEncounterRegistry};
 

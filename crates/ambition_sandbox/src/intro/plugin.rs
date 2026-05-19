@@ -5,8 +5,8 @@
 //! The plugin contributes via startup systems:
 //!
 //! - [`install_intro_cutscenes_system`] extends
-//!   [`crate::cutscene::CutsceneLibrary`] and
-//!   [`crate::cutscene::RoomCutsceneBindings`] with the intro scripts
+//!   [`crate::presentation::cutscene::CutsceneLibrary`] and
+//!   [`crate::presentation::cutscene::RoomCutsceneBindings`] with the intro scripts
 //!   and room bindings from [`crate::intro::cutscene`].
 //! - [`load_intro_npc_sprites_system`] extends
 //!   [`crate::assets::game_assets::GameAssets`]`.characters.npcs` with the
@@ -19,8 +19,8 @@
 use bevy::prelude::*;
 
 use crate::content::banter::CombatBanterRegistry;
-use crate::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
-use crate::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
+use crate::presentation::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
+use crate::presentation::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use crate::assets::game_assets::{GameAssetConfig, GameAssets};
 use crate::rooms::PortalRegistry;
 

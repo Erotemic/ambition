@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use super::state::EnemyProjectileState;
 use crate::audio::SfxMessage;
 use crate::features::{PlayerDamageEvent, PlayerDamageMode, PlayerDamageSource};
-use crate::fx::VfxMessage;
+use crate::presentation::fx::VfxMessage;
 use crate::GameWorld;
 
 pub fn update_enemy_projectiles(

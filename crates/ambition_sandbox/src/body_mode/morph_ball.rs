@@ -131,7 +131,7 @@ pub fn spawn_morph_ball_visual(
 /// the standing-rig animation doesn't show through.
 pub fn sync_morph_ball_visual(
     world: Res<crate::GameWorld>,
-    entities: Res<crate::rendering::SceneEntities>,
+    entities: Res<crate::presentation::rendering::SceneEntities>,
     player_q: Query<
         &crate::player::PlayerMovementAuthority,
         crate::player::PrimaryPlayerOnly,
@@ -139,7 +139,7 @@ pub fn sync_morph_ball_visual(
     mut player_query: Query<
         &mut Visibility,
         (
-            With<crate::rendering::PlayerVisual>,
+            With<crate::presentation::rendering::PlayerVisual>,
             Without<MorphBallVisual>,
         ),
     >,

@@ -38,7 +38,7 @@ use ambition_asset_manager::{
 };
 
 use crate::boss_encounter::sprites::{self, BossSpriteAsset};
-use crate::character_sprites::{self, CharacterSpriteAssets};
+use crate::presentation::character_sprites::{self, CharacterSpriteAssets};
 use crate::features::FeatureVisualKind;
 use crate::rooms::{LoadingZoneActivation, RoomMetadata};
 

@@ -50,6 +50,7 @@ impl SettingsPage {
         }
     }
 
+    #[allow(dead_code)] // Iterator-friendly handle on every page; reserved for future docs/tests.
     pub const ALL: &'static [Self] = &[
         Self::Top,
         Self::Video,
@@ -255,6 +256,10 @@ impl SettingsItem {
 
     /// Label shown to the user for this row, given the current
     /// settings snapshot.
+    ///
+    /// Convenience wrapper around [`label_with_dev`](Self::label_with_dev);
+    /// reserved for HUD callers that don't carry a `DevToggleSnapshot`.
+    #[allow(dead_code)]
     pub fn label(self, settings: &UserSettings) -> String {
         self.label_with_dev(settings, DevToggleSnapshot::default())
     }

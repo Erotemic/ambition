@@ -1,32 +1,54 @@
-# GNU-ton boss arena — wide underground chamber for the giant wildebeest fight.
+# GNU-ton boss arena — tall underground chamber for the giant wildebeest fight.
 #
-# GNU-ton (the scholar atop a giant GNU) is a stationary boss: the body fills
-# the background while the interactive hands sweep in from the sides and the
-# head periodically descends to expose a vulnerability window.
+# Rev: bumped to 1792×1280 (was 1536×896) so the player drops in from a
+# ledge near the top and sees the whole GNU-ton silhouette before
+# descending into striking range. The body sprite is z-layered behind
+# platforms (see `presentation::rendering::actors::GnuTonBodyLayer`)
+# so the player can read jump targets through the giant.
 #
-# Layout (1536 wide x 896 tall):
+# Encounter flow:
+#   1. Player enters from `hall_of_bosses` via the top-left LoadingZone.
+#   2. Lands on the entry ledge, walks right onto a BreakablePlatform.
+#   3. The platform breaks under their weight, forcing a descent into
+#      the fight (they fall through a column of perches that catches
+#      them safely before the floor).
+#   4. Boss fight at floor level. GNU-ton's head is always damageable
+#      but high up at rest — climb the perches to reach it, or wait for
+#      the head-descent windows that bring it to player level.
+#   5. After defeat, the player climbs back up the ladder column near
+#      the spawn (the ladder is painted Climbable in IntGrid).
 #
-#   +------------------------------------------------------+  y = 0
-#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
-#   |                                                      |
-#   |                    [BossSpawn]                       |  ← GNU-ton upper center
-#   |                                                      |
-#   |          ░░░░           ░░░░░░░░░░░░░               |  ← center + right perches
-#   |  ░░░░░░░                                             |  ← left perch
-#   |                                                      |
-#   | [exit door]                                          |  ← return to hall
-#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |  y = 864 (floor)
-#   +------------------------------------------------------+
+# Layout (1792 wide x 1280 tall):
 #
-# The perches give the player elevation options when dodging the hand
-# sweeps (which come from the sides) and a centre platform to reach the
-# head's hitbox during its descent window.
+#   +------------------------------------------------------------+ y=0
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
+#   | [door]   [ledge───][BreakablePad]                          | ← top entry
+#   |  ▓ladder▓                                                  |
+#   |  ▓ladder▓               ░░░░top perch░░░░                  |
+#   |  ▓ladder▓                                                  |
+#   |  ▓ladder▓        ┌─────[BossSpawn]─────┐                   | ← GNU-ton centered
+#   |  ▓ladder▓        │   (220×220 box)     │                   |
+#   |  ▓ladder▓        └─────────────────────┘                   |
+#   |  ▓ladder▓   ░░perch left       perch right░░               |
+#   |  ▓ladder▓                                                  |
+#   |  ▓ladder▓       ░░perch mid-left   perch mid-right░░       |
+#   |  ▓ladder▓                                                  |
+#   |  ▓ladder▓                                                  |
+#   |  ▓floor ▓░░perch left low    perch right low░░             |
+#   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒| y=1248
+#   +------------------------------------------------------------+
+#
+# TODO(gnu_ton): gate the ladder on `EncounterCleared("gnu_ton_arena")`.
+# The current implementation always paints the ladder IntGrid cells, so
+# a player can climb out at any time. A follow-up should either (a) add
+# a runtime `appears_when_cleared` hook on a `VictoryLadder` entity type,
+# or (b) wire a BreakablePlatform barrier that auto-breaks on cleared.
 id: gnu_ton_arena
 level_id: gnu_ton_arena
 world_x: 36000
 world_y: 0
-px_wid: 1536
-px_hei: 896
+px_wid: 1792
+px_hei: 1280
 fill_collision: empty
 
 biome: boss
@@ -34,69 +56,119 @@ music_track: standing_on_shoulders
 ambient_profile: hum
 visual_theme: default
 
+# Climbable IntGrid: ladder column on the left wall, from just below the
+# spawn ledge down to floor level. Lets the player retreat back to the
+# entry LoadingZone after defeating the boss. (See TODO above re gating.)
+intgrid:
+  climbable:
+    - kind: Ladder
+      px: [120, 224]
+      size: [32, 1024]
+
 entities:
   # ─────────────────────────────────────────────────────────────────
   # Outer shell.
   # ─────────────────────────────────────────────────────────────────
   - type: Solid
-    px: [0, 864]
-    size: [1536, 32]
+    px: [0, 1248]
+    size: [1792, 32]
     fields: { name: floor }
   - type: Solid
     px: [0, 0]
-    size: [16, 864]
+    size: [16, 1248]
     fields: { name: left_wall }
   - type: Solid
-    px: [1520, 0]
-    size: [16, 864]
+    px: [1776, 0]
+    size: [16, 1248]
     fields: { name: right_wall }
   - type: Solid
     px: [16, 0]
-    size: [1504, 16]
+    size: [1760, 16]
     fields: { name: ceiling }
 
   # ─────────────────────────────────────────────────────────────────
-  # Player platforms.
-  # Left and right perches are close to the sides — safe from hand
-  # sweeps only briefly, but give elevation for attacking during the
-  # head-down window.  The centre perch is the prime spot for striking
-  # the head; it sits mid-room so the player must dash through the
-  # hand-slam danger zone to reach it.
+  # Top entry: solid ledge that catches the player as they teleport
+  # in through the LoadingZone, plus a BreakablePlatform extension
+  # that the player must step onto to descend. The breakable triggers
+  # `OnStand` and never respawns, so the descent is one-way per
+  # encounter attempt.
   # ─────────────────────────────────────────────────────────────────
-  - type: OneWayPlatform
-    px: [168, 672]
+  - type: Solid
+    px: [16, 208]
+    size: [288, 16]
+    fields: { name: entry_ledge }
+  - type: BreakablePlatform
+    px: [304, 208]
     size: [160, 16]
-    fields: { name: perch_left }
-  - type: OneWayPlatform
-    px: [1208, 672]
-    size: [160, 16]
-    fields: { name: perch_right }
-  - type: OneWayPlatform
-    px: [672, 504]
-    size: [192, 16]
-    fields: { name: perch_center }
-  - type: OneWayPlatform
-    px: [448, 592]
-    size: [128, 16]
-    fields: { name: perch_mid_left }
-  - type: OneWayPlatform
-    px: [960, 592]
-    size: [128, 16]
-    fields: { name: perch_mid_right }
+    fields:
+      name: spawn_descent_pad
+      collision: Solid
+      trigger: OnStand
+      respawn: Never
 
   # ─────────────────────────────────────────────────────────────────
-  # Player spawn — just inside the entry door on the left.
+  # Player platforms.
+  # Layered from top to bottom so the player can climb back up after
+  # the fight (or during it, for vertical positioning vs. the boss
+  # head). Boss is centered ~mid-room so the perches at every height
+  # offer real combat options.
+  # ─────────────────────────────────────────────────────────────────
+  - type: OneWayPlatform
+    px: [752, 432]
+    size: [288, 16]
+    fields: { name: perch_top_center }   # over the boss's head — risky landing spot
+  - type: OneWayPlatform
+    px: [240, 560]
+    size: [192, 16]
+    fields: { name: perch_left_high }
+  - type: OneWayPlatform
+    px: [1360, 560]
+    size: [192, 16]
+    fields: { name: perch_right_high }
+  - type: OneWayPlatform
+    px: [528, 720]
+    size: [160, 16]
+    fields: { name: perch_left_mid_high }
+  - type: OneWayPlatform
+    px: [1104, 720]
+    size: [160, 16]
+    fields: { name: perch_right_mid_high }
+  - type: OneWayPlatform
+    px: [752, 832]
+    size: [288, 16]
+    fields: { name: perch_center_main }  # prime striking spot for head-descent
+  - type: OneWayPlatform
+    px: [336, 944]
+    size: [192, 16]
+    fields: { name: perch_left_mid }
+  - type: OneWayPlatform
+    px: [1264, 944]
+    size: [192, 16]
+    fields: { name: perch_right_mid }
+  - type: OneWayPlatform
+    px: [192, 1088]
+    size: [224, 16]
+    fields: { name: perch_left_low }     # easy reach from the floor
+  - type: OneWayPlatform
+    px: [1376, 1088]
+    size: [224, 16]
+    fields: { name: perch_right_low }
+
+  # ─────────────────────────────────────────────────────────────────
+  # Player spawn — on the BreakablePlatform descent pad. The platform
+  # breaks when the player stands, dropping them into the fight.
   # ─────────────────────────────────────────────────────────────────
   - type: PlayerStart
-    px: [96, 818]
+    px: [368, 162]
     size: [28, 46]
     fields: { name: gnu_ton_arena_spawn }
 
-  # Entry / exit door — bidirectional link to hall_of_bosses.
-  # `gnu_ton_arena_exit` is the id that hall_of_bosses's
-  # `hall_gnu_ton_portal` warps the player to when entering the arena.
+  # Bidirectional door — entry on the way in, exit on the way out.
+  # `gnu_ton_arena_exit` is the id that `hall_of_bosses`'s
+  # `hall_gnu_ton_portal` warps the player to. The door sits on the
+  # entry ledge so the player teleports in standing on solid ground.
   - type: LoadingZone
-    px: [64, 768]
+    px: [64, 112]
     size: [48, 96]
     fields:
       id: gnu_ton_arena_exit
@@ -107,14 +179,15 @@ entities:
       bidirectional: true
 
   # ─────────────────────────────────────────────────────────────────
-  # Boss spawn — stationary, upper centre.
+  # Boss spawn — stationary, centered. The bigger 1792×1280 chamber
+  # gives the giant room to breathe and lets the camera zoom out
+  # without clipping the silhouette against the walls.
   # `name` drives encounter_id_from_name → "gnu_ton" → BossEncounterSpec::gnu_ton.
-  # Width/height drives sprite scale. Runtime hitboxes are part-specific:
-  # the head is only vulnerable when it descends, and hand attacks use the
-  # generated hoof/head design coordinates.
+  # The runtime renders the body behind one-way platforms and the
+  # hands in front of them (see `GnuTonBodyLayer` / `GnuTonHandsLayer`).
   # ─────────────────────────────────────────────────────────────────
   - type: BossSpawn
-    px: [658, 230]
+    px: [786, 498]
     size: [220, 220]
     fields:
       name: GNU-ton
@@ -122,19 +195,30 @@ entities:
 
   # ─────────────────────────────────────────────────────────────────
   # Camera + signage.
+  # `camera_zoom: 1.25` is a slight zoom-out so the player sees the
+  # full giant + their own footing without losing track of either.
+  # Holding the value below 1.5 keeps the player sprite legible at
+  # the screen scale set by user video settings.
   # ─────────────────────────────────────────────────────────────────
   - type: CameraZone
     px: [0, 0]
-    size: [1536, 896]
+    size: [1792, 1280]
     fields:
       id: gnu_ton_arena_camera
       name: gnu_ton_arena_camera
       mode: Default
+      # Slight zoom-out so the player sees the full giant + their own
+      # footing without losing track of either. Holding below 1.5 keeps
+      # the player sprite legible at the screen scale set by user video
+      # settings. Field is `zoom` on the LDtk CameraZone def (conversion
+      # accepts `camera_zoom` as an alias, but the LDtk entity only
+      # defines `zoom`).
+      zoom: 1.25
 
   - type: DebugLabel
-    px: [96, 836]
-    size: [1344, 20]
+    px: [128, 1216]
+    size: [1536, 20]
     fields:
       name: gnu_ton_arena_label
-      text: "GNU-ton — dodge the hands; strike the head when it descends."
+      text: "GNU-ton — drop in from above; strike the head when it descends."
       category: Custom

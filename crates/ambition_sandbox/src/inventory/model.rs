@@ -101,12 +101,14 @@ impl PlayerInventory {
         removed
     }
 
+    #[allow(dead_code)] // Reserved for future inventory iteration callers.
     pub fn entries(&self) -> impl Iterator<Item = (ItemKind, u32)> + '_ {
         ItemKind::ALL
             .into_iter()
             .map(move |kind| (kind, self.count(kind)))
     }
 
+    #[allow(dead_code)] // Reserved for HUD / save-summary readouts.
     pub fn total_items(&self) -> u32 {
         self.counts.iter().sum()
     }

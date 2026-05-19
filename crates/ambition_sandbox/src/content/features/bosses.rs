@@ -523,7 +523,7 @@ pub struct BossRuntime {
 }
 
 impl BossRuntime {
-    pub(super) fn new(object: &ae::RoomObject, brain: ae::BossBrain) -> Self {
+    pub(crate) fn new(object: &ae::RoomObject, brain: ae::BossBrain) -> Self {
         Self {
             id: object.id.clone(),
             name: object.name.clone(),

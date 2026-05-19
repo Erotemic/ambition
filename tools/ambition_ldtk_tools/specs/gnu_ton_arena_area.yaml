@@ -38,11 +38,12 @@
 #   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒| y=1248
 #   +------------------------------------------------------------+
 #
-# TODO(gnu_ton): gate the ladder on `EncounterCleared("gnu_ton_arena")`.
-# The current implementation always paints the ladder IntGrid cells, so
-# a player can climb out at any time. A follow-up should either (a) add
-# a runtime `appears_when_cleared` hook on a `VictoryLadder` entity type,
-# or (b) wire a BreakablePlatform barrier that auto-breaks on cleared.
+# Ladder gating: the Climbable IntGrid below is painted unconditionally
+# at world-load time, but the sandbox-side `gate_gnu_ton_arena_ladder`
+# system (boss_encounter/gnu_ton.rs) removes the Ladder regions from
+# `world.climbable_regions` on entry and re-adds them the frame the
+# gnu_ton boss is defeated. So the cells exist in LDtk but only count
+# at runtime once the player has earned the retreat.
 id: gnu_ton_arena
 level_id: gnu_ton_arena
 world_x: 36000
@@ -58,7 +59,8 @@ visual_theme: default
 
 # Climbable IntGrid: ladder column on the left wall, from just below the
 # spawn ledge down to floor level. Lets the player retreat back to the
-# entry LoadingZone after defeating the boss. (See TODO above re gating.)
+# entry LoadingZone after defeating the boss. Runtime visibility is
+# gated by `gate_gnu_ton_arena_ladder` (see header comment above).
 intgrid:
   climbable:
     - kind: Ladder

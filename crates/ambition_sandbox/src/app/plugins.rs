@@ -462,6 +462,13 @@ fn register_progression_chain_systems(app: &mut App) {
         Update,
         (
             crate::boss_encounter::update_boss_encounters,
+            // Hides the gnu_ton arena's retreat ladder while the boss
+            // is alive, re-adds it the frame the boss dies. Runs after
+            // `update_boss_encounters` so a defeat this tick is
+            // observable as `boss.alive = false`, and before player
+            // movement consumes `world.climbable_regions` in the next
+            // visual sync set.
+            crate::boss_encounter::gate_gnu_ton_arena_ladder,
             crate::features::sync_ecs_actors_with_save,
             crate::features::sync_ecs_bosses_with_save,
             crate::content::quest::push_room_entered_quest_events,

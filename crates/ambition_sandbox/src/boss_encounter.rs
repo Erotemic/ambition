@@ -19,6 +19,7 @@
 pub(crate) mod banter;
 mod damage;
 mod events;
+mod gnu_ton;
 mod ids;
 mod profile;
 mod registry;
@@ -31,6 +32,7 @@ mod systems;
 mod tests;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
+pub use gnu_ton::gate_gnu_ton_arena_ladder;
 pub use damage::record_boss_damage;
 pub use ids::{encounter_id_from_name, MOCKINGBIRD_ENCOUNTER_ID};
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};

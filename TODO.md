@@ -30,6 +30,10 @@ Useful companion docs:
 
 ## S - Active blockers and high-signal defects
 
+- [ ] Morph ball is broken. Sprite appears spawns in the room and moves when you enter morph ball and then stays when you leave. The robot sprite is also drawn when in morph ball mode, squished on top of the morph ball.
+
+- [ ] Pickups are broken. They don't disappear when collected.
+
 - [~] **Wall-cling / lock-wall / collision-correction debt** `[V5/D3]` - Keep the trace-backed lock-wall problem central until the root collision-correction behavior is fixed. The current authoritative write-up is `docs/planning/tech-debt-log.md`; use `docs/systems/gameplay-trace-recorder.md` for dump/replay workflow. Do not hide this by widening OOB margins.
   - Good session shape: build or improve a reproduction around the mob-lab lock wall / ceiling geometry, then assert that position correction cannot exceed the frame's velocity budget unless Reset or RoomTransition fired.
   - Validation anchors: `cargo test -p ambition_sandbox --test repro_walls`, `cargo test -p ambition_sandbox trace`, focused movement/collision tests.

@@ -109,8 +109,8 @@ per-`PlayerEntity` component.
 
 | Resource | Current shape | Per-player target |
 |---|---|---|
-| `CurrentPlayerAttack` | `Resource(Option<PlayerAttackState>)` | `ActivePlayerAttack` component on the player entity (OVERNIGHT-TODO #17.4) — already commented in `lib.rs` |
-| `SandboxSimState::last_safe_player_pos` | `Vec2` on a shared `Resource` | `PlayerSafetyState` component (OVERNIGHT-TODO #17.9) — already commented in `lib.rs` |
+| ~~`CurrentPlayerAttack`~~ ✓ DONE 2026-05-19 (2aab57e) | Was `Resource(Option<PlayerAttackState>)` | Now `ActivePlayerAttack` component on the player entity (OVERNIGHT-TODO #17.4) |
+| ~~`SandboxSimState::last_safe_player_pos`~~ ✓ DONE 2026-05-19 (ea12dee) | Was a field on a shared `Resource` | Now `PlayerSafetyState { last_safe_pos }` component (OVERNIGHT-TODO #17.9) |
 | `SandboxSimState::time_scale` | global | Stays global (hitstop/bullet-time apply to the whole world) |
 | `SandboxSimState::room_transition_cooldown` | global | Stays global today; would need per-room/per-player if rooms ever diverge |
 | `KeyboardPreset` selection (`SandboxDevState.preset_index`) | global | Per-player input mapping is OVERNIGHT-TODO #17.5 |
@@ -119,13 +119,16 @@ per-`PlayerEntity` component.
 
 1. **A-bucket migration (cosmetic, no behavior change)** — ✓ DONE
    (2026-05-19). All A-bucket sites use `PrimaryPlayerOnly` now.
-2. **Per-entity attack state (OVERNIGHT-TODO #17.4)** — Move
-   `CurrentPlayerAttack` onto the player entity as
-   `ActivePlayerAttack`. Smoke test: spawn two players with different
-   active attacks and assert they tick independently.
-3. **Per-entity safety state (OVERNIGHT-TODO #17.9)** — Move
-   `last_safe_player_pos` onto the player entity as
-   `PlayerSafetyState`. Smoke test: per-player respawn anchors.
+2. **Per-entity attack state (OVERNIGHT-TODO #17.4)** — ✓ DONE
+   (2026-05-19 commit 2aab57e). `ActivePlayerAttack` component
+   replaces `CurrentPlayerAttack` resource; multiplayer smoke tests
+   `two_players_have_independent_active_attacks` and
+   `clear_is_per_entity` cover the per-entity invariant.
+3. **Per-entity safety state (OVERNIGHT-TODO #17.9)** — ✓ DONE
+   (2026-05-19 commit ea12dee). `PlayerSafetyState { last_safe_pos }`
+   component replaces `SandboxSimState::last_safe_player_pos`;
+   `two_players_have_independent_safety_anchors` smoke test pins
+   the invariant.
 4. **B-bucket: iterate-all-players for pickups / hazards / interactions**
    (OVERNIGHT-TODO #17.6, #17.7, #17.8) — These are the meaty behavior
    changes. Stage one feature kind at a time (pickups first; they have the

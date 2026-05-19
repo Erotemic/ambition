@@ -26,9 +26,7 @@ pub mod android;
 pub mod desktop;
 pub mod power;
 
-pub use power::{
-    should_pause_nonessential_work, track_window_focus, PowerProfile, WindowFocusState,
-};
+use power::{track_window_focus, WindowFocusState};
 
 /// Top-level platform plugin. Picks the right per-platform plugin
 /// (desktop vs Android), wires the focus-tracking system, and

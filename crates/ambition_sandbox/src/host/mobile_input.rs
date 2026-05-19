@@ -45,7 +45,13 @@ pub mod menu_bridge;
 #[cfg(test)]
 mod tests;
 
-pub use state::{apply_deadzone, fold_touch_into_control_frame, TouchButton, TouchInputState};
+// `TouchButton` is referenced by `bevy_plugin::super::TouchButton`; keep
+// it re-exported so the plugin can construct buttons without a deeper
+// import path. `apply_deadzone`/`fold_touch_into_control_frame`/
+// `TouchInputState` are exercised only by the tests submodule, which
+// reaches them via `super::state::*` and does not need a re-export.
+pub use state::TouchButton;
+
 /// Bevy plugin wiring `virtual_joystick` to the `ControlFrame` seam.
 /// Gated behind the `mobile_touch` feature so desktop / gamepad /
 /// headless / RL builds don't pull in `virtual_joystick` and don't

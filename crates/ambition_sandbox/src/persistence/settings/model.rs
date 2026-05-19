@@ -11,8 +11,12 @@ use bevy::window::PrimaryWindow;
 use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
 
 use super::audio::AudioSettings;
-use super::gameplay::GameplaySettings;
-use super::video::{ScreenShaderSettings, SerializableDisplayMode};
+use super::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
+use super::gameplay::{Difficulty, GameplaySettings};
+use super::video::{
+    CameraAspectPolicy, CameraFramingPreset, CameraZoomPreset, ColorblindMode, FlashIntensity,
+    ScreenShaderSettings, SerializableDisplayMode,
+};
 use super::UserSettings;
 use crate::dev::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
@@ -668,6 +672,42 @@ const PAGE_NAV_ROWS: &[PageNavRow] = &[
     },
 ];
 
+/// Run `on()` exactly when the row received a settling action
+/// (Confirm / Prev / Next all collapse to the same "the user pressed
+/// the row" semantic for toggles). Skips Stay/Refresh/etc.
+fn apply_toggle<F: FnOnce()>(action: SettingsAction, on: F) {
+    if matches!(
+        action,
+        SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
+    ) {
+        on();
+    }
+}
+
+/// Drive a `prev()` / `next()` cycle row: `Prev` runs `prev`,
+/// everything else runs `next`. The two function pointers come from
+/// the field's own enum (`CameraZoomPreset::prev` etc.).
+fn apply_cycle<T: Copy>(
+    action: SettingsAction,
+    field: &mut T,
+    prev: fn(T) -> T,
+    next: fn(T) -> T,
+) {
+    *field = match action {
+        SettingsAction::Prev => prev(*field),
+        SettingsAction::Next | SettingsAction::Confirm => next(*field),
+    };
+}
+
+/// Resolve a slider-style `Prev` / `Next` press into a signed step.
+/// Confirm is treated as Next so a tap-without-direction still nudges.
+fn nudge_delta(action: SettingsAction, step: f32) -> f32 {
+    match action {
+        SettingsAction::Prev => -step,
+        SettingsAction::Next | SettingsAction::Confirm => step,
+    }
+}
+
 /// Look up the `SettingsOutcome` for a page-navigation row, if `item`
 /// is one of those rows. Non-navigation items return `None` so the
 /// main `apply_action` match can dispatch them.
@@ -752,64 +792,47 @@ pub fn apply_action(
             apply_display_mode(next, display_state, windows);
             settings.video.display_mode = SerializableDisplayMode::from(next);
         }
-        SettingsItem::CameraZoom => match action {
-            SettingsAction::Prev => settings.video.camera_zoom = settings.video.camera_zoom.prev(),
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.video.camera_zoom = settings.video.camera_zoom.next()
-            }
-        },
-        SettingsItem::CameraAspect => match action {
-            SettingsAction::Prev => {
-                settings.video.camera_aspect = settings.video.camera_aspect.prev()
-            }
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.video.camera_aspect = settings.video.camera_aspect.next()
-            }
-        },
-        SettingsItem::CameraFraming => match action {
-            SettingsAction::Prev => {
-                settings.video.camera_framing = settings.video.camera_framing.prev()
-            }
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.video.camera_framing = settings.video.camera_framing.next()
-            }
-        },
-        SettingsItem::Flashes | SettingsItem::GameplayFlashes => match action {
-            SettingsAction::Prev => settings.video.flashes = settings.video.flashes.prev(),
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.video.flashes = settings.video.flashes.next()
-            }
-        },
-        SettingsItem::Colorblind => match action {
-            SettingsAction::Prev => settings.video.colorblind = settings.video.colorblind.prev(),
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.video.colorblind = settings.video.colorblind.next()
-            }
-        },
+        SettingsItem::CameraZoom => apply_cycle(
+            action,
+            &mut settings.video.camera_zoom,
+            CameraZoomPreset::prev,
+            CameraZoomPreset::next,
+        ),
+        SettingsItem::CameraAspect => apply_cycle(
+            action,
+            &mut settings.video.camera_aspect,
+            CameraAspectPolicy::prev,
+            CameraAspectPolicy::next,
+        ),
+        SettingsItem::CameraFraming => apply_cycle(
+            action,
+            &mut settings.video.camera_framing,
+            CameraFramingPreset::prev,
+            CameraFramingPreset::next,
+        ),
+        SettingsItem::Flashes | SettingsItem::GameplayFlashes => apply_cycle(
+            action,
+            &mut settings.video.flashes,
+            FlashIntensity::prev,
+            FlashIntensity::next,
+        ),
+        SettingsItem::Colorblind => apply_cycle(
+            action,
+            &mut settings.video.colorblind,
+            ColorblindMode::prev,
+            ColorblindMode::next,
+        ),
 
-        SettingsItem::MasterVolume => match action {
-            SettingsAction::Prev => settings.audio.nudge_master(-AudioSettings::VOLUME_STEP),
-            SettingsAction::Next => settings.audio.nudge_master(AudioSettings::VOLUME_STEP),
-            SettingsAction::Confirm => settings.audio.nudge_master(AudioSettings::VOLUME_STEP),
-        },
-        SettingsItem::MusicVolume => match action {
-            SettingsAction::Prev => settings.audio.nudge_music(-AudioSettings::VOLUME_STEP),
-            SettingsAction::Next => settings.audio.nudge_music(AudioSettings::VOLUME_STEP),
-            SettingsAction::Confirm => settings.audio.nudge_music(AudioSettings::VOLUME_STEP),
-        },
-        SettingsItem::SfxVolume => match action {
-            SettingsAction::Prev => settings.audio.nudge_sfx(-AudioSettings::VOLUME_STEP),
-            SettingsAction::Next => settings.audio.nudge_sfx(AudioSettings::VOLUME_STEP),
-            SettingsAction::Confirm => settings.audio.nudge_sfx(AudioSettings::VOLUME_STEP),
-        },
-        SettingsItem::Mute => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.audio.toggle_mute();
-            }
-        }
+        SettingsItem::MasterVolume => settings
+            .audio
+            .nudge_master(nudge_delta(action, AudioSettings::VOLUME_STEP)),
+        SettingsItem::MusicVolume => settings
+            .audio
+            .nudge_music(nudge_delta(action, AudioSettings::VOLUME_STEP)),
+        SettingsItem::SfxVolume => settings
+            .audio
+            .nudge_sfx(nudge_delta(action, AudioSettings::VOLUME_STEP)),
+        SettingsItem::Mute => apply_toggle(action, || settings.audio.toggle_mute()),
 
         SettingsItem::KeyboardPreset => {
             if keyboard_preset_count == 0 {
@@ -823,145 +846,82 @@ pub fn apply_action(
                 }
             };
         }
-        SettingsItem::ControllerProfile => match action {
-            SettingsAction::Prev => {
-                settings.controls.controller_profile = settings.controls.controller_profile.prev();
-            }
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.controls.controller_profile = settings.controls.controller_profile.next();
-            }
-        },
+        SettingsItem::ControllerProfile => apply_cycle(
+            action,
+            &mut settings.controls.controller_profile,
+            ControllerProfileId::prev,
+            ControllerProfileId::next,
+        ),
         SettingsItem::LeftStickDeadzone => {
-            let delta = match action {
-                SettingsAction::Prev => -0.02,
-                SettingsAction::Next | SettingsAction::Confirm => 0.02,
-            };
             settings.controls.left_stick_deadzone =
-                (settings.controls.left_stick_deadzone + delta).clamp(0.0, 0.6);
+                (settings.controls.left_stick_deadzone + nudge_delta(action, 0.02)).clamp(0.0, 0.6);
         }
         SettingsItem::RightStickDeadzone => {
-            let delta = match action {
-                SettingsAction::Prev => -0.02,
-                SettingsAction::Next | SettingsAction::Confirm => 0.02,
-            };
             settings.controls.right_stick_deadzone =
-                (settings.controls.right_stick_deadzone + delta).clamp(0.0, 0.6);
+                (settings.controls.right_stick_deadzone + nudge_delta(action, 0.02))
+                    .clamp(0.0, 0.6);
         }
         SettingsItem::TriggerPress => {
-            let delta = match action {
-                SettingsAction::Prev => -0.05,
-                SettingsAction::Next | SettingsAction::Confirm => 0.05,
-            };
             settings.controls.trigger_press_threshold =
-                (settings.controls.trigger_press_threshold + delta).clamp(0.05, 1.0);
+                (settings.controls.trigger_press_threshold + nudge_delta(action, 0.05))
+                    .clamp(0.05, 1.0);
             settings.controls.clamp_all();
         }
         SettingsItem::TriggerRelease => {
-            let delta = match action {
-                SettingsAction::Prev => -0.05,
-                SettingsAction::Next | SettingsAction::Confirm => 0.05,
-            };
             settings.controls.trigger_release_threshold =
-                (settings.controls.trigger_release_threshold + delta).clamp(0.0, 0.95);
+                (settings.controls.trigger_release_threshold + nudge_delta(action, 0.05))
+                    .clamp(0.0, 0.95);
             settings.controls.clamp_all();
         }
-        SettingsItem::DpadMenuNav => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.controls.dpad_menu_navigation = !settings.controls.dpad_menu_navigation;
-            }
-        }
-        SettingsItem::InvertAimY => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.controls.invert_aim_y = !settings.controls.invert_aim_y;
-            }
-        }
-        SettingsItem::DashInputMode => match action {
-            SettingsAction::Prev => {
-                settings.controls.dash_input_mode = settings.controls.dash_input_mode.prev();
-            }
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.controls.dash_input_mode = settings.controls.dash_input_mode.next();
-            }
-        },
-        SettingsItem::TouchControls => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.controls.touch_controls_visible =
-                    !settings.controls.touch_controls_visible;
-            }
-        }
-        SettingsItem::MenuTapMode => match action {
-            SettingsAction::Prev => {
-                settings.controls.menu_tap_mode = settings.controls.menu_tap_mode.prev();
-            }
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.controls.menu_tap_mode = settings.controls.menu_tap_mode.next();
-            }
-        },
+        SettingsItem::DpadMenuNav => apply_toggle(action, || {
+            settings.controls.dpad_menu_navigation = !settings.controls.dpad_menu_navigation;
+        }),
+        SettingsItem::InvertAimY => apply_toggle(action, || {
+            settings.controls.invert_aim_y = !settings.controls.invert_aim_y;
+        }),
+        SettingsItem::DashInputMode => apply_cycle(
+            action,
+            &mut settings.controls.dash_input_mode,
+            DashInputMode::prev,
+            DashInputMode::next,
+        ),
+        SettingsItem::TouchControls => apply_toggle(action, || {
+            settings.controls.touch_controls_visible = !settings.controls.touch_controls_visible;
+        }),
+        SettingsItem::MenuTapMode => apply_cycle(
+            action,
+            &mut settings.controls.menu_tap_mode,
+            MenuTapMode::prev,
+            MenuTapMode::next,
+        ),
         SettingsItem::ResetControlFiltering => {
             if matches!(action, SettingsAction::Confirm) {
                 settings.controls.reset_filtering_to_defaults();
             }
         }
 
-        SettingsItem::Difficulty => match action {
-            SettingsAction::Prev => {
-                settings.gameplay.difficulty = settings.gameplay.difficulty.prev()
-            }
-            SettingsAction::Next | SettingsAction::Confirm => {
-                settings.gameplay.difficulty = settings.gameplay.difficulty.next()
-            }
-        },
-        SettingsItem::Assist => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.gameplay.assist = settings.gameplay.assist.toggle();
-            }
-        }
-        SettingsItem::PlayerDamageMultiplier => match action {
-            SettingsAction::Prev => settings
-                .gameplay
-                .nudge_player_damage(-GameplaySettings::DAMAGE_STEP),
-            SettingsAction::Next | SettingsAction::Confirm => settings
-                .gameplay
-                .nudge_player_damage(GameplaySettings::DAMAGE_STEP),
-        },
-        SettingsItem::DebugHud => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.gameplay.debug_hud_visible = !settings.gameplay.debug_hud_visible;
-            }
-        }
-        SettingsItem::ShowFps => {
-            if matches!(
-                action,
-                SettingsAction::Confirm | SettingsAction::Next | SettingsAction::Prev
-            ) {
-                settings.video.show_fps = !settings.video.show_fps;
-            }
-        }
-        SettingsItem::ShaderStrength => match action {
-            SettingsAction::Prev => settings
-                .video
-                .shaders
-                .nudge_strength(-ScreenShaderSettings::UNIT_STEP),
-            SettingsAction::Next | SettingsAction::Confirm => settings
-                .video
-                .shaders
-                .nudge_strength(ScreenShaderSettings::UNIT_STEP),
-        },
+        SettingsItem::Difficulty => apply_cycle(
+            action,
+            &mut settings.gameplay.difficulty,
+            Difficulty::prev,
+            Difficulty::next,
+        ),
+        SettingsItem::Assist => apply_toggle(action, || {
+            settings.gameplay.assist = settings.gameplay.assist.toggle();
+        }),
+        SettingsItem::PlayerDamageMultiplier => settings
+            .gameplay
+            .nudge_player_damage(nudge_delta(action, GameplaySettings::DAMAGE_STEP)),
+        SettingsItem::DebugHud => apply_toggle(action, || {
+            settings.gameplay.debug_hud_visible = !settings.gameplay.debug_hud_visible;
+        }),
+        SettingsItem::ShowFps => apply_toggle(action, || {
+            settings.video.show_fps = !settings.video.show_fps;
+        }),
+        SettingsItem::ShaderStrength => settings
+            .video
+            .shaders
+            .nudge_strength(nudge_delta(action, ScreenShaderSettings::UNIT_STEP)),
         SettingsItem::ShaderCrtStrength => nudge_shader_unit(
             action,
             &mut settings.video.shaders.crt_strength,

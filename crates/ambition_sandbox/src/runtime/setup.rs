@@ -24,7 +24,7 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 #[cfg(feature = "audio")]
 use crate::audio::{AudioLibrary, MusicPlaybackState};
 #[cfg(feature = "audio")]
-use crate::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
@@ -32,9 +32,9 @@ use crate::character_sprites::{
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::content::data::{SandboxDataAsset, SandboxDataSpec};
 use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
-use crate::game_assets::GameAssets;
+use crate::assets::game_assets::GameAssets;
 use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
-use crate::loading::SandboxAssetCollection;
+use crate::assets::loading::SandboxAssetCollection;
 use crate::world::physics::PhysicsSandboxSettings;
 use crate::world::platforms;
 use crate::rendering::{
@@ -236,7 +236,7 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 }
 
 /// Resolve the SFX bank through the
-/// [`crate::sandbox_assets::SandboxAssetCatalog`] and synchronously
+/// [`crate::assets::sandbox_assets::SandboxAssetCatalog`] and synchronously
 /// load its bytes into a [`BankProvider`]. Fall-through order:
 ///
 /// 1. the statically packed bank (`static_sfx_bank` feature),

@@ -366,14 +366,14 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
 /// sprite is part of the bounded "core visual" set the
 /// `static_core_assets` feature packages. The URL pairs with the
 /// `EmbeddedAssetRegistry::insert_asset` call inside
-/// `crate::sandbox_assets::register_embedded_core_assets`.
+/// `crate::assets::sandbox_assets::register_embedded_core_assets`.
 ///
 /// Out-of-set sprites (parallax layers, breakables, boss variants,
 /// LDtk debug tiles) return `None` — they keep the colored-rectangle
 /// fallback on `WebStatic` / `BundledStatic` until a follow-up slice
 /// packages them.
 pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static str> {
-    use crate::sandbox_assets::embedded_core;
+    use crate::assets::sandbox_assets::embedded_core;
     match sprite {
         EntitySprite::ChestClosed => Some(embedded_core::SPRITE_CHEST_CLOSED_URL),
         EntitySprite::ChestOpen => Some(embedded_core::SPRITE_CHEST_OPEN_URL),
@@ -627,7 +627,7 @@ pub struct GameAssets {
 /// to an empty `GameAssets` so the visible sandbox always boots.
 pub fn load_game_assets(
     config: &GameAssetConfig,
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> GameAssets {
@@ -663,7 +663,7 @@ pub fn load_game_assets(
 }
 
 fn load_entity_sprites(
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
 ) -> EntitySpriteSet {
     let mut handles = HashMap::with_capacity(EntitySprite::ALL.len());
@@ -678,7 +678,7 @@ fn load_entity_sprites(
 }
 
 fn load_parallax_layers(
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
 ) -> ParallaxLayerSet {
     let mut handles = HashMap::new();
@@ -705,7 +705,7 @@ fn load_parallax_layers(
 /// for an *optional* image (entity sprites, parallax layers). Decides
 /// per-[`AssetProfile`] without any `target_os` cfg branches.
 ///
-/// Forwards to [`crate::sandbox_assets::SandboxAssetCatalog::should_attempt_optional_load`]
+/// Forwards to [`crate::assets::sandbox_assets::SandboxAssetCatalog::should_attempt_optional_load`]
 /// for the live decision; kept as a thin wrapper for the existing test
 /// surface in this module. New code should call the catalog method
 /// directly.
@@ -1126,7 +1126,7 @@ mod tests {
     /// `static_core_assets` packages ChestClosed but not BreakableIntact.
     #[test]
     fn web_static_loads_core_sprites_and_skips_out_of_set_sprites() {
-        use crate::sandbox_assets::SandboxAssetCatalog;
+        use crate::assets::sandbox_assets::SandboxAssetCatalog;
 
         let inner = build_sandbox_image_catalog("sprites");
         let catalog = SandboxAssetCatalog::new(inner, AssetProfile::WebStatic);
@@ -1142,7 +1142,7 @@ mod tests {
                 path,
                 format!(
                     "embedded://{}",
-                    crate::sandbox_assets::embedded_core::SPRITE_CHEST_CLOSED_URL
+                    crate::assets::sandbox_assets::embedded_core::SPRITE_CHEST_CLOSED_URL
                 ),
             );
         } else {

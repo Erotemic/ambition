@@ -18,7 +18,7 @@ use crate::features::{
     ActorRuntime, BossFeature, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
     FeatureVisualKind, Opened,
 };
-use crate::game_assets::{self, EntitySprite, GameAssets};
+use crate::assets::game_assets::{self, EntitySprite, GameAssets};
 
 pub fn sync_visuals(
     world: Res<crate::GameWorld>,

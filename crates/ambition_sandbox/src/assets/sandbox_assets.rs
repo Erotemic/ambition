@@ -18,7 +18,7 @@
 //!
 //! Construction order (`build_sandbox_catalog`):
 //! 1. start with the image manifest from
-//!    [`crate::game_assets::sandbox_image_manifest`]
+//!    [`crate::assets::game_assets::sandbox_image_manifest`]
 //! 2. extend with character / boss / font / music / world / data / SFX
 //!    entries from the helpers in this module
 //! 3. wrap into [`SandboxAssetCatalog`] with the active
@@ -179,7 +179,7 @@ embed_core_assets! {
 }
 
 use crate::content::data::AudioSpec;
-use crate::game_assets::{sandbox_image_manifest, GameAssetConfig};
+use crate::assets::game_assets::{sandbox_image_manifest, GameAssetConfig};
 
 /// Stable [`AssetId`] constructors for the fixed-vocabulary sandbox
 /// assets. Bulk per-enum entries (entity sprites, parallax layers)
@@ -266,11 +266,11 @@ impl SandboxAssetCatalog {
 
     /// Convenience: build a desktop-dev catalog from the embedded
     /// sandbox spec, suitable for headless / RL / test fixtures that
-    /// don't have a [`crate::game_assets::GameAssetConfig`] resource
+    /// don't have a [`crate::assets::game_assets::GameAssetConfig`] resource
     /// in hand. Production startup builds the catalog from the live
     /// `GameAssetConfig` via [`build_sandbox_catalog`].
     pub fn for_desktop_dev_default() -> Self {
-        let mut config = crate::game_assets::GameAssetConfig::default();
+        let mut config = crate::assets::game_assets::GameAssetConfig::default();
         config.asset_profile = AssetProfile::DesktopDevLoose;
         let spec = crate::content::data::SandboxDataSpec::load_embedded();
         build_sandbox_catalog(&config, &spec.audio)
@@ -1430,20 +1430,20 @@ mod tests {
         // contract list is the same one `entity_sprite_embedded_core_url`
         // owns.
         for sprite in [
-            crate::game_assets::EntitySprite::ChestClosed,
-            crate::game_assets::EntitySprite::ChestOpen,
-            crate::game_assets::EntitySprite::PickupHealth,
-            crate::game_assets::EntitySprite::PickupCurrency,
-            crate::game_assets::EntitySprite::PickupAbility,
-            crate::game_assets::EntitySprite::DoorZone,
-            crate::game_assets::EntitySprite::EdgeExit,
-            crate::game_assets::EntitySprite::ProjectileEnergy,
-            crate::game_assets::EntitySprite::SolidTile,
-            crate::game_assets::EntitySprite::OneWayTile,
-            crate::game_assets::EntitySprite::HazardTile,
-            crate::game_assets::EntitySprite::BossCore,
+            crate::assets::game_assets::EntitySprite::ChestClosed,
+            crate::assets::game_assets::EntitySprite::ChestOpen,
+            crate::assets::game_assets::EntitySprite::PickupHealth,
+            crate::assets::game_assets::EntitySprite::PickupCurrency,
+            crate::assets::game_assets::EntitySprite::PickupAbility,
+            crate::assets::game_assets::EntitySprite::DoorZone,
+            crate::assets::game_assets::EntitySprite::EdgeExit,
+            crate::assets::game_assets::EntitySprite::ProjectileEnergy,
+            crate::assets::game_assets::EntitySprite::SolidTile,
+            crate::assets::game_assets::EntitySprite::OneWayTile,
+            crate::assets::game_assets::EntitySprite::HazardTile,
+            crate::assets::game_assets::EntitySprite::BossCore,
         ] {
-            let id = crate::game_assets::entity_sprite_asset_id(sprite);
+            let id = crate::assets::game_assets::entity_sprite_asset_id(sprite);
             let path = catalog.try_path_for_load(&id).unwrap_or_else(|| {
                 panic!("WebStatic + static_core_assets must load core entity sprite {sprite:?}")
             });
@@ -1464,20 +1464,20 @@ mod tests {
 
         // Breakable variants are not in the embedded core set.
         for sprite in [
-            crate::game_assets::EntitySprite::BreakableIntact,
-            crate::game_assets::EntitySprite::BreakableCracked,
-            crate::game_assets::EntitySprite::BreakableBroken,
+            crate::assets::game_assets::EntitySprite::BreakableIntact,
+            crate::assets::game_assets::EntitySprite::BreakableCracked,
+            crate::assets::game_assets::EntitySprite::BreakableBroken,
         ] {
-            let id = crate::game_assets::entity_sprite_asset_id(sprite);
+            let id = crate::assets::game_assets::entity_sprite_asset_id(sprite);
             assert!(
                 catalog.try_path_for_load(&id).is_none(),
                 "WebStatic should not attempt out-of-set sprite {sprite:?} (no Embedded candidate)",
             );
         }
         // Parallax layers are not in the embedded core set either.
-        let parallax_id = crate::game_assets::parallax_layer_asset_id(
-            crate::game_assets::ParallaxTheme::Hub,
-            crate::game_assets::ParallaxLayerAsset::Sky,
+        let parallax_id = crate::assets::game_assets::parallax_layer_asset_id(
+            crate::assets::game_assets::ParallaxTheme::Hub,
+            crate::assets::game_assets::ParallaxLayerAsset::Sky,
         );
         assert!(catalog.try_path_for_load(&parallax_id).is_none());
     }
@@ -1622,8 +1622,8 @@ mod tests {
         // `WebStatic` this returns None; under `WebServedAssets` it
         // should produce a synthesized BevyPath the wasm HTTP reader
         // fetches from `/assets/sprites/entities/breakable_intact.png`.
-        let id = crate::game_assets::entity_sprite_asset_id(
-            crate::game_assets::EntitySprite::BreakableIntact,
+        let id = crate::assets::game_assets::entity_sprite_asset_id(
+            crate::assets::game_assets::EntitySprite::BreakableIntact,
         );
         let path = catalog
             .try_path_for_load(&id)
@@ -1638,9 +1638,9 @@ mod tests {
         );
 
         // Parallax layers also resolve to BevyPath under WebServedAssets.
-        let parallax_id = crate::game_assets::parallax_layer_asset_id(
-            crate::game_assets::ParallaxTheme::Hub,
-            crate::game_assets::ParallaxLayerAsset::Sky,
+        let parallax_id = crate::assets::game_assets::parallax_layer_asset_id(
+            crate::assets::game_assets::ParallaxTheme::Hub,
+            crate::assets::game_assets::ParallaxLayerAsset::Sky,
         );
         let parallax_path = catalog.try_path_for_load(&parallax_id).expect(
             "WebServedAssets must attempt parallax layers via synthesized BevyPath",

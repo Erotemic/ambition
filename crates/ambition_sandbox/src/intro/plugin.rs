@@ -9,7 +9,7 @@
 //!   [`crate::cutscene::RoomCutsceneBindings`] with the intro scripts
 //!   and room bindings from [`crate::intro::cutscene`].
 //! - [`load_intro_npc_sprites_system`] extends
-//!   [`crate::game_assets::GameAssets`]`.characters.npcs` with the
+//!   [`crate::assets::game_assets::GameAssets`]`.characters.npcs` with the
 //!   intro placeholder sprite rows from [`crate::intro::sprites`].
 //!
 //! Both systems run after the sandbox's own startup systems insert the
@@ -21,7 +21,7 @@ use bevy::prelude::*;
 use crate::content::banter::CombatBanterRegistry;
 use crate::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
 use crate::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
-use crate::game_assets::{GameAssetConfig, GameAssets};
+use crate::assets::game_assets::{GameAssetConfig, GameAssets};
 use crate::rooms::PortalRegistry;
 
 use super::banter::install_intro_banter;
@@ -173,7 +173,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<crate::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<crate::assets::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     if installed.0 {
         return;
@@ -226,7 +226,7 @@ pub(crate) fn load_intro_prop_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<crate::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<crate::assets::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     if installed.0 {
         return;

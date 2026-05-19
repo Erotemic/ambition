@@ -39,11 +39,11 @@ pub fn init_sandbox_resources(app: &mut App) {
     // ids land in the catalog.
     let asset_config = app
         .world()
-        .get_resource::<crate::game_assets::GameAssetConfig>()
+        .get_resource::<crate::assets::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
     let sandbox_catalog =
-        crate::sandbox_assets::build_sandbox_catalog(&asset_config, &sandbox_data.audio);
+        crate::assets::sandbox_assets::build_sandbox_catalog(&asset_config, &sandbox_data.audio);
 
     let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
         Ok(project) => project,

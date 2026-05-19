@@ -260,7 +260,7 @@ impl AudioLibrary {
     /// Build the audio library + music track table.
     ///
     /// `catalog` (when `Some`) resolves each music track id through
-    /// [`crate::sandbox_assets::ids::music_track`] so the runtime
+    /// [`crate::assets::sandbox_assets::ids::music_track`] so the runtime
     /// stores the catalog-blessed path instead of the raw
     /// `MusicTrackSpec::asset_path`. Tracks without an `asset_path`
     /// (and with no catalog-resolved path) are skipped with a loud
@@ -275,7 +275,7 @@ impl AudioLibrary {
         spec: &AudioSpec,
         _asset_server: Option<&AssetServer>,
         sfx_provider: Option<&dyn SfxProvider>,
-        catalog: Option<&crate::sandbox_assets::SandboxAssetCatalog>,
+        catalog: Option<&crate::assets::sandbox_assets::SandboxAssetCatalog>,
     ) -> Self {
         if let Err(error) = spec.validate() {
             warn!("invalid audio spec: {error}");
@@ -325,7 +325,7 @@ impl AudioLibrary {
         let mut skipped: Vec<String> = Vec::new();
         for track in &spec.music_tracks {
             let catalog_path = catalog.and_then(|catalog| {
-                catalog.path_for(&crate::sandbox_assets::ids::music_track(&track.id))
+                catalog.path_for(&crate::assets::sandbox_assets::ids::music_track(&track.id))
             });
             let effective_path = catalog_path.or_else(|| track.asset_path.clone());
             let Some(asset_path) = effective_path else {

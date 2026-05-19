@@ -12,7 +12,7 @@ use bevy::prelude::*;
 
 use super::primitives::RoomVisual;
 use crate::config::{WINDOW_H, WINDOW_W};
-use crate::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
+use crate::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
 use crate::rooms::RoomMetadata;
 
 #[derive(Component, Clone, Copy, Debug)]

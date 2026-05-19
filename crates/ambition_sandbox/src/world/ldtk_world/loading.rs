@@ -7,7 +7,7 @@
 //! here.
 //!
 //! The path itself is selected by
-//! [`crate::sandbox_assets::SandboxAssetCatalog`] under the active
+//! [`crate::assets::sandbox_assets::SandboxAssetCatalog`] under the active
 //! [`ambition_asset_manager::AssetProfile`]:
 //! - `DesktopDevLoose` / `DesktopInstalled` / `SteamDeckInstalled` →
 //!   `LocalPath` resolved against the canonical assets root.
@@ -37,7 +37,7 @@ use std::path::Path;
 
 use ambition_asset_manager::AssetId;
 
-use crate::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 
 use super::project::LdtkProject;
 
@@ -48,8 +48,8 @@ use super::project::LdtkProject;
 /// static copy (Web / Android / Bundled).
 ///
 /// Adding a new secondary world entails (1) a catalog id constructor
-/// under [`crate::sandbox_assets::ids`], (2) a manifest entry in
-/// `crate::sandbox_assets::extend_with_world_entries`, and (3) one
+/// under [`crate::assets::sandbox_assets::ids`], (2) a manifest entry in
+/// `crate::assets::sandbox_assets::extend_with_world_entries`, and (3) one
 /// row here. Missing entries are tolerated so a partial checkout
 /// still boots `sandbox.ldtk` alone.
 fn secondary_world_ids() -> Vec<AssetId> {
@@ -59,7 +59,7 @@ fn secondary_world_ids() -> Vec<AssetId> {
 impl LdtkProject {
     /// Load the sandbox LDtk project through the asset catalog.
     ///
-    /// Resolves [`crate::sandbox_assets::ids::sandbox_ldtk`] under the
+    /// Resolves [`crate::assets::sandbox_assets::ids::sandbox_ldtk`] under the
     /// active [`ambition_asset_manager::AssetProfile`]:
     ///
     /// - Desktop loose/installed: reads the file at the catalog's

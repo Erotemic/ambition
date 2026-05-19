@@ -86,7 +86,7 @@ pub(super) fn load_room(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    assets: Option<&crate::game_assets::GameAssets>,
+    assets: Option<&crate::assets::game_assets::GameAssets>,
 ) {
     let old_velocity = player.vel;
     let abilities = player.abilities;
@@ -211,7 +211,7 @@ pub fn apply_room_transition_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
-    game_assets: Option<Res<crate::game_assets::GameAssets>>,
+    game_assets: Option<Res<crate::assets::game_assets::GameAssets>>,
     mut combat_reset: super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {

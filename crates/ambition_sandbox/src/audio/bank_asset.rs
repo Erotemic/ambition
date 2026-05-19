@@ -35,7 +35,7 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use ambition_sfx::{BankProvider, SfxError};
 
 use crate::audio::AudioLibrary;
-use crate::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::runtime::setup::SfxBankResource;
 
 /// Loaded SFX-bank asset. Wraps the parsed [`BankProvider`] in an

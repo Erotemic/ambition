@@ -166,7 +166,7 @@ pub fn run_visible() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry
     // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        crate::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(active_profile),
+        crate::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(active_profile),
     );
     app.run();
 }
@@ -241,7 +241,7 @@ pub fn run_web() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        crate::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(active_profile),
+        crate::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(active_profile),
     );
     app.run();
 }

@@ -414,17 +414,17 @@ fn ambition_sandbox_uses_only_bevy_kira_audio() {
 #[test]
 fn every_live_music_track_resolves_under_web_served_assets() {
     use crate::content::data::SandboxDataSpec;
-    use crate::game_assets::GameAssetConfig;
+    use crate::assets::game_assets::GameAssetConfig;
     use ambition_asset_manager::AssetProfile;
 
     let spec = SandboxDataSpec::load_embedded();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebServedAssets;
-    let catalog = crate::sandbox_assets::build_sandbox_catalog(&config, &spec.audio);
+    let catalog = crate::assets::sandbox_assets::build_sandbox_catalog(&config, &spec.audio);
 
     let mut missing: Vec<String> = Vec::new();
     for track in &spec.audio.music_tracks {
-        let id = crate::sandbox_assets::ids::music_track(&track.id);
+        let id = crate::assets::sandbox_assets::ids::music_track(&track.id);
         let path = catalog.path_for(&id);
         if path.is_none() {
             missing.push(track.id.clone());

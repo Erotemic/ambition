@@ -3,7 +3,7 @@
 //! Each character target has its own PNG; missing files are not errors
 //! — callers fall back to colored rectangles (the game must always run
 //! regardless of asset state). All path/existence policy goes through
-//! [`crate::sandbox_assets::SandboxAssetCatalog`]; this module no
+//! [`crate::assets::sandbox_assets::SandboxAssetCatalog`]; this module no
 //! longer owns any `target_os = "android"` cfg branches or
 //! `BEVY_ASSET_ROOT` probes.
 
@@ -20,7 +20,7 @@ use super::sheets::{
     SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
 use crate::features::FeatureVisualKind;
-use crate::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 
 #[derive(Clone)]
 pub struct CharacterSpriteAsset {
@@ -330,7 +330,7 @@ fn build_optional_via_catalog(
 /// Build a single NPC sprite asset by resolving its catalog id.
 /// Story-content plugins (e.g. `crate::intro::plugin`) call this once
 /// per row in their authored NPC table; the matching catalog entries
-/// are registered by `crate::sandbox_assets::extend_with_intro_sprite_entries`
+/// are registered by `crate::assets::sandbox_assets::extend_with_intro_sprite_entries`
 /// (or the equivalent helper for new plugins).
 ///
 /// Returns `None` when the catalog reports the asset disabled / not

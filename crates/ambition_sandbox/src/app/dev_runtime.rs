@@ -102,7 +102,7 @@ pub(super) fn handle_ldtk_hot_reload(
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut platform_set: ResMut<crate::MovingPlatformSet>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    game_assets: Option<Res<crate::game_assets::GameAssets>>,
+    game_assets: Option<Res<crate::assets::game_assets::GameAssets>>,
     mut player_q: Query<
         (
             &mut crate::player::PlayerMovementAuthority,
@@ -110,7 +110,7 @@ pub(super) fn handle_ldtk_hot_reload(
         ),
         With<crate::player::PlayerEntity>,
     >,
-    catalog: Res<crate::sandbox_assets::SandboxAssetCatalog>,
+    catalog: Res<crate::assets::sandbox_assets::SandboxAssetCatalog>,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -188,7 +188,7 @@ pub(super) struct LdtkReloadTransaction {
 
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
@@ -249,9 +249,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     physics_settings: physics::PhysicsSandboxSettings,
     moving_platforms: &mut Vec<crate::world::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    assets: Option<&crate::game_assets::GameAssets>,
+    assets: Option<&crate::assets::game_assets::GameAssets>,
     watch_path: &std::path::Path,
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = player.pos;

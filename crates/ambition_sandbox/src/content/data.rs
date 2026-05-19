@@ -42,20 +42,20 @@ pub struct SandboxDataAsset(pub Handle<SandboxDataSpec>);
 /// reload events under `bevy_dev_hot_reload`).
 ///
 /// Resolves the path through the active
-/// [`crate::sandbox_assets::SandboxAssetCatalog`] when one is
+/// [`crate::assets::sandbox_assets::SandboxAssetCatalog`] when one is
 /// installed. The catalog entry
-/// [`crate::sandbox_assets::ids::sandbox_data`] is required, so the
+/// [`crate::assets::sandbox_assets::ids::sandbox_data`] is required, so the
 /// catalog never returns `Disabled` outside of `NoAssets`/`Headless`.
 /// Falls back to the raw asset-path constant when no catalog resource
 /// is present (visible-only init order / tests).
 pub fn load_data_asset_handle(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    catalog: Option<Res<crate::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<crate::assets::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     let path = catalog
         .as_ref()
-        .and_then(|c| c.path_for(&crate::sandbox_assets::ids::sandbox_data()))
+        .and_then(|c| c.path_for(&crate::assets::sandbox_assets::ids::sandbox_data()))
         .unwrap_or_else(|| SANDBOX_DATA_ASSET.to_string());
     commands.insert_resource(SandboxDataAsset(asset_server.load(path)));
 }

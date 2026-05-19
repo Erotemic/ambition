@@ -34,7 +34,7 @@ pub fn sync_projectile_visuals(
     mut commands: Commands,
     world: Res<crate::GameWorld>,
     state: Res<PlayerProjectileState>,
-    assets: Option<Res<crate::game_assets::GameAssets>>,
+    assets: Option<Res<crate::assets::game_assets::GameAssets>>,
     player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
     existing: Query<Entity, With<PlayerProjectileVisual>>,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
@@ -88,7 +88,7 @@ pub fn sync_projectile_visuals(
         .as_deref()
         .and_then(|a| {
             a.entities
-                .get(crate::game_assets::EntitySprite::ProjectileEnergy)
+                .get(crate::assets::game_assets::EntitySprite::ProjectileEnergy)
         })
         .cloned();
     for projectile in &state.bodies {

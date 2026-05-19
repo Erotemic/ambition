@@ -61,7 +61,7 @@ use crate::dialog;
 use crate::features;
 use crate::time::feel::SandboxFeelTuning;
 use crate::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
-use crate::game_assets::{self, GameAssetConfig};
+use crate::assets::game_assets::{self, GameAssetConfig};
 use crate::game_mode::{gameplay_allowed, gameplay_suspended, GameMode};
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
@@ -70,7 +70,7 @@ use crate::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
 use crate::input::{MenuInputState, PlayerDashTriggerState};
 use crate::inventory;
 use crate::ldtk_world;
-use crate::loading;
+use crate::assets::loading;
 use crate::pause_menu;
 #[cfg(feature = "physics_debris")]
 use crate::world::physics::physics_spawn_debris_messages;

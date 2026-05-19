@@ -55,7 +55,7 @@ use ambition_engine as ae;
 
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterController, EncounterMusicRequest, EncounterRegistry};
-use crate::game_assets::GameAssets;
+use crate::assets::game_assets::GameAssets;
 use crate::world::physics;
 use crate::world::platforms;
 use crate::content::quest::QuestRegistry;

@@ -13,7 +13,7 @@ use crate::features::{
     ActorRuntime, BossRewardChest, ChestFeature, EncounterMob, EncounterRewardChest, FeatureAabb,
     FeatureId, FeatureVisualKind,
 };
-use crate::game_assets::{self, entity_sprite_or_color, GameAssets};
+use crate::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 
 /// Spawn `FeatureVisual` entities for dynamically introduced ECS features
 /// that don't have one yet. Static LDtk-derived features get their visuals

@@ -4,7 +4,7 @@ use std::time::SystemTime;
 
 use bevy::prelude::{Res, ResMut, Resource, Time};
 
-use crate::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 
 pub const SANDBOX_LDTK_ASSET: &str = "ambition/worlds/sandbox.ldtk";
 
@@ -29,7 +29,7 @@ pub struct LdtkHotReloadState {
     /// Local filesystem path the watcher polls, when both the active
     /// asset profile and the resolved LDtk location support filesystem
     /// hot reload (see
-    /// [`crate::sandbox_assets::SandboxAssetCatalog::hot_reload_local_path`]).
+    /// [`crate::assets::sandbox_assets::SandboxAssetCatalog::hot_reload_local_path`]).
     /// `None` for bundled / web / embedded profiles — the watcher is
     /// effectively disabled there.
     pub watch_path: Option<PathBuf>,

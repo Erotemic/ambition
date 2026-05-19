@@ -10,7 +10,7 @@ use bevy::window::PrimaryWindow;
 
 use super::primitives::RoomVisual;
 use crate::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
-use crate::game_assets::{
+use crate::assets::game_assets::{
     foreground_parallax_factor, foreground_parallax_sprite_for_biome, ForegroundParallaxSprite,
     GameAssets,
 };

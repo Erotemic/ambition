@@ -431,7 +431,7 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
 /// to the static `EntitySprite::BossCore` image, which in turn falls
 /// back to the colored rectangle.
 pub fn load_boss_sprite_in(
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> Option<BossSpriteAsset> {
@@ -449,7 +449,7 @@ pub fn load_boss_sprite_in(
 /// Returns `None` if the PNG is missing — the rendering layer keeps
 /// the colored-rectangle fallback for that boss.
 pub fn load_mockingbird_sprite_in(
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> Option<BossSpriteAsset> {
@@ -466,7 +466,7 @@ pub fn load_mockingbird_sprite_in(
 /// `tools/ambition_sprite2d_renderer render-publish gnu_ton_boss`).
 /// Returns `None` if the PNG is missing — falls back to colored rectangle.
 pub fn load_gnu_ton_sprite_in(
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> Option<BossSpriteAsset> {
@@ -480,13 +480,13 @@ pub fn load_gnu_ton_sprite_in(
 }
 
 fn load_named_boss_sprite_via_catalog(
-    catalog: &crate::sandbox_assets::SandboxAssetCatalog,
+    catalog: &crate::assets::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     label: &str,
     spec: BossSheetSpec,
 ) -> Option<BossSpriteAsset> {
-    let id = crate::sandbox_assets::ids::boss_sprite(label);
+    let id = crate::assets::sandbox_assets::ids::boss_sprite(label);
     let Some(path) = catalog.try_path_for_load(&id) else {
         eprintln!(
             "[boss_sprites] {label} spritesheet missing under {} profile (id {id}) — falling back to entity sprite",

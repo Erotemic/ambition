@@ -23,7 +23,7 @@ use bevy::prelude::*;
 use crate::character_sprites::{build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{ActorRuntime, EnemyArchetype, FeatureId};
-use crate::game_assets::GameAssets;
+use crate::assets::game_assets::GameAssets;
 
 /// Marker on the per-frame rider sprite entities produced by
 /// [`sync_pirate_rider_visuals`]. Despawned and rebuilt each tick so

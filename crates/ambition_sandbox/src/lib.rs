@@ -69,7 +69,8 @@ pub use dev::trace;
 pub use runtime::game_mode;
 pub use world::{ldtk_world, rooms};
 
-pub(crate) use assets::{game_assets, loading, sandbox_assets};
+// Removed: `pub(crate) use assets::{game_assets, loading, sandbox_assets};`
+// — call sites now use the canonical `crate::assets::…` paths.
 // Removed: `pub(crate) use boss_encounter::sprites as boss_sprites;`
 // — call sites now use `crate::boss_encounter::sprites::…`.
 // Removed: `pub(crate) use content::{banter, content_validation, data, quest};`

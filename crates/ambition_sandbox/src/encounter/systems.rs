@@ -130,11 +130,9 @@ pub fn update_encounters_from_world(
     >,
 ) {
     let active_area = room_set.active_spec().id.clone();
-    let Ok(body) = player_body_q.single() else {
+    if player_body_q.is_empty() {
         return;
-    };
-    let player_pos = body.pos;
-    let player_size = body.size;
+    }
     // Sim clock: encounter trigger / cancellation timers freeze in
     // bullet-time alongside the player (ADR 0010); we don't want a
     // grace-window to tick down while the world is stopped.
@@ -211,9 +209,17 @@ pub fn update_encounters_from_world(
                 state.run = EncounterRun::default();
             }
             if armed_active {
-                let started = state.maybe_start(player_pos, player_size);
-                if !started.is_empty() {
-                    events.push((active_area.clone(), started));
+                // Iterate every player so any player walking into
+                // the trigger fires the encounter — single-player
+                // behavior preserved because the iterator has one
+                // entity today. OVERNIGHT-TODO #17.8 (iterate-all-
+                // players "any player triggers" pattern).
+                for body in &player_body_q {
+                    let started = state.maybe_start(body.pos, body.size);
+                    if !started.is_empty() {
+                        events.push((active_area.clone(), started));
+                        break;
+                    }
                 }
             }
         }

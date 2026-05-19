@@ -15,11 +15,11 @@ use crate::dev::dev_tools::DeveloperTools;
 use crate::input::ControlFrame;
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
-use crate::world::platforms;
 #[cfg(feature = "input")]
 use crate::presentation::rendering::PlayerVisual;
 use crate::presentation::rendering::{CameraViewState, SceneEntities};
 use crate::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
+use crate::world::platforms;
 use crate::{GameMode, GameWorld, SandboxDevState};
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;

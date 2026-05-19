@@ -1,8 +1,8 @@
 use super::*;
 use crate::ae;
 use crate::ae::{AabbExt, PersistedEncounterState};
-use crate::ldtk_world::LdtkProject;
 use crate::encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
+use crate::ldtk_world::LdtkProject;
 
 /// Drive an EncounterState past `Starting` into the first wave's
 /// `Active` phase. The lab_spec uses `intro_seconds: 0.0` so a

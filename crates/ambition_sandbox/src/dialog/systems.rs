@@ -48,8 +48,8 @@ pub fn dialog_pointer_input(
 
                 #[cfg(target_os = "android")]
                 {
-                    let confirm = dialogue.selected_option == index
-                        && dialogue.pointer_armed == Some(index);
+                    let confirm =
+                        dialogue.selected_option == index && dialogue.pointer_armed == Some(index);
                     dialogue.selected_option = index;
                     if confirm {
                         dialogue.pointer_armed = None;

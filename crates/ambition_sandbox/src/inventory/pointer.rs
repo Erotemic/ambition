@@ -56,7 +56,10 @@ pub fn inventory_pointer_input(
                 let press =
                     tap_mode.resolve_press(index, state.selected, false, &mut state.pointer_armed);
                 state.selected = index;
-                if matches!(press, crate::persistence::settings::MenuPointerPress::Confirm) {
+                if matches!(
+                    press,
+                    crate::persistence::settings::MenuPointerPress::Confirm
+                ) {
                     state.pointer_confirm = true;
                 }
             }

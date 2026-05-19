@@ -10,8 +10,8 @@
 use super::*;
 use crate::audio::SfxMessage;
 use crate::presentation::fx::{ParticleKind, VfxMessage};
-use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::presentation::rendering::RoomVisual;
+use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use bevy::prelude::{
     Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,
     Resource, With,
@@ -1859,14 +1859,16 @@ pub fn ecs_enemy_anim_state(
             return None;
         }
         match actor {
-            ActorRuntime::Hostile(enemy) => Some(crate::presentation::character_sprites::EnemyAnimState {
-                vel: enemy.vel,
-                facing: enemy.facing,
-                alive: enemy.alive,
-                attack_active: enemy.attack_timer > 0.0,
-                attack_windup: enemy.attack_windup_timer > 0.0,
-                hit_flash: enemy.hit_flash > 0.0,
-            }),
+            ActorRuntime::Hostile(enemy) => {
+                Some(crate::presentation::character_sprites::EnemyAnimState {
+                    vel: enemy.vel,
+                    facing: enemy.facing,
+                    alive: enemy.alive,
+                    attack_active: enemy.attack_timer > 0.0,
+                    attack_windup: enemy.attack_windup_timer > 0.0,
+                    hit_flash: enemy.hit_flash > 0.0,
+                })
+            }
             _ => None,
         }
     })
@@ -1881,11 +1883,13 @@ pub fn ecs_npc_anim_state(
             return None;
         }
         match actor {
-            ActorRuntime::Peaceful(npc) => Some(crate::presentation::character_sprites::NpcAnimState {
-                vel: npc.vel,
-                facing: npc.facing,
-                hit_flash: npc.hit_flash > 0.0,
-            }),
+            ActorRuntime::Peaceful(npc) => {
+                Some(crate::presentation::character_sprites::NpcAnimState {
+                    vel: npc.vel,
+                    facing: npc.facing,
+                    hit_flash: npc.hit_flash > 0.0,
+                })
+            }
             _ => None,
         }
     })

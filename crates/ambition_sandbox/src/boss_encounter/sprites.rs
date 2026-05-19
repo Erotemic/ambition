@@ -333,10 +333,8 @@ pub struct BossSpriteAsset {
 }
 
 pub(crate) const BOSS_FILENAME: &str = "boss_spritesheet.png";
-pub(crate) const MOCKINGBIRD_FILENAME: &str =
-    "mockingbird_boss/mockingbird_boss_spritesheet.png";
-pub(crate) const GNU_TON_FILENAME: &str =
-    "gnu_ton_boss/gnu_ton_boss_spritesheet.png";
+pub(crate) const MOCKINGBIRD_FILENAME: &str = "mockingbird_boss/mockingbird_boss_spritesheet.png";
+pub(crate) const GNU_TON_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_spritesheet.png";
 
 /// GNU-ton boss sheet.
 ///
@@ -470,13 +468,7 @@ pub fn load_gnu_ton_sprite_in(
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
 ) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        "gnu_ton",
-        GNU_TON_SHEET,
-    )
+    load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, "gnu_ton", GNU_TON_SHEET)
 }
 
 fn load_named_boss_sprite_via_catalog(
@@ -755,16 +747,23 @@ mod tests {
     fn gnu_ton_anchor_is_above_sprite_center() {
         // feet_anchor_y > 0 means the entity position is above the
         // sprite center — placing the man (upper frame) at entity pos.
-        assert!(GNU_TON_SHEET.feet_anchor_y > 0.0,
+        assert!(
+            GNU_TON_SHEET.feet_anchor_y > 0.0,
             "feet_anchor_y should be positive for GNU-ton (man at top), got {}",
-            GNU_TON_SHEET.feet_anchor_y);
+            GNU_TON_SHEET.feet_anchor_y
+        );
         // Should not be so large that the man falls outside the frame.
-        assert!(GNU_TON_SHEET.feet_anchor_y < 0.5,
-            "feet_anchor_y too large, would place entity at sprite top edge");
+        assert!(
+            GNU_TON_SHEET.feet_anchor_y < 0.5,
+            "feet_anchor_y too large, would place entity at sprite top edge"
+        );
     }
 
     #[test]
     fn gnu_ton_side_sweep_resolves_to_itself() {
-        assert_eq!(GNU_TON_SHEET.resolve_anim(BossAnim::SideSweep), BossAnim::SideSweep);
+        assert_eq!(
+            GNU_TON_SHEET.resolve_anim(BossAnim::SideSweep),
+            BossAnim::SideSweep
+        );
     }
 }

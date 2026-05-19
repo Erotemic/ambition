@@ -130,7 +130,7 @@ fn embedded_music_tracks_all_have_asset_paths() {
 #[test]
 fn audio_library_skips_music_tracks_without_asset_path() {
     use crate::content::data::{
-        AudioSpec, MusicGainsSpec, MusicSpec, MusicTrackSpec, SfxSpec, WaveformSpec, SoundCueKey,
+        AudioSpec, MusicGainsSpec, MusicSpec, MusicTrackSpec, SfxSpec, SoundCueKey, WaveformSpec,
     };
 
     fn synthetic_arrangement() -> MusicSpec {
@@ -246,8 +246,8 @@ fn no_runtime_references_to_retired_procedural_renderer() {
         "TrackSource::Procedural",
     ];
     let mut findings: Vec<String> = Vec::new();
-    let entries = std::fs::read_dir(&root)
-        .unwrap_or_else(|e| panic!("read_dir {}: {e}", root.display()));
+    let entries =
+        std::fs::read_dir(&root).unwrap_or_else(|e| panic!("read_dir {}: {e}", root.display()));
     for entry in entries {
         let entry = entry.expect("dir entry");
         let path = entry.path();
@@ -272,8 +272,7 @@ fn no_runtime_references_to_retired_procedural_renderer() {
     // emits findings for *every* mention. Filter out matches inside
     // this very test source so the assertion only fires on real
     // re-introductions in sibling files.
-    let this_file = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src/audio/tests.rs");
+    let this_file = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/audio/tests.rs");
     findings.retain(|line| !line.starts_with(&this_file.display().to_string()));
     assert!(
         findings.is_empty(),
@@ -413,8 +412,8 @@ fn ambition_sandbox_uses_only_bevy_kira_audio() {
 /// an entry on web.
 #[test]
 fn every_live_music_track_resolves_under_web_served_assets() {
-    use crate::content::data::SandboxDataSpec;
     use crate::assets::game_assets::GameAssetConfig;
+    use crate::content::data::SandboxDataSpec;
     use ambition_asset_manager::AssetProfile;
 
     let spec = SandboxDataSpec::load_embedded();

@@ -5,11 +5,13 @@ use bevy::prelude::*;
 use super::state::{PlayerProjectile, PlayerProjectileState};
 use super::systems::update_projectiles;
 use crate::audio::SfxMessage;
-use crate::features::{ActorHealth, ActorIdentity, DamageEvent, GameplayBanner, GameplayEffect, PogoBounceEvent};
-use crate::presentation::fx::VfxMessage;
+use crate::features::{
+    ActorHealth, ActorIdentity, DamageEvent, GameplayBanner, GameplayEffect, PogoBounceEvent,
+};
 use crate::input::ControlFrame;
-use crate::world::physics::DebrisBurstMessage;
+use crate::presentation::fx::VfxMessage;
 use crate::trace::GameplayTraceBuffer;
+use crate::world::physics::DebrisBurstMessage;
 use crate::GameWorld;
 
 fn dummy_world() -> World {
@@ -66,7 +68,11 @@ fn min_app() -> App {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
+        (
+            update_projectiles,
+            crate::features::apply_feature_damage_events,
+        )
+            .chain(),
     );
     spawn_player(&mut app, ae::Vec2::new(300.0, 300.0), 1.0);
     app
@@ -412,7 +418,11 @@ fn fireball_bounces_off_floor_in_system() {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
+        (
+            update_projectiles,
+            crate::features::apply_feature_damage_events,
+        )
+            .chain(),
     );
     spawn_player(&mut app, ae::Vec2::new(200.0, 200.0), 1.0);
 
@@ -484,7 +494,11 @@ fn fireball_bounces_off_one_way_platform_in_system() {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
+        (
+            update_projectiles,
+            crate::features::apply_feature_damage_events,
+        )
+            .chain(),
     );
     spawn_player(&mut app, ae::Vec2::new(200.0, 200.0), 1.0);
 
@@ -557,7 +571,11 @@ fn fireball_passes_through_one_way_from_below_in_system() {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
+        (
+            update_projectiles,
+            crate::features::apply_feature_damage_events,
+        )
+            .chain(),
     );
     spawn_player(&mut app, ae::Vec2::new(200.0, 500.0), 1.0);
 
@@ -627,7 +645,11 @@ fn hadouken_expires_on_solid_in_system() {
     app.add_message::<PogoBounceEvent>();
     app.add_systems(
         Update,
-        (update_projectiles, crate::features::apply_feature_damage_events).chain(),
+        (
+            update_projectiles,
+            crate::features::apply_feature_damage_events,
+        )
+            .chain(),
     );
     spawn_player(&mut app, ae::Vec2::new(500.0, 300.0), 1.0);
 

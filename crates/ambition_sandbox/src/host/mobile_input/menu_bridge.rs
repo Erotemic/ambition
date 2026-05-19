@@ -212,8 +212,11 @@ pub fn touch_move_to_menu_dir(
     touch: TouchInputState,
     deadzone: f32,
 ) -> Option<crate::input::MenuDir> {
-    let (x, y_down) =
-        crate::persistence::settings::ControlSettings::apply_deadzone(touch.move_x, touch.move_y, deadzone);
+    let (x, y_down) = crate::persistence::settings::ControlSettings::apply_deadzone(
+        touch.move_x,
+        touch.move_y,
+        deadzone,
+    );
     crate::input::analog_to_dir(x, -y_down, 0.5)
 }
 

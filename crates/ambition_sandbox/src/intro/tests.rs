@@ -7,8 +7,8 @@
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::dialog::{intro_dialogue_ids, IntroDialog};
 use super::sprites::intro_npc_sprite_rows;
-use crate::presentation::cutscene::CutsceneLibrary;
 use crate::dialog::DialogMode;
+use crate::presentation::cutscene::CutsceneLibrary;
 
 #[test]
 fn every_intro_dialogue_id_round_trips() {

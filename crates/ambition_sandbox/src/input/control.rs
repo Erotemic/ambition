@@ -85,11 +85,12 @@ impl ControlFrame {
         let raw_move = actions.clamped_axis_pair(&SandboxAction::Move);
         // Apply the left-stick deadzone before any walk-modifier logic
         // so analog drift doesn't pollute the magnitude check.
-        let (deadzoned_x, deadzoned_y) = crate::persistence::settings::ControlSettings::apply_deadzone(
-            raw_move.x,
-            raw_move.y,
-            controls.left_stick_deadzone,
-        );
+        let (deadzoned_x, deadzoned_y) =
+            crate::persistence::settings::ControlSettings::apply_deadzone(
+                raw_move.x,
+                raw_move.y,
+                controls.left_stick_deadzone,
+            );
         let mut axis = bevy::math::Vec2::new(deadzoned_x, deadzoned_y);
 
         // Walk modifier: Shift on keyboard, LT2 on gamepad. Cardinal /
@@ -120,17 +121,20 @@ impl ControlFrame {
             0.0
         };
         let trigger_value = raw_trigger.max(dash_button_value);
-        let (next_dash_state, trigger_edge_pressed) = crate::persistence::settings::update_trigger_edge(
-            dash_state,
-            trigger_value,
-            controls.trigger_release_threshold,
-            controls.trigger_press_threshold,
-        );
+        let (next_dash_state, trigger_edge_pressed) =
+            crate::persistence::settings::update_trigger_edge(
+                dash_state,
+                trigger_value,
+                controls.trigger_release_threshold,
+                controls.trigger_press_threshold,
+            );
         let dash_pressed = match controls.dash_input_mode {
             crate::persistence::settings::DashInputMode::Trigger => trigger_edge_pressed,
             // Button mode: ignore trigger hysteresis, only the
             // configured Dash button counts (e.g. RB on a 360 pad).
-            crate::persistence::settings::DashInputMode::Button => actions.just_pressed(&SandboxAction::Dash),
+            crate::persistence::settings::DashInputMode::Button => {
+                actions.just_pressed(&SandboxAction::Dash)
+            }
             crate::persistence::settings::DashInputMode::Both => {
                 trigger_edge_pressed || actions.just_pressed(&SandboxAction::Dash)
             }

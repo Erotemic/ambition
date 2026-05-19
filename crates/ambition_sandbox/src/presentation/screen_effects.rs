@@ -19,8 +19,7 @@ use bevy::{
             UniformComponentPlugin,
         },
         render_graph::{
-            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode,
-            ViewNodeRunner,
+            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_resource::{
             binding_types::{sampler, texture_2d, uniform_buffer},
@@ -53,10 +52,7 @@ impl Plugin for ScreenEffectsPlugin {
 
         render_app.add_systems(RenderStartup, init_screen_effects_pipeline);
         render_app
-            .add_render_graph_node::<ViewNodeRunner<ScreenEffectsNode>>(
-                Core2d,
-                ScreenEffectsLabel,
-            )
+            .add_render_graph_node::<ViewNodeRunner<ScreenEffectsNode>>(Core2d, ScreenEffectsLabel)
             .add_render_graph_edges(
                 Core2d,
                 (

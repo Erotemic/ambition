@@ -58,13 +58,8 @@ pub(super) fn player_control_phase(
     let input = filtered.engine_input(frame_dt);
     let control_world =
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-    let control_events = ae::update_player_control_with_tuning(
-        &control_world,
-        player,
-        input,
-        frame_dt,
-        tuning,
-    );
+    let control_events =
+        ae::update_player_control_with_tuning(&control_world, player, input, frame_dt, tuning);
     if control_events.reset {
         reset_sandbox(
             world,
@@ -193,13 +188,8 @@ pub(super) fn player_simulation_phase(
         features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
 
     let was_grounded = player.on_ground;
-    let sim_events = ae::update_player_simulation_with_tuning(
-        &collision_world,
-        player,
-        input,
-        sim_dt,
-        tuning,
-    );
+    let sim_events =
+        ae::update_player_simulation_with_tuning(&collision_world, player, input, sim_dt, tuning);
     if sim_events.reset {
         reset_sandbox(
             world,
@@ -229,5 +219,3 @@ pub(super) fn player_simulation_phase(
     );
     PhaseOutcome::Continue
 }
-
-

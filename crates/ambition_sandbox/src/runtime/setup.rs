@@ -21,28 +21,28 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-#[cfg(feature = "audio")]
-use crate::audio::{AudioLibrary, MusicPlaybackState};
+use crate::assets::game_assets::GameAssets;
+use crate::assets::loading::SandboxAssetCollection;
 #[cfg(feature = "audio")]
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+#[cfg(feature = "audio")]
+use crate::audio::{AudioLibrary, MusicPlaybackState};
+use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
+use crate::content::data::{SandboxDataAsset, SandboxDataSpec};
+use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
 use crate::presentation::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
-use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
-use crate::content::data::{SandboxDataAsset, SandboxDataSpec};
-use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
-use crate::assets::game_assets::GameAssets;
-use crate::ldtk_world::{LdtkRuntimeIndex, SandboxLdtkAsset};
-use crate::assets::loading::SandboxAssetCollection;
-use crate::world::physics::PhysicsSandboxSettings;
-use crate::world::platforms;
 use crate::presentation::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, PlayerVisual,
     QuestPanelText, SceneEntities,
 };
-use crate::rooms::RoomSet;
 use crate::presentation::ui_fonts::{UiFontWeight, UiFonts};
+use crate::rooms::RoomSet;
+use crate::world::physics::PhysicsSandboxSettings;
+use crate::world::platforms;
 use crate::GameWorld;
 #[cfg(feature = "audio")]
 use ambition_sfx::BankProvider;
@@ -134,7 +134,8 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
 
     crate::features::spawn_room_feature_entities(commands, room_set.active_spec());
 
-    let mut initial_player = ae::Player::new_with_abilities(world.0.spawn, editable_abilities.as_engine());
+    let mut initial_player =
+        ae::Player::new_with_abilities(world.0.spawn, editable_abilities.as_engine());
     initial_player.refresh_movement_resources(editable_tuning.as_engine());
 
     let player = commands
@@ -442,5 +443,4 @@ fn presentation_world_inner(
         hud,
         quest_panel,
     });
-
 }

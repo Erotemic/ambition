@@ -8,8 +8,8 @@ use bevy::window::PrimaryWindow;
 
 use super::primitives::PlayerVisual;
 use crate::config::world_to_bevy;
-use crate::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
 use crate::persistence::settings::CameraAspectPolicy;
+use crate::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
 
 /// Live camera diagnostics and feel-lab data.
 ///
@@ -76,7 +76,10 @@ pub fn camera_follow(
     ease_tuning: Res<crate::CameraEaseTuning>,
     mut last_camera_room: Local<Option<String>>,
     player: Query<
-        (&crate::player::PlayerBody, &crate::player::PlayerBlinkCameraState),
+        (
+            &crate::player::PlayerBody,
+            &crate::player::PlayerBlinkCameraState,
+        ),
         crate::player::PrimaryPlayerOnly,
     >,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -87,7 +90,9 @@ pub fn camera_follow(
 
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
-    let Ok((player_body, blink_cam)) = player.single().map(|(b, bc)| (*b, *bc)) else { return; };
+    let Ok((player_body, blink_cam)) = player.single().map(|(b, bc)| (*b, *bc)) else {
+        return;
+    };
     let player_aabb = player_body.aabb();
     let active_spec = room_set.active_spec();
     let mut active_camera_zones = 0usize;
@@ -207,10 +212,11 @@ pub fn camera_follow(
         }
 
         if blink_cam.blink_in_timer > 0.0 && blink_cam.blink_in_duration > 0.0 {
-            let raw_t = 1.0 - (blink_cam.blink_in_timer / blink_cam.blink_in_duration).clamp(0.0, 1.0);
+            let raw_t =
+                1.0 - (blink_cam.blink_in_timer / blink_cam.blink_in_duration).clamp(0.0, 1.0);
             let t = raw_t * raw_t * (3.0 - 2.0 * raw_t);
-            desired_target_world =
-                blink_cam.blink_camera_from + (desired_target_world - blink_cam.blink_camera_from) * t;
+            desired_target_world = blink_cam.blink_camera_from
+                + (desired_target_world - blink_cam.blink_camera_from) * t;
         }
 
         // Smooth the target itself, not just the zoom. Phase 4 introduced

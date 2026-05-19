@@ -113,7 +113,9 @@ pub fn sync_bubble_shield_visual(
     mut shield_q: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {
     let Ok(pb) = player_q.single() else { return };
-    let Ok((mut transform, mut sprite, mut vis)) = shield_q.single_mut() else { return };
+    let Ok((mut transform, mut sprite, mut vis)) = shield_q.single_mut() else {
+        return;
+    };
 
     if !pb.shielding {
         *vis = Visibility::Hidden;
@@ -121,11 +123,8 @@ pub fn sync_bubble_shield_visual(
     }
 
     // Position centered on the player body.
-    transform.translation = crate::config::world_to_bevy(
-        &world.0,
-        pb.pos,
-        crate::config::WORLD_Z_PLAYER - 0.05,
-    );
+    transform.translation =
+        crate::config::world_to_bevy(&world.0, pb.pos, crate::config::WORLD_Z_PLAYER - 0.05);
 
     // Scale the ring to be slightly larger than the player collider so it
     // reads as surrounding the body without clipping into it.
@@ -163,7 +162,10 @@ mod tests {
         let cy = size / 2;
         let i = (cy * size + cx) * 4;
         let alpha = data[i + 3];
-        assert!(alpha < 20, "center should be transparent, got alpha={alpha}");
+        assert!(
+            alpha < 20,
+            "center should be transparent, got alpha={alpha}"
+        );
     }
 
     #[test]

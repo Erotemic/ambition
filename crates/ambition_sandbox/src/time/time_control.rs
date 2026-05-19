@@ -17,12 +17,12 @@
 
 use bevy::prelude::*;
 
-use crate::{ClockDomain, SandboxSimState};
-use crate::time::feel::SandboxFeelTuning;
 use crate::player::components::{
     PlayerCombatState, PlayerMovementAuthority, PlayerSlot, PrimaryPlayer,
 };
+use crate::time::feel::SandboxFeelTuning;
 use crate::SandboxDevState;
+use crate::{ClockDomain, SandboxSimState};
 
 /// ADR 0011 — per-entity proper-time scale.
 ///
@@ -137,7 +137,9 @@ pub struct RegimePolicy {
 
 impl Default for RegimePolicy {
     fn default() -> Self {
-        Self { regime: Regime::Solo }
+        Self {
+            regime: Regime::Solo,
+        }
     }
 }
 
@@ -274,7 +276,9 @@ pub fn emit_player_time_intent_system(
     feel: Res<SandboxFeelTuning>,
     mut writer: MessageWriter<ClockScaleRequest>,
 ) {
-    let Ok((authority, combat)) = primary.single() else { return };
+    let Ok((authority, combat)) = primary.single() else {
+        return;
+    };
     let player = &authority.player;
     let (scale, requester, reason) = if combat.hitstop_timer > 0.0 {
         (0.0, ClockRequester::Engine, "hitstop")
@@ -291,7 +295,11 @@ pub fn emit_player_time_intent_system(
             "blink_hold_slow",
         )
     } else if dev_state.slowmo {
-        (feel.debug_slowmo_scale, ClockRequester::DevTool, "dev_slowmo")
+        (
+            feel.debug_slowmo_scale,
+            ClockRequester::DevTool,
+            "dev_slowmo",
+        )
     } else {
         (1.0, ClockRequester::Engine, "default")
     };
@@ -348,7 +356,9 @@ mod tests {
 
     #[test]
     fn solo_regime_grants_every_requester_every_domain() {
-        let policy = RegimePolicy { regime: Regime::Solo };
+        let policy = RegimePolicy {
+            regime: Regime::Solo,
+        };
         for requester in [
             ClockRequester::Player(PlayerSlot::PRIMARY),
             ClockRequester::DevTool,
@@ -364,7 +374,9 @@ mod tests {
                 assert_eq!(
                     policy.permission_for(requester, domain),
                     Permission::Grant,
-                    "Solo must grant {:?} -> {:?}", requester, domain,
+                    "Solo must grant {:?} -> {:?}",
+                    requester,
+                    domain,
                 );
             }
         }
@@ -372,7 +384,9 @@ mod tests {
 
     #[test]
     fn rl_deterministic_denies_every_request() {
-        let policy = RegimePolicy { regime: Regime::RLDeterministic };
+        let policy = RegimePolicy {
+            regime: Regime::RLDeterministic,
+        };
         assert_eq!(
             policy.permission_for(
                 ClockRequester::Player(PlayerSlot::PRIMARY),
@@ -388,7 +402,9 @@ mod tests {
 
     #[test]
     fn cinematic_grants_scripted_denies_player() {
-        let policy = RegimePolicy { regime: Regime::Cinematic };
+        let policy = RegimePolicy {
+            regime: Regime::Cinematic,
+        };
         assert_eq!(
             policy.permission_for(ClockRequester::Scripted, ClockDomain::SimClock),
             Permission::Grant,
@@ -438,7 +454,9 @@ mod tests {
     fn rl_regime_denies_blocks_the_scale_change() {
         let mut app = App::new();
         app.add_message::<ClockScaleRequest>()
-            .insert_resource(RegimePolicy { regime: Regime::RLDeterministic })
+            .insert_resource(RegimePolicy {
+                regime: Regime::RLDeterministic,
+            })
             .insert_resource(RequestedClockScale::default())
             .add_systems(Update, apply_clock_scale_requests);
 
@@ -495,7 +513,11 @@ mod tests {
             .insert_resource(Time::<()>::default())
             .add_systems(
                 Update,
-                (apply_clock_scale_requests, smooth_sim_clock_toward_target_system).chain(),
+                (
+                    apply_clock_scale_requests,
+                    smooth_sim_clock_toward_target_system,
+                )
+                    .chain(),
             );
 
         // Pump a fixed 16ms tick into Bevy's Time so the smoother

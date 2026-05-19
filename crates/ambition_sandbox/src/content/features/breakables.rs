@@ -19,5 +19,4 @@ impl BreakableRuntime {
     pub fn broken(&self) -> bool {
         self.breakable.state == ae::BreakableState::Broken
     }
-
 }

@@ -19,8 +19,8 @@ use super::sheets::{
     NINJA_SHEET, PIRATE_SHEET, PLAYER_ROBOT_SHEET, PULSE_VOYAGER_CAPTAIN_SHEET, ROBOT_SHEET,
     SANDBAG_SHEET, TECH_BRO_DISRUPTOR_SHEET, VAULT_KEEPER_SHEET,
 };
-use crate::features::FeatureVisualKind;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::features::FeatureVisualKind;
 
 #[derive(Clone)]
 pub struct CharacterSpriteAsset {

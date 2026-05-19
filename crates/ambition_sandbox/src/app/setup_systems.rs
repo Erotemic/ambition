@@ -90,8 +90,12 @@ pub(super) fn setup_presentation_system(
     // browser devtools (see docs/recipes/web-build.md).
     #[cfg(not(target_arch = "wasm32"))]
     let t0 = std::time::Instant::now();
-    let game_assets =
-        game_assets::load_game_assets(&asset_config, &sandbox_catalog, &asset_server, &mut atlas_layouts);
+    let game_assets = game_assets::load_game_assets(
+        &asset_config,
+        &sandbox_catalog,
+        &asset_server,
+        &mut atlas_layouts,
+    );
     #[cfg(not(target_arch = "wasm32"))]
     {
         let t_assets = t0.elapsed().as_secs_f32() * 1000.0;
@@ -162,8 +166,12 @@ pub(super) fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
 ) {
-    let game_assets =
-        game_assets::load_game_assets(&asset_config, &sandbox_catalog, &asset_server, &mut atlas_layouts);
+    let game_assets = game_assets::load_game_assets(
+        &asset_config,
+        &sandbox_catalog,
+        &asset_server,
+        &mut atlas_layouts,
+    );
     setup::presentation_world(
         &mut commands,
         setup::PresentationSetup {

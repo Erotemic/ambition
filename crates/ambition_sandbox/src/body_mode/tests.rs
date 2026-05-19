@@ -356,7 +356,9 @@ fn reset_restores_standing_from_crouch() {
         >();
         for mut authority in q.iter_mut(app.world_mut()) {
             authority.player.reset_to(world.spawn);
-            authority.player.refresh_movement_resources(ae::DEFAULT_TUNING);
+            authority
+                .player
+                .refresh_movement_resources(ae::DEFAULT_TUNING);
             authority.player.mana.refill_full();
         }
     }
@@ -381,7 +383,9 @@ fn reset_restores_standing_from_morph_ball() {
         >();
         for mut authority in q.iter_mut(app.world_mut()) {
             authority.player.reset_to(world.spawn);
-            authority.player.refresh_movement_resources(ae::DEFAULT_TUNING);
+            authority
+                .player
+                .refresh_movement_resources(ae::DEFAULT_TUNING);
             authority.player.mana.refill_full();
         }
     }

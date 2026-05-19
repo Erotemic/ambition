@@ -17,8 +17,8 @@ use super::UserSettings;
 use crate::dev::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DeveloperTools, EditableMovementTuning,
 };
-use crate::ldtk_world::LdtkHotReloadState;
 use crate::host::windowing::{DisplayModeKind, DisplayModeState};
+use crate::ldtk_world::LdtkHotReloadState;
 use crate::SandboxDevState;
 
 /// Top-level settings page. The pause menu starts at `Top` (the

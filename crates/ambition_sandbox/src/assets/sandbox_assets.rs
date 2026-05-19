@@ -178,8 +178,8 @@ embed_core_assets! {
         @ "../../assets/sprites/entities/boss_core.png",
 }
 
-use crate::content::data::AudioSpec;
 use crate::assets::game_assets::{sandbox_image_manifest, GameAssetConfig};
+use crate::content::data::AudioSpec;
 
 /// Stable [`AssetId`] constructors for the fixed-vocabulary sandbox
 /// assets. Bulk per-enum entries (entity sprites, parallax layers)
@@ -359,7 +359,10 @@ impl SandboxAssetCatalog {
             AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
             AssetProfile::WebStatic | AssetProfile::BundledStatic => {
                 resolved.authored_candidate
-                    && matches!(resolved.source_used, Some(AssetSourceProfile::EmbeddedBinary))
+                    && matches!(
+                        resolved.source_used,
+                        Some(AssetSourceProfile::EmbeddedBinary)
+                    )
             }
             // WebServedAssets attempts every resolution that produces
             // a Bevy-pathable URL: either an authored `Embedded`
@@ -394,7 +397,10 @@ impl SandboxAssetCatalog {
     /// resolver's `Disabled` path is what consults
     /// [`MissingAssetPolicy::Error`].
     pub fn should_attempt_required_load(&self, _path: &str) -> bool {
-        !matches!(self.profile, AssetProfile::NoAssets | AssetProfile::Headless)
+        !matches!(
+            self.profile,
+            AssetProfile::NoAssets | AssetProfile::Headless
+        )
     }
 
     /// Locate the absolute on-disk path for a Bevy-relative asset path
@@ -422,7 +428,9 @@ impl SandboxAssetCatalog {
         ) {
             return None;
         }
-        desktop_candidate_roots(rel).into_iter().find(|p| p.exists())
+        desktop_candidate_roots(rel)
+            .into_iter()
+            .find(|p| p.exists())
     }
 }
 
@@ -458,10 +466,7 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
 /// so music-track ids land in the catalog at startup; the spec itself
 /// is loaded via `include_str!`, so the catalog doesn't depend on
 /// disk-resident files for bootstrap.
-pub fn build_sandbox_catalog(
-    config: &GameAssetConfig,
-    audio: &AudioSpec,
-) -> SandboxAssetCatalog {
+pub fn build_sandbox_catalog(config: &GameAssetConfig, audio: &AudioSpec) -> SandboxAssetCatalog {
     let mut manifest = sandbox_image_manifest(&config.sprite_folder);
     extend_with_world_entries(&mut manifest);
     extend_with_data_entries(&mut manifest);
@@ -575,18 +580,16 @@ fn extend_with_sfx_bank_entry(manifest: &mut AssetManifest) {
 /// authored `EmbeddedBinary` candidate so WebStatic / BundledStatic
 /// resolve them through the embedded source.
 fn extend_with_font_entries(manifest: &mut AssetManifest) {
-    manifest.insert(
-        with_embedded_core_candidate(
-            AssetEntry::new(
-                ids::font_dialog_regular(),
-                AssetKind::Font,
-                "fonts/bundled/InterDisplay-Regular.otf",
-            )
-            .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-            .with_preload_group(PreloadGroup::Hud),
-            embedded_core::FONT_DIALOG_REGULAR_URL,
-        ),
-    );
+    manifest.insert(with_embedded_core_candidate(
+        AssetEntry::new(
+            ids::font_dialog_regular(),
+            AssetKind::Font,
+            "fonts/bundled/InterDisplay-Regular.otf",
+        )
+        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+        .with_preload_group(PreloadGroup::Hud),
+        embedded_core::FONT_DIALOG_REGULAR_URL,
+    ));
     manifest.insert(
         AssetEntry::new(
             AssetId::new("font.dialog_regular.legacy"),
@@ -596,18 +599,16 @@ fn extend_with_font_entries(manifest: &mut AssetManifest) {
         .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
         .with_preload_group(PreloadGroup::Hud),
     );
-    manifest.insert(
-        with_embedded_core_candidate(
-            AssetEntry::new(
-                ids::font_dialog_semibold(),
-                AssetKind::Font,
-                "fonts/bundled/InterDisplay-SemiBold.otf",
-            )
-            .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-            .with_preload_group(PreloadGroup::Hud),
-            embedded_core::FONT_DIALOG_SEMIBOLD_URL,
-        ),
-    );
+    manifest.insert(with_embedded_core_candidate(
+        AssetEntry::new(
+            ids::font_dialog_semibold(),
+            AssetKind::Font,
+            "fonts/bundled/InterDisplay-SemiBold.otf",
+        )
+        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+        .with_preload_group(PreloadGroup::Hud),
+        embedded_core::FONT_DIALOG_SEMIBOLD_URL,
+    ));
     manifest.insert(
         AssetEntry::new(
             AssetId::new("font.dialog_semibold.legacy"),
@@ -617,18 +618,16 @@ fn extend_with_font_entries(manifest: &mut AssetManifest) {
         .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
         .with_preload_group(PreloadGroup::Hud),
     );
-    manifest.insert(
-        with_embedded_core_candidate(
-            AssetEntry::new(
-                ids::font_debug_mono(),
-                AssetKind::Font,
-                "fonts/bundled/JetBrainsMono-Regular.ttf",
-            )
-            .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
-            .with_preload_group(PreloadGroup::Hud),
-            embedded_core::FONT_DEBUG_MONO_URL,
-        ),
-    );
+    manifest.insert(with_embedded_core_candidate(
+        AssetEntry::new(
+            ids::font_debug_mono(),
+            AssetKind::Font,
+            "fonts/bundled/JetBrainsMono-Regular.ttf",
+        )
+        .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
+        .with_preload_group(PreloadGroup::Hud),
+        embedded_core::FONT_DEBUG_MONO_URL,
+    ));
     manifest.insert(
         AssetEntry::new(
             AssetId::new("font.debug_mono.legacy"),
@@ -667,7 +666,8 @@ fn with_embedded_core_candidate(entry: AssetEntry, _embedded_url: &'static str) 
 /// `static_core_assets` so the wasm build renders the protagonist + the
 /// basic enemy set without falling back to colored rectangles.
 fn extend_with_character_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
-    for (name, filename) in crate::presentation::character_sprites::all_character_sprite_filenames() {
+    for (name, filename) in crate::presentation::character_sprites::all_character_sprite_filenames()
+    {
         let id = ids::character_sprite(name);
         let logical_path = format!("{sprite_folder}/{filename}");
         let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)
@@ -718,8 +718,7 @@ fn extend_with_boss_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
 /// rectangles per the existing contract.
 fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
     use crate::intro::sprites::{
-        intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id,
-        intro_prop_sprite_rows,
+        intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id, intro_prop_sprite_rows,
     };
     for (name, filename, _spec) in intro_npc_sprite_rows() {
         let id = intro_npc_asset_id(name);
@@ -846,9 +845,7 @@ fn register_embedded_assets(app: &mut App) {
         use bevy::asset::io::embedded::EmbeddedAssetRegistry;
         use std::path::{Path, PathBuf};
 
-        let embedded = app
-            .world_mut()
-            .resource_mut::<EmbeddedAssetRegistry>();
+        let embedded = app.world_mut().resource_mut::<EmbeddedAssetRegistry>();
         embedded.insert_asset(
             PathBuf::new(),
             Path::new(EMBEDDED_SANDBOX_LDTK_ASSET_PATH),
@@ -974,7 +971,9 @@ mod tests {
         // hot-reload watcher can poll.
         assert!(resolved.location.as_local_path().is_some());
         assert!(resolved.supports_hot_reload());
-        assert!(catalog.hot_reload_local_path(&ids::sandbox_ldtk()).is_some());
+        assert!(catalog
+            .hot_reload_local_path(&ids::sandbox_ldtk())
+            .is_some());
     }
 
     #[test]
@@ -1011,7 +1010,9 @@ mod tests {
         config.asset_profile = AssetProfile::BundledStatic;
         let spec = SandboxDataSpec::load_embedded();
         let catalog = build_sandbox_catalog(&config, &spec.audio);
-        assert!(catalog.hot_reload_local_path(&ids::sandbox_ldtk()).is_none());
+        assert!(catalog
+            .hot_reload_local_path(&ids::sandbox_ldtk())
+            .is_none());
     }
 
     #[test]
@@ -1083,10 +1084,7 @@ mod tests {
             Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
             Err(_) => return, // `grep` missing → skip the guard rather than spuriously failing.
         };
-        let offenders: Vec<&str> = stdout
-            .lines()
-            .filter(|line| !line.is_empty())
-            .collect();
+        let offenders: Vec<&str> = stdout.lines().filter(|line| !line.is_empty()).collect();
         assert!(
             offenders.is_empty(),
             "legacy asset_exists / desktop_asset_exists copies re-appeared:\n  {}\n\
@@ -1489,8 +1487,7 @@ mod tests {
     #[test]
     fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
         use crate::intro::sprites::{
-            intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id,
-            intro_prop_sprite_rows,
+            intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id, intro_prop_sprite_rows,
         };
 
         let mut config = GameAssetConfig::default();
@@ -1642,9 +1639,9 @@ mod tests {
             crate::assets::game_assets::ParallaxTheme::Hub,
             crate::assets::game_assets::ParallaxLayerAsset::Sky,
         );
-        let parallax_path = catalog.try_path_for_load(&parallax_id).expect(
-            "WebServedAssets must attempt parallax layers via synthesized BevyPath",
-        );
+        let parallax_path = catalog
+            .try_path_for_load(&parallax_id)
+            .expect("WebServedAssets must attempt parallax layers via synthesized BevyPath");
         assert!(parallax_path.contains("backgrounds/parallax_layers/hub_sky.png"));
 
         // Authored Embedded candidates still take priority on WebServedAssets
@@ -1673,11 +1670,17 @@ mod tests {
             }
             let id = ids::music_track(&track.id);
             let path = catalog.try_path_for_load(&id).unwrap_or_else(|| {
-                panic!("music track `{}` (id {id}) missing under WebServedAssets", track.id)
+                panic!(
+                    "music track `{}` (id {id}) missing under WebServedAssets",
+                    track.id
+                )
             });
             assert!(!path.starts_with("embedded://"));
             attempted += 1;
         }
-        assert!(attempted > 0, "expected at least one music track with asset_path");
+        assert!(
+            attempted > 0,
+            "expected at least one music track with asset_path"
+        );
     }
 }

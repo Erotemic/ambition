@@ -53,15 +53,15 @@ use bevy::prelude::*;
 
 use ambition_engine as ae;
 
-use crate::boss_encounter::BossEncounterRegistry;
-use crate::encounter::{EncounterController, EncounterMusicRequest, EncounterRegistry};
 use crate::assets::game_assets::GameAssets;
-use crate::world::physics;
-use crate::world::platforms;
+use crate::boss_encounter::BossEncounterRegistry;
 use crate::content::quest::QuestRegistry;
+use crate::encounter::{EncounterController, EncounterMusicRequest, EncounterRegistry};
+use crate::persistence::save::SandboxSave;
 use crate::presentation::rendering::{spawn_room_visuals, RoomScopedEntity};
 use crate::rooms::RoomSet;
-use crate::persistence::save::SandboxSave;
+use crate::world::physics;
+use crate::world::platforms;
 
 /// Bundles sim-state resources so `process_sandbox_reset_request`
 /// stays within Bevy's 16-SystemParam limit.
@@ -177,7 +177,9 @@ pub fn process_sandbox_reset_request(
     // frames don't continue a mid-air slash or dash-startup pose.
     if let Ok((mut authority, mut anim, mut combat, mut blink_cam)) = player_q.single_mut() {
         authority.player.reset_to(world.0.spawn);
-        authority.player.refresh_movement_resources(tuning.as_engine());
+        authority
+            .player
+            .refresh_movement_resources(tuning.as_engine());
         authority.player.mana.refill_full();
         anim.reset();
         combat.reset();
@@ -269,7 +271,8 @@ mod tests {
         app.insert_resource(crate::features::GameplayBanner::default());
         // Spawn the player entity so process_sandbox_reset_request can query it.
         {
-            let mut initial = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
+            let mut initial =
+                ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
             initial.refresh_movement_resources(ae::DEFAULT_TUNING);
             app.world_mut().spawn((
                 crate::player::PlayerEntity,
@@ -376,7 +379,12 @@ mod tests {
         let quest = app.world().resource::<QuestRegistry>();
         assert!(!quest.initialized);
         // Banner surfaces the action so the player can see it.
-        assert_eq!(app.world().resource::<crate::features::GameplayBanner>().text, "SANDBOX RESET");
+        assert_eq!(
+            app.world()
+                .resource::<crate::features::GameplayBanner>()
+                .text,
+            "SANDBOX RESET"
+        );
         // Request consumed.
         let req = app.world().resource::<SandboxResetRequested>();
         assert!(!req.request);
@@ -389,10 +397,10 @@ mod tests {
     fn processor_warps_player_to_start_spawn() {
         let mut app = min_app();
         {
-            let mut q = app.world_mut().query_filtered::<
-                &mut PlayerMovementAuthority,
-                With<crate::player::PlayerEntity>,
-            >();
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&mut PlayerMovementAuthority, With<crate::player::PlayerEntity>>(
+                );
             if let Ok(mut authority) = q.single_mut(app.world_mut()) {
                 authority.player.pos = ae::Vec2::new(1234.0, 1234.0);
             }
@@ -404,10 +412,9 @@ mod tests {
         app.update();
         let world = app.world().resource::<GameWorld>();
         let expected_spawn = world.0.spawn;
-        let mut q = app.world_mut().query_filtered::<
-            &PlayerMovementAuthority,
-            With<crate::player::PlayerEntity>,
-        >();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&PlayerMovementAuthority, With<crate::player::PlayerEntity>>();
         let player_pos = q.single(app.world()).map(|a| a.player.pos).unwrap();
         assert_eq!(player_pos, expected_spawn);
     }

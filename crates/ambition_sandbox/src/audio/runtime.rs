@@ -393,9 +393,7 @@ impl AudioLibrary {
             }
         }
         if refreshed > 0 {
-            info!(
-                "audio library: refreshed {refreshed} typed SFX cue handle(s) from bank"
-            );
+            info!("audio library: refreshed {refreshed} typed SFX cue handle(s) from bank");
         }
     }
 

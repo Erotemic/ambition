@@ -618,9 +618,7 @@ fn convert_pickup_spawn(
 ) -> RuntimeEntityEmission {
     let pickup = ae::Pickup::new(
         entity.iid.clone(),
-        parse_pickup_kind(
-            &field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string()),
-        ),
+        parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
     );
     RuntimeEntityEmission::object(runtime_room_object(
         entity,
@@ -656,9 +654,8 @@ fn convert_enemy_spawn(
     min: ae::Vec2,
     size: ae::Vec2,
 ) -> RuntimeEntityEmission {
-    let mut brain = parse_enemy_brain(
-        &field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()),
-    );
+    let mut brain =
+        parse_enemy_brain(&field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()));
     if let Some(path_id) =
         field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"))
     {

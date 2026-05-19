@@ -24,7 +24,9 @@
 
 use std::sync::Arc;
 
-use bevy::asset::{io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext};
+use bevy::asset::{
+    io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext,
+};
 use bevy::log::{debug, info, warn};
 use bevy::prelude::{App, Commands, Plugin, Res, ResMut, Resource, Startup, Update};
 
@@ -34,8 +36,8 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_sfx::{BankProvider, SfxError};
 
-use crate::audio::AudioLibrary;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+use crate::audio::AudioLibrary;
 use crate::runtime::setup::SfxBankResource;
 
 /// Loaded SFX-bank asset. Wraps the parsed [`BankProvider`] in an

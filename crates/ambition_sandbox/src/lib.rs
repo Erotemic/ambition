@@ -124,8 +124,8 @@ pub use rl_sim::{AgentAction, AgentObservation, SandboxSim, SandboxSimOptions};
 // couldn't name the types cleanly — `platforms::MovingPlatformState`
 // wouldn't be reachable via any pub path — and Rust's
 // private-interfaces lint would fire under `-D warnings`.
-pub use world::platforms::MovingPlatformState;
 pub use time::time_control::ProperTimeScale;
+pub use world::platforms::MovingPlatformState;
 
 use ambition_engine as ae;
 use bevy::prelude::{Message, Resource};

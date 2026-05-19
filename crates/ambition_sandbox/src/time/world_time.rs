@@ -148,7 +148,10 @@ mod tests {
     /// do, the SP path stays one-line.
     #[test]
     fn sp_player_clock_equals_sim_clock() {
-        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 240.0 };
+        let wt = WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 240.0,
+        };
         assert_eq!(wt.sim_dt(), 1.0 / 240.0);
         assert_eq!(wt.player_dt(PlayerSlot::PRIMARY), wt.sim_dt());
         assert_eq!(wt.player_dt(PlayerSlot(7)), wt.sim_dt());
@@ -158,7 +161,10 @@ mod tests {
     /// keep ticking when the world freezes.
     #[test]
     fn wall_dt_ignores_sim_scale() {
-        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 0.0 };
+        let wt = WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 0.0,
+        };
         assert_eq!(wt.wall_dt(), 1.0 / 60.0);
         assert_eq!(wt.sim_dt(), 0.0);
     }
@@ -167,7 +173,10 @@ mod tests {
     /// regime policy. Each domain routes to its typed accessor.
     #[test]
     fn dt_for_dispatches_by_domain() {
-        let wt = WorldTime { raw_dt: 1.0 / 60.0, scaled_dt: 1.0 / 480.0 };
+        let wt = WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 480.0,
+        };
         assert_eq!(wt.dt_for(ClockDomain::SimClock), wt.sim_dt());
         assert_eq!(wt.dt_for(ClockDomain::WallClock), wt.wall_dt());
         assert_eq!(
@@ -180,7 +189,10 @@ mod tests {
     /// `scaled_dt == sim_dt`. Existing call sites keep compiling.
     #[test]
     fn legacy_fields_alias_new_accessors() {
-        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.004 };
+        let wt = WorldTime {
+            raw_dt: 0.016,
+            scaled_dt: 0.004,
+        };
         assert_eq!(wt.raw_dt, wt.wall_dt());
         assert_eq!(wt.scaled_dt, wt.sim_dt());
     }
@@ -192,13 +204,19 @@ mod tests {
     /// behavior unchanged.
     #[test]
     fn entity_dt_default_one_equals_sim_dt() {
-        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.008 };
+        let wt = WorldTime {
+            raw_dt: 0.016,
+            scaled_dt: 0.008,
+        };
         assert_eq!(wt.entity_dt(ProperTimeScale::ONE), wt.sim_dt());
     }
 
     #[test]
     fn entity_dt_scales_sim_dt_by_proper_time() {
-        let wt = WorldTime { raw_dt: 0.016, scaled_dt: 0.008 };
+        let wt = WorldTime {
+            raw_dt: 0.016,
+            scaled_dt: 0.008,
+        };
         assert!((wt.entity_dt(ProperTimeScale(2.0)) - 0.016).abs() < 1e-7);
         assert!((wt.entity_dt(ProperTimeScale(0.5)) - 0.004).abs() < 1e-7);
     }

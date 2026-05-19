@@ -86,16 +86,17 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
 
         // Read the authoritative player state from the ECS component.
         let player = {
-            let mut q = sim.world_mut().query_filtered::<
-                &PlayerMovementAuthority,
-                With<PlayerEntity>,
-            >();
+            let mut q = sim
+                .world_mut()
+                .query_filtered::<&PlayerMovementAuthority, With<PlayerEntity>>();
             q.single(sim.world())
                 .map(|a| a.player.clone())
-                .unwrap_or_else(|_| ambition_engine::Player::new_with_abilities(
-                    ambition_engine::Vec2::ZERO,
-                    ambition_engine::AbilitySet::default(),
-                ))
+                .unwrap_or_else(|_| {
+                    ambition_engine::Player::new_with_abilities(
+                        ambition_engine::Vec2::ZERO,
+                        ambition_engine::AbilitySet::default(),
+                    )
+                })
         };
         let world_ref = sim.world();
         let game_world = world_ref.resource::<GameWorld>();

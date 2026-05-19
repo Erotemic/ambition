@@ -20,10 +20,12 @@
 
 use bevy::prelude::*;
 
-use crate::presentation::character_sprites::{build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator};
+use crate::assets::game_assets::GameAssets;
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{ActorRuntime, EnemyArchetype, FeatureId};
-use crate::assets::game_assets::GameAssets;
+use crate::presentation::character_sprites::{
+    build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
+};
 
 /// Marker on the per-frame rider sprite entities produced by
 /// [`sync_pirate_rider_visuals`]. Despawned and rebuilt each tick so
@@ -79,17 +81,12 @@ pub fn sync_pirate_rider_visuals(
         if !enemy.alive || !enemy.has_live_rider() {
             continue;
         }
-        let rider_pos = ambition_engine::Vec2::new(
-            enemy.pos.x,
-            enemy.pos.y + RIDER_VERTICAL_OFFSET,
-        );
+        let rider_pos =
+            ambition_engine::Vec2::new(enemy.pos.x, enemy.pos.y + RIDER_VERTICAL_OFFSET);
         // Scale render size to match the desired rider height while
         // preserving the sheet's aspect ratio (frame is 128×128).
         let aspect = rider_asset.spec.frame_width as f32 / rider_asset.spec.frame_height as f32;
-        let render = bevy::math::Vec2::new(
-            RIDER_RENDER_HEIGHT * aspect,
-            RIDER_RENDER_HEIGHT,
-        );
+        let render = bevy::math::Vec2::new(RIDER_RENDER_HEIGHT * aspect, RIDER_RENDER_HEIGHT);
         let mut sprite = build_character_sprite_with_render_size(rider_asset, render);
         sprite.flip_x = enemy.facing < 0.0;
         let translation = world_to_bevy(

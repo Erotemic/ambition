@@ -79,7 +79,10 @@ pub fn tick_portal_phases_system(
 /// also get hidden.
 pub fn hide_portal_loading_zone_visuals(
     portals: Res<PortalRegistry>,
-    mut visuals: Query<(&crate::presentation::rendering::LoadingZoneVisual, &mut Visibility)>,
+    mut visuals: Query<(
+        &crate::presentation::rendering::LoadingZoneVisual,
+        &mut Visibility,
+    )>,
 ) {
     for (visual, mut vis) in &mut visuals {
         if portals.is_portal(&visual.id) && *vis != Visibility::Hidden {

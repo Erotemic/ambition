@@ -185,19 +185,22 @@ impl SandboxSim {
             >();
             q.single(self.app.world())
                 .map(|a| a.player.clone())
-                .unwrap_or_else(|_| ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default()))
+                .unwrap_or_else(|_| {
+                    ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default())
+                })
         };
 
         // Build per-entity queries first (requires &mut World, but the borrow
         // ends immediately so the immutable reads below compile cleanly).
-        let mut combat_query = self.app.world_mut().query_filtered::<
-            &crate::player::PlayerCombatState,
-            With<crate::player::PlayerEntity>,
-        >();
-        let mut health_query = self.app.world_mut().query_filtered::<
-            &crate::player::PlayerHealth,
-            With<crate::player::PlayerEntity>,
-        >();
+        let mut combat_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerCombatState, With<crate::player::PlayerEntity>>(
+            );
+        let mut health_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerHealth, With<crate::player::PlayerEntity>>();
 
         let world = self.app.world();
         let sim_state = world.resource::<crate::SandboxSimState>();

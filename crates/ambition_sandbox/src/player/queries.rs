@@ -38,10 +38,11 @@ pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
 /// Convenience: resolve the primary player's `Entity`. Returns `None`
 /// if no primary player exists yet (e.g. during pre-spawn startup) or
 /// if — unexpectedly — more than one entity carries `PrimaryPlayer`.
-pub fn primary_player_entity(
-    primary: &Query<Entity, PrimaryPlayerOnly>,
-) -> Option<Entity> {
-    primary.iter().next().filter(|_| primary.iter().count() == 1)
+pub fn primary_player_entity(primary: &Query<Entity, PrimaryPlayerOnly>) -> Option<Entity> {
+    primary
+        .iter()
+        .next()
+        .filter(|_| primary.iter().count() == 1)
 }
 
 /// Collect every player entity + slot ordered by `PlayerSlot`. Use

@@ -95,23 +95,9 @@ pub fn touch_action_layout() -> [TouchActionSpec; 8] {
             76.0,
             14.0,
         ),
-        scaled(
-            TouchActionButton::Attack,
-            "Attack",
-            48.0,
-            148.0,
-            78.0,
-            14.0,
-        ),
+        scaled(TouchActionButton::Attack, "Attack", 48.0, 148.0, 78.0, 14.0),
         scaled(TouchActionButton::Dash, "Dash", 184.0, 148.0, 78.0, 14.0),
-        scaled(
-            TouchActionButton::Shield,
-            "Shield",
-            5.0,
-            222.0,
-            72.0,
-            13.0,
-        ),
+        scaled(TouchActionButton::Shield, "Shield", 5.0, 222.0, 72.0, 13.0),
         scaled(TouchActionButton::Jump, "Jump", 115.0, 218.0, 80.0, 15.0),
     ]
 }

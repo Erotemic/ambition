@@ -141,7 +141,8 @@ fn gate_stack_reveal_script() -> ae::CutsceneScript {
             },
             ae::CutsceneBeat::Dialogue {
                 speaker: "PA".into(),
-                text: "Gate Six delayed. Shark traffic. Please declare all impossible luggage.".into(),
+                text: "Gate Six delayed. Shark traffic. Please declare all impossible luggage."
+                    .into(),
             },
             ae::CutsceneBeat::SetFlag {
                 id: "gate_stack_reveal_seen".into(),

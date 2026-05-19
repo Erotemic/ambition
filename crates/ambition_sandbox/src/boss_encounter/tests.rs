@@ -60,7 +60,10 @@ fn mockingbird_profile_registers_and_links() {
     registry.link_runtime(MOCKINGBIRD_ENCOUNTER_ID, "MockingbirdSpawn-0");
     assert!(registry.profiles.contains_key(MOCKINGBIRD_ENCOUNTER_ID));
     assert_eq!(
-        registry.runtime_ids.get(MOCKINGBIRD_ENCOUNTER_ID).map(|s| s.as_str()),
+        registry
+            .runtime_ids
+            .get(MOCKINGBIRD_ENCOUNTER_ID)
+            .map(|s| s.as_str()),
         Some("MockingbirdSpawn-0")
     );
 }

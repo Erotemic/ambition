@@ -141,7 +141,8 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
 /// running a downward sweep against each subset of square_arena blocks.
 #[test]
 fn locate_teleport_target_block() {
-    let project = sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project =
+        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let report = project.validate();
     if !report.is_ok() {
         panic!("validation failed");
@@ -201,7 +202,8 @@ fn locate_teleport_target_block() {
 /// precise live `real_dt` from the trace.
 #[test]
 fn square_arena_wall_cling_full_world_does_not_teleport() {
-    let project = sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project =
+        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let report = project.validate();
     if !report.is_ok() {
         panic!("validation failed");
@@ -215,11 +217,7 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
     let world = arena.world.clone();
     let platforms = arena.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
-    let augmented = sb::features::world_with_sandbox_solids(
-        &world,
-        &platforms,
-        &ecs_overlay,
-    );
+    let augmented = sb::features::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
 
     let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
     // EXACT live state from frame 1087 of trace 1777905256-095151097-000000.
@@ -272,7 +270,8 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
 /// wall-cling before the teleport — maybe the bug needs accumulation.
 #[test]
 fn square_arena_wall_cling_full_world_steps_many_times() {
-    let project = sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+    let project =
+        sb::ldtk_world::LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     let report = project.validate();
     if !report.is_ok() {
         panic!("validation failed");
@@ -286,11 +285,7 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
     let world = arena.world.clone();
     let platforms = arena.moving_platforms.clone();
     let ecs_overlay = sb::features::FeatureEcsWorldOverlay::default();
-    let augmented = sb::features::world_with_sandbox_solids(
-        &world,
-        &platforms,
-        &ecs_overlay,
-    );
+    let augmented = sb::features::world_with_sandbox_solids(&world, &platforms, &ecs_overlay);
 
     let mut player = Player::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
     player.pos = ae::Vec2::new(62.0, 1567.9125);

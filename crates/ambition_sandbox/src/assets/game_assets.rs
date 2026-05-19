@@ -38,8 +38,8 @@ use ambition_asset_manager::{
 };
 
 use crate::boss_encounter::sprites::{self, BossSpriteAsset};
-use crate::presentation::character_sprites::{self, CharacterSpriteAssets};
 use crate::features::FeatureVisualKind;
+use crate::presentation::character_sprites::{self, CharacterSpriteAssets};
 use crate::rooms::{LoadingZoneActivation, RoomMetadata};
 
 /// Pick a sensible default [`AssetProfile`] for the current build target.
@@ -971,7 +971,10 @@ mod tests {
                 id.as_str().starts_with("sprite.entity."),
                 "{sprite:?} id `{id}` not in sprite.entity.* namespace",
             );
-            assert!(seen.insert(id.clone()), "duplicate asset id for {sprite:?}: `{id}`");
+            assert!(
+                seen.insert(id.clone()),
+                "duplicate asset id for {sprite:?}: `{id}`"
+            );
         }
         // Lock the chest_closed variant by name so refactors that
         // change the snake_case scheme don't go unnoticed.
@@ -1022,7 +1025,10 @@ mod tests {
             let entry = manifest
                 .get(&id)
                 .unwrap_or_else(|| panic!("manifest missing {sprite:?}"));
-            assert!(matches!(entry.kind, ambition_asset_manager::AssetKind::Image));
+            assert!(matches!(
+                entry.kind,
+                ambition_asset_manager::AssetKind::Image
+            ));
         }
         for &theme in ParallaxTheme::ALL {
             for &layer in ParallaxLayerAsset::ALL {
@@ -1030,7 +1036,10 @@ mod tests {
                 let entry = manifest
                     .get(&id)
                     .unwrap_or_else(|| panic!("manifest missing {theme:?}/{layer:?}"));
-                assert!(matches!(entry.kind, ambition_asset_manager::AssetKind::Image));
+                assert!(matches!(
+                    entry.kind,
+                    ambition_asset_manager::AssetKind::Image
+                ));
             }
         }
     }
@@ -1060,7 +1069,11 @@ mod tests {
                 let path = catalog
                     .path_for(&id, profile)
                     .unwrap_or_else(|| panic!("desktop catalog missing {theme:?}/{layer:?}"));
-                assert_eq!(path, layer.relative_path(theme), "{theme:?}/{layer:?} path drift");
+                assert_eq!(
+                    path,
+                    layer.relative_path(theme),
+                    "{theme:?}/{layer:?} path drift"
+                );
             }
         }
     }
@@ -1078,7 +1091,10 @@ mod tests {
             .unwrap();
         assert_eq!(
             path,
-            format!("custom_sprites/{}", EntitySprite::ChestClosed.relative_path()),
+            format!(
+                "custom_sprites/{}",
+                EntitySprite::ChestClosed.relative_path()
+            ),
         );
         // Parallax layers don't follow --sprite-folder; verify the
         // override doesn't accidentally remap their path.

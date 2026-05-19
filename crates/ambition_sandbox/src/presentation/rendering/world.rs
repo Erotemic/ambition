@@ -12,12 +12,14 @@ use super::primitives::{
     block_color, feature_color, feature_z, object_visual_kind, spawn_world_label, FeatureVisual,
     LockWallVisual, PropVisual, RoomVisual,
 };
-use crate::presentation::character_sprites::{build_character_sprite, feet_anchor_for, sprite_render_size, CharacterAnimator};
+use crate::assets::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
 use crate::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use crate::features::FeatureVisualKind;
-use crate::assets::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
-use crate::world::physics;
+use crate::presentation::character_sprites::{
+    build_character_sprite, feet_anchor_for, sprite_render_size, CharacterAnimator,
+};
 use crate::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
+use crate::world::physics;
 
 pub fn spawn_room_visuals(
     commands: &mut Commands,

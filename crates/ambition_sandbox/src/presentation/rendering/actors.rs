@@ -11,14 +11,16 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
+use crate::assets::game_assets::{self, EntitySprite, GameAssets};
 use crate::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
-use crate::presentation::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
     ActorRuntime, BossFeature, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
     FeatureVisualKind, Opened,
 };
-use crate::assets::game_assets::{self, EntitySprite, GameAssets};
+use crate::presentation::character_sprites::{
+    build_character_sprite, feet_anchor_for, CharacterAnimator,
+};
 
 pub fn sync_visuals(
     world: Res<crate::GameWorld>,
@@ -340,8 +342,9 @@ pub fn animate_player(
     // wires the player ProperTimeScale path so future MP regimes
     // can boost the player's cognitive rate without slowing the
     // world for other observers.
-    let index = animator
-        .tick(world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(scale)));
+    let index = animator.tick(world_time.entity_dt(
+        crate::time::time_control::ProperTimeScale::or_default(scale),
+    ));
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
@@ -392,7 +395,9 @@ pub fn animate_characters(
     // boss freezes the world but leaves the player un-frozen, or
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale) in &mut query {
-        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(scale));
+        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(
+            scale,
+        ));
         let (anim, facing, hit_flash, attacking) = if let Some(state) =
             crate::features::ecs_enemy_anim_state(&visual.id, &ecs_actors)
         {
@@ -481,7 +486,9 @@ pub fn animate_props(
             }
             continue;
         }
-        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(scale));
+        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(
+            scale,
+        ));
         animator.request(crate::presentation::character_sprites::CharacterAnim::Idle);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {
@@ -589,7 +596,9 @@ pub fn animate_bosses(
     // own animation while the world is frozen by its SimClock
     // request.
     for (visual, mut sprite, mut animator, scale) in &mut query {
-        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(scale));
+        let dt = world_time.entity_dt(crate::time::time_control::ProperTimeScale::or_default(
+            scale,
+        ));
         let Some(state): Option<BossAnimState> =
             crate::features::ecs_boss_anim_state(&visual.id, &ecs_bosses)
         else {

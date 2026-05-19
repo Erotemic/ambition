@@ -137,11 +137,8 @@ pub fn record_frame_system(
     let locomotion = locomotion_state.label().to_string();
     let body_mode = body_mode_state.label().to_string();
 
-    let augmented_world = crate::features::world_with_sandbox_solids(
-        &world.0,
-        &platform_set.0,
-        &feature_ecs_overlay,
-    );
+    let augmented_world =
+        crate::features::world_with_sandbox_solids(&world.0, &platform_set.0, &feature_ecs_overlay);
 
     // Synthesize events from the diff before pushing the frame so the
     // event tick aligns with the frame the user will see in the dump.

@@ -81,7 +81,8 @@ fn embedded_surface_like_entities_lower_through_surface_model() {
                     continue;
                 }
                 surface_count += 1;
-                let name = field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
+                let name =
+                    field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
                 let spec = parse_surface_spec(
                     entity,
                     ae::Vec2::ZERO,
@@ -1065,9 +1066,12 @@ fn damage_volume_path_id_resolves_through_room_spec_kinematic_paths() {
         .expect("room should exist");
     let room = room.clone();
     let mut app = bevy::prelude::App::new();
-    app.add_systems(bevy::prelude::Update, move |mut commands: bevy::prelude::Commands| {
-        crate::features::spawn_room_feature_entities(&mut commands, &room);
-    });
+    app.add_systems(
+        bevy::prelude::Update,
+        move |mut commands: bevy::prelude::Commands| {
+            crate::features::spawn_room_feature_entities(&mut commands, &room);
+        },
+    );
     app.update();
     let world = app.world_mut();
     let mut query = world.query::<&crate::features::HazardFeature>();
@@ -1746,7 +1750,8 @@ fn intro_props_do_not_grow_interactables() {
                      ({:.1}, {:.1}); the dedicated Prop entity should NOT emit \
                      an Interactable. Either the migration regressed, or a new \
                      NPC was placed exactly on top of a prop.",
-                    prop_pos.x, prop_pos.y,
+                    prop_pos.x,
+                    prop_pos.y,
                 );
             }
         }

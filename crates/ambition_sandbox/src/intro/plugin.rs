@@ -18,10 +18,10 @@
 
 use bevy::prelude::*;
 
+use crate::assets::game_assets::{GameAssetConfig, GameAssets};
 use crate::content::banter::CombatBanterRegistry;
 use crate::presentation::character_sprites::{build_npc_sprite_asset, build_prop_sprite_asset};
 use crate::presentation::cutscene::{CutsceneLibrary, RoomCutsceneBindings};
-use crate::assets::game_assets::{GameAssetConfig, GameAssets};
 use crate::rooms::PortalRegistry;
 
 use super::banter::install_intro_banter;
@@ -180,13 +180,8 @@ pub(crate) fn load_intro_npc_sprites_system(
     }
     // `GameAssets` is inserted by `setup_presentation_system` partway
     // through startup. Wait for it before installing intro sprites.
-    let (
-        Some(config),
-        Some(asset_server),
-        Some(mut layouts),
-        Some(mut game_assets),
-        Some(catalog),
-    ) = (config, asset_server, layouts, game_assets, catalog)
+    let (Some(config), Some(asset_server), Some(mut layouts), Some(mut game_assets), Some(catalog)) =
+        (config, asset_server, layouts, game_assets, catalog)
     else {
         return;
     };
@@ -231,13 +226,8 @@ pub(crate) fn load_intro_prop_sprites_system(
     if installed.0 {
         return;
     }
-    let (
-        Some(config),
-        Some(asset_server),
-        Some(mut layouts),
-        Some(mut game_assets),
-        Some(catalog),
-    ) = (config, asset_server, layouts, game_assets, catalog)
+    let (Some(config), Some(asset_server), Some(mut layouts), Some(mut game_assets), Some(catalog)) =
+        (config, asset_server, layouts, game_assets, catalog)
     else {
         return;
     };
@@ -253,7 +243,10 @@ pub(crate) fn load_intro_prop_sprites_system(
         if let Some(asset) =
             build_prop_sprite_asset(&catalog, &asset_server, &mut layouts, &id, *spec)
         {
-            game_assets.characters.props.insert((*kind).to_string(), asset);
+            game_assets
+                .characters
+                .props
+                .insert((*kind).to_string(), asset);
         } else {
             eprintln!(
                 "[intro] Prop sheet '{kind}' (catalog id {id}) not loadable under {} \

@@ -271,7 +271,8 @@ fn register_player_input_systems(app: &mut App) {
             // suspended fallback above.
             crate::time::time_control::emit_player_time_intent_system.run_if(gameplay_allowed),
             crate::time::time_control::apply_clock_scale_requests.run_if(gameplay_allowed),
-            crate::time::time_control::smooth_sim_clock_toward_target_system.run_if(gameplay_allowed),
+            crate::time::time_control::smooth_sim_clock_toward_target_system
+                .run_if(gameplay_allowed),
             // Unconditional: snapshot whichever path (suspended-zero
             // or gameplay-smoothed) wrote `SandboxSimState::time_scale`
             // this frame into `WorldTime` for downstream readers.
@@ -930,7 +931,10 @@ fn install_player_visual_systems(app: &mut App) {
         // frame from `PlayerBody.shielding` and `PlayerBody.parrying`.
         // Must run after `write_player_ecs_components` so `PlayerBody`
         // is current.
-        .add_systems(Startup, crate::player::bubble_shield::build_bubble_shield_sprite)
+        .add_systems(
+            Startup,
+            crate::player::bubble_shield::build_bubble_shield_sprite,
+        )
         .add_systems(
             Update,
             (

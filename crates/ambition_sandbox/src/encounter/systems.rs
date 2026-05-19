@@ -119,15 +119,20 @@ pub fn update_encounters_from_world(
         &crate::features::FeatureId,
         &crate::features::ActorCombatState,
     )>,
-    reward_chests: Query<(
-        Entity,
-        &crate::features::EncounterRewardChest,
-        &crate::features::FeatureId,
-        Option<&crate::features::Opened>,
-    ), With<crate::features::ChestFeature>>,
+    reward_chests: Query<
+        (
+            Entity,
+            &crate::features::EncounterRewardChest,
+            &crate::features::FeatureId,
+            Option<&crate::features::Opened>,
+        ),
+        With<crate::features::ChestFeature>,
+    >,
 ) {
     let active_area = room_set.active_spec().id.clone();
-    let Ok(body) = player_body_q.single() else { return; };
+    let Ok(body) = player_body_q.single() else {
+        return;
+    };
     let player_pos = body.pos;
     let player_size = body.size;
     // Sim clock: encounter trigger / cancellation timers freeze in

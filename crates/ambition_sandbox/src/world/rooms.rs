@@ -18,10 +18,9 @@ mod tests;
 
 pub use spawn::validated_spawn;
 pub use systems::{
-    hide_portal_loading_zone_visuals, sync_active_room_metadata,
-    sync_portal_ring_rotation_system, sync_portal_sprite_animation,
-    sync_portal_sprite_visibility, sync_room_music_request, tick_portal_phases_system,
-    PortalSprite,
+    hide_portal_loading_zone_visuals, sync_active_room_metadata, sync_portal_ring_rotation_system,
+    sync_portal_sprite_animation, sync_portal_sprite_visibility, sync_room_music_request,
+    tick_portal_phases_system, PortalSprite,
 };
 
 /// How a loading zone should be activated.
@@ -225,8 +224,7 @@ pub fn tick_portal_phase(phase: &mut PortalPhase, switch_on: bool, dt: f32) {
                 // Interrupted mid-open — start closing from the same
                 // visual progress (so the player sees a smooth reverse,
                 // not a snap back to fully-open).
-                let opened_frac =
-                    (*elapsed / PORTAL_OPENING_DURATION_SECS).clamp(0.0, 1.0);
+                let opened_frac = (*elapsed / PORTAL_OPENING_DURATION_SECS).clamp(0.0, 1.0);
                 *phase = PortalPhase::Closing {
                     elapsed: PORTAL_CLOSING_DURATION_SECS * (1.0 - opened_frac),
                 };
@@ -242,8 +240,7 @@ pub fn tick_portal_phase(phase: &mut PortalPhase, switch_on: bool, dt: f32) {
         PortalPhase::Closing { elapsed } => {
             *elapsed += dt;
             if switch_on {
-                let closed_frac =
-                    (*elapsed / PORTAL_CLOSING_DURATION_SECS).clamp(0.0, 1.0);
+                let closed_frac = (*elapsed / PORTAL_CLOSING_DURATION_SECS).clamp(0.0, 1.0);
                 *phase = PortalPhase::Opening {
                     elapsed: PORTAL_OPENING_DURATION_SECS * (1.0 - closed_frac),
                 };
@@ -565,7 +562,10 @@ pub struct RoomTransitionRequested {
 
 impl RoomTransitionRequested {
     pub fn new(transition: RoomTransition, zone_sfx: Option<ambition_sfx::SfxId>) -> Self {
-        Self { transition, zone_sfx }
+        Self {
+            transition,
+            zone_sfx,
+        }
     }
 }
 

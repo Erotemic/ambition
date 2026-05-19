@@ -15,13 +15,13 @@ use crate::features::{
     self, DamageEvent as FeatureDamageEvent, FeatureEcsWorldOverlay, GameplayBanner,
     PlayerDamageEvent, PogoBounceEvent,
 };
-use crate::time::feel::SandboxFeelTuning;
-use crate::presentation::fx::VfxMessage;
 use crate::input::ControlFrame;
+use crate::presentation::fx::VfxMessage;
 use crate::rooms::{LoadingZoneActivation, PortalRegistry, RoomSet, RoomTransitionRequested};
+use crate::time::feel::SandboxFeelTuning;
 use crate::{
-    CurrentPlayerAttack, GameWorld, MovingPlatformSet, PlayerDiedMessage, SandboxSimState,
-    SafePositionContext,
+    CurrentPlayerAttack, GameWorld, MovingPlatformSet, PlayerDiedMessage, SafePositionContext,
+    SandboxSimState,
 };
 
 /// Push live ability-flag and movement-tuning edits from the dev-tools
@@ -165,11 +165,8 @@ pub fn interaction_input_system(
     } else {
         control_frame.interact_pressed || door_double_tap_up
     };
-    let _live = interaction.buffered_interact(
-        raw_interact_pressed,
-        frame_dt,
-        feel.interaction_buffer_time,
-    );
+    let _live =
+        interaction.buffered_interact(raw_interact_pressed, frame_dt, feel.interaction_buffer_time);
 }
 
 /// Detect a player-pressed reset (the Reset button / `controls.reset_pressed`)
@@ -456,11 +453,8 @@ pub fn apply_player_damage_system(
         &mut combat,
     );
 
-    let safe_world = features::world_with_sandbox_solids(
-        &world.0,
-        &moving_platforms.0,
-        &feature_ecs_overlay,
-    );
+    let safe_world =
+        features::world_with_sandbox_solids(&world.0, &moving_platforms.0, &feature_ecs_overlay);
     let ctx = SafePositionContext {
         damaged_this_frame: feature_damaged_player,
         in_hitstun: combat.hitstun_timer > 0.0,

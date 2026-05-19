@@ -98,18 +98,15 @@ fn sandbox_simulation_plugin_spawns_exactly_one_player() {
 #[test]
 fn player_entity_carries_canonical_sim_components() {
     let mut app = minimal_sim_app();
-    let mut q = app.world_mut().query_filtered::<
-        (
-            &PlayerMovementAuthority,
-            &PlayerBody,
-            &PlayerHealth,
-            &PlayerCombatState,
-            &PlayerAnimState,
-            &PlayerInteractionState,
-            &PlayerBlinkCameraState,
-        ),
-        With<PlayerEntity>,
-    >();
+    let mut q = app.world_mut().query_filtered::<(
+        &PlayerMovementAuthority,
+        &PlayerBody,
+        &PlayerHealth,
+        &PlayerCombatState,
+        &PlayerAnimState,
+        &PlayerInteractionState,
+        &PlayerBlinkCameraState,
+    ), With<PlayerEntity>>();
     let row = q
         .single(app.world())
         .expect("player entity should carry every PlayerSimulationBundle component");
@@ -149,7 +146,9 @@ fn default_player_carries_identity_components() {
     assert!(primary.is_some(), "default player must be PrimaryPlayer");
     assert!(local.is_some(), "default player must be LocalPlayer");
 
-    let mut primary_q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
+    let mut primary_q = app
+        .world_mut()
+        .query_filtered::<Entity, With<PrimaryPlayer>>();
     assert_eq!(
         primary_q.iter(app.world()).count(),
         1,
@@ -189,7 +188,9 @@ fn second_player_entity_spawns_with_unique_slot_and_no_extra_primary() {
     assert_eq!(slots, vec![0, 1], "expected slots [0, 1], got {slots:?}");
 
     // Exactly one PrimaryPlayer must remain.
-    let mut primary_q = app.world_mut().query_filtered::<Entity, With<PrimaryPlayer>>();
+    let mut primary_q = app
+        .world_mut()
+        .query_filtered::<Entity, With<PrimaryPlayer>>();
     assert_eq!(
         primary_q.iter(app.world()).count(),
         1,
@@ -208,7 +209,9 @@ fn sandbox_simulation_plugin_advances_ticks_without_presentation() {
         app.update();
     }
     // Player still exists and is alive.
-    let mut q = app.world_mut().query_filtered::<&PlayerHealth, With<PlayerEntity>>();
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&PlayerHealth, With<PlayerEntity>>();
     let health = q
         .single(app.world())
         .expect("player must survive multiple idle ticks");
@@ -238,10 +241,9 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_sandbox_update() {
     // is the only thing that integrates gravity / friction in our minimal
     // App, so a no-tick frame leaves the position pinned.
     let baseline_pos = {
-        let mut q = app.world_mut().query_filtered::<
-            &PlayerMovementAuthority,
-            With<PlayerEntity>,
-        >();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&PlayerMovementAuthority, With<PlayerEntity>>();
         q.single(app.world())
             .expect("player should exist")
             .player
@@ -266,10 +268,9 @@ fn non_gameplay_mode_zeroes_time_scale_and_skips_sandbox_update() {
     // And the player must not have integrated any physics — proves
     // sandbox_update's `update_player_simulation` did not run.
     let paused_pos = {
-        let mut q = app.world_mut().query_filtered::<
-            &PlayerMovementAuthority,
-            With<PlayerEntity>,
-        >();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&PlayerMovementAuthority, With<PlayerEntity>>();
         q.single(app.world())
             .expect("player should exist")
             .player

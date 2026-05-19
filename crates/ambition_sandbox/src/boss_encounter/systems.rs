@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use ambition_engine as ae;
 use bevy::prelude::*;
 
-use crate::presentation::cutscene::CutsceneTriggerQueue;
 use crate::content::quest::QuestRegistry;
+use crate::presentation::cutscene::CutsceneTriggerQueue;
 
 use super::{
     default_boss_profiles, encounter_id_from_name, events::publish_events, BossEncounterRegistry,
@@ -50,14 +50,23 @@ pub fn update_boss_encounters(
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
     room_set: Res<crate::rooms::RoomSet>,
     world: Res<crate::GameWorld>,
-    reward_chests: Query<(
-        Entity,
-        &crate::features::BossRewardChest,
-        &crate::features::FeatureId,
-        Option<&crate::features::Opened>,
-        Option<&crate::features::FallingChest>,
-    ), With<crate::features::ChestFeature>>,
-    mut bosses: Query<(&crate::features::FeatureId, &mut crate::features::BossFeature), With<crate::features::FeatureSimEntity>>,
+    reward_chests: Query<
+        (
+            Entity,
+            &crate::features::BossRewardChest,
+            &crate::features::FeatureId,
+            Option<&crate::features::Opened>,
+            Option<&crate::features::FallingChest>,
+        ),
+        With<crate::features::ChestFeature>,
+    >,
+    mut bosses: Query<
+        (
+            &crate::features::FeatureId,
+            &mut crate::features::BossFeature,
+        ),
+        With<crate::features::FeatureSimEntity>,
+    >,
 ) {
     // Sim clock: encounter pacing (intro / phase-change timers,
     // reward grace) freezes alongside the player in bullet-time

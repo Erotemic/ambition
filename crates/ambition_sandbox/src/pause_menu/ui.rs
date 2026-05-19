@@ -539,16 +539,16 @@ pub fn sync_settings_panel_rows(
                 rows.len(),
                 SETTINGS_VISIBLE_ROWS,
                 &user_settings,
-                |slot_index, settings| item_for_slot(slot_index).map(|(_, item)| {
-                    RowRender {
+                |slot_index, settings| {
+                    item_for_slot(slot_index).map(|(_, item)| RowRender {
                         label: cursor.decorate_visible_label(
                             item.label_with_dev(settings, dev),
                             item_for_slot(slot_index).unwrap().0,
                             SETTINGS_VISIBLE_ROWS,
                         ),
                         slider: item.normalized_value(settings),
-                    }
-                }),
+                    })
+                },
                 &cursor,
                 &mut row_slots,
                 &mut row_labels,
@@ -720,10 +720,9 @@ fn apply_visible_rows<F>(
         let render = renders.get(&slot.index).and_then(|r| r.as_ref());
         if render.is_some() {
             show_row_slot(&mut node, &mut vis);
-            let is_selected =
-                row_index_for_slot_in_cursor(_cursor, slot.index, _visible_rows)
-                    .map(|i| i == selected)
-                    .unwrap_or(false);
+            let is_selected = row_index_for_slot_in_cursor(_cursor, slot.index, _visible_rows)
+                .map(|i| i == selected)
+                .unwrap_or(false);
             apply_slot_bg(&mut bg, is_selected);
         } else {
             hide_row_slot(&mut node, &mut vis);
@@ -734,9 +733,10 @@ fn apply_visible_rows<F>(
         let render = renders.get(&label_marker.index).and_then(|r| r.as_ref());
         if let Some(render) = render {
             **text = render.label.clone();
-            let is_selected = row_index_for_slot_in_cursor(_cursor, label_marker.index, _visible_rows)
-                .map(|i| i == selected)
-                .unwrap_or(false);
+            let is_selected =
+                row_index_for_slot_in_cursor(_cursor, label_marker.index, _visible_rows)
+                    .map(|i| i == selected)
+                    .unwrap_or(false);
             apply_label_color(&mut color, is_selected);
         } else {
             text.clear();
@@ -909,7 +909,11 @@ pub fn settings_slider_drag_input(
     mut state: ResMut<PauseMenuState>,
     mut user_settings: ResMut<UserSettings>,
     sliders: Query<
-        (&SettingsRowSliderTrack, &Interaction, &bevy::ui::RelativeCursorPosition),
+        (
+            &SettingsRowSliderTrack,
+            &Interaction,
+            &bevy::ui::RelativeCursorPosition,
+        ),
         Changed<bevy::ui::RelativeCursorPosition>,
     >,
 ) {

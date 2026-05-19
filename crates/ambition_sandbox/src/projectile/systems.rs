@@ -9,11 +9,11 @@ use super::diagnostics::log_press_diagnostics;
 use super::state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent};
 use crate::audio::SfxMessage;
 use crate::features::{
-    ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, DamageEvent, DamageSource, FeatureAabb,
-    FeatureId, FeatureSimEntity,
+    ActorCombatState, ActorDisposition, BossFeature, BreakableFeature, DamageEvent, DamageSource,
+    FeatureAabb, FeatureId, FeatureSimEntity,
 };
-use crate::presentation::fx::VfxMessage;
 use crate::input::ControlFrame;
+use crate::presentation::fx::VfxMessage;
 use crate::trace::GameplayTraceBuffer;
 use crate::GameWorld;
 
@@ -27,12 +27,15 @@ pub fn update_projectiles(
     mut trace: ResMut<GameplayTraceBuffer>,
     mut feature_damage: MessageWriter<DamageEvent>,
     ecs_breakables: Query<(&FeatureId, &FeatureAabb, &BreakableFeature), With<FeatureSimEntity>>,
-    ecs_actors: Query<(
-        &FeatureId,
-        &FeatureAabb,
-        &ActorDisposition,
-        &ActorCombatState,
-    ), With<FeatureSimEntity>>,
+    ecs_actors: Query<
+        (
+            &FeatureId,
+            &FeatureAabb,
+            &ActorDisposition,
+            &ActorCombatState,
+        ),
+        With<FeatureSimEntity>,
+    >,
     ecs_bosses: Query<(&FeatureId, &FeatureAabb, &BossFeature), With<FeatureSimEntity>>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -75,18 +78,11 @@ pub fn update_projectiles(
             source: DamageSource::PlayerProjectile { kind: p.body.kind },
             ignored_targets: Vec::new(),
         };
-        let ecs_breakable_hit = crate::features::ecs_damage_event_hits_breakable(
-            &damage_event,
-            &ecs_breakables,
-        );
-        let ecs_actor_hit = crate::features::ecs_damage_event_hits_actor(
-            &damage_event,
-            &ecs_actors,
-        );
-        let ecs_boss_hit = crate::features::ecs_damage_event_hits_boss(
-            &damage_event,
-            &ecs_bosses,
-        );
+        let ecs_breakable_hit =
+            crate::features::ecs_damage_event_hits_breakable(&damage_event, &ecs_breakables);
+        let ecs_actor_hit =
+            crate::features::ecs_damage_event_hits_actor(&damage_event, &ecs_actors);
+        let ecs_boss_hit = crate::features::ecs_damage_event_hits_boss(&damage_event, &ecs_bosses);
         feature_damage.write(damage_event.clone());
         if ecs_breakable_hit || ecs_actor_hit || ecs_boss_hit {
             sfx.write(SfxMessage::Hit { pos: p.body.pos });
@@ -161,7 +157,9 @@ pub fn update_projectiles(
     }
     state.bodies = still_alive;
 
-    let Ok(body) = player_body_q.single() else { return; };
+    let Ok(body) = player_body_q.single() else {
+        return;
+    };
     let facing = if body.facing.abs() < f32::EPSILON {
         1.0
     } else {

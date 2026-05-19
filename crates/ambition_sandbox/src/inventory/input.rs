@@ -46,9 +46,7 @@ pub fn inventory_input(
     }
 
     match state.tab {
-        InventoryTab::Items => {
-            handle_item_tab_input(&menu, &mut state, &mut inventory, &mut heals)
-        }
+        InventoryTab::Items => handle_item_tab_input(&menu, &mut state, &mut inventory, &mut heals),
         InventoryTab::Map | InventoryTab::Quests => handle_text_tab_input(&menu, &mut state),
     }
 }

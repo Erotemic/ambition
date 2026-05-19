@@ -42,12 +42,14 @@ use bevy_material_ui::MaterialUiPlugin;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::{ActionState, InputManagerPlugin, InputMap};
 
+use crate::assets::game_assets::{self, GameAssetConfig};
+use crate::assets::loading;
 use crate::audio::SfxMessage;
 #[cfg(feature = "audio")]
 use crate::audio::{
     apply_audio_environment, audio_play_sfx_messages, detect_audio_environment,
-    smooth_audio_environment, start_default_music_when_ready, AudioEnvironment, DefaultMusicStarted,
-    MusicChannel, SfxChannel,
+    smooth_audio_environment, start_default_music_when_ready, AudioEnvironment,
+    DefaultMusicStarted, MusicChannel, SfxChannel,
 };
 use crate::config::{WINDOW_H, WINDOW_W};
 use crate::content::content_validation;
@@ -59,10 +61,8 @@ use crate::dev::dev_tools::{
 };
 use crate::dialog;
 use crate::features;
-use crate::time::feel::SandboxFeelTuning;
-use crate::presentation::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
-use crate::assets::game_assets::{self, GameAssetConfig};
 use crate::game_mode::{gameplay_allowed, gameplay_suspended, GameMode};
+use crate::host::windowing;
 #[cfg(feature = "input")]
 use crate::input::SandboxAction;
 use crate::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
@@ -70,21 +70,21 @@ use crate::input::{ControlFrame, MenuControlFrame, GAMEPAD_MAP};
 use crate::input::{MenuInputState, PlayerDashTriggerState};
 use crate::inventory;
 use crate::ldtk_world;
-use crate::assets::loading;
 use crate::pause_menu;
-#[cfg(feature = "physics_debris")]
-use crate::world::physics::physics_spawn_debris_messages;
-use crate::world::physics::{self, DebrisBurstMessage};
-use crate::world::platforms;
+use crate::presentation::fx::{self, vfx_spawn_messages, ParticleKind, VfxMessage};
 use crate::presentation::rendering::{
     animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
     sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,
     PlayerVisual, RoomScopedEntity, SceneEntities,
 };
+use crate::presentation::ui_fonts;
 use crate::rooms;
 use crate::runtime::setup;
-use crate::presentation::ui_fonts;
-use crate::host::windowing;
+use crate::time::feel::SandboxFeelTuning;
+#[cfg(feature = "physics_debris")]
+use crate::world::physics::physics_spawn_debris_messages;
+use crate::world::physics::{self, DebrisBurstMessage};
+use crate::world::platforms;
 use crate::{GameWorld, PlayerDiedMessage, SandboxDevState};
 
 mod cli;
@@ -113,16 +113,15 @@ pub use input_systems::{
     populate_menu_control_frame_from_actions,
 };
 pub use plugins::{
-    add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins,
-    SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin,
+    add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, SandboxLdtkPlugin,
+    SandboxPresentationPlugin, SandboxSimulationPlugin,
 };
 pub use resources::{init_sandbox_resources, StartRoomOverride};
 pub use schedule::{configure_sandbox_sets, SandboxSet};
 pub use sim_systems::{
-    apply_player_damage_system, apply_player_reset_input_system,
-    apply_suspended_time_scale_system, attack_advance_system, cleanup_timers_system,
-    detect_room_transition_system, input_timer_system, interaction_input_system,
-    sync_live_player_dev_edits_system,
+    apply_player_damage_system, apply_player_reset_input_system, apply_suspended_time_scale_system,
+    attack_advance_system, cleanup_timers_system, detect_room_transition_system,
+    input_timer_system, interaction_input_system, sync_live_player_dev_edits_system,
 };
 pub use update::sandbox_update;
 pub use world_flow::apply_room_transition_system;

@@ -465,7 +465,10 @@ fn map_tab_text(
     lines.join("\n")
 }
 
-fn quest_tab_text(state: &InventoryUiState, quests: &crate::content::quest::QuestRegistry) -> String {
+fn quest_tab_text(
+    state: &InventoryUiState,
+    quests: &crate::content::quest::QuestRegistry,
+) -> String {
     let lines = quests.quest_log_lines();
     if lines.is_empty() {
         return "No active quests.".into();

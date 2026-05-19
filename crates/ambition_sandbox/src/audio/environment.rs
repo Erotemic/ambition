@@ -152,10 +152,7 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 #[cfg(feature = "audio")]
 pub fn detect_audio_environment(
     mut env: ResMut<AudioEnvironment>,
-    primary: Query<
-        &crate::player::PlayerMovementAuthority,
-        With<crate::player::PrimaryPlayer>,
-    >,
+    primary: Query<&crate::player::PlayerMovementAuthority, With<crate::player::PrimaryPlayer>>,
 ) {
     let underwater = primary
         .iter()
@@ -177,10 +174,7 @@ pub fn detect_audio_environment(
 /// (see `WorldTime::wall_dt`) so the underwater transition keeps
 /// moving when the sim is paused or slowed by bullet-time.
 #[cfg(feature = "audio")]
-pub fn smooth_audio_environment(
-    time: Res<crate::WorldTime>,
-    mut env: ResMut<AudioEnvironment>,
-) {
+pub fn smooth_audio_environment(time: Res<crate::WorldTime>, mut env: ResMut<AudioEnvironment>) {
     env.advance(time.wall_dt());
 }
 
@@ -219,8 +213,7 @@ pub fn apply_audio_environment(
     }
     let music_db =
         amplitude_to_decibels(current_settings.effective_music() * env.music_attenuation());
-    let sfx_db =
-        amplitude_to_decibels(current_settings.effective_sfx() * env.sfx_attenuation());
+    let sfx_db = amplitude_to_decibels(current_settings.effective_sfx() * env.sfx_attenuation());
     music_channel.set_volume(music_db);
     sfx_channel.set_volume(sfx_db);
     *last = Some(key);
@@ -267,11 +260,7 @@ mod tests {
         assert!((env.wetness - 0.5).abs() < 1e-5, "got {}", env.wetness);
         // Another quarter → 0.5 + 0.25 = 0.75 (saturating step).
         env.advance(env.transition_secs * 0.25);
-        assert!(
-            ((env.wetness - 0.625).abs() < 1e-5),
-            "got {}",
-            env.wetness
-        );
+        assert!(((env.wetness - 0.625).abs() < 1e-5), "got {}", env.wetness);
     }
 
     #[test]
@@ -366,8 +355,7 @@ mod tests {
             ae::Vec2::new(100.0, 100.0),
             Vec::new(),
         );
-        let mut player =
-            ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
+        let mut player = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
         player.refresh_movement_resources(ae::DEFAULT_TUNING);
         app.world_mut().spawn((
             crate::player::PlayerEntity,
@@ -384,10 +372,7 @@ mod tests {
         );
 
         // Stamp a fully-submerged contact and re-run.
-        let region = ae::aabb_from_min_size(
-            ae::Vec2::new(50.0, 50.0),
-            ae::Vec2::new(100.0, 150.0),
-        );
+        let region = ae::aabb_from_min_size(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(100.0, 150.0));
         let contact = ae::WaterContact {
             kind: ae::WaterKind::Clear,
             region_aabb: region,

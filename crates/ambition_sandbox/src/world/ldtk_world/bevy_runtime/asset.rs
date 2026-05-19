@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 
 use bevy::asset::{AssetServer, Handle};
-use bevy::prelude::{
-    Commands, Component, Query, Res, ResMut, Resource, Transform, Vec3, With,
-};
+use bevy::prelude::{Commands, Component, Query, Res, ResMut, Resource, Transform, Vec3, With};
 use bevy_ecs_ldtk::prelude::LevelSet;
 
 use crate::config::WORLD_Z_BLOCK;
@@ -31,7 +29,9 @@ pub fn load_ldtk_asset_handle(mut commands: Commands, asset_server: Res<AssetSer
     // Secondary intro LDtk asset. Co-located in the same Bevy asset
     // directory; bevy_ecs_ldtk loads it independently so each file's
     // LdtkWorldBundle can render its own levels.
-    commands.insert_resource(IntroLdtkAsset(asset_server.load("ambition/worlds/intro.ldtk")));
+    commands.insert_resource(IntroLdtkAsset(
+        asset_server.load("ambition/worlds/intro.ldtk"),
+    ));
 }
 
 /// Marker for the main sandbox LDtk world root entity. The sandbox

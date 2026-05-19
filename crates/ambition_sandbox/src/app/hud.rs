@@ -147,7 +147,8 @@ pub(super) fn update_hud(
                 camera_view_line
             )
         });
-    let Ok((hud_body, hud_health, hud_combat, hud_authority)) = camera_params.player.single() else {
+    let Ok((hud_body, hud_health, hud_combat, hud_authority)) = camera_params.player.single()
+    else {
         return;
     };
     let feel_line = crate::dev::dev_tools::feel_metrics_summary(

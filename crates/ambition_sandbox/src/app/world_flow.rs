@@ -31,7 +31,6 @@ pub(super) fn sandbox_dt(hitstop_timer: f32, time_scale: f32, frame_dt: f32) -> 
     }
 }
 
-
 pub(super) fn reset_sandbox(
     world: &ae::World,
     sfx: &mut MessageWriter<SfxMessage>,
@@ -149,7 +148,12 @@ pub(super) fn load_room(
     };
     dev_state.preset_flash = 1.0;
 
-    crate::presentation::rendering::spawn_parallax_layers(commands, &world.0, &spec.metadata, assets);
+    crate::presentation::rendering::spawn_parallax_layers(
+        commands,
+        &world.0,
+        &spec.metadata,
+        assets,
+    );
     spawn_room_visuals(
         commands,
         &world.0,
@@ -215,7 +219,8 @@ pub fn apply_room_transition_system(
     mut combat_reset: super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {
-        let Ok((mut authority, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut() else {
+        let Ok((mut authority, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut()
+        else {
             continue;
         };
         // Any enemy volleys still in flight from the previous room
@@ -601,7 +606,16 @@ pub(super) fn handle_player_damage_events(
     }
     match damage.mode {
         features::PlayerDamageMode::SafeRespawn => {
-            safe_respawn_player(sfx, vfx, player, sim_state, combat, tuning, feel, damage.impact_pos);
+            safe_respawn_player(
+                sfx,
+                vfx,
+                player,
+                sim_state,
+                combat,
+                tuning,
+                feel,
+                damage.impact_pos,
+            );
         }
         features::PlayerDamageMode::Knockback => {
             apply_player_knockback(sfx, vfx, player, combat, tuning, feel, damage);
@@ -727,9 +741,7 @@ pub(super) fn start_attack(
     // to the controller. Keep these impulses modest; the engine control path
     // still owns the canonical slash/pogo op + recoil bookkeeping.
     player.vel += spec.self_impulse;
-    if matches!(intent, ae::AttackIntent::AirUp | ae::AttackIntent::Up)
-        && player.vel.y > -40.0
-    {
+    if matches!(intent, ae::AttackIntent::AirUp | ae::AttackIntent::Up) && player.vel.y > -40.0 {
         player.vel.y = -40.0;
     }
     // Force downward commitment ONLY for the aerial down spike. The
@@ -796,11 +808,8 @@ pub(super) fn advance_attack(
         let player_pos = player.pos;
         let mut pogo_landed = false;
         if player.abilities.pogo && attack_state.spec.can_pogo && !attack_state.pogo_applied {
-            let attack_world = features::world_with_sandbox_solids(
-                world,
-                moving_platforms,
-                feature_ecs_overlay,
-            );
+            let attack_world =
+                features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
             if let Some(orb_aabb) = attack_world.blocks.iter().find_map(|block| {
                 let valid_target = matches!(
                     block.kind,

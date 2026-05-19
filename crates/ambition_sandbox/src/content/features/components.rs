@@ -196,7 +196,6 @@ impl SwitchFeature {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SwitchOn(pub bool);
 
-
 /// Actor-specific authored/runtime identity.
 ///
 /// `FeatureId` remains the canonical entity lookup key. This component exposes
@@ -313,9 +312,15 @@ impl ActorCombatState {
 pub struct ActorIntent(pub ae::CharacterAiMode);
 
 impl ActorIntent {
-    pub fn new(mode: ae::CharacterAiMode) -> Self { Self(mode) }
-    pub fn mode(self) -> ae::CharacterAiMode { self.0 }
-    pub fn is_dangerous(self) -> bool { self.0.is_dangerous() }
+    pub fn new(mode: ae::CharacterAiMode) -> Self {
+        Self(mode)
+    }
+    pub fn mode(self) -> ae::CharacterAiMode {
+        self.0
+    }
+    pub fn is_dangerous(self) -> bool {
+        self.0.is_dangerous()
+    }
 }
 
 /// ECS-visible actor cooldown timers. Exposes timing state that rendering and
@@ -458,7 +463,12 @@ pub struct PickupBundle {
 }
 
 impl PickupBundle {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb, pickup: ae::Pickup) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: FeatureAabb,
+        pickup: ae::Pickup,
+    ) -> Self {
         Self {
             base: FeatureBaseBundle::new(id, name, aabb),
             pickup: PickupFeature::new(pickup),
@@ -474,7 +484,12 @@ pub struct ChestBundle {
 }
 
 impl ChestBundle {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: FeatureAabb, chest: ae::Chest) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: FeatureAabb,
+        chest: ae::Chest,
+    ) -> Self {
         Self {
             base: FeatureBaseBundle::new(id, name, aabb),
             chest: ChestFeature::new(chest),
@@ -502,10 +517,8 @@ mod tests {
 
     #[test]
     fn feature_aabb_round_trips_center_and_size() {
-        let feature = FeatureAabb::from_center_size(
-            ae::Vec2::new(10.0, 20.0),
-            ae::Vec2::new(8.0, 6.0),
-        );
+        let feature =
+            FeatureAabb::from_center_size(ae::Vec2::new(10.0, 20.0), ae::Vec2::new(8.0, 6.0));
 
         assert_eq!(feature.center, ae::Vec2::new(10.0, 20.0));
         assert_eq!(feature.half_size, ae::Vec2::new(4.0, 3.0));

@@ -103,13 +103,12 @@ impl LdtkProject {
                         eprintln!(
                             "LDtk warning: {error}; falling back to statically packed sandbox.ldtk"
                         );
-                        let mut project =
-                            Self::load_static_map().map_err(|fallback_error| {
-                                format!(
-                                    "{error}; statically packed sandbox.ldtk also failed: \
+                        let mut project = Self::load_static_map().map_err(|fallback_error| {
+                            format!(
+                                "{error}; statically packed sandbox.ldtk also failed: \
                                      {fallback_error}"
-                                )
-                            })?;
+                            )
+                        })?;
                         merge_static_secondary_worlds(&mut project);
                         return Ok(project);
                     }
@@ -164,10 +163,7 @@ impl LdtkProject {
     /// discovered at startup, then re-merge secondary worlds via the
     /// shared catalog. Catalog is passed by the caller because the
     /// hot-reload system has both resources in hand.
-    pub fn load_from_disk_at(
-        path: &Path,
-        catalog: &SandboxAssetCatalog,
-    ) -> Result<Self, String> {
+    pub fn load_from_disk_at(path: &Path, catalog: &SandboxAssetCatalog) -> Result<Self, String> {
         let mut project = Self::load_from_path(path)?;
         merge_secondary_worlds_via_catalog(&mut project, catalog);
         Ok(project)
@@ -188,10 +184,7 @@ impl LdtkProject {
 /// the sandbox keeps booting. Only `LocalPath` resolutions (desktop
 /// profiles) are read here — embedded/static secondary worlds flow
 /// through [`merge_static_secondary_worlds`].
-fn merge_secondary_worlds_via_catalog(
-    project: &mut LdtkProject,
-    catalog: &SandboxAssetCatalog,
-) {
+fn merge_secondary_worlds_via_catalog(project: &mut LdtkProject, catalog: &SandboxAssetCatalog) {
     for id in secondary_world_ids() {
         let Ok(resolved) = catalog.resolve(&id) else {
             continue;
@@ -226,8 +219,7 @@ fn merge_static_secondary_worlds(project: &mut LdtkProject) {
     // hard-code the intro because there's exactly one secondary
     // file; a build-time codegen pass can replace this when the list
     // grows.
-    const INTRO_LDTK_STATIC: &str =
-        include_str!("../../../assets/ambition/worlds/intro.ldtk");
+    const INTRO_LDTK_STATIC: &str = include_str!("../../../assets/ambition/worlds/intro.ldtk");
     match serde_json::from_str::<LdtkProject>(INTRO_LDTK_STATIC) {
         Ok(secondary) => append_levels(project, secondary, "intro.ldtk"),
         Err(error) => eprintln!(

@@ -191,7 +191,8 @@ mod audio_lifecycle {
                 ch.pause().fade_out(tween);
             }
             if let Some(ch) = sfx.as_deref() {
-                ch.pause().fade_out(AudioTween::linear(Duration::from_millis(40)));
+                ch.pause()
+                    .fade_out(AudioTween::linear(Duration::from_millis(40)));
             }
             bevy::log::info!(
                 target: "ambition::android_lifecycle",
@@ -202,7 +203,8 @@ mod audio_lifecycle {
                 ch.resume().fade_in(tween);
             }
             if let Some(ch) = sfx.as_deref() {
-                ch.resume().fade_in(AudioTween::linear(Duration::from_millis(40)));
+                ch.resume()
+                    .fade_in(AudioTween::linear(Duration::from_millis(40)));
             }
             bevy::log::info!(
                 target: "ambition::android_lifecycle",

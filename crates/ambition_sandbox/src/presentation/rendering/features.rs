@@ -8,12 +8,12 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
+use crate::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 use crate::config::world_to_bevy;
 use crate::features::{
     ActorRuntime, BossRewardChest, ChestFeature, EncounterMob, EncounterRewardChest, FeatureAabb,
     FeatureId, FeatureVisualKind,
 };
-use crate::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 
 /// Spawn `FeatureVisual` entities for dynamically introduced ECS features
 /// that don't have one yet. Static LDtk-derived features get their visuals
@@ -55,7 +55,9 @@ pub fn spawn_dynamic_feature_visuals(
             sprite,
             Transform::from_translation(world_to_bevy(&world.0, aabb.center, feature_z(kind))),
             Name::new(format!("Encounter mob: {}", actor.name())),
-            FeatureVisual { id: id.as_str().to_string() },
+            FeatureVisual {
+                id: id.as_str().to_string(),
+            },
             RoomVisual,
         ));
     }
@@ -83,7 +85,9 @@ pub fn spawn_dynamic_feature_visuals(
                 feature_z(FeatureVisualKind::Chest),
             )),
             Name::new(format!("Reward chest: {}", id.as_str())),
-            FeatureVisual { id: id.as_str().to_string() },
+            FeatureVisual {
+                id: id.as_str().to_string(),
+            },
             RoomVisual,
         ));
     }

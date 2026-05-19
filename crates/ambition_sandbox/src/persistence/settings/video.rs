@@ -266,7 +266,6 @@ impl CameraFramingPreset {
     }
 }
 
-
 /// Whole-screen shader/post-process controls exposed under Video > Shaders.
 ///
 /// The screen shader stack is controlled by independent strengths. A value of

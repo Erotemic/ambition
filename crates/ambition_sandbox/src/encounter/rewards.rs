@@ -1,6 +1,6 @@
 use ambition_engine as ae;
 
-use super::{EncounterSpec};
+use super::EncounterSpec;
 
 /// Save-flag id used to remember whether the player has already opened
 /// (looted) a given encounter's reward chest. Persists across

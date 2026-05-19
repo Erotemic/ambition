@@ -41,7 +41,11 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     // is the placeholder until a dedicated janitor sheet lands —
     // poncho + slightly weary silhouette reads closer than the
     // vested Vault Keeper at this size.
-    ("Gate Janitor", "kernel_guide_spritesheet.png", KERNEL_GUIDE_SHEET),
+    (
+        "Gate Janitor",
+        "kernel_guide_spritesheet.png",
+        KERNEL_GUIDE_SHEET,
+    ),
     // Erdish: optional recurring graph-theory eccentric. Not spawned
     // in the v1 intro slice yet (he lands when a `NpcSpawn` with
     // `name: Erdish` is authored in a later room), but pre-registered
@@ -52,15 +56,27 @@ pub const INTRO_NPC_SPRITE_REGISTRY: &[(&str, &str, CharacterSheetSpec)] = &[
     // earlier goblin placeholder — both intro raid factions wear
     // uniforms; the Framebreaker palette is just a different colorway.
     // TODO(sprites): dedicated framebreaker sheet when art lands.
-    ("Framebreaker", "fascist_enforcer_spritesheet.png", FASCIST_ENFORCER_SHEET),
+    (
+        "Framebreaker",
+        "fascist_enforcer_spritesheet.png",
+        FASCIST_ENFORCER_SHEET,
+    ),
     // Nazi salvage guard. Fascist Enforcer is the correct raid-trooper
     // sheet — the previous Absurd General was a satirical hub NPC, not
     // a uniformed dimension trooper. Officer cap + storm uniform +
     // rifle reads correctly for the basement raid.
-    ("Nazi Salvage Guard", "fascist_enforcer_spritesheet.png", FASCIST_ENFORCER_SHEET),
+    (
+        "Nazi Salvage Guard",
+        "fascist_enforcer_spritesheet.png",
+        FASCIST_ENFORCER_SHEET,
+    ),
     // Manifest clerk: bureaucratic kiosk operator. Architect sheet
     // reads as "person at a podium pointing at things."
-    ("Manifest Clerk", "architect_spritesheet.png", ARCHITECT_SHEET),
+    (
+        "Manifest Clerk",
+        "architect_spritesheet.png",
+        ARCHITECT_SHEET,
+    ),
     // News board: not an animated NPC in the design sense, but the
     // sandbox treats every `NpcSpawn` the same way. Architect sheet
     // is a placeholder; a static kiosk sprite will replace this.
@@ -139,7 +155,10 @@ pub fn intro_prop_sprite_rows() -> &'static [(&'static str, &'static str, Charac
 /// construction (here) + label lookup (over there) must agree on the
 /// snake_case form for every entry in [`INTRO_NPC_SPRITE_REGISTRY`].
 pub fn intro_npc_asset_id(npc_name: &str) -> AssetId {
-    AssetId::new(format!("sprite.character.intro_{}", intro_npc_label(npc_name)))
+    AssetId::new(format!(
+        "sprite.character.intro_{}",
+        intro_npc_label(npc_name)
+    ))
 }
 
 /// Snake_case label slot for an intro NPC name. Pairs with

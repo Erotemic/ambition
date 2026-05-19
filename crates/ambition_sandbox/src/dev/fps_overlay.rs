@@ -123,10 +123,7 @@ fn spawn_fps_overlay(
 /// `sync_fps_overlay_state_from_settings` tick mirrors the change into
 /// `FpsOverlayState`, and `crate::persistence::settings::persistence` autosaves the
 /// new value so the toggle survives a restart.
-fn toggle_fps_overlay_on_f3(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut settings: ResMut<UserSettings>,
-) {
+fn toggle_fps_overlay_on_f3(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<UserSettings>) {
     if keys.just_pressed(KeyCode::F3) {
         settings.video.show_fps = !settings.video.show_fps;
     }

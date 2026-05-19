@@ -11,8 +11,8 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::RoomVisual;
-use crate::config::{WINDOW_H, WINDOW_W};
 use crate::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
+use crate::config::{WINDOW_H, WINDOW_W};
 use crate::rooms::RoomMetadata;
 
 #[derive(Component, Clone, Copy, Debug)]

@@ -556,7 +556,7 @@ pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
     mut player_q: Query<
         &mut crate::player::PlayerMovementAuthority,
-        With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
 ) {
     let desired = developer.player_body_profile.size();
@@ -685,9 +685,9 @@ pub fn sync_player_stats_with_inspector(
     mut snapshot: Local<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
         &mut crate::player::PlayerMovementAuthority,
-        With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
-    mut health_q: Query<&mut crate::player::PlayerHealth, With<crate::player::PlayerEntity>>,
+    mut health_q: Query<&mut crate::player::PlayerHealth, crate::player::PrimaryPlayerOnly>,
 ) {
     if !snapshot.initialized {
         snapshot.health = stats.health;

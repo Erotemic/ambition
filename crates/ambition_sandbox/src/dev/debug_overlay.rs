@@ -81,7 +81,7 @@ pub fn draw_debug_overlay(
             &crate::player::PlayerMovementAuthority,
             Option<&crate::player::PlayerHealth>,
         ),
-        With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
     feature_q: FeatureDebugQueries,
 ) {

@@ -75,7 +75,10 @@ pub fn camera_follow(
     mut view_state: ResMut<CameraViewState>,
     ease_tuning: Res<crate::CameraEaseTuning>,
     mut last_camera_room: Local<Option<String>>,
-    player: Query<(&crate::player::PlayerBody, &crate::player::PlayerBlinkCameraState), With<crate::player::PlayerEntity>>,
+    player: Query<
+        (&crate::player::PlayerBody, &crate::player::PlayerBlinkCameraState),
+        crate::player::PrimaryPlayerOnly,
+    >,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut query: Query<(&mut Transform, &mut Projection), (With<Camera>, Without<PlayerVisual>)>,
 ) {

@@ -17,7 +17,10 @@ pub fn sync_health_overlays(
     dev_state: Res<crate::SandboxDevState>,
     developer_tools: Res<crate::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
-    player: Query<(&crate::player::PlayerBody, &crate::player::PlayerHealth), With<crate::player::PlayerEntity>>,
+    player: Query<
+        (&crate::player::PlayerBody, &crate::player::PlayerHealth),
+        crate::player::PrimaryPlayerOnly,
+    >,
     ecs_breakables: Query<(&FeatureName, &FeatureAabb, &BreakableFeature)>,
     ecs_actors: Query<(
         &FeatureName,

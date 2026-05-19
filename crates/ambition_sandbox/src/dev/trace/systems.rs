@@ -117,7 +117,7 @@ pub fn record_frame_system(
             &crate::player::PlayerMovementAuthority,
             Option<&crate::player::PlayerHealth>,
         ),
-        With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
 ) {
     let Ok((authority, player_health)) = player_q.single() else {

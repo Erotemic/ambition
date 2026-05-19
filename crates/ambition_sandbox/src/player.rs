@@ -26,4 +26,5 @@ pub use components::{
     PlayerPlatformRideState, PlayerSlot, PrimaryPlayer,
 };
 pub use events::{PlayerDamageRequested, PlayerHealRequested};
+pub use queries::{primary_player_entity, sort_players_by_slot, PrimaryPlayerOnly};
 pub use systems::{apply_player_heal_requests, write_player_ecs_components};

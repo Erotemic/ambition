@@ -35,7 +35,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static crate::player::PlayerCombatState,
             &'static crate::player::PlayerMovementAuthority,
         ),
-        bevy::prelude::With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
     ecs_actors: bevy::prelude::Query<
         'w,
@@ -49,10 +49,11 @@ pub(super) struct HudCameraParams<'w, 's> {
     >,
 }
 
-/// **Multiplayer caveat (primary-player-only):** the HUD reads stats
-/// from `HudCameraParams` (which filters on `PlayerEntity`) and assumes
-/// exactly one player exists. A future co-op build needs to either
-/// scope the HUD to `PrimaryPlayer` or render per-`PlayerSlot` panels.
+/// HUD reads stats from `HudCameraParams`, which now filters on
+/// `PrimaryPlayerOnly` (`With<PlayerEntity> + With<PrimaryPlayer>`).
+/// In a future co-op build, the HUD intentionally tracks the primary
+/// player; per-`PlayerSlot` panels would be a separate UI surface
+/// rather than a generalization of this one.
 pub(super) fn update_hud(
     dev_state: Res<SandboxDevState>,
     mode: Res<State<GameMode>>,

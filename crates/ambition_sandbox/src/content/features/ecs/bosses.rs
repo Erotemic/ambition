@@ -15,13 +15,21 @@ pub fn update_ecs_bosses(
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
+    // Bosses target the primary player today. Real multiplayer
+    // boss AI (per-player targeting, agro lists, phase transitions
+    // that respond to multiple players) is a deeper redesign than
+    // the iterate-all-players pattern used by hazards / projectiles
+    // — see OVERNIGHT-TODO #17.8 "Generalize enemy targeting." The
+    // `PrimaryPlayerOnly` filter documents the targeting decision
+    // at the query rather than leaving it as an implicit
+    // `single()` semantic.
     player_query: Query<
         (
             &crate::player::PlayerBody,
             &crate::player::PlayerCombatState,
             &crate::player::PlayerMovementAuthority,
         ),
-        With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
     mut bosses: Query<
         (

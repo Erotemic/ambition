@@ -196,13 +196,18 @@ pub fn update_ecs_actors(
     mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut player_damage: MessageWriter<PlayerDamageEvent>,
+    // Enemies target the primary player today. Real "nearest hostile
+    // actor of faction Player" target selection is OVERNIGHT-TODO
+    // #17.8; the `PrimaryPlayerOnly` filter documents the targeting
+    // decision at the query so a future per-actor `ActorTarget`
+    // component lands as a query change, not a semantic shift.
     player_query: Query<
         (
             &crate::player::PlayerBody,
             &crate::player::PlayerCombatState,
             &crate::player::PlayerMovementAuthority,
         ),
-        With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
     mut actors: Query<
         (

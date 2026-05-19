@@ -2,10 +2,10 @@ Here’s the refactor backlog I’d give an autonomous coding agent, prioritized
 
 ## Status (2026-05-19 agent session)
 
-Completed in the session that produced commits 6ef63ba…339e1ca
-(49 patches; `cargo test -p ambition_sandbox --lib` → 563 passed,
+Completed in the session that produced commits 6ef63ba…e159647
+(52 patches; `cargo test -p ambition_sandbox --lib` → 563 passed,
 `cargo test -p ambition_engine --lib` → 258 passed; sandbox lib
-warnings: 102 → 8):
+warnings: 102 → 7):
 
 - ✅ **P3 PrimaryPlayerOnly docs** — removed the non-existent `PrimaryPlayerOnlyMut` reference; clarified the filter type works for both immutable and mutable component access.
 - ✅ **P2 FeatureBaseBundle split** — introduced `FeatureLifecycleBundle` (sim + RoomScopedEntity + id/name/aabb) and `FeatureRenderedBundle` (lifecycle + RoomVisual). `FeatureBaseBundle` is now a type alias for `FeatureRenderedBundle`, so existing PickupBundle/ChestBundle/EnemyActorBundle call sites compile unchanged.

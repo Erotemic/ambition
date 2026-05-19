@@ -34,8 +34,7 @@ use std::path::PathBuf;
 use bevy::prelude::{App, Plugin, Resource};
 
 use ambition_asset_manager::{
-    AmbitionAssetCatalog, AssetEntry, AssetId, AssetKind, AssetLocation, AssetManifest,
-    AssetProfile, AssetResolutionError, AssetSourceProfile, MissingAssetPolicy, PreloadGroup,
+    AmbitionAssetCatalog, AssetId, AssetProfile, AssetResolutionError, AssetSourceProfile,
     ResolvedAsset,
 };
 

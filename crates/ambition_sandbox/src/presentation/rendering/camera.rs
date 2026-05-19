@@ -18,6 +18,7 @@ use crate::rooms::{CameraClampMode, CameraZoneSpec, RoomSet};
 /// gameplay view, not a recomputed approximation that may drift when aspect or
 /// encounter policy changes.
 #[derive(Resource, Clone, Debug)]
+#[allow(dead_code)] // base_view + orthographic_scale are exposed for HUD/debug overlays.
 pub struct CameraViewState {
     pub base_view: ae::Vec2,
     pub requested_view: ae::Vec2,

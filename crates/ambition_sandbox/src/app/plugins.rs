@@ -661,7 +661,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<SandboxFeelTuning>();
 
     app.add_plugins(crate::platform::PlatformPlugin);
-    app.add_plugins(crate::screen_effects::ScreenEffectsPlugin);
+    app.add_plugins(crate::presentation::screen_effects::ScreenEffectsPlugin);
     add_dev_tools_plugins(app);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);
@@ -901,7 +901,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .chain()
             .after(sync_visuals)
             .after(crate::body_mode::sync_morph_ball_visual)
-            .after(crate::bubble_shield::sync_bubble_shield_visual)
+            .after(crate::player::bubble_shield::sync_bubble_shield_visual)
             .after(crate::projectile::sync_projectile_visuals)
             .after(crate::enemy_projectile::sync_enemy_projectile_visuals),
     )
@@ -930,12 +930,12 @@ fn install_player_visual_systems(app: &mut App) {
         // frame from `PlayerBody.shielding` and `PlayerBody.parrying`.
         // Must run after `write_player_ecs_components` so `PlayerBody`
         // is current.
-        .add_systems(Startup, crate::bubble_shield::build_bubble_shield_sprite)
+        .add_systems(Startup, crate::player::bubble_shield::build_bubble_shield_sprite)
         .add_systems(
             Update,
             (
-                crate::bubble_shield::spawn_bubble_shield_visual,
-                crate::bubble_shield::sync_bubble_shield_visual,
+                crate::player::bubble_shield::spawn_bubble_shield_visual,
+                crate::player::bubble_shield::sync_bubble_shield_visual,
             )
                 .chain()
                 .after(sync_visuals),

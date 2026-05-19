@@ -695,7 +695,7 @@ fn character_sprite_embedded_url(name: &str) -> Option<&'static str> {
 
 /// Boss sprite entries — gradient sentinel + mockingbird today.
 fn extend_with_boss_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
-    for (name, filename) in crate::boss_sprites::all_boss_sprite_filenames() {
+    for (name, filename) in crate::boss_encounter::sprites::all_boss_sprite_filenames() {
         let id = ids::boss_sprite(name);
         let logical_path = format!("{sprite_folder}/{filename}");
         manifest.insert(

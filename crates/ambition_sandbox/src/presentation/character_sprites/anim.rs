@@ -2,7 +2,7 @@
 //!
 //! `CharacterAnim` is the union of every animation row a character
 //! sheet may define; the boss has its own row set, see
-//! `boss_sprites::BossAnim`. A sheet doesn't have to define every
+//! `boss_encounter::sprites::BossAnim`. A sheet doesn't have to define every
 //! row — `CharacterSheetSpec::resolve_anim` falls back to `Idle` for
 //! any row a sheet doesn't carry, so simple characters can list only
 //! their relevant animations.

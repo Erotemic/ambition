@@ -37,7 +37,7 @@ use ambition_asset_manager::{
     MissingAssetPolicy, PreloadGroup,
 };
 
-use crate::boss_sprites::{self, BossSpriteAsset};
+use crate::boss_encounter::sprites::{self, BossSpriteAsset};
 use crate::character_sprites::{self, CharacterSpriteAssets};
 use crate::features::FeatureVisualKind;
 use crate::rooms::{LoadingZoneActivation, RoomMetadata};
@@ -638,9 +638,9 @@ pub fn load_game_assets(
 
     let characters = character_sprites::load_character_sprites_in(catalog, asset_server, layouts);
     let entities = load_entity_sprites(catalog, asset_server);
-    let boss = boss_sprites::load_boss_sprite_in(catalog, asset_server, layouts);
-    let mockingbird = boss_sprites::load_mockingbird_sprite_in(catalog, asset_server, layouts);
-    let gnu_ton = boss_sprites::load_gnu_ton_sprite_in(catalog, asset_server, layouts);
+    let boss = sprites::load_boss_sprite_in(catalog, asset_server, layouts);
+    let mockingbird = sprites::load_mockingbird_sprite_in(catalog, asset_server, layouts);
+    let gnu_ton = sprites::load_gnu_ton_sprite_in(catalog, asset_server, layouts);
     let parallax_layers = load_parallax_layers(catalog, asset_server);
 
     let missing = EntitySprite::ALL.len() - entities.len();

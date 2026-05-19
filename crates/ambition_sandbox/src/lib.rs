@@ -70,7 +70,8 @@ pub use runtime::game_mode;
 pub use world::{ldtk_world, rooms};
 
 pub(crate) use assets::{game_assets, loading, sandbox_assets};
-pub(crate) use boss_encounter::sprites as boss_sprites;
+// Removed: `pub(crate) use boss_encounter::sprites as boss_sprites;`
+// — call sites now use `crate::boss_encounter::sprites::…`.
 pub(crate) use content::{banter, content_validation, data, quest};
 pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics, profiling};
 // `platform` was `pub(crate) mod platform;` before the reorg; the shim
@@ -78,10 +79,11 @@ pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics, profiling
 // into it. Accidentally widening it to `pub` last commit was a slip.
 pub(crate) use host::{mobile_input, platform, windowing};
 pub(crate) use persistence::{save, settings};
-pub(crate) use player::bubble_shield;
-pub(crate) use presentation::{
-    character_sprites, cutscene, fx, rendering, screen_effects, ui_fonts,
-};
+// Removed: `pub(crate) use player::bubble_shield;` — call sites now
+// use `crate::player::bubble_shield::…`.
+// `screen_effects` removed from the shim: call sites now use
+// `crate::presentation::screen_effects::…`.
+pub(crate) use presentation::{character_sprites, cutscene, fx, rendering, ui_fonts};
 // Removed: `pub(crate) use runtime::{reset, setup};` — call sites now
 // use the canonical `crate::runtime::{reset, setup}::…` paths.
 pub(crate) use time::{feel, time_control};

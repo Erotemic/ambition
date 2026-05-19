@@ -2391,13 +2391,13 @@ pub fn ecs_boss_name<'a>(
 pub fn ecs_boss_anim_state(
     id: &str,
     bosses: &Query<(&FeatureId, &BossFeature)>,
-) -> Option<crate::boss_sprites::BossAnimState> {
+) -> Option<crate::boss_encounter::sprites::BossAnimState> {
     bosses.iter().find_map(|(feature_id, boss)| {
         if feature_id.as_str() != id {
             return None;
         }
         let boss = &boss.boss;
-        Some(crate::boss_sprites::BossAnimState {
+        Some(crate::boss_encounter::sprites::BossAnimState {
             alive: boss.alive,
             attack_active: boss.attack_timer > 0.0,
             attack_windup: boss.attack_windup_timer > 0.0,

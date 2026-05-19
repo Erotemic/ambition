@@ -11,7 +11,7 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
-use crate::boss_sprites::{self, BossAnimState, BossAnimator};
+use crate::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
 use crate::character_sprites::{build_character_sprite, feet_anchor_for, CharacterAnimator};
 use crate::config::{world_to_bevy, WORLD_Z_PLAYER};
 use crate::features::{
@@ -557,7 +557,7 @@ pub fn upgrade_boss_sprites(
             boss_asset.texture.clone(),
             bevy::image::TextureAtlas {
                 layout: boss_asset.layout.clone(),
-                index: boss_asset.spec.flat_index(boss_sprites::BossAnim::Rest, 0),
+                index: boss_asset.spec.flat_index(sprites::BossAnim::Rest, 0),
             },
         );
         sprite.custom_size = Some(boss_asset.spec.render_size(collision));
@@ -595,7 +595,7 @@ pub fn animate_bosses(
         else {
             continue;
         };
-        let anim = boss_sprites::pick_boss_anim(state);
+        let anim = sprites::pick_boss_anim(state);
         animator.request(anim);
         let index = animator.tick(dt);
         if let Some(atlas) = sprite.texture_atlas.as_mut() {

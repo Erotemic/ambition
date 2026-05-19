@@ -324,7 +324,7 @@ fn presentation_world_inner(
 
     commands.spawn((
         Camera2d,
-        crate::screen_effects::ScreenEffectSettings::default(),
+        crate::presentation::screen_effects::ScreenEffectSettings::default(),
         Name::new("Main Camera"),
     ));
 

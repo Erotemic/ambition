@@ -27,6 +27,7 @@ impl ContentValidationReport {
         self.errors.push(message.into());
     }
 
+    #[allow(dead_code)] // Used by content checks that haven't been wired into startup yet.
     pub fn push_warning(&mut self, message: impl Into<String>) {
         self.warnings.push(message.into());
     }
@@ -38,6 +39,7 @@ impl ContentValidationReport {
         self.errors.extend(messages);
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn panic_if_errors(&self) {
         if self.errors.is_empty() {
             return;
@@ -54,6 +56,7 @@ impl ContentValidationReport {
 }
 
 /// Validate the checked-in sandbox content graph.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn validate_embedded_content_graph() -> ContentValidationReport {
     let data = SandboxDataSpec::load_embedded();
     let project = match LdtkProject::load_default_for_dev() {

@@ -199,6 +199,14 @@ pub enum BossAttackProfile {
     GnuShockwave,
 }
 
+const GNU_TON_COLLISION_SCALE: f32 = 4.5;
+const GNU_TON_FRAME_HEIGHT: f32 = 384.0;
+const GNU_TON_ANCHOR_Y: f32 = -12.0;
+
+fn gnu_ton_sprite_scale(collision_size: ae::Vec2) -> f32 {
+    collision_size.x.max(collision_size.y).max(8.0) * GNU_TON_COLLISION_SCALE / GNU_TON_FRAME_HEIGHT
+}
+
 /// Live sandbox-side behavior tuning for a boss. This is deliberately separate
 /// from `ae::BossEncounterSpec`: the engine spec owns phase progression and HP
 /// thresholds, while this profile owns sandbox movement, contact size, damage,
@@ -306,9 +314,11 @@ impl BossBehaviorProfile {
     pub fn gnu_ton() -> Self {
         Self {
             id: "gnu_ton".into(),
-            // Large combat size covers the full body + hand extension range.
-            // The player can be damaged by the hands (far sides) or the descending head.
-            combat_size: Some(ae::Vec2::new(580.0, 320.0)),
+            // The sprite is huge, but the boss entity itself is anchored to
+            // the shoulder ridge under the scholar. GNU-ton's damaging and
+            // vulnerable regions are generated from named sprite parts, so
+            // this combat size is only the movement/placeholder envelope.
+            combat_size: Some(ae::Vec2::new(220.0, 220.0)),
             movement: BossMovementProfile::StationaryGiant {
                 sway_amplitude: 6.0,
                 sway_frequency: 0.28,
@@ -447,14 +457,7 @@ impl BossBehaviorProfile {
                     ],
                 },
             },
-            // GNU-ton's entity transform sits at the *scholar* (top of the
-            // sprite) per `feet_anchor_y: 0.32` in `boss_encounter/sprites.rs`.
-            // The visible giant body extends downward from there, so hand /
-            // shockwave hitboxes need to anchor below the scholar to land
-            // on the giant's body rather than around the scholar's head.
-            // The combat box is 580x320 — drop the origin ~95px so hands
-            // appear at the giant's mid-torso height.
-            attack_origin_offset: ae::Vec2::new(0.0, 95.0),
+            attack_origin_offset: ae::Vec2::ZERO,
         }
     }
 
@@ -719,6 +722,21 @@ impl BossRuntime {
         self.aabb()
     }
 
+    pub fn damageable_aabbs(&self) -> Vec<ae::Aabb> {
+        if !self.is_gnu_ton() {
+            return vec![self.aabb()];
+        }
+        if matches!(
+            self.active_strike_profile,
+            Some(BossAttackProfile::GnuHeadDescent)
+        ) {
+            return vec![
+                self.gnu_ton_part_aabb(ae::Vec2::new(0.0, 30.0), ae::Vec2::new(92.0, 74.0))
+            ];
+        }
+        Vec::new()
+    }
+
     pub(super) fn move_toward_target(&mut self, world: &ae::World, target: ae::Vec2, dt: f32) {
         let move_size = self.combat_size();
         let half = move_size * 0.5;
@@ -765,10 +783,48 @@ impl BossRuntime {
     }
 
     /// Pure-data dispatch: given a specific attack profile, produce its
-    /// world-space hitbox volumes. Centered on `self.pos + attack_origin_offset`
-    /// so body-centered giants (GNU-ton) can anchor "hand"-class hitboxes
-    /// to the giant's torso rather than to the scholar perched on top.
+    /// world-space hitbox volumes. Ordinary bosses use
+    /// `self.pos + attack_origin_offset`; GNU-ton overrides this path with
+    /// part-specific boxes derived from the generated sprite design coordinates.
     pub(super) fn volumes_for(&self, attack: &BossAttackProfile) -> Vec<ae::Aabb> {
+        if self.is_gnu_ton() {
+            match attack {
+                BossAttackProfile::GnuHandSlam => {
+                    return vec![
+                        self.gnu_ton_part_aabb(
+                            ae::Vec2::new(-185.0, 120.0),
+                            ae::Vec2::new(64.0, 54.0),
+                        ),
+                        self.gnu_ton_part_aabb(
+                            ae::Vec2::new(185.0, 120.0),
+                            ae::Vec2::new(64.0, 54.0),
+                        ),
+                    ];
+                }
+                BossAttackProfile::GnuHandSweep => {
+                    return vec![
+                        self.gnu_ton_part_aabb(
+                            ae::Vec2::new(-150.0, 20.0),
+                            ae::Vec2::new(120.0, 54.0),
+                        ),
+                        self.gnu_ton_part_aabb(
+                            ae::Vec2::new(150.0, 20.0),
+                            ae::Vec2::new(120.0, 54.0),
+                        ),
+                    ];
+                }
+                BossAttackProfile::GnuHeadDescent => {
+                    return vec![
+                        self.gnu_ton_part_aabb(ae::Vec2::new(0.0, 30.0), ae::Vec2::new(92.0, 74.0))
+                    ];
+                }
+                BossAttackProfile::GnuShockwave => {
+                    return vec![self
+                        .gnu_ton_part_aabb(ae::Vec2::new(0.0, 140.0), ae::Vec2::new(245.0, 16.0))];
+                }
+                _ => {}
+            }
+        }
         let size = self.combat_size();
         let origin = self.pos + self.behavior.attack_origin_offset;
         match attack {
@@ -840,6 +896,16 @@ impl BossRuntime {
         }
     }
 
+    fn gnu_ton_part_aabb(&self, design_center: ae::Vec2, design_half_size: ae::Vec2) -> ae::Aabb {
+        let scale = gnu_ton_sprite_scale(self.size);
+        let center = self.pos
+            + ae::Vec2::new(
+                design_center.x * scale,
+                (design_center.y - GNU_TON_ANCHOR_Y) * scale,
+            );
+        ae::Aabb::new(center, design_half_size * scale)
+    }
+
     pub(super) fn player_damage(&self, player_body: ae::Aabb) -> Option<PlayerDamageEvent> {
         if self.attack_timer > 0.0 {
             if let Some(volume) = self
@@ -859,7 +925,7 @@ impl BossRuntime {
             }
         }
         let body_damage = self.body_damage_aabb();
-        if body_damage.strict_intersects(player_body) {
+        if self.behavior.body_damage > 0 && body_damage.strict_intersects(player_body) {
             return Some(PlayerDamageEvent {
                 mode: PlayerDamageMode::Knockback,
                 source: PlayerDamageSource::BossBody,
@@ -881,7 +947,7 @@ mod scripted_pattern_tests {
 
     fn gnu_ton_runtime() -> BossRuntime {
         let behavior = BossBehaviorProfile::gnu_ton();
-        let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(580.0, 320.0));
+        let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
         let object = ae::RoomObject::new(
@@ -982,24 +1048,32 @@ mod scripted_pattern_tests {
     }
 
     #[test]
-    fn gnu_ton_hand_slam_anchors_below_scholar() {
-        // GNU-ton's transform sits at the scholar atop the giant. With
-        // `attack_origin_offset` applied, hand-slam hitboxes should be
-        // *below* the scholar (positive Y in engine space = downward)
-        // — i.e. on the giant's body, not floating at the scholar's
-        // shoulders. Reads as a visual sanity check on the alignment
-        // fix the user reported.
+    fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
+        // GNU-ton's transform sits on the shoulder ridge. Hand-slam
+        // hitboxes should land well below and far to either side of that
+        // anchor, matching the generated hoof positions.
         let boss = gnu_ton_runtime();
-        let scholar_y = boss.pos.y;
         let slam = boss.volumes_for(&BossAttackProfile::GnuHandSlam);
-        for vol in &slam {
-            assert!(
-                vol.center().y > scholar_y,
-                "GnuHandSlam volume center.y ({}) should be below the scholar \
-                 (pos.y={}) once attack_origin_offset is applied",
-                vol.center().y,
-                scholar_y
-            );
-        }
+        assert_eq!(slam.len(), 2);
+        assert!(slam[0].center().x < boss.pos.x - 400.0, "{slam:?}");
+        assert!(slam[1].center().x > boss.pos.x + 400.0, "{slam:?}");
+        assert!(slam[0].center().y > boss.pos.y + 300.0, "{slam:?}");
+        assert!(slam[1].center().y > boss.pos.y + 300.0, "{slam:?}");
+    }
+
+    #[test]
+    fn gnu_ton_is_only_damageable_during_head_descent_window() {
+        let mut boss = gnu_ton_runtime();
+        assert!(
+            boss.damageable_aabbs().is_empty(),
+            "GNU-ton should not take body damage outside the head exposure window"
+        );
+        boss.active_strike_profile = Some(BossAttackProfile::GnuHeadDescent);
+        let vulnerable = boss.damageable_aabbs();
+        assert_eq!(vulnerable.len(), 1);
+        assert!(
+            vulnerable[0].center().y > boss.pos.y,
+            "head descent vulnerable part should be below the shoulder anchor"
+        );
     }
 }

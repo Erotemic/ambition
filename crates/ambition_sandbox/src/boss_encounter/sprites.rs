@@ -341,14 +341,14 @@ pub(crate) const GNU_TON_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_spritesheet
 /// Frame layout: 512×384 pixels per frame, 6 animation rows.
 /// Rows map to BossAnim as: Rest/FloorSlam/SideSweep/SpikeHalo/Hit/Death.
 ///
-/// The collision box is placed at the GNU-ton scholar's location (near
-/// top of the frame). `body_centered: true` with `feet_anchor_y ≈ 0.63`
-/// places the entity position at the man's rendered location, letting
-/// the full GNU body hang below in the arena.
+/// The collision box is placed at the giant's shoulder ridge, where the
+/// GNU-ton scholar's feet touch the body. The runtime GNU-ton hitboxes
+/// use the same design-space anchor, so the head and hands line up with
+/// the generated sprite instead of a generic boss rectangle.
 ///
-/// `collision_scale: 4.5` makes the 512×384 sprite render at roughly
-/// 360×270 game-pixels for a collision box of 80px height — the giant
-/// GNU body dominates the arena visually.
+/// `collision_scale: 4.5` makes the 512×384 sprite render much larger
+/// than the authored boss box, so the giant body dominates the arena
+/// while runtime hitboxes stay tied to named parts.
 pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
     label_width: 0,
     frame_width: 512,
@@ -397,14 +397,14 @@ pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
             },
         ),
     ],
-    // At collision_scale 4.5, a 80-px-tall collision box renders the
-    // sprite at 360px tall x 480px wide — the GNU body fills the arena.
+    // At collision_scale 4.5, a 220-px-tall authored boss box renders the
+    // sprite at 990px tall x 1320px wide, large enough to read as a giant
+    // in the expanded arena.
     collision_scale: 4.5,
-    // The scholar (GNU-ton) sits at roughly 18% from the top of the 384px
-    // frame (≈70px from top). In Bevy +Y-up, that's 0.5 − 70/384 ≈ +0.32
-    // above sprite center. With body_centered:true this value is used
-    // verbatim as the anchor.y, placing the entity position at the man.
-    feet_anchor_y: 0.32,
+    // Design-space shoulder top is at y = -12px from the 384px frame center,
+    // so Bevy anchor.y is +12 / 384. This makes `BossRuntime::pos` the same
+    // shoulder anchor that the GNU-ton part-hitbox helpers use.
+    feet_anchor_y: 12.0 / 384.0,
     frame_sample_inset: 1,
     // body_centered:true bypasses the feet-on-floor delta so the man
     // (not the GNU's hooves) is placed at the entity transform origin.

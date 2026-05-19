@@ -4,7 +4,7 @@
 # the background while the interactive hands sweep in from the sides and the
 # head periodically descends to expose a vulnerability window.
 #
-# Layout (1024 wide × 640 tall):
+# Layout (1536 wide x 896 tall):
 #
 #   +------------------------------------------------------+  y = 0
 #   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |
@@ -15,18 +15,18 @@
 #   |  ░░░░░░░                                             |  ← left perch
 #   |                                                      |
 #   | [exit door]                                          |  ← return to hall
-#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |  y = 608 (floor)
+#   | ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒  |  y = 864 (floor)
 #   +------------------------------------------------------+
 #
-# The three perches give the player elevation options when dodging the hand
+# The perches give the player elevation options when dodging the hand
 # sweeps (which come from the sides) and a centre platform to reach the
 # head's hitbox during its descent window.
 id: gnu_ton_arena
 level_id: gnu_ton_arena
 world_x: 36000
 world_y: 0
-px_wid: 1024
-px_hei: 640
+px_wid: 1536
+px_hei: 896
 fill_collision: empty
 
 biome: boss
@@ -39,20 +39,20 @@ entities:
   # Outer shell.
   # ─────────────────────────────────────────────────────────────────
   - type: Solid
-    px: [0, 608]
-    size: [1024, 32]
+    px: [0, 864]
+    size: [1536, 32]
     fields: { name: floor }
   - type: Solid
     px: [0, 0]
-    size: [16, 608]
+    size: [16, 864]
     fields: { name: left_wall }
   - type: Solid
-    px: [1008, 0]
-    size: [16, 608]
+    px: [1520, 0]
+    size: [16, 864]
     fields: { name: right_wall }
   - type: Solid
     px: [16, 0]
-    size: [992, 16]
+    size: [1504, 16]
     fields: { name: ceiling }
 
   # ─────────────────────────────────────────────────────────────────
@@ -64,23 +64,31 @@ entities:
   # hand-slam danger zone to reach it.
   # ─────────────────────────────────────────────────────────────────
   - type: OneWayPlatform
-    px: [112, 480]
-    size: [128, 16]
+    px: [168, 672]
+    size: [160, 16]
     fields: { name: perch_left }
   - type: OneWayPlatform
-    px: [784, 480]
-    size: [128, 16]
+    px: [1208, 672]
+    size: [160, 16]
     fields: { name: perch_right }
   - type: OneWayPlatform
-    px: [448, 368]
-    size: [128, 16]
+    px: [672, 504]
+    size: [192, 16]
     fields: { name: perch_center }
+  - type: OneWayPlatform
+    px: [448, 592]
+    size: [128, 16]
+    fields: { name: perch_mid_left }
+  - type: OneWayPlatform
+    px: [960, 592]
+    size: [128, 16]
+    fields: { name: perch_mid_right }
 
   # ─────────────────────────────────────────────────────────────────
   # Player spawn — just inside the entry door on the left.
   # ─────────────────────────────────────────────────────────────────
   - type: PlayerStart
-    px: [80, 562]
+    px: [96, 818]
     size: [28, 46]
     fields: { name: gnu_ton_arena_spawn }
 
@@ -88,7 +96,7 @@ entities:
   # `gnu_ton_arena_exit` is the id that hall_of_bosses's
   # `hall_gnu_ton_portal` warps the player to when entering the arena.
   - type: LoadingZone
-    px: [64, 512]
+    px: [64, 768]
     size: [48, 96]
     fields:
       id: gnu_ton_arena_exit
@@ -101,12 +109,13 @@ entities:
   # ─────────────────────────────────────────────────────────────────
   # Boss spawn — stationary, upper centre.
   # `name` drives encounter_id_from_name → "gnu_ton" → BossEncounterSpec::gnu_ton.
-  # Width/height is the sprite render extent; the BossBehaviorProfile
-  # owns the combat hitbox (580 × 320 px) so these can differ.
+  # Width/height drives sprite scale. Runtime hitboxes are part-specific:
+  # the head is only vulnerable when it descends, and hand attacks use the
+  # generated hoof/head design coordinates.
   # ─────────────────────────────────────────────────────────────────
   - type: BossSpawn
-    px: [512, 180]
-    size: [150, 185]
+    px: [658, 230]
+    size: [220, 220]
     fields:
       name: GNU-ton
       brain: "PhaseScript:gnu_ton"
@@ -116,15 +125,15 @@ entities:
   # ─────────────────────────────────────────────────────────────────
   - type: CameraZone
     px: [0, 0]
-    size: [1024, 640]
+    size: [1536, 896]
     fields:
       id: gnu_ton_arena_camera
       name: gnu_ton_arena_camera
       mode: Default
 
   - type: DebugLabel
-    px: [80, 580]
-    size: [864, 20]
+    px: [96, 836]
+    size: [1344, 20]
     fields:
       name: gnu_ton_arena_label
       text: "GNU-ton — dodge the hands; strike the head when it descends."

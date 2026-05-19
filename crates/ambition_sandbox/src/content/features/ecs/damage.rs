@@ -227,15 +227,22 @@ pub fn apply_feature_damage_events(
             );
         }
         let mut boss_hit_this_event = false;
-        for (id, aabb, mut feature) in &mut bosses {
+        for (id, _aabb, mut feature) in &mut bosses {
             let key = format!("boss:{}", id.as_str());
             if event.ignored_targets.iter().any(|ignored| ignored == &key) {
                 continue;
             }
             let boss = &mut feature.boss;
-            if !boss.alive || !event.volume.strict_intersects(aabb.aabb()) {
+            if !boss.alive {
                 continue;
             }
+            let damageable = boss.damageable_aabbs();
+            let Some(hit_aabb) = damageable
+                .iter()
+                .find(|part| event.volume.strict_intersects(**part))
+            else {
+                continue;
+            };
             // Speech bubble bark when player lands a hit, debounced by hit_flash.
             let should_bark = boss.hit_flash < 0.05;
             boss.hit_flash = 0.18;
@@ -252,7 +259,7 @@ pub fn apply_feature_damage_events(
             }
             let amount = event.damage.max(1);
             let killed = boss.health.damage(amount);
-            let impact = midpoint(event.volume.center(), boss.pos);
+            let impact = midpoint(event.volume.center(), hit_aabb.center());
             vfx.write(VfxMessage::Impact { pos: impact });
             gameplay_effects.write(GameplayEffect::DamageBoss {
                 boss_id: boss.id.clone(),

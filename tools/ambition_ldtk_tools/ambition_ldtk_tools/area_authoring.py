@@ -1447,6 +1447,14 @@ def main(argv=None) -> int:
         ),
     )
     parser.add_argument(
+        "--replace-existing",
+        action="store_true",
+        help=(
+            "Replace an existing level with the same identifier instead of "
+            "failing. Intended for regenerating a spec-owned area."
+        ),
+    )
+    parser.add_argument(
         "--list-free-spots",
         type=str,
         default=None,
@@ -1623,9 +1631,23 @@ def main(argv=None) -> int:
 
     project = load_project(args.ldtk)
 
-    # Check for an existing level with the same identifier so we don't clone.
-    if any(l.get("identifier") == spec["level_id"] for l in project.get("levels", [])):
-        return _fail(f"level identifier '{spec['level_id']}' already exists")
+    existing_index = next(
+        (
+            idx
+            for idx, level in enumerate(project.get("levels", []))
+            if level.get("identifier") == spec["level_id"]
+        ),
+        None,
+    )
+    if existing_index is not None:
+        if not args.replace_existing:
+            return _fail(f"level identifier '{spec['level_id']}' already exists")
+        removed = project["levels"].pop(existing_index)
+        print(
+            f"replacing existing level '{removed['identifier']}' "
+            f"({removed['pxWid']}x{removed['pxHei']} at "
+            f"{removed['worldX']},{removed['worldY']})"
+        )
 
     level = build_level(project, spec)
     project.setdefault("levels", []).append(level)

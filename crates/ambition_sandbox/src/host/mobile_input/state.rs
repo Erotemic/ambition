@@ -22,7 +22,7 @@ pub struct TouchButton {
 }
 
 impl TouchButton {
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(dead_code)] // Constructor reserved for the multi-frame touch tests.
     pub const fn off() -> Self {
         Self {
             held: false,
@@ -40,7 +40,7 @@ impl TouchButton {
         }
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(dead_code)] // Constructor reserved for the multi-frame touch tests.
     pub const fn held_continued() -> Self {
         Self {
             held: true,

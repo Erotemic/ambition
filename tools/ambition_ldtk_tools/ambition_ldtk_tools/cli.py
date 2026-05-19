@@ -16,6 +16,10 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
 
     world init <target.ldtk>       Scaffold a new .ldtk file by cloning sandbox.ldtk defs.
 
+    level set-field [--level ID --set key=value | <spec.yaml>]
+                                   Update level-scoped metadata (biome /
+                                   music_track / ambient_profile / etc.).
+
     entity add <spec.yaml>         Add entity instance(s) into a level.
     entity set-field <spec.yaml>   Set field instances on existing entities.
     entity move      <spec.yaml>   Move an existing entity to new px/size.
@@ -129,6 +133,12 @@ def cmd_door(args, rest):
         # area_authoring exposes --snap-to-surface; forward through.
         return _delegate("ambition_ldtk_tools.area_authoring", ["--snap-to-surface", *rest])
     return _todo(f"door {args.door_action}")
+
+
+def cmd_level(args, rest):
+    if args.level_action == "set-field":
+        return _delegate("ambition_ldtk_tools.edit.level_set_field", rest)
+    return _todo(f"level {args.level_action}")
 
 
 def cmd_entity(args, rest):
@@ -273,6 +283,18 @@ def build_parser() -> argparse.ArgumentParser:
         "[--door-w 48] [--door-h 96] [--prefer-y N]",
     )
     sp_door.set_defaults(func=cmd_door)
+
+    # level set-field
+    sp_level = sub.add_parser("level", help="Level (room) metadata edits")
+    level_sub = sp_level.add_subparsers(dest="level_action", required=True)
+    level_sub.add_parser(
+        "set-field",
+        help=(
+            "Set level field instances (biome / music_track / "
+            "ambient_profile / visual_theme / etc.) on existing levels"
+        ),
+    )
+    sp_level.set_defaults(func=cmd_level)
 
     # entity {add,set-field,move,delete,even-space}
     sp_entity = sub.add_parser("entity", help="Entity instance edits")

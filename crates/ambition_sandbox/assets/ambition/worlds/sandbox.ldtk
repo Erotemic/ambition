@@ -24405,7 +24405,7 @@
 			"fieldInstances": [
 				{ "__identifier": "activeArea", "__type": "String", "__value": "gnu_ton_arena", "__tile": null, "defUid": 4000, "realEditorValues": [ { "id": "V_String", "params": ["gnu_ton_arena"] } ] },
 				{ "__identifier": "biome", "__type": "String", "__value": "boss", "__tile": null, "defUid": 4172, "realEditorValues": [ { "id": "V_String", "params": ["boss"] } ] },
-				{ "__identifier": "music_track", "__type": "String", "__value": "pulse_drift_voyage", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": ["pulse_drift_voyage"] } ] },
+				{ "__identifier": "music_track", "__type": "String", "__value": "standing_on_shoulders", "__tile": null, "defUid": 4173, "realEditorValues": [ { "id": "V_String", "params": ["standing_on_shoulders"] } ] },
 				{ "__identifier": "ambient_profile", "__type": "String", "__value": "hum", "__tile": null, "defUid": 4174, "realEditorValues": [ { "id": "V_String", "params": ["hum"] } ] },
 				{ "__identifier": "visual_theme", "__type": "String", "__value": "default", "__tile": null, "defUid": 4175, "realEditorValues": [ { "id": "V_String", "params": ["default"] } ] },
 				{ "__identifier": "visual_profile", "__type": "String", "__value": null, "__tile": null, "defUid": 4336, "realEditorValues": [] },

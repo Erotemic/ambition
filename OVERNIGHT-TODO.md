@@ -15,6 +15,7 @@ Continuing from the prior session, commits 2aab57e…871cf95 land:
 - ✅ **Warning cleanup** — `cargo check --tests` was at 2 warnings; both leftover-import false positives from earlier per-player refactors. Commit c75cb2f.
 - ✅ **`.agent` indexes refreshed** — Commit f688309.
 - ✅ **P17.6 bridge: PlayerHealRequested.target** — added `target: Option<Entity>` field. Pickup collection routes the heal to the player who actually overlapped the heart via `PlayerHealRequested::for_target(amount, collector_entity)`. Cutscene/quest/inventory heals keep using `new(amount)` and fall through to primary. Fixes a latent bug where the B-bucket pickup migration could heal the primary when a non-primary collector picked it up. Two new smoke tests pin both routes. Commit 4681b51.
+- ✅ **P17.6 bridge: PlayerDamageEvent.target** — same shape applied to damage events. Hazards and enemy projectiles stamp `target: Some(player_entity)` per overlapping player so the reader-side per-player damage routing can land the hit on the right player when it lands. Boss and enemy contact damage keep `target: None` because their producers already filter `PrimaryPlayerOnly` — the targeting decision is in the query, not the event. Today's reader still routes everything to primary; the field is producer-side metadata until the reader migrates (#17.6 deeper form). Commit 1aca6d2.
 
 Counts: `cargo test -p ambition_sandbox --lib` → 570 passed (566 pre-existing + 4 new multiplayer smoke). Warnings: 0.
 

@@ -38,6 +38,15 @@ use ambition_asset_manager::{
     ResolvedAsset,
 };
 
+// The `tests` module reaches for several `ambition_asset_manager` types
+// through `use super::*`. Re-import them under `#[cfg(test)]` so the
+// prod `lib` build doesn't flag them as unused, while the test build
+// still sees them at this module's path.
+#[cfg(test)]
+use ambition_asset_manager::{
+    AssetEntry, AssetKind, AssetLocation, AssetManifest, MissingAssetPolicy, PreloadGroup,
+};
+
 /// Path component the [`AmbitionAssetSourcePlugin`] registers the
 /// sandbox LDtk world under, in Bevy's [`bevy::asset::io::embedded::EmbeddedAssetRegistry`].
 /// Concatenated with `embedded://` to form the AssetPath string.

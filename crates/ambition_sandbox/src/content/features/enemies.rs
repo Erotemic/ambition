@@ -94,6 +94,23 @@ pub enum EnemyArchetype {
     PirateOnShark,
 }
 
+/// Maps `ae::EnemyBrain::Custom("...")` strings to archetype variants.
+/// `from_brain` walks this table, falling back to `Combatant` for any
+/// unknown brain string or a non-`Custom` variant.
+const BRAIN_NAME_TO_ARCHETYPE: &[(&str, EnemyArchetype)] = &[
+    ("small_skitter", EnemyArchetype::SmallSkitter),
+    ("small_lurker", EnemyArchetype::SmallLurker),
+    ("medium_striker", EnemyArchetype::MediumStriker),
+    ("large_brute", EnemyArchetype::LargeBrute),
+    ("large_colossus", EnemyArchetype::LargeColossus),
+    ("gradient_seeker", EnemyArchetype::AggressiveSeeker),
+    ("sandbag_infinite", EnemyArchetype::InfiniteSandbag),
+    ("sandbag_finite", EnemyArchetype::FiniteSandbag),
+    ("pirate_raider", EnemyArchetype::PirateRaider),
+    ("burning_flying_shark", EnemyArchetype::BurningFlyingShark),
+    ("pirate_on_shark", EnemyArchetype::PirateOnShark),
+];
+
 /// Authored tuning row for one [`EnemyArchetype`]. Every archetype is
 /// fully specified in [`ARCHETYPE_SPECS`]; the small accessor methods
 /// on [`EnemyArchetype`] (`max_health`, `patrol_speed`, ...) all read
@@ -311,22 +328,14 @@ impl EnemyArchetype {
     ];
 
     pub(super) fn from_brain(brain: &ae::EnemyBrain) -> Self {
-        match brain {
-            ae::EnemyBrain::Custom(name) if name == "small_skitter" => Self::SmallSkitter,
-            ae::EnemyBrain::Custom(name) if name == "small_lurker" => Self::SmallLurker,
-            ae::EnemyBrain::Custom(name) if name == "medium_striker" => Self::MediumStriker,
-            ae::EnemyBrain::Custom(name) if name == "large_brute" => Self::LargeBrute,
-            ae::EnemyBrain::Custom(name) if name == "large_colossus" => Self::LargeColossus,
-            ae::EnemyBrain::Custom(name) if name == "gradient_seeker" => Self::AggressiveSeeker,
-            ae::EnemyBrain::Custom(name) if name == "sandbag_infinite" => Self::InfiniteSandbag,
-            ae::EnemyBrain::Custom(name) if name == "sandbag_finite" => Self::FiniteSandbag,
-            ae::EnemyBrain::Custom(name) if name == "pirate_raider" => Self::PirateRaider,
-            ae::EnemyBrain::Custom(name) if name == "burning_flying_shark" => {
-                Self::BurningFlyingShark
-            }
-            ae::EnemyBrain::Custom(name) if name == "pirate_on_shark" => Self::PirateOnShark,
-            _ => Self::Combatant,
-        }
+        let ae::EnemyBrain::Custom(name) = brain else {
+            return Self::Combatant;
+        };
+        BRAIN_NAME_TO_ARCHETYPE
+            .iter()
+            .find(|(key, _)| *key == name.as_str())
+            .map(|(_, archetype)| *archetype)
+            .unwrap_or(Self::Combatant)
     }
 
     /// Tuning row for this archetype.

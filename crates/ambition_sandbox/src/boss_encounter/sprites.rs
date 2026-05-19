@@ -643,6 +643,7 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
 
 /// True if a feature kind is "the boss". Kept here so the rendering layer
 /// can ask `BossSprites::should_animate(kind)` without inlining the match.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn is_boss_kind(kind: FeatureVisualKind) -> bool {
     matches!(kind, FeatureVisualKind::Boss)
 }

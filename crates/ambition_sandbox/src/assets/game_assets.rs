@@ -372,6 +372,7 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
 /// LDtk debug tiles) return `None` — they keep the colored-rectangle
 /// fallback on `WebStatic` / `BundledStatic` until a follow-up slice
 /// packages them.
+#[cfg_attr(not(feature = "static_core_assets"), allow(dead_code))]
 pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static str> {
     use crate::assets::sandbox_assets::embedded_core;
     match sprite {
@@ -394,6 +395,12 @@ pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static 
 /// Convenience: wrap [`sandbox_image_manifest`] in a Bevy-side catalog
 /// resource. Constructed per [`load_game_assets`] call so a future
 /// `--sprite-folder` toggle re-resolves cleanly.
+///
+/// Only the tests in this file build the catalog this way today;
+/// production startup uses `build_sandbox_catalog` instead. Kept
+/// pub so future `--sprite-folder` toggles can adopt it without a
+/// visibility change.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn build_sandbox_image_catalog(sprite_folder: &str) -> AmbitionAssetCatalog {
     AmbitionAssetCatalog::new(sandbox_image_manifest(sprite_folder))
 }
@@ -890,6 +897,12 @@ pub fn loading_zone_sprite(activation: LoadingZoneActivation) -> EntitySprite {
 /// Map a `FeatureVisualKind` to a default entity sprite, ignoring per-
 /// instance state. Used as a backstop when the engine kind isn't known
 /// in detail (e.g. inside `sync_visuals`).
+///
+/// Today only the tests use this; production sprite resolution goes
+/// through the per-state helpers (`pickup_sprite`, `chest_state_sprite`,
+/// etc.). Kept pub so a future "kind is the only signal" call site can
+/// adopt it without re-deriving the mapping.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
     match kind {
         FeatureVisualKind::Hazard => Some(EntitySprite::HazardSpikes),

@@ -82,7 +82,8 @@ pub(crate) use player::bubble_shield;
 pub(crate) use presentation::{
     character_sprites, cutscene, fx, rendering, screen_effects, ui_fonts,
 };
-pub(crate) use runtime::{reset, setup};
+// Removed: `pub(crate) use runtime::{reset, setup};` — call sites now
+// use the canonical `crate::runtime::{reset, setup}::…` paths.
 pub(crate) use time::{feel, time_control};
 pub(crate) use world::{physics, platforms};
 

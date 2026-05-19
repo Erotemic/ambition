@@ -78,7 +78,7 @@ pub enum PauseMenuItem {
     Inventory,
     /// Wipe the persisted save + rebuild the runtime — every NPC
     /// alive again, every encounter armed, player back at the start
-    /// room. Triggered via `crate::reset::SandboxResetRequested`.
+    /// room. Triggered via `crate::runtime::reset::SandboxResetRequested`.
     ResetSandbox,
     Quit,
 }

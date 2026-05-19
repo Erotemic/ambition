@@ -53,7 +53,7 @@ pub fn audio_play_sfx_messages(
     mut messages: MessageReader<SfxMessage>,
     library: Res<AudioLibrary>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,
-    bank: Option<Res<crate::setup::SfxBankResource>>,
+    bank: Option<Res<crate::runtime::setup::SfxBankResource>>,
     mut cache: ResMut<SfxBankHandleCache>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     mut first_play_logged: Local<bool>,

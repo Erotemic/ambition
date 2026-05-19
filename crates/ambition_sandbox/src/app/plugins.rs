@@ -212,7 +212,7 @@ fn install_simulation_messages_and_resources(app: &mut App) {
         .insert_resource(crate::CameraEaseState::default())
         .insert_resource(crate::CameraEaseTuning::default())
         .insert_resource(crate::rendering::CameraViewState::default())
-        .insert_resource(crate::reset::SandboxResetRequested::default());
+        .insert_resource(crate::runtime::reset::SandboxResetRequested::default());
 }
 
 // Core simulation, split into 6 finer-grained sub-sets that are
@@ -518,7 +518,7 @@ fn register_progression_populate_systems(app: &mut App) {
 fn register_reset_processing_systems(app: &mut App) {
     app.add_systems(
         Update,
-        crate::reset::process_sandbox_reset_request.in_set(SandboxSet::ResetProcessing),
+        crate::runtime::reset::process_sandbox_reset_request.in_set(SandboxSet::ResetProcessing),
     );
 }
 

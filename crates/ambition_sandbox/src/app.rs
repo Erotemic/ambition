@@ -82,7 +82,7 @@ use crate::rendering::{
     PlayerVisual, RoomScopedEntity, SceneEntities,
 };
 use crate::rooms;
-use crate::setup;
+use crate::runtime::setup;
 use crate::ui_fonts;
 use crate::windowing;
 use crate::{GameWorld, PlayerDiedMessage, SandboxDevState};

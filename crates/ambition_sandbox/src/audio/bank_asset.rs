@@ -1,6 +1,6 @@
 //! Bevy `Asset` + `AssetLoader` for the packed SFX bank.
 //!
-//! Two paths produce a [`crate::setup::SfxBankResource`]:
+//! Two paths produce a [`crate::runtime::setup::SfxBankResource`]:
 //!
 //! 1. **Sync fast path** — `setup::try_load_sfx_bank_via_catalog` runs
 //!    during `presentation_world` and inserts the resource immediately
@@ -36,7 +36,7 @@ use ambition_sfx::{BankProvider, SfxError};
 
 use crate::audio::AudioLibrary;
 use crate::sandbox_assets::{ids, SandboxAssetCatalog};
-use crate::setup::SfxBankResource;
+use crate::runtime::setup::SfxBankResource;
 
 /// Loaded SFX-bank asset. Wraps the parsed [`BankProvider`] in an
 /// `Arc` so [`SfxBankResource`] and any future direct consumers can

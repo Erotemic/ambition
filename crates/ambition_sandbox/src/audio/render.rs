@@ -29,7 +29,7 @@ impl SfxBankHandleCache {
     pub(super) fn handle_for(
         &mut self,
         id: SfxId,
-        bank: Option<&crate::setup::SfxBankResource>,
+        bank: Option<&crate::runtime::setup::SfxBankResource>,
         audio_sources: &mut Assets<KiraAudioSource>,
     ) -> Option<Handle<KiraAudioSource>> {
         if let Some(slot) = self.handles.get(&id) {

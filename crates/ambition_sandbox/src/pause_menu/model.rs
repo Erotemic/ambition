@@ -9,7 +9,12 @@ pub struct DevToggleParams<'w, 's> {
     pub developer: ResMut<'w, DeveloperTools>,
     pub editable_tuning: ResMut<'w, crate::dev::dev_tools::EditableMovementTuning>,
     pub ldtk_reload: ResMut<'w, LdtkHotReloadState>,
-    pub player_q: Query<'w, 's, &'static mut crate::player::PlayerMovementAuthority, With<crate::player::PlayerEntity>>,
+    pub player_q: Query<
+        'w,
+        's,
+        &'static mut crate::player::PlayerMovementAuthority,
+        crate::player::PrimaryPlayerOnly,
+    >,
 }
 
 /// Read-only counterpart used by `sync_pause_menu` to sample the

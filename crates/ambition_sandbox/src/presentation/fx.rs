@@ -471,7 +471,7 @@ pub fn update_blink_preview(
     >,
     player_authority: Query<
         &crate::player::PlayerMovementAuthority,
-        bevy::prelude::With<crate::player::PlayerEntity>,
+        crate::player::PrimaryPlayerOnly,
     >,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {

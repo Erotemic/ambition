@@ -37,8 +37,8 @@ mod save_sync;
 mod spawn;
 mod view_index;
 
-pub use actors::{update_ecs_actors, ActorRuntime};
 pub(crate) use actors::{actor_component_snapshot, sync_actor_components_from_runtime};
+pub use actors::{update_ecs_actors, ActorRuntime};
 pub use anim_helpers::{
     ecs_boss_anim_state, ecs_boss_name, ecs_breakable_state, ecs_chest_opened,
     ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state,

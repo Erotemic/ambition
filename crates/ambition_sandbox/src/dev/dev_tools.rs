@@ -150,6 +150,103 @@ impl MovementProfile {
     }
 }
 
+/// Named debug visualization presets for the daily "what am I inspecting?"
+/// workflow. Individual booleans still exist as the Custom backing store, but
+/// these modes are the primary interface exposed in the developer menu.
+#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DebugViewMode {
+    /// Normal play view: no spatial overlays.
+    Gameplay,
+    /// Level-authoring view: room bounds, triggers, grid, and camera framing.
+    Authoring,
+    /// Collision view: solid/query volumes with art out of the way.
+    Collision,
+    /// Trigger/transition view: loading zones and camera/debug volumes.
+    Triggers,
+    /// Combat-feel view: actor/projectile/player combat volumes.
+    Combat,
+    /// Everything we can draw without opening the full inspector.
+    All,
+    /// Hand-edited toggle state.
+    #[default]
+    Custom,
+}
+
+impl DebugViewMode {
+    pub const ALL: [Self; 7] = [
+        Self::Gameplay,
+        Self::Authoring,
+        Self::Collision,
+        Self::Triggers,
+        Self::Combat,
+        Self::All,
+        Self::Custom,
+    ];
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Gameplay => "gameplay",
+            Self::Authoring => "authoring",
+            Self::Collision => "collision",
+            Self::Triggers => "triggers",
+            Self::Combat => "combat",
+            Self::All => "all",
+            Self::Custom => "custom",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|m| *m == self).unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|m| *m == self).unwrap_or(0);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+
+    pub const fn recommended_art_mode(self) -> DebugArtMode {
+        match self {
+            Self::Gameplay | Self::Authoring | Self::Triggers | Self::Combat | Self::All => {
+                DebugArtMode::Normal
+            }
+            Self::Collision => DebugArtMode::Hidden,
+            Self::Custom => DebugArtMode::Normal,
+        }
+    }
+}
+
+/// How normal sprite presentation should behave while inspecting debug data.
+#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DebugArtMode {
+    #[default]
+    Normal,
+    Placeholder,
+    Hidden,
+}
+
+impl DebugArtMode {
+    pub const ALL: [Self; 3] = [Self::Normal, Self::Placeholder, Self::Hidden];
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::Placeholder => "placeholder",
+            Self::Hidden => "hidden",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|m| *m == self).unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+
+    pub fn prev(self) -> Self {
+        let idx = Self::ALL.iter().position(|m| *m == self).unwrap_or(0);
+        Self::ALL[(idx + Self::ALL.len() - 1) % Self::ALL.len()]
+    }
+}
+
 /// Top-level switches for debug UI and gizmo layers.
 #[derive(Resource, Reflect, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[reflect(Resource)]
@@ -164,6 +261,8 @@ pub struct DeveloperTools {
     pub show_hud: bool,
     /// Keep the HUD compact now that the inspector exposes detailed live state.
     pub compact_hud: bool,
+    pub debug_view_mode: DebugViewMode,
+    pub debug_art_mode: DebugArtMode,
     pub show_room_bounds: bool,
     pub show_world_blocks: bool,
     pub show_loading_zones: bool,
@@ -210,7 +309,17 @@ pub struct DeveloperTools {
 impl Default for DeveloperTools {
     fn default() -> Self {
         let phone_demo = cfg!(target_os = "android");
-        Self {
+        let debug_view_mode = if phone_demo {
+            DebugViewMode::Gameplay
+        } else {
+            DebugViewMode::Authoring
+        };
+        let debug_art_mode = if phone_demo {
+            DebugArtMode::Normal
+        } else {
+            debug_view_mode.recommended_art_mode()
+        };
+        let mut tools = Self {
             inspector_visible: false,
             world_inspector_visible: false,
             // Desktop keeps the traditional debug-first sandbox posture.
@@ -220,34 +329,150 @@ impl Default for DeveloperTools {
             gizmos_enabled: !phone_demo,
             show_hud: !phone_demo,
             compact_hud: true,
-            show_room_bounds: !phone_demo,
-            // Default ON on desktop so collision rects are visible from the
-            // start — sprite art often has large transparent regions that
-            // cover less of the actual collision box than the eye reads.
-            show_world_blocks: !phone_demo,
-            show_loading_zones: !phone_demo,
-            show_player_hitbox: !phone_demo,
-            show_player_vectors: !phone_demo,
-            show_blink_preview: !phone_demo,
-            show_combat_preview: !phone_demo,
-            show_feature_hitboxes: !phone_demo,
-            show_health_bars: !phone_demo,
-            show_moving_platform: !phone_demo,
+            debug_view_mode,
+            debug_art_mode,
+            show_room_bounds: false,
+            show_world_blocks: false,
+            show_loading_zones: false,
+            show_player_hitbox: false,
+            show_player_vectors: false,
+            show_blink_preview: false,
+            show_combat_preview: false,
+            show_feature_hitboxes: false,
+            show_health_bars: false,
+            show_moving_platform: false,
             show_micro_grid: false,
             show_camera_frame: false,
-            show_rebound_vectors: !phone_demo,
+            show_rebound_vectors: false,
             overview_camera: false,
             overview_camera_scale: 2.35,
             hide_sprites: false,
             placeholder_sprites: false,
-            // Default ON on desktop so debug volumes read as filled regions
-            // (much easier to spot overlaps / empty patches than outlines).
-            // Phone demo keeps it off — the extra alpha layers cost fillrate
-            // and the user isn't usually authoring hitboxes there.
-            fill_debug_boxes: !phone_demo,
+            fill_debug_boxes: false,
             player_body_profile: PlayerBodyProfile::default(),
             movement_profile: MovementProfile::default(),
+        };
+        tools.apply_debug_view_mode(debug_view_mode, !phone_demo);
+        tools.apply_debug_art_mode(debug_art_mode);
+        tools
+    }
+}
+
+impl DeveloperTools {
+    pub fn apply_debug_view_mode(&mut self, mode: DebugViewMode, apply_art_recommendation: bool) {
+        self.debug_view_mode = mode;
+        match mode {
+            DebugViewMode::Gameplay => {
+                self.show_room_bounds = false;
+                self.show_world_blocks = false;
+                self.show_loading_zones = false;
+                self.show_player_hitbox = false;
+                self.show_player_vectors = false;
+                self.show_blink_preview = false;
+                self.show_combat_preview = false;
+                self.show_feature_hitboxes = false;
+                self.show_health_bars = false;
+                self.show_moving_platform = false;
+                self.show_rebound_vectors = false;
+                self.show_micro_grid = false;
+                self.show_camera_frame = false;
+                self.fill_debug_boxes = false;
+            }
+            DebugViewMode::Authoring => {
+                self.show_room_bounds = true;
+                self.show_world_blocks = false;
+                self.show_loading_zones = true;
+                self.show_player_hitbox = false;
+                self.show_player_vectors = false;
+                self.show_blink_preview = false;
+                self.show_combat_preview = false;
+                self.show_feature_hitboxes = false;
+                self.show_health_bars = false;
+                self.show_moving_platform = true;
+                self.show_rebound_vectors = false;
+                self.show_micro_grid = true;
+                self.show_camera_frame = true;
+                self.fill_debug_boxes = false;
+            }
+            DebugViewMode::Collision => {
+                self.show_room_bounds = true;
+                self.show_world_blocks = true;
+                self.show_loading_zones = false;
+                self.show_player_hitbox = true;
+                self.show_player_vectors = false;
+                self.show_blink_preview = true;
+                self.show_combat_preview = false;
+                self.show_feature_hitboxes = true;
+                self.show_health_bars = false;
+                self.show_moving_platform = true;
+                self.show_rebound_vectors = true;
+                self.show_micro_grid = false;
+                self.show_camera_frame = false;
+                self.fill_debug_boxes = true;
+            }
+            DebugViewMode::Triggers => {
+                self.show_room_bounds = true;
+                self.show_world_blocks = false;
+                self.show_loading_zones = true;
+                self.show_player_hitbox = true;
+                self.show_player_vectors = false;
+                self.show_blink_preview = false;
+                self.show_combat_preview = false;
+                self.show_feature_hitboxes = true;
+                self.show_health_bars = false;
+                self.show_moving_platform = false;
+                self.show_rebound_vectors = false;
+                self.show_micro_grid = false;
+                self.show_camera_frame = true;
+                self.fill_debug_boxes = true;
+            }
+            DebugViewMode::Combat => {
+                self.show_room_bounds = false;
+                self.show_world_blocks = false;
+                self.show_loading_zones = false;
+                self.show_player_hitbox = true;
+                self.show_player_vectors = true;
+                self.show_blink_preview = false;
+                self.show_combat_preview = true;
+                self.show_feature_hitboxes = true;
+                self.show_health_bars = true;
+                self.show_moving_platform = false;
+                self.show_rebound_vectors = false;
+                self.show_micro_grid = false;
+                self.show_camera_frame = false;
+                self.fill_debug_boxes = true;
+            }
+            DebugViewMode::All => {
+                self.show_room_bounds = true;
+                self.show_world_blocks = true;
+                self.show_loading_zones = true;
+                self.show_player_hitbox = true;
+                self.show_player_vectors = true;
+                self.show_blink_preview = true;
+                self.show_combat_preview = true;
+                self.show_feature_hitboxes = true;
+                self.show_health_bars = true;
+                self.show_moving_platform = true;
+                self.show_rebound_vectors = true;
+                self.show_micro_grid = true;
+                self.show_camera_frame = true;
+                self.fill_debug_boxes = true;
+            }
+            DebugViewMode::Custom => {}
         }
+        if apply_art_recommendation {
+            self.apply_debug_art_mode(mode.recommended_art_mode());
+        }
+    }
+
+    pub fn mark_debug_view_custom(&mut self) {
+        self.debug_view_mode = DebugViewMode::Custom;
+    }
+
+    pub fn apply_debug_art_mode(&mut self, mode: DebugArtMode) {
+        self.debug_art_mode = mode;
+        self.hide_sprites = matches!(mode, DebugArtMode::Hidden);
+        self.placeholder_sprites = matches!(mode, DebugArtMode::Placeholder);
     }
 }
 
@@ -771,5 +996,42 @@ mod tests {
         assert_eq!(s.slash_damage, EditablePlayerStats::DEFAULT_SLASH_DAMAGE);
         assert!(!s.invincible);
         assert!(!s.refill_now);
+    }
+
+    #[test]
+    fn debug_view_presets_drive_overlay_intent() {
+        let mut tools = DeveloperTools::default();
+        tools.apply_debug_view_mode(DebugViewMode::Collision, true);
+        assert_eq!(tools.debug_view_mode, DebugViewMode::Collision);
+        assert!(tools.show_world_blocks);
+        assert!(tools.show_player_hitbox);
+        assert!(tools.show_feature_hitboxes);
+        assert!(tools.fill_debug_boxes);
+        assert_eq!(tools.debug_art_mode, DebugArtMode::Hidden);
+
+        tools.apply_debug_view_mode(DebugViewMode::Authoring, true);
+        assert_eq!(tools.debug_view_mode, DebugViewMode::Authoring);
+        assert!(tools.show_room_bounds);
+        assert!(tools.show_loading_zones);
+        assert!(tools.show_micro_grid);
+        assert!(!tools.show_world_blocks);
+        assert!(!tools.fill_debug_boxes);
+        assert_eq!(tools.debug_art_mode, DebugArtMode::Normal);
+    }
+
+    #[test]
+    fn debug_art_mode_is_single_source_for_sprite_overrides() {
+        let mut tools = DeveloperTools::default();
+        tools.apply_debug_art_mode(DebugArtMode::Placeholder);
+        assert!(tools.placeholder_sprites);
+        assert!(!tools.hide_sprites);
+
+        tools.apply_debug_art_mode(DebugArtMode::Hidden);
+        assert!(!tools.placeholder_sprites);
+        assert!(tools.hide_sprites);
+
+        tools.apply_debug_art_mode(DebugArtMode::Normal);
+        assert!(!tools.placeholder_sprites);
+        assert!(!tools.hide_sprites);
     }
 }

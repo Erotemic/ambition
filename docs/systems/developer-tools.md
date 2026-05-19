@@ -26,8 +26,8 @@ more intrusive and can be noisier.
 The inspector exposes sandbox-side mirrors instead of adding Bevy reflection as
 a dependency of `ambition_engine`.
 
-- `DeveloperTools`: HUD, gizmo, room, loading-zone, player-vector, blink-preview,
-  dummy, platform, and world-inspector toggles.
+- `DeveloperTools`: HUD, inspector, debug view mode, debug art mode, and the
+  advanced per-overlay toggles used by the Custom view.
 - `EditableAbilitySet`: live ability flags such as jump, wall climb, dash, blink,
   fly, attack, pogo, and rebound.
 - `EditableMovementTuning`: live movement parameters copied from the RON manifest
@@ -43,7 +43,24 @@ the reusable engine remains backend-neutral.
 
 ## Gizmo overlays
 
-The debug overlay now uses reflected `DeveloperTools` toggles to control:
+The debug overlay is organized around named debug views first, with individual
+overlay booleans treated as advanced/custom state:
+
+- `Gameplay` keeps the game view clean.
+- `Authoring` shows room bounds, loading zones, camera framing, grid, and
+  authored platform context.
+- `Collision` hides art and fills collision/player/feature/platform volumes.
+- `Triggers` focuses loading zones, camera frames, player overlap, and feature
+  trigger volumes.
+- `Combat` focuses player vectors, combat previews, actors, projectiles, and HP.
+- `All` enables every lightweight overlay.
+- `Custom` preserves hand-edited toggle combinations.
+
+`Debug Art` is separate from the view mode and can be `normal`, `placeholder`,
+or `hidden`. View presets choose a recommended art mode, but the art mode can be
+changed afterward without changing which debug data is drawn.
+
+The available overlay data includes:
 
 - room bounds
 - room blocks

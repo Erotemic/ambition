@@ -15,7 +15,8 @@ use super::gameplay::GameplaySettings;
 use super::video::{ScreenShaderSettings, SerializableDisplayMode};
 use super::UserSettings;
 use crate::dev::dev_tools::{
-    apply_movement_profile, apply_player_body_profile, DeveloperTools, EditableMovementTuning,
+    apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
+    EditableMovementTuning,
 };
 use crate::host::windowing::{DisplayModeKind, DisplayModeState};
 use crate::ldtk_world::LdtkHotReloadState;
@@ -144,9 +145,9 @@ pub enum SettingsItem {
     Inspector,
     WorldInspector,
     OverviewCamera,
+    DebugViewMode,
+    DebugArtMode,
     ShowHitboxes,
-    HideSprites,
-    PlaceholderSprites,
     FillDebugBoxes,
     MicroGrid,
     CameraFrame,
@@ -238,9 +239,9 @@ impl SettingsItem {
                 Self::Inspector,
                 Self::WorldInspector,
                 Self::OverviewCamera,
+                Self::DebugViewMode,
+                Self::DebugArtMode,
                 Self::ShowHitboxes,
-                Self::HideSprites,
-                Self::PlaceholderSprites,
                 Self::FillDebugBoxes,
                 Self::MicroGrid,
                 Self::CameraFrame,
@@ -497,17 +498,17 @@ impl SettingsItem {
             Self::OverviewCamera => {
                 format!("Overview Camera (F5): {}", on_off(dev.overview_camera))
             }
+            Self::DebugViewMode => {
+                format!("Debug View: {}  < / >", dev.debug_view_mode.label())
+            }
+            Self::DebugArtMode => {
+                format!("Debug Art: {}  < / >", dev.debug_art_mode.label())
+            }
             Self::ShowHitboxes => {
-                format!("Show Hitboxes: {}", on_off(dev.show_hitboxes))
-            }
-            Self::HideSprites => {
-                format!("Hide Sprites: {}", on_off(dev.hide_sprites))
-            }
-            Self::PlaceholderSprites => {
-                format!("Placeholder Sprites: {}", on_off(dev.placeholder_sprites))
+                format!("Custom Hitboxes: {}", on_off(dev.show_hitboxes))
             }
             Self::FillDebugBoxes => {
-                format!("Fill Debug Boxes: {}", on_off(dev.fill_debug_boxes))
+                format!("Debug Fills: {}", on_off(dev.fill_debug_boxes))
             }
             Self::MicroGrid => {
                 format!("Micro Grid (8px): {}", on_off(dev.micro_grid))
@@ -547,6 +548,8 @@ pub struct DevToggleSnapshot {
     pub inspector: bool,
     pub world_inspector: bool,
     pub overview_camera: bool,
+    pub debug_view_mode: DebugViewMode,
+    pub debug_art_mode: DebugArtMode,
     pub show_hitboxes: bool,
     pub hide_sprites: bool,
     pub placeholder_sprites: bool,
@@ -570,6 +573,8 @@ impl DevToggleSnapshot {
             inspector: developer.inspector_visible,
             world_inspector: developer.world_inspector_visible,
             overview_camera: developer.overview_camera,
+            debug_view_mode: developer.debug_view_mode,
+            debug_art_mode: developer.debug_art_mode,
             show_hitboxes: developer.show_feature_hitboxes,
             hide_sprites: developer.hide_sprites,
             placeholder_sprites: developer.placeholder_sprites,
@@ -1032,35 +1037,45 @@ pub fn apply_action(
                 developer.overview_camera = !developer.overview_camera;
             }
         }
+        SettingsItem::DebugViewMode => match action {
+            SettingsAction::Prev => {
+                developer.apply_debug_view_mode(developer.debug_view_mode.prev(), true);
+            }
+            SettingsAction::Next | SettingsAction::Confirm => {
+                developer.apply_debug_view_mode(developer.debug_view_mode.next(), true);
+            }
+        },
+        SettingsItem::DebugArtMode => match action {
+            SettingsAction::Prev => {
+                developer.apply_debug_art_mode(developer.debug_art_mode.prev());
+            }
+            SettingsAction::Next | SettingsAction::Confirm => {
+                developer.apply_debug_art_mode(developer.debug_art_mode.next());
+            }
+        },
         SettingsItem::ShowHitboxes => {
             if is_toggle_action(action) {
+                developer.mark_debug_view_custom();
                 let next = !developer.show_feature_hitboxes;
                 developer.show_feature_hitboxes = next;
                 developer.show_player_hitbox = next;
             }
         }
-        SettingsItem::HideSprites => {
-            if is_toggle_action(action) {
-                developer.hide_sprites = !developer.hide_sprites;
-            }
-        }
-        SettingsItem::PlaceholderSprites => {
-            if is_toggle_action(action) {
-                developer.placeholder_sprites = !developer.placeholder_sprites;
-            }
-        }
         SettingsItem::FillDebugBoxes => {
             if is_toggle_action(action) {
+                developer.mark_debug_view_custom();
                 developer.fill_debug_boxes = !developer.fill_debug_boxes;
             }
         }
         SettingsItem::MicroGrid => {
             if is_toggle_action(action) {
+                developer.mark_debug_view_custom();
                 developer.show_micro_grid = !developer.show_micro_grid;
             }
         }
         SettingsItem::CameraFrame => {
             if is_toggle_action(action) {
+                developer.mark_debug_view_custom();
                 developer.show_camera_frame = !developer.show_camera_frame;
             }
         }

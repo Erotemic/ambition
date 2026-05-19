@@ -679,12 +679,9 @@ fn draw_aabb(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, color: Colo
     gizmos.line_2d(bl, tl, color);
 }
 
-/// Outline + (optional) translucent fill. The fill only draws when
-/// `hide_sprites` is on (so the colored squares replace the missing
-/// artwork) AND `fill_debug_boxes` is on. With sprites visible, the
-/// fill would just smear over the artwork and obscure it, so we leave
-/// only the outline behind. Outline always draws so a slim/zero-area
-/// volume still has a visible boundary.
+/// Outline + optional translucent fill. Fills are controlled directly by the
+/// current debug view mode instead of being coupled to sprite hiding; choose
+/// Collision/Combat/Triggers when the filled volume view is useful.
 fn draw_aabb_styled(
     gizmos: &mut Gizmos,
     world: &ae::World,
@@ -693,7 +690,7 @@ fn draw_aabb_styled(
     developer_tools: &DeveloperTools,
 ) {
     draw_aabb(gizmos, world, aabb, color);
-    if !developer_tools.fill_debug_boxes || !developer_tools.hide_sprites {
+    if !developer_tools.fill_debug_boxes {
         return;
     }
     let size = aabb.half_size() * 2.0;

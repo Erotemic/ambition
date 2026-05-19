@@ -29,10 +29,6 @@ pub fn update_ecs_breakables(
     // Sim clock: breakable respawn / stand-to-break should freeze in
     // bullet-time alongside the player and enemies (ADR 0010).
     let dt = world_time.sim_dt();
-    let Ok(pb) = player_body_q.single() else {
-        return;
-    };
-    let player_body = pb.aabb();
     for (entity, name, aabb, mut feature, respawn_timer, stand_timer) in &mut breakables {
         if feature.broken() {
             if let Some(mut timer) = respawn_timer {
@@ -59,7 +55,16 @@ pub fn update_ecs_breakables(
         let Some(mut stand_timer) = stand_timer else {
             continue;
         };
-        if breaks_on_stand && player_is_standing_on(player_body, aabb.aabb()) {
+        // Iterate every player so any player standing on a
+        // collision-blocking breakable triggers the collapse. Single-
+        // player behavior preserved because there's one entity in the
+        // iterator today. OVERNIGHT-TODO #17.8 (iterate-all-players
+        // "no targeting" B-bucket).
+        let any_player_standing = breaks_on_stand
+            && player_body_q
+                .iter()
+                .any(|pb| player_is_standing_on(pb.aabb(), aabb.aabb()));
+        if any_player_standing {
             stand_timer.0 += dt;
             if stand_timer.0 >= BREAK_ON_STAND_SECONDS {
                 let damage = feature.breakable.health.current.max(1);

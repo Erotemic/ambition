@@ -21,12 +21,23 @@ pub fn collect_ecs_pickups(
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
-    let Ok(player_body) = player.single() else {
+    if player.is_empty() {
         return;
-    };
-    let player_body = player_body.aabb();
+    }
     for (entity, name, aabb, pickup, collected) in &pickups {
-        if collected.is_some() || !aabb.aabb().strict_intersects(player_body) {
+        if collected.is_some() {
+            continue;
+        }
+        // Iterate every player so the first player to touch the
+        // pickup collects it. Single-player behavior preserved (one
+        // entity in the iterator). For a future co-op build the heal
+        // amount + banner / SFX / VFX would ideally target the
+        // collector specifically (OVERNIGHT-TODO #17.6); today the
+        // heal message is implicitly the primary player.
+        if !player
+            .iter()
+            .any(|pb| aabb.aabb().strict_intersects(pb.aabb()))
+        {
             continue;
         }
         commands.entity(entity).insert(Collected);

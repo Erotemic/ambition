@@ -157,7 +157,7 @@ impl MovementProfile {
 pub enum DebugViewMode {
     /// Normal play view: no spatial overlays.
     Gameplay,
-    /// Level-authoring view: room bounds, triggers, grid, and camera framing.
+    /// Level-authoring view: room bounds, triggers, and camera framing.
     Authoring,
     /// Collision view: solid/query volumes with art out of the way.
     Collision,
@@ -390,7 +390,7 @@ impl DeveloperTools {
                 self.show_health_bars = false;
                 self.show_moving_platform = true;
                 self.show_rebound_vectors = false;
-                self.show_micro_grid = true;
+                self.show_micro_grid = false;
                 self.show_camera_frame = true;
                 self.fill_debug_boxes = false;
             }
@@ -1013,7 +1013,7 @@ mod tests {
         assert_eq!(tools.debug_view_mode, DebugViewMode::Authoring);
         assert!(tools.show_room_bounds);
         assert!(tools.show_loading_zones);
-        assert!(tools.show_micro_grid);
+        assert!(!tools.show_micro_grid);
         assert!(!tools.show_world_blocks);
         assert!(!tools.fill_debug_boxes);
         assert_eq!(tools.debug_art_mode, DebugArtMode::Normal);

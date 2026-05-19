@@ -20,10 +20,15 @@ use bevy::prelude::{
 use crate::WorldTime;
 
 mod anim_helpers;
+mod bosses;
+mod breakables;
+mod chests;
 mod damage;
 mod encounter_rewards;
 mod falling_chest;
+mod hazards;
 mod interact;
+mod pickups;
 mod save_sync;
 mod spawn;
 mod view_index;
@@ -33,6 +38,9 @@ pub use anim_helpers::{
     ecs_enemy_anim_state, ecs_enemy_name, ecs_enemy_sprite_override, ecs_npc_anim_state,
     ecs_npc_name,
 };
+pub use bosses::update_ecs_bosses;
+pub use breakables::update_ecs_breakables;
+pub use chests::open_ecs_chests;
 pub use damage::{
     apply_feature_damage_events, ecs_damage_event_hits_actor, ecs_damage_event_hits_boss,
     ecs_damage_event_hits_breakable,
@@ -41,7 +49,9 @@ pub use encounter_rewards::{
     clear_encounter_reward_ecs, sync_boss_reward_chests_ecs, sync_encounter_reward_chests_ecs,
 };
 pub use falling_chest::update_ecs_falling_chests;
+pub use hazards::update_ecs_hazards;
 pub use interact::interact_ecs_actors_and_switches;
+pub use pickups::collect_ecs_pickups;
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };
@@ -481,352 +491,6 @@ pub fn rebuild_feature_ecs_world_overlay(
     }
 }
 
-/// Collect ECS-owned pickups after the player simulation has advanced.
-pub fn collect_ecs_pickups(
-    mut commands: Commands,
-    mut banner: ResMut<GameplayBanner>,
-    player: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
-    pickups: Query<
-        (
-            Entity,
-            &FeatureName,
-            &FeatureAabb,
-            &PickupFeature,
-            Option<&Collected>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    mut heals: MessageWriter<crate::player::PlayerHealRequested>,
-    mut sfx: MessageWriter<SfxMessage>,
-    mut vfx: MessageWriter<VfxMessage>,
-) {
-    let Ok(player_body) = player.single() else {
-        return;
-    };
-    let player_body = player_body.aabb();
-    for (entity, name, aabb, pickup, collected) in &pickups {
-        if collected.is_some() || !aabb.aabb().strict_intersects(player_body) {
-            continue;
-        }
-        commands.entity(entity).insert(Collected);
-        banner.show(format!("picked up {}", name.0.as_str()), 2.6);
-        if let ae::PickupKind::Health { amount } = &pickup.pickup.kind {
-            heals.write(crate::player::PlayerHealRequested::new(*amount));
-        }
-        let pos = aabb.center;
-        vfx.write(VfxMessage::Burst {
-            pos,
-            count: 16,
-            speed: 230.0,
-            color: [0.84, 0.95, 1.0, 0.82],
-            kind: ParticleKind::Spark,
-        });
-        let id = match &pickup.pickup.kind {
-            ae::PickupKind::Health { .. } => ambition_sfx::ids::WORLD_HEALTH_COLLECT,
-            ae::PickupKind::Currency { .. } => ambition_sfx::ids::WORLD_COIN_PICKUP,
-            _ => ambition_sfx::ids::WORLD_PICKUP_GENERIC,
-        };
-        sfx.write(SfxMessage::Play { id, pos });
-    }
-}
-
-/// Open ECS-owned static chests from the same interaction buffer used by doors
-/// and legacy NPCs/switches.
-pub fn open_ecs_chests(
-    mut commands: Commands,
-    mut banner: ResMut<GameplayBanner>,
-    mut player: Query<
-        (
-            &crate::player::PlayerBody,
-            &mut crate::player::PlayerInteractionState,
-        ),
-        With<crate::player::PlayerEntity>,
-    >,
-    chests: Query<
-        (
-            Entity,
-            &FeatureId,
-            &FeatureName,
-            &FeatureAabb,
-            Option<&Opened>,
-            Option<&FallingChest>,
-        ),
-        (With<FeatureSimEntity>, With<ChestFeature>),
-    >,
-    mut gameplay_effects: MessageWriter<GameplayEffect>,
-    mut sfx: MessageWriter<SfxMessage>,
-    mut vfx: MessageWriter<VfxMessage>,
-) {
-    let Ok((player_body, mut interaction)) = player.single_mut() else {
-        return;
-    };
-    if !interaction.buffered() {
-        return;
-    }
-    let player_body = player_body.aabb();
-    for (entity, id, name, aabb, opened, falling) in &chests {
-        if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(player_body) {
-            continue;
-        }
-        commands.entity(entity).insert(Opened);
-        interaction.clear();
-        banner.show(format!("opened {}", name.0.as_str()), 2.6);
-        let pos = aabb.center;
-        vfx.write(VfxMessage::Burst {
-            pos,
-            count: 16,
-            speed: 230.0,
-            color: [0.84, 0.95, 1.0, 0.82],
-            kind: ParticleKind::Spark,
-        });
-        sfx.write(SfxMessage::Play {
-            id: ambition_sfx::ids::WORLD_TREASURE_CHEST_OPEN,
-            pos,
-        });
-        if let Some(encounter_id) = id.as_str().strip_prefix("encounter_chest_") {
-            gameplay_effects.write(GameplayEffect::SetFlag {
-                id: format!("encounter_{encounter_id}_reward_dropped"),
-                on: true,
-            });
-        }
-        break;
-    }
-}
-
-/// Tick ECS-owned breakable timers and stand-to-break triggers.
-pub fn update_ecs_breakables(
-    mut commands: Commands,
-    world_time: Res<WorldTime>,
-    player_body_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
-    mut banner: ResMut<GameplayBanner>,
-    mut breakables: Query<
-        (
-            Entity,
-            &FeatureName,
-            &FeatureAabb,
-            &mut BreakableFeature,
-            Option<&mut RespawnTimer>,
-            Option<&mut StandTimer>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    mut sfx: MessageWriter<SfxMessage>,
-    mut vfx: MessageWriter<VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
-) {
-    // Sim clock: breakable respawn / stand-to-break should freeze in
-    // bullet-time alongside the player and enemies (ADR 0010).
-    let dt = world_time.sim_dt();
-    let Ok(pb) = player_body_q.single() else {
-        return;
-    };
-    let player_body = pb.aabb();
-    for (entity, name, aabb, mut feature, respawn_timer, stand_timer) in &mut breakables {
-        if feature.broken() {
-            if let Some(mut timer) = respawn_timer {
-                timer.0 = (timer.0 - dt).max(0.0);
-                if timer.0 <= 0.0 {
-                    feature.breakable.state = ae::BreakableState::Intact;
-                    feature.breakable.health.reset();
-                    commands.entity(entity).remove::<RespawnTimer>();
-                    banner.show(format!("{} respawned", name.0.as_str()), 2.6);
-                    vfx.write(VfxMessage::Burst {
-                        pos: aabb.center,
-                        count: 16,
-                        speed: 230.0,
-                        color: [0.84, 0.95, 1.0, 0.82],
-                        kind: ParticleKind::Spark,
-                    });
-                }
-            }
-            continue;
-        }
-
-        let breaks_on_stand = feature.breakable.collision.blocks_movement()
-            && feature.breakable.trigger.allows_stand();
-        let Some(mut stand_timer) = stand_timer else {
-            continue;
-        };
-        if breaks_on_stand && player_is_standing_on(player_body, aabb.aabb()) {
-            stand_timer.0 += dt;
-            if stand_timer.0 >= BREAK_ON_STAND_SECONDS {
-                let damage = feature.breakable.health.current.max(1);
-                let broke = feature.breakable.apply_damage(damage);
-                if broke {
-                    begin_ecs_breakable_respawn(&mut commands, entity, &feature.breakable);
-                    stand_timer.0 = 0.0;
-                    banner.show(format!("{} collapsed under weight", name.0.as_str()), 2.6);
-                    emit_breakable_destroyed(aabb.center, &mut sfx, &mut vfx, &mut debris);
-                }
-            }
-        } else {
-            stand_timer.0 = (stand_timer.0 - dt * 2.0).max(0.0);
-        }
-    }
-}
-
-/// Tick ECS-authored hazards and publish player damage through Bevy messages.
-pub fn update_ecs_hazards(
-    world_time: Res<WorldTime>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
-    mut player_damage: MessageWriter<PlayerDamageEvent>,
-    player: Query<
-        (
-            &crate::player::PlayerBody,
-            &crate::player::PlayerCombatState,
-        ),
-        With<crate::player::PlayerEntity>,
-    >,
-    mut hazards: Query<
-        (&FeatureName, &mut FeatureAabb, &mut HazardFeature),
-        With<FeatureSimEntity>,
-    >,
-) {
-    // Sim clock: patrolling damage volumes must slow in bullet-time
-    // so the player can route around them. ADR 0010.
-    let dt = world_time.sim_dt();
-    let Ok((pb, combat)) = player.single() else {
-        return;
-    };
-    let player_body = pb.aabb();
-    let player_pos = pb.pos;
-    let player_vulnerable =
-        !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (_name, mut aabb, mut feature) in &mut hazards {
-        let hazard = &mut feature.hazard;
-        hazard.update(dt);
-        aabb.center = hazard.pos;
-        aabb.half_size = hazard.size * 0.5;
-        if !player_vulnerable || !hazard.active() || !hazard.aabb().strict_intersects(player_body) {
-            continue;
-        }
-        let pos = player_pos;
-        let knockback_dir = (pos.x - hazard.pos.x).signum();
-        vfx.write(VfxMessage::Impact { pos });
-        vfx.write(VfxMessage::Burst {
-            pos,
-            count: 14,
-            speed: 300.0,
-            color: [1.0, 0.34, 0.28, 0.88],
-            kind: ParticleKind::Shard,
-        });
-        debris.write(DebrisBurstMessage {
-            pos,
-            cue: PhysicsDebrisCue::Impact,
-        });
-        sfx.write(crate::audio::SfxMessage::Play {
-            id: hazard_sfx_id(&hazard.name),
-            pos,
-        });
-        player_damage.write(PlayerDamageEvent {
-            mode: hazard.mode,
-            source: PlayerDamageSource::Hazard,
-            source_pos: hazard.pos,
-            impact_pos: pos,
-            knockback_dir,
-            strength: 1.0,
-            amount: hazard.volume.damage.amount.max(1),
-        });
-    }
-}
-
-/// Tick ECS-authored bosses and publish player damage through Bevy messages.
-pub fn update_ecs_bosses(
-    world_time: Res<WorldTime>,
-    world: Res<crate::GameWorld>,
-    platform_set: Res<crate::MovingPlatformSet>,
-    feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
-    overlay: Res<FeatureEcsWorldOverlay>,
-    encounter_registry: Res<crate::boss_encounter::BossEncounterRegistry>,
-    mut sfx: MessageWriter<crate::audio::SfxMessage>,
-    mut vfx: MessageWriter<crate::presentation::fx::VfxMessage>,
-    mut debris: MessageWriter<DebrisBurstMessage>,
-    mut player_damage: MessageWriter<PlayerDamageEvent>,
-    player_query: Query<
-        (
-            &crate::player::PlayerBody,
-            &crate::player::PlayerCombatState,
-            &crate::player::PlayerMovementAuthority,
-        ),
-        With<crate::player::PlayerEntity>,
-    >,
-    mut bosses: Query<
-        (
-            &mut FeatureAabb,
-            &mut BossFeature,
-            &mut BossPatternTimer,
-            &mut BossPhase,
-        ),
-        With<FeatureSimEntity>,
-    >,
-) {
-    // Sim clock: bosses must slow with bullet-time (ADR 0010); a
-    // boss locked-on to the player should not get free hits when
-    // the player triggers bullet-time mid-pattern.
-    let dt = world_time.sim_dt();
-    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    let Ok((pb, combat, authority)) = player_query.single() else {
-        return;
-    };
-    let player = authority.player.clone();
-    let player_body = pb.aabb();
-    let player_vulnerable =
-        !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
-    for (mut aabb, mut feature, mut pattern_timer, mut phase) in &mut bosses {
-        let boss = &mut feature.boss;
-        // Forward this boss's current encounter phase into the runtime
-        // so `Scripted` attack patterns can pick the right phase
-        // timeline. Look up by the semantic encounter id derived from
-        // the boss display name (matches the lazy-register path in
-        // `boss_encounter::systems::update_boss_encounters`). If the
-        // encounter hasn't been registered yet, leave the previous
-        // phase value alone — defaults to `Dormant` from `new()`.
-        let encounter_id = crate::boss_encounter::encounter_id_from_name(&boss.name);
-        if let Some(state) = encounter_registry.get(&encounter_id) {
-            if boss.encounter_phase != state.phase {
-                boss.encounter_phase = state.phase;
-                // Reset the scripted cursor on phase change so each phase's
-                // timeline begins at step 0 rather than mid-step.
-                boss.scripted_step_index = 0;
-                boss.scripted_step_elapsed = 0.0;
-            }
-        }
-        boss.update(
-            &feature_world,
-            &player,
-            feel_tuning.feature_combat_tuning(),
-            dt,
-        );
-        aabb.center = boss.pos;
-        aabb.half_size = boss.render_size() * 0.5;
-        pattern_timer.0 = boss.pattern_timer;
-        *phase = BossPhase::from_alive(boss.alive);
-        if player_vulnerable && boss.alive {
-            if let Some(damage) = boss.player_damage(player_body) {
-                let pos = damage.impact_pos;
-                sfx.write(crate::audio::SfxMessage::Play {
-                    id: ambition_sfx::ids::PLAYER_DAMAGE,
-                    pos,
-                });
-                vfx.write(VfxMessage::Impact { pos });
-                vfx.write(VfxMessage::Burst {
-                    pos,
-                    count: 14,
-                    speed: 300.0,
-                    color: [1.0, 0.34, 0.28, 0.88],
-                    kind: ParticleKind::Shard,
-                });
-                debris.write(DebrisBurstMessage {
-                    pos,
-                    cue: PhysicsDebrisCue::Impact,
-                });
-                player_damage.write(damage);
-            }
-        }
-    }
-}
 
 /// Tick ECS actors. Peaceful and hostile actors share the same entity identity
 /// and can switch disposition in-place; dynamic encounter-spawned mobs use the

@@ -423,7 +423,6 @@ impl PlayerSafetyState {
 mod multiplayer_smoke_tests {
     use super::*;
     use ambition_engine as ae;
-    use bevy::prelude::*;
 
     fn dummy_attack_spec() -> ae::AttackSpec {
         // Construct via the live `attack_spec` builder; a minimal Player

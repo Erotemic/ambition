@@ -169,9 +169,25 @@ pub fn sync_map_menu(
     }
 
     if !map.open && !map.minimap_enabled {
+        // Map and minimap both off — drop any leftover boxes once, then
+        // skip rebuild until the player toggles either back on.
+        for entity in &existing_boxes {
+            commands.entity(entity).despawn();
+        }
         return;
     }
     if map.rooms.is_empty() {
+        return;
+    }
+
+    // Skip the despawn-and-repaint pass when nothing material changed
+    // this frame. `MapMenuState` mutates on toggle / visit / zoom and
+    // `RoomSet` mutates on room transitions, so a frame with neither
+    // changed produces an identical paint — repainting it is wasted
+    // work. The visibility / status text branches above stay
+    // unconditional (cheap, and the status string depends on inputs
+    // that aren't all covered by `is_changed`).
+    if !map.is_changed() && !room_set.is_changed() {
         return;
     }
 

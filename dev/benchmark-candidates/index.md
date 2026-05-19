@@ -8,6 +8,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 |---|---|
 | Facade re-exports after splitting a large Rust module | [`rust-questions.md`](rust-questions.md) |
 | Private child-module visibility and sibling helper access | [`rust-questions.md`](rust-questions.md), [`rust-module-split-subtle-review-question-2026-05-11.md`](rust-module-split-subtle-review-question-2026-05-11.md) |
+| `pub use` of a `pub(crate)` item silently widens API surface (E0364) | [`rust-pub-use-pub-crate-mismatch-2026-05-19.md`](rust-pub-use-pub-crate-mismatch-2026-05-19.md) |
 | Extension-trait imports and `Self: Sized` trait default methods | [`rust-questions.md`](rust-questions.md), [`movement-refactor-questions-2026-05-11.md`](movement-refactor-questions-2026-05-11.md) |
 | Attributes/doc comments/derive macros drifting from extracted items | [`rust-questions.md`](rust-questions.md), [`rust-attribute-drift-resource-derive-question-2026-05-12.md`](rust-attribute-drift-resource-derive-question-2026-05-12.md) |
 | `include_str!` / file-location invariants and test moves | [`rust-questions.md`](rust-questions.md), [`rl-sim-module-split-question-2026-05-11.md`](rl-sim-module-split-question-2026-05-11.md) |

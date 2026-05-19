@@ -28,6 +28,7 @@ pub struct MinimapCanvas;
 
 #[derive(Component)]
 pub struct MapRoomBox {
+    #[allow(dead_code)] // Carried for future "click room → highlight" lookup.
     pub room_id: String,
 }
 

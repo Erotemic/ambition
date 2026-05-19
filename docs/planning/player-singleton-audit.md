@@ -75,13 +75,13 @@ typically filter by faction/state. Today single-player parity is preserved.
 | `content/features/ecs/pickups.rs` | 24 | `player.single()` for pickup overlap | `for player_body in players.iter()` — any overlapping player triggers |
 | `content/features/ecs/chests.rs` | 32 | `player.single_mut()` for chest interact | iterate; each player can buffer-interact independently |
 | `content/features/ecs/breakables.rs` | 32 | `player_body_q.single()` for stand-to-break | iterate; any player standing triggers |
-| `content/features/ecs/pickups.rs` | 24 | `player.single()` for pickup overlap | iterate; every overlapping player should collect (OVERNIGHT-TODO #17.6) |
-| `content/features/ecs/chests.rs` | 32 | `player.single_mut()` for chest interact | iterate; per-player interact buffer would be needed |
-| `content/features/ecs/breakables.rs` | 32 | `player_body_q.single()` for stand-to-break | iterate; any player triggers the break |
+| ~~`content/features/ecs/pickups.rs`~~ ✓ DONE 2026-05-19 (a086f07) | Was `player.single()` | Now iterates every player; first player to overlap collects. Heal/banner is still implicitly primary until #17.6 lands target fields |
+| ~~`content/features/ecs/chests.rs`~~ ✓ DONE 2026-05-19 (1ba01b0) | Was `player.single_mut()` | Now iterates every player's interact buffer; `Opened` marker is the source-of-truth for "this chest is taken" so concurrent-frame reaches race deterministically |
+| ~~`content/features/ecs/breakables.rs`~~ ✓ DONE 2026-05-19 (a086f07) | Was `player_body_q.single()` | Now any player standing triggers the break |
 | ~~`content/features/ecs/hazards.rs`~~ ✓ DONE 2026-05-19 (c626d35) | Was `player.single()` | Now iterates every overlapping player — co-op-ready for the "no targeting needed" pattern |
 | ~~`content/features/ecs/bosses.rs`~~ ✓ DONE 2026-05-19 (f0a4e08) | Was `player_query.single()` | Now `PrimaryPlayerOnly` filter documents the "boss targets primary player" decision until #17.8 lands per-target AI |
 | ~~`content/features/ecs/actors.rs`~~ ✓ DONE 2026-05-19 (f0a4e08) | Was `player_query.single()` | Now `PrimaryPlayerOnly`; enemy targeting decision is visible at the query |
-| `content/features/ecs/interact.rs` | 37 | `player.single_mut()` for NPC dialogue + switch activation | iterate; per-player interact buffers |
+| ~~`content/features/ecs/interact.rs`~~ ✓ DONE 2026-05-19 (0a569dd) | Was `player.single_mut()` | Now iterates every player. Dialogue stays global (one GameMode::Dialogue); switch activation is per-target so different players can flip different switches in the same frame |
 | `content/features/ecs/damage.rs` | 288 | `player_combat_q.single_mut()` | Per-player damage routing (OVERNIGHT-TODO #17.6) |
 | ~~`enemy_projectile/systems.rs`~~ ✓ DONE 2026-05-19 (bd306f0) | Was `player_body_q.single().ok()` | Now iterates every player; the first vulnerable overlapping player takes the hit |
 | `encounter/systems.rs` | 130 | `player_body_q.single()` for encounter trigger overlap | Iterate players; any player triggers |

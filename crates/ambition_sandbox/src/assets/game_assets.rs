@@ -701,32 +701,28 @@ fn load_parallax_layers(
     ParallaxLayerSet { handles }
 }
 
-/// Whether the loader should hand `path` to Bevy's `AssetServer::load`
-/// for an *optional* image (entity sprites, parallax layers). Decides
-/// per-[`AssetProfile`] without any `target_os` cfg branches.
-///
-/// Forwards to [`crate::assets::sandbox_assets::SandboxAssetCatalog::should_attempt_optional_load`]
-/// for the live decision; kept as a thin wrapper for the existing test
-/// surface in this module. New code should call the catalog method
-/// directly.
-///
-/// - Desktop profiles (DevLoose / Installed / SteamDeck): pre-check the
-///   host filesystem so missing optional art falls back to colored
-///   rectangles before Bevy logs a load failure.
-/// - Bundled / mobile profiles (Android / iOS): trust the packager and
-///   let Bevy's platform `AssetReader` try the load. A missing asset
-///   here is a packaging mistake, not a content-author concern.
-/// - Web / bundled-static / IPFS profiles: optional sprite/parallax
-///   PNGs aren't packaged with these builds today, so skip the load
-///   entirely. The rendering layer paints colored rectangles. A future
-///   slice can author per-asset explicit candidates to opt back in
-///   once packaging lands.
-/// - NoAssets / Headless: the catalog already returned `None` upstream;
-///   the arms are here only for match exhaustiveness.
-// `should_attempt_optional_image_load` and `desktop_loose_file_exists`
-// moved to `crate::sandbox_assets` so the SandboxAssetCatalog owns the
-// only per-profile load gate + the only host-filesystem probe. See
-// `SandboxAssetCatalog::should_attempt_optional_load`.
+// HISTORICAL: `should_attempt_optional_image_load` and
+// `desktop_loose_file_exists` once lived here as free helpers. They moved
+// to `crate::assets::sandbox_assets::SandboxAssetCatalog` so the catalog
+// owns the only per-profile load gate + the only host-filesystem probe.
+// New code should call
+// `SandboxAssetCatalog::should_attempt_optional_load` directly. The
+// per-profile decision matrix below survives as a comment because it
+// still describes the live policy:
+//
+// - Desktop profiles (DevLoose / Installed / SteamDeck): pre-check the
+//   host filesystem so missing optional art falls back to colored
+//   rectangles before Bevy logs a load failure.
+// - Bundled / mobile profiles (Android / iOS): trust the packager and
+//   let Bevy's platform `AssetReader` try the load. A missing asset
+//   here is a packaging mistake, not a content-author concern.
+// - Web / bundled-static / IPFS profiles: optional sprite/parallax
+//   PNGs aren't packaged with these builds today, so skip the load
+//   entirely. The rendering layer paints colored rectangles. A future
+//   slice can author per-asset explicit candidates to opt back in
+//   once packaging lands.
+// - NoAssets / Headless: the catalog already returned `None` upstream;
+//   the arms are here only for match exhaustiveness.
 
 /// Build a `Sprite` for the given entity-sprite key, falling back to the
 /// supplied colored-rectangle if the handle is missing. Render size always

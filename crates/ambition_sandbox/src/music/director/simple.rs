@@ -77,7 +77,7 @@ fn resolved_simple_track(
 ///
 /// Captured as a free function so the decision can be unit-tested
 /// without spinning up Bevy resources (audio channels, asset
-
+/// server, etc.).
 pub(super) fn resume_simple_music(
     director: &mut MusicDirectorState,
     library: &mut AudioLibrary,

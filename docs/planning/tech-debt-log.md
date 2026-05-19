@@ -293,12 +293,30 @@ to the bottom under "Closed" with the commit that fixed them.
 
 ### Build / repo
 
-- **LOW — Sandbox `headless` feature build is broken**
-  - File: `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime.rs`
+- **MED — Sandbox `headless` feature build pulls in `bevy_winit` via Cargo features**
+  - File: `crates/ambition_sandbox/Cargo.toml` (root cause), plus
+    `crates/ambition_sandbox/src/world/ldtk_world/bevy_runtime.rs`
+    (separate code-side gating gap).
+  - Root cause: the unconditional `bevy = { features = ["ui_api",
+    "ui_bevy_render", "2d_bevy_render", ...] }` block chains into
+    `ui_api -> default_app -> custom_cursor -> bevy_winit`. Cargo
+    feature unification means `--features headless` cannot disable
+    `bevy_winit` while those render features are unconditional, so
+    `winit` enters the dep graph and fails to compile on hosts
+    without x11/wayland dev libs (validated 2026-05-19 via
+    `cargo tree -p ambition_sandbox --no-default-features
+    --features headless --invert bevy_winit -e features`).
+  - To unblock truly-headless builds, the `2d_bevy_render`, `ui_api`,
+    `ui_bevy_render`, `scene`, and `png` bevy features must move out
+    of the unconditional `[dependencies]` block and into a
+    `visible_render` (or similar) sandbox feature, AND the code
+    referencing `Text2d` / `Sprite` / `Camera2d` / UI nodes must be
+    cfg-gated end-to-end. This is the boundary cleanup OVERNIGHT-TODO
+    item #1 is asking for; Cargo-side flipping alone is impotent.
   - Per the LDtk runtime spine memory, the headless feature gate
-    doesn't fully cfg-out the LDtk plugin yet. The default visible
-    build is fine; `cargo check --features headless` errors on
-    `register_ldtk_entity` / `init_collection`. Tracked separately in
+    also doesn't fully cfg-out the LDtk plugin yet. The default
+    visible build is fine; `cargo check --features headless` errors
+    on `register_ldtk_entity` / `init_collection`. Tracked alongside
     `docs/systems/headless-simulation.md`.
 
 - **LOW — Stale tools directory + AppImage at repo root**

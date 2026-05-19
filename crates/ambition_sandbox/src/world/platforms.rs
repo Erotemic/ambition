@@ -340,6 +340,7 @@ pub fn world_with_moving_platforms(
 }
 
 /// Compatibility wrapper for single-platform tests.
+#[allow(dead_code)]
 pub fn world_with_moving_platform(world: &ae::World, platform: &MovingPlatformState) -> ae::World {
     world_with_moving_platforms(world, std::slice::from_ref(platform))
 }

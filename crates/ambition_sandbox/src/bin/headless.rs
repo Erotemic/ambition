@@ -84,8 +84,6 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     for _ in 0..max_ticks {
         sim.step(ambition_sandbox::AgentAction::default());
 
-        // Manually invoke the trace capture against the sim's world.
-        let world_ref = sim.world();
         // Read the authoritative player state from the ECS component.
         let player = {
             let mut q = sim.world_mut().query_filtered::<

@@ -16,6 +16,7 @@ pub fn update_enemy_projectiles(
     mut state: ResMut<EnemyProjectileState>,
     player_body_q: Query<
         (
+            Entity,
             &crate::player::PlayerBody,
             &crate::player::PlayerCombatState,
         ),
@@ -43,7 +44,7 @@ pub fn update_enemy_projectiles(
         // the query today. OVERNIGHT-TODO #17.8 (B-bucket
         // iterate-all-players for projectile/hazard hits).
         let mut hit_any_player = false;
-        for (pb, combat) in &player_body_q {
+        for (player_entity, pb, combat) in &player_body_q {
             let vulnerable =
                 !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
             if !vulnerable || !shot.body.aabb().strict_intersects(pb.aabb()) {
@@ -67,6 +68,12 @@ pub fn update_enemy_projectiles(
                 knockback_dir: knock_dir,
                 strength: 0.85,
                 amount: shot.body.damage.max(1),
+                // Enemy projectiles iterate every player; the first
+                // vulnerable overlapping player wins this volley. Stamp
+                // the target so the reader-side per-player damage path
+                // (#17.6) can apply it to the right player rather than
+                // routing onto the primary.
+                target: Some(player_entity),
             });
             sfx.write(SfxMessage::Hit { pos: shot.body.pos });
             vfx.write(VfxMessage::Impact { pos: shot.body.pos });

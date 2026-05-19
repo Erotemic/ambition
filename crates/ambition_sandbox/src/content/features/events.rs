@@ -77,6 +77,16 @@ pub struct PlayerDamageEvent {
     pub knockback_dir: f32,
     pub strength: f32,
     pub amount: i32,
+    /// Player entity the damage targets. `None` keeps the legacy
+    /// "primary player takes it" routing (used by enemy contact / boss
+    /// patterns whose AI already targets primary via `PrimaryPlayerOnly`).
+    /// `Some(entity)` is what iterate-all-players producers (hazards,
+    /// enemy projectiles) stamp once per overlapping player so the
+    /// reader-side per-player damage routing (OVERNIGHT-TODO #17.6) can
+    /// land them on the right player rather than amplifying onto the
+    /// primary. The reader honors the field where the per-entity apply
+    /// path is wired up; until then the field documents producer intent.
+    pub target: Option<bevy::prelude::Entity>,
 }
 
 /// Typed cross-system gameplay effects emitted by feature code.

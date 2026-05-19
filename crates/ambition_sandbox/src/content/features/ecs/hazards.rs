@@ -13,6 +13,7 @@ pub fn update_ecs_hazards(
     mut player_damage: MessageWriter<PlayerDamageEvent>,
     player: Query<
         (
+            Entity,
             &crate::player::PlayerBody,
             &crate::player::PlayerCombatState,
         ),
@@ -51,7 +52,7 @@ pub fn update_ecs_hazards(
         // OVERNIGHT-TODO #17.8 (B-bucket iterate-all-players for
         // hazard hits). Single-player behavior preserved because the
         // iterator has exactly one entity today.
-        for (pb, combat) in &player {
+        for (player_entity, pb, combat) in &player {
             let player_vulnerable =
                 !pb.invincible && !pb.dodge_rolling && !pb.parrying && combat.vulnerable();
             if !player_vulnerable || !hazard.aabb().strict_intersects(pb.aabb()) {
@@ -83,6 +84,15 @@ pub fn update_ecs_hazards(
                 knockback_dir,
                 strength: 1.0,
                 amount: hazard.volume.damage.amount.max(1),
+                // Hazards iterate every overlapping player; tag the
+                // event with the player who actually overlapped so the
+                // reader-side per-player damage routing (#17.6 deeper
+                // form) can land the hit on the right one. With the
+                // current reader (still primary-only), `target == Some`
+                // documents producer intent — when the reader migrates,
+                // these events route to `player_entity` rather than
+                // amplifying onto primary.
+                target: Some(player_entity),
             });
         }
     }

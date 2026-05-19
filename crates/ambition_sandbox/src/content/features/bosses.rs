@@ -958,6 +958,11 @@ impl BossRuntime {
                     knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
                     strength: 1.25,
                     amount: self.behavior.attack_damage.max(1),
+                    // Boss AI targets primary player (PrimaryPlayerOnly
+                    // at the call site) — leave routing on the legacy
+                    // primary-receives path until #17.8 lands per-target
+                    // AI.
+                    target: None,
                 });
             }
         }
@@ -973,6 +978,9 @@ impl BossRuntime {
                     knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
                     strength: 1.0,
                     amount: body_damage_amount,
+                    // Same as the attack arm: boss body contact routes
+                    // to primary via the call-site filter.
+                    target: None,
                 });
             }
         }

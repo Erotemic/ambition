@@ -949,6 +949,11 @@ impl EnemyRuntime {
                 knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
                 strength: 1.0,
                 amount: 1,
+                // Enemy AI targets primary at the call site
+                // (`PrimaryPlayerOnly` in update_ecs_actors); leave on
+                // the legacy primary-receives path until #17.8 lands
+                // per-target enemy AI.
+                target: None,
             });
         }
         if let Some(body_damage) = self.body_damage_aabb() {
@@ -961,6 +966,10 @@ impl EnemyRuntime {
                     knockback_dir: (player_body.center().x - self.pos.x).signum_or(self.facing),
                     strength: self.archetype.contact_strength(),
                     amount: self.archetype.damage_amount(),
+                    // Same as the attack arm: enemy body contact is
+                    // resolved against the primary player at the call
+                    // site filter.
+                    target: None,
                 });
             }
         }

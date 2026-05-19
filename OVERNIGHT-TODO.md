@@ -14,8 +14,9 @@ Continuing from the prior session, commits 2aab57e…871cf95 land:
 - ✅ **P12 cycle / toggle / nudge helpers** — `apply_action` had three repeated row shapes (prev/next cycle, boolean toggle, slider nudge); each spelled out 5-6 lines per row across ~25 sites. Hoisted into `apply_cycle`, `apply_toggle`, and `nudge_delta`. Net -40 lines in `apply_action`, single place to change semantics. Commit 89bd383.
 - ✅ **Warning cleanup** — `cargo check --tests` was at 2 warnings; both leftover-import false positives from earlier per-player refactors. Commit c75cb2f.
 - ✅ **`.agent` indexes refreshed** — Commit f688309.
+- ✅ **P17.6 bridge: PlayerHealRequested.target** — added `target: Option<Entity>` field. Pickup collection routes the heal to the player who actually overlapped the heart via `PlayerHealRequested::for_target(amount, collector_entity)`. Cutscene/quest/inventory heals keep using `new(amount)` and fall through to primary. Fixes a latent bug where the B-bucket pickup migration could heal the primary when a non-primary collector picked it up. Two new smoke tests pin both routes. Commit 4681b51.
 
-Counts: `cargo test -p ambition_sandbox --lib` → 568 passed (566 pre-existing + 2 new multiplayer smoke). Warnings: 0.
+Counts: `cargo test -p ambition_sandbox --lib` → 570 passed (566 pre-existing + 4 new multiplayer smoke). Warnings: 0.
 
 ## Status (2026-05-19 agent session)
 

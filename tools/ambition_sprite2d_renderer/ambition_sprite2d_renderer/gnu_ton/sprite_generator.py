@@ -163,6 +163,33 @@ class Canvas:
         self.draw.ellipse([p0, p1], fill=fill, outline=outline,
                           width=max(1, int(round(width * self.scale))))
 
+    def alpha_ellipse(self, cx: float, cy: float, rx: float, ry: float, fill:
+                      RGBA, blur: float = 0.0, outline: Optional[RGBA] = None,
+                      width: float = 1.5):
+        """Draw a translucent ellipse using real alpha compositing."""
+        layer = Image.new("RGBA", (self.sw, self.sh), (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer, "RGBA")
+
+        p0 = self.P(cx - rx, cy - ry)
+        p1 = self.P(cx + rx, cy + ry)
+
+        d.ellipse([p0, p1], fill=fill)
+
+        if outline:
+            d.ellipse(
+                [p0, p1],
+                outline=outline,
+                width=max(1, int(round(width * self.scale))),
+            )
+
+        if blur > 0:
+            layer = layer.filter(
+                ImageFilter.GaussianBlur(max(1, int(round(blur * self.scale))))
+            )
+
+        self.img = Image.alpha_composite(self.img, layer)
+        self.draw = ImageDraw.Draw(self.img)
+
     def line(self, pts, fill: RGBA, width: float = 2.0):
         px = self.Ps(pts)
         self.draw.line(px, fill=fill,
@@ -385,34 +412,12 @@ def draw_gnu_head(c: Canvas, hx: float = 0.0, hy: float = 0.0,
     c.ellipse(ex2 + 2, ey2 + 1, 7, 7, C_EYE_IRIS)
     c.ellipse(ex2 + 3, ey2 + 1, 4, 4, C_PUPIL)
 
-    # # Keep both pupils looking toward the player. Earlier versions used
-    # # oversized, differently aimed circles that read as crossed/goofy eyes.
-    # ex = hx - 20 + sway
-    # ey = hy - 7
-    # ex2 = hx + 18 + sway
-    # ey2 = hy - 9
-    # c.ellipse(ex, ey, 12, 9, C_EYE_WHITE, C_OUTLINE, 1.4)
-    # c.ellipse(ex + 1, ey + 1, 7, 7, C_EYE_IRIS)
-    # c.ellipse(ex + 1, ey + 1, 4, 4, C_PUPIL)
-    # c.ellipse(ex - 2, ey - 2, 2.5, 2.5, (255, 255, 255, 180))
-
-    # # Far eye is slightly smaller and partly shadowed by the snout angle,
-    # # but its pupil still aims the same direction as the near eye.
-    # c.ellipse(ex2, ey2, 9, 7, C_EYE_WHITE, C_OUTLINE, 1.0)
-    # c.ellipse(ex2 + 1, ey2 + 1, 5.5, 5.5, C_EYE_IRIS)
-    # c.ellipse(ex2 + 1, ey2 + 1, 3.2, 3.2, C_PUPIL)
-    # c.ellipse(ex2 - 1.5, ey2 - 1.5, 2.0, 2.0, (255, 255, 255, 160))
-
-    # brow = C_MANE_DARK
-    # c.line([(ex - 14, ey - 14), (ex - 2, ey - 18), (ex + 12, ey - 14)], brow, 3.0)
-    # c.line([(ex2 - 10, ey2 - 11), (ex2 + 1, ey2 - 14), (ex2 + 10, ey2 - 11)], brow, 2.2)
-
     if enraged or anim in ("head_down", "hand_slam", "hand_sweep"):
         # Angry glow around eyes
         intensity = 0.7 + 0.3 * blink01(phase, 2.5)
         glow = (int(255 * intensity), int(160 * intensity), 20, 120)
-        c.ellipse(ex, ey, 22, 18, glow)
-        c.ellipse(ex2, ey2, 18, 14, glow)
+        c.alpha_ellipse(ex, ey, 22, 18, glow)
+        c.alpha_ellipse(ex2, ey2, 18, 14, glow)
 
     # ── Horns ──
     draw_gnu_horns(c, hx + sway, hy, 1.0, phase, anim)
@@ -473,7 +478,7 @@ def draw_hand(c: Canvas, cx: float, cy: float, side: int = 1,
     if slam_progress > 0.3 and anim == "hand_slam":
         glow_alpha = int(120 * min(1.0, (slam_progress - 0.3) * 4))
         glow = (255, 180, 60, glow_alpha)
-        c.ellipse(cx, cy + hh, 40, 16, glow)
+        c.alpha_ellipse(cx, cy + hh, 40, 16, glow)
 
     # Wind trail during sweep
     if sweep_progress > 0.4 and anim == "hand_sweep":
@@ -750,7 +755,7 @@ def _draw_head_down(c: Canvas, phase: float) -> None:
     # Vulnerable head glow ring
     if enrage_scale > 0.3:
         ga = int(80 * enrage_scale * (0.7 + 0.3 * blink01(phase, 3.0)))
-        c.ellipse(0.0, head_y, 100 * enrage_scale, 80 * enrage_scale, (255, 220, 60, ga))
+        c.alpha_ellipse(0.0, head_y, 100 * enrage_scale, 80 * enrage_scale, (255, 220, 60, ga))
 
     draw_gnu_head(c, 0.0, head_y, phase=phase, anim="head_down", enraged=(enrage_scale > 0.5))
     draw_gnu_ton_man(c, _MAN_CENTER_X, _MAN_CENTER_Y, phase=phase, anim="head_down")
@@ -884,15 +889,15 @@ def render_outputs(outdir: Path, quick: bool = False) -> List[Path]:
     print(f"[{TARGET_NAME}] rendering to {outdir}/")
 
     paths = []
-    print(f"  spritesheet...")
+    print("  spritesheet...")
     sp, mp = build_spritesheet(outdir)
     paths += [sp, mp]
 
-    print(f"  canonical...")
+    print("  canonical...")
     paths.append(build_canonical(outdir))
 
     if not quick:
-        print(f"  preview...")
+        print("  preview...")
         paths.append(build_preview_labeled(outdir))
 
     print(f"  done. {len(paths)} files.")

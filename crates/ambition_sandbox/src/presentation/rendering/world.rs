@@ -232,6 +232,19 @@ pub fn spawn_grid(commands: &mut Commands, world: &ae::World) {
     }
 }
 
+/// Pick a `Tiled` stretch value that keeps the slice count under
+/// `MAX_TILES_PER_AXIS²`. Tiles are sized at `source × stretch`, so
+/// raising the stretch reduces tile count proportionally. Returns 1.0
+/// (native size) when the block fits inside the cap.
+fn tiled_block_stretch(render: BVec2, source_px: f32) -> f32 {
+    const MAX_TILES_PER_AXIS: f32 = 32.0;
+    let source = source_px.max(1.0);
+    let tiles_x = (render.x / source).max(1.0);
+    let tiles_y = (render.y / source).max(1.0);
+    let needed = (tiles_x.max(tiles_y) / MAX_TILES_PER_AXIS).max(1.0);
+    needed.ceil()
+}
+
 pub fn spawn_block(
     commands: &mut Commands,
     world: &ae::World,
@@ -269,7 +282,13 @@ pub fn spawn_block(
                 image_mode: bevy::sprite::SpriteImageMode::Tiled {
                     tile_x: true,
                     tile_y: true,
-                    stretch_value: 1.0,
+                    // Clamp the slice count for very large IntGrid
+                    // surfaces. With a 32px source tile and 1.0 stretch,
+                    // a single 3072×3328 floor would emit ~9984 slices
+                    // and trigger a bevy_sprite performance warning.
+                    // Scaling the tile up keeps the visual tiling but
+                    // bounds the per-block slice count.
+                    stretch_value: tiled_block_stretch(render, 32.0),
                 },
                 ..Default::default()
             },

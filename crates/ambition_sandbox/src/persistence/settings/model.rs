@@ -70,6 +70,12 @@ pub enum SettingsItem {
     OpenControls,
     OpenGameplay,
     OpenDeveloper,
+    /// Reset every persisted resource (user settings + developer
+    /// tools) back to their default values. Surfaced on the Top
+    /// page so it can recover from any sub-page nudge that broke
+    /// the build (rare, but the only way out otherwise is to
+    /// hand-edit the .ron files on disk).
+    ResetAllSettings,
     Back,
 
     // Video page.
@@ -158,6 +164,7 @@ impl SettingsItem {
                 Self::OpenControls,
                 Self::OpenGameplay,
                 Self::OpenDeveloper,
+                Self::ResetAllSettings,
                 Self::Back,
             ],
             SettingsPage::Video => &[
@@ -263,6 +270,7 @@ impl SettingsItem {
             Self::OpenControls => "Controls >".into(),
             Self::OpenGameplay => "Gameplay >".into(),
             Self::OpenDeveloper => "Developer >".into(),
+            Self::ResetAllSettings => "Reset All Settings to Defaults".into(),
             Self::Back => "Back".into(),
 
             Self::DisplayMode => format!(
@@ -650,6 +658,22 @@ pub fn apply_action(
         SettingsItem::Back => {
             if matches!(action, SettingsAction::Confirm) {
                 return SettingsOutcome::PopPage;
+            }
+        }
+        SettingsItem::ResetAllSettings => {
+            // Only react to Confirm — Prev/Next would let a stray
+            // d-pad nudge wipe everything on the highlighted row.
+            if matches!(action, SettingsAction::Confirm) {
+                *settings = UserSettings::default();
+                *developer = DeveloperTools::default();
+                // Keep dependent state coherent with the new dev
+                // defaults: editable movement tuning is derived from
+                // the active movement profile.
+                apply_movement_profile(
+                    editable_tuning,
+                    developer.movement_profile,
+                    authority_player,
+                );
             }
         }
 

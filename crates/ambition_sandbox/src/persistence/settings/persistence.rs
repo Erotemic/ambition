@@ -17,10 +17,17 @@ use bevy::prelude::*;
 
 use super::platform_paths::data_dir_root;
 use super::UserSettings;
+use crate::dev::dev_tools::DeveloperTools;
 
 /// Where the settings file lives on disk relative to the user's data
 /// dir. The sandbox passes this through `data_dir().join(SETTINGS_FILE)`.
 pub const SETTINGS_FILE: &str = "ambition/settings.ron";
+
+/// Companion file holding the developer-only switches that live in
+/// `DeveloperTools`. Kept separate from `settings.ron` so a player who
+/// clears their dev knobs (e.g. via Reset to Defaults from the
+/// developer page) doesn't also lose audio/video/control tuning.
+pub const DEVELOPER_FILE: &str = "ambition/developer.ron";
 
 /// Resolve the absolute path of the settings file for the live build.
 pub fn settings_path() -> PathBuf {
@@ -29,6 +36,14 @@ pub fn settings_path() -> PathBuf {
 
 pub fn settings_path_under(root: &Path) -> PathBuf {
     root.join(SETTINGS_FILE)
+}
+
+pub fn developer_path() -> PathBuf {
+    developer_path_under(&data_dir_root())
+}
+
+pub fn developer_path_under(root: &Path) -> PathBuf {
+    root.join(DEVELOPER_FILE)
 }
 
 /// Load `UserSettings` from `path`. Returns defaults if the file is
@@ -126,6 +141,90 @@ pub fn load_settings_at_startup(_settings: ResMut<UserSettings>) {}
 /// Wasm (browser) no-op for settings writing. See [`load_settings_at_startup`].
 #[cfg(target_arch = "wasm32")]
 pub fn save_settings_on_change(_settings: Res<UserSettings>) {}
+
+/// Load `DeveloperTools` from disk. Same fall-back rules as
+/// [`load_settings`]: missing file → defaults, parse error → log + defaults.
+pub fn load_developer(path: &Path) -> DeveloperTools {
+    let bytes = match fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return DeveloperTools::default();
+        }
+        Err(error) => {
+            warn!(
+                target: "ambition::settings",
+                "could not read developer file {}: {error}; using defaults",
+                path.display()
+            );
+            return DeveloperTools::default();
+        }
+    };
+    match ron::from_str::<DeveloperTools>(&bytes) {
+        Ok(developer) => developer,
+        Err(error) => {
+            warn!(
+                target: "ambition::settings",
+                "could not parse developer file {}: {error}; using defaults",
+                path.display()
+            );
+            DeveloperTools::default()
+        }
+    }
+}
+
+/// Atomic write of the developer-tools file; same temp-file + rename
+/// pattern as [`save_settings`].
+pub fn save_developer(path: &Path, developer: &DeveloperTools) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let body = ron::ser::to_string_pretty(developer, ron::ser::PrettyConfig::default())
+        .map_err(|error| std::io::Error::other(format!("ron serialize: {error}")))?;
+    let tmp = path.with_extension("ron.tmp");
+    fs::write(&tmp, body)?;
+    fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+/// Startup system: load `DeveloperTools` from disk if a file exists.
+/// Default `DeveloperTools` is already inserted earlier; this only
+/// overrides when a saved file is present.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_developer_at_startup(mut developer: ResMut<DeveloperTools>) {
+    let path = developer_path();
+    if !path.exists() {
+        return;
+    }
+    *developer = load_developer(&path);
+    info!(
+        target: "ambition::settings",
+        "loaded developer tools from {}",
+        path.display()
+    );
+}
+
+/// Update system: write `DeveloperTools` to disk when it changes.
+/// `Res::is_changed` throttles so we only hit disk on actual edits.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn save_developer_on_change(developer: Res<DeveloperTools>) {
+    if !developer.is_changed() {
+        return;
+    }
+    let path = developer_path();
+    if let Err(error) = save_developer(&path, &developer) {
+        warn!(
+            target: "ambition::settings",
+            "failed to write developer file {}: {error}",
+            path.display()
+        );
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn load_developer_at_startup(_developer: ResMut<DeveloperTools>) {}
+
+#[cfg(target_arch = "wasm32")]
+pub fn save_developer_on_change(_developer: Res<DeveloperTools>) {}
 
 #[cfg(test)]
 mod tests {

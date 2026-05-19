@@ -685,6 +685,7 @@ fn install_settings_and_save_systems(app: &mut App) {
         Startup,
         (
             crate::persistence::settings::persistence::load_settings_at_startup,
+            crate::persistence::settings::persistence::load_developer_at_startup,
             crate::persistence::save::load_save_at_startup,
         ),
     )
@@ -692,6 +693,7 @@ fn install_settings_and_save_systems(app: &mut App) {
         Update,
         (
             crate::persistence::settings::persistence::save_settings_on_change,
+            crate::persistence::settings::persistence::save_developer_on_change,
             crate::persistence::save::autosave_sandbox_save,
         ),
     );

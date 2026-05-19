@@ -107,10 +107,17 @@ pub fn draw_debug_overlay(
         draw_room_bounds(&mut gizmos, world);
     }
     if developer_tools.show_world_blocks {
-        draw_world_blocks(&mut gizmos, world);
+        draw_world_blocks(&mut gizmos, world, &developer_tools);
     }
     if developer_tools.show_micro_grid {
         draw_micro_grid(&mut gizmos, world, 8.0, 16.0);
+    }
+    // With sprites hidden the world is a black void; draw the coarse
+    // world grid (matches the sprite-grid GRID_STEP) so the player
+    // keeps a spatial reference once the tile / parallax sprites
+    // disappear. Uses the regular grid, not the micro-grid.
+    if developer_tools.hide_sprites {
+        draw_world_grid(&mut gizmos, world);
     }
     if developer_tools.show_camera_frame {
         draw_camera_frame(&mut gizmos, world, &camera_view);
@@ -238,7 +245,7 @@ fn draw_camera_frame(gizmos: &mut Gizmos, world: &ae::World, view: &CameraViewSt
     );
 }
 
-fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World) {
+fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World, developer_tools: &DeveloperTools) {
     for block in &world.blocks {
         let color = match block.kind {
             ae::BlockKind::Solid => gray(),
@@ -253,7 +260,37 @@ fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World) {
             ae::BlockKind::PogoOrb => green(),
             ae::BlockKind::Rebound { .. } => orange(),
         };
-        draw_aabb(gizmos, world, block.aabb, color);
+        draw_aabb_styled(gizmos, world, block.aabb, color, developer_tools);
+    }
+}
+
+/// Lightweight coarse grid drawn straight through gizmos. Used when
+/// `hide_sprites` strips the authored sprite grid so the player still
+/// has a spatial reference. Spacing matches `crate::config::GRID_STEP`
+/// (the same step the sprite grid spawned in `spawn_grid` uses).
+fn draw_world_grid(gizmos: &mut Gizmos, world: &ae::World) {
+    let step = crate::config::GRID_STEP;
+    if step <= 0.0 {
+        return;
+    }
+    let color = Color::srgba(0.45, 0.55, 0.70, 0.32);
+    let cols = (world.size.x / step).ceil() as i32;
+    let rows = (world.size.y / step).ceil() as i32;
+    for i in 0..=cols {
+        let x = (i as f32 * step).min(world.size.x);
+        gizmos.line_2d(
+            w2(world, ae::Vec2::new(x, 0.0)),
+            w2(world, ae::Vec2::new(x, world.size.y)),
+            color,
+        );
+    }
+    for j in 0..=rows {
+        let y = (j as f32 * step).min(world.size.y);
+        gizmos.line_2d(
+            w2(world, ae::Vec2::new(0.0, y)),
+            w2(world, ae::Vec2::new(world.size.x, y)),
+            color,
+        );
     }
 }
 
@@ -310,7 +347,7 @@ fn draw_player_debug(
 ) {
     let body = player.aabb();
     if developer_tools.show_player_hitbox {
-        draw_aabb(gizmos, world, body, cyan());
+        draw_aabb_styled(gizmos, world, body, cyan(), developer_tools);
     }
 
     let center = w2(world, player.pos);
@@ -642,11 +679,12 @@ fn draw_aabb(gizmos: &mut Gizmos, world: &ae::World, aabb: ae::Aabb, color: Colo
     gizmos.line_2d(bl, tl, color);
 }
 
-/// Outline + (optional) translucent fill. When
-/// `DeveloperTools::fill_debug_boxes` is on, overlay a low-alpha rect
-/// inside the outline so empty regions and overlapping volumes are easy
-/// to read at a glance. Outline always draws so a slim/zero-area volume
-/// still has a visible boundary.
+/// Outline + (optional) translucent fill. The fill only draws when
+/// `hide_sprites` is on (so the colored squares replace the missing
+/// artwork) AND `fill_debug_boxes` is on. With sprites visible, the
+/// fill would just smear over the artwork and obscure it, so we leave
+/// only the outline behind. Outline always draws so a slim/zero-area
+/// volume still has a visible boundary.
 fn draw_aabb_styled(
     gizmos: &mut Gizmos,
     world: &ae::World,
@@ -655,7 +693,7 @@ fn draw_aabb_styled(
     developer_tools: &DeveloperTools,
 ) {
     draw_aabb(gizmos, world, aabb, color);
-    if !developer_tools.fill_debug_boxes {
+    if !developer_tools.fill_debug_boxes || !developer_tools.hide_sprites {
         return;
     }
     let size = aabb.half_size() * 2.0;

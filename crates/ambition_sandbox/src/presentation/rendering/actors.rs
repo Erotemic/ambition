@@ -622,23 +622,32 @@ pub fn animate_bosses(
 
 /// When `DeveloperTools::hide_sprites` is enabled, force every `Sprite`-bearing
 /// entity to `Hidden` so only gizmo hitbox outlines remain visible. When the
-/// flag is off, restore them to `Inherited` (the normal default). Runs after
-/// all other visibility-setting systems so it wins the last-write battle.
+/// flag flips off, restore every sprite to `Inherited` *exactly once* on the
+/// falling edge — we deliberately do NOT keep stomping `Inherited` every
+/// frame because that wipes out legitimate `Visibility::Hidden` writes from
+/// upstream systems (collected pickups, idle morph-ball sphere, player while
+/// in morph-ball mode, etc.) and makes them flicker back to visible.
 /// UI uses `Node`/`ImageNode`, not `Sprite`, so HUD/menus are unaffected.
 pub fn apply_hide_sprites_override(
     developer_tools: Res<crate::dev::dev_tools::DeveloperTools>,
+    mut prev_active: Local<bool>,
     mut sprites: Query<&mut Visibility, With<Sprite>>,
 ) {
-    let target = if developer_tools.hide_sprites {
-        Visibility::Hidden
-    } else {
-        Visibility::Inherited
-    };
-    for mut vis in sprites.iter_mut() {
-        if *vis != target {
-            *vis = target;
+    let active = developer_tools.hide_sprites;
+    if active {
+        for mut vis in sprites.iter_mut() {
+            if *vis != Visibility::Hidden {
+                *vis = Visibility::Hidden;
+            }
+        }
+    } else if *prev_active {
+        for mut vis in sprites.iter_mut() {
+            if *vis != Visibility::Inherited {
+                *vis = Visibility::Inherited;
+            }
         }
     }
+    *prev_active = active;
 }
 
 /// Cached pre-placeholder sprite state so toggling `placeholder_sprites`

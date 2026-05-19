@@ -8,13 +8,14 @@
 
 use ambition_engine as ae;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Coarse player-body presets for feel testing.
 ///
 /// These affect the movement collider only. The placeholder sprite is scaled
 /// separately around the collider so temporary art can change without becoming
 /// gameplay authority.
-#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PlayerBodyProfile {
     Compact,
     #[default]
@@ -53,7 +54,7 @@ impl PlayerBodyProfile {
 }
 
 /// High-level movement profiles for fast chassis swaps from the dev menu.
-#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Reflect, Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MovementProfile {
     AgileBase,
     #[default]
@@ -150,8 +151,9 @@ impl MovementProfile {
 }
 
 /// Top-level switches for debug UI and gizmo layers.
-#[derive(Resource, Reflect, Clone, Debug)]
+#[derive(Resource, Reflect, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[reflect(Resource)]
+#[serde(default)]
 pub struct DeveloperTools {
     /// Show the reflected resource inspector windows.
     pub inspector_visible: bool,

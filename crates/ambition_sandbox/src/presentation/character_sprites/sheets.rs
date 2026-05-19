@@ -941,12 +941,15 @@ const fn lab_prop_sheet(y_offset: u32) -> CharacterSheetSpec {
 }
 
 pub const LAB_PROP_GENESIS_VAT: CharacterSheetSpec = lab_prop_sheet(0);
+#[allow(dead_code)] // Reserved for future intro/lab authoring.
 pub const LAB_PROP_SPECIMEN_JAR: CharacterSheetSpec = lab_prop_sheet(128);
 pub const LAB_PROP_NEURAL_CONSOLE: CharacterSheetSpec = lab_prop_sheet(256);
 pub const LAB_PROP_RESONANCE_COIL: CharacterSheetSpec = lab_prop_sheet(384);
 pub const LAB_PROP_POWER_CORE: CharacterSheetSpec = lab_prop_sheet(512);
 pub const LAB_PROP_REPAIR_CRADLE: CharacterSheetSpec = lab_prop_sheet(640);
+#[allow(dead_code)] // Reserved for future intro/lab authoring.
 pub const LAB_PROP_DRONE_CRADLE: CharacterSheetSpec = lab_prop_sheet(768);
+#[allow(dead_code)] // Reserved for future intro/lab authoring.
 pub const LAB_PROP_PORTAL_CALIBRATOR: CharacterSheetSpec = lab_prop_sheet(896);
 
 /// Diagnostic Cart — the rail / gurney the player wakes on. Rendered

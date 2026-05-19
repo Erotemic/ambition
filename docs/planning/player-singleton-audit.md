@@ -72,9 +72,6 @@ typically filter by faction/state. Today single-player parity is preserved.
 
 | File | Line | Today | Should become |
 |---|---|---|---|
-| `content/features/ecs/pickups.rs` | 24 | `player.single()` for pickup overlap | `for player_body in players.iter()` — any overlapping player triggers |
-| `content/features/ecs/chests.rs` | 32 | `player.single_mut()` for chest interact | iterate; each player can buffer-interact independently |
-| `content/features/ecs/breakables.rs` | 32 | `player_body_q.single()` for stand-to-break | iterate; any player standing triggers |
 | ~~`content/features/ecs/pickups.rs`~~ ✓ DONE 2026-05-19 (a086f07) | Was `player.single()` | Now iterates every player; first player to overlap collects. Heal/banner is still implicitly primary until #17.6 lands target fields |
 | ~~`content/features/ecs/chests.rs`~~ ✓ DONE 2026-05-19 (1ba01b0) | Was `player.single_mut()` | Now iterates every player's interact buffer; `Opened` marker is the source-of-truth for "this chest is taken" so concurrent-frame reaches race deterministically |
 | ~~`content/features/ecs/breakables.rs`~~ ✓ DONE 2026-05-19 (a086f07) | Was `player_body_q.single()` | Now any player standing triggers the break |
@@ -87,7 +84,7 @@ typically filter by faction/state. Today single-player parity is preserved.
 | ~~`encounter/systems.rs`~~ ✓ DONE 2026-05-19 (4ece6ad) | Was `player_body_q.single()` for encounter trigger overlap | Now iterates every player; the first overlapping player fires the trigger |
 | ~~`projectile/systems.rs`~~ ✓ DONE 2026-05-19 | Was `player_body_q.single()` for player projectile spawn | Now `PrimaryPlayerOnly` — spawn anchored to the primary local player whose `ControlFrame` pressed fire. Per-player input + projectile-owner is OVERNIGHT-TODO #17.5 + #17.7 |
 | ~~`projectile/visuals.rs`~~ ✓ DONE 2026-05-19 | Was `player_body_q.single()` for charge indicator anchor | Now `PrimaryPlayerOnly` — charge indicator follows the primary local player; per-player charge UI is #17.5 |
-| `presentation/fx.rs` | 480 | `player_authority.single()` for screen FX origin | Primary-player FX is acceptable; multi-player split-screen would need per-player FX |
+| ~~`presentation/fx.rs`~~ ✓ DONE | `player_authority.single()` already uses the `PrimaryPlayerOnly` filter — screen FX is intentionally tied to the primary player. Split-screen FX is a future-multi-camera concern, not a B-bucket migration. |
 
 **B-bucket pattern split (post 2026-05-19):**
 

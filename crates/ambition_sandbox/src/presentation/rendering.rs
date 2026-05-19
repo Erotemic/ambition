@@ -42,14 +42,10 @@ pub use actors::{
 pub use camera::{camera_follow, CameraViewState};
 pub use features::spawn_dynamic_feature_visuals;
 pub use health::sync_health_overlays;
-pub use parallax::{spawn_parallax_layers, sync_parallax_layers, ParallaxLayerVisual};
-pub use pirate_rider::{sync_pirate_rider_visuals, PirateRiderVisual};
+pub use parallax::{spawn_parallax_layers, sync_parallax_layers};
+pub use pirate_rider::sync_pirate_rider_visuals;
 pub use primitives::{
-    block_color, switch_on_color, FeatureVisual, HealthOverlayVisual, HudText, LoadingZoneVisual,
-    LockWallVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
+    HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, QuestPanelText,
     RoomScopedEntity, RoomVisual, SceneEntities,
 };
-pub use world::{
-    spawn_block, spawn_grid, spawn_loading_zone, spawn_room_object, spawn_room_prop,
-    spawn_room_visuals, sync_lock_wall_visuals,
-};
+pub use world::{spawn_room_visuals, sync_lock_wall_visuals};

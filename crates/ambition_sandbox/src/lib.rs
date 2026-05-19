@@ -55,45 +55,18 @@ pub(crate) mod time;
 pub(crate) mod ui_nav;
 pub(crate) mod world;
 
-// Backward-compat re-export shims. They surface the moved modules under
-// their old `crate::X` paths so the ~80 internal `crate::X::…` call sites
-// keep resolving without an additional cross-crate edit pass. Removing
-// these later is a mechanical search-and-replace once we're ready to
-// commit to the themed paths.
-//
-// Public re-exports (`pub use …`) double as the external API: `features`,
-// `rooms`, `ldtk_world`, `game_mode`, and `trace` are all referenced from
-// bins / tests / the engine crate's doc comments.
+// Public re-exports double as the external API: `features`, `rooms`,
+// `ldtk_world`, `game_mode`, and `trace` are referenced from bins,
+// tests, and the engine crate's doc comments. Internal `pub(crate)`
+// shims for the other themed modules (assets, content, dev, host,
+// persistence, player::bubble_shield, presentation, runtime, time,
+// world::{physics, platforms}, and boss_encounter::sprites) were
+// removed in the 2026-05-19 shim-cleanup pass; internal call sites
+// now use the canonical `crate::<theme>::<module>::…` paths.
 pub use content::features;
 pub use dev::trace;
 pub use runtime::game_mode;
 pub use world::{ldtk_world, rooms};
-
-// Removed: `pub(crate) use assets::{game_assets, loading, sandbox_assets};`
-// — call sites now use the canonical `crate::assets::…` paths.
-// Removed: `pub(crate) use boss_encounter::sprites as boss_sprites;`
-// — call sites now use `crate::boss_encounter::sprites::…`.
-// Removed: `pub(crate) use content::{banter, content_validation, data, quest};`
-// and `pub(crate) use dev::{debug_overlay, dev_tools, fps_overlay, mechanics,
-// profiling};` — call sites now use the canonical `crate::content::…` and
-// `crate::dev::…` paths.
-// Removed: `pub(crate) use host::{mobile_input, platform, windowing};` —
-// call sites now use the canonical `crate::host::{mobile_input,
-// platform, windowing}::…` paths.
-// Removed: `pub(crate) use persistence::{save, settings};` — call
-// sites now use `crate::persistence::{save, settings}::…`.
-// Removed: `pub(crate) use player::bubble_shield;` — call sites now
-// use `crate::player::bubble_shield::…`.
-// Removed: `pub(crate) use presentation::{character_sprites, cutscene,
-// fx, rendering, ui_fonts};` — call sites now use the canonical
-// `crate::presentation::…` paths. `screen_effects` was already
-// removed in a prior commit.
-// Removed: `pub(crate) use runtime::{reset, setup};` — call sites now
-// use the canonical `crate::runtime::{reset, setup}::…` paths.
-// Removed: `pub(crate) use time::{feel, time_control};` — call sites
-// now use the canonical `crate::time::{feel, time_control}::…` paths.
-// Removed: `pub(crate) use world::{physics, platforms};` — call sites
-// now use the canonical `crate::world::{physics, platforms}::…` paths.
 
 // Crate-root types/consts whose definitions moved into themed modules but
 // still need to surface at `crate::WorldTime` / `ambition_sandbox::WorldTime`.

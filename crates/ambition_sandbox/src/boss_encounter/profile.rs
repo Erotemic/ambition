@@ -94,21 +94,35 @@ impl BossProfile {
 
     pub fn for_encounter_id_or_name(id_or_name: &str) -> Option<Self> {
         let id = super::encounter_id_from_name(id_or_name);
-        match id.as_str() {
-            "clockwork_warden" | "gradient_sentinel" => Some(Self::clockwork_warden()),
-            "mockingbird" => Some(Self::mockingbird()),
-            "gnu_ton" => Some(Self::gnu_ton()),
-            _ => None,
-        }
+        AUTHORED_BOSS_PROFILES
+            .iter()
+            .find(|(key, _)| *key == id.as_str())
+            .map(|(_, ctor)| ctor())
+            // Legacy alias: pre-rename gradient_sentinel ids in saves still
+            // resolve to the renamed `clockwork_warden` profile.
+            .or_else(|| match id.as_str() {
+                "gradient_sentinel" => Some(Self::clockwork_warden()),
+                _ => None,
+            })
     }
 }
 
+/// Table of authored boss profiles. Adding a new boss is a single
+/// row: write the `BossProfile::new_boss()` constructor, then append
+/// `("new_boss", BossProfile::new_boss)` here. The two helpers below
+/// (`for_encounter_id_or_name` + `default_boss_profiles`) walk this
+/// slice instead of carrying their own id-string match arms.
+const AUTHORED_BOSS_PROFILES: &[(&str, fn() -> BossProfile)] = &[
+    ("clockwork_warden", BossProfile::clockwork_warden),
+    ("mockingbird", BossProfile::mockingbird),
+    ("gnu_ton", BossProfile::gnu_ton),
+];
+
 pub fn default_boss_profiles() -> Vec<BossProfile> {
-    vec![
-        BossProfile::clockwork_warden(),
-        BossProfile::mockingbird(),
-        BossProfile::gnu_ton(),
-    ]
+    AUTHORED_BOSS_PROFILES
+        .iter()
+        .map(|(_, ctor)| ctor())
+        .collect()
 }
 
 #[cfg(test)]

@@ -109,7 +109,7 @@ pub fn spawn_bubble_shield_visual(
 /// `PlayerBody.parrying`. Position and scale track the player body size.
 pub fn sync_bubble_shield_visual(
     world: Res<crate::GameWorld>,
-    player_q: Query<&crate::player::PlayerBody, With<crate::player::PlayerEntity>>,
+    player_q: Query<&crate::player::PlayerBody, crate::player::PrimaryPlayerOnly>,
     mut shield_q: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {
     let Ok(pb) = player_q.single() else { return };

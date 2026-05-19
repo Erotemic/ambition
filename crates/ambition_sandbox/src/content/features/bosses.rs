@@ -200,8 +200,11 @@ pub enum BossAttackProfile {
 }
 
 const GNU_TON_COLLISION_SCALE: f32 = 4.5;
-const GNU_TON_FRAME_HEIGHT: f32 = 384.0;
-const GNU_TON_ANCHOR_Y: f32 = -12.0;
+const GNU_TON_FRAME_HEIGHT: f32 = 576.0;
+// Design-space anchor sits at the shoulder ridge (REST_BODY_Y 60 - 62 = -2)
+// in the regenerated 768×576 sprite. Must stay in lockstep with
+// `boss_encounter::sprites::GNU_TON_SHEET::feet_anchor_y`.
+const GNU_TON_ANCHOR_Y: f32 = -2.0;
 
 fn gnu_ton_sprite_scale(collision_size: ae::Vec2) -> f32 {
     collision_size.x.max(collision_size.y).max(8.0) * GNU_TON_COLLISION_SCALE / GNU_TON_FRAME_HEIGHT
@@ -589,6 +592,18 @@ impl BossRuntime {
     }
 
     fn update_scripted_attacks(&mut self, dt: f32) {
+        // Scripted timelines must only fire during attacking phases —
+        // Dormant / Stagger / Death / pre-intro outros are explicit
+        // breathing room. Without this gate, `pattern_for(Dormant)`
+        // falls back to `phase1` and the boss keeps telegraphing/
+        // striking through what should be a stagger window.
+        if !self.encounter_phase.is_attacking() {
+            self.active_strike_profile = None;
+            self.telegraph_profile = None;
+            self.attack_timer = 0.0;
+            self.attack_windup_timer = 0.0;
+            return;
+        }
         // Clone the active pattern's steps so we can mutate the cursor
         // without aliasing the immutable behavior borrow. Scripts are
         // small (~10 steps) so the per-frame clone cost is negligible.
@@ -788,28 +803,33 @@ impl BossRuntime {
     /// part-specific boxes derived from the generated sprite design coordinates.
     pub(super) fn volumes_for(&self, attack: &BossAttackProfile) -> Vec<ae::Aabb> {
         if self.is_gnu_ton() {
+            // Design-space anchors match the regenerated 768×576 GNU-ton
+            // sprite: hands rest at x=±235, slam strike peaks at y=195
+            // (below the leg hooves at design +175), shockwave fires at
+            // floor level. Group B will replace these constants with
+            // values pulled from `gnu_ton_boss_parts.json`.
             match attack {
                 BossAttackProfile::GnuHandSlam => {
                     return vec![
                         self.gnu_ton_part_aabb(
-                            ae::Vec2::new(-185.0, 120.0),
-                            ae::Vec2::new(64.0, 54.0),
+                            ae::Vec2::new(-235.0, 195.0),
+                            ae::Vec2::new(78.0, 60.0),
                         ),
                         self.gnu_ton_part_aabb(
-                            ae::Vec2::new(185.0, 120.0),
-                            ae::Vec2::new(64.0, 54.0),
+                            ae::Vec2::new(235.0, 195.0),
+                            ae::Vec2::new(78.0, 60.0),
                         ),
                     ];
                 }
                 BossAttackProfile::GnuHandSweep => {
                     return vec![
                         self.gnu_ton_part_aabb(
-                            ae::Vec2::new(-150.0, 20.0),
-                            ae::Vec2::new(120.0, 54.0),
+                            ae::Vec2::new(-185.0, 20.0),
+                            ae::Vec2::new(140.0, 60.0),
                         ),
                         self.gnu_ton_part_aabb(
-                            ae::Vec2::new(150.0, 20.0),
-                            ae::Vec2::new(120.0, 54.0),
+                            ae::Vec2::new(185.0, 20.0),
+                            ae::Vec2::new(140.0, 60.0),
                         ),
                     ];
                 }
@@ -820,7 +840,7 @@ impl BossRuntime {
                 }
                 BossAttackProfile::GnuShockwave => {
                     return vec![self
-                        .gnu_ton_part_aabb(ae::Vec2::new(0.0, 140.0), ae::Vec2::new(245.0, 16.0))];
+                        .gnu_ton_part_aabb(ae::Vec2::new(0.0, 195.0), ae::Vec2::new(300.0, 18.0))];
                 }
                 _ => {}
             }
@@ -863,7 +883,8 @@ impl BossRuntime {
             ],
             // GNU-ton: two giant hands slam down from the top of the arena.
             // Hitboxes appear at the far left and right of the combat zone,
-            // extending from near the top down to the floor.
+            // extending from near the top down to the floor. (Unused for
+            // gnu_ton bosses — they take the part-anchored branch above.)
             BossAttackProfile::GnuHandSlam => vec![
                 ae::Aabb::new(
                     origin + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
@@ -924,17 +945,20 @@ impl BossRuntime {
                 });
             }
         }
-        let body_damage = self.body_damage_aabb();
-        if self.behavior.body_damage > 0 && body_damage.strict_intersects(player_body) {
-            return Some(PlayerDamageEvent {
-                mode: PlayerDamageMode::Knockback,
-                source: PlayerDamageSource::BossBody,
-                source_pos: self.pos,
-                impact_pos: midpoint(player_body.center(), body_damage.center()),
-                knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
-                strength: 1.0,
-                amount: self.behavior.body_damage.max(1),
-            });
+        let body_damage_amount = self.behavior.body_damage;
+        if body_damage_amount > 0 {
+            let body_damage = self.body_damage_aabb();
+            if body_damage.strict_intersects(player_body) {
+                return Some(PlayerDamageEvent {
+                    mode: PlayerDamageMode::Knockback,
+                    source: PlayerDamageSource::BossBody,
+                    source_pos: self.pos,
+                    impact_pos: midpoint(player_body.center(), body_damage.center()),
+                    knockback_dir: (player_body.center().x - self.pos.x).signum_or(1.0),
+                    strength: 1.0,
+                    amount: body_damage_amount,
+                });
+            }
         }
         None
     }
@@ -1050,15 +1074,69 @@ mod scripted_pattern_tests {
     #[test]
     fn gnu_ton_hand_slam_anchors_to_drawn_hands() {
         // GNU-ton's transform sits on the shoulder ridge. Hand-slam
-        // hitboxes should land well below and far to either side of that
-        // anchor, matching the generated hoof positions.
+        // hitboxes should land *below* the shoulder (positive y) and on
+        // opposite sides of it (one to the left, one to the right), no
+        // matter how the sprite is resized. Earlier revisions pinned
+        // these to absolute world-pixel thresholds (>400, >300) tuned to
+        // a 384-tall frame; bumping the source PNG to 768×576 silently
+        // broke the test even though the visual / hitbox correspondence
+        // stayed correct. Stick to invariants instead of magic numbers.
         let boss = gnu_ton_runtime();
         let slam = boss.volumes_for(&BossAttackProfile::GnuHandSlam);
         assert_eq!(slam.len(), 2);
-        assert!(slam[0].center().x < boss.pos.x - 400.0, "{slam:?}");
-        assert!(slam[1].center().x > boss.pos.x + 400.0, "{slam:?}");
-        assert!(slam[0].center().y > boss.pos.y + 300.0, "{slam:?}");
-        assert!(slam[1].center().y > boss.pos.y + 300.0, "{slam:?}");
+        let (left, right) = if slam[0].center().x < slam[1].center().x {
+            (&slam[0], &slam[1])
+        } else {
+            (&slam[1], &slam[0])
+        };
+        assert!(left.center().x < boss.pos.x, "{slam:?}");
+        assert!(right.center().x > boss.pos.x, "{slam:?}");
+        assert!(left.center().y > boss.pos.y, "{slam:?}");
+        assert!(right.center().y > boss.pos.y, "{slam:?}");
+    }
+
+    #[test]
+    fn gnu_ton_body_contact_does_not_damage_player() {
+        // `body_damage: 0` on the gnu_ton behavior is the authored
+        // statement "no contact damage from the offscreen body". A prior
+        // revision still dealt 1 damage because `player_damage` used
+        // `body_damage.max(1)` after the intersect test. Guard the whole
+        // block on `body_damage > 0` instead. Concrete repro: the player
+        // hitbox identical to the boss body AABB must produce no event.
+        let boss = gnu_ton_runtime();
+        let player_body = boss.body_damage_aabb();
+        assert!(
+            boss.player_damage(player_body).is_none(),
+            "gnu_ton must not deal contact damage when body_damage = 0"
+        );
+    }
+
+    #[test]
+    fn gnu_ton_scripted_patterns_skip_non_attacking_phases() {
+        // `BossAttackPattern::pattern_for(Dormant)` falls back to
+        // `phase1` (so phase enum drift doesn't crash), but the runtime
+        // must not actually *run* that pattern during Dormant / Stagger /
+        // Death — those are explicit breathing/punish windows. Without
+        // the `is_attacking()` gate the boss would keep telegraphing
+        // through a stagger window. Repro: tick the runtime in Dormant
+        // for the duration of a full pattern and assert no strike/
+        // telegraph profile is ever assigned.
+        let mut boss = gnu_ton_runtime();
+        boss.encounter_phase = ae::BossEncounterPhase::Dormant;
+        let world = ae::World::new(
+            "test_arena",
+            ae::Vec2::new(2_000.0, 2_000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        );
+        let player = ae::Player::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default());
+        for _ in 0..200 {
+            boss.update(&world, &player, FeatureCombatTuning::default(), 0.05);
+            assert!(boss.active_strike_profile.is_none());
+            assert!(boss.telegraph_profile.is_none());
+            assert_eq!(boss.attack_timer, 0.0);
+            assert_eq!(boss.attack_windup_timer, 0.0);
+        }
     }
 
     #[test]

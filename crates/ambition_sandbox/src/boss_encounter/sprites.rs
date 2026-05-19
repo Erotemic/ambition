@@ -338,7 +338,9 @@ pub(crate) const GNU_TON_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_spritesheet
 
 /// GNU-ton boss sheet.
 ///
-/// Frame layout: 512×384 pixels per frame, 6 animation rows.
+/// Frame layout: 768×576 pixels per frame, 6 animation rows. Bumped from
+/// the older 512×384 to keep the giant readable when blown up to its
+/// in-game render scale.
 /// Rows map to BossAnim as: Rest/FloorSlam/SideSweep/SpikeHalo/Hit/Death.
 ///
 /// The collision box is placed at the giant's shoulder ridge, where the
@@ -346,68 +348,64 @@ pub(crate) const GNU_TON_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_spritesheet
 /// use the same design-space anchor, so the head and hands line up with
 /// the generated sprite instead of a generic boss rectangle.
 ///
-/// `collision_scale: 4.5` makes the 512×384 sprite render much larger
+/// `collision_scale: 4.5` makes the 768×576 sprite render much larger
 /// than the authored boss box, so the giant body dominates the arena
 /// while runtime hitboxes stay tied to named parts.
 pub const GNU_TON_SHEET: BossSheetSpec = BossSheetSpec {
     label_width: 0,
-    frame_width: 512,
-    frame_height: 384,
+    frame_width: 768,
+    frame_height: 576,
     rows: &[
         (
             BossAnim::Rest,
             AnimRow {
-                frame_count: 6,
-                duration_secs: 0.120,
+                frame_count: 10,
+                duration_secs: 0.110,
             },
         ),
         (
             BossAnim::FloorSlam,
             AnimRow {
-                frame_count: 7,
-                duration_secs: 0.085,
+                frame_count: 10,
+                duration_secs: 0.072,
             },
         ),
         (
             BossAnim::SideSweep,
             AnimRow {
-                frame_count: 7,
-                duration_secs: 0.075,
+                frame_count: 10,
+                duration_secs: 0.065,
             },
         ),
         (
             BossAnim::SpikeHalo,
             AnimRow {
-                frame_count: 6,
-                duration_secs: 0.095,
+                frame_count: 9,
+                duration_secs: 0.090,
             },
         ),
         (
             BossAnim::Hit,
             AnimRow {
-                frame_count: 5,
+                frame_count: 6,
                 duration_secs: 0.080,
             },
         ),
         (
             BossAnim::Death,
             AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
+                frame_count: 10,
+                duration_secs: 0.105,
             },
         ),
     ],
-    // At collision_scale 4.5, a 220-px-tall authored boss box renders the
-    // sprite at 990px tall x 1320px wide, large enough to read as a giant
-    // in the expanded arena.
     collision_scale: 4.5,
-    // Design-space shoulder top is at y = -12px from the 384px frame center,
-    // so Bevy anchor.y is +12 / 384. This makes `BossRuntime::pos` the same
-    // shoulder anchor that the GNU-ton part-hitbox helpers use.
-    feet_anchor_y: 12.0 / 384.0,
+    // Design-space shoulder top moved to y ≈ -2 (REST_BODY_Y 60 - 62) in
+    // the new 768×576 frame; Bevy anchor.y = +2 / 576. The scholar sits
+    // 18 px above the shoulder (smaller silhouette), so `BossRuntime::pos`
+    // lands at the shoulder ridge — same semantic as before.
+    feet_anchor_y: 2.0 / 576.0,
     frame_sample_inset: 1,
-    // body_centered:true bypasses the feet-on-floor delta so the man
-    // (not the GNU's hooves) is placed at the entity transform origin.
     body_centered: true,
 };
 

@@ -19,7 +19,7 @@ pub(crate) use content::known_dialogue_ids;
 pub use content::{DialogChoice, DialogMode, DialogNode};
 pub use runtime::DialogState;
 pub use systems::{dialog_input, dialog_pointer_input, redirect_post_quest_dialog};
-pub use ui::{sync_dialog_ui, DialogChoiceSlot, DialogOverlayRoot};
+pub use ui::sync_dialog_ui;
 
 #[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::*;

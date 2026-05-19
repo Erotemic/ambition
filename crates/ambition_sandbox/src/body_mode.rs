@@ -12,7 +12,4 @@ mod morph_ball;
 mod tests;
 
 pub use mechanics::update_body_mode;
-pub use morph_ball::{
-    build_morph_ball_image, build_morph_ball_sprite, spawn_morph_ball_visual,
-    sync_morph_ball_visual, MorphBallSprite, MorphBallVisual,
-};
+pub use morph_ball::{build_morph_ball_sprite, spawn_morph_ball_visual, sync_morph_ball_visual};

@@ -16,13 +16,10 @@ mod ui;
 mod tests;
 
 pub use input::handle_map_menu_hotkeys;
-pub use model::{MapMenuState, MapRoomNode, MAP_ZOOM_MAX, MAP_ZOOM_MIN, MAP_ZOOM_STEP};
+pub use model::MapMenuState;
 pub use pointer::map_menu_pointer_dismiss;
 pub use systems::{populate_map_rooms, sync_map_from_save, track_room_visits};
-pub use ui::{
-    spawn_map_menu, sync_map_menu, MapMenuCanvas, MapMenuRoot, MapMenuStatus, MapRoomBox,
-    MinimapCanvas, MinimapRoot,
-};
+pub use ui::{spawn_map_menu, sync_map_menu};
 
 #[cfg(test)]
 use ui::short_room_label;

@@ -4,8 +4,34 @@
 //! hazards, and bosses are spawned as Bevy entities and updated by the systems
 //! in this module. This is the authoritative feature implementation.
 //!
-//! The damage-event application path (typed slash/projectile/pogo damage,
-//! breakable shatter side effects, hit predicates) lives in [`damage`].
+//! ## Submodule layout (post-2026-05-19 split)
+//!
+//! - [`spawn`] — `spawn_room_feature_entities` /
+//!   `spawn_room_feature_entity` per-`RoomObjectKind` factory plus
+//!   `spawn_encounter_mob` / `despawn_encounter_mobs`.
+//! - [`actors`] — `ActorRuntime` enum + `update_ecs_actors` (slot
+//!   board, holding-position fallback, attack publication).
+//! - Per-family update systems: [`pickups`], [`chests`],
+//!   [`breakables`], [`hazards`], [`bosses`].
+//! - [`interact`] — buffered-interact resolver (peaceful NPCs,
+//!   switches).
+//! - [`damage`] — typed slash/projectile/pogo damage application,
+//!   breakable shatter side effects, hit predicates.
+//! - [`encounter_rewards`] — reward chest spawn/despawn for cleared
+//!   mob + boss encounters.
+//! - [`falling_chest`] — boss-reward chest gravity tick plus
+//!   precomputed "settled at save load" pass.
+//! - [`overlay`] — `FeatureEcsWorldOverlay` collision contribution
+//!   rebuilt each frame for engine code.
+//! - [`view_index`] — `FeatureViewIndex` per-frame read model that
+//!   presentation systems consult by id.
+//! - [`anim_helpers`] — per-id sprite/anim lookups for the
+//!   presentation pipeline.
+//! - [`save_sync`] — boss / actor / switch mirror systems run at
+//!   room-load.
+//! - [`reset`] — `reset_ecs_room_features` same-room sandbox-reset
+//!   handler.
+//! - [`banner`] — gameplay banner tick + deferred-request applier.
 
 use super::*;
 use crate::audio::SfxMessage;

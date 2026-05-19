@@ -1,5 +1,16 @@
 Here’s the refactor backlog I’d give an autonomous coding agent, prioritized by maintainability/extensibility payoff. This is grounded in the latest uploaded snapshot. I could not run Rust validation here because `cargo` is unavailable in the environment, so these are static-analysis recommendations with local validation commands included.
 
+## Status (2026-05-19 agent session — second pass)
+
+Continuing from the prior session, commits 2aab57e…871cf95 land:
+
+- ✅ **P17.4 per-player attack state** — `ActivePlayerAttack` component on the player entity replaces the global `CurrentPlayerAttack` resource. 14 sites migrated; two multiplayer smoke tests (`two_players_have_independent_active_attacks`, `clear_is_per_entity`) cover the per-entity invariant.
+- ✅ **P17.9 per-player safety state** — `PlayerSafetyState { last_safe_pos }` component replaces `SandboxSimState::last_safe_player_pos`. 11 sites migrated across world_flow / phases / sim_systems / dev_runtime / runtime/reset / setup_systems / rl_sim / trace. `remember_safe_player_position` now takes `&mut PlayerSafetyState`; `two_players_have_independent_safety_anchors` smoke test added.
+- ✅ **P2 partial: settings page-nav descriptor table** — the seven page-navigation `SettingsItem` variants (`OpenVideo`/`OpenAudio`/.../`Back`) used to carry 14 nearly-identical match arms in `apply_action` + `label_with_dev`; collapse them into a `PAGE_NAV_ROWS: &[PageNavRow]` table. Adding a new sub-page is now one row. The slider/cycle/toggle rows keep their per-variant logic for now.
+- ✅ **P2 partial: sandbox_assets further split** — extracted `ids.rs` (60 lines, stable AssetId constructors) and `builders.rs` (302 lines, 9 per-domain `extend_with_*` manifest builders). `sandbox_assets/mod.rs` is now 541 lines (down from 1686 originally) and focused on catalog construction + the source plugin.
+
+Counts: `cargo test -p ambition_sandbox --lib` → 566 passed (563 pre-existing + 3 new multiplayer smoke tests). Warnings unchanged from session 1 (still ~7).
+
 ## Status (2026-05-19 agent session)
 
 Completed in the session that produced commits 6ef63ba…eb4a575

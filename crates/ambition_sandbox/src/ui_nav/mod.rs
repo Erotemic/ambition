@@ -12,10 +12,7 @@ mod pointer;
 
 pub use drag::DragScrollState;
 pub use list::{
-    apply_vertical_scroll, decorate_windowed_label, indexed_title, visible_row_index,
-    visible_window_start, windowed_title, ListCursor, ScrollWindow, WindowedList,
+    apply_vertical_scroll, decorate_windowed_label, visible_row_index, visible_window_start,
+    ListCursor, ScrollWindow,
 };
-pub use pointer::{
-    handle_selectable_row_interaction, resolve_selectable_row_interaction, RowPointerOutcome,
-    RowPointerUpdate,
-};
+pub use pointer::{resolve_selectable_row_interaction, RowPointerOutcome};

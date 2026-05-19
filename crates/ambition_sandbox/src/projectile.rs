@@ -31,7 +31,6 @@ mod visuals;
 #[cfg(test)]
 mod tests;
 
-pub use diagnostics::projectile_status_summary;
-pub use state::{PlayerProjectile, PlayerProjectileState, ProjectileTraceEvent, ProjectileUnlocks};
+pub use state::PlayerProjectileState;
 pub use systems::update_projectiles;
-pub use visuals::{sync_projectile_visuals, PlayerChargeVisual, PlayerProjectileVisual};
+pub use visuals::{sync_projectile_visuals, PlayerProjectileVisual};

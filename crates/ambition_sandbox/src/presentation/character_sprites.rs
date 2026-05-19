@@ -32,15 +32,13 @@ pub use anim::{
 pub use animator::CharacterAnimator;
 pub use assets::{
     all_character_sprite_filenames, build_npc_sprite_asset, build_prop_sprite_asset,
-    load_character_sprites_in, npc_sprite_label, CharacterSpriteAsset, CharacterSpriteAssets,
+    load_character_sprites_in, CharacterSpriteAssets,
 };
 pub use sheets::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
-    feet_anchor_for_render_size, player_placeholder_render_size, sprite_render_size, AnimRow,
-    CharacterSheetSpec, ABSURD_GENERAL_SHEET, ARCHITECT_SHEET, CART_SHEET, CREATOR_SHEET,
-    ERDISH_SHEET, FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, GOBLIN_SHEET,
-    KERNEL_GUIDE_SHEET, LAB_PROP_DRONE_CRADLE, LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE,
-    LAB_PROP_PORTAL_CALIBRATOR, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
-    LAB_PROP_RESONANCE_COIL, LAB_PROP_SPECIMEN_JAR, MERCHANT_PROTOTYPE_SHEET, OILER_SHEET,
-    ROBOT_SHEET, SANDBAG_SHEET, VAULT_KEEPER_SHEET,
+    feet_anchor_for_render_size, player_placeholder_render_size, sprite_render_size,
+    CharacterSheetSpec, ARCHITECT_SHEET, CART_SHEET, CREATOR_SHEET, ERDISH_SHEET,
+    FASCIST_ENFORCER_SHEET, GATE_PORTAL_SHEET, GATE_RING_SHEET, KERNEL_GUIDE_SHEET,
+    LAB_PROP_GENESIS_VAT, LAB_PROP_NEURAL_CONSOLE, LAB_PROP_POWER_CORE, LAB_PROP_REPAIR_CRADLE,
+    LAB_PROP_RESONANCE_COIL, OILER_SHEET,
 };

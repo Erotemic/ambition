@@ -40,9 +40,8 @@ use crate::ui_nav::visible_row_index;
 use crate::ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction, RowPointerOutcome};
 use crate::SandboxDevState;
 
-/// Re-export the settings-row component so other modules that want to
-/// query menu rows by tag don't need to remember which module owns it.
-pub use crate::persistence::settings::SettingsItem as MenuSettingsItem;
+#[cfg(test)]
+pub(crate) use crate::persistence::settings::SettingsItem as MenuSettingsItem;
 
 mod input;
 mod model;
@@ -64,4 +63,4 @@ pub use self::model::{
 pub use self::pointer::pause_menu_pointer_input;
 #[cfg(feature = "input")]
 pub use self::ui::{settings_scrollbar_drag_input, settings_slider_drag_input};
-pub use self::ui::{spawn_pause_menu, sync_pause_menu, sync_settings_panel_rows, SettingsTitle};
+pub use self::ui::{spawn_pause_menu, sync_pause_menu, sync_settings_panel_rows};

@@ -16,7 +16,9 @@ mod systems;
 mod ui;
 
 pub(crate) use content::known_dialogue_ids;
-pub use content::{DialogChoice, DialogMode, DialogNode};
+pub use content::{DialogChoice, DialogNode};
+#[cfg(test)]
+pub(crate) use content::DialogMode;
 pub use runtime::DialogState;
 pub use systems::{dialog_input, dialog_pointer_input, redirect_post_quest_dialog};
 pub use ui::sync_dialog_ui;

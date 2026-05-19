@@ -148,10 +148,9 @@ Implemented via the merge-fold in `fold_to_control_frame`:
 The activity gate (`touch_state_is_active`) keeps a neutral touch
 state from stomping keyboard input.
 
-## TODO row
+## Current follow-up
 
-See `TODO.md` → "Android demo touch controls via `virtual_joystick`
-+ ControlFrame bridge". Tracks the remaining work.
+See `TODO.md` → "Unified `ControlFrame` consumer seam" and "Touch controls can affect the player during cutscenes/dialogue" for the remaining input-abstraction work. The original Android demo bridge has mostly landed; the open risk is making every consumer respect the same mode-gated control frame.
 
 
 ## Menu/dialog touch policy

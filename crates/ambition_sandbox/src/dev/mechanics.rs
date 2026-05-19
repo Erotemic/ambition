@@ -1,4 +1,4 @@
-//! Mechanics registry.
+//! Mechanics registry (NOT YET WIRED INTO THE HUD).
 //!
 //! Lightweight in-memory catalog of player-facing mechanics, organized
 //! by category and tagged with maturity status. The registry is meant
@@ -12,6 +12,13 @@
 //! ...), but the *catalog of which verbs the current sandbox demos*
 //! is presentation concerns: HUD label, station id in LDtk, current
 //! status, etc.
+//!
+//! Nothing currently *consumes* the registry — the labels, queries,
+//! and category iterators are all reserved for a HUD slice that
+//! hasn't landed. Module-wide `allow(dead_code)` keeps the orphan
+//! API visible in the type system without polluting the warning
+//! stream.
+#![allow(dead_code)]
 
 use bevy::prelude::*;
 

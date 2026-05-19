@@ -80,6 +80,7 @@ impl ProperTimeScale {
 ///
 /// ADR 0010 calls this the `requester` field of `ClockScaleRequest`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(dead_code)] // `Scripted` + `Boss` are reserved per ADR 0010 (narrative authority).
 pub enum ClockRequester {
     /// A player ability (today: bullet-time blink) or future player-
     /// triggered time mechanic.
@@ -105,6 +106,7 @@ pub enum ClockRequester {
 /// scope (e.g., CoopConsensual sharing a player's bullet-time across
 /// all PlayerClocks).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(dead_code)] // `Rebind` + `Broadcast` are reserved per ADR 0010 (CoopConsensual / Regimes).
 pub enum Permission {
     Grant,
     Deny,
@@ -122,6 +124,7 @@ pub enum Permission {
 ///
 /// Future: `CoopConsensual` and `Competitive` (ADR 0010 §Regimes).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(dead_code)] // RLDeterministic + Cinematic regimes reserved per ADR 0010.
 pub enum Regime {
     Solo,
     RLDeterministic,

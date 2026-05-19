@@ -17,6 +17,14 @@
 //! single decision. Wiring nonessential systems to this gate (HUD
 //! redraw, dust-particle update, ambient music ducking) is a
 //! follow-up in the per-system plugins.
+//!
+//! Until that wiring lands, several public items in this module
+//! (`PowerProfile::{Balanced, BatterySaver}`, `is_focused`,
+//! `should_pause_nonessential_work`) are reachable only from the
+//! adjacent `#[cfg(test)]` block. The module-wide attr below
+//! silences the resulting dead-code noise; remove the attr once
+//! the per-system gates start calling these.
+#![allow(dead_code)]
 
 use bevy::prelude::*;
 use bevy::window::WindowFocused;

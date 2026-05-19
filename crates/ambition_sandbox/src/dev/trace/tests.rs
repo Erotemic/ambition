@@ -255,7 +255,7 @@ fn timestamp_label_with_seq_is_stable_per_seq() {
 #[test]
 fn synthesizes_input_edge_event_on_button_press() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
-    let world = dummy_world();
+    let _world = dummy_world();
     let player = dummy_player(ae::Vec2::new(50.0, 50.0));
     // Seed previous snapshot with no buttons pressed.
     update_previous_snapshot(
@@ -300,7 +300,7 @@ fn synthesizes_input_edge_event_on_button_press() {
 #[test]
 fn synthesizes_collision_correction_on_unexplained_teleport() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
-    let world = dummy_world();
+    let _world = dummy_world();
     let player_prev = dummy_player(ae::Vec2::new(62.0, 1564.0));
     update_previous_snapshot(
         &mut buf,
@@ -343,7 +343,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
 #[test]
 fn reset_emits_event_and_suppresses_teleport_event() {
     let mut buf = GameplayTraceBuffer::with_capacity(16, 16);
-    let world = dummy_world();
+    let _world = dummy_world();
     let player_prev = dummy_player(ae::Vec2::new(50.0, 50.0));
     update_previous_snapshot(
         &mut buf,

@@ -107,6 +107,7 @@ pub(super) fn handle_ldtk_hot_reload(
         (
             &mut crate::player::PlayerMovementAuthority,
             &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerSafetyState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -143,7 +144,7 @@ pub(super) fn handle_ldtk_hot_reload(
         ldtk_reload.pending = false;
         return;
     };
-    if let Ok((mut authority, mut combat)) = player_q.single_mut() {
+    if let Ok((mut authority, mut combat, mut safety)) = player_q.single_mut() {
         match reload_ldtk_world_from_disk(
             &mut commands,
             &mut world,
@@ -151,6 +152,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut authority.player,
             &mut dev_state,
             &mut sim_state,
+            &mut safety,
             &mut dialogue,
             &mut *combat,
             &mut ldtk_index,
@@ -242,6 +244,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     player: &mut ae::Player,
     dev_state: &mut SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
+    safety: &mut crate::player::PlayerSafetyState,
     dialogue: &mut crate::dialog::DialogState,
     combat: &mut crate::player::PlayerCombatState,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
@@ -281,7 +284,7 @@ pub(super) fn reload_ldtk_world_from_disk(
 
     player.pos = transaction.safe_player_pos;
     player.refresh_movement_resources(tuning);
-    sim_state.last_safe_player_pos = transaction.safe_player_pos;
+    safety.last_safe_pos = transaction.safe_player_pos;
     *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
     features::spawn_room_feature_entities(commands, &transaction.next_spec);
     dialogue.close();

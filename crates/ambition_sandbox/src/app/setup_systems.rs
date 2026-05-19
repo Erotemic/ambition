@@ -42,7 +42,6 @@ pub(super) fn setup_simulation_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     mut platform_set: ResMut<crate::MovingPlatformSet>,
-    mut sim_state: ResMut<crate::SandboxSimState>,
 ) {
     let _player = setup::simulation_world(
         &mut commands,
@@ -60,7 +59,10 @@ pub(super) fn setup_simulation_system(
         },
     );
     platform_set.0 = crate::world::platforms::moving_platforms_for_room(room_set.active_spec());
-    sim_state.last_safe_player_pos = world.0.spawn;
+    // `PlayerSafetyState::last_safe_pos` is initialized by the player
+    // bundle to the player's spawn position (which is `world.0.spawn`),
+    // so we don't need to overwrite it here. See
+    // `crate::player::PlayerSimulationBundle::new`.
 }
 
 /// Presentation startup. Runs after `setup_simulation_system` so the

@@ -205,6 +205,7 @@ pub fn apply_player_reset_input_system(
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerBlinkCameraState,
             &mut crate::player::ActivePlayerAttack,
+            &mut crate::player::PlayerSafetyState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -212,8 +213,15 @@ pub fn apply_player_reset_input_system(
     if !control_frame.reset_pressed {
         return;
     }
-    let Ok((mut authority, mut anim, mut combat, mut interaction, mut blink_cam, mut attack)) =
-        player_q.single_mut()
+    let Ok((
+        mut authority,
+        mut anim,
+        mut combat,
+        mut interaction,
+        mut blink_cam,
+        mut attack,
+        mut safety,
+    )) = player_q.single_mut()
     else {
         return;
     };
@@ -228,6 +236,7 @@ pub fn apply_player_reset_input_system(
         &mut vfx_writer,
         &mut authority.player,
         &mut sim_state,
+        &mut safety,
         &mut attack.0,
         &mut anim,
         &mut combat,
@@ -414,11 +423,14 @@ pub fn apply_player_damage_system(
             Option<&mut crate::player::PlayerHealth>,
             &mut crate::player::PlayerAnimState,
             &mut crate::player::PlayerCombatState,
+            &mut crate::player::PlayerSafetyState,
         ),
         With<crate::player::PlayerEntity>,
     >,
 ) {
-    let Ok((mut authority, player_health, mut anim, mut combat)) = player_q.single_mut() else {
+    let Ok((mut authority, player_health, mut anim, mut combat, mut safety)) =
+        player_q.single_mut()
+    else {
         return;
     };
     let player = &mut authority.player;
@@ -442,6 +454,7 @@ pub fn apply_player_damage_system(
         &mut died_writer,
         player,
         &mut sim_state,
+        &mut safety,
         &mut banner,
         player_health.map(|h| h.into_inner()),
         &player_damage_events,
@@ -461,7 +474,7 @@ pub fn apply_player_damage_system(
         blink_grace_active: player.blink_grace_timer > 0.0,
         room_transitioning: sim_state.room_transition_cooldown > 0.0,
     };
-    crate::remember_safe_player_position(&mut sim_state, player, &safe_world, ctx);
+    crate::remember_safe_player_position(&mut safety, player, &safe_world, ctx);
 }
 
 /// Decay presentation-only animation and flash timers.

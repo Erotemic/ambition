@@ -75,7 +75,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     // baseline; agents that want a richer trace can replay this binary
     // pattern from their own scripted policy.
     use ambition_sandbox::game_mode::GameMode as GameModeState;
-    use ambition_sandbox::player::{PlayerEntity, PlayerMovementAuthority};
+    use ambition_sandbox::player::{PlayerEntity, PlayerMovementAuthority, PlayerSafetyState};
     use ambition_sandbox::rooms::RoomSet;
     use ambition_sandbox::GameWorld;
     use bevy::prelude::With;
@@ -98,6 +98,12 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
                     )
                 })
         };
+        let safety = {
+            let mut q = sim
+                .world_mut()
+                .query_filtered::<&PlayerSafetyState, With<PlayerEntity>>();
+            q.single(sim.world()).copied().unwrap_or_default()
+        };
         let world_ref = sim.world();
         let game_world = world_ref.resource::<GameWorld>();
         let control_frame = world_ref.resource::<ControlFrame>();
@@ -113,6 +119,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             &mut buffer,
             &player,
             sim_state,
+            &safety,
             &game_world.0,
             *control_frame,
             1.0 / 60.0,

@@ -166,6 +166,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let frame = build_frame(
         &player,
         &crate::SandboxSimState::default(),
+        &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
         0.016,
@@ -193,6 +194,7 @@ fn write_dump_writes_two_files() {
     let frame = build_frame(
         &player,
         &crate::SandboxSimState::default(),
+        &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
         0.016,
@@ -390,6 +392,7 @@ fn frame_includes_moving_platform_state() {
     let frame = build_frame(
         &player,
         &crate::SandboxSimState::default(),
+        &crate::player::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
         0.016,

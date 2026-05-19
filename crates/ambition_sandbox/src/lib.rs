@@ -221,8 +221,10 @@ pub struct MovingPlatformSet(pub Vec<world::platforms::MovingPlatformState>);
 ///
 /// **Multiplayer caveat:** each field has different per-player vs.
 /// shared semantics for a future co-op build:
-/// - `last_safe_player_pos` — currently **primary-player-only**;
-///   needs to become a per-`PlayerSlot` map.
+/// - Per-player "last safe position" lives on the player entity
+///   as `crate::player::PlayerSafetyState` since 2026-05-19
+///   (OVERNIGHT-TODO #17.9) — a future co-op build keeps each
+///   player's safe spot independent.
 /// - `time_scale` — **global shared-world** (hitstop / bullet-time /
 ///   pause should affect everyone). Stays on the resource.
 /// - `room_transition_cooldown` — **global shared-world** today
@@ -231,7 +233,6 @@ pub struct MovingPlatformSet(pub Vec<world::platforms::MovingPlatformState>);
 ///   or per-player.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct SandboxSimState {
-    pub last_safe_player_pos: ae::Vec2,
     pub time_scale: f32,
     pub room_transition_cooldown: f32,
 }
@@ -239,7 +240,6 @@ pub struct SandboxSimState {
 impl Default for SandboxSimState {
     fn default() -> Self {
         Self {
-            last_safe_player_pos: ae::Vec2::ZERO,
             time_scale: 1.0,
             room_transition_cooldown: 0.0,
         }
@@ -326,7 +326,7 @@ impl PlayerAttackState {
 /// `dev/journals/lessons_learned.md` for the OOB trace where a wall-cling
 /// teleport polluted `last_safe_player_pos` with `(62, -23)`.
 pub fn remember_safe_player_position(
-    sim_state: &mut SandboxSimState,
+    safety: &mut crate::player::PlayerSafetyState,
     player: &ae::Player,
     world: &ae::World,
     ctx: SafePositionContext,
@@ -344,7 +344,7 @@ pub fn remember_safe_player_position(
         )
     });
     if verdict.is_safe() {
-        sim_state.last_safe_player_pos = player.pos;
+        safety.last_safe_pos = player.pos;
     }
 }
 
@@ -373,15 +373,17 @@ mod safe_pos_tests {
         )
     }
 
-    fn player_with_sim_at(world: &ae::World, pos: ae::Vec2) -> (ae::Player, SandboxSimState) {
+    fn player_at(
+        world: &ae::World,
+        pos: ae::Vec2,
+    ) -> (ae::Player, crate::player::PlayerSafetyState) {
         let mut player = ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
         player.refresh_movement_resources(ae::DEFAULT_TUNING);
         player.pos = pos;
         player.on_ground = true;
         // Force a known starting "safe pos" we can detect changes from.
-        let mut sim = SandboxSimState::default();
-        sim.last_safe_player_pos = ae::Vec2::new(170.0, 1695.0);
-        (player, sim)
+        let safety = crate::player::PlayerSafetyState::new(ae::Vec2::new(170.0, 1695.0));
+        (player, safety)
     }
 
     /// The OOB y=-23 position (above the world envelope) must NOT be
@@ -391,12 +393,12 @@ mod safe_pos_tests {
     #[test]
     fn rejects_position_above_world_envelope() {
         let world = dummy_world();
-        let (player, mut sim) = player_with_sim_at(&world, ae::Vec2::new(62.0, -23.0));
-        let initial = sim.last_safe_player_pos;
-        remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
+        let (player, mut safety) = player_at(&world, ae::Vec2::new(62.0, -23.0));
+        let initial = safety.last_safe_pos;
+        remember_safe_player_position(&mut safety, &player, &world, SafePositionContext::ideal());
         assert_eq!(
-            sim.last_safe_player_pos, initial,
-            "above-world position must not become last_safe_player_pos"
+            safety.last_safe_pos, initial,
+            "above-world position must not become last_safe_pos"
         );
     }
 
@@ -405,10 +407,10 @@ mod safe_pos_tests {
     #[test]
     fn accepts_legitimate_grounded_position() {
         let world = dummy_world();
-        let (player, mut sim) = player_with_sim_at(&world, ae::Vec2::new(200.0, 900.0));
-        remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
+        let (player, mut safety) = player_at(&world, ae::Vec2::new(200.0, 900.0));
+        remember_safe_player_position(&mut safety, &player, &world, SafePositionContext::ideal());
         assert_eq!(
-            sim.last_safe_player_pos,
+            safety.last_safe_pos,
             ae::Vec2::new(200.0, 900.0),
             "a legal grounded position should be remembered"
         );
@@ -421,33 +423,33 @@ mod safe_pos_tests {
     #[test]
     fn vetoes_write_during_damage_or_reset() {
         let world = dummy_world();
-        let (player, mut sim) = player_with_sim_at(&world, ae::Vec2::new(200.0, 900.0));
-        let initial = sim.last_safe_player_pos;
+        let (player, mut safety) = player_at(&world, ae::Vec2::new(200.0, 900.0));
+        let initial = safety.last_safe_pos;
 
         let mut ctx = SafePositionContext::ideal();
         ctx.damaged_this_frame = true;
-        remember_safe_player_position(&mut sim, &player, &world, ctx);
-        assert_eq!(sim.last_safe_player_pos, initial);
+        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.feature_requested_reset = true;
-        remember_safe_player_position(&mut sim, &player, &world, ctx);
-        assert_eq!(sim.last_safe_player_pos, initial);
+        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.in_hitstun = true;
-        remember_safe_player_position(&mut sim, &player, &world, ctx);
-        assert_eq!(sim.last_safe_player_pos, initial);
+        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.blink_grace_active = true;
-        remember_safe_player_position(&mut sim, &player, &world, ctx);
-        assert_eq!(sim.last_safe_player_pos, initial);
+        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        assert_eq!(safety.last_safe_pos, initial);
 
         let mut ctx = SafePositionContext::ideal();
         ctx.room_transitioning = true;
-        remember_safe_player_position(&mut sim, &player, &world, ctx);
-        assert_eq!(sim.last_safe_player_pos, initial);
+        remember_safe_player_position(&mut safety, &player, &world, ctx);
+        assert_eq!(safety.last_safe_pos, initial);
     }
 
     /// A position INSIDE a Solid block is not safe even if `on_ground`
@@ -458,10 +460,10 @@ mod safe_pos_tests {
         // The left wall's right edge is at x=36; place the player center
         // at x=18 with half-width 14, body covers x=4..32 — fully inside
         // the wall.
-        let (player, mut sim) = player_with_sim_at(&world, ae::Vec2::new(18.0, 900.0));
-        let initial = sim.last_safe_player_pos;
-        remember_safe_player_position(&mut sim, &player, &world, SafePositionContext::ideal());
-        assert_eq!(sim.last_safe_player_pos, initial);
+        let (player, mut safety) = player_at(&world, ae::Vec2::new(18.0, 900.0));
+        let initial = safety.last_safe_pos;
+        remember_safe_player_position(&mut safety, &player, &world, SafePositionContext::ideal());
+        assert_eq!(safety.last_safe_pos, initial);
     }
 
     #[test]

@@ -23,7 +23,7 @@ pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody,
     PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
-    PlayerPlatformRideState, PlayerSlot, PrimaryPlayer,
+    PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 pub use events::{PlayerDamageRequested, PlayerHealRequested};
 pub use queries::{primary_player_entity, sort_players_by_slot, PrimaryPlayerOnly};

@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use super::components::{
     ActivePlayerAttack, LocalPlayer, PlayerAnimState, PlayerBlinkCameraState, PlayerBody,
     PlayerCombatState, PlayerEntity, PlayerHealth, PlayerInteractionState, PlayerMovementAuthority,
-    PlayerPlatformRideState, PlayerSlot, PrimaryPlayer,
+    PlayerPlatformRideState, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 
 /// All simulation components required on the player entity.
@@ -47,6 +47,7 @@ pub struct PlayerSimulationBundle {
     pub blink_cam: PlayerBlinkCameraState,
     pub ride: PlayerPlatformRideState,
     pub attack: ActivePlayerAttack,
+    pub safety: PlayerSafetyState,
     pub name: Name,
 }
 
@@ -64,6 +65,7 @@ impl PlayerSimulationBundle {
     pub fn new(player: ae::Player, health: ae::Health) -> Self {
         let authority = PlayerMovementAuthority::new(player);
         let body = authority.body();
+        let initial_safe_pos = authority.player.pos;
         Self {
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
@@ -77,6 +79,7 @@ impl PlayerSimulationBundle {
             blink_cam: PlayerBlinkCameraState::default(),
             ride: PlayerPlatformRideState::default(),
             attack: ActivePlayerAttack::default(),
+            safety: PlayerSafetyState::new(initial_safe_pos),
             name: Name::new("Player"),
         }
     }

@@ -201,9 +201,13 @@ impl SandboxSim {
             .app
             .world_mut()
             .query_filtered::<&crate::player::PlayerHealth, With<crate::player::PlayerEntity>>();
+        let mut safety_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&crate::player::PlayerSafetyState, With<crate::player::PlayerEntity>>(
+            );
 
         let world = self.app.world();
-        let sim_state = world.resource::<crate::SandboxSimState>();
         let health = health_query
             .single(world)
             .map(|h| h.health)
@@ -214,6 +218,10 @@ impl SandboxSim {
         let combat = combat_query.single(world).ok();
         let recently_damaged = combat.map_or(false, |c| c.damage_invuln_timer > 0.0);
         let in_hitstun = combat.map_or(false, |c| c.hitstun_timer > 0.0);
+        let last_safe_pos = safety_query
+            .single(world)
+            .map(|s| s.last_safe_pos)
+            .unwrap_or(ae::Vec2::ZERO);
 
         AgentObservation {
             tick: self.tick,
@@ -241,10 +249,7 @@ impl SandboxSim {
             active_room: room.id.clone(),
             world_size: (room.world.size.x, room.world.size.y),
             world_spawn: (room.world.spawn.x, room.world.spawn.y),
-            last_safe_pos: (
-                sim_state.last_safe_player_pos.x,
-                sim_state.last_safe_player_pos.y,
-            ),
+            last_safe_pos: (last_safe_pos.x, last_safe_pos.y),
             recently_damaged,
             in_hitstun,
             invincible: player.invincible,

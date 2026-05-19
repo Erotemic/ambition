@@ -392,6 +392,33 @@ pub struct PlayerPlatformRideState {
     pub was_riding: bool,
 }
 
+/// Per-player "last known safe spot" used by hazard knockback and
+/// debug respawn helpers. Authored separately from the engine
+/// `ae::Player::pos` so reset paths and trace recorders can read a
+/// value that was deliberately gated by `SafePositionContext`
+/// rather than the raw frame-to-frame position.
+///
+/// Replaces `SandboxSimState::last_safe_player_pos`
+/// (OVERNIGHT-TODO #17.9). The old resource field implicitly meant
+/// "the primary player's safe spot" — a future co-op build wants
+/// per-player anchors so a second player can hazard-fail without
+/// the first player's safe spot moving.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct PlayerSafetyState {
+    /// Last grounded, gameplay-safe position the safety gate
+    /// approved (see `crate::remember_safe_player_position`). The
+    /// hazard / OOB respawn path warps the player here.
+    pub last_safe_pos: ae::Vec2,
+}
+
+impl PlayerSafetyState {
+    pub fn new(initial: ae::Vec2) -> Self {
+        Self {
+            last_safe_pos: initial,
+        }
+    }
+}
+
 #[cfg(test)]
 mod multiplayer_smoke_tests {
     use super::*;
@@ -462,6 +489,58 @@ mod multiplayer_smoke_tests {
             "p2's attack must not pick up p1's swing — that's the whole \
              point of moving CurrentPlayerAttack onto the player entity \
              (OVERNIGHT-TODO #17.4)"
+        );
+    }
+
+    /// Two players each carry their own `PlayerSafetyState`; updating
+    /// one player's safe position must not move the other player's
+    /// anchor (OVERNIGHT-TODO #17.9).
+    #[test]
+    fn two_players_have_independent_safety_anchors() {
+        let mut app = App::new();
+        let p1_initial = ae::Vec2::new(100.0, 100.0);
+        let p2_initial = ae::Vec2::new(500.0, 500.0);
+        let p1 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(0),
+                PrimaryPlayer,
+                PlayerSafetyState::new(p1_initial),
+            ))
+            .id();
+        let p2 = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PlayerSlot(1),
+                PlayerSafetyState::new(p2_initial),
+            ))
+            .id();
+
+        app.world_mut()
+            .entity_mut(p1)
+            .get_mut::<PlayerSafetyState>()
+            .unwrap()
+            .last_safe_pos = ae::Vec2::new(999.0, 999.0);
+
+        assert_eq!(
+            app.world()
+                .entity(p1)
+                .get::<PlayerSafetyState>()
+                .unwrap()
+                .last_safe_pos,
+            ae::Vec2::new(999.0, 999.0)
+        );
+        assert_eq!(
+            app.world()
+                .entity(p2)
+                .get::<PlayerSafetyState>()
+                .unwrap()
+                .last_safe_pos,
+            p2_initial,
+            "p2's anchor must not pick up p1's update — that's the whole \
+             point of moving last_safe_player_pos onto the player entity"
         );
     }
 

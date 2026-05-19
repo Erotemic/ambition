@@ -116,6 +116,7 @@ pub fn process_sandbox_reset_request(
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerBlinkCameraState,
             &mut crate::player::ActivePlayerAttack,
+            &mut crate::player::PlayerSafetyState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -168,13 +169,12 @@ pub fn process_sandbox_reset_request(
     world.0 = start_spec.world.clone();
 
     // 6. Reset the player to the start room's spawn point.
-    play_state.sim_state.last_safe_player_pos = world.0.spawn;
     play_state.sim_state.time_scale = 1.0;
     play_state.sim_state.room_transition_cooldown = 0.0;
     // Reset the ECS authority directly so the next sandbox_update frame
     // starts from the spawn position. Also zero animation state so post-reset
     // frames don't continue a mid-air slash or dash-startup pose.
-    if let Ok((mut authority, mut anim, mut combat, mut blink_cam, mut attack)) =
+    if let Ok((mut authority, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
         player_q.single_mut()
     {
         authority.player.reset_to(world.0.spawn);
@@ -187,6 +187,7 @@ pub fn process_sandbox_reset_request(
         combat.flash_timer = 0.18;
         blink_cam.reset();
         attack.clear();
+        safety.last_safe_pos = world.0.spawn;
     }
     crate::features::spawn_room_feature_entities(&mut commands, &start_spec);
     play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);
@@ -276,6 +277,7 @@ mod tests {
             let mut initial =
                 ae::Player::new_with_abilities(world.spawn, ae::AbilitySet::sandbox_all());
             initial.refresh_movement_resources(ae::DEFAULT_TUNING);
+            let safety = crate::player::PlayerSafetyState::new(initial.pos);
             app.world_mut().spawn((
                 crate::player::PlayerEntity,
                 PlayerMovementAuthority::new(initial),
@@ -283,6 +285,7 @@ mod tests {
                 crate::player::PlayerCombatState::default(),
                 PlayerBlinkCameraState::default(),
                 crate::player::ActivePlayerAttack::default(),
+                safety,
             ));
         }
         app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());

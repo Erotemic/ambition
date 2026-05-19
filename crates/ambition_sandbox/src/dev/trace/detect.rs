@@ -73,6 +73,7 @@ fn nearby_collision(world: &ae::World, player: &ae::Player) -> Vec<CollisionTrac
 pub fn build_frame(
     player: &ae::Player,
     sim_state: &crate::SandboxSimState,
+    safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
     real_dt: f32,
@@ -113,7 +114,7 @@ pub fn build_frame(
             blink_grace_timer: player.blink_grace_timer,
             locomotion: locomotion.into(),
             body_mode: body_mode.into(),
-            last_safe_pos: sim_state.last_safe_player_pos.into(),
+            last_safe_pos: safety.last_safe_pos.into(),
             time_alive: player.time_alive,
             resets: player.resets,
         },

@@ -37,6 +37,7 @@ pub(super) fn reset_sandbox(
     vfx: &mut MessageWriter<VfxMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
+    safety: &mut crate::player::PlayerSafetyState,
     attack: &mut Option<crate::PlayerAttackState>,
     anim: &mut crate::player::PlayerAnimState,
     combat: &mut crate::player::PlayerCombatState,
@@ -49,7 +50,7 @@ pub(super) fn reset_sandbox(
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     player.mana.refill_full();
-    sim_state.last_safe_player_pos = world.spawn;
+    safety.last_safe_pos = world.spawn;
     sim_state.time_scale = 1.0;
     sim_state.room_transition_cooldown = 0.0;
     *attack = None;
@@ -73,6 +74,7 @@ pub(super) fn load_room(
     player: &mut ae::Player,
     dev_state: &mut crate::SandboxDevState,
     sim_state: &mut crate::SandboxSimState,
+    safety: &mut crate::player::PlayerSafetyState,
     moving_platforms: &mut Vec<crate::world::platforms::MovingPlatformState>,
     dialogue: &mut crate::dialog::DialogState,
     combat: &mut crate::player::PlayerCombatState,
@@ -132,7 +134,7 @@ pub(super) fn load_room(
     combat.hitstop_timer = 0.0;
     combat.damage_invuln_timer = 0.0;
     combat.hitstun_timer = 0.0;
-    sim_state.last_safe_player_pos = player.pos;
+    safety.last_safe_pos = player.pos;
     sim_state.time_scale = 1.0;
     interaction.down_tap_timer = 0.0;
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
@@ -202,6 +204,7 @@ pub fn apply_room_transition_system(
             &mut crate::player::PlayerCombatState,
             &mut crate::player::PlayerInteractionState,
             &mut crate::player::PlayerBlinkCameraState,
+            &mut crate::player::PlayerSafetyState,
         ),
         With<crate::player::PlayerEntity>,
     >,
@@ -219,7 +222,8 @@ pub fn apply_room_transition_system(
     mut combat_reset: super::feedback::CombatRoomReset,
 ) {
     for request in requests.read() {
-        let Ok((mut authority, mut combat, mut interaction, mut blink_cam)) = player_q.single_mut()
+        let Ok((mut authority, mut combat, mut interaction, mut blink_cam, mut safety)) =
+            player_q.single_mut()
         else {
             continue;
         };
@@ -246,6 +250,7 @@ pub fn apply_room_transition_system(
             &mut authority.player,
             &mut dev_state,
             &mut sim_state,
+            &mut safety,
             &mut moving_platforms.0,
             &mut dialogue,
             &mut combat,
@@ -522,6 +527,7 @@ pub(super) fn death_respawn_player(
     died: &mut MessageWriter<PlayerDiedMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
+    safety: &mut crate::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
     tuning: ae::MovementTuning,
@@ -534,7 +540,7 @@ pub(super) fn death_respawn_player(
     player.reset_to(world.spawn);
     player.refresh_movement_resources(tuning);
     player.mana.refill_full();
-    sim_state.last_safe_player_pos = world.spawn;
+    safety.last_safe_pos = world.spawn;
     sim_state.time_scale = 1.0;
     sim_state.room_transition_cooldown = 0.0;
     anim.reset();
@@ -557,6 +563,7 @@ pub(super) fn handle_player_damage_events(
     died: &mut MessageWriter<PlayerDiedMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
+    safety: &mut crate::player::PlayerSafetyState,
     banner: &mut features::GameplayBanner,
     mut player_health: Option<&mut crate::player::PlayerHealth>,
     damage_events: &[features::PlayerDamageEvent],
@@ -594,6 +601,7 @@ pub(super) fn handle_player_damage_events(
             died,
             player,
             sim_state,
+            safety,
             banner,
             player_health,
             tuning,
@@ -611,6 +619,7 @@ pub(super) fn handle_player_damage_events(
                 vfx,
                 player,
                 sim_state,
+                safety,
                 combat,
                 tuning,
                 feel,
@@ -628,12 +637,13 @@ pub(super) fn safe_respawn_player(
     vfx: &mut MessageWriter<VfxMessage>,
     player: &mut ae::Player,
     sim_state: &mut crate::SandboxSimState,
+    safety: &crate::player::PlayerSafetyState,
     combat: &mut crate::player::PlayerCombatState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
 ) {
-    let to = sim_state.last_safe_player_pos;
+    let to = safety.last_safe_pos;
     player.reset_to(to);
     player.refresh_movement_resources(tuning);
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;

@@ -7,6 +7,7 @@ pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     player: &ae::Player,
     sim_state: &crate::SandboxSimState,
+    safety: &crate::player::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
     real_dt: f32,
@@ -21,6 +22,7 @@ pub fn record_simulation_frame(
     let frame = build_frame(
         player,
         sim_state,
+        safety,
         world,
         controls,
         real_dt,
@@ -116,11 +118,12 @@ pub fn record_frame_system(
         (
             &crate::player::PlayerMovementAuthority,
             Option<&crate::player::PlayerHealth>,
+            &crate::player::PlayerSafetyState,
         ),
         crate::player::PrimaryPlayerOnly,
     >,
 ) {
-    let Ok((authority, player_health)) = player_q.single() else {
+    let Ok((authority, player_health, safety)) = player_q.single() else {
         return;
     };
     let player = &authority.player;
@@ -157,6 +160,7 @@ pub fn record_frame_system(
         &mut buffer,
         player,
         &sim_state,
+        safety,
         &augmented_world,
         *control_frame,
         real_dt,

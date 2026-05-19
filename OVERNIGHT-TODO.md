@@ -18,6 +18,8 @@ Completed in the session that produced commits 6ef63ba…149ef06
 - ✅ **Dead code: clear_combat_slots_on_room_change** — removed an unused pub fn that was never registered; the actual room-reset clearer is inline in `features::ecs::reset`.
 
 Other warnings investigated and left in place because they're feature-gated (e.g. `entity_sprite_embedded_core_url` under `static_core_assets`) or are documented future-slice stubs (`add_http_asset_source`).
+
+- ✅ **Warning cleanup pass** — `cargo check -p ambition_sandbox --lib` went from 102 warnings at session start to 24 at session end. Reductions came from removing genuinely-dead facade re-exports, removing the unused `clear_combat_slots_on_room_change` system, and targeted `#[cfg_attr(not(test/feature), allow(dead_code))]` on items the lib build can't see but tests/features do — plus module-wide `#![allow(dead_code)]` on the un-wired `dev::mechanics` HUD catalog, the `presentation::parallax` orphan stage, and the Android-conditional `host::platform::android` module.
 - ⚠️ **P1 crate-root path migration** — the comment in `lib.rs` lines 58-65 confirms the internal `pub(crate) use` shims were removed on the 2026-05-19 shim-cleanup pass. The remaining `pub use content::features;`, `pub use dev::trace;`, `pub use runtime::game_mode;`, `pub use world::{ldtk_world, rooms};` are documented external API (used from bins/tests/engine docs). Deferred as low-ROI.
 
 Backlog below is the original task list — items marked above are no longer current.

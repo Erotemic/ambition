@@ -46,8 +46,8 @@ pub use parallax::{spawn_parallax_layers, sync_parallax_layers, ParallaxLayerVis
 pub use pirate_rider::{sync_pirate_rider_visuals, PirateRiderVisual};
 pub use primitives::{
     block_color, switch_on_color, FeatureVisual, HealthOverlayVisual, HudText, LoadingZoneVisual,
-    LockWallVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText, RoomVisual,
-    SceneEntities,
+    LockWallVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual, QuestPanelText,
+    RoomScopedEntity, RoomVisual, SceneEntities,
 };
 pub use world::{
     spawn_block, spawn_grid, spawn_loading_zone, spawn_room_object, spawn_room_prop,

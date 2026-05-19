@@ -45,24 +45,30 @@ pub struct HudText;
 #[derive(Component)]
 pub struct QuestPanelText;
 
-/// Dual-purpose marker: tags an entity as "rendered as part of the
-/// current room" AND "lifetime is scoped to the current room."
+/// Lifetime-scope marker: tags an entity as "lifetime is scoped to
+/// the current room." The room-load and sandbox-reset paths despawn
+/// every `RoomScopedEntity` (with optional `PhysicsRoomEntity`
+/// teardown) before swapping in the new room's entities.
 ///
-/// Rendering systems (`sync_visuals`, `sync_health_overlays`, etc.)
-/// query `With<RoomVisual>` to filter to the active room's entities.
-/// `process_sandbox_reset_request` and the room-load path despawn
-/// every `RoomVisual` to clear the previous room before swapping in
-/// the new one.
+/// Separate from [`RoomVisual`] so simulation-only entities (e.g.
+/// future headless-mode features, AI scratch entities) can share the
+/// room lifecycle without being treated as rendered visuals by the
+/// presentation sync systems. Every `RoomVisual` automatically pulls
+/// in a `RoomScopedEntity` via `#[require]`, so existing spawn sites
+/// keep their lifecycle behavior unchanged.
+#[derive(Component, Default)]
+pub struct RoomScopedEntity;
+
+/// Rendering marker: tags an entity as "rendered as part of the
+/// current room." Presentation systems (`sync_visuals`,
+/// `sync_health_overlays`, etc.) query `With<RoomVisual>` to filter
+/// to the active room's rendered entities.
 ///
-/// The dual role is intentional today: feature sim entities currently
-/// always have a visual, and the room-load path despawns the
-/// sim+visual together via this single marker. When a separate
-/// sim-only lifecycle marker becomes useful (e.g. headless-only
-/// features, or a presentation system that observes feature spawns
-/// and adds the visual lazily), split this into `RoomScopedEntity`
-/// (sim/lifecycle) and `RoomVisual` (rendering only). Track the split
-/// in `docs/planning/tech-debt-log.md`.
-#[derive(Component)]
+/// Every `RoomVisual` also has a [`RoomScopedEntity`] (required), so
+/// the room-load / reset paths automatically tear it down with the
+/// rest of the room.
+#[derive(Component, Default)]
+#[require(RoomScopedEntity)]
 pub struct RoomVisual;
 
 /// Marker for an encounter-driven lock-wall block visual. The

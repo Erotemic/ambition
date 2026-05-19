@@ -22,8 +22,9 @@
 //!   save.
 //! - **`EncounterController` entities** (one per encounter): despawned.
 //!   The next populate spawns fresh ones.
-//! - **`RoomVisual` entities**: despawned. The room-visual respawn
-//!   path runs after the active room flips back to the start.
+//! - **`RoomScopedEntity` entities** (including all `RoomVisual`s):
+//!   despawned. The room-visual respawn path runs after the active
+//!   room flips back to the start.
 //! - **Player entity**: warped to the start room's spawn via
 //!   `player.reset_to(world.spawn)` — restores movement resources and
 //!   refills mana. Immediately afterward, the moving-platform state
@@ -58,7 +59,7 @@ use crate::game_assets::GameAssets;
 use crate::physics;
 use crate::platforms;
 use crate::quest::QuestRegistry;
-use crate::rendering::{spawn_room_visuals, RoomVisual};
+use crate::rendering::{spawn_room_visuals, RoomScopedEntity};
 use crate::rooms::RoomSet;
 use crate::save::SandboxSave;
 
@@ -108,7 +109,7 @@ pub fn process_sandbox_reset_request(
     mut commands: Commands,
     mut banner: ResMut<crate::features::GameplayBanner>,
     encounter_controllers: Query<Entity, With<EncounterController>>,
-    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     mut player_q: Query<
         (
             &mut crate::player::PlayerMovementAuthority,

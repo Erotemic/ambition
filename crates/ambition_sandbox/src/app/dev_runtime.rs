@@ -101,7 +101,7 @@ pub(super) fn handle_ldtk_hot_reload(
     editable_tuning: Res<EditableMovementTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut platform_set: ResMut<crate::MovingPlatformSet>,
-    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     game_assets: Option<Res<crate::game_assets::GameAssets>>,
     mut player_q: Query<
         (
@@ -248,7 +248,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
     moving_platforms: &mut Vec<crate::platforms::MovingPlatformState>,
-    room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomVisual>>,
+    room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     assets: Option<&crate::game_assets::GameAssets>,
     watch_path: &std::path::Path,
     catalog: &crate::sandbox_assets::SandboxAssetCatalog,

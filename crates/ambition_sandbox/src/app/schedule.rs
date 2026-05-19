@@ -63,10 +63,11 @@ pub enum SandboxSet {
     Progression,
     /// Sandbox reset request processor. Joined into the main post-core
     /// chain (between `Progression` and `FeatureViewSync`) because the
-    /// reset path despawns every `RoomVisual` + every feature sim
-    /// entity, flips the active room, and re-spawns the start room's
-    /// feature set via `spawn_room_feature_entities` — all mutations
-    /// the cache must observe before presentation reads it.
+    /// reset path despawns every `RoomScopedEntity` (including every
+    /// `RoomVisual`) and every feature sim entity, flips the active
+    /// room, and re-spawns the start room's feature set via
+    /// `spawn_room_feature_entities` — all mutations the cache must
+    /// observe before presentation reads it.
     ResetProcessing,
     /// Rebuild the [`crate::features::FeatureViewIndex`] cache after
     /// every same-frame mutation to feature state.
@@ -131,7 +132,8 @@ pub fn configure_sandbox_sets(app: &mut App) {
 
     // Top-level chain. ResetProcessing joins the main chain (rather
     // than floating off as a `.after(CoreSimulation)` tail) because
-    // its work — despawn every RoomVisual + feature sim entity, flip
+    // its work — despawn every RoomScopedEntity (every RoomVisual +
+    // any future sim-only entities) plus feature sim entities, flip
     // the active room, re-spawn the start room — is exactly the kind
     // of feature-state mutation FeatureViewSync exists to observe.
     // Placing it BEFORE FeatureViewSync guarantees the cache reflects

@@ -79,7 +79,7 @@ use crate::platforms;
 use crate::rendering::{
     animate_bosses, animate_characters, animate_player, camera_follow, spawn_room_visuals,
     sync_visuals, upgrade_boss_sprites, upgrade_enemy_sprites, upgrade_npc_sprites, HudText,
-    PlayerVisual, RoomVisual, SceneEntities,
+    PlayerVisual, RoomScopedEntity, SceneEntities,
 };
 use crate::rooms;
 use crate::setup;

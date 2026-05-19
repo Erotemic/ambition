@@ -22,6 +22,7 @@ pub struct TouchButton {
 }
 
 impl TouchButton {
+    #[cfg_attr(not(test), allow(dead_code))]
     pub const fn off() -> Self {
         Self {
             held: false,
@@ -30,6 +31,7 @@ impl TouchButton {
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub const fn pressed_now() -> Self {
         Self {
             held: true,
@@ -38,6 +40,7 @@ impl TouchButton {
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub const fn held_continued() -> Self {
         Self {
             held: true,

@@ -269,15 +269,21 @@ impl SettingsItem {
     /// page so the toggle state shows correctly; non-developer rows
     /// ignore the snapshot.
     pub fn label_with_dev(self, settings: &UserSettings, dev: DevToggleSnapshot) -> String {
+        // Page-navigation rows have static labels held in
+        // `PAGE_NAV_ROWS`; everything else has dynamic content so
+        // falls through to the per-variant match below.
+        if let Some(label) = page_nav_label(self) {
+            return label.into();
+        }
         match self {
-            Self::OpenVideo => "Video >".into(),
-            Self::OpenShaders => "Shaders >".into(),
-            Self::OpenAudio => "Audio >".into(),
-            Self::OpenControls => "Controls >".into(),
-            Self::OpenGameplay => "Gameplay >".into(),
-            Self::OpenDeveloper => "Developer >".into(),
+            Self::OpenVideo
+            | Self::OpenShaders
+            | Self::OpenAudio
+            | Self::OpenControls
+            | Self::OpenGameplay
+            | Self::OpenDeveloper
+            | Self::Back => unreachable!("page-nav rows handled by page_nav_label above"),
             Self::ResetAllSettings => "Reset All Settings to Defaults".into(),
-            Self::Back => "Back".into(),
 
             Self::DisplayMode => format!(
                 "Display Mode: {}  < / >",
@@ -613,6 +619,73 @@ pub enum SettingsOutcome {
     PopPage,
 }
 
+/// Authored descriptor for a navigation-style row. Each entry pairs
+/// the row with its static label and the outcome `apply_action`
+/// should produce on `Confirm`. Keeps the page-nav match arms
+/// collapsed to one table lookup so adding a new sub-page is a
+/// one-row change.
+struct PageNavRow {
+    item: SettingsItem,
+    label: &'static str,
+    outcome: SettingsOutcome,
+}
+
+const PAGE_NAV_ROWS: &[PageNavRow] = &[
+    PageNavRow {
+        item: SettingsItem::OpenVideo,
+        label: "Video >",
+        outcome: SettingsOutcome::OpenPage(SettingsPage::Video),
+    },
+    PageNavRow {
+        item: SettingsItem::OpenShaders,
+        label: "Shaders >",
+        outcome: SettingsOutcome::OpenPage(SettingsPage::Shaders),
+    },
+    PageNavRow {
+        item: SettingsItem::OpenAudio,
+        label: "Audio >",
+        outcome: SettingsOutcome::OpenPage(SettingsPage::Audio),
+    },
+    PageNavRow {
+        item: SettingsItem::OpenControls,
+        label: "Controls >",
+        outcome: SettingsOutcome::OpenPage(SettingsPage::Controls),
+    },
+    PageNavRow {
+        item: SettingsItem::OpenGameplay,
+        label: "Gameplay >",
+        outcome: SettingsOutcome::OpenPage(SettingsPage::Gameplay),
+    },
+    PageNavRow {
+        item: SettingsItem::OpenDeveloper,
+        label: "Developer >",
+        outcome: SettingsOutcome::OpenPage(SettingsPage::Developer),
+    },
+    PageNavRow {
+        item: SettingsItem::Back,
+        label: "Back",
+        outcome: SettingsOutcome::PopPage,
+    },
+];
+
+/// Look up the `SettingsOutcome` for a page-navigation row, if `item`
+/// is one of those rows. Non-navigation items return `None` so the
+/// main `apply_action` match can dispatch them.
+fn page_nav_outcome(item: SettingsItem) -> Option<SettingsOutcome> {
+    PAGE_NAV_ROWS
+        .iter()
+        .find(|row| row.item == item)
+        .map(|row| row.outcome)
+}
+
+/// Look up the static label for a page-navigation row.
+fn page_nav_label(item: SettingsItem) -> Option<&'static str> {
+    PAGE_NAV_ROWS
+        .iter()
+        .find(|row| row.item == item)
+        .map(|row| row.label)
+}
+
 /// Apply `action` to `item`, mutating the relevant fields of
 /// `settings`. Returns the outcome the caller (the pause menu
 /// controller) should follow.
@@ -634,42 +707,25 @@ pub fn apply_action(
     ldtk_reload: &mut LdtkHotReloadState,
     authority_player: Option<&mut ambition_engine::Player>,
 ) -> SettingsOutcome {
+    // Page-navigation rows (Open* + Back) share identical behavior:
+    // `Confirm` → push/pop the page in `PAGE_NAV_ROWS`. Dispatch them
+    // through the table so adding a new sub-page is a one-row change
+    // and the per-variant match arms stay focused on rows with
+    // genuinely distinct logic.
+    if matches!(action, SettingsAction::Confirm) {
+        if let Some(outcome) = page_nav_outcome(item) {
+            return outcome;
+        }
+    }
     match item {
-        SettingsItem::OpenVideo => {
-            if matches!(action, SettingsAction::Confirm) {
-                return SettingsOutcome::OpenPage(SettingsPage::Video);
-            }
-        }
-        SettingsItem::OpenShaders => {
-            if matches!(action, SettingsAction::Confirm) {
-                return SettingsOutcome::OpenPage(SettingsPage::Shaders);
-            }
-        }
-        SettingsItem::OpenAudio => {
-            if matches!(action, SettingsAction::Confirm) {
-                return SettingsOutcome::OpenPage(SettingsPage::Audio);
-            }
-        }
-        SettingsItem::OpenControls => {
-            if matches!(action, SettingsAction::Confirm) {
-                return SettingsOutcome::OpenPage(SettingsPage::Controls);
-            }
-        }
-        SettingsItem::OpenGameplay => {
-            if matches!(action, SettingsAction::Confirm) {
-                return SettingsOutcome::OpenPage(SettingsPage::Gameplay);
-            }
-        }
-        SettingsItem::OpenDeveloper => {
-            if matches!(action, SettingsAction::Confirm) {
-                return SettingsOutcome::OpenPage(SettingsPage::Developer);
-            }
-        }
-        SettingsItem::Back => {
-            if matches!(action, SettingsAction::Confirm) {
-                return SettingsOutcome::PopPage;
-            }
-        }
+        // Page-navigation rows handled by `page_nav_outcome` above.
+        SettingsItem::OpenVideo
+        | SettingsItem::OpenShaders
+        | SettingsItem::OpenAudio
+        | SettingsItem::OpenControls
+        | SettingsItem::OpenGameplay
+        | SettingsItem::OpenDeveloper
+        | SettingsItem::Back => {}
         SettingsItem::ResetAllSettings => {
             // Only react to Confirm — Prev/Next would let a stray
             // d-pad nudge wipe everything on the highlighted row.
